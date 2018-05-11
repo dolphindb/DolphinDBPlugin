@@ -113,3 +113,9 @@ To complie the plugin, type following command in a shell.
 make
 ```
 This will complie the plugin into a new shared library named libODBC.so . Replace the origin library under /<DOLPHINDB_DIR>/server/plugins/odbc/ .
+
+### nanodbc
+
+Part of the code implementation uses another open source project nanodbc. For details, please refer to
+https://github.com/lexicalunit/nanodbc
+
