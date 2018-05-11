@@ -66,19 +66,19 @@ You can omit the prefix odbc:: by importing ODBC module namespace with statement
 
 ### Examples
 ```
-# load DolphinDB ODBC plugin with plugin configuration file odbc.cfg
+// load DolphinDB ODBC plugin specified by the configuration file odbc.cfg
 loadPlugin("/DOLPHINDB_DIR/server/plugins/odbc/odbc.cfg")
 
-# import ODBC module
+// import ODBC module. The module must be loaded before parsing and running the import script. Otherwise, the parser can't recognize the module name 'odbc'
 use odbc
 
-# define a DB connection string
+// define a DB connection string
 connStr="Driver=MySQL;Data Source = mysql-employees;server=127.0.0.1;uid=[username];pwd=[password]database=employees";
 
-# establish a DB connection
+// establish a DB connection
 conn=connect(connStr)
 
-# query table "employees"
+// query table "employees"
 mysqlTable=query(conn,"select * from employees") 
 select * from mysqlTable
 close(conn)
