@@ -18,7 +18,7 @@ module name，lib file
 function name in lib, function name in dolphindb, function type，minParamCount, maxParamCount, isAggregated
 ...
 ```
-**Explantion**：
+**Explanation**：
 * module name: plugin module name  
 * lib file: shared library file name 
 * function name in lib: The function name in the shared library
