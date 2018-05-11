@@ -37,7 +37,7 @@ foo,foo,system,1,1,0
 ```
 The above description file defines a plugin named ```demo```. The shared library file is named ```libPluginDemo.so```.
 
-The plug-in exports two functions. The first function is named ```minmax```. The name of the function is also ```minmax``` in dolphinDB. The operator type accepts one parameter. The second function name is ```echo```, the name in dolphinDB is also ```echo```, system type, accepts one argument. 
+The plug-in exports two functions. The first function is named ```minmax```. The name of the function is also ```minmax``` in dolphinDB. The function type is "operator" and accepts one parameter. The second function name is ```echo```, the name in dolphinDB is also ```echo```, the function type is "system" and accepts one argument. 
 
 
 After writing the description file, you can start writing plugins. For content, please refer to ```demo``` folder contents.
