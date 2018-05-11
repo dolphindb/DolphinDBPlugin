@@ -67,7 +67,7 @@ You can omit the prefix odbc:: by importing ODBC module namespace with statement
 ### Examples
 ```
 // load DolphinDB ODBC plugin specified by the configuration file odbc.cfg
-loadPlugin("/DOLPHINDB_DIR/server/plugins/odbc/odbc.cfg")
+loadPlugin("//<DOLPHINDB_DIR>/server/server/plugins/odbc/odbc.cfg")
 
 // import ODBC module. The module must be loaded before parsing and running the import script. Otherwise, the parser can't recognize the module name 'odbc'
 use odbc
