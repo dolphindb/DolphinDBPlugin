@@ -54,15 +54,19 @@ Close an ODBC connection associated with the handle.
 #### odbc::query(connHandle or connStr, querySql, [t])
  Query the database via connHandle or connStr and return the results as a DolphinDB table.
 
-connStr: an ODBC connection string
-
 connHandle: a connection handle object 
+
+connStr: an ODBC connection string
 
 querySql: a SQL query string
 
 t: a DolphinDB table. If it is specified, query results will be appended to the table. Please note that the table schema must be compatible with the results returned from ODBC.
 
 You can omit the prefix odbc:: by importing ODBC module namespace with statement "use odbc". However, if the function name conflicts with a function name from a different module, you need to add prefix odbc:: to the function name.
+
+#### odbc::execute(connHandle or connStr, querySql)
+
+This function is basically the same as function "query", except that the sql statement is executed but no result is returned.
 
 ### Examples
 ```
