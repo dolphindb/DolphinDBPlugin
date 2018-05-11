@@ -20,9 +20,9 @@ function name in lib, function name in dolphindb, function type，minParamCount,
 ```
 **Explantion**：
 * module name: plugin module name  
-* lib file: Shared library file name 
+* lib file: shared library file name 
 * function name in lib: The function name in the shared library
-* function name in dolphindb: Corresponding function name in dolphindb 
+* function name in dolphindb: corresponding function name in dolphindb 
 * function type: operator or system  
 * minParamCount: The minimum number of parameters  
 * maxParamCount：The maximum number of parameters  
