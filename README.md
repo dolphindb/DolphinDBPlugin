@@ -1,5 +1,5 @@
 ## DolphinDB introduction
-DolphinDB is an extremely fast time series database and data analytical system with unlimited scaling capacity. It has built-in parallel and distributed computing supports. It comes with battery included for real time data processing and analytics across unlimited computing nodes. It is integrated with an easy-to-use fully featured programming language and a high-volume high-velocity streaming analytics system. DolphinDB offers operational simplicity, scalability, fault tolerance, and concurrency. 
+DolphinDB is an extremely fast time series database and data analytical system with unlimited scaling capacity. It has built-in parallel and distributed computing supports. It comes with battery included for real time data processing and analytics across unlimited computing nodes. It is integrated with an easy-to-use fully featured programming language and a high-volume high-velocity streaming analytics system. DolphinDB offers operational simplicity, scalability, fault tolerance, and concurrency. To download DolphinDB, please go to http://dolphindb.com/
 
 ## DolphinDB Plugin
 DolphinDB supports dynamic loading of external plugins to extend system functionality. The plug-in only supports writing in C++, and it needs to be compiled into ".so" shared libraries or ".dll" shared library files.
