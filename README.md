@@ -24,9 +24,9 @@ function name in lib, function name in dolphindb, function type，minParamCount,
 * function name in lib: The function name in the shared library
 * function name in dolphindb: corresponding function name in dolphindb 
 * function type: operator or system  
-* minParamCount: The minimum number of parameters  
-* maxParamCount：The maximum number of parameters  
-* isAggregated: whether it is an aggregate function  
+* minParamCount: the minimum number of parameters  
+* maxParamCount: the maximum number of parameters  
+* isAggregated:  whether it is an aggregate function  
 
 ## Example
 PluginDemo.txt:
