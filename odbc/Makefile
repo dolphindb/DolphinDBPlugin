@@ -10,6 +10,9 @@ DolphinDBODBC.o: src/DolphinDBODBC.cpp
 
 nanodbc.o: src/nanodbc.cpp
 	g++ $(CFLAGS) $(INCLUDES) -c src/nanodbc.cpp -o nanodbc.o
+
+HashmapUtil.o: src/HashmapUtil.cpp
+	g++ $(CFLAGS) $(INCLUDES) -c src/HashmapUtil.cpp -o HashmapUtil.o
 	
 clean:
 	rm *.o
