@@ -10,6 +10,8 @@
 
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
+#include <set>
 #include <vector>
 #include <deque>
 #include <algorithm>
@@ -26,10 +28,12 @@
 using std::string;
 using std::vector;
 using std::unordered_map;
+using std::unordered_set;
+using std::set;
 using std::deque;
 using std::pair;
 
-class User;
+class AuthenticatedUser;
 class BinaryOperator;
 class ByteArrayCodeBuffer;
 class Heap;
@@ -70,7 +74,7 @@ class SessionThreadCallGuard;
 class ReducerContainer;
 class DistributedCall;
 
-typedef SmartPointer<User> UserSP;
+typedef SmartPointer<AuthenticatedUser> AuthenticatedUserSP;
 typedef SmartPointer<ByteArrayCodeBuffer> ByteArrayCodeBufferSP;
 typedef SmartPointer<Constant> ConstantSP;
 typedef SmartPointer<Vector> VectorSP;
@@ -114,33 +118,67 @@ typedef ConstantSP(*TemplateOptr)(const ConstantSP&,const ConstantSP&,const stri
 typedef ConstantSP(*TemplateUserOptr)(Heap* heap, const ConstantSP&,const ConstantSP&, const FunctionDefSP&);
 typedef void (*SysProc)(Heap* heap,vector<ConstantSP>& arguments);
 
-class User {
+class AuthenticatedUser{
 public:
-	User(const string& name, const string& pwd, bool isAdmin, bool tableRead, const string& readTables, bool tableWrite,
-			const string& writeTables, bool readView, const string& views, bool execScript, bool unitTest);
-	inline bool isAdmin() const {return isAdmin_;}
-	inline const string& getName() const {return name_;}
-	bool verify(const string& password) const;
+    AuthenticatedUser(const string& userId, long long time, bool isAdmin, bool isGuest, bool execScript, bool unitTest, bool dbManage,
+    		bool tableRead, const set<string>& readTables, const set<string>& deniedReadTables,
+			bool tableWrite, const set<string>& writeTables,const set<string>& deniedWriteTables,
+			bool viewRead, const set<string>& views, const set<string>& deniedViews,
+			bool dbobjCreate, const set<string>& createDBs, const set<string>& deniedCreateDBs, bool dbobjDelete, const set<string>& deleteDBs, const set<string>& deniedDeleteDBs);
+    AuthenticatedUser(const ConstantSP& userObj);
+    ConstantSP toTuple() const ;
+    void setLoginNanoTimeStamp(long long t){loginNanoTimestamp_ = t;}
+    string getUserId() const {return userId_;}
+    long long getLoginNanoTimeStamp() const {return loginNanoTimestamp_;}
+    inline bool isAdmin() const {return permissionFlag_ & 1;}
+	inline bool isGuest() const { return permissionFlag_ & 2;}
+	inline bool canExecScript() const {return permissionFlag_ & 4;}
+	inline bool canUnitTest() const {return permissionFlag_ & 8;}
+	inline bool canManageDatabase() const {return permissionFlag_ & 16;}
+	inline bool canReadTable() const { return permissionFlag_ & 32;}
+	inline bool canWriteTable() const { return permissionFlag_ & 64;}
+	inline bool canUseView() const { return permissionFlag_ & 128;}
+	inline bool canCreateDBObject() const { return permissionFlag_ & 256;}
+	inline bool canDeleteDBObject() const { return permissionFlag_ & 512;}
 	bool canReadTable(const string& name) const;
 	bool canWriteTable(const string& name) const;
 	bool canReadView(const string& name) const;
-	bool canUnitTest() const {return unitTest_;}
-	bool canExecScript() const {return execScript_;}
-	static UserSP createAdminUser();
-	static UserSP createGuestUser();
+	bool canCreateDBObject(const string& name) const;
+	bool canDeleteDBObject(const string& name) const;
+	bool isExpired() const {return expired_;}
+	void expire();
+
+    static AuthenticatedUserSP createAdminUser();
+    static AuthenticatedUserSP createGuestUser();
 
 private:
-	string name_;
-	string pwd_;
-	bool isAdmin_;
-	bool tableRead_;
-	string readTables_;
-	bool tableWrite_;
-	string writeTables_;
-	bool viewRead_;
-	string views_;
-	bool execScript_;
-	bool unitTest_;
+    string userId_;
+    long long loginNanoTimestamp_;
+    /**
+     * bit0: isAdmin
+     * bit1: isGuest
+     * bit2: execute script
+     * bit3: unit test
+     * bit4: create or delete databases
+     * bit5: read tables
+     * bit6: write tables
+     * bit7: use view functions
+     * bit8: create objects in databases
+     * bit9: delete objects in databases
+     */
+    unsigned int permissionFlag_;
+
+    /**
+     * bit0: read all tables
+     * bit1: write all tables
+     * bit2: use all views
+     * bit3: create permission on all databases
+     * bit4: delete permission on all databases
+     *
+     */
+    unsigned char allFlag_;
+    bool expired_;
+    unordered_set<string> permissions_;
 };
 
 class Guid {
@@ -151,6 +189,9 @@ public:
 	Guid(const Guid& copy);
 	bool operator==(const Guid &other) const;
 	bool operator!=(const Guid &other) const;
+	bool operator<(const Guid &other) const;
+	bool operator>(const Guid &other) const;
+	inline unsigned char operator[](int i) const { return uuid_[i];}
 	bool isZero() const;
     string getString() const;
     inline const unsigned char* bytes() const { return uuid_;}
@@ -454,6 +495,7 @@ public:
 	virtual string getString() const {return "";}
 	virtual string getScript() const { return getString();}
 	virtual const string& getStringRef() const {return EMPTY;}
+    virtual const Guid getUuid() const {throw RuntimeException("The object can't be converted to uuid scalar.");}
 	virtual bool isNull() const {return false;}
 
 	virtual void setBool(char val){}
@@ -661,6 +703,7 @@ public:
 	virtual void replace(const ConstantSP& oldVal, const ConstantSP& newVal){}
 	virtual bool validIndex(INDEX uplimit){return false;}
 	virtual bool validIndex(INDEX start, INDEX length, INDEX uplimit){return false;}
+	virtual void addIndex(INDEX start, INDEX length, INDEX offset){}
 	virtual void neg()=0;
 	virtual void find(const ConstantSP& target, const ConstantSP& resultSP){}
 	virtual void binarySearch(const ConstantSP& target, const ConstantSP& resultSP){}
@@ -904,9 +947,12 @@ public:
 	virtual ConstantSP retrieveMessage(long long offset, int length, bool msgAsTable) { throw RuntimeException("Table::retrieveMessage() not supported"); }
 	virtual bool snapshotIsolate() const { return false;}
 	virtual void getSnapshot(TableSP& copy) const {}
+	virtual bool readPermitted(const AuthenticatedUserSP& user) const {return true;}
 	inline bool isSharedTable() const {return flag_ & 1;}
 	inline bool isRealtimeTable() const {return flag_ & 2;}
 	inline bool isAliasTable() const {return flag_ & 4;}
+	inline const string& getOwner() const {return owner_;}
+	inline void setOwner(const string& owner){ owner_ = owner;}
 	void setSharedTable(bool option);
 	void setRealtimeTable(bool option);
 	void setAliasTable(bool option);
@@ -914,6 +960,7 @@ public:
 
 private:
 	char flag_; //BIT0: shared table, BIT1: realtime table
+	string owner_;
 	Mutex* lock_;
 };
 
@@ -1022,7 +1069,7 @@ public:
 	virtual ConstantSP call(Heap* pHeap, vector<ConstantSP>& arguments) = 0;
 	virtual ConstantSP call(Heap* pHeap, const ConstantSP& a, const ConstantSP& b) = 0;
 	virtual ConstantSP call(Heap* pHeap,vector<ObjectSP>& arguments) = 0;
-	virtual bool containNotMarshallableObject() const {return defType_ >= PARTIALFUNC ;}
+	virtual bool containNotMarshallableObject() const {return defType_ >= USERDEFFUNC ;}
 
 protected:
 	void setConstantParameterFlag();
@@ -1176,8 +1223,9 @@ public:
 	void setOutput(Output* out) {out_ = out;}
 	long long getSessionID() const {return sessionID_;}
 	void setSessionID(long long sessionID){sessionID_=sessionID;}
-	UserSP getUser() const { return user_;}
-	bool setUser(const UserSP& user);
+	AuthenticatedUserSP getUser();
+	AuthenticatedUserSP getUserAsIs();
+	bool setUser(const AuthenticatedUserSP& user);
 	const string& getRemoteSiteAlias() const { return remoteSiteAlias_;}
 	void setRemoteSiteAlias(const string& alias){ remoteSiteAlias_ = alias;}
 	int getRemoteSiteIndex() const { return remoteSiteIndex_;}
@@ -1195,6 +1243,8 @@ public:
 	virtual OperatorSP getOperator(const FunctionDefSP& func, bool unary) const = 0;
 	virtual bool addPluginFunction(const FunctionDefSP& funcDef) = 0;
 	virtual void addFunctionDeclaration(FunctionDefSP& func) = 0;
+	virtual void addFunctionalView(const FunctionDefSP& funcDef) = 0;
+	virtual bool removeFunctionalView(const string& name) = 0;
 	virtual void completePendingFunctions(bool commit) = 0;
 	virtual void getFunctions(vector<pair<string,FunctionDefSP> >& functions) = 0;
 	virtual void undefine(const string& objectName, OBJECT_TYPE objectType) = 0;
@@ -1207,13 +1257,15 @@ public:
 	virtual ConstantSP getTemoraryObject(int index) = 0;
 	virtual void clearTemporaryObject() = 0;
 	virtual string getLastErrorMessage() const = 0;
+	virtual void* getPrivateKey() const = 0;
+	virtual void setPrivateKey(void* key) = 0;
 
 protected:
 	char flag_;
 	long long sessionID_;
 	HeapSP heap_;
 	Output* out_;
-	UserSP user_;
+	AuthenticatedUserSP user_;
 	string remoteSiteAlias_;
 	int remoteSiteIndex_;
 };
@@ -1291,7 +1343,7 @@ public:
 	ConstantSP getReference(const string& name) const;
 	inline int size() const {return size_;}
 	inline bool isViewMode() const { return status_ & 1;}
-	inline void setViewMode() { status_ |= 1; }
+	inline void setViewMode(bool enabled = true) { if(enabled) status_ |= 1; else status_ &= ~1;}
 	inline bool isDefMode() const { return status_ & 2;}
 	inline void setDefMode() { status_ |= 2; }
 	int getIndex(const string& name) const;
@@ -1400,12 +1452,12 @@ private:
 
 class DomainPartition{
 public:
-	DomainPartition(int key, const string& path) : key_(key), version_(0), size_(-1), cid_(-1), path_(path), id_(false){}
-	DomainPartition(int key, const string& path, const Guid& id, int version, int size, long long cid) : key_(key), version_(version), size_(size), cid_(cid), path_(path), id_(id){}
-	DomainPartition(int key, const DFSChunkMetaSP& chunkMeta) : key_(key), version_(chunkMeta->getVersion()), size_(chunkMeta->size()), cid_(chunkMeta->getCommitId()),
-			path_(chunkMeta->getPath()), id_(chunkMeta->getId()){}
+	DomainPartition(int key, const string& path) : key_(key), version_(0), cid_(-1), path_(path), id_(false), tables_(0){}
+	DomainPartition(int key, const string& path, const Guid& id, int version, long long cid) : key_(key), version_(version),cid_(cid), path_(path), id_(id), tables_(0){}
+	DomainPartition(int key, const DFSChunkMetaSP& chunkMeta) : key_(key), version_(chunkMeta->getVersion()), cid_(chunkMeta->getCommitId()),
+			path_(chunkMeta->getPath()), id_(chunkMeta->getId()), tables_(0){}
 	DomainPartition(Session* session, const DataInputStreamSP& in);
-	virtual ~DomainPartition(){}
+	virtual ~DomainPartition();
 	const int getKey() const {return key_;}
 	virtual bool addSite(int siteIndex) {return false;}
 	virtual int getSiteCount() const { return 0;}
@@ -1415,22 +1467,28 @@ public:
 	inline const string& getPath() const {return path_;}
 	inline const Guid& getId() const {return id_;}
 	inline int getVersion() const {return version_;}
-	inline int size() const {return size_;}
+	int size(const string& table) const;
+	void setSize(const string& table, INDEX size);
 	inline long long getCommitId() const { return cid_;}
-	inline void setSize(INDEX size) { size_ = size;}
 	inline void setCommitId(long long cid) { cid_ = cid;}
 	inline bool operator ==(const DomainPartition& target){ return  (key_ == target.key_) && (id_ == target.id_);}
+	IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
 	static string processPartitionId(const string& id);
 	static ConstantSP parsePartitionId(const string& id, DATA_TYPE type);
-	IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
 
 private:
 	int key_;
 	int version_;
-	int size_;
 	long long cid_;
 	string path_;
 	Guid id_;
+
+	struct TableSize {
+		string name_;
+		int size_;
+		TableSize* next_;
+	};
+	TableSize* tables_;
 };
 
 class ColumnDesc {
@@ -1478,8 +1536,8 @@ public:
 	virtual int getPartitionDimensions() const { return 1;}
 	virtual void switchWorkingDimension(int dimension){}
 	virtual DomainSP copy() const = 0;
-	bool addTable(const string& tableName, vector<ColumnDesc>& cols, vector<int>& partitionColumns);
-	bool getTable(const string& tableName, vector<ColumnDesc>& cols, vector<int>& partitionColumns) const;
+	bool addTable(const string& tableName, const string& owner, vector<ColumnDesc>& cols, vector<int>& partitionColumns);
+	bool getTable(const string& tableName, string& owner, vector<ColumnDesc>& cols, vector<int>& partitionColumns) const;
 	bool existsTable(const string& tableName);
 	bool removeTable(const string& tableName);
 	void loadTables(const string& dir);
@@ -1502,6 +1560,13 @@ protected:
 	static ConstantSP temporalConvert(const ConstantSP& obj, DATA_TYPE targetType);
 
 protected:
+	struct TableHeader {
+		TableHeader(){}
+		TableHeader(const string& owner, vector<ColumnDesc>& tablesType, vector<int>& tablesPartition): owner_(owner), tablesType_(tablesType), tablesPartition_(tablesPartition){}
+		string owner_;
+		vector<ColumnDesc> tablesType_;
+		vector<int> tablesPartition_;
+	};
 	vector<DomainPartitionSP> partitions_;
 	PARTITION_TYPE partitionType_;
 	bool isLocalDomain_;
@@ -1509,8 +1574,7 @@ protected:
 	string name_;
 	string dir_;
 	SymbolBaseManagerSP symbaseManager_;
-	unordered_map<string, vector<ColumnDesc>> tablesType_;
-	unordered_map<string, vector<int>> tablesPartition_;
+	unordered_map<string, TableHeader> tables_;
 	mutable Mutex mutex_;
 };
 
@@ -1547,8 +1611,8 @@ struct TableUpdateUrgency {
 };
 
 struct TopicSubscribe {
-	TopicSubscribe(const string& topic, int hashValue, vector<string> attributes, const FunctionDefSP& handler, bool msgAsTable, int batchSize, int throttleTime) : msgAsTable_(msgAsTable),
-			hashValue_(hashValue), batchSize_(batchSize), throttleTime_(throttleTime), cumSize_(0), messageId_(-1), expired_(-1), topic_(topic), attributes_(attributes), handler_(handler){}
+	TopicSubscribe(const string& topic, int hashValue, vector<string> attributes, const FunctionDefSP& handler, const AuthenticatedUserSP& user, bool msgAsTable, int batchSize, int throttleTime) : msgAsTable_(msgAsTable),
+			hashValue_(hashValue), batchSize_(batchSize), throttleTime_(throttleTime), cumSize_(0), messageId_(-1), expired_(-1), topic_(topic), attributes_(attributes), handler_(handler), user_(user){}
 	bool append(long long msgId, const ConstantSP& msg, long long& outMsgId, ConstantSP& outMsg);
 	bool getMessage(long long now, long long& outMsgId, ConstantSP& outMsg);
 
@@ -1562,6 +1626,7 @@ struct TopicSubscribe {
 	const string topic_;
 	const vector<string> attributes_;
 	const FunctionDefSP handler_;
+	const AuthenticatedUserSP user_;
 	ConstantSP body_;
 	Mutex mutex_;
 };
@@ -1608,18 +1673,19 @@ public:
 	inline void clearObject(){obj_.clear();}
 	inline Heap* getHeap() const { return heap_;}
 	inline Session* getSession() const {return session_;}
-	inline void setHeap(Heap* heap) { heap_ = heap; session_ = heap->currentSession();}
 	inline CountDownLatchSP getCountDownLatch() const { return latch_;}
 	inline void setCountDownLatch(const CountDownLatchSP& latch){ latch_ = latch;}
 	void setJobId(const Guid& jobId);
 	inline const Guid& getJobId() const { return jobId_;}
 	inline const Guid& getTaskId() const { return taskId_;}
+	void setHeap(Heap* heap);
 	void set(Heap* heap, const Guid& jobId, const CountDownLatchSP& latch);
 	void done(const ConstantSP& result);
 	void done(const string& errMsg);
 	inline const string& getErrorMessage() const {return errMsg_;}
 	inline ConstantSP getResultObject() const {return execResult_;}
 	inline bool isLocalData() const { return local_;}
+	inline bool isViewMode() const { return viewMode_;}
 	virtual void setLastSuccessfulSite(){}
 	virtual int getLastSite(){return -1;}
 	static ConstantSP mergeDistributedCallResult(vector<DistributedCallSP>& calls);
@@ -1636,6 +1702,7 @@ private:
 	std::chrono::system_clock::time_point startTime_;
 	std::chrono::system_clock::time_point completeTime_;
 	bool local_;
+	bool viewMode_;
 	Heap* heap_;
 	Session* session_;
 };

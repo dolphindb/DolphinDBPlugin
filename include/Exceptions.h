@@ -134,6 +134,18 @@ private:
 	const string errMsg_;
 };
 
+class MathException: public exception {
+public:
+	MathException(const string& errMsg) : errMsg_(errMsg){}
+	virtual const char* what() const throw(){
+		return errMsg_.c_str();
+	}
+	virtual ~MathException() throw(){}
+
+private:
+	const string errMsg_;
+};
+
 class TestingException: public exception{
 public:
 	TestingException(const string& caseName,const string& subCaseName): name_(caseName),subName_(subCaseName){

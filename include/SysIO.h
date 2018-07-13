@@ -10,6 +10,7 @@
 
 #include <string>
 #include <iostream>
+#include <openssl/ssl.h>
 #include "SmartPointer.h"
 #include "Types.h"
 
@@ -50,7 +51,7 @@ public:
 	~Socket();
 	const string& getHost() const {return host_;}
 	int getPort() const {return port_;}
-	IO_ERR read(char* buffer, size_t length, size_t& actualLength);
+	IO_ERR read(char* buffer, size_t length, size_t& actualLength, bool msgPeek = false);
 	IO_ERR write(const char* buffer, size_t length, size_t& actualLength);
 	IO_ERR bind();
 	IO_ERR listen();
@@ -62,12 +63,15 @@ public:
 	bool isBlockingMode() const {return blocking_;}
 	bool isValid();
 	void setAutoClose(bool option) { autoClose_ = option;}
+	void enableSSL(SSL* ssl) { ssl_ = ssl;}
+	SSL* getSSL() const { return ssl_;}
 	static bool ENABLE_TCP_NODELAY;
 
 private:
 	bool setNonBlocking();
 	bool setTcpNoDelay();
 	int getErrorCode();
+	void showSSLError(int err);
 
 private:
 	string host_;
@@ -75,6 +79,7 @@ private:
 	SOCKET handle_;
 	bool blocking_;
 	bool autoClose_;
+	SSL* ssl_;
 };
 
 class UdpSocket{

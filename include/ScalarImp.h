@@ -98,6 +98,61 @@ private:
 	long long cacheSeed_;
 };
 
+class Uuid: public Constant{
+public:
+	Uuid(bool newUuid = false);
+	Uuid(const unsigned char* uuid);
+	Uuid(const string& uuid);
+	Uuid(const Uuid& copy);
+	virtual ~Uuid(){}
+	bool operator==(const Uuid &other) const;
+	bool operator!=(const Uuid &other) const;
+	inline const unsigned char* bytes() const { return uuid_;}
+	virtual string getString() const;
+	virtual const Guid getUuid() const { return uuid_;}
+	virtual bool isNull() const;
+	virtual void setNull();
+	virtual void nullFill(const ConstantSP& val){
+		if(isNull())
+			memcpy(uuid_, val->getUuid().bytes(), 16);
+	}
+	virtual bool isNull(INDEX start, int len, char* buf) const {
+		char null=isNull();
+		for(int i=0;i<len;++i)
+			buf[i]=null;
+		return true;
+	}
+	virtual bool isValid(INDEX start, int len, char* buf) const {
+		char valid=!isNull();
+		for(int i=0;i<len;++i)
+			buf[i]=valid;
+		return true;
+	}
+	virtual ConstantSP getInstance() const {return new Uuid(false);}
+	virtual ConstantSP getValue() const {return new Uuid(uuid_);}
+	virtual DATA_TYPE getType() const {return DT_UUID;}
+	virtual DATA_TYPE getRawType() const { return DT_UUID;}
+	virtual DATA_CATEGORY getCategory() const {return LITERAL;}
+	virtual long long getAllocatedMemory() const {return sizeof(Uuid);}
+	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const {
+		short flag = (DF_SCALAR <<8) + DT_UUID;
+		buffer->write((char)CONSTOBJ);
+		buffer->write(flag);
+		return buffer->write((const char*)uuid_, 16);
+	}
+	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
+	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, INDEX targetNumElement, INDEX& numElement);
+	virtual int compare(INDEX index, const ConstantSP& target) const;
+
+private:
+    unsigned char hexDigitToChar(char ch) const;
+    inline unsigned char hexPairToChar(char a, char b) const { return hexDigitToChar(a) * 16 + hexDigitToChar(b);}
+    void charToHexPair(unsigned char ch, char* buf) const;
+
+private:
+	mutable unsigned char uuid_[16];
+};
+
 class String: public Constant{
 public:
 	String(string val=""):val_(val){}
