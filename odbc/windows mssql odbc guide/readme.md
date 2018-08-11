@@ -1,5 +1,0 @@
-首先按照WindowsReadme.md进行编译
-
-使用当前的CMakeLists.txt
-
-其次需要将odbc更新为17
