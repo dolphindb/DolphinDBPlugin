@@ -1,0 +1,9 @@
+aws,libPluginAWSS3.so
+getS3Object,getS3Object,system,3,4,0
+listS3Object,listS3Object,system,3,3,0
+readS3Object,readS3Object,system,5,5,0
+deleteS3Object,deleteS3Object,command,3,3,0
+uploadS3Object,uploadS3Object,command,4,4,0
+listS3Bucket,listS3Bucket,system,1,1,0
+deleteS3Bucket,deleteS3Bucket,command,2,2,0
+createS3Bucket,createS3Bucket,command,2,2,0

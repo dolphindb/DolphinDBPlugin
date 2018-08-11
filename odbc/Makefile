@@ -4,7 +4,7 @@ INCLUDES= -I../include -Isrc/
 OBJS=DolphinDBODBC.o nanodbc.o 
 
 all: $(OBJS)
-	g++ -DBIT$(BITS) $(CFLAGS) -shared -o libODBC.so DolphinDBODBC.o nanodbc.o  -lDolphinDB -lodbc
+	g++ -DBIT$(BITS) $(CFLAGS) -shared -o libPluginODBC.so DolphinDBODBC.o nanodbc.o  -lDolphinDB -lodbc
 DolphinDBODBC.o: src/DolphinDBODBC.cpp
 	g++ $(CFLAGS) $(INCLUDES) -c src/DolphinDBODBC.cpp -o DolphinDBODBC.o
 
@@ -13,7 +13,7 @@ nanodbc.o: src/nanodbc.cpp
 
 HashmapUtil.o: src/HashmapUtil.cpp
 	g++ $(CFLAGS) $(INCLUDES) -c src/HashmapUtil.cpp -o HashmapUtil.o
-	
+
 clean:
 	rm *.o
 	rm libPluginODBC.so

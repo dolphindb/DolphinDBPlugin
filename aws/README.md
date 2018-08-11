@@ -1,222 +1,243 @@
 # DolphinDB AWS Plugin
 
-The plugin for Amazon AWS S3. It now only supports Linux OS.
+DolphinDB的AWS插件，目前支持S3服务，需要链接AWS的动态库
 
-### 1) How to load plugin
-start a DolphinDB instance, then execute the following command:
+# Build
+
+注意首先需要[构建aws sdk](https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/setup.html)以及构建Zlib，Zlib自身构建时需要-fPIC
+
+使用CMake，默认zlib/aws/dolphindb库文件都在/usr/local/lib下，可以在CMakeLists.txt指定库文件和头文件的地址
+```
+cd aws/s3
+cmake .
+make
+```
+或直接
+```
+cd aws/s3
+g++ -DLINUX -std=c++11 -fPIC -c src/AWSS3.cpp -I../../include -o AWSS3.o
+g++ -fPIC -shared -o libPluginAWSS3.so AWSS3.o -Wl,-Bstatic -lz -Wl,-Bdynamic -lDolphinDB -laws-cpp-sdk-s3 -laws-cpp-sdk-core
+```
+
+编译之后目录下会产生libPluginAWSS3.so文件
+
+× Windows平台暂时无法用MingW编译AWS SDK
+
+# Interface
+
+使用AWS插件前需要预先载入并设置好id、key和region，插件的module name为aws
 
 ```
-loadPlugin("path/to/DolphinDBPlugin/awss3/awss3.cfg");
-```
-
-### 2) Set up an account
-
-```
+//loadPlugin
+loadPlugin("path/to/DolphinDBPlugin/aws/s3/PluginAWSS3.txt");
+//set account
 account=dict(string,string);
 account['id']=your_access_key_id;
 account['key']=your_secret_access_key;
 account['region']=your_region;
-
-//if your s3 bucket cannot beconnected successfully，you may try to set up your certificate manually as follows:
+//若无法通过验证或SSL出错，可以尝试手动提供证书
 account['caPath']=your_ca_file_path;     //e.g. '/etc/ssl/certs'
 account['caFile']=your_ca_file;          //e.g. 'ca-certificates.crt'
 account['verifySSL']=verify_or_not;      //e.g. false
 ```
 
+目前支持的函数
+
+- `listS3Object`
+  
+    - args
+
+        - `s3account`, dictionary: `id`-access key id, `key`-secret access key, `region`-region.
+        - `bucket`, string: name of the bucket you want to access.
+        - `prefix`, string: prefix of the objects.
+    
+    - return
+
+        A table which lists the attribute of all objects under the given bucket and the prefix.
+        
+        The attributes listed are as follows:
+        
+        - index, long
+        - bucket name, string
+        - key name, string
+        - last modified, string, format: ISO_8601
+        - length, long, unit: byte
+        - ETag, string
+        - owner, string
+    - e.g.
+
+        ```
+        //loadPlugin
+        //set account
+        aws::listS3Object(account,'dolphindb','TAQ2');
+        ```
+    
+- `getS3Object`
+  
+    - args
+
+        - `s3account`, dictionary: `id`-access key id, `key`-secret access key, `region`-region.
+        - `bucket`, string: name of the bucket you want to access.
+        - `key`, string: name of the object you want to get.
+        - `outputFileName`(optional), string, default: `key`
+    
+    - return
+
+        - File name of the object
+        
+    - e.g.
+
+        ```
+        //loadPlugin
+        //set account
+        aws::getS3Object(account,'dolphindb','test.csv');
+        ```
+
+- `readS3Object`
+  
+    - args
+
+        - `s3account`, dictionary: `id`-access key id, `key`-secret access key, `region`-region.
+        - `bucket`, string: name of the bucket you want to access.
+        - `key`, string: name of the object you want to get.
+        - `offset`, long, start byte of the object you want to read
+        - `length`, long, length of the object from the start byte
+    
+    - return
+
+        - Vector of char
+        
+    - e.g.
+
+        ```
+        //loadPlugin
+        //set account
+        aws::readS3Object(account,'dolphindb','test.csv', 0, 100);
+        ```
+
+- `deleteS3Object`
+
+    - args
+
+        - `s3account`, dictionary: `id`-access key id, `key`-secret access key, `region`-region.
+        - `bucket`, string: name of the bucket you want to access.
+        - `key`, string: name of the object you want to delete.
+    
+    - return
+
+        - void
+        
+    - e.g.
+
+        ```
+        //loadPlugin
+        //set account
+        aws::deleteS3Object(account,'dolphindb','test.csv');
+        ```
+    
+- `uploadS3Object`
+
+    - args
+
+        - `s3account`, dictionary: `id`-access key id, `key`-secret access key, `region`-region.
+        - `bucket`, string: name of the bucket you want to access.
+        - `key`, string: name of the object you want to creat.
+        - `inputFileName`, string, name of the object you want to upload.
+    
+    - return
 
+        - void
+        
+    - e.g.
 
-### 3) Supported functions
+        ```
+        //loadPlugin
+        //set account
+        aws::uploadS3Object(account,'dolphindb','test.csv','/home/test.csv');
+        ```
 
-**listS3Object**
+- `listS3Bucket`
 
-args
+    - args
 
-* s3account: a DolphinDB dictionary object storing account info including "id" (access key id), "key"(secret access key), and "region"(your aws s3 region).
+        - `s3account`, dictionary: `id`-access key id, `key`-secret access key, `region`-region.
+    
+    - return
 
-* bucket: the name of the bucket you want to access.
+        A table which lists the attribute of all buckets under the given s3account.
+        
+        The attributes listed are as follows:
+        
+        - index, long
+        - bucket name, string
+        - creation date, string, format: ISO_8601
 
-* prefix: the prefix of the buckets' names.
+    - e.g.
 
+        ```
+        //loadPlugin
+        //set account
+        aws::listS3Bucket(account);
+        ```
 
-return
+- `deleteS3Bucket`
 
-* a DolphinDB table listing the attributes of all objects under the given bucket.
+    - args
 
-The attributes listed are as follows:
+        - `s3account`, dictionary: `id`-access key id, `key`-secret access key, `region`-region.
+        - `bucket`, string: name of the bucket you want to delete.
+    
+    - return
 
+        - void
+        
+    - e.g.
 
-* index, long
-* bucket name, string
-* key name, string
-* last modified, string, format: ISO_8601
-length, long, unit: byte
-* ETag, string
-* owner, string
+        ```
+        //loadPlugin
+        //set account
+        aws::deleteS3Bucket(account,'dolphindb');
+        ```
 
+- `createS3Bucket`
 
+    - args
 
-e.g.
+        - `s3account`, dictionary: `id`-access key id, `key`-secret access key, `region`-region.
+        - `bucket`, string: name of the bucket you want to create.
+    
+    - return
 
-```
-aws::listS3Object(account,'mys3bucket','test.csv')
-```
+        - void
+        
+    - e.g.
 
+        ```
+        //loadPlugin
+        //set account
+        aws::createS3Bucket(account,'dolphindb');
+        ```
 
+- `createS3InputStream`内部调用，不开放给客户
 
-**getS3Object**
+    - args
 
+        - `s3account`, dictionary: `id`-access key id, `key`-secret access key, `region`-region.
+        - `bucket`, string: name of the bucket you want to access.
+        - `key`, string: name of the object you want to get, if `key` ends up with ".gz", then it will be automatically decompressed by zlib
+    
+    - return
 
-args
+        - DataInputStreamSP, stream is based on http range header
 
+            - `internalStreamRead`
+            - `internalClose`
+            - `internalMoveToPosition` is not supported
+        
+    - e.g.
 
-* s3account: a DolphinDB dictionary object storing account info including "id" (access key id), "key"(secret access key), and "region"(your aws s3 region).
+# Exceptions
 
+If arguments are wrong, throw `IllegalArgumentException`.
 
-* bucket: the name of the bucket you want to access.
-
-* key: the name of the object you want to get.
-
-* outputFileName(optional): default is the key name
-
-
-return
-
-* the file name of the object
-
-
-e.g.
-
-```
-aws::getS3Object(account,'mys3bucket','test.csv')
-```
-
-
-
-
-**readS3Object**
-
-
-args
-
-
-* s3account: a DolphinDB dictionary object storing account info including "id" (access key id), "key"(secret access key), and "region"(your aws s3 region).
-
-* bucket: the name of the bucket you want to access.
-
-* key: the name of the object you want to get.
-
-* offset: the start byte position of the object you want to read
-
-* length: the length of the object from the start byte
-
-
-return
-
-* a DolphinDB vector of char storing part of a s3 object
-
-
-
-e.g.
-
-```
-aws::readS3Object(account,'mys3bucket','test.csv', 0, 100)
-```
-
-
-**deleteS3Object**
-
-args
-
-* s3account:a DolphinDB dictionary object storing account info including "id" (access key id), "key"(secret access key), and "region"(your aws s3 region).
-
-* bucket: the name of the bucket you want to access.
-
-* key: the name of the object you want to get.
-
-return
-
-* no return
-
-e.g.
-
-```
-aws::deleteS3Object(account,'mys3bucket','test.csv')
-//Warning: irreversible operation 
-```
-
-**uploadS3Object**
-
-args
-
-* s3account: a DolphinDB dictionary object storing account info including "id" (access key id), "key"(secret access key), and "region"(your aws s3 region).
-
-* bucket: the name of the bucket you want to access.
-
-* key: the name of the object you want to get.
-
-* inputFileName: the name of the object you want to upload
-
-return
-
-* no return
-
-e.g.
-
-```
-aws::uploadS3Object(account,'mys3bucket','test.csv','/home/test.csv')
-```
-
-**listS3Bucket**
-
-args
-
-* s3account: a DolphinDB dictionary object storing account info including "id" (access key id), "key"(secret access key), and "region"(your aws s3 region).
-
-return
-
-A table which lists the attribute of all buckets under the given s3account.
-
-The attributes listed are as follows:
-* index, long
-* bucket name, string
-* creation date, string, format: ISO_8601
-
-e.g.
-
-```
-aws::listS3Bucket(account);
-```
-
-
-**deleteS3Bucket**
-
-args
-* s3account: a DolphinDB dictionary object storing account info including "id" (access key id), "key"(secret access key), and "region"(your aws s3 region).
-* bucket: the name of the bucket you want to access.
-
-return
-* no return
-
-e.g.
-```
-aws::deleteS3Bucket(account,'mys3bucket')
-//Warning: irreversible operation
-```
-
-**createS3Bucket**
-
-args
-
-* s3account: a DolphinDB dictionary object storing account info including "id" (access key id), "key"(secret access key), and "region"(your aws s3 region).
-* bucket: the name of the bucket you want to create.
-
-return
-* no return
-
-e.g.
-```
-aws::createS3Bucket(account,'mys3bucket')
-```
-
-
-
+If any other errors occur, throw `IOException`.
