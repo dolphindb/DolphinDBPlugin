@@ -1,0 +1,4 @@
+hdf5,libHdf5.dll
+h5ls,ls,operator,1,1,0
+h5lsTable,lsTable,operator,1,1,0
+h5read,read,system,2,3,0
