@@ -1,7 +1,5 @@
 ## DolphinDB ODBC plugin
 
-使用该插件可以方便的从ODBC支持的数据库中迁移数据至dolphinDB中.
-
 With this plugin, you can easily pull your data from existing databases that support ODBC interface.
 
 ## Prerequisites
