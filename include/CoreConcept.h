@@ -1031,8 +1031,8 @@ private:
 
 class FunctionDef : public Constant{
 public:
-	FunctionDef(FUNCTIONDEF_TYPE defType, const string& name, const vector<ParamSP>& params, bool hasReturnValue=true, bool aggregation=false);
-	FunctionDef(FUNCTIONDEF_TYPE defType, const string& name, int minParamNum, int maxParamNum, bool hasReturnValue, bool aggregation=false);
+	FunctionDef(FUNCTIONDEF_TYPE defType, const string& name, const vector<ParamSP>& params, bool hasReturnValue=true, bool aggregation=false, bool sequential=false);
+	FunctionDef(FUNCTIONDEF_TYPE defType, const string& name, int minParamNum, int maxParamNum, bool hasReturnValue, bool aggregation=false, bool sequential=false);
 	inline const string& getName() const { return name_;}
 	inline const string& getModule() const { return module_;}
 	inline string getFullName() const { return module_.empty() ? name_ : module_ + "::" + name_;}
@@ -1041,6 +1041,7 @@ public:
 	inline void setModule(const string& module) { module_ = module;}
 	inline bool hasReturnValue() const {return flag_ & 1;}
 	inline bool isAggregatedFunction() const {	return flag_ & 2;}
+	inline bool isSequentialFunction() const {	return flag_ & 64;}
 	inline bool allConstantParameters() const { return flag_ & 4;}
 	inline bool bySystemUser() const { return flag_ & 8;}
 	inline void bySystemUser(bool option) { if(option) flag_ |= 8; else flag_ &= ~8;}
@@ -1075,6 +1076,7 @@ protected:
 	void setConstantParameterFlag();
 	void setReturnValueFlag(bool val);
 	void setAggregationFlag(bool val);
+	void setSequentialFlag(bool val);
 
 protected:
 	static ParamSP constParam_;

@@ -9,7 +9,7 @@
 #ifndef LINUX
 #include <windows.h>
 #endif
-#include <nanodbc/nanodbc.h>
+#include "nanodbc/nanodbc.h"
 #include <sql.h>
 #include <sqlext.h>
 #include <cassert>
@@ -164,22 +164,21 @@ static ConstantSP odbcGetConnection(Heap* heap,
             // printf("connected with driver %s\n", cup->driver_name().c_str());
 
             const char* fmt = "odbc connection to [%s]";
-            SmartPointer<char> descBufP(new char[connStr.size() + strlen(fmt)]);
-            sprintf(descBufP.get(), fmt, connStr.c_str());
+            vector<char> descBuf(connStr.size() + strlen(fmt));
+            sprintf(descBuf.data(), fmt, connStr.c_str());
 
             FunctionDefSP onClose(Util::createSystemProcedure(
                 "odbc connection onClose()", odbcConnectionOnClose, 1, 1));
 
             Constant* res =
-                Util::createResource((long long)cup.release(), descBufP.get(),
+                Util::createResource((long long)cup.release(), descBuf.data(),
                                      onClose, heap->currentSession());
             return res;
         } catch (const runtime_error& e) {
             const char* fmt = "error connecting to [%s]: %s";
-            SmartPointer<char> errorMsgBufP(
-                new char[connStr.size() + strlen(e.what()) + strlen(fmt)]);
-            sprintf(errorMsgBufP.get(), fmt, connStr.c_str(), e.what());
-            throw TableRuntimeException(errorMsgBufP.get());
+            vector<char> errorMsgBuf(connStr.size() + strlen(e.what()) + strlen(fmt));
+            sprintf(errorMsgBuf.data(), fmt, connStr.c_str(), e.what());
+            throw TableRuntimeException(errorMsgBuf.data());
         }
     } else if (args[0]->getType() == DT_RESOURCE) {
         return args[0];
@@ -216,10 +215,9 @@ static TableSP odbcGetOrCreateTable(const Heap* heap,
                 const char* fmt =
                     "The given table schema is incompatible with the returned "
                     "table from ODBC at column %d[%s]";
-                SmartPointer<char> descBufP(
-                    new char[10 + strlen(fmt) + results.column_name(i).size()]);
-                sprintf(descBufP.get(), fmt, i, results.column_name(i).c_str());
-                throw TableRuntimeException(descBufP.get());
+                vector<char> descBuf(10 + strlen(fmt) + results.column_name(i).size());
+                sprintf(descBuf.data(), fmt, i, results.column_name(i).c_str());
+                throw TableRuntimeException(descBuf.data());
             }
             if (dolphinType == DT_SYMBOL) {
                 columnVecs[i] =
@@ -290,6 +288,7 @@ ConstantSP odbcConnect(Heap* heap, vector<ConstantSP>& args) {
 }
 
 ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args) {
+    const static int nanodbc_rowset_size = 4096;
     assert(heap);
     assert(args.size() >= 2);
 
@@ -299,13 +298,12 @@ ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args) {
 
     nanodbc::result results;
     try {
-        results = nanodbc::execute(*cp, querySql);
+        results = nanodbc::execute(*cp, querySql, nanodbc_rowset_size);
     } catch (const runtime_error& e) {
         const char* fmt = "Executed query [%s]: %s";
-        SmartPointer<char> errorMsgBufP(
-            new char[querySql.size() + strlen(e.what()) + strlen(fmt)]);
-        sprintf(errorMsgBufP.get(), fmt, querySql.c_str(), e.what());
-        throw TableRuntimeException(errorMsgBufP.get());
+        vector<char> errorMsgBuf(querySql.size() + strlen(e.what()) + strlen(fmt));
+        sprintf(errorMsgBuf.data(), fmt, querySql.c_str(), e.what());
+        throw TableRuntimeException(errorMsgBuf.data());
     }
 
     const short columns = results.columns();
@@ -366,7 +364,7 @@ ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args) {
                         break;
                     case DT_FLOAT:
                         buffers[col][curLine].floatVal =
-                            results.get<float>(col, FLT_MIN);
+                            results.get<float>(col, FLT_NMIN);
                         break;
                     case DT_DOUBLE:
                         buffers[col][curLine].doubleVal =
@@ -563,10 +561,13 @@ ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args) {
                                 int nbytes =
                                     snprintf(strBuf, sizeof(strBuf), "%lf",
                                              colBuf[j].doubleVal);
-                                buf[j].pointer = new char[nbytes + 1];
-                                if (colBuf[j].doubleVal == DBL_NMIN)
-                                    buf[j].pointer = nullptr;
-                                strcpy(buf[j].pointer, strBuf);
+                                if (colBuf[j].doubleVal != DBL_NMIN) {
+                                    buf[j].pointer = new char[nbytes + 1];
+                                    strcpy(buf[j].pointer, strBuf);
+                                } else {
+                                    buf[j].pointer = new char[1];
+                                    (*buf[j].pointer) = '\0'
+                                }
                             }
                         } else {
                             for (int j = 0; j < curLine; ++j)
@@ -582,10 +583,13 @@ ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args) {
                                 int nbytes =
                                     snprintf(strBuf, sizeof(strBuf), "%lf",
                                              colBuf[j].doubleVal);
-                                buffers[col][j].pointer = new char[nbytes + 1];
-                                if (colBuf[j].doubleVal == DBL_NMIN)
-                                    buffers[col][j].pointer = nullptr;
-                                strcpy(buffers[col][j].pointer, strBuf);
+                                if (colBuf[j].doubleVal != DBL_NMIN) {
+                                    buffers[col][j].pointer = new char[nbytes + 1];
+                                    strcpy(buffers[col][j].pointer, strBuf);
+                                } else {
+                                    buffers[col][j].pointer = new char[1];
+                                    *(buffers[col][j].pointer) = '\0';
+                                }
                             }
                         }
                         arrCol[col]->appendString((char**)(&buffers[col][0]),
@@ -632,10 +636,9 @@ ConstantSP odbcExecute(Heap *heap, vector<ConstantSP> &args){
     }
     catch (const runtime_error &e){
         const char *fmt = "Executed query [%s]: %s";
-        SmartPointer<char> errorMsgBufP(
-            new char[querySql.size() + strlen(e.what()) + strlen(fmt)]);
-        sprintf(errorMsgBufP.get(), fmt, querySql.c_str(), e.what());
-        throw TableRuntimeException(errorMsgBufP.get());
+        vector<char> errorMsgBuf(querySql.size() + strlen(e.what()) + strlen(fmt));
+        sprintf(errorMsgBuf.data(), fmt, querySql.c_str(), e.what());
+        throw TableRuntimeException(errorMsgBuf.data());
     }
 
     return Util::createConstant(DT_VOID);

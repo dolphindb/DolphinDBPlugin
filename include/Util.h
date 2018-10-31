@@ -96,6 +96,7 @@ public:
 	static Vector* createMatrix(DATA_TYPE type, int cols, int rows, int colCapacity,int extraParam=0,
 			void* data=0, void** dataSegment=0, int segmentSizeInBit=0, bool containNull=false);
 	static Vector* createSymbolMatrix(const SymbolBaseSP& symbolBase, int cols, int rows, int colCapacity, int* data=0, bool containNull=false);
+	static Vector* createDoubleMatrix(int cols, int rows);
 	static Vector* createPair(DATA_TYPE type){
 		Vector* pair=createVector(type,2);
 		pair->setForm(DF_PAIR);
@@ -114,6 +115,7 @@ public:
 	static FunctionDef* createOperatorFunction(const string& name, OptrFunc func, int minParamNum, int maxParamNum, bool aggregation);
 	static FunctionDef* createSystemFunction(const string& name, SysFunc func, int minParamNum, int maxParamNum, bool aggregation);
 	static FunctionDef* createSystemProcedure(const string& name, SysProc func, int minParamNum, int maxParamNum);
+	static FunctionDef* createPartitalFunction(const FunctionDefSP& func, const vector<ConstantSP>& args);
 	static ObjectSP createRegularFunctionCall(const FunctionDefSP& func, vector<ConstantSP>& args, bool qualifier = false, bool partialCall = false);
 	static ObjectSP readObject(Session* session, const DataInputStreamSP& buffer);
 	static ObjectSP readObject(const SQLContextSP& context, Session* session, const DataInputStreamSP& buffer);

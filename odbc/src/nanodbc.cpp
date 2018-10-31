@@ -13,7 +13,7 @@
 #pragma warning(disable : 4996) // warning about deprecated declaration
 #endif
 
-#include <nanodbc/nanodbc.h>
+#include "nanodbc/nanodbc.h"
 
 #include <algorithm>
 #include <clocale>
