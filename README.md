@@ -68,7 +68,7 @@ Enter the following command in the dolphinb console to load the plugin and use i
 >loadPlugin(Path to PluginDemo.txt); // Load the plugin
 (minmax,echo)
 >use demo; // Import the plugin's namespace
->demo::minmax([12,3,4]); // You can also use minmaxminmax([12,3,4])
+>demo::minmax([12,3,4]); // You can also use minmax([12,3,4])
 [3,12]
 >demo::echo("foo");
 foo
