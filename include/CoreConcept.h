@@ -1149,11 +1149,13 @@ public:
 	int getPartitionDimension() const;
 	void setPartitionColumn(DATA_TYPE type, int dimensionIndex);
 	void setAcceptFunctionDef(bool option) { acceptFunctionDef_ = option;}
+	bool acceptFunctionDef() const { return acceptFunctionDef_;}
 	virtual string getScript() const;
 	string getNormalizedScript() const;
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
 	ColumnRef* copy(const SQLContextSP& contextSP) const{ return new ColumnRef(contextSP, qualifier_, name_, index_);}
 	ColumnRef* localize(const SQLContextSP& contextSP) const{ return new ColumnRef(contextSP, qualifier_, name_);}
+	ColumnRef* localize() const{ return new ColumnRef(contextSP_, qualifier_, name_);}
 	bool operator ==(const ColumnRef& target);
 	virtual void collectVariables(vector<int>& vars, int minIndex, int maxIndex) const { if(index_<=maxIndex && index_>=minIndex) vars.push_back(index_);}
 
@@ -1280,6 +1282,9 @@ public:
 	Session* getSession(){return session_.get();}
 	long long getLastActiveTime() const { return lastActiveTime_;}
 	void setLastActiveTime(long long lastUpdate) { lastActiveTime_ = lastUpdate;}
+	inline void setFlag(long long flag) { flag_ = flag;}
+	inline long long getFlag() const { return flag_;}
+	inline bool isUrgent() const { return flag_ & 1;}
 	virtual IO_ERR readReady()=0;
 	virtual IO_ERR execute()=0;
 	virtual CONSOLE_TYPE getConsoleType() const = 0;
@@ -1289,6 +1294,7 @@ protected:
 	SessionSP session_;
 	OutputSP out_;
 	long long lastActiveTime_;
+	long long flag_;
 };
 
 class ConstantMarshall {

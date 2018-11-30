@@ -15,7 +15,7 @@ public:
 	static double beta(double alpha, double beta, double x);
 	static double gamma(double shape, double scale, double x);
 	static double chiSquare(double df, double x);
-	static double normal(double mean, double variance, double x);
+	static double normal(double mean, double stdev, double x);
 	static double exp(double mean, double x);
 	static double uniform(double lower, double upper, double x);
 	static double weibull(double alpha, double beta, double x);
