@@ -200,6 +200,8 @@ public:
 	static string getWorkingDirectory();
 	static string getExecutableDirectory();
 	static string getAdobeReaderPath();
+	static FILE* fopen(const char* filename, const char* mode);
+	static int rename(const char* oldName, const char* newName);
 	static bool setFileTime(const string& filename, long long accessTime, long long modificationTime, int& errCode);
 	static bool getDirectoryContent(const string& dir, vector<FileAttributes>& files, string& errMsg);
 	static bool readTextFile(const string& filename,vector<string>& lines);

@@ -252,12 +252,14 @@ class DataSource : public String {
 public:
 	DataSource(const ObjectSP& code, long long cacheId = -1, bool isTable = true, bool localMode = false) : String("DataSource< " + code->getScript() +" >"), code_(code),
 		parentId_(-1), id_(cacheId), action_(-1), isTable_(isTable), localMode_(localMode){}
+	DataSource(Session* session, const DataInputStreamSP& in);
 	virtual DATA_TYPE getType() const {return DT_DATASOURCE;}
 	virtual DATA_TYPE getRawType() const { return DT_DATASOURCE;}
 	virtual DATA_CATEGORY getCategory() const {return SYSTEM;}
 	virtual string getScript() const;
 	virtual bool copyable() const {return false;}
 	virtual bool containNotMarshallableObject() const {return true;}
+	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
 	virtual ConstantSP getReference(Heap* pHeap);
 	ObjectSP getCode() const { return code_;}

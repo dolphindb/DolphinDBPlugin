@@ -574,9 +574,11 @@ public:
 	~Thread();
 	void start();
 	void join();
+	void cancel();
 	bool isRunning(){return run_.isNull() ? false : run_->isRunning();}
 	bool isComplete() {return run_.isNull()? false : run_->isComplete();}
 	bool isStarted() {return run_.isNull()? false : run_->isStarted();}
+	bool isCurrentThread();
 	static void sleep(int milliSeconds);
 	static int getID();
 
