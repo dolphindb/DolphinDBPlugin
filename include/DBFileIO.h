@@ -158,6 +158,7 @@ class Command{
 public:
 	Command(const string& fileName, int priority) : fileName_(fileName), priority_(priority){}
 	virtual ~Command(){}
+	virtual void execute() = 0;
     virtual void undo() = 0;
     virtual void print() const = 0;
     virtual TranCmdType getType() const = 0;
@@ -177,6 +178,7 @@ public:
 	CmdAppendFile(const string& fileName, long long oldLength) : Command(fileName, 3), oldLength_(oldLength){}
 	CmdAppendFile(const DataInputStreamSP& in);
 	virtual ~CmdAppendFile(){};
+	virtual void execute(){}
 	virtual void undo();
     virtual void print() const;
     virtual TranCmdType getType() const {return APPEND_FILE;}
@@ -191,6 +193,7 @@ public:
 	CmdUpdateFileHeader(const string& fileName, const char* oldValue, int length);
 	CmdUpdateFileHeader(const DataInputStreamSP& in);
 	virtual ~CmdUpdateFileHeader();
+	virtual void execute(){}
 	virtual void undo();
     virtual void print() const;
     virtual TranCmdType getType() const {return UPDATE_FILE_HEADER;}
@@ -206,6 +209,7 @@ public:
 	CmdNewFileOrDir(const string& name): Command(name, 0){}
 	CmdNewFileOrDir(const DataInputStreamSP& in);
 	virtual ~CmdNewFileOrDir(){}
+	virtual void execute(){}
 	virtual void undo();
 	virtual void print() const;
 	virtual TranCmdType getType() const {return NEW_FILE;}
@@ -217,6 +221,7 @@ public:
 	CmdRenameFileOrDir(const string& oldName,const string& newName);
 	CmdRenameFileOrDir(const DataInputStreamSP& in);
 	virtual ~CmdRenameFileOrDir(){}
+	virtual void execute();
 	virtual void undo();
 	virtual void print() const;
 	virtual TranCmdType getType() const {return RENAME_FILEDIR;}
@@ -232,6 +237,7 @@ public:
 	CmdReplaceFile(const string& name,const string& oldFilePath);
 	CmdReplaceFile(const DataInputStreamSP& in);
 	virtual ~CmdReplaceFile(){}
+	virtual void execute();
 	virtual void undo();
 	virtual void print() const;
 	virtual TranCmdType getType() const {return REPLACE_FILE;}
@@ -248,6 +254,7 @@ public:
 	CmdUpdateHeaderAndAppend(const string& fileName, long long oldLength, const char* oldValue, int valueSize );
 	CmdUpdateHeaderAndAppend(const DataInputStreamSP& in);
 	virtual ~CmdUpdateHeaderAndAppend();
+	virtual void execute(){};
 	virtual void undo();
 	virtual void print() const;
 	virtual TranCmdType getType() const {return UPDATE_HEADER_APPEND;}
@@ -265,6 +272,7 @@ public:
 	CmdInMemoryChange(const string& changeDesc, const FunctionDefSP& commitFunc, const FunctionDefSP& undoFunc) : Command(changeDesc, 4), commitFunc_(commitFunc), undoFunc_(undoFunc){}
 	CmdInMemoryChange(const string& changeDesc, const FunctionDefSP& commitFunc, const FunctionDefSP& undoFunc, const FunctionDefSP& closeFunc) : Command(changeDesc, 4), commitFunc_(commitFunc), undoFunc_(undoFunc), closeFunc_(closeFunc){}
 	virtual ~CmdInMemoryChange(){}
+	virtual void execute(){}
 	virtual void undo();
 	virtual void commit();
 	virtual void close();

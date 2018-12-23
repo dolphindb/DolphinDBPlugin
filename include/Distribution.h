@@ -54,25 +54,19 @@ public:
 
 class RandomSample {
 public:
-	static double student(double df) { return InvCumDistrFunction::student(df, standardUniform());}
-	static double f(double numeratorDF, double denominatorDF) { return InvCumDistrFunction::f(numeratorDF, denominatorDF, standardUniform()); }
-	static double beta(double alpha, double beta) { return InvCumDistrFunction::beta(alpha, beta, standardUniform()); }
-	static double gamma(double shape, double scale) { return InvCumDistrFunction::gamma(shape, scale, standardUniform()); }
-	static double chiSquare(double df) { return InvCumDistrFunction::chiSquare(df, standardUniform()); }
-	static double normal(double mean, double stdev) { return InvCumDistrFunction::normal(mean, stdev, standardUniform()); }
-	static double exp(double mean) { return InvCumDistrFunction::exp(mean, standardUniform()); }
-	static double uniform(double lower, double upper) { return InvCumDistrFunction::uniform(lower, upper, standardUniform()); }
-	static double weibull(double alpha, double beta) { return InvCumDistrFunction::weibull(alpha, beta, standardUniform()); }
-	static double zipf(int num, double exponent);
-	static double logistic(double mu, double s) { return InvCumDistrFunction::logistic(mu, s, standardUniform()); }
-	static double binomial(int trials, double prob) { return InvCumDistrFunction::binomial(trials, prob, standardUniform()); }
-	static double poisson(double mean) { return InvCumDistrFunction::poisson(mean, standardUniform()); }
-	static double kolmogorov();
-private:
-	static inline double standardUniform() {
-		std::uniform_real_distribution<> distr(0, 1);
-		return distr(*Util::m1);
-	}
+	static void student(double df, double *buf, int n);
+	static void f(double numeratorDF, double denominatorDF, double *buf, int n);
+	static void beta(double alpha, double beta, double *buf, int n);
+	static void gamma(double shape, double scale, double *buf, int n);
+	static void chiSquare(double df, double *buf, int n);
+	static void normal(double mean, double stdev, double *buf, int n);
+	static void exp(double mean, double *buf, int n);
+	static void uniform(double lower, double upper, double *buf, int n);
+	static void weibull(double alpha, double beta, double *buf, int n);
+	static void zipf(int num, double exponent, double *buf, int n);
+	static void logistic(double mu, double s, double *buf, int n);
+	static void binomial(int trials, double prob, double *buf, int n);
+	static void poisson(double mean, double *buf, int n);
 };
 
 #endif /* DISTRIBUTION_H_ */

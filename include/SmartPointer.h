@@ -9,6 +9,7 @@
 #define SMARTPOINTER_H_
 
 #include <atomic>
+#include <type_traits>
 
 class Counter {
 public:
@@ -37,6 +38,7 @@ public:
 
 	template <class U>
 	SmartPointer(const SmartPointer<U>& sp){
+		static_assert(std::is_convertible<U*, T*>::value || std::is_base_of<U, T>::value, "U must be implicitly convertible to T or T must be a subclass of U");
 		counterP_=sp.counterP_;
 		counterP_->addRef();
 	}

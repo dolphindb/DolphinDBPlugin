@@ -73,6 +73,7 @@ struct TopicSubscribe;
 class SessionThreadCallGuard;
 class ReducerContainer;
 class DistributedCall;
+class JobProperty;
 
 typedef SmartPointer<AuthenticatedUser> AuthenticatedUserSP;
 typedef SmartPointer<ByteArrayCodeBuffer> ByteArrayCodeBufferSP;
@@ -111,6 +112,7 @@ typedef SmartPointer<TopicSubscribe> TopicSubscribeSP;
 typedef SmartPointer<SessionThreadCallGuard> SessionThreadCallGuardSP;
 typedef SmartPointer<ReducerContainer> ReducerContainerSP;
 typedef SmartPointer<DistributedCall> DistributedCallSP;
+typedef SmartPointer<JobProperty> JobPropertySP;
 
 typedef ConstantSP(*OptrFunc)(const ConstantSP&,const ConstantSP&);
 typedef ConstantSP(*SysFunc)(Heap* heap,vector<ConstantSP>& arguments);
@@ -120,7 +122,7 @@ typedef void (*SysProc)(Heap* heap,vector<ConstantSP>& arguments);
 
 class AuthenticatedUser{
 public:
-    AuthenticatedUser(const string& userId, long long time, bool isAdmin, bool isGuest, bool execScript, bool unitTest, bool dbManage,
+    AuthenticatedUser(const string& userId, long long time, int priority, int parallelism, bool isAdmin, bool isGuest, bool execScript, bool unitTest, bool dbManage,
     		bool tableRead, const set<string>& readTables, const set<string>& deniedReadTables,
 			bool tableWrite, const set<string>& writeTables,const set<string>& deniedWriteTables,
 			bool viewRead, const set<string>& views, const set<string>& deniedViews,
@@ -130,6 +132,8 @@ public:
     void setLoginNanoTimeStamp(long long t){loginNanoTimestamp_ = t;}
     string getUserId() const {return userId_;}
     long long getLoginNanoTimeStamp() const {return loginNanoTimestamp_;}
+    int getMaxJobPriority() const { return priority_;}
+    int getMaxJobParallelism() const {return parallelism_;}
     inline bool isAdmin() const {return permissionFlag_ & 1;}
 	inline bool isGuest() const { return permissionFlag_ & 2;}
 	inline bool canExecScript() const {return permissionFlag_ & 4;}
@@ -154,6 +158,9 @@ public:
 private:
     string userId_;
     long long loginNanoTimestamp_;
+    int priority_;
+    int parallelism_;
+
     /**
      * bit0: isAdmin
      * bit1: isGuest
@@ -183,7 +190,7 @@ private:
 
 class Guid {
 public:
-	Guid(bool newGuid);
+	Guid(bool newGuid = false);
 	Guid(unsigned char* guid);
 	Guid(const string& guid);
 	Guid(const Guid& copy);
@@ -195,6 +202,7 @@ public:
 	bool isZero() const;
     string getString() const;
     inline const unsigned char* bytes() const { return uuid_;}
+    static Guid ZERO;
 
 private:
     unsigned char hexDigitToChar(char ch) const;
@@ -1239,6 +1247,17 @@ public:
 	void setSystemSession(bool option) { if(option) flag_ |= 1; else flag_ &= ~1;}
 	bool isWithinThreadCall() const { return flag_ & 2;}
 	void setWithinThreadCall(bool option){ if(option) flag_ |= 2; else flag_ &= ~2;}
+	bool isCancelled() const { return flag_ & 4;}
+	void setCancelled(bool option){ if(option) flag_ |= 4; else flag_ &= ~4;}
+	inline void setJobId(const Guid& jobId);
+	inline const Guid& getJobId() const { return jobId_;}
+	inline void setRootJobId(const Guid& rootJobId) { rootJobId_ = rootJobId;}
+	inline const Guid& getRootJobId() const { return rootJobId_;}
+	inline void setPriority(int priority) { priority_ = priority;}
+	inline int getPriority() const { return priority_;}
+	inline void setParallelism(int parallelism) { parallelism_ = parallelism;}
+	inline int getParallelism() const { return parallelism_;}
+	void setJob(const Guid& rootJobId, const Guid& jobId, int priority, int parallelism);
 	virtual SysFunc getTableJoiner(const string& name) const = 0;
 	virtual FunctionDefSP getFunctionDef(const string& name) const = 0;
 	virtual TemplateOptr getTemplateOperator(const string& name) const = 0;
@@ -1272,16 +1291,33 @@ protected:
 	AuthenticatedUserSP user_;
 	string remoteSiteAlias_;
 	int remoteSiteIndex_;
+	Guid rootJobId_;
+	Guid jobId_;
+	int priority_;
+	int parallelism_;
 };
 
 class Console {
 public:
 	Console(const SessionSP& session, const OutputSP& out);
 	virtual ~Console(){}
+	virtual void cancel(bool running){}
 	Output* getOutput(){return out_.get();}
 	Session* getSession(){return session_.get();}
 	long long getLastActiveTime() const { return lastActiveTime_;}
 	void setLastActiveTime(long long lastUpdate) { lastActiveTime_ = lastUpdate;}
+	inline void setJobId(const Guid& jobId);
+	inline const Guid& getJobId() const { return jobId_;}
+	inline const Guid& getTaskId() const { return jobId_;}
+	inline void setRootJobId(const Guid& rootJobId) { rootJobId_ = rootJobId;}
+	inline const Guid& getRootJobId() const { return rootJobId_;}
+	inline void setPriority(int priority) { priority_ = priority;}
+	inline int getPriority() const { return priority_;}
+	inline void setParallelism(int parallelism) { parallelism_ = parallelism;}
+	inline int getParallelism() const { return parallelism_;}
+	inline bool isCancellable() const {return cancellable_;}
+	inline void setCancellable(bool option){cancellable_ = option;}
+	void set(const Guid& rootJobId, const Guid& jobId, int parallelism, int priority);
 	inline void setFlag(long long flag) { flag_ = flag;}
 	inline long long getFlag() const { return flag_;}
 	inline bool isUrgent() const { return flag_ & 1;}
@@ -1289,8 +1325,14 @@ public:
 	virtual IO_ERR execute()=0;
 	virtual CONSOLE_TYPE getConsoleType() const = 0;
 	virtual void run() = 0;
+	virtual void getTaskDesc(string& type, string& desc) const = 0;
 
 protected:
+	Guid rootJobId_;
+	Guid jobId_;
+	int priority_;
+	int parallelism_;
+	bool cancellable_;
 	SessionSP session_;
 	OutputSP out_;
 	long long lastActiveTime_;
@@ -1675,6 +1717,8 @@ public:
 	DistributedCall(const Guid& jobId, const CountDownLatchSP latch, const ObjectSP& obj, bool local);
 	DistributedCall(const Guid& jobId, const CountDownLatchSP latch, const ObjectSP& obj, const ReducerContainerSP& reducer, bool local);
 	virtual ~DistributedCall(){}
+	virtual void cancel(bool running);
+	void getTaskDesc(string& type, string& desc);
 	inline void start(){ startTime_ = std::chrono::system_clock::now();}
 	inline const ObjectSP& getObject() const { return obj_;}
 	inline void setObject(const ObjectSP& obj){obj_ = obj;}
@@ -1685,7 +1729,13 @@ public:
 	inline void setCountDownLatch(const CountDownLatchSP& latch){ latch_ = latch;}
 	void setJobId(const Guid& jobId);
 	inline const Guid& getJobId() const { return jobId_;}
+	inline void setRootJobId(const Guid& rootJobId) { rootJobId_ = rootJobId;}
+	inline const Guid& getRootJobId() const { return rootJobId_;}
 	inline const Guid& getTaskId() const { return taskId_;}
+	inline void setPriority(int priority) { priority_ = priority;}
+	inline int getPriority() const { return priority_;}
+	inline void setParallelism(int parallelism) { parallelism_ = parallelism;}
+	inline int getParallelism() const { return parallelism_;}
 	void setHeap(Heap* heap);
 	void set(Heap* heap, const Guid& jobId, const CountDownLatchSP& latch);
 	void done(const ConstantSP& result);
@@ -1694,13 +1744,18 @@ public:
 	inline ConstantSP getResultObject() const {return execResult_;}
 	inline bool isLocalData() const { return local_;}
 	inline bool isViewMode() const { return viewMode_;}
+	inline bool isCancellable() const {return cancellable_;}
+	inline void setCancellable(bool option){cancellable_ = option;}
 	virtual void setLastSuccessfulSite(){}
 	virtual int getLastSite(){return -1;}
 	static ConstantSP mergeDistributedCallResult(vector<DistributedCallSP>& calls);
 
 private:
+	Guid rootJobId_;
 	Guid jobId_;
 	Guid taskId_;
+	int priority_;
+	int parallelism_;
 	CountDownLatchSP latch_;
 	ObjectSP obj_;
 	string errMsg_;
@@ -1711,8 +1766,24 @@ private:
 	std::chrono::system_clock::time_point completeTime_;
 	bool local_;
 	bool viewMode_;
+	bool cancellable_;
 	Heap* heap_;
 	Session* session_;
+};
+
+struct JobProperty {
+	JobProperty() : rootId_(false), taskId_(false), priority_(0), parallelism_(1),cancellable_(true) {}
+	JobProperty(const Guid& rootId, const Guid& taskId, int priority, int parallelism, bool cancellable) : rootId_(rootId),
+			taskId_(taskId), priority_(priority), parallelism_(parallelism), cancellable_(cancellable){}
+	JobProperty(const DataInputStreamSP& in);
+	IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
+	void setJob(const DistributedCallSP& call);
+
+	Guid rootId_;
+	Guid taskId_;
+	int priority_;
+	int parallelism_;
+	bool cancellable_;
 };
 
 #endif /* CORECONCEPT_H_ */
