@@ -1,108 +1,99 @@
 #include "mysqlxx.h"
-#include <mysql.h>
 #include <math.h>
+#include <mysql.h>
 #include <stdint.h>
 #include <limits>
 
 namespace mysqlxx {
 
-static inline const char *ifNotEmpty(const char *s) {
-  return s && *s ? s : nullptr;
-}
+static inline const char *ifNotEmpty(const char *s) { return s && *s ? s : nullptr; }
 
 LibrarySingleton::LibrarySingleton() {
-  if (mysql_library_init(0, nullptr, nullptr))
-    throw Exception("Cannot initialize MySQL library.");
+    if (mysql_library_init(0, nullptr, nullptr)) throw Exception("Cannot initialize MySQL library.");
 }
 
-Connection::Connection() : driver(std::make_shared<MYSQL>()) {
-  LibrarySingleton::instance();
-}
+Connection::Connection() : driver(std::make_shared<MYSQL>()) { LibrarySingleton::instance(); }
 
 Connection::~Connection() {
-  disconnect();
-  mysql_thread_end();
-  //  std::cout << "Connection destructed." << std::endl;
+    disconnect();
+    mysql_thread_end();
+    //  std::cout << "Connection destructed." << std::endl;
 }
 
-Connection::Connection(const char *db, const char *server, const char *user,
-                       const char *password, unsigned int port,
-                       const char *socket, const char *ssl_ca,
-                       const char *ssl_cert, const char *ssl_key,
-                       unsigned int timeout, unsigned int rw_timeout,
+Connection::Connection(const char *db,
+                       const char *server,
+                       const char *user,
+                       const char *password,
+                       unsigned int port,
+                       const char *socket,
+                       const char *ssl_ca,
+                       const char *ssl_cert,
+                       const char *ssl_key,
+                       unsigned int timeout,
+                       unsigned int rw_timeout,
                        bool enable_local_infile)
     : Connection() {
-  connect(db, server, user, password, port, socket, ssl_ca, ssl_cert, ssl_key,
-          timeout, rw_timeout, enable_local_infile);
+    connect(db, server, user, password, port, socket, ssl_ca, ssl_cert, ssl_key, timeout, rw_timeout, enable_local_infile);
 }
 
-void Connection::connect(const char *db, const char *server, const char *user,
-                         const char *password, unsigned port,
-                         const char *socket, const char *ssl_ca,
-                         const char *ssl_cert, const char *ssl_key,
-                         unsigned timeout, unsigned rw_timeout,
+void Connection::connect(const char *db,
+                         const char *server,
+                         const char *user,
+                         const char *password,
+                         unsigned port,
+                         const char *socket,
+                         const char *ssl_ca,
+                         const char *ssl_cert,
+                         const char *ssl_key,
+                         unsigned timeout,
+                         unsigned rw_timeout,
                          bool enable_local_infile) {
-  if (connected_) disconnect();
+    if (connected_) disconnect();
 
-  if (!mysql_init(driver.get()))
-    throw ConnectionFailed(errorMessage(driver.get()),
-                           mysql_errno(driver.get()));
-  initialized_ = true;
+    if (!mysql_init(driver.get())) throw ConnectionFailed(errorMessage(driver.get()), mysql_errno(driver.get()));
+    initialized_ = true;
 
-  /// Set timeouts.
-  if (mysql_options(driver.get(), MYSQL_OPT_CONNECT_TIMEOUT, &timeout))
-    throw ConnectionFailed(errorMessage(driver.get()),
-                           mysql_errno(driver.get()));
+    /// Set timeouts.
+    if (mysql_options(driver.get(), MYSQL_OPT_CONNECT_TIMEOUT, &timeout))
+        throw ConnectionFailed(errorMessage(driver.get()), mysql_errno(driver.get()));
 
-  if (mysql_options(driver.get(), MYSQL_OPT_READ_TIMEOUT, &rw_timeout))
-    throw ConnectionFailed(errorMessage(driver.get()),
-                           mysql_errno(driver.get()));
+    if (mysql_options(driver.get(), MYSQL_OPT_READ_TIMEOUT, &rw_timeout))
+        throw ConnectionFailed(errorMessage(driver.get()), mysql_errno(driver.get()));
 
-  if (mysql_options(driver.get(), MYSQL_OPT_WRITE_TIMEOUT, &rw_timeout))
-    throw ConnectionFailed(errorMessage(driver.get()),
-                           mysql_errno(driver.get()));
+    if (mysql_options(driver.get(), MYSQL_OPT_WRITE_TIMEOUT, &rw_timeout))
+        throw ConnectionFailed(errorMessage(driver.get()), mysql_errno(driver.get()));
 
-  /// Disable LOAD DATA LOCAL INFILE because it is insecure if necessary.
-  auto enable_local_infile_arg = static_cast<unsigned>(enable_local_infile);
-  if (mysql_options(driver.get(), MYSQL_OPT_LOCAL_INFILE,
-                    &enable_local_infile_arg))
-    throw ConnectionFailed(errorMessage(driver.get()),
-                           mysql_errno(driver.get()));
+    /// Disable LOAD DATA LOCAL INFILE because it is insecure if necessary.
+    auto enable_local_infile_arg = static_cast<unsigned>(enable_local_infile);
+    if (mysql_options(driver.get(), MYSQL_OPT_LOCAL_INFILE, &enable_local_infile_arg))
+        throw ConnectionFailed(errorMessage(driver.get()), mysql_errno(driver.get()));
 
-  /// Specifies particular ssl key and certificate if it needs
-  if (mysql_ssl_set(driver.get(), ifNotEmpty(ssl_key), ifNotEmpty(ssl_cert),
-                    ifNotEmpty(ssl_ca), nullptr, nullptr))
-    throw ConnectionFailed(errorMessage(driver.get()),
-                           mysql_errno(driver.get()));
+    /// Specifies particular ssl key and certificate if it needs
+    if (mysql_ssl_set(driver.get(), ifNotEmpty(ssl_key), ifNotEmpty(ssl_cert), ifNotEmpty(ssl_ca), nullptr, nullptr))
+        throw ConnectionFailed(errorMessage(driver.get()), mysql_errno(driver.get()));
 
-  if (!mysql_real_connect(driver.get(), server, user, password, db, port,
-                          ifNotEmpty(socket), driver->client_flag))
-    throw ConnectionFailed(errorMessage(driver.get()),
-                           mysql_errno(driver.get()));
+    if (!mysql_real_connect(driver.get(), server, user, password, db, port, ifNotEmpty(socket), driver->client_flag))
+        throw ConnectionFailed(errorMessage(driver.get()), mysql_errno(driver.get()));
 
-  /// Sets UTF-8 as default encoding.
-  if (mysql_set_character_set(driver.get(), "UTF8"))
-    throw ConnectionFailed(errorMessage(driver.get()),
-                           mysql_errno(driver.get()));
+    /// Sets UTF-8 as default encoding.
+    if (mysql_set_character_set(driver.get(), "UTF8")) throw ConnectionFailed(errorMessage(driver.get()), mysql_errno(driver.get()));
 
-  /// Enables auto-reconnect.
-  my_bool reconnect = true;
-  if (mysql_options(driver.get(), MYSQL_OPT_RECONNECT,
-                    reinterpret_cast<const char *>(&reconnect)))
-    throw ConnectionFailed(errorMessage(driver.get()),
-                           mysql_errno(driver.get()));
+    /// Enables auto-reconnect.
+    my_bool reconnect = true;
+    if (mysql_options(driver.get(), MYSQL_OPT_RECONNECT, reinterpret_cast<const char *>(&reconnect)))
+        throw ConnectionFailed(errorMessage(driver.get()), mysql_errno(driver.get()));
 
-  connected_ = true;
+    connected_ = true;
 }
 
 void Connection::disconnect() {
-  if (!initialized_) return;
+    if (!initialized_) return;
 
-  mysql_close(driver.get());
-  memset(driver.get(), 0, sizeof(*driver));
+    mysql_close(driver.get());
+    memset(driver.get(), 0, sizeof(*driver));
 
-  initialized_ = false;
-  connected_ = false;
+    initialized_ = false;
+    connected_ = false;
 }
 
 bool Connection::connected() { return connected_; }
@@ -114,11 +105,9 @@ Query Connection::query(const std::string &str) { return {this, str}; }
 MYSQL *Connection::getDriver() { return driver.get(); }
 
 // Exception
-Exception::Exception(const std::string &msg, int code)
-    : msg_(msg), code_(code) {}
+Exception::Exception(const std::string &msg, int code) : msg_(msg), code_(code) {}
 
-Exception::Exception(const Exception &rhs) noexcept
-    : msg_(rhs.msg_), code_(rhs.code_) {}
+Exception::Exception(const Exception &rhs) noexcept : msg_(rhs.msg_), code_(rhs.code_) {}
 
 Exception::~Exception() noexcept = default;
 
@@ -127,300 +116,287 @@ const char *Exception::what() noexcept { return name(); }
 const char *Exception::name() noexcept { return "Exception"; }
 
 std::string Exception::displayText() noexcept {
-  // std::string txt = name();
-  std::string txt;
-  if (!msg_.empty()) {
-    txt.append(": ");
-    txt.append(msg_);
-  }
-  if (code_ != INT_MAX) {
-    txt.append(", with errno: ");
-    txt.append(std::to_string(code_));
-  }
-  return txt;
+    // std::string txt = name();
+    std::string txt;
+    if (!msg_.empty()) {
+        txt.append(": ");
+        txt.append(msg_);
+    }
+    if (code_ != INT_MAX) {
+        txt.append(", with errno: ");
+        txt.append(std::to_string(code_));
+    }
+    return txt;
 }
 
 // adopted from clickhouse
 std::string errorMessage(MYSQL *driver) {
-  std::stringstream res;
-  res << mysql_error(driver) << " ("
-      << (driver->host ? driver->host : "(nullptr)") << ":" << driver->port
-      << ")";
-  return res.str();
+    std::stringstream res;
+    res << mysql_error(driver) << " (" << (driver->host ? driver->host : "(nullptr)") << ":" << driver->port << ")";
+    return res.str();
 }
 
 /// Для внутренних нужд библиотеки.
 void checkError(MYSQL *driver) {
-  unsigned num = mysql_errno(driver);
+    unsigned num = mysql_errno(driver);
 
-  if (num) throw Exception(errorMessage(driver), num);
+    if (num) throw Exception(errorMessage(driver), num);
 }
 
 /// Для внутренних нужд библиотеки.
-void onError(MYSQL *driver) {
-  throw Exception(errorMessage(driver), mysql_errno(driver));
-}
+void onError(MYSQL *driver) { throw Exception(errorMessage(driver), mysql_errno(driver)); }
 
 // Query
-Query::Query(mysqlxx::Connection *conn_, const std::string &query_string)
-    : conn(conn_) {
-  mysql_thread_init();
+Query::Query(mysqlxx::Connection *conn_, const std::string &query_string) : conn(conn_) {
+    mysql_thread_init();
 
-  init(&query_buf);
+    init(&query_buf);
 
-  if (!query_string.empty()) {
-    query_buf.str(query_string);
-    seekp(0, std::ios::end);
-  }
+    if (!query_string.empty()) {
+        query_buf.str(query_string);
+        seekp(0, std::ios::end);
+    }
 
-  imbue(std::locale::classic());
+    imbue(std::locale::classic());
 }
 
 Query::Query(const Query &other) : std::ostream(0), conn(other.conn) {
-  mysql_thread_init();
+    mysql_thread_init();
 
-  init(&query_buf);
-  imbue(std::locale::classic());
+    init(&query_buf);
+    imbue(std::locale::classic());
 
-  *this << other.str();
+    *this << other.str();
 }
 
 Query &Query::operator=(const Query &other) {
-  conn = other.conn;
+    conn = other.conn;
 
-  seekp(0);
-  clear();  // clear state
-  *this << other.str();
+    seekp(0);
+    clear();  // clear state
+    *this << other.str();
 
-  return *this;
+    return *this;
 }
 
 Query::~Query() { mysql_thread_end(); }
 
 void Query::reset() {
-  seekp(0);
-  clear();
-  query_buf.str("");
+    seekp(0);
+    clear();
+    query_buf.str("");
 }
 
 void Query::execute() {
-  conn->getDriver();
-  std::string query_string = query_buf.str();
-  if (mysql_real_query(conn->getDriver(), query_string.data(),
-                       query_string.size()))
-    throw BadQuery(errorMessage(conn->getDriver()),
-                   mysql_errno(conn->getDriver()));
+    conn->getDriver();
+    std::string query_string = query_buf.str();
+    if (mysql_real_query(conn->getDriver(), query_string.data(), query_string.size()))
+        throw BadQuery(errorMessage(conn->getDriver()), mysql_errno(conn->getDriver()));
 }
 
 UseQueryResult Query::use() {
-  execute();
-  auto res = mysql_use_result(conn->getDriver());
-  if (!res) onError(conn->getDriver());
+    execute();
+    auto res = mysql_use_result(conn->getDriver());
+    if (!res) onError(conn->getDriver());
 
-  return {res, conn, this};
+    return {res, conn, this};
 }
 
 // Value
 UInt64 Value::readUIntText(const char *buf, size_t length) const {
-  UInt64 x = 0;
-  const char *end = buf + length;
+    UInt64 x = 0;
+    const char *end = buf + length;
 
-  while (buf != end) {
-    switch (*buf) {
-      case '+':
-        break;
-      case '0':
-      case '1':
-      case '2':
-      case '3':
-      case '4':
-      case '5':
-      case '6':
-      case '7':
-      case '8':
-      case '9':
-        x *= 10;
-        x += *buf - '0';
-        break;
-      default:
-        throwException("Cannot parse unsigned integer");
+    while (buf != end) {
+        switch (*buf) {
+            case '+':
+                break;
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9':
+                x *= 10;
+                x += *buf - '0';
+                break;
+            default:
+                throwException("Cannot parse unsigned integer");
+        }
+        ++buf;
     }
-    ++buf;
-  }
 
-  return x;
+    return x;
 }
 
 Int64 Value::readIntText(const char *buf, size_t length) const {
-  bool negative = false;
-  UInt64 x = 0;
-  const char *end = buf + length;
+    bool negative = false;
+    UInt64 x = 0;
+    const char *end = buf + length;
 
-  while (buf != end) {
-    switch (*buf) {
-      case '+':
-        break;
-      case '-':
-        negative = true;
-        break;
-      case '0':
-      case '1':
-      case '2':
-      case '3':
-      case '4':
-      case '5':
-      case '6':
-      case '7':
-      case '8':
-      case '9':
-        x *= 10;
-        x += *buf - '0';
-        break;
-      default:
-        throwException("Cannot parse signed integer");
+    while (buf != end) {
+        switch (*buf) {
+            case '+':
+                break;
+            case '-':
+                negative = true;
+                break;
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9':
+                x *= 10;
+                x += *buf - '0';
+                break;
+            default:
+                throwException("Cannot parse signed integer");
+        }
+        ++buf;
     }
-    ++buf;
-  }
 
-  return negative ? -x : x;
+    return negative ? -x : x;
 }
 
 double Value::readFloatText(const char *buf, size_t length) const {
-  bool negative = false;
-  double x = 0;
-  bool after_point = false;
-  double power_of_ten = 1;
-  const char *end = buf + length;
+    bool negative = false;
+    double x = 0;
+    bool after_point = false;
+    double power_of_ten = 1;
+    const char *end = buf + length;
 
-  while (buf != end) {
-    switch (*buf) {
-      case '+':
-        break;
-      case '-':
-        negative = true;
-        break;
-      case '.':
-        after_point = true;
-        break;
-      case '0':
-      case '1':
-      case '2':
-      case '3':
-      case '4':
-      case '5':
-      case '6':
-      case '7':
-      case '8':
-      case '9':
-        if (after_point) {
-          power_of_ten /= 10;
-          x += (*buf - '0') * power_of_ten;
-        } else {
-          x *= 10;
-          x += *buf - '0';
+    while (buf != end) {
+        switch (*buf) {
+            case '+':
+                break;
+            case '-':
+                negative = true;
+                break;
+            case '.':
+                after_point = true;
+                break;
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9':
+                if (after_point) {
+                    power_of_ten /= 10;
+                    x += (*buf - '0') * power_of_ten;
+                } else {
+                    x *= 10;
+                    x += *buf - '0';
+                }
+                break;
+            case 'e':
+            case 'E': {
+                ++buf;
+                Int32 exponent = readIntText(buf, end - buf);
+                x *= preciseExp10(exponent);
+                if (negative) x = -x;
+                return x;
+            }
+            case 'i':
+            case 'I':
+                x = std::numeric_limits<double>::infinity();
+                if (negative) x = -x;
+                return x;
+            case 'n':
+            case 'N':
+                x = std::numeric_limits<double>::quiet_NaN();
+                return x;
+            default:
+                throwException("Cannot parse floating point number");
         }
-        break;
-      case 'e':
-      case 'E': {
         ++buf;
-        Int32 exponent = readIntText(buf, end - buf);
-        x *= preciseExp10(exponent);
-        if (negative) x = -x;
-        return x;
-      }
-      case 'i':
-      case 'I':
-        x = std::numeric_limits<double>::infinity();
-        if (negative) x = -x;
-        return x;
-      case 'n':
-      case 'N':
-        x = std::numeric_limits<double>::quiet_NaN();
-        return x;
-      default:
-        throwException("Cannot parse floating point number");
     }
-    ++buf;
-  }
-  if (negative) x = -x;
+    if (negative) x = -x;
 
-  return x;
+    return x;
 }
 
 void Value::throwException(const char *text) const {
-  static constexpr size_t MYSQLXX_QUERY_PREVIEW_LENGTH = 1000;
+    static constexpr size_t MYSQLXX_QUERY_PREVIEW_LENGTH = 1000;
 
-  std::stringstream info;
-  info << text;
+    std::stringstream info;
+    info << text;
 
-  if (!isNull()) {
-    info << ": ";
-    info.write(m_data, m_length);
-  }
+    if (!isNull()) {
+        info << ": ";
+        info.write(m_data, m_length);
+    }
 
-  if (res && res->getQuery())
-    info << ", query: "
-         << res->getQuery()->str().substr(0, MYSQLXX_QUERY_PREVIEW_LENGTH);
+    if (res && res->getQuery()) info << ", query: " << res->getQuery()->str().substr(0, MYSQLXX_QUERY_PREVIEW_LENGTH);
 
-  throw CannotParseValue(info.str());
+    throw CannotParseValue(info.str());
 }
 
 // Use Result
 
-UseQueryResult::UseQueryResult(MYSQL_RES *res_, Connection *conn_,
-                               const Query *query_)
-    : ResultBase(res_, conn_, query_) {}
+UseQueryResult::UseQueryResult(MYSQL_RES *res_, Connection *conn_, const Query *query_) : ResultBase(res_, conn_, query_) {}
 
 Row UseQueryResult::fetch() {
-  MYSQL_ROW row = mysql_fetch_row(res_);
-  if (!row) checkError(conn_->getDriver());
+    MYSQL_ROW row = mysql_fetch_row(res_);
+    if (!row) checkError(conn_->getDriver());
 
-  return {row, this, mysql_fetch_lengths(res_)};
+    return {row, this, mysql_fetch_lengths(res_)};
 }
 
 // Row
 
 Value Row::operator[](int n) const {
-  if (unlikely(static_cast<size_t>(n) >= res->getNumFields()))
-    throw Exception("Index of column is out of range.");
-  return {row[n], lengths[n], res};
+    if (unlikely(static_cast<size_t>(n) >= res->getNumFields())) throw Exception("Index of column is out of range.");
+    return {row[n], lengths[n], res};
 }
 
 Value Row::operator[](const char *name) const {
-  unsigned n = res->getNumFields();
-  MYSQL_FIELDS fields = res->getFields();
+    unsigned n = res->getNumFields();
+    MYSQL_FIELDS fields = res->getFields();
 
-  for (unsigned i = 0; i < n; ++i) {
-    if (!strcmp(name, fields[i].name)) {
-      return operator[](i);
+    for (unsigned i = 0; i < n; ++i) {
+        if (!strcmp(name, fields[i].name)) {
+            return operator[](i);
+        }
     }
-  }
 
-  throw Exception(std::string("Unknown column, ") + name);
+    throw Exception(std::string("Unknown column, ") + name);
 }
 
 size_t Row::size() const { return res->getNumFields(); }
 
 // ResultBase
 
-ResultBase::ResultBase(MYSQL_RES *res_, Connection *conn_, const Query *query_)
-    : res_(res_), conn_(conn_), query_(query_) {
-  fields_ = mysql_fetch_field(res_);
-  num_fields_ = mysql_num_fields(res_);
+ResultBase::ResultBase(MYSQL_RES *res_, Connection *conn_, const Query *query_) : res_(res_), conn_(conn_), query_(query_) {
+    fields_ = mysql_fetch_field(res_);
+    num_fields_ = mysql_num_fields(res_);
 }
 
 ResultBase::~ResultBase() { mysql_free_result(res_); }
 
 const char *ResultBase::nameAt(int idx) { return fields_[idx].name; }
 
-enum_field_types ResultBase::typeAt(int idx) {
-  return static_cast<enum_field_types>(fields_[idx].type);
-}
+enum_field_types ResultBase::typeAt(int idx) { return static_cast<enum_field_types>(fields_[idx].type); }
+
+bool ResultBase::isEnumAt(int idx) { return fields_[idx].flags & ENUM_FLAG; }
+bool ResultBase::isUnsignedAt(int idx) { return fields_[idx].flags & UNSIGNED_FLAG; }
 
 unsigned long ResultBase::maxLengthAt(int idx) { return fields_[idx].length; }
 
 }  // namespace mysqlxx
-
 
 /*
 
@@ -593,42 +569,37 @@ obstacle to adoption, that text has been removed.
 
 */
 
-
 double preciseExp10(double x) noexcept {
-  static const double p10[] = {
-      1e-15, 1e-14, 1e-13, 1e-12, 1e-11, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5,
-      1e-4,  1e-3,  1e-2,  1e-1,  1,     1e1,   1e2,  1e3,  1e4,  1e5,  1e6,
-      1e7,   1e8,   1e9,   1e10,  1e11,  1e12,  1e13, 1e14, 1e15};
-  double n, y = modf(x, &n);
-  union {
-    double f;
-    uint64_t i;
-  } u = {n};
-  /* fabs(n) < 16 without raising invalid on nan */
-  if ((u.i >> 52 & 0x7ff) < 0x3ff + 4) {
-    if (!y) return p10[(int)n + 15];
-    y = exp2(3.32192809488736234787031942948939 * y);
-    return y * p10[(int)n + 15];
-  }
-  return pow(10.0, x);
+    static const double p10[] = {1e-15, 1e-14, 1e-13, 1e-12, 1e-11, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1,
+                                 1e1,   1e2,   1e3,   1e4,   1e5,   1e6,   1e7,  1e8,  1e9,  1e10, 1e11, 1e12, 1e13, 1e14, 1e15};
+    double n, y = modf(x, &n);
+    union {
+        double f;
+        uint64_t i;
+    } u = {n};
+    /* fabs(n) < 16 without raising invalid on nan */
+    if ((u.i >> 52 & 0x7ff) < 0x3ff + 4) {
+        if (!y) return p10[(int)n + 15];
+        y = exp2(3.32192809488736234787031942948939 * y);
+        return y * p10[(int)n + 15];
+    }
+    return pow(10.0, x);
 }
 
 float preciseExp10f(float x) noexcept {
-  static const float p10[] = {1e-7f, 1e-6f, 1e-5f, 1e-4f, 1e-3f,
-                              1e-2f, 1e-1f, 1,     1e1,   1e2,
-                              1e3,   1e4,   1e5,   1e6,   1e7};
-  float n, y = modff(x, &n);
-  union {
-    float f;
-    uint32_t i;
-  } u = {n};
-  /* fabsf(n) < 8 without raising invalid on nan */
-  if ((u.i >> 23 & 0xff) < 0x7f + 3) {
-    if (!y) return p10[(int)n + 7];
-    y = exp2f(3.32192809488736234787031942948939f * y);
-    return y * p10[(int)n + 7];
-  }
-  return exp2(3.32192809488736234787031942948939 * x);
+    static const float p10[] = {1e-7f, 1e-6f, 1e-5f, 1e-4f, 1e-3f, 1e-2f, 1e-1f, 1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7};
+    float n, y = modff(x, &n);
+    union {
+        float f;
+        uint32_t i;
+    } u = {n};
+    /* fabsf(n) < 8 without raising invalid on nan */
+    if ((u.i >> 23 & 0xff) < 0x7f + 3) {
+        if (!y) return p10[(int)n + 7];
+        y = exp2f(3.32192809488736234787031942948939f * y);
+        return y * p10[(int)n + 7];
+    }
+    return exp2(3.32192809488736234787031942948939 * x);
 }
 
 double precisePow10(double x) noexcept { return preciseExp10(x); }

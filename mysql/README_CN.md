@@ -1,24 +1,6 @@
 # DolphinDB MySQL Plugin
 
-DolphinDB的MySQL导入插件可将MySQL中的数据表或MySQL语句查询结果导入DolphinDB，并且支持数据类型转换。本插件的部分设计参考了来自Yandex.Clickhouse的mysqlxx组件。
-
-
-* [Build](#Build)
-    * [Build with cmake](#Build with cmake)
-* [User-API](#User API)
-    * [mysql::connect](#mysqlConnect)
-    * [mysql::showTables](#mysqlShowTables)
-    * [mysql::extractSchema](#mysqlExtractSchema)
-    * [mysql::load](#mysqlLoad)
-    * [mysql::loadEx](#mysqlLoadEx)
-* [Data Types](#Data Types)
-    * [integer](#integer)
-    * [float](#float)
-    * [time](#time)
-    * [string](#string)
-    * [enum](#enum)
-<!-- * [Performance](#Performance) -->
-
+DolphinDB的MySQL导入插件可将MySQL中的数据表或语句查询结果导入DolphinDB，并且支持数据类型转换。本插件的部分设计参考了来自Yandex.Clickhouse的mysqlxx组件。
 
 # 安装构建
 
@@ -91,15 +73,14 @@ make -j`nproc`
 
 ### 语法
 
-<!-- (host, user, password, port, [socket], [ssl_ca], [ssl_cert], [ssl_key]) -->
-* `mysql::connect(host, user, password, port, db)`
+* `mysql::connect(host, port, user, password, db)`
 
 ### 参数
 
 * `host`: MySQL服务器的地址，类型为`string`.
+* `port`: MySQL服务器的端口，类型为`int`.
 * `user`: MySQL服务器的用户名，类型为`string`.
 * `password`: MySQL服务器的密码，类型为`string`.
-* `port`: MySQL服务器的端口，类型为`int`.
 * `db`: 要使用的数据库名称，类型为`string`.
 
 ### 详情
@@ -109,7 +90,7 @@ make -j`nproc`
 ### 例子
 
 ```
-conn = mysql::connect(`localhost, `root, `root, 3306, `DolphinDB)
+conn = mysql::connect(`localhost, 3306, `root, `root, `DolphinDB)
 ```
 
 ## mysql::showTables
@@ -129,7 +110,7 @@ conn = mysql::connect(`localhost, `root, `root, 3306, `DolphinDB)
 ### 例子
 
 ```
-conn = mysql::connect(`localhost, `root, `root, 3306, `DolphinDB)
+conn = mysql::connect(`localhost, 3306, `root, `root, `DolphinDB)
 mysql::showTables(conn)
 
 output:
@@ -155,7 +136,7 @@ output:
 ### 例子
 
 ```
-conn = mysql::connect(`localhost, `root, `root, 3306, `DolphinDB)
+conn = mysql::connect(`localhost, 3306, `root, `root, `DolphinDB)
 mysql::extractSchema(conn, `US)
 
 output:
@@ -190,26 +171,26 @@ output:
 ### 例子
 
 ```
-conn = mysql::connect(`localhost, `root, `root, 3306, `DolphinDB)
+conn = mysql::connect(`localhost, 3306, `root, `root, `DolphinDB)
 tb = mysql::load(conn, `US,,0,123456)
 select count(*) from tb
 ```
 
 ```
-conn = mysql::connect(`localhost, `root, `root, 3306, `DolphinDB)
+conn = mysql::connect(`localhost, 3306, `root, `root, `DolphinDB)
 tb = mysql::load(conn, "SELECT PERMNO FROM US LIMIT 123456")
 select count(*) from tb
 ```
 
 ```
-mysql::load(conn, "SELECT now()");
+mysql::load(conn, "SELECT now(6)");
 ```
 
 ## mysql::loadEx
 
 ### 语法
 
-* `mysql::loadEx(connection, dbHandle,tableName,[partitionColumns],table_or_query,[schema],[startRow],[rowNum])`
+* `mysql::loadEx(connection, dbHandle,tableName,partitionColumns,table_or_query,[schema],[startRow],[rowNum])`
 
 ### 参数
 
@@ -269,72 +250,83 @@ tb = loadTable("dfs://US", `tb)
 
 # 支持的数据类型
 
-## integer
-| MySQL data types    | DolphinDB data types         |
-| ------------------- | :--------------------------- |
-| MYSQL_TYPE_TINY     | INT                          |
-| MYSQL_TYPE_SHORT    | INT                          |
-| MYSQL_TYPE_INT24    | INT                          |
-| MYSQL_TYPE_LONG     | LONG                         |
-| MYSQL_TYPE_LONGLONG | LONG                         |
+##  整型
+
+| MySQL类型          | 对应的DolphinDB类型 |
+| ------------------ | :------------------ |
+| tinyint            | CHAR                |
+| tinyint unsigned   | SHORT               |
+| smallint           | SHORT               |
+| smallint unsigned  | INT                 |
+| mediumint          | INT                 |
+| mediumint unsigned | INT                 |
+| int                | INT                 |
+| int unsigned       | LONG                |
+| bigint             | LONG                |
+| bigint unsigned    | (不支持) LONG       |
+
+* DolphinDB中数值类型都为有符号类型,为了防止溢出,所有无符号类型会被转化为高一阶的有符号类型。例如，无符号CHAR转化为有符号SHORT，无符号SHORT转化为有符号INT，等等。64位无符号类型不予支持。
+* DolphinDB不支持 unsigned long long 类型，如果mysql中的类型为`bigint unsigned`, 可在load或者loadEx的schema参数里面设置为`DOUBLE`或者`FLOAT`。
+* DolphinDB中各类整形的最小值为NULL值，如`CHAR`的`-128`，`SHORT`的`-32,768`， `INT`的`-2,147,483,648`以及`LONG`的`-9,223,372,036,854,775,808`。
 
 
-* DolphinDB中数值类型都为有符号类型,为了防止溢出,所有无符号类型会被转化为高一阶的有符号类型,64位无符号类型不予支持。
-* DolphinDB不支持 unsigned long long 类型，如果mysql中的类型为 unsigned long long, 可在load或者loadEx的schema参数里面设置为`DOUBLE`或者`FLOAT`。
+## 浮点数类型
 
-## float
-| MySQL data types      | DolphinDB data types         |
-| --------------------- | :--------------------------- |
-| MYSQL_TYPE_DOUBLE     | DOUBLE                       |
-| MYSQL_TYPE_DECIMAL    | DOUBLE                       |
-| MYSQL_TYPE_NEWDECIMAL | DOUBLE                       |
-| MYSQL_TYPE_FLOAT      | FLOAT                        |
+| MySQL类型  | 对应的DolphinDB类型 |
+| ---------- | :------------------ |
+| double     | DOUBLE              |
+| decimal    | DOUBLE              |
+| newdecimal | DOUBLE              |
+| float      | FLOAT               |
 
 注:IEEE754浮点数类型皆为有符号数。
 
-* 以上浮点类型皆可转化为DolphinDB中的数值相关类型(bool, char, short, int, long, float, double)。
+* 以上浮点类型皆可转化为DolphinDB中的数值相关类型(BOOL, CHAR, SHORT, INT, LONG, FLOAT, DOUBLE)。
 
-## time
+## 时间类型
 
-| MySQL data types     | DolphinDB data types         |
-| -------------------- | :--------------------------- |
-| MYSQL_TYPE_DATE      | DATE                         |
-| MYSQL_TYPE_TIME      | TIME                         |
-| MYSQL_TYPE_DATETIME  | DATETIME                     |
-| MYSQL_TYPE_TIMESTAMP | TIMESTAMP                    |
-| MYSQL_TYPE_YEAR      | INT                          |
+| MySQL类型 | 对应的DolphinDB类型 |
+| --------- | :------------------ |
+| date      | DATE                |
+| time      | TIME                |
+| datetime  | DATETIME            |
+| timestamp | TIMESTAMP           |
+| year      | INT                 |
 
-* 以上类型皆可以转化为DolphinDB中的时间相关类型(date, month, time, minute, second, datetime, timestamp, nanotime, nanotimestamp)。
+* 以上类型皆可以转化为DolphinDB中的时间相关类型(DATE, MONTH, TIME, MINUTE, SECOND, DATETIME, TIMESTAMP, NANOTIME, NANOTIMESTAMP)。
 
-## string
-| MySQL data types      | DolphinDB data types         |
-| --------------------- | :--------------------------- |
-| MYSQL_TYPE_STRING     | STRING                       |
-| MYSQL_TYPE_VAR_STRING | STRING                       |
-| MYSQL_TYPE_VAR_CHAR   | STRING                       |
-| MYSQL_TYPE_BLOB       | STRING                       |
+## 字符串类型
 
-* string类型可以转化为转化为DolphinDB中的字符串相关类型(string,symbol)。
+| MySQL类型           | 对应的DolphinDB类型 |
+| ------------------- | :------------------ |
+| char  (len <= 10)   | SYMBOL              |
+| varchar (len <= 10) | SYMBOL              |
+| char  (len > 10)    | STRING              |
+| varchar (len > 10)  | STRING              |
+| other string types  | STRING              |
 
-## enum
+* 长度小于等于10的`char`和`varchar`将被转化为`SYMBOL`类型，其余转化为`STRING`类型。
+* string类型可以转化为转化为DolphinDB中的字符串相关类型(`STRING`,`SYMBOL`)。
 
-| MySQL data types| DolphinDB data types         |
-| --------------- | :--------------------------- |
-| MYSQL_TYPE_ENUM | SYMBOL                       |
+## 枚举类型
 
-* enum类型可以转化为DolphinDB中的字符串相关类型(string,symbol)。
+| MySQL类型 | 对应的DolphinDB类型 |
+| --------- | :------------------ |
+| enum      | SYMBOL              |
+
+* enum类型可以转化为DolphinDB中的字符串相关类型(`STRING`,`SYMBOL`)，默认转化为`SYMBOL`类型。
 
 # 导入数据性能
 
 ## 硬件环境
 
 * CPU: i7-7700 3.60GHZ
-* 硬盘: SSD， 读速为每秒30~40MB。
+* 硬盘: SSD， 读速为每秒460~500MB/s。
 
 ## 导入数据
 
-* 美国股票市场从1990年至2016年的每日数据，共有22列50,591,907行。
+* 美国股票市场从1990年至2016年的每日数据，共有22列50,591,907行, 6.5GB。
 
 ## 导入耗时
 
-导入时间为191.5秒。
+160.5秒

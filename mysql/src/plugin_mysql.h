@@ -1,14 +1,15 @@
 #ifndef PLUGIN_MYSQL_H
 #define PLUGIN_MYSQL_H
+#include <functional>
+#include <iostream>
+#include <limits>
+#include <thread>
+#include "Concurrent.h"
 #include "CoreConcept.h"
 #include "LocklessContainer.h"
-#include "Concurrent.h"
 #include "ScalarImp.h"
 #include "Util.h"
 #include "mysqlxx.h"
-#include <functional>
-#include <iostream>
-#include <thread>
 #ifdef DEBUG
 #include <chrono>
 typedef std::chrono::high_resolution_clock Clock;
@@ -37,50 +38,55 @@ bool parseMinute(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt);
 bool parseSecond(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt);
 bool parseDatetime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt);
 
-const set<DATA_TYPE> time_type
-    {DT_TIMESTAMP, DT_NANOTIME, DT_NANOTIMESTAMP, DT_DATE, DT_MONTH, DT_TIME, DT_MINUTE, DT_SECOND, DT_DATETIME};
+const set<DATA_TYPE> time_type{DT_TIMESTAMP, DT_NANOTIME, DT_NANOTIMESTAMP, DT_DATE, DT_MONTH, DT_TIME, DT_MINUTE, DT_SECOND, DT_DATETIME};
 bool compatible(DATA_TYPE dst, DATA_TYPE src);
 bool compatible(vector<DATA_TYPE> &dst, vector<DATA_TYPE> &src);
 
 class NotImplementedException : public exception {
-  public:
-    NotImplementedException(const string &functionName, const string &errMsg)
-        : functionName_(functionName), errMsg_(errMsg) {}
+   public:
+    NotImplementedException(const string &functionName, const string &errMsg) : functionName_(functionName), errMsg_(errMsg) {}
     virtual const char *what() const throw() { return errMsg_.c_str(); }
     virtual ~NotImplementedException() throw() {}
     const string &getFunctionName() const { return functionName_; }
 
-  private:
+   private:
     const string functionName_;
     const string errMsg_;
 };
 
-DATA_TYPE getDolphinDBType(mysqlxx::enum_field_types t);
+DATA_TYPE getDolphinDBType(mysqlxx::enum_field_types t, bool isUnsigned, bool isEnum, int maxStrLen);
 size_t typeLen(DATA_TYPE dt);
 
 class Connection : public mysqlxx::Connection {
-  private:
+   private:
     std::string host_;
     std::string user_;
     std::string password_;
     std::string db_;
-    int port = 3306;
+    int port_ = 3306;
 
-  public:
+   public:
     Connection();
-    Connection(std::string hostname, std::string username, std::string password, int port, std::string database);
+    Connection(std::string hostname, int port, std::string username, std::string password, std::string database);
 
     ~Connection();
     ConstantSP doQuery(const std::string &str);
     ConstantSP extractSchema(const std::string &MySQLTableName);
-    ConstantSP load(const std::string &table_or_query, const TableSP &schema = nullptr, const int &startRow = 0,
-                    const int &rowNum = INT_MAX);
-    ConstantSP loadEx(Heap *heap, const ConstantSP &dbHandle, const std::string &tableName,
-                      const ConstantSP &partitionColumns, const std::string &MySQLTableName_or_query,
-                      const TableSP &schema = nullptr, const int &startRow = 0, const int &rowNum = INT_MAX);
-    std::string str() { return user_ + "@" + host_ + ":" + std::to_string(port) + "/" + db_; }
+    ConstantSP load(const std::string &table_or_query,
+                    const TableSP &schema = nullptr,
+                    const uint64_t &startRow = 0,
+                    const uint64_t &rowNum = std::numeric_limits<uint64_t>::max());
+    ConstantSP loadEx(Heap *heap,
+                      const ConstantSP &dbHandle,
+                      const std::string &tableName,
+                      const ConstantSP &partitionColumns,
+                      const std::string &MySQLTableName_or_query,
+                      const TableSP &schema = nullptr,
+                      const uint64_t &startRow = 0,
+                      const uint64_t &rowNum = std::numeric_limits<uint64_t>::max());
+    std::string str() { return user_ + "@" + host_ + ":" + std::to_string(port_) + "/" + db_; }
 
-  private:
+   private:
     bool isQuery(std::string);
 };
 
@@ -93,35 +99,31 @@ using mysqlxx::Query;
 class Pack;
 
 class MySQLExtractor {
-  private:
+   private:
     // only used in Executor
     class Executor : public Runnable {
-      public:
+       public:
         explicit Executor(std::function<void()> &&f) : realWork_(f) {}
 
-      protected:
+       protected:
         void run() override { realWork_(); }
 
-      private:
+       private:
         std::function<void()> realWork_;
     };
 
-  public:
+   public:
     explicit MySQLExtractor(const Query &q);
     ~MySQLExtractor();
     TableSP extractSchema(const std::string &table);
-    TableSP extract(const ConstantSP &schema = nullptr, const size_t starRow = 0);
-    void extractEx(Heap *heap, TableSP &t, const ConstantSP &schema = nullptr, const size_t startRow = 0);
+    TableSP extract(const ConstantSP &schema = nullptr);
+    void extractEx(Heap *heap, TableSP &t, const ConstantSP &schema = nullptr);
     void growTable(TableSP &t, Pack &p);
     void growTableEx(TableSP &t, Pack &p, Heap *heap);
 
-  private:
+   private:
     vector<DATA_TYPE> getDstType(const TableSP &schema);
-    void realExtract(mysqlxx::UseQueryResult &res,
-                     const ConstantSP &schema,
-                     const size_t startRow,
-                     TableSP &resultTable,
-                     std::function<void(Pack &pack)>);
+    void realExtract(mysqlxx::UseQueryResult &res, const ConstantSP &schema, TableSP &resultTable, std::function<void(Pack &pack)>);
     void realGrowTable(Pack &p, std::function<void(vector<ConstantSP> &)> &&callback);
     vector<string> getColNames(mysqlxx::ResultBase &);
     vector<DATA_TYPE> getColTypes(mysqlxx::ResultBase &);
@@ -132,7 +134,7 @@ class MySQLExtractor {
     void consumerRelease();
     void prepareForExtract(const ConstantSP &schema, mysqlxx::ResultBase &);
 
-  private:
+   private:
     vector<std::string> colNames_;
     vector<DATA_TYPE> srcColTypes_;
     vector<DATA_TYPE> dstColTypes_;
@@ -146,13 +148,12 @@ class MySQLExtractor {
 };
 
 class Pack {
-  public:
-    Pack() : rawBuffers_(0), isNull_(0), typeLen_(0), nCol_(0), size_(0), capacity_(0), srcDt_(0), dstDt_(0) {};
-    explicit Pack(vector<DATA_TYPE> srcDt, vector<DATA_TYPE> dstDt, vector<size_t> maxStrlen, TableSP &resultTable,
-                  size_t cap = DEFAULT_PACK_SIZE);
+   public:
+    Pack() : rawBuffers_(0), isNull_(0), typeLen_(0), nCol_(0), size_(0), capacity_(0), srcDt_(0), dstDt_(0){};
+    explicit Pack(
+        vector<DATA_TYPE> srcDt, vector<DATA_TYPE> dstDt, vector<size_t> maxStrlen, TableSP &resultTable, size_t cap = DEFAULT_PACK_SIZE);
     ~Pack();
-    void init(vector<DATA_TYPE> srcDt, vector<DATA_TYPE> dstDt, TableSP &t, vector<size_t> maxStrlen,
-              size_t cap = DEFAULT_PACK_SIZE);
+    void init(vector<DATA_TYPE> srcDt, vector<DATA_TYPE> dstDt, TableSP &t, vector<size_t> maxStrlen, size_t cap = DEFAULT_PACK_SIZE);
     void append(const mysqlxx::Row &);
     void clear();
 
@@ -162,11 +163,11 @@ class Pack {
     size_t size() const { return size_; }
     size_t nCol() const { return nCol_; }
 
-  private:
+   private:
     bool parseString(char *dst, const mysqlxx::Value &val);
     unsigned long long getRowStorage(vector<DATA_TYPE> types, vector<size_t> maxStrlen);
 
-  private:
+   private:
     vector<char *> rawBuffers_;
     vector<vector<size_t>> isNull_;
     vector<size_t> typeLen_;
@@ -176,24 +177,24 @@ class Pack {
     vector<DATA_TYPE> srcDt_, dstDt_;
 };
 
-template<typename T>
+template <typename T>
 inline void setter(char *dst, T &&val, DATA_TYPE &dstDt) {
     switch (dstDt) {
         case DT_BOOL:
-            *((bool *) dst) = static_cast<bool>(val);
+            *((bool *)dst) = static_cast<bool>(val);
             break;
         case DT_CHAR:
             *dst = static_cast<char>(val);
             break;
         case DT_SHORT:
-            *((short *) dst) = static_cast<short>(val);
+            *((short *)dst) = static_cast<short>(val);
             break;
         case DT_DATETIME:
         case DT_TIMESTAMP:
         case DT_NANOTIME:
         case DT_NANOTIMESTAMP:
         case DT_LONG:
-            *((long long *) dst) = static_cast<long long>(val);
+            *((long long *)dst) = static_cast<long long>(val);
             break;
         case DT_DATE:
         case DT_MONTH:
@@ -201,24 +202,24 @@ inline void setter(char *dst, T &&val, DATA_TYPE &dstDt) {
         case DT_MINUTE:
         case DT_SECOND:
         case DT_INT:
-            *((int *) dst) = static_cast<int>(val);
+            *((int *)dst) = static_cast<int>(val);
             break;
         case DT_FLOAT:
-            *((float *) dst) = static_cast<float>(val);
+            *((float *)dst) = static_cast<float>(val);
             break;
         case DT_DOUBLE:
-            *((double *) dst) = static_cast<double>(val);
+            *((double *)dst) = static_cast<double>(val);
             break;
         default:
             throw RuntimeException("Type: " + Util::getDataTypeString(dstDt) + " in setter not handled.");
     }
 }
 
-template<typename T>
+template <typename T>
 inline bool parseScalar(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt) {
     if (dstDt == DT_STRING) {
-        memcpy(*((char **) dst), val.data(), val.size());
-        (*((char **) dst))[val.size()] = '\0';
+        memcpy(*((char **)dst), val.data(), val.size());
+        (*((char **)dst))[val.size()] = '\0';
     } else {
         try {
             setter(dst, val.get<T>(), dstDt);
@@ -232,5 +233,5 @@ inline bool parseScalar(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt) 
 
 const char *getMySQLTypeStr(mysqlxx::enum_field_types dt);
 
-} // namespace dolphindb
+}  // namespace dolphindb
 #endif

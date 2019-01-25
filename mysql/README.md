@@ -2,24 +2,6 @@
 
 DolphinDB's MySQL plugin imports MySQL datasets or query results into DolphinDB. It supports data type conversion. Part of the plugin follows mysqlxx by Yandex.Clickhouse.
 
-
-* [Build](#Build)
-    * [Build with cmake](#Build with cmake)
-* [User-API](#User API)
-    * [mysql::connect](#mysqlConnect)
-    * [mysql::showTables](#mysqlShowTables)
-    * [mysql::extractSchema](#mysqlExtractSchema)
-    * [mysql::load](#mysqlLoad)
-    * [mysql::loadEx](#mysqlLoadEx)
-* [Data Types](#Data Types)
-    * [integer](#integer)
-    * [float](#float)
-    * [time](#time)
-    * [string](#string)
-    * [enum](#enum)
-<!-- * [Performance](#Performance) -->
-
-
 # Build
 
 ## Prerequisite
@@ -79,7 +61,7 @@ cmake -DCMAKE_BUILD_TYPE=Release ../path_to_mysql_plugin/
 make -j`nproc`
 ```
 
-**Note:** Before compiling, please make sure that `libDolphinDB.so` is in the gcc searchable path. You can use `LD_LIBRARY_PATH` to specify its path.
+**Note:** Before compiling, please make sure that `libDolphinDB.so` is in a path that can be found by gcc. The path can be specified with `LD_LIBRARY_PATH`.
 
 The file libPluginMySQL.so will be generated after the compilation.
 
@@ -92,24 +74,24 @@ The file libPluginMySQL.so will be generated after the compilation.
 ### Syntax
 
 <!-- (host, user, password, port, [socket], [ssl_ca], [ssl_cert], [ssl_key]) -->
-* `mysql::connect(host, user, password, port, db)`
+* `mysql::connect(host, port, user, password, db)`
 
 ### Parameters
 
 * `host`: address of MySQL server. Data type `string`.
+* `port`: port of MySQL server. Data type `int`.
 * `user`: user name of MySQL server. Data type `string`.
 * `password`: password of MySQL server. Data type `string`.
-* `port`: port of MySQL server. Data type `int`.
 * `db`: database name. Data type `string`.
 
 ### Details
 
 * Create a connection to MySQL server. Return a handle of MySQL connection, which will be used to access MySQL server later.
 
-### Example
+### Examples
 
 ```
-conn = mysql::connect(`localhost, `root, `root, 3306, `DolphinDB)
+conn = mysql::connect(`localhost, 3306, `root, `root, `DolphinDB)
 ```
 
 ## mysql::showTables
@@ -126,10 +108,10 @@ conn = mysql::connect(`localhost, `root, `root, 3306, `DolphinDB)
 
 * List all table names in a MySql database specified in `mysql::connect`.
 
-### Example
+### Examples
 
 ```
-conn = mysql::connect(`localhost, `root, `root, 3306, `DolphinDB)
+conn = mysql::connect(`localhost, 3306, `root, `root, `DolphinDB)
 mysql::showTables(conn)
 
 output:
@@ -151,20 +133,20 @@ output:
 ### Details
 * Generate the schema of a table.
 
-### Example
+### Examples
 
 ```
-conn = mysql::connect(`localhost, `root, `root, 3306, `DolphinDB)
+conn = mysql::connect(`localhost, 3306, `root, `root, `DolphinDB)
 mysql::extractSchema(conn, `US)
 
 output:
-        Name    MySQLType   DolphinDBType
-        PERMNO  int(11)     INT
-        date    date        DATE
-        SHRCD   int(11)     INT
-        TICKER  varchar(10) STRING
+        name    type        DolphinDBType
+        PERMNO  INT         int(11)
+        date    DATE        date
+        SHRCD   INT         int(11)
+        TICKER  SYMBOL      varchar(10)
         ...
-        PRC     double      DOUBLE
+        PRC     DOUBLE      double
 ```
 
 ## mysql::load
@@ -177,35 +159,37 @@ output:
 * `connection`: a MySQL connection handle created with `mysql::connect`.
 * `table_or_query`: the name of a MySQL server table or a MySQL query. Data type `string`.
 * `schema`: a table with names and data types of columns. If we need to change the data type of a column that is automatically determined by the system, the schema table needs to be modified and used as an argument.
-* `startRow`: an integer indicating the index of the starting row to read. If unspecified, read from the first row.
+* `startRow`: an integer indicating the index of the starting row to read. If unspecified, read from the first row. If `table_or_query` is a SQL query, then `startRow` is unspecified.
 * `rowNum`: an integer indicating the number of rows to read. If unspecified, read to the last row. If `table_or_query` is a SQL query, then `rowNum` is unspecified.
+
+**Note:** If `table_or_query` is a SQL query, use `LIMIT` in SQL query to specify `startRow` and `rowNum`.
 
 ### Details
 * Load a MySQL table or SQL query result into a DolphinDB in-memory table.
 * For details about supported data types as well as data conversion rules, please refer to the [Data Types] (#Data Types) section.
 
-### Example
+### Examples
 ```
-conn = mysql::connect(`localhost, `root, `root, 3306, `DolphinDB)
-tb = mysql::load(conn, `US,,0,123456)
+conn = mysql::connect(`localhost, 3306, `root, `root, `DolphinDB)
+tb = mysql::load(conn, `US,,123,123456)
 select count(*) from tb
 ```
 
 ```
-conn = mysql::connect(`localhost, `root, `root, 3306, `DolphinDB)
-tb = mysql::load(conn, "SELECT PERMNO FROM US LIMIT 123456")
+conn = mysql::connect(`localhost, 3306, `root, `root, `DolphinDB)
+tb = mysql::load(conn, "SELECT PERMNO FROM US LIMIT 123,123456")
 select count(*) from tb
 ```
 
 ```
-mysql::load(conn, "SELECT now()");
+mysql::load(conn, "SELECT now(6)", table(`val as name, `NANOTIMESTAMP as type));
 ```
 
 ## mysql::loadEx
 
 ### Syntax
 
-* `mysql::loadEx(connection, dbHandle,tableName,[partitionColumns],table_or_query,[schema],[startRow],[rowNum])`
+* `mysql::loadEx(connection, dbHandle,tableName,partitionColumns,table_or_query,[schema],[startRow],[rowNum])`
 
 ### Parameters
 * `connection`: a MySQL connection handle created with `mysql::connect`.
@@ -213,16 +197,18 @@ mysql::load(conn, "SELECT now()");
 * `partitionColumns`: a string scalar/vector indicating partitioning column(s).
 * `table_or_query`: the name of a MySQL server table or a MySQL query. Data type `string`.
 * `schema`: a table with names and data types of columns. If we need to change the data type of a column that is automatically determined by the system, the schema table needs to be modified and used as an argument.
-* `startRow`: an integer indicating the index of the starting row to read. If unspecified, read from the first row.
+* `startRow`: an integer indicating the index of the starting row to read. If unspecified, read from the first row. If `table_or_query` is a SQL query, then `startRow` is unspecified.
 * `rowNum`: an integer indicating the number of rows to read. If unspecified, read to the last row. If `table_or_query` is a SQL query, then `rowNum` is unspecified.
+
+**Note:** If `table_or_query` is a SQL query, use `LIMIT` in SQL query to specify `startRow` and `rowNum`.
 
 ### Details
 * Load a MySQL table as a distributed table. The result is a table object with loaded metadata.
 * For details about supported data types as well as data conversion rules, please refer to the [Data Types] (#Data Types) section.
 
-### Example
+### Examples
 
-* Load data as a partitioned table on disk. 
+* Load data as a partitioned table on disk.
 ```
 dbPath = "C:/..."
 db = database(dbPath, RANGE, 0 500 1000)
@@ -263,73 +249,84 @@ tb = loadTable("dfs://US", `tb)
 
 # Data Types
 
-## integer
-| type in MySQL       | corresponding DolphinDB type |
-| ------------------- | :--------------------------- |
-| MYSQL_TYPE_TINY     | INT                          |
-| MYSQL_TYPE_SHORT    | INT                          |
-| MYSQL_TYPE_INT24    | INT                          |
-| MYSQL_TYPE_LONG     | LONG                         |
-| MYSQL_TYPE_LONGLONG | LONG                         |
+<!-- INT TINYINT SMALLINT MEDIUMINT BIGINT CHAR VARCHAR ENUM -->
 
+## Integral
 
-* The numeric types in DolphinDB are all signed types. To prevent overflow, all unsigned types are converted to ```high-order signed types, 64-bit unsigned types are not supported ```
+| MySQL type         | corresponding DolphinDB type |
+| ------------------ | :--------------------------- |
+| tinyint            | CHAR                         |
+| tinyint unsigned   | SHORT                        |
+| smallint           | SHORT                        |
+| smallint unsigned  | INT                          |
+| mediumint          | INT                          |
+| mediumint unsigned | INT                          |
+| int                | INT                          |
+| int unsigned       | LONG                         |
+| bigint             | LONG                         |
+| bigint unsigned    | (unsupported) LONG           |
+
+* The numeric types in DolphinDB are all signed types. To prevent overflow, all unsigned types are converted to high-order signed types. For example, unsigned`CHAR` is converted to signed `SHORT`, unsigned `SHORT` is converted to signed `INT`, etc. 64-bit unsigned types are not supported.
 * `unsigned long long` are not supported in DolphinDB, you can specify schema and use `DOUBLE` or `FLOAT` if needed.
+* The smallest value of each integral type in DolphinDB means NULL value, e.g. `-128` for `CHAR`, `-32,768` for `SHORT`, `-2,147,483,648` for `INT` and `-9,223,372,036,854,775,808` for `LONG` mean `NULL` values in each type respectively.
 
-## float
-| type in MySQL         | corresponding DolphinDB type |
-| --------------------- | :--------------------------- |
-| MYSQL_TYPE_DOUBLE     | DOUBLE                       |
-| MYSQL_TYPE_DECIMAL    | DOUBLE                       |
-| MYSQL_TYPE_NEWDECIMAL | DOUBLE                       |
-| MYSQL_TYPE_FLOAT      | FLOAT                        |
+## Floating-point
 
-Note: IEEE754 floating types are all signed numbers.
+| MySQL type    | corresponding DolphinDB type |
+| ------------- | :--------------------------- |
+| double        | DOUBLE                       |
+| decimal       | DOUBLE                       |
+| newdecimal    | DOUBLE                       |
+| float         | FLOAT                        |
 
-* All floating types can be converted to numeric types ```(bool, char, short, int, long, float, double)``` in DolphinDB. 
+**Note:** IEEE754 floating-point types are all signed numbers.
 
-## time
+* All floating-point types can be converted to numeric types ```(bool, char, short, int, long, float, double)``` in DolphinDB.
 
-| type in MySQL        | corresponding DolphinDB type |
-| -------------------- | :--------------------------- |
-| MYSQL_TYPE_DATE      | DATE                         |
-| MYSQL_TYPE_TIME      | TIME                         |
-| MYSQL_TYPE_DATETIME  | DATETIME                     |
-| MYSQL_TYPE_TIMESTAMP | TIMESTAMP                    |
-| MYSQL_TYPE_YEAR      | INT                          |
+## Time
 
+| MySQL type    | corresponding DolphinDB type |
+| ------------- | :--------------------------- |
+| date          | DATE                         |
+| time          | TIME                         |
+| datetime      | DATETIME                     |
+| timestamp     | TIMESTAMP                    |
+| year          | INT                          |
 
-* All data types above can be converted to a temperal data type in DolphinDB `(date, month, time, minute, second, datetime, timestamp, nanotime, nanotimestamp)`.
+* All data types above can be converted to temperal data types in DolphinDB `(date, month, time, minute, second, datetime, timestamp, nanotime, nanotimestamp)`.
 
-## string
-| type in MySQL         | corresponding DolphinDB type |
-| --------------------- | :--------------------------- |
-| MYSQL_TYPE_STRING     | STRING                       |
-| MYSQL_TYPE_VAR_STRING | STRING                       |
-| MYSQL_TYPE_VAR_CHAR   | STRING                       |
-| MYSQL_TYPE_BLOB       | STRING                       |
+## String
 
-* `string` type will be converted to STRING or SYMBOL type in DolphinDB.
+| MySQL type          | corresponding DolphinDB type |
+| ------------------- | :--------------------------- |
+| char  (len <= 10)   | SYMBOL                       |
+| varchar (len <= 10) | SYMBOL                       |
+| char  (len > 10)    | STRING                       |
+| varchar (len > 10)  | STRING                       |
+| other string types  | STRING                       |
 
-## enum
+* `char` and `varchar` types of length less or equal to 10 will be converted to `SYMBOL` type in DolphinDB. Other string types will be converted to `STRING` type in DolphinDB.
+* `string` type will be converted to `STRING` or `SYMBOL` type in DolphinDB.
 
-| type in MySQL   | corresponding DolphinDB type |
-| --------------- | :--------------------------- |
-| MYSQL_TYPE_ENUM | SYMBOL                       |
+## Enum
 
-* Enum type will be converted to STRING or SYMBOL type in DolphinDB.
+| MySQL type    | corresponding DolphinDB type |
+| ------------- | :--------------------------- |
+| enum          | SYMBOL                       |
+
+* `enum` type will be converted to `SYMBOL` type in DolphinDB.
 
 # Data Import Performance
 
 ## Environment
 
 * CPU: i7-7700 3.60GHZ
-* Harddisk: SSD, read speed 30~40MB/s
+* Hard disk: SSD, read speed 460~500MB/s.
 
-## Data 
+## Data
 
-* Load US stock daily data from 1990 to 2016 with 22 fields and 50591907 rows.
+* US stock daily data from 1990 to 2016 with 22 fields and 50591907 rows. Total size is 6.5GB.
 
-## Time Consumed 
+## Time Consumed
 
-191.5 seconds
+160.5 seconds

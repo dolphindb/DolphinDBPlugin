@@ -61,16 +61,16 @@ using MYSQL_FIELDS = MYSQL_FIELD *;
 // DolphinDB and mysql.h headers have name conflict
 // !? must ensure it's the same as mysql.h
 enum enum_field_types {
-    MYSQL_TYPE_DECIMAL,   // variable !?, FIXME: check this type
-    MYSQL_TYPE_TINY,      // 1 byte
-    MYSQL_TYPE_SHORT,     // 2 bytes
-    MYSQL_TYPE_LONG,      // 4
-    MYSQL_TYPE_FLOAT,     // 4
-    MYSQL_TYPE_DOUBLE,    // 8
-    MYSQL_TYPE_NULL,      // !?
-    MYSQL_TYPE_TIMESTAMP, // !?
-    MYSQL_TYPE_LONGLONG,  // 8
-    MYSQL_TYPE_INT24,     // 3
+    MYSQL_TYPE_DECIMAL,    // variable !?, FIXME: check this type
+    MYSQL_TYPE_TINY,       // 1 byte
+    MYSQL_TYPE_SHORT,      // 2 bytes
+    MYSQL_TYPE_LONG,       // 4
+    MYSQL_TYPE_FLOAT,      // 4
+    MYSQL_TYPE_DOUBLE,     // 8
+    MYSQL_TYPE_NULL,       // !?
+    MYSQL_TYPE_TIMESTAMP,  // !?
+    MYSQL_TYPE_LONGLONG,   // 8
+    MYSQL_TYPE_INT24,      // 3
     MYSQL_TYPE_DATE,
     MYSQL_TYPE_TIME,
     MYSQL_TYPE_DATETIME,
@@ -78,9 +78,9 @@ enum enum_field_types {
     MYSQL_TYPE_NEWDATE,
     MYSQL_TYPE_VARCHAR,
     MYSQL_TYPE_BIT,
-    MYSQL_TYPE_TIMESTAMP2, // only on server side
-    MYSQL_TYPE_DATETIME2,  // only on server side
-    MYSQL_TYPE_TIME2,      // only on server side
+    MYSQL_TYPE_TIMESTAMP2,  // only on server side
+    MYSQL_TYPE_DATETIME2,   // only on server side
+    MYSQL_TYPE_TIME2,       // only on server side
     MYSQL_TYPE_JSON = 245,
     MYSQL_TYPE_NEWDECIMAL = 246,
     MYSQL_TYPE_ENUM = 247,
@@ -101,21 +101,19 @@ class ResultBase;
 
 // Value
 class Value {
-  public:
+   public:
     Value(const char *data_, size_t length_, const ResultBase *res_) : m_data(data_), m_length(length_), res(res_) {}
 
     /// Get the value of bool.
     bool getBool() const {
-        if (unlikely(isNull()))
-            throwException("Value is NULL");
+        if (unlikely(isNull())) throwException("Value is NULL");
 
         return m_length > 0 && m_data[0] != '0';
     }
 
     /// Get an unsigned integer.
     UInt64 getUInt() const {
-        if (unlikely(isNull()))
-            throwException("Value is NULL");
+        if (unlikely(isNull())) throwException("Value is NULL");
 
         return readUIntText(m_data, m_length);
         ;
@@ -128,16 +126,14 @@ class Value {
 
     /// Get a floating point number.
     double getDouble() const {
-        if (unlikely(isNull()))
-            throwException("Value is NULL");
+        if (unlikely(isNull())) throwException("Value is NULL");
 
         return readFloatText(m_data, m_length);
     }
 
     /// Get the string.
     std::string getString() const {
-        if (unlikely(isNull()))
-            throwException("Value is NULL");
+        if (unlikely(isNull())) throwException("Value is NULL");
 
         return std::string(m_data, m_length);
     }
@@ -148,9 +144,13 @@ class Value {
     /// For compatibility (use isNull () method instead)
     bool is_null() const { return isNull(); }
 
-    template <typename T> T get() const;
+    template <typename T>
+    T get() const;
 
-    template <typename T> operator T() const { return get<T>(); }
+    template <typename T>
+    operator T() const {
+        return get<T>();
+    }
 
     const char *data() const { return m_data; }
 
@@ -160,7 +160,7 @@ class Value {
 
     bool empty() const { return 0 == m_length; }
 
-  private:
+   private:
     const char *m_data;
     size_t m_length;
     const ResultBase *res;
@@ -179,43 +179,88 @@ class Value {
     /// Read a signed integer in a simple format from a non-0-terminated string.
     Int64 readIntText(const char *buf, size_t length) const;
 
-    /// Read a floating-point number in a simple format, with rough rounding, from
-    /// a non-0-terminated string.
+    /// Read a floating-point number in a simple format, with rough rounding,
+    /// from a non-0-terminated string.
     double readFloatText(const char *buf, size_t length) const;
 
     /// Throw an exception with detailed information
     void throwException(const char *text) const;
 };
 
-template <> inline bool Value::get<bool>() const { return getBool(); }
+template <>
+inline bool Value::get<bool>() const {
+    return getBool();
+}
 
-template <> inline char Value::get<char>() const { return getInt(); }
+template <>
+inline char Value::get<char>() const {
+    return getInt();
+}
 
-template <> inline signed char Value::get<signed char>() const { return getInt(); }
+template <>
+inline signed char Value::get<signed char>() const {
+    return getInt();
+}
 
-template <> inline unsigned char Value::get<unsigned char>() const { return getUInt(); }
+template <>
+inline unsigned char Value::get<unsigned char>() const {
+    return getUInt();
+}
 
-template <> inline short Value::get<short>() const { return getInt(); }
+template <>
+inline short Value::get<short>() const {
+    return getInt();
+}
 
-template <> inline unsigned short Value::get<unsigned short>() const { return getUInt(); }
+template <>
+inline unsigned short Value::get<unsigned short>() const {
+    return getUInt();
+}
 
-template <> inline int Value::get<int>() const { return getInt(); }
+template <>
+inline int Value::get<int>() const {
+    return getInt();
+}
 
-template <> inline unsigned int Value::get<unsigned int>() const { return getUInt(); }
+template <>
+inline unsigned int Value::get<unsigned int>() const {
+    return getUInt();
+}
 
-template <> inline long Value::get<long>() const { return getInt(); }
+template <>
+inline long Value::get<long>() const {
+    return getInt();
+}
 
-template <> inline unsigned long Value::get<unsigned long>() const { return getUInt(); }
+template <>
+inline unsigned long Value::get<unsigned long>() const {
+    return getUInt();
+}
 
-template <> inline long long Value::get<long long>() const { return getInt(); }
+template <>
+inline long long Value::get<long long>() const {
+    return getInt();
+}
 
-template <> inline unsigned long long Value::get<unsigned long long>() const { return getUInt(); }
+template <>
+inline unsigned long long Value::get<unsigned long long>() const {
+    return getUInt();
+}
 
-template <> inline float Value::get<float>() const { return getDouble(); }
+template <>
+inline float Value::get<float>() const {
+    return getDouble();
+}
 
-template <> inline double Value::get<double>() const { return getDouble(); }
+template <>
+inline double Value::get<double>() const {
+    return getDouble();
+}
 
-template <> inline std::string Value::get<std::string>() const { return getString(); }
+template <>
+inline std::string Value::get<std::string>() const {
+    return getString();
+}
 
 /*
 template<>
@@ -225,7 +270,10 @@ template<>
 inline LocalDateTime Value::get<LocalDateTime>() const { return getDateTime(); }
 */
 
-template <typename T> inline T Value::get() const { return T(*this); }
+template <typename T>
+inline T Value::get() const {
+    return T(*this);
+}
 
 inline std::ostream &operator<<(std::ostream &ostr, const Value &x) { return ostr.write(x.data(), x.size()); }
 
@@ -240,7 +288,7 @@ inline std::ostream &operator<<(std::ostream &ostr, const Value &x) { return ost
   * incorrect.
   */
 class Row {
-  private:
+   private:
     /** @brief Pointer to bool data member, for use by safe bool conversion
      * operator.
      * @see http://www.artima.com/cppsource/safebool.html
@@ -248,7 +296,7 @@ class Row {
      */
     typedef MYSQL_ROW Row::*private_bool_type;
 
-  public:
+   public:
     /** For the possibility of delayed initialization. */
     Row() {}
 
@@ -278,10 +326,10 @@ class Row {
     bool empty() const { return row == nullptr; }
 
     /** Conversion to bool.
-        * (More precisely - to the type that is converted to bool, and with which
-  almost nothing can be done.)       */
-    operator private_bool_type() const { return row == nullptr ? nullptr : &Row::row; } // what the heck???
-  private:
+        * (More precisely - to the type that is converted to bool, and with
+  which almost nothing can be done.)       */
+    operator private_bool_type() const { return row == nullptr ? nullptr : &Row::row; }  // what the heck???
+   private:
     MYSQL_ROW row = nullptr;
     ResultBase *res = nullptr;
     MYSQL_LENGTHS lengths;
@@ -295,8 +343,8 @@ class Row {
   * (When attempting to assign the result of the
   * following query to an object - UB.)
   */
-class ResultBase { // non-copyable
-  public:
+class ResultBase {  // non-copyable
+   public:
     ResultBase(MYSQL_RES *res_, Connection *conn_, const Query *query_);
 
     //  ResultBase(const ResultBase& other) = delete;
@@ -315,13 +363,17 @@ class ResultBase { // non-copyable
 
     enum_field_types typeAt(int idx);
 
+    bool isUnsignedAt(int idx);
+
+    bool isEnumAt(int idx);
+
     unsigned long maxLengthAt(int idx);
 
     const Query *getQuery() const { return query_; }
 
     virtual ~ResultBase();
 
-  protected:
+   protected:
     MYSQL_RES *res_;
     Connection *conn_;
     const Query *query_;
@@ -330,7 +382,7 @@ class ResultBase { // non-copyable
 };
 
 class UseQueryResult : public ResultBase {
-  public:
+   public:
     UseQueryResult(MYSQL_RES *res_, Connection *conn_, const Query *query_);
 
     Row fetch();
@@ -339,7 +391,7 @@ class UseQueryResult : public ResultBase {
 };
 
 class Query : public std::ostream {
-  public:
+   public:
     Query(Connection *conn, const std::string &query_string = "");
 
     Query(const Query &);
@@ -364,10 +416,10 @@ class Query : public std::ostream {
 inline std::ostream &operator<<(std::ostream &ostr, const Query &query) { return ostr << query.rdbuf(); }
 
 class Exception : public std::exception {
-  public:
+   public:
     Exception(const std::string &msg, int code = INT_MAX);
 
-    Exception(const Exception &rhs) noexcept; // nothrow copy constructible
+    Exception(const Exception &rhs) noexcept;  // nothrow copy constructible
 
     ~Exception() noexcept override;
 
@@ -377,7 +429,7 @@ class Exception : public std::exception {
 
     std::string displayText() noexcept;
 
-  private:
+   private:
     std::string msg_ = "";
     int code_ = INT_MAX;
 };
@@ -408,10 +460,10 @@ void onError(MYSQL *driver);
 
 // Connection
 class LibrarySingleton final {
-  private:
+   private:
     LibrarySingleton();
 
-  public:
+   public:
     static LibrarySingleton &instance() {
         static LibrarySingleton instance;
         return instance;
@@ -419,7 +471,7 @@ class LibrarySingleton final {
 };
 
 class Connection {
-  public:
+   public:
     Connection();
 
     Connection(const Connection &) = delete;
@@ -436,16 +488,30 @@ class Connection {
 
     virtual ~Connection();
 
-    Connection(const char *db, const char *server, const char *user = nullptr, const char *password = nullptr,
-               unsigned port = 3306, const char *socket = "", const char *ssl_ca = "", const char *ssl_cert = "",
-               const char *ssl_key = "", unsigned timeout = MYSQLXX_DEFAULT_TIMEOUT,
+    Connection(const char *db,
+               const char *server,
+               const char *user = nullptr,
+               const char *password = nullptr,
+               unsigned port = 3306,
+               const char *socket = "",
+               const char *ssl_ca = "",
+               const char *ssl_cert = "",
+               const char *ssl_key = "",
+               unsigned timeout = MYSQLXX_DEFAULT_TIMEOUT,
                unsigned rw_timeout = MYSQLXX_DEFAULT_RW_TIMEOUT,
                bool enable_local_infile = MYSQLXX_DEFAULT_ENABLE_LOCAL_INFILE);
 
     // delayed connection
-    void connect(const char *db, const char *server, const char *user = nullptr, const char *password = nullptr,
-                 unsigned port = 0, const char *socket = "", const char *ssl_ca = "", const char *ssl_cert = "",
-                 const char *ssl_key = "", unsigned timeout = MYSQLXX_DEFAULT_TIMEOUT,
+    void connect(const char *db,
+                 const char *server,
+                 const char *user = nullptr,
+                 const char *password = nullptr,
+                 unsigned port = 0,
+                 const char *socket = "",
+                 const char *ssl_ca = "",
+                 const char *ssl_cert = "",
+                 const char *ssl_key = "",
+                 unsigned timeout = MYSQLXX_DEFAULT_TIMEOUT,
                  unsigned rw_timeout = MYSQLXX_DEFAULT_RW_TIMEOUT,
                  bool enable_local_infile = MYSQLXX_DEFAULT_ENABLE_LOCAL_INFILE);
 
@@ -459,12 +525,12 @@ class Connection {
 
     MYSQL *getDriver();
 
-  private:
+   private:
     bool connected_ = false;
     bool initialized_ = false;
     std::shared_ptr<MYSQL> driver;
 };
 
-} // namespace mysqlxx
+}  // namespace mysqlxx
 
 #endif
