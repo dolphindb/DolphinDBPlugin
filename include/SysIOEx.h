@@ -43,7 +43,8 @@ public:
 	virtual ~Decoder(){}
 	virtual VectorSP code(const VectorSP& vec) = 0;
 	virtual IO_ERR code(const VectorSP& vec, const DataOutputStreamSP& out, int& checksum) = 0;
-	virtual IO_ERR decode(const VectorSP& vec, const DataInputStreamSP& in, long long fileSize, bool fullLoad, int checksum) = 0;
+	virtual IO_ERR decode(const VectorSP& vec, INDEX rowOffset, bool fullLoad, int checksum, const DataInputStreamSP& in,
+			long long byteSize, long byteOffset, long long& postByteOffset) = 0;
 	inline int getID() const {return id_;}
 	inline bool isAppendable() const {return appendable_;}
 	inline bool codeSymbolAsString() const { return codeSymbolAsString_;}

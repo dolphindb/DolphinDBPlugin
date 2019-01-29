@@ -10,6 +10,8 @@
 
 #include "Concepts.h"
 
+class JITValue;
+class Codegen;
 class PrimitiveOperator : public Operator{
 public:
 	PrimitiveOperator(OptrFunc optrFunc, const string& optrSymbol, const string& optrFuncName, int priority, bool unary, TemplateOptr advFunc=0, const string& templateSymbol = "")
@@ -22,7 +24,7 @@ public:
 	virtual bool isPrimitiveOperator() const { return true;}
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
 	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const {}
-
+	virtual InferredType inferType(Heap* heap, unordered_set<ControlFlowEdge> & vis, std::vector<StatementSP> & fromCFGEdges, void * edgeStartNode, const ConstantSP& a, const ConstantSP& b) override;
 private:
 	OptrFunc optrFunc_;
 	string optrSymbol_;
@@ -52,7 +54,6 @@ public:
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
 	const FunctionDefSP& getFunctionDef() const { return funcDef_;}
 	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const {funcDef_->collectUserDefinedFunctions(functionDefs);}
-
 private:
 	FunctionDefSP funcDef_;
 	TemplateUserOptr advUserFunc_;
@@ -97,6 +98,7 @@ public:
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
 	virtual Function* getInstance(const vector<ObjectSP>& arguments) const { return new RegularFunctionCall(funcSP_, arguments, qualifier_, partialCall_);}
 	virtual void collectVariables(vector<int>& vars, int minIndex, int maxIndex) const;
+
 private:
 	vector<ObjectSP> arguments_;
 	bool qualifier_;

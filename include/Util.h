@@ -84,6 +84,7 @@ public:
 	static Table* createTable(Dictionary* dict, int size);
 	static Table* createTable(const vector<string>& colNames, const vector<DATA_TYPE>& colTypes, INDEX size, INDEX capacity);
 	static Table* createTable(const vector<string>& colNames, const vector<ConstantSP>& cols);
+	static TableSP reloadExpiredTable(Heap* heap, const TableSP& tbl);
 	static Set* createSet(DATA_TYPE keyType, const SymbolBaseSP& symbolBase, INDEX capacity);
 	static Dictionary* createDictionary(DATA_TYPE keyType, const SymbolBaseSP& keyBase, DATA_TYPE valueType, const SymbolBaseSP& valueBase);
 	static Vector* createVector(DATA_TYPE type, INDEX size, INDEX capacity=0, bool fast=true, int extraParam=0,

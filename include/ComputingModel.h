@@ -271,9 +271,10 @@ private:
             return 1;
         } else if (currentPriority < job->priority){
             removeJobFromQueue(queue, rootJobId);
-            addJobToQueue(taskQueues_[currentPriority + 1], job);
-            jobCurrentPriorityMap_[rootJobId] = currentPriority + 1;
-            LOG_INFO("Upgrade the priority of job " + rootJobId.getString() + " to " + std::to_string(currentPriority + 1));
+            int newPriority = currentPriority <= 0 ? job->priority : currentPriority + 1;
+            addJobToQueue(taskQueues_[newPriority], job);
+            jobCurrentPriorityMap_[rootJobId] = newPriority;
+            LOG_INFO("Upgrade the priority of job " + rootJobId.getString() + " to " + std::to_string(newPriority));
             return 2;
         } else {
             return 0;

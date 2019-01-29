@@ -107,26 +107,23 @@ public:
 	static bool saveBasicTable(Session* session, const string& directory, Table* table, const string& tableName, const SymbolBaseManagerSP& symbaseManager, IoTransaction* tran,  bool append = false, int compressionMode = 0, bool saveSymbolBase = true);
 	static bool saveBasicTable(Session* session, SystemHandle* db, Table* table, const string& tableName, IoTransaction* tran, bool append = false, int compressionMode = 0, bool saveSymbolBase = true);
 	static bool saveBasicTable(Session* session, const string& directory, const string& tableDir, Table* table, const string& tableName, const vector<ColumnDesc>& cols, const SymbolBaseManagerSP& symbaseManager, IoTransaction* tran, bool chunkMode, bool append, int compressionMode, bool saveSymbolBase);
-	static bool saveBasicTable(Session* session, const string& tableDir, Table* table, const vector<ColumnDesc>& cols, const SymbolBaseSP& symBase, IoTransaction* tran, int compressionMode, bool saveSymbolBase);
+	static bool saveBasicTable(Session* session, const string& tableDir, INDEX existingTblSize, Table* table, const vector<ColumnDesc>& cols, const SymbolBaseSP& symBase, IoTransaction* tran, int compressionMode, bool saveSymbolBase);
 	static bool savePartitionedTable(Session* session, const DomainSP& domain, TableSP table, const string& tableName, IoTransaction* tran, int compressionMode = 0, bool saveSymbolBase = true );
 	static bool saveDualPartitionedTable(Session* session, SystemHandle* db, const DomainSP& secDomain, TableSP table, const string& tableName,
 			const string& partitionColName, vector<string>& secPartitionColNames, IoTransaction* tran, int compressionMode = 0);
-	static Table* loadTable(Session* session, const string& directory, const string& tableName, const SymbolBaseManagerSP& symbaseManager, const DomainSP& domain, const ConstantSP& partitions, bool stream, bool memoryMode);
-	static Table* loadTable(Session* session, SystemHandle* db, const string& tableName, const ConstantSP& partitions, bool stream, bool memoryMode);
+	static Table* loadTable(Session* session, const string& directory, const string& tableName, const SymbolBaseManagerSP& symbaseManager, const DomainSP& domain, const ConstantSP& partitions, TABLE_TYPE tableType, bool memoryMode);
+	static Table* loadTable(Session* session, SystemHandle* db, const string& tableName, const ConstantSP& partitions, TABLE_TYPE tableType, bool memoryMode);
 	static void removeTable(SystemHandle* db, const string& tableName);
 	static SystemHandle* openDatabase(const string& directory, const DomainSP& localDomain);
 	static bool saveDatabase(SystemHandle* db);
 	static bool removeDatabase(const string& dbDir);
 
 	static ColumnHeader loadColumnHeader(const string& colFile);
-	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseManagerSP& symbaseManager){
-		return loadColumn(colFile, devId, symbaseManager, 0, -1);
-	}
-	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseSP& symbase, int rows){
-		return loadColumn(colFile, devId, 0, symbase, rows);
-	}
+	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseManagerSP& symbaseManager);
+	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseSP& symbase, int rows, long long& postFileOffset, bool& isLittleEndian, char& compressType);
+	static long long loadColumn(const string& colFile, long long fileOffset, bool isLittleEndian, char compressType, int devId, const SymbolBaseSP& symbase, INDEX rows, const VectorSP& col);
 	static Vector* loadTextVector(bool includeHeader, DATA_TYPE type, const string& path);
-	static bool saveColumn(const VectorSP& col, const string& colFile, int devId, const SymbolBaseManagerSP& symbaseManager, bool chunkNode, bool append, int compressionMode, IoTransaction* tran = NULL);
+	static bool saveColumn(const VectorSP& col, const string& colFile, int devId, INDEX existingTableSize, const SymbolBaseManagerSP& symbaseManager, bool chunkNode, bool append, int compressionMode, IoTransaction* tran = NULL);
 	static bool saveTableHeader(const string& owner, const vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices, long long rows, const string& tableFile, IoTransaction* tran);
 	static bool loadTableHeader(const DataInputStreamSP& in, string& owner, vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices);
 	static void removeBasicTable(const string& directory, const string& tableName);
@@ -149,7 +146,8 @@ public:
 	static void setVolumeMapper(const VolumeMapperSP& volumeMapper) { volumeMapper_ = volumeMapper;}
 
 private:
-	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseManagerSP& symbaseManager, const SymbolBaseSP& symbase, int rows);
+	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseManagerSP& symbaseManager,	const SymbolBaseSP& symbase,
+			int rows, long long& postFileOffset, bool& isLittleEndian, char& compressType);
 	static inline DATA_TYPE getCompressedDataType(const VectorSP& vec){return (DATA_TYPE)vec->getChar(4);}
 	static VolumeMapperSP volumeMapper_;
 };

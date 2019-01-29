@@ -16,6 +16,7 @@
 #include <deque>
 #include <algorithm>
 #include <chrono>
+#include <functional>
 
 #include "Types.h"
 #include "SmartPointer.h"
@@ -74,6 +75,11 @@ class SessionThreadCallGuard;
 class ReducerContainer;
 class DistributedCall;
 class JobProperty;
+struct JITCfgNode;
+class Codegen;
+struct JITCfgNode;
+class Codegen;
+class JITValue;
 
 typedef SmartPointer<AuthenticatedUser> AuthenticatedUserSP;
 typedef SmartPointer<ByteArrayCodeBuffer> ByteArrayCodeBufferSP;
@@ -113,12 +119,14 @@ typedef SmartPointer<SessionThreadCallGuard> SessionThreadCallGuardSP;
 typedef SmartPointer<ReducerContainer> ReducerContainerSP;
 typedef SmartPointer<DistributedCall> DistributedCallSP;
 typedef SmartPointer<JobProperty> JobPropertySP;
+typedef SmartPointer<JITCfgNode> JITCfgNodeSP;
 
 typedef ConstantSP(*OptrFunc)(const ConstantSP&,const ConstantSP&);
 typedef ConstantSP(*SysFunc)(Heap* heap,vector<ConstantSP>& arguments);
 typedef ConstantSP(*TemplateOptr)(const ConstantSP&,const ConstantSP&,const string&, OptrFunc);
 typedef ConstantSP(*TemplateUserOptr)(Heap* heap, const ConstantSP&,const ConstantSP&, const FunctionDefSP&);
 typedef void (*SysProc)(Heap* heap,vector<ConstantSP>& arguments);
+typedef std::function<void (StatementSP)> CFGTraversalFunc;
 
 class AuthenticatedUser{
 public:
@@ -438,6 +446,56 @@ private:
 	Mutex mutex_;
 };
 
+struct ControlFlowEdge {
+	void * edgeFrom;
+	void * edgeTo;
+	string varName;
+	ControlFlowEdge(void * from, void * to, const string & name): edgeFrom(from), edgeTo(to), varName(name) {}
+	bool operator==(const ControlFlowEdge & rhs) const {
+		return edgeFrom == rhs.edgeFrom && edgeTo == rhs.edgeTo && varName == rhs.varName;
+	}
+};
+namespace std {
+	template<>
+	struct hash<ControlFlowEdge> {
+		std::size_t operator()(const  ControlFlowEdge & k) const {
+			using std::size_t;
+			using std::hash;
+			using std::string;
+			return hash<void*>{}(k.edgeFrom)
+				   ^ (hash<void*>{}(k.edgeTo) >> 1)
+				   ^ (hash<string>{}(k.varName) << 1);
+		}
+	};
+}
+
+struct InferredType {
+	DATA_FORM form;
+	DATA_TYPE type;
+	DATA_CATEGORY category;
+	InferredType(DATA_FORM form = DF_SCALAR, DATA_TYPE type = DT_VOID, DATA_CATEGORY category = NOTHING):
+		form(form), type(type), category(category) {}
+	bool operator ==(const InferredType & rhs) const {
+		return form == rhs.form && type == rhs.type && category == rhs.category;
+	}
+	bool operator !=(const InferredType & rhs) const {
+		return !operator==(rhs);
+	}
+	string getString();
+};
+
+namespace std {
+	template<>
+	struct hash<InferredType> {
+		std::size_t operator()(const InferredType & k) const {
+			using std::size_t;
+			using std::hash;
+			using std::string;
+			return hash<int8_t>{}(k.form) ^ hash<int8_t>{}(k.type);
+		}
+	};
+}
+
 class Object {
 public:
 	bool isConstant() const {return getObjectType()==CONSTOBJ;}
@@ -451,6 +509,9 @@ public:
 	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const {}
 	virtual void collectVariables(vector<int>& vars, int minIndex, int maxIndex) const {}
 	virtual bool isLargeConstant() const {return false;}
+	virtual InferredType inferType(Heap* heap, unordered_set<ControlFlowEdge> & vis, vector<StatementSP> & fromCFGNodes, void * edgeStartNode)  {
+		throw RuntimeException("inferType not implemented");
+	}
 };
 
 class Constant: public Object{
@@ -461,7 +522,7 @@ public:
 	Constant() : flag_(3){}
 	Constant(unsigned short flag) :  flag_(flag){}
 	virtual ~Constant(){}
-
+	virtual InferredType inferType(Heap* heap, unordered_set<ControlFlowEdge> & vis, vector<StatementSP> & fromCFGNodes, void * edgeStartNode) { return InferredType(getForm(), getType(), getCategory()); }
 	inline bool isTemporary() const {return flag_ & 1;}
 	inline void setTemporary(bool val){ if(val) flag_ |= 1; else flag_ &= ~1;}
 	inline bool isIndependent() const {return flag_ & 2;}
@@ -659,6 +720,7 @@ public:
 	virtual int getSegmentSize() const { return 1;}
 	virtual int getSegmentSizeInBit() const { return 0;}
 	virtual bool containNotMarshallableObject() const {return false;}
+
 private:
 	unsigned short flag_;
 };
@@ -812,6 +874,7 @@ public:
 	virtual bool findRange(INDEX* ascIndices,const ConstantSP& target,INDEX* targetIndices,vector<pair<INDEX,INDEX> >& ranges)=0;
 	virtual bool findRange(const ConstantSP& target,INDEX* targetIndices,vector<pair<INDEX,INDEX> >& ranges)=0;
 	virtual long long getAllocatedMemory(INDEX size) const {return Constant::getAllocatedMemory();}
+
 private:
 	string name_;
 };
@@ -956,6 +1019,7 @@ public:
 	virtual bool snapshotIsolate() const { return false;}
 	virtual void getSnapshot(TableSP& copy) const {}
 	virtual bool readPermitted(const AuthenticatedUserSP& user) const {return true;}
+	virtual bool isExpired() const { return flag_ & 8;}
 	inline bool isSharedTable() const {return flag_ & 1;}
 	inline bool isRealtimeTable() const {return flag_ & 2;}
 	inline bool isAliasTable() const {return flag_ & 4;}
@@ -964,10 +1028,17 @@ public:
 	void setSharedTable(bool option);
 	void setRealtimeTable(bool option);
 	void setAliasTable(bool option);
+	void setExpired(bool option);
 	inline Mutex* getLock() const { return lock_;}
 
 private:
-	char flag_; //BIT0: shared table, BIT1: realtime table
+	/*
+	 * BIT0: shared table
+	 * BIT1: stream table
+	 * BIT2: alias table
+	 * BIT3: expired
+	 */
+	char flag_;
 	string owner_;
 	Mutex* lock_;
 };
@@ -1188,7 +1259,8 @@ public:
 	virtual bool isPrimitiveOperator() const = 0;
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const = 0;
 	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const = 0;
-
+	virtual InferredType inferType(Heap* heap, unordered_set<ControlFlowEdge> & vis, std::vector<StatementSP> & fromCFGEdges, void * edgeStartNode,
+			const ConstantSP& a, const ConstantSP& b) { return InferredType(); }
 private:
 	int priority_;
 	bool unary_;
@@ -1384,9 +1456,10 @@ private:
 
 class Heap{
 public:
-	Heap():session_(0), size_(0), status_(0){}
+	Heap():meta_(0), session_(0), size_(0), status_(0){}
 	Heap(Session* session);
 	Heap(int size, Session* session);
+	~Heap();
 
 	ConstantSP getValue(int index) const;
 	const ConstantSP& getReference(int index) const;
@@ -1398,9 +1471,7 @@ public:
 	inline void setDefMode() { status_ |= 2; }
 	int getIndex(const string& name) const;
 	const string& getName(int index) const;
-	bool contains(const string& name) const {
-		return nameHash_.find(name)!=nameHash_.end();
-	}
+	bool contains(const string& name) const;
 	int addItem(const string& name, const ConstantSP& value){ return addItem(name, value, false);}
 	int addItem(const string& name, const ConstantSP& value, bool constant);
 	void removeItem(const string& name);
@@ -1416,15 +1487,43 @@ public:
 	void clearFlags();
 	void currentSession(Session* session){session_=session;}
 	Session* currentSession(){return session_;}
+	void clearLeftover(CountDownLatchSP& latch);
+	void setLeftover(const CountDownLatchSP& latch);
+	long long getAllocatedMemory();
 
 private:
-	unordered_map<string,int> nameHash_;
-	vector<string> names_;
+	struct HeapMeta{
+		Mutex mutex_;
+		CountDownLatchSP latch_;
+		unordered_map<string,int> nameHash_;
+		vector<string> names_;
+	};
+	HeapMeta* meta_;
 	vector<ConstantSP> values_;
 	vector<char> flags_;
 	Session* session_;
 	int size_;
 	char status_;
+};
+
+struct JITCfgNode {
+	JITCfgNode() : visited_(false){}
+	string getInferredTypeCacheAsString() const {
+		string out = "{";
+			for (auto kv: inferredTypeCache) {
+				out.append(kv.first + ": " +kv.second.getString() + ", ");
+			}
+		out.append("}");
+		return out;
+	}
+
+	// control flow graph: next block edge
+	vector<StatementSP> cfgNexts;
+	// control flow graph: reverse edge to incoming block
+	vector<StatementSP> cfgFroms;
+	unordered_map<string, InferredType> inferredTypeCache;
+	unordered_map<string, vector<InferredType>> upstreamTypes;
+	bool visited_;
 };
 
 class Statement{
@@ -1443,8 +1542,25 @@ public:
 	void disableBreakpoint();
 	void enableBreakpoint();
 
+	JITCfgNodeSP getCFGNode() const;
+	vector<StatementSP>& getCFGNexts();
+	vector<StatementSP>& getCFGFroms();
+	unordered_map<string, vector<InferredType>> & getUpstreamTypes() { return cfgNode_->upstreamTypes; }
+	unordered_map<string, InferredType> & getInferredTypeCache();
+	void addCFGNextBlock(const StatementSP& nextBlock);
+	void addCFGFromBlock(const StatementSP& fromBlock);
+	bool getCFGNodeVisited() const;
+	bool setCFGNodeVisited(bool visited = true);
+	string getInferredTypeCacheAsString() const;
+	virtual InferredType inferType(Heap* heap, unordered_set<ControlFlowEdge> & vis, const string & varName);
+	virtual IO_ERR buildCFG(const StatementSP& self, std::unordered_map<string, StatementSP> & context);
+	virtual string getInferredTypesDebugString(int indention) const;
+	virtual void traverseCFG(const StatementSP& self, unordered_set<void*> & visited, CFGTraversalFunc func);
+	virtual vector<string> getVarNames() const;
+
 protected:
 	bool breakpoint_;
+	JITCfgNodeSP cfgNode_;
 
 private:
 	STATEMENT_TYPE type_;
@@ -1727,6 +1843,8 @@ public:
 	inline Session* getSession() const {return session_;}
 	inline CountDownLatchSP getCountDownLatch() const { return latch_;}
 	inline void setCountDownLatch(const CountDownLatchSP& latch){ latch_ = latch;}
+	inline void setCarryoverOption(bool option){ carryover_ = option;}
+	inline bool getCarryoverOption() const { return carryover_;}
 	void setJobId(const Guid& jobId);
 	inline const Guid& getJobId() const { return jobId_;}
 	inline void setRootJobId(const Guid& rootJobId) { rootJobId_ = rootJobId;}
@@ -1742,6 +1860,7 @@ public:
 	void done(const string& errMsg);
 	inline const string& getErrorMessage() const {return errMsg_;}
 	inline ConstantSP getResultObject() const {return execResult_;}
+	inline ConstantSP getCarryoverObject() const {return carryoverResult_;}
 	inline bool isLocalData() const { return local_;}
 	inline bool isViewMode() const { return viewMode_;}
 	inline bool isCancellable() const {return cancellable_;}
@@ -1760,6 +1879,7 @@ private:
 	ObjectSP obj_;
 	string errMsg_;
 	ConstantSP execResult_;
+	ConstantSP carryoverResult_;
 	ReducerContainerSP reducer_;
 	std::chrono::system_clock::time_point receivedTime_;
 	std::chrono::system_clock::time_point startTime_;
@@ -1767,6 +1887,7 @@ private:
 	bool local_;
 	bool viewMode_;
 	bool cancellable_;
+	bool carryover_ = false;
 	Heap* heap_;
 	Session* session_;
 };

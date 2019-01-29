@@ -26,8 +26,10 @@
 class Thread;
 class Runnable;
 class CountDownLatch;
+class Callback;
 typedef SmartPointer<Thread> ThreadSP;
 typedef SmartPointer<Runnable> RunnableSP;
+typedef SmartPointer<Callback> CallbackSP;
 typedef SmartPointer<CountDownLatch> CountDownLatchSP;
 
 class Runnable{
@@ -44,6 +46,12 @@ protected:
 
 private:
 	std::atomic<char> status_;
+};
+
+class Callback {
+public:
+	virtual ~Callback(){}
+	virtual void execute() = 0;
 };
 
 class Mutex{
@@ -223,14 +231,40 @@ public:
 	void wait();
 	bool wait(int milliseconds);
 	void countDown();
+	void countDown(int n);
 	int getCount() const;
 	bool resetCount(int count);
 	void clear();
+	void setCallback(const CallbackSP& callback);
 
 private:
 	mutable Mutex mutex_;
 	ConditionalVariable condition_;
+	CallbackSP callback_;
 	int count_;
+};
+
+template<class T>
+class Future {
+public:
+	Future(): latch_(1) {}
+	//Wait till the result is ready or the specified milliseconds timeout. Return whether the result is ready.
+	bool wait(int milliseconds) { return latch_.wait(milliseconds); }
+	//Wait till the result is ready.
+	void wait() { latch_.wait(); }
+	//Set the result. This function should be called exactly once.
+	void set(const T & val) {
+		val_ = val;
+		latch_.countDown();
+	}
+	//Get the value as promised. Blocked if the result is not ready.
+	T get() {
+		latch_.wait();
+		return val_;
+	}
+private:
+	CountDownLatch latch_;
+	T val_;
 };
 
 class Semaphore{
