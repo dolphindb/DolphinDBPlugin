@@ -307,6 +307,8 @@ public:
 	const string& getSessionID() const { return sessionID_;}
 	inline bool isLittleEndian() const { return flag_ & 1;}
 	inline bool isClosed() const { return flag_ & 2;}
+	inline bool isExpired() const { return flag_ & 4;}
+	void setExpired(bool option);
 	SOCKET getSocketHandle() const {return socket_;}
 	HANDLE_TYPE getHandleType() const { return type_;}
 	DataStreamSP getDataStream() const { return stream_;}
@@ -324,7 +326,7 @@ public:
 private:
 	HANDLE_TYPE type_;
 	SOCKET socket_;
-	char flag_; //bit0: littleEndian, bit1: closed
+	char flag_; //bit0: littleEndian, bit1: closed, bit2: expired
 	string sessionID_;
 	DataStreamSP stream_;
 	string dbDir_;

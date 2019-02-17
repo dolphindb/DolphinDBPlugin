@@ -370,14 +370,14 @@ private:
 
 class SymbolBase{
 public:
-	SymbolBase();
-	SymbolBase(const string& symbolFile, bool snapshot = false);
+	SymbolBase(bool supportOrder = true);
+	SymbolBase(const string& symbolFile, bool snapshot = false, bool supportOrder=true);
 	SymbolBase(const string& symbolFile, const DataInputStreamSP& in, bool snapshot = false);
 	bool saveSymbolBase(const string& symbolFile, string& errMsg);
 	bool saveSymbolBase(string& errMsg);
 	inline int find(const string& symbol){
 #ifndef LOCKFREE_SYMBASE
-		LockGuard<Mutex> guard(&writeMutex_);
+		LockGuard<Mutex> guard(&keyMutex_);
 #endif
 		int index = -1;
 		keyMap_.find(symbol, index);
@@ -387,8 +387,12 @@ public:
 	int findAndInsert(const string& symbol);
 	void getOrdinalCandidate(const string& symbol, int& ordinal, SmartPointer<Array<int> >& ordinalBase);
 	void getOrdinalCandidate(const string& symbol1, const string& symbol2, int& ordinal1, int& ordinal2, SmartPointer<Array<int> >& ordinalBase);
-	bool getSortedIndices(int* indices, int length, bool asc);
-	SmartPointer<Array<int> > getOrdinalBase() const {return ordinal_;}
+	int* getSortedIndices(bool asc, int& length);
+	inline bool supportOrder() const { return supportOrder_;}
+	inline SmartPointer<Array<int> > getOrdinalBase() const {
+		LockGuard<Mutex> guard(&versionMutex_);
+		return ordinal_;
+	}
 	inline const string& getSymbol(int index) { return key_[index];}
 	int size() const {return  key_.size();}
 	const Guid& getID(){return baseID_;}
@@ -410,15 +414,18 @@ private:
 	string dbPath_;
 	int savingPoint_;
 	bool modified_;
+	bool supportOrder_;
 	DynamicArray<string> key_;
 	SmartPointer<Array<int> > ordinal_;
 #ifndef LOCKFREE_SYMBASE
+	Mutex keyMutex_;
 	IrremovableFlatHashmap<string, int> keyMap_;
 #else
 	IrremovableLocklessFlatHashmap<string, int> keyMap_;
 #endif
 	deque<int> sortedIndices_;
 	Mutex writeMutex_;
+	mutable Mutex versionMutex_;
 };
 
 class SymbolBaseManager{
@@ -775,9 +782,18 @@ public:
 	virtual bool validIndex(INDEX start, INDEX length, INDEX uplimit){return false;}
 	virtual void addIndex(INDEX start, INDEX length, INDEX offset){}
 	virtual void neg()=0;
-	virtual void find(const ConstantSP& target, const ConstantSP& resultSP){}
-	virtual void binarySearch(const ConstantSP& target, const ConstantSP& resultSP){}
-	virtual void asof(const ConstantSP& target, const ConstantSP& resultSP){ throw RuntimeException("asof method not supported.");}
+	virtual void find(INDEX start, INDEX length, const ConstantSP& target, const ConstantSP& resultSP){}
+	virtual void find(const ConstantSP& target, const ConstantSP& resultSP){
+		find(0, size(), target, resultSP);
+	}
+	virtual void binarySearch(INDEX start, INDEX length, const ConstantSP& target, const ConstantSP& resultSP){}
+	virtual void binarySearch(const ConstantSP& target, const ConstantSP& resultSP){
+		binarySearch(0, size(), target, resultSP);
+	}
+	virtual void asof(INDEX start, INDEX length, const ConstantSP& target, const ConstantSP& resultSP){ throw RuntimeException("asof method not supported.");}
+	virtual void asof(const ConstantSP& target, const ConstantSP& resultSP){
+		asof(0, size(), target, resultSP);
+	}
 	virtual void upper(){throw RuntimeException("upper method not supported");}
 	virtual void lower(){throw RuntimeException("lower method not supported");}
 	virtual void trim(){throw RuntimeException("trim method not supported");}
@@ -816,6 +832,8 @@ public:
 	virtual ConstantSP stat(INDEX start, INDEX length) const;
 	virtual ConstantSP lastNot(const ConstantSP& exclude) const = 0;
 	virtual ConstantSP lastNot(INDEX start, INDEX length, const ConstantSP& exclude) const = 0;
+	virtual bool isSorted(bool asc) const { return isSorted(0, size(), asc);}
+	virtual bool isSorted(INDEX start, INDEX length, bool asc) const = 0;
 
 	/**
 	 * Find the first element that is no less than the target value in the sorted vector.
@@ -825,7 +843,10 @@ public:
 
 	virtual bool equalToPrior(INDEX start, INDEX length, bool* result){ return false;}
 	virtual bool equalToPrior(INDEX prior, const INDEX* indices, INDEX length, bool* result){ return false;}
-
+	virtual ConstantSP topK(INDEX start, INDEX length, INDEX top, bool asc, bool extendEqualValue) {throw RuntimeException("topK method not supported");}
+	virtual ConstantSP topK(INDEX top, bool asc, bool extendEqualValue) {
+		return topK(0, size(), top, asc, extendEqualValue);
+	}
 	/**
 	 * Sort the whole vector with given order
 	 * asc: indicating if it is ascending order
@@ -839,6 +860,8 @@ public:
 	 * the length of the indices. The indices will be rearranged accordingly during sorting
 	 */
 	virtual bool sort(bool asc, Vector* indices) = 0;
+
+	virtual INDEX sortTop(bool asc, Vector* indices, INDEX top) {throw RuntimeException("sortTop method not supported");}
 
 	/**
 	 * Sort the selected indices based on the corresponding data with given order.
@@ -1470,6 +1493,7 @@ public:
 	inline bool isDefMode() const { return status_ & 2;}
 	inline void setDefMode() { status_ |= 2; }
 	int getIndex(const string& name) const;
+	int getLocalIndex(const string& name) const;
 	const string& getName(int index) const;
 	bool contains(const string& name) const;
 	int addItem(const string& name, const ConstantSP& value){ return addItem(name, value, false);}
@@ -1781,6 +1805,7 @@ struct TopicSubscribe {
 			hashValue_(hashValue), batchSize_(batchSize), throttleTime_(throttleTime), cumSize_(0), messageId_(-1), expired_(-1), topic_(topic), attributes_(attributes), handler_(handler), user_(user){}
 	bool append(long long msgId, const ConstantSP& msg, long long& outMsgId, ConstantSP& outMsg);
 	bool getMessage(long long now, long long& outMsgId, ConstantSP& outMsg);
+	bool updateSchema(const TableSP& emptyTable);
 
 	const bool msgAsTable_;
 	const int hashValue_;
@@ -1790,7 +1815,7 @@ struct TopicSubscribe {
 	long long messageId_;
 	long long expired_;
 	const string topic_;
-	const vector<string> attributes_;
+	vector<string> attributes_;
 	const FunctionDefSP handler_;
 	const AuthenticatedUserSP user_;
 	ConstantSP body_;
