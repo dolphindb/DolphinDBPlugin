@@ -1494,7 +1494,7 @@ public:
 	inline void setDefMode() { status_ |= 2; }
 	int getIndex(const string& name) const;
 	int getLocalIndex(const string& name) const;
-	const string& getName(int index) const;
+	string getName(int index) const;
 	bool contains(const string& name) const;
 	int addItem(const string& name, const ConstantSP& value){ return addItem(name, value, false);}
 	int addItem(const string& name, const ConstantSP& value, bool constant);
