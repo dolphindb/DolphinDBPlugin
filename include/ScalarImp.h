@@ -62,6 +62,7 @@ public:
 	virtual const float* getFloatConst(INDEX start, int len, float* buf) const;
 	virtual bool getDouble(INDEX start, int len, double* buf) const;
 	virtual const double* getDoubleConst(INDEX start, int len, double* buf) const;
+	virtual bool getSymbol(INDEX start, int len, int* buf, SymbolBase* symBase,bool insertIfNotThere) const;
 	virtual const int* getSymbolConst(INDEX start, int len, int* buf, SymbolBase* symBase, bool insertIfNotThere) const;
 	virtual bool getString(INDEX start, int len, string** buf) const;
 	virtual string** getStringConst(INDEX start, int len, string** buf) const;
@@ -290,8 +291,8 @@ private:
 
 class SystemHandle : public String{
 public:
-	SystemHandle(SOCKET handle, bool isLittleEndian, const string& sessionID, const string& host, int port) : String("Conn[" + host + ":" +Util::convert(port) + ":" +sessionID + "]"),
-		type_(REMOTE_HANDLE), socket_(handle), flag_(isLittleEndian ? 1 : 0), sessionID_(sessionID), tables_(0){}
+	SystemHandle(SOCKET handle, bool isLittleEndian, const string& sessionID, const string& host, int port, const string& userId, const string& pwd) : String("Conn[" + host + ":" +Util::convert(port) + ":" +sessionID + "]"),
+		type_(REMOTE_HANDLE), socket_(handle), flag_(isLittleEndian ? 1 : 0), sessionID_(sessionID), userId_(userId), pwd_(pwd), tables_(0){}
 	SystemHandle(const DataStreamSP& handle, bool isLittleEndian) : String(handle->getDescription()),
 		type_(handle->isFileStream() ? FILE_HANDLE : SOCKET_HANDLE), socket_(-1), flag_(isLittleEndian ? 1 : 0), stream_(handle), tables_(0){}
 	SystemHandle(const string& dbDir, const DomainSP& domain): String("DB[" + dbDir + "]"),
@@ -305,6 +306,8 @@ public:
 	void removeMember(const string& key);
 	ConstantSP getMemberWithoutThrow(const ConstantSP& key) const;
 	const string& getSessionID() const { return sessionID_;}
+	inline const string& getUserId() const { return userId_;}
+	inline const string& getPassword() const { return pwd_;}
 	inline bool isLittleEndian() const { return flag_ & 1;}
 	inline bool isClosed() const { return flag_ & 2;}
 	inline bool isExpired() const { return flag_ & 4;}
@@ -328,6 +331,8 @@ private:
 	SOCKET socket_;
 	char flag_; //bit0: littleEndian, bit1: closed, bit2: expired
 	string sessionID_;
+	string userId_;
+	string pwd_;
 	DataStreamSP stream_;
 	string dbDir_;
 	DomainSP domain_;

@@ -139,8 +139,8 @@ private:
 		return sum;
 	}
 
-	static void croutLU(int n, double* s, double* d);
-	static void croutSolve(int n, const double*LU,  const double*b, double*x);
+	static int croutLU(int n, double* s, double* d);
+	static void croutSolve(int n, int p, const double*LU,  const double*b, double*x);
 };
 
 

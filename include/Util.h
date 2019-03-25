@@ -116,7 +116,7 @@ public:
 	static FunctionDef* createOperatorFunction(const string& name, OptrFunc func, int minParamNum, int maxParamNum, bool aggregation);
 	static FunctionDef* createSystemFunction(const string& name, SysFunc func, int minParamNum, int maxParamNum, bool aggregation);
 	static FunctionDef* createSystemProcedure(const string& name, SysProc func, int minParamNum, int maxParamNum);
-	static FunctionDef* createPartitalFunction(const FunctionDefSP& func, const vector<ConstantSP>& args);
+	static FunctionDef* createPartialFunction(const FunctionDefSP& func, const vector<ConstantSP>& args);
 	static ObjectSP createRegularFunctionCall(const FunctionDefSP& func, vector<ConstantSP>& args, bool qualifier = false, bool partialCall = false);
 	static ObjectSP readObject(Session* session, const DataInputStreamSP& buffer);
 	static ObjectSP readObject(const SQLContextSP& context, Session* session, const DataInputStreamSP& buffer);

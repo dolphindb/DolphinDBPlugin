@@ -274,7 +274,29 @@ class Array{
 public:
 	Array(int capacity) : data_(new T[capacity]), size_(0), capacity_(capacity){}
 	Array(T* data, int size, int capacity): data_(data), size_(size), capacity_(capacity){}
+	Array(const Array<T>& copy) : data_(new T[copy.size_]), size_(copy.size_), capacity_(copy.capacity_){
+		data_ = new T[size_];
+		memcpy(data_, copy.data_, sizeof(T) * size_);
+	}
 	~Array(){delete[] data_;}
+	Array<T>* copy(){
+		T* data = new T[size_];
+		memcpy(data, data_, sizeof(T) * size_);
+		return new Array(data, size_, capacity_);
+	}
+	Array<T>& operator =(const Array<T>& sp){
+		size_ = sp.size_;
+		if(capacity_ >= sp.capacity_){
+			memcpy(data_, sp.data_, sizeof(T) * size_);
+		}
+		else{
+			delete[] data_;
+			capacity_ = sp.capacity_;
+			data_ = new T[capacity_];
+			memcpy(data_, sp.data_, sizeof(T) * size_);
+		}
+		return *this;
+	}
 	const T& at(int index) const { return data_[index];}
 	const T& operator [](int index) const {return data_[index];}
 	T& operator [](int index) {return data_[index];}
@@ -326,6 +348,17 @@ public:
 		size_ = 0;
 		sizeInSegment_ = 0;
 	}
+	void getAll(vector<T>& copy){
+		int start =0;
+		int s = 0;
+		while(start < size_){
+			int count = std::min(segmentSize_, size_ - start);
+			T* data = dataSegment_[s++];
+			for(int i=0; i<count; ++i)
+				copy.push_back(data[i]);
+			start += count;
+		}
+	}
 
 private:
 	T** dataSegment_;
@@ -339,8 +372,8 @@ private:
 
 class ByteArrayCodeBuffer{
 public:
-	ByteArrayCodeBuffer(size_t capacity) : buf_(new char[capacity]), capacity_(capacity), size_(0), constants_(0){}
-	ByteArrayCodeBuffer() : buf_(new char[2048]), capacity_(2048), size_(0), constants_(0){}
+	ByteArrayCodeBuffer(size_t capacity) : buf_(new char[capacity]), capacity_(capacity), size_(0), constantMap_(0), constants_(0){}
+	ByteArrayCodeBuffer() : buf_(new char[2048]), capacity_(2048), size_(0), constantMap_(0), constants_(0){}
 	~ByteArrayCodeBuffer();
 	IO_ERR write(const char* buffer, int length, int& actualLength);
 	IO_ERR write(const char* buffer, int length);
@@ -365,6 +398,7 @@ private:
 	char* buf_;
 	size_t capacity_;
 	size_t size_;
+	unordered_map<long long, int>* constantMap_;
 	vector<ConstantSP>* constants_;
 };
 
@@ -373,6 +407,7 @@ public:
 	SymbolBase(bool supportOrder = true);
 	SymbolBase(const string& symbolFile, bool snapshot = false, bool supportOrder=true);
 	SymbolBase(const string& symbolFile, const DataInputStreamSP& in, bool snapshot = false);
+	SymbolBase* copy();
 	bool saveSymbolBase(const string& symbolFile, string& errMsg);
 	bool saveSymbolBase(string& errMsg);
 	inline int find(const string& symbol){
@@ -389,6 +424,11 @@ public:
 	void getOrdinalCandidate(const string& symbol1, const string& symbol2, int& ordinal1, int& ordinal2, SmartPointer<Array<int> >& ordinalBase);
 	int* getSortedIndices(bool asc, int& length);
 	inline bool supportOrder() const { return supportOrder_;}
+	/**
+	 * enableOrdinalBase and disableOrdinalBase can't be used in multi-threading environment.
+	 */
+	void enableOrdinalBase();
+	void disableOrdinalBase();
 	inline SmartPointer<Array<int> > getOrdinalBase() const {
 		LockGuard<Mutex> guard(&versionMutex_);
 		return ordinal_;
@@ -1038,7 +1078,7 @@ public:
 	virtual const TableSP& getEmptySegment() const { throw RuntimeException("Table::getEmptySegment() not supported");}
 	virtual bool segmentExists(const DomainPartitionSP& partition) const { throw RuntimeException("Table::segmentExists() not supported");}
 	virtual long long getAllocatedMemory() const = 0;
-	virtual ConstantSP retrieveMessage(long long offset, int length, bool msgAsTable) { throw RuntimeException("Table::retrieveMessage() not supported"); }
+	virtual ConstantSP retrieveMessage(long long offset, int length, bool msgAsTable, long long& messageId) { throw RuntimeException("Table::retrieveMessage() not supported"); }
 	virtual bool snapshotIsolate() const { return false;}
 	virtual void getSnapshot(TableSP& copy) const {}
 	virtual bool readPermitted(const AuthenticatedUserSP& user) const {return true;}
@@ -1812,7 +1852,7 @@ struct TopicSubscribe {
 	const int batchSize_;
 	const int throttleTime_; //in millisecond
 	int cumSize_;
-	long long messageId_;
+	std::atomic<long long> messageId_;
 	long long expired_;
 	const string topic_;
 	vector<string> attributes_;

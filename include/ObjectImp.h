@@ -350,8 +350,12 @@ private:
 		return new TableJoiner(session, buffer);
 	}
 
+	ObjectSP readGroupTask(const SQLContextSP& context, Session* session, const DataInputStreamSP& buffer){
+		return new GroupTask(session, buffer);
+	}
+
 private:
-	ObjectFactoryFunc arrObjectFactory[15];
+	ObjectFactoryFunc arrObjectFactory[MAX_OBJECT_TYPES];
 };
 
 

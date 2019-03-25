@@ -19,6 +19,7 @@
 #include "Concurrent.h"
 #include "HashmapUtil.h"
 #include "FlatHashmap.h"
+#include "Exceptions.h"
 
 
 #define CACHE_LINE_SIZE  64 // 64 byte cache line on x86 and x86-64
@@ -644,11 +645,18 @@ class LocklessBoundlessQueue{
 public:
     LocklessBoundlessQueue(){
         void * ptr = mySmallAlloc(sizeof(Node));
+        if (ptr == nullptr) {
+        	throw MemoryException();
+        }
         head = new(ptr) Node();
         tail = head;
     }
     void push(const T& item) {
-        Node* newNode = new Node(item);
+        void * ptr = mySmallAlloc(sizeof(Node));
+        if (ptr == nullptr) {
+        	throw MemoryException();
+        }
+        Node* newNode = new(ptr) Node(item);
         Node* curTail = tail;
         Node* expected;
         hprecord_guard<Node> hp(hazardManager);
@@ -701,7 +709,7 @@ public:
     int size() {
         throw std::runtime_error("size() is unsupported");
     }
-     ~LocklessBoundlessQueue() { delete head;}
+    ~LocklessBoundlessQueue() { head->~Node(); mySmallFree(head); }
 private:
     struct Node {
         T v;
