@@ -94,6 +94,7 @@ public:
 	static Vector* createCompressedVector(long long estimatedSize);
 	static Vector* createRepeatingVector(const ConstantSP& scalar, INDEX length, int extraParam=0);
 	static Vector* createRepeatingSymbolVector(const ConstantSP& scalar, INDEX length, const SymbolBaseSP& symbolBase);
+	static Vector* createSubVector(const VectorSP& source, INDEX offset, INDEX length);
 	static Vector* createMatrix(DATA_TYPE type, int cols, int rows, int colCapacity,int extraParam=0,
 			void* data=0, void** dataSegment=0, int segmentSizeInBit=0, bool containNull=false);
 	static Vector* createSymbolMatrix(const SymbolBaseSP& symbolBase, int cols, int rows, int colCapacity, int* data=0, bool containNull=false);

@@ -9,9 +9,11 @@
 #define LINEARALGEBRA_H_
 
 #include <algorithm>
+#include <string.h>
 
 class MatrixAlgo{
 public:
+	static void setOpenBlasThread(int threads);
 	static void multi(int rowa, int n, int colb, const double* a, const double* b, double* c);
 	static void strassenMulti(int rowa, int n, int colb, const double* a, const double* b, double* c);
 	static void naiveMulti(int rowa, int n, int colb, const double* a, const double* b, double* c);
@@ -36,6 +38,34 @@ public:
 	static void inverse(int n, const double* a, double* b);
 	static void solve(int n, const double* a, const double* b, double* x);
 	static double det(int n, const double* a);
+
+	/*
+	 * matMultiVec: out = mat * vec
+	 */
+	static void matMultiVec(int rowNum, int colNum, const double *mat, const double *vec, double *out);
+	static void matMultiVec(int rowNum, int colNum, int segmentSizeInBit, const double **mat, const double *vec, double *out);
+	static void matMultiVec(int rowNum, int colNum, int segmentSizeInBit, const double **mat, const double *vec, double **out);
+	static void matMultiVec(int rowNum, int colNum, int segmentSizeInBit, const double **mat, const double **vec, double *out);
+
+	/*
+	 * matTransMultiVec: out = mat.T * vec
+	 */
+	static void matTransMultiVec(int rowNum, int colNum, const double *mat, const double *vec, double *out);
+	static void matTransMultiVec(int rowNum, int colNum, int segmentSizeInBit, const double **mat, const double *vec, double *out);
+	static void matTransMultiVec(int rowNum, int colNum, int segmentSizeInBit, const double **mat, const double **vec, double *out);
+
+	/*
+	 * matTransMultiMat: out = mat.T * mat
+	 */
+	static void matTransMultiMat(int rowNum, int colNum, const double *mat, double *out) ;
+	static void matTransMultiMat(int rowNum, int colNum, int segmentSizeInBit, const double **mat, double *out) ;
+
+	/*
+	 * matTransMultiVecMultiMat: out = mat.T * vec.elementWiseMulti(mat)
+	 */
+	static void matTransMultiVecMultiMat(int rowNum, int colNum, const double *mat, const double *vec, double *out);
+	static void matTransMultiVecMultiMat(int rowNum, int colNum, int segmentSizeInBit, const double **mat, const double *vec, double *out) ;
+	static void matTransMultiVecMultiMat(int rowNum, int colNum, int segmentSizeInBit, const double **mat, const double **vec, double *out);
 
 	/**
 	 * rows: the number of rows of the old matrix
@@ -138,6 +168,23 @@ private:
 		}
 		return sum;
 	}
+
+	template <typename T>
+	static void copyVector(T **dest, T *src, int segmentSizeInBit, int length) {
+	    int segmentSize = 1 << segmentSizeInBit;
+	    int start = 0;
+	    int segmentId = 0;
+	    while (start < length) {
+	        int segmentLength = std::min(length - start, segmentSize);
+	        T *data = dest[segmentId];
+	        memcpy(data, src + start, sizeof(T) * segmentLength);
+	        segmentId++;
+	        start += segmentLength;
+	    }
+	}
+
+
+	static double *copyHugeMatrixToArray(int rowNum, int colNum, int segmentSizeInBit, const double **mat);
 
 	static int croutLU(int n, double* s, double* d);
 	static void croutSolve(int n, int p, const double*LU,  const double*b, double*x);

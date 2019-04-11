@@ -104,9 +104,10 @@ struct ColumnHeader{
 
 class DBFileIO {
 public:
-	static bool saveBasicTable(Session* session, const string& directory, Table* table, const string& tableName, const SymbolBaseManagerSP& symbaseManager, IoTransaction* tran,  bool append = false, int compressionMode = 0, bool saveSymbolBase = true);
+	static bool saveBasicTable(Session* session, const string& directory, Table* table, const string& tableName, IoTransaction* tran,  bool append = false, int compressionMode = 0, bool saveSymbolBase = true);
 	static bool saveBasicTable(Session* session, SystemHandle* db, Table* table, const string& tableName, IoTransaction* tran, bool append = false, int compressionMode = 0, bool saveSymbolBase = true);
-	static bool saveBasicTable(Session* session, const string& directory, const string& tableDir, Table* table, const string& tableName, const vector<ColumnDesc>& cols, const SymbolBaseManagerSP& symbaseManager, IoTransaction* tran, bool chunkMode, bool append, int compressionMode, bool saveSymbolBase);
+	static bool saveBasicTable(Session* session, const string& directory, const string& tableDir, Table* table, const string& tableName, const vector<ColumnDesc>& cols, SymbolBaseSP& symbase, IoTransaction* tran, bool chunkMode, bool append, int compressionMode, bool saveSymbolBase);
+	static bool saveBasicTable(const string& directory, const string& tableName, Table* table, const SymbolBaseSP& symBase, IoTransaction* tran, int compressionMode);
 	static bool saveBasicTable(Session* session, const string& tableDir, INDEX existingTblSize, Table* table, const vector<ColumnDesc>& cols, const SymbolBaseSP& symBase, IoTransaction* tran, int compressionMode, bool saveSymbolBase);
 	static bool savePartitionedTable(Session* session, const DomainSP& domain, TableSP table, const string& tableName, IoTransaction* tran, int compressionMode = 0, bool saveSymbolBase = true );
 	static bool saveDualPartitionedTable(Session* session, SystemHandle* db, const DomainSP& secDomain, TableSP table, const string& tableName,
@@ -120,10 +121,11 @@ public:
 
 	static ColumnHeader loadColumnHeader(const string& colFile);
 	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseManagerSP& symbaseManager);
+	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseSP& symbase);
 	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseSP& symbase, int rows, long long& postFileOffset, bool& isLittleEndian, char& compressType);
 	static long long loadColumn(const string& colFile, long long fileOffset, bool isLittleEndian, char compressType, int devId, const SymbolBaseSP& symbase, INDEX rows, const VectorSP& col);
 	static Vector* loadTextVector(bool includeHeader, DATA_TYPE type, const string& path);
-	static bool saveColumn(const VectorSP& col, const string& colFile, int devId, INDEX existingTableSize, const SymbolBaseManagerSP& symbaseManager, bool chunkNode, bool append, int compressionMode, IoTransaction* tran = NULL);
+	static bool saveColumn(const VectorSP& col, const string& colFile, int devId, INDEX existingTableSize, bool chunkNode, bool append, int compressionMode, IoTransaction* tran = NULL);
 	static bool saveTableHeader(const string& owner, const vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices, long long rows, const string& tableFile, IoTransaction* tran);
 	static bool loadTableHeader(const DataInputStreamSP& in, string& owner, vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices);
 	static void removeBasicTable(const string& directory, const string& tableName);
@@ -132,10 +134,9 @@ public:
 	static void checkTypeCompatibility(Table* table, vector<string>& partitionColumns, vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices);
 	static bool checkTypeCompatibility(DATA_TYPE type1, DATA_TYPE type2);
 	static bool checkPartitionColumnCompatibility(DATA_TYPE partitionSchemeType, DATA_TYPE partitionDataType);
-	static void saveSymbolBases(const vector<ColumnDesc>& types, const SymbolBaseManagerSP& manager, IoTransaction* tran);
 	static void saveSymbolBases(const SymbolBaseSP& symbase, IoTransaction* tran);
-	static void collectColumnDesc(Table* table, const SymbolBaseManagerSP& symbaseManager, vector<ColumnDesc>& cols);
-	static ConstantSP convertColumn(const ConstantSP& col, const ColumnDesc& desiredType, const SymbolBaseManagerSP& manager);
+	static void collectColumnDesc(Table* table, vector<ColumnDesc>& cols);
+	static ConstantSP convertColumn(const ConstantSP& col, const ColumnDesc& desiredType, SymbolBaseSP& symbase);
 	static ConstantSP convertColumn(const ConstantSP& col, const ColumnDesc& desiredType, const SymbolBaseSP& symbase);
 	static VectorSP decompress(const VectorSP& col);
 	static VectorSP decompress(const VectorSP& col, const DecoderSP decoder);

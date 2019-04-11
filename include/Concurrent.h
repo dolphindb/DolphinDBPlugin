@@ -615,6 +615,7 @@ public:
 	bool isCurrentThread();
 	static void sleep(int milliSeconds);
 	static int getID();
+	static bool yield();
 
 private:
 	static void* startFunc(void* data){

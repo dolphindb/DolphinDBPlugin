@@ -471,25 +471,19 @@ private:
 class SymbolBaseManager{
 public:
 	SymbolBaseManager(const string& symbolBaseDir);
-	bool contains(const SymbolBaseSP& symbase);
-	int getSymbolBaseID(const SymbolBaseSP& symbase);
-	int findAndInsert(const SymbolBaseSP& symbase);
 	SymbolBaseSP findAndLoad(int symBaseID);
-	SymbolBaseSP reloadForModification(int symBaseID);
-	bool saveSymbolBase(const SymbolBaseSP& symbase, string& errMsg);
-	bool saveSymbolBase(int symBaseID, string& errMsg);
-	bool isModified(int symBaseID) const;
-	string getSymbolFile(int baseID);
-	void getSymbolBases(vector<int>& symBaseIDs);
+	SymbolBaseSP findOrInsert(const string& key);
+	SymbolBaseSP find(const string& key);
+	void reloadSymbolBase(const string& key);
+	string getSymbolFile(const string& key);
 
 private:
-	int checkSymbolBaseVersion(int baseID);
+	int checkSymbolBaseVersion(const string& key);
 
 private:
 	string dir_;
 	int devId_;
-	unordered_map<Guid, int, GuidHash> symbases_;
-	unordered_map<int, SymbolBaseSP> baseIDs_;
+	unordered_map<string, SymbolBaseSP> symbases_;
 	Mutex mutex_;
 };
 
@@ -584,8 +578,10 @@ public:
 	inline void setStatic(bool val){ if(val) flag_ |= 32; else flag_ &= ~32;}
 	inline bool transferAsString() const {return flag_ & 64;}
 	inline void transferAsString(bool val){ if(val) flag_ |= 64; else flag_ &= ~64;}
+	inline bool isSynchronized() const {return flag_ & 128;}
+	inline void setSynchronized(bool val){ if(val) flag_ |= 128; else flag_ &= ~128;}
 	inline DATA_FORM getForm() const {return DATA_FORM(flag_ >> 8);}
-	inline void setForm(DATA_FORM df){ flag_ = (flag_ & 127) + (df << 8);}
+	inline void setForm(DATA_FORM df){ flag_ = (flag_ & 255) + (df << 8);}
 	inline bool isScalar() const { return getForm()==DF_SCALAR;}
 	inline bool isArray() const { return getForm()==DF_VECTOR;}
 	inline bool isPair() const { return getForm()==DF_PAIR;}
@@ -781,6 +777,7 @@ public:
 	void setName(const string& name){name_=name;}
 	virtual bool isLargeConstant() const { return isMatrix() || size()>1024; }
 	virtual bool isView() const {return false;}
+	virtual bool isRepeatingVector() const {return false;}
 	virtual void initialize(){}
 	virtual INDEX getCapacity() const = 0;
 	virtual	INDEX reserve(INDEX capacity) {throw RuntimeException("Vector::reserve method not supported");}
@@ -982,8 +979,8 @@ public:
 
 class Dictionary:public Constant{
 public:
-	Dictionary() : Constant(1283){}
-	virtual ~Dictionary() {}
+	Dictionary() : Constant(1283), lock_(0){}
+	virtual ~Dictionary();
 	virtual INDEX size() const = 0;
 	virtual INDEX count() const = 0;
 	virtual void clear()=0;
@@ -1006,7 +1003,11 @@ public:
 	virtual ConstantSP get(const ConstantSP& key) const {return getMember(key);}
 	virtual void contain(const ConstantSP& target, const ConstantSP& resultSP) const = 0;
 	virtual bool isLargeConstant() const {return true;}
+	inline Mutex* getLock() const { return lock_;}
+	inline void setLock(Mutex* lock) { lock_ = lock;}
 
+private:
+	Mutex* lock_;
 };
 
 class Table: public Constant{
@@ -1069,7 +1070,7 @@ public:
 	virtual int getLocalPartitionColumnIndex(int dim) const {return -1;}
 	virtual void setGlobalPartition(const DomainSP& domain, const string& partitionColumn){throw RuntimeException("Table::setGlobalPartition() not supported");}
 	virtual bool isLargeConstant() const {return true;}
-	virtual bool addSubscriber(const TableUpdateQueueSP& queue, const string& topic, bool local, long long offset = -1) { return false;}
+	virtual bool addSubscriber(const TableUpdateQueueSP& queue, const string& topic, bool local, long long offset = -1, const ObjectSP& filter = 0) { return false;}
 	virtual bool removeSubscriber(const TableUpdateQueueSP& queue, const string& topic) { return false;}
 	virtual bool subscriberExists(const TableUpdateQueueSP& queue, const string& topic) const { return false;}
 	virtual void release() const {}
@@ -1078,7 +1079,7 @@ public:
 	virtual const TableSP& getEmptySegment() const { throw RuntimeException("Table::getEmptySegment() not supported");}
 	virtual bool segmentExists(const DomainPartitionSP& partition) const { throw RuntimeException("Table::segmentExists() not supported");}
 	virtual long long getAllocatedMemory() const = 0;
-	virtual ConstantSP retrieveMessage(long long offset, int length, bool msgAsTable, long long& messageId) { throw RuntimeException("Table::retrieveMessage() not supported"); }
+	virtual ConstantSP retrieveMessage(long long offset, int length, bool msgAsTable, const ObjectSP& filter, long long& messageId) { throw RuntimeException("Table::retrieveMessage() not supported"); }
 	virtual bool snapshotIsolate() const { return false;}
 	virtual void getSnapshot(TableSP& copy) const {}
 	virtual bool readPermitted(const AuthenticatedUserSP& user) const {return true;}
@@ -1762,9 +1763,9 @@ public:
 	virtual IO_ERR saveDomain(const DataOutputStreamSP& out) const = 0;
 	virtual ConstantSP getPartitionKey(const ConstantSP& partitionColumn) const = 0;
 	virtual bool equals(const DomainSP& domain) const = 0;
-	virtual DATA_TYPE getPartitionColumnType() const = 0;
+	virtual DATA_TYPE getPartitionColumnType(int dimIndex = 0) const = 0;
 	virtual int getPartitionDimensions() const { return 1;}
-	virtual void switchWorkingDimension(int dimension){}
+	virtual DomainSP getDimensionalDomain(int dimension) const;
 	virtual DomainSP copy() const = 0;
 	bool addTable(const string& tableName, const string& owner, vector<ColumnDesc>& cols, vector<int>& partitionColumns);
 	bool getTable(const string& tableName, string& owner, vector<ColumnDesc>& cols, vector<int>& partitionColumns) const;
@@ -1819,12 +1820,14 @@ private:
 };
 
 struct TableUpdate{
-	TableUpdate(const string& topic, long long offset, int length, int flag, TableSP table) : topic_(topic), offset_(offset), length_(length), flag_(flag), table_(table){}
-	TableUpdate() : offset_(0), length_(0), flag_(0), table_(0){}
+	TableUpdate(const string& topic, long long offset, int length, int flag, const TableSP& table) : topic_(topic), offset_(offset), length_(length), flag_(flag), filter_(0), table_(table){}
+	TableUpdate(const string& topic, long long offset, int length, int flag, const ObjectSP& filter, const TableSP& table) : topic_(topic), offset_(offset), length_(length), flag_(flag), filter_(filter), table_(table){}
+	TableUpdate() : offset_(0), length_(0), flag_(0), filter_(0), table_(0){}
 	string topic_;
 	long long offset_;
 	int length_;
 	int flag_;
+	ObjectSP filter_;
 	TableSP table_;
 };
 
@@ -1859,6 +1862,7 @@ struct TopicSubscribe {
 	const FunctionDefSP handler_;
 	const AuthenticatedUserSP user_;
 	ConstantSP body_;
+	ConstantSP filter_;
 	Mutex mutex_;
 };
 
