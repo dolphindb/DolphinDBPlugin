@@ -181,7 +181,7 @@ int inf(std::iostream &srcFile, std::iostream &dstFile)
     (void)inflateEnd(&strm);
     return Z_OK;
 }
-
+#if 0
 ConstantSP createZlibInputStream(Heap* heap, vector<ConstantSP>& args) {
     if(args[0]->getType() != DT_STRING) {
         throw IllegalArgumentException("decompressFile",
@@ -200,7 +200,6 @@ ConstantSP createZlibInputStream(Heap* heap, vector<ConstantSP>& args) {
     DataInputStreamSP ret = new ZlibInputStream(std::fstream(file, std::ios_base::in | std::ios_base::binary));
     return ret;
 }
-
 ZlibInputStream::ZlibInputStream(std::fstream &&src): DataInputStream(FILE_STREAM), src_file(std::move(src)), src_(src_file) {
     initZlib();
 }
@@ -282,3 +281,4 @@ IO_ERR ZlibInputStream::internalClose() {
     (void)inflateEnd(&strm);
     return OK;
 }
+#endif

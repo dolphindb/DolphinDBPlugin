@@ -905,7 +905,7 @@ ConstantSP loadFromH5ToDatabase(Heap *heap, vector<ConstantSP> &arguments)
     if (diskSeqMode) {
         string id = db->getDomain()->getPartition(arguments[6]->getInt())->getPath();
         string directory = db->getDatabaseDir() + "/" + id;
-        if (!DBFileIO::saveBasicTable(heap->currentSession(), directory, loadedTable.get(), tableName, db->getSymbolBaseManager(), NULL, true, 1, false))
+        if (!DBFileIO::saveBasicTable(heap->currentSession(), directory, loadedTable.get(), tableName, NULL, true, 1, false))
             throw RuntimeException("Failed to save the table to directory " + directory);
         return new Long(loadedTable->rows());
     }
@@ -945,7 +945,6 @@ vector<DistributedCallSP> generateH5Tasks(Heap* heap, const hid_t set,
         estimatedRows = std::min(rowNum, estimatedRows);
 
     int partitions = 0;
-    bool diskSeqMode = false;
     DomainSP domain = db->getDomain();
 
     if (domain->getPartitionType() == SEQ) {
@@ -954,7 +953,6 @@ vector<DistributedCallSP> generateH5Tasks(Heap* heap, const hid_t set,
             throw IOException("The database must have at least two partitions.");
         if ((estimatedRows / partitions) < 65536)
             throw IOException("The number of rows per partition is too small (<65,536) and the hdf5 file can't be partitioned.");
-        diskSeqMode = !db->getDatabaseDir().empty();
     }
     if (partitions == 0) {
         long long fileSize = getDatasetSize(set);
@@ -971,14 +969,6 @@ vector<DistributedCallSP> generateH5Tasks(Heap* heap, const hid_t set,
 
     int columns=colNames.size();
 	vector<ConstantSP> cols(columns);
-
-	bool containSymbolType = false;
-	for(int i=0; i<columns; ++i){
-		if(types[i] == DT_SYMBOL)
-			containSymbolType = true;
-	}
-	if(containSymbolType && diskSeqMode)
-		db->getSymbolBaseManager()->findAndInsert(new SymbolBase());
 
     vector<DistributedCallSP> tasks;
 
@@ -1002,7 +992,7 @@ vector<DistributedCallSP> generateH5Tasks(Heap* heap, const hid_t set,
 }
 
 TableSP generateInMemoryParitionedTable(Heap *heap, const SystemHandleSP &db,
-                                        const TableSP &tables, const ConstantSP &partitionNames)
+                                        const ConstantSP &tables, const ConstantSP &partitionNames)
 {
     FunctionDefSP createPartitionedTable = heap->currentSession()->getFunctionDef("createPartitionedTable");
     ConstantSP emptyString = new String("");
@@ -1010,7 +1000,7 @@ TableSP generateInMemoryParitionedTable(Heap *heap, const SystemHandleSP &db,
     return createPartitionedTable->call(heap, args);
 }
 
-ConstantSP loadHDF5Ex(Heap* heap, const SystemHandleSP &db, const string &tableName, const ConstantSP &partitionColumnNames,
+ConstantSP loadHDF5Ex(Heap *heap, const SystemHandleSP &db, const string &tableName, const ConstantSP &partitionColumns,
                       const string &filename, const string &datasetName, const TableSP &schema,
                       const size_t startRow, const size_t rowNum)
 {
@@ -1022,7 +1012,7 @@ ConstantSP loadHDF5Ex(Heap* heap, const SystemHandleSP &db, const string &tableN
 
     StaticStageExecutor executor(true, false, false);
     executor.execute(heap, tasks);
-    for (int i = 0; i < partitions; ++i) {
+    for (int i = 0; i < partitions; i++) {
         const string &errMsg = tasks[i]->getErrorMessage();
         if (!errMsg.empty())
             throw RuntimeException(errMsg);
@@ -1032,6 +1022,7 @@ ConstantSP loadHDF5Ex(Heap* heap, const SystemHandleSP &db, const string &tableN
     DomainSP domain = db->getDomain();
     bool seqDomain = domain->getPartitionType() == SEQ;
     bool inMemory = db->getDatabaseDir().empty();
+    ConstantSP tableName_ = new String(tableName);
 
     if (seqDomain) {
         if (inMemory) {
@@ -1045,13 +1036,13 @@ ConstantSP loadHDF5Ex(Heap* heap, const SystemHandleSP &db, const string &tableN
             vector<int> partitionColumnIndices(1, -1);
             vector<int> baseIds;
             int baseId = -1;
-            db->getSymbolBaseManager()->getSymbolBases(baseIds);
-            if (!baseIds.empty()) {
-                string errMsg;
-                baseId = baseIds.back();
-                if (!db->getSymbolBaseManager()->saveSymbolBase(db->getSymbolBaseManager()->findAndLoad(baseId), errMsg))
-                    throw IOException("Failed to save symbol base: " + errMsg);
-            }
+            // db->getSymbolBaseManager()->getSymbolBases(baseIds);
+            // if (!baseIds.empty()) {
+            //     string errMsg;
+            //     baseId = baseIds.back();
+            //     if (!db->getSymbolBaseManager()->saveSymbolBase(db->getSymbolBaseManager()->findAndLoad(baseId), errMsg))
+            //         throw IOException("Failed to save symbol base: " + errMsg);
+            // }
 
             string tableFile = db->getDatabaseDir() + "/" + tableName + ".tbl";
             vector<ColumnDesc> cols;
@@ -1068,76 +1059,40 @@ ConstantSP loadHDF5Ex(Heap* heap, const SystemHandleSP &db, const string &tableN
             if (!DBFileIO::saveDatabase(db.get()))
                 throw IOException("Failed to save database " + db->getDatabaseDir());
             db->getDomain()->addTable(tableName, owner, cols, partitionColumnIndices);
-
-            return DBFileIO::loadTable(heap->currentSession(), db.get(), tableName, nullSP, false, false);
+            vector<ConstantSP> loadTableArgs = {db, tableName_};
+            return heap->currentSession()->getFunctionDef("loadTable")->call(heap, loadTableArgs);
+            // return DBFileIO::loadTable(heap->currentSession(), db.get(), tableName, nullSP, SEGTBL, false);
         }
     }
     else {
-        int columnSize = partitionColumnNames->size();
-        if (domain->getPartitionDimensions() != columnSize)
-            throw RuntimeException("The number of partition columns doesn't match the database partition scheme.");
+        string dbPath = db->getDatabaseDir();
+        vector<ConstantSP> existsTableArgs = {new String(dbPath), tableName_};
+        bool existsTable = heap->currentSession()->getFunctionDef("existsTable")->call(heap, existsTableArgs)->getBool();
+        ConstantSP result;
 
-        TableSP emptyTable = DBFileIO::createEmptyTableFromSchema(convertedSchema);
-        vector<ColumnDesc> cols;
-        DBFileIO::collectColumnDesc(emptyTable.get(), db->getSymbolBaseManager(), cols);
-        vector<int> partitionColumnIndices(columnSize);
-        for (int i = 0; i < columnSize; ++i) {
-            partitionColumnIndices[i] = emptyTable->getColumnIndex(partitionColumnNames->getString(i));
-            if (partitionColumnIndices[i] < 0)
-                throw RuntimeException("Invalid partition column " + partitionColumnNames->getString(i));
-            domain->switchWorkingDimension(i);
-            if (!DBFileIO::checkPartitionColumnCompatibility(domain->getPartitionColumnType(), cols[partitionColumnIndices[i]].getType()))
-                throw RuntimeException("The data type of column [" + partitionColumnNames->getString(i) + "] doesn't match the database partition scheme.");
-        }
-
-        if (inMemory) {
-            SmartPointer<SegmentedInMemoryTableBuiler> builder = new SegmentedInMemoryTableBuiler(heap, db, partitionColumnIndices, partitionColumnNames, convertedSchema);
-            for (int i = 0; i < partitions; i++) {
-                TableSP tmpTable = tasks[i]->getResultObject();
-                builder->insert(tmpTable);
-            }
-            return builder->getSegmentedTable();
+        if (existsTable) {
+            vector<ConstantSP> loadTableArgs = {db, tableName_};
+            result = heap->currentSession()->getFunctionDef("loadTable")->call(heap, loadTableArgs);
         }
         else {
-            bool fail = false;
-            IoTransactionSP trans = new IoTransaction(db->getDatabaseDir());
-            string errMsg;
-
-            if (!Util::exists(db->getDatabaseDir() + "/" + tableName + ".tbl")) {
-                try {
-                    if (DBFileIO::saveTableHeader(owner, cols, partitionColumnIndices, 0, db->getDatabaseDir() + "/" + tableName + ".tbl", trans.get()))
-                        db->getDomain()->addTable(tableName, owner, cols, partitionColumnIndices);
-                    else
-                        fail = true;
-                }
-                catch (exception &ex) {
-                    errMsg = ex.what();
-                    fail = true;
-                }
-                if (fail) {
-                    trans->rollback();
-                    if (errMsg.empty())
-                        errMsg = "Unknown error occurred when saving data to database [" + db->getDatabaseDir() + "]";
-                    throw RuntimeException(errMsg);
-                }
-            }
-            for (int i = 0; i < partitions; i++) {
-                TableSP tmpTable = tasks[i]->getResultObject();
-                if (!DBFileIO::savePartitionedTable(heap->currentSession(), domain, tmpTable, tableName, trans.get(), 1))
-                    fail = true;
-            }
-
-            if (fail) {
-                trans->rollback();
-                if (errMsg.empty())
-                    errMsg = "Unknown error occurred when saving data to database [" + db->getDatabaseDir() + "]";
-                throw RuntimeException(errMsg);
-            }
-            else
-                return DBFileIO::loadTable(heap->currentSession(), db.get(), tableName, nullSP, false, false);
+            TableSP schema = extractHDF5Schema(filename, datasetName);
+            ConstantSP dummyTable = DBFileIO::createEmptyTableFromSchema(schema);
+            vector<ConstantSP> createTableArgs = {db, dummyTable, tableName_, partitionColumns};
+            result = heap->currentSession()->getFunctionDef("createPartitionedTable")->call(heap, createTableArgs);
         }
+
+        FunctionDefSP append = heap->currentSession()->getFunctionDef("append!");
+        for (int i = 0; i < partitions; ++i) {
+            ConstantSP table = tasks[i]->getResultObject();
+            vector<ConstantSP> appendArgs = {result, table};
+            append->call(heap, appendArgs);
+        }
+        if (!inMemory) {
+            vector<ConstantSP> loadTableArgs = {db, tableName_};
+            result = heap->currentSession()->getFunctionDef("loadTable")->call(heap, loadTableArgs);
+        }
+        return result;
     }
-    return nullSP;
 }
 
 ConstantSP HDF5DS(const ConstantSP &filename, const ConstantSP &datasetName,

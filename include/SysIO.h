@@ -10,7 +10,6 @@
 
 #include <string>
 #include <iostream>
-#include <openssl/ssl.h>
 #include "SmartPointer.h"
 #include "Types.h"
 
@@ -31,6 +30,7 @@
 
 using std::string;
 
+struct SSL;
 class Constant;
 class Socket;
 class UdpSocket;
@@ -229,11 +229,11 @@ public:
 	FILE* getFile() const { return file_;}
 	const char * getBuffer() const { return buf_;}
 	size_t size() const { return size_;}
-	IO_ERR flush();
+	IO_ERR flush(bool sync = false);
 	IO_ERR close();
 
 protected:
-	virtual IO_ERR internalFlush(size_t size);
+	virtual IO_ERR internalFlush(size_t size, bool sync = false);
 	virtual IO_ERR internalClose();
 	virtual char* createBuffer(size_t& capacity);
 

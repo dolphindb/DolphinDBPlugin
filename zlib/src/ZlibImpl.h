@@ -63,7 +63,7 @@ inline size_t ZlibBuffer::sputn(const char *buf, size_t size) {
     cur += size;
     return size;
 }
-
+#if 0
 class ZlibInputStream : public DataInputStream
 {
 public:
@@ -83,5 +83,5 @@ private:
     unsigned have;
     ZlibBuffer buffer;
 };
-
+#endif
 #endif /* ZLIBPLUGIN_H_ */

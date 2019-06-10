@@ -464,6 +464,7 @@ void createS3Bucket(Heap* heap, vector<ConstantSP>& args) {
     Aws::Utils::Logging::ShutdownAWSLogging();
 }
 
+#if 0
 ConstantSP createS3InputStream(Heap* heap, vector<ConstantSP>& args) {
     if(!args[0]->isDictionary()) {
         throw IllegalArgumentException("createS3InputStream",
@@ -614,3 +615,5 @@ IO_ERR S3InputStream::fileStreamZlib(char *buf, size_t length, size_t& actualLen
         return CORRUPT;
     }
 }
+#endif
+

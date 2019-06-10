@@ -1,41 +1,30 @@
-## DolphinDB introduction
-DolphinDB is an extremely fast time series database and data analytical system with unlimited scaling capacity. It has built-in parallel and distributed computing supports. It comes with battery included for real time data processing and analytics across unlimited computing nodes. It is integrated with an easy-to-use fully featured programming language and a high-volume high-velocity streaming analytics system. DolphinDB offers operational simplicity, scalability, fault tolerance, and concurrency. To learn more about DolphinDB, please go to 
-
-```
-Downloads: http://www.dolphindb.com/downloads.html
-Manual: http://dolphindb.com/help/
-Examples: http://dolphindb.com/examples.html
-```
-
 ## DolphinDB Plugin
-DolphinDB supports dynamic loading of external plugins to extend system functionality. The plug-in only supports writing in C++, and it needs to be compiled into ".so" shared libraries or ".dll" shared library files.
-
+DolphinDB 支持动态的载入外部插件，拓展系统功能。插件仅支持使用C++编写，并且需要编译成so共享库或者dll共享库文件。
 ## Directory Structures
-* ```include```The directory contains the class declarations and some tool class declarations for the core data structures of DolphinDB. These classes are important basic tools for implementing plug-ins.
-* ```demo```The directory contains a demo plug-in implementation. 
-* ```odbc```The directory contains an implementation of the odbc plugin.
+* ```include```目录包含了DolphinDB的核心数据结构的类声明和一些工具类声明，这些类是实现插件的重要基础工具。  
+* ```demo```目录包含了一个demo插件的实现。  
+* ```odbc```目录包含了一个odbc插件的实现。
 ## Loading Plugin
-Use the ```loadPlugin``` function to load an external plugin that accepts a file path that describes the format of the plugin.
+使用```loadPlugin```函数来加载外部插件，该函数接受一个文件路径，文件中描述了插件的格式。  
 
 ## DolphinDB Plugin Format
-
-DolphinDB uses a text file to describe the plugin. The file format is as follows:
-The first line describes the plug-in name and shared library file name.  
-Each of the following lines describes the mapping between a shared library function and the dolphinDB function. 
+DolphinDB使用一个文本文件来描述插件,该文件格式如下:  
+首行描述了插件名字和共享库文件名。  
+接下来的每一行都描述了一个共享库函数和dolphinDB函数的映射关系。  
 ```
 module name，lib file
 function name in lib, function name in dolphindb, function type，minParamCount, maxParamCount, isAggregated
 ...
 ```
-**Explanation**：
-* module name: plugin module name  
-* lib file: shared library file name 
-* function name in lib: The function name in the shared library
-* function name in dolphindb: corresponding function name in dolphindb 
-* function type: operator or system  
-* minParamCount: the minimum number of parameters  
-* maxParamCount: the maximum number of parameters  
-* isAggregated:  whether it is an aggregate function  
+**解释**：
+* module name: 模块名  
+* lib file: 共享文件库文件名  
+* function name in lib: 共享库中导出的函数名  
+* function name in dolphindb: dolphindb中的对应函数名  
+* function type: operator或者system  
+* minParamCount: 最小参数个数  
+* maxParamCount：最大参数个数  
+* isAggregated: 是否为聚集函数  
 
 ## Example
 PluginDemo.txt:
@@ -44,31 +33,26 @@ demo,libPluginDemo.so
 minmax,minmax,operator,1,1,0
 foo,foo,system,1,1,0
 ```
-The above description file defines a plugin named ```demo```. The shared library file is named ```libPluginDemo.so```.
+上述的描述文件定义了一个名为```demo```的插件，共享库文件名为```libPluginDemo.so```.  
+插件导出了两个函数，第一个函数名字为```minmax```,该函数在dolphinDB中名字同样是```minmax```,operator类型，接受一个参数;第二个函数名字为```echo```,dolphinDB中名字同样是```echo```, system类型，接受一个参数.  
 
-The plug-in exports two functions. The first function is named ```minmax```. The name of the function is also ```minmax``` in dolphinDB. The function type is "operator" and accepts one parameter. The second function name is ```echo```, the name in dolphinDB is also ```echo```, the function type is "system" and accepts one argument. 
+写完描述文件之后，就可以开始编写插件了，内容请参考```demo```文件夹内容。
 
-
-After writing the description file, you can start writing plugins. For content, please refer to ```demo``` folder contents.
-
-
-The compiler needs to use DolphinDB's core library ```libDolphinDB.so```, which implements the classes declared in ```include``` directories.
-The compilation steps are as follows
+编译需要用到DolphinDB的核心库```libDolphinDB.so```,该核心库实现了```include```目录下声明的类。
+编译步骤如下
 ```
 cd demo
 g++ -DLINUX -fPIC -c src/Demo.cpp -I../include -o Demo.o
 g++ -fPIC -shared -o libPluginDemo.so Demo.o -lDolphinDB
 ```
+编译成功后，目录下会生成一个名为```libPluginDemo.so```的共享文件。
 
-After successful compilation, a shared library file named ```libPluginDemo.so``` will be generated under the directory.
-
-
-Enter the following command in the dolphinb console to load the plugin and use it.
+在dolphindb的控制台中输入下列命令加载插件并使用。
 ```
->loadPlugin(Path to PluginDemo.txt); // Load the plugin
+>loadPlugin(PluginDemo.txt的路径); // 加载插件
 (minmax,echo)
->use demo; // Import the plugin's namespace
->demo::minmax([12,3,4]); // You can also use minmax([12,3,4])
+>use demo; // 引入插件的命名空间
+>demo::minmax([12,3,4]); // 也可以使用minmax([12,3,4])
 [3,12]
 >demo::echo("foo");
 foo
@@ -76,9 +60,11 @@ foo
 1
 ```
 
-For more complex plugin implementation please refer to the ```odbc``` directory.
+更复杂的插件实现请参考```odbc```目录下的内容。
 
 ## Tips
-* It is recommended that you use the ```ld``` command to check if the compiler link is successful and there are undefined references in the so. If ```ld``` error, then DolphinDB can not load the plug-in correctly.
-* If the program is crashed after loading the plug-in, you can try the following steps. 
-   1. Make sure that the ```include``` headers are consistent with the ```libDolphinDB.so``` implementation.Make sure that the version of ``gcc``` used to compile the plugin is consistent with the version of ``libBoardDB.so```, so as to avoid the incompatibilities between different versions of the compiler ABI.
+* 建议使用```ld```命令检查下编译器链接是否成功，so中是否存在未定义的引用。如果```ld```报错，那么DolphinDB也无法正确加载插件。
+* 如果载入插件之后出现了crash，可以采取尝试以下步骤。  
+   1. 确保```include```下的头文件和```libDolphinDB.so```实现保持一致.
+   2. 确保用于编译插件的```gcc```版本和编译```libDolphinDB.so```的版本保持一致，以免出现不同版本的编译器ABI不兼容的问题。
+* 如果编译时出现链接问题（```undefined reference```），并且包含```std::__cxx11```字样，务必检查用于编译插件的```gcc```版本（```gcc 6.2.0 且有--disable-libstdcxx-dual-abi```）

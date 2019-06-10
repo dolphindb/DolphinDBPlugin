@@ -60,7 +60,6 @@ public:
 			return *((T*)tmp->p_);
 		tmp->addRef();
 
-		//TODO: the below operation is not thread-safe. But it is safe if there is only one writer and multiple readers.
 		Counter* oldCounter = counterP_;
 		counterP_= tmp;
 
@@ -83,7 +82,6 @@ public:
 		Counter* tmp = new Counter(0);
 		tmp->addRef();
 
-		//TODO: the below operation is not thread-safe. But it is safe if there is only one writer and multiple readers.
 		Counter* oldCounter = counterP_;
 		counterP_= tmp;
 

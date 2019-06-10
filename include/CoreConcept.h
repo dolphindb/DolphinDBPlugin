@@ -56,12 +56,9 @@ class ColumnRef;
 class SymbolBase;
 class SymbolBaseManager;
 class Output;
-class Console;
-class Session;
-class ConstantMarshall;
-class ConstantUnmarshall;
 class DebugContext;
-class DomainSite;
+class Session;
+struct ClusterNodes;
 class DomainSitePool;
 class DomainPartition;
 class Domain;
@@ -69,17 +66,13 @@ class PartitionGuard;
 struct TableUpdate;
 struct TableUpdateSizer;
 struct TableUpdateUrgency;
-struct LocalTableUpdate;
-struct TopicSubscribe;
-class SessionThreadCallGuard;
 class ReducerContainer;
 class DistributedCall;
 class JobProperty;
-struct JITCfgNode;
-class Codegen;
-struct JITCfgNode;
-class Codegen;
-class JITValue;
+class IoTransaction;
+class Decoder;
+class VolumeMapper;
+class SystemHandle;
 
 typedef SmartPointer<AuthenticatedUser> AuthenticatedUserSP;
 typedef SmartPointer<ByteArrayCodeBuffer> ByteArrayCodeBufferSP;
@@ -102,31 +95,26 @@ typedef SmartPointer<ColumnRef> ColumnRefSP;
 typedef SmartPointer<SymbolBase> SymbolBaseSP;
 typedef SmartPointer<SymbolBaseManager> SymbolBaseManagerSP;
 typedef SmartPointer<Output> OutputSP;
-typedef SmartPointer<Console> ConsoleSP;
-typedef SmartPointer<Session> SessionSP;
-typedef SmartPointer<ConstantMarshall> ConstantMarshallSP;
-typedef SmartPointer<ConstantUnmarshall> ConstantUnmarshallSP;
 typedef SmartPointer<DebugContext> DebugContextSP;
-typedef SmartPointer<DomainSite> DomainSiteSP;
+typedef SmartPointer<Session> SessionSP;
+typedef SmartPointer<ClusterNodes> ClusterNodesSP;
 typedef SmartPointer<DomainSitePool> DomainSitePoolSP;
 typedef SmartPointer<DomainPartition> DomainPartitionSP;
 typedef SmartPointer<Domain> DomainSP;
 typedef SmartPointer<PartitionGuard> PartitionGuardSP;
 typedef SmartPointer<TableUpdate> TableUpdateSP;
 typedef SmartPointer<GenericBoundedQueue<TableUpdate, TableUpdateSizer, TableUpdateUrgency> > TableUpdateQueueSP;
-typedef SmartPointer<TopicSubscribe> TopicSubscribeSP;
-typedef SmartPointer<SessionThreadCallGuard> SessionThreadCallGuardSP;
 typedef SmartPointer<ReducerContainer> ReducerContainerSP;
 typedef SmartPointer<DistributedCall> DistributedCallSP;
 typedef SmartPointer<JobProperty> JobPropertySP;
-typedef SmartPointer<JITCfgNode> JITCfgNodeSP;
+typedef SmartPointer<VolumeMapper> VolumeMapperSP;
+typedef SmartPointer<Decoder> DecoderSP;
 
 typedef ConstantSP(*OptrFunc)(const ConstantSP&,const ConstantSP&);
 typedef ConstantSP(*SysFunc)(Heap* heap,vector<ConstantSP>& arguments);
 typedef ConstantSP(*TemplateOptr)(const ConstantSP&,const ConstantSP&,const string&, OptrFunc);
 typedef ConstantSP(*TemplateUserOptr)(Heap* heap, const ConstantSP&,const ConstantSP&, const FunctionDefSP&);
 typedef void (*SysProc)(Heap* heap,vector<ConstantSP>& arguments);
-typedef std::function<void (StatementSP)> CFGTraversalFunc;
 
 class AuthenticatedUser{
 public:
@@ -408,8 +396,9 @@ public:
 	SymbolBase(const string& symbolFile, bool snapshot = false, bool supportOrder=true);
 	SymbolBase(const string& symbolFile, const DataInputStreamSP& in, bool snapshot = false);
 	SymbolBase* copy();
-	bool saveSymbolBase(const string& symbolFile, string& errMsg);
-	bool saveSymbolBase(string& errMsg);
+	bool saveSymbolBase(string& errMsg, bool sync = false);
+	IO_ERR serialize(int offset, int length, Buffer& buf);
+	inline bool lastSaveSynchronized() const { return lastSaveSynchronized_;}
 	inline int find(const string& symbol){
 #ifndef LOCKFREE_SYMBASE
 		LockGuard<Mutex> guard(&keyMutex_);
@@ -454,6 +443,7 @@ private:
 	string dbPath_;
 	int savingPoint_;
 	bool modified_;
+	bool lastSaveSynchronized_;
 	bool supportOrder_;
 	DynamicArray<string> key_;
 	SmartPointer<Array<int> > ordinal_;
@@ -1348,6 +1338,27 @@ public:
 	virtual IO_ERR flush() = 0;
 };
 
+class DebugContext{
+public:
+	DebugContext();
+	void waitForExecution(Heap* pHeap, Statement* pStatement);
+	void waitForStop();
+	void continueExecution(int steps);
+	void decreaseSteps();
+	int getSteps() const { return steps_;}
+	bool continueFlag() const { return continueFlag_;}
+
+private:
+	int steps_;
+	bool continueFlag_;
+	bool stopped_;
+	Mutex mutex_;
+	ConditionalVariable execCondition_;
+	ConditionalVariable stopCondition_;
+	Heap* lastHeap_;
+	Statement* lastStatement_;
+};
+
 class Session {
 public:
 	Session(const HeapSP& heap);
@@ -1433,91 +1444,6 @@ protected:
 	int parallelism_;
 };
 
-class Console {
-public:
-	Console(const SessionSP& session, const OutputSP& out);
-	virtual ~Console(){}
-	virtual void cancel(bool running){}
-	Output* getOutput(){return out_.get();}
-	Session* getSession(){return session_.get();}
-	long long getLastActiveTime() const { return lastActiveTime_;}
-	void setLastActiveTime(long long lastUpdate) { lastActiveTime_ = lastUpdate;}
-	inline void setJobId(const Guid& jobId);
-	inline const Guid& getJobId() const { return jobId_;}
-	inline const Guid& getTaskId() const { return jobId_;}
-	inline void setRootJobId(const Guid& rootJobId) { rootJobId_ = rootJobId;}
-	inline const Guid& getRootJobId() const { return rootJobId_;}
-	inline void setPriority(int priority) { priority_ = priority;}
-	inline int getPriority() const { return priority_;}
-	inline void setParallelism(int parallelism) { parallelism_ = parallelism;}
-	inline int getParallelism() const { return parallelism_;}
-	inline bool isCancellable() const {return cancellable_;}
-	inline void setCancellable(bool option){cancellable_ = option;}
-	void set(const Guid& rootJobId, const Guid& jobId, int parallelism, int priority);
-	inline void setFlag(long long flag) { flag_ = flag;}
-	inline long long getFlag() const { return flag_;}
-	inline bool isUrgent() const { return flag_ & 1;}
-	virtual IO_ERR readReady()=0;
-	virtual IO_ERR execute()=0;
-	virtual CONSOLE_TYPE getConsoleType() const = 0;
-	virtual void run() = 0;
-	virtual void getTaskDesc(string& type, string& desc) const = 0;
-
-protected:
-	Guid rootJobId_;
-	Guid jobId_;
-	int priority_;
-	int parallelism_;
-	bool cancellable_;
-	SessionSP session_;
-	OutputSP out_;
-	long long lastActiveTime_;
-	long long flag_;
-};
-
-class ConstantMarshall {
-public:
-	virtual ~ConstantMarshall(){}
-	virtual bool start(const ConstantSP& target, bool blocking, IO_ERR& ret)=0;
-	virtual bool start(const char* requestHeader, size_t headerSize, const ConstantSP& target, bool blocking, IO_ERR& ret)=0;
-	virtual bool resume(IO_ERR& ret)=0;
-	virtual void reset() = 0;
-	virtual IO_ERR flush() = 0;
-};
-
-class ConstantUnmarshall{
-public:
-	virtual ~ConstantUnmarshall(){}
-	virtual bool start(short flag, bool blocking, IO_ERR& ret)=0;
-	virtual bool resume(IO_ERR& ret)=0;
-	virtual void reset() = 0;
-	ConstantSP getConstant(){return obj_;}
-
-protected:
-	ConstantSP obj_;
-};
-
-class DebugContext{
-public:
-	DebugContext();
-	void waitForExecution(Heap* pHeap, Statement* pStatement);
-	void waitForStop();
-	void continueExecution(int steps);
-	void decreaseSteps();
-	int getSteps() const { return steps_;}
-	bool continueFlag() const { return continueFlag_;}
-
-private:
-	int steps_;
-	bool continueFlag_;
-	bool stopped_;
-	Mutex mutex_;
-	ConditionalVariable execCondition_;
-	ConditionalVariable stopCondition_;
-	Heap* lastHeap_;
-	Statement* lastStatement_;
-};
-
 class Heap{
 public:
 	Heap():meta_(0), session_(0), size_(0), status_(0){}
@@ -1571,94 +1497,9 @@ private:
 	char status_;
 };
 
-struct JITCfgNode {
-	JITCfgNode() : visited_(false){}
-	string getInferredTypeCacheAsString() const {
-		string out = "{";
-			for (auto kv: inferredTypeCache) {
-				out.append(kv.first + ": " +kv.second.getString() + ", ");
-			}
-		out.append("}");
-		return out;
-	}
-
-	// control flow graph: next block edge
-	vector<StatementSP> cfgNexts;
-	// control flow graph: reverse edge to incoming block
-	vector<StatementSP> cfgFroms;
-	unordered_map<string, InferredType> inferredTypeCache;
-	unordered_map<string, vector<InferredType>> upstreamTypes;
-	bool visited_;
-};
-
-class Statement{
-public:
-	Statement(STATEMENT_TYPE type):breakpoint_(false), type_(type){}
-	virtual ~Statement(){}
-	STATEMENT_TYPE getType() const {return type_;}
-	virtual void execute(Heap* pHeap)=0;
-	virtual void debugExecute(Heap* pHeap, DebugContext* pContext);
-	virtual bool shouldReturn() const {return false;}
-	virtual bool shouldBreak() const {return false;}
-	virtual bool shouldContinue() const {return false;}
-	virtual string getScript(int indention) const = 0;
-	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const = 0;
-	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const {}
-	void disableBreakpoint();
-	void enableBreakpoint();
-
-	JITCfgNodeSP getCFGNode() const;
-	vector<StatementSP>& getCFGNexts();
-	vector<StatementSP>& getCFGFroms();
-	unordered_map<string, vector<InferredType>> & getUpstreamTypes() { return cfgNode_->upstreamTypes; }
-	unordered_map<string, InferredType> & getInferredTypeCache();
-	void addCFGNextBlock(const StatementSP& nextBlock);
-	void addCFGFromBlock(const StatementSP& fromBlock);
-	bool getCFGNodeVisited() const;
-	bool setCFGNodeVisited(bool visited = true);
-	string getInferredTypeCacheAsString() const;
-	virtual InferredType inferType(Heap* heap, unordered_set<ControlFlowEdge> & vis, const string & varName);
-	virtual IO_ERR buildCFG(const StatementSP& self, std::unordered_map<string, StatementSP> & context);
-	virtual string getInferredTypesDebugString(int indention) const;
-	virtual void traverseCFG(const StatementSP& self, unordered_set<void*> & visited, CFGTraversalFunc func);
-	virtual vector<string> getVarNames() const;
-
-protected:
-	bool breakpoint_;
-	JITCfgNodeSP cfgNode_;
-
-private:
-	STATEMENT_TYPE type_;
-};
-
-class StatementFactory {
-public:
-	virtual ~StatementFactory(){}
-	virtual Statement* readStatement(Session* session, const DataInputStreamSP& buffer) = 0;
-	virtual Statement* createReturnStatement(const ObjectSP& obj) = 0;
-};
-
-class DomainSite{
-public:
-	DomainSite(const string& host, int port, int index);
-	DomainSite(const string& host, int port, int index, const string& alias) ;
-	const string& getHost() const {return host_;}
-	int getPort() const {return port_;}
-	int getIndex() const {return index_;}
-	string getString() const;
-	const string& getAlias() const {return alias_;}
-	inline bool operator ==(const DomainSite& target) const { return  host_ == target.host_ && port_ == target.port_;}
-	static DomainSite emptySite_;
-private:
-	string host_;
-	int port_;
-	int index_;
-	string alias_;
-};
-
 class DomainSitePool {
 public:
-	DomainSitePool() : lastSuccessfulSiteIndex_(-1), lastSiteIndex_(-1), nextSiteIndex_(-1), startSiteIndex_(-1){}
+	DomainSitePool() : lastSuccessfulSiteIndex_(-1), lastSiteIndex_(-1), nextSiteIndex_(-1), startSiteIndex_(-1), localSiteIndex_(-1){}
 	DomainSitePool(const DomainPartitionSP& partition);
 	void addSite(int siteIndex);
 	int getLastSite() const;
@@ -1667,6 +1508,7 @@ public:
 	int nextSite() const;
 	inline int getNextSite() const { return sites_[nextSiteIndex_].first;}
 	inline bool hasNextSite() const { return nextSiteIndex_ >= 0;}
+	inline bool containLocalSite() const { return localSiteIndex_ >= 0;}
 	void initiateSite(bool useLastSuccessfulSite = false);
 	void setIntialSite(int index);
 	void resetInitialSite();
@@ -1679,6 +1521,7 @@ private:
 	mutable int lastSiteIndex_;
 	mutable int nextSiteIndex_;
 	int startSiteIndex_;
+	int localSiteIndex_;
 };
 
 class DomainPartition{
@@ -1692,8 +1535,9 @@ public:
 	const int getKey() const {return key_;}
 	virtual bool addSite(int siteIndex) {return false;}
 	virtual int getSiteCount() const { return 0;}
-	virtual const DomainSite& getSite(int index) const { throw RuntimeException("DomainPartition::getSite method not supported.");}
+	virtual int getSiteIndex(int index) const { throw RuntimeException("DomainPartition::getSiteIndex method not supported.");}
 	virtual bool isLocalPartition() const { return true;}
+	virtual bool containLocalCopy() const { return true;}
 	string getString() const;
 	inline const string& getPath() const {return path_;}
 	inline const Guid& getId() const {return id_;}
@@ -1843,41 +1687,6 @@ struct TableUpdateUrgency {
 	}
 };
 
-struct TopicSubscribe {
-	TopicSubscribe(const string& topic, int hashValue, vector<string> attributes, const FunctionDefSP& handler, const AuthenticatedUserSP& user, bool msgAsTable, int batchSize, int throttleTime) : msgAsTable_(msgAsTable),
-			hashValue_(hashValue), batchSize_(batchSize), throttleTime_(throttleTime), cumSize_(0), messageId_(-1), expired_(-1), topic_(topic), attributes_(attributes), handler_(handler), user_(user){}
-	bool append(long long msgId, const ConstantSP& msg, long long& outMsgId, ConstantSP& outMsg);
-	bool getMessage(long long now, long long& outMsgId, ConstantSP& outMsg);
-	bool updateSchema(const TableSP& emptyTable);
-
-	const bool msgAsTable_;
-	const int hashValue_;
-	const int batchSize_;
-	const int throttleTime_; //in millisecond
-	int cumSize_;
-	std::atomic<long long> messageId_;
-	long long expired_;
-	const string topic_;
-	vector<string> attributes_;
-	const FunctionDefSP handler_;
-	const AuthenticatedUserSP user_;
-	ConstantSP body_;
-	ConstantSP filter_;
-	Mutex mutex_;
-};
-
-class SessionThreadCallGuard {
-public:
-	SessionThreadCallGuard() : session_(0){}
-	SessionThreadCallGuard(Session* session);
-	~SessionThreadCallGuard();
-	void setThreadCallMode(Session* session);
-	void releaseThreadCallMode();
-
-private:
-	Session* session_;
-};
-
 class ReducerContainer {
 public:
 	ReducerContainer(Heap* heap, const FunctionDefSP& reducer) : heap_(heap), reducer_(reducer), objCount_(0){}
@@ -1974,6 +1783,158 @@ struct JobProperty {
 	int priority_;
 	int parallelism_;
 	bool cancellable_;
+};
+
+class StageExecutor {
+public:
+	virtual ~StageExecutor(){}
+	virtual vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks) = 0;
+	virtual vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks, const JobProperty& jobProp) = 0;
+};
+
+class StaticStageExecutor : public StageExecutor{
+public:
+	StaticStageExecutor(bool parallel, bool reExecuteOnOOM, bool trackJobs, bool resumeOnError = false, bool scheduleRemoteSite = true) :  parallel_(parallel),
+		reExecuteOnOOM_(reExecuteOnOOM), trackJobs_(trackJobs),	resumeOnError_(resumeOnError), scheduleRemoteSite_(scheduleRemoteSite){}
+	virtual ~StaticStageExecutor(){}
+	virtual vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks);
+	virtual vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks, const JobProperty& jobProp);
+
+private:
+	void groupRemoteCalls(const vector<DistributedCallSP>& tasks, vector<DistributedCallSP>& groupedCalls, const ClusterNodesSP& clusterNodes);
+
+private:
+	bool parallel_;
+	bool reExecuteOnOOM_;
+	bool trackJobs_;
+	bool resumeOnError_;
+	bool scheduleRemoteSite_;
+};
+
+class PipelineStageExecutor : public StageExecutor {
+public:
+	PipelineStageExecutor(vector<FunctionDefSP>& followingFunctors, bool trackJobs, int queueDepth = 2, int parallel = 1) : followingFunctors_(followingFunctors), trackJobs_(trackJobs),
+		queueDepth_(queueDepth), parallel_(parallel){}
+	virtual ~PipelineStageExecutor(){}
+	virtual vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks);
+	virtual vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks, const JobProperty& jobProp);
+
+private:
+	void parallelExecute(Heap* heap, vector<DistributedCallSP>& tasks);
+
+private:
+	vector<FunctionDefSP> followingFunctors_;
+	bool trackJobs_;
+	int queueDepth_;
+	int parallel_;
+};
+
+class Decoder {
+public:
+	Decoder(int id, bool appendable) : id_(id), appendable_(appendable), codeSymbolAsString_(false){}
+	virtual ~Decoder(){}
+	virtual VectorSP code(const VectorSP& vec, bool lsnFlag) = 0;
+	virtual IO_ERR code(const VectorSP& vec, bool lsnFlag, const DataOutputStreamSP& out, int& checksum) = 0;
+	virtual IO_ERR decode(const VectorSP& vec, INDEX rowOffset, bool fullLoad, int checksum, const DataInputStreamSP& in,
+			long long byteSize, long long byteOffset, INDEX& postRows, long long& postByteOffset, long long& lsn) = 0;
+	inline int getID() const {return id_;}
+	inline bool isAppendable() const {return appendable_;}
+	inline bool codeSymbolAsString() const { return codeSymbolAsString_;}
+	void codeSymbolAsString(bool enabled) { codeSymbolAsString_ = enabled;}
+private:
+	int id_;
+	bool appendable_;
+	bool codeSymbolAsString_;
+};
+
+class VolumeMapper {
+public:
+	VolumeMapper(vector<string>& volumes, int workers);
+	int getMappedDeviceId(const string& path);
+
+private:
+	int workers_;
+	unordered_map<int, int> deviceMap_;
+};
+
+struct ColumnHeader{
+	ColumnHeader(const char* header);
+	ColumnHeader();
+	static int getHeaderSize(){ return 20;}
+	void serialize(ByteArrayCodeBuffer& buf);
+	void deserialize(const char* header);
+	inline bool isLittleEndian() const { return flag & 1;}
+	inline bool containChecksum() const {return flag & 2;}
+	inline bool lsnFlag() const{return flag & 4;}
+	inline void setLittleEndian(bool val){ if(val) flag |= 1; else flag &= ~1;}
+	inline void setChecksumOption(bool val){ if(val) flag |= 2; else flag &= ~2;}
+	inline void setLSNFlag(bool val){ if(val) flag |= 4; else flag &= ~4;}
+
+	char version;
+	char flag; //bit0: littleEndian bit1: containChecksum
+	char charCode;
+	char compression;
+	char dataType;
+	char unitLength;
+	short reserved;
+	int extra;
+	int count;
+	int checksum;
+};
+
+class DBFileIO {
+public:
+	static bool saveBasicTable(Session* session, const string& directory, Table* table, const string& tableName, IoTransaction* tran,  bool append = false, int compressionMode = 0, bool saveSymbolBase = true);
+	static bool saveBasicTable(Session* session, SystemHandle* db, Table* table, const string& tableName, IoTransaction* tran, bool append = false, int compressionMode = 0, bool saveSymbolBase = true);
+	static bool saveBasicTable(Session* session, const string& directory, const string& tableDir, Table* table, const string& tableName, const vector<ColumnDesc>& cols, SymbolBaseSP& symbase, IoTransaction* tran, bool chunkMode, bool append, int compressionMode, bool saveSymbolBase);
+	static bool saveBasicTable(const string& directory, const string& tableName, Table* table, const SymbolBaseSP& symBase, IoTransaction* tran, int compressionMode);
+	static bool saveBasicTable(Session* session, const string& tableDir, INDEX existingTblSize, Table* table, const vector<ColumnDesc>& cols, const SymbolBaseSP& symBase, IoTransaction* tran, int compressionMode, bool saveSymbolBase, long long lsn);
+	static bool savePartitionedTable(Session* session, const DomainSP& domain, TableSP table, const string& tableName, IoTransaction* tran, int compressionMode = 0, bool saveSymbolBase = true );
+	static bool saveDualPartitionedTable(Session* session, SystemHandle* db, const DomainSP& secDomain, TableSP table, const string& tableName,
+			const string& partitionColName, vector<string>& secPartitionColNames, IoTransaction* tran, int compressionMode = 0);
+	static Table* loadTable(Session* session, const string& directory, const string& tableName, const SymbolBaseManagerSP& symbaseManager, const DomainSP& domain, const ConstantSP& partitions, TABLE_TYPE tableType, bool memoryMode);
+	static Table* loadTable(Session* session, SystemHandle* db, const string& tableName, const ConstantSP& partitions, TABLE_TYPE tableType, bool memoryMode);
+	static void removeTable(SystemHandle* db, const string& tableName);
+	static SystemHandle* openDatabase(const string& directory, const DomainSP& localDomain);
+	static bool saveDatabase(SystemHandle* db);
+	static bool removeDatabase(const string& dbDir);
+
+	static ColumnHeader loadColumnHeader(const string& colFile);
+	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseManagerSP& symbaseManager);
+	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseSP& symbase);
+	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseSP& symbase, int rows, long long& postFileOffset, bool& isLittleEndian, char& compressType);
+	static long long loadColumn(const string& colFile, long long fileOffset, bool isLittleEndian, char compressType, int devId, const SymbolBaseSP& symbase, INDEX rows, const VectorSP& col);
+	static Vector* loadTextVector(bool includeHeader, DATA_TYPE type, const string& path);
+	static bool saveColumn(const VectorSP& col, const string& colFile, int devId, INDEX existingTableSize, bool chunkNode, bool append, int compressionMode, IoTransaction* tran = NULL, long long lsn = -1);
+	static bool saveTableHeader(const string& owner, const vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices, long long rows, const string& tableFile, IoTransaction* tran);
+	static bool loadTableHeader(const DataInputStreamSP& in, string& owner, vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices);
+	static void removeBasicTable(const string& directory, const string& tableName);
+	static TableSP createEmptyTableFromSchema(const TableSP& schema);
+	static long long truncateColumnByLSN(const string& colFile, int devId, long long expectedLSN, bool sync=true);
+	static long long truncateColumnByRows(const string& colFile, int devId, INDEX rows, bool sync=true);
+	static void truncateSymbolBase(const string& symFile, int devId, INDEX rows, bool sync=true);
+
+	static void checkTypeCompatibility(Table* table, vector<string>& partitionColumns, vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices);
+	static bool checkTypeCompatibility(DATA_TYPE type1, DATA_TYPE type2);
+	static bool checkPartitionColumnCompatibility(DATA_TYPE partitionSchemeType, DATA_TYPE partitionDataType);
+	static void saveSymbolBases(const SymbolBaseSP& symbase, IoTransaction* tran);
+	static void collectColumnDesc(Table* table, vector<ColumnDesc>& cols);
+	static ConstantSP convertColumn(const ConstantSP& col, const ColumnDesc& desiredType, SymbolBaseSP& symbase);
+	static ConstantSP convertColumn(const ConstantSP& col, const ColumnDesc& desiredType, const SymbolBaseSP& symbase);
+	static VectorSP decompress(const VectorSP& col);
+	static VectorSP decompress(const VectorSP& col, const DecoderSP decoder);
+	static VectorSP compress(const VectorSP& col);
+	static TableSP compressTable(const TableSP& table);
+	static ConstantSP appendDataToFile(Heap* heap, vector<ConstantSP>& arguments);
+	static int getMappedDeviceId(const string& path);
+	static void setVolumeMapper(const VolumeMapperSP& volumeMapper) { volumeMapper_ = volumeMapper;}
+	static unsigned int checksum(FILE* fp, long long offset, long long length);
+
+private:
+	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseManagerSP& symbaseManager,	const SymbolBaseSP& symbase,
+			int rows, long long& postFileOffset, bool& isLittleEndian, char& compressType);
+	static inline DATA_TYPE getCompressedDataType(const VectorSP& vec){return (DATA_TYPE)vec->getChar(4);}
+	static VolumeMapperSP volumeMapper_;
 };
 
 #endif /* CORECONCEPT_H_ */

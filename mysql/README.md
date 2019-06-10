@@ -88,7 +88,7 @@ The file libPluginMySQL.so will be generated after the compilation.
 
 * Create a connection to MySQL server. Return a handle of MySQL connection, which will be used to access MySQL server later.
 
-### Examples
+### Example
 
 ```
 conn = mysql::connect(`localhost, 3306, `root, `root, `DolphinDB)
