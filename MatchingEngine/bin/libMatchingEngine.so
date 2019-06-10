@@ -1,0 +1,127 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" id="viewport" content="width=device-width,minimum-scale=1.0,maximum-scale=10.0,initial-scale=1.0">
+  <meta name="referrer" content="origin-when-cross-origin">
+
+  
+
+  <style data-immutable>
+    @media only screen and (max-device-width: 480px){div[class="padded"]{padding:16px !important}td[class="icon"]{display:none !important}div[class*="limits"]{padding:20px !important}div[class*="limits"] p[class="discount"]{margin:0 0 20px !important}div[class*="limits"] td[class="avatar"]{display:none}td[class="content_body"]{padding:10px 0 0 !important}td[class="main_body"]{padding:15px 0 20px !important}p[class="small"],a[class="caption"]{font-size:13px !important;line-height:15px !important}}
+
+
+    div[class="padded"] { padding: 10px 25px; }
+
+  </style>
+</head>
+
+<body marginheight="0" topmargin="0" marginwidth="0" leftmargin="0" padding="0" margin="0" style="background:#ffffff;text-align:left;margin:0;padding:0;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%">
+  <div class="padded" style="font-weight:400;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%">
+    <table cellspacing="0" cellpadding="0" class="layout" style="background:#ffffff;margin:0;padding:0;border:0;text-align:left;border-collapse:collapse;border-spacing:0;width:100%">
+      <tr>
+        <td style='background:#ffffff;text-align:left;vertical-align:top;font-size:15px;line-height:19px;font-family:"Helvetica Neue",helvetica,arial,sans-serif;color:#000000;padding:0;border-spacing:0;border-collapse:collapse'>
+          <table cellspacing="0" cellpadding="0" class="layout" style="background:#ffffff;margin:0;padding:0;border:0;text-align:left;border-collapse:collapse;border-spacing:0;width:100%">
+            
+  <div itemscope itemtype="http://schema.org/EmailMessage">
+    <meta itemprop="description" content="Gmail inbox action for Basecamp">
+    <div itemprop="action" itemscope itemtype="http://schema.org/ViewAction">
+      <meta itemprop="name" content="View on Basecamp">
+      <link itemprop="url" href="https://basecamp.com/3616762/projects/13845420/todos/336092700#comment_585862906">
+    </div>
+    <div itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Basecamp">
+      <link itemprop="url" href="https://basecamp.com">
+    </div>
+  </div>
+
+
+<tr>
+  <td style='background:#ffffff;text-align:left;vertical-align:top;font-size:15px;line-height:19px;font-family:"Helvetica Neue",helvetica,arial,sans-serif;color:#000000;padding:0;border-spacing:0;border-collapse:collapse'>
+    <p class="small grey" style='font-family:"Helvetica Neue",helvetica,arial,sans-serif;color:grey;font-size:12px;line-height:15px;margin:0 0 15px'>
+      Write ABOVE THIS LINE to post a reply or <a href="https://basecamp.com/3616762/projects/13845420/todos/336092700#comment_585862906">view this on Basecamp</a>
+    </p>
+  </td>
+</tr>
+
+
+<tr>
+  <td class="main_body" style='background:#ffffff;text-align:left;vertical-align:top;font-size:15px;line-height:19px;font-family:"Helvetica Neue",helvetica,arial,sans-serif;color:#000000;border-spacing:0;border-collapse:collapse;padding:20px 0'>
+
+    <table cellspacing="0" cellpadding="0" width="100%" style="background:#ffffff;margin:0;padding:0;border:0;text-align:left;border-collapse:collapse;border-spacing:0">
+      <tr>
+        <td class="avatar" width="45" valign="middle" style='font-size:15px;line-height:19px;font-family:"Helvetica Neue",helvetica,arial,sans-serif;color:#000000;padding:0;border-spacing:0;border-collapse:collapse;background:#ffffff;text-align:left;width:45px;vertical-align:middle'>
+          <img alt="Xiaodan Zhang" class="avatar" height="45" src="https://asset1.basecamp.com/3616762/people/14564652/photo/avatar.96.gif" style="vertical-align:middle;width:45px;height:45px;max-height:45px;min-height:45px;-webkit-border-radius:100px;-moz-border-radius:100px;border-radius:100px;border:0 !important;padding:0 !important;padding: 1px; border: 1px solid #cccccc;" title="Xiaodan Zhang" width="45">
+        </td>
+
+        <td class="header_body brown" valign="middle" width="100%" style='background:#ffffff;text-align:left;font-size:15px;line-height:19px;font-family:"Helvetica Neue",helvetica,arial,sans-serif;padding:0;border-spacing:0;border-collapse:collapse;color:brown;vertical-align:middle;padding-left:10px;width:auto !important'>
+          Xiaodan Zhang posted a comment about this to-do on Basecamp.
+        </td>
+      </tr>
+      <tr>
+        <td colspan="2" class="content_body" style='background:#ffffff;text-align:left;vertical-align:top;font-size:15px;line-height:19px;font-family:"Helvetica Neue",helvetica,arial,sans-serif;color:#000000;border-spacing:0;border-collapse:collapse;padding:0 0 0 55px'>
+          <h3 style='font-weight:normal;font-family:"Helvetica Neue",helvetica,arial,sans-serif;font-size:16px;line-height:20px;margin:0 0 5px;color:black'>
+            <b>
+                Re: test DolphinDB 12.22 release
+
+                    (Yineng Wang
+                     · 
+                    Fri, Dec 22)
+            </b>
+          </h3>
+
+            <p class="small grey" style='font-family:"Helvetica Neue",helvetica,arial,sans-serif;color:grey;font-size:12px;line-height:15px;margin:0 0 15px'>From the to-do list: Server Testing</p>
+
+          <div class="formatted_content" style="padding-bottom:19px;border:none !important;padding:0 !important;margin:0 0 19px !important;max-width:none !important">
+            <strong>Xiaodan Zhang</strong> <br><div style="margin:0">linux v0.3<br><br><a href="http://www.dolphindb.com/downloads/DolphinDB_Linux_V0.3.zip" style="text-decoration:underline;word-wrap:break-word;color:auto">http://www.dolphindb.com/downloads/DolphinDB_Linux_V0.3.zip</a><br><br>windows v0.3<br><br><a href="http://www.dolphindb.com/downloads/DolphinDB_Win_V0.3.rar" style="text-decoration:underline;word-wrap:break-word;color:auto">http://www.dolphindb.com/downloads/DolphinDB_Win_V0.3.rar</a><br><br>gui v0.3<br><br><a href="http://www.dolphindb.com/downloads/DolphinDB_GUI_V0.3.zip" style="text-decoration:underline;word-wrap:break-word;color:auto">http://www.dolphindb.com/downloads/DolphinDB_GUI_V0.3.zip</a>
+</div>
+<div style="margin:0"><br></div>
+<a href="https://basecamp.com/3616762/projects/14175994/todos/335527661#comment_585860239" style="text-decoration:underline;word-wrap:break-word;color:auto"></a>
+          </div>
+
+          
+
+
+            <p style='font-size:15px;line-height:19px;font-family:"Helvetica Neue",helvetica,arial,sans-serif;color:#000000;margin:0 0 19px'><a href="https://basecamp.com/3616762/projects/13845420/todos/336092700#comment_585862906">View this on Basecamp</a></p>
+        </td>
+      </tr>
+
+    </table>
+  </td>
+</tr>
+
+
+
+<tr>
+  <td style='background:#ffffff;text-align:left;vertical-align:top;font-size:15px;line-height:19px;font-family:"Helvetica Neue",helvetica,arial,sans-serif;color:#000000;padding:0;border-spacing:0;border-collapse:collapse'>
+    <p class="small grey footer" style='font-family:"Helvetica Neue",helvetica,arial,sans-serif;color:grey;font-size:12px;line-height:15px;margin:0 0 15px;margin-bottom:8px'>
+      This email was sent to: Yineng Wang, Xiaodan Zhang, Davis Zhou, and LIANG.LIN.
+    </p>
+  </td>
+</tr>
+
+
+<tr>
+  <td style='background:#ffffff;text-align:left;vertical-align:top;font-size:15px;line-height:19px;font-family:"Helvetica Neue",helvetica,arial,sans-serif;color:#000000;padding:0;border-spacing:0;border-collapse:collapse'>
+    <p class="to-do small grey footer" style='font-family:"Helvetica Neue",helvetica,arial,sans-serif;color:grey;font-size:12px;line-height:15px;margin:0 0 15px;margin-bottom:8px'>
+      <a href="https://basecamp.com/3616762/subscriptions/BAhbB2kDaMvjbCsHEjBAVA==--45c8b737b41ba8bc4c5b26cabcfcd4923780fff1" style="color:grey">Stop receiving emails</a> about this to-do.
+    </p>
+  </td>
+</tr>
+  <tr>
+    <td class="subscription_footer" style='background:#ffffff;text-align:left;vertical-align:top;font-size:15px;line-height:19px;font-family:"Helvetica Neue",helvetica,arial,sans-serif;color:#000000;padding:0;border-spacing:0;border-collapse:collapse'>
+      <p class="to-do small grey footer" style='font-family:"Helvetica Neue",helvetica,arial,sans-serif;color:grey;font-size:12px;line-height:15px;margin:0 0 15px;margin-bottom:8px;border-top:1px solid #ddd;margin-top:10px;padding-top:15px'>
+        Want less email from Basecamp? <a href="https://basecamp.com/3616762/new_subscriptions/BAhbB2kDaMvjSSIZbm90aWZpY2F0aW9uX3N1bW1hcnkGOgZFVA==--cb94c4cb1c93643a3780c57da792a1d546729dd7" style="color:grey">Get a digest of your notifications</a>  every few hours instead, or <a href="https://basecamp.com/3616762/people/14928744/settings" style="color:grey">go to your Basecamp settings</a> to choose which emails you receive.
+      </p>
+    </td>
+  </tr>
+
+
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+<img src='https://dash.37signals.com/beanstalk/beacon.gif?return_receipt=RR/BCX/b328e3155d34994a85326e5f28bc7b54'></html>
