@@ -134,6 +134,42 @@ private:
 	const string errMsg_;
 };
 
+class ChunkInTransactionException: public exception {
+public:
+	ChunkInTransactionException(const string& errMsg) : errMsg_("<ChunkInTransaction>" + errMsg){}
+	virtual const char* what() const throw(){
+		return errMsg_.c_str();
+	}
+	virtual ~ChunkInTransactionException() throw(){}
+
+private:
+	const string errMsg_;
+};
+
+class ChunkInRecoveryException: public exception {
+public:
+	ChunkInRecoveryException(const string& errMsg) : errMsg_("<ChunkInRecovery>" + errMsg){}
+	virtual const char* what() const throw(){
+		return errMsg_.c_str();
+	}
+	virtual ~ChunkInRecoveryException() throw(){}
+
+private:
+	const string errMsg_;
+};
+
+class DataNodeNotAvailException : public exception {
+public:
+	DataNodeNotAvailException(const string& errMsg) : errMsg_("<DataNodeNotAvail>" + errMsg){}
+	virtual const char* what() const throw(){
+		return errMsg_.c_str();
+	}
+	virtual ~DataNodeNotAvailException() throw(){}
+
+private:
+	const string errMsg_;
+};
+
 class MathException: public exception {
 public:
 	MathException(const string& errMsg) : errMsg_(errMsg){}

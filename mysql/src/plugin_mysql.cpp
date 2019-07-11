@@ -1124,8 +1124,10 @@ bool compatible(DATA_TYPE dst, DATA_TYPE src) {
 
     if (src == dst) {
         return true;
-    } else if (src == DT_TIMESTAMP && time_type.count(dst)) {
+    } else if (src == DT_TIMESTAMP && (time_type.count(dst) || dst == DT_LONG)) {
         return true;
+    } else if (src == DT_LONG && dst == DT_TIMESTAMP) {
+    	return true;
     } else if (src == DT_DATETIME && time_type.count(dst)) {
         return true;
     } else if (src == DT_TIME && dst != DT_NANOTIME && dst != DT_MINUTE && dst != DT_SECOND) {
@@ -1149,7 +1151,7 @@ bool compatible(vector<DATA_TYPE> &dst, vector<DATA_TYPE> &src) {
             throw IllegalArgumentException(__FUNCTION__, errMsg);
         }
 
-        if (time_type.count(dst[i])) {
+        if (time_type.count(dst[i]) && time_type.count(src[i])) {
             src[i] = dst[i];
         }
     }

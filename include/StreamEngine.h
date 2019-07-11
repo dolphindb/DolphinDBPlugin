@@ -5,8 +5,8 @@
 #ifndef DOLPHINDB_STREAMENGINE_H
 #define DOLPHINDB_STREAMENGINE_H
 
-#include <Util.h>
-#include <ScalarImp.h>
+#include "Util.h"
+#include "ScalarImp.h"
 #include "CoreConcept.h"
 #include "SmartPointer.h"
 

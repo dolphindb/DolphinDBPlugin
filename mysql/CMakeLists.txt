@@ -5,11 +5,11 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 ## set compile flags
 if (WIN32)
-    set (platform_macro "-DWINDOWS")
+    set(platform_macro "-DWINDOWS")
     set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginMySQL_win32.txt")
     include_directories("${CMAKE_BINARY_DIR}/curl/include")
 elseif (UNIX)
-    set (platform_macro "-DLINUX")
+    set(platform_macro "-DLINUX")
     set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginMySQL.txt")
     add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 endif ()
@@ -32,6 +32,10 @@ add_library(MySQL SHARED
         src/plugin_mysql.cpp)
 
 set_target_properties(MySQL PROPERTIES LINK_DIRECTORIES "${CMAKE_BINARY_DIR}")
-target_link_libraries(MySQL DolphinDB mysqlclient)
+if (WIN32)
+    target_link_libraries(MySQL DolphinDB mysqlclient)
+else ()
+    target_link_libraries(MySQL mysqlclient)
+endif ()
 
 configure_file(${plugin_file} ${CMAKE_BINARY_DIR}/PluginMySQL.txt COPYONLY)

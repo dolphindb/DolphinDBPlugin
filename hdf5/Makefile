@@ -1,4 +1,4 @@
-CFLAGS = -g -Wall -std=c++11 -fPIC -DLINUX -DLINUX -O2 -Wall -Werror
+CFLAGS = -g -Wall -std=c++11 -fPIC -DLINUX -DLOGGING_LEVEL_2 -O2 -Wall -Werror -D_GLIBCXX_USE_CXX11_ABI=0
 INCLUDES= -I../include -I./include
 
 HDF5_INCLUDES = $(shell  h5cc -shlib -show|xargs -n1|grep "^\-I")

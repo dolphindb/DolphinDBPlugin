@@ -1405,8 +1405,11 @@ public:
 	inline void setParallelism(int parallelism) { parallelism_ = parallelism;}
 	inline int getParallelism() const { return parallelism_;}
 	void setJob(const Guid& rootJobId, const Guid& jobId, int priority, int parallelism);
+	void clearLeftover(CountDownLatchSP& latch);
+	void setLeftover(const CountDownLatchSP& latch);
 	virtual SysFunc getTableJoiner(const string& name) const = 0;
 	virtual FunctionDefSP getFunctionDef(const string& name) const = 0;
+	virtual FunctionDefSP getFunctionView(const string& name) const = 0;
 	virtual TemplateOptr getTemplateOperator(const string& name) const = 0;
 	virtual TemplateUserOptr getTemplateUserOperator(const string& name) const = 0;
 	virtual OptrFunc getOperator(const string& optrSymbol, bool unary, const string& templateName) const = 0;
@@ -1442,6 +1445,7 @@ protected:
 	Guid jobId_;
 	int priority_;
 	int parallelism_;
+	CountDownLatchSP latch_;
 };
 
 class Heap{
@@ -1478,14 +1482,11 @@ public:
 	void clearFlags();
 	void currentSession(Session* session){session_=session;}
 	Session* currentSession(){return session_;}
-	void clearLeftover(CountDownLatchSP& latch);
-	void setLeftover(const CountDownLatchSP& latch);
 	long long getAllocatedMemory();
 
 private:
 	struct HeapMeta{
 		Mutex mutex_;
-		CountDownLatchSP latch_;
 		unordered_map<string,int> nameHash_;
 		vector<string> names_;
 	};
@@ -1581,8 +1582,10 @@ private:
 
 class Domain{
 public:
-	Domain(PARTITION_TYPE partitionType, bool isLocalDomain) : partitionType_(partitionType), isLocalDomain_(isLocalDomain), key_(false){}
-	Domain(PARTITION_TYPE partitionType, bool isLocalDomain, const Guid& key) : partitionType_(partitionType), isLocalDomain_(isLocalDomain), key_(key){}
+	Domain(PARTITION_TYPE partitionType, bool isLocalDomain) : partitionType_(partitionType), isLocalDomain_(isLocalDomain), isExpired_(false),
+			retentionPeriod_(-1), retentionDimension_(-1), key_(false){}
+	Domain(PARTITION_TYPE partitionType, bool isLocalDomain, const Guid& key) : partitionType_(partitionType), isLocalDomain_(isLocalDomain),
+			isExpired_(false), retentionPeriod_(-1), retentionDimension_(-1), key_(key){}
 	virtual ~Domain(){}
 	int getPartitionCount() const { return partitions_.size();}
 	DomainPartitionSP getPartition(int index) const { return partitions_[index];}
@@ -1615,7 +1618,13 @@ public:
 	bool getTable(const string& tableName, string& owner, vector<ColumnDesc>& cols, vector<int>& partitionColumns) const;
 	bool existsTable(const string& tableName);
 	bool removeTable(const string& tableName);
+	bool listTables(vector<string>& tableNames);
 	void loadTables(const string& dir);
+	void setExpired(bool option) { isExpired_ = option;}
+	inline bool isExpired() const { return isExpired_;}
+	inline int getRentionPeriod() const { return retentionPeriod_;}
+	inline int getRentionDimension() const { return retentionDimension_;}
+	void setRentionPeriod(int retentionPeriod, int retentionDimension);
 
 	/*
 	 * The input arguments set1 and set2 must be sorted by the key value of domain partitions. The ranking of key values must be the same as
@@ -1645,6 +1654,9 @@ protected:
 	vector<DomainPartitionSP> partitions_;
 	PARTITION_TYPE partitionType_;
 	bool isLocalDomain_;
+	bool isExpired_;
+	int retentionPeriod_; // in hours
+	int retentionDimension_;
 	Guid key_; //the unique identity for this domain
 	string name_;
 	string dir_;

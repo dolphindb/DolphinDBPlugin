@@ -311,12 +311,15 @@ public:
 	inline bool isLittleEndian() const { return flag_ & 1;}
 	inline bool isClosed() const { return flag_ & 2;}
 	inline bool isExpired() const { return flag_ & 4;}
+	inline bool isDeleted() const { return flag_ & 8;}
 	void setExpired(bool option);
+	void setDeleted(bool option);
 	SOCKET getSocketHandle() const {return socket_;}
 	HANDLE_TYPE getHandleType() const { return type_;}
 	DataStreamSP getDataStream() const { return stream_;}
     const string& getDatabaseDir() const { return dbDir_;}
-    DomainSP getDomain() const { return domain_;}
+    DomainSP getDomain() const;
+    void setDomain(const DomainSP& domain);
     SymbolBaseManagerSP getSymbolBaseManager() const { return symbaseManager_;}
 	virtual DATA_TYPE getType() const {return DT_HANDLE;}
 	virtual DATA_CATEGORY getCategory() const {return SYSTEM;}
@@ -329,7 +332,7 @@ public:
 private:
 	HANDLE_TYPE type_;
 	SOCKET socket_;
-	char flag_; //bit0: littleEndian, bit1: closed, bit2: expired
+	char flag_; //bit0: littleEndian, bit1: closed, bit2: expired, bit3: deleted
 	string sessionID_;
 	string userId_;
 	string pwd_;
@@ -338,6 +341,7 @@ private:
 	DomainSP domain_;
 	SymbolBaseManagerSP symbaseManager_;
 	unordered_map<string, TableSP>* tables_;
+	mutable Mutex mutex_;
 };
 
 class Resource : public String{
@@ -882,6 +886,19 @@ public:
 	virtual ConstantSP getValue() const {return ConstantSP(new DateTime(val_));}
 	virtual string getString() const { return toString(val_);}
 	static DateTime* parseDateTime(const string& str);
+	static string toString(int val);
+};
+
+class DateHour:public TemporalScalar{
+public:
+	DateHour(int val=0):TemporalScalar(val){}
+	DateHour(int year, int month, int day, int hour);
+	virtual ~DateHour(){}
+	virtual DATA_TYPE getType() const {return DT_DATEHOUR;}
+	virtual ConstantSP getInstance() const {return ConstantSP(new DateHour());}
+	virtual ConstantSP getValue() const {return ConstantSP(new DateHour(val_));}
+	virtual string getString() const { return toString(val_);}
+	static DateHour* parseDateHour(const string& str);
 	static string toString(int val);
 };
 
