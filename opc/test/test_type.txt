@@ -1,0 +1,140 @@
+/*
+Before the testing,aliases should be ready.
+1.Download MatrikonOPC Simulation Server from 
+ https://www.matrikonopc.com/products/opc-drivers/opc-simulation-server.aspx
+and install it.
+2.Open MatrikonOPC Server for Simulation,then File/Open aliasConfiguration.xml or File/Import Aliases from AliasConfiguration.csv
+*/
+loadPlugin("PluginDemo.txt") //path need to be modified
+conn=opc::connect(`desk9,`Matrikon.OPC.Simulation.1,1000)    
+
+@testing:case = "write_array_real8"
+opc::writeTag(conn,"testwrite.test1",[1.112,0.123,0.1234])
+ret = opc::readTag(conn, "testwrite.test1")  
+assert 1, ret['value'][0] == "1.112000,0.123000,0.123400,"
+opc::writeTag(conn,"testwrite.test1",[0.1234,0.123,0.12])
+ret = opc::readTag(conn, "testwrite.test1")
+assert 2, ret['value'][0] == "0.123400,0.123000,0.120000,"
+
+@testing:case = "write_array_bstr"
+opc::writeTag(conn,"testwrite.test2",["a","b","d"])
+ret = opc::readTag(conn, "testwrite.test2")
+assert 1, ret['value'][0] == "a,b,d,"
+opc::writeTag(conn,"testwrite.test2",["a","b","c"])
+ret = opc::readTag(conn, "testwrite.test2")
+assert 2, ret['value'][0] == "a,b,c,"
+
+@testing:case = "write_bool"
+opc::writeTag(conn,"testwrite.test3",false)
+ret = opc::readTag(conn, "testwrite.test3")
+assert 1, ret['value'][0] == false
+opc::writeTag(conn,"testwrite.test3",true)
+ret = opc::readTag(conn, "testwrite.test3")
+assert 2, ret['value'][0] == true
+
+@testing:case = "write_int1"
+opc::writeTag(conn,"testwrite.test4",3)
+ret = opc::readTag(conn, "testwrite.test4")
+assert 1, ret['value'][0] == 3
+opc::writeTag(conn,"testwrite.test4",-3)
+ret = opc::readTag(conn, "testwrite.test4")
+assert 2, ret['value'][0] == -3
+
+@testing:case = "write_int2"
+opc::writeTag(conn,"testwrite.test5",300)
+ret = opc::readTag(conn, "testwrite.test5")
+assert 1, ret['value'][0] == 300
+opc::writeTag(conn,"testwrite.test5",-300)
+ret = opc::readTag(conn, "testwrite.test5")
+assert 2, ret['value'][0] == -300
+
+@testing:case = "write_int4"
+opc::writeTag(conn,"testwrite.test6",300000)
+ret = opc::readTag(conn, "testwrite.test6")
+assert 1, ret['value'][0] == 300000
+opc::writeTag(conn,"testwrite.test6",-300000)
+ret = opc::readTag(conn, "testwrite.test6")
+assert 2, ret['value'][0] == -300000
+
+
+@testing:case = "write_money"
+opc::writeTag(conn,"testwrite.test7",300.01)
+ret = opc::readTag(conn, "testwrite.test7")
+assert 1, ret['value'][0] == 300.01
+opc::writeTag(conn,"testwrite.test7",-300.01)
+ret = opc::readTag(conn, "testwrite.test7")
+assert 2, ret['value'][0] == -300.01
+
+@testing:case = "write_real4"
+opc::writeTag(conn,"testwrite.test8",1.0)
+ret = opc::readTag(conn, "testwrite.test8")
+assert 1, ret['value'][0] == 1.0
+opc::writeTag(conn,"testwrite.test8",-1.0)
+ret = opc::readTag(conn, "testwrite.test8")
+assert 2, ret['value'][0] == -1.0
+
+@testing:case = "write_real8"
+opc::writeTag(conn,"testwrite.test9",1123.0)
+ret = opc::readTag(conn, "testwrite.test9")
+assert 1, ret['value'][0] == 1123.0
+opc::writeTag(conn,"testwrite.test9",-1123.0)
+ret = opc::readTag(conn, "testwrite.test9")
+assert 2, ret['value'][0] == -1123.0
+
+@testing:case = "write_string"
+opc::writeTag(conn,"testwrite.test10","hello")
+ret = opc::readTag(conn, "testwrite.test10")
+assert 1, ret['value'][0] == "hello"
+opc::writeTag(conn,"testwrite.test10","world")
+ret = opc::readTag(conn, "testwrite.test10")
+assert 2, ret['value'][0] == "world"
+
+@testing:case = "write_time"
+opc::writeTag(conn,"testwrite.test11",2017.06.28T02:02:02)
+ret = opc::readTag(conn, "testwrite.test11")
+assert 1, ret['value'][0] == 2017.06.28T02:02:02
+opc::writeTag(conn,"testwrite.test11",2018.07.17T02:02:02)
+ret = opc::readTag(conn, "testwrite.test11")
+assert 2, ret['value'][0] == 2018.07.17T02:02:02
+
+@testing:case = "write_uint1"
+opc::writeTag(conn,"testwrite.test12", 255)
+ret = opc::readTag(conn, "testwrite.test12")
+assert 1, ret['value'][0] == 255
+opc::writeTag(conn,"testwrite.test12",-2)
+ret = opc::readTag(conn, "testwrite.test12")
+assert 2, ret['value'][0] == 254
+
+@testing:case = "write_uint2"
+opc::writeTag(conn,"testwrite.test13", 1234)
+ret = opc::readTag(conn, "testwrite.test13")
+assert 1, ret['value'][0] == 1234
+opc::writeTag(conn,"testwrite.test13",-2)
+ret = opc::readTag(conn, "testwrite.test13")
+assert 2, ret['value'][0] == 65534
+
+@testing:case = "write_uint4"
+opc::writeTag(conn,"testwrite.test14", 123456789)
+ret = opc::readTag(conn, "testwrite.test14")
+assert 1, ret['value'][0] == 123456789
+opc::writeTag(conn,"testwrite.test14",-2)
+ret = opc::readTag(conn, "testwrite.test14")
+assert 2, ret['value'][0] == 4294967294
+
+////////////////////////////////////readTag/////////////////////////////////
+opc::readTag(conn, ["testwrite.test1","testwrite.test2","testwrite.test3","testwrite.test4",
+	"testwrite.test5","testwrite.test6","testwrite.test7","testwrite.test8","testwrite.test9","testwrite.test10"])
+
+t = table(200:0,`time`value`quality, [TIMESTAMP, DOUBLE, INT])
+opc::readTag(conn, "testwrite.test9",t)
+  
+tm = table(200:0,`time`tag1`quality1`tag2`quality2, [TIMESTAMP,STRING, INT,INT,INT])
+opc::readTag(conn, ["testwrite.test1","testwrite.test4"],tm) 
+
+t1 = table(200:0,`time`value`quality, [TIMESTAMP, STRING, INT])
+t2 = table(200:0,`time`value`quality, [TIMESTAMP, INT, INT])
+t3 = table(200:0,`time`value`quality, [TIMESTAMP, DOUBLE, INT])
+opc::readTag(conn, ["testwrite.test1","testwrite.test4", "testwrite.test9"],[t1,t2,t3]) 
+
+////////////////////////////////////WriteTag/////////////////////////////////
+opc::writeTag(conn,["testwrite.test5","testwrite.test6"],[33,11])

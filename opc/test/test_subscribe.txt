@@ -1,0 +1,36 @@
+loadPlugin("D:/OPCdev/cmake-build-debug/PluginOPC.txt")
+
+t1 = table(200:0,`time`value`quality, [TIMESTAMP, INT, INT])
+t2 = table(200:0,`time`value`quality, [TIMESTAMP, INT, INT])
+t3 = table(200:0,`time`value`quality, [TIMESTAMP, INT, INT])
+t4 = table(200:0,`time`value`quality, [TIMESTAMP, STRING, INT])
+t5 = table(200:0,`time`value`quality, [TIMESTAMP, DOUBLE, INT])
+t6 = table(200:0,`time`value`quality, [TIMESTAMP, DOUBLE, INT])
+t7 = table(200:0,`time`value`quality, [TIMESTAMP, BOOL, INT])
+t8 = table(200:0,`time`value`quality, [TIMESTAMP, DATETIME, INT])
+t9 = table(200:0,`time`value`quality, [TIMESTAMP, DOUBLE, INT])
+
+//handler is a table
+conn1=opc::connect(`desk9,`Matrikon.OPC.Simulation.1,100)
+opc::subscribe(conn1,".testString",  t4)
+	
+opc::unsubscribe(conn1)
+opc::close(conn1)
+
+conn2 = opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,10)
+opc::subscribe(conn2,".testReal8",  t6)
+
+//table array
+conn20 = opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,10)
+opc::subscribe(conn20,[".testINT2",".testReal8"], [t2, t5])
+
+conn21 = opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,10)
+opc::subscribe(conn21,[".testTime",".testMoney"], [t8, t9])
+//handler is a function
+def callback1(mutable t1, d) {
+	t1.append!(d)
+}
+conn10 = opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,10)
+opc::subscribe(conn10,".testBool",   callback1{t7})
+
+getRecentJobs()
