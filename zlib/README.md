@@ -67,7 +67,7 @@ loadPlugin("path/to/DolphinDBPlugin/zlib/PluginZlib.txt");
       ```
       //loadPlugin
       zlib::decompressFile("/home/jccai/data.txt.gz");
-      //会将/home/jccai/data.txt.gz解压为/home/jccai/data.txt.gz
+      //会将/home/jccai/data.txt.gz解压为/home/jccai/data.txt
       //注意若输出文件有同名文件，则会被覆盖
       ```
 
