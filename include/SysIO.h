@@ -253,6 +253,7 @@ public:
 	Buffer(size_t capacity) : buf_(new char[capacity]), capacity_(capacity), size_(0), external_(false){}
 	Buffer() : buf_(new char[256]), capacity_(256), size_(0), external_(false){}
 	Buffer(char* buf, size_t capacity) : buf_(buf), capacity_(capacity), size_(0), external_(true){}
+	Buffer(char* buf, size_t offset, size_t capacity, bool external = true) : buf_(buf), capacity_(capacity), size_(offset), external_(external){}
 	~Buffer() { if(!external_) delete[] buf_;}
 	IO_ERR write(const char* buffer, int length, int& actualLength);
 	IO_ERR write(const char* buffer, int length);

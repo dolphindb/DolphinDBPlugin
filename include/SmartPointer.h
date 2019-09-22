@@ -31,6 +31,17 @@ public:
 		counterP_->addRef();
 	}
 
+	SmartPointer(T* p, Counter* counter): counterP_(counter){
+		if (counterP_ == nullptr) {
+			counterP_ = new Counter(p);
+		}
+		counterP_->addRef();
+	}
+
+	Counter* getCounter() {
+		return counterP_;
+	}
+
 	SmartPointer(const SmartPointer<T>& sp){
 		counterP_=sp.counterP_;
 		counterP_->addRef();

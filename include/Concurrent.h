@@ -608,6 +608,7 @@ public:
 	~Thread();
 	void start();
 	void join();
+	void detach();
 	void cancel();
 	bool isRunning(){return run_.isNull() ? false : run_->isRunning();}
 	bool isComplete() {return run_.isNull()? false : run_->isComplete();}
@@ -618,11 +619,7 @@ public:
 	static bool yield();
 
 private:
-	static void* startFunc(void* data){
-		((Thread*)data)->run_->start();
-		return data;
-	}
-
+	static void* startFunc(void* data);
 	RunnableSP run_;
 #ifdef WINDOWS
 	HANDLE thread_;

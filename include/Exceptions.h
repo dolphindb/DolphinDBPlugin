@@ -134,6 +134,23 @@ private:
 	const string errMsg_;
 };
 
+class NotLeaderException: public exception {
+public:
+	//Electing a leader. Wait for a while to retry.
+	NotLeaderException() : errMsg_("<NotLeader>"){}
+	//Use the new leader specified in the input argument. format: <host>:<port>:<alias>, e.g. 192.168.1.10:8801:nodeA
+	NotLeaderException(const string& newLeader) : errMsg_("<NotLeader>" + newLeader), newLeader_(newLeader){}
+	const string& getNewLeader() const {return newLeader_;}
+	virtual const char* what() const throw(){
+		return errMsg_.c_str();
+	}
+	virtual ~NotLeaderException() throw(){}
+
+private:
+	const string errMsg_;
+	const string newLeader_;
+};
+
 class ChunkInTransactionException: public exception {
 public:
 	ChunkInTransactionException(const string& errMsg) : errMsg_("<ChunkInTransaction>" + errMsg){}
@@ -165,6 +182,30 @@ public:
 		return errMsg_.c_str();
 	}
 	virtual ~DataNodeNotAvailException() throw(){}
+
+private:
+	const string errMsg_;
+};
+
+class ControllerNotAvailException : public exception {
+public:
+	ControllerNotAvailException(const string& errMsg) : errMsg_("<ControllerNotAvail>" + errMsg){}
+	virtual const char* what() const throw(){
+		return errMsg_.c_str();
+	}
+	virtual ~ControllerNotAvailException() throw(){}
+
+private:
+	const string errMsg_;
+};
+
+class ControllerNotReadyException : public exception {
+public:
+	ControllerNotReadyException() : errMsg_("<ControllerNotReady>"){}
+	virtual const char* what() const throw(){
+		return errMsg_.c_str();
+	}
+	virtual ~ControllerNotReadyException() throw(){}
 
 private:
 	const string errMsg_;
