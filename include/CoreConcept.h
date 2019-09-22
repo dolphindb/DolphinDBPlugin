@@ -26,6 +26,14 @@
 #include "FlatHashmap.h"
 #include "SysIO.h"
 
+#if defined(__GNUC__) && __GNUC__ >= 4
+#define LIKELY(x) (__builtin_expect((x), 1))
+#define UNLIKELY(x) (__builtin_expect((x), 0))
+#else
+#define LIKELY(x) (x)
+#define UNLIKELY(x) (x)
+#endif
+
 using std::string;
 using std::vector;
 using std::unordered_map;
@@ -317,7 +325,7 @@ public:
 		delete[] dataSegment_;
 	}
 	const T& at(int index) const { return dataSegment_[index >> segmentSizeInBit_][index & segmentMask_];}
-	const T& operator [](int index){ return dataSegment_[index >> segmentSizeInBit_][index & segmentMask_];}
+	const T& operator [](int index) const { return dataSegment_[index >> segmentSizeInBit_][index & segmentMask_];}
 	bool push_back(const T& val){
 		if((size_ >> segmentSizeInBit_) + 1 > sizeInSegment_){
 			if(sizeInSegment_ >= segmentCapacity_)
@@ -392,8 +400,9 @@ private:
 
 class SymbolBase{
 public:
-	SymbolBase(bool supportOrder = true);
-	SymbolBase(const string& symbolFile, bool snapshot = false, bool supportOrder=true);
+	SymbolBase(bool supportOrder = false);
+	SymbolBase(const vector<string>& symbols, bool supportOrder = false);
+	SymbolBase(const string& symbolFile, bool snapshot = false, bool supportOrder=false);
 	SymbolBase(const string& symbolFile, const DataInputStreamSP& in, bool snapshot = false);
 	SymbolBase* copy();
 	bool saveSymbolBase(string& errMsg, bool sync = false);
@@ -409,6 +418,13 @@ public:
 	}
 	void find(const char** symbols, int size, int* indices);
 	int findAndInsert(const string& symbol);
+	/**
+	 * This function will acquire the lock and compare the size with the input argument sizeBeforeInsert.
+	 * returns 0 if the size doesn't equal to sizeBeforeInsert.
+	 * returns -1 if some of the input symbols are already existed.
+	 * returns new symbol size after if everything is OK.
+	 */
+	int atomicInsert(vector<string>& symbols, int sizeBeforeInsert);
 	void getOrdinalCandidate(const string& symbol, int& ordinal, SmartPointer<Array<int> >& ordinalBase);
 	void getOrdinalCandidate(const string& symbol1, const string& symbol2, int& ordinal1, int& ordinal2, SmartPointer<Array<int> >& ordinalBase);
 	int* getSortedIndices(bool asc, int& length);
@@ -418,12 +434,16 @@ public:
 	 */
 	void enableOrdinalBase();
 	void disableOrdinalBase();
-	inline SmartPointer<Array<int> > getOrdinalBase() const {
-		LockGuard<Mutex> guard(&versionMutex_);
-		return ordinal_;
-	}
-	inline const string& getSymbol(int index) { return key_[index];}
+	SmartPointer<Array<int> > getOrdinalBase();
+	inline const string& getSymbol(int index) const { return key_[index];}
+	void getSymbols(int offset, int length, vector<string>& symbols) const;
 	int size() const {return  key_.size();}
+	/**
+	 * checkpoint is used for write transactions. When rolling back a transaction,
+	 * one can roll back the in-memory symbol base to the checkpoint.
+	 */
+	void setCheckpoint(int n);
+	inline int getCheckpoint() const { return checkpoint_;}
 	const Guid& getID(){return baseID_;}
 	bool isModified(){return modified_;}
 	int getVersion(){return version_;}
@@ -442,6 +462,7 @@ private:
 	int version_;
 	string dbPath_;
 	int savingPoint_;
+	int checkpoint_;
 	bool modified_;
 	bool lastSaveSynchronized_;
 	bool supportOrder_;
@@ -454,7 +475,7 @@ private:
 	IrremovableLocklessFlatHashmap<string, int> keyMap_;
 #endif
 	deque<int> sortedIndices_;
-	Mutex writeMutex_;
+	mutable Mutex writeMutex_;
 	mutable Mutex versionMutex_;
 };
 
@@ -540,7 +561,7 @@ public:
 	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const {}
 	virtual void collectVariables(vector<int>& vars, int minIndex, int maxIndex) const {}
 	virtual bool isLargeConstant() const {return false;}
-	virtual InferredType inferType(Heap* heap, unordered_set<ControlFlowEdge> & vis, vector<StatementSP> & fromCFGNodes, void * edgeStartNode)  {
+	virtual InferredType inferType(Heap* heap, unordered_set<void*> & vis, Statement* enclosingStmt)  {
 		throw RuntimeException("inferType not implemented");
 	}
 };
@@ -553,7 +574,8 @@ public:
 	Constant() : flag_(3){}
 	Constant(unsigned short flag) :  flag_(flag){}
 	virtual ~Constant(){}
-	virtual InferredType inferType(Heap* heap, unordered_set<ControlFlowEdge> & vis, vector<StatementSP> & fromCFGNodes, void * edgeStartNode) { return InferredType(getForm(), getType(), getCategory()); }
+	//virtual InferredType inferType(Heap* heap, unordered_set<ControlFlowEdge> & vis, vector<StatementSP> & fromCFGNodes, void * edgeStartNode) { return InferredType(getForm(), getType(), getCategory()); }
+	virtual InferredType inferType(Heap* heap, unordered_set<void*> & vis, Statement* enclosingStmt) { return InferredType(getForm(), getType(), getCategory()); }
 	inline bool isTemporary() const {return flag_ & 1;}
 	inline void setTemporary(bool val){ if(val) flag_ |= 1; else flag_ &= ~1;}
 	inline bool isIndependent() const {return flag_ & 2;}
@@ -1074,6 +1096,7 @@ public:
 	virtual void getSnapshot(TableSP& copy) const {}
 	virtual bool readPermitted(const AuthenticatedUserSP& user) const {return true;}
 	virtual bool isExpired() const { return flag_ & 8;}
+	virtual void transferAsString(bool option){throw RuntimeException("Table::transferAsString() not supported");}
 	inline bool isSharedTable() const {return flag_ & 1;}
 	inline bool isRealtimeTable() const {return flag_ & 2;}
 	inline bool isAliasTable() const {return flag_ & 4;}
@@ -1313,9 +1336,13 @@ public:
 	virtual bool isPrimitiveOperator() const = 0;
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const = 0;
 	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const = 0;
-	virtual InferredType inferType(Heap* heap, unordered_set<ControlFlowEdge> & vis, std::vector<StatementSP> & fromCFGEdges, void * edgeStartNode,
-			const ConstantSP& a, const ConstantSP& b) { return InferredType(); }
-private:
+	virtual InferredType inferType(Heap *heap, unordered_set<void*> &vis,
+									Statement *enclosingStmt,
+									const ConstantSP &a,
+									const ConstantSP &b)
+	{ return InferredType(); }
+
+  private:
 	int priority_;
 	bool unary_;
 };
@@ -1719,6 +1746,7 @@ class DistributedCall{
 public:
 	DistributedCall(const ObjectSP& obj, bool local);
 	DistributedCall(const ObjectSP& obj, const ReducerContainerSP& reducer, bool local);
+	DistributedCall(const ObjectSP& obj, std::function<void (bool, const ConstantSP&)> callback, bool local);
 	DistributedCall(const CountDownLatchSP latch, const ObjectSP& obj, bool local);
 	DistributedCall(const Guid& jobId, const CountDownLatchSP latch, const ObjectSP& obj, bool local);
 	DistributedCall(const Guid& jobId, const CountDownLatchSP latch, const ObjectSP& obj, const ReducerContainerSP& reducer, bool local);
@@ -1771,6 +1799,7 @@ private:
 	ConstantSP execResult_;
 	ConstantSP carryoverResult_;
 	ReducerContainerSP reducer_;
+	std::function<void (bool, const ConstantSP&)> callback_;
 	std::chrono::system_clock::time_point receivedTime_;
 	std::chrono::system_clock::time_point startTime_;
 	std::chrono::system_clock::time_point completeTime_;
@@ -1778,6 +1807,7 @@ private:
 	bool viewMode_;
 	bool cancellable_;
 	bool carryover_ = false;
+	bool callbackMode_ = false;
 	Heap* heap_;
 	Session* session_;
 };
@@ -1841,14 +1871,15 @@ private:
 	int parallel_;
 };
 
+
 class Decoder {
 public:
 	Decoder(int id, bool appendable) : id_(id), appendable_(appendable), codeSymbolAsString_(false){}
 	virtual ~Decoder(){}
 	virtual VectorSP code(const VectorSP& vec, bool lsnFlag) = 0;
 	virtual IO_ERR code(const VectorSP& vec, bool lsnFlag, const DataOutputStreamSP& out, int& checksum) = 0;
-	virtual IO_ERR decode(const VectorSP& vec, INDEX rowOffset, bool fullLoad, int checksum, const DataInputStreamSP& in,
-			long long byteSize, long long byteOffset, INDEX& postRows, long long& postByteOffset, long long& lsn) = 0;
+	virtual IO_ERR decode(const VectorSP& vec, INDEX rowOffset, INDEX skipRows, bool fullLoad, int checksum, const DataInputStreamSP& in,
+			long long byteSize, long long byteOffset, INDEX& postRows, INDEX& postRowOffset, long long& postByteOffset, long long& lsn) = 0;
 	inline int getID() const {return id_;}
 	inline bool isAppendable() const {return appendable_;}
 	inline bool codeSymbolAsString() const { return codeSymbolAsString_;}
@@ -1900,7 +1931,7 @@ public:
 	static bool saveBasicTable(Session* session, SystemHandle* db, Table* table, const string& tableName, IoTransaction* tran, bool append = false, int compressionMode = 0, bool saveSymbolBase = true);
 	static bool saveBasicTable(Session* session, const string& directory, const string& tableDir, Table* table, const string& tableName, const vector<ColumnDesc>& cols, SymbolBaseSP& symbase, IoTransaction* tran, bool chunkMode, bool append, int compressionMode, bool saveSymbolBase);
 	static bool saveBasicTable(const string& directory, const string& tableName, Table* table, const SymbolBaseSP& symBase, IoTransaction* tran, int compressionMode);
-	static bool saveBasicTable(Session* session, const string& tableDir, INDEX existingTblSize, Table* table, const vector<ColumnDesc>& cols, const SymbolBaseSP& symBase, IoTransaction* tran, int compressionMode, bool saveSymbolBase, long long lsn);
+	static bool saveBasicTable(Session* session, const string& tableDir, INDEX existingTblSize, Table* table, const vector<ColumnDesc>& cols, const SymbolBaseSP& symBase, IoTransaction* tran, int compressionMode, bool saveSymbolBase, long long lsn, vector<long long>& colsFileOffset);
 	static bool savePartitionedTable(Session* session, const DomainSP& domain, TableSP table, const string& tableName, IoTransaction* tran, int compressionMode = 0, bool saveSymbolBase = true );
 	static bool saveDualPartitionedTable(Session* session, SystemHandle* db, const DomainSP& secDomain, TableSP table, const string& tableName,
 			const string& partitionColName, vector<string>& secPartitionColNames, IoTransaction* tran, int compressionMode = 0);
@@ -1914,10 +1945,10 @@ public:
 	static ColumnHeader loadColumnHeader(const string& colFile);
 	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseManagerSP& symbaseManager);
 	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseSP& symbase);
-	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseSP& symbase, int rows, long long& postFileOffset, bool& isLittleEndian, char& compressType);
-	static long long loadColumn(const string& colFile, long long fileOffset, bool isLittleEndian, char compressType, int devId, const SymbolBaseSP& symbase, INDEX rows, const VectorSP& col);
+	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseSP& symbase, int rows, long long& postFileOffset, INDEX& rowOffset, bool& isLittleEndian, char& compressType);
+	static long long loadColumn(const string& colFile, long long fileOffset, bool& isLittleEndian, char& compressType, int devId, const SymbolBaseSP& symbase, INDEX skipRows, INDEX rows, const VectorSP& col, INDEX& rowOffset);
 	static Vector* loadTextVector(bool includeHeader, DATA_TYPE type, const string& path);
-	static bool saveColumn(const VectorSP& col, const string& colFile, int devId, INDEX existingTableSize, bool chunkNode, bool append, int compressionMode, IoTransaction* tran = NULL, long long lsn = -1);
+	static long long saveColumn(const VectorSP& col, const string& colFile, int devId, INDEX existingTableSize, bool chunkNode, bool append, int compressionMode, IoTransaction* tran = NULL, long long lsn = -1);
 	static bool saveTableHeader(const string& owner, const vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices, long long rows, const string& tableFile, IoTransaction* tran);
 	static bool loadTableHeader(const DataInputStreamSP& in, string& owner, vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices);
 	static void removeBasicTable(const string& directory, const string& tableName);
@@ -1940,11 +1971,11 @@ public:
 	static ConstantSP appendDataToFile(Heap* heap, vector<ConstantSP>& arguments);
 	static int getMappedDeviceId(const string& path);
 	static void setVolumeMapper(const VolumeMapperSP& volumeMapper) { volumeMapper_ = volumeMapper;}
-	static unsigned int checksum(FILE* fp, long long offset, long long length);
+	static unsigned int checksum(const DataInputStreamSP& in, long long offset, long long length);
 
 private:
 	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseManagerSP& symbaseManager,	const SymbolBaseSP& symbase,
-			int rows, long long& postFileOffset, bool& isLittleEndian, char& compressType);
+			int rows, long long& postFileOffset, INDEX& rowOffset, bool& isLittleEndian, char& compressType);
 	static inline DATA_TYPE getCompressedDataType(const VectorSP& vec){return (DATA_TYPE)vec->getChar(4);}
 	static VolumeMapperSP volumeMapper_;
 };
