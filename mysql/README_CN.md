@@ -1,6 +1,6 @@
 # DolphinDB MySQL Plugin
 
-DolphinDB的MySQL导入插件可将MySQL中的数据表或语句查询结果导入DolphinDB，并且支持数据类型转换。本插件的部分设计参考了来自Yandex.Clickhouse的mysqlxx组件。
+DolphinDB的MySQL导入插件可将MySQL中的数据表或语句查询结果高速导入DolphinDB，并且支持数据类型转换。本插件的部分设计参考了来自Yandex.Clickhouse的mysqlxx组件。
 
 # 安装构建
 
@@ -24,11 +24,11 @@ $ git submodule update --init --recursive
 
 ### 使用CMake和MinGW编译
 
-**Note:** [cmake](https://cmake.org/) 是一个流行的项目构建工具，有助于解决第三方依赖的问题。
+[cmake](https://cmake.org/) 是一个流行的项目构建工具，有助于解决第三方依赖的问题。
 
-**Note:** [MinGW](http://www.mingw.org/) 是"Minimalist GNU for Windows"的缩写，它是一个原生Microsoft Windows应用程序的极简主义开发环境。
+[MinGW](http://www.mingw.org/) 是"Minimalist GNU for Windows"的缩写，它是一个原生Microsoft Windows应用程序的极简主义开发环境。
 
-构建插件内容
+构建插件内容：
 
 ```
 mkdir build                                                        # 新建build目录
@@ -39,20 +39,20 @@ cmake -DCMAKE_BUILD_TYPE=Release ../path_to_mysql_plugin/ -G "MinGW Makefiles"
 mingw32-make -j4
 ```
 
-**Remember:** 在编译开始之前，记得将`libDolphinDB.dll`和包含`curl`头文件的文件夹拷贝到`build`文件夹内。
+在编译开始之前，要将libDolphinDB.dll和包含curl头文件的文件夹拷贝到build文件夹内。
 
 ## 在Linux下编译安装
 
 ### 使用cmake编译
-**Note:** [cmake](https://cmake.org/) 是一个流行的项目构建工具，有助于解决第三方依赖的问题。
+[cmake](https://cmake.org/) 是一个流行的项目构建工具，有助于解决第三方依赖的问题。
 
-首先安装cmake
+首先安装cmake：
 
 ```
 sudo apt-get install cmake
 ```
 
-构建插件内容
+构建插件内容：
 
 ```
 mkdir build
@@ -61,31 +61,31 @@ cmake -DCMAKE_BUILD_TYPE=Release ../path_to_mysql_plugin/
 make -j`nproc`
 ```
 
-**注意:** 编译之前请确保libDolphinDB.so在gcc可搜索的路径中,可使用LD_LIBRARY_PATH指定其路径，或者直接将其拷贝到`build`目录下。
+**注意:** 编译之前请确保libDolphinDB.so在gcc可搜索的路径中,可使用LD_LIBRARY_PATH指定其路径，或者直接将其拷贝到build目录下。
 
 编译之后目录下会产生libPluginHdf5.so文件。
 
 # 用户接口
 
-**注意:** 使用api前需使用 `loadPlugin("/path_to_PluginMySQL.txt/PluginMySQL.txt")` 导入插件。
+**注意:** 使用api前需使用 loadPlugin("/path_to_PluginMySQL.txt/PluginMySQL.txt") 导入插件。
 
 ## mysql::connect
 
 ### 语法
 
-* `mysql::connect(host, port, user, password, db)`
+* mysql::connect(host, port, user, password, db)
 
 ### 参数
 
-* `host`: MySQL服务器的地址，类型为`string`.
-* `port`: MySQL服务器的端口，类型为`int`.
-* `user`: MySQL服务器的用户名，类型为`string`.
-* `password`: MySQL服务器的密码，类型为`string`.
-* `db`: 要使用的数据库名称，类型为`string`.
+* host: MySQL服务器的地址，类型为string.
+* port: MySQL服务器的端口，类型为int.
+* user: MySQL服务器的用户名，类型为string.
+* password: MySQL服务器的密码，类型为string.
+* db: 要使用的数据库名称，类型为string.
 
 ### 详情
 
-* 与MySQL服务器建立一个连接。返回一个MySQL连接的句柄，用于`load`、`loadEx`等操作。
+* 与MySQL服务器建立一个连接。返回一个MySQL连接的句柄，用于`load`与`loadEx`等操作。
 
 ### 例子
 
@@ -97,11 +97,11 @@ conn = mysql::connect(`localhost, 3306, `root, `root, `DolphinDB)
 
 ### 语法
 
-* `mysql::showTables(connection)`
+* mysql::showTables(connection)
 
 ### 参数
 
-* `connection`: 通过`mysql::connect`获得的MySQL连接句柄。
+* connection: 通过`mysql::connect`获得的MySQL连接句柄。
 
 ### 详情
 
@@ -123,12 +123,12 @@ output:
 
 ### 语法
 
-* `mysql::extractSchema(connection, tableName)`
+* mysql::extractSchema(connection, tableName)
 
 ### 参数
 
-* `connection`: 通过`mysql::connect`获得的MySQL连接句柄。
-* `tableName`:  MySQL表名，类型为`string`.
+* connection: 通过`mysql::connect`获得的MySQL连接句柄。
+* tableName: MySQL表名，类型为string.
 
 ### 详情
 * 生成指定数据表的结构。
@@ -153,15 +153,15 @@ output:
 
 ### 语法
 
-* `mysql::load(connection, table_or_query, [schema], [startRow], [rowNum])`
+* mysql::load(connection, table_or_query, [schema], [startRow], [rowNum])
 
 ### 参数
 
-* `connection`: 通过`mysql::connect`获得的MySQL连接句柄。
-* `table_or_query`: 一张MySQL中表的名字，或者类似`select * from table limit 100`的合法MySQL查询语句，类型为`string`。
-* `schema`: 包含列名和列的数据类型的表。如果我们想要改变由系统自动决定的列的数据类型，需要在schema表中修改数据类型，并且把它作为load函数的一个参数。
-* `startRow`: 读取MySQL表的起始行数，若不指定，默认从数据集起始位置读取。
-* `rowNum`: 读取MySQL表的行数，若不指定，默认读到数据集的结尾。若`table_or_query`是查询语句，则这个参数被忽略。
+* connection: 通过`mysql::connect`获得的MySQL连接句柄。
+* table_or_query: 一张MySQL中表的名字，或者类似 select * from table limit 100 的合法MySQL查询语句，类型为string。
+* schema: 包含列名和列的数据类型的表。如果我们想要改变由系统自动决定的列的数据类型，需要在schema表中修改数据类型，并且把它作为`load`函数的一个参数。
+* startRow: 读取MySQL表的起始行数，若不指定，默认从数据集起始位置读取。若'table_or_query'是查询语句，则这个参数不起作用。
+* rowNum: 读取MySQL表的行数，若不指定，默认读到数据集的结尾。若'table_or_query'是查询语句，则这个参数不起作用。
 
 ### 详情
 
@@ -190,17 +190,17 @@ mysql::load(conn, "SELECT now(6)");
 
 ### 语法
 
-* `mysql::loadEx(connection, dbHandle,tableName,partitionColumns,table_or_query,[schema],[startRow],[rowNum])`
+* mysql::loadEx(connection, dbHandle,tableName,partitionColumns,table_or_query,[schema],[startRow],[rowNum])
 
 ### 参数
 
-* `connection`: 通过`mysql::connect`获得的MySQL连接句柄。
-* `dbHandle` and `tableName`: 如果我们要将输入数据文件保存在分布式数据库中，需要指定数据库句柄和表名。
-* `partitionColumns`: 字符串标量或向量，表示分区列。在组合分区中，partitionColumns是字符串向量。
-* `table_or_query`: 一张MySQL中表的名字，或者类似`select * from table limit 100`的合法MySQL查询语句，类型为`string`。
-* `schema`: 包含列名和列的数据类型的表。如果我们想要改变由系统自动决定的列的数据类型，需要在schema表中修改数据类型，并且把它作为load函数的一个参数。
-* `startRow`: 读取MySQL表的起始行数，若不指定，默认从数据集起始位置读取。
-* `rowNum`: 读取MySQL表的行数，若不指定，默认读到数据集的结尾。若`table_or_query`是查询语句，则这个参数被忽略。
+* connection: 通过`mysql::connect`获得的MySQL连接句柄。
+* dbHandle and tableName: 如果我们要将输入数据文件保存在分布式数据库中，需要指定数据库句柄和表名。
+* partitionColumns: 字符串标量或向量，表示分区列。在组合分区中，partitionColumns是字符串向量。
+* table_or_query: 一张MySQL中表的名字，或者类似 select * from table limit 100 的合法MySQL查询语句，类型为string。
+* schema`: 包含列名和列的数据类型的表。如果我们想要改变由系统自动决定的列的数据类型，需要在schema表中修改数据类型，并且把它作为load函数的一个参数。
+* startRow: 读取MySQL表的起始行数，若不指定，默认从数据集起始位置读取。若'table_or_query'是查询语句，则这个参数不起作用。
+* rowNum: 读取MySQL表的行数，若不指定，默认读到数据集的结尾。若'table_or_query'是查询语句，则这个参数不起作用。
 
 ### 详情
 
@@ -266,8 +266,8 @@ tb = loadTable("dfs://US", `tb)
 | bigint unsigned    | (不支持) LONG       |
 
 * DolphinDB中数值类型都为有符号类型,为了防止溢出,所有无符号类型会被转化为高一阶的有符号类型。例如，无符号CHAR转化为有符号SHORT，无符号SHORT转化为有符号INT，等等。64位无符号类型不予支持。
-* DolphinDB不支持 unsigned long long 类型，如果mysql中的类型为`bigint unsigned`, 可在load或者loadEx的schema参数里面设置为`DOUBLE`或者`FLOAT`。
-* DolphinDB中各类整形的最小值为NULL值，如`CHAR`的`-128`，`SHORT`的`-32,768`， `INT`的`-2,147,483,648`以及`LONG`的`-9,223,372,036,854,775,808`。
+* DolphinDB不支持 unsigned long long 类型，如果MySQL中的类型为 bigint unsigned, 可在`load`或者`loadEx`的schema参数里面设置为 DOUBLE 或者 FLOAT。
+* DolphinDB中各类整形的最小值为NULL值，如 CHAR 的-128，SHORT的-32,768，INT的-2,147,483,648以及LONG的-9,223,372,036,854,775,808。
 
 
 ## 浮点数类型
@@ -293,7 +293,7 @@ tb = loadTable("dfs://US", `tb)
 | timestamp | TIMESTAMP           |
 | year      | INT                 |
 
-* 以上类型皆可以转化为DolphinDB中的时间相关类型(DATE, MONTH, TIME, MINUTE, SECOND, DATETIME, TIMESTAMP, NANOTIME, NANOTIMESTAMP)。
+* 以上类型皆可转化为DolphinDB中的时间相关类型(DATE, MONTH, TIME, MINUTE, SECOND, DATETIME, TIMESTAMP, NANOTIME, NANOTIMESTAMP)。
 
 ## 字符串类型
 
@@ -305,8 +305,8 @@ tb = loadTable("dfs://US", `tb)
 | varchar (len > 10)  | STRING              |
 | other string types  | STRING              |
 
-* 长度小于等于10的`char`和`varchar`将被转化为`SYMBOL`类型，其余转化为`STRING`类型。
-* string类型可以转化为转化为DolphinDB中的字符串相关类型(`STRING`,`SYMBOL`)。
+* 长度不超过10的char和varchar将被转化为SYMBOL类型，其余转化为STRING类型。
+* string类型可以转化为转化为DolphinDB中的字符串相关类型(STRING,SYMBOL)。
 
 ## 枚举类型
 
@@ -314,7 +314,7 @@ tb = loadTable("dfs://US", `tb)
 | --------- | :------------------ |
 | enum      | SYMBOL              |
 
-* enum类型可以转化为DolphinDB中的字符串相关类型(`STRING`,`SYMBOL`)，默认转化为`SYMBOL`类型。
+* enum类型可以转化为DolphinDB中的字符串相关类型(STRING,SYMBOL)，默认转化为SYMBOL类型。
 
 # 导入数据性能
 
