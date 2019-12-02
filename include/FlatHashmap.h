@@ -98,9 +98,9 @@ public:
     FlatHashmapImpl& operator=(const FlatHashmapImpl&)=delete;
     
     friend struct iterator;
-    FlatHashmapImpl(size_t cap = DEFAULT_HM_CAPACITY, float probeLimitScalingFactor = 1.0f, bool predictedCap = false)
+    FlatHashmapImpl(size_t cap = DEFAULT_HM_CAPACITY, float probeLimitScalingFactor = 1.0f, bool predictedCap = false, bool log2_problimit = true)
         : hash_policy_(cap, predictedCap) {
-        initialize(hash_policy_.capacity(), probeLimitScalingFactor);
+        initialize(hash_policy_.capacity(), probeLimitScalingFactor, log2_problimit);
         endIterator = iterator(this, this->hash_policy_.capacity() + this->probe_limit_);
     }
 
@@ -123,6 +123,8 @@ public:
         this->headers[idx >> 5] &= ~(1 << (idx & 31));
     }
 
+
+
     int insertNoErase(const key_type & key, const mapped_type & value) {
         uint64_t hash = this->key_hasher_(key);
         size_t idx = this->hash_policy_.index(hash);
@@ -137,9 +139,14 @@ public:
                 //key unmatched
                 continue;
             }
+            new ((char*)&this->keys[i]) key_type(key);
+            try {
+                new ((char*)&this->values[i]) mapped_type(value);
+            } catch (...) {
+                this->keys[i].~key_type();
+                throw;
+            }
             setKeyPresent(i);
-            new((char*)&this->keys[i]) key_type(key);
-            new((char*)&this->values[i]) mapped_type(value);
             ++this->count_;
             ret = INSERT_GOOD;
             break;
@@ -147,6 +154,16 @@ public:
         return ret;
     }
 
+    // Insert <key, value>.
+    // This version is used by hashmap that does not support erase.
+    // Insertion procedure starts at initial hashing position and stops either:
+    //  1. a empty slot is found -> INSERT_GOOD
+    //  2. a non empty slot having the same key -> INSERT_KEY_EXISTS
+    //  3. probe_limit_ positions are traversed and still no vacant slots -> INSERT_NO_VACANCY
+    // Return Values:
+    //  INSERT_NO_VACANCY : the insertion procedure fails to find a empty slot within probe_limit_ away from the initial hashing position. This suggests a rehash with larger capacity is needed to spread out the keys.
+    //  INSERT_GOOD: the insertion is successful.
+    //  INSERT_KEY_EXISTS : the insertion proceudre fails because the key already exists
     int insertNoErase(const key_type & key, const mapped_type & value, mapped_type ** recvPtr) {
         uint64_t hash = this->key_hasher_(key);
         size_t idx = this->hash_policy_.index(hash);
@@ -163,9 +180,14 @@ public:
                 //key unmatched
                 continue;
             }
+            new ((char*)&this->keys[i]) key_type(key);
+            try {
+                new ((char*)&this->values[i]) mapped_type(value);
+            } catch (...) {
+                this->keys[i].~key_type();
+                throw;
+            }
             setKeyPresent(i);
-            new((char*)&this->keys[i]) key_type(key);
-            new((char*)&this->values[i]) mapped_type(value);
             ++this->count_;
             ret = INSERT_GOOD;
             if (recvPtr != nullptr)
@@ -175,6 +197,12 @@ public:
         return ret;
     }
 
+    // Insert <key, value>
+    // This version is used by hashmap that supports erase.
+    // Return Values:
+    //  INSERT_NO_VACANCY : the insertion procedure fails to find a empty slot within probe_limit_ away from the initial hashing position. This suggests a rehash with larger capacity is needed to spread out the keys.
+    //  INSERT_GOOD: the insertion is successful.
+    //  INSERT_KEY_EXISTS : the insertion proceudre fails because the key already exists
     int insert(const key_type & key, const mapped_type & value) {
         uint64_t hash = this->key_hasher_(key);
         size_t idx = this->hash_policy_.index(hash);
@@ -199,15 +227,25 @@ public:
             }
         }
         if (insertSlot != -1 && ret != INSERT_KEY_EXISTS) {
+            new ((char*)&this->keys[insertSlot]) key_type(key);
+            try {
+                new ((char*)&this->values[insertSlot]) mapped_type(value);
+            } catch (...) {
+                this->keys[insertSlot].~key_type();
+                throw;
+            }
             setKeyPresent(insertSlot);
-            new((char*)&this->keys[insertSlot]) key_type(key);
-            new((char*)&this->values[insertSlot]) mapped_type(value);
             ++this->count_;
             ret = INSERT_GOOD;
         }
         return ret;
     }
 
+    // Insert <key, value>
+    // Similar to the "int insert(const key_type & key, const mapped_type & value)",
+    // but additionally returns a pointer to :
+    //  1. the address that stores the value if the insertion is successful
+    //  2. the addres that stores the existing value if the key already exists in the table
     int insert(const key_type & key, const mapped_type & value, mapped_type ** recvPtr) {
         uint64_t hash = this->key_hasher_(key);
         size_t idx = this->hash_policy_.index(hash);
@@ -227,9 +265,14 @@ public:
             }
         }
         if (insertSlot != -1 && ret != INSERT_KEY_EXISTS) {
+            new ((char*)&this->keys[insertSlot]) key_type(key);
+            try {
+                new ((char*)&this->values[insertSlot]) mapped_type(value);
+            } catch (...) {
+                this->keys[insertSlot].~key_type();
+                throw;
+            }
             setKeyPresent(insertSlot);
-            new((char*)&this->keys[insertSlot]) key_type(key);
-            new((char*)&this->values[insertSlot]) mapped_type(value);
             ++this->count_;
             ret = INSERT_GOOD;
             if (recvPtr != nullptr)
@@ -238,6 +281,9 @@ public:
         return ret;
     }
 
+    // Probe at most probe_limit_ slots to find a key.
+    // Because the <key,value> entry is always probe_limit_ away from the initial
+    // hashing position, this procedure will find the key if it exists.
     bool find(const key_type & key, mapped_type & recv) {
         uint64_t hash = this->key_hasher_(key);
         size_t idx = this->hash_policy_.index(hash);
@@ -254,6 +300,8 @@ public:
         return found;
     }
 
+    // Similar to bool find(const key_type & key, mapped_type & recv),
+    // but returns a address that stores the value if the key exists.
     bool findPointer(const key_type & key, mapped_type ** recvPtr) {
         uint64_t hash = this->key_hasher_(key);
         size_t idx = this->hash_policy_.index(hash);
@@ -270,6 +318,10 @@ public:
         return found;
     }
 
+
+    // Probe at most probe_limit_ slots to find a key.
+    // This version is used by hashmap that does not support erase.
+    // Since no erasure is supported, the probing stops whenever a empty slots is found.
     bool findNoErase(const key_type & key, mapped_type & recv) {
         uint64_t hash = this->key_hasher_(key);
         size_t idx = this->hash_policy_.index(hash);
@@ -308,9 +360,9 @@ public:
         for(size_t i = idx; i < end; ++i) {
             if (keyPresent(i) &&
                 this->key_equal_(this->keys[i], key)) {
+                setKeyUnpresent(i);
                 this->keys[i].~key_type();
                 this->values[i].~mapped_type();
-                setKeyUnpresent(i);
                 --this->count_;
                 erased = true;
                 break;
@@ -324,9 +376,9 @@ public:
         for (size_t i = 0; i < realCapacity; ++i) {
             if (keyPresent(i) == false)
                 continue;
+            setKeyUnpresent(i);
             this->keys[i].~key_type();
             this->values[i].~mapped_type();
-            setKeyUnpresent(i);
         }
         count_ = 0;
     }
@@ -345,8 +397,10 @@ public:
         }
         std::unique_ptr<FlatHashmapImpl> to;
         //int failures = 0;
+        double load_factor = from.size() / (oldCap + 0.0);
+        bool log2_problimit = load_factor > 0.1;
         while (true) {
-            to.reset(new FlatHashmapImpl(newCap, probeLimitScalingFactor, predicted));
+            to.reset(new FlatHashmapImpl(newCap, probeLimitScalingFactor, predicted, log2_problimit));
             if (noErase) {
                 if (rehashNoErase(from, *to))
                     break;
@@ -445,19 +499,37 @@ private:
         }
         return good;
     }
-    void initialize(size_t cap, float probeLimitScalingFactor) {
+    void initialize(size_t cap, float probeLimitScalingFactor, bool log2_problimit = true) {
         assert(probeLimitScalingFactor > 0);
         // probe_limit = log2(n)
-        this->probe_limit_ = std::ceil(std::log2(cap)) * probeLimitScalingFactor;
+        if (log2_problimit) {
+            this->probe_limit_ = std::ceil(std::log2(cap)) * probeLimitScalingFactor;
+        } else {
+            this->probe_limit_ = cap;
+        }
         cap += probe_limit_; //allocate probe_limit_ more slots to avoid bound-checking
         size_t headers_sz = ((int)std::ceil(cap / 8.0) + sizeof(uint32_t) - 1) & ~(sizeof(uint32_t) - 1); // make headers_sz multiple of sizeof(uint32_t)
         assert(headers_sz % sizeof(uint32_t) == 0);
         size_t keys_sz = cap * sizeof(key_type);
         size_t vals_sz = cap * sizeof(mapped_type);
         this->count_ = 0;
+        this->headers_ptr_unaligned_ = this->keys_ptr_unaligned_ = this->values_ptr_unaligned_ = nullptr;
         this->headers_ptr_unaligned_ = myAlloc(headers_sz + CACHE_LINE_SIZE - 1);
-        this->keys_ptr_unaligned_ = myAlloc(keys_sz + CACHE_LINE_SIZE - 1);
-        this->values_ptr_unaligned_ = myAlloc(vals_sz + CACHE_LINE_SIZE - 1);
+        try {
+            this->keys_ptr_unaligned_ = myAlloc(keys_sz + CACHE_LINE_SIZE - 1);
+        } catch(...) {
+            myFree(this->headers_ptr_unaligned_);
+            throw;
+        }
+
+        try {
+            this->values_ptr_unaligned_ = myAlloc(vals_sz + CACHE_LINE_SIZE - 1);
+        } catch(...) {
+            myFree(this->headers_ptr_unaligned_);
+            myFree(this->keys_ptr_unaligned_);
+            throw;
+        }
+        // align slots at cacheline granularity for better speed
         void* headers_ptr_aligned = (void *)(((size_t)this->headers_ptr_unaligned_ + CACHE_LINE_SIZE - 1) & ~(CACHE_LINE_SIZE - 1));
         void* keys_ptr_aligned = (void *)(((size_t)this->keys_ptr_unaligned_ + CACHE_LINE_SIZE - 1) & ~(CACHE_LINE_SIZE - 1));
         void* values_ptr_aligned = (void *)(((size_t)this->values_ptr_unaligned_ + CACHE_LINE_SIZE - 1) & ~(CACHE_LINE_SIZE - 1));
@@ -496,7 +568,11 @@ template<typename Key,
          typename KeyEqual>
 KeyEqual FlatHashmapImpl<Key, T, HashPolicy, Hasher, KeyEqual>::key_equal_;
 
-
+/*
+ * A hashmap implementation that is based on the idea of bounded linear-probing.
+ * Insertion/Lookup probes at most probe_limit_ of slots before resorting to rehash.
+ * probe_limit_ is set to log2(table capacity).
+ */
 template<typename Key,
          typename T,
          typename HashPolicy = power2_hash_policy,
@@ -962,8 +1038,14 @@ private:
         assert(bitmap_sz % sizeof(uint32_t) == 0);
         size_t vals_sz = cap * sizeof(mapped_type);
         this->count = 0;
+        this->keyBitmapPtrUnaligned = this->valuesPtrUnaligned = nullptr;
         this->keyBitmapPtrUnaligned = myAlloc(bitmap_sz + CACHE_LINE_SIZE - 1);
-        this->valuesPtrUnaligned = myAlloc(vals_sz + CACHE_LINE_SIZE - 1);
+        try {
+            this->valuesPtrUnaligned = myAlloc(vals_sz + CACHE_LINE_SIZE - 1);
+        } catch(...) {
+            myFree(this->keyBitmapPtrUnaligned);
+            throw;
+        }
         void* bitmap_ptr_aligned = (void *)(((size_t)this->keyBitmapPtrUnaligned + CACHE_LINE_SIZE - 1) & ~(CACHE_LINE_SIZE - 1));
         void* values_ptr_aligned = (void *)(((size_t)this->valuesPtrUnaligned + CACHE_LINE_SIZE - 1) & ~(CACHE_LINE_SIZE - 1));
         this->keyBitmap = new(bitmap_ptr_aligned) uint32_t[cap / 8];
@@ -1162,9 +1244,9 @@ public:
     FlatHashsetImpl& operator=(const FlatHashsetImpl&)=delete;
     
     friend struct iterator;
-    FlatHashsetImpl(size_t cap = DEFAULT_HM_CAPACITY, float probeLimitScalingFactor = 1.0, bool predictedCap = false)
+    FlatHashsetImpl(size_t cap = DEFAULT_HM_CAPACITY, float probeLimitScalingFactor = 1.0, bool predictedCap = false, bool log2_problimit = true)
         : hash_policy_(cap, predictedCap){
-        initialize(hash_policy_.capacity(), probeLimitScalingFactor);
+        initialize(hash_policy_.capacity(), probeLimitScalingFactor, log2_problimit);
         endIterator = iterator(this, this->hash_policy_.capacity() + this->probe_limit_);
     }
 
@@ -1311,10 +1393,12 @@ public:
             //printf("keys %lu, inserts %lu, load_factor %0.2f, uniqueKeysInsertsRatio %0.2lf, predicted Capacity %lu\n", from.size(), inserts,from.size() / (oldCap + 0.0), uniqueKeysInsertsRatio, newCap);
             predicted = true;
         }
+        double load_factor = from.size() / (oldCap + 0.0);
+        bool log2_problimit = load_factor > 0.1;
         std::unique_ptr<FlatHashsetImpl> to;
         //int failures = 0;
         while (true) {
-            to.reset(new FlatHashsetImpl(newCap, probeLimitScalingFactor, predicted));
+            to.reset(new FlatHashsetImpl(newCap, probeLimitScalingFactor, predicted, log2_problimit));
             if (noErase) {
                 if (rehashNoErase(from, *to))
                     break;
@@ -1410,17 +1494,28 @@ private:
         }
         return good;
     }
-    void initialize(size_t cap, float probeLimitScalingFactor) {
+    void initialize(size_t cap, float probeLimitScalingFactor, bool log2_problimit = true) {
         assert(probeLimitScalingFactor > 0);
         // probe_limit = log2(n)
-        this->probe_limit_ = std::ceil(std::log2(cap)) * probeLimitScalingFactor;
+        if (log2_problimit) {
+            this->probe_limit_ = std::ceil(std::log2(cap)) * probeLimitScalingFactor;
+        } else {
+            this->probe_limit_ = cap;
+        }
         cap += probe_limit_; //allocate probe_limit_ more slots to avoid bound-checking
         size_t headers_sz = ((int)std::ceil(cap / 8.0) + sizeof(uint32_t) - 1) & ~(sizeof(uint32_t) - 1); // make headers_sz multiple of sizeof(uint32_t)
         assert(headers_sz % sizeof(uint32_t) == 0);
         size_t keys_sz = cap * sizeof(key_type);
         this->count_ = 0;
+        this->headers_ptr_unaligned_ = nullptr;
+        this->keys_ptr_unaligned_ = nullptr;
         this->headers_ptr_unaligned_ = myAlloc(headers_sz + CACHE_LINE_SIZE - 1);
-        this->keys_ptr_unaligned_ = myAlloc(keys_sz + CACHE_LINE_SIZE - 1);
+        try {
+            this->keys_ptr_unaligned_ = myAlloc(keys_sz + CACHE_LINE_SIZE - 1);
+        } catch (...) {
+            myFree(this->headers_ptr_unaligned_);
+            throw;
+        }
         void* headers_ptr_aligned = (void *)(((size_t)this->headers_ptr_unaligned_ + CACHE_LINE_SIZE - 1) & ~(CACHE_LINE_SIZE - 1));
         void* keys_ptr_aligned = (void *)(((size_t)this->keys_ptr_unaligned_ + CACHE_LINE_SIZE - 1) & ~(CACHE_LINE_SIZE - 1));
         this->headers = new(headers_ptr_aligned) uint32_t[cap / 8];

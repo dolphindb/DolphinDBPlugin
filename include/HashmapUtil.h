@@ -11,6 +11,7 @@
 #include <memory.h>
 
 #include "Concurrent.h"
+#include "DolphinString.h"
 
 void* myAlloc(size_t size);
 void myFree(void * ptr);
@@ -155,6 +156,16 @@ static inline uint32_t murmur32_4b (uint32_t key)
     return h;
 }
 
+namespace std {
+template<>
+struct hash<DolphinString> {
+	inline size_t operator()(const DolphinString& val) const{
+		return murmur32(val.data(), val.size());
+	}
+};
+
+};
+
 template<class T>
 struct murmur_hasher {
     inline uint64_t operator()(const T&);
@@ -164,6 +175,11 @@ struct murmur_hasher {
 template<>
 struct murmur_hasher<std::string> {
     uint64_t operator()(const std::string & val);
+};
+
+template<>
+struct murmur_hasher<DolphinString> {
+    uint64_t operator()(const DolphinString & val);
 };
 
 template<>

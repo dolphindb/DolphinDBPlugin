@@ -313,8 +313,8 @@ inline void convert(char const* beg, size_t n, wide_string& out)
 
 #ifdef WINDOWS
     char* utf8 = new char[n*2];
-    int len = bytesToUTF8<Encoding::GB2312>(beg, utf8);
-    out = utf8_to_utf16(utf8, utf8 + len);
+    bytesToUTF8<Encoding::GB2312>(beg, utf8);
+    out = utf8_to_utf16(utf8, utf8 + n);
     delete [] utf8;
 #else
     out = utf8_to_utf16(beg, beg + n);

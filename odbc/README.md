@@ -44,25 +44,28 @@ The plugin provides three functions.
 
 ### odbc::close(connHandle)
 ```odbc::close``` closes an odbc connection associated with the handle.
+
 ### odbc::query(connHandle or connStr, querySql [,t])
 ```odbc::query``` queries the database via connHandle or connStr and return the results as a dolphindb table.   
 The first argument could be connection handle or a connection string.   
 The second argument is the query string.  
 The last argument is a optional user-provided table. If provided, query results will be appended to the table. Note that, the table schema must be compatible with the results returned from ODBC or an exception will be thrown.  
-  
+
 ### odbc::execute(connHandle or connStr, SQLstatements)
 ```odbc::execute``` execute the SQL statements with no return.    
 The first argument could be connection handle or a connection string.    
 The second argument is the SQL statements.     
 
-### odbc::append(connHandle, tableData, tablename [,createTableIfNotExist])
+### odbc::append(connHandle, tableData, tablename, [createTableIfNotExist], [insertIgnore])
 ```odbc::append```  append the table from dolphindb to the database which you connect to.
 * `connHandle` : connection handle    
 * `tableData`  :  the table object in dolphindb.    
 * `tablename`  : the tablename in database which you connect to.  
 * `[createTableIfNotExist]` : optional, true means create a new table in database. The default value is `true`.
+* `[insertIgnore]` : optional, true means use insert ignore. The default value is `false`.
 
-You can ommit ```odbc::``` prefix by introducing odbc module namespace.
+
+You can ommit ```odbc::``` prefix by introducing obdc module namespace.
 ```
 use odbc;
 ```

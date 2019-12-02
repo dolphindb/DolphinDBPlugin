@@ -100,11 +100,24 @@ private:
 
 extern Logger log_inst;
 
+#ifdef VERBOSE_LOGGING
+#include <cstring>
+#define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+#define XLOG log_inst.print<severity_type::DEBUG>
+#define XLOG_ERR log_inst.print<severity_type::ERR>
+#define XLOG_INFO log_inst.print<severity_type::INFO>
+#define XLOG_WARN log_inst.print<severity_type::WARNING>
+
+#define LOG(...) XLOG("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
+#define LOG_ERR(...) XLOG_ERR("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
+#define LOG_INFO(...) XLOG_INFO("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
+#define LOG_WARN(...) XLOG_WARN("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
+#else
 #define LOG log_inst.print<severity_type::DEBUG>
 #define LOG_ERR log_inst.print<severity_type::ERR>
 #define LOG_INFO log_inst.print<severity_type::INFO>
 #define LOG_WARN log_inst.print<severity_type::WARNING>
-
+#endif
 
 
 

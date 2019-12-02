@@ -12,6 +12,7 @@
 #include <iostream>
 #include "SmartPointer.h"
 #include "Types.h"
+#include "DolphinString.h"
 
 #define MAX_CAPACITY 65536
 #define MAX_PACKET_SIZE 1400
@@ -140,6 +141,9 @@ public:
 	IO_ERR readString(string& value);
 	IO_ERR readString(string& value, size_t length);
 	IO_ERR readLine(string& value);
+	IO_ERR readString(DolphinString& value);
+	IO_ERR readString(DolphinString& value, size_t length);
+	IO_ERR readLine(DolphinString& value);
 	/**
 	 * Preview the given size of stream data from the current position. The internal current position will not change
 	 * after this operation. If the available data in the internal buffer from the current position is less than the
@@ -148,6 +152,7 @@ public:
 	 */
 	IO_ERR peekBuffer(char* buf, size_t size);
 	IO_ERR peekLine(string& value);
+	IO_ERR peekLine(DolphinString& value);
 
 	inline bool isSocketStream() const {return source_ == SOCKET_STREAM;}
 	inline bool isFileStream() const { return source_ == FILE_STREAM;}
@@ -217,6 +222,8 @@ public:
 	inline IO_ERR start(const char* buffer, size_t length){return write(buffer, length);}
 	inline IO_ERR write(const string& buffer){ return write(buffer.c_str(), buffer.length() + 1);}
 	inline IO_ERR writeData(const string& buffer){ return write(buffer.data(), buffer.length());}
+	inline IO_ERR write(const DolphinString& buffer){ return write(buffer.c_str(), buffer.length() + 1);}
+	inline IO_ERR writeData(const DolphinString& buffer){ return write(buffer.data(), buffer.length());}
 	inline IO_ERR write(bool val){ return write((const char*)&val, 1);}
 	inline IO_ERR write(char val){ return write(&val, 1);}
 	inline IO_ERR write(short val){ return write((const char*)&val, 2);}
@@ -231,6 +238,7 @@ public:
 	size_t size() const { return size_;}
 	IO_ERR flush(bool sync = false);
 	IO_ERR close();
+	inline long long writtenBytes() const { return writtenBytes_;}
 
 protected:
 	virtual IO_ERR internalFlush(size_t size, bool sync = false);
@@ -246,6 +254,7 @@ protected:
 	size_t capacity_;
 	size_t size_;
 	bool autoClose_;
+	long long writtenBytes_;
 };
 
 class Buffer {
@@ -259,6 +268,8 @@ public:
 	IO_ERR write(const char* buffer, int length);
 	inline IO_ERR write(const string& buffer){ return write(buffer.c_str(), buffer.length() + 1);}
 	inline IO_ERR writeData(const string& buffer){ return write(buffer.data(), buffer.length());}
+	inline IO_ERR write(const DolphinString& buffer){ return write(buffer.c_str(), buffer.length() + 1);}
+	inline IO_ERR writeData(const DolphinString& buffer){ return write(buffer.data(), buffer.length());}
 	inline IO_ERR write(bool val){ return write((const char*)&val, 1);}
 	inline IO_ERR write(char val){ return write(&val, 1);}
 	inline IO_ERR write(short val){ return write((const char*)&val, 2);}

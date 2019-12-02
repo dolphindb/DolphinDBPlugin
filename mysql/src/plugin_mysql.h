@@ -88,12 +88,13 @@ class Connection : public mysqlxx::Connection {
 
    private:
     bool isQuery(std::string);
+    Mutex mtx_;
 };
 
 typedef SmartPointer<Connection> ConnectionSP;
 
-const size_t DEFAULT_PACK_SIZE = 102400;
-const unsigned long long DEFAULT_ALLOWED_MEM = 4ULL * 1024 * 1024 * 1024;
+const size_t DEFAULT_PACK_SIZE = 8192;
+const unsigned long long DEFAULT_ALLOWED_MEM = 8ULL * 1024 * 1024 * 1024;
 const size_t DEFAULT_WORKSPACE_SIZE = 3;
 using mysqlxx::Query;
 class Pack;
@@ -164,13 +165,14 @@ class Pack {
     size_t nCol() const { return nCol_; }
 
    private:
-    bool parseString(char *dst, const mysqlxx::Value &val);
+    bool parseString(char *dst, const mysqlxx::Value &val, size_t maxLen);
     unsigned long long getRowStorage(vector<DATA_TYPE> types, vector<size_t> maxStrlen);
 
    private:
     vector<char *> rawBuffers_;
     vector<vector<size_t>> isNull_;
     vector<size_t> typeLen_;
+    vector<size_t> maxStrLen_;
     size_t nCol_;
     size_t size_;
     size_t capacity_;

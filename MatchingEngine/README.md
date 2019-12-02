@@ -3,24 +3,10 @@
 ## Build
 
 Build plugin
-
-* For Linux
-
 ```
 cmake . -DCMAKE_BUILD_TYPE=Release -DDOLPHINDB_LIB_DIR=/path/to/the/libDolphinDB.so -DDOLPHINDB_INC_DIR=/path/to/the/include
 make && make install
 ```
-
-* For Windows MinGW
-
-```
-cmake . -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DDOLPHINDB_LIB_DIR=/path/to/the/libDolphinDB.dll -DDOLPHINDB_INC_DIR=/path/to/the/include
-mingw32-make && mingw32-make install
-```
-
-*for windows, you have to change the first line of the PluginMatchingEngine.txt: ```libMatchingEngine.so -> libMatchingEngine.dll```*
-
-### 
 
 Run test (gtest is required)
 

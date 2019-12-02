@@ -41,10 +41,10 @@ class Decoder {
 public:
 	Decoder(int id, bool appendable) : id_(id), appendable_(appendable), codeSymbolAsString_(false){}
 	virtual ~Decoder(){}
-	virtual VectorSP code(const VectorSP& vec) = 0;
-	virtual IO_ERR code(const VectorSP& vec, const DataOutputStreamSP& out, int& checksum) = 0;
+	virtual VectorSP code(const VectorSP& vec, bool lsnFlag) = 0;
+	virtual IO_ERR code(const VectorSP& vec, bool lsnFlag, const DataOutputStreamSP& out, int& checksum) = 0;
 	virtual IO_ERR decode(const VectorSP& vec, INDEX rowOffset, bool fullLoad, int checksum, const DataInputStreamSP& in,
-			long long byteSize, long byteOffset, long long& postByteOffset) = 0;
+			long long byteSize, long long byteOffset, INDEX& postRows, long long& postByteOffset, long long& lsn) = 0;
 	inline int getID() const {return id_;}
 	inline bool isAppendable() const {return appendable_;}
 	inline bool codeSymbolAsString() const { return codeSymbolAsString_;}
@@ -120,10 +120,10 @@ protected:
 
 class BasicBlockIOTask : public BlockIOTask{
 public:
-	BasicBlockIOTask(int devId) : BlockIOTask(devId), read_(true), offset_(0), length_(0), actualLength_(0), fileOffset_(0), file_(0){}
+	BasicBlockIOTask(int devId) : BlockIOTask(devId), read_(true), sync_(false), offset_(0), length_(0), actualLength_(0), fileOffset_(0), file_(0){}
 	virtual ~BasicBlockIOTask(){}
 	virtual void execute();
-	void setTask(bool read, const VectorSP& bufObj, int offset, int length, const FileResourceSP& file);
+	void setTask(bool read, const VectorSP& bufObj, int offset, int length, const FileResourceSP& file, bool sync = false);
 	inline int getActualLength() const {return actualLength_;}
 	inline int getLength() const {return length_;}
 	inline long long getOffset() const {return offset_;}
@@ -135,6 +135,7 @@ public:
 
 private:
 	bool read_;
+	bool sync_;
 	int offset_;
 	int length_;
 	int actualLength_;
@@ -202,7 +203,7 @@ public:
 	const string& getErrorMessage() const {return errMsg_;}
 
 protected:
-	virtual IO_ERR internalFlush(size_t size);
+	virtual IO_ERR internalFlush(size_t size, bool sync = false);
 	virtual IO_ERR internalClose();
 	virtual char* createBuffer(size_t& capacity);
 

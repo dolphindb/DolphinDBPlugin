@@ -69,16 +69,6 @@ private:
 	mutable Mutex mutex_;
 };
 
-/**
- *  Column File Header Format
- *  0~3 	Integer Data type
- *  4~7 	Integer Symbol base ID
- *  8~8 	Boolean Fast mode
- *  9~12	Integer Capacity
- *  13~16	Integer Number of elements
- *  17~18   Short   Unit Length
- *  19~19	Byte	Character code (always 0)
- */
 struct ColumnHeader{
 	ColumnHeader(const char* header);
 	ColumnHeader();
@@ -87,8 +77,10 @@ struct ColumnHeader{
 	void deserialize(const char* header);
 	inline bool isLittleEndian() const { return flag & 1;}
 	inline bool containChecksum() const {return flag & 2;}
+	inline bool lsnFlag() const{return flag & 4;}
 	inline void setLittleEndian(bool val){ if(val) flag |= 1; else flag &= ~1;}
 	inline void setChecksumOption(bool val){ if(val) flag |= 2; else flag &= ~2;}
+	inline void setLSNFlag(bool val){ if(val) flag |= 4; else flag &= ~4;}
 
 	char version;
 	char flag; //bit0: littleEndian bit1: containChecksum
@@ -108,7 +100,7 @@ public:
 	static bool saveBasicTable(Session* session, SystemHandle* db, Table* table, const string& tableName, IoTransaction* tran, bool append = false, int compressionMode = 0, bool saveSymbolBase = true);
 	static bool saveBasicTable(Session* session, const string& directory, const string& tableDir, Table* table, const string& tableName, const vector<ColumnDesc>& cols, SymbolBaseSP& symbase, IoTransaction* tran, bool chunkMode, bool append, int compressionMode, bool saveSymbolBase);
 	static bool saveBasicTable(const string& directory, const string& tableName, Table* table, const SymbolBaseSP& symBase, IoTransaction* tran, int compressionMode);
-	static bool saveBasicTable(Session* session, const string& tableDir, INDEX existingTblSize, Table* table, const vector<ColumnDesc>& cols, const SymbolBaseSP& symBase, IoTransaction* tran, int compressionMode, bool saveSymbolBase);
+	static bool saveBasicTable(Session* session, const string& tableDir, INDEX existingTblSize, Table* table, const vector<ColumnDesc>& cols, const SymbolBaseSP& symBase, IoTransaction* tran, int compressionMode, bool saveSymbolBase, long long lsn);
 	static bool savePartitionedTable(Session* session, const DomainSP& domain, TableSP table, const string& tableName, IoTransaction* tran, int compressionMode = 0, bool saveSymbolBase = true );
 	static bool saveDualPartitionedTable(Session* session, SystemHandle* db, const DomainSP& secDomain, TableSP table, const string& tableName,
 			const string& partitionColName, vector<string>& secPartitionColNames, IoTransaction* tran, int compressionMode = 0);
@@ -125,11 +117,14 @@ public:
 	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseSP& symbase, int rows, long long& postFileOffset, bool& isLittleEndian, char& compressType);
 	static long long loadColumn(const string& colFile, long long fileOffset, bool isLittleEndian, char compressType, int devId, const SymbolBaseSP& symbase, INDEX rows, const VectorSP& col);
 	static Vector* loadTextVector(bool includeHeader, DATA_TYPE type, const string& path);
-	static bool saveColumn(const VectorSP& col, const string& colFile, int devId, INDEX existingTableSize, bool chunkNode, bool append, int compressionMode, IoTransaction* tran = NULL);
+	static bool saveColumn(const VectorSP& col, const string& colFile, int devId, INDEX existingTableSize, bool chunkNode, bool append, int compressionMode, IoTransaction* tran = NULL, long long lsn = -1);
 	static bool saveTableHeader(const string& owner, const vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices, long long rows, const string& tableFile, IoTransaction* tran);
 	static bool loadTableHeader(const DataInputStreamSP& in, string& owner, vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices);
 	static void removeBasicTable(const string& directory, const string& tableName);
 	static TableSP createEmptyTableFromSchema(const TableSP& schema);
+	static long long truncateColumnByLSN(const string& colFile, int devId, long long expectedLSN);
+	static long long truncateColumnByRows(const string& colFile, int devId, INDEX rows);
+	static void truncateSymbolBase(const string& symFile, int devId, INDEX rows);
 
 	static void checkTypeCompatibility(Table* table, vector<string>& partitionColumns, vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices);
 	static bool checkTypeCompatibility(DATA_TYPE type1, DATA_TYPE type2);
@@ -145,6 +140,7 @@ public:
 	static ConstantSP appendDataToFile(Heap* heap, vector<ConstantSP>& arguments);
 	static int getMappedDeviceId(const string& path);
 	static void setVolumeMapper(const VolumeMapperSP& volumeMapper) { volumeMapper_ = volumeMapper;}
+	static unsigned int checksum(FILE* fp, long long offset, long long length);
 
 private:
 	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseManagerSP& symbaseManager,	const SymbolBaseSP& symbase,
@@ -155,7 +151,7 @@ private:
 
 class Command{
 public:
-	Command(const string& fileName, int priority) : fileName_(fileName), priority_(priority){}
+	Command(const string& fileName, int priority, bool fsync = true) : fileName_(fileName), priority_(priority), fsync_(fsync){}
 	virtual ~Command(){}
 	virtual void execute() = 0;
     virtual void undo() = 0;
@@ -164,12 +160,14 @@ public:
     virtual IO_ERR serialize(const DataStreamSP& out) const= 0;
     virtual void commit(){};
     virtual void close(){};
-    const string& getFileName() const {return fileName_;}
-    int getPriority() const {return priority_;}
+    inline const string& getFileName() const {return fileName_;}
+    inline int getPriority() const {return priority_;}
+    inline bool immediateSync() const {return fsync_;}
 
 protected:
     string fileName_;
     int priority_;
+    bool fsync_;
 };
 
 class CmdAppendFile : public Command{
@@ -205,7 +203,7 @@ private:
 
 class CmdNewFileOrDir : public Command{
 public:
-	CmdNewFileOrDir(const string& name): Command(name, 0){}
+	CmdNewFileOrDir(const string& name): Command(name, 0, false){}
 	CmdNewFileOrDir(const DataInputStreamSP& in);
 	virtual ~CmdNewFileOrDir(){}
 	virtual void execute(){}
@@ -267,9 +265,9 @@ private:
 
 class CmdInMemoryChange : public Command{
 public:
-	CmdInMemoryChange(const string& changeDesc, const FunctionDefSP& undoFunc) : Command(changeDesc, 4), undoFunc_(undoFunc){}
-	CmdInMemoryChange(const string& changeDesc, const FunctionDefSP& commitFunc, const FunctionDefSP& undoFunc) : Command(changeDesc, 4), commitFunc_(commitFunc), undoFunc_(undoFunc){}
-	CmdInMemoryChange(const string& changeDesc, const FunctionDefSP& commitFunc, const FunctionDefSP& undoFunc, const FunctionDefSP& closeFunc) : Command(changeDesc, 4), commitFunc_(commitFunc), undoFunc_(undoFunc), closeFunc_(closeFunc){}
+	CmdInMemoryChange(const string& changeDesc, const FunctionDefSP& undoFunc) : Command(changeDesc, 4, false), undoFunc_(undoFunc){}
+	CmdInMemoryChange(const string& changeDesc, const FunctionDefSP& commitFunc, const FunctionDefSP& undoFunc) : Command(changeDesc, 4, false), commitFunc_(commitFunc), undoFunc_(undoFunc){}
+	CmdInMemoryChange(const string& changeDesc, const FunctionDefSP& commitFunc, const FunctionDefSP& undoFunc, const FunctionDefSP& closeFunc) : Command(changeDesc, 4, false), commitFunc_(commitFunc), undoFunc_(undoFunc), closeFunc_(closeFunc){}
 	virtual ~CmdInMemoryChange(){}
 	virtual void execute(){}
 	virtual void undo();

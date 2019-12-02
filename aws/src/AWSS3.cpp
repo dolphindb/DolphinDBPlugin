@@ -464,156 +464,153 @@ void createS3Bucket(Heap* heap, vector<ConstantSP>& args) {
     Aws::Utils::Logging::ShutdownAWSLogging();
 }
 
-#if 0
-ConstantSP createS3InputStream(Heap* heap, vector<ConstantSP>& args) {
-    if(!args[0]->isDictionary()) {
-        throw IllegalArgumentException("createS3InputStream",
-                                       "Invalid argument type, s3account should be a dictionary.");
-    }
-    if(args[1]->getType() != DT_STRING || args[2]->getType() != DT_STRING) {
-        throw IllegalArgumentException("createS3InputStream",
-                                       "Invalid argument type, bucket or key should be a string");
-    }
-    Aws::SDKOptions options;
-    Aws::InitAPI(options);
-    const Aws::String bucketName(args[1]->getString().c_str());
-    const Aws::String keyName(args[2]->getString().c_str());
-    DictionarySP s3account = (DictionarySP)args[0];
-    Aws::Auth::AWSCredentials credential;
-    Aws::Client::ClientConfiguration config;
-    setS3account(s3account, credential, config);
-    Aws::S3::S3Client s3Client(credential, config);
-    Aws::S3::Model::GetObjectRequest objectRequest;
-    objectRequest.WithBucket(bucketName).WithKey(keyName);
+// ConstantSP createS3InputStream(Heap* heap, vector<ConstantSP>& args) {
+//     if(!args[0]->isDictionary()) {
+//         throw IllegalArgumentException("createS3InputStream",
+//                                        "Invalid argument type, s3account should be a dictionary.");
+//     }
+//     if(args[1]->getType() != DT_STRING || args[2]->getType() != DT_STRING) {
+//         throw IllegalArgumentException("createS3InputStream",
+//                                        "Invalid argument type, bucket or key should be a string");
+//     }
+//     Aws::SDKOptions options;
+//     Aws::InitAPI(options);
+//     const Aws::String bucketName(args[1]->getString().c_str());
+//     const Aws::String keyName(args[2]->getString().c_str());
+//     DictionarySP s3account = (DictionarySP)args[0];
+//     Aws::Auth::AWSCredentials credential;
+//     Aws::Client::ClientConfiguration config;
+//     setS3account(s3account, credential, config);
+//     Aws::S3::S3Client s3Client(credential, config);
+//     Aws::S3::Model::GetObjectRequest objectRequest;
+//     objectRequest.WithBucket(bucketName).WithKey(keyName);
 
-    DataInputStreamSP ret = new S3InputStream(s3Client, objectRequest, options);
-    return ret;
-}
+//     DataInputStreamSP ret = new S3InputStream(s3Client, objectRequest, options);
+//     return ret;
+// }
 
-S3InputStream::S3InputStream(Aws::S3::S3Client s3Client, Aws::S3::Model::GetObjectRequest objectRequest, Aws::SDKOptions options)
-        : DataInputStream(FILE_STREAM), s3Client_(s3Client), objectRequest_(objectRequest), options_(options)  {
-    Aws::Utils::Logging::InitializeAWSLogging(
-            Aws::MakeShared<Aws::Utils::Logging::DefaultLogSystem>(
-                    "AWS Logging",Aws::Utils::Logging::LogLevel::Trace,"aws_sdk_"));
-    if(objectRequest_.GetKey().find(".gz") != Aws::String::npos)
-    {
-        zStruct = new zlibStruct;
-        zStruct->strm.zalloc = Z_NULL;
-        zStruct->strm.zfree = Z_NULL;
-        zStruct->strm.opaque = Z_NULL;
-        zStruct->strm.avail_in = 0;
-        zStruct->strm.next_in = Z_NULL;
-        int ret = inflateInit2(&zStruct->strm, 15 + 16);  // windowsBits = 15
-        if (ret != Z_OK) {
-            throw IOException("zlib: decompress init error.");
-        }
-    }
-}
+// S3InputStream::S3InputStream(Aws::S3::S3Client s3Client, Aws::S3::Model::GetObjectRequest objectRequest, Aws::SDKOptions options)
+//         : DataInputStream(FILE_STREAM), s3Client_(s3Client), objectRequest_(objectRequest), options_(options)  {
+//     Aws::Utils::Logging::InitializeAWSLogging(
+//             Aws::MakeShared<Aws::Utils::Logging::DefaultLogSystem>(
+//                     "AWS Logging",Aws::Utils::Logging::LogLevel::Trace,"aws_sdk_"));
+//     if(objectRequest_.GetKey().find(".gz") != Aws::String::npos)
+//     {
+//         zStruct = new zlibStruct;
+//         zStruct->strm.zalloc = Z_NULL;
+//         zStruct->strm.zfree = Z_NULL;
+//         zStruct->strm.opaque = Z_NULL;
+//         zStruct->strm.avail_in = 0;
+//         zStruct->strm.next_in = Z_NULL;
+//         int ret = inflateInit2(&zStruct->strm, 15 + 16);  // windowsBits = 15
+//         if (ret != Z_OK) {
+//             throw IOException("zlib: decompress init error.");
+//         }
+//     }
+// }
 
-IO_ERR S3InputStream::internalStreamRead(char* buf, size_t length, size_t& actualLength) {
-    if (zStruct == nullptr)
-        return fileStream(buf, length, actualLength);
-    else
-        return fileStreamZlib(buf, length, actualLength);
-}
+// IO_ERR S3InputStream::internalStreamRead(char* buf, size_t length, size_t& actualLength) {
+//     if (zStruct == nullptr)
+//         return fileStream(buf, length, actualLength);
+//     else
+//         return fileStreamZlib(buf, length, actualLength);
+// }
 
-IO_ERR S3InputStream::internalClose() {
-    Aws::ShutdownAPI(options_);
-    Aws::Utils::Logging::ShutdownAWSLogging();
-    if(zStruct != nullptr) {
-        (void)inflateEnd(&zStruct->strm);
-        delete zStruct;
-    }
+// IO_ERR S3InputStream::internalClose() {
+//     Aws::ShutdownAPI(options_);
+//     Aws::Utils::Logging::ShutdownAWSLogging();
+//     if(zStruct != nullptr) {
+//         (void)inflateEnd(&zStruct->strm);
+//         delete zStruct;
+//     }
 
-}
+// }
 
-IO_ERR S3InputStream::fileStream(char *buf, size_t length, size_t& actualLength) {
-    actualLength = 0;
-    if(eof_)
-        return END_OF_STREAM;
-    if(err_)
-        return CORRUPT;
-    Aws::StringStream range;
-    range << "bytes=" << begin_ << "-" << (begin_ + length - 1);
-    objectRequest_.WithRange(range.str());
-    auto readObjectOutcome = s3Client_.GetObject(objectRequest_);
-    if (readObjectOutcome.IsSuccess()) {
-        auto &download = readObjectOutcome.GetResult().GetBody();
-        download.read(buf, length);
-        actualLength = download.gcount();
-        begin_ += actualLength;
-        if(download.eof())
-        {
-            eof_ = true;
-            return END_OF_STREAM;
-        }
-    }
-    else {
-        err_ = true;
-        Aws::String error = "deleteS3Bucket cannot delete bucket:\n" +
-                readObjectOutcome.GetError().GetExceptionName() + "\n" +
-                readObjectOutcome.GetError().GetMessage() + "\n";
-        throw IOException(std::string(error.c_str()));
-    }
-    return OK;
-}
-IO_ERR S3InputStream::fileStreamZlib(char *buf, size_t length, size_t& actualLength) {
-    int ret;
-    actualLength = 0;
-    if(eof_) {
-        ret = Z_STREAM_END;
-        goto Result;
-    }
-    else if(!eof_ && zStruct->buffer.in_avail() >= length) {
-        ret = Z_OK;
-        goto Result;
-    }
-    else {
-        while(!eof_ && zStruct->buffer.in_avail() < length) {
-            size_t gcount = 0;
-            fileStream(reinterpret_cast<char *>(zStruct->in), CHUNK, gcount);
-            //src_.read(reinterpret_cast<char *>(zStruct->in), CHUNK);
-            zStruct->strm.avail_in = gcount;
-            if (err_) {
-                ret = Z_ERRNO;
-                goto Result;
-            }
-            zStruct->strm.next_in = zStruct->in;
-            do {
-                zStruct->strm.avail_out = CHUNK;
-                zStruct->strm.next_out = zStruct->out;
-                ret = inflate(&zStruct->strm, eof_ ? Z_FINISH : Z_NO_FLUSH);
-                if(ret != Z_STREAM_END && ret != Z_OK) {
-                    ret = Z_ERRNO;
-                    goto Result;
-                }
-                zStruct->have = CHUNK - zStruct->strm.avail_out;
-                zStruct->buffer.sputn(reinterpret_cast<const char*>(zStruct->out), zStruct->have);
-            } while(zStruct->strm.avail_out == 0);
-            if (eof_) {
-                ret = Z_STREAM_END;
-                goto Result;
-            }
-            if (zStruct->buffer.in_avail() >= length) {
-                ret = Z_OK;
-                break;
-            }
-        }
-    }
-    Result:
-    if(ret == Z_OK) {
-        actualLength = length;
-        zStruct->buffer.sgetn(buf, actualLength);
-        return OK;
-    }
-    else if (ret == Z_STREAM_END) {
-        actualLength = std::min(length, zStruct->buffer.in_avail());
-        zStruct->buffer.sgetn(buf, actualLength);
-        return zStruct->buffer.in_avail() ? OK : END_OF_STREAM;
-    }
-    else {
-        return CORRUPT;
-    }
-}
-#endif
-
+// IO_ERR S3InputStream::fileStream(char *buf, size_t length, size_t& actualLength) {
+//     actualLength = 0;
+//     if(eof_)
+//         return END_OF_STREAM;
+//     if(err_)
+//         return CORRUPT;
+//     Aws::StringStream range;
+//     range << "bytes=" << begin_ << "-" << (begin_ + length - 1);
+//     objectRequest_.WithRange(range.str());
+//     auto readObjectOutcome = s3Client_.GetObject(objectRequest_);
+//     if (readObjectOutcome.IsSuccess()) {
+//         auto &download = readObjectOutcome.GetResult().GetBody();
+//         download.read(buf, length);
+//         actualLength = download.gcount();
+//         begin_ += actualLength;
+//         if(download.eof())
+//         {
+//             eof_ = true;
+//             return END_OF_STREAM;
+//         }
+//     }
+//     else {
+//         err_ = true;
+//         Aws::String error = "deleteS3Bucket cannot delete bucket:\n" +
+//                 readObjectOutcome.GetError().GetExceptionName() + "\n" +
+//                 readObjectOutcome.GetError().GetMessage() + "\n";
+//         throw IOException(std::string(error.c_str()));
+//     }
+//     return OK;
+// }
+// IO_ERR S3InputStream::fileStreamZlib(char *buf, size_t length, size_t& actualLength) {
+//     int ret;
+//     actualLength = 0;
+//     if(eof_) {
+//         ret = Z_STREAM_END;
+//         goto Result;
+//     }
+//     else if(!eof_ && zStruct->buffer.in_avail() >= length) {
+//         ret = Z_OK;
+//         goto Result;
+//     }
+//     else {
+//         while(!eof_ && zStruct->buffer.in_avail() < length) {
+//             size_t gcount = 0;
+//             fileStream(reinterpret_cast<char *>(zStruct->in), CHUNK, gcount);
+//             //src_.read(reinterpret_cast<char *>(zStruct->in), CHUNK);
+//             zStruct->strm.avail_in = gcount;
+//             if (err_) {
+//                 ret = Z_ERRNO;
+//                 goto Result;
+//             }
+//             zStruct->strm.next_in = zStruct->in;
+//             do {
+//                 zStruct->strm.avail_out = CHUNK;
+//                 zStruct->strm.next_out = zStruct->out;
+//                 ret = inflate(&zStruct->strm, eof_ ? Z_FINISH : Z_NO_FLUSH);
+//                 if(ret != Z_STREAM_END && ret != Z_OK) {
+//                     ret = Z_ERRNO;
+//                     goto Result;
+//                 }
+//                 zStruct->have = CHUNK - zStruct->strm.avail_out;
+//                 zStruct->buffer.sputn(reinterpret_cast<const char*>(zStruct->out), zStruct->have);
+//             } while(zStruct->strm.avail_out == 0);
+//             if (eof_) {
+//                 ret = Z_STREAM_END;
+//                 goto Result;
+//             }
+//             if (zStruct->buffer.in_avail() >= length) {
+//                 ret = Z_OK;
+//                 break;
+//             }
+//         }
+//     }
+//     Result:
+//     if(ret == Z_OK) {
+//         actualLength = length;
+//         zStruct->buffer.sgetn(buf, actualLength);
+//         return OK;
+//     }
+//     else if (ret == Z_STREAM_END) {
+//         actualLength = std::min(length, zStruct->buffer.in_avail());
+//         zStruct->buffer.sgetn(buf, actualLength);
+//         return zStruct->buffer.in_avail() ? OK : END_OF_STREAM;
+//     }
+//     else {
+//         return CORRUPT;
+//     }
+// }

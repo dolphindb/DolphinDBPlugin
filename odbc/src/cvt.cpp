@@ -3,7 +3,6 @@
 #include <vector>
 
 #if defined(__GNUC__) && (__GNUC__ < 5)
-#include "utfcpp/utf8.h"
 #else
 #include <codecvt>
 #include <locale>
@@ -15,7 +14,7 @@ std::u16string utf8_to_utf16(const char* first, const char* last) {
     std::u16string ret;
     try {
         utf8::utf8to16(first, last, std::back_inserter(ret));
-    } catch(utf8::not_enough_room& ex) {
+    } catch(std::exception& ex) {
         // pass
     }
     return ret;

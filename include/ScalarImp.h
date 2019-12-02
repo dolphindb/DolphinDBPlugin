@@ -34,7 +34,7 @@ public:
 	virtual DATA_CATEGORY getCategory() const {return NOTHING;}
 	virtual string getString() const {return Constant::EMPTY;}
 	virtual string getScript() const {return isNothing() ? Constant::EMPTY : Constant::NULL_STR;}
-	virtual const string& getStringRef() const {return Constant::EMPTY;}
+	virtual const DolphinString& getStringRef() const {return Constant::DEMPTY;}
 	virtual char getBool() const {return CHAR_MIN;}
 	virtual char getChar() const {return CHAR_MIN;}
 	virtual short getShort() const {return SHRT_MIN;}
@@ -42,6 +42,7 @@ public:
 	virtual long long  getLong() const {return LLONG_MIN;}
 	virtual float getFloat() const {return FLT_NMIN;}
 	virtual double getDouble() const {return DBL_NMIN;}
+	virtual const Guid getInt128() const { return Guid::ZERO;}
 	virtual bool isNull() const {return true;}
 	virtual void nullFill(const ConstantSP& val){}
 	virtual bool isNull(INDEX start, int len, char* buf) const;
@@ -66,6 +67,8 @@ public:
 	virtual const int* getSymbolConst(INDEX start, int len, int* buf, SymbolBase* symBase, bool insertIfNotThere) const;
 	virtual bool getString(INDEX start, int len, string** buf) const;
 	virtual string** getStringConst(INDEX start, int len, string** buf) const;
+	virtual bool getBinary(INDEX start, int len, int unitLength, unsigned char* buf) const;
+	virtual const unsigned char* getBinaryConst(INDEX start, int len, int unitLength, unsigned char* buf) const;
 	virtual long long getAllocatedMemory() const;
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
 	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
@@ -99,23 +102,20 @@ private:
 	long long cacheSeed_;
 };
 
-class Uuid: public Constant{
+class Int128: public Constant{
 public:
-	Uuid(bool newUuid = false);
-	Uuid(const unsigned char* uuid);
-	Uuid(const string& uuid);
-	Uuid(const Uuid& copy);
-	virtual ~Uuid(){}
-	bool operator==(const Uuid &other) const;
-	bool operator!=(const Uuid &other) const;
+	Int128();
+	Int128(const unsigned char* data);
+	virtual ~Int128(){}
 	inline const unsigned char* bytes() const { return uuid_;}
-	virtual string getString() const;
-	virtual const Guid getUuid() const { return uuid_;}
+	virtual string getString() const { return toString(uuid_);}
+	virtual const Guid getInt128() const { return uuid_;}
+	virtual const unsigned char* getBinary() const {return uuid_;}
 	virtual bool isNull() const;
 	virtual void setNull();
 	virtual void nullFill(const ConstantSP& val){
 		if(isNull())
-			memcpy(uuid_, val->getUuid().bytes(), 16);
+			memcpy(uuid_, val->getInt128().bytes(), 16);
 	}
 	virtual bool isNull(INDEX start, int len, char* buf) const {
 		char null=isNull();
@@ -129,34 +129,69 @@ public:
 			buf[i]=valid;
 		return true;
 	}
-	virtual ConstantSP getInstance() const {return new Uuid(false);}
-	virtual ConstantSP getValue() const {return new Uuid(uuid_);}
-	virtual DATA_TYPE getType() const {return DT_UUID;}
-	virtual DATA_TYPE getRawType() const { return DT_UUID;}
-	virtual DATA_CATEGORY getCategory() const {return LITERAL;}
-	virtual long long getAllocatedMemory() const {return sizeof(Uuid);}
+	virtual int compare(INDEX index, const ConstantSP& target) const;
+	virtual void setBinary(const unsigned char* val, int unitLength);
+	virtual bool getBinary(INDEX start, int len, int unitLenght, unsigned char* buf) const;
+	virtual const unsigned char* getBinaryConst(INDEX start, int len, int unitLength, unsigned char* buf) const;
+	virtual ConstantSP getInstance() const {return new Int128();}
+	virtual ConstantSP getValue() const {return new Int128(uuid_);}
+	virtual DATA_TYPE getType() const {return DT_INT128;}
+	virtual DATA_TYPE getRawType() const { return DT_INT128;}
+	virtual DATA_CATEGORY getCategory() const {return BINARY;}
+	virtual long long getAllocatedMemory() const {return sizeof(Int128);}
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const {
-		short flag = (DF_SCALAR <<8) + DT_UUID;
+		short flag = (DF_SCALAR <<8) + getType();
 		buffer->write((char)CONSTOBJ);
 		buffer->write(flag);
 		return buffer->write((const char*)uuid_, 16);
 	}
 	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
 	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, INDEX targetNumElement, INDEX& numElement);
-	virtual int compare(INDEX index, const ConstantSP& target) const;
+	static string toString(const unsigned char* data);
+	static Int128* parseInt128(const char* str, int len);
 
-private:
-    unsigned char hexDigitToChar(char ch) const;
-    inline unsigned char hexPairToChar(char a, char b) const { return hexDigitToChar(a) * 16 + hexDigitToChar(b);}
-    void charToHexPair(unsigned char ch, char* buf) const;
-
-private:
+protected:
 	mutable unsigned char uuid_[16];
+};
+
+class Uuid : public Int128 {
+public:
+	Uuid(bool newUuid = false);
+	Uuid(const unsigned char* uuid);
+	Uuid(const char* uuid, int len);
+	Uuid(const Uuid& copy);
+	virtual ~Uuid(){}
+	virtual ConstantSP getInstance() const {return new Uuid(false);}
+	virtual ConstantSP getValue() const {return new Uuid(uuid_);}
+	virtual DATA_TYPE getType() const {return DT_UUID;}
+	virtual DATA_TYPE getRawType() const { return DT_INT128;}
+	virtual string getString() const { return Guid::getString(uuid_);}
+	static Uuid* parseUuid(const char* str, int len);
+};
+
+class IPAddr : public Int128 {
+public:
+	IPAddr();
+	IPAddr(const char* ip, int len);
+	IPAddr(const unsigned char* data);
+	virtual ~IPAddr(){}
+	virtual ConstantSP getInstance() const {return new IPAddr();}
+	virtual ConstantSP getValue() const {return new IPAddr(uuid_);}
+	virtual DATA_TYPE getType() const {return DT_IP;}
+	virtual DATA_TYPE getRawType() const { return DT_INT128;}
+	virtual string getString() const { return toString(uuid_);}
+	static string toString(const unsigned char* data);
+	static IPAddr* parseIPAddr(const char* str, int len);
+	static bool parseIPAddr(const char* str, size_t len, unsigned char* buf);
+
+private:
+	static bool parseIP4(const char* str, size_t len, unsigned char* buf);
+	static bool parseIP6(const char* str, size_t len, unsigned char* buf);
 };
 
 class String: public Constant{
 public:
-	String(string val=""):val_(val){}
+	String(DolphinString val=""):val_(val){}
 	virtual ~String(){}
 	virtual char getBool() const {throw IncompatibleTypeException(DT_BOOL,DT_STRING);}
 	virtual char getChar() const {throw IncompatibleTypeException(DT_CHAR,DT_STRING);}
@@ -166,12 +201,12 @@ public:
 	virtual INDEX getIndex() const {throw IncompatibleTypeException(DT_INDEX,DT_STRING);}
 	virtual float getFloat() const {throw IncompatibleTypeException(DT_FLOAT,DT_STRING);}
 	virtual double getDouble() const {throw IncompatibleTypeException(DT_DOUBLE,DT_STRING);}
-	virtual string getString() const {return val_;}
-	virtual string getScript() const {return Util::literalConstant(val_);}
-	virtual const string& getStringRef() const {return val_;}
-	virtual const string& getStringRef(INDEX index) const {return val_;}
+	virtual string getString() const {return val_.getString();}
+	virtual string getScript() const {return Util::literalConstant(val_.getString());}
+	virtual const DolphinString& getStringRef() const {return val_;}
+	virtual const DolphinString& getStringRef(INDEX index) const {return val_;}
 	virtual bool isNull() const {return val_.empty();}
-	virtual void setString(const string& val) {val_=val;}
+	virtual void setString(const DolphinString& val) {val_=val;}
 	virtual void setNull(){val_="";}
 	virtual void nullFill(const ConstantSP& val){
 		if(isNull())
@@ -195,12 +230,18 @@ public:
 			buf[i]=tmp;
 		return buf;
 	}
-	virtual bool getString(INDEX start, int len, string** buf) const {
+	virtual bool getString(INDEX start, int len, DolphinString** buf) const {
 		for(int i=0;i<len;++i)
 			buf[i]=&val_;
 		return true;
 	}
-	virtual string** getStringConst(INDEX start, int len, string** buf) const {
+	virtual bool getString(INDEX start, int len, char** buf) const {
+		char* tmp = (char*)val_.c_str();
+		for(int i=0;i<len;++i)
+			buf[i]=tmp;
+		return true;
+	}
+	virtual DolphinString** getStringConst(INDEX start, int len, DolphinString** buf) const {
 		for(int i=0;i<len;++i)
 			buf[i]=&val_;
 		return buf;
@@ -230,7 +271,7 @@ public:
 	}
 
 private:
-	mutable string val_;
+	mutable DolphinString val_;
 };
 
 class MetaCode : public String {
@@ -296,9 +337,9 @@ public:
 	SystemHandle(const DataStreamSP& handle, bool isLittleEndian) : String(handle->getDescription()),
 		type_(handle->isFileStream() ? FILE_HANDLE : SOCKET_HANDLE), socket_(-1), flag_(isLittleEndian ? 1 : 0), stream_(handle), tables_(0){}
 	SystemHandle(const string& dbDir, const DomainSP& domain): String("DB[" + dbDir + "]"),
-		type_(DB_HANDLE), socket_(-1), flag_(Util::isLittleEndian() ? 1 : 0), dbDir_(dbDir), domain_(domain), symbaseManager_(new SymbolBaseManager(dbDir)), tables_(new unordered_map<string, TableSP>()){}
+		type_(DB_HANDLE), socket_(-1), flag_(Util::LITTLE_ENDIAN_ORDER ? 1 : 0), dbDir_(dbDir), domain_(domain), symbaseManager_(new SymbolBaseManager(dbDir)), tables_(new unordered_map<string, TableSP>()){}
 	SystemHandle(const string& dbDir, const DomainSP& domain, const SymbolBaseManagerSP& symManager): String("DB[" + dbDir + "]"),
-		type_(DB_HANDLE), socket_(-1), flag_(Util::isLittleEndian() ? 1 : 0), dbDir_(dbDir), domain_(domain), symbaseManager_(symManager), tables_(new unordered_map<string, TableSP>()){}
+		type_(DB_HANDLE), socket_(-1), flag_(Util::LITTLE_ENDIAN_ORDER ? 1 : 0), dbDir_(dbDir), domain_(domain), symbaseManager_(symManager), tables_(new unordered_map<string, TableSP>()){}
 	virtual ~SystemHandle();
 	virtual bool isDatabase() const {return type_ == DB_HANDLE;}
 	virtual ConstantSP getMember(const ConstantSP& key) const;
@@ -387,6 +428,7 @@ public:
 	virtual void setFloat(float val){if(val != FLT_NMIN) val_=(T)val; else setNull();}
 	virtual void setDouble(double val){if(val != DBL_NMIN) val_=(T)val; else setNull();}
 	virtual void setString(const string& val){}
+	virtual void setString(const DolphinString& val){}
 	virtual bool isNull() const = 0;
 	virtual string getScript() const {
 		if(isNull()){

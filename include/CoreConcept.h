@@ -25,6 +25,7 @@
 #include "LocklessContainer.h"
 #include "FlatHashmap.h"
 #include "SysIO.h"
+#include "DolphinString.h"
 
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define LIKELY(x) (__builtin_expect((x), 1))
@@ -195,23 +196,87 @@ private:
 class Guid {
 public:
 	Guid(bool newGuid = false);
-	Guid(unsigned char* guid);
+	Guid(unsigned char* guid){
+		memcpy(uuid_, guid, 16);
+	}
 	Guid(const string& guid);
-	Guid(const Guid& copy);
-	bool operator==(const Guid &other) const;
-	bool operator!=(const Guid &other) const;
-	bool operator<(const Guid &other) const;
-	bool operator>(const Guid &other) const;
+	Guid(const char* guid, int len);
+	Guid(const Guid& copy){
+		memcpy(uuid_, copy.uuid_, 16);
+	}
+	Guid(unsigned long long high, unsigned long long low){
+#ifndef BIGENDIANNESS
+		memcpy((char*)uuid_, (char*)&low, 8);
+		memcpy((char*)uuid_ + 8, (char*)&high, 8);
+#else
+		memcpy((char*)uuid_, (char*)&high, 8);
+		memcpy((char*)uuid_ + 8, (char*)&low, 8);
+#endif
+	}
+	inline bool operator==(const Guid &other) const {
+		const unsigned char* a = (const unsigned char*)uuid_;
+		const unsigned char* b = (const unsigned char*)other.uuid_;
+		return (*(long long*)a) == (*(long long*)b) && (*(long long*)(a+8)) == (*(long long*)(b+8));
+	}
+	inline bool operator!=(const Guid &other) const {
+		const unsigned char* a = (const unsigned char*)uuid_;
+		const unsigned char* b = (const unsigned char*)other.uuid_;
+		return (*(long long*)a) != (*(long long*)b) || (*(long long*)(a+8)) != (*(long long*)(b+8));
+	}
+	inline bool operator<(const Guid &other) const {
+		const unsigned char* a = (const unsigned char*)uuid_;
+		const unsigned char* b = (const unsigned char*)other.uuid_;
+#ifndef BIGENDIANNESS
+		return (*(unsigned long long*)(a+8)) < (*(unsigned long long*)(b+8)) || ((*(unsigned long long*)(a+8)) == (*(unsigned long long*)(b+8)) && (*(unsigned long long*)a) < (*(unsigned long long*)b));
+#else
+		return (*(unsigned long long*)a) < (*(unsigned long long*)b) || ((*(unsigned long long*)a) == (*(unsigned long long*)b) && (*(unsigned long long*)(a+8)) < (*(unsigned long long*)(b+8)));
+#endif
+	}
+	inline bool operator>(const Guid &other) const {
+		const unsigned char* a = (const unsigned char*)uuid_;
+		const unsigned char* b = (const unsigned char*)other.uuid_;
+#ifndef BIGENDIANNESS
+		return (*(unsigned long long*)(a+8)) > (*(unsigned long long*)(b+8)) || ((*(unsigned long long*)(a+8)) == (*(unsigned long long*)(b+8)) && (*(unsigned long long*)a) > (*(unsigned long long*)b));
+#else
+		return (*(unsigned long long*)a) > (*(unsigned long long*)b) || ((*(unsigned long long*)a) == (*(unsigned long long*)b) && (*(unsigned long long*)(a+8)) > (*(unsigned long long*)(b+8)));
+#endif
+	}
+	inline bool operator<=(const Guid &other) const {
+		const unsigned char* a = (const unsigned char*)uuid_;
+		const unsigned char* b = (const unsigned char*)other.uuid_;
+#ifndef BIGENDIANNESS
+		return (*(unsigned long long*)(a+8)) < (*(unsigned long long*)(b+8)) || ((*(unsigned long long*)(a+8)) == (*(unsigned long long*)(b+8)) && (*(unsigned long long*)a) <= (*(unsigned long long*)b));
+#else
+		return (*(unsigned long long*)a) < (*(unsigned long long*)b) || ((*(unsigned long long*)a) == (*(unsigned long long*)b) && (*(unsigned long long*)(a+8)) <= (*(unsigned long long*)(b+8)));
+#endif
+	}
+	inline bool operator>=(const Guid &other) const {
+		const unsigned char* a = (const unsigned char*)uuid_;
+		const unsigned char* b = (const unsigned char*)other.uuid_;
+#ifndef BIGENDIANNESS
+		return (*(unsigned long long*)(a+8)) > (*(unsigned long long*)(b+8)) || ((*(unsigned long long*)(a+8)) == (*(unsigned long long*)(b+8)) && (*(unsigned long long*)a) >= (*(unsigned long long*)b));
+#else
+		return (*(unsigned long long*)a) > (*(unsigned long long*)b) || ((*(unsigned long long*)a) == (*(unsigned long long*)b) && (*(unsigned long long*)(a+8)) >= (*(unsigned long long*)(b+8)));
+#endif
+	}
+	inline int compare(const Guid &other) const { return (*this < other) ? -1 : (*this > other ? 1 : 0);}
 	inline unsigned char operator[](int i) const { return uuid_[i];}
-	bool isZero() const;
-    string getString() const;
+	inline bool isZero() const {
+		const unsigned char* a = (const unsigned char*)uuid_;
+		return (*(long long*)a) == 0 && (*(long long*)(a+8)) == 0;
+	}
+	inline bool isNull() const {
+		const unsigned char* a = (const unsigned char*)uuid_;
+		return (*(long long*)a) == 0 && (*(long long*)(a+8)) == 0;
+	}
+	inline bool isValid() const {
+		const unsigned char* a = (const unsigned char*)uuid_;
+		return (*(long long*)a) != 0 || (*(long long*)(a+8)) != 0;
+	}
+    string getString() const { return getString(uuid_);}
     inline const unsigned char* bytes() const { return uuid_;}
+    static string getString(const unsigned char* guid);
     static Guid ZERO;
-
-private:
-    unsigned char hexDigitToChar(char ch) const;
-    inline unsigned char hexPairToChar(char a, char b) const { return hexDigitToChar(a) * 16 + hexDigitToChar(b);}
-    void charToHexPair(unsigned char ch, char* buf) const;
 
 private:
 	unsigned char uuid_[16];
@@ -344,11 +409,11 @@ public:
 		size_ = 0;
 		sizeInSegment_ = 0;
 	}
-	void getAll(vector<T>& copy){
+	void get(vector<T>& copy, int size){
 		int start =0;
 		int s = 0;
-		while(start < size_){
-			int count = std::min(segmentSize_, size_ - start);
+		while(start < size){
+			int count = std::min(segmentSize_, size - start);
 			T* data = dataSegment_[s++];
 			for(int i=0; i<count; ++i)
 				copy.push_back(data[i]);
@@ -375,6 +440,7 @@ public:
 	IO_ERR write(const char* buffer, int length);
 	IO_ERR write(const ConstantSP& obj);
 	inline IO_ERR write(const string& buffer){ return write(buffer.c_str(), buffer.length() + 1);}
+	inline IO_ERR write(const DolphinString& buffer){ return write(buffer.c_str(), buffer.length() + 1);}
 	inline IO_ERR write(bool val){ return write((const char*)&val, 1);}
 	inline IO_ERR write(char val){ return write(&val, 1);}
 	inline IO_ERR write(short val){ return write((const char*)&val, 2);}
@@ -401,14 +467,14 @@ private:
 class SymbolBase{
 public:
 	SymbolBase(bool supportOrder = false);
-	SymbolBase(const vector<string>& symbols, bool supportOrder = false);
+	SymbolBase(const vector<DolphinString>& symbols, bool supportOrder = false);
 	SymbolBase(const string& symbolFile, bool snapshot = false, bool supportOrder=false);
 	SymbolBase(const string& symbolFile, const DataInputStreamSP& in, bool snapshot = false);
 	SymbolBase* copy();
 	bool saveSymbolBase(string& errMsg, bool sync = false);
 	IO_ERR serialize(int offset, int length, Buffer& buf);
 	inline bool lastSaveSynchronized() const { return lastSaveSynchronized_;}
-	inline int find(const string& symbol){
+	inline int find(const DolphinString& symbol){
 #ifndef LOCKFREE_SYMBASE
 		LockGuard<Mutex> guard(&keyMutex_);
 #endif
@@ -417,16 +483,16 @@ public:
 		return index;
 	}
 	void find(const char** symbols, int size, int* indices);
-	int findAndInsert(const string& symbol);
+	int findAndInsert(const DolphinString& symbol);
 	/**
 	 * This function will acquire the lock and compare the size with the input argument sizeBeforeInsert.
 	 * returns 0 if the size doesn't equal to sizeBeforeInsert.
 	 * returns -1 if some of the input symbols are already existed.
 	 * returns new symbol size after if everything is OK.
 	 */
-	int atomicInsert(vector<string>& symbols, int sizeBeforeInsert);
-	void getOrdinalCandidate(const string& symbol, int& ordinal, SmartPointer<Array<int> >& ordinalBase);
-	void getOrdinalCandidate(const string& symbol1, const string& symbol2, int& ordinal1, int& ordinal2, SmartPointer<Array<int> >& ordinalBase);
+	int atomicInsert(vector<DolphinString>& symbols, int sizeBeforeInsert);
+	void getOrdinalCandidate(const DolphinString& symbol, int& ordinal, SmartPointer<Array<int> >& ordinalBase);
+	void getOrdinalCandidate(const DolphinString& symbol1, const DolphinString& symbol2, int& ordinal1, int& ordinal2, SmartPointer<Array<int> >& ordinalBase);
 	int* getSortedIndices(bool asc, int& length);
 	inline bool supportOrder() const { return supportOrder_;}
 	/**
@@ -435,8 +501,8 @@ public:
 	void enableOrdinalBase();
 	void disableOrdinalBase();
 	SmartPointer<Array<int> > getOrdinalBase();
-	inline const string& getSymbol(int index) const { return key_[index];}
-	void getSymbols(int offset, int length, vector<string>& symbols) const;
+	inline const DolphinString& getSymbol(int index) const { return key_[index];}
+	void getSymbols(int offset, int length, vector<DolphinString>& symbols) const;
 	int size() const {return  key_.size();}
 	/**
 	 * checkpoint is used for write transactions. When rolling back a transaction,
@@ -452,7 +518,7 @@ public:
 	static int readSymbolBaseVersion(const string symbolFile);
 
 private:
-	int getOrdinalCandidate(const string& symbol);
+	int getOrdinalCandidate(const DolphinString& symbol);
 	void reAssignOrdinal(int capacity);
 	bool reload(const string& symbolFile, const DataInputStreamSP& in, bool snapshot = false);
 
@@ -466,11 +532,11 @@ private:
 	bool modified_;
 	bool lastSaveSynchronized_;
 	bool supportOrder_;
-	DynamicArray<string> key_;
+	DynamicArray<DolphinString> key_;
 	SmartPointer<Array<int> > ordinal_;
 #ifndef LOCKFREE_SYMBASE
 	Mutex keyMutex_;
-	IrremovableFlatHashmap<string, int> keyMap_;
+	IrremovableFlatHashmap<DolphinString, int> keyMap_;
 #else
 	IrremovableLocklessFlatHashmap<string, int> keyMap_;
 #endif
@@ -568,6 +634,7 @@ public:
 
 class Constant: public Object{
 public:
+	static DolphinString DEMPTY;
 	static string EMPTY;
 	static string NULL_STR;
 
@@ -618,8 +685,9 @@ public:
 	virtual double getDouble() const {throw RuntimeException("The object can't be converted to double scalar.");}
 	virtual string getString() const {return "";}
 	virtual string getScript() const { return getString();}
-	virtual const string& getStringRef() const {return EMPTY;}
-    virtual const Guid getUuid() const {throw RuntimeException("The object can't be converted to uuid scalar.");}
+	virtual const DolphinString& getStringRef() const {return DEMPTY;}
+    virtual const Guid getInt128() const {throw RuntimeException("The object can't be converted to int128 scalar.");}
+    virtual const unsigned char* getBinary() const {throw RuntimeException("The object can't be converted to int128 scalar.");}
 	virtual bool isNull() const {return false;}
 
 	virtual void setBool(char val){}
@@ -630,7 +698,8 @@ public:
 	virtual void setIndex(INDEX val){}
 	virtual void setFloat(float val){}
 	virtual void setDouble(double val){}
-	virtual void setString(const string& val){}
+	virtual void setString(const DolphinString& val){}
+	virtual void setBinary(const unsigned char* val, int unitLength){}
 	virtual void setNull(){}
 
 	virtual char getBool(INDEX index) const {return getBool();}
@@ -642,7 +711,7 @@ public:
 	virtual float getFloat(INDEX index) const {return getFloat();}
 	virtual double getDouble(INDEX index) const {return getDouble();}
 	virtual string getString(INDEX index) const {return getString();}
-	virtual const string& getStringRef(INDEX index) const {return EMPTY;}
+	virtual const DolphinString& getStringRef(INDEX index) const {return DEMPTY;}
 	virtual bool isNull(INDEX index) const {return isNull();}
 
 	virtual ConstantSP get(INDEX index) const {return getValue();}
@@ -666,8 +735,9 @@ public:
 	virtual bool getFloat(INDEX start, int len, float* buf) const {return false;}
 	virtual bool getDouble(INDEX start, int len, double* buf) const {return false;}
 	virtual bool getSymbol(INDEX start, int len, int* buf, SymbolBase* symBase,bool insertIfNotThere) const {return false;}
-	virtual bool getString(INDEX start, int len, string** buf) const {return false;}
+	virtual bool getString(INDEX start, int len, DolphinString** buf) const {return false;}
 	virtual bool getString(INDEX start, int len, char** buf) const {return false;}
+	virtual bool getBinary(INDEX start, int len, int unitLength, unsigned char* buf) const {return false;}
 
 	virtual const char* getBoolConst(INDEX start, int len, char* buf) const {throw RuntimeException("getBoolConst method not supported");}
 	virtual const char* getCharConst(INDEX start, int len,char* buf) const {throw RuntimeException("getCharConst method not supported");}
@@ -678,8 +748,9 @@ public:
 	virtual const float* getFloatConst(INDEX start, int len, float* buf) const {throw RuntimeException("getFloatConst method not supported");}
 	virtual const double* getDoubleConst(INDEX start, int len, double* buf) const {throw RuntimeException("getDoubleConst method not supported");}
 	virtual const int* getSymbolConst(INDEX start, int len, int* buf, SymbolBase* symBase, bool insertIfNotThere) const {throw RuntimeException("getSymbolConst method not supported");}
-	virtual string** getStringConst(INDEX start, int len, string** buf) const {throw RuntimeException("getStringConst method not supported");}
+	virtual DolphinString** getStringConst(INDEX start, int len, DolphinString** buf) const {throw RuntimeException("getStringConst method not supported");}
 	virtual char** getStringConst(INDEX start, int len, char** buf) const {throw RuntimeException("getStringConst method not supported");}
+	virtual const unsigned char* getBinaryConst(INDEX start, int len, int unitLength, unsigned char* buf) const {throw RuntimeException("getBinaryConst method not supported");}
 
 	virtual char* getBoolBuffer(INDEX start, int len, char* buf) const {return buf;}
 	virtual char* getCharBuffer(INDEX start, int len,char* buf) const {return buf;}
@@ -689,6 +760,7 @@ public:
 	virtual INDEX* getIndexBuffer(INDEX start, int len, INDEX* buf) const {return buf;}
 	virtual float* getFloatBuffer(INDEX start, int len, float* buf) const {return buf;}
 	virtual double* getDoubleBuffer(INDEX start, int len, double* buf) const {return buf;}
+	virtual unsigned char* getBinaryBuffer(INDEX start, int len, int unitLength, unsigned char* buf) const {return buf;}
 	virtual void* getDataBuffer(INDEX start, int len, void* buf) const {return buf;}
 
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const {return serialize(buffer);}
@@ -705,7 +777,8 @@ public:
 	virtual void setIndex(INDEX index,INDEX val){setIndex(val);}
 	virtual void setFloat(INDEX index,float val){setFloat(val);}
 	virtual void setDouble(INDEX index, double val){setDouble(val);}
-	virtual void setString(INDEX index, const string& val){setString(val);}
+	virtual void setString(INDEX index, const DolphinString& val){setString(val);}
+	virtual void setBinary(INDEX index, int unitLength, const unsigned char* val){setBinary(val, unitLength);}
 	virtual void setNull(INDEX index){setNull();}
 
 	virtual bool set(INDEX index, const ConstantSP& value){return false;}
@@ -728,6 +801,7 @@ public:
 	virtual bool setDouble(INDEX start, int len, const double* buf){return false;}
 	virtual bool setString(INDEX start, int len, const string* buf){return false;}
 	virtual bool setString(INDEX start, int len, char** buf){return false;}
+	virtual bool setBinary(INDEX start, int len, int unitLength, const unsigned char* buf){return false;}
 	virtual bool setData(INDEX start, int len, void* buf) {return false;}
 
 	virtual bool add(INDEX start, INDEX length, long long inc) { return false;}
@@ -879,6 +953,8 @@ public:
 	virtual ConstantSP mode(INDEX start, INDEX length) const = 0;
 	virtual ConstantSP stat() const;
 	virtual ConstantSP stat(INDEX start, INDEX length) const;
+	virtual ConstantSP firstNot(const ConstantSP& exclude) const = 0;
+	virtual ConstantSP firstNot(INDEX start, INDEX length, const ConstantSP& exclude) const = 0;
 	virtual ConstantSP lastNot(const ConstantSP& exclude) const = 0;
 	virtual ConstantSP lastNot(INDEX start, INDEX length, const ConstantSP& exclude) const = 0;
 	virtual bool isSorted(bool asc) const { return isSorted(0, size(), asc);}
@@ -1072,6 +1148,7 @@ public:
 	virtual DATA_CATEGORY getCategory() const {return MIXED;}
 	virtual bool isDistributedTable() const {return false;}
 	virtual bool isSegmentedTable() const {return false;}
+	virtual bool isDimensionalTable() const {return false;}
 	virtual bool isBasicTable() const {return false;}
 	virtual bool isDFSTable() const {return false;}
 	virtual bool isEditable() const {return false;}
@@ -1087,7 +1164,7 @@ public:
 	virtual bool subscriberExists(const TableUpdateQueueSP& queue, const string& topic) const { return false;}
 	virtual void release() const {}
 	virtual void checkout() const {}
-	virtual TableSP getSegment(const DomainPartitionSP& partition, PartitionGuard* guard = 0) { throw RuntimeException("Table::getSegment() not supported");}
+	virtual TableSP getSegment(Heap* heap, const DomainPartitionSP& partition, PartitionGuard* guard = 0) { throw RuntimeException("Table::getSegment() not supported");}
 	virtual const TableSP& getEmptySegment() const { throw RuntimeException("Table::getEmptySegment() not supported");}
 	virtual bool segmentExists(const DomainPartitionSP& partition) const { throw RuntimeException("Table::segmentExists() not supported");}
 	virtual long long getAllocatedMemory() const = 0;
@@ -1147,6 +1224,7 @@ public:
 	inline void setVersion(int version){version_ = version;}
 	inline void setSize(int size){size_ = size;}
 	inline int getCopyCount() const {return replicaCount_;}
+	bool addCopySite(const string& siteAlias);
 	inline const string& getCopySite(int index) const {return sites_[index];}
 	inline bool isTablet() const { return type_ == TABLET_CHUNK;}
 	inline bool isFileBlock() const { return type_ == FILE_CHUNK;}
@@ -1160,7 +1238,7 @@ protected:
 
 private:
 	char type_;
-	char replicaCount_;
+	unsigned char replicaCount_;
 	int version_;
 	int size_;
 	string* sites_;
@@ -1596,13 +1674,16 @@ private:
 
 class ColumnDesc {
 public:
-	ColumnDesc(const string& name, DATA_TYPE type, int extra) : name_(name), type_(type), extra_(extra){}
+	ColumnDesc(const string& name, DATA_TYPE type, int extra, const string& comment = "") : name_(name), comment_(comment), type_(type), extra_(extra){}
 	const string& getName() const {return name_;}
 	DATA_TYPE getType() const {return type_;}
 	int getExtra() const {return extra_;}
+	const string& getComment() const { return comment_;}
+	void setComment(const string& comment) { comment_ = comment;}
 
 private:
 	string name_;
+	string comment_;
 	DATA_TYPE type_;
 	int extra_;
 };

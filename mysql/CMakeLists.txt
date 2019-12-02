@@ -1,15 +1,15 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 2.8)
 project(MySQL)
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 ## set compile flags
 if (WIN32)
-    set(platform_macro "-DWINDOWS")
+    set (platform_macro "-DWINDOWS")
     set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginMySQL_win32.txt")
     include_directories("${CMAKE_BINARY_DIR}/curl/include")
 elseif (UNIX)
-    set(platform_macro "-DLINUX")
+    set (platform_macro "-DLINUX")
     set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginMySQL.txt")
     add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 endif ()
@@ -36,6 +36,6 @@ if (WIN32)
     target_link_libraries(MySQL DolphinDB mysqlclient)
 else ()
     target_link_libraries(MySQL mysqlclient)
-endif ()
+endif()
 
 configure_file(${plugin_file} ${CMAKE_BINARY_DIR}/PluginMySQL.txt COPYONLY)

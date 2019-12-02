@@ -60,6 +60,7 @@ public:
 	static int NON_CONTINUOUS_MEMORY_SCALE_FACTOR;
 	static double MAX_MEMORY_SIZE;
 	static int DISK_IO_CONCURRENCY_LEVEL;
+	static const bool LITTLE_ENDIAN_ORDER;
 
 	static __thread std::tr1::mt19937* m1;
 
@@ -174,6 +175,25 @@ public:
 		}
 	}
 
+	/**
+	 * Convert unsigned byte sequences to hex string.
+	 *
+	 * littleEndian: if true, the first byte is the least significant and should be printed at the most right.
+	 * str: the length of buffer must be at least 2 * len.
+	 */
+	static void toHex(const unsigned char* data, int len, bool littleEndian, char* str);
+	/**
+	 * Convert hex string to unsigned byte sequences.
+	 *
+	 * len: must be a positive even number.
+	 * littleEndian: if true, the first byte is the least significant, i.e. the leftmost characters would be converted to the rightmost byte.
+	 * data: the length of buffer must be at least len/2
+	 */
+	static bool fromHex(const char* str, int len, bool littleEndian, unsigned char* data);
+
+	static void toGuid(const unsigned char*, char* str);
+	static bool fromGuid(const char* str, unsigned char* data);
+
 	static bool equalIgnoreCase(const string& str1, const string& str2);
 	static string lower(const string& str);
 	static string upper(const string& str);
@@ -286,7 +306,7 @@ public:
 	}
 
 	static inline unsigned long long getGreatestPowerOfTwo(unsigned long long value){
-		return 1<<(64 - getLeadingZeroBitCount(value) - 1);
+		return 1ll<<(64 - getLeadingZeroBitCount(value) - 1);
 	}
 
 	static string getLicensePubKey();

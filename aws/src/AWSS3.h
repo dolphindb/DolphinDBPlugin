@@ -30,7 +30,7 @@ extern "C" void uploadS3Object(Heap* heap, vector<ConstantSP>& args);
 extern "C" ConstantSP listS3Bucket(Heap* heap, vector<ConstantSP>& args);
 extern "C" void deleteS3Bucket(Heap* heap, vector<ConstantSP>& args);
 extern "C" void createS3Bucket(Heap* heap, vector<ConstantSP>& args);
-#if 0
+
 extern "C" ConstantSP createS3InputStream(Heap* heap, vector<ConstantSP>& args);
 
 class ZlibBuffer
@@ -99,6 +99,5 @@ private:
     };
     zlibStruct* zStruct = nullptr;
 };
-#endif
 
 #endif /* AWSS3PLUGIN_H_ */
