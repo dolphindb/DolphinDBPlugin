@@ -23,6 +23,25 @@ apt-get install libmyodbc
 apt-get install libsqliteodbc
 ```
 
+### CentOS
+```
+# install unixODBC library
+yum install unixODBC  unixODBC-devel
+
+# MySQL ODBC Drivers
+yum install mysql-connector
+```
+
+Sometimes it will raise **libodbc.so.1: cannot open shared object file: No such file or directory** when you use loadPlugin to load the lib file.
+
+To solve this problem:
+```
+cd /usr/lib64
+ln -s libodbc.so.2.0.0.0 libodbc.so.1
+```
+The lib file maybe named like ```libodbc.so.2.0.0```,  you should find the correct file name to use.
+
+
 ## Compilation
 To compile the plugin, type following command in a shell.
 ```
@@ -63,7 +82,6 @@ The second argument is the SQL statements.
 * `tablename`  : the tablename in database which you connect to.  
 * `[createTableIfNotExist]` : optional, true means create a new table in database. The default value is `true`.
 * `[insertIgnore]` : optional, true means use insert ignore. The default value is `false`.
-
 
 You can ommit ```odbc::``` prefix by introducing obdc module namespace.
 ```
