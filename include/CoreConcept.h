@@ -282,9 +282,12 @@ private:
 	unsigned char uuid_[16];
 };
 
-struct GuidHash {
-	inline uint64_t operator()(const Guid& guid) const {
-		const unsigned char* key = guid.bytes();
+namespace std {
+
+template<>
+struct hash<Guid> {
+	inline size_t operator()(const Guid& val) const{
+		const unsigned char* key = val.bytes();
 		const uint32_t m = 0x5bd1e995;
 		const int r = 24;
 		uint32_t h = 16;
@@ -329,6 +332,10 @@ struct GuidHash {
 		return h;
 	}
 };
+
+};
+
+typedef std::hash<Guid> GuidHash;
 
 template<class T>
 class Array{
@@ -627,9 +634,6 @@ public:
 	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const {}
 	virtual void collectVariables(vector<int>& vars, int minIndex, int maxIndex) const {}
 	virtual bool isLargeConstant() const {return false;}
-	virtual InferredType inferType(Heap* heap, unordered_set<void*> & vis, Statement* enclosingStmt)  {
-		throw RuntimeException("inferType not implemented");
-	}
 };
 
 class Constant: public Object{
@@ -641,8 +645,6 @@ public:
 	Constant() : flag_(3){}
 	Constant(unsigned short flag) :  flag_(flag){}
 	virtual ~Constant(){}
-	//virtual InferredType inferType(Heap* heap, unordered_set<ControlFlowEdge> & vis, vector<StatementSP> & fromCFGNodes, void * edgeStartNode) { return InferredType(getForm(), getType(), getCategory()); }
-	virtual InferredType inferType(Heap* heap, unordered_set<void*> & vis, Statement* enclosingStmt) { return InferredType(getForm(), getType(), getCategory()); }
 	inline bool isTemporary() const {return flag_ & 1;}
 	inline void setTemporary(bool val){ if(val) flag_ |= 1; else flag_ &= ~1;}
 	inline bool isIndependent() const {return flag_ & 2;}
@@ -867,6 +869,7 @@ public:
 	virtual void initialize(){}
 	virtual INDEX getCapacity() const = 0;
 	virtual	INDEX reserve(INDEX capacity) {throw RuntimeException("Vector::reserve method not supported");}
+	virtual	void resize(INDEX size) {throw RuntimeException("Vector::resize method not supported");}
 	virtual short getUnitLength() const = 0;
 	virtual void clear()=0;
 	virtual bool remove(INDEX count){return false;}
@@ -1136,10 +1139,14 @@ public:
 	virtual ConstantSP values() const = 0;
 	virtual ConstantSP keys() const = 0;
 	virtual TABLE_TYPE getTableType() const = 0;
-	virtual void drop(vector<int>& columns) {throw RuntimeException("Table::drop() not supported");}
+	virtual bool join(vector<ConstantSP>& columns) { return false;}
+	virtual	bool clear() { return false;}
+	virtual bool reorderColumns(const vector<int>& newOrders) { return false;}
+	virtual bool replaceColumn(int index, const ConstantSP& col) {return false;}
+	virtual bool drop(vector<int>& columns) {return false;}
 	virtual void remove(Heap* heap, const SQLContextSP& context, const ConstantSP& filterExprs) {throw RuntimeException("Table::remove() not supported");}
 	virtual void sortBy(Heap* heap, const ObjectSP& sortExpr, const ConstantSP& sortOrder) {throw RuntimeException("Table::sortBy() not supported");}
-	virtual void update(Heap* heap, const SQLContextSP& context, const ConstantSP& colNames, const ObjectSP& filterExpr, const ObjectSP& updateExpr) {throw RuntimeException("Table::update() not supported");}
+	virtual void update(Heap* heap, const SQLContextSP& context, const ConstantSP& updateColNames, const ObjectSP& updateExpr, const ConstantSP& filterExprs) {throw RuntimeException("Table::update() not supported");}
 	virtual bool update(vector<ConstantSP>& values, const ConstantSP& indexSP, vector<string>& colNames, string& errMsg) = 0;
 	virtual bool append(vector<ConstantSP>& values, INDEX& insertedRows, string& errMsg) = 0;
 	virtual bool remove(const ConstantSP& indexSP, string& errMsg) = 0;
@@ -1151,6 +1158,7 @@ public:
 	virtual bool isDimensionalTable() const {return false;}
 	virtual bool isBasicTable() const {return false;}
 	virtual bool isDFSTable() const {return false;}
+	virtual bool isAppendable() const {return false;}
 	virtual bool isEditable() const {return false;}
 	virtual bool isSchemaEditable() const {return false;}
 	virtual DomainSP getGlobalDomain() const {return DomainSP();}
@@ -1174,6 +1182,10 @@ public:
 	virtual bool readPermitted(const AuthenticatedUserSP& user) const {return true;}
 	virtual bool isExpired() const { return flag_ & 8;}
 	virtual void transferAsString(bool option){throw RuntimeException("Table::transferAsString() not supported");}
+	virtual int getKeyColumnCount() const { return 0;}
+	virtual int getKeyColumnIndex(int index) const { throw RuntimeException("Table::getKeyColumnIndex() not supported");}
+	virtual string getChunkPath() const { return "";}
+	virtual void share(){};
 	inline bool isSharedTable() const {return flag_ & 1;}
 	inline bool isRealtimeTable() const {return flag_ & 2;}
 	inline bool isAliasTable() const {return flag_ & 4;}
@@ -1283,6 +1295,8 @@ public:
 	inline void setView(bool option) {if(option) flag_ |= 16; else flag_ &= ~16;}
 	inline bool isInternal() const { return flag_ & 32;}
 	inline void setInternal(bool option) {if(option) flag_ |= 32; else flag_ &= ~32;}
+	inline bool isJIT() const { return flag_ & 128;}
+	inline void setJIT(bool option) {if(option) flag_ |= 128; else flag_ &= ~128;}
 	inline bool variableParamNum() const {	return minParamNum_<maxParamNum_;}
 	inline int getMaxParamCount() const { return maxParamNum_;}
 	inline int getMinParamCount() const {	return minParamNum_;}
@@ -1414,11 +1428,6 @@ public:
 	virtual bool isPrimitiveOperator() const = 0;
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const = 0;
 	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const = 0;
-	virtual InferredType inferType(Heap *heap, unordered_set<void*> &vis,
-									Statement *enclosingStmt,
-									const ConstantSP &a,
-									const ConstantSP &b)
-	{ return InferredType(); }
 
   private:
 	int priority_;
@@ -1581,6 +1590,7 @@ public:
 	void setConstant(int index, bool constant);
 	inline bool isConstant(int index) const {return index>= MAX_SHARED_OBJ_INDEX && (flags_[index - MAX_SHARED_OBJ_INDEX] & 1);}
 	inline bool isInitialized(int index) const {return index>= MAX_SHARED_OBJ_INDEX ? flags_[index - MAX_SHARED_OBJ_INDEX] & 2 : true;}
+	inline bool isMetaInitalized() const { return meta_ != nullptr;}
 	bool isSameObject(int index, Constant* obj) const;
 	void rollback();
 	void reset();
@@ -1691,9 +1701,9 @@ private:
 class Domain{
 public:
 	Domain(PARTITION_TYPE partitionType, bool isLocalDomain) : partitionType_(partitionType), isLocalDomain_(isLocalDomain), isExpired_(false),
-			retentionPeriod_(-1), retentionDimension_(-1), key_(false){}
+			retentionPeriod_(-1), retentionDimension_(-1), tzOffset_(INT_MIN), key_(false){}
 	Domain(PARTITION_TYPE partitionType, bool isLocalDomain, const Guid& key) : partitionType_(partitionType), isLocalDomain_(isLocalDomain),
-			isExpired_(false), retentionPeriod_(-1), retentionDimension_(-1), key_(key){}
+			isExpired_(false), retentionPeriod_(-1), retentionDimension_(-1), tzOffset_(INT_MIN), key_(key){}
 	virtual ~Domain(){}
 	int getPartitionCount() const { return partitions_.size();}
 	DomainPartitionSP getPartition(int index) const { return partitions_[index];}
@@ -1732,7 +1742,8 @@ public:
 	inline bool isExpired() const { return isExpired_;}
 	inline int getRentionPeriod() const { return retentionPeriod_;}
 	inline int getRentionDimension() const { return retentionDimension_;}
-	void setRentionPeriod(int retentionPeriod, int retentionDimension);
+	inline int getTimeZoneOffset() const { return tzOffset_;}
+	void setRentionPeriod(int retentionPeriod, int retentionDimension, int tzOffset);
 
 	/*
 	 * The input arguments set1 and set2 must be sorted by the key value of domain partitions. The ranking of key values must be the same as
@@ -1765,6 +1776,7 @@ protected:
 	bool isExpired_;
 	int retentionPeriod_; // in hours
 	int retentionDimension_;
+	int tzOffset_;
 	Guid key_; //the unique identity for this domain
 	string name_;
 	string dir_;

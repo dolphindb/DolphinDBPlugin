@@ -65,8 +65,8 @@ public:
 	virtual const double* getDoubleConst(INDEX start, int len, double* buf) const;
 	virtual bool getSymbol(INDEX start, int len, int* buf, SymbolBase* symBase,bool insertIfNotThere) const;
 	virtual const int* getSymbolConst(INDEX start, int len, int* buf, SymbolBase* symBase, bool insertIfNotThere) const;
-	virtual bool getString(INDEX start, int len, string** buf) const;
-	virtual string** getStringConst(INDEX start, int len, string** buf) const;
+	virtual DolphinString** getStringConst(INDEX start, int len, DolphinString** buf) const;
+	virtual char** getStringConst(INDEX start, int len, char** buf) const;
 	virtual bool getBinary(INDEX start, int len, int unitLength, unsigned char* buf) const;
 	virtual const unsigned char* getBinaryConst(INDEX start, int len, int unitLength, unsigned char* buf) const;
 	virtual long long getAllocatedMemory() const;

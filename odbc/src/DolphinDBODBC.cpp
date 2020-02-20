@@ -323,7 +323,7 @@ ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args) {
   for (short i = 0; i < columns; ++i) {
     colNames[i] = "col" + std::to_string(i);
   }
-  bool isSegmentedTable = table->isSegmentedTable();
+  bool isSegmentedTable = table->isSegmentedTable() || table->isDFSTable();
   while (hasNext) {
     for (short col = 0; col < columns; ++col) {
       // nanodbc stores numeric & decimal types as strings
@@ -759,7 +759,7 @@ string getvaluestr(ConstantSP p, DATA_TYPE t) {
     DT_DATEMINUTE,
     DT_OBJECT
   };
-
+  if (p->isNull()) return "null";
   string s;
   switch (t) {
     case DT_BOOL:

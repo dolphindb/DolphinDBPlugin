@@ -15,7 +15,16 @@
 using std::exception;
 using std::string;
 
-class IncompatibleTypeException: public exception{
+class TraceableException : public exception {
+public:
+	void addPath(const string& path);
+	const string& getPath() const {return  path_;}
+
+protected:
+	string path_;
+};
+
+class IncompatibleTypeException: public TraceableException{
 public:
 	IncompatibleTypeException(DATA_TYPE expected, DATA_TYPE actual);
 	virtual ~IncompatibleTypeException() throw(){}
@@ -28,19 +37,7 @@ private:
 	string errMsg_;
 };
 
-class SyntaxException: public exception{
-public:
-	SyntaxException(const string& errMsg): errMsg_(errMsg){}
-	virtual const char* what() const throw(){
-		return errMsg_.c_str();
-	}
-	virtual ~SyntaxException() throw(){}
-
-private:
-	const string errMsg_;
-};
-
-class IllegalArgumentException : public exception{
+class IllegalArgumentException : public TraceableException{
 public:
 	IllegalArgumentException(const string& functionName, const string& errMsg): functionName_(functionName), errMsg_(errMsg){}
 	virtual const char* what() const throw(){
@@ -54,7 +51,7 @@ private:
 	const string errMsg_;
 };
 
-class RuntimeException: public exception{
+class RuntimeException: public TraceableException{
 public:
 	RuntimeException(const string& errMsg):errMsg_(errMsg){}
 	virtual const char* what() const throw(){
@@ -66,7 +63,7 @@ private:
 	const string errMsg_;
 };
 
-class OperatorRuntimeException: public exception{
+class OperatorRuntimeException: public TraceableException{
 public:
 	OperatorRuntimeException(const string& optr,const string& errMsg): operator_(optr),errMsg_(errMsg){}
 	virtual const char* what() const throw(){
@@ -80,7 +77,7 @@ private:
 	const string errMsg_;
 };
 
-class TableRuntimeException: public exception{
+class TableRuntimeException: public TraceableException{
 public:
 	TableRuntimeException(const string& errMsg): errMsg_(errMsg){}
 	virtual const char* what() const throw(){
@@ -92,7 +89,7 @@ private:
 	const string errMsg_;
 };
 
-class MemoryException: public exception{
+class MemoryException: public TraceableException{
 public:
 	MemoryException():errMsg_("Out of memory"){}
 	virtual const char* what() const throw(){
@@ -104,7 +101,7 @@ private:
 	const string errMsg_;
 };
 
-class IOException: public exception{
+class IOException: public TraceableException{
 public:
 	IOException(const string& errMsg): errMsg_(errMsg), errCode_(OTHERERR){}
 	IOException(const string& errMsg, IO_ERR errCode): errMsg_(errMsg + ". " + getCodeDescription(errCode)), errCode_(errCode){}
@@ -211,13 +208,39 @@ private:
 	const string errMsg_;
 };
 
-class MathException: public exception {
+class MathException: public TraceableException {
 public:
 	MathException(const string& errMsg) : errMsg_(errMsg){}
 	virtual const char* what() const throw(){
 		return errMsg_.c_str();
 	}
 	virtual ~MathException() throw(){}
+
+private:
+	const string errMsg_;
+};
+
+class UserException: public TraceableException{
+public:
+	UserException(const string exceptionType, const string& msg) : exceptionType_(exceptionType), msg_(msg){}
+	virtual const char* what() const throw(){
+		return msg_.c_str();
+	}
+	const string& getExceptionType() const { return exceptionType_;}
+	const string& getMessage() const { return msg_;}
+	virtual ~UserException() throw(){}
+private:
+	string exceptionType_;
+	string msg_;
+};
+
+class SyntaxException: public exception{
+public:
+	SyntaxException(const string& errMsg): errMsg_(errMsg){}
+	virtual const char* what() const throw(){
+		return errMsg_.c_str();
+	}
+	virtual ~SyntaxException() throw(){}
 
 private:
 	const string errMsg_;
@@ -243,20 +266,6 @@ private:
 	const string subName_;
 	string errMsg_;
 
-};
-
-class UserException: public exception{
-public:
-	UserException(const string exceptionType, const string& msg) : exceptionType_(exceptionType), msg_(msg){}
-	virtual const char* what() const throw(){
-		return msg_.c_str();
-	}
-	const string& getExceptionType() const { return exceptionType_;}
-	const string& getMessage() const { return msg_;}
-	virtual ~UserException() throw(){}
-private:
-	string exceptionType_;
-	string msg_;
 };
 
 #endif /* EXCEPTIONS_H_ */

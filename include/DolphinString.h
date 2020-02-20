@@ -36,7 +36,7 @@ public:
     //Assignment operator
     DolphinString & operator=(const DolphinString & rhs) {
         if (this != &rhs) {
-            constructString(rhs.getData());
+            return assign(rhs.data(), rhs.size());
         }
         return (*this);
     }
@@ -56,6 +56,32 @@ public:
         }
         return (*this);
     }
+
+    //Move-assignment
+    DolphinString& assign(DolphinString&& str){
+        if (this != &str) {
+            clear();
+            noninlineData = str.noninlineData;
+            str.constructInlineString(nullptr, 0);
+        }
+        return (*this);
+    }
+
+    inline DolphinString& assign(const DolphinString& str){
+    	return assign(str.data(), str.size());
+    }
+
+    inline DolphinString& assign(const std::string& str){
+    	return assign(str.data(), str.size());
+    }
+
+    inline DolphinString& assign(const char* str){
+    	return assign(str, strlen(str));
+    }
+
+    DolphinString& assign(const char* str, size_t len);
+
+    void append(const char* str, size_t length);
 
     ~DolphinString() {
         clear();
@@ -103,36 +129,53 @@ public:
         setSize(newSize);
     }
 
-    void append(const char* str, size_t length){
-    	int sz = size();
-    	int cap = getCapacity();
-    	char * ptr = getData();
-    	int newSize = sz + length;
-    	if(newSize + 1 > cap){
-    		char * buf = allocateBuffer(newSize + 1);
-    		if (buf == nullptr) throw std::bad_alloc();
-    		if(sz)
-    			memcpy(buf, ptr, sz);
-    		clearInlineBit();
- 		    noninlineData.ptr_ = buf;
- 		    ptr = buf;
-    		setCapacity(newSize + 1);
-    	}
-    	setSize(newSize);
-    	memcpy(ptr + sz, str, length);
-    	ptr[newSize] = '\0';
+    inline int compare(const std::string & str) const {
+    	size_t lLen = size();
+    	size_t rLen = str.size();
+    	size_t len = lLen <= rLen ? lLen : rLen;
+    	const unsigned char* lData = (const unsigned char*)data();
+    	const unsigned char* rData = (const unsigned char*)str.data();
+    	size_t i=0;
+    	for(; i<len && lData[i] == rData[i]; ++i);
+
+    	if(i < len)
+    		return lData[i] < rData[i] ? -1 : 1;
+    	else if(lLen == rLen)
+    		return 0;
+    	else
+    		return lLen < rLen ? -1 : 1;
     }
 
-    int compare(const std::string & str) const {
-        return strcmp(getData(), str.c_str());
+    inline int compare(const char * str) const {
+    	size_t len = size();
+    	const unsigned char* lData = (const unsigned char*)data();
+    	const unsigned char* rData = (const unsigned char*)str;
+    	size_t i = 0;
+    	while(i < len && lData[i] == rData[i] && rData[i] != 0) ++i;
+
+    	if(i < len && rData[i] != 0)
+    		return lData[i] < rData[i] ? -1 : 1;
+    	else if(i == len && rData[i] == 0)
+    		return 0;
+    	else
+    		return i == len ? -1 : 1;
     }
 
-    int compare(const char * str) const {
-        return strcmp(getData(), str);
-    }
+    inline int compare(const DolphinString & str) const {
+    	size_t lLen = size();
+    	size_t rLen = str.size();
+    	size_t len = lLen <= rLen ? lLen : rLen;
+    	const unsigned char* lData = (const unsigned char*)data();
+    	const unsigned char* rData = (const unsigned char*)str.data();
+    	size_t i=0;
+    	for(; i<len && lData[i] == rData[i]; ++i);
 
-    int compare(const DolphinString & str) const {
-        return strcmp(getData(), str.getData());
+    	if(i < len)
+    		return lData[i] < rData[i] ? -1 : 1;
+    	else if(lLen == rLen)
+    		return 0;
+    	else
+    		return lLen < rLen ? -1 : 1;
     }
 
     bool operator==(const char * str) {
@@ -160,7 +203,14 @@ public:
     }
 
     bool operator==(const DolphinString & rhs) const {
-        return compare(rhs) == 0;
+    	size_t len = size();
+    	if(len != rhs.size())
+    		return false;
+    	const char* lData = data();
+    	const char* rData = rhs.data();
+    	size_t i=0;
+    	for(; i<len && lData[i] == rData[i]; ++i);
+    	return i==len;
     }
 
     bool operator!=(const DolphinString & rhs) const {
@@ -290,14 +340,20 @@ public:
         return noninlineData.cap_ >> FLAT_BIT_COUNT;
     }
 
+    void reserve(size_t n);
+
+    //clear both data and allocated buffer.
     void clear();
 
+    //clear data only and keep allocated buffer unchanged.
+    inline void clearData(){
+    	getData()[0] = 0;
+    	setSize(0);
+    }
+
     static constexpr int INLINE_STR_CAP = sizeof(char*) + sizeof(uint64_t) + sizeof(uint64_t);
-#ifdef TEST
-public:
-#else
-    private:
-#endif
+
+private:
     // if the length of the string (including '\0') exceeds this threshold, we switch to buddy allocator.
     static constexpr unsigned BUDDY_ALLOC_THRESHOLD = 2047;
     static constexpr unsigned INLINE_STR_MAX_LEN = INLINE_STR_CAP - 2;
@@ -321,30 +377,34 @@ public:
         memset(inlineData, 0, sizeof(inlineData));
         markInlineBit();
         setSize(strLen);
+        char* data = getData();
         if (p)  {
-            strncpy(getData(), p, strLen);
-            getData()[strLen] = '\0';
+            memcpy(data, p, strLen);
+            data[strLen] = '\0';
         }
         else {
-            getData()[0] = '\0';
+            data[0] = '\0';
         }
     }
 
     void constructNoninlineString(const char * p, size_t strLen) {
         assert(strLen > INLINE_STR_MAX_LEN);
         assert(p);
-        char * buf = allocateBuffer(strLen + 1);
+        size_t newCap = strLen + 1;
+        char * buf = allocateBuffer(newCap);
         if (buf == nullptr) throw std::bad_alloc();
         clearInlineBit();
         noninlineData.ptr_ = buf;
-        setCapacity(strLen + 1);
+        setCapacity(newCap);
         setSize(strLen);
-        strncpy(buf, p, strLen);
+        memcpy(buf, p, strLen);
         buf[strLen] = '\0';
     }
 
 
-    char * allocateBuffer(size_t size);
+    char * allocateBuffer(size_t& size);
+
+    void releaseBuffer();
 
     inline void setCapacity(size_t cap) {
         if (isInline()) return;
