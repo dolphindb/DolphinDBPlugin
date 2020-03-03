@@ -798,7 +798,7 @@ TableSP readSimpleDataset(const hid_t set, H5DataType &type, TableSP tb, size_t 
 
     vector<ConstantSP> colVec;
     DatasetAppenderSP appender = new SimpleDatasetAppender();
-    doReadDataset(reader, appender, cols, colVec);
+    doReadDataset_concurrent(reader, appender, cols, colVec);
 
     if (tb->isNull())
     {
@@ -842,7 +842,7 @@ TableSP readComplexDataset(const hid_t set, H5DataType &type, TableSP tb, size_t
 
     vector<ConstantSP> colVec;
     DatasetAppenderSP appender = new ComplexDatasetAppender();
-    doReadDataset(reader, appender, cols, colVec);
+    doReadDataset_concurrent(reader, appender, cols, colVec);
 
     if (tb->isNull())
     {
