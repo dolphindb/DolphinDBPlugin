@@ -1,4 +1,0 @@
-// assume unixODBC is installed and data source is properly configured
-pluginCfgFile = "/home/ubuntu2/workspace/DolphinDBPlugin/odbc/DolphinDBODBC.txt";
-loadPlugin(pluginCfgFile);
-PRECISIONLIMIT=3
