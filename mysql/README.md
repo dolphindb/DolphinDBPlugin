@@ -67,7 +67,7 @@ The file libPluginMySQL.so will be generated after the compilation.
 
 # User-API
 
-**Remember:** Use `loadPlugin("/path_to_PluginMySQL.txt/PluginMySQL.txt")` to import MySQL plugin before using the API.
+**Remember:** Use `loadPlugin("/path_to_PluginMySQL/mysql.cfg")` to import MySQL plugin before using the API.
 
 ## mysql::connect
 
