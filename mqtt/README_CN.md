@@ -23,7 +23,7 @@ make
 需要先加载插件，如下例所示（路径根据情况修改）：
 
 ```
-loadPlugin("/YOUR_PATH/mqtt/PluginMQTTClient.txt"); 
+loadPlugin("/path_to_file_mqtt.cfg/mqtt.cfg"); 
 ```
 
 ## 3. 发布功能
