@@ -79,7 +79,7 @@ You can also build HDF5 yourself. Download the source code from the [official we
 # User-API
 
 
-**Remember:** Use `loadPlugin("/path_to_PluginHdf5.txt/PluginHdf5.txt")` to import HDF5 plugin before using the API.
+**Remember:** Use `loadPlugin("/path_to_file_hdf5.cfg/hdf5.cfg")` to import HDF5 plugin before using the API.
 
 ## hdf5::ls
 
