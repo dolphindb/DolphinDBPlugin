@@ -67,7 +67,7 @@ make -j`nproc`
 
 # 用户接口
 
-**注意:** 使用api前需使用 `loadPlugin("/path_to_PluginMySQL.txt/PluginMySQL.txt")` 导入插件。
+**注意:** 使用api前需使用 `loadPlugin("/path_to_file_mysql.cfg/mysql.cfg")` 导入插件。
 
 ## mysql::connect
 
