@@ -227,7 +227,7 @@ x=p(s)
 
 ### 一个完整的例子
 ```
-loadPlugin("./plugins/mqtt/bin/PluginMQTTClient.txt"); 
+loadPlugin("/path_to_file_mqtt.cfg/mqtt.cfg"); 
 use mqtt; 
 
 //***************************publish a table****************************************//
