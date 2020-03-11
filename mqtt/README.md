@@ -2,9 +2,15 @@
 
 ## 1. Build(tested on Linux 64bit GCC version 5.4.0)
 
-1. This plugin has been successfully compiled with GCC (version 5.4.0) on 64-bits Linux operating system.
-2. Before compiling, install [CMake](https://cmake.org/).
-3. Create a 'build' directory. Under the directory, run `cmake ..` and `make` to generate 'libPluginMQTTClient.so'.
+* This plugin has been successfully compiled with GCC (version 5.4.0) on 64-bits Linux operating system.
+* Before compiling, install [git](https://git-scm.com/) and [CMake](https://cmake.org/).
+
+For Ubuntu users, just type
+
+```bash
+$ sudo apt-get install git cmake
+```
+* Create a 'build' directory. Under the directory, run `cmake ..` and `make` to generate 'libPluginMQTTClient.so'.
 
 ```
 mkdir build
@@ -18,7 +24,7 @@ make
 Use function `loadPlugin` to load MQTT client plugin.
 
 ```
-loadPlugin("/YOUR_PATH/MQTTClient/PluginMQTTClient.txt"); 
+loadPlugin("/YOUR_PATH/mqtt/PluginMQTTClient.txt"); 
 ```
 Note:the path should be modified according to the situation.
 
@@ -261,10 +267,7 @@ x=p(s)
 
 ### An example
 ```
-loadPlugin("/home/qianxj/MQTTClient/PluginMQTTClient.txt"); 
-use mqtt; 
-
-loadPlugin("/home/qianxj/MQTTClient/PluginMQTTClient.txt"); 
+loadPlugin("./plugins/mqtt/bin/PluginMQTTClient.txt"); 
 use mqtt; 
 
 //***************************publish a table****************************************//
