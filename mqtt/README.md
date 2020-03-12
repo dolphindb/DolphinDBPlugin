@@ -24,7 +24,7 @@ make
 Use function `loadPlugin` to load MQTT client plugin.
 
 ```
-loadPlugin("/path_to_file_mqtt.cfg/mqtt.cfg"); 
+loadPlugin("/YOUR_PATH/mqtt/PluginMQTTClient.txt"); 
 ```
 Note:the path should be modified according to the situation.
 

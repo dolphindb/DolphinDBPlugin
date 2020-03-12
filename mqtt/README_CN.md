@@ -21,10 +21,9 @@ make
 ## 2. 准备
 
 需要先加载插件，如下例所示（路径根据情况修改）：
-插件动态库以及插件配置文件需放在同一目录下。
 
 ```
-loadPlugin("/path_to_file_mqtt.cfg/mqtt.cfg"); 
+loadPlugin("/YOUR_PATH/mqtt/PluginMQTTClient.txt"); 
 ```
 
 ## 3. 发布功能
@@ -228,7 +227,7 @@ x=p(s)
 
 ### 一个完整的例子
 ```
-loadPlugin("/path_to_file_mqtt.cfg/mqtt.cfg"); 
+loadPlugin("./plugins/mqtt/bin/PluginMQTTClient.txt"); 
 use mqtt; 
 
 //***************************publish a table****************************************//
