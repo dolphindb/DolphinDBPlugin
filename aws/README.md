@@ -6,7 +6,7 @@ The plugin for Amazon AWS S3. It now only supports Linux OS.
 start a DolphinDB instance, then execute the following command:
 
 ```
-loadPlugin("path/to/DolphinDBPlugin/awss3/awss3.txt");
+loadPlugin("path/to/DolphinDBPlugin/aws/PluginAWS.txt");
 ```
 
 ### 2)set up account

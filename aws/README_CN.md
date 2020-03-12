@@ -6,7 +6,7 @@ AWS S3插件目前仅支持Linux操作系统
 启动DolphinDB实例，执行下述命令: 
 
 ```
-loadPlugin("path/to/DolphinDBPlugin/awss3/awss3.txt");
+loadPlugin("path/to/DolphinDBPlugin/aws/PluginAWS.txt");
 ```
 
 ### 2) 设置账户
