@@ -74,7 +74,7 @@ make
 
 # 用户接口
 
-**Remember:** 使用api前需使用`loadPlugin("/path_to_file_hdf5.cfg/hdf5.cfg")`导入插件
+**Remember:** 使用api前需使用`loadPlugin("/path_to_PluginHdf5.txt/PluginHdf5.txt")`导入插件
 
 ## hdf5::ls
 
