@@ -2,10 +2,9 @@
 
 ## 1. Build
 
-* Install [MinGW](http://www.mingw.org/). It is supposed that your version of MinGW contains the COM library.Currently compiled with mingw-w64-boots-4.3.3 on 64-bit win10.
-* After downloading the DolphinDBPlugin, open the DolphinDBPlugin/opc directory with [clion](https://www.jetbrains.com/clion/download/#section=windows).
-* Copy libDolphinDB.dll which is under DolphinDB installation directory to DolphinDBPlugin/opc/cmake-build-debug directory.
-* Click the clion menu item Build/Build Project to compile.
+1. Install [MinGW](http://www.mingw.org/). It is supposed that your version of MinGW contains the COM library.
+2. Move libDolphinDB.dll to the build direcotry.
+3. Move CMakeLists.txt to the DolphinDBPlugin directory and build with clion.
 
 ## 2. API 
 

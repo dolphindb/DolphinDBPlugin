@@ -1,9 +1,8 @@
 ## 1. 编译
 
-* 安装[MinGW](http://www.mingw.org/)环境，带有com库（应该尽量选择新的版本），目前在64位win10上用MinGW-W64-builds-4.3.3版本编译通过。
-* 下载DolphinDBPlugin这个目录后，用[clion](https://www.jetbrains.com/clion/download/#section=windows)打开DolphinDBPlugin/opc目录。
-* 把DolphinDB安装目录下的server/libDolphinDB.dll拷贝到DolphinDBPlugin/opc/cmake-build-debug目录下。
-* 点击clion菜单项Build/Build Project进行编译。
+1. 需要mingw环境，带有com库（应该尽量选择新的版本）。
+2. 把libDolphinDB.dll移到编译目录下。
+3. 将CMakeLists.txt 移到 DolphinDBPlugin目录下，使用clion打开编译。
 
 ## 2. API
 

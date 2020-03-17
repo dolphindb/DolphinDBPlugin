@@ -1,9 +1,12 @@
 opc,libPluginOPC.dll
 getOpcServerList,getOpcServerList,system,1,1,0
 connectOpcServer,connect,system,2,3,0
-readTag,readTag,system,2,3,0
+readTag,readTag,system,2,2,0
 writeTag,writeTag,system,3,3,0
 subscribeTag,subscribe,system,3,3,0
 disconnect,close,operator,1,1,0
 endSub,unsubscribe,operator,1,1,0
-
+createJsonParser,createJsonParser,system,2,2,0
+createJsonFormatter,createJsonFormatter,system,0,0,0
+createCsvParser,createCsvParser,system,1,3,0
+createCsvFormatter,createCsvFormatter,system,1,3,0
