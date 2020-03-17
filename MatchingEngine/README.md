@@ -3,24 +3,10 @@
 ## Build
 
 Build plugin
-
-* For Linux
-
 ```
-cmake . -DCMAKE_BUILD_TYPE=Release -DDOLPHINDB_LIB_DIR=<path to the directory containing libDolphinDB.so> -DDOLPHINDB_INC_DIR=<path to the include>
+cmake . -DCMAKE_BUILD_TYPE=Release -DDOLPHINDB_LIB_DIR=/path/to/the/libDolphinDB.so -DDOLPHINDB_INC_DIR=/path/to/the/include
 make && make install
 ```
-
-* For Windows MinGW
-
-```
-cmake . -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DDOLPHINDB_LIB_DIR=<path to the directory containing libDolphinDB.dll> -DDOLPHINDB_INC_DIR=<path to the include>
-mingw32-make && mingw32-make install
-```
-
-*for windows, you have to change the first line of the PluginMatchingEngine.txt: ```libMatchingEngine.so -> libMatchingEngine.dll```*
-
-###
 
 Run test (gtest is required)
 
@@ -52,7 +38,7 @@ DolphinDB script
  */
 loadPlugin("/path/to/the/PluginMatchingEngine.txt")
 
-/*
+/* 
  * input scheme: `op`symbol`id`quantity`condition`price`thresholdPrice`expiredTime
  *
  * op:              see the following explanation
@@ -80,6 +66,8 @@ ORDER_CAN = 2
  * ...0    0     0     0     0     0     0     0
  *               |     |     |     |     |     |
  *             isTS  isTP  isSL  isIOC  isAON  isBuy
+ * 
+ * caution: stop-loss/take-profit/trailing-stop are still in progress, the behavior of using these orders are undefined
  */
 ORDER_SEL = 0
 ORDER_BUY = 1
@@ -115,7 +103,8 @@ MatchingEngine::setupGlobalConfig(inputScheme, , pricePrecision, bookDepth)
  */
 sym = 'AAPL'
 output = table(10000:0,`symbol`id`status`condition`quantity`filledQuantity`cost, [SYMBOL,LONG,STRING,INT,LONG,LONG,DOUBLE])
-exchange = MatchingEngine::createExchange(sym, output)
+depthOutput = table(10000:0,`is_sell`level`price`aggregate_qty`order_count`market_price,[BOOL,INT,LONG,LONG,LONG,LONG])
+exchange = MatchingEngine::createExchange(sym, output,depthOutput)
 
 /*
  * insert into the object returned by createExchange to see the output
