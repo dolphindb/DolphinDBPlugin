@@ -1,15 +1,8 @@
 ## 1. 编译
 
-* 目前在 64位linux GCC version 5.4.0下编译测试通过。
-* 在编译前需要先安装 [git](https://git-scm.com/) 和 [CMake](https://cmake.org/)。
-
-Ubuntu用户只需要在命令行输入以下命令即可：
-
-```bash
-$ sudo apt-get install git cmake
-```
-
-* 在mqtt目录下创建build目录，进入后运行`cmake ..`和`make`，即可编译生成'libPluginMQTTClient.so'。
+1. 目前在 64位linux GCC version 5.4.0下编译测试通过。
+2. 在编译前需要先安装[CMake](https://cmake.org/)。
+3. 在MQTTClient目录下创建build目录，进入后运行`cmake ..`和`make`，即可编译生成'libPluginMQTTClient.so'。
 
 ```
 mkdir build
@@ -23,7 +16,7 @@ make
 需要先加载插件，如下例所示（路径根据情况修改）：
 
 ```
-loadPlugin("/YOUR_PATH/mqtt/PluginMQTTClient.txt"); 
+loadPlugin("/YOUR_PATH/MQTTClient/PluginMQTTClient.txt"); 
 ```
 
 ## 3. 发布功能
@@ -227,7 +220,7 @@ x=p(s)
 
 ### 一个完整的例子
 ```
-loadPlugin("./plugins/mqtt/bin/PluginMQTTClient.txt"); 
+loadPlugin("/home/qianxj/MQTTClient/PluginMQTTClient.txt"); 
 use mqtt; 
 
 //***************************publish a table****************************************//
