@@ -191,9 +191,6 @@ public:
 	 */
 	static bool fromHex(const char* str, int len, bool littleEndian, unsigned char* data);
 
-	static void toGuid(const unsigned char*, char* str);
-	static bool fromGuid(const char* str, unsigned char* data);
-
 	static bool equalIgnoreCase(const string& str1, const string& str2);
 	static string lower(const string& str);
 	static string upper(const string& str);

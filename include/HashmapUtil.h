@@ -12,6 +12,7 @@
 
 #include "Concurrent.h"
 #include "DolphinString.h"
+#include "Guid.h"
 
 void* myAlloc(size_t size);
 void myFree(void * ptr);
@@ -84,6 +85,52 @@ static inline uint32_t murmur32 (const char *key, int len)
 
 	return h;
 } 
+
+static inline uint32_t murmur32_16b (const unsigned char* key)
+{
+	const uint32_t m = 0x5bd1e995;
+	const int r = 24;
+	uint32_t h = 16;
+
+	uint32_t k1 = *(uint32_t*)(key);
+	uint32_t k2 = *(uint32_t*)(key + 4);
+	uint32_t k3 = *(uint32_t*)(key + 8);
+	uint32_t k4 = *(uint32_t*)(key + 12);
+
+	k1 *= m;
+	k1 ^= k1 >> r;
+	k1 *= m;
+
+	k2 *= m;
+	k2 ^= k2 >> r;
+	k2 *= m;
+
+	k3 *= m;
+	k3 ^= k3 >> r;
+	k3 *= m;
+
+	k4 *= m;
+	k4 ^= k4 >> r;
+	k4 *= m;
+
+	// Mix 4 bytes at a time into the hash
+	h *= m;
+	h ^= k1;
+	h *= m;
+	h ^= k2;
+	h *= m;
+	h ^= k3;
+	h *= m;
+	h ^= k4;
+
+	// Do a few final mixes of the hash to ensure the last few
+	// bytes are well-incorporated.
+	h ^= h >> 13;
+	h *= m;
+	h ^= h >> 15;
+
+	return h;
+}
 
 static inline uint32_t murmur32_8b (uint64_t key)
 {
@@ -164,7 +211,16 @@ struct hash<DolphinString> {
 	}
 };
 
+template<>
+struct hash<Guid> {
+	inline size_t operator()(const Guid& val) const{
+		return murmur32_16b(val.bytes());
+	}
 };
+
+};
+
+typedef std::hash<Guid> GuidHash;
 
 template<class T>
 struct murmur_hasher {
@@ -174,12 +230,23 @@ struct murmur_hasher {
 
 template<>
 struct murmur_hasher<std::string> {
-    uint64_t operator()(const std::string & val);
+    uint64_t operator()(const std::string & val){
+    	return murmur32(val.data(), val.size());
+    }
 };
 
 template<>
 struct murmur_hasher<DolphinString> {
-    uint64_t operator()(const DolphinString & val);
+    uint64_t operator()(const DolphinString & val){
+        return murmur32(val.getData(), val.size());
+    }
+};
+
+template<>
+struct murmur_hasher<Guid> {
+    uint64_t operator()(const Guid & val){
+        return murmur32_16b(val.bytes());
+    }
 };
 
 template<>
