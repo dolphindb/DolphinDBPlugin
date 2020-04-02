@@ -1,0 +1,42 @@
+/* notes:
+ *  1. Please set up your own httpServer ex.(python -m SimpleHTTPServer 8900)
+ *  2. set up your plugin path
+ */
+
+//set your plugin path here
+pluginPath = '/home/ybzhang/Documents/DolphinDBPlugin/httpClient/PluginHttpClient.txt';
+try{loadPlugin(pluginPath)}catch(ex){print ex};
+go
+
+use httpClient;
+
+jobs = [];
+test_num = 1001;
+
+def httpPostJob(n){
+cnt = 0
+//set your test server url here
+url = "localhost:8900"
+for(x in 1:n){
+    res = httpPost(url,,100)
+    if(res['responseCode'] == 200) cnt = cnt + 1
+}
+return cnt
+};
+
+def httpPostTest(n, mutable jobs, test_num){
+for(x in 1:n){
+   jobs.append!(submitJob("httpJob"+x, "httpPostJob", httpPostJob, test_num))
+}
+};
+
+timer{
+complete_num = 0
+jobs = []
+httpPostTest(6, jobs, test_num)
+for(x in jobs){
+    print "job: " + x
+    complete_num = complete_num + getJobReturn(x, true)
+}
+print "complte " + complete_num + "/" + jobs.size() *( test_num - 1)
+};
