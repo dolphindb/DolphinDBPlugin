@@ -19,9 +19,12 @@ class TraceableException : public exception {
 public:
 	void addPath(const string& path);
 	const string& getPath() const {return  path_;}
+	const string& getLastThrow() const { return lastThrow_;}
+	void setLastThrow(const string& lastThrow);
 
 protected:
 	string path_;
+	string lastThrow_;
 };
 
 class IncompatibleTypeException: public TraceableException{
