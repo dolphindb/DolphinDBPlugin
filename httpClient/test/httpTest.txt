@@ -1,0 +1,51 @@
+/* notes:
+ *  1. The Test sites is http://www.webxml.com.cn . If test failed, please check status of test sites.
+ */
+
+//set your plugin path here
+pluginPath = '/home/ybzhang/Documents/DolphinDBPlugin/httpClient/PluginHttpClient.txt';
+try{loadPlugin(pluginPath)}catch(ex){print ex};
+go
+use httpClient
+
+@testing:case="test_http_get_stock_image_by_code"
+dic = dict(['theStockCode'], ['sh000001']);
+res = httpGet("http://www.webxml.com.cn/WebServices/ChinaStockWebService.asmx/getStockImageByCode", dic, 1000);
+assert 1, res['responseCode'] == 200;
+assert 2, res['elapsed'] < 1000 && res['elapsed'] > 0;
+print res['headers'], res['text'];
+
+
+@testing:case="test_http_post_stock_image_by_code"
+res = httpPost("http://www.webxml.com.cn/WebServices/ChinaStockWebService.asmx/getStockImageByCode", dic, 1000);
+assert 1, res['responseCode'] == 200;
+assert 2, res['elapsed'] < 1000 && res['elapsed'] > 0;
+print res['headers'], res['text'];
+
+
+@testing:case="test_http_get_stock_imagebyte_by_code"
+res = httpGet("http://www.webxml.com.cn/WebServices/ChinaStockWebService.asmx/getStockImageByteByCode", dic, 1000);
+assert 1, res['responseCode'] == 200;
+assert 2, res['elapsed'] < 1000 && res['elapsed'] > 0;
+print res['headers'], res['text'];
+
+
+@testing:case="test_http_post_stock_imagebyte_by_code"
+res = httpPost("http://www.webxml.com.cn/WebServices/ChinaStockWebService.asmx/getStockImageByteByCode", dic, 1000);
+assert 1, res['responseCode'] == 200;
+assert 2, res['elapsed'] < 1000 && res['elapsed'] > 0;
+print res['headers'], res['text'];
+
+
+@testing:case="test_http_get_stockinfo_by_code"
+res = httpGet("http://www.webxml.com.cn/WebServices/ChinaStockWebService.asmx/getStockInfoByCode", dic, 1000);
+assert 1, res['responseCode'] == 200;
+assert 2, res['elapsed'] < 1000 && res['elapsed'] > 0;
+print res['headers'], res['text'];
+
+
+@testing:case="test_http_post_stockinfo_by_code"
+res = httpGet("http://www.webxml.com.cn/WebServices/ChinaStockWebService.asmx/getStockInfoByCode", dic, 1000);
+assert 1, res['responseCode'] == 200;
+assert 2, res['elapsed'] < 1000 && res['elapsed'] > 0;
+print res['headers'], res['text'];

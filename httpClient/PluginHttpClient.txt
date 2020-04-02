@@ -1,0 +1,3 @@
+httpClient,libPluginHttpClient.so
+httpGet,httpGet,system,1,3,0
+httpPost,httpPost,system,1,3,0
