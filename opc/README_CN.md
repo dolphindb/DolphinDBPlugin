@@ -1,8 +1,27 @@
-## 1. 编译
+## 1. 通过cmake和MinGW编译
 
-1. 需要mingw环境，带有com库（应该尽量选择新的版本）。
-2. 把libDolphinDB.dll移到编译目录下。
-3. 将CMakeLists.txt 移到 DolphinDBPlugin目录下，使用clion打开编译。
+安装[cmake](https://cmake.org/)。 cmake一个流行的项目构建工具,可以帮你轻松的解决第三方依赖的问题。  
+
+安装[MinGW](http://www.mingw.org/)环境，带有com库（应该尽量选择新的版本），目前在64位win10上用MinGW-W64-builds-4.3.3版本编译通过。
+
+把MingGW和cmake的bin目录加入Windows系统Path路径。 
+
+```
+    git clone https://github.com/dolphindb/DolphinDBPlugin.git
+    cd DolphinDBPlugin
+    mkdir build
+    cd build
+    cmake ../opc -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+    copy /YOURPATH/libDolphinDB.dll . 
+    mingw32-make clean
+    mingw32-make
+```
+
+**注意：** 如果需要指定特定的MingW路径，请在CmakeList.txt中修改以下语句。
+
+```
+    set(MINGW32_LOCATION C://MinGW/MinGW/)  
+```
 
 ## 2. API
 
