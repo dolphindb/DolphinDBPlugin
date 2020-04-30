@@ -66,7 +66,7 @@ ConstantSP mqttClientConnect(Heap *heap, vector<ConstantSP> &args) {
 
     uint8_t publishFlags = MQTT_PUBLISH_QOS_0;
     FunctionDef *formatter = NULL;
-    int batchSize = 0;
+    int batchSize = 1;
 
     // parse args first
     if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR) {
@@ -104,7 +104,7 @@ ConstantSP mqttClientConnect(Heap *heap, vector<ConstantSP> &args) {
             throw IllegalArgumentException(__FUNCTION__, usage + "batchSize must be a integer");
         } else {
             batchSize = args[4]->getInt();
-            if (batchSize < 0) {
+            if (batchSize < 1) {
                 throw IllegalArgumentException(__FUNCTION__, usage + "batchSize must be a unsigned integer");
             }
         }
@@ -122,11 +122,10 @@ ConstantSP mqttClientConnect(Heap *heap, vector<ConstantSP> &args) {
 
 ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
     std::string usage = "Usage: publish(conn,topic,obj). ";
-
-    const char *topic;
-    const char *message;
     uint16_t msgLen;
     Connection *conn;
+    string topicStr;
+    string  messageStr;
 
     // parse args first
     if (args[0]->getType() == DT_RESOURCE) {
@@ -142,7 +141,7 @@ ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
     if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException(__FUNCTION__, usage + "topic must be a string");
     } else {
-        topic = args[1]->getString().c_str();
+        topicStr = args[1]->getString();
     }
     // std::cout<<topic;
     if (args[2]->isTable()) {
@@ -166,11 +165,11 @@ ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
                 vector<ConstantSP> args1 = {subTable};
                 ConstantSP s = conn->getFormatter()->call(heap, args1);
 
-                message = s->getString().c_str();
-                msgLen = s->getString().length();
+                messageStr = s->getString();
+                msgLen = messageStr.length();
 
                 // cout << "subtable data length is " << msgLen << endl;
-                MQTTErrors err = conn->publishMsg(topic, (void *)message, msgLen);
+                MQTTErrors err = conn->publishMsg(topicStr.c_str(), (void *)messageStr.c_str(), msgLen);
                 // check for errors
                 if (err != MQTT_OK) {
                     std::cout << "Error " << err << mqtt_error_str(err) << std::endl;
@@ -186,18 +185,18 @@ ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
             FunctionDef *formatter = conn->getFormatter();
             ConstantSP s = formatter->call(heap, args1);
 
-            message = s->getString().c_str();
-            msgLen = s->getString().length();
+            messageStr = s->getString();
+            msgLen = messageStr.length();
             // cout << "table data length is " << msgLen << endl;
         }
 
     } else if (args[2]->getType() == DT_STRING && args[2]->isArray()) {
         for (int i = 0; i < args[2]->size(); i++) {
             //cout << args[2]->get(i)->getString() << endl;
-            message = args[2]->get(i)->getString().c_str();
+            messageStr = args[2]->get(i)->getString();
             msgLen = args[2]->get(i)->getString().length();
 
-            MQTTErrors err = conn->publishMsg(topic, (void *)message, msgLen);
+            MQTTErrors err = conn->publishMsg(topicStr.c_str(), (void *)messageStr.c_str(), msgLen);
             // check for errors
             if (err != MQTT_OK) {
                 std::cout << "Error " << err << mqtt_error_str(err) << std::endl;
@@ -210,14 +209,14 @@ ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
     } else if (args[2]->getType() == DT_STRING && args[2]->getForm() == DF_SCALAR) {
         // cout<<"is message "<< args[2]->getForm() <<endl;
 
-        message = args[2]->getString().c_str();
-        msgLen = args[2]->getString().length();
+        messageStr = args[2]->getString();
+        msgLen = messageStr.length();
     } else {
         cout << "not message not table " << args[2]->getForm() << endl;
         throw IllegalArgumentException(__FUNCTION__, usage + "obj must be a string or table ");
     }
 
-    MQTTErrors err = conn->publishMsg(topic, (void *)message, msgLen);
+    MQTTErrors err = conn->publishMsg(topicStr.c_str(), (void *)messageStr.c_str(), msgLen);
     // check for errors
     if (err != MQTT_OK) {
         std::cout << "Error " << err << mqtt_error_str(err) << std::endl;
@@ -273,7 +272,13 @@ Connection::Connection(std::string hostname, int port, uint8_t qos, FunctionDef 
     }
 
     mqtt_init(&client_, sockfd_, sendbuf_, sizeof(sendbuf_), recvbuf_, sizeof(recvbuf_), publishCallback);
-    mqtt_connect(&client_, "publishing_client", NULL, NULL, 0, NULL, NULL, 0, 400);
+
+    /* Create an anonymous session */
+    const char* client_id = NULL;
+    /* Ensure we have a clean session */
+    uint8_t connect_flags = MQTT_CONNECT_CLEAN_SESSION;
+    /* Send connection request to the broker. */
+    mqtt_connect(&client_, client_id, NULL, NULL, 0, NULL, NULL, connect_flags, 400);
     /* check that we don't have any errors */
     if (client_.error != MQTT_OK) {
         std::cout << client_.error << std::endl;
@@ -290,7 +295,7 @@ Connection::Connection(std::string hostname, int port, uint8_t qos, FunctionDef 
     connected_ = true;
     sendtimes = 0;
     failed = 0;
-    std::cout << "connected.sockfd is " << sockfd_ << std::endl;
+    //std::cout << "connected.sockfd is " << sockfd_ << std::endl;
 }
 
 MQTTErrors Connection::publishMsg(const char *topic, void *message, size_t size) {

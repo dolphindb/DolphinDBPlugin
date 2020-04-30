@@ -15,7 +15,7 @@ elseif (UNIX)
 endif ()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall ${platform_macro} -D_GLIBCXX_USE_CXX11_ABI=0")
-
+add_compile_options( "-std=c++11")
 add_library(${PROJECT_NAME} SHARED ${PluginSrc} ${MQTTSrc} ./src/templates/posix_sockets.c)
 
 if (WIN32)

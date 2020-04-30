@@ -52,7 +52,7 @@ static void subCallback(void **socketHandle, struct mqtt_response_publish *publi
         string errMsg;
         tp->append(args1, insertedRows, errMsg);
         if (insertedRows != resultTable->rows()) {
-            cout << "insert " << insertedRows << " err " << errMsg << endl;
+            //cout << "insert " << insertedRows << " err " << errMsg << endl;
             throw RuntimeException(errMsg);
         }
 
@@ -161,7 +161,7 @@ ConstantSP mqttClientStopSub(const ConstantSP &handle, const ConstantSP &b) {
         delete cp;
         handle->setLong(0);
     }
-    cout << "stop sub !" << endl;
+    //cout << "stop sub !" << endl;
     return new Int(MQTT_OK);
 }
 
@@ -175,11 +175,11 @@ SubConnection::SubConnection() {
 SubConnection::~SubConnection() {
     if (sockfd_ != -1) {
         close(sockfd_);
-        std::cout << "close sub conn.sockfd is " << sockfd_ << std::endl;
+        //std::cout << "close sub conn.sockfd is " << sockfd_ << std::endl;
     }
     if (connected_)
         pthread_cancel(clientDaemon_);
-    std::cout << "received packet is " << recv << std::endl;
+    //std::cout << "received packet is " << recv << std::endl;
 }
 
 SubConnection::SubConnection(std::string hostname, int port, std::string topic, FunctionDef *parser, ConstantSP handler,
@@ -190,8 +190,16 @@ SubConnection::SubConnection(std::string hostname, int port, std::string topic, 
         throw RuntimeException("Failed to open socket: ");
     }
 
+
+
     mqtt_init(&client_, sockfd_, sendbuf_, sizeof(sendbuf_), recvbuf_, sizeof(recvbuf_), subCallback);
-    mqtt_connect(&client_, "subscribing_client", NULL, NULL, 0, NULL, NULL, 0, 400);
+
+    /* Create an anonymous session */
+    const char* client_id = NULL;
+    /* Ensure we have a clean session */
+    uint8_t connect_flags = MQTT_CONNECT_CLEAN_SESSION;
+    /* Send connection request to the broker. */
+    mqtt_connect(&client_, client_id, NULL, NULL, 0, NULL, NULL, connect_flags, 400);
     /* check that we don't have any errors */
     if (client_.error != MQTT_OK) {
         std::cout << client_.error << std::endl;
@@ -207,7 +215,6 @@ SubConnection::SubConnection(std::string hostname, int port, std::string topic, 
     connected_ = true;
     recv = 0;
     client_.publish_response_callback_state = this;
-    cout << "this is " << this << endl;
 
     /* subscribe */
     mqtt_subscribe(&client_, topic.c_str(), 0);
@@ -218,7 +225,7 @@ SubConnection::SubConnection(std::string hostname, int port, std::string topic, 
         throw RuntimeException(mqtt_error_str(client_.error));
     }
 
-    std::cout << "Subscribe connected.sockfd is " << sockfd_ << std::endl;
+    //std::cout << "Subscribe connected.sockfd is " << sockfd_ << std::endl;
 }
 
 }    // namespace mqtt

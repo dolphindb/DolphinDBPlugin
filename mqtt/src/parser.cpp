@@ -41,7 +41,7 @@ ConstantSP parseJson(Heap* heap, vector<ConstantSP>& args) {
         auto& row = parsedObj[i];
         for (auto it = row.begin(); it != row.end(); ++it) {
             int curCol = colIdx[it.key()];
-            std::cout << curCol << " " << dt[curCol] << " " << it.key() << " " << it.value() << std::endl;
+            //std::cout << curCol << " " << dt[curCol] << " " << it.key() << " " << it.value() << std::endl;
             switch (dt[curCol]) {
                 case DT_BOOL:                                    // true, false, True, False
                     cols[curCol]->setBool(i, it->get<int>());    // todo: should be bool
@@ -348,14 +348,17 @@ ConstantSP createCsvParser(Heap* heap, vector<ConstantSP>& args) {
 }
 
 ConstantSP createCsvFormatter(Heap* heap, vector<ConstantSP>& args) {
-    string usage = "createCsvFormatter([format], [delimiter=','], [rowDelimiter=';']). ";
+    string usage = "createCsvFormatter(format, [delimiter=','], [rowDelimiter=';']). ";
     char delimiter = ',';
     char rowDelimiter = ';';
     if (!args.empty()) {
         if (args[0]->getType() != DT_VOID && (args[0]->getType() != DT_STRING || !args[0]->isVector())) {
-            throw IllegalArgumentException(usage, "the first argument must be a tuple of string or unspecified");
+            throw IllegalArgumentException(usage, "the first argument must be a tuple of string ");
         }
-    }
+    } else{
+        throw IllegalArgumentException(usage, "the first argument must be a tuple of string ");
+    };
+
     if (args.size() > 1) {
         if (args[1]->getType() != DT_CHAR || args[1]->getForm() != DF_SCALAR) {
             throw IllegalArgumentException(usage, "the second argument must be a char");

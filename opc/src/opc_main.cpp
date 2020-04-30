@@ -46,9 +46,13 @@ public:
     }
 };
 
-ConstantSP toConstant(OPCItemData data) {
+ConstantSP toConstant(OPCItemData data,string itemName) {
     unsigned long long ms;
     vector<ConstantSP> cols;
+    ConstantSP name = Util::createConstant(DT_STRING);
+    name->setString(itemName);
+    cols.push_back(name);
+
     FileTimeToMs(data.ftTimeStamp, ms);
     ConstantSP timestamp = Util::createConstant(DT_TIMESTAMP);
     timestamp->setLong(ms);
@@ -57,7 +61,8 @@ ConstantSP toConstant(OPCItemData data) {
     OpcVal val(data);
     ConstantSP value = val.toConstant();
     // TODO: add more type supporting accounding to data.vDataValue.vt;
-    value->setDouble(data.vDataValue.intVal);
+    //cout<<value->getDouble()<<"  int " <<value->getInt()<<endl;
+    //value->setDouble(data.vDataValue.intVal);
     cols.push_back(value);
 
     ConstantSP quality = Util::createConstant(DT_INT);
@@ -65,7 +70,7 @@ ConstantSP toConstant(OPCItemData data) {
     cols.push_back(quality);
 
 
-    vector<string> colNames = {"time", "value", "quality"};
+    vector<string> colNames = {"tag","time", "value", "quality"};
     TableSP table = Util::createTable(colNames, cols);
     return table;
 }
@@ -84,12 +89,22 @@ public:
 
         for (auto id : changes) {
             OPCItemData* itemData = id.second;
+            //cout<<"id.first:"<<id.first<<"map size"<<group.mapTag.size()<<endl;
+            map<int ,string >::iterator l_it;;
+            l_it=group.mapTag.find(id.first);
+            if(l_it==group.mapTag.end()) {
+              cout << "tag is not found!" << endl;
+              continue;
+            }
+            string name=group.mapTag.find(id.first)->second;
+            //cout<<name<<endl;
 
             // log_item(*itemData);
-            ConstantSP v = toConstant(*itemData);
+            ConstantSP v = toConstant(*itemData,name);
+
             vector<ConstantSP> args = {v};
             if (_handler->isArray()) {
-
+              /*
                if(id.first<startId) {
                     startId = id.first;
                     cout << "startID " << startId << endl;
@@ -97,13 +112,13 @@ public:
                 // log_item(*itemData);
                 INDEX insertedRows = 1;
                 string errMsg;
-                TableSP tp = _handler->get(id.first - startId);
+                TableSP tp = _handler->get(id.first - startId);//
                 tp->append(args, insertedRows, errMsg);
 
                 if (insertedRows != 1) {
                     cout << "insert " << insertedRows << " err " << errMsg << endl;
                     throw RuntimeException(errMsg);
-                }
+                }*/
             } else {
                 if (_handler->isTable()) {
                     TableSP t = (TableSP)_handler;
@@ -138,10 +153,11 @@ struct Task {    // connect or sub
     vector<ConstantSP> args;
     ConstantSP ret;    // connect result, pass from worker thread out main thread
     Table** retTable;
+    std::shared_ptr<string> errMsg;
     Task() : Task(nullptr, nullptr, nullptr, nullptr, nullptr) {
     }
     explicit Task(Heap* heap, OPCClient* conn, const ConstantSP& tagName, const ConstantSP& callback, CountDownLatchSP latch)
-        : act(SUB),heap(heap), conn(conn), tagName(tagName), serverName(""), callback(callback), reqRt(0), latch(latch) {
+        : act(SUB),heap(heap), conn(conn), tagName(tagName), serverName(""), callback(callback), reqRt(0), latch(latch), errMsg(new string()) {
     }
     explicit Task(Heap* heap, string host, string serverName, unsigned long reqRt, CountDownLatchSP latch)
         : act(CONN),
@@ -152,13 +168,14 @@ struct Task {    // connect or sub
           serverName(move(serverName)),
           callback(0),
           reqRt(reqRt),
-          latch(latch) {
+          latch(latch),
+          errMsg(new string()) {
     }
     explicit Task(Heap* heap, FUNC&& func, vector<ConstantSP>& args, CountDownLatchSP latch)
-        : act(CALL), heap(heap), func(func), args(args), latch(latch) {
+        : act(CALL), heap(heap), func(func), args(args), latch(latch), errMsg(new string()) {
         retTable = reinterpret_cast<Table**>(new long long);
     }
-    explicit Task(Heap* heap, OPCClient* conn, CountDownLatchSP latch) : act(UNSUB), conn(conn), latch(latch) {}
+    explicit Task(Heap* heap, OPCClient* conn, CountDownLatchSP latch) : act(UNSUB), conn(conn), latch(latch), errMsg(new string()) {}
 };
 
 class OPCWorker : public Runnable {
@@ -188,15 +205,16 @@ public:
                             break;
                     }
                 } catch (exception& e) {
-                    cout << e.what() << endl;
-                    *t.retTable = 0;
+                    //cout <<"Failed to work:"<< e.what() << endl;
+                    *t.errMsg = e.what();
+                    //*t.retTable = 0;
                     t.latch->countDown();
                 }
             }
 
             MSG msg;
             for (int i = 0; i < 100; ++i) {
-                if (PeekMessageA(&msg, NULL, NULL, NULL, PM_REMOVE)) {
+                if (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE)) {
                     TranslateMessage(&msg);
                     DispatchMessageA(&msg);
                 }
@@ -209,12 +227,18 @@ public:
         Task t(heap, conn, tagName, callback, latch);
         queue_.push(t);
         latch->wait();
+        if(!t.errMsg->empty()){
+          throw RuntimeException(*t.errMsg);
+        }
     }
     void unsub(OPCClient* conn) {
         CountDownLatchSP latch = new CountDownLatch(1);
         Task t(0, conn, latch);
         queue_.push(t);
         latch->wait();
+        if(!t.errMsg->empty()){
+          throw RuntimeException(*t.errMsg);
+        }
     }
     OPCClient* connect(Heap* heap, string host, string serverName, unsigned long reqUpdateRate_ms) {
         CountDownLatchSP latch = new CountDownLatch(1);
@@ -222,7 +246,12 @@ public:
         t.ret = new Long(-1);
         queue_.push(t);
         latch->wait();
-        cout << "connRet: " << t.ret->getLong() << endl;
+        //cout << "connRet: " << t.ret->getLong() << endl;
+        if(!t.errMsg->empty()){
+          throw RuntimeException(*t.errMsg);
+        }
+        if (t.ret->getLong() == 0 )
+            throw RuntimeException("Failed to connect the server");
         return reinterpret_cast<OPCClient*>(t.ret->getLong());
     }
     Table* call(Heap* heap, FUNC&& func, vector<ConstantSP>& args) {
@@ -230,6 +259,10 @@ public:
         Task t(heap, move(func), args, latch);
         queue_.push(t);
         latch->wait();
+
+        if(!t.errMsg->empty()){
+          throw RuntimeException(*t.errMsg);
+        }
         //        cout << *t.retTable << endl;
         return *t.retTable;
     }
@@ -260,8 +293,15 @@ private:
         if (group->addItems(items, itemsCreated, errors, true) != 0) {
             throw OPCException("Failed to add item");
         }
+
+        for (unsigned i = 0; i < items.size(); i++){
+          group->mapTag.insert(pair<int,string>(itemsCreated[i]->getID(),items[i]));
+        }
+
         unique_ptr<IAsynchDataCallback> ptr(new CMyCallback(heap, callback ));
+
         group->enableAsynch(move(ptr));
+
         conn->setSubFlag(false);
 
         task.latch->countDown();
@@ -269,6 +309,8 @@ private:
     static void unsubInternal(Task& task) {
         auto& conn = task.conn;
         auto group = conn->group;
+        //group->removeItems();
+        group->mapTag.clear();
         group->disableAsynch();
         task.latch->countDown();
     }
@@ -277,10 +319,12 @@ private:
         auto& serverName = task.serverName;
         auto& reqUpdateRate_ms = task.reqRt;
         OPCClient* cup = new OPCClient(host, id_);
+
         cup->connectToOPCServer(serverName);
+
         unsigned long refresh_rate = 0;
         cup->makeGroup("Group", true, reqUpdateRate_ms, refresh_rate, 0.0);
-        cout << "revised Update Rate ms is " << refresh_rate << endl;
+        //cout << "revised Update Rate ms is " << refresh_rate << endl;
         task.ret->setLong(reinterpret_cast<long long>(cup));
         task.latch->countDown();
     }
@@ -428,8 +472,10 @@ ConstantSP disconnect(const ConstantSP& handle, const ConstantSP& b) {
     }
 
     if (conn != nullptr) {
-        delete conn;
         handle->setLong(0);
+        if(!conn->getSubFlag())
+          pool.unsub(conn);
+        delete conn;
     }
 
     return new Bool(true);
@@ -448,6 +494,7 @@ ConstantSP endSub(const ConstantSP& handle, const ConstantSP& b) {
     //endflag = 1;
     if (conn != nullptr) {
         conn->setSubFlag(true);
+        pool.unsub(conn);
     }
 
     return new Void();
@@ -535,24 +582,28 @@ Table* readTagInternal(Heap* heap, vector<ConstantSP>& arguments) {
         }
         vector<string> colNames = {"name", "timestamp", "value", "quality"};
         vector<ConstantSP> cols = {nameVec, timestampVec, valueVec, qualityVec};
-    Table* retTable = Util::createTable(colNames, cols);
+        Table* retTable = Util::createTable(colNames, cols);
         return retTable;
     } else {
         if (arguments[2]->isTable()) {
-            vector<string> colNames;
-            vector<ConstantSP> cols;
+            Table* tp = (Table*)arguments[2].get();
+            cout<<"columns"<<tp->columns()<<endl;
 
-            for (int i = 0; i < toltallySize; i++) {
+            if(tp->columns()>4){//multiple value mode
+              vector<string> colNames;
+              vector<ConstantSP> cols;
+
+              for (int i = 0; i < toltallySize; i++) {
                 auto item = itemsCreated[i];
                 OPCItemData data;
                 item->readSync(data, OPC_DS_DEVICE);
                 if (i == 0) {
-                    unsigned long long ms;
-                    FileTimeToMs(data.ftTimeStamp, ms);
-                    ConstantSP timestamp = Util::createConstant(DT_TIMESTAMP);
-                    timestamp->setLong(ms);
-                    colNames.push_back("timestamp");
-                    cols.push_back(timestamp);
+                  unsigned long long ms;
+                  FileTimeToMs(data.ftTimeStamp, ms);
+                  ConstantSP timestamp = Util::createConstant(DT_TIMESTAMP);
+                  timestamp->setLong(ms);
+                  colNames.push_back("timestamp");
+                  cols.push_back(timestamp);
                 }
 
                 OpcVal* val = new OpcVal(data);
@@ -564,21 +615,73 @@ Table* readTagInternal(Heap* heap, vector<ConstantSP>& arguments) {
 
                 cols.push_back(quality);
                 colNames.push_back("quality" + std::to_string(i));
-            }
+              }
 
-            TableSP resultTable = Util::createTable(colNames, cols);
-            vector<ConstantSP> args1 = {resultTable};
+              TableSP resultTable = Util::createTable(colNames, cols);
+              vector<ConstantSP> args1 = {resultTable};
 
-            INDEX insertedRows = 1;
-            string errMsg;
-            Table* tp = (Table*)arguments[2].get();
-            tp->append(args1, insertedRows, errMsg);
-            cout << "insert rows:" << insertedRows << endl;
-            if (insertedRows != resultTable->rows()) {
+              INDEX insertedRows = 1;
+              string errMsg;
+
+              tp->append(args1, insertedRows, errMsg);
+              cout << "insert rows:" << insertedRows << endl;
+              if (insertedRows != resultTable->rows()) {
                 cout << "insert " << insertedRows << " err " << errMsg << endl;
                 throw RuntimeException(errMsg);
+              }
+              return Util::createTable(colNames, cols);
+
+            }else{//single value mode
+              ConstantSP timestampVec = Util::createVector(DT_TIMESTAMP, items.size());
+              ConstantSP valueVec;
+              // read one
+              auto item_first = itemsCreated[0];
+              OPCItemData data_first;
+              item_first->readSync(data_first, OPC_DS_DEVICE);
+
+              valueVec = Util::createVector(tp->getColumn(2)->getType(), items.size());
+              //valueVec = Util::createVector(DT_DOUBLE, items.size());
+              ConstantSP qualityVec = Util::createVector(DT_INT, items.size());
+
+              ConstantSP nameVec = Util::createVector(DT_STRING, items.size());
+
+              for (int i = 0; i < toltallySize; i++) {
+                auto item = itemsCreated[i];
+                OPCItemData data;
+                item->readSync(data, OPC_DS_DEVICE);
+                unsigned long long ms;
+                FileTimeToMs(data.ftTimeStamp, ms);
+                ConstantSP timestamp = Util::createConstant(DT_TIMESTAMP);
+                timestamp->setLong(ms);
+                timestampVec->set(i, timestamp);
+                OpcVal* val = new OpcVal(data);
+
+                valueVec->set(i, val->toConstant());
+                ConstantSP quality = Util::createConstant(DT_INT);
+                quality->setInt(data.wQuality);
+                qualityVec->set(i, quality);
+                ConstantSP name = Util::createConstant(DT_STRING);
+                name->setString(item->getName());
+                nameVec->set(i, name);
+              }
+              vector<string> colNames = {"name", "timestamp", "value", "quality"};
+              vector<ConstantSP> cols = {nameVec, timestampVec, valueVec, qualityVec};
+              TableSP resultTable = Util::createTable(colNames, cols);
+
+              vector<ConstantSP> args1 = {resultTable};
+              INDEX insertedRows = 1;
+              string errMsg;
+
+              tp->append(args1, insertedRows, errMsg);
+              cout << "insert rows:" << insertedRows << endl;
+              if (insertedRows != resultTable->rows()) {
+                cout << "insert " << insertedRows << " err " << errMsg << endl;
+                throw RuntimeException(errMsg);
+              }
+              return Util::createTable(colNames, cols);;
             }
-            return Util::createTable(colNames, cols);
+
+
         } else {
             for (int i = 0; i < toltallySize; i++) {
 
@@ -587,6 +690,11 @@ Table* readTagInternal(Heap* heap, vector<ConstantSP>& arguments) {
                 auto item = itemsCreated[i];
                 OPCItemData data;
                 item->readSync(data, OPC_DS_DEVICE);
+
+                ConstantSP name = Util::createConstant(DT_STRING);
+                colNames.push_back("tag");
+                name->setString(item->getName());
+                cols.push_back(name);
 
                 unsigned long long ms;
                 FileTimeToMs(data.ftTimeStamp, ms);
@@ -631,7 +739,7 @@ ConstantSP readTag(Heap* heap, vector<ConstantSP>& arguments) {
     OPCClient* conn;
     if (arguments[0]->getType() == DT_RESOURCE) {
         conn = (OPCClient*)(arguments[0]->getLong());
-        if (!conn->getConnected()) {
+        if (conn==nullptr || !conn->getConnected()) {
             throw IllegalArgumentException(__FUNCTION__, usage + "client is not connected.");
         }
     } else {
@@ -826,7 +934,7 @@ ConstantSP writeTag(Heap* heap, vector<ConstantSP>& arguments) {
     OPCClient* conn;
     if (arguments[0]->getType() == DT_RESOURCE) {
         conn = (OPCClient*)(arguments[0]->getLong());
-        if (!conn->getConnected()) {
+        if (conn==nullptr || !conn->getConnected()) {
             throw IllegalArgumentException(__FUNCTION__, usage + "client is not connected.");
         }
     } else {
@@ -866,8 +974,11 @@ ConstantSP subscribeTag(Heap* heap, vector<ConstantSP>& arguments) {
     OPCClient* conn;
     if (arguments[0]->getType() == DT_RESOURCE) {
         conn = (OPCClient*)(arguments[0]->getLong());
-        if (!conn->getConnected()) {
+        if (conn==nullptr || !conn->getConnected()) {
             throw IllegalArgumentException(__FUNCTION__, usage + "client is not connected.");
+        }
+        if (!conn->getSubFlag() ) {
+          throw IllegalArgumentException(__FUNCTION__, usage + "client is subscribed.");
         }
     } else {
         throw IllegalArgumentException(__FUNCTION__, usage + "Invalid connection object.");
@@ -879,23 +990,22 @@ ConstantSP subscribeTag(Heap* heap, vector<ConstantSP>& arguments) {
 
     if (arguments[1]->isArray()) {//multiple tags
         if (arguments[2]->isArray()) {
-            if (arguments[2]->size() != arguments[1]->size()) {
+            throw IllegalArgumentException(__FUNCTION__, "the handler must be a table or a function");
+            /*if (arguments[2]->size() != arguments[1]->size()) {
                 throw IllegalArgumentException(__FUNCTION__, "the tag array size and the handler size must be the same");
             }
-        }
-        for (int i = 0; i < arguments[2]->size(); i++) {
-            if (!arguments[2]->get(i)->isTable())
+            for (int i = 0; i < arguments[2]->size(); i++) {
+              if (!arguments[2]->get(i)->isTable())
                 throw IllegalArgumentException(__FUNCTION__, "the handler array must be all table");
+            }*/
         }
+
     } 
-    if (!arguments[2]->isArray()) {
+    /*if (!arguments[2]->isArray()) */{
         if (!arguments[2]->isTable() && (arguments[2]->getType() != DT_FUNCTIONDEF)) {
             throw IllegalArgumentException(__FUNCTION__, usage + "handler must be a table or function");
         }
     }
-
-    //string tagName = arguments[1]->getString();
-
     
     pool.sub(heap, conn, arguments[1], arguments[2]);
     // stop by sub by delete item
