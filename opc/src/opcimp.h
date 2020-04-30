@@ -110,6 +110,7 @@ public:
         coInit();
         _connected = false;
         group = NULL;
+        _endSubFlag = true;
     }
     ~OPCClient() {
         //if(_connected) disconnect();
@@ -353,6 +354,8 @@ private:
     OPCHANDLE * buildServerHandleList(std::vector<COPCItem *>& items);
 
 public:
+
+    map<int,string> mapTag;
     COPCGroup(const std::string & groupName, bool active, unsigned long reqUpdateRate_ms, unsigned long &revisedUpdateRate_ms, float deadBand, OPCClient &server);
 
     virtual ~COPCGroup();
@@ -366,7 +369,7 @@ public:
     */
     int addItems(std::vector<std::string>& itemName, std::vector<COPCItem *>& itemsCreated, std::vector<HRESULT>& errors, bool active);
 
-
+    void removeItems( DWORD dwCount, OPCHANDLE *phServer);
     /**
     * enable Asynch IO
     */

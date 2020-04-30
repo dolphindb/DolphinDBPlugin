@@ -1,6 +1,6 @@
 mqtt,libPluginMQTTClient.so
 mqttClientSub,subscribe,system,5,5,0
-mqttClientStopSub,unsubcribe,operator,1,1,0
+mqttClientStopSub,unsubscribe,operator,1,1,0
 mqttClientConnect,connect,system,2,5,0
 mqttClientClose,close,operator,1,1,0
 mqttClientPub,publish,system,3,3,0

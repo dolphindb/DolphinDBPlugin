@@ -1,10 +1,28 @@
 # OPC Plugin
 
-## 1. Build
+## 1. Build with cmake and minGW
 
-1. Install [MinGW](http://www.mingw.org/). It is supposed that your version of MinGW contains the COM library.
-2. Move libDolphinDB.dll to the build direcotry.
-3. Move CMakeLists.txt to the DolphinDBPlugin directory and build with clion.
+Install  [cmake](https://cmake.org/). It is a popular project build tool that can help you easily solve third-party dependencies. 
+
+Install [MinGW](http://www.mingw.org/). It is supposed that your version of MinGW contains the COM library.Currently compiled with mingw-w64-boots-4.3.3 on 64-bit win10.
+
+Add the bin directory of MinGW and cmake to the system environment virable `path` of the Windows system
+
+```
+    git clone https://github.com/dolphindb/DolphinDBPlugin.git
+    cd DolphinDBPlugin
+    mkdir build
+    cd build
+    cmake ../opc -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+    copy /YOURPATH/libDolphinDB.dll . 
+    mingw32-make clean
+    mingw32-make
+```
+
+**Note:** If you need to specify specific MingW path, please modify the following statement in CmakeList.txt
+```
+    set(MINGW32_LOCATION C://MinGW/MinGW/)  
+```
 
 ## 2. API 
 
@@ -96,13 +114,14 @@ Read the values of the tags synchronously. It returns a table.
 **Example**
 
 ```
-t = table(200:0,`time`value`quality, [TIMESTAMP, DOUBLE, INT])
+t = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
 opc::readTag(conn, "testwrite.test9",t)
+opc::readTag(conn, ["testwrite.test5","testwrite.test8", "testwrite.test9"],t) 
 tm = table(200:0,`time`tag1`quality1`tag2`quality2, [TIMESTAMP,STRING, INT,INT,INT])
 opc::readTag(conn, ["testwrite.test1","testwrite.test4"],tm) 
-t1 = table(200:0,`time`value`quality, [TIMESTAMP, STRING, INT])
-t2 = table(200:0,`time`value`quality, [TIMESTAMP, INT, INT])
-t3 = table(200:0,`time`value`quality, [TIMESTAMP, DOUBLE, INT])
+t1 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, STRING, INT])
+t2 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, INT, INT])
+t3 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
 opc::readTag(conn, ["testwrite.test1","testwrite.test4", "testwrite.test9"],[t1,t2,t3]) 
 ```
 
@@ -157,20 +176,20 @@ subscribe the values of the tags  from the OPC server.
 **Example**
 
 ```
-//loadPlugin("PluginOPC.txt")
-t1 = table(200:0,`time`value`quality, [TIMESTAMP, STRING, INT])
-conn1=opc::connect(`desk9,`Matrikon.OPC.Simulation.1,100)
+t1 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, STRING, INT])
+conn1=opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,100)
 opc::subscribe(conn1,".testString",  t1)
-t2 = table(200:0,`time`value`quality, [TIMESTAMP, INT, INT])
-t3 = table(200:0,`time`value`quality, [TIMESTAMP, DOUBLE, INT])
-conn20 = opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,10)
-opc::subscribe(conn20,[".testINT2",".testReal8"], [t2, t3])
-def callback1(mutable t1, d) {
-	t1.append!(d)
+
+t2 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+conn2=opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,100)
+opc::subscribe(conn2,[".testReal8",".testReal4"],  t5)
+
+def callback1(mutable t, d) {
+	t.append!(d)
 }
-t4 = table(200:0,`time`value`quality, [TIMESTAMP, BOOL, INT])
+t3 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, BOOL, INT])
 conn10 = opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,10)
-opc::subscribe(conn10,".testBool",   callback1{t4})
+opc::subscribe(conn10,".testBool",   callback1{t3})
 ```
 
 ### 2.6 Unsubscribe

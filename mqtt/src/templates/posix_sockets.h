@@ -3,8 +3,10 @@
 
 #include <stdio.h>
 #include <sys/types.h>
+#if !defined(WIN32)
 #include <sys/socket.h>
 #include <netdb.h>
+#endif
 #include <fcntl.h>
 
 #ifdef __cplusplus

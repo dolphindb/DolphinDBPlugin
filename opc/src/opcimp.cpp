@@ -110,7 +110,13 @@ void OPCClient::getServerList(std::vector<std::string> &serverNameList, std::vec
 
 void OPCClient::connectToOPCServer(string& serverName) {
     // first step, get serve CLSID
-    getServerList();
+    try {
+      getServerList();
+    }
+    catch(exception& ex){
+      cout<<"Fail to get server list:"<<string(ex.what())<<endl;
+      throw OPCException("Failed to get the server list");
+    }
     // find
     CLSID cid;
     bool flag = false;
@@ -141,6 +147,7 @@ void OPCClient::connectToOPCServer(string& serverName) {
     }
 
     _connected = true;
+    _endSubFlag = true;
 }
 
 void OPCClient::disconnect() {
@@ -153,6 +160,8 @@ void OPCClient::disconnect() {
     _opcServer = NULL;
     if(group != NULL)
         delete group;
+    _endSubFlag = true;
+    _connected = false;
 }
 
 COPCGroup *OPCClient::makeGroup(const std::string & groupName, bool active, unsigned long reqUpdateRate_ms, unsigned long &revisedUpdateRate_ms, float deadBand){
@@ -293,7 +302,13 @@ int COPCGroup::addItems(std::vector<std::string>& itemName, std::vector<COPCItem
 
     return errorCount;
 }
-
+void COPCGroup::removeItems( DWORD dwCount, OPCHANDLE *phServer){
+  HRESULT *itemResult;
+  HRESULT	result = getItemManagementInterface()->RemoveItems(dwCount, phServer, &itemResult);
+  if (FAILED(result)){
+    throw OPCException("Failed to remove items");
+  }
+}
 
 void COPCGroup::enableAsynch(unique_ptr<IAsynchDataCallback>&& handler){
     if (!asynchDataCallBackHandler == false){
