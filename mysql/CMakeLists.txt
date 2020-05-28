@@ -27,15 +27,15 @@ link_directories("${CMAKE_BINARY_DIR}")
 add_subdirectory(contrib/mariadb-connector-c-cmake)
 
 ## build PluginMySQL
-add_library(MySQL SHARED
+add_library(PluginMySQL SHARED
         src/mysqlxx.cpp
         src/plugin_mysql.cpp)
 
-set_target_properties(MySQL PROPERTIES LINK_DIRECTORIES "${CMAKE_BINARY_DIR}")
+set_target_properties(PluginMySQL PROPERTIES LINK_DIRECTORIES "${CMAKE_BINARY_DIR}")
 if (WIN32)
-    target_link_libraries(MySQL DolphinDB mysqlclient)
+    target_link_libraries(PluginMySQL DolphinDB mysqlclient)
 else ()
-    target_link_libraries(MySQL mysqlclient)
+    target_link_libraries(PluginMySQL mysqlclient)
 endif()
 
 configure_file(${plugin_file} ${CMAKE_BINARY_DIR}/PluginMySQL.txt COPYONLY)
