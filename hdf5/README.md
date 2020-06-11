@@ -10,8 +10,8 @@ DolphinDB's HDF5 plugin imports HDF5 datasets into DolphinDB and supports data t
     * [hdf5::ls](#hdf5ls)
     * [hdf5::lsTable](#hdf5lstable)
     * [hdf5::extractHdf5Schema](#hdf5extracthdf5schema)
-    * [hdf5::loadHdf5](#hdf5loadhdf5)
-    * [hdf5::loadHdf5Ex](#hdf5loadhdf5ex)
+    * [hdf5::loadHDF5](#hdf5loadhdf5)
+    * [hdf5::loadHDF5Ex](#hdf5loadhdf5ex)
     * [hdf5::hdf5DS](#hdf5hdf5ds)
 * [Data Types](#Data Types) 
     * [integer](#integer)
@@ -262,13 +262,13 @@ output:
 * SEQ partitioned table on disk
 ```
 db = database("seq_on_disk", SEQ, 16)
-hdf5::loadHdf5Ex(db,`tb,,"/large_file.h5", "large_table")
+hdf5::loadHDF5Ex(db,`tb,,"/large_file.h5", "large_table")
 ```
 
 * SEQ in-memory partitioned table
 ```
 db = database("", SEQ, 16)
-hdf5::loadHdf5Ex(db,`tb,,"/large_file.h5", "large_table")
+hdf5::loadHDF5Ex(db,`tb,,"/large_file.h5", "large_table")
 ```
 
 * Non-SEQ partitioned table on disk
@@ -280,7 +280,7 @@ hdf5::loadHdf5Ex(db,`tb,`col_4,"/smpl_numeric.h5","sint")
 * Non-SEQ in-memory partitioned table
 ```
 db = database("", RANGE, 0 500 1000)
-t0 = hdf5::loadHdf5Ex(db,`tb,`col_4,"/smpl_numeric.h5","sint")
+t0 = hdf5::loadHDF5Ex(db,`tb,`col_4,"/smpl_numeric.h5","sint")
 ```
 
 ## hdf5::hdf5DS
