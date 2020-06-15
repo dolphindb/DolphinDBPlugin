@@ -1,0 +1,385 @@
+//set your path here
+loadPlugin("/DolphinDBPlugin/opc_ua/build/PluginOpcUa.txt")
+certPath = "/DolphinDBPlugin/opc_ua/open62541/cert/"
+
+serverUrl="opc.tcp://192.168.1.201:53530/OPCUA/SimulationServer"
+
+@testing:case="test_get_server_list_ep"
+t=opcua::getOpcServerList(serverUrl)
+assert 1, t.size() > 0
+ep=opcua::getOpcEndPointList(serverUrl)
+assert 2, ep.size() > 0
+EndpointUrl=exec EndpointUrl from ep where securityLevel=0
+conn=opcua::connect(EndpointUrl[0],"myclient");
+opcua::close(conn)
+assert 3,conn== "opc ua connection"
+
+@testing:case="test_connection_user_cert"
+conn = opcua::connect(serverUrl,"urn:opcua.client.application","admin","123456",,,certPath+"client_cert.der",certPath+"client_key.der")
+assert 1,conn== "opc ua connection"
+rst=opcua::close(conn)
+assert 2,rst==true
+conn = opcua::connect(serverUrl,"urn:opcua.client.application","admin","123456","Sign","Basic256",certPath+"client_cert.der",certPath+"client_key.der")
+assert 3,conn== "opc ua connection"
+opcua::close(conn)
+conn = opcua::connect(serverUrl,"urn:opcua.client.application","admin","123456","SignAndEncrypt","Basic256",certPath+"client_cert.der",certPath+"client_key.der")
+assert 4,conn== "opc ua connection"
+
+@testing:case="test_browseNode"
+t=opcua::browseNode(conn)
+assert 1,t.size()>0
+
+@testing:case="test_readNode"
+t = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, INT, TIMESTAMP, SYMBOL])
+opcua::readNode(conn, 3, "Counter",t)
+assert 1,t.size()>0
+opcua::readNode(conn, 3, ["Counter","Expression","Random","Sawtooth"],t)
+assert 2,t.size()>=4
+
+@testing:case="test_sub"
+t = table(200:0,`nodeID`value`timestamp`status, [STRING, INT, TIMESTAMP, STRING])
+opcua::subscribe(conn, 3, ["Counter","Expression","Random","Sawtooth"],t)
+opcua::unsubscribe(conn)
+assert 1,t.size()>=4
+
+@testing:case="test_writeNode"
+conn8=opcua::connect(serverUrl,"myclient")
+opcua::writeNode(conn8, 6, "DoubleArray",[1.000000,2.000000,3.000000,4.000000,5.000000])  
+t=opcua::readNode(conn8, 6, "DoubleArray") 
+v=t[`value][0].split(";")
+assert 1,eqObj(double(v[0].split(",")[0]),1.000,3)==true
+
+
+@testing:case="test_conn_remote"
+serverUrl="opc.tcp://118.24.36.220:62547/DataAccessServer"
+t=opcua::getOpcServerList(serverUrl)
+assert 1, t.size() > 0
+ep=opcua::getOpcEndPointList(serverUrl)
+assert 2, ep.size() > 0
+EndpointUrl=exec EndpointUrl from ep where securityLevel=0
+connection=opcua::connect(EndpointUrl[0],"myClient");
+assert 3,connection== "opc ua connection"
+
+@testing:case="test_conn_remote_browseNode"
+t=opcua::browseNode(connection)
+assert 1,t.size() == 10
+assert 2,t[`nodeidString][0]=="Machines/Enable"
+
+
+@testing:case="test_conn_remote_array"
+t=opcua::readNode(connection, 2, "Machines/Mat") 
+v=t[`value][0].split(";")
+assert 1,eqObj(double(v[0].split(",")[0]),0.000,3)==true
+
+
+@testing:case="test_conn_remote_bool"
+opcua::writeNode(connection, 2, "Machines/Enable",true)  
+t=opcua::readNode(connection, 2, "Machines/Enable")  
+assert 3,t[`value][0]==true
+opcua::writeNode(connection, 2, "Machines/Enable",false)  
+t=opcua::readNode(connection, 2, "Machines/Enable")  
+assert 4,t[`value][0]==false
+
+@testing:case="test_conn_remote_int"
+opcua::writeNode(connection, 2, "Machines/Machine C/TestValueInt",1) 
+t=opcua::readNode(connection, 2, "Machines/Machine C/TestValueInt") 
+assert 1,t[`value][0]==1
+t = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, INT, TIMESTAMP, SYMBOL])
+opcua::readNode(connection, 2, "Machines/Machine C/TestValueInt",t) 
+assert 2,t[`value][0]==1
+
+@testing:case="test_conn_remote_time"
+opcua::writeNode(connection, 2, "Machines/Machine C/AlarmTime",2020.01.01T00:00:00.100)  
+t=opcua::readNode(connection, 2, "Machines/Machine C/AlarmTime")  
+assert 1, t[`value][0]==2020.01.01T00:00:00.100
+t = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, TIMESTAMP, TIMESTAMP, SYMBOL])
+opcua::readNode(connection, 2, "Machines/Machine C/AlarmTime",t) 
+assert 2,t[`value][0]==2020.01.01T00:00:00.100
+
+@testing:case="test_conn_remote_Float"
+opcua::writeNode(connection, 2, "Machines/Machine C/TestValueFloat",100.000f)
+t=opcua::readNode(connection, 2, "Machines/Machine C/TestValueFloat")
+assert 1,eqObj(t[`value][0],100.0,3)==true
+t = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, FLOAT, TIMESTAMP, SYMBOL])
+opcua::readNode(connection, 2, "Machines/Machine C/TestValueFloat",t)
+assert 1,eqObj(t[`value][0],100.0,3)==true
+
+@testing:case="test_conn_remote_isfault"
+opcua::writeNode(connection, 2, "Machines/Machine C/IsFault",false)  
+t=opcua::readNode(connection, 2, "Machines/Machine C/IsFault")  
+assert 4,t[`value][0]==false
+opcua::writeNode(connection, 2, "Machines/Machine C/IsFault",true)  
+t=opcua::readNode(connection, 2, "Machines/Machine C/IsFault")  
+assert 4,t[`value][0]==true
+
+@testing:case="test_conn_remote_string"
+opcua::writeNode(connection, 2, "Machines/Machine C/Name","hello world")  
+t=opcua::readNode(connection, 2, "Machines/Machine C/Name")  
+assert 1,t[`value][0]=="hello world"
+opcua::writeNode(connection, 2, "Machines/Machine C/Name","")  
+t = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, STRING, TIMESTAMP, SYMBOL])
+opcua::readNode(connection, 2, "Machines/Machine C/Name",t)  
+assert 1,t[`value][0]==""
+
+@testing:case="test_conn_remote_bint"
+n=-2147483647
+opcua::writeNode(connection, 2, "Machines/Machine B/TestValueInt",n) 
+t=opcua::readNode(connection, 2, "Machines/Machine B/TestValueInt") 
+assert 1,t[`value][0] - n < 2 
+t = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, INT, TIMESTAMP, SYMBOL])
+opcua::readNode(connection, 2, "Machines/Machine B/TestValueInt",t) 
+assert 2,t[`value][0] - n < 2 
+
+
+@testing:case="test_conn_remote_btime"
+opcua::writeNode(connection, 2, "Machines/Machine B/AlarmTime",2020.01.01T00:00:00.100)  
+t=opcua::readNode(connection, 2, "Machines/Machine B/AlarmTime")  
+assert 1, t[`value][0]==2020.01.01T00:00:00.100
+t = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, TIMESTAMP, TIMESTAMP, SYMBOL])
+opcua::readNode(connection, 2, "Machines/Machine B/AlarmTime",t) 
+assert 2,t[`value][0]==2020.01.01T00:00:00.100
+
+@testing:case="test_conn_remote_bFloat"
+v=-1.1736f
+opcua::writeNode(connection, 2, "Machines/Machine B/TestValueFloat",v)
+t=opcua::readNode(connection, 2, "Machines/Machine B/TestValueFloat")
+assert 1,eqObj(t[`value][0],v,3)==true
+t = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, FLOAT, TIMESTAMP, SYMBOL])
+opcua::readNode(connection, 2, "Machines/Machine B/TestValueFloat",t)
+assert 1,eqObj(t[`value][0],v,3)==true
+
+
+@testing:case="test_conn_remote_bisfault"
+opcua::writeNode(connection, 2, "Machines/Machine B/IsFault",false)  
+t=opcua::readNode(connection, 2, "Machines/Machine B/IsFault")  
+assert 4,t[`value][0]==false
+opcua::writeNode(connection, 2, "Machines/Machine B/IsFault",true)  
+t=opcua::readNode(connection, 2, "Machines/Machine B/IsFault")  
+assert 4,t[`value][0]==true
+
+@testing:case="test_conn_remote_bstring"
+opcua::writeNode(connection, 2, "Machines/Machine B/Name","hello world")  
+t=opcua::readNode(connection, 2, "Machines/Machine B/Name")  
+assert 1,t[`value][0]=="hello world"
+opcua::writeNode(connection, 2, "Machines/Machine B/Name","")  
+t = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, STRING, TIMESTAMP, SYMBOL])
+opcua::readNode(connection, 2, "Machines/Machine B/Name",t)  
+assert 1,t[`value][0]==""
+
+
+@testing:case="test_conn_remote_aint"
+n=-2147483647
+opcua::writeNode(connection, 2, "Machines/Machine A/TestValueInt",n) 
+t=opcua::readNode(connection, 2, "Machines/Machine A/TestValueInt") 
+assert 1,t[`value][0] - n < 2 
+t = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, INT, TIMESTAMP, SYMBOL])
+opcua::readNode(connection, 2, "Machines/Machine A/TestValueInt",t) 
+assert 2,t[`value][0] - n < 2 
+
+
+@testing:case="test_conn_remote_atime"
+opcua::writeNode(connection, 2, "Machines/Machine A/AlarmTime",2020.01.01T00:00:00.100)  
+t=opcua::readNode(connection, 2, "Machines/Machine A/AlarmTime")  
+assert 1, t[`value][0]==2020.01.01T00:00:00.100
+t = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, TIMESTAMP, TIMESTAMP, SYMBOL])
+opcua::readNode(connection, 2, "Machines/Machine A/AlarmTime",t) 
+assert 2,t[`value][0]==2020.01.01T00:00:00.100
+
+@testing:case="test_conn_remote_aFloat"
+v=-992.0f
+opcua::writeNode(connection, 2, "Machines/Machine A/TestValueFloat",v)
+t=opcua::readNode(connection, 2, "Machines/Machine A/TestValueFloat")
+assert 1,eqObj(t[`value][0],v,3)==true
+t = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, FLOAT, TIMESTAMP, SYMBOL])
+opcua::readNode(connection, 2, "Machines/Machine A/TestValueFloat",t)
+assert 1,eqObj(t[`value][0],v,3)==true
+
+
+@testing:case="test_conn_remote_aisfault"
+opcua::writeNode(connection, 2, "Machines/Machine A/IsFault",false)  
+t=opcua::readNode(connection, 2, "Machines/Machine A/IsFault")  
+assert 4,t[`value][0]==false
+opcua::writeNode(connection, 2, "Machines/Machine A/IsFault",true)  
+t=opcua::readNode(connection, 2, "Machines/Machine A/IsFault")  
+assert 4,t[`value][0]==true
+
+@testing:case="test_conn_remote_astring"
+opcua::writeNode(connection, 2, "Machines/Machine A/Name","hello world")  
+t=opcua::readNode(connection, 2, "Machines/Machine A/Name")  
+assert 1,t[`value][0]=="hello world"
+opcua::writeNode(connection, 2, "Machines/Machine A/Name","")  
+t = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, STRING, TIMESTAMP, SYMBOL])
+opcua::readNode(connection, 2, "Machines/Machine A/Name",t)  
+assert 1,t[`value][0]==""
+
+
+
+@testing:case="test_conn_remote_sub_int"
+t = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, INT, TIMESTAMP, SYMBOL])
+ep=opcua::getOpcEndPointList(serverUrl)
+EndpointUrl=exec EndpointUrl from ep where securityLevel=0
+conn1=opcua::connect(EndpointUrl[0],"myClient");
+opcua::subscribe(conn1,2, "Machines/Machine A/TestValueInt",t)
+sz1= t.size()
+sleep(3000)
+assert 1,t.size()>sz1
+
+
+@testing:case="test_conn_remote_sub_alarmtime"
+tat = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, TIMESTAMP, TIMESTAMP, SYMBOL])
+conn3=opcua::connect(EndpointUrl[0],"myClient");
+conn3e=opcua::connect(EndpointUrl[0],"myClient");
+opcua::subscribe(conn3,2, "Machines/Machine A/AlarmTime",tat)
+sz2= tat.size()
+opcua::writeNode(conn3e, 2, "Machines/Machine A/AlarmTime",2020.01.01T00:00:00.200)
+sleep(1000)
+opcua::writeNode(conn3e, 2, "Machines/Machine A/AlarmTime",2020.01.01T00:00:00.300)
+sleep(1000)
+assert 1,tat.size()>sz2
+
+
+@testing:case="test_conn_remote_sub_float"
+tf = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, FLOAT, TIMESTAMP, SYMBOL])
+conn2=opcua::connect(EndpointUrl[0],"myClient");
+conn2e=opcua::connect(EndpointUrl[0],"myClient");
+opcua::subscribe(conn2,2, "Machines/Machine A/TestValueFloat",tf)
+sz3= tf.size()
+opcua::writeNode(conn2e, 2, "Machines/Machine A/TestValueFloat",12.0f)
+sleep(1000)
+opcua::writeNode(conn2e, 2, "Machines/Machine A/TestValueFloat",13.0f)
+sleep(1000)
+assert 1,tf.size()>sz3
+
+@testing:case="test_conn_remote_sub_isfault"
+tb = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, BOOL, TIMESTAMP, SYMBOL])
+def callback1(mutable t1, d) {
+	t1.append!(d)
+}
+conn4=opcua::connect(EndpointUrl[0],"myClient");
+opcua::subscribe(conn4,2, "Machines/Machine A/IsFault",callback1{tb})
+sz4= tb.size()
+sleep(5000)
+assert 1,tb.size()>sz4
+
+@testing:case="test_conn_remote_sub_astring"
+ts = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, STRING, TIMESTAMP, SYMBOL])
+conn5=opcua::connect(EndpointUrl[0],"myClient");
+conn5e=opcua::connect(EndpointUrl[0],"myClient");
+opcua::subscribe(conn5, 2, "Machines/Machine A/Name",ts) 
+sz5= ts.size() 
+opcua::writeNode(conn5e, 2, "Machines/Machine A/Name","2")  
+sleep(1000)
+opcua::writeNode(conn5e, 2, "Machines/Machine A/Name","3")  
+sleep(1000)
+assert 1,ts.size()>sz5
+
+
+@testing:case="test_conn_remote_sub_multi_node"
+tb2 = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, BOOL, TIMESTAMP, SYMBOL])
+conn6=opcua::connect(EndpointUrl[0],"myClient");
+opcua::subscribe(conn6,2, ["Machines/Machine A/IsFault","Machines/Enable"],tb2)
+sz6= tb2.size()
+sleep(3000)
+assert 1,tb2.size()>sz6
+
+@testing:case="test_conn_remote_sub_multi_node_different_type"
+tfi = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, FLOAT, TIMESTAMP, SYMBOL])
+conn7=opcua::connect(EndpointUrl[0],"myClient");
+opcua::subscribe(conn7,2, ["Machines/Machine A/TestValueFloat","Machines/Machine A/TestValueInt"],tfi)
+sleep(1000)
+restTable=select count(*) from tfi group by nodeID
+assert 1,restTable.size()==2
+
+/////////////////////
+@testing:case="test_conn_remote_recconnsub"
+ts1 = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, STRING, TIMESTAMP, SYMBOL])
+conn10=opcua::connect(EndpointUrl[0],"myClient");
+opcua::subscribe(conn10, 2, "Machines/Machine A/Name",ts1) 
+conn10=opcua::connect(EndpointUrl[0],"myClient");
+opcua::subscribe(conn10, 2, "Machines/Machine A/Name",ts1) 
+assert 1,ts1.size()>0
+
+@testing:case="test_conn_remote_resub"
+tfi1 = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, FLOAT, TIMESTAMP, SYMBOL])
+conn11=opcua::connect(EndpointUrl[0],"myClient");
+opcua::subscribe(conn11,2, "Machines/Machine A/TestValueFloat",tfi1)
+try{
+	subed=true
+	opcua::subscribe(conn11,2, "Machines/Machine A/TestValueInt",tfi1)
+}catch(ex){
+	subed=false
+}
+opcua::unsubscribe(conn11)
+assert 1,subed==false
+
+@testing:case="test_conn_remote_resub_reunsub"
+ts1 = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, STRING, TIMESTAMP, SYMBOL])
+conn12=opcua::connect(EndpointUrl[0],"myClient");
+opcua::subscribe(conn12, 2, "Machines/Machine A/Name",ts1) 
+try{
+	subed=true
+	opcua::subscribe(conn12, 2, "Machines/Machine A/Name",ts1) 
+}catch(ex){
+	subed=false
+}
+opcua::unsubscribe(conn12)
+opcua::unsubscribe(conn12)
+opcua::subscribe(conn12, 2, "Machines/Machine A/Name",ts1) 
+assert 1,subed==false
+
+
+
+@testing:case="test_opc_getOpcServerList_host_not_exist",exception=1
+opcua::getOpcServerList("not_exist")
+@testing:case="test_opc_getOpcServerList_NULL",exception=1
+opcua::getOpcServerList("")
+@testing:case="test_opc_getOpcServerList_1",exception=1
+opcua::getOpcServerList(1)
+@testing:case="test_opc_getOpcEndPointList_1",exception=1
+opcua::getOpcEndPointList("")
+@testing:case="test_opc_getOpcEndPointList_1",exception=1
+opcua::getOpcEndPointList(NULL)
+@testing:case="test_opc_browseNode1",exception=1
+t=opcua::browseNode(NULL)
+@testing:case="test_opc_browseNode2",exception=1
+t=opcua::browseNode("")
+@testing:case="test_opc_conn_1",exception=1
+opcua::connect("","")
+@testing:case="test_opc_conn_2",exception=1
+opcua::connect(serverUrl,,)
+@testing:case="test_opc_conn_3",exception=1
+opcua::connect(serverUrl,"","1","")
+@testing:case="test_opc_conn_4",exception=1
+opcua::connect(serverUrl,"","","1","Sign")
+@testing:case="test_opc_conn_5",exception=1
+opcua::connect(serverUrl,"","","1","SIGN")
+@testing:case="test_opc_conn_6",exception=1
+opcua::connect(serverUrl,"",NULL,NULL,"Sign")
+@testing:case="test_opc_readTag_1",exception=1
+conn100=opcua::connect(serverUrl,"")
+opcua::readNode(conn100,66, "")
+@testing:case="test_opc_readTag_2",exception=1
+opcua::readNode(conn100,3, "")
+@testing:case="test_opc_readTag_3",exception=1
+opcua::readNode(conn100, 3, "Counter1")
+@testing:case="test_opc_readTag_4",exception=1
+opcua::readNode(conn100, 3, NULL)
+@testing:case="test_opc_writeTag_1",exception=1
+opcua::writeNode(conn100, 3, NULL,1)
+@testing:case="test_opc_writeTag_2",exception=1
+opcua::writeNode(NULL, 3, "Counter",1)
+@testing:case="test_opc_writeTag_3",exception=1
+opcua::writeNode(1, 3, "Counter",1)
+@testing:case="test_opc_writeTag_4",exception=1
+opcua::writeNode(conn100, 3, "Counter",)
+@testing:case="test_opc_writeTag_5",exception=1
+opcua::writeNode(conn100, 3, "Counter","")
+@testing:case="test_opc_subscribe_1",exception=1
+opcua::subscribe(conn100,3, "Counter",)
+@testing:case="test_opc_subscribe_2",exception=1
+opcua::subscribe(NULL,3, "Counter",)
+@testing:case="test_opc_subscribe_3",exception=1
+opcua::subscribe(conn100,NULL, "Counter",)
+@testing:case="test_opc_subscribe_4",exception=1
+tss = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, STRING, TIMESTAMP, SYMBOL])
+opcua::subscribe(conn100,3, "Counter1",tss)
