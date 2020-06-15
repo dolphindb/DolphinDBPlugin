@@ -129,7 +129,7 @@ opcua::connect(endPointUrl,clientUri,[userName],[userPassword],[securityMode],[s
 ```
 connection=opcua::connect("opc.tcp://LOCALHOST:4840/","myClient");
 connection=opcua::connect("opc.tcp://LOCALHOST:4840/","myClient","user1","123456");
-connection=opcua::connect("opc.tcp://localhost:4840","urn:opcua.client.application","user1","123456","SignAndEncrypt","Basic128Rsa15","./open62541/cert/client_cert.der","./open62541/cert/client_key.der");
+connection=opcua::connect("opc.tcp://LOCALHOST:4840","urn:opcua.client.application","user1","123456","SignAndEncrypt","Basic128Rsa15","./open62541/cert/client_cert.der","./open62541/cert/client_key.der");
 ```
 
 ### 2.3 查看所有Node
