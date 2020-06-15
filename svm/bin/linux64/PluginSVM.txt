@@ -1,0 +1,6 @@
+SVM,libPluginSVM.so
+fit,fit,system,2,3,0
+predict,predict,system,2,2,0
+score,score,system,3,3,0
+saveModel,saveModel,system,2,2,0
+loadModel,loadModel,system,1,1,0

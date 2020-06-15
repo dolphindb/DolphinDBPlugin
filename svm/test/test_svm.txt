@@ -1,0 +1,99 @@
+#include "setup/settings.txt"
+
+loadPlugin(PLUGIN_FILE)
+go
+
+// ------------ SVM::fit argument validation --------------
+@testing:case="test_function_svm_fit_args_ex1_basic", exception=1
+X = matrix(-1.0 -1.0,-2.0 -1.0, 1.0 1.0, 2.0 1.0)
+y = 1.0 1.0 2.0 2.0;
+SVM::fit(1, X)
+
+@testing:case="test_function_svm_fit_args_ex2", exception=1
+SVM::fit(`1`2`3, X)
+
+@testing:case="test_function_svm_fit_args_ex3", exception=1
+SVM::fit(y, 1)
+
+@testing:case="test_function_svm_fit_args_ex4", exception=1
+SVM::fit(y, `1`2`3)
+
+@testing:case="test_function_svm_fit_args_ex4", exception=1
+SVM::fit(y, `1`2`3)
+
+// ------------ SVM::predict test correctness ----------
+@testing:case="test_function_svm_fit_predict"
+X = matrix(-1.0 -1.0,-2.0 -1.0, 1.0 1.0, 2.0 1.0);
+y = 1.0 1.0 2.0 2.0;
+clf = SVM::fit(y, X)
+res = SVM::predict(clf, 1)
+
+@testing:case="test_function_svm_fit_correctness"
+clf = SVM::fit(y, X, {`type:`SVR, `kernel:`linear, `C:1.0, `gamma:`scale,`coef0:0.0,`epsilon:0.1, `cache_size:200,`shrinking:true,`verbose:false})
+res = SVM::predict(clf, X)
+assert 1, eqObj(res, [1.1, 0.9, 1.9, 2.1], 4)
+
+clf = SVM::fit(y, X, {`type:`NuSVC,`nu:0.5,`kernel:`linear,`degree:3,`gamma:`scale,`coef0:0.0,`shrinking:true,`cache_size:200,`verbose:false})
+res = SVM::predict(clf, X)
+assert 2, eqObj(res, [1.0, 1.0, 2.0, 2.0], 4)
+
+clf = SVM::fit(y, X, {`type:`NuSVR,`nu:0.5,`kernel:`linear,`C:1.0,`gamma:`scale,`coef0:0.0,`shrinking:true,`cache_size:200,`verbose:false})
+res = SVM::predict(clf, X)
+assert 3, eqObj(res, [1.000243,0.999272,1.999272,2.000243], 4)
+
+clf = SVM::fit(y, X, {`type:`OneClass,`kernel:`linear,`degree:3,`gamma:`scale,`nu:0.5,`coef0:0.0,`shrinking:true,`cache_size:200,`verbose:false})
+res = SVM::predict(clf, X);
+assert 4, eqObj(res, [-1.0,-1.0,-1.0,-1.0], 4)
+
+// ------------ SVM::score argument validation ------------
+@testing:case="test_function_score_with_matrix", exception=1
+X = matrix(-1.0 -1.0,-2.0 -1.0, 1.0 1.0, 2.0 1.0);
+y = 1.0 1.0 2.0 2.0;
+V = -1.0 -1.0 -2.0 -1.0 1.0 1.0 2.0 1.0;
+clf = SVM::fit(y, X)
+SVM::score(clf, y, 1)
+
+@testing:case="test_function_score_with_y_scalar", exception=1
+SVM::score(clf, 1, X)
+
+@testing:case="test_function_score_with_y_string_vector", exception=1
+SVM::score(clf, `1`2`3, X)
+
+@testing:case="test_function_score_correctness"
+X = matrix(-1.0 -1.0,-2.0 -1.0, 1.0 1.0, 2.0 1.0);
+y = 1.0 1.0 2.0 2.0;
+V = -1.0 -1.0 -2.0 -1.0 1.0 1.0 2.0 1.0;
+clf = SVM::fit(y, X)
+assert 1, SVM::score(clf, y, X) == 1
+
+regr = SVM::fit(y, X, {`type:`SVR})
+res = SVM::score(regr, y, X)
+assert 1, eqObj(res.R2, 0.999999, 6)
+assert 2, eqObj(res.MSE, 0.010046, 6)
+
+// --------- Test correctness bigarray -------------
+/*  too slow
+n = 30000000
+x1 = take(1..44101, n)
+x2 = take(1..58169, n)
+X = table(x1, x2)
+Y = -0.5 * x1 + 0.7 * x2 - 0.3
+regr = SVM::fit(Y, X, {`type:`SVR})
+res = SVM::predict(regr, X)
+*/
+
+// --------- SVM::loads and SVM::dumps argument validation ----------
+@testing:case="test_function_loadModel_args", exception=1
+svmObject = SVM::loadModel(`1`2`3)
+
+@testing:case="test_function_saveModel_args", exception=1
+SVM::saveModel(1, WORK_DIR + "SVMmdl.txt")
+
+@testing:case="test_function_saveModel_correctness"
+X = matrix(-1.0 -1.0,-2.0 -1.0, 1.0 1.0, 2.0 1.0);
+y = 1.0 1.0 2.0 2.0;
+V = -1.0 -1.0 -2.0 -1.0 1.0 1.0 2.0 1.0;
+clf = SVM::fit(y, X)
+SVM::saveModel(clf, WORK_DIR + "SVMmdl.txt")
+clf = SVM::loadModel(WORK_DIR + "SVMmdl.txt")
+assert 1, SVM::predict(clf, X) == 1 1 2 2
