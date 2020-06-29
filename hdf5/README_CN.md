@@ -51,9 +51,9 @@ loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
 
 ### 编译安装
 
-## 在Linux下安装
+### 在Linux下安装
 
-### 使用cmake构建
+#### 使用cmake构建
 **Note:** [cmake](https://cmake.org/) 是一个流行的项目构建工具,可以帮你轻松的解决第三方依赖的问题  
 
 安装cmake
@@ -72,7 +72,7 @@ cmake ../path_to_hdf5_plugin/
 make
 ```
 
-### 使用makefile构建
+#### 使用makefile构建
 安装HDF5开发包
 
 ```
@@ -87,7 +87,7 @@ make
 
 编译之后目录下会产生libPluginHdf5.so文件 
 
-## 在Windows下安装
+### 在Windows下安装
 
 在Windows下安装，需要启用HDF5的`enable threadsafe`选项。这需要在编译HDF5时配置。
 
