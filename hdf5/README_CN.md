@@ -1,6 +1,6 @@
 # DolphinDB HDF5 Plugin
 
-DolphinDB的hdf5导入插件,该插件可將hdf5数据集导入进DolphinDB中,并且支持对数据类型转换
+DolphinDB的HDF5导入插件,该插件可將HDF5数据集导入进DolphinDB中,并且支持对数据类型转换
 
 
 * [Build](#安装构建)  
@@ -9,10 +9,10 @@ DolphinDB的hdf5导入插件,该插件可將hdf5数据集导入进DolphinDB中,�
 * [User-Api](#用户接口)  
     * [hdf5::ls](#hdf5ls)
     * [hdf5::lsTable](#hdf5lstable)
-    * [hdf5::extractHdf5Schema](#hdf5extracthdf5schema)
-    * [hdf5::loadHdf5](#hdf5loadhdf5)
-    * [hdf5::loadHdf5Ex](#hdf5loadhdf5ex)
-    * [hdf5::hdf5DS](#hdf5hdf5ds)
+    * [hdf5::extractHDF5Schema](#hdf5extracthdf5schema)
+    * [hdf5::loadHDF5](#hdf5loadhdf5)
+    * [hdf5::loadHDF5Ex](#hdf5loadhdf5ex)
+    * [hdf5::HDF5DS](#hdf5hdf5ds)
 * [Data Type](#支持的数据类型) 
     * [integer](#integer)
     * [float](#float)
@@ -37,7 +37,7 @@ DolphinDB的hdf5导入插件,该插件可將hdf5数据集导入进DolphinDB中,�
 ```
 sudo apt-get install cmake
 ```
-安装hdf5开发包
+安装HDF5开发包
 ```
 sudo apt-get install libhdf5-dev
 ```
@@ -50,7 +50,7 @@ make
 ```
 
 ### 使用makefile构建
-安装hdf5开发包
+安装HDF5开发包
 
 ```
 sudo apt-get install libhdf5-dev
@@ -74,7 +74,11 @@ make
 
 # 用户接口
 
-**Remember:** 使用api前需使用`loadPlugin("/path_to_PluginHdf5.txt/PluginHdf5.txt")`导入插件
+**Remember:** 使用api前需使用`loadPlugin("/path_to_PluginHdf5.txt/PluginHdf5.txt")`导入插件。如果出现倒入失败的情况，则需要将插件所在
+路径倒入到lib搜索路径中，然后重启DolphinDB。
+```
+export LD_LIBRARY_PATH=/path_to_PluginHdf5.txt/:$LD_LIBRARY_PATH
+```
 
 ## hdf5::ls
 
@@ -84,10 +88,10 @@ make
 
 ### 参数  
 
-* `fileName`: hdf5文件名，类型为string。
+* `fileName`: HDF5文件名，类型为string。
 
 ### 详情
-* 列出一张表中的所有`hdf5对象`包括`数据集(dataset)`和`组(group)`以及`(命名类型)namedType`,对于数据集,我们会返回他的尺寸,尺寸是列优先的,对于比如DataSet{(7,3)}代表7列3行。
+* 列出一张表中的所有`HDF5对象`包括`数据集(dataset)`和`组(group)`以及`(命名类型)namedType`,对于数据集,我们会返回他的尺寸,尺寸是列优先的,对于比如DataSet{(7,3)}代表7列3行。
 
 ### 例子   
 ```
@@ -126,10 +130,10 @@ output:
 
 ### 参数  
 
-* `fileName`: hdf5文件名，类型为string。
+* `fileName`: HDF5文件名，类型为string。
 
 ### 详情
-* 列出一张表中的所有table信息，即hdf5`数据集(dataset)`对象信息，包括表名，表大小，表类型。
+* 列出一张表中的所有table信息，即HDF5`数据集(dataset)`对象信息，包括表名，表大小，表类型。
 
 ### 例子   
 ```
@@ -149,14 +153,14 @@ output:
        /ushort	      7,3       H5T_NATIVE_USHORT
 ```
 
-## hdf5::extractHdf5Schema
+## hdf5::extractHDF5Schema
 
 ### 语法
 
-* `hdf5::extractHdf5Schema(fileName,datasetName)`
+* `hdf5::extractHDF5Schema(fileName,datasetName)`
 
 ### 参数
-* `fileName`: hdf5文件名，类型为字符串标量。
+* `fileName`: HDF5文件名，类型为字符串标量。
 * `datasetName`: dataset名称，即表名，可通过ls或lsTable获得，类型为字符串标量。
 
 ### 详情
@@ -164,7 +168,7 @@ output:
 
 ### 例子
 ```
-hdf5::extractHdf5Schema("/smpl_numeric.h5","sint")
+hdf5::extractHDF5Schema("/smpl_numeric.h5","sint")
 
 output:
         name	type
@@ -177,7 +181,7 @@ output:
         col_6	INT
 
 
-hdf5::extractHdf5Schema("/compound.h5","com")
+hdf5::extractHDF5Schema("/compound.h5","com")
 
 output:
         name	type
@@ -192,27 +196,27 @@ output:
         c	CHAR
 ```
 
-## hdf5::loadHdf5
+## hdf5::loadHDF5
 
 ### 语法
 
-* `hdf5::loadHdf5(fileName,datasetName,[schema],[startRow],[rowNum])`
+* `hdf5::loadHDF5(fileName,datasetName,[schema],[startRow],[rowNum])`
 
 ### 参数
-* `fileName`: hdf5文件名，类型为字符串标量。
+* `fileName`: HDF5文件名，类型为字符串标量。
 * `datasetName`: dataset名称，即表名，可通过ls或lsTable获得，类型为字符串标量。
-* `schema`: 包含列名和列的数据类型的表。如果我们想要改变由系统自动决定的列的数据类型，需要在`schema`表中修改数据类型，并且把它作为`loadHdf5`函数的一个参数。
-* `startRow`: 读取hdf5数据集的起始行数，若不指定，默认从数据集起始位置读取。
-* `rowNum`: 读取hdf5数据集的行数，若不指定，默认读到数据集的结尾。
+* `schema`: 包含列名和列的数据类型的表。如果我们想要改变由系统自动决定的列的数据类型，需要在`schema`表中修改数据类型，并且把它作为`loadHDF5`函数的一个参数。
+* `startRow`: 读取HDF5数据集的起始行数，若不指定，默认从数据集起始位置读取。
+* `rowNum`: 读取HDF5数据集的行数，若不指定，默认读到数据集的结尾。
 
 ### 详情
-* 将hdf5文件中的数据集转换为DolphinDB数据库的内存表。
-* 读取的行数为hdf5文件中定义的行数，而不是读取结果中的DolphinDB表的行数。
+* 将HDF5文件中的数据集转换为DolphinDB数据库的内存表。
+* 读取的行数为HDF5文件中定义的行数，而不是读取结果中的DolphinDB表的行数。
 * 支持的数据类型,以及数据转化规则可见[数据类型](#支持的数据类型)章节。
 
 ### 例子
 ```
-hdf5::loadHdf5("/smpl_numeric.h5","sint")
+hdf5::loadHDF5("/smpl_numeric.h5","sint")
 
 output:
         col_0	col_1	col_2	col_3	col_4	col_5	col_6
@@ -222,7 +226,7 @@ output:
 
 
 scm = table(`a`b`c`d`e`f`g as name, `CHAR`BOOL`SHORT`INT`LONG`DOUBLE`FLOAT as type)
-hdf5::loadHdf5("../hdf5/h5file/smpl_numeric.h5","sint",scm,1,1)
+hdf5::loadHDF5("../hdf5/h5file/smpl_numeric.h5","sint",scm,1,1)
 
 output:
         a	b	c	d	e	f	g
@@ -232,69 +236,69 @@ output:
 
 > **Note:** **数据集的dataspace维度必须小于等于2,只有二维或一维表可以被解析**
 
-## hdf5::loadHdf5Ex
+## hdf5::loadHDF5Ex
 
 ### 语法
 
-* `hdf5::loadHdf5Ex(dbHandle,tableName,[partitionColumns],fileName,datasetName,[schema],[startRow],[rowNum])`
+* `hdf5::loadHDF5Ex(dbHandle,tableName,[partitionColumns],fileName,datasetName,[schema],[startRow],[rowNum])`
 
 ### 参数
 * `dbHandle`和`tableName`: 如果我们要将输入数据文件保存在分布式数据库中，需要指定数据库句柄和表名。
 * `partitionColumns`: 字符串标量或向量，表示分区列。当分区数据库不是SEQ分区时，我们需要指定分区列。在组合分区中，partitionColumns是字符串向量。
-* `fileName`: hdf5文件名，类型为字符串标量。
+* `fileName`: HDF5文件名，类型为字符串标量。
 * `datasetName`: dataset名称，即表名，可通过ls或lsTable获得，类型为字符串标量。
-* `schema`: 包含列名和列的数据类型的表。如果我们想要改变由系统自动决定的列的数据类型，需要在`schema`表中修改数据类型，并且把它作为`loadHdf5Ex`函数的一个参数。
-* `startRow`: 读取hdf5数据集的起始行数，若不指定，默认从数据集起始位置读取。
-* `rowNum`: 读取hdf5数据集的行数，若不指定，默认读到数据集的结尾。
+* `schema`: 包含列名和列的数据类型的表。如果我们想要改变由系统自动决定的列的数据类型，需要在`schema`表中修改数据类型，并且把它作为`loadHDF5Ex`函数的一个参数。
+* `startRow`: 读取HDF5数据集的起始行数，若不指定，默认从数据集起始位置读取。
+* `rowNum`: 读取HDF5数据集的行数，若不指定，默认读到数据集的结尾。
 
 ### 详情
-* 将hdf5文件中的数据集转换为DolphinDB数据库的分布式表，然后将表的元数据加载到内存中。
-* 读取的行数为hdf5文件中定义的行数，而不是读取结果中的DolphinDB表的行数。
+* 将HDF5文件中的数据集转换为DolphinDB数据库的分布式表，然后将表的元数据加载到内存中。
+* 读取的行数为HDF5文件中定义的行数，而不是读取结果中的DolphinDB表的行数。
 * 支持的数据类型,以及数据转化规则可见[数据类型](#支持的数据类型)章节。
 
 ### 例子
 * 磁盘上的SEQ分区表
 ```
 db = database("seq_on_disk", SEQ, 16)
-hdf5::loadHdf5Ex(db,`tb,,"/large_file.h5", "large_table")
+hdf5::loadHDF5Ex(db,`tb,,"/large_file.h5", "large_table")
 ```
 
 * 内存中的SEQ分区表
 ```
 db = database("", SEQ, 16)
-hdf5::loadHdf5Ex(db,`tb,,"/large_file.h5", "large_table")
+hdf5::loadHDF5Ex(db,`tb,,"/large_file.h5", "large_table")
 ```
 
 * 磁盘上的非SEQ分区表
 ```
 db = database("non_seq_on_disk", RANGE, 0 500 1000)
-hdf5::loadHdf5Ex(db,`tb,`col_4,"/smpl_numeric.h5","sint")
+hdf5::loadHDF5Ex(db,`tb,`col_4,"/smpl_numeric.h5","sint")
 ```
 
 * 内存中的非SEQ分区表
 ```
 db = database("", RANGE, 0 500 1000)
-t0 = hdf5::loadHdf5Ex(db,`tb,`col_4,"/smpl_numeric.h5","sint")
+t0 = hdf5::loadHDF5Ex(db,`tb,`col_4,"/smpl_numeric.h5","sint")
 ```
 
-## hdf5::hdf5DS
+## hdf5::HDF5DS
 
 ### 语法
 
-* `hdf5::hdf5DS(fileName,datasetName,[schema],[dsNum])`
+* `hdf5::HDF5DS(fileName,datasetName,[schema],[dsNum])`
 
 ### 参数
-* `fileName`: hdf5文件名，类型为字符串标量。
+* `fileName`: HDF5文件名，类型为字符串标量。
 * `datasetName`: dataset名称，即表名，可通过ls或lsTable获得，类型为字符串标量。
-* `schema`: 包含列名和列的数据类型的表。如果我们想要改变由系统自动决定的列的数据类型，需要在`schema`表中修改数据类型，并且把它作为`hdf5DS`函数的一个参数。
-* `dsNum`: 需要生成的数据源数量。`hdf5DS`会将整个表均分为`dsNum`份作为结果。如果不指定，默认生成1个数据源。
+* `schema`: 包含列名和列的数据类型的表。如果我们想要改变由系统自动决定的列的数据类型，需要在`schema`表中修改数据类型，并且把它作为`HDF5DS`函数的一个参数。
+* `dsNum`: 需要生成的数据源数量。`HDF5DS`会将整个表均分为`dsNum`份作为结果。如果不指定，默认生成1个数据源。
 
 ### 详情
 * 根据输入的文件名和数据集名创建数据源列表。
 
 ### 例子
 ```
->ds = hdf5::hdf5DS(smpl_numeric.h5","sint")
+>ds = hdf5::HDF5DS(smpl_numeric.h5","sint")
 
 >size ds;
 1
@@ -302,7 +306,7 @@ t0 = hdf5::loadHdf5Ex(db,`tb,`col_4,"/smpl_numeric.h5","sint")
 >ds[0];
 DataSource< loadHDF5("/smpl_numeric.h5", "sint", , 0, 3) >
 
->ds = hdf5::hdf5DS(smpl_numeric.h5","sint",,3)
+>ds = hdf5::HDF5DS(smpl_numeric.h5","sint",,3)
 
 >size ds;
 3
@@ -363,7 +367,7 @@ DataSource< loadHDF5("/smpl_numeric.h5", "sint", , 2, 1) >
 | H5T_UNIX_D64BE | 8 bytes integer      | DT_TIMESTAMP                 |
 | H5T_UNIX_D64LE | 8 bytes integer      | DT_TIMESTAMP                 |
 
-* hdf5预定义的时间类型为**posix时间**,32位或者64位,hdf5的时间类型缺乏官方的定义，在此插件中，32位时间类型**代表距离1970年的秒数**，而64位则**精确到毫秒**。所有时间类型会被插件统一转化为一个64位整数,然后转化成dolphindb中的`timestamp`类型
+* HDF5预定义的时间类型为**posix时间**,32位或者64位,HDF5的时间类型缺乏官方的定义，在此插件中，32位时间类型**代表距离1970年的秒数**，而64位则**精确到毫秒**。所有时间类型会被插件统一转化为一个64位整数,然后转化成dolphindb中的`timestamp`类型
 
 * 以上类型皆可以转化为dolphindb中的时间相关类型`(date,month,time,minute,second,datetime,timestamp,nanotime,nanotimestamp)`
 
@@ -402,7 +406,7 @@ DataSource< loadHDF5("/smpl_numeric.h5", "sint", , 2, 1) >
 ## 简单类型
 对于简单类型,导入到dolphindb后的table与h5文件中的table会保持```相同```
 
-### hdf5中的简单类型表
+### HDF5中的简单类型表
 
 |     | 1       | 2       |
 | --- | :------ | :------ |
@@ -419,7 +423,7 @@ DataSource< loadHDF5("/smpl_numeric.h5", "sint", , 2, 1) >
 ## 复杂类型
 对于复杂类型,dolphindb中的表的类型依赖与复杂类型的结构
 
-###  hdf5中的复合类型表
+###  HDF5中的复合类型表
 
 |     | 1                        | 2                        |
 | --- | :----------------------- | :----------------------- |
@@ -434,7 +438,7 @@ DataSource< loadHDF5("/smpl_numeric.h5", "sint", , 2, 1) >
 | 3   | 12   | 22   | 32.7 |
 | 4   | 13   | 23   | 33.7 |
 
-### hdf5中的数组类型表
+### HDF5中的数组类型表
 
 |     | 1             | 2               |
 | --- | :------------ | :-------------- |
@@ -451,7 +455,7 @@ DataSource< loadHDF5("/smpl_numeric.h5", "sint", , 2, 1) >
 
 对于嵌套的复杂类型,我们用一个```A```前缀代表这是个数组,```C```前缀代表这是个复合类型
 
-### hdf5中的嵌套类型表
+### HDF5中的嵌套类型表
 |     | 1                                                         | 2                                                          |
 | --- | :-------------------------------------------------------- | :--------------------------------------------------------- |
 | 1   | struct{a:array(1,2,3)<br>  b:2<br>  c:struct{d:"abc"}}    | struct{a:array(7,8,9)<br>  b:5<br>  c:struct{d:"def"}}     |
