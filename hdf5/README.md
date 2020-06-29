@@ -79,7 +79,12 @@ You can also build HDF5 yourself. Download the source code from the [official we
 # User-API
 
 
-**Remember:** Use `loadPlugin("/path_to_PluginHdf5.txt/PluginHdf5.txt")` to import HDF5 plugin before using the API.
+**Remember:** Use `loadPlugin("/path_to_PluginHdf5.txt/PluginHdf5.txt")` to import HDF5 plugin before using the API. 
+If the plugin fails to load, you would need to add the path of the plug-in to the library search path as follows, and then restart DolphinDB and load it again.
+
+```
+export LD_LIBRARY_PATH=/path_to_PluginHdf5.txt/:$LD_LIBRARY_PATH
+```
 
 ## hdf5::ls
 
