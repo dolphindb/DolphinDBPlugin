@@ -30,7 +30,7 @@ DolphinDB HDF5插件可將HDF5数据集导入进DolphinDB中,并且支持对数�
 ## 安装
 ### 预编译安装
 
-用户可以导入预编译好的hdf5插件（DolphinDB安装包中或者bin目录下。
+用户可以导入预编译好的HDF5插件（DolphinDB安装包中或者bin目录下。
 
 #### Linux
 1） 将插件所在路径倒入到`LD_LIBRARY_PATH`
