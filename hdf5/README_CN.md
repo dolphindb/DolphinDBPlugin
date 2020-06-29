@@ -56,7 +56,6 @@ loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
 ### 在Linux下安装
 
 #### 使用cmake构建
-**Note:** [cmake](https://cmake.org/) 是一个流行的项目构建工具,可以帮你轻松的解决第三方依赖的问题  
 
 安装cmake
 ```
