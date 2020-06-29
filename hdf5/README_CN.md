@@ -1,19 +1,20 @@
 # DolphinDB HDF5 Plugin
 
-DolphinDB的HDF5导入插件,该插件可將HDF5数据集导入进DolphinDB中,并且支持对数据类型转换
+DolphinDB的HDF5导入插件,该插件可將HDF5数据集导入进DolphinDB中,并且支持对数据类型转换。
 
 
-* [Build](#安装构建)  
-    * [build with cmake](#使用cmake构建)
-    * [build with makefile](#使用makefile构建)
-* [User-Api](#用户接口)  
+* [安装](#安装)
+    * [预编译安装](#预编译安装)
+    * [编译安装](#编译安装)
+
+* [用户接口](#用户接口)  
     * [hdf5::ls](#hdf5ls)
     * [hdf5::lsTable](#hdf5lstable)
     * [hdf5::extractHDF5Schema](#hdf5extracthdf5schema)
     * [hdf5::loadHDF5](#hdf5loadhdf5)
     * [hdf5::loadHDF5Ex](#hdf5loadhdf5ex)
     * [hdf5::HDF5DS](#hdf5hdf5ds)
-* [Data Type](#支持的数据类型) 
+* [支持的数据类型](#支持的数据类型) 
     * [integer](#integer)
     * [float](#float)
     * [time](#time)
@@ -21,16 +22,40 @@ DolphinDB的HDF5导入插件,该插件可將HDF5数据集导入进DolphinDB中,�
     * [enum](#enum)
     * [compound](#compound-and-array)
     * [array](#compound-and-array)
-* [Table Struct](#表结构)  
-    * [simple datatype table struct](#简单类型)
-    * [complex datatype table struct](#复杂类型)
-* [performance](#性能数据)  
+* [表结构](#表结构)  
+    * [简单类型](#简单类型)
+    * [复杂类型](#复杂类型)
+* [性能](#性能数据)  
 
-# 安装构建
+## 安装
+### 预编译安装
 
-## 在Linux下安装
+用户可以导入预编译好的hdf5插件（DolphinDB安装包中或者bin目录下。
 
-### 使用cmake构建
+#### Linux
+1） 将插件所在路径倒入到`LD_LIBRARY_PATH`
+```
+export LD_LIBRARY_PATH=/path_to_hdf5_plugin/:$LD_LIBRARY_PATH
+```
+
+2）启动DolphinDB server并导入插件
+```
+loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
+```
+#### Windows
+
+```
+loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
+```
+
+
+### 编译安装
+
+用户可以通过以下方法自己编译HDF5插件。 编译成功后通过上面方法导入。
+
+### 在Linux下安装
+
+#### 使用cmake构建
 **Note:** [cmake](https://cmake.org/) 是一个流行的项目构建工具,可以帮你轻松的解决第三方依赖的问题  
 
 安装cmake
@@ -49,7 +74,7 @@ cmake ../path_to_hdf5_plugin/
 make
 ```
 
-### 使用makefile构建
+#### 使用makefile构建
 安装HDF5开发包
 
 ```
@@ -60,11 +85,11 @@ sudo apt-get install libhdf5-dev
 make
 ```
 
-**Remember:** 编译之前请确保`libDolphinDB.so`在gcc可搜索的路径中,可使用`LD_LIBRARY_PATH`指定其路径
+编译之前请确保`libDolphinDB.so`在gcc可搜索的路径中,可使用`LD_LIBRARY_PATH`指定其路径
 
 编译之后目录下会产生libPluginHdf5.so文件 
 
-## 在Windows下安装
+### 在Windows下安装
 
 在Windows下安装，需要启用HDF5的`enable threadsafe`选项。这需要在编译HDF5时配置。
 
@@ -72,15 +97,12 @@ make
 
 你也可以自己选择HDF5的版本编译，在HDF5的[官方网站](https://www.hdfgroup.org/solutions/hdf5/)下载源代码，按照说明，如果采用configure方式编译，在配置时启用`--enable-threadsafe`, `--disable-cxx`, `--enable-shared`选项，如果采用CMake方式编译，在编译时启用`-DHDF5_ENABLE_THREADSAFE:BOOL=ON`, `-DHDF5_BUILD_CPP_LIB:BOOL=OFF`, `-DBUILD_SHARED_LIBS:BOOL=ON`参数。
 
-# 用户接口
 
-**Remember:** 使用api前需使用`loadPlugin("/path_to_PluginHdf5.txt/PluginHdf5.txt")`导入插件。如果出现倒入失败的情况，则需要将插件所在
-路径倒入到lib搜索路径中，然后重启DolphinDB。
-```
-export LD_LIBRARY_PATH=/path_to_PluginHdf5.txt/:$LD_LIBRARY_PATH
-```
 
-## hdf5::ls
+## 用户接口
+
+
+### hdf5::ls
 
 ### 语法
 
