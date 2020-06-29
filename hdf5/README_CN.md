@@ -1,6 +1,6 @@
 # DolphinDB HDF5 Plugin
 
-DolphinDB的HDF5导入插件,该插件可將HDF5数据集导入进DolphinDB中,并且支持对数据类型转换。
+DolphinDB HDF5插件可將HDF5数据集导入进DolphinDB中,并且支持对数据类型转换。
 
 
 * [安装](#安装)
