@@ -3,17 +3,17 @@
 DolphinDB的HDF5导入插件,该插件可將HDF5数据集导入进DolphinDB中,并且支持对数据类型转换
 
 
-* [Build](#安装构建)  
-    * [build with cmake](#使用cmake构建)
-    * [build with makefile](#使用makefile构建)
-* [User-Api](#用户接口)  
+* [安装构建](#安装构建)  
+    * [使用cmake构建](#使用cmake构建)
+    * [使用makefile构建](#使用makefile构建)
+* [用户接口](#用户接口)  
     * [hdf5::ls](#hdf5ls)
     * [hdf5::lsTable](#hdf5lstable)
     * [hdf5::extractHDF5Schema](#hdf5extracthdf5schema)
     * [hdf5::loadHDF5](#hdf5loadhdf5)
     * [hdf5::loadHDF5Ex](#hdf5loadhdf5ex)
     * [hdf5::HDF5DS](#hdf5hdf5ds)
-* [Data Type](#支持的数据类型) 
+* [支持的数据类型](#支持的数据类型) 
     * [integer](#integer)
     * [float](#float)
     * [time](#time)
@@ -21,10 +21,10 @@ DolphinDB的HDF5导入插件,该插件可將HDF5数据集导入进DolphinDB中,�
     * [enum](#enum)
     * [compound](#compound-and-array)
     * [array](#compound-and-array)
-* [Table Struct](#表结构)  
-    * [simple datatype table struct](#简单类型)
-    * [complex datatype table struct](#复杂类型)
-* [performance](#性能数据)  
+* [表结构](#表结构)  
+    * [简单类型](#简单类型)
+    * [复杂类型](#复杂类型)
+* [性能](#性能数据)  
 
 # 安装构建
 
