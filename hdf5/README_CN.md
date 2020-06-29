@@ -1,11 +1,12 @@
 # DolphinDB HDF5 Plugin
 
-DolphinDB的HDF5导入插件,该插件可將HDF5数据集导入进DolphinDB中,并且支持对数据类型转换
+DolphinDB的HDF5导入插件,该插件可將HDF5数据集导入进DolphinDB中,并且支持对数据类型转换。
 
 
-* [安装构建](#安装构建)  
-    * [使用cmake构建](#使用cmake构建)
-    * [使用makefile构建](#使用makefile构建)
+* [安装](#安装)
+    * [预编译安装](#预编译安装)
+    * [编译安装](#编译安装)
+
 * [用户接口](#用户接口)  
     * [hdf5::ls](#hdf5ls)
     * [hdf5::lsTable](#hdf5lstable)
@@ -26,7 +27,29 @@ DolphinDB的HDF5导入插件,该插件可將HDF5数据集导入进DolphinDB中,�
     * [复杂类型](#复杂类型)
 * [性能](#性能数据)  
 
-# 安装构建
+## 安装
+### 预编译安装
+
+用户可以导入预编译好的hdf5插件（DolphinDB安装包中或者bin目录下。
+
+#### Linux
+1） 将插件所在路径倒入到lib搜索路径中，并重新导入。
+```
+export LD_LIBRARY_PATH=/path_to_hdf5_plugin/:$LD_LIBRARY_PATH
+```
+
+2）启动DolphinDB server并导入
+```
+loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
+```
+#### Windows
+
+```
+loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
+```
+
+
+### 编译安装
 
 ## 在Linux下安装
 
@@ -60,7 +83,7 @@ sudo apt-get install libhdf5-dev
 make
 ```
 
-**Remember:** 编译之前请确保`libDolphinDB.so`在gcc可搜索的路径中,可使用`LD_LIBRARY_PATH`指定其路径
+编译之前请确保`libDolphinDB.so`在gcc可搜索的路径中,可使用`LD_LIBRARY_PATH`指定其路径
 
 编译之后目录下会产生libPluginHdf5.so文件 
 
@@ -72,15 +95,10 @@ make
 
 你也可以自己选择HDF5的版本编译，在HDF5的[官方网站](https://www.hdfgroup.org/solutions/hdf5/)下载源代码，按照说明，如果采用configure方式编译，在配置时启用`--enable-threadsafe`, `--disable-cxx`, `--enable-shared`选项，如果采用CMake方式编译，在编译时启用`-DHDF5_ENABLE_THREADSAFE:BOOL=ON`, `-DHDF5_BUILD_CPP_LIB:BOOL=OFF`, `-DBUILD_SHARED_LIBS:BOOL=ON`参数。
 
-# 用户接口
+## 用户接口
 
-**Remember:** 使用api前需使用`loadPlugin("/path_to_PluginHdf5.txt/PluginHdf5.txt")`导入插件。如果出现倒入失败的情况，则需要将插件所在
-路径倒入到lib搜索路径中，然后重启DolphinDB。
-```
-export LD_LIBRARY_PATH=/path_to_PluginHdf5.txt/:$LD_LIBRARY_PATH
-```
 
-## hdf5::ls
+### hdf5::ls
 
 ### 语法
 
