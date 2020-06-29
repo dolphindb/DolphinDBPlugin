@@ -75,9 +75,9 @@ make
 # 用户接口
 
 **Remember:** 使用api前需使用`loadPlugin("/path_to_PluginHdf5.txt/PluginHdf5.txt")`导入插件。如果出现倒入失败的情况，则需要将插件所在
-路径倒入到lib搜索路径中。
+路径倒入到lib搜索路径中，然后重启DolphinDB。
 ```
-export PATH=/path_to_PluginHdf5.txt/:$PATH
+export LD_LIBRARY_PATH=/path_to_PluginHdf5.txt/:$LD_LIBRARY_PATH
 ```
 
 ## hdf5::ls
