@@ -33,12 +33,12 @@ DolphinDB的HDF5导入插件,该插件可將HDF5数据集导入进DolphinDB中,�
 用户可以导入预编译好的hdf5插件（DolphinDB安装包中或者bin目录下。
 
 #### Linux
-1） 将插件所在路径倒入到lib搜索路径中，并重新导入。
+1） 将插件所在路径倒入到`LD_LIBRARY_PATH`
 ```
 export LD_LIBRARY_PATH=/path_to_hdf5_plugin/:$LD_LIBRARY_PATH
 ```
 
-2）启动DolphinDB server并导入
+2）启动DolphinDB server并导入插件
 ```
 loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
 ```
@@ -50,6 +50,8 @@ loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
 
 
 ### 编译安装
+
+用户可以通过以下方法自己编译HDF5插件。 编译成功后通过上面方法导入。
 
 ### 在Linux下安装
 
@@ -94,6 +96,8 @@ make
 你可以使用我们预先编译的1.10.2版本的`hdf5.dll`文件。
 
 你也可以自己选择HDF5的版本编译，在HDF5的[官方网站](https://www.hdfgroup.org/solutions/hdf5/)下载源代码，按照说明，如果采用configure方式编译，在配置时启用`--enable-threadsafe`, `--disable-cxx`, `--enable-shared`选项，如果采用CMake方式编译，在编译时启用`-DHDF5_ENABLE_THREADSAFE:BOOL=ON`, `-DHDF5_BUILD_CPP_LIB:BOOL=OFF`, `-DBUILD_SHARED_LIBS:BOOL=ON`参数。
+
+
 
 ## 用户接口
 
