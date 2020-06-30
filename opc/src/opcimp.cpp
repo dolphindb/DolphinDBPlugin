@@ -3,20 +3,24 @@
 #include "opcimp.h"
 #include <ctime>
 using namespace std;
-wchar_t* T2OLE(const char* s) {
-    size_t len = strlen(s) + 1;
-    size_t converted = 0;
-    wchar_t* ret = (wchar_t*)malloc(sizeof(wchar_t) * len);
-    mbstowcs_s(&converted, ret, len, s, _TRUNCATE);
-    return ret;
+wchar_t *T2OLE(const char *s) {
+    int unicodeLen = ::MultiByteToWideChar(CP_UTF8, 0, s, -1, NULL, 0);
+    wchar_t *pUnicode;
+    pUnicode = new wchar_t[unicodeLen + 1];
+    memset(pUnicode, 0, (unicodeLen + 1) * sizeof(wchar_t));
+    ::MultiByteToWideChar(CP_UTF8, 0, s, -1, (LPWSTR)pUnicode, unicodeLen);
+    return pUnicode;
 }
 
-char* OLE2T(const wchar_t* s) {
-    size_t len = wcslen(s) + 1;
-    size_t converted = 0;
-    char* ret = (char*)malloc(len);
-    wcstombs_s(&converted, ret, len, s, _TRUNCATE);
-    return ret;
+char *OLE2T(const wchar_t *s) {
+    char *pElementText;
+    int iTextLen;
+    // wide char to multi char
+    iTextLen = WideCharToMultiByte(CP_UTF8, 0, s, -1, NULL, 0, NULL, NULL);
+    pElementText = new char[iTextLen + 1];
+    memset((void *)pElementText, 0, sizeof(char) * (iTextLen + 1));
+    ::WideCharToMultiByte(CP_UTF8, 0, s, -1, pElementText, iTextLen, NULL, NULL);
+    return pElementText;
 }
 
 void makeRemoteObject(const string& host,const IID requestedClass, const IID requestedInterface, void** interfacePtr) {
