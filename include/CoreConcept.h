@@ -743,6 +743,8 @@ public:
 	virtual bool appendDouble(double* buf, int len){return false;}
 	virtual bool appendString(string* buf, int len){return false;}
 	virtual bool appendString(char** buf, int len){return false;}
+	virtual bool appendGuid(Guid* buf, int len){return appendBinary((unsigned char*)buf, len, 16);}
+	virtual bool appendBinary(unsigned char* buf, int len, int unitLength){return false;}
 	virtual string getString() const;
 	virtual string getScript() const;
 	virtual string getString(INDEX index) const = 0;
@@ -923,6 +925,7 @@ public:
 	virtual ConstantSP getSubVector(INDEX start, INDEX length) const = 0;
 	virtual string getScript() const {return "set()";}
 	virtual bool isLargeConstant() const {return true;}
+    virtual void* getRawSet() const = 0;
 };
 
 class Dictionary:public Constant{
@@ -935,6 +938,7 @@ public:
 	virtual ConstantSP getMember(const ConstantSP& key) const =0;
 	virtual ConstantSP getMember(const string& key) const {throw RuntimeException("String key not supported");}
 	virtual ConstantSP get(INDEX column, INDEX row){throw RuntimeException("Dictionary does not support cell function");}
+    virtual SymbolBaseSP getKeySymbolBase() const { return nullptr;}
 	virtual DATA_TYPE getKeyType() const = 0;
 	virtual DATA_CATEGORY getKeyCategory() const = 0;
 	virtual DATA_TYPE getType() const = 0;
@@ -948,9 +952,11 @@ public:
 	virtual bool set(const ConstantSP& key, const ConstantSP& value)=0;
 	virtual bool set(const string& key, const ConstantSP& value){throw RuntimeException("String key not supported");}
 	virtual bool reduce(BinaryOperator& optr, const ConstantSP& key, const ConstantSP& value)=0;
+	virtual bool reduce(Heap* heap, const FunctionDefSP& optr, const FunctionDefSP& initOptr, const ConstantSP& key, const ConstantSP& value)=0;
 	virtual ConstantSP get(const ConstantSP& key) const {return getMember(key);}
 	virtual void contain(const ConstantSP& target, const ConstantSP& resultSP) const = 0;
 	virtual bool isLargeConstant() const {return true;}
+    virtual void* getRawMap() const = 0;
 	inline Mutex* getLock() const { return lock_;}
 	inline void setLock(Mutex* lock) { lock_ = lock;}
 
@@ -1118,18 +1124,24 @@ private:
 
 class Param{
 public:
-	Param(const string& name, bool readOnly):
-		name_(name),readOnly_(readOnly),type_(DT_VOID){}
-	Param(const DataInputStreamSP& in);
-	string getName(){return name_;}
-	bool isReadOnly(){return readOnly_;}
-	DATA_TYPE  getType(){return type_;}
+	Param(const string& name, bool readOnly, const ConstantSP& defaultValue = nullptr):
+		name_(name),readOnly_(readOnly),meta_(-1), defaultValue_(defaultValue){}
+	Param(Session* session, const DataInputStreamSP& in);
+	const string& getName() const {return name_;}
+	bool isReadOnly() const{return readOnly_;}
+	DATA_TYPE getType() const;
+	DATA_TYPE getKeyType() const;
+	DATA_FORM getForm() const;
+	void setMeta(DATA_FORM form, DATA_TYPE type, DATA_TYPE keyType);
+	ConstantSP getDefaultValue() const { return defaultValue_;}
+	inline bool isDefaultSet() const { return !defaultValue_.isNull() && ! defaultValue_->isNothing();}
 	IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
 	string getScript(int indention) const;
 private:
 	string name_;
 	bool readOnly_;
-	DATA_TYPE type_;
+	int meta_;
+	ConstantSP defaultValue_;
 };
 
 class FunctionDef : public Constant{
@@ -1144,7 +1156,7 @@ public:
 	inline void setModule(const string& module) { module_ = module;}
 	inline bool hasReturnValue() const {return flag_ & 1;}
 	inline bool isAggregatedFunction() const {	return flag_ & 2;}
-	inline bool isSequentialFunction() const {	return flag_ & 64;}
+	inline bool supportReturnMeta() const {	return flag_ & 64;}
 	inline bool allConstantParameters() const { return flag_ & 4;}
 	inline bool bySystemUser() const { return flag_ & 8;}
 	inline void bySystemUser(bool option) { if(option) flag_ |= 8; else flag_ &= ~8;}
@@ -1152,8 +1164,13 @@ public:
 	inline void setView(bool option) {if(option) flag_ |= 16; else flag_ &= ~16;}
 	inline bool isInternal() const { return flag_ & 32;}
 	inline void setInternal(bool option) {if(option) flag_ |= 32; else flag_ &= ~32;}
-	inline bool isJIT() const { return flag_ & 128;}
-	inline void setJIT(bool option) {if(option) flag_ |= 128; else flag_ &= ~128;}
+	inline bool isPrivate() const { return extraFlag_ & 1;}
+	inline void setPrivate(bool option) {if(option) extraFlag_ |= 1; else extraFlag_ &= ~1;}
+	inline bool isProtected() const { return extraFlag_ & 2;}
+	inline void setProtected(bool option) {if(option) extraFlag_ |= 2; else extraFlag_ &= ~2;}
+	inline bool isJIT() const { return extraFlag_ & 4;}
+	inline void setJIT(bool option) {if(option) extraFlag_ |= 4; else extraFlag_ &= ~4;}
+	inline bool isSequentialFunction() const {	return extraFlag_ & 8;}
 	inline bool variableParamNum() const {	return minParamNum_<maxParamNum_;}
 	inline int getMaxParamCount() const { return maxParamNum_;}
 	inline int getMinParamCount() const {	return minParamNum_;}
@@ -1164,6 +1181,12 @@ public:
 	inline bool isSystemFunction() const {return defType_ == SYSFUNC;}
 	inline FUNCTIONDEF_TYPE getFunctionDefType() const {return defType_;}
 	inline unsigned char getFlag() const { return flag_;}
+	inline unsigned short getExtraFlag() const { return extraFlag_;}
+	DATA_TYPE getReturnType() const;
+	DATA_TYPE getReturnKeyType() const;
+	DATA_FORM getReturnForm() const;
+	void setReturnMeta(DATA_FORM form, DATA_TYPE type, DATA_TYPE keyType);
+	inline int getReturnMeta() const { return returnMeta_;}
 	virtual bool copyable() const {return false;}
 	virtual DATA_TYPE getType() const {return DT_FUNCTIONDEF;}
 	virtual DATA_TYPE getRawType() const { return DT_STRING;}
@@ -1194,6 +1217,8 @@ protected:
 	int minParamNum_;
 	int maxParamNum_;
 	unsigned char flag_;
+	unsigned short extraFlag_;
+	int returnMeta_;
 };
 
 class SQLTransaction {

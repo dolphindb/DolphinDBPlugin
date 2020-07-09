@@ -149,6 +149,7 @@ public:
 	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, INDEX targetNumElement, INDEX& numElement);
 	static string toString(const unsigned char* data);
 	static Int128* parseInt128(const char* str, int len);
+	static bool parseInt128(const char* str, size_t len, unsigned char* buf);
 
 protected:
 	mutable unsigned char uuid_[16];
@@ -167,6 +168,7 @@ public:
 	virtual DATA_TYPE getRawType() const { return DT_INT128;}
 	virtual string getString() const { return Guid::getString(uuid_);}
 	static Uuid* parseUuid(const char* str, int len);
+	static bool parseUuid(const char* str, size_t len, unsigned char* buf);
 };
 
 class IPAddr : public Int128 {
@@ -293,8 +295,9 @@ private:
 
 class DataSource : public String {
 public:
-	DataSource(const ObjectSP& code, long long cacheId = -1, bool isTable = true, bool localMode = false) : String("DataSource< " + code->getScript() +" >"), code_(code),
+	DataSource(const ObjectSP& code, long long cacheId = -1, bool isTable = true, bool localMode = false) : String("DataSource< " + code->getScript() +" >"), code_(1, code),
 		parentId_(-1), id_(cacheId), action_(-1), isTable_(isTable), localMode_(localMode){}
+	DataSource(const vector<ObjectSP>& code, long long cacheId = -1, bool isTable = true, bool localMode = false);
 	DataSource(Session* session, const DataInputStreamSP& in);
 	virtual DATA_TYPE getType() const {return DT_DATASOURCE;}
 	virtual DATA_TYPE getRawType() const { return DT_DATASOURCE;}
@@ -305,7 +308,9 @@ public:
 	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
 	virtual ConstantSP getReference(Heap* pHeap);
-	ObjectSP getCode() const { return code_;}
+	ObjectSP getCode() const { return code_[0];}
+	ObjectSP getCode(int index) const { return code_[index];}
+	int getObjectCount() const { return code_.size();}
 	bool addTransformer(const FunctionDefSP& transformer);
 	bool isLocalData() const { return sites_.isNull();}
 	void setCacheId(long long id) { id_ = id;}
@@ -320,7 +325,7 @@ public:
 	bool isLocalMode() const { return localMode_;}
 
 private:
-	ObjectSP code_;
+	vector<ObjectSP> code_;
 	vector<FunctionDefSP> transformers_;
 	DomainSitePoolSP sites_;
 	long long parentId_;
