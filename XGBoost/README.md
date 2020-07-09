@@ -18,8 +18,6 @@ git clone --recursive https://github.com/dmlc/xgboost
 
 2. 使用CMake编译为静态库：
 
-cmake的最低版本要求为3.13。gcc的最低版本要求我5.0。
-
 ```
 cd xgboost
 mkdir build
@@ -27,7 +25,6 @@ cd build
 cmake .. -G "MinGW Makefiles" -DBUILD_STATIC_LIB=ON
 make
 ```
-
 
 编译得到静态库分别位于xgboost/lib/xgboost.a, xgboost/build/rabit/librabit.a, xgboost/build/dmlc-core/libdmlc.a。
 
@@ -37,8 +34,8 @@ make
 
 ```
 cd path_to/DolphinDBPlugin/xgboost
-mkdir xgboost_static
-cp path_to/xgboost/lib/xgboost.a xgboost_static/lib
+mkdir -p xgboost_static/lib
+cp path_to/xgboost/lib/libxgboost.a xgboost_static/lib
 cp path_to/xgboost/build/rabit/librabit.a xgboost_static/lib
 cp path_to/xgboost/build/dmlc-core/libdmlc.a xgboost_static/lib
 cp -r path_to/xgboost/include xgboost_static

@@ -1,8 +1,6 @@
 # DolphinDB SVM Plugin
 
-DolphinDB的SVM插件是基于libsvm<sup>[1](#参考文献)</sup>的插件，对常见的支持向量机算法进行了封装。用户可以在DolphinDB中对DolphinDB对象执行SVM模型的训练和预测。
-
-
+DolphinDB的SVM插件对常见的支持向量机算法进行了封装。用户可以在DolphinDB中对DolphinDB对象执行SVM模型的训练和预测。
 
 ## 构建
 
@@ -182,7 +180,3 @@ regr = SVM::fit(Y, X, {type: "SVR"})
 MSE->797.772
 R2->0.582937
 ```
-
-##### 参考文献：
-
-1. Chih-Chung Chang and Chih-Jen Lin, LIBSVM : a library for support vector machines. ACM Transactions on Intelligent Systems and Technology, 2:27:1--27:27, 2011.  Software available at http://www.csie.ntu.edu.tw/~cjlin/libsvm
