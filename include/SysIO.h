@@ -31,7 +31,8 @@
 
 using std::string;
 
-struct SSL;
+struct ssl_st;
+typedef struct ssl_st SSL;
 class Constant;
 class Socket;
 class UdpSocket;

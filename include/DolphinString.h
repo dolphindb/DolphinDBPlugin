@@ -6,6 +6,7 @@
 #include <functional>
 #include <ctype.h>
 #include <cassert>
+#include <stdexcept>
 
 class DolphinString {
 public:
