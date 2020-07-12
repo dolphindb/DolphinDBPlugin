@@ -1,0 +1,165 @@
+/*
+ * load matching engine plugin
+ */
+try{loadPlugin("plugins/matchEngine/PluginMatchingEngine.txt")}catch(err){}
+go
+/* 
+ * input scheme: `op`symbol`id`quantity`condition`price`thresholdPrice`expiredTime
+ *
+ * op:              see the following explanation
+ * symbol:          the symbol of the input orders, not checked (i.e. the symbol will not be checked inside the engine)
+ * id:              the unique id of an order for identification, not checked
+ * quantity:        the quantity of an order, must be a positive integer, not checked
+ * condition:       see the following explanation
+ * price:           the price of an order, must be a non-negative integer, 0 for market order, not checked
+ * thresholdPrice:  the stop-loss/take-profit/trailing-stop price of an order, must be a positive integer, not checked
+ * expiredTime:     the expiredTime of an order, 0 for never expired order, must be a non-negative integer, not checked
+ */
+
+/*
+ * op: the operation type of the input order
+ * 0-add, 1-modify(replace), 2-cancel
+ */
+
+ORDER_ADD = 0
+ORDER_MOD = 1
+ORDER_CAN = 2
+
+ORDER_SEL = 0
+ORDER_BUY = 1
+ORDER_AON = 2
+ORDER_IOC = 4
+ORDER_SL  = 8
+ORDER_TP  = 16
+ORDER_TS  = 32
+
+inputScheme = table(1:0, `op`symbol`id`quantity`condition`price`thresholdPrice`expiredTime, [INT,SYMBOL,LONG,LONG,INT,LONG,LONG,LONG])
+pricePrecision = 0
+bookDepth = 10
+MatchingEngine::setupGlobalConfig(inputScheme, , pricePrecision, bookDepth)
+
+sym = 'AAPL'
+output = table(10000:0,`symbol`id`status`condition`quantity`filledQuantity`cost, [SYMBOL,LONG,STRING,INT,LONG,LONG,DOUBLE])
+depthOutput = table(10000:0,`is_sell`level`price`aggregate_qty`order_count`market_price,[BOOL,INT,LONG,LONG,LONG,LONG])
+exchange = MatchingEngine::createExchange(sym, output,depthOutput)
+
+@testing:case="test_matching_engine_add_order"
+insert into exchange values(ORDER_ADD,`AAPL,0,100,ORDER_BUY,100,0,0)
+assert 1, eqObj(output[`symbol], [`AAPL])
+assert 2, eqObj(output[`status], [`Accepted])
+assert 3, eqObj(output[`condition], [1])
+assert 4, eqObj(output[`quantity], [100])
+assert 5, eqObj(output[`filledQuantity], [0])
+assert 6, eqObj(output[`cost], [0.0])
+
+insert into exchange values(ORDER_ADD,`AAPL,1,100,ORDER_SEL,0,0,0)
+assert 7, eqObj(output[`symbol], take(`AAPL,4))
+assert 8, eqObj(output[`status], [`Accepted,`Accepted,`Filled,`Filled])
+assert 9, eqObj(output[`condition], [1,0,0,1])
+assert 10, eqObj(output[`quantity], [100,100,100,100])
+assert 11, eqObj(output[`filledQuantity], [0,0,100,100])
+assert 12, eqObj(output[`cost], [0.0,0.0,10000,10000])
+
+
+
+@testing:case="test_matching_engine_mod_order"
+insert into exchange values(ORDER_MOD,`AAPL,0,100,ORDER_BUY,100,0,0)
+assert 1, (exec count(id) from output where status='ModifyRejected')>=1
+
+insert into exchange values(ORDER_MOD,`AAPL,1,100,ORDER_SEL,0,0,0)
+assert 1, (exec count(id) from output where status='ModifyRejected')>=2
+
+@testing:case="test_matching_engine_morethan_one_symbol"
+syms = `AAPL`NFLX
+output = table(10000:0,`symbol`id`status`condition`quantity`filledQuantity`cost, [SYMBOL,LONG,STRING,INT,LONG,LONG,DOUBLE])
+depthOutput = table(10000:0,`is_sell`level`price`aggregate_qty`order_count`market_price,[BOOL,INT,LONG,LONG,LONG,LONG])
+exchange = MatchingEngine::createExchange(syms, output,depthOutput)
+insert into exchange values(ORDER_ADD,`AAPL,0,100,ORDER_BUY,100,0,0)
+insert into exchange values(ORDER_ADD,`NFLX,0,100,ORDER_BUY,100,0,0)
+insert into exchange values(ORDER_CAN,`AAPL,0,100,ORDER_BUY,100,0,0)
+insert into exchange values(ORDER_MOD,`NFLX,1,100,ORDER_BUY,100,1,1)
+insert into exchange values(ORDER_ADD,`AAPL,0,100,ORDER_BUY,100,1,20000)
+assert 1, size(output)==5
+assert 2, output['status']==`Accepted`Accepted`Cancelled`ModifyRejected`Accepted
+
+@testing:case="test_matching_engine_setupGlobalConfig"
+inputScheme = table(1:0, `op`symbol`id`quantity`condition`price`thresholdPrice`expiredTime, [INT,SYMBOL,LONG,LONG,INT,LONG,LONG,LONG])
+pricePrecision = 0
+bookDepth = 10
+MatchingEngine::setupGlobalConfig(inputScheme, , pricePrecision, bookDepth)
+sym = 'FB'
+output = table(10000:0,`symbol`id`status`condition`quantity`filledQuantity`cost, [SYMBOL,LONG,STRING,INT,LONG,LONG,DOUBLE])
+depthOutput = table(10000:0,`is_sell`level`price`aggregate_qty`order_count`market_price,[BOOL,INT,LONG,LONG,LONG,LONG])
+exchange = MatchingEngine::createExchange(sym, output,depthOutput)
+insert into exchange values(ORDER_ADD,`FB,0,100,ORDER_BUY,100,0,0)
+insert into exchange values(ORDER_ADD,`FB,1,100,ORDER_SEL,0,0,0)
+share streamTable(10000:0, `op`symbol`id`quantity`condition`price`thresholdPrice`expiredTime, [INT,SYMBOL,LONG,LONG,INT,LONG,LONG,LONG]) as publishOrders
+subscribeTable(,`publishOrders,`matching,-1,append!{exchange},true)
+insert into publishOrders values(ORDER_ADD,`AAPL,2,100,ORDER_BUY,100,0,0)
+insert into publishOrders values(ORDER_CAN,`AAPL,2,100,ORDER_BUY,100,0,0)
+insert into publishOrders values(ORDER_CAN,`AAPL,2,100,ORDER_BUY,100,0,0)   // cancel an cancelled order is ignored
+insert into publishOrders values(ORDER_ADD,`AAPL,3,100,ORDER_BUY,100,0,0)
+insert into publishOrders values(ORDER_ADD,`AAPL,4,100,ORDER_SEL,110,0,0)
+insert into publishOrders values(ORDER_MOD,`AAPL,3,80,ORDER_BUY,0,0,0)   
+
+@testing:case="test_matching_engine_setupGlobalConfig_ex1", exception=1
+MatchingEngine::setupGlobalConfig(1,2 , 3, 4)
+
+@testing:case="test_matching_engine_setupGlobalConfig_ex2", exception=1
+MatchingEngine::setupGlobalConfig("1",2 , 3, 4)
+@testing:case="test_matching_engine_setupGlobalConfig_ex3", exception=1
+inputScheme = table(1:0, `op`symbol`id`quantity`condition`price`thresholdPrice`expiredTime, [INT,SYMBOL,LONG,LONG,INT,LONG,LONG,LONG])
+MatchingEngine::setupGlobalConfig(inputScheme,2 , 3, 4)
+
+@testing:case="test_matching_engine_setupGlobalConfig_ex4", exception=1
+inputScheme = table(1:0, `op`symbol`id`quantity`condition`price`thresholdPrice`expiredTime, [INT,SYMBOL,LONG,LONG,INT,LONG,LONG,LONG])
+z=dict(1..3,4..6)
+MatchingEngine::setupGlobalConfig(inputScheme,z, 0, 10)
+
+@testing:case="test_matching_engine_setupGlobalConfig_ex5", exception=1
+inputScheme = table(1:0, `op`symbol`id`quantity`condition`price`thresholdPrice`expiredTime, [INT,SYMBOL,LONG,LONG,INT,LONG,LONG,LONG])
+z=dict(1..3,4..6)
+MatchingEngine::setupGlobalConfig(inputScheme,, "1", -1)
+
+
+@testing:case="test_matching_engine_setupGlobalConfig_ex6", exception=1
+inputScheme = table(1:0, `op`symbol`id`quantity`condition`price`thresholdPrice`expiredTime, [INT,SYMBOL,LONG,LONG,INT,LONG,LONG,LONG])
+MatchingEngine::setupGlobalConfig(inputScheme,, 1, "1")
+
+@testing:case="test_matching_engine_setupGlobalConfig_ex7" , exception=1
+inputScheme = table(1:0, `op`symbol`id`quantity`condition`price`thresholdPrice`expiredTime, [INT,SYMBOL,LONG,LONG,INT,LONG,LONG,LONG])
+MatchingEngine::setupGlobalConfig(inputScheme,, -1, 1)
+
+@testing:case="test_matching_engine_setupGlobalConfig_ex8", exception=1
+inputScheme = table(1:0, `op`symbol`id`quantity`condition`price`thresholdPrice`expiredTime, [INT,SYMBOL,LONG,LONG,INT,LONG,LONG,LONG])
+MatchingEngine::setupGlobalConfig(inputScheme,, 1, -1)
+
+
+@testing:case="test_matching_engine_setupGlobalConfig_ex4", exception=1
+inputScheme = table(1:0, `op`symbol`id`quantity`condition`price`thresholdPrice`expiredTime, [INT,SYMBOL,LONG,LONG,INT,LONG,LONG,LONG])
+z=dict(1..3,4..6)
+MatchingEngine::setupGlobalConfig(inputScheme,, 3, 4)
+
+@testing:case="test_matching_engine_createExchange_ex1",exception=1
+sym = 'ABC'
+output = table(10000:0,`symbol`id`status`condition`quantity`filledQuantity`cost, [SYMBOL,LONG,STRING,INT,LONG,LONG,DOUBLE])
+depthOutput = table(10000:0,`is_sell`level`price`aggregate_qty`order_count`market_price,[BOOL,INT,LONG,LONG,LONG,LONG])
+exchange = MatchingEngine::createExchange(sym, output,1)
+
+@testing:case="test_matching_engine_createExchange_ex2",exception=1
+sym = 'ABC'
+output = table(10000:0,`symbol`id`status`condition`quantity`filledQuantity`cost, [SYMBOL,LONG,STRING,INT,LONG,LONG,DOUBLE])
+depthOutput = table(10000:0,`is_sell`level`price`aggregate_qty`order_count`market_price,[BOOL,INT,LONG,LONG,LONG,LONG])
+exchange = MatchingEngine::createExchange(sym, 1,depthOutput)
+
+@testing:case="test_matching_engine_createExchange_ex3",exception=1
+sym = 'ABC'
+output = table(10000:0,`symbol`id`status`condition`quantity`filledQuantity`cost, [SYMBOL,LONG,STRING,INT,LONG,LONG,DOUBLE])
+depthOutput = table(10000:0,`is_sell`level`price`aggregate_qty`order_count`market_price,[BOOL,INT,LONG,LONG,LONG,LONG])
+exchange = MatchingEngine::createExchange(1, 2,3)
+
+@testing:case="test_matching_engine_createExchange_ex4",exception=1
+sym = 'ABC'
+output = table(10000:0,`symbol`id`status`condition`quantity`filledQuantity`cost, [SYMBOL,LONG,STRING,INT,LONG,LONG,DOUBLE])
+depthOutput = table(10000:0,`is_sell`level`price`aggregate_qty`order_count`market_price,[BOOL,INT,LONG,LONG,LONG,LONG])
+exchange = MatchingEngine::createExchange(string(1..3), 2,3)
