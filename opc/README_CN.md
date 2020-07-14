@@ -1,6 +1,27 @@
-## 1. 通过cmake和MinGW编译
+OPC DA插件实现了OPC DA 2.05A版本规范，可用于访问并采集OPC服务器的数据。
 
-安装[cmake](https://cmake.org/)。 cmake一个流行的项目构建工具,可以帮你轻松的解决第三方依赖的问题。  
+## 1. 安装
+
+OPC插件目前提供两种安装方式，一种是预编译安装，另一种是编译安装。OPC插件依赖[OPC核心组件](https://opcfoundation.org/developer-tools/samples-and-tools-classic/core-components/#)，两种方式都要先安装OPC核心组件。
+
+### 1.1 OPC核心组件安装
+
+插件依赖OPC Core Components Redistributable 3.0.106及以上版本。可从[bin](./bin/win64)目录下载OPC Core Components Redistributable压缩包。下载后解压，双击msi文件即可安装。
+
+### 1.2 预编译安装
+
+用户可以导入预编译好的在[bin目录](./bin)下的OPC插件。
+
+在DolphinDB中执行以下命令加载OPC插件（假设安装在C盘上）：
+```
+loadPlugin("C:/path/to/opc/PluginOpc.txt")
+```
+
+### 1.3 编译安装
+
+通过cmake和MinGW编译
+
+安装[cmake](https://cmake.org/)。cmake一个流行的项目构建工具，可以帮你轻松的解决第三方依赖的问题。  
 
 安装[MinGW](http://www.mingw.org/)环境，带有com库（应该尽量选择新的版本），目前在64位win10上用MinGW-W64-builds-4.3.3版本编译通过。
 
@@ -22,10 +43,11 @@
 ```
     set(MINGW32_LOCATION C://MinGW/MinGW/)  
 ```
+编译之后目录下会产生libPluginOPC.dll文件，然后按预编译安装方法导入并加载。
 
 ## 2. API
 
-当前只支持OPC 2.0协议，且不支持异步读写。
+目前只支持OPC 2.0协议，且不支持异步读写。
 
 ### 2.1 获取OPC Server
 
@@ -34,11 +56,11 @@
 opc::getServerList(host)
 ```
 参数
-- `host`是字符串，表示IP地址，如127.0.0.1。
+- host 是字符串，表示IP地址，如127.0.0.1。
 
 详情
 
-获取OPC server。返回的结果是一个包含两列的表，一列是progID，表示server的标志符，另一列是该server对应的CLSID。注意获取远程OPC服务器前，需要对OPC Server和OPC Client两侧都进行DCOM配置。详细配置可搜索网上的教程，比如[远程连接opc服务器设置](https://blog.csdn.net/qq_35573625/article/details/85267487)。
+> 获取OPC server。返回的结果是一个包含两列的表，一列是progID，表示server的标志符，另一列是该server对应的CLSID。注意获取远程OPC服务器前，需要对OPC Server和OPC Client两侧都进行DCOM配置。详细配置可搜索网上的教程，例如：[远程连接opc服务器设置](https://blog.csdn.net/steventian72/article/details/104039459)。
 
 例子
 ```
@@ -52,15 +74,15 @@ opc::getOpcServerList("desk9")
 opc::connect(host, serverName，[reqUpdateRate_ms=100])
 ```
 参数
-- `host`是字符串，表示IP地址。
+- host 是字符串，表示IP地址。
 
-- `serverName`是字符串，表示OPC Server的名称。
+- serverName 是字符串，表示OPC Server的名称。
 
-- `reqUpdateRate_ms`请求更新频率（毫秒）,可选参数，默认为100。
+- reqUpdateRate_ms 为请求更新频率（毫秒），可选参数，默认为100。
 
 详情
 
-连接OPC server。返回的结果是一个connection，可以显式的调用close函数去关闭，也可以在reference count为0的时候自动释放。注意连接远程OPC服务器前，需要对OPC Server和OPC Client两侧都进行DCOM配置。详细配置可搜索网上的教程，比如[远程连接opc服务器设置](https://blog.csdn.net/qq_35573625/article/details/85267487)。
+> 连接OPC server。返回的结果是一个connection，可以显式的调用close函数去关闭，也可以在reference count为0的时候自动释放。注意连接远程OPC服务器前，需要对OPC Server和OPC Client两侧都进行DCOM配置。详细配置可搜索网上的教程，比如[远程连接opc服务器设置](https://blog.csdn.net/qq_35573625/article/details/85267487)。
 
 
 例子
@@ -73,16 +95,16 @@ connection=opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,100)
 
 语法
 ```
-opc::readTag(connection, tagName,[table])
+opc::readTag(connection, tagName, [table])
 ```
 参数
-- `connection`是connect函数返回的值。
-- `tagName`是字符串或字符串的数组，表示tag的名称。
-- `table`是表或表的数组（为数组时，表的个数须与tag个数相同），用于存放读取的结果，若表是一个，就把所有tag的值都插入这张表中，若表多个，每个tag读取的值分别插入这些表中。若不输入表，则返回值是一张表，表的记录是读取的tag值。
+- connection 是`connect`函数返回的值。
+- tagName 是字符串或字符串的数组，表示tag的名称。
+- table 是表或表的数组（为数组时，表的个数须与tag个数相同），用于存放读取的结果。若是一个表，将所有tag的值都插入这张表中；若是多个表，将每个tag读取的值分别插入这些表中。若不指定，则返回一张表，表的记录是读取的tag值。
 
 详情
 
-读取一个tag的值，使用前需要先建立一个OPC连接。
+> 读取一个tag的值，使用前需要先建立一个OPC连接。
 
 例子
 
@@ -99,18 +121,20 @@ opc::readTag(conn, ["testwrite.test1","testwrite.test4", "testwrite.test9"],[t1,
 ```
 
 ### 2.4. 写入tag（同步）
+
 语法
 ```
 opc::writeTag(connection, tagName, value)
 ```
+
 参数
-- `connection`是connect函数返回的值。
-- `tagName`是字符串或数组，表示tag的名称。
-- `value`是tag的值或数组。
+- connection 是`connect`函数返回的值。
+- tagName 是字符串或数组，表示tag的名称。
+- value 是tag的值或数组。
 
 详情
 
-写入一个或一组tag的值。如果写入类型错误，会报出异常。
+> 写入一个或一组tag的值。如果写入类型错误，会报异常。
 
 例子
 ```
@@ -124,15 +148,15 @@ opc::writeTag(conn,["testwrite.test5","testwrite.test6"],[33,11])
 ```
 opc::subscribe(connection, tagName, handler)
 ```
+
 参数
-- `connection`是connect函数返回的值。
-- `tagName`是一个字符串或字符串数组，表示tag的名称。
-- `handler`是数据发生变化时调用的回调函数或表。
+- connection 是connect函数返回的值。
+- tagName 是一个字符串或字符串数组，表示tag的名称。
+- handler 是数据发生变化时调用的回调函数或表。
 
 详情
 
-订阅tag的值
-
+> 订阅tag的值
 
 例子
 
@@ -159,12 +183,14 @@ opc::subscribe(conn10,".testBool",   callback1{t3})
 ```
 opc::unsubcribe(connection)
 ```
+
 参数
-- `connection`是connect函数返回的值。
+
+- connection 是`connect`函数返回的值。
 
 详情
 
-取消client的订阅。
+> 取消client的订阅。
 
 例子
 ```
@@ -172,15 +198,19 @@ opc::unsubcribe(connection)
 ```
 
 ### 2.7 关闭连接
+
 语法
 ```
 opc::close(connection)
 ```
+
 参数
-- `connection`是connect函数返回的值。
+
+- connection 是`connect`函数返回的值。
+
 详情
 
-断开与OPC server的连接
+> 断开与OPC server的连接。
 
 例子
 ```
