@@ -1,6 +1,6 @@
 ## 1. 编译
 
-* 目前在 64位linux GCC version 5.4.0下编译测试通过。
+* 以下步骤在64位Linux GCC version 5.4.0下编译测试通过。
 * 在编译前需要先安装 [git](https://git-scm.com/) 和 [CMake](https://cmake.org/)。
 
 Ubuntu用户只需要在命令行输入以下命令即可：
@@ -20,7 +20,7 @@ make
 
 ## 2. 准备
 
-需要先加载插件，如下例所示（路径根据情况修改）：
+需要如下例所示先加载插件。用户需要根据具体情况修改其中的路径。
 
 ```
 loadPlugin("/YOUR_PATH/mqtt/PluginMQTTClient.txt"); 
@@ -33,19 +33,18 @@ loadPlugin("/YOUR_PATH/mqtt/PluginMQTTClient.txt");
 ```
 mqtt::connect(host, port,[QoS=0],[formatter],[batchSize=0])
 ```
-该函数建立一条与MQTT server/broker的连接。
+建立一个与MQTT server/broker的连接。返回一个connection。可以显式的调用`close`函数去关闭，也可以在reference count为0的时候自动释放。
 
 参数：
 - 'host'是一个字符串，表示MQTT server/broker的IP地址。
 - 'port'是一个整数，表示MQTT server/broker的端口号。
-- 'QoS'表示消息发布服务质量。0：至多一次；1：至少一次；2：只有一次。它是可选参数，默认是0。
-- 'formatter'是一个函数，用于对发布的数据按CSV或JSON格式进行打包，目前支持的函数由createJsonFormatter或createCsvFormatter创建。
-- 'batchSize'是一个整数,当待发布内容是一个表时，可以分批发送，batchSize表示每次发送的记录行数。
-返回值是一个connection，可以显式的调用close函数去关闭，也可以在reference count为0的时候自动释放。
+- 'QoS'表示是一个整数，表示消息发布服务质量。0：至多一次；1：至少一次；2：只有一次。它是可选参数，默认是0。
+- 'formatter'是一个函数，用于对发布的数据按CSV或JSON格式进行打包。目前支持的函数由`createJsonFormatter`或`createCsvFormatter`创建。
+- 'batchSize'是一个整数。当待发布内容是一个表时，可以分批发送，batchSize表示每次发送的记录行数。
 
 例子：
 ```
-f=createCsvFormatter([INT, TIMESTAMP, DOUBLE, DOUBLE,DOUBLE], ',', ';' )
+f=createCsvParser([INT, TIMESTAMP, DOUBLE, DOUBLE,DOUBLE], ',', ';' )
 conn=connect("test.mosquitto.org",1883,0,f,50)
 ```
 
@@ -54,14 +53,13 @@ conn=connect("test.mosquitto.org",1883,0,f,50)
 ```
 mqtt::publish(conn,topic,obj)
 ```
-
-该函数向MQTT server/broker发布消息。
+向MQTT server/broker发布消息。
 
 参数：
-- 'conn'是connect函数返回的值。
+- 'conn'是`connect`函数返回的值。
 - 'topic'是一个字符串，表示主题。
-- 'obj'是待发布的消息内容，可以是表或字符串或字符串数组。
-  
+- 'obj'是表或字符串或字符串数组，表示待发布的消息内容。
+
 例子：
 ```
 mqtt::publish(conn,"dolphindb/topic1","welcome")
@@ -72,12 +70,13 @@ t=table(take(0..99,50) as hardwareId ,take(now(),
 		50) as voltage)
 mqtt::publish(conn,"dolphindb/device",t)		
 ``` 
+
 ### 3.3 关闭连接
 ```
 mqtt::close(conn)
 ```
 
-该函数断开与MQTT server/broker的连接。
+断开与MQTT server/broker的连接。
 
 参数：
 - 'conn'是connect函数返回的值。
@@ -92,9 +91,10 @@ mqtt::close(conn)
 ### 4.1 订阅
 
 ```
-mqtt::subscribe(host, port, topic,parser, handler)
+mqtt::subscribe(host, port, topic, parser, handler)
 ```
-该函数向MQTT server/broker订阅消息。
+
+向MQTT server/broker订阅消息。返回一个连接。
 
 参数：
 - 'host'是一个字符串，表示MQTT server/broker的IP地址。
@@ -102,7 +102,6 @@ mqtt::subscribe(host, port, topic,parser, handler)
 - 'topic'是一个字符串，表示订阅主题。
 - 'parser'是一个函数，用于对订阅的消息按CSV或JSON格式进行解析，目前支持的函数由createJsonParser或createCsvParser创建。
 - 'handler'是一个函数或表，用于处理从MQTT server/broker接收的消息。
-返回值是一个连接connection。
 
 例子：
 
@@ -117,32 +116,32 @@ conn = mqtt::subscribe("192.168.1.201",1883,"sensor/#",p,sensorInfoTable)
 ```
 mqtt::unsubcribe(conn)    
 ```
-该函数向MQTT server/broker取消订阅。
+
+取消订阅MQTT server/broker。
+
 参数：
-- 'conn'是subscribe函数返回的值。
+
+- 'conn'是`subscribe`函数返回的值。
 
 例子：
 
 ```
 mqtt::unsubcribe(conn)    
-
 ```
 
-## 5. 打解包功能
+## 5. 打/解包功能
 
 ### 5.1 createCsvFormatter
 
 ```
 mqtt::createCsvFormatter([format], [delimiter=','], [rowDelimiter=';'])
 ```
-该函数创建一个CSV格式的Formatter函数。
+创建一个CSV格式的Formatter函数。
 
 参数：
 - 'format' 是一个string向量。
-- 'delimiter'是列之间的分隔符，默认是','
-- 'rowDelimiter'是行之间的分隔符，默认是'；'
-
-返回值是一个函数。
+- 'delimiter'是列之间的分隔符，默认是','。
+- 'rowDelimiter'是行之间的分隔符，默认是';'。
 
 例子：
 ```
@@ -153,6 +152,7 @@ t = createT(100)
 f = mqtt::createCsvFormatter([BOOL,CHAR,SHORT,INT,LONG,DATE,MONTH,TIME,MINUTE,SECOND,DATETIME,TIMESTAMP,NANOTIME,NANOTIMESTAMP,FLOAT,DOUBLE,STRING,SYMBOL])
 f(t)
 ```
+
 ### 5.2 createCsvParser
 
 ```
@@ -162,10 +162,8 @@ mqtt::createCsvParser(schema, [delimiter=','], [rowDelimiter=';'])
 
 参数：
 - 'schema' 是一个列的数据类型的向量。
-- 'delimiter'是列之间的分隔符，默认是','
-- 'rowDelimiter'是行之间的分隔符，默认是'；'
-
-返回值是一个函数。
+- 'delimiter'是列之间的分隔符，默认是','。
+- 'rowDelimiter'是行之间的分隔符，默认是';'。
 
 例子：
 ```
@@ -178,6 +176,7 @@ s=f(t)
 p = mqtt::createCsvParser([BOOL,CHAR,SHORT,INT,LONG,DATE,MONTH,TIME,MINUTE,SECOND,DATETIME,TIMESTAMP,NANOTIME,NANOTIMESTAMP,FLOAT,DOUBLE,STRING,SYMBOL])
 p(s)
 ```
+
 ### 5.3 createCsvFormatter
 
 ```
@@ -185,10 +184,7 @@ mqtt::createCsvFormatter()
 ```
 该函数创建一个JSON格式的Formatter函数。
 
-参数：
-    无。
-
-返回值是一个函数。
+参数：无。
 
 例子：
 ```
@@ -207,9 +203,8 @@ mqtt::createJsonParser(schema, colNames)
 该函数创建一个JSON格式的Parser函数。
 
 参数：
-- 'schema' 是一个列的数据类型的向量。
-- 'colNames' 是一个列名向量
-返回值是一个函数。
+- 'schema' 是一个向量，表示列的数据类型。
+- 'colNames' 是一个向量，表示列名。
 
 例子：
 ```
@@ -225,7 +220,7 @@ x=p(s)
 
 ```
 
-### 一个完整的例子
+## 6. 一个完整的例子
 ```
 loadPlugin("./plugins/mqtt/bin/PluginMQTTClient.txt"); 
 use mqtt; 
