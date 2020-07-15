@@ -25,12 +25,12 @@ loadPlugin("/path/to/PluginSVM.txt");
 ```
 
 # API
-## 1. SVM::fit
+## 1. svm::fit
 根据给定的训练数据训练SVM模型
 ### 语法
 
 ```
-SVM::fit(Y, X, [para=None])
+svm::fit(Y, X, [para=None])
 ```
 
 ### 参数
@@ -55,13 +55,13 @@ SVM::fit(Y, X, [para=None])
 
 返回一个SVM对象。
 
-## 2. SVM::predict
+## 2. svm::predict
 根据SVM模型和测试数据进行分类或者回归
 
 ### 语法
 
 ```
-SVM::predict(SVMobject, X)
+svm::predict(SVMobject, X)
 ```
 
 ### 参数
@@ -73,13 +73,13 @@ SVM::predict(SVMobject, X)
 
 返回一个向量，向量中的值为预测的样本标签值或回归值。
 
-## 3. SVM::score
+## 3. svm::score
 根据给定的测试数据和标签值计算已有SVM的模型的准确性，并返回统计指标。其中SVM模型由一个SVM对象给出。
 
 ### 语法
 
 ```
-SVM::score(SVMobject, Y, X)
+svm::score(SVMobject, Y, X)
 ```
 
 ### 参数
@@ -92,12 +92,12 @@ SVM::score(SVMobject, Y, X)
 
 如果是分类模型，返回预测的准确率。如果是回归模型，返回MSE和R2。
 
-## 4. SVM::saveModel
+## 4. svm::saveModel
 将已经训练好的SVM模型保存。
 ### 语法
 
 ```
-SVM::saveModel(SVMobject, location)
+svm::saveModel(SVMobject, location)
 ```
 
 ### 参数
@@ -109,12 +109,12 @@ SVM::saveModel(SVMobject, location)
 
 一个布尔值，表示模型是否保存成功。
 
-## 5. SVM::loadModel
+## 5. svm::loadModel
 将文件形式的SVM模型导入到内存中。
 ### 语法
 
 ```
-SVM::loadModel(location)
+svm::loadModel(location)
 ```
 
 ### 参数
@@ -137,20 +137,20 @@ modelPath="/path/to/mymodel"
 loadPlugin(path)
 X = matrix(-1.0 -1.0,-2.0 -1.0, 1.0 1.0, 2.0 1.0)
 Y = 1.0 1.0 2.0 2.0
-clf = SVM::fit(Y, X)
+clf = svm::fit(Y, X)
 ```
 
 用模型进行预测：
 
 ```
-> SVM::predict(clf, X)
+> svm::predict(clf, X)
 [1,1,2,2]
 ```
 
 评估模型：
 
 ```
-> SVM::score(clf, X);
+> svm::score(clf, X);
 
 1
 ```
@@ -158,7 +158,7 @@ clf = SVM::fit(Y, X)
 将模型保存：
 
 ```
-SVM::saveModel(clf, modelPath)
+svm::saveModel(clf, modelPath)
 ```
 
 ## 例子2 SVM回归模型
@@ -171,13 +171,13 @@ modelPath="/path/to/mymodel";
 loadPlugin(path);
 X = table(1 3 5 7 11 16 23 as X)
 Y = 0.1 4.2 5.6 8.8 22.1 35.6 77.2
-regr = SVM::fit(Y, X, {type: "SVR"})
+regr = svm::fit(Y, X, {type: "SVR"})
 ```
 
 评估模型：
 
 ```
-> SVM::score(regr, Y, X);
+> svm::score(regr, Y, X);
 
 MSE->797.772
 R2->0.582937
