@@ -9,10 +9,10 @@ DolphinDB's HDF5 plugin imports HDF5 datasets into DolphinDB and supports data t
 * [User-API](#User API)  
     * [hdf5::ls](#hdf5ls)
     * [hdf5::lsTable](#hdf5lstable)
-    * [hdf5::extractHdf5Schema](#hdf5extracthdf5schema)
+    * [hdf5::extractHDF5Schema](#hdf5extracthdf5schema)
     * [hdf5::loadHDF5](#hdf5loadhdf5)
     * [hdf5::loadHDF5Ex](#hdf5loadhdf5ex)
-    * [hdf5::hdf5DS](#hdf5hdf5ds)
+    * [hdf5::HDF5DS](#hdf5hdf5ds)
 * [Data Types](#Data Types) 
     * [integer](#integer)
     * [float](#float)
@@ -80,7 +80,7 @@ You can also build HDF5 yourself. Download the source code from the [official we
 
 
 **Remember:** Use `loadPlugin("/path_to_PluginHdf5.txt/PluginHdf5.txt")` to import HDF5 plugin before using the API. 
-If the plugin fails to load, you would need to add the path of the plug-in to the library search path as follows, and then restart DolphinDB and load it again.
+If the plugin fails to load, you would need to add the path of the plugin to the library search path as follows, and then restart DolphinDB and load it again.
 
 ```
 export LD_LIBRARY_PATH=/path_to_PluginHdf5.txt/:$LD_LIBRARY_PATH
@@ -160,11 +160,11 @@ output:
        /ushort	      7,3       H5T_NATIVE_USHORT
 ```
 
-## hdf5::extractHdf5Schema
+## hdf5::extractHDF5Schema
 
 ### Syntax
 
-* `hdf5::extractHdf5Schema(fileName,datasetName)`
+* `hdf5::extractHDF5Schema(fileName,datasetName)`
 
 ### Parameters
 * `fileName`: a HDF5 file name of type `string`.
@@ -175,7 +175,7 @@ output:
 
 ### Example
 ```
-hdf5::extractHdf5Schema("/smpl_numeric.h5","sint")
+hdf5::extractHDF5Schema("/smpl_numeric.h5","sint")
 
 output:
         name	type
@@ -188,7 +188,7 @@ output:
         col_6	INT
 
 
-hdf5::extractHdf5Schema("/compound.h5","com")
+hdf5::extractHDF5Schema("/compound.h5","com")
 
 output:
         name	type
@@ -203,11 +203,11 @@ output:
         c	CHAR
 ```
 
-## hdf5::loadHdf5
+## hdf5::loadHDF5
 
 ### Syntax
 
-* `hdf5::loadHdf5(fileName,datasetName,[schema],[startRow],[rowNum])`
+* `hdf5::loadHDF5(fileName,datasetName,[schema],[startRow],[rowNum])`
 
 ### Parameters
 * `fileName`: a HDF5 file name of type `string`.
@@ -223,7 +223,7 @@ output:
 
 ### Example
 ```
-hdf5::loadHdf5("/smpl_numeric.h5","sint")
+hdf5::loadHDF5("/smpl_numeric.h5","sint")
 
 output:
         col_0	col_1	col_2	col_3	col_4	col_5	col_6
@@ -243,11 +243,11 @@ output:
 
 > **Note: the dimension of the dataset must be less than or equal to 2, only 2D or 1D tables can be parsed**
 
-## hdf5::loadHdf5Ex
+## hdf5::loadHDF5Ex
 
 ### Syntax
 
-* `hdf5::loadHdf5Ex(dbHandle,tableName,[partitionColumns],fileName,datasetName,[schema],[startRow],[rowNum])`
+* `hdf5::loadHDF5Ex(dbHandle,tableName,[partitionColumns],fileName,datasetName,[schema],[startRow],[rowNum])`
 
 ### Parameters
 * `dbHandle`和`tableName`: If the input data is to be saved into the distributed database, the database handle and table name should be specified.
@@ -288,24 +288,24 @@ db = database("", RANGE, 0 500 1000)
 t0 = hdf5::loadHDF5Ex(db,`tb,`col_4,"/smpl_numeric.h5","sint")
 ```
 
-## hdf5::hdf5DS
+## hdf5::HDF5DS
 
 ### Syntax
 
-* `hdf5::hdf5DS(fileName,datasetName,[schema],[dsNum])`
+* `hdf5::HDF5DS(fileName,datasetName,[schema],[dsNum])`
 
 ### Parameter
 * `fileName`: a HDF5 file name of type `string`.
 * `datasetName`: the dataset name, i.e., the table name of type `string`. It can be obtained by using `ls` or `lsTable`.
 * `schema`: a table with column names and data types of columns. If there is a need to change the data type of a column that is automatically determined by the system,  the schema table needs to be modified and used as an argument in `hdf5DS`.
-* `dsNum`: the number of data sources to be generated. `hdf5DS` will divide the whole table equally into `dsNum` tables. If not specified, it will generate one data source.
+* `dsNum`: the number of data sources to be generated. `HDF5DS` will divide the whole table equally into `dsNum` tables. If not specified, it will generate one data source.
 
 ### Details
 * Generate a tuple of data sources according to the input file name and dataset name.
 
 ### Example
 ```
->ds = hdf5::hdf5DS(smpl_numeric.h5","sint")
+>ds = hdf5::HDF5DS(smpl_numeric.h5","sint")
 
 >size ds;
 1
@@ -313,7 +313,7 @@ t0 = hdf5::loadHDF5Ex(db,`tb,`col_4,"/smpl_numeric.h5","sint")
 >ds[0];
 DataSource< loadHDF5("/smpl_numeric.h5", "sint", , 0, 3) >
 
->ds = hdf5::hdf5DS(smpl_numeric.h5","sint",,3)
+>ds = hdf5::HDF5DS(smpl_numeric.h5","sint",,3)
 
 >size ds;
 3
