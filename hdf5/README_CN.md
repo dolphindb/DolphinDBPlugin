@@ -1,7 +1,6 @@
 # DolphinDB HDF5 Plugin
 
-DolphinDB HDF5插件可將HDF5数据集导入DolphinDB，并支持对数据类型转换。
-
+DolphinDB HDF5插件可將HDF5文件导入DolphinDB，并支持进行数据类型转换。
 
 * [1 安装](#1-安装)
     * [1.1 预编译安装](#11-预编译安装)
@@ -29,7 +28,7 @@ DolphinDB HDF5插件可將HDF5数据集导入DolphinDB，并支持对数据类�
 
 ### 1.1 预编译安装
 
-用户可以导入预编译好的HDF5插件（DolphinDB安装包中或者bin目录下)。
+可以导入DolphinDB安装包中或者bin目录下预编译好的HDF5插件。
 
 #### Linux
 
@@ -51,21 +50,21 @@ loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
 
 ### 1.2 编译安装
 
-用户可以通过以下方法编译HDF5插件，编译成功后通过以上方法导入。
+可使用以下方法编译HDF5插件，编译成功后通过以上方法导入。
 
 #### 在Linux下安装
 
-#### 使用cmake构建
+##### 使用cmake构建
 
-安装cmake
+安装cmake：
 ```
 sudo apt-get install cmake
 ```
-安装HDF5开发包
+安装HDF5开发包：
 ```
 sudo apt-get install libhdf5-dev
 ```
-构建整个工程
+编译整个项目：
 ```
 mkdir build
 cd build
@@ -73,25 +72,25 @@ cmake ../path_to_hdf5_plugin/
 make
 ```
 
-#### 使用makefile构建
+##### 使用makefile构建
 
-安装HDF5开发包
+安装HDF5开发包：
 ```
 sudo apt-get install libhdf5-dev
 ```
 
-执行make构建
+执行make构建：
 ```
 make
 ```
 
-编译之前请确保libDolphinDB.so在gcc可搜索的路径中,可使用LD_LIBRARY_PATH指定其路径。
+编译之前请确保libDolphinDB.so在gcc可搜索的路径中，可使用LD_LIBRARY_PATH指定其路径。
 
 编译之后目录下会产生libPluginHdf5.so文件。
 
 #### 在Windows下安装
 
-在Windows下安装，需要启用HDF5的`enable threadsafe`选项。这需要在编译HDF5时配置。
+在Windows下安装，需要启用HDF5的'enable threadsafe'选项。这需要在编译HDF5时配置。
 
 用户可以使用预先编译的1.10.2版本的hdf5.dll文件，也可以自己选择HDF5的版本编译。在HDF5的[官方网站](https://www.hdfgroup.org/solutions/hdf5/)下载源代码，按照说明，如果采用configure方式编译，在配置时启用`--enable-threadsafe`, `--disable-cxx`, `--enable-shared`选项；如果采用CMake方式编译，在编译时启用`-DHDF5_ENABLE_THREADSAFE:BOOL=ON`, `-DHDF5_BUILD_CPP_LIB:BOOL=OFF`, `-DBUILD_SHARED_LIBS:BOOL=ON`参数。
 
@@ -109,7 +108,7 @@ hdf5::ls(fileName)
 
 #### 详情
 
-列出一个HDF5文件中的所有对象（数据集(dataset)和组(group)）以及对象类型(objType)。在对象类型中，数据集会包括其列数及行数。例如DataSet{(7,3)}代表7列3行。
+列出一个HDF5文件中的所有对象(数据集(dataset)和组(group))以及对象类型(objType)。在对象类型中，数据集会包括其列数及行数。例如DataSet{(7,3)}代表7列3行。
 
 #### 例子   
 ```
@@ -226,7 +225,7 @@ hdf5::loadHDF5(fileName,datasetName,[schema],[startRow],[rowNum])
 * fileName: HDF5文件名，类型为字符串标量。
 * datasetName: dataset名称，即表名。可通过ls或lsTable获得，类型为字符串标量。
 * schema: 包含列名和列的数据类型的表。若要改变由系统自动决定的列的数据类型，需要在schema表中修改数据类型，并且把它作为`loadHDF5`函数的一个参数。
-* startRow: 读取HDF5数据集的起始行位置。若不指定，默认从数据集起始位置读取。
+* startRow: 从哪一行开始读取HDF5数据集。若不指定，默认从数据集起始位置读取。
 * rowNum: 读取HDF5数据集的行数。若不指定，默认读到数据集的结尾。
 
 #### 详情
@@ -338,7 +337,7 @@ DataSource< loadHDF5("/smpl_numeric.h5", "sint", , 2, 1) >
 
 ## 3 支持的数据类型
 
-浮点和整数类型会被先转换为H5T_NATIVE_*类型(通过H5Tget_native_type)。
+浮点和整数类型会被先转换为H5T_NATIVE_*类型。
 
 ### 3.1 integer
 | Type in HDF5      | Type in C        | Type in DolphinDB |
@@ -370,7 +369,7 @@ DataSource< loadHDF5("/smpl_numeric.h5", "sint", , 2, 1) >
 | H5T_NATIVE_FLOAT  | float                | float                        |
 | H5T_NATIVE_DOUBLE | double               | double                       |
 
-注:IEEE754浮点数类型皆为有符号数
+注意：IEEE754浮点数类型皆为有符号数。
 
 * 所有浮点数类型皆可以转化为DolphinDB中的数值类型(bool, char, short, int, long, float, double)，若进行转化会发生溢出。例如DOUBLE->FLOAT会返回一个float的最值。
 
@@ -491,7 +490,7 @@ DataSource< loadHDF5("/smpl_numeric.h5", "sint", , 2, 1) >
 | 4   | 51   | 52   | 53   | 24   | hjk  |
 
 
-## 5 性能数据
+## 5 性能
 
 ### 5.1 环境
 
@@ -516,12 +515,12 @@ DataSource< loadHDF5("/smpl_numeric.h5", "sint", , 2, 1) >
     * 文件大小 3.6G
     * 耗时 17秒
 * 复合类型
-    * 子类型共9列,分别为 (str,str,double,int,long,float,int,short,char)
+    * 子类型共9列：(str,str,double,int,long,float,int,short,char)
     * 行数 1024 * 1024 * 62 
     * 文件大小 3.9G
     * 耗时 10秒
 * 数组复合类型
-    * 子类型共72列,为(str,str,double,int,long,float,int,short,char) * 8
+    * 子类型共72列：(str,str,double,int,long,float,int,short,char) * 8
     * 行数 1024 * 128 * 62
     * 文件大小 3.9G
     * 耗时 15秒
