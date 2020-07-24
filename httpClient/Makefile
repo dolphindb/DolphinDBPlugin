@@ -1,6 +1,6 @@
 CC = g++
-CFLAGS = -g -std=c++11 -fPIC -DLINUX -O2 -Wall -Werror
-INCLUDES = -I./include -I../include -I$(CURL_DIR)/include
+CFLAGS = -std=c++11 -fPIC -DLINUX -O2 -Wall -Werror
+INCLUDES = -I./include -I../include -I$(CURL_DIR)/include -I$(SSL_DIR)/include
 
 CURL_LIBS := $(CURL_DIR)/lib/libcurl.a
 SSL_LIBS := $(SSL_DIR)/lib/libssl.a $(SSL_DIR)/lib/libcrypto.a
