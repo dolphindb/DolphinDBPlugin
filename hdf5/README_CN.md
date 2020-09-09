@@ -230,7 +230,7 @@ hdf5::loadHDF5(fileName,datasetName,[schema],[startRow],[rowNum])
 
 #### 详情
 
-将HDF5文件中的指定数据集加载为DolphinDB数据库的内存表。读取的行数为HDF5文件中定义的行数，而不是读取结果中的DolphinDB表的行数。支持的数据类型，以及数据转化规则可见[数据类型](#支持的数据类型)章节。
+将HDF5文件中的指定数据集加载为DolphinDB数据库的内存表。读取的行数为HDF5文件中定义的行数，而不是读取结果中的DolphinDB表的行数。支持的数据类型，以及数据转化规则可见[数据类型](#3-支持的数据类型)章节。
 
 #### 例子
 ```
@@ -271,7 +271,7 @@ hdf5::loadHDF5Ex(dbHandle,tableName,[partitionColumns],fileName,datasetName,[sch
 
 #### 详情
 
-将HDF5文件中的数据集转换为DolphinDB数据库的分布式表，然后将表的元数据加载到内存中。读取的行数为HDF5文件中定义的行数，而不是读取结果中的DolphinDB表的行数。支持的数据类型,以及数据转化规则可见[数据类型](#支持的数据类型)章节。
+将HDF5文件中的数据集转换为DolphinDB数据库的分布式表，然后将表的元数据加载到内存中。读取的行数为HDF5文件中定义的行数，而不是读取结果中的DolphinDB表的行数。支持的数据类型,以及数据转化规则可见[数据类型](#3-支持的数据类型)章节。
 
 #### 例子
 
