@@ -247,7 +247,7 @@ output:
 
 ### Syntax
 
-* `hdf5::loadHDF5Ex(dbHandle,tableName,[partitionColumns],fileName,datasetName,[schema],[startRow],[rowNum])`
+* `hdf5::loadHDF5Ex(dbHandle,tableName,[partitionColumns],fileName,datasetName,[schema],[startRow],[rowNum],[transform])`
 
 ### Parameters
 * `dbHandle`和`tableName`: If the input data is to be saved into the distributed database, the database handle and table name should be specified.
@@ -257,6 +257,7 @@ output:
 * `schema`: a table with column names and data types of columns. If there is a need to change the data type of a column that is automatically determined by the system,  the schema table needs to be modified and used as an argument in `loadHdf5Ex`.
 * `startRow`: an integer indicating the start row to read. If not specified, the dataset will be read from the beginning.
 * `rowNum`: an integer indicating the number of rows to read. If not specified, `loadHdf5` will read until the end of data.
+* `transform`: an unary function. The parameter of the function must be a table. If parameter transform is specified, we need to first execute createPartitionedTable and then load the data. The system will apply the function specified in parameter transform and then save the results into the database.
 
 ### Details
 * Load an HDF5 file into a distributed table in a distributed database. The result is a table object with the loaded metadata.
@@ -286,6 +287,22 @@ hdf5::loadHdf5Ex(db,`tb,`col_4,"/smpl_numeric.h5","sint")
 ```
 db = database("", RANGE, 0 500 1000)
 t0 = hdf5::loadHDF5Ex(db,`tb,`col_4,"/smpl_numeric.h5","sint")
+```
+
+* Specify parameter transform to transform dafault type(e.g. 20200101) to specific type(e.g DATE)
+```
+dbPath="dfs://DolphinDBdatabase"
+db=database(dbPath,VALUE,2020.01.01..2020.01.30)
+dataFilePath="/transform.h5"
+datasetName="/SZ000001/data"
+schemaTB=hdf5::extractHDF5Schema(dataFilePath,datasetName)
+update schemaTB set type="DATE" where name="trans_time"
+tb=table(1:0,schemaTB.name,schemaTB.type)
+tb1=db.createPartitionedTable(tb,`tb1,`trans_time);
+def i2d(mutable t){
+    return t.replaceColumn!(`trans_time,datetimeParse(string(t.trans_time),"yyyyMMdd"))
+}
+t = hdf5::loadHDF5Ex(db,`tb1,`trans_time,dataFilePath,datasetName,,,,i2d)
 ```
 
 ## hdf5::HDF5DS

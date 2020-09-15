@@ -31,7 +31,7 @@ extern "C" ConstantSP HDF5DS(Heap *heap, vector<ConstantSP>& arguments);
 
 namespace H5PluginImp
 {
-
+ConstantSP nullSP = Util::createNullConstant(DT_VOID);
 void h5ls(const string &h5_path, vector<string> &objs_name, vector<string> &objs_type);
 TableSP h5read(const string &h5_path, const string &dataset_name, TableSP tb);
 void h5lsTable(const string &filename, vector<string> &datasetName, vector<string> &datasetDims,
@@ -41,11 +41,11 @@ ConstantSP loadHDF5(const string &filename, const string &datasetName,
                     const ConstantSP &schema, const size_t startRow, const size_t rowNum);
 ConstantSP loadHDF5Ex(Heap* heap, const SystemHandleSP &db, const string &tableName, const ConstantSP &partitionColumnNames,
                       const string &filename, const string &datasetName, const TableSP &schema,
-                      const size_t startRow, const size_t rowNum);
+                      const size_t startRow, const size_t rowNum, const FunctionDefSP &transform=nullSP);
 ConstantSP HDF5DS(const ConstantSP &filename, const ConstantSP &datasetName,
                   const ConstantSP &schema, const size_t dsNum);
 
-extern ConstantSP nullSP;
+
 extern const size_t insertThreshold;
 
 class SegmentedInMemoryTableBuiler : public String {

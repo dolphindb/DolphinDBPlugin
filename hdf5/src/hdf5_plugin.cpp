@@ -149,10 +149,21 @@ ConstantSP loadHDF5Ex(Heap *heap, vector<ConstantSP>& arguments)
         if (rowNum < 0)
             throw IllegalArgumentException(__FUNCTION__, "rowNum must be nonnegative.");
     }
-
-    return H5PluginImp::loadHDF5Ex(heap, db, tableName->getString(), partitionColumnNames,
+    FunctionDefSP transform;
+    if (arguments.size() >= 9) {
+        if (arguments[8]->getType() != DT_FUNCTIONDEF)
+            throw IllegalArgumentException(__FUNCTION__, "transform must be a function.");
+        transform = FunctionDefSP(arguments[8]);
+        return H5PluginImp::loadHDF5Ex(heap, db, tableName->getString(), partitionColumnNames,
+                                   filename->getString(), datasetName->getString(),
+                                   schema, startRow, rowNum, transform);
+    }else{
+        return H5PluginImp::loadHDF5Ex(heap, db, tableName->getString(), partitionColumnNames,
                                    filename->getString(), datasetName->getString(),
                                    schema, startRow, rowNum);
+    }
+
+    
 }
 
 ConstantSP HDF5DS(Heap *heap, vector<ConstantSP>& arguments)
@@ -190,8 +201,6 @@ ConstantSP HDF5DS(Heap *heap, vector<ConstantSP>& arguments)
 
 namespace H5PluginImp
 {
-
-ConstantSP nullSP = Util::createNullConstant(DT_VOID);
 
 std::string getDatasetDimsStr(hid_t loc_id, const char *name)
 {
@@ -794,7 +803,7 @@ TableSP readSimpleDataset(const hid_t set, H5DataType &type, TableSP tb, size_t 
         throw RuntimeException("the columns of the table don't match the dataset");
 
     vector<H5ColumnSP> cols;
-    createColumnVec(cols, reader.columnNum(), reader.rowNum(), type, tb);
+    createColumnVec(cols, reader.columnNum(), std::min(readRowNum,rowNum), type, tb);
 
     vector<ConstantSP> colVec;
     DatasetAppenderSP appender = new SimpleDatasetAppender();
@@ -838,7 +847,7 @@ TableSP readComplexDataset(const hid_t set, H5DataType &type, TableSP tb, size_t
     if (!tb->isNull() && !colsNumEqual(tb, cols.size()))
         throw RuntimeException("the columns of the table don't match the dataset");
 
-    createColumnVec(cols, reader.rowNum() * reader.columnNum(), tb);
+    createColumnVec(cols, std::min(endElement,colNum * rowNum)-startElement, tb);
 
     vector<ConstantSP> colVec;
     DatasetAppenderSP appender = new ComplexDatasetAppender();
@@ -890,20 +899,26 @@ ConstantSP loadHDF5(const string &filename, const string &datasetName,
 
 ConstantSP loadFromH5ToDatabase(Heap *heap, vector<ConstantSP> &arguments)
 {
-    hid_t setId = static_cast<hid_t>(arguments[0]->getLong());
-    TableSP schema = static_cast<TableSP>(arguments[1]);
-    size_t startRow = arguments[2]->getLong();
-    size_t rowNum = arguments[3]->getLong();
-    SystemHandleSP db = static_cast<SystemHandleSP>(arguments[4]);
-    string tableName = arguments[5]->getString();
-
+    //hid_t setId = static_cast<hid_t>(arguments[0]->getLong());
+    TableSP schema = static_cast<TableSP>(arguments[2]);
+    size_t startRow = arguments[3]->getLong();
+    size_t rowNum = arguments[4]->getLong();
+    SystemHandleSP db = static_cast<SystemHandleSP>(arguments[5]);
+    string tableName = arguments[6]->getString();
+    FunctionDefSP transform = (FunctionDefSP)arguments[8];
     bool diskSeqMode = !db->getDatabaseDir().empty() &&
                        db->getDomain()->getPartitionType() == SEQ;
-
-    TableSP loadedTable = loadHDF5(setId, schema, startRow, rowNum);
+    ConstantSP tempTable = loadHDF5(arguments[0]->getString(), arguments[1]->getString(), schema, startRow, rowNum);
+    TableSP loadedTable;
+    if(!transform->isNull()){
+        vector<ConstantSP> args = {tempTable};
+        loadedTable = transform->call(heap, args);
+    }else{
+        loadedTable = tempTable;
+    }                 
 
     if (diskSeqMode) {
-        string id = db->getDomain()->getPartition(arguments[6]->getInt())->getPath();
+        string id = db->getDomain()->getPartition(arguments[7]->getInt())->getPath();
         string directory = db->getDatabaseDir() + "/" + id;
         if (!DBFileIO::saveBasicTable(heap->currentSession(), directory, loadedTable.get(), tableName, NULL, true, 1, false))
             throw RuntimeException("Failed to save the table to directory " + directory);
@@ -927,18 +942,20 @@ void getColNamesAndTypesFromSchema(const TableSP &schema, vector<string> &colNam
     }
 }
 
-vector<DistributedCallSP> generateH5Tasks(Heap* heap, const hid_t set,
+vector<DistributedCallSP> generateH5Tasks(Heap* heap, const string &fileName, const string &datasetName,
     const TableSP &schema, const size_t startRow, const size_t rowNum,
-    const SystemHandleSP &db, const string &tableName)
+    const SystemHandleSP &db, const string &tableName, const FunctionDefSP &transform)
 {
     vector<string> colNames;
     vector<DATA_TYPE> types;
 
+    H5ReadOnlyFile f(fileName);
+    H5DataSet dataset(datasetName, f.id());
     if (!schema->isNull())
 		getColNamesAndTypesFromSchema(schema, colNames, types);
 
     vector<size_t> rowAndColNum;
-    getRowAndColNum(set, rowAndColNum);
+    getRowAndColNum(dataset.id(), rowAndColNum);
 
     size_t estimatedRows = rowAndColNum[0] - startRow;
     if (rowNum != 0)
@@ -955,8 +972,9 @@ vector<DistributedCallSP> generateH5Tasks(Heap* heap, const hid_t set,
             throw IOException("The number of rows per partition is too small (<65,536) and the hdf5 file can't be partitioned.");
     }
     if (partitions == 0) {
-        long long fileSize = getDatasetSize(set);
+        double fileSize = (double)getDatasetSize(dataset.id());
         long long maxSizePerPartition = 128 * 1024 * 1024;
+        fileSize = (((double)estimatedRows / rowAndColNum[0])) * fileSize;
         int defaultPartitions = 4;//GOContainer::LOCAL_EXECUTOR_SIZE + 1;
         long long sizePerPartition = fileSize / defaultPartitions;
         if (sizePerPartition < 16 * 1024 * 1024)
@@ -966,6 +984,8 @@ vector<DistributedCallSP> generateH5Tasks(Heap* heap, const hid_t set,
         else
             partitions = defaultPartitions;
     }
+    dataset.close();
+    f.close();
 
     int columns=colNames.size();
 	vector<ConstantSP> cols(columns);
@@ -975,14 +995,15 @@ vector<DistributedCallSP> generateH5Tasks(Heap* heap, const hid_t set,
     size_t rowIncrement = std::ceil(static_cast<double>(estimatedRows) / partitions);
     size_t currentStartRow = startRow;
     ConstantSP _rowIncrement = new Long(rowIncrement);
-    ConstantSP setId = new Long(set);
+    ConstantSP file = new String(fileName);
+    ConstantSP set = new String(datasetName);
     ConstantSP _tableName = new String(tableName);
-    FunctionDefSP func = Util::createSystemFunction("loadFromH5ToDatabase", loadFromH5ToDatabase, 7, 7, false);
+    FunctionDefSP func = Util::createSystemFunction("loadFromH5ToDatabase", loadFromH5ToDatabase, 9, 9, false);
     for (int i = 0; i < partitions; i++) {
         ConstantSP _startRow = new Long(currentStartRow);
         ConstantSP id = new Int(i);
-        vector<ConstantSP> args{setId, schema,
-                                _startRow, _rowIncrement, db, _tableName, id};
+        vector<ConstantSP> args{file, set, schema,
+                                _startRow, _rowIncrement, db, _tableName, id, transform};
         ObjectSP call = Util::createRegularFunctionCall(func, args);
         DistributedCallSP task = new DistributedCall(call, true);
         tasks.push_back(task);
@@ -1000,23 +1021,25 @@ TableSP generateInMemoryParitionedTable(Heap *heap, const SystemHandleSP &db,
     return createPartitionedTable->call(heap, args);
 }
 
+ConstantSP savePartition(Heap *heap, vector<ConstantSP> &arguments){
+    SystemHandleSP db = arguments[0];
+    ConstantSP tb = arguments[1];
+    ConstantSP tbInMemory = arguments[2];
+    string dbPath = db->getDatabaseDir();
+    FunctionDefSP append = heap->currentSession()->getFunctionDef("append!");
+    vector<ConstantSP> appendArgs = {tb, tbInMemory};
+    append->call(heap, appendArgs);
+    return new Void();
+}
+
 ConstantSP loadHDF5Ex(Heap *heap, const SystemHandleSP &db, const string &tableName, const ConstantSP &partitionColumns,
                       const string &filename, const string &datasetName, const TableSP &schema,
-                      const size_t startRow, const size_t rowNum)
+                      const size_t startRow, const size_t rowNum, const FunctionDefSP &transform)
 {
     const TableSP convertedSchema = schema->isNull() ? extractHDF5Schema(filename, datasetName) : schema;
-    H5ReadOnlyFile f(filename);
-    H5DataSet dataset(datasetName, f.id());
-    vector<DistributedCallSP> tasks = generateH5Tasks(heap, dataset.id(), convertedSchema, startRow, rowNum, db, tableName);
+    vector<DistributedCallSP> tasks = generateH5Tasks(heap, filename, datasetName, convertedSchema, startRow, rowNum, db, tableName, transform);
     int partitions = tasks.size();
 
-    StaticStageExecutor executor(true, false, false);
-    executor.execute(heap, tasks);
-    for (int i = 0; i < partitions; i++) {
-        const string &errMsg = tasks[i]->getErrorMessage();
-        if (!errMsg.empty())
-            throw RuntimeException(errMsg);
-    }
 
     string owner = heap->currentSession()->getUser()->getUserId();
     DomainSP domain = db->getDomain();
@@ -1025,6 +1048,13 @@ ConstantSP loadHDF5Ex(Heap *heap, const SystemHandleSP &db, const string &tableN
     ConstantSP tableName_ = new String(tableName);
 
     if (seqDomain) {
+        StaticStageExecutor executor(false, false, false);
+        executor.execute(heap, tasks);
+        for (int i = 0; i < partitions; i++) {
+            const string &errMsg = tasks[i]->getErrorMessage();
+            if (!errMsg.empty())
+                throw RuntimeException(errMsg);
+        }
         if (inMemory) {
             ConstantSP tmpTables = Util::createVector(DT_ANY, partitions);
             for (int i = 0; i < partitions; i++)
@@ -1075,17 +1105,29 @@ ConstantSP loadHDF5Ex(Heap *heap, const SystemHandleSP &db, const string &tableN
             result = heap->currentSession()->getFunctionDef("loadTable")->call(heap, loadTableArgs);
         }
         else {
-            TableSP schema = extractHDF5Schema(filename, datasetName);
-            ConstantSP dummyTable = DBFileIO::createEmptyTableFromSchema(schema);
+            //TableSP schema = extractHDF5Schema(filename, datasetName);
+            ConstantSP dummyTable = DBFileIO::createEmptyTableFromSchema(convertedSchema);
             vector<ConstantSP> createTableArgs = {db, dummyTable, tableName_, partitionColumns};
             result = heap->currentSession()->getFunctionDef("createPartitionedTable")->call(heap, createTableArgs);
         }
+        vector<FunctionDefSP> functors;
+        FunctionDefSP func = Util::createSystemFunction("savePartition",&savePartition, 3, 3, false);
+        vector<ConstantSP> args(3);
+        args[0] = db;
+        args[1] = result;
+        args[2] = new Void();
+        functors.push_back(Util::createPartialFunction(func, args));
+        //int parallel = 10;
 
-        FunctionDefSP append = heap->currentSession()->getFunctionDef("append!");
-        for (int i = 0; i < partitions; ++i) {
-            ConstantSP table = tasks[i]->getResultObject();
-            vector<ConstantSP> appendArgs = {result, table};
-            append->call(heap, appendArgs);
+        PipelineStageExecutor executor(functors, false, 2, 1);
+
+        executor.execute(heap, tasks);
+        for(int i=0; i<partitions; ++i){
+            if(!tasks[i]->getErrorMessage().empty()){
+                string errMsg;
+                errMsg = tasks[i]->getErrorMessage();
+                throw RuntimeException(errMsg);
+            }
         }
         if (!inMemory) {
             vector<ConstantSP> loadTableArgs = {db, tableName_};
