@@ -1,0 +1,7 @@
+hdf5,libPluginHdf5.dll
+h5ls,ls,operator,1,1,0
+h5lsTable,lsTable,operator,1,1,0
+extractHDF5Schema,extractHDF5Schema,operator,2,2,0
+loadHDF5,loadHDF5,system,2,5,0
+loadHDF5Ex,loadHDF5Ex,system,5,9,0
+HDF5DS,HDF5DS,system,2,4,0
