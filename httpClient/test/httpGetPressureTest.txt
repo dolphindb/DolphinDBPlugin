@@ -4,7 +4,7 @@
  */
 
 //set your plugin path here
-pluginPath = '/home/ybzhang/Documents/DolphinDBPlugin/httpClient/PluginHttpClient.txt';
+pluginPath = '/home/zmx/worker/DolphinDBPlugin/httpClient/PluginHttpClient.txt';
 try{loadPlugin(pluginPath)}catch(ex){print ex};
 go
 
