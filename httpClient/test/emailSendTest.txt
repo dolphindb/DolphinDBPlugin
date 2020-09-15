@@ -1,0 +1,48 @@
+pluginPath = '/home/zmx/worker/DolphinDBPlugin/httpClient/PluginHttpClient.txt';
+try{loadPlugin(pluginPath)}catch(ex){print ex};
+go
+
+use httpClient;
+
+jobs = [];
+test_num = 3;
+
+def sendEmailJob(n){
+cnt = 0
+
+//"dolphindbtest@126.com","VUZUSOSHUSSHMGCL";
+//"dolphindbtest@163.com","VSCJQVLDJUNCWRSS";
+//"dolphindbtest@yeah.net","CUMXVSQSTIOXYQIS";
+//"dolphindbtest@sohu.com","GCD5IOUZ061";
+//Set up your email and authorization code here
+user='dolphindbtest@yeah.net';
+psw='CUMXVSQSTIOXYQIS';
+
+for(x in 1:n){
+
+    //recipient='dolphindbtest@126.com'
+    
+    recipient='dolphindbtest@126.com' 'dolphindbtest@163.com' 'dolphindbtest@yeah.net'
+    
+    res=sendEmail(user,psw,recipient,"This is a subject","It is a text")
+    if(res['responseCode'] == 250) cnt = cnt + 1
+}
+return cnt
+};
+
+def sendEmailTest(n, mutable jobs, test_num){
+for(x in 1:n){
+   jobs.append!(submitJob("httpJob"+x, "sendEmailJob", sendEmailJob, test_num))
+}
+};
+
+timer{
+complete_num = 0
+jobs = []
+sendEmailTest(3, jobs, test_num)
+for(x in jobs){
+    print "job: " + x
+    complete_num = complete_num + getJobReturn(x, true)
+}
+print "complte " + complete_num + "/" + jobs.size() *( test_num - 1)
+};

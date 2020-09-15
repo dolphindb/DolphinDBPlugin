@@ -4,7 +4,7 @@
  */
 
 //set your plugin path here
-pluginPath = '/home/ybzhang/Documents/DolphinDBPlugin/httpClient/PluginHttpClient.txt';
+pluginPath = '/home/zmx/worker/DolphinDBPlugin/httpClient/PluginHttpClient.txt';
 try{loadPlugin(pluginPath)}catch(ex){print ex};
 go
 
@@ -18,7 +18,7 @@ cnt = 0
 //set your http server here
 url = "localhost:8900"
 for(x in 1:n){
-    res = get(url,,100)
+    res = httpGet(url,,100)
     if(res['responseCode'] == 200) cnt = cnt + 1
 }
 return cnt

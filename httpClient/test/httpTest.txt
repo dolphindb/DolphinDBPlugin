@@ -3,78 +3,49 @@
  */
 
 //set your plugin path here
-pluginPath = '/home/ybzhang/Documents/DolphinDBPlugin/httpClient/PluginHttpClient.txt';
+pluginPath = '/home/zmx/worker/DolphinDBPlugin/httpClient/PluginHttpClient.txt';
 try{loadPlugin(pluginPath)}catch(ex){print ex};
 go
-
+use httpClient;
 
 @testing:case="test_http_get_stock_image_by_code"
 dic = dict(['theStockCode'], ['sh000001']);
-res = httpClient::get("http://www.webxml.com.cn/WebServices/ChinaStockWebService.asmx/getStockImageByCode", dic, 1000);
+res = httpGet("http://www.webxml.com.cn/WebServices/ChinaStockWebService.asmx/getStockImageByCode", dic, 1000);
 assert 1, res['responseCode'] == 200;
 assert 2, res['elapsed'] < 1000 && res['elapsed'] > 0;
-print res['headers'];
-print res['text'];
+print res['headers'], res['text'];
 
 
 @testing:case="test_http_post_stock_image_by_code"
-res = httpClient::post("http://www.webxml.com.cn/WebServices/ChinaStockWebService.asmx/getStockImageByCode", dic, 1000);
+res = httpPost("http://www.webxml.com.cn/WebServices/ChinaStockWebService.asmx/getStockImageByCode", dic, 1000);
 assert 1, res['responseCode'] == 200;
 assert 2, res['elapsed'] < 1000 && res['elapsed'] > 0;
 print res['headers'], res['text'];
 
 
 @testing:case="test_http_get_stock_imagebyte_by_code"
-res = httpClient::get("http://www.webxml.com.cn/WebServices/ChinaStockWebService.asmx/getStockImageByteByCode", dic, 1000);
+res = httpGet("http://www.webxml.com.cn/WebServices/ChinaStockWebService.asmx/getStockImageByteByCode", dic, 1000);
 assert 1, res['responseCode'] == 200;
 assert 2, res['elapsed'] < 1000 && res['elapsed'] > 0;
 print res['headers'], res['text'];
 
 
 @testing:case="test_http_post_stock_imagebyte_by_code"
-res = httpClient::post("http://www.webxml.com.cn/WebServices/ChinaStockWebService.asmx/getStockImageByteByCode", dic, 1000);
+res = httpPost("http://www.webxml.com.cn/WebServices/ChinaStockWebService.asmx/getStockImageByteByCode", dic, 1000);
 assert 1, res['responseCode'] == 200;
 assert 2, res['elapsed'] < 1000 && res['elapsed'] > 0;
 print res['headers'], res['text'];
 
 
 @testing:case="test_http_get_stockinfo_by_code"
-res = httpClient::get("http://www.webxml.com.cn/WebServices/ChinaStockWebService.asmx/getStockInfoByCode", dic, 1000);
+res = httpGet("http://www.webxml.com.cn/WebServices/ChinaStockWebService.asmx/getStockInfoByCode", dic, 1000);
 assert 1, res['responseCode'] == 200;
 assert 2, res['elapsed'] < 1000 && res['elapsed'] > 0;
 print res['headers'], res['text'];
 
 
 @testing:case="test_http_post_stockinfo_by_code"
-res = httpClient::get("http://www.webxml.com.cn/WebServices/ChinaStockWebService.asmx/getStockInfoByCode", dic, 1000);
+res = httpGet("http://www.webxml.com.cn/WebServices/ChinaStockWebService.asmx/getStockInfoByCode", dic, 1000);
 assert 1, res['responseCode'] == 200;
 assert 2, res['elapsed'] < 1000 && res['elapsed'] > 0;
 print res['headers'], res['text'];
-
-// In case of www.webxml.com.cn disaccept of the header of plugin, there is a case for www.baidu.com
-@testing:case="test_http_get_baidu"
-res = httpClient::get("http://www.baidu.com", , 1000, false);
-assert 1, res['responseCode'] == 200;
-assert 2, res['elapsed'] < 1000 && res['elapsed'] > 0;
-assert 3, res['text'].count() != 0;
-
-// In case of www.webxml.com.cn disaccept of the header of plugin, there is a case for www.baidu.com
-@testing:case="test_http_get_baidu_without_body"
-res = httpClient::get("http://www.baidu.com", , 1000, true);
-assert 1, res['responseCode'] == 200;
-assert 2, res['elapsed'] < 1000 && res['elapsed'] > 0;
-assert 3, res['text'].count() == 0;
-
-// In case of www.webxml.com.cn disaccept of the header of plugin, there is a case for www.baidu.com
-@testing:case="test_http_post_baidu"
-res = httpClient::post("http://www.baidu.com", , 1000, false);
-assert 1, res['responseCode'] == 200;
-assert 2, res['elapsed'] < 1000 && res['elapsed'] > 0;
-assert 3, res['text'].count() != 0;
-
-// In case of www.webxml.com.cn disaccept of the header of plugin, there is a case for www.baidu.com
-@testing:case="test_http_post_baidu_without_body"
-res = httpClient::post("http://www.baidu.com", , 1000, true);
-assert 1, res['responseCode'] == 200;
-assert 2, res['elapsed'] < 1000 && res['elapsed'] > 0;
-assert 3, res['text'].count() == 0;
