@@ -1,84 +1,115 @@
-## DolphinDB introduction
-DolphinDB is an extremely fast time series database and data analytical system with unlimited scaling capacity. It has built-in parallel and distributed computing supports. It comes with battery included for real time data processing and analytics across unlimited computing nodes. It is integrated with an easy-to-use fully featured programming language and a high-volume high-velocity streaming analytics system. DolphinDB offers operational simplicity, scalability, fault tolerance, and concurrency. To learn more about DolphinDB, please go to 
+# DolphinDB HTTP Client Plugin
+
+使用该插件可以便捷地进行HTTP请求,邮件发送。
+
+## 构建
+
+需要首先构建`libcurl`, `libssl`(版本为1.0.2), `libcrypto`(版本为1.0.2)和libz的静态链接库。
+
+在使用`make`构建时，需要指定`CURL_DIR`, `SSL_DIR`和`Z_DIR`（假定`libssl.a`和`libcrypto.a`在同一个目录下）。例如：
 
 ```
-Downloads: http://www.dolphindb.com/downloads.html
-Manual: http://dolphindb.com/help/
-Examples: http://dolphindb.com/examples.html
+CURL_DIR=/home/zmx/curl-7.47.0 SSL_DIR=/home/zmx/openssl-1.0.2i Z_DIR=/home/zmx/zlib-1.2.11 make
 ```
 
-## DolphinDB Plugin
-DolphinDB supports dynamic loading of external plugins to extend system functionality. The plug-in only supports writing in C++, and it needs to be compiled into ".so" shared libraries or ".dll" shared library files.
+## 使用
 
-## Directory Structures
-* ```include```The directory contains the class declarations and some tool class declarations for the core data structures of DolphinDB. These classes are important basic tools for implementing plug-ins.
-* ```demo```The directory contains a demo plug-in implementation. 
-* ```odbc```The directory contains an implementation of the odbc plugin.
-## Loading Plugin
-Use the ```loadPlugin``` function to load an external plugin that accepts a file path that describes the format of the plugin.
+编译生成`libPluginHttpClient.so`之后，通过以下脚本加载插件：
 
-## DolphinDB Plugin Format
-
-DolphinDB uses a text file to describe the plugin. The file format is as follows:
-The first line describes the plug-in name and shared library file name.  
-Each of the following lines describes the mapping between a shared library function and the dolphinDB function. 
 ```
-module name，lib file
-function name in lib, function name in dolphindb, function type，minParamCount, maxParamCount, isAggregated
-...
-```
-**Explanation**：
-* module name: plugin module name  
-* lib file: shared library file name 
-* function name in lib: The function name in the shared library
-* function name in dolphindb: corresponding function name in dolphindb 
-* function type: operator or system  
-* minParamCount: the minimum number of parameters  
-* maxParamCount: the maximum number of parameters  
-* isAggregated:  whether it is an aggregate function  
-
-## Example
-PluginDemo.txt:
-```
-demo,libPluginDemo.so 
-minmax,minmax,operator,1,1,0
-foo,foo,system,1,1,0
-```
-The above description file defines a plugin named ```demo```. The shared library file is named ```libPluginDemo.so```.
-
-The plug-in exports two functions. The first function is named ```minmax```. The name of the function is also ```minmax``` in dolphinDB. The function type is "operator" and accepts one parameter. The second function name is ```echo```, the name in dolphinDB is also ```echo```, the function type is "system" and accepts one argument. 
-
-
-After writing the description file, you can start writing plugins. For content, please refer to ```demo``` folder contents.
-
-
-The compiler needs to use DolphinDB's core library ```libDolphinDB.so```, which implements the classes declared in ```include``` directories.
-The compilation steps are as follows
-```
-cd demo
-g++ -DLINUX -fPIC -c src/Demo.cpp -I../include -o Demo.o
-g++ -fPIC -shared -o libPluginDemo.so Demo.o -lDolphinDB
+loadPlugin("/path/to/PluginHttpClient.txt");
 ```
 
-After successful compilation, a shared library file named ```libPluginDemo.so``` will be generated under the directory.
+### httpClient::httpGet(url,[params],[timeout],[headers])
 
+发送HTTP GET请求。
+参数
+* url：为请求的URL字符串。
+* params：为一个字符串或一个键和值都是string的字典。http协议Get方法请求的会把参数放在url的后面。
+假如url为 www.dolphindb.cn，
+1. 如果params为一个字符串("example"),则发出的完整http报文的请求头中的url为 "www.dolphindb.cn?example"。
+2. 如果params为一个字典(两个键值对"name"->"zmx"和"id"->"111"),则发出的完整http报文的请求头中的url为 "www.dolphindb.cn?id=111&name=zmx"。
+* timeout：为超时时间，单位为毫秒。
+* headers：为一个字符串或一个键和值都是string的字典,填写http请求头部。 如果headers为一个字典(两个键值对"groupName"->"dolphindb"和"groupId"->"11"),
+则发出的完整http报文添加请求头"groupId:11"和"groupName:dolphindb"。如果只是一个字符串，则必须是"xx:xx"格式，会添加一个http请求头。
 
-Enter the following command in the dolphinb console to load the plugin and use it.
+返回一个dictionary，键包括：
+- `responseCode`: 请求返回的响应码。
+- `headers`: 请求返回的头部。
+- `text`: 请求返回的内容文本。
+- `elapsed`: 请求经过的时间。
+
+例子
 ```
->loadPlugin(Path to PluginDemo.txt); // Load the plugin
-(minmax,echo)
->use demo; // Import the plugin's namespace
->demo::minmax([12,3,4]); // You can also use minmax([12,3,4])
-[3,12]
->demo::echo("foo");
-foo
->echo(1);
-1
+loadPlugin('/home/zmx/worker/DolphinDBPlugin/httpClient/PluginHttpClient.txt');
+param=dict(string,string);
+header=dict(string,string);
+param['name']='zmx';
+param['id']='111';
+header['groupName']='dolphindb';
+header['groupId']='11';
+//Please set up your own httpServer ex.(python -m SimpleHTTPServer 8900)
+url = "localhost:8900";
+res = httpClient::httpGet(url,param,1000,header);
+```
+### httpClient::httpPost(url,[params],[timeout],[headers])
+
+发送HTTP POST请求。
+
+参数
+* url：为请求的URL字符串。
+* params：为一个字符串或一个key是string的字典。http协议Post方法请求的会把参数放在http请求正文中。
+1. 如果params为一个字符串("example"),则发出的完整http报文的请求正文l为"example"。
+2. 如果params为一个字典(两个键值对"name"->"zmx"和"id"->"111"),则发出的完整http报文的请求正文为 "id=111&name=zmx"。
+* timeout：为超时时间，单位为毫秒。
+* headers：为一个字符串或一个键和值都是string的字典,填写http请求头部。 如果headers为一个字典(两个键值对"groupName"->"dolphindb"和"groupId"->"11"),
+则发出的完整http报文添加请求头"groupId:11"和"groupName:dolphindb"。如果只是一个字符串，则必须是"xx:xx"格式，会添加一个http请求头。
+
+返回一个dictionary，键包括：
+- `responseCode`: 请求返回的响应码。
+- `headers`: 请求返回的头部。
+- `text`: 请求返回的内容文本。
+- `elapsed`: 请求经过的时间。
+例子
+```
+loadPlugin('/home/zmx/worker/DolphinDBPlugin/httpClient/PluginHttpClient.txt');
+param=dict(string,string);
+header=dict(string,string);
+param['name']='zmx';
+param['id']='111';
+header['groupName']='dolphindb';
+header['groupId']='11';
+//Please set up your own httpServer ex.(python -m SimpleHTTPServer 8900)
+url = "localhost:8900";
+res = httpClient::httpPost(url,param,1000,header);
+```
+### httpClient::sendEmail(userId,pwd,recipient,subject,body)
+发送邮件。
+- 使用本插件的邮件发送函数通常需要在邮件服务商上面设置开启smtp协议，还有需要获取邮箱授权码，参数pwd为邮箱授权码的字符串。
+- 如果成功发送邮件，返回的字典res，res['responseCode']==250。
+
+参数
+* userId：发送者邮箱账号。
+* pwd：发送者邮箱密码(授权码)。
+* recipient：目标邮箱账号的一个字符串或一个字符串集合。
+* subject：邮件主题的字符串。
+* body：为邮件正文的字符串。
+
+返回一个dictionary，键包括：
+- `userId`: 发送者邮箱字符串。
+- `recipient`: 接受者邮箱的集合的字符串。
+- `responseCode`: 请求返回的响应码。
+- `headers`: 请求返回的头部。
+- `text`: 请求返回的内容文本。
+- `elapsed`: 请求经过的时间。
+
+例子
+```
+res=httpClient::sendEmail('MailFrom@xxx.com','xxxxx','Maildestination@xxx.com','This is a subject','It is a text');
+```
+```
+emailTo='Maildestination@xxx.com''Maildestination2@xxx.com''Maildestination3@xxx.com';
+res=httpClient::sendEmail('MailFrom@xxx.com','xxxxx',emailTo,'This is a subject','It is a text');
 ```
 
-For more complex plugin implementation please refer to the ```odbc``` directory.
 
-## Tips
-* It is recommended that you use the ```ld``` command to check if the compiler link is successful and there are undefined references in the so. If ```ld``` error, then DolphinDB can not load the plug-in correctly.
-* If the program is crashed after loading the plug-in, you can try the following steps. 
-   1. Make sure that the ```include``` headers are consistent with the ```libDolphinDB.so``` implementation.Make sure that the version of ``gcc``` used to compile the plugin is consistent with the version of ``libBoardDB.so```, so as to avoid the incompatibilities between different versions of the compiler ABI.
