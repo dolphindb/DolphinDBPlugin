@@ -169,6 +169,7 @@ public:
 	static Uuid* parseUuid(const char* str, int len);
 };
 
+# ifndef OPCUA
 class IPAddr : public Int128 {
 public:
 	IPAddr();
@@ -188,7 +189,7 @@ private:
 	static bool parseIP4(const char* str, size_t len, unsigned char* buf);
 	static bool parseIP6(const char* str, size_t len, unsigned char* buf);
 };
-
+# endif
 class String: public Constant{
 public:
 	String(DolphinString val=""):val_(val){}
@@ -207,7 +208,6 @@ public:
 	virtual const DolphinString& getStringRef(INDEX index) const {return val_;}
 	virtual bool isNull() const {return val_.empty();}
 	virtual void setString(const DolphinString& val) {val_=val;}
-	virtual ConstantSP get(const ConstantSP& index) const;
 	virtual void setNull(){val_="";}
 	virtual void nullFill(const ConstantSP& val){
 		if(isNull())
