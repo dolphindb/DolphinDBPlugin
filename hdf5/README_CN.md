@@ -257,7 +257,7 @@ output:
 
 #### 语法
 
-hdf5::loadHDF5Ex(dbHandle,tableName,[partitionColumns],fileName,datasetName,[schema],[startRow],[rowNum])
+hdf5::loadHDF5Ex(dbHandle,tableName,[partitionColumns],fileName,datasetName,[schema],[startRow],[rowNum],[tranform])
 
 #### 参数
 
@@ -268,7 +268,7 @@ hdf5::loadHDF5Ex(dbHandle,tableName,[partitionColumns],fileName,datasetName,[sch
 * schema: 包含列名和列的数据类型的表。如果我们想要改变由系统自动决定的列的数据类型，需要在schema表中修改数据类型，并且把它作为`loadHDF5Ex`函数的一个参数。
 * startRow: 读取HDF5数据集的起始行位置。若不指定，默认从数据集起始位置读取。
 * rowNum: 读取HDF5数据集的行数。若不指定，默认读到数据集的结尾。
-
+* tranform: 一元函数，并且该函数接受的参数必须是一个表。如果指定了transform参数，需要先创建分区表，再加载数据，程序会对数据文件中的数据执行transform参数指定的函数，再将得到的结果保存到数据库中。
 #### 详情
 
 将HDF5文件中的数据集转换为DolphinDB数据库的分布式表，然后将表的元数据加载到内存中。读取的行数为HDF5文件中定义的行数，而不是读取结果中的DolphinDB表的行数。支持的数据类型,以及数据转化规则可见[数据类型](#3-支持的数据类型)章节。
@@ -299,6 +299,27 @@ db = database("", RANGE, 0 500 1000)
 t0 = hdf5::loadHDF5Ex(db,`tb,`col_4,"/smpl_numeric.h5","sint")
 ```
 
+* 内存中的非SEQ分区表
+```
+db = database("", RANGE, 0 500 1000)
+t0 = hdf5::loadHDF5Ex(db,`tb,`col_4,"/smpl_numeric.h5","sint")
+```
+
+* 指定transform将将数值类型表示的日期和时间(比如:20200101)转化为指定类型(比如:日期类型)
+```
+dbPath="dfs://DolphinDBdatabase"
+db=database(dbPath,VALUE,2020.01.01..2020.01.30)
+dataFilePath="/transform.h5"
+datasetName="/SZ000001/data"
+schemaTB=hdf5::extractHDF5Schema(dataFilePath,datasetName)
+update schemaTB set type="DATE" where name="trans_time"
+tb=table(1:0,schemaTB.name,schemaTB.type)
+tb1=db.createPartitionedTable(tb,`tb1,`trans_time);
+def i2d(mutable t){
+    return t.replaceColumn!(`trans_time,datetimeParse(string(t.trans_time),"yyyyMMdd"))
+}
+t = hdf5::loadHDF5Ex(db,`tb1,`trans_time,dataFilePath,datasetName,,,,i2d)
+```
 ### 2.6 hdf5::HDF5DS
 
 #### 语法
@@ -334,7 +355,17 @@ DataSource< loadHDF5("/smpl_numeric.h5", "sint", , 1, 1) >
 >ds[2];
 DataSource< loadHDF5("/smpl_numeric.h5", "sint", , 2, 1) >
 ```
-
+> **请注意：HDF5不支持并行读入。以下例子是错误示范和正确示范**
+错误示范
+```
+ds = hdf5::HDF5DS("/smpl_numeric.h5", "sint", ,3)
+res = mr(ds, def(x) : x)
+```
+正确示范，将mr parallel参数设为false
+```
+ds = hdf5::HDF5DS("/smpl_numeric.h5", "sint", ,3)
+res = mr(ds, def(x) : x,,,false)
+```
 ## 3 支持的数据类型
 
 浮点和整数类型会被先转换为H5T_NATIVE_*类型。
