@@ -165,7 +165,7 @@ mongodb::close(conn)
 ```
 
 
-## 3 支持的数据类型
+## 3. 支持的数据类型
 
 ### 3.1 整型
 
@@ -190,7 +190,7 @@ DolphinDB中各类整形的最小值为NULL值，例如：INT的-2,147,483,648�
 
 | MongoDB类型 | 对应的DolphinDB类型 |
 | --------- | :------------------ |
-|date     | datetime             |
+|date     | timestamp             |
 
 ### 3.4 字符串类型
 
