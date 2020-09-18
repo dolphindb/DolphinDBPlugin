@@ -73,6 +73,16 @@ mongoConnection::mongoConnection(std::string hostname, int port, std::string use
     if(mclient==NULL)throw IllegalArgumentException(__FUNCTION__, "Connect Mongodb faild");
     mdatabase = mongoc_client_get_database (mclient, db_.c_str());
     if(mdatabase==NULL)throw IllegalArgumentException(__FUNCTION__, "Connect Mongodb database faild");
+    bson_t *command=BCON_NEW ("ping", BCON_INT32 (1));
+    bson_error_t  error;
+    bool retval = mongoc_client_command_simple (mclient, db_.c_str(), command, NULL, NULL, &error);
+    bson_destroy (command);
+    if(!retval){
+        mongoc_client_destroy(mclient);
+        mongoc_database_destroy(mdatabase);
+        string strerro=error.message;
+        throw IllegalArgumentException(__FUNCTION__,strerro);
+    }
 }
 
 static void mongoConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
@@ -152,13 +162,22 @@ TableSP mongoConnection::load(std::string collection,std::string condition,std::
     std::string strUri="mongodb://"+user_+":"+password_+"@"+host_+":"+std::to_string(port_);
     mtx_.lock();
     mongoc_collection_t* mcollection = mongoc_client_get_collection (mclient, db_.c_str(),collection.c_str());
-    if(mcollection==NULL)throw IllegalArgumentException(__FUNCTION__, "Connect Mongodb collection faild");
+    if(mcollection==NULL){
+        throw IllegalArgumentException(__FUNCTION__, "Connect Mongodb collection faild");
+        mtx_.unlock();
+    }
     const char * str=condition.c_str();
     bson_t* bsonQuery=bson_new_from_json((const uint8_t*)str,-1,NULL);
-    if(bsonQuery==NULL)throw IllegalArgumentException(__FUNCTION__, str);
+    if(bsonQuery==NULL){
+        throw IllegalArgumentException(__FUNCTION__, str);
+        mtx_.unlock();
+    }
     str=option.c_str();
     bson_t* boption=bson_new_from_json((const uint8_t*)str,-1,NULL);
-    if(boption==NULL)throw IllegalArgumentException(__FUNCTION__, "The BSON query condition is incorrect");
+    if(boption==NULL){
+        throw IllegalArgumentException(__FUNCTION__, "The BSON query condition is incorrect");
+        mtx_.unlock();
+    }
         mongoc_cursor_t* cursor=mongoc_collection_find_with_opts (mcollection,bsonQuery,boption,NULL);
     long long curNum=mongoc_cursor_get_limit(cursor);
     vector<std::string> colName;
@@ -264,7 +283,10 @@ TableSP mongoConnection::load(std::string collection,std::string condition,std::
                         mmap[ss].push_back(t);
                         break;
                     }
-                    default: throw IllegalArgumentException(__FUNCTION__, "Mongodb type is not supported");
+                    default: {
+                        throw IllegalArgumentException(__FUNCTION__, "Mongodb type is not supported");
+                        mtx_.unlock();
+                    }
                 }
                 len++;
             }
@@ -328,7 +350,10 @@ TableSP mongoConnection::load(std::string collection,std::string condition,std::
                             mmap[colName[i]].push_back(t);
                             break;
                         }
-                        default: throw IllegalArgumentException(__FUNCTION__, "Mongodb type is not supported");
+                        default: {
+                            throw IllegalArgumentException(__FUNCTION__, "Mongodb type is not supported");
+                            mtx_.unlock();
+                        }
                     }
                 }
                 else{
@@ -370,7 +395,10 @@ TableSP mongoConnection::load(std::string collection,std::string condition,std::
                         case DT_STRING:
                             mmap[colName[i]].push_back(string());
                             break;
-                        default: throw IllegalArgumentException(__FUNCTION__, "Data types are not supported");
+                        default:{
+                             throw IllegalArgumentException(__FUNCTION__, "Data types are not supported");
+                             mtx_.unlock();
+                        }
                     }
                 }
             }
@@ -420,7 +448,10 @@ TableSP mongoConnection::load(std::string collection,std::string condition,std::
                         vec->appendString(mmap[colName[i]].data(), mIndex);
                         mmap[colName[i]].clear();
                         break;
-                    default: throw IllegalArgumentException(__FUNCTION__, "Data types are not supported");
+                    default: {
+                        throw IllegalArgumentException(__FUNCTION__, "Data types are not supported");
+                        mtx_.unlock();
+                    }
                 }
             }
             index=0;
@@ -468,7 +499,10 @@ TableSP mongoConnection::load(std::string collection,std::string condition,std::
                 vec->appendString(mmap[colName[i]].data(), index);
                 mmap[colName[i]].clear();
                 break;
-            default: throw IllegalArgumentException(__FUNCTION__, "Data types are not supported");
+            default: {
+                throw IllegalArgumentException(__FUNCTION__, "Data types are not supported");
+                mtx_.unlock();
+            }
         }
      }
      for(int i=0;i<len;++i){
@@ -480,7 +514,10 @@ TableSP mongoConnection::load(std::string collection,std::string condition,std::
     mongoc_collection_destroy (mcollection);
     //mongoc_cleanup ();
     mtx_.unlock();
-    if(len==0)throw IllegalArgumentException(__FUNCTION__, "Failed to parse MongoDB data, check user, database, collection, and query");
+    if(len==0){
+        throw IllegalArgumentException(__FUNCTION__, "Failed to parse MongoDB data, check user, database, collection, and query");
+        mtx_.unlock();
+    }
     TableSP ret=Util::createTable(colName,cols);
     return ret;
 }

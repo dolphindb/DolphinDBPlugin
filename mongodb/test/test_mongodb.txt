@@ -1,36 +1,37 @@
-pluginPath = '/home/zmx/worker/DolphinDBPlugin/mongodb/PluginMongoDB.txt';
-pluginPath = '/media/zmx/AEED-9A27/PluginMongodb/pack/PluginMongoDB.txt';
+//Set your MongoDB plugin address here.
+pluginPath = '/path/to/mongodbPlugin/PluginMongoDB.txt';
 try{loadPlugin(pluginPath)}catch(ex){print ex};
 go
 
-condition='{ "a" : { "$date" : "2016-06-22T00:00:00.000Z" } }';
-condition='{ "aa" : null }';
-condition='{ "aa" : false }';
-condition='{ "aa" : { "$numberInt" : "13232" } }';
-condition='{ "aa" : { "$numberLong" : "1242434"} }';
-condition=' { "aa" : { "$numberDouble" : "1.2199999999999999734" }';
-condition='{ "low" : { "$gt" : { "$numberDecimal" : "0.219711" } } }';
-condition='{ "aa" : { "$oid" : "1232430aa00000000000be0a" } }';
-condition=' { "aa" : { "$symbol" : "fdf" } }';
-condition='{"symbol":"XRPUSDT.BNC"}';
-condition='{ "$timestamp" : { "t" : 122434, "i" : 122 } } }';
-condition='{ "aa" : { "$date" : { "$numberLong" : "1600166651000" } }';
-condition='{}';
+query='{ "aa" : null }';
+query='{ "aa" : false }';
+query='{"symbol":".BNC"}';
+query=' { "aa" : { "$symbol" : "fdf" } }';
+query='{ "aa" : { "$numberInt" : "13232" } }';
+query='{ "aa" : { "$numberLong" : "1242434"} }';
+query='{ "a" : { "$date" : "2016-06-22T00:00:00.000Z" } }';
+query='{ "aa" : { "$oid" : "1232430aa00000000000be0a" } }';
+query='{ "low" : { "$gt" : { "$numberDecimal" : "0.219711" } } }';
+query=' { "aa" : { "$numberDouble" : "1.2199999999999999734" }';
+query='{ "aa" : { "$date" : { "$numberLong" : "1600166651000" } }';
+query='{}';
 option='{}';
+collectionName=`test;
 con=mongodb::connect(`localhost,27017,`admin,`123456,`base);
-res=mongodb::load(con,`collet11,condition,option);
+res=mongodb::load(collectionName,collectionName,query,option);
 mongodb::close(con);
 res;
-select * from res
+select * from res;
 
 @testing:case="test_mongodb_connetion"
 con=mongodb::connect(`localhost,27017,`admin,`123456,`base);
 assert 1,isNull(con)==false
 
 @testing:case="test_mongodb_load"
-condition='{ "datetime" : { "$gt" : {"$date":"2019-02-28T00:00:00.000Z" }} }';
+query='{ "datetime" : { "$gt" : {"$date":"2019-02-28T00:00:00.000Z" }} }';
 option='{"limit":123}';
-tb=mongodb::load(con,`collet11,condition,option);
+collectionName=`test;
+tb=mongodb::load(con,collectionName,query,option);
 assert 1,tb.volume==[2.3,3.3,3.2,2]
 
 @testing:case="test_mongodb_close"
