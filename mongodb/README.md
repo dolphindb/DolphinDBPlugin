@@ -164,6 +164,26 @@ select count(*) from tb
 mongodb::close(conn)
 ```
 
+### 2.4. 查询数据示例
+```
+query='{"dt": { "$date" : "2016-06-22T00:00:00.000Z" } }';
+query='{"bcol" : false }';
+query='{"open" : { "$numberInt" : "13232" } }';
+query='{"vol" : { "$numberLong" : "1242434"} }';
+query=' {"close" : { "$numberDouble" : "1.2199999999999999734" }';
+query='{"low" : { "$gt" : { "$numberDecimal" : "0.219711" } } }';
+query='{"uid" : { "$oid" : "1232430aa00000000000be0a" } }';
+query=' {"sid" : { "$symbol" : "fdf" } }';
+query='{"symbol" : "XRPUSDT.BNC"}';
+query='{"ts" : { "$date" : { "$numberLong" : "1600166651000" } }';
+query='{}';
+option='{}';
+con=mongodb::connect(`localhost,27017,`admin,`123456,`dolphindb);
+res=mongodb::load(con,`collection1,query,option);
+mongodb::close(con);
+t = select * from res
+```
+
 
 ## 3. 支持的数据类型
 
