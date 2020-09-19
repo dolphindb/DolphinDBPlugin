@@ -1,0 +1,5 @@
+parquet,libPluginParquet.so
+extractParquetSchema,extractParquetSchema,operator,1,1,0
+loadParquet,loadParquet,system,1,5,0
+loadParquetEx,loadParquetEx,system,4,9,0
+parquetDS,parquetDS,system,1,2,0
