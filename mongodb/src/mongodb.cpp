@@ -491,7 +491,7 @@ TableSP mongoConnection::load(std::string collection,std::string condition,std::
                 vec->appendInt((int *)colBuffer, index);
                 break;
             case DT_FLOAT:
-                vec->appendFloat((float *)colBuffer, index);
+                vec->appendFloat((float *)colBuffer, index); 
                 break;
             case DT_DOUBLE:
                 vec->appendDouble((double *)colBuffer, index);
@@ -515,11 +515,10 @@ TableSP mongoConnection::load(std::string collection,std::string condition,std::
     mongoc_cursor_destroy(cursor);
     mongoc_collection_destroy (mcollection);
     //mongoc_cleanup ();
-    if(len==0){
-        mtx_.unlock();
-        throw IllegalArgumentException(__FUNCTION__, "There is no data matching the query criteria on the Mongodb collection");
-    }
     mtx_.unlock();
+    if(len==0){
+        TableSP ret=Util::createTable(colName,colType,0,0);
+    }
     TableSP ret=Util::createTable(colName,cols);
     return ret;
 }

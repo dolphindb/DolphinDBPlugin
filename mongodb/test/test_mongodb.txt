@@ -1,5 +1,4 @@
-pluginPath = "/home/test/plugins/mongodb/PluginMongodb.txt"
-try{loadPlugin(pluginPath)}catch(ex){print ex}
+try{loadPlugin(getHomeDir()+"/plugins/mongodb/PluginMongodb.txt")}catch(ex){print ex}
 go
 
 user = "admin"
