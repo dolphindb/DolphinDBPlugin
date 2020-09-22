@@ -13,7 +13,7 @@ ConstantSP messageSP(const std::string &s) {
     auto message = Util::createConstant(DT_STRING);
     message->setString(s);
     return message;
-}
+}   
 
 vector<ConstantSP> getArgs(vector<ConstantSP> &args, size_t nMaxArgs) {
     auto ret = vector<ConstantSP>(nMaxArgs);
@@ -80,7 +80,7 @@ mongoConnection::mongoConnection(std::string hostname, int port, std::string use
     if(!retval){
         mongoc_client_destroy(mclient);
         mongoc_database_destroy(mdatabase);
-        string strerro=error.message;
+        string strerro="The connection to the Mongo database failed";
         throw IllegalArgumentException(__FUNCTION__,strerro);
     }
 }
@@ -162,13 +162,24 @@ TableSP mongoConnection::load(std::string collection,std::string condition,std::
     std::string strUri="mongodb://"+user_+":"+password_+"@"+host_+":"+std::to_string(port_);
     mtx_.lock();
     mongoc_collection_t* mcollection = mongoc_client_get_collection (mclient, db_.c_str(),collection.c_str());
-    if(mcollection==NULL)throw IllegalArgumentException(__FUNCTION__, "Connect Mongodb collection faild");
+    if(mcollection==NULL){
+        mtx_.unlock();
+        throw IllegalArgumentException(__FUNCTION__, "Connect Mongodb collection faild");
+    }
     const char * str=condition.c_str();
     bson_t* bsonQuery=bson_new_from_json((const uint8_t*)str,-1,NULL);
-    if(bsonQuery==NULL)throw IllegalArgumentException(__FUNCTION__, str);
+    if(bsonQuery==NULL){
+        mtx_.unlock();
+        string strTmp="This BSON structure doesn't fit:";
+        throw IllegalArgumentException(__FUNCTION__,strTmp +str);
+    }
     str=option.c_str();
     bson_t* boption=bson_new_from_json((const uint8_t*)str,-1,NULL);
-    if(boption==NULL)throw IllegalArgumentException(__FUNCTION__, "The BSON query condition is incorrect");
+    if(boption==NULL){
+        mtx_.unlock();
+        string strTmp="This BSON structure doesn't fit:";
+        throw IllegalArgumentException(__FUNCTION__, strTmp+str);
+    }
         mongoc_cursor_t* cursor=mongoc_collection_find_with_opts (mcollection,bsonQuery,boption,NULL);
     long long curNum=mongoc_cursor_get_limit(cursor);
     vector<std::string> colName;
@@ -176,11 +187,14 @@ TableSP mongoConnection::load(std::string collection,std::string condition,std::
     vector<ConstantSP> cols;
     vector<char*> buffer;
     unordered_map<string,vector<string>> mmap;
+    unordered_map<int,long long> nullMap;
     
     const bson_t* doc;
     int index=0;
     bool first=true;
+    int rowSum=0;
     while(mongoc_cursor_next(cursor,&doc)){
+        rowSum++;
         bson_iter_t biter;
         bson_iter_init(&biter,doc);
         if(first){
@@ -274,71 +288,339 @@ TableSP mongoConnection::load(std::string collection,std::string condition,std::
                         mmap[ss].push_back(t);
                         break;
                     }
-                    default: throw IllegalArgumentException(__FUNCTION__, "Mongodb type is not supported");
+                    case BSON_TYPE_NULL:{
+                        //NULL Mark
+                        colType.push_back(DT_HANDLE);
+                        char* ptr=NULL;
+                        buffer.push_back(ptr);
+                        nullMap[len]=1;
+                        break;
+                    }
+                    default: {
+                        mtx_.unlock();
+                        throw IllegalArgumentException(__FUNCTION__, "Mongodb type is not supported");
+                    }
                 }
                 len++;
             }
             cols.resize(len);
-            for(int i=0;i<len;++i)cols[i]=Util::createVector(colType[i],0,curNum);
+            for(int i=0;i<len;++i){
+                if(colType[i]!=DT_HANDLE)
+                    cols[i]=Util::createVector(colType[i],0,curNum);
+            }
         }
         else{
             for(int i=0;i<len;++i){
-                if(bson_iter_find(&biter,colName[i].c_str())){
+                VectorSP vec=cols[i];
+                bool exist=bson_iter_find(&biter,colName[i].c_str());
+                if(!exist){
+                    bson_iter_init(&biter,doc);
+                    exist=bson_iter_find(&biter,colName[i].c_str());
+                }
+                if(exist){
                     bson_type_t btype=bson_iter_type(&biter);
-                    switch(btype){
-                        case BSON_TYPE_DOUBLE:{
-                            double t=bson_iter_double(&biter);
-                            *((double*)(buffer[i])+index)=t;
-                            break;
+                    DATA_TYPE dtype=colType[i];
+                    if(nullMap.find(i)!=nullMap.end()){
+                        long long rNum=nullMap[i];
+                        switch(btype){
+                            case BSON_TYPE_DOUBLE:{
+                                colType[i]=DT_DOUBLE;
+                                cols[i]=Util::createVector(DT_DOUBLE,0,rNum);
+                                char* ptr=(char*)malloc(mIndex*sizeof(double));
+                                buffer[i]=ptr;
+                                if(rNum<mIndex){
+                                    for(long long j=0;j<rNum;++j){
+                                        *((double*)ptr+j)=DBL_NMIN;
+                                    }
+                                }
+                                else{
+                                    for(long long  j=0;j<mIndex;++j){
+                                        *((double*)ptr+j)=DBL_NMIN;
+                                    }
+                                    long long rwNum=rNum/mIndex;
+                                    for(long long j=0;j<rwNum;++j){
+                                        vec->appendDouble((double*)ptr,mIndex);
+                                    }
+                                }
+                                *((double*)ptr+rNum%mIndex)=bson_iter_double(&biter);
+                                nullMap.erase(i);
+                                break;
+                            }
+                            case BSON_TYPE_UTF8:{
+                                colType[i]=DT_STRING;
+                                cols[i]=Util::createVector(DT_STRING,0,rNum);
+                                mmap[colName[i]]=vector<string>(rNum%mIndex);
+                                if(rNum>=mIndex){
+                                    vector<string>tmp(mIndex);
+                                    long long rwNum=rNum/mIndex;
+                                    for(long long j=0;j<rwNum;++j){
+                                        vec->appendString(tmp.data(),mIndex);
+                                    }
+                                }
+                                mmap[colName[i]].push_back(bson_iter_utf8(&biter,NULL));
+                                nullMap.erase(i);
+                                break;
+                            }
+                            case BSON_TYPE_SYMBOL:{
+                                colType[i]=DT_STRING;
+                                cols[i]=Util::createVector(DT_STRING,0,rNum);
+                                mmap[colName[i]]=vector<string>(rNum%mIndex);
+                                if(rNum>=mIndex){
+                                    vector<string>tmp(mIndex);
+                                    long long rwNum=rNum/mIndex;
+                                    for(long long j=0;j<rwNum;++j){
+                                        vec->appendString(tmp.data(),mIndex);
+                                    }
+                                }
+                                mmap[colName[i]].push_back(bson_iter_symbol(&biter,NULL));
+                                nullMap.erase(i);
+                                break;
+                            }
+                            case BSON_TYPE_INT32:{
+                                colType[i]=DT_INT;
+                                cols[i]=Util::createVector(DT_INT,0,rNum);
+                                char* ptr=(char*)malloc(mIndex*sizeof(int));
+                                buffer[i]=ptr;
+                                if(rNum<mIndex){
+                                    for(long long j=0;j<rNum;++j){
+                                        *((int*)ptr+j)=INT_MIN;
+                                    }
+                                }
+                                else{
+                                    for(long long  j=0;j<mIndex;++j){
+                                        *((int*)ptr+j)=INT_MIN;
+                                    }
+                                    long long rwNum=rNum/mIndex;
+                                    for(long long j=0;j<rwNum;++j){
+                                        vec->appendInt((int*)ptr,mIndex);
+                                    }
+                                }
+                                *((int*)ptr+rNum%mIndex)=bson_iter_double(&biter);
+                                nullMap.erase(i);
+                                break;
+                            }
+                            case BSON_TYPE_INT64:{
+                                colType[i]=DT_LONG;
+                                cols[i]=Util::createVector(DT_LONG,0,rNum);
+                                char* ptr=(char*)malloc(mIndex*sizeof(long long));
+                                buffer[i]=ptr;
+                                if(rNum<mIndex){
+                                    for(long long j=0;j<rNum;++j){
+                                        *((long long* )ptr+j)=LONG_LONG_MIN;
+                                    }
+                                }
+                                else{
+                                    for(long long  j=0;j<mIndex;++j){
+                                        *((long long*)ptr+j)=LONG_LONG_MIN;
+                                    }
+                                    long long rwNum=rNum/mIndex;
+                                    for(long long j=0;j<rwNum;++j){
+                                        vec->appendLong((long long*)ptr,mIndex);
+                                    }
+                                }
+                                *((long long*)ptr+rNum%mIndex)=bson_iter_int64(&biter);
+                                nullMap.erase(i);
+                                break;
+                            }
+                            case BSON_TYPE_OID:{
+                                colType[i]=DT_STRING;
+                                cols[i]=Util::createVector(DT_STRING,0,rNum);
+                                mmap[colName[i]]=vector<string>(rNum%mIndex);
+                                if(rNum>=mIndex){
+                                    vector<string>tmp(mIndex);
+                                    long long rwNum=rNum/mIndex;
+                                    for(long long j=0;j<rwNum;++j){
+                                        vec->appendString(tmp.data(),mIndex);
+                                    }
+                                }
+                                mmap[colName[i]].push_back(bson_iter_utf8(&biter,NULL));
+                                nullMap.erase(i);
+                                break;
+                            }
+                            case BSON_TYPE_BOOL:{
+                                colType[i]=DT_BOOL;
+                                cols[i]=Util::createVector(DT_BOOL,0,rNum);
+                                char* ptr=(char*)malloc(mIndex*sizeof(bool));
+                                buffer[i]=ptr;
+                                if(rNum<mIndex){
+                                    for(long long j=0;j<rNum;++j){
+                                        *((bool* )ptr+j)=false;
+                                    }
+                                }
+                                else{
+                                    for(long long  j=0;j<mIndex;++j){
+                                        *((bool*)ptr+j)=false;
+                                    }
+                                    long long rwNum=rNum/mIndex;
+                                    for(long long j=0;j<rwNum;++j){
+                                        vec->appendBool((char*)ptr,mIndex);
+                                    }
+                                }
+                                *((bool*)ptr+rNum%mIndex)=bson_iter_bool(&biter);
+                                nullMap.erase(i);
+                                break;
+                            }
+                            case BSON_TYPE_DATE_TIME:{
+                                colType[i]=DT_TIMESTAMP;
+                                cols[i]=Util::createVector(DT_TIMESTAMP,0,rNum);
+                                char* ptr=(char*)malloc(mIndex*sizeof(long long));
+                                buffer[i]=ptr;
+                                if(rNum<mIndex){
+                                    for(long long j=0;j<rNum;++j){
+                                        *((long long* )ptr+j)=LONG_LONG_MIN;
+                                    }
+                                }
+                                else{
+                                    for(long long  j=0;j<mIndex;++j){
+                                        *((long long*)ptr+j)=LONG_LONG_MIN;
+                                    }
+                                    long long rwNum=rNum/mIndex;
+                                    for(long long j=0;j<rwNum;++j){
+                                        vec->appendLong((long long*)ptr,mIndex);
+                                    }
+                                }
+                                *((long long*)ptr+rNum%mIndex)=bson_iter_date_time(&biter);
+                                nullMap.erase(i);
+                                break;
+                            }
+                            case BSON_TYPE_DECIMAL128:{
+                                colType[i]=DT_DOUBLE;
+                                cols[i]=Util::createVector(DT_DOUBLE,0,rNum);
+                                char* ptr=(char*)malloc(mIndex*sizeof(double));
+                                buffer[i]=ptr;
+                                if(rNum<mIndex){
+                                    for(long long j=0;j<rNum;++j){
+                                        *((double*)ptr+j)=DBL_NMIN;
+                                    }
+                                }
+                                else{
+                                    for(long long  j=0;j<mIndex;++j){
+                                        *((double*)ptr+j)=DBL_NMIN;
+                                    }
+                                    long long rwNum=rNum/mIndex;
+                                    for(long long j=0;j<rwNum;++j){
+                                        vec->appendDouble((double*)ptr,mIndex);
+                                    }
+                                }
+                                bson_decimal128_t dec ;
+                                bson_iter_decimal128(&biter,&dec);
+                                char str[100];
+                                bson_decimal128_to_string(&dec,str);
+                                std::string ttmp(str);
+                                double t=std::stod(ttmp);
+                                *((double*)ptr+rNum%mIndex)=t;
+                                nullMap.erase(i);
+                                break;
+                            }
+                            case BSON_TYPE_NULL:{
+                                nullMap[i]++;
+                                break;
+                            }
+                            default: {
+                                mtx_.unlock();
+                                throw IllegalArgumentException(__FUNCTION__, "Mongodb type is not supported");
+                            }
                         }
-                        case BSON_TYPE_UTF8:{
-                            std::string t=bson_iter_utf8(&biter,NULL);
-                            mmap[colName[i]].push_back(t);
+                    }
+                    else{
+                        switch(dtype){
+                            case DT_BOOL:
+                                if(btype==BSON_TYPE_BOOL){
+                                    bool t=bson_iter_bool(&biter);
+                                    *((bool*)(buffer[i])+index)=t;
+                                }
+                                else *((bool*)(buffer[i])+index)=false;
+                                break;
+                            case DT_CHAR:
+                                break;
+                            case DT_SHORT:
+                                break;
+                            case DT_INT:
+                                if(btype==BSON_TYPE_INT32){
+                                    int t=bson_iter_int32(&biter);
+                                    *((int*)(buffer[i])+index)=t;
+                                }
+                                else *((int*)(buffer[i])+index)=INT_MIN;
+                                break;
+                            case DT_DATETIME:
+                                break;
+                            case DT_TIMESTAMP:{
+                                if(btype==BSON_TYPE_DATE_TIME){
+                                    long long t=bson_iter_date_time(&biter);
+                                    *((long long*)(buffer[i])+index)=t;
+                                }
+                                else *((long long*)(buffer[i])+index)=LONG_LONG_MIN;
+                                break;
+                            }
+                            case DT_NANOTIME:
                             break;
-                        }
-                        case BSON_TYPE_INT32:{
-                            int t=bson_iter_int32(&biter);
-                            *((int*)(buffer[i])+index)=t;
+                            case DT_NANOTIMESTAMP:
                             break;
-                        }
-                        case BSON_TYPE_INT64:{
-                            long long t=bson_iter_int64(&biter);
-                            *((long long*)(buffer[i])+index)=t;
+                            case DT_LONG:
+                                if(btype==BSON_TYPE_INT64){
+                                    long long t=bson_iter_int64(&biter);
+                                    *((long long*)(buffer[i])+index)=t;
+                                }
+                                else if(btype==BSON_TYPE_INT32){
+                                    int t=bson_iter_int64(&biter);
+                                    *((long long*)(buffer[i])+index)=(long long)t;
+                                }
+                                else *((long long*)(buffer[i])+index)=LONG_LONG_MIN;
+                                break;
+                            case DT_DATE:
                             break;
-                        }
-                        case BSON_TYPE_OID:{
-                            char tmp[25];
-                            bson_oid_to_string(bson_iter_oid(&biter),tmp);
-                            std::string ttmp(tmp);
-                            mmap[colName[i]].push_back(ttmp);
+                            case DT_MONTH:
                             break;
-                        }
-                        case BSON_TYPE_BOOL:{
-                            bool t=bson_iter_bool(&biter);
-                            *((bool*)(buffer[i])+index)=t;
+                            case DT_TIME:
                             break;
-                        }
-                        case BSON_TYPE_DATE_TIME:{
-                            long long t=bson_iter_date_time(&biter);
-                            *((long long*)(buffer[i])+index)=t;
+                            case DT_MINUTE:
                             break;
-                        }
-                        case BSON_TYPE_DECIMAL128:{
-                            bson_decimal128_t dec ;
-                            bson_iter_decimal128(&biter,&dec);
-                            char str[100];
-                            bson_decimal128_to_string(&dec,str);
-                            std::string ttmp(str);
-                            double t=std::stod(ttmp);
-                            *((double*)(buffer[i])+index)=t;
+                            case DT_SECOND:
+                                break;
+                            case DT_FLOAT:
+                                break;
+                            case DT_DOUBLE:
+                                if(btype==BSON_TYPE_DOUBLE){
+                                    double t=bson_iter_double(&biter);
+                                    *((double*)(buffer[i])+index)=t;
+                                }
+                                else if(btype==BSON_TYPE_DECIMAL128){
+                                    bson_decimal128_t dec ;
+                                    bson_iter_decimal128(&biter,&dec);
+                                    char str[100];
+                                    bson_decimal128_to_string(&dec,str);
+                                    std::string ttmp(str);
+                                    double t=std::stod(ttmp);
+                                    *((double*)(buffer[i])+index)=t;
+                                }
+                                else *((double*)(buffer[i])+index)=DBL_NMIN;
+                                break;
+                            case DT_SYMBOL:
                             break;
+                            case DT_STRING:
+                                if(btype==BSON_TYPE_UTF8){
+                                    std::string t=bson_iter_utf8(&biter,NULL);
+                                    mmap[colName[i]].push_back(t);
+                                }
+                                else if(btype==BSON_TYPE_SYMBOL){
+                                    std::string t=bson_iter_symbol(&biter,NULL);
+                                    mmap[colName[i]].push_back(t);
+                                }
+                                else if(btype==BSON_TYPE_OID){
+                                    char tmp[25];
+                                    bson_oid_to_string(bson_iter_oid(&biter),tmp);
+                                    std::string ttmp(tmp);
+                                    mmap[colName[i]].push_back(ttmp);
+                                }
+                                else mmap[colName[i]].push_back("");
+                                break;
+                            case DT_HANDLE:
+                                break;
+                            default: {
+                                mtx_.unlock();
+                                throw IllegalArgumentException(__FUNCTION__, "Data types are not supported");
+                            }
                         }
-                        case BSON_TYPE_SYMBOL:{
-                            std::string t=bson_iter_symbol(&biter,NULL);
-                            mmap[colName[i]].push_back(t);
-                            break;
-                        }
-                        default: throw IllegalArgumentException(__FUNCTION__, "Mongodb type is not supported");
                     }
                 }
                 else{
@@ -371,16 +653,20 @@ TableSP mongoConnection::load(std::string collection,std::string condition,std::
                             *((int*)(buffer[i])+index)=INT_MIN;
                             break;
                         case DT_FLOAT:
-                            *((float*)(buffer[i])+index)=FLT_MIN;
+                            *((float*)(buffer[i])+index)=FLT_NMIN;
                             break;
                         case DT_DOUBLE:
-                            *((float*)(buffer[i])+index)=DBL_MIN;
+                            *((double*)(buffer[i])+index)=DBL_NMIN;
                             break;
                         case DT_SYMBOL:
                         case DT_STRING:
                             mmap[colName[i]].push_back(string());
                             break;
-                        default: throw IllegalArgumentException(__FUNCTION__, "Data types are not supported");
+                        case DT_HANDLE:break;
+                        default: {
+                            mtx_.unlock();
+                            throw IllegalArgumentException(__FUNCTION__, "Data types are not supported");
+                        }
                     }
                 }
             }
@@ -430,7 +716,11 @@ TableSP mongoConnection::load(std::string collection,std::string condition,std::
                         vec->appendString(mmap[colName[i]].data(), mIndex);
                         mmap[colName[i]].clear();
                         break;
-                    default: throw IllegalArgumentException(__FUNCTION__, "Data types are not supported");
+                    case DT_HANDLE:break;
+                    default: {
+                        mtx_.unlock();
+                        throw IllegalArgumentException(__FUNCTION__, "Data types are not supported");
+                    }
                 }
             }
             index=0;
@@ -478,19 +768,122 @@ TableSP mongoConnection::load(std::string collection,std::string condition,std::
                 vec->appendString(mmap[colName[i]].data(), index);
                 mmap[colName[i]].clear();
                 break;
-            default: throw IllegalArgumentException(__FUNCTION__, "Data types are not supported");
+            case DT_HANDLE:
+                break;
+            default: {
+                mtx_.unlock();
+                throw IllegalArgumentException(__FUNCTION__, "Data types are not supported");
+            }
         }
      }
      for(int i=0;i<len;++i){
          if(buffer[i]!=NULL)free(buffer[i]);
      }
+    for(auto a:nullMap){
+        double tmp[mIndex];
+        for(int i=0;i<mIndex;++i)tmp[i]=DBL_NMIN;
+        colType[a.first]=DT_DOUBLE;
+        cols[a.first]=Util::createVector(DT_DOUBLE,0,rowSum);
+        VectorSP vec=cols[a.first];
+        long long rnum=rowSum/mIndex;
+        for(long long i=0;i<rnum;++i){
+            vec->appendDouble((double*)tmp,mIndex);
+        }
+        rnum=len%mIndex;
+        vec->appendDouble((double*)tmp,rowSum%mIndex);
+    }
+    if(len==0){ 
+        const char* ct="{}";
+        bson_t* nquery=bson_new_from_json((const uint8_t*)ct,-1,NULL);
+        mongoc_cursor_t* ncursor=mongoc_collection_find_with_opts (mcollection,nquery,boption,NULL);
+        const bson_t *ndoc;
+        if(mongoc_cursor_next(ncursor,&ndoc)){
+            bson_iter_t biter;
+            bson_iter_init(&biter,ndoc);
+            while(bson_iter_next(&biter)){
+                const char* ss=bson_iter_key(&biter);
+                colName.push_back(ss);
+                ++len;
+                bson_type_t btype=bson_iter_type(&biter);
+                switch(btype){
+                    case BSON_TYPE_DOUBLE:{
+                        colType.push_back(DT_DOUBLE);
+                        cols.push_back(Util::createVector(DT_DOUBLE,0,0));
+                        break;
+                    }
+                    case BSON_TYPE_UTF8:{
+                        colType.push_back(DT_STRING);
+                        cols.push_back(Util::createVector(DT_STRING,0,0));
+                        break;
+                    }
+                    case BSON_TYPE_INT32:{
+                        colType.push_back(DT_INT);
+                        cols.push_back(Util::createVector(DT_INT,0,0));
+                        break;
+                    }
+                    case BSON_TYPE_INT64:{
+                        colType.push_back(DT_LONG);
+                        cols.push_back(Util::createVector(DT_LONG,0,0));
+                        break;
+                    }
+                    case BSON_TYPE_OID:{
+                        colType.push_back(DT_STRING);
+                        cols.push_back(Util::createVector(DT_STRING,0,0));
+                        break;
+                    }
+                    case BSON_TYPE_BOOL:{
+                        colType.push_back(DT_BOOL);
+                        cols.push_back(Util::createVector(DT_BOOL,0,0));
+                        break;
+                    }
+                    case BSON_TYPE_DATE_TIME:{
+                        colType.push_back(DT_TIMESTAMP);
+                        cols.push_back(Util::createVector(DT_TIMESTAMP,0,0));
+                        break;
+                    }
+                    case BSON_TYPE_DECIMAL128:{
+                        colType.push_back(DT_DOUBLE);
+                        cols.push_back(Util::createVector(DT_DOUBLE,0,0));
+                        break;
+                    }
+                    case BSON_TYPE_SYMBOL:{
+                        colType.push_back(DT_STRING);
+                        cols.push_back(Util::createVector(DT_STRING,0,0));
+                        break;
+                    }
+                    case BSON_TYPE_NULL:{
+                        colType.push_back(DT_BOOL);
+                        cols.push_back(Util::createVector(DT_BOOL,0,0));
+                        break;
+                    }
+                    default: {
+                        mtx_.unlock();
+                        throw IllegalArgumentException(__FUNCTION__, "Mongodb type is not supported");
+                    }
+                }
+            }
+        }
+        bson_destroy(nquery);
+        mongoc_cursor_destroy(ncursor);
+        if(len==0){
+            colName.push_back("NO DATA");
+            cols.push_back(Util::createVector(DT_BOOL,0,0));
+            TableSP ret=Util::createTable(colName,cols);
+            return ret; 
+        }
+    }
     bson_destroy(bsonQuery);
     bson_destroy(boption);
     mongoc_cursor_destroy(cursor);
     mongoc_collection_destroy (mcollection);
     //mongoc_cleanup ();
     mtx_.unlock();
-    if(len==0)throw IllegalArgumentException(__FUNCTION__, "Failed to parse MongoDB data, check user, database, collection, and query");
+    if(len==0){ 
+        colName.push_back("NO DATA");
+        cols.push_back(Util::createVector(DT_BOOL,0,0));
+        TableSP ret=Util::createTable(colName,cols);
+        return ret; 
+    }
     TableSP ret=Util::createTable(colName,cols);
     return ret;
 }
