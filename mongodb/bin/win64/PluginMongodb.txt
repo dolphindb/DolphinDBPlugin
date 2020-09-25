@@ -1,0 +1,4 @@
+mongodb,libPluginMongodb.dll
+mongodbConnect,connect,system,5,5,0
+mongodbLoad,load,system,4,4,0
+mongodbClose,close,operator,1,1,0
