@@ -89,7 +89,6 @@ static void mongoConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
     delete (mongoConnection *)(args[0]->getLong());
 }
 
-
 ConstantSP mongodbClose(const ConstantSP &handle, const ConstantSP &b){
     std::string usage = "Usage: close(conn). ";
     mongoConnection *cp = NULL;
@@ -156,6 +155,92 @@ ConstantSP mongodbLoad(Heap *heap, vector<ConstantSP> &arguments) {
     return safeOp(args[0], [&](mongoConnection *conn) { return conn->load(collection,condition,option); });
 }
 
+std::wstring stringToWstring(const std::string &strInput,unsigned int uCodePage){
+    #ifdef WINDOWS
+    std::wstring strUnicode = L"";
+    if (strInput.length() == 0){
+        return strUnicode;
+    }
+    int iLength = ::MultiByteToWideChar(uCodePage, 0, strInput.c_str(), -1, NULL, 0);
+    wchar_t* szDest = new wchar_t[iLength + 1];
+    memset(szDest, 0, (iLength + 1) * sizeof(wchar_t));
+
+    ::MultiByteToWideChar(uCodePage, 0, strInput.c_str(), -1, (wchar_t*) szDest, iLength);
+    strUnicode = szDest;
+    delete[] szDest;
+    return strUnicode;
+
+    #else
+    if (strInput.empty())
+    {
+        return L"";
+    }
+    std::string strLocale = setlocale(LC_ALL, "");
+    const char* pSrc = strInput.c_str();
+    unsigned int iDestSize = mbstowcs(NULL, pSrc, 0) + 1;
+    wchar_t* szDest = new wchar_t[iDestSize];
+    wmemset(szDest, 0, iDestSize);
+    mbstowcs(szDest,pSrc,iDestSize);
+    std::wstring wstrResult = szDest;
+    delete []szDest;
+    setlocale(LC_ALL, strLocale.c_str());
+    return wstrResult;
+    #endif
+}
+
+std::string wstringToString(const std::wstring &wstrInput,unsigned int uCodePage){
+    #ifdef WINDOWS
+    std::string strAnsi = "";
+    if (wstrInput.length() == 0){
+        return strAnsi;
+    }
+    int iLength = ::WideCharToMultiByte(uCodePage, 0, wstrInput.c_str(), -1, NULL, 0,NULL, NULL);
+    char* szDest = new char[iLength + 1];
+    memset((void*) szDest, 0, (iLength + 1) * sizeof(char));
+    ::WideCharToMultiByte(uCodePage, 0, wstrInput.c_str(), -1, szDest, iLength, NULL,NULL);
+    strAnsi = szDest;
+    delete[] szDest;
+    return strAnsi;
+
+    #else
+    std::string strLocale = setlocale(LC_ALL, "");
+    const wchar_t* pSrc = wstrInput.c_str();
+    unsigned int iDestSize = wcstombs(NULL, pSrc, 0) + 1;
+    char *szDest = new char[iDestSize];
+    memset(szDest,0,iDestSize);
+    wcstombs(szDest,pSrc,iDestSize);
+    std::string strResult = szDest;
+    delete []szDest;
+    setlocale(LC_ALL, strLocale.c_str());
+    return strResult;
+    #endif
+}
+
+void conversionStr(vector<std::string>& colName){
+    int len=colName.size();
+    for(int i=0;i<len;++i){
+        #ifdef WINDOWS
+        std::wstring tmp=stringToWstring(colName[i],CP_UTF8);
+        #else 
+        std::wstring tmp=stringToWstring(colName[i],0);
+        #endif
+        int subLen=tmp.size();
+        for(int j=0;j<subLen;++j){
+            wchar_t t=tmp[j];
+            if(0<=t&&t<128){
+                if(!((L'A'<=t&&t<=L'z')||(L'0'<=t&&t<=L'9')||t=='_')){
+                    tmp[j]=L'_';
+                }
+            }
+        }
+        if(tmp[0]==L'_')tmp=L'c'+tmp;
+        #ifdef WINDOWS
+        colName[i]=wstringToString(tmp,CP_UTF8);
+        #else 
+        colName[i]=wstringToString(tmp,0);
+        #endif
+    }
+}
 TableSP mongoConnection::load(std::string collection,std::string condition,std::string option){
     int len=0;
     int mIndex=1024;
@@ -866,8 +951,9 @@ TableSP mongoConnection::load(std::string collection,std::string condition,std::
         bson_destroy(nquery);
         mongoc_cursor_destroy(ncursor);
         if(len==0){
-            colName.push_back("NO DATA");
-            cols.push_back(Util::createVector(DT_BOOL,0,0));
+            mtx_.unlock();
+            colName.push_back("c_id");
+            cols.push_back(Util::createVector(DT_STRING,0,0));
             TableSP ret=Util::createTable(colName,cols);
             return ret; 
         }
@@ -878,11 +964,11 @@ TableSP mongoConnection::load(std::string collection,std::string condition,std::
     mongoc_collection_destroy (mcollection);
     //mongoc_cleanup ();
     mtx_.unlock();
-    if(len==0){ 
-        colName.push_back("NO DATA");
-        cols.push_back(Util::createVector(DT_BOOL,0,0));
-        TableSP ret=Util::createTable(colName,cols);
-        return ret; 
+    conversionStr(colName);
+    for(int i=0;i<len;++i){
+        for(int j=0;j<i;++j){
+            if(colName[i]==colName[j])throw IllegalArgumentException(__FUNCTION__, "Column names cannot be the same");
+        }
     }
     TableSP ret=Util::createTable(colName,cols);
     return ret;
