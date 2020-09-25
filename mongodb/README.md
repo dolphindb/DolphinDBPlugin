@@ -4,88 +4,70 @@ DolphinDB mongodb插件可以建立与mongodb服务器的连接，然后导入�
 
 ## 1. 安装构建
 
-这里我们要用到mongodb-c-driver，它的依赖库包括snappy，ICU，openssl。
+#### 1.1编译安装
 
-### 1.1 安装版本1.0.2的openssl
- ```
-wget https://www.openssl.org/source/old/1.0.2/openssl-1.0.2i.tar.gz
-tar -xzf openssl-1.0.2i.tar.gz
-cd openssl-1.0.2i
-./config --prefix=/usr/local/openssl1.0.2 -fPIC
-make 
-sudo make install
-```
---prefix是为了指定安装位置，后面会使用到这个版本的openssl的头文件和静态库。
+#### Linux
 
-### 1.2 安装snappy
-```
-wget https://github.com/google/snappy/archive/1.1.7.tar.gz
-tar -zxf 1.1.7.tar.gz
-cd snappy-1.1.7/cmake
-CXXFLAGS="-fPIC" cmake ..
-make
-sudo make install
-```
-### 1.3 安装ICU
-```
-wget https://github.com/unicode-org/icu/releases/download/release-52-2/icu4c-52_2-src.tgz
-tar -xzf icu4c-52_2-src.tgz
-cd icu/source
-./configure
-make
-sudo make install
-```
-### 1.4 安装mongo-c-driver
+###### 使用cmake构建：
 
-需要设置环境变量，在命令行中设置，正是刚刚安装openssl的位置。
-```
-export OPENSSL_ROOT_DIR=/usr/local/openssl1.0.2
-export OPENSSL_CRYPTO_LIBRARY=/usr/local/openssl1.0.2/lib
-export OPENSSL_INCLUDE_DIR=/usr/local/openssl1.0.2/include/
-
-wget https://github.com/mongodb/mongo-c-driver/releases/download/1.13.0/mongo-c-driver-1.13.0.tar.gz
-tar -xzf mongo-c-driver-1.13.0.tar.gz
-cd mongo-c-driver-1.13.0
-mkdir cmake-build
-cd cmake-build
-cmake -DENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTS=OFF ..
-```
-这里我们可以在终端看到mongodb-c-driver需要的依赖是否安装完全。
-```
-make
-sudo make install
-```
-### 1.5 准备依赖库
-
-将对应分支的libDolphinDB.so以及其它依赖库拷贝到DolphinDBPlugin/mongodb/。
+安装cmake：
 
 ```
-cd DolphinDBPlugin/mongodb/
-cp /path/to/libDolphinDB.so . 
-cp /usr/local/lib/libmongoc-1.0.so.0 .
-cp /usr/local/lib/libbson-1.0.so.0 .
-cp /usr/local/lib/libicudata.so.52 .
+sudo apt-get install cmake
 ```
-
-### 1.6 编译插件
-在以上步骤都完成之后，在DolphinDBPlugin/mongodb/目录下在命令行输入make即可构建mongodb插件动态库。如果编译成功，会生成 libPluginMongodb.so 文件。
+构建插件内容：
 
 ```
-cd DolphinDBPlugin/mongodb/
+mkdir build
+cd build
+cmake  ../
 make
 ```
 
-将 mongodb目录拷贝到DolphinDB server/plugins。
+**注意**:编译之前请确保libDolphinDB.so在gcc可搜索的路径中。可使用`LD_LIBRARY_PATH`指定其路径，或者直接将其拷贝到build目录下。
 
-### 1.7 插件加载
+编译后目录下会产生文件libPluginMongodb.so和PluginMongodb.txt。
 
+##### Windows
+
+###### 在Windows环境中需要使用CMake和MinGW编译
+
+- 下载安装[MinGW](http://www.mingw.org/)。确保将bin目录添加到系统环境变量Path中。
+- 下载安装[cmake](https://cmake.org/)。
+
+###### 使用cmake构建：
+
+在编译开始之前，要将libDolphinDB.dll拷贝到build文件夹。
+
+构建插件内容：
+
+```
+mkdir build                                                        # 新建build目录
+cp path_to_libDolphinDB.dll/libDolphinDB.dll build                 # 拷贝 libDolphinDB.dll 到build目录下
+cd build
+cmake  ../ -G "MinGW Makefiles"
+mingw32-make -j4
+```
+
+编译后目录下会产生文件libPluginMongodb.dll和PluginMongodb.txt，还会把/path/to/mongodbPlugin/bin/windows下的4个动态库拷贝到该目录下。
+
+
+#### 1.2 插件加载
+#### Linux
 ```
 cd DolphinDB/server //进入DolphinDB server目录
-export LD_LIBRARY_PATH=/path/to/mongodbPlugin/:$LD_LIBRARY_PATH //指定动态库位置 
+export LD_LIBRARY_PATH=/path/to/mongodbPlugin/mongodb/bin/linux:$LD_LIBRARY_PATH //指定动态库位置 
 ./dolphindb //启动 DolphinDB server
- loadPlugin("/path/to/mongodbPlugin/PluginMongodb.txt") //加载插件
+ loadPlugin("/path/to/mongodbPlugin/build/PluginMongodb.txt") //加载插件
 ```
 
+#### Windows
+在window版本mongodb插件中，编译完成后会把所包含的动态库复制到生成的libPluginMongodb.dll的同一目录下，window系统在同一目录下搜索依赖的动态库。
+
+所以只需要执行脚本loadPlugin即可加载mongodb插件。
+```
+ loadPlugin("/path/to/mongodbPlugin/bulid/PluginMongodb.txt") //加载插件
+ ```
 ##  2. 用户接口
 
 ### 2.1 mongodb::connect
