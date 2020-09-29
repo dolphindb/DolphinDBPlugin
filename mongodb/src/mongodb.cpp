@@ -70,18 +70,41 @@ mongoConnection::mongoConnection(std::string hostname, int port, std::string use
     }
     std::string strUri="mongodb://"+user_+":"+password_+"@"+host_+":"+std::to_string(port_);
     mclient = mongoc_client_new (strUri.c_str());
-    if(mclient==NULL)throw IllegalArgumentException(__FUNCTION__, "Connect Mongodb faild");
-    mdatabase = mongoc_client_get_database (mclient, db_.c_str());
-    if(mdatabase==NULL)throw IllegalArgumentException(__FUNCTION__, "Connect Mongodb database faild");
-    bson_t *command=BCON_NEW ("ping", BCON_INT32 (1));
-    bson_error_t  error;
-    bool retval = mongoc_client_command_simple (mclient, db_.c_str(), command, NULL, NULL, &error);
-    bson_destroy (command);
-    if(!retval){
-        mongoc_client_destroy(mclient);
-        mongoc_database_destroy(mdatabase);
-        string strerro="The connection to the Mongo database failed";
-        throw IllegalArgumentException(__FUNCTION__,strerro);
+    if(mclient==NULL)throw IllegalArgumentException(__FUNCTION__, "Host have error");
+    if(db_!=""){
+        mdatabase = mongoc_client_get_database (mclient, db_.c_str());
+        if(mdatabase==NULL){
+            mongoc_client_destroy(mclient);
+            throw IllegalArgumentException(__FUNCTION__, "Database have error");
+        }
+        char** databaseList=mongoc_client_get_database_names_with_opts(mclient,NULL,NULL);
+        if(databaseList==NULL){
+            mongoc_client_destroy(mclient);
+            mongoc_database_destroy(mdatabase);
+            throw IllegalArgumentException(__FUNCTION__, "There is a problem with host, port, user, and password");
+        }
+        bool flag=false;
+        for (int i = 0; databaseList[i]; i++){
+            if(db_==databaseList[i]){
+                flag=true;
+                break;
+            }
+        }
+        if(!flag){
+            mongoc_client_destroy(mclient);
+            mongoc_database_destroy(mdatabase);
+            throw IllegalArgumentException(__FUNCTION__, "The database does not exist on the given host");
+        }
+        bson_t *command=BCON_NEW ("ping", BCON_INT32 (1));
+        bson_error_t  error;
+        bool retval = mongoc_client_command_simple (mclient, db_.c_str(), command, NULL, NULL, &error);
+        bson_destroy (command);
+        if(!retval){
+            mongoc_client_destroy(mclient);
+            mongoc_database_destroy(mdatabase);
+            string strerro="The connection to the Mongo database failed";
+            throw IllegalArgumentException(__FUNCTION__,strerro);
+        }
     }
 }
 
@@ -92,7 +115,6 @@ static void mongoConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
 ConstantSP mongodbClose(const ConstantSP &handle, const ConstantSP &b){
     std::string usage = "Usage: close(conn). ";
     mongoConnection *cp = NULL;
-    // parse args first
     if (handle->getType() == DT_RESOURCE) {
         cp = (mongoConnection *)(handle->getLong());
     } else {
@@ -122,10 +144,14 @@ ConstantSP mongodbConnect(Heap *heap, vector<ConstantSP> &args) {
     if (args[3]->getType() != DT_STRING || args[3]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException(__FUNCTION__, usage + "password must be a string");
     }
-    if (args[4]->getType() != DT_STRING || args[4]->getForm() != DF_SCALAR) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "db must be a string");
+    string database;
+    if(args.size()==5){
+        if (args[4]->getType() != DT_STRING || args[4]->getForm() != DF_SCALAR) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "db must be a string");
+        }
+        else database=args[4]->getString();
     }
-    std::unique_ptr<mongoConnection> cup(new mongoConnection(args[0]->getString(), args[1]->getInt(), args[2]->getString(), args[3]->getString(), args[4]->getString()));
+    std::unique_ptr<mongoConnection> cup(new mongoConnection(args[0]->getString(), args[1]->getInt(), args[2]->getString(), args[3]->getString(), database));
     const char *fmt = "mongodb connection to [%s]";
     vector<char> descBuf(cup->str().size() + strlen(fmt));
     sprintf(descBuf.data(), fmt, cup->str().c_str());
@@ -244,9 +270,89 @@ void conversionStr(vector<std::string>& colName){
 TableSP mongoConnection::load(std::string collection,std::string condition,std::string option){
     int len=0;
     int mIndex=1024;
-    std::string strUri="mongodb://"+user_+":"+password_+"@"+host_+":"+std::to_string(port_);
     mtx_.lock();
-    mongoc_collection_t* mcollection = mongoc_client_get_collection (mclient, db_.c_str(),collection.c_str());
+    int dbFIndex=collection.find_first_of(':');
+    string dbTmp=db_;
+    mongoc_database_t *dbPtr=mdatabase;
+    if(dbFIndex!=-1){
+        dbTmp=collection.substr(0,dbFIndex);
+        collection=collection.substr(dbFIndex+1);
+    }
+    if(dbTmp==""){
+        mtx_.unlock();
+        throw IllegalArgumentException(__FUNCTION__, "There is no database name");
+    }
+    if(db_!=dbTmp){
+        dbPtr= mongoc_client_get_database (mclient, dbTmp.c_str());
+        if(dbPtr==NULL){
+            mtx_.unlock();
+            throw IllegalArgumentException(__FUNCTION__, "Database have error");
+        }
+        char** databaseList=mongoc_client_get_database_names_with_opts(mclient,NULL,NULL);
+        if(databaseList==NULL){
+            mtx_.unlock();
+            mongoc_database_destroy(dbPtr);
+            throw IllegalArgumentException(__FUNCTION__, "There is a problem with host, port, user, and password");
+        }
+        bool flag=false;
+        for (int i = 0; databaseList[i]; i++){
+            if(dbTmp==databaseList[i]){
+                flag=true;
+                break;
+            }
+        }
+        if(!flag){
+            mtx_.unlock();
+            mongoc_database_destroy(dbPtr);
+            throw IllegalArgumentException(__FUNCTION__, "The database does not exist on the given host");
+        }
+        char **collectionList=mongoc_database_get_collection_names_with_opts(dbPtr,NULL,NULL);
+        if(collectionList==NULL){
+            mtx_.unlock();
+            mongoc_database_destroy(dbPtr);
+            throw IllegalArgumentException(__FUNCTION__, "The collection does not exist on the given database");
+        }
+        flag=false;
+        for (int i = 0; collectionList[i]; i++){
+            if(collection==collectionList[i]){
+                flag=true;
+                break;
+            }
+        }
+        mongoc_database_destroy(dbPtr);
+        if(!flag){
+            mtx_.unlock();
+            throw IllegalArgumentException(__FUNCTION__, "The collection does not exist on the given database");
+        }
+        bson_t *command=BCON_NEW ("ping", BCON_INT32 (1));
+        bson_error_t  error;
+        bool retval = mongoc_client_command_simple (mclient, dbTmp.c_str(), command, NULL, NULL, &error);
+        bson_destroy (command);
+        if(!retval){
+            mtx_.unlock();
+            string strerro="The connection to the Mongo database failed";
+            throw IllegalArgumentException(__FUNCTION__,strerro);
+        }
+    }
+    else{
+        char **collectionList=mongoc_database_get_collection_names_with_opts(mdatabase,NULL,NULL);
+        if(collectionList==NULL){
+            mtx_.unlock();
+            throw IllegalArgumentException(__FUNCTION__, "The collection does not exist on the given database");
+        }
+        bool flag=false;
+        for (int i = 0; collectionList[i]; i++){
+            if(collection==collectionList[i]){
+                flag=true;
+                break;
+            }
+        }
+        if(!flag){
+            mtx_.unlock();
+            throw IllegalArgumentException(__FUNCTION__, "The collection does not exist on the given database");
+        }
+    }
+    mongoc_collection_t* mcollection = mongoc_client_get_collection (mclient, dbTmp.c_str(),collection.c_str());
     if(mcollection==NULL){
         mtx_.unlock();
         throw IllegalArgumentException(__FUNCTION__, "Connect Mongodb collection faild");
@@ -262,10 +368,11 @@ TableSP mongoConnection::load(std::string collection,std::string condition,std::
     bson_t* boption=bson_new_from_json((const uint8_t*)str,-1,NULL);
     if(boption==NULL){
         mtx_.unlock();
+        bson_destroy(bsonQuery);
         string strTmp="This BSON structure doesn't fit:";
         throw IllegalArgumentException(__FUNCTION__, strTmp+str);
     }
-        mongoc_cursor_t* cursor=mongoc_collection_find_with_opts (mcollection,bsonQuery,boption,NULL);
+    mongoc_cursor_t* cursor=mongoc_collection_find_with_opts (mcollection,bsonQuery,boption,NULL);
     long long curNum=mongoc_cursor_get_limit(cursor);
     vector<std::string> colName;
     vector<DATA_TYPE>  colType;
