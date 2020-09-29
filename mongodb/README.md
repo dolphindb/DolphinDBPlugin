@@ -4,7 +4,76 @@ DolphinDB mongodb插件可以建立与mongodb服务器的连接，然后导入�
 
 ## 1. 安装构建
 
-#### 1.1编译安装
+这里我们要用到mongodb-c-driver，它的依赖库包括snappy，ICU，openssl。
+
+#### 1.1编译依赖库
+
+#### Linux
+
+###### 安装版本1.0.2的openssl
+ ```
+wget https://www.openssl.org/source/old/1.0.2/openssl-1.0.2i.tar.gz
+tar -xzf openssl-1.0.2i.tar.gz
+cd openssl-1.0.2i
+./config --prefix=/usr/local/openssl1.0.2 -fPIC
+make 
+sudo make install
+```
+--prefix是为了指定安装位置，后面会使用到这个版本的openssl的头文件和静态库。
+
+###### 安装snappy
+```
+wget https://github.com/google/snappy/archive/1.1.7.tar.gz
+tar -zxf 1.1.7.tar.gz
+cd snappy-1.1.7/cmake
+CXXFLAGS="-fPIC" cmake ..
+make
+sudo make install
+```
+###### 安装ICU
+```
+wget https://github.com/unicode-org/icu/releases/download/release-52-2/icu4c-52_2-src.tgz
+tar -xzf icu4c-52_2-src.tgz
+cd icu/source
+./configure
+make
+sudo make install
+```
+###### 安装mongo-c-driver
+
+需要设置环境变量，在命令行中设置，正是刚刚安装openssl的位置。
+```
+export OPENSSL_ROOT_DIR=/usr/local/openssl1.0.2
+export OPENSSL_CRYPTO_LIBRARY=/usr/local/openssl1.0.2/lib
+export OPENSSL_INCLUDE_DIR=/usr/local/openssl1.0.2/include/
+
+wget https://github.com/mongodb/mongo-c-driver/releases/download/1.13.0/mongo-c-driver-1.13.0.tar.gz
+tar -xzf mongo-c-driver-1.13.0.tar.gz
+cd mongo-c-driver-1.13.0
+mkdir cmake-build
+cd cmake-build
+cmake -DENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTS=OFF ..
+```
+这里我们可以在终端看到mongodb-c-driver需要的依赖是否安装完全。
+```
+make
+sudo make install
+```
+###### 准备依赖库
+
+将对应分支的libDolphinDB.so以及其它依赖库拷贝到DolphinDBPlugin/mongodb/bin/linux。
+
+```
+cd DolphinDBPlugin/mongodb/bin/linux
+cp /path/to/libDolphinDB.so . 
+cp /usr/local/lib/libmongoc-1.0.so.0 .
+cp /usr/local/lib/libbson-1.0.so.0 .
+cp /usr/local/lib/libicudata.so.52 .
+cp /usr/local/lib/libicuuc.so.52 .
+```
+
+
+#### 1.2编译安装
 
 #### Linux
 
@@ -74,7 +143,7 @@ export LD_LIBRARY_PATH=/path/to/mongodbPlugin/mongodb/bin/linux:$LD_LIBRARY_PATH
 
 #### 语法
 
-mongodb::connect(host, port, user, password, db)
+mongodb::connect(host, port, user, password, [db])
 
 #### 参数
 
@@ -82,7 +151,7 @@ mongodb::connect(host, port, user, password, db)
 * port: MongoDB服务器的端口，类型为int。
 * user: MongoDB服务器的用户名，类型为string。
 * password: MongoDB服务器的密码，类型为string。
-* db: 要使用的数据库名称，类型为string。
+* db: 要使用的数据库名称，类型为string。如果不填写，将不会对指定用户进行密码认证和数据库权限验证。
 
 #### 详情
 
@@ -92,18 +161,19 @@ mongodb::connect(host, port, user, password, db)
 
 ```
 conn = mongodb::connect(`localhost, 27017, `root, `root, `DolphinDB)
+conn2 = mongodb::connect(`localhost, 27017, `root, `root)
 ```
 
 ### 2.2 mongodb::load
 
 #### 语法
 
-mongodb::load(connection,collcetion, query, option)
+mongodb::load(connection,collcetionName, query, option)
 
 #### 参数
 
 * connection: 通过mongodb::connect获得的MongoDB连接句柄。
-* collcetionName: 一个MongoDB中集合的名字，或者类似select * from table limit 100的合法MySQL查询语句，类型为string。
+* collcetionName: 一个MongoDB中集合的名字。有两种参数模式(`collectionName和"databaseName:collectionName"),第一种会查询由mongodb::connect创建的connection的database，第二种是查询指定database中的collection。
 * query: MongoDB查询条件，保留bson格式的json文档，类似:{ "aa" : { "$numberInt" : "13232" } }、{ "datetime" : { "$gt" : {"$date":"2019-02-28T00:00:00.000Z" }} }，类型为string。
 * option: MongoDB查询选项，保留bson格式的json文档，类似:{"limit":123}对查询结果在MongoDB中进行预处理再返回，类型为string。
 
@@ -117,7 +187,9 @@ mongodb::load(connection,collcetion, query, option)
 conn = mongodb::connect(`localhost, 27017, `root, `root, `DolphinDB)
 query=`{ "datetime" : { "$gt" : {"$date":"2019-02-28T00:00:00.000Z" }} }
 option=`{"limit":1234}
-tb = mysql::load(conn, `US,query,option)
+tb = mongodb::load(conn, `US,query,option)
+select count(*) from tb
+tb2 = mongodb::load(conn, 'dolphindb:US',query,option)
 select count(*) from tb
 ```
 
@@ -141,7 +213,7 @@ mongodb::close(connection)
 conn = mongodb::connect(`localhost, 27017, `root, `root, `DolphinDB)
 query=`{ "datetime" : { "$gt" : {"$date":"2019-02-28T00:00:00.000Z" }} }
 option=`{"limit":1234}
-tb = mysql::load(conn, `US,query,option)
+tb = mongodb::load(conn, `US,query,option)
 select count(*) from tb
 mongodb::close(conn)
 ```
@@ -200,4 +272,3 @@ DolphinDB中各类整形的最小值为NULL值，例如：INT的-2,147,483,648�
 | ------------------- | :------------------ |
 | string   | STRING              |
 | symbol | STRING              |
-
