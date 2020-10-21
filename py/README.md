@@ -1,4 +1,4 @@
-# DolphinDB py Plugin
+# DolphinDB Py Plugin
 利用[python C-API](https://docs.python.org/zh-cn/3.7/c-api/index.html)协议，实现DolphinDB内调用python环境中的第三方库。本插件使用了[pybind11](https://github.com/pybind/pybind11) 库。
 
 ## 1. 准备工作
