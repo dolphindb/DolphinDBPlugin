@@ -27,11 +27,18 @@
 
 ### 1.2 修改配置文件
 
-需要修改配置文件dolphindb.cfg，添加libpython3.7m.so（python37.dll）动态库绝对路径。如果python版本不同请修改成对应版本。  
+需要修改配置文件dolphindb.cfg，添加libpython3.7m.so（python37.dll）动态库绝对路径。 
 
 ```
 globalDynamicLib=/path_to_libpython3.7m.so/libpython3.7m.so
 ```
+
+如果python版本不同请修改成对应版本。 例如：
+
+```
+globalDynamicLib=/DolphinDB/server/plugins/py/libpython3.6m.so.1.0
+```
+
 
 **注意**：开发过程中需要有完整的python运行环境，且插件运行时sys.path打印的路径要和安装的运行环境一致。
 
