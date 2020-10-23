@@ -1,7 +1,7 @@
-# DolphinDB Mseed Plugin
+# DolphinDB mseed Plugin
+DolphinDB的mseed插件可以读取miniSEED文件的数据加载到DolphinDB的内存表中，并且可以将DolphinDB的一段连续时间的采样值写入到miniSEED格式的文件中。
 
-* 读取miniSEED文件的数据，加载到DolphinDB的向量中。
-* 将DolphinDB的向量写入到一个miniSEED文件。
+本插件使用了IRIS的[libmseed开源库](https://github.com/iris-edu/libmseed)的读写接口。
 ## 1. 安装构建
 
 #### 1.1 插件加载
@@ -60,8 +60,8 @@ mseed::read(file)
 
 返回值是一个dolphindb内存表，有如下字段：
 * value：读取到的采样值。可以为int, float, double和string类型。
-* time：采样值对应的时间戳。类型为DolphinDB的timestamp类型。
-* id：采样值所在块的sid。类型为DolphinDB的symbol类型。
+* time：采样值对应的时间戳。类型为timestamp类型。
+* id：采样值所在块的sid。类型为symbol类型。
 #### 例子
 
 ```
@@ -72,7 +72,7 @@ ret=mseed::read("<FileDir>/SC.JZG.00.BHZ.D.2013.001");
 
 #### 语法
 
-mseed::write(file,sid,startTime,sampleRate,value,[cover])
+mseed::write(file, sid, startTime, sampleRate, value, [overwrite=false])
 
 #### 详情
 
@@ -84,14 +84,17 @@ mseed::write(file,sid,startTime,sampleRate,value,[cover])
 * startTime：写入到miniSEED文件的一个块的startTime。类型为timestamp。
 * sampleRate：写入到miniSEED文件的sampleRate。类型为double。
 * value：写入miniSEED文件的采样值的向量。支持int，float，double类型。
-* cover：是否覆盖写，默认为否。类型为bool。
+* overwrite：是否覆盖写，默认为否。类型为bool。
+
+#### 返回值
+如果写入成功，返回一个bool真值。
 
 #### 例子
 ```
-time=timestamp(2013.01.01)
-sampleRate=100.0
-vec=rand(100,100)
-ret=mseed::write('/home/zmx/aaa',"XFDSN:SC_JZG_00_B_H_Z",time,sampleRate,vec)
+time=timestamp(2013.01.01);
+sampleRate=100.0;
+vec=rand(100, 100);
+ret=mseed::write("/home/zmx/aaa", "XFDSN:SC_JZG_00_B_H_Z", time, sampleRate, vec);
 ```
 
 
