@@ -80,14 +80,14 @@ ConstantSP mysqlLoad(Heap *heap, vector<ConstantSP> &arguments) {
         table = args[1]->getString();
     }
 
-    if (!args[2]->isNull()) {
+    if (!args[2]->isNothing()) {
         if (!args[2]->isTable()) {
             throw IllegalArgumentException(__FUNCTION__, usage + "schema must be a table");
         }
         schema = args[2];
     }
 
-    if (!args[3]->isNull()) {
+    if (!args[3]->isNothing()) {
         if ((args[3]->getType() != DT_INT && args[3]->getType() != DT_LONG) || args[3]->getForm() != DF_SCALAR)
             throw IllegalArgumentException(__FUNCTION__, usage + "startRow must be a non-negative integer");
         if (args[3]->getInt() < 0)
@@ -95,7 +95,7 @@ ConstantSP mysqlLoad(Heap *heap, vector<ConstantSP> &arguments) {
         startRow = args[3]->getLong();
     }
 
-    if (!args[4]->isNull()) {
+    if (!args[4]->isNothing()) {
         if ((args[4]->getType() != DT_INT && args[4]->getType() != DT_LONG) || args[4]->getForm() != DF_SCALAR)
             throw IllegalArgumentException(__FUNCTION__, usage + "rowNum must be a integer");
         if (args[4]->getInt() < 0)
@@ -107,14 +107,14 @@ ConstantSP mysqlLoad(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP mysqlLoadEx(Heap *heap, vector<ConstantSP> &arguments) {
-    auto args = getArgs(arguments, 8);
+    auto args = getArgs(arguments, 9);
     ConstantSP dbHandle = nullptr;
     std::string tableName, tableInMySQL;
     ConstantSP partitionColumns = nullptr;
     TableSP schema = nullptr;
     uint64_t startRow = 0, rowNum = std::numeric_limits<uint64_t>::max();
 
-    std::string usage = "Usage: loadEx(connection,dbHandle,tableName,partitionColumns,tableInMySQL_or_query,[schema],[startRow=0],[rowNum=ULONGLONG_MAX]) ";
+    std::string usage = "Usage: loadEx(connection,dbHandle,tableName,partitionColumns,tableInMySQL_or_query,[schema],[startRow=0],[rowNum=ULONGLONG_MAX],[transform]) ";
 
     if (!args[1]->isDatabase()) {
         throw IllegalArgumentException(__FUNCTION__, usage + "dbHandle must be a database handle");
@@ -128,7 +128,7 @@ ConstantSP mysqlLoadEx(Heap *heap, vector<ConstantSP> &arguments) {
         tableName = args[2]->getString();
     }
 
-    if (args[3]->isNull()) {
+    if (args[3]->isNothing()) {
         throw IllegalArgumentException(__FUNCTION__, usage + "partitionColumns is required.");
     } else if (args[3]->getType() != DT_STRING)
         throw IllegalArgumentException(__FUNCTION__, usage + "partitionColumns must be a string scalar/vector");
@@ -142,14 +142,14 @@ ConstantSP mysqlLoadEx(Heap *heap, vector<ConstantSP> &arguments) {
         tableInMySQL = args[4]->getString();
     }
 
-    if (!args[5]->isNull()) {
+    if (!args[5]->isNothing()) {
         if (!args[5]->isTable()) {
             throw IllegalArgumentException(__FUNCTION__, usage + "schema must be a table");
         }
     }
     schema = args[5];
 
-    if (!args[6]->isNull()) {
+    if (!args[6]->isNothing()) {
         if ((args[6]->getType() != DT_INT && args[6]->getType() != DT_LONG) || args[6]->getForm() != DF_SCALAR)
             throw IllegalArgumentException(__FUNCTION__, usage + "startRow must be a non-negative integer");
         if (args[6]->getInt() < 0)
@@ -157,15 +157,26 @@ ConstantSP mysqlLoadEx(Heap *heap, vector<ConstantSP> &arguments) {
         startRow = args[6]->getLong();
     }
 
-    if (!args[7]->isNull()) {
+    if (!args[7]->isNothing()) {
         if ((args[7]->getType() != DT_INT && args[7]->getType() != DT_LONG) || args[7]->getForm() != DF_SCALAR)
             throw IllegalArgumentException(__FUNCTION__, usage + "rowNum must be a non-negative integer");
         if (args[7]->getInt() < 0)
             throw IllegalArgumentException(__FUNCTION__, usage + "rowNum must be a non-negative integer");
         rowNum = args[7]->getLong();
     }
-
-    return safeOp(args[0], [&](Connection *conn) { return conn->loadEx(heap, dbHandle, tableName, partitionColumns, tableInMySQL, schema, startRow, rowNum); });
+    FunctionDefSP transform;
+    if (!args[8]->isNothing()) {
+        if (arguments[8]->getType() != DT_FUNCTIONDEF)
+            throw IllegalArgumentException(__FUNCTION__, "transform must be a function.");
+        transform = (FunctionDefSP)args[8];
+        return safeOp(args[0], [&](Connection *conn) {
+            return conn->loadEx(heap, dbHandle, tableName, partitionColumns, tableInMySQL, schema, startRow, rowNum, transform);
+        });
+    }
+    return safeOp(args[0], [&](Connection *conn) {
+        return conn->loadEx(heap, dbHandle, tableName, partitionColumns, tableInMySQL, schema, startRow, rowNum);
+    });
+    
 }
 
 /// Connection
@@ -208,7 +219,7 @@ ConstantSP Connection::load(const std::string &table_or_query, const TableSP &sc
 }
 
 ConstantSP Connection::loadEx(Heap *heap, const ConstantSP &dbHandle, const std::string &tableName, const ConstantSP &partitionColumns, const std::string &MySQLTableName_or_query,
-                              const TableSP &schema, const uint64_t &startRow, const uint64_t &rowNum) {
+                              const TableSP &schema, const uint64_t &startRow, const uint64_t &rowNum, const FunctionDefSP &transform) {
     LockGuard<Mutex> lk(&mtx_);
     DomainSP domain = static_cast<SystemHandleSP>(dbHandle)->getDomain();
     if (domain.isNull()) {
@@ -239,9 +250,9 @@ ConstantSP Connection::loadEx(Heap *heap, const ConstantSP &dbHandle, const std:
     }
 
     if (isQuery(MySQLTableName_or_query)) {
-        MySQLExtractor(query(MySQLTableName_or_query)).extractEx(heap, ret, schema);
+        MySQLExtractor(query(MySQLTableName_or_query)).extractEx(heap, ret, transform, schema);
     } else {
-        MySQLExtractor(query("SELECT * FROM " + MySQLTableName_or_query + " LIMIT " + std::to_string(startRow) + "," + std::to_string(rowNum))).extractEx(heap, ret, schema);
+        MySQLExtractor(query("SELECT * FROM " + MySQLTableName_or_query + " LIMIT " + std::to_string(startRow) + "," + std::to_string(rowNum))).extractEx(heap, ret, transform, schema);
     }
 
     return ret;
@@ -311,10 +322,10 @@ TableSP MySQLExtractor::extract(const ConstantSP &schema) {
     }
 }
 
-void MySQLExtractor::extractEx(Heap *heap, TableSP &t, const ConstantSP &schema) {
+void MySQLExtractor::extractEx(Heap *heap, TableSP &t, const FunctionDefSP &transform, const ConstantSP &schema) {
     auto res = query_.use();
     prepareForExtract(schema, res);
-    realExtract(res, schema, t, [&](Pack &p) { growTableEx(t, p, heap); });
+    realExtract(res, schema, t, [&](Pack &p) { growTableEx(t, p, heap, transform); });
 }
 
 void MySQLExtractor::realExtract(mysqlxx::UseQueryResult &res, const ConstantSP &schema, TableSP &resultTable, std::function<void(Pack &)> callback) {
@@ -444,9 +455,13 @@ void MySQLExtractor::growTable(TableSP &t, Pack &p) {
     });
 }
 
-void MySQLExtractor::growTableEx(TableSP &t, Pack &p, Heap *heap) {
+void MySQLExtractor::growTableEx(TableSP &t, Pack &p, Heap *heap, const FunctionDefSP &transform) {
     realGrowTable(p, [&](vector<ConstantSP> &cols) {
         TableSP tmpTable = Util::createTable(colNames_, cols);
+        if(!transform.isNull() && !transform->isNull()){
+            vector<ConstantSP> arg={tmpTable};
+            tmpTable = transform->call(heap, arg);
+        }
         vector<ConstantSP> args{t, tmpTable};
         heap->currentSession()->getFunctionDef("append!")->call(heap, args);
     });
@@ -615,7 +630,7 @@ void Pack::init(vector<DATA_TYPE> srcDt, vector<DATA_TYPE> dstDt, TableSP &resul
         throw RuntimeException("Insufficient memory to load even one row, please check your MySQL "
                                "table, rowStorage: " + Util::convert(rowStorage / 1024 / 1024 / 1024) + "M");
     }
-
+    initedCols_ = 0;
     for (size_t col = 0; col < nCol_; ++col) {
         typeLen_[col] = typeLen(dstDt_[col]);
         rawBuffers_[col] = new char[capacity_ * typeLen_[col]];
@@ -629,6 +644,7 @@ void Pack::init(vector<DATA_TYPE> srcDt, vector<DATA_TYPE> dstDt, TableSP &resul
                 *p = new char[maxStrLen[col] + 1];
             }
         }
+        initedCols_ ++;
     }
 }
 
@@ -713,7 +729,7 @@ void Pack::append(const mysqlxx::Row &row) {
 }
 
 Pack::~Pack() {
-    for (size_t col = 0; col < nCol_; ++col) {
+    for (size_t col = 0; col < initedCols_; ++col) {
         if (dstDt_.size() > col && (dstDt_[col] == DT_STRING || dstDt_[col] == DT_SYMBOL)) {
             for (size_t j = 0; j < capacity_; ++j) {
                 auto p = (char **)(rawBuffers_[col] + j * sizeof(char *));
