@@ -83,7 +83,8 @@ class Connection : public mysqlxx::Connection {
                       const std::string &MySQLTableName_or_query,
                       const TableSP &schema = nullptr,
                       const uint64_t &startRow = 0,
-                      const uint64_t &rowNum = std::numeric_limits<uint64_t>::max());
+                      const uint64_t &rowNum = std::numeric_limits<uint64_t>::max(),
+                      const FunctionDefSP &transform = nullptr);
     std::string str() { return user_ + "@" + host_ + ":" + std::to_string(port_) + "/" + db_; }
 
    private:
@@ -94,7 +95,7 @@ class Connection : public mysqlxx::Connection {
 typedef SmartPointer<Connection> ConnectionSP;
 
 const size_t DEFAULT_PACK_SIZE = 8192;
-const unsigned long long DEFAULT_ALLOWED_MEM = 8ULL * 1024 * 1024 * 1024;
+const unsigned long long DEFAULT_ALLOWED_MEM = 8ULL * 1024 * 64;
 const size_t DEFAULT_WORKSPACE_SIZE = 3;
 using mysqlxx::Query;
 class Pack;
@@ -118,9 +119,9 @@ class MySQLExtractor {
     ~MySQLExtractor();
     TableSP extractSchema(const std::string &table);
     TableSP extract(const ConstantSP &schema = nullptr);
-    void extractEx(Heap *heap, TableSP &t, const ConstantSP &schema = nullptr);
+    void extractEx(Heap *heap, TableSP &t, const FunctionDefSP &transform, const ConstantSP &schema = nullptr);
     void growTable(TableSP &t, Pack &p);
-    void growTableEx(TableSP &t, Pack &p, Heap *heap);
+    void growTableEx(TableSP &t, Pack &p, Heap *heap, const FunctionDefSP &transform);
 
    private:
     vector<DATA_TYPE> getDstType(const TableSP &schema);
@@ -177,6 +178,7 @@ class Pack {
     size_t size_;
     size_t capacity_;
     vector<DATA_TYPE> srcDt_, dstDt_;
+    size_t initedCols_ = 0;
 };
 
 template <typename T>
