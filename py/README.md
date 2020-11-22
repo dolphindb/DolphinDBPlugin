@@ -96,7 +96,12 @@ mingw32-make -j4
 loadPlugin("/path_to_PluginPy/PluginPy.txt");
 ```
 
-**注意**：由于数据类型转换时需要用到numpy和pandas中的数据类型，python环境中需要安装numpy和pandas模块。Windows环境下请保证编译时的python版本与本地的python版本一致，否则加载插件时会出错。此外如果使用的是Anaconda，因为Anaconda自带的libstdc++.so.6动态库版本较高，而DolphinDB为了保证兼容性使用的是较低版本的libstdc++.so.6，两者冲突会导致加载插件失败，所以需要使用 pip uninstall pandas 卸载原来的pandas，然后使用 pip install pandas 重新安装pandas，不能使用 conda install 进行安装，否则会链接高版本的libstdc++.so.6。同理插件中要使用到的有链接libstdc++.so.6动态库的模块都需要使用 pip uninstall 和 pip intall 重新安装。除了上述重新安装的方法，还可用Anaconda里lib目录下的libstdc++.so.6替换DolphinDB目录下的libstdc++.so.6（为了防止意外，请先将原文件进行备份），这样就不用重新安装模块了。
+**注意**：由于数据类型转换时需要用到numpy和pandas中的数据类型，python环境中需要安装numpy和pandas模块。如果不安装numpy和pandas模块，加载的时候将会导致系统崩溃（常见出错信息如下）。 Windows环境下请保证编译时的python版本与本地的python版本一致，否则加载插件时会出错。此外如果使用的是Anaconda，因为Anaconda自带的libstdc++.so.6动态库版本较高，而DolphinDB为了保证兼容性使用的是较低版本的libstdc++.so.6，两者冲突会导致加载插件失败，所以需要使用 pip uninstall pandas 卸载原来的pandas，然后使用 pip install pandas 重新安装pandas，不能使用 conda install 进行安装，否则会链接高版本的libstdc++.so.6。同理插件中要使用到的有链接libstdc++.so.6动态库的模块都需要使用 pip uninstall 和 pip intall 重新安装。除了上述重新安装的方法，还可用Anaconda里lib目录下的libstdc++.so.6替换DolphinDB目录下的libstdc++.so.6（为了防止意外，请先将原文件进行备份），这样就不用重新安装模块了。
+
+```
+terminate called after throwing an instance of 'pybind11::error_already_set'
+  what():  ModuleNotFoundError: No module named 'numpy'
+```
 
 ## 3. 插件函数说明
 
