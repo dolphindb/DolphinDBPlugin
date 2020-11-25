@@ -4,25 +4,20 @@ DolphinDB的mseed插件可以读取miniSEED文件的数据加载到DolphinDB的�
 本插件使用了IRIS的[libmseed开源库](https://github.com/iris-edu/libmseed)的读写接口。
 ## 1. 安装构建
 
-#### 1.1 插件加载
-#### Linux
-如果已经获得编译好的mseed插件动态库(libPluginMseed.so)，执行如下脚本即可加载插件。
-```
- loadPlugin("<PluginDir>/mseed/build/PluginMseed.txt");
-```
+### 1.1 编译安装
 
-#### 1.2 编译安装
+在<PluginDir>/mseed/bin目录下有对应与linux64和win64的依赖库，只需要cmake和对应编译器(linux为g++,window为MinGW)即可在本地编译mseed插件。
 
-在<PluginDir>/mseed/bin目录下有对应与linux64和win64的依赖库，只需要cmake和g++编译器即可编译插件库。
-#### Linux
+#### linux
 
-###### 使用cmake构建：
+##### 使用cmake构建：
 
 安装cmake：
 
 ```
 sudo apt-get install cmake
 ```
+
 构建插件内容：
 
 ```
@@ -37,7 +32,34 @@ make
 
 编译后目录下会产生文件libPluginMseed.so和PluginMseed.txt。
 
+#### Windows
 
+##### 在Windows环境中需要使用CMake和MinGW编译
+
+- 下载安装[MinGW](http://www.mingw.org/)。确保将bin目录添加到系统环境变量Path中。
+- 下载安装[cmake](https://cmake.org/)。
+
+##### 使用cmake构建：
+
+在编译开始之前，要将libDolphinDB.dll拷贝到build文件夹。
+
+构建插件内容：
+
+```
+cd <PluginDir>\mseed
+mkdir build                                                        # 新建build目录
+cp <ServerDir>/libDolphinDB.dll build                 # 拷贝 libDolphinDB.dll 到build目录下
+cd build
+cmake  ../ -G "MinGW Makefiles"
+mingw32-make -j4
+```
+
+编译后目录下会产生文件libPluginMseed.dll和PluginMseed.txt。
+
+### 1.2 插件加载
+```
+ loadPlugin("<PluginDir>/mseed/build/PluginMseed.txt");
+```
 
 
 ##  2. 用户接口
@@ -59,9 +81,10 @@ mseed::read(file)
 #### 返回值
 
 返回值是一个dolphindb内存表，有如下字段：
-* value：读取到的采样值。可以为int, float, double和string类型。
+* value：读取到的采样值。可以为int, float和 double类型。
 * time：采样值对应的时间戳。类型为timestamp类型。
 * id：采样值所在块的sid。类型为symbol类型。
+
 #### 例子
 
 ```
@@ -87,6 +110,7 @@ mseed::write(file, sid, startTime, sampleRate, value, [overwrite=false])
 * overwrite：是否覆盖写，默认为否。类型为bool。
 
 #### 返回值
+
 如果写入成功，返回一个bool真值。
 
 #### 例子
@@ -97,5 +121,33 @@ vec=rand(100, 100);
 ret=mseed::write("/home/zmx/aaa", "XFDSN:SC_JZG_00_B_H_Z", time, sampleRate, vec);
 ```
 
+### 2.3 mseed::parse
 
+#### 语法
 
+mseed::parse(data)
+
+#### 详情
+
+解析miniseed格式的字节流，返回一个DolphinDB的内存表。
+
+#### 参数
+
+* data: miniseed格式的字节流。类型为string或者是char类型的vector。
+
+#### 返回值
+
+返回值是一个dolphindb内存表，有如下字段：
+* value：读取到的采样值。可以为int, float和double类型。
+* time：采样值对应的时间戳。类型为timestamp类型。
+* id：采样值所在块的sid。类型为symbol类型。
+
+#### 例子
+```
+fin=file("/media/zmx/aaa");
+buf=fin.readBytes(512);
+ret=mseed::parse(buf);
+
+stringBuf=concat(buf);
+ret=mseed::parse(stringBuf);
+```
