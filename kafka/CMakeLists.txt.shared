@@ -30,4 +30,4 @@ aux_source_directory("cppkafka/src" cppkafka)
 add_subdirectory(cppkafka)
 
 add_library(PluginKafka SHARED ${plugin_kafka_src} client.h client.cpp)
-target_link_libraries(PluginKafka librdkafka.a librdkafka++.a libcppkafka.a libz.a DolphinDB)
+target_link_libraries(PluginKafka rdkafka++ cppkafka DolphinDB)

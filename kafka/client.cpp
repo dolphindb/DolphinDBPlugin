@@ -22,21 +22,36 @@ void AppendTable::run() {
             parser_string[0]->setString(string(msg.get_payload()));
             TableSP table_insert;
             try {
-                table_insert = parser_->call(session_->getHeap().get(), parser_string);
+                auto parser_result = parser_->call(session_->getHeap().get(), parser_string);
+                if(!parser_result->isTable()) {
+                    cerr << "The parser should return a table." << endl;
+                    return;
+                }
+                table_insert = parser_result;
+                if(table_insert->columns()<length) {
+                    cerr << "The columns of the table returned is smaller than the handler table." << endl;
+                    return;
+                }
+                if(table_insert->columns()>length)
+                    cerr << "The columns of the table returned is larger than the handler table, and the information may be ignored." << endl;
+                vector<ConstantSP> dataToAppend;
+                for(int i = 0;i<length;i++)
+                    dataToAppend.emplace_back(table_insert->getColumn(i));
+                INDEX insertedRowd;
+                string errMsg;
+                bool success = result->append(dataToAppend,insertedRowd,errMsg);
+                if(!success) {
+                    cerr << errMsg << endl;
+                    return;
+                }
             }
-            catch (RuntimeException &exception) {
+            catch (TraceableException &exception) {
                 cerr << exception.what() << endl;
                 continue;
             }
-            vector<ConstantSP> dataToAppend;
-            for(int i = 0;i<length;i++)
-                dataToAppend.emplace_back(table_insert->getColumn(i));
-            INDEX insertedRowd;
-            string errMsg;
-            bool success = result->append(dataToAppend,insertedRowd,errMsg);
-            if(!success) {
-                cerr << errMsg << endl;
-                return;
+            catch(Exception &exception){
+                cerr << exception.what() << endl;
+                continue;
             }
         }
     }
