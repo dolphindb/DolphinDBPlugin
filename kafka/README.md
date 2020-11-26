@@ -1,6 +1,6 @@
 # DolphinDB Kafka Plugin
 
-With this plugin, you can easily publish or subscribe to Kafka streaming services. It supports serialization and deserialization of all DolphinDB scalar types, as well as these built-in types of Kafka Java API: String(UTF-8), Short, Integer, Long, Float, Double, Bytes, byte[] and ByteBuffer. It also supports serialization adn deserialization of vector of types above.
+With this plugin, you can easily publish or subscribe to Kafka streaming services. It supports serialization and deserialization of all DolphinDB scalar types, as well as these built-in types of Kafka Java API: String(UTF-8), Short, Integer, Long, Float, Double, Bytes, byte[] and ByteBuffer. It also supports serialization and deserialization of vectors of the types above.
 
 - [DolphinDB Kafka Plugin](#dolphindb-kafka-plugin)
     - [1. Pre-compiled installation](#1-pre-compiled-installation)
@@ -48,7 +48,7 @@ sudo apt install libssl-dev
 cd /path/to/the/main/project/
 git submodule update --init --recursive
 ```
-copy the libDolphinDB.so to bin/linux64
+Copy libDolphinDB.so to bin/linux64:
 ``` shell
 cp /path/to/dolphindb/server/libDolphinDB.so /path/to/kafka/bin/linux64
 ```
@@ -73,7 +73,7 @@ make
 
 ### 2.3 Move the result to bin/linux64
 
-copy the .so and .txt to bin/linux64
+Copy .so and .txt to bin/linux64:
 ``` shell
 cp /path/to/libPluginKafka.so /path/to/kafka/bin/linux64
 cp /path/to/PluginKafka.txt /path/to/kafka/bin/linux64
@@ -84,7 +84,6 @@ cp /path/to/PluginKafka.txt /path/to/kafka/bin/linux64
 ### 3.1 Load the Kafka Plugin
 
 Run the following script in DolphinDB to load the plugin:
-
 ``` shell
 loadPlugin("/path/to/PluginKafka.txt")
 ```
@@ -94,14 +93,12 @@ loadPlugin("/path/to/PluginKafka.txt")
 #### 3.2.1 Initialization
 
 ##### Syntax
-
 ```shell
 kafka::producer(config);
 ```
 
 ##### Arguments
-
-'config' is a dictionary indicating the Kafka producer configuration, whose key is a string and value is a string or a boolean. Please refer to [https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md](https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md) for more about Kafka configuration.
+'config' is a dictionary indicating the Kafka producer configuration, whose key is a string and value is a string or a boolean. Please refer to [https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md](https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md) for more information about Kafka configuration.
 
 ##### Details
 
@@ -117,16 +114,16 @@ kafka::produce(producer, topic, key, value, json[,partition]);
 
 ##### Arguments
 
-- 'producer' is a Kafka producer handler
-- 'topic' is a string indicating Kafka topic.
+- 'producer' is a Kafka producer handler.
+- 'topic' is a string indicating a Kafka topic.
 - 'key' indicates a Kafka key.
 - 'value' indicates a Kafka value.
-- 'json' indicates that whether pass the data in json format or not.
+- 'json' indicates whether to pass the data in Json format or not.
 - 'partition' is an integer indicating the Kafka broker partition number. It is optional.
 
 ##### Details
 
-Produce key-value data. You can choose special partition to, and you can also choose  whether pass in json format.
+Produce key-value data. 
 
 #### 3.2.3 Producer flushing
 
@@ -142,19 +139,20 @@ kafka::produceFlush(producer);
 
 ##### Details
 
-Flush all the messages of the producer before kill the producer.
+Flush all the messages of the producer before killing the producer.
 
 #### 3.2.4 Get blocking time
 
 ##### Syntax
 
 ``` shell
-kafka::getProducerTime(producer)
+kafka::getProducerTime(producer,timeout)
 ```
 
 ##### Arguments
 
 - 'producer' is a Kafka producer handler.
+- 'timeout' is the blocking time of the producer.
 
 #### 3.2.5 Set blocking time
 
@@ -167,7 +165,7 @@ kafka::setProducerTime(producer,timeout)
 ##### Arguments
 
 - 'producer' is a Kafka producer handler.
-- 'timeout' is the your blocking time for the producer.
+- 'timeout' indicates the blocking time for the producer.
 
 ### 3.3 Consumer
 
@@ -231,13 +229,13 @@ kafka::consumerPoll(consumer[,timeout:int])
 ##### Arguments
 
 - 'consumer' is a Kafka consumer handler.
-- 'timeout' is a number indicate how long to wait for a polling.
+- 'timeout' indicates how long to wait for a polling.
 
 ##### Details
 
 Save the subscribed data to DolphinDB. It returns a DolphinDB tuple. The first element is a string indicating the error message. The second element is a tuple including the following elements: topic, partition, key, value and timestamp when the consumer received the data.
 
-`kafka::consumerPoll` will block the current thread and the poll default timeout is 1000 millisecond. We recommend to use function `consumerPollBatch` to submit multiple `kafka::consumerPoll` tasks.
+`kafka::consumerPoll` will block the current thread and the poll default timeout is 1000 milliseconds. We recommend to use function `consumerPollBatch` to submit multiple `kafka::consumerPoll` tasks.
 
 #### 3.3.5 Poll messages
 
@@ -250,54 +248,40 @@ kafka::consumerPollBatch(consumer,batch_size[,time_out:int])
 ##### Arguments
 
 - 'consumer' is a Kafka consumer handler.
-- 'batch_size' is the number of messages you want to get.
-- 'timeout' indicates that how long the thread block for getting the messages.
+- 'batch_size' is the number of messages to get.
+- 'timeout' indicates how long (in units of milliseconds) the thread blocks for getting the messages.
 
 #### 3.3.6 Poll messages by multi-thread
 
 ##### Syntax
 
 ```shell
-kafka::createSubJob(consumer,table,parser,description[,timeout:int])
+kafka::consumerPollLoop(consumer,store[,timeout:int])
 ```
 
 ##### Arguments
 
 - 'consumer' is a Kafka consumer handler.
-- 'table' is a table to store the messages.
-- 'parser' is a function to deal with the input data, which returns a table.
-- 'description' is a string to describe the thread.
-- 'timeout' indicates that how long the thread block for getting each message.
+- 'store' is a variable to store the messages, which is a dictionary or vector.
+- 'timeout' indicates how long (in units of milliseconds) the thread blocks for getting the messages.
 
 ##### Details
 
-The parser need a string for input and return a table, and you can use mseed::parser for example or you can define a function by yourself.
+You need to use a variable to store the return value of the function, which is needed when you want to end the thread.
 
-#### 3.3.7 Get the muti-thread status
-
-##### Syntax
-
-```shell
-kafka::getJobStat()
-```
-
-##### Arguments
-
-- the function need no argument.
-
-#### 3.3.8 End the polling thread
+#### 3.3.7 End the polling thread
 
 ##### Syntax
 
 ```shell
-kafka::cancelSubJob(connection)
+kafka::endLoop(connection)
 ```
 
 ##### Arguments
 
-- 'connection' is the return value of the kafka::createSubJob, or the LONG or INT subscriptionId you get from function getJobStat(), or a string such as "36949760", which is also get from the function getJobStat().
+- 'connection' is the return value of the kafka::consumerPollLoop. 
 
-#### 3.3.9 Poll messages and return a dictionary
+#### 3.3.8 Poll messages and return a dictionary
 
 ##### Syntax
 
@@ -309,18 +293,37 @@ kafka::pollDict(consumer,batch_size[,timeout:int])
 
 - 'consumer' is a Kafka consumer handler.
 - 'batch_size' is the number of messages you want to get.
-- 'timeout' indicates that how long the thread block for getting the messages.
+- 'timeout' indicates how long (in units of milliseconds) the thread blocks for getting the messages.
 
 ##### Details
 
-Save the subscribed data to DolphinDB. It returns a DolphinDB dictionary, which is composed of key-value pair of messages.
+Save the subscribed data to DolphinDB. It returns a DolphinDB dictionary, which is composed of key-value pairs of messages.
+
+#### 3.3.9 Poll messages and return a table
+
+##### Syntax
+
+``` shell
+kafka::pollTab(consumer,batch_size,json[,timeout:int])
+```
+
+##### Arguments
+
+- 'consumer' is a Kafka consumer handler.
+- 'batch_size' is the number of messages you want to get.
+- 'json' indicates that whether pass the data in json format or not.
+- 'timeout' indicates how long (in units of milliseconds) the thread blocks for getting the messages.
+
+##### Details
+
+Save the subscribed data to DolphinDB. It returns a DolphinDB table.
 
 #### 3.3.10 Commit
 
 ##### Syntax
 
 ```
-kafka::commit(consumer)
+commit(consumer)
 ```
 
 ##### Arguments
@@ -382,12 +385,13 @@ kafka::asyncCommitTopic(consumer,topics,partitions,offsets)
 ##### Syntax
 
 ``` shell
-kafka::getConsumerTime(consumer)
+kafka::getConsumerTime(consumer,timeout)
 ```
 
 ##### Arguments
 
 - 'consumer' is a Kafka consumer handler.
+- 'timeout' is the blocking time of the consumer.
 
 #### 3.3.15 Set blocking time
 
@@ -414,8 +418,8 @@ kafka::assign(consumer,topics,partitions,offsets)
 
 - 'consumer' is a Kafka consumer handler.
 - 'topics' is a string vector indicating the topics to subscribe.
-- 'partitions' is a int vector indicating the partition corresponding to each topic.
-- 'offsets' is a int vector indicating the offset corresponding to each topic.
+- 'partitions' is an integer vector indicating the partition corresponding to each topic.
+- 'offsets' is an integer vector indicating the offset corresponding to each topic.
 
 ##### Details
 
@@ -449,7 +453,39 @@ kafka::getAssignment(consumer)
 
 - 'consumer' is a Kafka consumer handler.
 
-#### 3.3.19 Get offset
+#### 3.3.19 Pause
+
+##### Syntax
+
+``` shell
+kafka::pause(consumer)
+```
+
+##### Arguments
+
+- 'consumer' is a Kafka consumer handler.
+
+##### Details
+
+Pause all consumption.
+
+#### 3.3.20 Resume
+
+##### Syntax
+
+``` shell
+kafka::resume(consumer)
+```
+
+##### Arguments
+
+- 'consumer' is a Kafka consumer handler.
+
+##### Details
+
+Resume all consumption.
+
+#### 3.3.21 Get offset
 
 ##### Syntax
 
@@ -461,13 +497,13 @@ kafka::getOffset(consumer,topic,partition)
 
 - 'consumer' is a Kafka consumer handler.
 - 'topic' is a string indicating the topic.
-- 'partition' is a int indicating the partition corresponding to the topic.
+- 'partition' is an integer indicating the partition corresponding to the topic.
 
 ##### Details
 
 Print the offsets of the consumer.
 
-#### 3.3.20 Get Offset Committed
+#### 3.3.22 Get Offset Committed
 
 ##### Syntax
 
@@ -479,15 +515,15 @@ kafka::getOffsetCommitted(consumer,topics,partitions,offsets[,timeout:int])
 
 - 'consumer' is a Kafka consumer handler.
 - 'topics' is a string vector indicating the topics.
-- 'partitions' is a int vector indicating the partition corresponding to each topic.
-- 'offsets' is a int vector indicating the offset corresponding to each topic.
-- 'timeout' is the your blocking time for the consumer.
+- 'partitions' is an integer vector indicating the partition corresponding to each topic.
+- 'offsets' is an integer vector indicating the offset corresponding to each topic.
+- 'timeout' is the blocking time for the consumer.
 
 ##### Details
 
 Gets the offsets committed for the given topic/partition list.
 
-#### 3.3.21 Get Offset Position
+#### 3.3.23 Get Offset Position
 
 ##### Syntax
 
@@ -499,13 +535,13 @@ kafka::getOffsetPosition(consumer,topics,partitions)
 
 - 'consumer' is a Kafka consumer handler.
 - 'topics' is a string vector indicating the topics.
-- 'partitions' is a int vector indicating the partition corresponding to each topic.
+- 'partitions' is an integer vector indicating the partition corresponding to each topic.
 
 ##### Details
 
 Gets the offset positions for the given topic/partition list.
 
-#### 3.3.22 Store Consumed Offsets
+#### 3.3.24 Store Consumed Offsets
 
 ##### Syntax
 
@@ -521,7 +557,7 @@ kafka::storeConsumedOffset(consumer)
 
 Stores the offsets on the currently assigned topic/partitions (legacy).
 
-#### 3.3.23 Store Offsets
+#### 3.3.25 Store Offsets
 
 ##### Syntax
 
@@ -533,14 +569,14 @@ storeOffset(consumer,topics,partitions,offsets)
 
 - 'consumer' is a Kafka consumer handler.
 - 'topics' is a string vector indicating the topics.
-- 'partitions' is a int vector indicating the partition corresponding to each topic.
-- 'offsets' is a int vector indicating the offset corresponding to each topic.
+- 'partitions' is an integer vector indicating the partition corresponding to each topic.
+- 'offsets' is an integer vector indicating the offset corresponding to each topic.
 
 ##### Details
 
 Stores the offsets on the given topic/partitions (legacy).
 
-#### 3.3.24 Get Member ID
+#### 3.3.26 Get Member ID
 
 ##### Syntax
 
@@ -554,7 +590,7 @@ kafka::getMemId(consumer)
 
 ##### Details
 
-Gets the group member id
+Get the group member id. 
 
 ### 3.4 Queue
 
@@ -572,7 +608,7 @@ kafka::getMainQueue(consumer)
 
 ##### Details
 
-Get the global event queue servicing this consumer corresponding to.
+Get the global event queue servicing this consumer.
 
 #### 3.4.2 Get Consumer Queue
 
@@ -622,7 +658,7 @@ kafka::queueLength(queue)
 
 ##### Details
 
-Returns the length of the queue
+Return the length of the queue. 
 
 #### 3.4.5 Forward to queue
 
@@ -664,7 +700,7 @@ kafka::setQueueTime(queue,timeout)
 ##### Arguments
 
 - 'queue' is a Kafka queue handler.
-- 'timeout' is the your blocking time for the queue.
+- 'timeout' is the blocking time for the queue.
 
 #### 3.4.8 Get queue timeout
 
@@ -693,7 +729,7 @@ kafka::queuePoll(queue[,timeout])
 ##### Arguments
 
 - 'queue' is a Kafka queue handler.
-- 'timeout' is the your blocking time for the queue.
+- 'timeout' is the blocking time for the queue.
 
 #### 3.4.10 Poll messages of queue
 
@@ -707,7 +743,7 @@ kafka::queuePollBatch(queue, batch_size[,timeout])
 
 - 'queue' is a Kafka queue handler.
 - 'batch_size' is the number of messages you want to get.
-- 'timeout' is the your blocking time for the queue.
+- 'timeout' is the blocking time for the queue.
 
 ### 3.5 Event
 
@@ -785,7 +821,7 @@ kafka::eventGetError(event)
 
 ##### Details
 
-Returns the error in this event.
+Return the error in this event.
 
 #### 3.5.6 Print the partition of the event
 
@@ -843,7 +879,7 @@ kafka::setBufferSize(size)
 
 ##### Arguments
 
-- 'size' is the number of the buffer_size you want to set.
+- 'size' is the number of the buffer_size to set.
 
 ##### Details
 
@@ -867,7 +903,7 @@ kafka::setMessageSize(size)
 
 ##### Arguments
 
-- 'size' is the number of the buffer_size you want to set.
+- 'size' is the number of the buffer_size to set.
 
 ##### Details
 
@@ -878,13 +914,12 @@ The message_size is no larger than the buffer_size, and the default value is 10k
 ``` shell
 #create producer
 producerCfg = dict(STRING, ANY);
-producerCfg["metadata.broker.list"] = "localhost";
+producerCfg["bootstrap.servers"] = "localhost";
 producer = kafka::producer(producerCfg);
 
 #create consumer
 consumerCfg = dict(string, any);
 consumerCfg["metadata.broker.list"] = "localhost";
-consumerCfg["group.id"] = "test";
 consumer = kafka::consumer(consumerCfg);
 
 #subscribe
@@ -998,22 +1033,20 @@ kafka::produce(producer,"test","1",tab,false,0);
 kafka::consumerPoll(consumer);
 
 #mult-thread
-#the multithreading function need a parser, you can install mseed as an example
+result=dict(STRING,ANY);
+end=kafka::consumerPollLoop(consumer,result);
 
-loadPlugin("/path/to/PluginKafka.txt");
-loadPlugin("/path/to/PluginMseed.txt")
+result;
+kafka::produce(producer, "test", "1", "producer1:i'm producer",false,0);
+result;
+kafka::produce(producer, "test", "2", "我是生产者",false,0);
+result;
+kafka::produce(producer, "test", "3", 10086,false,0);
+result;
 
-consumerCfg = dict(string, any);
-consumerCfg["metadata.broker.list"] = "115.239.209.234";
-consumerCfg["group.id"] = "test";
-consumer = kafka::consumer(consumerCfg);
+kafka::endLoop(end);
 
-topics=["test"];
-kafka::subscribe(consumer, topics);
-tab = table(40000000:0,`id`time`value,[SYMBOL,TIMESTAMP,INT])
-
-conn = kafka::createSubJob(consumer,tab,mseed::parse,"test:0:get mseed data");
-kafka::getJobStat();
-kafka::cancelSubJob(conn);
+kafka::produce(producer, "test", "4", 123.456,false,0);
+result;
 ```
 
