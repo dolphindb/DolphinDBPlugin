@@ -6,6 +6,10 @@
 #if !defined(WIN32)
 #include <sys/socket.h>
 #include <netdb.h>
+#else
+#include <winsock2.h>
+#include <windows.h>
+#include <ws2tcpip.h>
 #endif
 #include <fcntl.h>
 #include "posix_sockets.h"
@@ -39,7 +43,7 @@ int open_nb_socket(const char* addr, const char* port) {
         rv = connect(sockfd, servinfo->ai_addr, servinfo->ai_addrlen);
         if(rv == -1) continue;
         break;
-    }  
+    }
 
     /* free servinfo */
     freeaddrinfo(servinfo);
@@ -49,13 +53,17 @@ int open_nb_socket(const char* addr, const char* port) {
     if (sockfd != -1) fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL) | O_NONBLOCK);
 #else
     if (sockfd != INVALID_SOCKET) {
-        int iMode = 1;
-        ioctlsocket(sockfd, FIONBIO, &iMode);
+#if !defined(WIN32)
+      int iMode = 1;
+#else
+      unsigned long iMode = 1;
+#endif
+      ioctlsocket(sockfd, FIONBIO, &iMode);
     }
 #endif
 
     /* return the new socket fd */
-    return sockfd;  
+    return sockfd;
 }
 
 #endif
