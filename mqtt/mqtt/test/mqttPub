@@ -1,0 +1,122 @@
+ 
+loadPlugin("/home/qianxj/MQTTClient/PluginMQTTClient.txt"); 
+
+use mqtt;
+host="127.0.0.1"
+
+//***************************publish a table****************************************//
+
+@testing:case = "pub_using_createCsvFormatter"
+MyFormat = take("", 5)
+MyFormat[2] = "0.000"
+f = createCsvFormatter(MyFormat, ',', ';')
+//create a record for every device
+def writeData(hardwareVector){
+	hardwareNumber = size(hardwareVector)
+	return table(take(hardwareVector,hardwareNumber) as hardwareId ,take(now(),
+		hardwareNumber) as ts,rand(20..41,hardwareNumber) as temperature,
+		rand(50,hardwareNumber) as humidity,rand(500..1000,
+		hardwareNumber) as voltage)
+}
+
+def publishTableData(server,topic,iterations,hardwareVector,interval,f){
+            try{   
+            	conn=connect(server,1883,0,f,100)
+            
+		for(i in 0:iterations){
+			print i
+			t=writeData(hardwareVector)
+			try {      
+				publish(conn,topic,t)
+				
+			}
+			catch(ex){
+				print ex;
+			}
+			sleep(interval)
+		}
+		close(conn)
+            }catch(ex){
+            	print ex;
+            }	
+         
+}
+
+submitJob("submit_pub1", "submit_p1", publishTableData{host,"dolphindb/csv",10,100..149,100,f})
+submitJob("submit_pub1", "submit_p1", publishTableData{host,"dolphindb/csv",99,200..249,100,f})
+sleep(5000)
+errmsg=exec count(*) from getRecentJobs(2) where jobId like "submit_pub%" and errorMsg.isNull()
+assert 1, errmsg==2
+
+
+@testing:case = "pub_using createJsonFormatter"
+f=mqtt::createJsonFormatter()
+//create a record for every device
+def writeData2(hardwareVector){
+	hardwareNumber = size(hardwareVector)
+	return table(take(hardwareVector,hardwareNumber) as hardwareId ,take(now(),
+		hardwareNumber) as ts,rand(20..41,hardwareNumber) as temperature,
+		rand(50,hardwareNumber) as humidity,rand(500..1000,
+		hardwareNumber) as voltage)
+}
+
+def publishTableData2(server,topic,iterations,hardwareVector,interval,f){
+            try{   
+            	conn=mqtt::connect(server,1883,0,f,100)
+            
+		for(i in 0:iterations){
+			print i
+			t=writeData2(hardwareVector)
+			try {      
+				mqtt::publish(conn,topic,t)
+			}
+			catch(ex){
+				print ex;
+			}
+			sleep(interval)
+		}
+		mqtt::close(conn)
+            }catch(ex){
+            	print ex;
+            }	
+         
+}
+submitJob("submit_pubjson", "submit_pub_json", publishTableData2{host,"dolphindb/json",10,100..149,100,f})
+sleep(5000)
+errmsg=exec count(*) from getRecentJobs(1) where jobId like "submit_pubjson%" and errorMsg.isNull()
+assert 1, errmsg==1
+
+
+
+@testing:case = "pub_string"
+def simulatePubString(server,topic,deviceIds,interval,count){
+            try{   
+            	conn=connect(server,1883,0, ,)
+            
+		for(i in 0:count){
+			pubstr=string(deviceIds)+ "," + string(now())+"," + string(rand(100.0,1)[0] )+"," + string(rand(100.0,1)[0] )+"," + string(i)
+			try {      
+				publish(conn,topic,pubstr)
+				sleep(interval)
+			}
+			catch(ex){
+				print ex;
+			}
+		}
+		close(conn)
+            }catch(ex){
+            	print ex;
+            }
+}
+submitJob("submit_pubstr1", "submit_pub_string", simulatePubString{host,"dolphindb/string",1, 50, 1000})
+submitJob("submit_pubstr2", "submit_pub_string", simulatePubString{host,"dolphindb/string",2, 10, 1000})
+sleep(5000)
+errmsg=exec count(*) from getRecentJobs(2) where jobId like "submit_pubstr%" and errorMsg.isNull()
+assert 1, errmsg==2
+
+conn=mqtt::connect(host,1883,0,,1)
+for (i in 1:10){
+	res=mqtt::publish(conn,"dolphindb/csv",["hello world","welcome"+i])
+	sleep(100)
+}
+assert 2, res==1
