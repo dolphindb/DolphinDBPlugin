@@ -63,9 +63,8 @@ SOFTWARE.
  * for sending and receiving data using the platforms socket calls.
  */
 
-
 /* UNIX-like platform support */
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
     #include <limits.h>
     #include <string.h>
     #include <stdarg.h>
@@ -86,19 +85,38 @@ SOFTWARE.
     #define MQTT_PAL_MUTEX_UNLOCK(mtx_ptr) pthread_mutex_unlock(mtx_ptr)
 
     #ifndef MQTT_USE_CUSTOM_SOCKET_HANDLE
-        #ifdef MQTT_USE_BIO
+        #ifdef MQTT_USE_MBEDTLS
+            struct mbedtls_ssl_context;
+            typedef struct mbedtls_ssl_context *mqtt_pal_socket_handle;
+        #elif defined(MQTT_USE_BIO)
             #include <openssl/bio.h>
             typedef BIO* mqtt_pal_socket_handle;
+        #elif defined(MQTT_USE_BEARSSL)
+            #include <bearssl.h>
+
+            typedef struct _bearssl_context {
+                br_ssl_client_context sc;
+                br_x509_minimal_context xc;
+                br_sslio_context ioc;
+                size_t ta_count;
+                br_x509_trust_anchor *anchOut;
+                int fd;
+                int (*low_read)(void *read_context, unsigned char *buf, size_t len);
+                int (*low_write)(void *write_context, const unsigned char *buf, size_t len);
+            } bearssl_context;
+
+            typedef bearssl_context* mqtt_pal_socket_handle;
         #else
             typedef int mqtt_pal_socket_handle;
         #endif
     #endif
-#elif defined(_MSC_VER)
+#elif defined(_MSC_VER) || defined(WIN32)
     #include <limits.h>
+    #include <winsock2.h>
     #include <windows.h>
     #include <time.h>
     #include <stdint.h>
-    #include <winsock2.h>
+    #include <pthread.h>
 
     typedef SSIZE_T ssize_t;
     #define MQTT_PAL_HTONS(s) htons(s)
@@ -112,7 +130,6 @@ SOFTWARE.
     #define MQTT_PAL_MUTEX_INIT(mtx_ptr) InitializeCriticalSection(mtx_ptr)
     #define MQTT_PAL_MUTEX_LOCK(mtx_ptr) EnterCriticalSection(mtx_ptr)
     #define MQTT_PAL_MUTEX_UNLOCK(mtx_ptr) LeaveCriticalSection(mtx_ptr)
-
 
     #ifndef MQTT_USE_CUSTOM_SOCKET_HANDLE
         #ifdef MQTT_USE_BIO

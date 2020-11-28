@@ -1,4 +1,5 @@
 ## 1. 编译
+### 1.1 Linux上编译
 
 * 以下步骤在64位Linux GCC version 5.4.0下编译测试通过。
 * 在编译前需要先安装 [git](https://git-scm.com/) 和 [CMake](https://cmake.org/)。
@@ -17,6 +18,26 @@ cd build
 cmake ..
 make
 ```
+### 1.2 windows上编译
+通过cmake和MinGW编译。因此需要先安装[cmake](https://cmake.org/)和[MinGW](http://www.mingw.org/)环境，目前在64位win10上用MinGW-W64-builds-4.3.3版本编译通过。把MingGW和cmake的bin目录加入Windows系统Path路径。 
+
+```
+    git clone https://github.com/dolphindb/DolphinDBPlugin.git
+    cd DolphinDBPlugin/mqtt
+    mkdir build
+    cd build
+    cmake ..
+    copy /YOURPATH/libDolphinDB.dll . 
+    make
+```
+
+**注意：** 如果需要指定特定的MingW路径，请在CmakeList.txt中修改以下语句。
+
+```
+    set(MINGW32_LOCATION C://MinGW/MinGW/)  
+```
+编译之后目录下会产生libPluginMQTTClient.dll.dll文件，然后按预编译安装方法导入并加载。
+
 
 ## 2. 准备
 
@@ -31,7 +52,7 @@ loadPlugin("/YOUR_PATH/mqtt/PluginMQTTClient.txt");
 ### 3.1 连接
 
 ```
-mqtt::connect(host, port,[QoS=0],[formatter],[batchSize=0])
+mqtt::connect(host, port,[QoS=0],[formatter],[batchSize=0],[username],[password])
 ```
 建立一个与MQTT server/broker的连接。返回一个connection。可以显式的调用`close`函数去关闭，也可以在reference count为0的时候自动释放。
 
@@ -41,10 +62,12 @@ mqtt::connect(host, port,[QoS=0],[formatter],[batchSize=0])
 - 'QoS'表示是一个整数，表示消息发布服务质量。0：至多一次；1：至少一次；2：只有一次。它是可选参数，默认是0。
 - 'formatter'是一个函数，用于对发布的数据按CSV或JSON格式进行打包。目前支持的函数由`createJsonFormatter`或`createCsvFormatter`创建。
 - 'batchSize'是一个整数。当待发布内容是一个表时，可以分批发送，batchSize表示每次发送的记录行数。
+- 'username'是一个字符串，用于登录MQTT server/broker的用户名。
+- 'password'是一个字符串，用于登录MQTT server/broker的密码。
 
 例子：
 ```
-f=createCsvParser([INT, TIMESTAMP, DOUBLE, DOUBLE,DOUBLE], ',', ';' )
+f=mqtt::createJsonFormatter()
 conn=connect("test.mosquitto.org",1883,0,f,50)
 ```
 
@@ -91,7 +114,7 @@ mqtt::close(conn)
 ### 4.1 订阅
 
 ```
-mqtt::subscribe(host, port, topic, parser, handler)
+mqtt::subscribe(host, port, topic, [parser], handler,[username],[password])
 ```
 
 向MQTT server/broker订阅消息。返回一个连接。
@@ -102,6 +125,8 @@ mqtt::subscribe(host, port, topic, parser, handler)
 - 'topic'是一个字符串，表示订阅主题。
 - 'parser'是一个函数，用于对订阅的消息按CSV或JSON格式进行解析，目前支持的函数由createJsonParser或createCsvParser创建。
 - 'handler'是一个函数或表，用于处理从MQTT server/broker接收的消息。
+- 'username'是一个字符串，用于登录MQTT server/broker的用户名。
+- 'password'是一个字符串，用于登录MQTT server/broker的密码。
 
 例子：
 
@@ -111,22 +136,37 @@ sensorInfoTable = table( 10000:0,`deviceID`send_time`temperature`humidity`voltag
 conn = mqtt::subscribe("192.168.1.201",1883,"sensor/#",p,sensorInfoTable)
 ```
 
-### 4.2 取消订阅
+### 4.2 查询订阅
 
 ```
-mqtt::unsubcribe(conn)    
+mqtt::getSubscriberStat()    
+```
+
+查询所有订阅信息。返回的结果是一个包含7列的表，分别是："subscriptionId", 表示订阅标识符；"user",表示建立订阅的会话用户; "host", 表示MQTT server/broker的IP； "port", 表示MQTT server/broker的端口号； "topic", 表示订阅主题； "createTimestamp"， 表示可以订阅建立时间；"receivedPackets",表示订阅收到的消息报文数。
+
+例子：
+
+```
+mqtt::getSubscriberStat()    
+```
+
+### 4.3 取消订阅
+
+```
+mqtt::unsubscribe(subscription)    
 ```
 
 取消订阅MQTT server/broker。
 
 参数：
 
-- 'conn'是`subscribe`函数返回的值。
+- 'subscription'是`subscribe`函数返回的值或`getSubscriberStat`返回的订阅标识符。
 
 例子：
 
 ```
-mqtt::unsubcribe(conn)    
+mqtt::unsubscribe(sub1) 
+mqtt::unsubscribe("350555232l")   
 ```
 
 ## 5. 打/解包功能

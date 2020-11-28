@@ -35,11 +35,17 @@ SOFTWARE.
 enum MQTTErrors mqtt_sync(struct mqtt_client *client) {
     /* Recover from any errors */
     enum MQTTErrors err;
+    int reconnecting = 0;
     MQTT_PAL_MUTEX_LOCK(&client->mutex);
-    if (client->error != MQTT_OK && client->reconnect_callback != NULL) {
+    if (client->error != MQTT_ERROR_RECONNECTING && client->error != MQTT_OK && client->reconnect_callback != NULL) {
         client->reconnect_callback(client, &client->reconnect_state);
         /* unlocked during CONNECT */
     } else {
+        /* mqtt_reconnect will have queued the disconnect packet - that needs to be sent and then call reconnect */
+        if (client->error == MQTT_ERROR_RECONNECTING) {
+            reconnecting = 1;
+            client->error = MQTT_OK;
+        }
         MQTT_PAL_MUTEX_UNLOCK(&client->mutex);
     }
 
@@ -58,6 +64,11 @@ enum MQTTErrors mqtt_sync(struct mqtt_client *client) {
 
     /* Call send */
     err = __mqtt_send(client);
+    /* mqtt_reconnect will essentially be a disconnect if there is no callback */
+    if (reconnecting && client->reconnect_callback != NULL) {
+        MQTT_PAL_MUTEX_LOCK(&client->mutex);
+        client->reconnect_callback(client, &client->reconnect_state);
+    }
     return err;
 }
 
@@ -248,7 +259,7 @@ enum MQTTErrors mqtt_connect(struct mqtt_client *client,
 
 enum MQTTErrors mqtt_publish(struct mqtt_client *client,
                      const char* topic_name,
-                     void* application_message,
+                     const void* application_message,
                      size_t application_message_size,
                      uint8_t publish_flags)
 {
@@ -449,6 +460,17 @@ enum MQTTErrors __mqtt_ping(struct mqtt_client *client)
     return MQTT_OK;
 }
 
+enum MQTTErrors mqtt_reconnect(struct mqtt_client *client)
+{
+    enum MQTTErrors err = mqtt_disconnect(client);
+
+    if (err == MQTT_OK) {
+        MQTT_PAL_MUTEX_LOCK(&client->mutex);
+        client->error = MQTT_ERROR_RECONNECTING;
+        MQTT_PAL_MUTEX_UNLOCK(&client->mutex);
+    }
+    return err;
+}
 enum MQTTErrors mqtt_disconnect(struct mqtt_client *client) 
 {
     ssize_t rv;
@@ -1237,7 +1259,7 @@ ssize_t mqtt_pack_ping_request(uint8_t *buf, size_t bufsz) {
 ssize_t mqtt_pack_publish_request(uint8_t *buf, size_t bufsz,
                                   const char* topic_name,
                                   uint16_t packet_id,
-                                  void* application_message,
+                                  const void* application_message,
                                   size_t application_message_size,
                                   uint8_t publish_flags)
 {
@@ -1259,11 +1281,11 @@ ssize_t mqtt_pack_publish_request(uint8_t *buf, size_t bufsz,
     fixed_header.control_type = MQTT_CONTROL_PUBLISH;
 
     /* calculate remaining length */
-    remaining_length = (uint16_t)__mqtt_packed_cstrlen(topic_name);
+    remaining_length = (uint32_t)__mqtt_packed_cstrlen(topic_name);
     if (inspected_qos > 0) {
         remaining_length += 2;
     }
-    remaining_length += (uint16_t)application_message_size;
+    remaining_length += (uint32_t)application_message_size;
     fixed_header.remaining_length = remaining_length;
 
     /* force dup to 0 if qos is 0 [Spec MQTT-3.3.1-2] */
