@@ -72,7 +72,7 @@ public:
 	virtual long long getAllocatedMemory() const;
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
 	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, INDEX targetNumElement, INDEX& numElement);
+	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
 	virtual int compare(INDEX index, const ConstantSP& target) const {return target->getType() == DT_VOID ? 0 : -1;}
 };
 
@@ -146,7 +146,7 @@ public:
 		return buffer->write((const char*)uuid_, 16);
 	}
 	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, INDEX targetNumElement, INDEX& numElement);
+	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
 	static string toString(const unsigned char* data);
 	static Int128* parseInt128(const char* str, int len);
 	static bool parseInt128(const char* str, size_t len, unsigned char* buf);
@@ -194,16 +194,18 @@ private:
 # endif
 class String: public Constant{
 public:
-	String(DolphinString val=""):val_(val){}
+	String(DolphinString val=""):blob_(false), val_(val){}
+	String(DolphinString val, bool blob):blob_(blob), val_(val){}
 	virtual ~String(){}
-	virtual char getBool() const {throw IncompatibleTypeException(DT_BOOL,DT_STRING);}
-	virtual char getChar() const {throw IncompatibleTypeException(DT_CHAR,DT_STRING);}
-	virtual short getShort() const {throw IncompatibleTypeException(DT_SHORT,DT_STRING);}
-	virtual int getInt() const {throw IncompatibleTypeException(DT_INT,DT_STRING);}
-	virtual long long getLong() const {throw IncompatibleTypeException(DT_LONG,DT_STRING);}
-	virtual INDEX getIndex() const {throw IncompatibleTypeException(DT_INDEX,DT_STRING);}
-	virtual float getFloat() const {throw IncompatibleTypeException(DT_FLOAT,DT_STRING);}
-	virtual double getDouble() const {throw IncompatibleTypeException(DT_DOUBLE,DT_STRING);}
+    virtual bool isLargeConstant() const { return val_.size()>1024;}
+	virtual char getBool() const {throw IncompatibleTypeException(DT_BOOL, internalType());}
+	virtual char getChar() const {throw IncompatibleTypeException(DT_CHAR, internalType());}
+	virtual short getShort() const {throw IncompatibleTypeException(DT_SHORT, internalType());}
+	virtual int getInt() const {throw IncompatibleTypeException(DT_INT, internalType());}
+	virtual long long getLong() const {throw IncompatibleTypeException(DT_LONG, internalType());}
+	virtual INDEX getIndex() const {throw IncompatibleTypeException(DT_INDEX, internalType());}
+	virtual float getFloat() const {throw IncompatibleTypeException(DT_FLOAT, internalType());}
+	virtual double getDouble() const {throw IncompatibleTypeException(DT_DOUBLE, internalType());}
 	virtual string getString() const {return val_.getString();}
 	virtual string getScript() const {return Util::literalConstant(val_.getString());}
 	virtual const DolphinString& getStringRef() const {return val_;}
@@ -258,23 +260,22 @@ public:
 	}
 	virtual ConstantSP getInstance() const {return ConstantSP(new String());}
 	virtual ConstantSP getValue() const {return ConstantSP(new String(val_));}
-	virtual DATA_TYPE getType() const {return DT_STRING;}
-	virtual DATA_TYPE getRawType() const { return DT_STRING;}
-	virtual DATA_CATEGORY getCategory() const {return LITERAL;}
-	virtual long long getAllocatedMemory() const {return sizeof(string)+val_.size();}
-	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const {
-		short flag = (DF_SCALAR <<8) + getType();
-		buffer->write((char)CONSTOBJ);
-		buffer->write(flag);
-		return buffer->write(val_);
-	}
+	virtual DATA_TYPE getType() const {return internalType();}
+	virtual DATA_TYPE getRawType() const { return internalType();}
+	virtual DATA_CATEGORY getCategory() const {return blob_ ? BINARY : LITERAL;}
+	virtual long long getAllocatedMemory() const {return sizeof(DolphinString);}
+	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
 	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, INDEX targetNumElement, INDEX& numElement);
+	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
 	virtual int compare(INDEX index, const ConstantSP& target) const {
 		return val_.compare(target->getString());
 	}
 
+protected:
+	inline DATA_TYPE internalType() const { return blob_ ? DT_BLOB : DT_STRING;}
+
 private:
+	bool blob_;
 	mutable DolphinString val_;
 };
 
@@ -635,7 +636,7 @@ public:
 	virtual string getString() const { return toString(val_);}
 	virtual bool add(INDEX start, INDEX length, long long inc) { return false;}
 	virtual bool add(INDEX start, INDEX length, double inc) { return false;}
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, INDEX targetNumElement, INDEX& numElement);
+	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
 	static Bool* parseBool(const string& str);
 	static string toString(char val){
 		if(val == CHAR_MIN)
@@ -661,7 +662,7 @@ public:
 	virtual DATA_CATEGORY getCategory() const {return INTEGRAL;}
 	virtual string getString() const { return toString(val_);}
 	virtual string getScript() const;
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, INDEX targetNumElement, INDEX& numElement);
+	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
 	static Char* parseChar(const string& str);
 	static string toString(char val);
 };
@@ -679,7 +680,7 @@ public:
 	virtual ConstantSP getValue() const {return ConstantSP(new Short(val_));}
 	virtual DATA_CATEGORY getCategory() const {return INTEGRAL;}
 	virtual string getString() const { return toString(val_);}
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, INDEX targetNumElement, INDEX& numElement);
+	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
 	static Short* parseShort(const string& str);
 	static string toString(short val);
 };
@@ -697,7 +698,7 @@ public:
 	virtual ConstantSP getValue() const {return ConstantSP(new Int(val_));}
 	virtual DATA_CATEGORY getCategory() const {return INTEGRAL;}
 	virtual string getString() const { return toString(val_);}
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, INDEX targetNumElement, INDEX& numElement);
+	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
 	static Int* parseInt(const string& str);
 	static string toString(int val);
 };
@@ -728,7 +729,7 @@ public:
 	virtual ConstantSP getValue() const {return ConstantSP(new Long(val_));}
 	virtual string getString() const { return toString(val_);}
 	virtual DATA_CATEGORY getCategory() const {return INTEGRAL;}
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, INDEX targetNumElement, INDEX& numElement);
+	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
 	static Long* parseLong(const string& str);
 	static string toString(long long val);
 };
@@ -758,7 +759,7 @@ public:
 	virtual bool getLong(INDEX start, int len, long long* buf) const;
 	virtual const long long* getLongConst(INDEX start, int len, long long* buf) const;
 	virtual string getString() const { return toString(val_);}
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, INDEX targetNumElement, INDEX& numElement);
+	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
 	static Float* parseFloat(const string& str);
 	static string toString(float val);
 };
@@ -788,7 +789,7 @@ public:
 	virtual bool getLong(INDEX start, int len, long long* buf) const;
 	virtual const long long* getLongConst(INDEX start, int len, long long* buf) const;
 	virtual string getString() const {return toString(val_);}
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, INDEX targetNumElement, INDEX& numElement);
+	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
 	static Double* parseDouble(const string& str);
 	static string toString(double val);
 };

@@ -57,28 +57,33 @@ public:
 
 	template<severity_type severity , typename...Args>
 	void print(Args...args ){
-		stringstream stream;
-		switch( severity ){
-			case severity_type::DEBUG:
-				if(level_ > DEBUG)
-					return;
-				stream<<"<DEBUG> :";
-				break;
-			case severity_type::INFO:
-				if(level_ > INFO)
-					return;
-				stream<<"<INFO> :";
-				break;
-			case severity_type::WARNING:
-				if(level_ > WARNING)
-					return;
-				stream<<"<WARNING> :";
-				break;
-			case severity_type::ERR:
-				stream<<"<ERROR> :";
-				break;
-		};
-		printImpl(stream, args... );
+		try{
+			stringstream stream;
+			switch( severity ){
+				case severity_type::DEBUG:
+					if(level_ > DEBUG)
+						return;
+					stream<<"<DEBUG> :";
+					break;
+				case severity_type::INFO:
+					if(level_ > INFO)
+						return;
+					stream<<"<INFO> :";
+					break;
+				case severity_type::WARNING:
+					if(level_ > WARNING)
+						return;
+					stream<<"<WARNING> :";
+					break;
+				case severity_type::ERR:
+					stream<<"<ERROR> :";
+					break;
+			};
+			printImpl(stream, args... );
+		}
+		catch(...){
+			//ignore call exceptions, usually OOM
+		}
 	}
 
 private:
