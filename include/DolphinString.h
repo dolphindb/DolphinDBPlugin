@@ -342,6 +342,7 @@ public:
     }
 
     void reserve(size_t n);
+    void resize(size_t n);
 
     //clear both data and allocated buffer.
     void clear();

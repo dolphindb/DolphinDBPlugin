@@ -131,7 +131,7 @@ public:
     		bool tableRead, const set<string>& readTables, const set<string>& deniedReadTables,
 			bool tableWrite, const set<string>& writeTables,const set<string>& deniedWriteTables,
 			bool viewRead, const set<string>& views, const set<string>& deniedViews,
-			bool dbobjCreate, const set<string>& createDBs, const set<string>& deniedCreateDBs, bool dbobjDelete, const set<string>& deleteDBs, const set<string>& deniedDeleteDBs);
+			bool dbobjCreate, const set<string>& createDBs, const set<string>& deniedCreateDBs, bool dbobjDelete, const set<string>& deleteDBs, const set<string>& deniedDeleteDBs, bool dbOwner);
     AuthenticatedUser(const ConstantSP& userObj);
     ConstantSP toTuple() const ;
     void setLoginNanoTimeStamp(long long t){loginNanoTimestamp_ = t;}
@@ -149,6 +149,7 @@ public:
 	inline bool canUseView() const { return permissionFlag_ & 128;}
 	inline bool canCreateDBObject() const { return permissionFlag_ & 256;}
 	inline bool canDeleteDBObject() const { return permissionFlag_ & 512;}
+	inline bool isDBOwner() const { return permissionFlag_ & 1024;}
 	bool canReadTable(const string& name) const;
 	bool canWriteTable(const string& name) const;
 	bool canReadView(const string& name) const;
@@ -177,6 +178,7 @@ private:
      * bit7: use view functions
      * bit8: create objects in databases
      * bit9: delete objects in databases
+     * bit10: dbOwner
      */
     unsigned int permissionFlag_;
 
@@ -517,8 +519,14 @@ public:
 	inline void transferAsString(bool val){ if(val) flag_ |= 64; else flag_ &= ~64;}
 	inline bool isSynchronized() const {return flag_ & 128;}
 	inline void setSynchronized(bool val){ if(val) flag_ |= 128; else flag_ &= ~128;}
-	inline DATA_FORM getForm() const {return DATA_FORM(flag_ >> 8);}
-	inline void setForm(DATA_FORM df){ flag_ = (flag_ & 255) + (df << 8);}
+	inline bool isOOInstance() const {return flag_ & 4096;}
+	inline void setOOInstance(bool val){ if(val) flag_ |= 4096; else flag_ &= ~4096;}
+	inline bool isIndexed() const {return flag_ & 8192;}
+	inline void setIndexed(bool val){ if(val) flag_ |= 8192; else flag_ &= ~8192;}
+	inline bool isSeries() const {return flag_ & 16384;}
+	inline void setSeries(bool val){ if(val) flag_ |= 16384; else flag_ &= ~16384;}
+	inline DATA_FORM getForm() const {return DATA_FORM((flag_ >> 8) & 15);}
+	inline void setForm(DATA_FORM df){ flag_ = (flag_ & 61695) + (df << 8);}
 	inline bool isScalar() const { return getForm()==DF_SCALAR;}
 	inline bool isArray() const { return getForm()==DF_VECTOR;}
 	inline bool isPair() const { return getForm()==DF_PAIR;}
@@ -578,6 +586,7 @@ public:
 	virtual ConstantSP getColumn(INDEX index) const {return getValue();}
 	virtual ConstantSP getRow(INDEX index) const {return get(index);}
 	virtual ConstantSP getItem(INDEX index) const {return get(index);}
+	virtual ConstantSP getItems(const ConstantSP& index) const {return get(index);}
 	virtual ConstantSP getWindow(INDEX colStart, int colLength, INDEX rowStart, int rowLength) const {return getValue();}
 	virtual ConstantSP getSlice(const ConstantSP& rowIndex, const ConstantSP& colIndex) const {throw RuntimeException("getSlice method not supported");}
 	virtual ConstantSP getRowLabel() const;
@@ -597,6 +606,21 @@ public:
 	virtual bool getString(INDEX start, int len, DolphinString** buf) const {return false;}
 	virtual bool getString(INDEX start, int len, char** buf) const {return false;}
 	virtual bool getBinary(INDEX start, int len, int unitLength, unsigned char* buf) const {return false;}
+
+	virtual bool isNull(INDEX* indices, int len, char* buf) const {return false;}
+	virtual bool isValid(INDEX* indices, int len, char* buf) const {return false;}
+	virtual bool getBool(INDEX* indices, int len, char* buf) const {return false;}
+	virtual bool getChar(INDEX* indices, int len,char* buf) const {return false;}
+	virtual bool getShort(INDEX* indices, int len, short* buf) const {return false;}
+	virtual bool getInt(INDEX* indices, int len, int* buf) const {return false;}
+	virtual bool getLong(INDEX* indices, int len, long long* buf) const {return false;}
+	virtual bool getIndex(INDEX* indices, int len, INDEX* buf) const {return false;}
+	virtual bool getFloat(INDEX* indices, int len, float* buf) const {return false;}
+	virtual bool getDouble(INDEX* indices, int len, double* buf) const {return false;}
+	virtual bool getSymbol(INDEX* indices, int len, int* buf, SymbolBase* symBase,bool insertIfNotThere) const {return false;}
+	virtual bool getString(INDEX* indices, int len, DolphinString** buf) const {return false;}
+	virtual bool getString(INDEX* indices, int len, char** buf) const {return false;}
+	virtual bool getBinary(INDEX* indices, int len, int unitLength, unsigned char* buf) const {return false;}
 
 	virtual const char* getBoolConst(INDEX start, int len, char* buf) const {throw RuntimeException("getBoolConst method not supported");}
 	virtual const char* getCharConst(INDEX start, int len,char* buf) const {throw RuntimeException("getCharConst method not supported");}
@@ -625,7 +649,7 @@ public:
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const {return serialize(buffer);}
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const {throw RuntimeException("code serialize method not supported");}
     virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const {throw RuntimeException("serialize method not supported");}
-    virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, INDEX targetNumElement, INDEX& numElement) {throw RuntimeException("deserialize method not supported");}
+    virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial) {throw RuntimeException("deserialize method not supported");}
 
 	virtual void nullFill(const ConstantSP& val){}
 	virtual void setBool(INDEX index,bool val){setBool(val);}
@@ -643,6 +667,7 @@ public:
 	virtual bool set(INDEX index, const ConstantSP& value){return false;}
 	virtual bool set(INDEX column, INDEX row, const ConstantSP& value){return false;}
 	virtual bool set(const ConstantSP& index, const ConstantSP& value) {return false;}
+	virtual bool setNonNull(const ConstantSP& index, const ConstantSP& value) {return false;}
 	virtual bool setItem(INDEX index, const ConstantSP& value){return set(index,value);}
 	virtual bool setColumn(INDEX index, const ConstantSP& value){return assign(value);}
 	virtual void setRowLabel(const ConstantSP& label){}
@@ -683,6 +708,7 @@ public:
 	virtual ConstantSP getMember(const ConstantSP& key) const { throw RuntimeException("getMember method not supported");}
 	virtual ConstantSP keys() const {throw RuntimeException("keys method not supported");}
 	virtual ConstantSP values() const {throw RuntimeException("values method not supported");}
+	virtual ConstantSP callMethod(const string& name, Heap* heap, vector<ConstantSP>& args) const {throw RuntimeException("callMethod method not supported");}
 
 	virtual long long releaseMemory(long long target, bool& satisfied) { satisfied = false; return 0;}
 	virtual long long getAllocatedMemory() const {return 0;}
@@ -819,8 +845,8 @@ public:
 	virtual ConstantSP firstNot(INDEX start, INDEX length, const ConstantSP& exclude) const = 0;
 	virtual ConstantSP lastNot(const ConstantSP& exclude) const = 0;
 	virtual ConstantSP lastNot(INDEX start, INDEX length, const ConstantSP& exclude) const = 0;
-	virtual bool isSorted(bool asc) const { return isSorted(0, size(), asc);}
-	virtual bool isSorted(INDEX start, INDEX length, bool asc) const = 0;
+	virtual bool isSorted(bool asc, bool strict = false) const { return isSorted(0, size(), asc, strict);}
+	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict = false) const = 0;
 
 	/**
 	 * Find the first element that is no less than the target value in the sorted vector.
@@ -925,7 +951,7 @@ public:
 	virtual ConstantSP getSubVector(INDEX start, INDEX length) const = 0;
 	virtual string getScript() const {return "set()";}
 	virtual bool isLargeConstant() const {return true;}
-    virtual void* getRawSet() const = 0;
+	virtual void* getRawSet() const = 0;
 };
 
 class Dictionary:public Constant{
@@ -938,7 +964,7 @@ public:
 	virtual ConstantSP getMember(const ConstantSP& key) const =0;
 	virtual ConstantSP getMember(const string& key) const {throw RuntimeException("String key not supported");}
 	virtual ConstantSP get(INDEX column, INDEX row){throw RuntimeException("Dictionary does not support cell function");}
-    virtual SymbolBaseSP getKeySymbolBase() const { return nullptr;}
+	virtual SymbolBaseSP getKeySymbolBase() const { return nullptr;}
 	virtual DATA_TYPE getKeyType() const = 0;
 	virtual DATA_CATEGORY getKeyCategory() const = 0;
 	virtual DATA_TYPE getType() const = 0;
@@ -956,7 +982,7 @@ public:
 	virtual ConstantSP get(const ConstantSP& key) const {return getMember(key);}
 	virtual void contain(const ConstantSP& target, const ConstantSP& resultSP) const = 0;
 	virtual bool isLargeConstant() const {return true;}
-    virtual void* getRawMap() const = 0;
+	virtual void* getRawMap() const = 0;
 	inline Mutex* getLock() const { return lock_;}
 	inline void setLock(Mutex* lock) { lock_ = lock;}
 
@@ -1013,6 +1039,7 @@ public:
 	virtual bool update(vector<ConstantSP>& values, const ConstantSP& indexSP, vector<string>& colNames, string& errMsg) = 0;
 	virtual bool append(vector<ConstantSP>& values, INDEX& insertedRows, string& errMsg) = 0;
 	virtual bool remove(const ConstantSP& indexSP, string& errMsg) = 0;
+	virtual bool upsert(vector<ConstantSP>& values, bool ignoreNull, INDEX& insertedRows, string& errMsg) {throw RuntimeException("Table::upsert() not supported");}
 	virtual DATA_TYPE getType() const {return DT_DICTIONARY;}
 	virtual DATA_TYPE getRawType() const {return DT_DICTIONARY;}
 	virtual DATA_CATEGORY getCategory() const {return MIXED;}
@@ -1156,6 +1183,8 @@ public:
 	inline void setModule(const string& module) { module_ = module;}
 	inline bool hasReturnValue() const {return flag_ & 1;}
 	inline bool isAggregatedFunction() const {	return flag_ & 2;}
+	inline bool isAggregatedFunction(int args) const {	return (flag_ & 2) && (argCountForAgg_ == 0 || args == (int)argCountForAgg_);}
+	inline void setArgCountForAggregation(int args) { argCountForAgg_ = args;}
 	inline bool supportReturnMeta() const {	return flag_ & 64;}
 	inline bool allConstantParameters() const { return flag_ & 4;}
 	inline bool bySystemUser() const { return flag_ & 8;}
@@ -1170,7 +1199,11 @@ public:
 	inline void setProtected(bool option) {if(option) extraFlag_ |= 2; else extraFlag_ &= ~2;}
 	inline bool isJIT() const { return extraFlag_ & 4;}
 	inline void setJIT(bool option) {if(option) extraFlag_ |= 4; else extraFlag_ &= ~4;}
-	inline bool isSequentialFunction() const {	return extraFlag_ & 8;}
+	inline bool isSequentialFunction() const { return extraFlag_ & 8;}
+	inline void setScalarFunction(bool option){ if(option) extraFlag_ |= 16; else extraFlag_ &= ~16;}
+	inline bool isScalarFunction() const { return extraFlag_ & 16;}
+	inline void setHigherOrderFunction(bool option){ if(option) extraFlag_ |= 32; else extraFlag_ &= ~32;}
+	inline bool isHigherOrderFunction() const { return extraFlag_ & 32;}
 	inline bool variableParamNum() const {	return minParamNum_<maxParamNum_;}
 	inline int getMaxParamCount() const { return maxParamNum_;}
 	inline int getMinParamCount() const {	return minParamNum_;}
@@ -1187,6 +1220,7 @@ public:
 	DATA_FORM getReturnForm() const;
 	void setReturnMeta(DATA_FORM form, DATA_TYPE type, DATA_TYPE keyType);
 	inline int getReturnMeta() const { return returnMeta_;}
+	void checkArgumentSize(int actualArgCount);
 	virtual bool copyable() const {return false;}
 	virtual DATA_TYPE getType() const {return DT_FUNCTIONDEF;}
 	virtual DATA_TYPE getRawType() const { return DT_STRING;}
@@ -1216,6 +1250,12 @@ protected:
 	vector<ParamSP> params_;
 	int minParamNum_;
 	int maxParamNum_;
+	/**
+	 * Some built-in functions such as min and max have multiple signatures. However,
+	 * only one of them is an aggregate function. The attribute argCountForAgg_
+	 * records the number of argument when it is an aggregate function.
+	 */
+	unsigned char argCountForAgg_;
 	unsigned char flag_;
 	unsigned short extraFlag_;
 	int returnMeta_;
@@ -1360,7 +1400,7 @@ public:
 	Session(const HeapSP& heap);
 	Session(const HeapSP& heap, bool systemSession);
 	virtual ~Session(){}
-	virtual SessionSP copy() = 0;
+	virtual SessionSP copy(bool forComputing = false) = 0;
 	virtual bool run(const vector<string>& source, const string& currentPath = "", int firstLine = 0)=0;
 	virtual bool run(const string& scriptFile)=0;
 	virtual bool run(const ObjectSP& script)=0;
@@ -1374,8 +1414,8 @@ public:
 	virtual vector<pair<string,ConstantSP>> getAll() const=0;
 	virtual void set(const string& key, const ConstantSP& value, bool copyIfDifferent = false)=0;
 	virtual long long getLastActiveTime()=0;
-	Output* getOutput() const { return out_;}
-	void setOutput(Output* out) {out_ = out;}
+	OutputSP getOutput() const { return out_;}
+	void setOutput(const OutputSP& out) {out_ = out;}
 	long long getSessionID() const {return sessionID_;}
 	void setSessionID(long long sessionID){sessionID_=sessionID;}
 	AuthenticatedUserSP getUser();
@@ -1385,6 +1425,10 @@ public:
 	void setRemoteSiteAlias(const string& alias){ remoteSiteAlias_ = alias;}
 	int getRemoteSiteIndex() const { return remoteSiteIndex_;}
 	void setRemoteSiteIndex(int siteIndex) { remoteSiteIndex_ = siteIndex;}
+	const string& getRemoteIP() const { return remoteIP_;}
+	void setRemoteIP(const string& ip){ remoteIP_ = ip;}
+	int getRemotePort() const { return remotePort_;}
+	void setRemotePort(int port) { remotePort_ = port;}
 	HeapSP getHeap() const {return heap_;}
 	bool isSystemSession() const {return flag_ & 1;}
 	void setSystemSession(bool option) { if(option) flag_ |= 1; else flag_ &= ~1;}
@@ -1392,6 +1436,10 @@ public:
 	void setWithinThreadCall(bool option){ if(option) flag_ |= 2; else flag_ &= ~2;}
 	bool isCancelled() const { return flag_ & 4;}
 	void setCancelled(bool option){ if(option) flag_ |= 4; else flag_ &= ~4;}
+	bool isAPIClient() const { return flag_ & 32;}
+	void setAPIClient(bool option){ if(option) flag_ |= 32; else flag_ &= ~32;}
+	int getFlag() const { return flag_;}
+	bool setFlag(int flag);
 	inline void setJobId(const Guid& jobId);
 	inline const Guid& getJobId() const { return jobId_;}
 	inline void setRootJobId(const Guid& rootJobId) { rootJobId_ = rootJobId;}
@@ -1401,8 +1449,6 @@ public:
 	inline void setParallelism(int parallelism) { parallelism_ = parallelism;}
 	inline int getParallelism() const { return parallelism_;}
 	void setJob(const Guid& rootJobId, const Guid& jobId, int priority, int parallelism);
-	void clearLeftover(CountDownLatchSP& latch);
-	void setLeftover(const CountDownLatchSP& latch);
 	virtual SysFunc getTableJoiner(const string& name) const = 0;
 	virtual FunctionDefSP getFunctionDef(const string& name) const = 0;
 	virtual FunctionDefSP getFunctionView(const string& name) const = 0;
@@ -1416,7 +1462,7 @@ public:
 	virtual bool removeFunctionalView(const string& name) = 0;
 	virtual void completePendingFunctions(bool commit) = 0;
 	virtual void getFunctions(vector<pair<string,FunctionDefSP> >& functions) = 0;
-	virtual void undefine(const string& objectName, OBJECT_TYPE objectType) = 0;
+	virtual void undefine(const string& objectName, OBJECT_TYPE objectType, void* objAddr = 0) = 0;
 	virtual bool isEnum(const string& word, int& value) const = 0;
 	virtual bool isDebugMode() const  = 0;
 	virtual void setDebugContext(const DebugContextSP& context) = 0;
@@ -1430,18 +1476,19 @@ public:
 	virtual void setPrivateKey(void* key) = 0;
 
 protected:
-	char flag_;
 	long long sessionID_;
 	HeapSP heap_;
-	Output* out_;
+	OutputSP out_;
 	AuthenticatedUserSP user_;
+	string remoteIP_;
+	int remotePort_;
 	string remoteSiteAlias_;
 	int remoteSiteIndex_;
 	Guid rootJobId_;
 	Guid jobId_;
 	int priority_;
 	int parallelism_;
-	CountDownLatchSP latch_;
+	int flag_;
 };
 
 class Heap{
@@ -1582,10 +1629,10 @@ private:
 
 class Domain{
 public:
-	Domain(PARTITION_TYPE partitionType, bool isLocalDomain) : partitionType_(partitionType), isLocalDomain_(isLocalDomain), isExpired_(false),
-			retentionPeriod_(-1), retentionDimension_(-1), tzOffset_(INT_MIN), key_(false){}
-	Domain(PARTITION_TYPE partitionType, bool isLocalDomain, const Guid& key) : partitionType_(partitionType), isLocalDomain_(isLocalDomain),
-			isExpired_(false), retentionPeriod_(-1), retentionDimension_(-1), tzOffset_(INT_MIN), key_(key){}
+	Domain(const string& owner, PARTITION_TYPE partitionType, bool isLocalDomain) : partitionType_(partitionType), isLocalDomain_(isLocalDomain), isExpired_(false),
+			retentionPeriod_(-1), retentionDimension_(-1), tzOffset_(INT_MIN), key_(false), owner_(owner){}
+	Domain(const string& owner, PARTITION_TYPE partitionType, bool isLocalDomain, const Guid& key) : partitionType_(partitionType), isLocalDomain_(isLocalDomain),
+			isExpired_(false), retentionPeriod_(-1), retentionDimension_(-1), tzOffset_(INT_MIN), key_(key), owner_(owner){}
 	virtual ~Domain(){}
 	int getPartitionCount() const { return partitions_.size();}
 	DomainPartitionSP getPartition(int index) const { return partitions_[index];}
@@ -1626,6 +1673,8 @@ public:
 	inline int getRentionDimension() const { return retentionDimension_;}
 	inline int getTimeZoneOffset() const { return tzOffset_;}
 	void setRentionPeriod(int retentionPeriod, int retentionDimension, int tzOffset);
+	string getOwner() const { return owner_;}
+	bool isOwner(const string& owner) const { return owner == owner_;}
 
 	/*
 	 * The input arguments set1 and set2 must be sorted by the key value of domain partitions. The ranking of key values must be the same as
@@ -1635,8 +1684,8 @@ public:
 	static void set_union(const vector<DomainPartitionSP>& set1, const vector<DomainPartitionSP>& set2, vector<DomainPartitionSP>& result);
 	static DomainSP loadDomain(const string& domainFile);
 	static DomainSP loadDomain(const DataInputStreamSP& in);
-	static DomainSP createDomain(PARTITION_TYPE  partitionType, const ConstantSP& scheme);
-	static DomainSP createDomain(PARTITION_TYPE  partitionType, const ConstantSP& scheme, const ConstantSP& sites);
+	static DomainSP createDomain(const string& owner, PARTITION_TYPE  partitionType, const ConstantSP& scheme);
+	static DomainSP createDomain(const string& owner, PARTITION_TYPE  partitionType, const ConstantSP& scheme, const ConstantSP& sites);
 
 protected:
 	static VectorSP parseSites(const ConstantSP& sites);
@@ -1662,6 +1711,7 @@ protected:
 	Guid key_; //the unique identity for this domain
 	string name_;
 	string dir_;
+	string owner_;
 	SymbolBaseManagerSP symbaseManager_;
 	unordered_map<string, TableHeader> tables_;
 	mutable Mutex mutex_;
@@ -1733,7 +1783,7 @@ public:
 	inline void setObject(const ObjectSP& obj){obj_ = obj;}
 	inline void clearObject(){obj_.clear();}
 	inline Heap* getHeap() const { return heap_;}
-	inline Session* getSession() const {return session_;}
+	inline SessionSP getSession() const {return session_;}
 	inline CountDownLatchSP getCountDownLatch() const { return latch_;}
 	inline void setCountDownLatch(const CountDownLatchSP& latch){ latch_ = latch;}
 	inline void setCarryoverOption(bool option){ carryover_ = option;}
@@ -1747,8 +1797,8 @@ public:
 	inline int getPriority() const { return priority_;}
 	inline void setParallelism(int parallelism) { parallelism_ = parallelism;}
 	inline int getParallelism() const { return parallelism_;}
-	void setHeap(Heap* heap);
-	void set(Heap* heap, const Guid& jobId, const CountDownLatchSP& latch);
+	void set(Heap* heap, const SessionSP& session, const Guid& jobId, const CountDownLatchSP& latch);
+	void set(Heap* heap, const SessionSP& session);
 	void done(const ConstantSP& result);
 	void done(const string& errMsg);
 	inline const string& getErrorMessage() const {return errMsg_;}
@@ -1784,7 +1834,7 @@ private:
 	bool carryover_ = false;
 	bool callbackMode_ = false;
 	Heap* heap_;
-	Session* session_;
+	SessionSP session_;
 };
 
 struct JobProperty {
