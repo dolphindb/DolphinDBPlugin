@@ -1,6 +1,6 @@
 #include "setup/settings.txt"
 
-loadPlugin(PLUGIN_FILE)
+try{loadPlugin("plugins/xgboost/PluginXgboost.txt")}catch(ex){print ex}
 go
 
 // ------------ xgboost::train argument validation --------------
@@ -127,6 +127,62 @@ xgboost::loadModel(`1`2)
 
 @testing:case="test_function_xgboost_loadModel_args_ex1", exception=1
 xgboost::loadModel("foo.bar")
+
+@testing:case="test_xgboost_train_more"
+t = table(1..5 as c1, 1..5 * 2 as c2, 1..5 * 3 as c3)
+label = 1 2 9 28 65
+params = {objective: "reg:linear", max_depth: 5, eta: 0.1, min_child_weight: 1, subsample: 0.5, colsample_bytree: 1, num_parallel_tree: 1}
+model = xgboost::train(label, t, params, 100)
+res=xgboost::predict(model, t)
+assert 1, eqObj(res, [0.960063,1.918349,7.039501,32.694199,58.885143],6)
+
+model = xgboost::train(label, t, params, 100, model)
+res=xgboost::predict(model, t)
+assert 2, eqObj(res,[0.810127,2.14585,7.755153,29.555456,63.833134],6)
+
+@testing:case="test_xgboost_train_param_ex1",exception=1
+t = table(1..5 as c1, 1..5 * 2 as c2, 1..5 * 3 as c3)
+label = 1 2 9 28 65
+params = {objective: "reg:xxx", max_depth: 5, eta: 0.1, min_child_weight: 1, subsample: 0.5, colsample_bytree: 1, num_parallel_tree: 1}
+model = xgboost::train(label, t, params, 100)
+
+@testing:case="test_xgboost_train_param_ex2",exception=1
+t = table(1..5 as c1, 1..5 * 2 as c2, 1..5 * 3 as c3)
+label = 1 2 9 28 65
+params = {objective: "reg:linear", max_depth: `abc, eta: 0.1, min_child_weight: 1, subsample: 0.5, colsample_bytree: 1, num_parallel_tree: 1}
+model = xgboost::train(label, t, params, 100)
+
+
+@testing:case="test_xgboost_train_param_ex3",exception=1
+t = table(1..5 as c1, 1..5 * 2 as c2, 1..5 * 3 as c3)
+label = 1 2 9 28 65
+params = {objective: "reg:linear", max_depth: 5, eta: `abc, min_child_weight: 1, subsample: 0.5, colsample_bytree: 1, num_parallel_tree: 1}
+model = xgboost::train(label, t, params, 100)
+
+@testing:case="test_xgboost_train_param_ex4",exception=1
+t = table(1..5 as c1, 1..5 * 2 as c2, 1..5 * 3 as c3)
+label = 1 2 9 28 65
+params = {objective: "reg:linear", max_depth: 5, eta: 0.2, min_child_weight: `abc, subsample: 0.5, colsample_bytree: 1, num_parallel_tree: 1}
+model = xgboost::train(label, t, params, 100)
+
+@testing:case="test_xgboost_train_param_ex5",exception=1
+t = table(1..5 as c1, 1..5 * 2 as c2, 1..5 * 3 as c3)
+label = 1 2 9 28 65
+params = {objective: "reg:linear", max_depth: 5, eta: 0.2, min_child_weight: 1, subsample: `abc, colsample_bytree: 1, num_parallel_tree: 1}
+model = xgboost::train(label, t, params, 100)
+
+
+@testing:case="test_xgboost_train_param_ex6",exception=1
+t = table(1..5 as c1, 1..5 * 2 as c2, 1..5 * 3 as c3)
+label = 1 2 9 28 65
+params = {objective: "reg:linear", max_depth: 5, eta: 0.2, min_child_weight: 1, subsample: 0.5, colsample_bytree: `abc, num_parallel_tree: 1}
+model = xgboost::train(label, t, params, 100)
+
+@testing:case="test_xgboost_train_param_ex7",exception=1
+t = table(1..5 as c1, 1..5 * 2 as c2, 1..5 * 3 as c3)
+label = 1 2 9 28 65
+params = {objective: "reg:linear", max_depth: 5, eta: 0.2, min_child_weight: 1, subsample: 0.5, colsample_bytree: 1, num_parallel_tree: `abc}
+model = xgboost::train(label, t, params, 100)
 
 // ----------------- Test correctness -----------------------
 @testing:case="test_function_xgboost_train_predict"

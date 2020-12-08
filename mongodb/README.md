@@ -4,80 +4,39 @@ DolphinDB mongodb插件可以建立与mongodb服务器的连接，然后导入�
 
 ## 1. 安装构建
 
-这里我们要用到mongodb-c-driver，它的依赖库包括snappy，ICU，openssl。
-
-#### 1.1编译依赖库
+### 1.1 预编译安装
 
 #### Linux
 
-###### 安装版本1.0.2的openssl
+在DolphinDBPlugin/httpClient/bin/linux64目录下有预先编译的插件文件，在DolphinDB中执行以下命令导入mongodb插件：
+
+```
+cd DolphinDB/server //进入DolphinDB server目录
+export LD_LIBRARY_PATH=<PluginDir>/mongodb/bin/linux64:$LD_LIBRARY_PATH //指定动态库位置 
+./dolphindb //启动 DolphinDB server
+ loadPlugin("<PluginDir>/mongodb/build/linux64/PluginMongodb.txt") //加载插件
+```
+
+#### Windows
+
+在window版本mongodb插件中，编译完成后会把所包含的动态库复制到生成的libPluginMongodb.dll的同一目录下，window系统在同一目录下搜索依赖的动态库。
+
+在DolphinDBPlugin/httpClient/bin/win64目录下有预先编译的插件文件，在DolphinDB中执行以下命令导入mongodb插件：
+
+```
+ loadPlugin("<PluginDir>/mongodb/bulid/win64/PluginMongodb.txt") //加载插件
  ```
-wget https://www.openssl.org/source/old/1.0.2/openssl-1.0.2i.tar.gz
-tar -xzf openssl-1.0.2i.tar.gz
-cd openssl-1.0.2i
-./config --prefix=/usr/local/openssl1.0.2 -fPIC
-make 
-sudo make install
-```
---prefix是为了指定安装位置，后面会使用到这个版本的openssl的头文件和静态库。
-
-###### 安装snappy
-```
-wget https://github.com/google/snappy/archive/1.1.7.tar.gz
-tar -zxf 1.1.7.tar.gz
-cd snappy-1.1.7/cmake
-CXXFLAGS="-fPIC" cmake ..
-make
-sudo make install
-```
-###### 安装ICU
-```
-wget https://github.com/unicode-org/icu/releases/download/release-52-2/icu4c-52_2-src.tgz
-tar -xzf icu4c-52_2-src.tgz
-cd icu/source
-./configure
-make
-sudo make install
-```
-###### 安装mongo-c-driver
-
-需要设置环境变量，在命令行中设置，正是刚刚安装openssl的位置。
-```
-export OPENSSL_ROOT_DIR=/usr/local/openssl1.0.2
-export OPENSSL_CRYPTO_LIBRARY=/usr/local/openssl1.0.2/lib
-export OPENSSL_INCLUDE_DIR=/usr/local/openssl1.0.2/include/
-
-wget https://github.com/mongodb/mongo-c-driver/releases/download/1.13.0/mongo-c-driver-1.13.0.tar.gz
-tar -xzf mongo-c-driver-1.13.0.tar.gz
-cd mongo-c-driver-1.13.0
-mkdir cmake-build
-cd cmake-build
-cmake -DENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTS=OFF ..
-```
-这里我们可以在终端看到mongodb-c-driver需要的依赖是否安装完全。
-```
-make
-sudo make install
-```
-###### 准备依赖库
-
-将对应分支的libDolphinDB.so以及其它依赖库拷贝到DolphinDBPlugin/mongodb/bin/linux。
-
-```
-cd DolphinDBPlugin/mongodb/bin/linux
-cp /path/to/libDolphinDB.so . 
-cp /usr/local/lib/libmongoc-1.0.so.0 .
-cp /usr/local/lib/libbson-1.0.so.0 .
-cp /usr/local/lib/libicudata.so.52 .
-cp /usr/local/lib/libicuuc.so.52 .
-```
 
 
-#### 1.2编译安装
+### 1.2 自行编译
+
+要用到mongodb-c-driver，它的依赖库包括snappy，ICU，openssl。
+
+在<PluginDir>/mongodb/bin目录下有对应与linux64和win64的依赖库，只需要cmake和对应编译器(linux为g++,window为MinGW)即可在本地编译mongodb插件。
 
 #### Linux
 
-###### 使用cmake构建：
+##### 使用cmake构建：
 
 安装cmake：
 
@@ -97,9 +56,9 @@ make
 
 编译后目录下会产生文件libPluginMongodb.so和PluginMongodb.txt。
 
-##### Windows
+#### Windows
 
-###### 在Windows环境中需要使用CMake和MinGW编译
+##### 在Windows环境中需要使用CMake和MinGW编译
 
 - 下载安装[MinGW](http://www.mingw.org/)。确保将bin目录添加到系统环境变量Path中。
 - 下载安装[cmake](https://cmake.org/)。
@@ -112,31 +71,88 @@ make
 
 ```
 mkdir build                                                        # 新建build目录
-cp path_to_libDolphinDB.dll/libDolphinDB.dll build                 # 拷贝 libDolphinDB.dll 到build目录下
+cp <ServerDir>/libDolphinDB.dll build                 # 拷贝 libDolphinDB.dll 到build目录下
 cd build
 cmake  ../ -G "MinGW Makefiles"
 mingw32-make -j4
 ```
 
-编译后目录下会产生文件libPluginMongodb.dll和PluginMongodb.txt，还会把/path/to/mongodbPlugin/bin/windows下的4个动态库拷贝到该目录下。
+编译后目录下会产生文件libPluginMongodb.dll和PluginMongodb.txt，还会把<PluginDir>/mongodb/bin/windows下的4个动态库拷贝到该目录下。
 
+>以下编译的mongodb-c-driver、snappy、ICU和openssl的依赖库文件，都可以在<PluginDir>/mongodb/bin目录下找到。
 
-#### 1.2 插件加载
+### 1.3编译依赖库
+
 #### Linux
-```
-cd DolphinDB/server //进入DolphinDB server目录
-export LD_LIBRARY_PATH=/path/to/mongodbPlugin/mongodb/bin/linux:$LD_LIBRARY_PATH //指定动态库位置 
-./dolphindb //启动 DolphinDB server
- loadPlugin("/path/to/mongodbPlugin/build/PluginMongodb.txt") //加载插件
-```
 
-#### Windows
-在window版本mongodb插件中，编译完成后会把所包含的动态库复制到生成的libPluginMongodb.dll的同一目录下，window系统在同一目录下搜索依赖的动态库。
+##### 安装版本1.0.2的openssl
 
-所以只需要执行脚本loadPlugin即可加载mongodb插件。
-```
- loadPlugin("/path/to/mongodbPlugin/bulid/PluginMongodb.txt") //加载插件
  ```
+wget https://www.openssl.org/source/old/1.0.2/openssl-1.0.2i.tar.gz
+tar -xzf openssl-1.0.2i.tar.gz
+cd openssl-1.0.2i
+./config --prefix=/usr/local/openssl1.0.2 -fPIC
+make 
+sudo make install
+```
+--prefix是为了指定安装位置，后面会使用到这个版本的openssl的头文件和静态库。
+
+##### 安装snappy
+
+```
+wget https://github.com/google/snappy/archive/1.1.7.tar.gz
+tar -zxf 1.1.7.tar.gz
+cd snappy-1.1.7/cmake
+CXXFLAGS="-fPIC" cmake ..
+make
+sudo make install
+```
+
+##### 安装ICU
+
+```
+wget https://github.com/unicode-org/icu/releases/download/release-52-2/icu4c-52_2-src.tgz
+tar -xzf icu4c-52_2-src.tgz
+cd icu/source
+./configure
+make
+sudo make install
+```
+
+##### 安装mongo-c-driver
+
+需要设置环境变量，在命令行中设置，正是刚刚安装openssl的位置。
+```
+export OPENSSL_ROOT_DIR=/usr/local/openssl1.0.2
+export OPENSSL_CRYPTO_LIBRARY=/usr/local/openssl1.0.2/lib
+export OPENSSL_INCLUDE_DIR=/usr/local/openssl1.0.2/include/
+
+wget https://github.com/mongodb/mongo-c-driver/releases/download/1.13.0/mongo-c-driver-1.13.0.tar.gz
+tar -xzf mongo-c-driver-1.13.0.tar.gz
+cd mongo-c-driver-1.13.0
+mkdir cmake-build
+cd cmake-build
+cmake -DENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTS=OFF ..
+```
+这里我们可以在终端看到mongodb-c-driver需要的依赖是否安装完全。
+```
+make
+sudo make install
+```
+
+##### 准备依赖库
+
+将对应分支的libDolphinDB.so以及其它依赖库拷贝到DolphinDBPlugin/mongodb/bin/linux。
+
+```
+cd DolphinDBPlugin/mongodb/bin/linux
+cp <ServerDir>/libDolphinDB.so . 
+cp /usr/local/lib/libmongoc-1.0.so.0 .
+cp /usr/local/lib/libbson-1.0.so.0 .
+cp /usr/local/lib/libicudata.so.52 .
+cp /usr/local/lib/libicuuc.so.52 .
+```
+
 ##  2. 用户接口
 
 ### 2.1 mongodb::connect
@@ -149,9 +165,9 @@ mongodb::connect(host, port, user, password, [db])
 
 * host: MongoDB服务器的地址，类型为string。
 * port: MongoDB服务器的端口，类型为int。
-* user: MongoDB服务器的用户名，类型为string。
-* password: MongoDB服务器的密码，类型为string。
-* db: 要使用的数据库名称，类型为string。如果不填写，将不会对指定用户进行密码认证和数据库权限验证。
+* user: MongoDB服务器的用户名，类型为string。如果没有开启mongodb用户权限认证，则填写空字符串""。
+* password: MongoDB服务器的密码，类型为string。如果没有开启mongodb用户权限认证，则填写空字符串""。
+* db: 验证登录用户的数据库，类型为string。在mongodb中储藏对应登录用户的数据库。如果不填写，将以参数`host`指定的mongodb服务器的`admin`数据库进行登录用户验证。
 
 #### 详情
 
@@ -168,14 +184,17 @@ conn2 = mongodb::connect(`localhost, 27017, `root, `root)
 
 #### 语法
 
-mongodb::load(connection,collcetionName, query, option)
+mongodb::load(connection, collcetionName, query, option, [schema])
 
 #### 参数
 
 * connection: 通过mongodb::connect获得的MongoDB连接句柄。
 * collcetionName: 一个MongoDB中集合的名字。有两种参数模式(`collectionName和"databaseName:collectionName"),第一种会查询由mongodb::connect创建的connection的database，第二种是查询指定database中的collection。
+采用"databaseName:collectionName"的样式会提供一次对临时数据库的查询，将会访问由mongodb::connect方法创建mongodb连接时设置的数据库或者是当前指定的数据库，
+上一次的load方法的设置的临时数据库不会影响当前数据库的选择。
 * query: MongoDB查询条件，保留bson格式的json文档，类似:{ "aa" : { "$numberInt" : "13232" } }、{ "datetime" : { "$gt" : {"$date":"2019-02-28T00:00:00.000Z" }} }，类型为string。
 * option: MongoDB查询选项，保留bson格式的json文档，类似:{"limit":123}对查询结果在MongoDB中进行预处理再返回，类型为string。
+* schema: 包含列名和列的数据类型的表。如果我们想要改变由系统自动决定的列的数据类型，需要在schema表中修改数据类型，并且把它作为load函数的一个参数。
 
 #### 详情
 
@@ -187,10 +206,12 @@ mongodb::load(connection,collcetionName, query, option)
 conn = mongodb::connect(`localhost, 27017, `root, `root, `DolphinDB)
 query=`{ "datetime" : { "$gt" : {"$date":"2019-02-28T00:00:00.000Z" }} }
 option=`{"limit":1234}
-tb = mongodb::load(conn, `US,query,option)
+tb=mongodb::load(conn, `US,query,option)
 select count(*) from tb
 tb2 = mongodb::load(conn, 'dolphindb:US',query,option)
 select count(*) from tb
+schema=table(`item`type`qty as name,`STRING`STRING`INT as type)
+tb2 = mongodb::load(conn, 'dolphindb:US',query,option,schema)
 ```
 
 ### 2.3. mongodb::close
@@ -219,6 +240,7 @@ mongodb::close(conn)
 ```
 
 ### 2.4. 查询数据示例
+
 ```
 query='{"dt": { "$date" : "2016-06-22T00:00:00.000Z" } }';
 query='{"bcol" : false }';
@@ -272,3 +294,4 @@ DolphinDB中各类整形的最小值为NULL值，例如：INT的-2,147,483,648�
 | ------------------- | :------------------ |
 | string   | STRING              |
 | symbol | STRING              |
+| oid          | STRING             |

@@ -152,7 +152,7 @@ namespace svm{
                     feats.insert(dat[i].second[j].first);
 
             if (param.gamma==-1)
-                param.gamma=1.0/(std::max(1ul, feats.size()));
+                param.gamma=1.0/(std::max(1ul, (unsigned long)(feats.size())));
 
             svm_problem prob;
 

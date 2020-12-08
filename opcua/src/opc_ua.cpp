@@ -2,10 +2,8 @@
 #include<set>
 #include <iomanip>
 
-extern ConstantSP nullSP;
-ConstantSP nullSP = Util::createNullConstant(DT_VOID);
-std::map<UA_UInt32,OPCUASub* > OPCUASub::mapSub;
-static void handler_TheAnswerChanged(UA_Client *client, UA_UInt32 subId, void *subContext,
+std::map<UA_UInt32,OPCUASub* > OPCUASub::mapSub_;
+static void handlerTheAnswerChanged(UA_Client *client, UA_UInt32 subId, void *subContext,
                          UA_UInt32 monId, void *monContext, UA_DataValue *value);
 
 ConstantSP createSVCFromVector(vector<string> &v, DATA_TYPE t) {
@@ -338,13 +336,12 @@ bool convertDTToUA(UA_Variant *variant, ConstantSP value){
     return false;
 }
 
-string UA_String_To_String(UA_String uastr){
+string UAStringToString(UA_String uastr){
     return string(uastr.data, uastr.data + uastr.length);
 }
 
 ConstantSP toConstant(UA_Variant variant){
     bool flag = variant.arrayLength <= 1;
-    std::cout<<variant.arrayLength<<std::endl;
     char delimiter = ',';
     char rowDelimiter = ';';
     size_t dimensionsSize = variant.arrayDimensionsSize;
@@ -365,8 +362,6 @@ ConstantSP toConstant(UA_Variant variant){
 	nRows = 1;
         nCols = variant.arrayLength;
     }
-    std::cout<<nRows<<nCols<<std::endl;
-    std::cout<<dimensionsSize<<std::endl;
     switch(variant.type->typeIndex)
     {
         case UA_TYPES_BOOLEAN:
@@ -563,14 +558,14 @@ ConstantSP toConstant(UA_Variant variant){
         case UA_TYPES_BYTESTRING:
         case UA_TYPES_STRING:
             if(flag)
-                return new String(UA_String_To_String(*(UA_String*)variant.data));
+                return new String(UAStringToString(*(UA_String*)variant.data));
             else{
                 string s;
                 if(nRows*nCols != variant.arrayLength)
                     throw RuntimeException("variant arrayLength not matched.");
                 for (UA_UInt32 row = 0; row < nRows; ++row) {
                     for (UA_UInt32 col = 0; col < nCols; ++col) {
-                        s += UA_String_To_String(*((UA_String*)(variant.data) + row*nCols+col));
+                        s += UAStringToString(*((UA_String*)(variant.data) + row*nCols+col));
                         if (col < nCols - 1) {
                             s += delimiter;
                         }
@@ -593,39 +588,38 @@ ConstantSP toConstant(UA_Variant variant){
 }
 
 void OPCUASub::subs(){
-   
     UA_CreateSubscriptionRequest request = UA_CreateSubscriptionRequest_default();
-    UA_CreateSubscriptionResponse response = UA_Client_Subscriptions_create(client, request, NULL, NULL, NULL);
+    UA_CreateSubscriptionResponse response = UA_Client_Subscriptions_create(client_, request, NULL, NULL, NULL);
     if(response.responseHeader.serviceResult != UA_STATUSCODE_GOOD)
         throw RuntimeException("Could not call Subscribe service. StatusCode " + string(UA_StatusCode_name(response.responseHeader.serviceResult)));
-    int numNode = nsIdx.size();
-    OPCUASub::mapSub.insert(std::make_pair(response.subscriptionId, this));
-    subId = response.subscriptionId;
+    int numNode = nsIdx_.size();
+    OPCUASub::mapSub_.insert(std::make_pair(response.subscriptionId, this));
+    subId_ = response.subscriptionId;
     for(int i = 0; i< numNode; i++){
-        UA_NodeId nodeId= UA_NODEID_STRING_ALLOC(nsIdx[i], nodeIdString[i].c_str());
+        UA_NodeId nodeId= UA_NODEID_STRING_ALLOC(nsIdx_[i], nodeIdString_[i].c_str());
         UA_MonitoredItemCreateRequest monRequest = UA_MonitoredItemCreateRequest_default(nodeId);
-        UA_MonitoredItemCreateResult monResponse = UA_Client_MonitoredItems_createDataChange(client, response.subscriptionId,
-                                                    UA_TIMESTAMPSTORETURN_BOTH, monRequest, NULL, handler_TheAnswerChanged, NULL);
+        UA_MonitoredItemCreateResult monResponse = UA_Client_MonitoredItems_createDataChange(client_, response.subscriptionId,
+                                                    UA_TIMESTAMPSTORETURN_BOTH, monRequest, NULL, handlerTheAnswerChanged, NULL);
         if(monResponse.statusCode != UA_STATUSCODE_GOOD){
-            subFlag = false;
-            running = false;
+            subFlag_ = false;
+            running_ = false;
             throw RuntimeException("Could not call Subscribe service. StatusCode " + string(UA_StatusCode_name(monResponse.statusCode)));
 
         }
-        monMap[monResponse.monitoredItemId] = string(std::to_string(nsIdx[i]) + " : " + nodeIdString[i]);
+        monMap[monResponse.monitoredItemId] = string(std::to_string(nsIdx_[i]) + " : " + nodeIdString_[i]);
     }
-    subFlag = true;
-    UA_StatusCode retVal = UA_Client_run_iterate(client, 1000);
+
+    UA_StatusCode retVal = UA_Client_run_iterate(client_, 1000);
     if(retVal != UA_STATUSCODE_GOOD)
         throw RuntimeException("Could not call Subscribe service. StatusCode " + string(UA_StatusCode_name(response.responseHeader.serviceResult)));
-
+    subFlag_ = true;
+    createTime_ = Util::getEpochTime();
 
 }
 
-static void handler_TheAnswerChanged(UA_Client *client, UA_UInt32 subId, void *subContext,
+static void handlerTheAnswerChanged(UA_Client *client, UA_UInt32 subId, void *subContext,
                          UA_UInt32 monId, void *monContext, UA_DataValue *value){
-    OPCUASub *sub = OPCUASub::mapSub.find(subId)->second;
-    std::map<UA_UInt32, string>::iterator it_find;
+    OPCUASub *sub = OPCUASub::mapSub_.find(subId)->second;
     string nodeid;
     nodeid = sub->monMap[monId];
     ConstantSP val = toConstant(value->value);
@@ -642,15 +636,31 @@ static void handler_TheAnswerChanged(UA_Client *client, UA_UInt32 subId, void *s
     vector<ConstantSP> cols = {nodeIdSP, val, sourceTimestamp, status};
     vector<string> colNames = {"node id", "value", "timestamp", "status"};
     TableSP resultTable = Util::createTable(colNames, cols);
-    vector<ConstantSP> args1 = {resultTable};
     if (sub->getHandle()->isTable()) {
         TableSP t = (TableSP)sub->getHandle();
-        INDEX insertedRows = 1;
-        string errMsg;
-        t->append(args1, insertedRows, errMsg);
+        if(t->isSegmentedTable()){
+            vector<ConstantSP> args = {t, resultTable};
+            Heap* h = sub->getHeap();
+            h->currentSession()->getFunctionDef("append!")->call(h, args);
+        }else{
+            INDEX insertedRows = 1;
+            string errMsg;
+            vector<ConstantSP> args = {resultTable};
+            bool add = t->append(args, insertedRows, errMsg);
+            if(!add){
+                sub->setErrorMsg(errMsg);
+            }
+        }
+        
     } else {
-        ((FunctionDefSP)sub->getHandle())->call(sub->getHeap(), args1);
-    }  
+        vector<ConstantSP> args = {resultTable};
+        try{
+            ((FunctionDefSP)sub->getHandle())->call(sub->getHeap(), args);
+        }catch (exception &e) {
+            sub->setErrorMsg(e.what());
+        }
+    }
+    sub->addRecP();
 }
 
 ConstantSP OPCUAClient::readNode(vector<int> &nsIdx, vector<string> &nodeIdString, ConstantSP &table){
@@ -664,7 +674,7 @@ ConstantSP OPCUAClient::readNode(vector<int> &nsIdx, vector<string> &nodeIdStrin
         rReq.nodesToRead[i].attributeId = UA_ATTRIBUTEID_VALUE;
     }
 
-    UA_ReadResponse rResp = UA_Client_Service_read(client, rReq);
+    UA_ReadResponse rResp = UA_Client_Service_read(client_, rReq);
     if(rResp.responseHeader.serviceResult != UA_STATUSCODE_GOOD) 
         throw RuntimeException("Could not call ReadNodesValue service. StatusCode " + string(UA_StatusCode_name(rResp.responseHeader.serviceResult)));
     if(table->isArray()){
@@ -735,7 +745,7 @@ ConstantSP OPCUAClient::readNode(vector<int> &nsIdx, vector<string> &nodeIdStrin
                 sourceTimestamp->setLong(INT64_MIN);
             sourceTimestampVec->set(i, sourceTimestamp);
         }
-        if(table == nullSP){
+        if(table->isNull()){
             vector<string> colNames = {"node id", "value", "timestamp", "status"};
             vector<ConstantSP> cols = {nodeIdVec, valueVec, sourceTimestampVec, statusVec};
             TableSP resultTable = Util::createTable(colNames, cols);
@@ -788,7 +798,7 @@ ConstantSP OPCUAClient::writeNode(vector<int> &nsIdx, vector<string> &nodeIdStri
         UA_Variant *myVariant = UA_Variant_new();
         if(!convertDTToUA(myVariant,value))
             throw RuntimeException("unsupported type.");
-        UA_StatusCode retval = UA_Client_writeValueAttribute(client, UA_NODEID_STRING_ALLOC((UA_UInt16)nsIdx[0], nodeIdString[0].c_str()), myVariant);
+        UA_StatusCode retval = UA_Client_writeValueAttribute(client_, UA_NODEID_STRING_ALLOC((UA_UInt16)nsIdx[0], nodeIdString[0].c_str()), myVariant);
         UA_Variant_delete(myVariant);
         if(retval!=UA_STATUSCODE_GOOD){
             throw RuntimeException("Could not call WriteNodesValue service. StatusCode " + string(UA_StatusCode_name(retval)));
@@ -808,7 +818,7 @@ ConstantSP OPCUAClient::writeNode(vector<int> &nsIdx, vector<string> &nodeIdStri
         wReq.nodesToWrite[i].value.value = *myVariant;
         wReq.nodesToWrite[i].value.hasValue = true;
     }
-    UA_WriteResponse wResp = UA_Client_Service_write(client, wReq);
+    UA_WriteResponse wResp = UA_Client_Service_write(client_, wReq);
     UA_Variant_delete(myVariant);
     UA_StatusCode retval = wResp.responseHeader.serviceResult;
     if(retval != UA_STATUSCODE_GOOD) 
@@ -829,7 +839,7 @@ void OPCUAClient::browseNode(UA_NodeId object, vector<int> &nameSpace, vector<st
     bReq.nodesToBrowseSize =1;
     bReq.nodesToBrowse[0].nodeId = object;/* browse objects folder */
     bReq.nodesToBrowse[0].resultMask = 31; /* return everything */
-    UA_BrowseResponse bResp = UA_Client_Service_browse(client, bReq);
+    UA_BrowseResponse bResp = UA_Client_Service_browse(client_, bReq);
     vector<UA_NodeId> nextNodeId;
     size_t nextCount = 0;
     for(size_t i = 0; i < bResp.resultsSize; ++i) {
@@ -884,15 +894,10 @@ ConstantSP OPCUAClient::browseNode(){
     return Util::createTable(colNames, cols);
 }
 
-UA_StatusCode UA_ClientConfig_setEncryption(UA_ClientConfig *config,
-                                     UA_ByteString localCertificate, UA_ByteString privateKey,
-                                     const UA_ByteString *trustList, size_t trustListSize,
-                                     const UA_ByteString *revocationList, size_t revocationListSize) {
-
-    UA_StatusCode retval = UA_CertificateVerification_Trustlist(&config->certificateVerification,
-                                                  trustList, trustListSize,
-                                                  NULL, 0,
-                                                  revocationList, revocationListSize);
+UA_StatusCode UAClientConfigSetEncryption(UA_ClientConfig *config, UA_ByteString localCertificate, UA_ByteString privateKey,
+        const UA_ByteString *trustList, size_t trustListSize, const UA_ByteString *revocationList, size_t revocationListSize) {
+    UA_StatusCode retval = UA_CertificateVerification_Trustlist(&config->certificateVerification, trustList, trustListSize,
+                                                                NULL, 0,revocationList, revocationListSize);
     if(retval != UA_STATUSCODE_GOOD)
         return retval;
 
@@ -926,17 +931,18 @@ UA_StatusCode UA_ClientConfig_setEncryption(UA_ClientConfig *config,
 
     return UA_STATUSCODE_GOOD;
 }
-void OPCUAClient::connect(string endPointUrl, string clientUri, string username, string password,UA_MessageSecurityMode securityMode, UA_String securityPolicy,UA_ByteString certificate,UA_ByteString privateKey){
-    UA_ClientConfig *config = UA_Client_getConfig(client);
+
+void OPCUAClient::connect(string endPointUrl, string clientUri, string username, string password,UA_MessageSecurityMode securityMode, UA_String securityPolicy, UA_ByteString certificate, UA_ByteString privateKey){
+    UA_ClientConfig *config = UA_Client_getConfig(client_);
     UA_ClientConfig_setDefault(config);
     config->clientDescription.applicationUri = UA_STRING_ALLOC(clientUri.c_str());
     config->securityMode = securityMode;
     config->securityPolicyUri = securityPolicy;
     UA_StatusCode retval;
     if(!UA_String_equal(&certificate, &UA_STRING_NULL)){
-        retval = UA_ClientConfig_setEncryption(config,certificate,privateKey,NULL,0,NULL,0);
+        retval = UAClientConfigSetEncryption(config,certificate,privateKey,NULL,0,NULL,0);
         if(retval != UA_STATUSCODE_GOOD){
-            UA_Client_delete(client);
+            UA_Client_delete(client_);
         throw RuntimeException("Could not call Connect service. StatusCode " + string(UA_StatusCode_name(retval)));
         }
     }
@@ -952,12 +958,13 @@ void OPCUAClient::connect(string endPointUrl, string clientUri, string username,
         config->userIdentityToken.content.decoded.type = &UA_TYPES[UA_TYPES_USERNAMEIDENTITYTOKEN];
         config->userIdentityToken.content.decoded.data = identityToken;
     }
-    retval = UA_Client_connect(client, endPointUrl.c_str());
+    retval = UA_Client_connect(client_, endPointUrl.c_str());
     if(retval != UA_STATUSCODE_GOOD){
-        UA_Client_delete(client);
+        UA_Client_delete(client_);
         throw RuntimeException("Could not call Connect service. StatusCode " + string(UA_StatusCode_name(retval)));
     }
-    connEndPointUrl = endPointUrl;
+    connEndPointUrl_ = endPointUrl;
+    clientUri_ = clientUri;
     return;
 }
 
@@ -1097,9 +1104,13 @@ ConstantSP getOpcUaEndPointList(Heap* heap, vector<ConstantSP>& arguments) {
 
 static void opcConnectionOnClose(Heap* heap, vector<ConstantSP>& args) {
     OPCUAClient* cp = (OPCUAClient*)(args[0]->getLong());
-    if (cp != nullptr) {
-        delete cp;
-        args[0]->setLong(0);
+    if (cp->getSubed()==false) {
+        if (cp != nullptr) {
+            delete cp;
+            args[0]->setLong(0);
+        }
+    } else {
+        cp->setSessionStat(true);
     }
 }
 
@@ -1310,7 +1321,7 @@ ConstantSP readNode(Heap* heap, vector<ConstantSP>& arguments){
     }
     else
     {
-        table = nullSP;
+        table = new Void();
     }
     
     return conn->readNode(nodeNamespace, nodeidString, table);
@@ -1455,7 +1466,10 @@ ConstantSP subscribeNode(Heap* heap, vector<ConstantSP>& arguments){
     if (!arguments[3]->isTable() && (arguments[3]->getType() != DT_FUNCTIONDEF)) {
             throw IllegalArgumentException(__FUNCTION__, usage + "handle must be a table or function");
     }
-    conn->subscribe(heap,nodeNamespace, nodeidString, arguments[3]);
+    conn->setSession(heap->currentSession()->copy());
+    conn->getSession()->setUser(heap->currentSession()->getUser());
+    conn->getSession()->setOutput(new DummyOutput);
+    conn->subscribe(conn->getSession()->getHeap().get(),nodeNamespace, nodeidString, arguments[3]);
     // stop by sub by delete item
     return new Void();
 
@@ -1466,14 +1480,78 @@ ConstantSP endSub(const ConstantSP& handle, const ConstantSP& b ){
     OPCUAClient* conn;
     if (handle->getType() == DT_RESOURCE) {
         conn = (OPCUAClient*)(handle->getLong());
-    } else {
+        if (conn != nullptr && conn->getSubed()) {
+            conn->endSub();
+        }else if(conn != nullptr){
+            throw RuntimeException("No subscription on this connection.");
+        }else{
+            throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
+        }
+    } else if(handle->getType() == DT_STRING || handle->getType() == DT_LONG || handle->getType() == DT_INT){
+        UA_UInt32 subId;
+        if(handle->getType() == DT_STRING){
+            string subString = handle->getString();
+            try{
+                subId = (UA_UInt32)std::stoi(subString);
+            }catch(exception e){
+                throw IllegalArgumentException(__FUNCTION__, "Invalid subscriptionId.");
+            }
+        }else{
+            subId = (UA_UInt32)handle->getLong();
+        }
+        std::map<UA_UInt32, OPCUASub*>::iterator iter;
+        iter = OPCUASub::mapSub_.find(subId);
+        if(iter == OPCUASub::mapSub_.end())
+            throw IllegalArgumentException(__FUNCTION__, "Invalid subscriptionId.");
+        OPCUASub *sub = iter->second;
+        try{
+            conn = sub->getOPCUAClient();
+            if(conn->getSessionStat()){
+                delete conn;
+                handle->setLong(0);
+            }else{
+                conn->endSub();
+            }
+        }
+        catch(RuntimeException &e){
+            throw e;
+        }
+    } else{
         throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
     }
 
     //endflag = 1;
-    if (conn != nullptr) {
-        conn->endSub();
-    }
+    
 
     return new Void();
 }
+
+ConstantSP getSubscriberStat(const ConstantSP &handle, const ConstantSP &b) {
+    int size = OPCUASub::mapSub_.size();
+    ConstantSP subscriptionIdVec = Util::createVector(DT_STRING, size);
+    ConstantSP userVec = Util::createVector(DT_STRING, size);
+    ConstantSP endPointUrlVec = Util::createVector(DT_STRING, size);
+    ConstantSP clientUriVec = Util::createVector(DT_STRING, size);
+    ConstantSP nodeIDVec = Util::createVector(DT_STRING, size);
+    ConstantSP timestampVec = Util::createVector(DT_TIMESTAMP, size);
+    ConstantSP recvVec = Util::createVector(DT_LONG, size);
+    ConstantSP errorMsgVec = Util::createVector(DT_STRING, size);
+    std::map<UA_UInt32, OPCUASub*>::iterator it;
+    int i = 0;
+    for(it=OPCUASub::mapSub_.begin();it!=OPCUASub::mapSub_.end();it++){
+        OPCUASub *s = it->second;
+        subscriptionIdVec->setString(i, s->getSubID());
+        userVec->setString(i,s->getUser());
+        endPointUrlVec->setString(i,s->getEndPoint());
+        clientUriVec->setString(i,s->getClientUri());
+        recvVec->setLong(i,s->getRecP());
+        nodeIDVec->setString(i, s->getNodeID());
+        timestampVec->setLong(i,s->getCreateTime());
+        errorMsgVec->setString(i,s->getErrorMsg());
+        i++;
+    }
+    vector<string> colNames = {"subscriptionId", "user", "endPointUrl", "clientUri", "nodeID", "createTimestamp", "receivedPackets","errorMsg"};
+    vector<ConstantSP> cols = {subscriptionIdVec, userVec, endPointUrlVec, clientUriVec, nodeIDVec, timestampVec, recvVec,errorMsgVec};
+    return Util::createTable(colNames, cols);
+}
+

@@ -44,8 +44,8 @@ assert 1,t.size()>=4
 
 @testing:case="test_writeNode"
 conn8=opcua::connect(serverUrl,"myclient")
-opcua::writeNode(conn8, 6, "DoubleArray",[1.000000,2.000000,3.000000,4.000000,5.000000])  
-t=opcua::readNode(conn8, 6, "DoubleArray") 
+opcua::writeNode(conn8, 5, "DoubleArray",[1.000000,2.000000,3.000000,4.000000,5.000000])  
+t=opcua::readNode(conn8, 5, "DoubleArray") 
 v=t[`value][0].split(";")
 assert 1,eqObj(double(v[0].split(",")[0]),1.000,3)==true
 
@@ -257,6 +257,9 @@ def callback1(mutable t1, d) {
 }
 conn4=opcua::connect(EndpointUrl[0],"myClient");
 opcua::subscribe(conn4,2, "Machines/Machine A/IsFault",callback1{tb})
+conn4e=opcua::connect(EndpointUrl[0],"myClient");
+opcua::writeNode(conn4e, 2, "Machines/Machine A/IsFault",false)  
+opcua::writeNode(conn4e, 2, "Machines/Machine A/IsFault",true)  
 sz4= tb.size()
 sleep(5000)
 assert 1,tb.size()>sz4
@@ -278,6 +281,10 @@ assert 1,ts.size()>sz5
 tb2 = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, BOOL, TIMESTAMP, SYMBOL])
 conn6=opcua::connect(EndpointUrl[0],"myClient");
 opcua::subscribe(conn6,2, ["Machines/Machine A/IsFault","Machines/Enable"],tb2)
+conn6e=opcua::connect(EndpointUrl[0],"myClient");
+opcua::writeNode(conn6e, 2, "Machines/Machine A/IsFault",false)  
+opcua::writeNode(conn6e, 2, "Machines/Machine A/IsFault",true)  
+
 sz6= tb2.size()
 sleep(3000)
 assert 1,tb2.size()>sz6

@@ -219,14 +219,20 @@ ConstantSP kafkaCreateSubJob(Heap *heap, vector<ConstantSP> args){
     auto consumer = getConnection<Consumer>(args[0]);
     auto timeout = static_cast<int>(consumer->get_timeout().count());
 
-    if (!args[1]->isTable()) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "the second argument must be a table.");
+    if (!(args[1]->isTable() || args[1]->getType()==DT_FUNCTIONDEF)) {
+        throw IllegalArgumentException(__FUNCTION__, usage + "the second argument must be a table or a function.");
+    }
+    if(args[1]->getType() == DT_FUNCTIONDEF){
+        FunctionDefSP handle = args[1];
+        if(handle->getParamCount() != 1){
+            throw IllegalArgumentException(__FUNCTION__, usage + "handle function must accept only one param.");
+        }
     }
     if (args[2]->getType() != DT_FUNCTIONDEF) {
         throw IllegalArgumentException(__FUNCTION__, usage + "parser must be an function.");
     }
     FunctionDefSP parser = args[2];
-    if(parser->getParamCount()!=1){
+    if(parser->getParamCount() != 1){
         throw IllegalArgumentException(__FUNCTION__, usage + "parser function must accept only one param.");
     }
     if (args[3]->getType() != DT_STRING) {

@@ -27,7 +27,6 @@ struct Preserved {
     // modules and methods
     const static py::handle numpy_;         // module
     const static py::handle isnan_;         // func
-    const static py::handle sum_;           // func
     const static py::handle datetime64_;    // type, equal to np.datetime64
     const static py::handle pandas_;        // module
 
@@ -72,7 +71,6 @@ struct Preserved {
 
 const py::handle Preserved::numpy_ = py::module::import("numpy").inc_ref();
 const py::handle Preserved::isnan_ = numpy_.attr("isnan");
-const py::handle Preserved::sum_ = numpy_.attr("sum");
 const py::handle Preserved::datetime64_ = numpy_.attr("datetime64");
 const py::handle Preserved::pandas_ = py::module::import("pandas").inc_ref();
 const py::handle Preserved::pddataframe_ = pandas_.attr("DataFrame")().get_type().inc_ref();
@@ -338,12 +336,10 @@ PyObject* dolphin2py(ConstantSP input, bool dateFrameFlag) {
                         py::array pyVec(py::dtype("datetime64[ns]"), {size}, {});
                         ddbVec->getLong(0, size, (long long *)pyVec.mutable_data());
                         long long *p = (long long *)pyVec.mutable_data();
-                        if(UNLIKELY(ddbVec->getNullFlag())) {
-                            if (UNLIKELY(ddbVec->hasNull())) {
-                                for (size_t i = 0; i < size; ++i) {
-                                    if (UNLIKELY(p[i] == INT64_MIN)) { continue; }
-                                    p[i] *= 86400000000000;
-                                }
+                        if (UNLIKELY(ddbVec->hasNull())) {
+                            for (size_t i = 0; i < size; ++i) {
+                                if (UNLIKELY(p[i] == INT64_MIN)) { continue; }
+                                p[i] *= 86400000000000;
                             }
                         }
                         else {
@@ -366,16 +362,14 @@ PyObject* dolphin2py(ConstantSP input, bool dateFrameFlag) {
                         py::array pyVec(py::dtype("datetime64[M]"), {size}, {});
                         ddbVec->getLong(0, size, (long long *)pyVec.mutable_data());
                         long long *p = (long long *)pyVec.mutable_data();
-                        if(UNLIKELY(ddbVec->getNullFlag())) {
-                            if (UNLIKELY(ddbVec->hasNull())) {
-                                for (size_t i = 0; i < size; ++i) {
-                                    if (UNLIKELY(p[i] == INT64_MIN)) { continue; }
-                                    else {
-                                        if(p[i] < 23640 || p[i] > 27147) {
-                                            throw RuntimeException("In dataFrame Month must between 1970.01M and 2262.04M");
-                                        }
-                                        p[i] -= 23640;
+                        if (UNLIKELY(ddbVec->hasNull())) {
+                            for (size_t i = 0; i < size; ++i) {
+                                if (UNLIKELY(p[i] == INT64_MIN)) { continue; }
+                                else {
+                                    if(p[i] < 23640 || p[i] > 27147) {
+                                        throw RuntimeException("In dataFrame Month must between 1970.01M and 2262.04M");
                                     }
+                                    p[i] -= 23640;
                                 }
                             }
                         }
@@ -393,12 +387,10 @@ PyObject* dolphin2py(ConstantSP input, bool dateFrameFlag) {
                         py::array pyVec(py::dtype("datetime64[M]"), {size}, {});
                         ddbVec->getLong(0, size, (long long *)pyVec.mutable_data());
                         long long *p = (long long *)pyVec.mutable_data();
-                        if(UNLIKELY(ddbVec->getNullFlag())) {
-                            if (UNLIKELY(ddbVec->hasNull())) {
-                                for (size_t i = 0; i < size; ++i) {
-                                    if (UNLIKELY(p[i] == INT64_MIN)) { continue; }
-                                    p[i] -= 1970 * 12;
-                                }
+                        if (UNLIKELY(ddbVec->hasNull())) {
+                            for (size_t i = 0; i < size; ++i) {
+                                if (UNLIKELY(p[i] == INT64_MIN)) { continue; }
+                                p[i] -= 1970 * 12;
                             }
                         }
                         else {
@@ -415,12 +407,10 @@ PyObject* dolphin2py(ConstantSP input, bool dateFrameFlag) {
                         py::array pyVec(py::dtype("datetime64[ns]"), {size}, {});
                         ddbVec->getLong(0, size, (long long *)pyVec.mutable_data());
                         long long *p = (long long *)pyVec.mutable_data();
-                        if(UNLIKELY(ddbVec->getNullFlag())) {
-                            if (UNLIKELY(ddbVec->hasNull())) {
-                                for (size_t i = 0; i < size; ++i) {
-                                    if (UNLIKELY(p[i] == INT64_MIN)) { continue; }
-                                    p[i] *= 1000000;
-                                }
+                        if (UNLIKELY(ddbVec->hasNull())) {
+                            for (size_t i = 0; i < size; ++i) {
+                                if (UNLIKELY(p[i] == INT64_MIN)) { continue; }
+                                p[i] *= 1000000;
                             }
                         }
                         else {
@@ -443,12 +433,10 @@ PyObject* dolphin2py(ConstantSP input, bool dateFrameFlag) {
                         py::array pyVec(py::dtype("datetime64[ns]"), {size}, {});
                         ddbVec->getLong(0, size, (long long *)pyVec.mutable_data());
                         long long *p = (long long *)pyVec.mutable_data();
-                        if(UNLIKELY(ddbVec->getNullFlag())) {
-                            if (UNLIKELY(ddbVec->hasNull())) {
-                                for (size_t i = 0; i < size; ++i) {
-                                    if (UNLIKELY(p[i] == INT64_MIN)) { continue; }
-                                    p[i] *= 60000000000;
-                                }
+                        if (UNLIKELY(ddbVec->hasNull())) {
+                            for (size_t i = 0; i < size; ++i) {
+                                if (UNLIKELY(p[i] == INT64_MIN)) { continue; }
+                                p[i] *= 60000000000;
                             }
                         }
                         else {
@@ -471,12 +459,10 @@ PyObject* dolphin2py(ConstantSP input, bool dateFrameFlag) {
                         py::array pyVec(py::dtype("datetime64[ns]"), {size}, {});
                         ddbVec->getLong(0, size, (long long *)pyVec.mutable_data());
                         long long *p = (long long *)pyVec.mutable_data();
-                        if(UNLIKELY(ddbVec->getNullFlag())) {
-                            if (UNLIKELY(ddbVec->hasNull())) {
-                                for (size_t i = 0; i < size; ++i) {
-                                    if (UNLIKELY(p[i] == INT64_MIN)) { continue; }
-                                    p[i] *= 1000000000;
-                                }
+                        if (UNLIKELY(ddbVec->hasNull())) {
+                            for (size_t i = 0; i < size; ++i) {
+                                if (UNLIKELY(p[i] == INT64_MIN)) { continue; }
+                                p[i] *= 1000000000;
                             }
                         }
                         else {
@@ -499,12 +485,10 @@ PyObject* dolphin2py(ConstantSP input, bool dateFrameFlag) {
                         py::array pyVec(py::dtype("datetime64[ns]"), {size}, {});
                         ddbVec->getLong(0, size, (long long *)pyVec.mutable_data());
                         long long *p = (long long *)pyVec.mutable_data();
-                        if(UNLIKELY(ddbVec->getNullFlag())) {
-                            if (UNLIKELY(ddbVec->hasNull())) {
-                                for (size_t i = 0; i < size; ++i) {
-                                    if (UNLIKELY(p[i] == INT64_MIN)) { continue; }
-                                    p[i] *= 1000000000;
-                                }
+                        if (UNLIKELY(ddbVec->hasNull())) {
+                            for (size_t i = 0; i < size; ++i) {
+                                if (UNLIKELY(p[i] == INT64_MIN)) { continue; }
+                                p[i] *= 1000000000;
                             }
                         }
                         else {
@@ -527,12 +511,10 @@ PyObject* dolphin2py(ConstantSP input, bool dateFrameFlag) {
                         py::array pyVec(py::dtype("datetime64[ns]"), {size}, {});
                         ddbVec->getLong(0, size, (long long *)pyVec.mutable_data());
                         long long *p = (long long *)pyVec.mutable_data();
-                        if(UNLIKELY(ddbVec->getNullFlag())) {
-                            if (UNLIKELY(ddbVec->hasNull())) {
-                                for (size_t i = 0; i < size; ++i) {
-                                    if (UNLIKELY(p[i] == INT64_MIN)) { continue; }
-                                    p[i] *= 1000000;
-                                }
+                        if (UNLIKELY(ddbVec->hasNull())) {
+                            for (size_t i = 0; i < size; ++i) {
+                                if (UNLIKELY(p[i] == INT64_MIN)) { continue; }
+                                p[i] *= 1000000;
                             }
                         }
                         else {
@@ -567,8 +549,7 @@ PyObject* dolphin2py(ConstantSP input, bool dateFrameFlag) {
                     ddbVec->getFloat(0, size, (float *)pyVec.mutable_data());
                     if(UNLIKELY(ddbVec->getNullFlag())) {
                         if (UNLIKELY(ddbVec->hasNull())) {
-                            pyVec = pyVec.attr("astype")("float64");
-                            auto p = (double *) pyVec.mutable_data();
+                            auto p = (float *)pyVec.mutable_data();
                             float buf[1024];
                             int start = 0;
                             int N = size;
@@ -577,7 +558,7 @@ PyObject* dolphin2py(ConstantSP input, bool dateFrameFlag) {
                                 ddbVec->getFloat(start, len, buf);
                                 for (int i = 0; i < len; ++i) {
                                     if(UNLIKELY(buf[i] == FLT_NMIN)) {
-                                        SET_NPNAN(p + start + i, 1);
+                                       p[i]=NAN;
                                     }
                                 }
                                 start += len;
@@ -634,8 +615,7 @@ PyObject* dolphin2py(ConstantSP input, bool dateFrameFlag) {
                         int len = std::min(N - start, 1024);
                         ddbVec->getInt(start, len, buf);
                         for (int i = 0; i < len; ++i) {
-                            pSymbol->getSymbol(buf[i]).getString();
-                            py::str temp(pSymbol->getSymbol(buf[i]).getString());
+                            py::str temp(pSymbol->getSymbol(buf[i]).c_str(), pSymbol->getSymbol(buf[i]).size());
                             Py_IncRef(temp.ptr());
                             memcpy(pyVec.mutable_data(cnt++), &temp, sizeof(py::object));
                         }
@@ -648,7 +628,7 @@ PyObject* dolphin2py(ConstantSP input, bool dateFrameFlag) {
                     py::array pyVec(py::dtype("object"), {size}, {});
                     auto tem = (DolphinString*)ddbVec->getDataArray();
                     for (size_t i = 0; i < size; ++i) {
-                        py::str temp(tem[i].getString());
+                        py::str temp(tem[i].c_str(), tem[i].size());
                         Py_IncRef(temp.ptr());
                         memcpy(pyVec.mutable_data(i), &temp, sizeof(py::object));
                     }
@@ -1090,12 +1070,27 @@ ConstantSP py2dolphin(PyObject *input, bool free) {
                     //append<float>(pyVec, size, [&](float *buf, int size) { ddbVec->appendFloat(buf, size); });
                     pyVec = pyVec.attr("astype")("float32");
                     ddbVec->appendFloat((float *)pyVec.data(),size);
-                    if (Preserved::isnan_(Preserved::sum_(pyVec)).cast<bool>()) {
-                        float *p = (float *) pyVec.data();
-                        for (size_t i = 0; i < size; ++i) {
-                            if (UNLIKELY(std::isnan(p[i]))) ddbVec->setFloat(i, FLT_NMIN);
+                    float buf[1024];
+                    int start = 0;
+                    int n = size;
+                    bool containNull = false;
+                    while (start < n) {
+                        int len = std::min(n - start, 1024);
+                        float * p = ddbVec->getFloatBuffer(start, len, buf);
+                        bool changed = false;
+                        for (int i = 0; i < len; ++i) {
+                            if(std::isnan(p[i])) {
+                                p[i] = FLT_NMIN;
+                                changed = true;
+                            }
                         }
+                        if(changed) {
+                            ddbVec->setFloat(start, len, p);
+                            containNull = true;
+                        }
+                        start += len;
                     }
+                    ddbVec->setNullFlag(containNull);
                     return ddbVec;
                 }
                 case DT_DOUBLE: {
@@ -1108,14 +1103,14 @@ ConstantSP py2dolphin(PyObject *input, bool free) {
                     int n = size;
                     bool containNull = false;
                     while (start < n) {
-                       int len = std::min(n - start, 1024);
-                       double * p =(double*) ddbVec->getDoubleConst(start, len, buf);
-                       long long* lp = (long long*)p;
-                       bool changed = false;
+                        int len = std::min(n - start, 1024);
+                        double * p =(double*) ddbVec->getDoubleBuffer(start, len, buf);
+                        long long* lp = (long long*)p;
+                        bool changed = false;
                         for (int i = 0; i < len; ++i) {
                             if(lp[i] == 9221120237041090560LL) {
-                               p[i] = DBL_NMIN;
-                               changed = true;
+                                p[i] = DBL_NMIN;
+                                changed = true;
                             }
                         }
                         if(changed) {

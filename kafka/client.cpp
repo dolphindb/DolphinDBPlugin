@@ -11,8 +11,6 @@ void AppendTable::run() {
 
     auto consumer = (Consumer*)(consumer_->getLong());
     Message msg;
-    TableSP result = handle_;
-    int length = result->columns();
     vector<ConstantSP> parser_string;
     parser_string.emplace_back(Util::createConstant(DT_STRING));
 
@@ -20,29 +18,42 @@ void AppendTable::run() {
         msg = consumer->poll(std::chrono::milliseconds(timeout_));
         if(msg){
             parser_string[0]->setString(string(msg.get_payload()));
-            TableSP table_insert;
             try {
                 auto parser_result = parser_->call(session_->getHeap().get(), parser_string);
                 if(!parser_result->isTable()) {
                     cerr << "The parser should return a table." << endl;
                     return;
                 }
-                table_insert = parser_result;
-                if(table_insert->columns()<length) {
-                    cerr << "The columns of the table returned is smaller than the handler table." << endl;
-                    return;
+
+                TableSP table_insert = parser_result;
+                if(handle_->isTable()) {
+                    TableSP result = handle_;
+                    int length = result->columns();
+                    if (table_insert->columns() < length) {
+                        cerr << "The columns of the table returned is smaller than the handler table." << endl;
+                        return;
+                    }
+                    if (table_insert->columns() > length)
+                        cerr
+                                << "The columns of the table returned is larger than the handler table, and the information may be ignored."
+                                << endl;
+
+                    if (result->isSegmentedTable()) {
+                        vector<ConstantSP> args = {result, table_insert};
+                        heap_->currentSession()->getFunctionDef("append!")->call(heap_, args);
+                    } else {
+                        INDEX insertedRows = table_insert->size();
+                        string errMsg;
+                        vector<ConstantSP> args = {table_insert};
+                        bool add = result->append(args, insertedRows, errMsg);
+                        if (!add) {
+                            cerr << errMsg << endl;
+                        }
+                    }
                 }
-                if(table_insert->columns()>length)
-                    cerr << "The columns of the table returned is larger than the handler table, and the information may be ignored." << endl;
-                vector<ConstantSP> dataToAppend;
-                for(int i = 0;i<length;i++)
-                    dataToAppend.emplace_back(table_insert->getColumn(i));
-                INDEX insertedRowd;
-                string errMsg;
-                bool success = result->append(dataToAppend,insertedRowd,errMsg);
-                if(!success) {
-                    cerr << errMsg << endl;
-                    return;
+                else{
+                    vector<ConstantSP> args = {table_insert};
+                    ((FunctionDefSP)handle_)->call(heap_, args);
                 }
             }
             catch (TraceableException &exception) {
@@ -70,7 +81,7 @@ SubConnection::~SubConnection() {
 
 
 SubConnection::SubConnection(Heap *heap, std::string description, const FunctionDefSP& parser, ConstantSP handle, ConstantSP consumer, int timeout)
-    :description_(std::move(description)),heap_(heap) {
+        :description_(std::move(description)),heap_(heap) {
     connected_ = true;
     createTime_=Util::getEpochTime();
     session_ = heap->currentSession()->copy();

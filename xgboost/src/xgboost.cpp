@@ -18,7 +18,21 @@ if (err != 0)                   \
 }
 
 static const string XGBOOST_BOOSTER = "xgboost Booster";
-
+static void checkObjective(string key, string value){
+    if(key == "objective"){
+        if(value != "reg:linear" && value != "reg:squarederror" && value != "reg:squaredlogerror" && value != "reg:logistic" && 
+           value != "reg:pseudohubererror" && value != "binary:logistic" && value != "binary:logitraw" &&
+           value != "binary:hinge" && value != "count:poisson" && value != "survival:cox" && value != "survival:aft" && 
+           value != "aft_loss_distribution" && value != "multi:softmax" && value != "multi:softprob" && value != "rank:pairwise" && 
+           value != "rank:ndcg" && value != "rank:map" && value != "reg:gamma" && value != "reg:tweedie"){
+               throw RuntimeException("Unknown objective function: " + value + ". Objective must be one of \'reg:squarederror\' \'reg:squaredlogerror\' " + 
+               "\'reg:logistic\' \'reg:pseudohubererror\' \'binary:logistic\' \'binary:logitraw\' \'binary:hinge\' \'count:poisson\' \'survival:cox\' \'survival:aft\' \'aft_loss_distribution\' " + 
+               "\'multi:softmax\' \'multi:softprob\' \'rank:pairwise\' \'rank:ndcg\' \'rank:map\' \'reg:gamma\' \'reg:tweedie\'");
+        }
+       
+    }
+    return;
+}
 static void xgboostBoosterOnClose(Heap *heap, vector<ConstantSP> &args) {
     BoosterHandle hBooster = (BoosterHandle) args[0]->getLong();
     if (nullptr != hBooster) {
@@ -129,6 +143,7 @@ static ConstantSP trainImpl(Heap *heap, const DMatrixHandle hTrain[], const int 
         for (int i = 0; i < keySize; i++) {
             string k = keys->getString(i);
             string v = values->get(i)->getString();
+            checkObjective(k,v);
             safe_xgboost(XGBoosterSetParam(hBooster, k.c_str(), v.c_str()));
         }
     }

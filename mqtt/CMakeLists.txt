@@ -17,7 +17,7 @@ elseif (UNIX)
 endif ()
 message("platform: ${platform_macro}")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -g -Wall -fPIC -DLOGGING_LEVEL_2  ${platform_macro}  ")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3 -Wall -fPIC -DLOGGING_LEVEL_2  ${platform_macro}  ")
 #add_compile_options("-std=c++11" "-fPIC" ${platform_macro} "-Wall")
 
 if (WIN32)
