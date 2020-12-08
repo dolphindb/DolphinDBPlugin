@@ -117,8 +117,6 @@ curl_slist* setHeaders(const DictionarySP &headers,curl_slist* slist) {
 ConstantSP httpRequest(RequestMethod method, const ConstantSP &url, const ConstantSP &params, const ConstantSP &timeout,const ConstantSP &headers) {
     ConstantSP res = Util::createDictionary(DT_STRING, nullptr, DT_ANY, nullptr);
     string urlString = url->getString();
-
-    SSL_library_init();
     CURL *curl = curl_easy_init();
     if (curl) {
         char errorBuf[CURL_ERROR_SIZE];
@@ -161,11 +159,13 @@ ConstantSP httpRequest(RequestMethod method, const ConstantSP &url, const Consta
 
         curl_easy_setopt(curl, CURLOPT_URL, urlString.c_str());
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
-        curl_easy_setopt(curl, CURLOPT_USERAGENT, "curl/7.44.0");
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, "curl/7.47.0");
         curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 50L);
         curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
         curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errorBuf);
         curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, timeout->getLong());
+
+        curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
 
         string responseString;
         string headerString;

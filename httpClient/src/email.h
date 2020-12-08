@@ -4,6 +4,7 @@
 #include <vector>
 #include <curl/curl.h>
 extern "C" ConstantSP sendEmail(Heap *heap, vector<ConstantSP> &args);
+extern "C" ConstantSP emailSmtpConfig(Heap *heap, vector<ConstantSP> &args);
 
 class CSendMail {
 public:

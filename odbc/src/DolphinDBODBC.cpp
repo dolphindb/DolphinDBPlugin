@@ -16,17 +16,17 @@
 #include <cstdio>
 #include <iostream>
 #include <locale>
+#include <map>
+
 #include <vector>
 #include "cvt.h"
 #include "nanodbc/nanodbc.h"
 
 #include <fstream>
 #include <iostream>
-//#define DEBUGlog
-#ifdef DEBUGlog
-std::ofstream sqlodbcfs;
-string sqlodbcfslog = "/home/ybzhang/DolphinDBPlugin/odbctable.log";
-#endif
+
+std::ifstream typetran;
+std::string typetranlog = "./plugins/odbc/typetran.txt";
 
 using namespace std;
 
@@ -190,7 +190,7 @@ static TableSP odbcGetOrCreateTable(const Heap* heap,
           "ODBC (different column count)");
     }
     for (INDEX i = 0; i < columns; ++i) {
-      //            Vector* col = (Vector*)tblSP->getColumn(i).get();
+    
       DATA_TYPE dolphinType = tblSP->getColumnType(i);
       if (!compatible(dolphinType, results.column_datatype(i),
                       results.column_size(i))) {
@@ -268,7 +268,7 @@ ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args) {
   const static int nanodbc_rowset_size = 4096;
   assert(heap);
   assert(args.size() >= 2);
-  // Encoding srcEncoding = Encoding::UTF8;
+  Encoding srcEncoding = Encoding::UTF8;
 #ifdef WINDOWS
   if (args.size() == 4 && args[3]->getType() != DT_VOID) {
     if (args[3]->getType() != DT_STRING || args[3]->getForm() != DF_SCALAR) {
@@ -289,10 +289,12 @@ ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args) {
   u16string querySql = utf8_to_utf16(args[1]->getString());
   ConstantSP csp = odbcGetConnection(heap, args, "odbc::query");
   nanodbc::connection* cp = (nanodbc::connection*)(csp->getLong());
-
+  
   nanodbc::result results;
+  nanodbc::statement hstmt;
   try {
-    results = nanodbc::execute(*cp, querySql, nanodbc_rowset_size);
+     results = hstmt.execute_direct(*cp, querySql, nanodbc_rowset_size);
+
   } catch (const runtime_error& e) {
     const char* fmt = "Executed query [%s]: %s";
     vector<char> errorMsgBuf(querySql.size() + strlen(e.what()) + strlen(fmt));
@@ -449,8 +451,7 @@ ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args) {
             u16string _str;
             results.get_ref<u16string>(col, u"", _str);
             string str = utf16_to_utf8(_str);
-            // cout << "{" << str << "} " << str.size() << " " <<
-            // symbolBase->findAndInsert(str) << endl;
+            
             buffers[col][curLine].intVal = symbolBase->findAndInsert(str);
           } break;
           default:
@@ -697,6 +698,7 @@ string sqltypename(DATA_TYPE t) {
     case DT_DATETIME:
       return "datetime";
       break;
+
     case DT_TIMESTAMP:
       return "datetime";
       break;
@@ -772,15 +774,7 @@ string getvaluestr(ConstantSP p, DATA_TYPE t) {
     case DT_CHAR:
       return "\'" + p->getString() + "\'";
       break;
-      ///   case DT_SHORT:
-      ///    return "smallint";
-      ///    break;
-      ///  case DT_INT:
-      ///   return "int";
-      ///   break;
-      ///  case DT_LONG:
-      ///   return "bigint";
-      ///   break;
+     
     case DT_DATE:
       s = p->getString();
       for (size_t i = 0; i < s.length(); i++)
@@ -860,12 +854,7 @@ string getvaluestr(ConstantSP p, DATA_TYPE t) {
       s = "\'" + s + "\'";
       return s;
       break;
-      //  case DT_FLOAT:
-      //    return "float";
-      //    break;
-      ///   case DT_DOUBLE:
-      ///    return "double";
-      ///     break;
+      
     case DT_SYMBOL:
       return "\'" + p->getString() + "\'";
       break;
@@ -880,16 +869,13 @@ string getvaluestr(ConstantSP p, DATA_TYPE t) {
   return "";
 }
 ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args) {
-#ifdef DEBUGlog
-  sqlodbcfs.open(sqlodbcfslog, std::ios::app);
-  sqlodbcfs << "function odbcExportTable" << std::endl;
-  sqlodbcfs.close();
-#endif
+
+
+
 
   assert(heap);
   assert(args.size() >= 2);
 
-  // u16string querySql = utf8_to_utf16(args[1]->getString());
   ConstantSP csp = odbcGetConnection(heap, args, "odbc::query");
   nanodbc::connection* cp = (nanodbc::connection*)(csp->getLong());
   TableSP t = args[1];
@@ -898,19 +884,49 @@ ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args) {
   if (args.size() > 3) flag = args[3]->getBool();
   bool insertIgnore = false;
   if (args.size() > 4) insertIgnore = args[4]->getBool();
+
+  std::map<DATA_TYPE, string> transmap;
+  for (int i = 0; i < 30; i++) {
+    transmap[(DATA_TYPE)i] = sqltypename((DATA_TYPE)i);
+  }
+  if (args.size() > 5) {
+    std::string dsn;
+    dsn = args[5]->getString();
+    if (insertIgnore && (dsn != "" || dsn != "MySQL"))
+      throw IllegalArgumentException("odbc::append",
+                                     "insert ignore can only use in MySQL");
+
+
+
+    typetran.open(typetranlog);
+    if (!typetran) throw "The path or file does not exist";
+
+
+
+    string now;
+    while (getline(typetran, now)) {
+      if (now.find(dsn) != now.npos) break;
+    }
+
+    while (getline(typetran, now)) {
+      if (now.find("[") != now.npos && now.find("]") != now.npos) break;
+      if (now.find("=") == now.npos) break;
+      int p = now.find("=");
+      string l = now.substr(0, p);
+      string r = now.substr(p + 1, now.size() - p - 1);
+      l.erase(0, l.find_first_not_of(" "));
+      l.erase(l.find_last_not_of(" ") + 1);
+      r.erase(0, r.find_first_not_of(" "));
+      r.erase(r.find_last_not_of(" ") + 1);
+
+      transmap[Util::getDataType(l)] = r;
+    }
+    typetran.close();
+  }
   int inrows = 3000;
   vector<VectorSP> cols;
   vector<DATA_TYPE> coltype;
-#ifdef DEBUGlog
-  sqlodbcfs.open(sqlodbcfslog, std::ios::app);
-  sqlodbcfs << "function odbcExportTable get connection success" << std::endl;
-  sqlodbcfs.close();
-#endif
-#ifdef DEBUGlog
-  sqlodbcfs.open(sqlodbcfslog, std::ios::app);
-  sqlodbcfs << "t is " << t->getString() << std::endl;
-  sqlodbcfs.close();
-#endif
+
   for (int i = 0; i < t->columns(); i++) {
     cols.push_back(t->getColumn(i));
     coltype.push_back(t->getColumnType(i));
@@ -921,16 +937,10 @@ ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args) {
   if (flag) {
     string createstring = "create table " + tablename + "(";
     for (int i = 0; i < t->columns(); i++) {
-      createstring += t->getColumnName(i) + " " + sqltypename(coltype[i]);
+      createstring += t->getColumnName(i) + " " + transmap[coltype[i]];
       if (i < t->columns() - 1) createstring += ",";
     }
     createstring += ")";
-
-#ifdef DEBUGlog
-    sqlodbcfs.open(sqlodbcfslog, std::ios::app);
-    sqlodbcfs << createstring << std::endl;
-    sqlodbcfs.close();
-#endif
 
     querySql = utf8_to_utf16(createstring);
     try {
@@ -960,11 +970,7 @@ ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args) {
     if (i % inrows != inrows - 1) {
       insertstring += ",";
     }
-#ifdef DEBUGlog
-    sqlodbcfs.open(sqlodbcfslog, std::ios::app);
-    sqlodbcfs << insertstring << std::endl;
-    sqlodbcfs.close();
-#endif
+
     q += insertstring;
     if (i % inrows == inrows - 1) {
       q += ";";
@@ -978,7 +984,10 @@ ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args) {
         sprintf(errorMsgBuf.data(), fmt, querySql.c_str(), e.what());
         throw TableRuntimeException(errorMsgBuf.data());
       }
-      q = "INSERT INTO " + tablename + " VALUES ";
+      if (insertIgnore)
+        q = "INSERT IGNORE INTO " + tablename + " VALUES ";
+      else
+        q = "INSERT INTO " + tablename + " VALUES ";
     }
   }
   if (rows % inrows != 0) {

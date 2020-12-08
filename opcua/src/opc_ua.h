@@ -24,7 +24,7 @@ extern "C" ConstantSP writeNode(Heap* heap, vector<ConstantSP>& arguments );
 extern "C" ConstantSP subscribeNode(Heap* heap, vector<ConstantSP>& arguments );
 extern "C" ConstantSP endSub(const ConstantSP& handle, const ConstantSP& b );
 extern "C" ConstantSP browseNode(Heap* heap, vector<ConstantSP>& arguments);
-
+extern "C" ConstantSP getSubscriberStat(const ConstantSP &handle, const ConstantSP &b);
 
 static UA_INLINE UA_Int64
 UA_DateTime_toUnixTimeStamp(UA_DateTime date) {
@@ -35,35 +35,56 @@ UnixTimeStamp_To_UA_DateTime(UA_Int64 date) {
     return date * UA_DATETIME_MSEC + UA_DATETIME_UNIX_EPOCH - UA_DateTime_localTimeUtcOffset();
 }
 
+
+class DummyOutput: public Output{
+public:
+    virtual bool timeElapsed(long long nanoSeconds){return true;}
+    virtual bool write(const ConstantSP& obj){return true;}
+    virtual bool message(const string& msg){return true;}
+    virtual void enableIntermediateMessage(bool enabled) {}
+    virtual IO_ERR done(){return OK;}
+    virtual IO_ERR done(const string& errMsg){return OK;}
+    virtual bool start(){return true;}
+    virtual bool start(const string& message){return true;}
+    virtual IO_ERR writeReady(){return OK;}
+    virtual ~DummyOutput(){}
+    virtual OUTPUT_TYPE getOutputType() const {return STDOUT;}
+    virtual void close() {}
+    virtual void setWindow(INDEX index,INDEX size){};
+    virtual IO_ERR flush() {return OK;}
+};
+
+class OPCUAClient;
 class OPCUASub:public Runnable {
 public:
-    static std::map<UA_UInt32,OPCUASub* > mapSub;
-    OPCUASub(Heap* _heap,  UA_Client* _client, string _endPoint):heap(_heap), client(_client), endPoint(_endPoint){}
-    void setArgs(vector<int>& _nsIdx, vector<string>& _nodeIdString, ConstantSP& _handle){
-        nsIdx = _nsIdx;
-	    nodeIdString = _nodeIdString;
-	    handle = _handle;
+    static std::map<UA_UInt32,OPCUASub* > mapSub_;
+    OPCUASub(Heap* heap,  UA_Client* client, string endPoint, string clientUri, OPCUAClient* opcuaClient):
+        heap_(heap), client_(client), endPoint_(endPoint), clientUri_(clientUri), opcuaClient_(opcuaClient){}
+    void setArgs(vector<int>& nsIdx, vector<string>& nodeIdString, ConstantSP& handle){
+        nsIdx_ = nsIdx;
+	    nodeIdString_ = nodeIdString;
+	    handle_ = handle;
     }
     void subs();
     void unSub(){
         /* Delete the subscription */
-	    subFlag = false;
-        running = false;
-        UA_StatusCode retVal = UA_Client_Subscriptions_deleteSingle(client, subId);
-        mapSub.erase(subId);
+        subFlag_ = false;
+        Util::sleep(1000);
+        UA_StatusCode retVal = UA_Client_Subscriptions_deleteSingle(client_, subId_);
+        mapSub_.erase(subId_);
         if(retVal!=UA_STATUSCODE_GOOD){
             throw RuntimeException("Could not call unsubscribe service. StatusCode " + string(UA_StatusCode_name(retVal)));
         }
-	    UA_Client_run_iterate(client, 1000);
+	    UA_Client_run_iterate(client_, 1000);
 	
     }
     void run() override {
-        while (running) {
-            if(subFlag){
-                UA_StatusCode retVal = UA_Client_run_iterate(client, 100); 
+        while (running_) {
+            if(subFlag_){
+                UA_StatusCode retVal = UA_Client_run_iterate(client_, 100); 
                 if(retVal!=UA_STATUSCODE_GOOD){
-                    subFlag = false;
-                    running = false;
+                    subFlag_ = false;
+                    running_ = false;
                     //throw RuntimeException(string(UA_StatusCode_name(retVal)));
 
                 }
@@ -71,31 +92,60 @@ public:
             
         }
     }
-    ConstantSP getHandle(){return handle;}
-    Heap* getHeap(){return heap;}
+    bool getSubed(){return subFlag_;}
+    ConstantSP getHandle(){return handle_;}
+    Heap* getHeap(){return heap_;}
     std::map<UA_UInt32, string> monMap;
-    void setRunning(bool _run){running = _run; }
+    void setRunning(bool run){running_ = run; }
+    string getClientUri(){return clientUri_;}
+    void setUser(const string &u){user_ = u;}
+    string getUser(){return user_;}
+    void addRecP(){recv_++;}
+    long long getRecP(){return recv_;}
+    string getSubID(){return std::to_string(subId_);};
+    string getEndPoint(){return endPoint_;};
+    long long getCreateTime(){return createTime_;};
+    string getNodeID(){
+        string result = "";
+        for(size_t i = 0; i < nsIdx_.size();i++){
+            result += std::to_string(nsIdx_[i])+":"+nodeIdString_[i]+";";
+        }
+        return result;
+    }
+    string getErrorMsg(){ return errorMsg_; }
+    void setErrorMsg(string errorMsg){ errorMsg_ = errorMsg; }
+    OPCUAClient* getOPCUAClient(){return opcuaClient_;}
 private:
-    Heap* heap;
-    UA_Client* client = nullptr;
-    vector<int> nsIdx;
-    vector<string> nodeIdString;
-    ConstantSP handle;
-    UA_UInt32 subId;
-    bool subFlag = false;
-    string endPoint;
-    bool running = true;
+    Heap* heap_;
+    UA_Client* client_ = nullptr;
+    string endPoint_;
+    string clientUri_;
+    OPCUAClient *opcuaClient_;
+
+    vector<int> nsIdx_;
+    vector<string> nodeIdString_;
+    ConstantSP handle_ = nullptr;
+    UA_UInt32 subId_ = 0;
+    bool subFlag_ = false;
+    bool running_ = true;
+    string user_ = "";
+    long long createTime_ = 0;
+    string errorMsg_ ="";
+    long long recv_ = 0;
     
+
 };
 
 class OPCUAClient{
 public:
     OPCUAClient(){
-        client = UA_Client_new();
+        client_ = UA_Client_new();
     }
     ~OPCUAClient(){
 	    endSub();
-        UA_Client_delete(client);
+        UA_Client_delete(client_);
+        // delete thread;
+        // delete sub;
     }
     void connect(string endPointUrl, string clientUri, string username, string password,UA_MessageSecurityMode securityMode, UA_String securityPolicy,UA_ByteString certificate,UA_ByteString privateKey);
     ConstantSP readNode(vector<int> &nsIdx, vector<string> &nodeIdString, ConstantSP &table);
@@ -103,50 +153,67 @@ public:
     void browseNode(UA_NodeId object, vector<int> &nameSpace, vector<string> &nodeid);
     ConstantSP browseNode();
     bool getConnected(){
-        UA_ClientState state = UA_Client_getState(client);
+        UA_ClientState state = UA_Client_getState(client_);
         if(state <= UA_ClientState::UA_CLIENTSTATE_CONNECTED)
             return false;
         return true;
     }
     bool getSubed(){
-        return subFlag;
+        if(sub_ == nullptr){
+            return false;
+        }else{
+            return sub_->getSubed();
+        }
     }
     void subscribe(Heap *heap, vector<int> &nsIdx, vector<string> &nodeIdString, ConstantSP &handle){
 	    
-	    if(sub == nullptr){   
-            sub = new OPCUASub(heap, client, connEndPointUrl);
- 	        thread = new Thread(sub);
+	    if(sub_ == nullptr){   
+            sub_ = new OPCUASub(heap, client_, connEndPointUrl_, clientUri_, this);
+ 	        thread_ = new Thread(sub_);
 	        //thread->join();
 	    }
-	    sub->setArgs(nsIdx, nodeIdString, handle);
+	    sub_->setArgs(nsIdx, nodeIdString, handle);
         try{
-            sub->subs();
+            sub_->subs();
         }
-        catch(RuntimeException e){
+        catch(RuntimeException &e){
             throw e;
         }
-        if (!thread->isRunning()) {
-            sub->setRunning(true);
-            thread->start();
+        if (!thread_->isRunning()) {
+            sub_->setRunning(true);
+            thread_->start();
         }
-        subFlag = true;
+        sub_->setUser(session_->getUser()->getUserId());
     }
     void endSub(){
-        if(subFlag){
+        if(getSubed()){
             try{
-                sub->unSub();      
+                sub_->setRunning(false);
+                sub_->unSub();      
             }
-            catch(RuntimeException e){
-                return;
+            catch(RuntimeException &e){
+                throw e;
             }
         }
-	    subFlag = false;
     }
-
+    void setSession(const SessionSP& sess){
+        session_ = sess;
+    }
+    SessionSP getSession(){
+        return session_;
+    }
+    bool getSessionStat(){
+        return sessionClosed_;
+    }
+    void setSessionStat(bool flag){
+        sessionClosed_ = flag;
+    }
 private:
-UA_Client *client;
-OPCUASub *sub = nullptr;
-ThreadSP thread;
-bool subFlag = false;
-string connEndPointUrl = "";
+    UA_Client *client_;
+    OPCUASub *sub_ = nullptr;
+    ThreadSP thread_;
+    string connEndPointUrl_ = "";
+    bool sessionClosed_ = false;
+    SessionSP session_;
+    string clientUri_;   
 };

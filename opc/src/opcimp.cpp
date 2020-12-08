@@ -52,7 +52,15 @@ void makeRemoteObject(const string& host,const IID requestedClass, const IID req
 
     if (FAILED(result))
     {
-        throw OPCException("Failed to get remote interface");
+        cout<<"Failed to get remote interface"<<result<<endl;
+        athn.dwAuthnLevel = RPC_C_AUTHN_LEVEL_NONE;
+        result = CoCreateInstanceEx(requestedClass, NULL, CLSCTX_REMOTE_SERVER,
+                                  &remoteServerInfo, 1, &reqInterface);
+        if (FAILED(result))
+        {
+          cout<<"Failed to get remote interface again: "<<result<<endl;
+          throw OPCException("Failed to get remote interface");
+        }
     }
     *interfacePtr = reqInterface.pItf; // avoid ref counter getting incremented again
 }

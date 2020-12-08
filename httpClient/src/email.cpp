@@ -7,6 +7,11 @@
 #include<list>
 #include<vector>
 #include<string>
+#include<unordered_map>
+
+unordered_map<std::string, std::string> smtpHost;
+unordered_map<std::string, int> smtpPost;
+bool firstConfigSmtp=true;
 
 size_t curlWriteData(void *ptr, size_t size, size_t nmemb, string *data) {
     data->append((char *)ptr, size * nmemb);
@@ -23,6 +28,15 @@ CSendMail::CSendMail(
     m_RecipientList.clear();
     m_MailContent.clear();
     m_iMailContentPos = 0;
+    if(firstConfigSmtp){
+        smtpHost["126.com"]="smtp.126.com";
+        smtpHost["163.com"]="smtp.163.com";
+        smtpHost["yeah.net"]="smtp.yeah.net";
+        smtpHost["sohu.com"]="smtp.sohu.com";
+        smtpHost["dolphindb.com"]="smtp.ionos.com";
+        smtpHost["qq.com"]="smtp.qq.com";
+        firstConfigSmtp=false;
+    }
 }
 
 size_t CSendMail::read_callback(void* ptr, size_t size, size_t nmemb, void* userp)
@@ -82,7 +96,6 @@ ConstantSP CSendMail::SendMail(const std::string& strSubject, const std::string&
     ConstructHead(strSubject, strMailBody);
     CURL *curl;
     struct curl_slist* rcpt_list = NULL;
-    SSL_library_init();
     curl_global_init(CURL_GLOBAL_DEFAULT);
 
     curl = curl_easy_init();
@@ -107,34 +120,17 @@ ConstantSP CSendMail::SendMail(const std::string& strSubject, const std::string&
     int port=25;
     int pos=m_strUser.find_first_of('@');
     string tmp=m_strUser.substr(pos+1);
-    if(tmp=="126.com")
-    {
-        strSmtpServer="smtp.126.com";
-        port=25;
+    if(smtpHost.count(tmp)!=0)
+        strSmtpServer=smtpHost[tmp];
+    else{
+        curl_slist_free_all(rcpt_list);
+        curl_easy_cleanup(curl);
+        curl_global_cleanup();
+        throw IllegalArgumentException(__FUNCTION__, "Enter @126.com,@163.com,@yeah.net,@sohu.com,@dolphindb.com,@qq.com or config the email smtpServer");
     }
-    else if(tmp=="163.com")
-    {
-        strSmtpServer="smtp.163.com";
-        port=25;
-    }
-    else if(tmp=="yeah.net")
-    {
-        strSmtpServer="smtp.yeah.net";
-        port=25;
-    }
-    else if(tmp=="sohu.com")
-    {
-        strSmtpServer="smtp.sohu.com";
-        port=25;
-    }
-    else if(tmp=="dolphindb.com")
-    {
-        strSmtpServer="smtp.ionos.com";
-        port=25;
-    }
-    else 
-        throw IllegalArgumentException(__FUNCTION__, "Enter @126.com,@163.com,@yeah.net,@sohu.com,@dolphindb.com");
-    
+    if(smtpPost.count(tmp)!=0)
+        port=smtpPost[tmp];
+
     std::string strUrl = "smtp://" + strSmtpServer;
     strUrl += ":";
     strUrl += std::to_string(port);
@@ -145,7 +141,6 @@ ConstantSP CSendMail::SendMail(const std::string& strSubject, const std::string&
     curl_easy_setopt(curl, CURLOPT_READFUNCTION, &read_callback);
     curl_easy_setopt(curl, CURLOPT_MAIL_FROM,m_strUser.c_str());
     curl_easy_setopt(curl, CURLOPT_MAIL_RCPT, rcpt_list);
-    curl_easy_setopt(curl, CURLOPT_USE_SSL, (long) CURLUSESSL_ALL);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
     curl_easy_setopt(curl, CURLOPT_READDATA, this);
@@ -159,26 +154,22 @@ ConstantSP CSendMail::SendMail(const std::string& strSubject, const std::string&
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseString);
     curl_easy_setopt(curl, CURLOPT_HEADERDATA, &headerString);
     CURLcode ret = curl_easy_perform(curl);
-    if (ret != 0) {
-        string errorMsg(errorBuf);
-        curl_slist_free_all(rcpt_list);
-        curl_easy_cleanup(curl);
-        curl_global_cleanup();
-        throw RuntimeException("failed to send the email,send it again, or change the subject and body of the email to avoid misreading it as a robot, or change the email address.");
-        return res;
-    }
 
     long responseCode;
     double elapsed;
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &responseCode);
     curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &elapsed);
-    if(responseCode!=250)
-    {
+
+    if (ret != 0) {
         curl_slist_free_all(rcpt_list);
         curl_easy_cleanup(curl);
         curl_global_cleanup();
-        throw RuntimeException("failed to send the email,send it again, or change the subject and body of the email to avoid misreading it as a robot, or change the email address.");
+        if(responseCode==535)
+            throw RuntimeException("UserId or password is incorrect");
+        else 
+             throw RuntimeException("Failed to send the email");
     }
+
     res->set(new String("responseCode"), new Int(responseCode));
     res->set(new String("elapsed"), new Double(elapsed));
     res->set(new String("headers"), new String(headerString));
@@ -226,4 +217,27 @@ ConstantSP sendEmail(Heap *heap, vector<ConstantSP> &args)
         mail.AddRecipient(recipient->getString());
     ConstantSP res=mail.SendMail(strinSubject,strinContext);
     return res;
+}
+
+
+ConstantSP emailSmtpConfig(Heap *heap, vector<ConstantSP> &args){
+    if(args[0]->getType()!=DT_STRING||args[0]->getForm()!=DF_SCALAR){
+        throw IllegalArgumentException(__FUNCTION__, "EmailName must be a string scalar");
+    }
+    if(args[1]->getType()!=DT_STRING||args[1]->getForm()!=DF_SCALAR){
+        throw IllegalArgumentException(__FUNCTION__, "Host must be a string scalar");
+    }
+    if(args.size()==3){
+        if(args[2]->getType()!=DT_INT||args[2]->getForm()!=DF_SCALAR){
+            throw IllegalArgumentException(__FUNCTION__, "Post must be a int scalar");
+        }
+    }
+    if(args[0]->getString()=="")
+        throw IllegalArgumentException(__FUNCTION__, "EmailName can't be empty");
+    if(args[1]->getString()=="")
+        throw IllegalArgumentException(__FUNCTION__, "Host can't be empty");
+    smtpHost[args[0]->getString()]=args[1]->getString();
+    if(args.size()==3)
+        smtpPost[args[0]->getString()]=args[2]->getInt();
+    return new Bool(true);
 }

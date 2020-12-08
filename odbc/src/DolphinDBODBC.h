@@ -9,8 +9,6 @@
 #define DOLPHINDBODBC_H_
 
 #include "CoreConcept.h"
-//#include "DolphinDB.h"
-// using dolphindb::ConstantSP;
 
 extern "C" ConstantSP odbcConnect(Heap* heap, vector<ConstantSP>& args);
 extern "C" ConstantSP odbcClose(Heap* heap, vector<ConstantSP>& args);

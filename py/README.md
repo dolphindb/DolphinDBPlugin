@@ -172,10 +172,10 @@ py::importModule(moduleName)
 ```
 np = py::importModule("numpy"); //导入numpy
 
-linear_model = py::importModule("sklearp =py::toPy(t1)p =py::toPy(t1)n.linear_model"); //导入sklearn子模块linear_model
+linear_model = py::importModule("sklearn.linear_model"); //导入sklearn子模块linear_model
 ```
 
-注：Windows环境下使用GUI第一次加载模块可能会卡住，如果卡住需要在命令行执行py::importModule，后续就可以在GUI中正常使用了。如果需要导入自己写的模块，需要将该模块文件拷贝到sys.path打印的lib路径下或者dolphindb所在的目录下。
+注：Windows环境下使用GUI第一次加载模块可能会卡住，如果卡住需要在命令行执行py::importModule，后续就可以在GUI中正常使用了。如果需要导入自己写的模块，需要将该模块文件拷贝到sys.path打印的lib路径下或者dolphindb所在的目录下，具体例子可参考[4.6小节](#46-导入自己写的模块并调用其中的静态方法)。
 
 ### 3.4 py::cmd
 
@@ -247,6 +247,7 @@ py::getFunc(module, funcName)
 np = py::importModule("numpy"); //导入numpy
 eye = py::getFunc(np, "eye"); //获取numpy中的eye函数
 
+np = py::importModule("numpy"); //导入numpy
 random = py::getObj(np, "random"); //获取numpy子模块random
 randint = py::getFunc(random, "randint"); //获取random中的randint函数
 ```
@@ -300,7 +301,7 @@ linearInst = py::getInstance(linear_model,"LinearRegression")
 
 **注意**：py::getFunc获取的是模块中的静态方法。如果要调用实例方法，需要用py::getInstanceFromObj或py::getInstance获取类实例对象，然后用"``` . ```"方式访问类方法。
 
-## 4. 完整的例子
+## 4. 实例
 
 ### 4.1 加载插件并初始化
 
@@ -377,6 +378,40 @@ linearInst = py::getInstance(linear_model,"LinearRegression")
 
  **注意**：DolphinDB中若要从矩阵中取行数据要用`row`函数，如上例中的 iris['data'].row(0:3) 为取前三行数据。iris['data'][0:3] 为取前三列数据。
 
+### 4.6 导入自己写的模块并调用其中的静态方法
+
+本例中我们自己实现了一个如下所示的python模块，里面有两个静态方法，fib(n)打印从0到n的Fibonacci数列，fib2(n)返回从0到n的Fibonacci数列。我们将该模块保存为fibo.py，并将其拷贝到dolphindb所在的目录下（或者拷贝到sys.path打印的lib路径下）：
+
+```python
+def fib(n):    # write Fibonacci series up to n
+    a, b = 0, 1
+    while a < n:
+        print(a, end=' ')
+        a, b = b, a+b
+    print()
+
+def fib2(n):   # return Fibonacci series up to n
+    result = []
+    a, b = 0, 1
+    while a < n:
+        result.append(a)
+        a, b = b, a+b
+    return result
+```
+
+之后我们便能加载插件，在dolphindb中导入该模块进行使用：
+
+```
+loadPlugin("/path/to/plugin/PluginPy.txt"); //加载插件
+
+fibo = py::importModule("fibo");  //导入该模块
+fib = py::getFunc(fibo,"fib");  //获取模块中的fib函数
+fib(10);  //调用fib函数，打印出0 1 1 2 3 5 8
+fib2 = py::getFunc(fibo,"fib2"); //获取模块中的fib2函数
+re = fib2(10);  //调用fib2函数
+re;   //output: 0 1 1 2 3 5 8
+```
+
 ## 5. 支持的数据类型
 
 ### 5.1 DolphinDB数据类型转成Python对象
@@ -439,4 +474,3 @@ linearInst = py::getInstance(linear_model,"LinearRegression")
 
 - numpy.array会根据维度转换成vector（1维）或者matrix（2维）。
 - pandas.DataFrame中的时间数据类型都是datetime64[ns]，所以在转换成table时，时间类型都会转换成NANOTIMESTAMP类型。
-
