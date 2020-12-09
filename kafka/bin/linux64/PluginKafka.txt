@@ -8,10 +8,10 @@ kafkaUnsubscribe,unsubscribe,system,1,1,0
 kafkaConsumerPoll,consumerPoll,system,1,2,0
 kafkaPollByteStream,pollByteStream,system,1,2,0
 kafkaConsumerPollBatch,consumerPollBatch,system,2,3,0
-kafkaConsumerPollLoop,consumerPollLoop,system,2,3,0
-kafkaEndLoop,endLoop,system,1,1,0
+kafkaCreateSubJob,createSubJob,system,4,5,0
+kafkaGetJobStat,getJobStat,system,0,0,0
+kafkaCancelSubJob,cancelSubJob,system,1,1,0
 kafkaPollDict,pollDict,system,2,3,0
-kafkaPollDict,pollTab,system,3,4,0
 kafkaCommit,commit,system,1,1,0
 kafkaCommitTopic,commitTopic,system,4,4,0
 kafkaAsyncCommit,asyncCommit,system,1,1,0
