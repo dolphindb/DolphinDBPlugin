@@ -24,10 +24,11 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -std=c++11 -Wall -rd
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
 link_directories(${CMAKE_BINARY_DIR})
 
-aux_source_directory("./" plugin_kafka_src)
-aux_source_directory("cppkafka/src" cppkafka)
+aux_source_directory("./src" plugin_kafka_src)
+aux_source_directory("./cppkafka/src" cppkafka)
 
 add_subdirectory(cppkafka)
 
 add_library(PluginKafka SHARED ${plugin_kafka_src} client.h client.cpp)
-target_link_libraries(PluginKafka librdkafka.a librdkafka++.a libcppkafka.a libz.a DolphinDB)
+#target_link_libraries(PluginKafka librdkafka.a librdkafka++.a libcppkafka.a libz.a DolphinDB)
+target_link_libraries(PluginKafka rdkafka++ cppkafka DolphinDB)
