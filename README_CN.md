@@ -1,19 +1,34 @@
-## DolphinDB Plugin
-DolphinDB database 支持动态的载入外部插件，以拓展系统功能。插件仅支持使用C++编写，并且需要编译成so共享库或者dll共享库文件。
+# DolphinDB Plugin
+
+DolphinDB database 支持动态载入外部插件，以拓展系统功能。插件仅支持使用C++编写，并且需要编译成so共享库或者dll共享库文件。
 
 ## 目录结构
 * [include](./include)目录包含了DolphinDB的核心数据结构的类声明和一些工具类声明，这些类是实现插件的重要基础工具。  
 * [demo](./demo)目录包含了一个demo插件的实现。  
-* [odbc](./odbc)与[mysql](./mysql)等目录包含了ODBC与MySQL
-等插件的实现。
+* [odbc](./odbc)与[mysql](./mysql)等目录包含了ODBC与MySQL等插件的实现。
 
 ## 加载插件
 
-使用[loadPlugin](https://www.dolphindb.cn/cn/help/loadPlugin.html)函数加载外部插件。该函数接受一个文件路径，该文件描述插件的格式。  
+### 通过函数loadPlugin加载
+
+使用[`loadPlugin`](https://www.dolphindb.cn/cn/help/loadPlugin.html)函数加载外部插件。该函数接受一个文件路径，该文件描述插件的格式,例如：
+
+```
+loadPlugin("/YOUR_SEVER_PATH/plugins/odbc/PluginODBC.txt"); 
+```
+
+### DolphinDB Server>=1.20.0 版本后可以通过preloadModules参数来自动加载
+
+前提是server的版本>=1.20; 需要预先加载的插件存在。否则sever启动的时候会有异常。多个插件用都好分离。
+```
+preloadModules=plugins::mysql,plugins::odbc
+```
+
+  
 
 ## 插件格式
 
-DolphinDB使用一个文本文件来描述插件。该文件格式如下：首行描述插件名字和共享库文件名，接下来的每一行都描述一个共享库函数和DolphinDB函数的映射关系。  
+DolphinDB使用一个文本文件来描述插件。该文件格式如下：首行描述插件名字和共享库文件名，其后每一行都描述一个共享库函数和DolphinDB函数的映射关系。  
 ```
 module name, lib file
 function name in lib, function name in DolphinDB, function type, minParamCount, maxParamCount, isAggregate
@@ -39,7 +54,7 @@ foo,foo,system,1,1,0
 ```
 以上描述文件定义了一个名为 demo 的插件，共享库文件名为 libPluginDemo.so。插件导出两个函数，第一个函数为`minmax`，该函数在DolphinDB中名字同样是`minmax`，operator类型，接受一个参数；第二个函数名字为`echo`，DolphinDB中名字同样是`echo`，system类型，接受一个参数。  
 
-写完描述文件之后，就可以开始编写插件了，内容请参考[demo](./demo)文件夹内容。
+写完描述文件之后，即可开始编写插件。内容请参考[demo](./demo)文件夹内容。
 
 编译需要用到DolphinDB的核心库 libDolphinDB.so 或 libDolphinDB.dll，该核心库实现了[include](./include)目录下声明的类。编译步骤如下（以Linux操作系统上编译为例）：
 ```
