@@ -6,8 +6,25 @@ DolphinDB database supports dynamic loading of external plugins to extend system
 * ```include```The directory contains the class declarations and some tool class declarations for the core data structures of DolphinDB. These classes are important basic tools for implementing plug-ins.
 * ```demo```The directory contains a demo plug-in implementation. 
 * ```odbc```The directory contains an implementation of the odbc plugin.
+
 ## Loading Plugin
-Use the ```loadPlugin``` function to load an external plugin that accepts a file path that describes the format of the plugin.
+
+### Load via function loadPlugin
+
+Use the [`loadPlugin`](https://www.dolphindb.cn/cn/help/loadPlugin.html) function to load external plug-ins. This function accepts a file path, which describes the format of the plug-in, for example:
+
+```
+loadPlugin("/YOUR_SEVER_PATH/plugins/odbc/PluginODBC.txt");
+```
+
+### DolphinDB Server 1.20.x version can be automatically loaded through the preloadModules parameter
+
+The premise is that the DolphinDB server version>=1.20; the plug-in that needs to be pre-loaded should exist. Otherwise, there will be an exception when the sever starts. Multiple plug-ins are easy to separate by ','.
+
+```
+preloadModules=plugins::mysql,plugins::odbc
+```
+
 
 ## DolphinDB Plugin Format
 
@@ -28,6 +45,7 @@ function name in lib, function name in DolphinDB, function type, minParamCount, 
 * minParamCount: the minimum number of parameters  
 * maxParamCount: the maximum number of parameters  
 * isAggregated: whether it is an aggregate function  
+
 
 ## Example
 PluginDemo.txt:
