@@ -9,7 +9,22 @@ DolphinDB database 支持动态载入外部插件，以拓展系统功能。插�
 
 ## 加载插件
 
-使用[`loadPlugin`](https://www.dolphindb.cn/cn/help/loadPlugin.html)函数加载外部插件。该函数接受一个文件路径，该文件描述插件的格式。  
+### 通过函数loadPlugin加载
+
+使用[`loadPlugin`](https://www.dolphindb.cn/cn/help/loadPlugin.html)函数加载外部插件。该函数接受一个文件路径，该文件描述插件的格式,例如：
+
+```
+loadPlugin("/YOUR_SEVER_PATH/plugins/odbc/PluginODBC.txt"); 
+```
+
+### DolphinDB Server>=1.20.0 版本后可以通过preloadModules参数来自动加载
+
+前提是server的版本>=1.20; 需要预先加载的插件存在。否则sever启动的时候会有异常。多个插件用都好分离。
+```
+preloadModules=plugins::mysql,plugins::odbc
+```
+
+  
 
 ## 插件格式
 
