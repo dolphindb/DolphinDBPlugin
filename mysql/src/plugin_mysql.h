@@ -95,7 +95,7 @@ class Connection : public mysqlxx::Connection {
 typedef SmartPointer<Connection> ConnectionSP;
 
 const size_t DEFAULT_PACK_SIZE = 8192;
-const unsigned long long DEFAULT_ALLOWED_MEM = 8ULL * 1024 * 64;
+const unsigned long long DEFAULT_ALLOWED_MEM = 64ULL * 1024 * 1024;
 const size_t DEFAULT_WORKSPACE_SIZE = 3;
 using mysqlxx::Query;
 class Pack;
