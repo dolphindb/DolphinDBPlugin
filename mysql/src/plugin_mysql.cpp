@@ -146,8 +146,8 @@ ConstantSP mysqlLoadEx(Heap *heap, vector<ConstantSP> &arguments) {
         if (!args[5]->isTable()) {
             throw IllegalArgumentException(__FUNCTION__, usage + "schema must be a table");
         }
+        schema = args[5];
     }
-    schema = args[5];
 
     if (!args[6]->isNothing()) {
         if ((args[6]->getType() != DT_INT && args[6]->getType() != DT_LONG) || args[6]->getForm() != DF_SCALAR)
@@ -628,7 +628,7 @@ void Pack::init(vector<DATA_TYPE> srcDt, vector<DATA_TYPE> dstDt, TableSP &resul
     capacity_ = capacity_ < allowedRow ? capacity_ : allowedRow;
     if (capacity_ == 0) {
         throw RuntimeException("Insufficient memory to load even one row, please check your MySQL "
-                               "table, rowStorage: " + Util::convert(rowStorage / 1024 / 1024 / 1024) + "M");
+                               "table, rowStorage: " + Util::convert(rowStorage / 1024 / 1024) + "M");
     }
     initedCols_ = 0;
     for (size_t col = 0; col < nCol_; ++col) {
