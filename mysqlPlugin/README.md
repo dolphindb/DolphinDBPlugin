@@ -9,7 +9,8 @@
 + MySQL 8.0
 
 + [DolphinDB C++ API](https://github.com/dolphindb/api-cplusplus)及其环境
-API中的用于64位linux的动态库及头文件已包含在本文件夹bin和include下，如需其他版本可自行下载。
+
+	API中的用于64位linux的动态库及头文件已包含在本文件夹bin和include下，如需其他版本可自行下载。
 
 ### 1.2 编译
 
