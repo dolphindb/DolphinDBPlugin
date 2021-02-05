@@ -193,7 +193,7 @@ mysql::load(conn, "SELECT now(6)", table(`val as name, `NANOTIMESTAMP as type));
 
 #### Syntax
 
-mysql::loadEx(connection, dbHandle,tableName,partitionColumns,table_or_query,[schema],[startRow],[rowNum])
+mysql::loadEx(connection, dbHandle,tableName,partitionColumns,table_or_query,[schema],[startRow],[rowNum],[transform])
 
 #### Parameters
 * connection: a MySQL connection handle created with `mysql::connect`.
@@ -203,6 +203,7 @@ mysql::loadEx(connection, dbHandle,tableName,partitionColumns,table_or_query,[sc
 * schema: a table with names and data types of columns. If we need to change the data type of a column that is automatically determined by the system, the schema table needs to be modified and used as an argument.
 * startRow: an integer indicating the index of the starting row to read. If unspecified, read from the first row. If 'table_or_query' is a SQL query, then 'startRow' should unspecified.
 * rowNum: an integer indicating the number of rows to read. If unspecified, read to the last row. If 'table_or_query' is a SQL query, then 'rowNum' should unspecified.
+* transform: apply certain transformation on a MySQL table or query before importing into DolphinDB database.
 
 **Note:** If 'table_or_query' is a SQL query, use 'LIMIT' in SQL query to specify 'startRow' and 'rowNum'.
 
@@ -251,6 +252,17 @@ tb = loadTable("dfs://US", `tb)
 db = database("dfs://US", RANGE, 0 50000 10000)
 mysql::loadEx(conn, db,`tb, `PERMNO, "SELECT * FROM US LIMIT 1000");
 tb = loadTable("dfs://US", `tb)
+```
+
+* Load and transform data into a DFS partitioned table
+
+```
+db = database("dfs://US", RANGE, 0 50000 10000)
+def replaceTable(mutable t){
+	return t.replaceColumn!(`svalue,t[`savlue]-1)
+}
+t=mysql::loadEx(conn, db, "",`stockid, 'select  * from US where stockid<=1000000',,,,replaceTable)
+
 ```
 
 ## 3. Data Types
