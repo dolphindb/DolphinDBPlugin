@@ -8,6 +8,7 @@ DolphinDB的MySQL导入插件可将MySQL中的数据表或语句查询结果高�
 
 用户可以导入预编译好的MySQL插件（DolphinDB安装包中或者bin目录下)。
 
+
 在DolphinDB中执行以下命令导入MySQL插件：
 
 Linux环境：
@@ -25,7 +26,8 @@ loadPlugin("C:/path/to/mysql/PluginMySQL.txt")
 
 可使用以下方法编译MySQL插件，编译成功后通过以上方法导入。
 
-#### 1.2.1 在Linux环境中编译安装
+
+#### 在Linux环境中编译安装
 
 ##### 环境准备
 
@@ -40,6 +42,7 @@ $ sudo apt-get install git cmake
 ```
 $ git submodule update --init --recursive
 ```
+
 
 安装cmake：
 ```
@@ -61,7 +64,7 @@ make -j`nproc`
 编译之后目录下会产生libPluginMySQL.so文件。
 
 
-#### 1.2.2 在Windows环境中编译安装
+#### 在Windows环境中编译安装
 
 ##### 在Windows环境中需要使用CMake和MinGW编译
 
@@ -208,7 +211,7 @@ mysql::load(conn, "SELECT now(6)");
 
 #### 语法
 
-mysql::loadEx(connection, dbHandle,tableName,partitionColumns,table_or_query,[schema],[startRow],[rowNum])
+mysql::loadEx(connection, dbHandle,tableName,partitionColumns,table_or_query,[schema],[startRow],[rowNum],[transform])
 
 #### 参数
 
@@ -219,6 +222,7 @@ mysql::loadEx(connection, dbHandle,tableName,partitionColumns,table_or_query,[sc
 * schema: 包含列名和列的数据类型的表。若要修改由系统自动检测的列的数据类型，需要在schema表中修改数据类型，并且把它作为`load`函数的一个参数。
 * startRow: 读取MySQL表的起始行数，若不指定，默认从数据集起始位置读取。若'table_or_query'是查询语句，则这个参数不起作用。
 * rowNum: 读取MySQL表的行数，若不指定，默认读到数据集的结尾。若'table_or_query'是查询语句，则这个参数不起作用。
+* transform: 导入到DolphinDB数据库前对MySQL表进行转换，例如替换列。
 
 #### 详情
 
@@ -242,28 +246,50 @@ tb = loadTable(dbPath, `tb)
 ```
 
 * 将数据导入内存中的分区表
+
+
+##### 直接原表导入
 ```
 db = database("", RANGE, 0 50000 10000)
 tb = mysql::loadEx(conn, db,`tb, `PERMNO, `US)
 ```
 
+##### 通过SQL导入
 ```
 db = database("", RANGE, 0 50000 10000)
 tb = mysql::loadEx(conn, db,`tb, `PERMNO, "SELECT * FROM US LIMIT 100");
 ```
 
 * 将数据导入DFS分布式文件系统中的分区表
+
+##### 直接原表导入
 ```
 db = database("dfs://US", RANGE, 0 50000 10000)
 mysql::loadEx(conn, db,`tb, `PERMNO, `US)
 tb = loadTable("dfs://US", `tb)
 ```
 
+##### 通过SQL导入
 ```
 db = database("dfs://US", RANGE, 0 50000 10000)
 mysql::loadEx(conn, db,`tb, `PERMNO, "SELECT * FROM US LIMIT 1000");
 tb = loadTable("dfs://US", `tb)
 ```
+
+##### 导入前对MySQL表进行转换
+
+```
+db = database("dfs://US", RANGE, 0 50000 10000)
+def replaceTable(mutable t){
+	return t.replaceColumn!(`svalue,t[`savlue]-1)
+}
+t=mysql::loadEx(conn, db, "",`stockid, 'select  * from US where stockid<=1000000',,,,replaceTable)
+
+```
+
+
+* 将数据导入DFS分布式文件系统中的分区表
+
 
 ## 3. 支持的数据类型
 
