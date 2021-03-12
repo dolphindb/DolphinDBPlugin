@@ -28,15 +28,15 @@ const char *getDolphinDBTypeStr(DATA_TYPE mysql_type);
 ConstantSP messageSP(const std::string &s);
 vector<ConstantSP> getArgs(vector<ConstantSP> &args, size_t nMaxArgs);
 
-bool parseTimestamp(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt);
-bool parseNanotime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt);
-bool parseNanoTimestamp(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt);
-bool parseDate(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt);
-bool parseMonth(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt);
-bool parseTime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt);
-bool parseMinute(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt);
-bool parseSecond(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt);
-bool parseDatetime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt);
+void parseTimestamp(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
+void parseNanotime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
+void parseNanoTimestamp(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
+void parseDate(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
+void parseMonth(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
+void parseTime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
+void parseMinute(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
+void parseSecond(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
+void parseDatetime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
 
 const set<DATA_TYPE> time_type{DT_TIMESTAMP, DT_NANOTIME, DT_NANOTIMESTAMP, DT_DATE, DT_MONTH, DT_TIME, DT_MINUTE, DT_SECOND, DT_DATETIME};
 bool compatible(DATA_TYPE dst, DATA_TYPE src);
@@ -151,7 +151,7 @@ class MySQLExtractor {
 
 class Pack {
    public:
-    Pack() : rawBuffers_(0), isNull_(0), typeLen_(0), nCol_(0), size_(0), capacity_(0), srcDt_(0), dstDt_(0){};
+    Pack() : rawBuffers_(0), typeLen_(0), nCol_(0), size_(0), capacity_(0), srcDt_(0), dstDt_(0){};
     explicit Pack(
         vector<DATA_TYPE> srcDt, vector<DATA_TYPE> dstDt, vector<size_t> maxStrlen, TableSP &resultTable, size_t cap = DEFAULT_PACK_SIZE);
     ~Pack();
@@ -160,7 +160,7 @@ class Pack {
     void clear();
 
     vector<char *> data() { return rawBuffers_; }
-    vector<vector<size_t>> &nullIndexies() { return isNull_; }
+    //vector<vector<size_t>> &nullIndexies() { return isNull_; }
     bool full() { return size_ == capacity_; }
     size_t size() const { return size_; }
     size_t nCol() const { return nCol_; }
@@ -171,7 +171,7 @@ class Pack {
 
    private:
     vector<char *> rawBuffers_;
-    vector<vector<size_t>> isNull_;
+    //vector<vector<size_t>> isNull_;
     vector<size_t> typeLen_;
     vector<size_t> maxStrLen_;
     size_t nCol_;
@@ -179,6 +179,7 @@ class Pack {
     size_t capacity_;
     vector<DATA_TYPE> srcDt_, dstDt_;
     size_t initedCols_ = 0;
+    vector<char*> nullVal_;
 };
 
 template <typename T>
@@ -193,13 +194,13 @@ inline void setter(char *dst, T &&val, DATA_TYPE &dstDt) {
         case DT_SHORT:
             *((short *)dst) = static_cast<short>(val);
             break;
-        case DT_DATETIME:
         case DT_TIMESTAMP:
         case DT_NANOTIME:
         case DT_NANOTIMESTAMP:
         case DT_LONG:
             *((long long *)dst) = static_cast<long long>(val);
             break;
+        case DT_DATETIME:
         case DT_DATE:
         case DT_MONTH:
         case DT_TIME:
@@ -220,19 +221,87 @@ inline void setter(char *dst, T &&val, DATA_TYPE &dstDt) {
 }
 
 template <typename T>
-inline bool parseScalar(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt) {
+inline void parseScalar(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
     if (dstDt == DT_STRING) {
         memcpy(*((char **)dst), val.data(), val.size());
         (*((char **)dst))[val.size()] = '\0';
     } else {
+        if(val.empty()){
+            memcpy(dst, nullVal, len);
+            return;
+        }
         try {
             setter(dst, val.get<T>(), dstDt);
         } catch (mysqlxx::CannotParseValue &e) {
             // cannot parse, set null
-            return false;
+            memcpy(dst, nullVal, len);
         }
     }
-    return !val.empty();
+}
+
+void getValNull(DATA_TYPE type, char* buf){
+    switch (type)
+    {
+        case DT_BOOL:
+            buf[0] = CHAR_MIN;
+            return;
+        case DT_CHAR:
+            buf[0] = CHAR_MIN;
+            return;
+        case DT_SHORT:{
+            short nullV = SHRT_MIN;
+            memcpy(buf, &nullV, sizeof(short));
+            return;
+        }
+        case DT_INT:{
+            int nullV = INT_MIN;
+            memcpy(buf, &nullV, sizeof(int));
+            return;
+        }
+        case DT_TIMESTAMP:
+        case DT_NANOTIME:
+        case DT_NANOTIMESTAMP:
+        case DT_LONG:{
+            long long nullV = LLONG_MIN;
+            memcpy(buf, &nullV, sizeof(long long));
+            return;
+        }
+        case DT_DATETIME:
+        case DT_DATE:
+        case DT_MONTH:
+        case DT_TIME:
+        case DT_MINUTE:
+        case DT_SECOND:{
+            int nullV = INT_MIN;
+            memcpy(buf, &nullV, sizeof(int));
+            return;
+        }
+        case DT_FLOAT:{
+            float nullV = FLT_NMIN;
+            memcpy(buf, &nullV, sizeof(float));
+            return;
+        }
+        case DT_DOUBLE:{
+            double nullV = DBL_NMIN;
+            memcpy(buf, &nullV, sizeof(double));
+            return;
+        }
+        case DT_SYMBOL:
+        case DT_STRING:
+        case DT_VOID:
+        case DT_UUID:
+        case DT_FUNCTIONDEF:
+        case DT_HANDLE:
+        case DT_CODE:
+        case DT_DATASOURCE:
+        case DT_RESOURCE:
+        case DT_ANY:
+        case DT_COMPRESS:
+        case DT_DICTIONARY:
+        case DT_OBJECT:
+        default:
+            throw IllegalArgumentException(__FUNCTION__, "type not supported yet.");
+    }
 }
 
 const char *getMySQLTypeStr(mysqlxx::enum_field_types dt);
