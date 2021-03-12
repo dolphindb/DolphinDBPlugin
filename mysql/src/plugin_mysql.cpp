@@ -469,69 +469,45 @@ void MySQLExtractor::growTableEx(TableSP &t, Pack &p, Heap *heap, const Function
 
 void MySQLExtractor::realGrowTable(Pack &p, std::function<void(vector<ConstantSP> &)> &&callback) {
     auto buffers = p.data();
-    auto &nulls = p.nullIndexies();
     int nCol = p.nCol();
     vector<ConstantSP> cols(nCol);
     int len = p.size();
     for (int idx = 0; idx < nCol; ++idx) {
         if (dstColTypes_[idx] == DT_SYMBOL)
-            cols[idx] = Util::createVector(DT_STRING, 0, len);
+            cols[idx] = Util::createVector(DT_STRING, len, len);
         else
-            cols[idx] = Util::createVector(dstColTypes_[idx], 0, len);
-
+            cols[idx] = Util::createVector(dstColTypes_[idx], len, len);
         VectorSP vec = cols[idx];
         char *colBuffer = buffers[idx];
         switch (dstColTypes_[idx]) {
             case DT_BOOL:
-                vec->appendBool(colBuffer, len);
-                break;
             case DT_CHAR:
-                vec->appendChar(colBuffer, len);
-                break;
             case DT_SHORT:
-                vec->appendShort((short *)colBuffer, len);
-                break;
             case DT_INT:
-                vec->appendInt((int *)colBuffer, len);
-                break;
             case DT_DATETIME:
             case DT_TIMESTAMP:
             case DT_NANOTIME:
             case DT_NANOTIMESTAMP:
             case DT_LONG:
-                vec->appendLong((long long *)colBuffer, len);
-                break;
             case DT_DATE:
             case DT_MONTH:
             case DT_TIME:
             case DT_MINUTE:
             case DT_SECOND:
-                vec->appendInt((int *)colBuffer, len);
-                break;
             case DT_FLOAT:
-                vec->appendFloat((float *)colBuffer, len);
+            case DT_DOUBLE:{
+                char *pbuf = (char*) vec->getDataArray();
+                int unitLen = vec->getUnitLength();
+                memcpy(pbuf, colBuffer, unitLen * len);
                 break;
-            case DT_DOUBLE:
-                vec->appendDouble((double *)colBuffer, len);
-                break;
+            }
             case DT_SYMBOL:
-            case DT_STRING:
-                vec->appendString((char **)colBuffer, len);
+            case DT_STRING:{
+                vec->setString(0, len, (char **)colBuffer);
                 break;
+            }
             default:
                 throw NotImplementedException(__FUNCTION__, "todo");
-        }
-        // set null
-        auto &colNulls = nulls[idx];
-        if (!colNulls.empty()) {
-            colNulls.emplace_back(ULONG_MAX);
-            size_t start = colNulls[0];
-            for (size_t i = 1; i < colNulls.size(); ++i) {
-                if (colNulls[i] != colNulls[i - 1] + 1) {
-                    vec->fill(start, colNulls[i - 1] - start + 1, Util::createNullConstant(dstColTypes_[idx]));
-                    start = colNulls[i];
-                }
-            }
         }
     }
     callback(cols);
@@ -620,11 +596,10 @@ void Pack::init(vector<DATA_TYPE> srcDt, vector<DATA_TYPE> dstDt, TableSP &resul
     dstDt_ = dstDt;
     typeLen_.resize(nCol_);
     rawBuffers_.resize(nCol_);
-    isNull_.resize(nCol_);
     maxStrLen_ = maxStrLen;
 
     auto rowStorage = getRowStorage(dstDt_, maxStrLen);
-    auto allowedRow = DEFAULT_ALLOWED_MEM / rowStorage / DEFAULT_WORKSPACE_SIZE;
+    auto allowedRow = DEFAULT_ALLOWED_MEM / rowStorage;
     capacity_ = capacity_ < allowedRow ? capacity_ : allowedRow;
     if (capacity_ == 0) {
         throw RuntimeException("Insufficient memory to load even one row, please check your MySQL "
@@ -643,6 +618,14 @@ void Pack::init(vector<DATA_TYPE> srcDt, vector<DATA_TYPE> dstDt, TableSP &resul
                 auto p = (char **)(rawBuffers_[col] + j * sizeof(char *));
                 *p = new char[maxStrLen[col] + 1];
             }
+                char *nullv = new char[1];
+                nullv[0] = '\0';
+                nullVal_.emplace_back(nullv);
+        }
+        else{
+            char *nullv = new char[typeLen_[col]];
+            getValNull(dstDt_[col], nullv);
+            nullVal_.emplace_back(nullv);
         }
         initedCols_ ++;
     }
@@ -650,9 +633,6 @@ void Pack::init(vector<DATA_TYPE> srcDt, vector<DATA_TYPE> dstDt, TableSP &resul
 
 void Pack::clear() {
     size_ = 0;
-    for (auto &nullvec : isNull_) {
-        nullvec.clear();
-    }
 }
 
 void Pack::append(const mysqlxx::Row &row) {
@@ -660,65 +640,61 @@ void Pack::append(const mysqlxx::Row &row) {
         for (size_t col = 0; col < nCol_; ++col) {
             char *dst = rawBuffers_[col] + size_ * typeLen_[col];
             auto val = row[col];
-            bool notNull = true;
             switch (srcDt_[col]) {
                 case DT_BOOL:
-                    notNull &= parseScalar<bool>(dst, val, dstDt_[col]);
+                    parseScalar<bool>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_CHAR:
-                    notNull &= parseScalar<char>(dst, val, dstDt_[col]);
+                    parseScalar<char>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_SHORT:
-                    notNull &= parseScalar<short>(dst, val, dstDt_[col]);
+                    parseScalar<short>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_INT:
-                    notNull &= parseScalar<int>(dst, val, dstDt_[col]);
+                    parseScalar<int>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_LONG:
-                    notNull &= parseScalar<long long>(dst, val, dstDt_[col]);
+                    parseScalar<long long>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_FLOAT:
-                    notNull &= parseScalar<float>(dst, val, dstDt_[col]);
+                    parseScalar<float>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_DOUBLE:
-                    notNull &= parseScalar<double>(dst, val, dstDt_[col]);
+                    parseScalar<double>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_TIMESTAMP:
-                    notNull &= parseTimestamp(dst, val, dstDt_[col]);
+                    parseTimestamp(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_NANOTIME:
-                    notNull &= parseNanotime(dst, val, dstDt_[col]);
+                    parseNanotime(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_NANOTIMESTAMP:
-                    notNull &= parseNanoTimestamp(dst, val, dstDt_[col]);
+                    parseNanoTimestamp(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_DATE:
-                    notNull &= parseDate(dst, val, dstDt_[col]);
+                    parseDate(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_MONTH:
-                    notNull &= parseMonth(dst, val, dstDt_[col]);
+                    parseMonth(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_TIME:
-                    notNull &= parseTime(dst, val, dstDt_[col]);
+                    parseTime(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_MINUTE:
-                    notNull &= parseMinute(dst, val, dstDt_[col]);
+                    parseMinute(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_SECOND:
-                    notNull &= parseSecond(dst, val, dstDt_[col]);
+                    parseSecond(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_DATETIME:
-                    notNull &= parseDatetime(dst, val, dstDt_[col]);
+                    parseDatetime(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_SYMBOL:
                 case DT_STRING:
-                    notNull &= parseString(dst, val, maxStrLen_[col]);
+                    parseString(dst, val, maxStrLen_[col]);
                     break;
                 default:
                     throw NotImplementedException(__FUNCTION__, "Not yet.");
-            }
-            if (!notNull) {
-                isNull_[col].emplace_back(size_);
             }
         }
         ++size_;
@@ -738,6 +714,8 @@ Pack::~Pack() {
         }
         if (rawBuffers_.size() > col)
             delete[] rawBuffers_[col];
+        if (nullVal_.size() > col)
+            delete[] nullVal_[col];
     }
 }
 
@@ -879,97 +857,124 @@ bool getUnixTimeStamp(const mysqlxx::Value &val, long long &ret) {
     }
 }
 
-bool parseDate(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt) {
+void parseDate(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
+    if(val.empty()){
+        memcpy(dst, nullVal, len);
+        return;
+    }
     int y, m, d;
     if (year(val, y) && month(val, m) && day(val, d)) {
         setter(dst, Util::countDays(y, m, d), dstDt);
-        return true;
     } else {
-        return false;
+        memcpy(dst, nullVal, len);
     }
 }
 
-bool parseMonth(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt) {
+void parseMonth(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
+    if(val.empty()){
+        memcpy(dst, nullVal, len);
+        return;
+    }
     int y, m;
     if (year(val, y) && month(val, m)) {
         setter(dst, y * 12 + m - 1, dstDt);
-        return true;
     } else {
-        return false;
+        *(int* )dst = INT_MIN;
     }
 }
 
-bool parseTime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt) {
+void parseTime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
+    if(val.empty()){
+        memcpy(dst, nullVal, len);
+        return;
+    }
     int h, m, s;
     double fracSec = 0.0;
     if (hour(val, h) && minute(val, m) && second(val, s) && fractionalSecond(val, fracSec)) {
         setter(dst, countSeconds(h, m, s) * 1000 + static_cast<int>(fracSec * 1000), dstDt);
-        return true;
     } else {
-        return false;
+        memcpy(dst, nullVal, len);
     }
 }
 
-bool parseMinute(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt) {
+void parseMinute(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
+    if(val.empty()){
+        memcpy(dst, nullVal, len);
+        return;
+    }
     int h, m;
     if (hour(val, h) && minute(val, m)) {
         setter(dst, h * 60 + m, dstDt);
-        return true;
     } else {
-        return false;
+        memcpy(dst, nullVal, len);
     }
 }
 
-bool parseSecond(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt) {
+void parseSecond(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
+    if(val.empty()){
+        memcpy(dst, nullVal, len);
+        return;
+    }
     int h, m, s;
     if (hour(val, h) && minute(val, m) && second(val, s)) {
         setter(dst, countSeconds(h, m, s), dstDt);
-        return true;
     } else {
-        return false;
+        memcpy(dst, nullVal, len);
     }
 }
 
-bool parseDatetime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt) {
+void parseDatetime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len){
+    if(val.empty()){
+        memcpy(dst, nullVal, len);
+        return;
+    }
     long long ret;
     if (getUnixTimeStamp(val, ret)) {
         setter(dst, ret, dstDt);
-        return true;
     } else {
-        return false;
+        memcpy(dst, nullVal, len);
     }
 }
 
-bool parseTimestamp(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt) {
+void parseTimestamp(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
+    if(val.empty()){
+        memcpy(dst, nullVal, len);
+        return;
+    }
     long long ret;
     double fracSec = 0.0;
     if (getUnixTimeStamp(val, ret) && fractionalSecond(val, fracSec)) {
         setter(dst, ret * 1000 + static_cast<long long>(fracSec * 1000.0), dstDt);
-        return true;
     } else {
-        return false;
+        memcpy(dst, nullVal, len);
     }
 }
 
-bool parseNanoTimestamp(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt) {
+void parseNanoTimestamp(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len){
+    if(val.empty()){
+        memcpy(dst, nullVal, len);
+        return;
+    }
     long long ret;
     double fracSec = 0.0;
     if (getUnixTimeStamp(val, ret) && fractionalSecond(val, fracSec)) {
         setter(dst, ret * 1000000000 + static_cast<long long>(fracSec * 1000000000), dstDt);
-        return true;
     } else {
-        return false;
+        memcpy(dst, nullVal, len);
     }
 }
 
-bool parseNanotime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt) {
+void parseNanotime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
+    if(val.empty()){
+        memcpy(dst, nullVal, len);
+        return;
+    }
     int h, m, s;
     double fracSec = 0.0;
     if (hour(val, h) && minute(val, m) && second(val, s) && fractionalSecond(val, fracSec)) {
         setter(dst, ((60ll * h + m) * 60ll + s) * 1000000000 + static_cast<long long>(fracSec * 1000000000), dstDt);
-        return true;
     } else {
-        return false;
+        memcpy(dst, nullVal, len);
     }
 }
 
@@ -1097,12 +1102,12 @@ size_t typeLen(DATA_TYPE dt) {
             return sizeof(short);
         case DT_INT:
             return sizeof(int);
-        case DT_DATETIME:
         case DT_TIMESTAMP:
         case DT_NANOTIME:
         case DT_NANOTIMESTAMP:
         case DT_LONG:
             return sizeof(long long);
+        case DT_DATETIME:
         case DT_DATE:
         case DT_MONTH:
         case DT_TIME:
