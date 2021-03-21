@@ -509,6 +509,8 @@ void MySQLExtractor::realGrowTable(Pack &p, std::function<void(vector<ConstantSP
             default:
                 throw NotImplementedException(__FUNCTION__, "todo");
         }
+        if(p.containNull(idx))
+            vec->setNullFlag(true);
     }
     callback(cols);
     p.clear();
@@ -597,7 +599,7 @@ void Pack::init(vector<DATA_TYPE> srcDt, vector<DATA_TYPE> dstDt, TableSP &resul
     typeLen_.resize(nCol_);
     rawBuffers_.resize(nCol_);
     maxStrLen_ = maxStrLen;
-
+    containNull_.resize(nCol_, false);
     auto rowStorage = getRowStorage(dstDt_, maxStrLen);
     auto allowedRow = DEFAULT_ALLOWED_MEM / rowStorage;
     capacity_ = capacity_ < allowedRow ? capacity_ : allowedRow;
@@ -642,56 +644,56 @@ void Pack::append(const mysqlxx::Row &row) {
             auto val = row[col];
             switch (srcDt_[col]) {
                 case DT_BOOL:
-                    parseScalar<bool>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                    containNull_[col] = containNull_[col] | parseScalar<bool>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_CHAR:
-                    parseScalar<char>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                    containNull_[col] = containNull_[col] | parseScalar<char>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_SHORT:
-                    parseScalar<short>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                    containNull_[col] = containNull_[col] | parseScalar<short>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_INT:
-                    parseScalar<int>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                    containNull_[col] = containNull_[col] | parseScalar<int>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_LONG:
-                    parseScalar<long long>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                    containNull_[col] = containNull_[col] | parseScalar<long long>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_FLOAT:
-                    parseScalar<float>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                    containNull_[col] = containNull_[col] | parseScalar<float>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_DOUBLE:
-                    parseScalar<double>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                    containNull_[col] = containNull_[col] | parseScalar<double>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_TIMESTAMP:
-                    parseTimestamp(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                    containNull_[col] = containNull_[col] | parseTimestamp(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_NANOTIME:
-                    parseNanotime(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                    containNull_[col] = containNull_[col] | parseNanotime(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_NANOTIMESTAMP:
-                    parseNanoTimestamp(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                    containNull_[col] = containNull_[col] | parseNanoTimestamp(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_DATE:
-                    parseDate(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                    containNull_[col] = containNull_[col]|| parseDate(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_MONTH:
-                    parseMonth(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                    containNull_[col] = containNull_[col] | parseMonth(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_TIME:
-                    parseTime(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                    containNull_[col] = containNull_[col] | parseTime(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_MINUTE:
-                    parseMinute(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                    containNull_[col] = containNull_[col] | parseMinute(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_SECOND:
-                    parseSecond(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                    containNull_[col] = containNull_[col] | parseSecond(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_DATETIME:
-                    parseDatetime(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                    containNull_[col] = containNull_[col] | parseDatetime(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_SYMBOL:
                 case DT_STRING:
-                    parseString(dst, val, maxStrLen_[col]);
+                    containNull_[col] = containNull_[col] | parseString(dst, val, maxStrLen_[col]);
                     break;
                 default:
                     throw NotImplementedException(__FUNCTION__, "Not yet.");
@@ -857,125 +859,152 @@ bool getUnixTimeStamp(const mysqlxx::Value &val, long long &ret) {
     }
 }
 
-void parseDate(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
+bool parseDate(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
     if(val.empty()){
         memcpy(dst, nullVal, len);
-        return;
+        return true;
     }
     int y, m, d;
     if (year(val, y) && month(val, m) && day(val, d)) {
         setter(dst, Util::countDays(y, m, d), dstDt);
+        return false;
     } else {
         memcpy(dst, nullVal, len);
+        return true;
     }
+    return false;
 }
 
-void parseMonth(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
+bool parseMonth(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
     if(val.empty()){
         memcpy(dst, nullVal, len);
-        return;
+        return true;
     }
     int y, m;
     if (year(val, y) && month(val, m)) {
         setter(dst, y * 12 + m - 1, dstDt);
+        return false;
     } else {
-        *(int* )dst = INT_MIN;
+        memcpy(dst, nullVal, len);
+        return true;
     }
+    return false;
 }
 
-void parseTime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
+bool parseTime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
     if(val.empty()){
         memcpy(dst, nullVal, len);
-        return;
+        return true;
     }
     int h, m, s;
     double fracSec = 0.0;
     if (hour(val, h) && minute(val, m) && second(val, s) && fractionalSecond(val, fracSec)) {
         setter(dst, countSeconds(h, m, s) * 1000 + static_cast<int>(fracSec * 1000), dstDt);
+        return false;
     } else {
         memcpy(dst, nullVal, len);
+        return true;
     }
+    return false;
 }
 
-void parseMinute(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
+bool parseMinute(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
     if(val.empty()){
         memcpy(dst, nullVal, len);
-        return;
+        return true;
     }
     int h, m;
     if (hour(val, h) && minute(val, m)) {
         setter(dst, h * 60 + m, dstDt);
+        return false;
     } else {
         memcpy(dst, nullVal, len);
+        return true;
     }
+    return false;
 }
 
-void parseSecond(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
+bool parseSecond(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
     if(val.empty()){
         memcpy(dst, nullVal, len);
-        return;
+        return true;
     }
     int h, m, s;
     if (hour(val, h) && minute(val, m) && second(val, s)) {
         setter(dst, countSeconds(h, m, s), dstDt);
+        return false;
     } else {
         memcpy(dst, nullVal, len);
+        return true;
     }
+    return false;
 }
 
-void parseDatetime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len){
+bool parseDatetime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len){
     if(val.empty()){
         memcpy(dst, nullVal, len);
-        return;
+        return true;
     }
     long long ret;
     if (getUnixTimeStamp(val, ret)) {
         setter(dst, ret, dstDt);
+        return false;
     } else {
         memcpy(dst, nullVal, len);
+        return true;
     }
+    return false;
 }
 
-void parseTimestamp(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
+bool parseTimestamp(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
     if(val.empty()){
         memcpy(dst, nullVal, len);
-        return;
+        return true;
     }
     long long ret;
     double fracSec = 0.0;
     if (getUnixTimeStamp(val, ret) && fractionalSecond(val, fracSec)) {
         setter(dst, ret * 1000 + static_cast<long long>(fracSec * 1000.0), dstDt);
+        return false;
     } else {
         memcpy(dst, nullVal, len);
+        return true;
     }
+    return false;
 }
 
-void parseNanoTimestamp(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len){
+bool parseNanoTimestamp(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len){
     if(val.empty()){
         memcpy(dst, nullVal, len);
-        return;
+        return true;
     }
     long long ret;
     double fracSec = 0.0;
     if (getUnixTimeStamp(val, ret) && fractionalSecond(val, fracSec)) {
         setter(dst, ret * 1000000000 + static_cast<long long>(fracSec * 1000000000), dstDt);
+        return false;
     } else {
         memcpy(dst, nullVal, len);
+        return true;
     }
+    return false;
 }
 
-void parseNanotime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
+bool parseNanotime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
     if(val.empty()){
         memcpy(dst, nullVal, len);
-        return;
+        return true;
     }
     int h, m, s;
     double fracSec = 0.0;
     if (hour(val, h) && minute(val, m) && second(val, s) && fractionalSecond(val, fracSec)) {
         setter(dst, ((60ll * h + m) * 60ll + s) * 1000000000 + static_cast<long long>(fracSec * 1000000000), dstDt);
+        return false;
     } else {
         memcpy(dst, nullVal, len);
+        return true;
     }
+    return false;
 }
 
 //////////////////////////////////// util
