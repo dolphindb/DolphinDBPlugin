@@ -68,7 +68,7 @@ ConstantSP mqttClientConnect(Heap *heap, vector<ConstantSP> &args) {
     std::string usage = "Usage: connect(host, port,[qos=0],[formatter],[batchsize=0],[username],[password]).";
 
     uint8_t publishFlags = MQTT_PUBLISH_QOS_0;
-    FunctionDef *formatter = NULL;
+    FunctionDefSP formatter = NULL;
     int batchSize = 1;
     std::string userName="";
     std::string password="";
@@ -102,7 +102,7 @@ ConstantSP mqttClientConnect(Heap *heap, vector<ConstantSP> &args) {
         if (args[3]->getType() != DT_FUNCTIONDEF) {
             throw IllegalArgumentException(__FUNCTION__, usage + "formatter must be an function.");
         } else {
-            formatter = (FunctionDef *)args[3].get();    // FunctionDefSP(args[3]);
+            formatter =  FunctionDefSP(args[3]);
         }
     }
     if (args.size() >= 5 && !args[4]->isNull()) {
@@ -160,7 +160,6 @@ ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
     } else {
         topicStr = args[1]->getString();
     }
-    // std::cout<<topic;
     if (args[2]->isTable()) {
         if (conn->getFormatter() == nullptr) {
             throw IllegalArgumentException(__FUNCTION__,
@@ -172,7 +171,7 @@ ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
         if (batchSize > 0) {
             for (int r = 0; r < t->rows(); r += batchSize) {
                 FunctionDefSP seq = heap->currentSession()->getFunctionDef("seq");
-                int end = min(t->rows() - 1, r + batchSize);
+                int end = min(t->rows() - 1, r + batchSize - 1);
                 vector<ConstantSP> args0 = {new Int(r), new Int(end)};
                 ConstantSP result = seq->call(heap, args0);
 
@@ -184,7 +183,6 @@ ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
                 messageStr = s->getString();
                 msgLen = messageStr.length();
 
-                // cout << "subtable data length is " << msgLen << endl;
                 MQTTErrors err = conn->publishMsg(topicStr.c_str(), (void *)messageStr.c_str(), msgLen);
                 // check for errors
                 if (err != MQTT_OK) {
@@ -198,12 +196,11 @@ ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
         } else {
             vector<ConstantSP> args1 = {t};    // args1.push_back(table);
 
-            FunctionDef *formatter = conn->getFormatter();
+            FunctionDefSP formatter = conn->getFormatter();
             ConstantSP s = formatter->call(heap, args1);
 
             messageStr = s->getString();
             msgLen = messageStr.length();
-            // cout << "table data length is " << msgLen << endl;
         }
 
     } else if (args[2]->getType() == DT_STRING && args[2]->isArray()) {
@@ -271,7 +268,7 @@ Connection::Connection() {
 Connection::~Connection() {
     if (sockfd_ != -1) {
         close(sockfd_);
-        std::cout << "close sub conn. sockfd is " << sockfd_ << std::endl;
+        std::cout << "close pub conn. sockfd is " << sockfd_ << std::endl;
     }
     if (connected_){
       if(!pthread_cancel(clientDaemon_)) {
@@ -282,7 +279,7 @@ Connection::~Connection() {
     std::cout << "send times is " << sendtimes << " ,failed is " << failed << std::endl;
 }
 
-Connection::Connection(std::string hostname, int port, uint8_t qos, FunctionDef *formatter, int batchSize,std::string userName,std::string password)
+Connection::Connection(std::string hostname, int port, uint8_t qos, FunctionDefSP formatter, int batchSize,std::string userName,std::string password)
     : host_(hostname), port_(port), publishFlags_(qos), formatter_(formatter), batchSize_(batchSize) {
     sockfd_ = open_nb_socket(host_.c_str(), std::to_string(port).c_str());
     if (sockfd_ == -1) {
@@ -301,8 +298,6 @@ Connection::Connection(std::string hostname, int port, uint8_t qos, FunctionDef 
     }
     else{
         mqtt_connect(&client_, client_id, NULL, NULL, 0, userName.c_str(), password.c_str(), connect_flags, 400);
-        cout<<"pub user name provided:"<<userName<<" pwd:"<<password<<endl;
-
     }
 
     /* check that we don't have any errors */
@@ -311,8 +306,7 @@ Connection::Connection(std::string hostname, int port, uint8_t qos, FunctionDef 
         throw RuntimeException(mqtt_error_str(client_.error));
     }
 
-    /* start a thread to refresh the client (handle egress and ingree client
-     * traffic) */
+    /* start a thread to refresh the client (handle egress and ingree clien traffic) */
     if (pthread_create(&clientDaemon_, NULL, clientRefresher, &client_)) {
         std::cout << "Failed to start client daemon." << std::endl;
         throw RuntimeException("Failed to start client daemon.");
@@ -321,16 +315,25 @@ Connection::Connection(std::string hostname, int port, uint8_t qos, FunctionDef 
     connected_ = true;
     sendtimes = 0;
     failed = 0;
-    //std::cout << "connected.sockfd is " << sockfd_ << std::endl;
 }
 
 MQTTErrors Connection::publishMsg(const char *topic, void *message, size_t size) {
     sendtimes++;
-
-    MQTTErrors err = mqtt_publish(&client_, topic, message, size, publishFlags_);
-    if (client_.error != MQTT_OK) {
+    int retried=6;
+    MQTTErrors err = MQTT_OK;
+    do {
+      err = mqtt_publish(&client_, topic, message, size, publishFlags_);
+      if (client_.error != MQTT_OK) {
         failed++;
-    }
+      }
+      //Now only according to the repair methods of https://github.com/LiamBindle/MQTT-C/issues/124
+      if (client_.error == MQTT_ERROR_SEND_BUFFER_IS_FULL) {
+        client_.error = MQTT_OK;
+        retried--;
+        Util::sleep(100*(6-retried));
+        //cout<<"retried="<<retried<<endl;
+      }
+    } while (retried > 0 && MQTT_OK != err);
 
     return err;
 }

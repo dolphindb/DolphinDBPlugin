@@ -17,24 +17,22 @@ extern "C" ConstantSP mqttClientStopSub(const ConstantSP& handle, const Constant
 extern "C" ConstantSP mqttClientConnect(Heap* heap, vector<ConstantSP>& args);
 extern "C" ConstantSP mqttClientPub(Heap* heap, vector<ConstantSP>& args);
 extern "C" ConstantSP mqttClientClose(const ConstantSP& handle, const ConstantSP& b);
-
+extern "C" ConstantSP getSubscriberStat(const ConstantSP& handle, const ConstantSP& b);
 namespace mqtt {
 
 class Connection {
 private:
     std::string host_;
-    // std::string user_;
-    // std::string password_;
     int port_ = 1883;
     uint8_t publishFlags_;
-    FunctionDef* formatter_;
+    FunctionDefSP formatter_;
     int batchSize_;
 
     int sockfd_;
     struct mqtt_client client_;
-    uint8_t sendbuf_[20480]; /* sendbuf should be large enough to hold multiple
+    uint8_t sendbuf_[40960]; /* sendbuf should be large enough to hold multiple
                                 whole mqtt messages */
-    uint8_t recvbuf_[10240]; /* recvbuf should be large enough any whole mqtt
+    uint8_t recvbuf_[20480]; /* recvbuf should be large enough any whole mqtt
                                 message expected to be received */
     pthread_t clientDaemon_;
 
@@ -44,14 +42,14 @@ private:
 
 public:
     Connection();
-    Connection(std::string host, int port, uint8_t qos, FunctionDef* formatter, int batchSize,std::string userName,std::string password);
+    Connection(std::string host, int port, uint8_t qos, FunctionDefSP formatter, int batchSize,std::string userName,std::string password);
     ~Connection();
 
     MQTTErrors publishMsg(const char* topic_name, void* application_message, size_t application_message_size);
     bool getConnected() {
         return connected_;
     }
-    FunctionDef* getFormatter() {
+    FunctionDefSP getFormatter() {
         return formatter_;
     }
     int getBatchSize() {
@@ -62,8 +60,6 @@ public:
 class SubConnection {
 private:
     std::string host_;
-    // std::string user_;
-    // std::string password_;
     int port_ = 1883;
     std::string topic_;
 
@@ -76,15 +72,18 @@ private:
     pthread_t clientDaemon_;
 
     bool connected_;
-    int recv;    // received packet number
+    long long recv;    // received packet number
+    long long createTime_;
 
-    FunctionDef* parser_;
+    FunctionDefSP parser_;
     ConstantSP handler_;
     Heap* pHeap_;
+public:
+    SessionSP session;
 
 public:
     SubConnection();
-    SubConnection(std::string hostname, int port, std::string topic, FunctionDef* parser, ConstantSP handler,
+    SubConnection(std::string hostname, int port, std::string topic, FunctionDefSP parser, ConstantSP handler,
                   std::string userName,std::string password,Heap* pHeap);
     ~SubConnection();
     ConstantSP getHandler() {
@@ -93,11 +92,26 @@ public:
     Heap* getHeap() {
         return pHeap_;
     }
-    FunctionDef* getParser() {
+    FunctionDefSP getParser() {
         return parser_;
     }
     void incRecv() {
         recv++;
+    }
+    long long getRecv(){
+        return recv;
+    }
+    string getTopic(){
+        return topic_;
+    }
+    long long getCreateTime(){
+        return createTime_;
+    }
+    string getHost(){
+        return host_;
+    }
+    int getPort(){
+        return port_;
     }
 };
 
