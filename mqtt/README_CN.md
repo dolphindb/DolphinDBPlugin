@@ -41,11 +41,20 @@ make
 
 ## 2. 准备
 
+### 2.1 通过函数loadPlugin加载
 需要如下例所示先加载插件。用户需要根据具体情况修改其中的路径。
 
 ```
 loadPlugin("/YOUR_PATH/mqtt/PluginMQTTClient.txt"); 
 ```
+
+### 2.2 1.20.x 版本后通过 preloadModules参数来自动加载
+
+前提是server的版本>=1.20; 需要预先加载的插件存在。否则sever启动的时候会有异常。多个插件用逗号分离。
+```
+preloadModules=plugins::mqtt,plugins::odbc
+```
+
 
 ## 3. 发布功能
 
