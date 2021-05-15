@@ -10,4 +10,4 @@
 extern "C" ConstantSP setupGlobalConfig(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP createExchange(Heap *heap, vector<ConstantSP> &args);
 
-#endif //MATCHINGENGINE_EXPORT_H
+#endif    // MATCHINGENGINE_EXPORT_H

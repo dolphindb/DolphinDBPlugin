@@ -5,15 +5,13 @@
 
 #include "types.h"
 
-namespace book
-{
+namespace book {
 
-namespace
-{
+namespace {
 // Constants used in liquibook
 const Price INVALID_LEVEL_PRICE(0);
 const Price MARKET_ORDER_BID_SORT_PRICE(UINT64_MAX);
 const Price MARKET_ORDER_ASK_SORT_PRICE(0);
-}
+}    // namespace
 
-}
+}    // namespace book
