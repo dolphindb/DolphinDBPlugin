@@ -171,7 +171,6 @@ public:
 	static bool parseUuid(const char* str, size_t len, unsigned char* buf);
 };
 
-# ifndef OPCUA
 class IPAddr : public Int128 {
 public:
 	IPAddr();
@@ -191,7 +190,99 @@ private:
 	static bool parseIP4(const char* str, size_t len, unsigned char* buf);
 	static bool parseIP6(const char* str, size_t len, unsigned char* buf);
 };
-# endif
+
+class DoublePair {
+public:
+	DoublePair(bool null = true);
+	DoublePair(double x, double y);
+	DoublePair(const unsigned char* data);
+
+	inline bool operator==(const DoublePair &other) const {
+		return	data_.doubleVal[0] == other.data_.doubleVal[0] && data_.doubleVal[1] == other.data_.doubleVal[1];
+	}
+
+	inline bool operator!=(const DoublePair &other) const {
+		return	data_.doubleVal[0] != other.data_.doubleVal[0] || data_.doubleVal[1] != other.data_.doubleVal[1];
+	}
+
+	inline bool isZero() const {
+		return data_.longVal[0] == 0 && data_.longVal[1] == 0;
+	}
+
+	inline bool isNull() const {
+		return data_.doubleVal[0] == DBL_NMIN || data_.doubleVal[1] == DBL_NMIN;
+	}
+
+	inline bool isValid() const {
+		return data_.doubleVal[0] != DBL_NMIN && data_.doubleVal[1] != DBL_NMIN;
+	}
+
+	inline const unsigned char* bytes() const {
+		return data_.uuid;
+	}
+
+	inline double x() const {
+		return data_.doubleVal[0];
+	}
+
+	inline double y() const {
+		return data_.doubleVal[1];
+	}
+
+private:
+	typedef union {
+		unsigned char uuid[16];
+		double doubleVal[2];
+		float floatVal[4];
+		long long longVal[2];
+	} U16;
+
+	U16 data_;
+};
+
+class Double2 : public Int128 {
+public:
+	virtual bool isNull() const;
+	virtual void setNull();
+
+protected:
+	Double2();
+	Double2(double x, double y);
+	Double2(const unsigned char* data);
+};
+
+class Complex : public Double2 {
+public:
+	Complex() : Double2(){}
+	Complex(double real, double image) : Double2(real, image){}
+	Complex(const unsigned char* data) : Double2(data){}
+	virtual ~Complex(){}
+	virtual ConstantSP getInstance() const {return new Complex();}
+	virtual ConstantSP getValue() const {return new Complex(uuid_);}
+	virtual DATA_TYPE getType() const {return DT_COMPLEX;}
+	virtual DATA_TYPE getRawType() const { return DT_INT128;}
+	virtual string getString() const { return toString(uuid_);}
+	double getReal() const;
+	double getImage() const;
+	static string toString(const unsigned char* data);
+};
+
+class Point : public Double2 {
+public:
+	Point() : Double2(){}
+	Point(double x, double y) : Double2(x, y){}
+	Point(const unsigned char* data) : Double2(data){}
+	virtual ~Point(){}
+	virtual ConstantSP getInstance() const {return new Point();}
+	virtual ConstantSP getValue() const {return new Point(uuid_);}
+	virtual DATA_TYPE getType() const {return DT_POINT;}
+	virtual DATA_TYPE getRawType() const { return DT_INT128;}
+	virtual string getString() const { return toString(uuid_);}
+	double getX() const;
+	double getY() const;
+	static string toString(const unsigned char* data);
+};
+
 class String: public Constant{
 public:
 	String(DolphinString val=""):blob_(false), val_(val){}
