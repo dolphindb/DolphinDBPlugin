@@ -64,7 +64,7 @@ SOFTWARE.
  */
 
 /* UNIX-like platform support */
-#if defined(__unix__) || defined(__APPLE__)
+#if defined(__unix__) || defined(__APPLE__) || defined(__NuttX__)
     #include <limits.h>
     #include <string.h>
     #include <stdarg.h>
@@ -88,6 +88,9 @@ SOFTWARE.
         #ifdef MQTT_USE_MBEDTLS
             struct mbedtls_ssl_context;
             typedef struct mbedtls_ssl_context *mqtt_pal_socket_handle;
+        #elif defined(MQTT_USE_WOLFSSL)
+            #include <wolfssl/ssl.h>
+            typedef WOLFSSL* mqtt_pal_socket_handle;
         #elif defined(MQTT_USE_BIO)
             #include <openssl/bio.h>
             typedef BIO* mqtt_pal_socket_handle;

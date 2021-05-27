@@ -64,6 +64,19 @@ ssize_t mqtt_pal_recvall(mqtt_pal_socket_handle fd, void* buf, size_t bufsz, int
     int rv;
     do {
         rv = mbedtls_ssl_read(fd, buf, bufsz);
+        if (rv == 0) {
+            /*
+             * Note: mbedtls_ssl_read returns 0 when the underlying
+             * transport was closed without CloseNotify.
+             */
+            if (buf == start) {
+                /*
+                 * Raise an error to trigger a reconnect.
+                 */
+                return MQTT_ERROR_SOCKET_ERROR;
+            }
+            break;
+        }
         if (rv < 0) {
             if (rv == MBEDTLS_ERR_SSL_WANT_READ ||
                 rv == MBEDTLS_ERR_SSL_WANT_WRITE
@@ -84,6 +97,44 @@ ssize_t mqtt_pal_recvall(mqtt_pal_socket_handle fd, void* buf, size_t bufsz, int
     } while (rv > 0);
 
     return buf - start;
+}
+
+#elif defined(MQTT_USE_WOLFSSL)
+#include <wolfssl/ssl.h>
+
+ssize_t mqtt_pal_sendall(mqtt_pal_socket_handle fd, const void* buf, size_t len, int flags) {
+    size_t sent = 0;
+    while (sent < len) {
+        int tmp = wolfSSL_write(fd, buf + sent, (int)(len - sent));
+        if (tmp <= 0) {
+            tmp = wolfSSL_get_error(fd, tmp);
+            if (tmp == WOLFSSL_ERROR_WANT_READ || tmp == WOLFSSL_ERROR_WANT_WRITE) {
+                break;
+            }
+            return MQTT_ERROR_SOCKET_ERROR;
+        }
+        sent += (size_t)tmp;
+    }
+    return (ssize_t)sent;
+}
+
+ssize_t mqtt_pal_recvall(mqtt_pal_socket_handle fd, void* buf, size_t bufsz, int flags) {
+    const void* const start = buf;
+    int tmp;
+    do {
+        tmp = wolfSSL_read(fd, buf, (int)bufsz);
+        if (tmp <= 0) {
+            tmp = wolfSSL_get_error(fd, tmp);
+            if (tmp == WOLFSSL_ERROR_WANT_READ || tmp == WOLFSSL_ERROR_WANT_WRITE) {
+                break;
+            }
+            return MQTT_ERROR_SOCKET_ERROR;
+        }
+        buf = (char*)buf + tmp;
+        bufsz -= tmp;
+    } while (tmp > 0);
+
+    return (ssize_t)(buf - start);
 }
 
 #elif defined(MQTT_USE_BEARSSL)
@@ -221,7 +272,7 @@ ssize_t mqtt_pal_recvall(mqtt_pal_socket_handle fd, void* buf, size_t bufsz, int
 ssize_t mqtt_pal_sendall(mqtt_pal_socket_handle fd, const void* buf, size_t len, int flags) {
     size_t sent = 0;
     while(sent < len) {
-        int tmp = BIO_write(fd, buf + sent, len - sent);
+        int tmp = BIO_write(fd, (const char*)buf + sent, len - sent);
         if (tmp > 0) {
             sent += (size_t) tmp;
         } else if (tmp <= 0 && !BIO_should_retry(fd)) {
@@ -233,13 +284,14 @@ ssize_t mqtt_pal_sendall(mqtt_pal_socket_handle fd, const void* buf, size_t len,
 }
 
 ssize_t mqtt_pal_recvall(mqtt_pal_socket_handle fd, void* buf, size_t bufsz, int flags) {
-    const void *const start = buf;
+    const char* const start = buf;
+    char* bufptr = buf;
     int rv;
     do {
-        rv = BIO_read(fd, buf, bufsz);
+        rv = BIO_read(fd, bufptr, bufsz);
         if (rv > 0) {
             /* successfully read bytes from the socket */
-            buf += rv;
+            bufptr += rv;
             bufsz -= rv;
         } else if (!BIO_should_retry(fd)) {
             /* an error occurred that wasn't "nothing to read". */
@@ -247,10 +299,10 @@ ssize_t mqtt_pal_recvall(mqtt_pal_socket_handle fd, void* buf, size_t bufsz, int
         }
     } while (!BIO_should_read(fd));
 
-    return (ssize_t)(buf - start);
+    return (ssize_t)(bufptr - start);
 }
 
-#elif defined(__unix__) || defined(__APPLE__)
+#elif defined(__unix__) || defined(__APPLE__) || defined(__NuttX__)
 
 #include <errno.h>
 
@@ -259,9 +311,12 @@ ssize_t mqtt_pal_sendall(mqtt_pal_socket_handle fd, const void* buf, size_t len,
     while(sent < len) {
         ssize_t tmp = send(fd, buf + sent, len - sent, flags);
         if (tmp < 1) {
-            return MQTT_ERROR_SOCKET_ERROR;
+            if (errno != EAGAIN) {
+              return MQTT_ERROR_SOCKET_ERROR;
+            }
+        } else {
+            sent += (size_t) tmp;
         }
-        sent += (size_t) tmp;
     }
     return sent;
 }
@@ -275,8 +330,11 @@ ssize_t mqtt_pal_recvall(mqtt_pal_socket_handle fd, void* buf, size_t bufsz, int
             /* successfully read bytes from the socket */
             buf += rv;
             bufsz -= rv;
+        //} else if (rv == 0 || (rv < 0 && errno != EAGAIN && errno != EWOULDBLOCK)) {  //when rv=0,errno=EAGAIN, crash : __memmove_avx_unaligned () at ../sysdeps/x86_64/multiarch/memcpy-avx-unaligned.S:299
         } else if (rv < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+
             /* an error occurred that wasn't "nothing to read". */
+            //if(rv==0) printf("rv=0,errno=%d\n",errno);
             return MQTT_ERROR_SOCKET_ERROR;
         }
     } while (rv > 0);

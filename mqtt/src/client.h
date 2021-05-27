@@ -30,9 +30,9 @@ private:
 
     int sockfd_;
     struct mqtt_client client_;
-    uint8_t sendbuf_[20480]; /* sendbuf should be large enough to hold multiple
+    uint8_t sendbuf_[40960]; /* sendbuf should be large enough to hold multiple
                                 whole mqtt messages */
-    uint8_t recvbuf_[10240]; /* recvbuf should be large enough any whole mqtt
+    uint8_t recvbuf_[20480]; /* recvbuf should be large enough any whole mqtt
                                 message expected to be received */
     pthread_t clientDaemon_;
 

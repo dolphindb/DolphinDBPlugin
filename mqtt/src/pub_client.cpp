@@ -171,7 +171,7 @@ ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
         if (batchSize > 0) {
             for (int r = 0; r < t->rows(); r += batchSize) {
                 FunctionDefSP seq = heap->currentSession()->getFunctionDef("seq");
-                int end = min(t->rows() - 1, r + batchSize);
+                int end = min(t->rows() - 1, r + batchSize - 1);
                 vector<ConstantSP> args0 = {new Int(r), new Int(end)};
                 ConstantSP result = seq->call(heap, args0);
 
@@ -319,11 +319,21 @@ Connection::Connection(std::string hostname, int port, uint8_t qos, FunctionDefS
 
 MQTTErrors Connection::publishMsg(const char *topic, void *message, size_t size) {
     sendtimes++;
-
-    MQTTErrors err = mqtt_publish(&client_, topic, message, size, publishFlags_);
-    if (client_.error != MQTT_OK) {
+    int retried=6;
+    MQTTErrors err = MQTT_OK;
+    do {
+      err = mqtt_publish(&client_, topic, message, size, publishFlags_);
+      if (client_.error != MQTT_OK) {
         failed++;
-    }
+      }
+      //Now only according to the repair methods of https://github.com/LiamBindle/MQTT-C/issues/124
+      if (client_.error == MQTT_ERROR_SEND_BUFFER_IS_FULL) {
+        client_.error = MQTT_OK;
+        retried--;
+        Util::sleep(100*(6-retried));
+        //cout<<"retried="<<retried<<endl;
+      }
+    } while (retried > 0 && MQTT_OK != err);
 
     return err;
 }
