@@ -5,7 +5,8 @@ DolphinDB的HDFS插件可以从Hadoop的hdfs之中读取文件的信息，或者
 ## 1 预编译安装
 
 ``` shell
-loadPlugin("/path/to/bin/linux64/PluginHdfs.txt");
+export LD_LIBRARY_PATH=/path/to/plugins/hdfs:$LD_LIBRARY_PATH
+loadPlugin("/path/to/plugins/hdfs/PluginHdfs.txt");
 ```
 
 ## 2 编译安装
