@@ -5,7 +5,8 @@ DolphinDB的HDFS插件可以从Hadoop的hdfs之中读取文件的信息，或者
 ## 1 预编译安装
 
 ``` shell
-loadPlugin("/path/to/bin/linux64/PluginHdfs.txt");
+export LD_LIBRARY_PATH=/path/to/plugins/hdfs:$LD_LIBRARY_PATH
+loadPlugin("/path/to/plugins/hdfs/PluginHdfs.txt");
 ```
 
 ## 2 编译安装
@@ -261,19 +262,19 @@ readFile(hdfsFS, path, handler)
 
 从hdfs的服务器中读取数据，调用handler函数将数据处理后存放在内存表中，返回值为该内存表。
 
-### 3.14 writeFile
+### 3.13 writeFile
 
 #### 语法
 
 ``` shell
-readFile(hdfsFS, path, table, handler)
+readFile(hdfsFS, path, tabble, handler)
 ```
 
 #### 参数
 
 - ‘hdfsFs’是connect()函数返回的句柄
 - 'path'是想要读取的文件所在的路径
-- 'table'要保存的内存表
+- 'tb'要保存的内存表
 - 'handler'是接受一个内存表作为参数，将内存表转换为数据流的函数
 
 #### 详情
