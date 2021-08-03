@@ -856,10 +856,16 @@ string getvaluestr(ConstantSP p, DATA_TYPE t) {
       break;
       
     case DT_SYMBOL:
-      return "\'" + p->getString() + "\'";
-      break;
     case DT_STRING:
-      return "\'" + p->getString() + "\'";
+      s+="\'";
+      for(auto i:p->getString())
+      {
+        if(i=='\\' || i=='\'')
+          s+="\\";
+        s+=i;
+      }
+      s+="\'";
+      return s;
       break;
 
     default:

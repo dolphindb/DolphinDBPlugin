@@ -312,10 +312,14 @@ inline void convert(char const* beg, size_t n, wide_string& out)
 #else
 
 #ifdef WINDOWS
-    char* utf8 = new char[n*2];
-    bytesToUTF8<Encoding::GB2312>(beg, utf8);
-    out = utf8_to_utf16(utf8, utf8 + n);
-    delete [] utf8;
+    if (GetACP() == 936)
+    { //default codepage is gbk
+        char *utf8 = new char[n * 2];
+        bytesToUTF8<Encoding::GB2312>(beg, utf8);
+        size_t l = strlen(utf8);
+        out = utf8_to_utf16(utf8, utf8 + l);
+        delete[] utf8;
+    }
 #else
     out = utf8_to_utf16(beg, beg + n);
 #endif
