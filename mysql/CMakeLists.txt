@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 2.8)
 project(MySQL)
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -32,6 +32,10 @@ add_library(PluginMySQL SHARED
         src/plugin_mysql.cpp)
 
 set_target_properties(PluginMySQL PROPERTIES LINK_DIRECTORIES "${CMAKE_BINARY_DIR}")
-target_link_libraries(PluginMySQL DolphinDB mysqlclient)
+if (WIN32)
+    target_link_libraries(PluginMySQL DolphinDB mysqlclient)
+else ()
+    target_link_libraries(PluginMySQL mysqlclient)
+endif()
 
 configure_file(${plugin_file} ${CMAKE_BINARY_DIR}/PluginMySQL.txt COPYONLY)

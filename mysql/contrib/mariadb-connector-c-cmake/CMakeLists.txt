@@ -1,4 +1,4 @@
-set(MARIADB_CLIENT_SOURCE_DIR ${CMAKE_SOURCE_DIR}/contrib/mariadb-connector-c)
+set(MARIADB_CLIENT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../mariadb-connector-c)
 set(MARIADB_CLIENT_BINARY_DIR ${CMAKE_BINARY_DIR}/contrib/mariadb-connector-c)
 
 set(SRCS
