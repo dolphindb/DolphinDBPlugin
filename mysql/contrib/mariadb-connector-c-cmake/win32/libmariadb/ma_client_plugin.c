@@ -30,10 +30,8 @@
   There is no reference counting and no unloading either.
 */
 
-#if _MSC_VER
 /* Silence warnings about variable 'unused' being used. */
 #define FORCE_INIT_OF_VARS 1
-#endif
 
 #include <ma_global.h>
 #include <ma_sys.h>
@@ -43,6 +41,10 @@
 
 #include "errmsg.h"
 #include <mysql/client_plugin.h>
+
+#ifndef WIN32
+#include <dlfcn.h>
+#endif
 
 struct st_client_plugin_int {
   struct st_client_plugin_int *next;
@@ -202,9 +204,6 @@ add_plugin(MYSQL *mysql, struct st_mysql_client_plugin *plugin, void *dlhandle,
     goto err2;
   }
 
-#ifdef THREAD
-  safe_mutex_assert_owner(&LOCK_load_client_plugin);
-#endif
 
   p->next= plugin_list[plugin_nr];
   plugin_list[plugin_nr]= p;
@@ -282,7 +281,7 @@ int mysql_client_plugin_init()
 
   memset(&mysql, 0, sizeof(mysql)); /* dummy mysql for set_mysql_extended_error */
 
-  pthread_mutex_init(&LOCK_load_client_plugin, MY_MUTEX_INIT_SLOW);
+  pthread_mutex_init(&LOCK_load_client_plugin, NULL);
   ma_init_alloc_root(&mem_root, 128, 128);
 
   memset(&plugin_list, 0, sizeof(plugin_list));
@@ -389,10 +388,25 @@ mysql_load_plugin_v(MYSQL *mysql, const char *name, int type,
   }
 
   /* Compile dll path */
+#ifndef WIN32
   snprintf(dlpath, sizeof(dlpath) - 1, "%s/%s%s",
            mysql->options.extension && mysql->options.extension->plugin_dir ?
            mysql->options.extension->plugin_dir : (env_plugin_dir) ? env_plugin_dir :
            MARIADB_PLUGINDIR, name, SO_EXT);
+#else
+  {
+    char *p= (mysql->options.extension && mysql->options.extension->plugin_dir) ?
+             mysql->options.extension->plugin_dir : env_plugin_dir;
+    snprintf(dlpath, sizeof(dlpath), "%s%s%s%s", p ? p : "", p ? "\\" : "", name, SO_EXT);
+  }
+#endif
+
+  if (strpbrk(name, "()[]!@#$%^&/*;.,'?\\"))
+  {
+    errmsg= "invalid plugin name";
+    goto err;
+  }
+
 
   /* Open new dll handle */
   if (!(dlhandle= dlopen((const char *)dlpath, RTLD_NOW)))

@@ -175,7 +175,7 @@ output:
 
 #### 语法
 
-mysql::load(connection, table_or_query, [schema], [startRow], [rowNum])
+mysql::load(connection, table_or_query, [schema], [startRow], [rowNum], [allowEmptyTable])
 
 #### 参数
 
@@ -184,6 +184,7 @@ mysql::load(connection, table_or_query, [schema], [startRow], [rowNum])
 * schema: 包含列名和列的数据类型的表。如果我们想要改变由系统自动决定的列的数据类型，需要在schema表中修改数据类型，并且把它作为`load`函数的一个参数。
 * startRow: 读取MySQL表的起始行数，若不指定，默认从数据集起始位置读取。若'table_or_query'是查询语句，则这个参数不起作用。
 * rowNum: 读取MySQL表的行数，若不指定，默认读到数据集的结尾。若'table_or_query'是查询语句，则这个参数不起作用。
+* allowEmptyTable : 一个布尔值，表示是否允许从MySQL读取空表，默认为不允许。
 
 #### 详情
 

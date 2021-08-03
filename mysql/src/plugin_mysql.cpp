@@ -67,12 +67,13 @@ ConstantSP mysqlSchema(const ConstantSP &connection, const ConstantSP &table) {
 }
 
 ConstantSP mysqlLoad(Heap *heap, vector<ConstantSP> &arguments) {
-    auto args = getArgs(arguments, 5);
-    std::string usage = "Usage: load(connection, table_or_query, [schema], [startRow=0], [rowNum=ULONGLONG_MAX]). ";
+    auto args = getArgs(arguments, 6);
+    std::string usage = "Usage: load(connection, table_or_query, [schema], [startRow=0], [rowNum=ULONGLONG_MAX], [allowEmptyTable=FALSE]). ";
 
     std::string table;
     TableSP schema = nullptr;
     uint64_t startRow = 0, rowNum = std::numeric_limits<uint64_t>::max();
+    bool allowEmptyTable=false;
 
     if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException(__FUNCTION__, usage + "table_or_query must be a string");
@@ -102,8 +103,13 @@ ConstantSP mysqlLoad(Heap *heap, vector<ConstantSP> &arguments) {
             throw IllegalArgumentException(__FUNCTION__, usage + "rowNum must be a non-negative integer");
         rowNum = args[4]->getLong();
     }
+    if (!args[5]->isNothing()) {
+        if ((args[5]->getType() != DT_BOOL || args[5]->getForm() != DF_SCALAR))
+            throw IllegalArgumentException(__FUNCTION__, usage + "allowEmptyTable must be a bool");
+        allowEmptyTable = args[5]->getBool();
+    }
 
-    return safeOp(args[0], [&](Connection *conn) { return conn->load(table, schema, startRow, rowNum); });
+    return safeOp(args[0], [&](Connection *conn) { return conn->load(table, schema, startRow, rowNum , allowEmptyTable); });
 }
 
 ConstantSP mysqlLoadEx(Heap *heap, vector<ConstantSP> &arguments) {
@@ -209,12 +215,12 @@ ConstantSP Connection::doQuery(const std::string &str) {
     return MySQLExtractor(query(str)).extract();
 }
 
-ConstantSP Connection::load(const std::string &table_or_query, const TableSP &schema, const uint64_t &startRow, const uint64_t &rowNum) {
+ConstantSP Connection::load(const std::string &table_or_query, const TableSP &schema, const uint64_t &startRow, const uint64_t &rowNum,const bool &allowEmptyTable) {
     LockGuard<Mutex> lk(&mtx_);
     if (isQuery(table_or_query)) {
-        return MySQLExtractor(query(table_or_query)).extract(schema);
+        return MySQLExtractor(query(table_or_query)).extract(schema,allowEmptyTable);
     } else {
-        return MySQLExtractor(query("SELECT * FROM " + table_or_query + " LIMIT " + std::to_string(startRow) + "," + std::to_string(rowNum))).extract(schema);
+        return MySQLExtractor(query("SELECT * FROM " + table_or_query + " LIMIT " + std::to_string(startRow) + "," + std::to_string(rowNum))).extract(schema,allowEmptyTable);
     }
 }
 
@@ -306,14 +312,14 @@ TableSP MySQLExtractor::extractSchema(const std::string &table) {
     }
 }
 
-TableSP MySQLExtractor::extract(const ConstantSP &schema) {
+TableSP MySQLExtractor::extract(const ConstantSP &schema ,const bool &allowEmptyTable) {
     try {
         auto res = query_.use();
         prepareForExtract(schema, res);
         TableSP t = Util::createTable(colNames_, dstColTypes_, 0, 0);
 
         realExtract(res, schema, t, [&](Pack &p) { growTable(t, p); });
-        if (t->size() == 0) {
+        if (t->size() == 0 && !allowEmptyTable) {
             throw RuntimeException("Empty result table.");
         }
         return t;
@@ -482,30 +488,36 @@ void MySQLExtractor::realGrowTable(Pack &p, std::function<void(vector<ConstantSP
         switch (dstColTypes_[idx]) {
             case DT_BOOL:
             case DT_CHAR:
+                vec->setChar(0, len, colBuffer);
+                break;
             case DT_SHORT:
+                vec->setShort(0, len, (short*)colBuffer);
+                break;
             case DT_INT:
             case DT_DATETIME:
-            case DT_TIMESTAMP:
-            case DT_NANOTIME:
-            case DT_NANOTIMESTAMP:
-            case DT_LONG:
             case DT_DATE:
             case DT_MONTH:
             case DT_TIME:
             case DT_MINUTE:
             case DT_SECOND:
-            case DT_FLOAT:
-            case DT_DOUBLE:{
-                char *pbuf = (char*) vec->getDataArray();
-                int unitLen = vec->getUnitLength();
-                memcpy(pbuf, colBuffer, unitLen * len);
+                vec->setInt(0, len, (int*)colBuffer);
                 break;
-            }
-            case DT_SYMBOL:
-            case DT_STRING:{
+            case DT_TIMESTAMP:
+            case DT_NANOTIME:
+            case DT_NANOTIMESTAMP:
+            case DT_LONG:
+                vec->setLong(0, len, (long long*)colBuffer);
+                break;
+            case DT_FLOAT:
+                vec->setFloat(0, len, (float*)colBuffer);
+                break;
+            case DT_DOUBLE:
+                vec->setDouble(0, len, (double*)colBuffer);
+                break;
+           case DT_SYMBOL:
+            case DT_STRING:
                 vec->setString(0, len, (char **)colBuffer);
                 break;
-            }
             default:
                 throw NotImplementedException(__FUNCTION__, "todo");
         }
@@ -674,7 +686,7 @@ void Pack::append(const mysqlxx::Row &row) {
                     containNull_[col] = containNull_[col] | parseNanoTimestamp(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_DATE:
-                    containNull_[col] = containNull_[col]|| parseDate(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                    containNull_[col] = containNull_[col] | parseDate(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                     break;
                 case DT_MONTH:
                     containNull_[col] = containNull_[col] | parseMonth(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);

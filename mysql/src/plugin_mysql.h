@@ -75,7 +75,8 @@ class Connection : public mysqlxx::Connection {
     ConstantSP load(const std::string &table_or_query,
                     const TableSP &schema = nullptr,
                     const uint64_t &startRow = 0,
-                    const uint64_t &rowNum = std::numeric_limits<uint64_t>::max());
+                    const uint64_t &rowNum = std::numeric_limits<uint64_t>::max(),
+                    const bool &allowEmptyTable = false);
     ConstantSP loadEx(Heap *heap,
                       const ConstantSP &dbHandle,
                       const std::string &tableName,
@@ -118,7 +119,7 @@ class MySQLExtractor {
     explicit MySQLExtractor(const Query &q);
     ~MySQLExtractor();
     TableSP extractSchema(const std::string &table);
-    TableSP extract(const ConstantSP &schema = nullptr);
+    TableSP extract(const ConstantSP &schema = nullptr ,const bool &allowEmptyTable=false);
     void extractEx(Heap *heap, TableSP &t, const FunctionDefSP &transform, const ConstantSP &schema = nullptr);
     void growTable(TableSP &t, Pack &p);
     void growTableEx(TableSP &t, Pack &p, Heap *heap, const FunctionDefSP &transform);
