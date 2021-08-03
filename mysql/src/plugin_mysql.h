@@ -28,15 +28,15 @@ const char *getDolphinDBTypeStr(DATA_TYPE mysql_type);
 ConstantSP messageSP(const std::string &s);
 vector<ConstantSP> getArgs(vector<ConstantSP> &args, size_t nMaxArgs);
 
-void parseTimestamp(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
-void parseNanotime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
-void parseNanoTimestamp(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
-void parseDate(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
-void parseMonth(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
-void parseTime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
-void parseMinute(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
-void parseSecond(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
-void parseDatetime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
+bool parseTimestamp(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
+bool parseNanotime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
+bool parseNanoTimestamp(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
+bool parseDate(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
+bool parseMonth(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
+bool parseTime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
+bool parseMinute(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
+bool parseSecond(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
+bool parseDatetime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
 
 const set<DATA_TYPE> time_type{DT_TIMESTAMP, DT_NANOTIME, DT_NANOTIMESTAMP, DT_DATE, DT_MONTH, DT_TIME, DT_MINUTE, DT_SECOND, DT_DATETIME};
 bool compatible(DATA_TYPE dst, DATA_TYPE src);
@@ -75,7 +75,8 @@ class Connection : public mysqlxx::Connection {
     ConstantSP load(const std::string &table_or_query,
                     const TableSP &schema = nullptr,
                     const uint64_t &startRow = 0,
-                    const uint64_t &rowNum = std::numeric_limits<uint64_t>::max());
+                    const uint64_t &rowNum = std::numeric_limits<uint64_t>::max(),
+                    const bool &allowEmptyTable = false);
     ConstantSP loadEx(Heap *heap,
                       const ConstantSP &dbHandle,
                       const std::string &tableName,
@@ -118,7 +119,7 @@ class MySQLExtractor {
     explicit MySQLExtractor(const Query &q);
     ~MySQLExtractor();
     TableSP extractSchema(const std::string &table);
-    TableSP extract(const ConstantSP &schema = nullptr);
+    TableSP extract(const ConstantSP &schema = nullptr ,const bool &allowEmptyTable=false);
     void extractEx(Heap *heap, TableSP &t, const FunctionDefSP &transform, const ConstantSP &schema = nullptr);
     void growTable(TableSP &t, Pack &p);
     void growTableEx(TableSP &t, Pack &p, Heap *heap, const FunctionDefSP &transform);
@@ -164,7 +165,7 @@ class Pack {
     bool full() { return size_ == capacity_; }
     size_t size() const { return size_; }
     size_t nCol() const { return nCol_; }
-
+    bool containNull(int colInx) { return containNull_[colInx]; }
    private:
     bool parseString(char *dst, const mysqlxx::Value &val, size_t maxLen);
     unsigned long long getRowStorage(vector<DATA_TYPE> types, vector<size_t> maxStrlen);
@@ -180,6 +181,7 @@ class Pack {
     vector<DATA_TYPE> srcDt_, dstDt_;
     size_t initedCols_ = 0;
     vector<char*> nullVal_;
+    vector<bool> containNull_;
 };
 
 template <typename T>
@@ -221,22 +223,28 @@ inline void setter(char *dst, T &&val, DATA_TYPE &dstDt) {
 }
 
 template <typename T>
-inline void parseScalar(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
+inline bool parseScalar(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
     if (dstDt == DT_STRING) {
         memcpy(*((char **)dst), val.data(), val.size());
         (*((char **)dst))[val.size()] = '\0';
+        if(val.size()==0)
+            return true;
+        return false;
     } else {
         if(val.empty()){
             memcpy(dst, nullVal, len);
-            return;
+            return true;
         }
         try {
             setter(dst, val.get<T>(), dstDt);
+            return false;
         } catch (mysqlxx::CannotParseValue &e) {
             // cannot parse, set null
             memcpy(dst, nullVal, len);
+            return true;
         }
     }
+    return false;
 }
 
 void getValNull(DATA_TYPE type, char* buf){

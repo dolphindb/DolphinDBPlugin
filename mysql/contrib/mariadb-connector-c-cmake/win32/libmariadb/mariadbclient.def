@@ -21,6 +21,7 @@ mariadb_rpl_fetch
 mariadb_rpl_optionsv
 mariadb_rpl_get_optionsv
 mariadb_free_rpl_event
+mariadb_field_attr
 mariadb_deinitialize_ssl
 mariadb_dyncol_check
 mariadb_dyncol_column_cmp_named
@@ -56,8 +57,6 @@ mysql_fetch_row_cont
 mysql_fetch_row_start
 mysql_free_result_cont
 mysql_free_result_start
-mysql_get_timeout_value
-mysql_get_timeout_value_ms
 mysql_kill_cont
 mysql_kill_start
 mysql_list_fields_cont
@@ -152,8 +151,6 @@ mysql_get_server_name
 mysql_get_server_version
 mysql_get_socket
 mysql_get_ssl_cipher
-mysql_get_timeout_value
-mysql_get_timeout_value_ms
 mysql_hex_string
 mysql_info
 mysql_init
