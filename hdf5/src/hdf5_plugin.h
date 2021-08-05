@@ -14,13 +14,8 @@
 #include <SysIO.h>
 #include <Util.h>
 
-#include <H5Fpublic.h>
-#include <H5Epublic.h>
-#include <H5Ppublic.h>
-#include <H5Ipublic.h>
-#include <H5Dpublic.h>
-#include <H5Spublic.h>
-#include <H5Tpublic.h>
+#include <H5Cpp.h>
+#include <hdf5_hl.h>
 
 extern "C" ConstantSP h5ls(const ConstantSP &h5_path);
 extern "C" ConstantSP h5lsTable(const ConstantSP &filename);
@@ -28,6 +23,7 @@ extern "C" ConstantSP extractHDF5Schema(const ConstantSP &filename, const Consta
 extern "C" ConstantSP loadHDF5(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP loadHDF5Ex(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP HDF5DS(Heap *heap, vector<ConstantSP>& arguments);
+extern "C" ConstantSP saveHDF5(Heap *heap, vector<ConstantSP> &arguments);
 
 namespace H5PluginImp
 {
@@ -44,7 +40,12 @@ ConstantSP loadHDF5Ex(Heap* heap, const SystemHandleSP &db, const string &tableN
                       const size_t startRow, const size_t rowNum, const FunctionDefSP &transform=nullSP);
 ConstantSP HDF5DS(const ConstantSP &filename, const ConstantSP &datasetName,
                   const ConstantSP &schema, const size_t dsNum);
-
+ConstantSP saveHDF5(const TableSP &table, const string &fileName, const string &datasetName, bool append, unsigned stringMaxLength);
+void appendHDF5(const TableSP &table, const string &fileName, const string &datasetName, unsigned stringMaxLength);
+void writeHDF5(const TableSP &table, const string &fileName, const string &datasetName, unsigned stringMaxLength);
+void extractDolphinDBSchema(const TableSP &table, size_t &type_size, char *field_names[], size_t *field_offset, hid_t *field_types, unsigned stringMaxLength);
+void extractDolphinDBSchema(const TableSP &table, size_t &type_size, size_t *field_offset, size_t *field_sizes, unsigned stringMaxLength);
+void extractDolphinDBData(const TableSP &table, const size_t &type_size, const size_t *field_offst, char *buf, unsigned stringMaxLength);
 
 extern const size_t insertThreshold;
 
