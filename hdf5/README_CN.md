@@ -12,6 +12,7 @@ DolphinDB HDF5插件可將HDF5文件导入DolphinDB，并支持进行数据类�
     * [2.4 hdf5::loadHDF5](#24-hdf5loadhdf5)
     * [2.5 hdf5::loadHDF5Ex](#25-hdf5loadhdf5ex)
     * [2.6 hdf5::HDF5DS](#26-hdf5hdf5ds)
+    * [2.7 hdf5::saveHDF5](#27-hdf5savehdf5)
 * [3 支持的数据类型](#3-支持的数据类型) 
     * [3.1 integer](#31-integer)
     * [3.2 float](#32-float)
@@ -54,46 +55,48 @@ loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
 
 #### 在Linux下安装
 
-##### 使用cmake构建
-
 安装cmake：
+```bash
+sudo apt install cmake
 ```
-sudo apt-get install cmake
-```
-安装HDF5开发包：
-```
-sudo apt-get install libhdf5-dev
+编译安装HDF5 1.10.6：
+```bash
+# 在https://portal.hdfgroup.org/display/support/HDF5+1.10.6#files下载源码
+# 若您不熟悉插件源代码，请不要下载其他版本，hdf5版本兼容性差，可能导致安装失败
+tar -xvf hdf5-1.10.6.tar.gz
+cd hdf5-1.10.6
+export CFLAGS="-fPIC -std=c11"
+export CXXFLAGS="-fPIC -std=c++11"
+./configure --enable-cxx
+make
+make check
+make install
+make check-install
+cp hdf5/include/* /path_to_hdf5_plugin/include/
+cp hdf5/lib/libhdf5.a /path_to_hdf5_plugin/lib
+cp hdf5/lib/libhdf5_cpp.a /path_to_hdf5_plugin/lib
+cp hdf5/lib/libhdf5_hl.a /path_to_hdf5_plugin/lib
 ```
 编译整个项目：
-```
+```bash
 mkdir build
 cd build
-cmake ../path_to_hdf5_plugin/
+cp /path_to_dolphindb/libDolphinDB.so ./
+cmake ..
 make
 ```
-
-##### 使用makefile构建
-
-安装HDF5开发包：
-```
-sudo apt-get install libhdf5-dev
-```
-
-执行make构建：
-```
-make
-```
-
-编译之前请确保libDolphinDB.so在gcc可搜索的路径中，可使用LD_LIBRARY_PATH指定其路径。
-
-编译之后目录下会产生libPluginHdf5.so文件。
 
 #### 在Windows下安装
 
-在Windows下安装，需要启用HDF5的'enable threadsafe'选项。这需要在编译HDF5时配置。
+HDF5 1.10.6安装方法同Linux。
 
-用户可以使用预先编译的1.10.2版本的hdf5.dll文件，也可以自己选择HDF5的版本编译。在HDF5的[官方网站](https://www.hdfgroup.org/solutions/hdf5/)下载源代码，按照说明，如果采用configure方式编译，在配置时启用`--enable-threadsafe`, `--disable-cxx`, `--enable-shared`选项；如果采用CMake方式编译，在编译时启用`-DHDF5_ENABLE_THREADSAFE:BOOL=ON`, `-DHDF5_BUILD_CPP_LIB:BOOL=OFF`, `-DBUILD_SHARED_LIBS:BOOL=ON`参数。
-
+编译整个项目：
+```powershell
+mkdir build
+cd build
+cmake ..
+make
+```
 ## 2 用户接口
 
 ### 2.1 hdf5::ls
@@ -367,24 +370,54 @@ res = mr(ds, def(x) : x)
 ds = hdf5::HDF5DS("/smpl_numeric.h5", "sint", ,3)
 res = mr(ds, def(x) : x,,,false)
 ```
+### 2.7 hdf5::saveHDF5
+
+#### 语法
+
+hdf5::saveHDF5(table, fileName, datasetName, [append], [stringMaxLength])
+
+#### 参数
+
+table: 要保存的内存表。
+
+fileName: HDF5文件名，类型为字符串标量。
+
+datasetName: dataset名称，即表名。可通过ls或lsTable获得，类型为字符串标量。
+
+append: 是否追加数据到已存在dataset。类型为布尔型，默认为false。
+
+stringMaxLength: 字符串最大长度，类型为数值类型，默认为16。仅对table中的string和symbol类型起作用。
+
+#### 详情
+
+将DolphinDB数据库的内存表保存到HDF5文件中的指定数据集。支持的数据类型，以及数据转化规则可见[数据类型](#3-支持的数据类型)章节。
+
+#### 例子
+
+```
+hdf5::saveHDF5(tb, "example.h5", "dataset name in hdf5")
+```
+
+> 注意：HDF5文件中无法存入空值。若DolphinDB表中存在空值，会按照[数据类型](#3-支持的数据类型)中的默认值存入。
+
 ## 3 支持的数据类型
 
 浮点和整数类型会被先转换为H5T_NATIVE_*类型。
 
 ### 3.1 integer
-| Type in HDF5      | Type in C        | Type in DolphinDB |
-| ----------------- | :-------------------------- | :--------------------------- |
-| H5T_NATIVE_CHAR   | signed char / unsigned char | char/short                   |
-| H5T_NATIVE_SCHAR  | signed char                 | char                         |
-| H5T_NATIVE_UCHAR  | unsigned char               | short                        |
-| H5T_NATIVE_SHORT  | short                       | short                        |
-| H5T_NATIVE_USHORT | unsigned short              | int                          |
-| H5T_NATIVE_INT    | int                         | int                          |
-| H5T_NATIVE_UINT   | unsigned int                | long                         |
-| H5T_NATIVE_LONG   | long                        | int/long                     |
-| H5T_NATIVE_ULONG  | unsigned long               | unsupported/long             |
-| H5T_NATIVE_LLONG  | long long                   | long                         |
-| H5T_NATIVE_ULLONG | unsigned long long          | unsupported                  |
+| Type in HDF5      | Default Value in HDF5 | Type in C        | Type in DolphinDB |
+| ----------------- | :-------------------------- | :--------------------------- | :--------------------------- |
+| H5T_NATIVE_CHAR   | ‘\0’ | signed char / unsigned char | char/short                   |
+| H5T_NATIVE_SCHAR  | ‘\0’ | signed char                 | char                         |
+| H5T_NATIVE_UCHAR  | ‘\0’ | unsigned char               | short                        |
+| H5T_NATIVE_SHORT  | 0 | short                       | short                        |
+| H5T_NATIVE_USHORT | 0 | unsigned short              | int                          |
+| H5T_NATIVE_INT    | 0   | int                         | int                          |
+| H5T_NATIVE_UINT   | 0  | unsigned int                | long                         |
+| H5T_NATIVE_LONG   | 0  | long                        | int/long                     |
+| H5T_NATIVE_ULONG  | 0 | unsigned long               | unsupported/long             |
+| H5T_NATIVE_LLONG  | 0 | long long                   | long                         |
+| H5T_NATIVE_ULLONG | 0 | unsigned long long          | unsupported                  |
 
 
 * DolphinDB中数值类型都为有符号类型。为了防止溢出，所有无符号类型会被转化为高一阶的有符号类型，64位无符号类型不予支持。
@@ -396,35 +429,35 @@ res = mr(ds, def(x) : x,,,false)
 * 所有整数类型皆可以转化为DolphinDB中的数值类型(bool, char, short, int, long, float, double)，若进行转化会发生溢出。例如LONG->INT会返回一个int的最值。
 
 ### 3.2 float
-| Type in HDF5      | Type in C | Type in DolphinDB |
-| ----------------- | :------------------- | :--------------------------- |
-| H5T_NATIVE_FLOAT  | float                | float                        |
-| H5T_NATIVE_DOUBLE | double               | double                       |
+| Type in HDF5      | Default Value in HDF5 | Type in C | Type in DolphinDB |
+| ----------------- | :------------------- | :--------------------------- | :--------------------------- |
+| H5T_NATIVE_FLOAT  | +0.0f | float                | float                        |
+| H5T_NATIVE_DOUBLE | +0.0 | double               | double                       |
 
 注意：IEEE754浮点数类型皆为有符号数。
 
 * 所有浮点数类型皆可以转化为DolphinDB中的数值类型(bool, char, short, int, long, float, double)，若进行转化会发生溢出。例如DOUBLE->FLOAT会返回一个float的最值。
 
 ### 3.3 time
-| type in hdf5   | corresponding c type | corresponding dolphindb type |
-| -------------- | :------------------- | :--------------------------- |
-| H5T_UNIX_D32BE | 4 bytes integer      | DT_TIMESTAMP                 |
-| H5T_UNIX_D32LE | 4 bytes integer      | DT_TIMESTAMP                 |
-| H5T_UNIX_D64BE | 8 bytes integer      | DT_TIMESTAMP                 |
-| H5T_UNIX_D64LE | 8 bytes integer      | DT_TIMESTAMP                 |
+| type in hdf5   | Default Value in HDF5   | corresponding c type | corresponding dolphindb type |
+| -------------- | ----------------------- | :------------------- | :--------------------------- |
+| H5T_UNIX_D32BE | 1970.01.01T00:00:00     | 4 bytes integer      | DT_TIMESTAMP                 |
+| H5T_UNIX_D32LE | 1970.01.01T00:00:00     | 4 bytes integer      | DT_TIMESTAMP                 |
+| H5T_UNIX_D64BE | 1970.01.01T00:00:00.000 | 8 bytes integer      | DT_TIMESTAMP                 |
+| H5T_UNIX_D64LE | 1970.01.01T00:00:00.000 | 8 bytes integer      | DT_TIMESTAMP                 |
 
 * HDF5预定义的时间类型为32位或者64位的posix时间。HDF5的时间类型缺乏官方的定义，在此插件中，32位时间类型代表距离1970年的秒数，而64位则精确到毫秒。所有时间类型会被插件统一转化为一个64位整数，然后转化为DolphinDB中的timestamp类型。
 
 * 以上类型皆可以转化为DolphinDB中的时间相关类型(date, month, time, minute, second, datetime, timestamp, nanotime, nanotimestamp)。
 
 ### 3.4 string
-| type in hdf5 | corresponding c type | corresponding dolphindb type |
-| ------------ | :------------------- | :--------------------------- |
-| H5T_C_S1     | char*                | DT_STRING                    |
+| type in hdf5 | Default Value in HDF5 | corresponding c type | corresponding dolphindb type |
+| ------------ | --------------------- | :------------------- | :--------------------------- |
+| H5T_C_S1     | “”                    | char*                | DT_STRING                    |
 
 * H5T_C_S1包括固定长度(fixed-length)字符串和可变长度(variable-length)字符串。
 
-* string类型可以转化为转化为DolphinDB中的字符串相关类型(string, symbol)。
+* string类型可以转化为DolphinDB中的字符串相关类型(string, symbol)。
 
 ### 3.5 enum
 | type in hdf5 | corresponding c type | corresponding dolphindb type |

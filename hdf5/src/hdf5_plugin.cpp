@@ -199,6 +199,39 @@ ConstantSP HDF5DS(Heap *heap, vector<ConstantSP>& arguments)
     return H5PluginImp::HDF5DS(filename, datasetName, schema, dsNum);
 }
 
+ConstantSP saveHDF5(Heap *heap, vector<ConstantSP> &arguments){
+    TableSP table = arguments[0];
+    ConstantSP fileName = arguments[1];
+    ConstantSP datasetName = arguments[2];
+    bool append = false;
+    unsigned stringMaxLength = 16;
+    if(arguments[0]->getForm() != DF_TABLE){
+        throw IllegalArgumentException(__FUNCTION__, "table must be a table type.");
+    }
+    if(arguments[1]->getType() != DT_STRING){
+        throw IllegalArgumentException(__FUNCTION__, "fileName must be a string.");
+    }
+    if(arguments[2]->getType() != DT_STRING){
+        throw IllegalArgumentException(__FUNCTION__, "datasetName must be a string.");
+    }
+    if(arguments.size() > 3 && !arguments[3]->isNull()){
+        if(arguments[3]->getCategory() != LOGICAL){
+            throw IllegalArgumentException(__FUNCTION__, "append must be a logical type.");
+        }
+        append = arguments[3]->getBool();
+    }
+    if(arguments.size() > 4 && !arguments[4]->isNull()){
+        if(arguments[4]->getCategory() != INTEGRAL){
+            throw IllegalArgumentException(__FUNCTION__, "stringMaxLength must be a integer.");
+        }
+        stringMaxLength = arguments[4]->getInt();
+        if(stringMaxLength <= 0){
+            throw IllegalArgumentException(__FUNCTION__, "stringMaxLength must be positive.");
+        }
+    }
+    return H5PluginImp::saveHDF5(table, fileName->getString(), datasetName->getString(), append, stringMaxLength);
+}
+
 namespace H5PluginImp
 {
 
@@ -1986,6 +2019,24 @@ DATA_TYPE IntColumn::packData(pack_info_t t)
     case DT_DOUBLE:
         packIntTo<double>(t);
         return DT_DOUBLE;
+    case DT_DATE:
+        packIntTo<int>(t);
+        return DT_INT;
+    case DT_MONTH:
+        packIntTo<int>(t);
+        return DT_INT;
+    case DT_TIME:
+        packIntTo<int>(t);
+        return DT_INT;
+    case DT_MINUTE:
+        packIntTo<int>(t);
+        return DT_INT;
+    case DT_SECOND:
+        packIntTo<int>(t);
+        return DT_INT;
+    case DT_DATETIME:
+        packIntTo<int>(t);
+        return DT_INT;
     default:
         return DT_VOID;
     }
@@ -2022,6 +2073,15 @@ DATA_TYPE LLongColumn::packData(pack_info_t t)
     case DT_DOUBLE:
         packLLongTo<double>(t);
         return DT_DOUBLE;
+    case DT_TIMESTAMP:
+        packLLongTo<long long>(t);
+        return DT_LONG;
+    case DT_NANOTIME:
+        packLLongTo<long long>(t);
+        return DT_LONG;
+    case DT_NANOTIMESTAMP:
+        packLLongTo<long long>(t);
+        return DT_LONG;
     default:
         return DT_VOID;
     }
@@ -2432,6 +2492,15 @@ bool IntegerColumn::compatible(DATA_TYPE destType) const
     case DT_LONG:
     case DT_FLOAT:
     case DT_DOUBLE:
+    case DT_DATE:
+    case DT_MONTH:
+    case DT_TIME:
+    case DT_MINUTE:
+    case DT_SECOND:
+    case DT_DATETIME:
+    case DT_TIMESTAMP:
+    case DT_NANOTIME:
+    case DT_NANOTIMESTAMP:
         return true;
     default:
         return false;
@@ -3315,4 +3384,267 @@ void registerUnixTimeConvert()
 
     done = true;
 }
+
+ConstantSP saveHDF5(const TableSP &table, const string &fileName, const string &datasetName, bool append, unsigned stringMaxLength){
+    if(append){
+        appendHDF5(table, fileName, datasetName, stringMaxLength);
+    }
+    else{
+        writeHDF5(table, fileName, datasetName, stringMaxLength);
+    }
+    return new Void();
 }
+
+void appendHDF5(const TableSP &table, const string &fileName, const string &datasetName, unsigned stringMaxLength){
+    H5::H5File file;
+    file.openFile(fileName.c_str(), H5F_ACC_RDWR, H5P_DEFAULT);
+
+    hsize_t nrecords = table->getColumn(0)->size();
+    size_t type_size;
+    size_t *field_offset = new size_t[table->columns()];
+    size_t *dst_sizes = new size_t[table->columns()];
+    extractDolphinDBSchema(table, type_size, field_offset, dst_sizes, stringMaxLength);
+    char *buf = new char[nrecords * type_size];
+    extractDolphinDBData(table, type_size, field_offset, buf, stringMaxLength);
+
+    H5TBappend_records(file.getId(), datasetName.c_str(), nrecords, type_size, field_offset, dst_sizes, buf);
+
+    delete[] field_offset;
+    delete[] dst_sizes;
+    delete[] buf;
+
+    file.close();
+}
+
+void writeHDF5(const TableSP &table, const string &fileName, const string &datasetName, unsigned stringMaxLength){
+    H5::H5File file;
+    if(H5Fis_hdf5(fileName.c_str()) > 0){
+        file = H5::H5File(fileName.c_str(), H5F_ACC_RDWR, H5P_DEFAULT, H5P_DEFAULT);
+        hsize_t nfields;
+        hsize_t nrecords;
+        if(H5TBget_table_info(file.getId(), datasetName.c_str(), &nfields, &nrecords) >= 0){
+            H5TBdelete_record(file.getId(), datasetName.c_str(), 0, nrecords);
+            file.unlink(datasetName.c_str(), H5P_DEFAULT);
+        }
+    }
+    else{
+        file = H5::H5File(fileName.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    }
+
+    hsize_t nfields = table->columns();
+    hsize_t nrecords = table->getColumn(0)->size();
+    size_t type_size;
+    char **field_names = new char*[nfields];
+    size_t *field_offset = new size_t[nfields];
+    hid_t *field_types = new hid_t[nfields];
+    extractDolphinDBSchema(table, type_size, field_names, field_offset, field_types, stringMaxLength);
+    char *buf = new char[nrecords * type_size];
+    extractDolphinDBData(table, type_size, field_offset, buf, stringMaxLength);
+
+    H5TBmake_table(datasetName.c_str(), file.getId(), datasetName.c_str(), nfields, nrecords, type_size, const_cast<const char**>(field_names), field_offset, field_types, 10, nullptr, 0, buf);
+    
+    for(hsize_t i = 0; i < nfields; ++i){
+        delete[] field_names[i];
+    }
+    delete[] field_names;
+    delete[] field_offset;
+    delete[] field_types;
+    delete[] buf;
+
+    file.close();
+}
+
+void extractDolphinDBSchema(const TableSP &table, size_t &type_size, char *field_names[], size_t *field_offset, hid_t *field_types, unsigned stringMaxLength){
+    type_size = 0;
+    auto extractType = [&](int index, size_t size, hid_t type){
+        field_offset[index] = type_size;
+        field_types[index] = type;
+        type_size += size;
+    };
+    for(int i = 0; i < table->columns(); ++i){
+        switch(table->getColumnType(i)){
+        case DT_BOOL:
+            extractType(i, sizeof(bool), H5T_NATIVE_HBOOL);
+            break;
+        case DT_CHAR:
+            extractType(i, sizeof(char), H5T_NATIVE_CHAR);
+            break;
+        case DT_SHORT:
+            extractType(i, sizeof(short), H5T_NATIVE_SHORT);
+            break;
+        case DT_INT:
+        case DT_DATE:
+        case DT_MONTH:
+        case DT_TIME:
+        case DT_MINUTE:
+        case DT_SECOND:
+        case DT_DATETIME:
+            extractType(i, sizeof(int), H5T_NATIVE_INT);
+            break;
+        case DT_LONG:
+        case DT_TIMESTAMP:
+        case DT_NANOTIME:
+        case DT_NANOTIMESTAMP:
+            extractType(i, sizeof(long long), H5T_NATIVE_LLONG);
+            break;
+        case DT_FLOAT:
+            extractType(i, sizeof(float), H5T_NATIVE_FLOAT);
+            break;
+        case DT_DOUBLE:
+            extractType(i, sizeof(double), H5T_NATIVE_DOUBLE);
+            break;
+        case DT_STRING:
+        case DT_SYMBOL:
+        {
+            // H5::DataType string_type(H5T_STRING, stringMaxLength);
+            hid_t string_type = H5Tcopy(H5T_C_S1);
+            H5Tset_size(string_type, stringMaxLength);
+            extractType(i, stringMaxLength, string_type);
+            break;
+        }
+        default:
+            throw RuntimeException("unsupport type.");
+        }
+        string name = table->getColumnName(i);
+        if(name.length() + 1 > stringMaxLength){
+            throw RuntimeException("string length out of stringMaxLength.");
+        }
+        field_names[i] = new char[stringMaxLength];
+        strcpy(field_names[i], name.c_str());
+    }
+}
+
+void extractDolphinDBSchema(const TableSP &table, size_t &type_size, size_t *field_offset, size_t *field_sizes, unsigned stringMaxLength){
+    type_size = 0;
+    auto extractType = [&](int index, size_t size){
+        field_offset[index] = type_size;
+        field_sizes[index] = size;
+        type_size += size;
+        return;
+    };
+    for(int i = 0; i < table->columns(); ++i){
+        switch(table->getColumnType(i)){
+        case DT_BOOL:
+            extractType(i, sizeof(bool));
+            break;
+        case DT_CHAR:
+            extractType(i, sizeof(char));
+            break;
+        case DT_SHORT:
+            extractType(i, sizeof(short));
+            break;
+        case DT_INT:
+        case DT_DATE:
+        case DT_MONTH:
+        case DT_TIME:
+        case DT_MINUTE:
+        case DT_SECOND:
+        case DT_DATETIME:
+            extractType(i, sizeof(int));
+            break;
+        case DT_LONG:
+        case DT_TIMESTAMP:
+        case DT_NANOTIME:
+        case DT_NANOTIMESTAMP:
+            extractType(i, sizeof(long long));
+            break;
+        case DT_FLOAT:
+            extractType(i, sizeof(float));
+            break;
+        case DT_DOUBLE:
+            extractType(i, sizeof(double));
+            break;
+        case DT_STRING:
+        case DT_SYMBOL:
+            extractType(i, stringMaxLength);
+            break;
+        default:
+            throw RuntimeException("unsupport type.");
+        }
+    }
+}
+
+void extractDolphinDBData(const TableSP &table, const size_t &type_size, const size_t *field_offset, char *buf, unsigned stringMaxLength){
+    for(int i = 0; i < table->columns(); ++i){
+        VectorSP dolphindbCol = table->getColumn(i);
+        if(dolphindbCol->size() == 0){
+            return;
+        }
+        switch(dolphindbCol->get(0)->getType()){
+        case DT_BOOL:
+            for(int j = 0; j < dolphindbCol->size(); ++j){
+                bool *ptr = (bool*)(buf + type_size * j + field_offset[i]);
+                ConstantSP value = dolphindbCol->get(j);
+                *ptr = value->isNull() ? false : value->getBool();
+            }
+            break;
+        case DT_CHAR:
+            for(int j = 0; j < dolphindbCol->size(); ++j){
+                char *ptr = (char*)(buf + type_size * j + field_offset[i]);
+                ConstantSP value = dolphindbCol->get(j);
+                *ptr = value->isNull() ? '\0' : value->getChar();
+            }
+            break;
+        case DT_SHORT:
+            for(int j = 0; j < dolphindbCol->size(); ++j){
+                short *ptr = (short*)(buf + type_size * j + field_offset[i]);
+                ConstantSP value = dolphindbCol->get(j);
+                *ptr = value->isNull() ? 0 : value->getShort();
+            }
+            break;
+        case DT_INT:
+        case DT_DATE:
+        case DT_MONTH:
+        case DT_TIME:
+        case DT_MINUTE:
+        case DT_SECOND:
+        case DT_DATETIME:
+            for(int j = 0; j < dolphindbCol->size(); ++j){
+                int *ptr = (int*)(buf + type_size * j + field_offset[i]);
+                ConstantSP value = dolphindbCol->get(j);
+                *ptr = value->isNull() ? 0 : value->getInt();
+            }
+            break;
+        case DT_LONG:
+        case DT_TIMESTAMP:
+        case DT_NANOTIME:
+        case DT_NANOTIMESTAMP:
+            for(int j = 0; j < dolphindbCol->size(); ++j){
+                long long *ptr = (long long*)(buf + type_size * j + field_offset[i]);
+                ConstantSP value = dolphindbCol->get(j);
+                *ptr = value->isNull() ? 0 : value->getLong();
+            }
+            break;
+        case DT_FLOAT:
+            for(int j = 0; j < dolphindbCol->size(); ++j){
+                float *ptr = (float*)(buf + type_size * j + field_offset[i]);
+                ConstantSP value = dolphindbCol->get(j);
+                *ptr = value->isNull() ? +0.0f : value->getFloat();
+            }
+            break;
+        case DT_DOUBLE:
+            for(int j = 0; j < dolphindbCol->size(); ++j){
+                double *ptr = (double*)(buf + type_size * j + field_offset[i]);
+                ConstantSP value = dolphindbCol->get(j);
+                *ptr = value->isNull() ? +0.0 : value->getDouble();
+            }
+            break;
+        case DT_STRING:
+        case DT_SYMBOL:
+            for(int j = 0; j < dolphindbCol->size(); ++j){
+                char *ptr = buf + type_size * j + field_offset[i];
+                ConstantSP value = dolphindbCol->get(j);
+                string str = value->isNull() ? "" : value->getString();
+                if(str.length() + 1 > stringMaxLength){
+                    throw RuntimeException("string length out of stringMaxLength.");
+                }
+                strcpy(ptr, str.c_str());
+            }
+            break;
+        default:
+            throw RuntimeException("unsupported type");
+        }
+    }
+}
+
+} // namespace H5PluginImp
