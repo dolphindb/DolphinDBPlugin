@@ -13,6 +13,7 @@ DolphinDB's HDF5 plugin imports HDF5 datasets into DolphinDB and supports data t
     * [hdf5::loadHDF5](#hdf5loadhdf5)
     * [hdf5::loadHDF5Ex](#hdf5loadhdf5ex)
     * [hdf5::HDF5DS](#hdf5hdf5ds)
+    * [hdf5::saveHDF5](#hdf5savehdf5)
 * [Data Types](#Data Types) 
     * [integer](#integer)
     * [float](#float)
@@ -34,37 +35,50 @@ DolphinDB's HDF5 plugin imports HDF5 datasets into DolphinDB and supports data t
 **Note:** [cmake](https://cmake.org/) is a popular project build tool that can help you easily solve third-party dependencies. 
 
 Install cmake
-```
-sudo apt-get install cmake
+```bash
+sudo apt install cmake
 ```
 
 Install HDF5 development kit
-```
-sudo apt-get install libhdf5-dev
+```bash
+# download source code at https://portal.hdfgroup.org/display/support/HDF5+1.10.6#files
+# DO NOT download other versions unless you are familar with the source code of plugin
+tar -xvf hdf5-1.10.6.tar.gz
+cd hdf5-1.10.6
+export CFLAGS="-fPIC -std=c11"
+export CXXFLAGS="-fPIC -std=c++11"
+./configure --enable-cxx
+make
+make check
+make install
+make check-install
+cp hdf5/include/* /path_to_hdf5_plugin/include/
+cp hdf5/lib/libhdf5.a /path_to_hdf5_plugin/lib
+cp hdf5/lib/libhdf5_cpp.a /path_to_hdf5_plugin/lib
+cp hdf5/lib/libhdf5_hl.a /path_to_hdf5_plugin/lib
 ```
 Build the entire project
 
-```
+```bash
 mkdir build
 cd build
-cmake ../path_to_hdf5_plugin/
+cp /path_to_dolphindb/libDolphinDB.so ./
+cmake ..
 make
 ```
 
 ### Build with makefile
 
-Install HDF5 development kit
+Install HDF5 development kit in the same way of Linux
 
-```
-sudo apt-get install libhdf5-dev
-```
 Execute "make" command
 
-```
+```powershell
+mkdir build
+cd build
+cmake ..
 make
 ```
-
-**Remember:** Before compiling, please make sure that `libDolphinDB.so` is in the gcc searchable path, you can use `LD_LIBRARY_PATH` to specify its path.
 
 The libPluginHdf5.so file will be generated after the compilation.
 
@@ -74,7 +88,7 @@ The `enable threadsafe` configuration must be used for Windows. It should be set
 
 You may use `hdf5.dll` file that have been prebuilt.
 
-You can also build HDF5 yourself. Download the source code from the [official website of HDF5](https://www.hdfgroup.org/solutions/hdf5/), and follow the instructions to build. If you are to build HDF5 with configure, the `--enable-threadsafe`, `--disable-cxx` and `--enable-shared` options must be used. If you are to build HDF5 with CMake, the `-DHDF5_ENABLE_THREADSAFE:BOOL=ON`, `-DHDF5_BUILD_CPP_LIB:BOOL=OFF`, `-DBUILD_SHARED_LIBS:BOOL=ON` must be added when compiling.
+You can also build HDF5 yourself. Download the source code from the [official website of HDF5](https://www.hdfgroup.org/solutions/hdf5/), and follow the instructions to build. If you are to build HDF5 with configure, the `--enable-threadsafe` option must be used. If you are to build HDF5 with CMake, the `-DHDF5_ENABLE_THREADSAFE:BOOL=ON`, `-DHDF5_BUILD_CPP_LIB:BOOL=OFF`, `-DBUILD_SHARED_LIBS:BOOL=ON` must be added when compiling.
 
 # User-API
 
@@ -345,24 +359,48 @@ DataSource< loadHDF5("/smpl_numeric.h5", "sint", , 1, 1) >
 DataSource< loadHDF5("/smpl_numeric.h5", "sint", , 2, 1) >
 ```
 
+## hdf5::saveHDF5
+
+### Syntax
+
+- hdf5::saveHDF5(table, fileName, datasetName, [append], [stringMaxLength])
+
+### Parameter
+
+* `table`: The table will be saved.
+* `fileName`: a HDF5 file name of type `string`.
+* `datasetName`: the dataset name, i.e., the table name of type `string`. It can be obtained by using `ls` or `lsTable`.
+* `append`: If append data to an existed table or not. Logical type. Default value is false.
+* `stringMaxLength`: Maximum length of string. Default is 16. Only effect string and symbol type in table.
+
+### Details
+
+Save table in DolphinDB to certain file.
+
+### Example
+
+```
+hdf5::saveHDF5(tb, "example.h5", "dataset name in hdf5")
+```
+
 # Data Types
 
 The floating point and integer types in the file are first converted to H5T_NATIVE_* type (via H5Tget_native_type)
 
 ## integer
-| type in HDF5      | corresponding c type        | corresponding dolphindb type |
-| ----------------- | :-------------------------- | :--------------------------- |
-| H5T_NATIVE_CHAR   | signed char / unsigned char | char/short                   |
-| H5T_NATIVE_SCHAR  | signed char                 | char                         |
-| H5T_NATIVE_UCHAR  | unsigned char               | short                        |
-| H5T_NATIVE_SHORT  | short                       | short                        |
-| H5T_NATIVE_USHORT | unsigned short              | int                          |
-| H5T_NATIVE_INT    | int                         | int                          |
-| H5T_NATIVE_UINT   | unsigned int                | long                         |
-| H5T_NATIVE_LONG   | long                        | int/long                     |
-| H5T_NATIVE_ULONG  | unsigned long               | unsupported/long             |
-| H5T_NATIVE_LLONG  | long long                   | long                         |
-| H5T_NATIVE_ULLONG | unsigned long long          | unsupported                  |
+| type in HDF5      | default value in HDF5 | corresponding c type        | corresponding dolphindb type |
+| ----------------- | --------------------- | :-------------------------- | :--------------------------- |
+| H5T_NATIVE_CHAR   | ‘\0’                  | signed char / unsigned char | char/short                   |
+| H5T_NATIVE_SCHAR  | ‘\0’                  | signed char                 | char                         |
+| H5T_NATIVE_UCHAR  | ‘\0’                  | unsigned char               | short                        |
+| H5T_NATIVE_SHORT  | 0                     | short                       | short                        |
+| H5T_NATIVE_USHORT | 0                     | unsigned short              | int                          |
+| H5T_NATIVE_INT    | 0                     | int                         | int                          |
+| H5T_NATIVE_UINT   | 0                     | unsigned int                | long                         |
+| H5T_NATIVE_LONG   | 0                     | long                        | int/long                     |
+| H5T_NATIVE_ULONG  | 0                     | unsigned long               | unsupported/long             |
+| H5T_NATIVE_LLONG  | 0                     | long long                   | long                         |
+| H5T_NATIVE_ULLONG | 0                     | unsigned long long          | unsupported                  |
 
 
 * The numeric types in dolphindb are all signed types. To prevent overflow, all unsigned types are converted to ```high-order signed types, 64-bit unsigned types are not supported ```
@@ -371,31 +409,31 @@ The floating point and integer types in the file are first converted to H5T_NATI
 * All integer types can be converted to the numeric type ```(bool,char,short,int,long,float,double)``` in dolphindb.  **overflow** may occur. e.g. the maximum value of an int will be returned when converting LONG to INT.
 
 ## float
-| type in HDF5      | corresponding c type | corresponding dolphindb type |
-| ----------------- | :------------------- | :--------------------------- |
-| H5T_NATIVE_FLOAT  | float                | float                        |
-| H5T_NATIVE_DOUBLE | double               | double                       |
+| type in HDF5      | default value in HDF5 | corresponding c type | corresponding dolphindb type |
+| ----------------- | --------------------- | :------------------- | :--------------------------- |
+| H5T_NATIVE_FLOAT  | +0.0f                 | float                | float                        |
+| H5T_NATIVE_DOUBLE | +0.0                  | double               | double                       |
 
 Note: IEEE754 floating point types are all signed numbers.
 
 * All floating points types can be converted to the numeric type ```(bool,char,short,int,long,float,double)``` in dolphindb. **overflow** may occur. e.g. the maximum value of an `float` will be returned when converting DOUBLE to FLOAT.
 
 ## time
-| type in HDF5   | corresponding c type | corresponding dolphindb type |
-| -------------- | :------------------- | :--------------------------- |
-| H5T_UNIX_D32BE | 4 bytes integer      | DT_TIMESTAMP                 |
-| H5T_UNIX_D32LE | 4 bytes integer      | DT_TIMESTAMP                 |
-| H5T_UNIX_D64BE | 8 bytes integer      | DT_TIMESTAMP                 |
-| H5T_UNIX_D64LE | 8 bytes integer      | DT_TIMESTAMP                 |
+| type in HDF5   | default type in HDF5    | corresponding c type | corresponding dolphindb type |
+| -------------- | ----------------------- | :------------------- | :--------------------------- |
+| H5T_UNIX_D32BE | 1970.01.01T00:00:00     | 4 bytes integer      | DT_TIMESTAMP                 |
+| H5T_UNIX_D32LE | 1970.01.01T00:00:00     | 4 bytes integer      | DT_TIMESTAMP                 |
+| H5T_UNIX_D64BE | 1970.01.01T00:00:00.000 | 8 bytes integer      | DT_TIMESTAMP                 |
+| H5T_UNIX_D64LE | 1970.01.01T00:00:00.000 | 8 bytes integer      | DT_TIMESTAMP                 |
 
 * The predefined time type of HDF5 is **posix time**, 32-bit or 64-bit. The time type of HDF5 lacks the official definition. In this plug-in, the 32-bit time type ** represents the number of seconds from 1970**, The 64-bit ** is accurate to the millisecond**. All time types are uniformly converted by the plugin into a 64-bit integer and then converted to the `timestamp` type in dolphindb
 
 * All data types above can be converted to time-related types in dolphindb`(date,month,time,minute,second,datetime,timestamp,nanotime,nanotimestamp)`
 
 ## string
-| type in HDF5 | corresponding c type | corresponding dolphindb type |
-| ------------ | :------------------- | :--------------------------- |
-| H5T_C_S1     | char*                | DT_STRING                    |
+| type in HDF5 | default value in HDF5 | corresponding c type | corresponding dolphindb type |
+| ------------ | --------------------- | :------------------- | :--------------------------- |
+| H5T_C_S1     | “”                    | char*                | DT_STRING                    |
 
 * H5T_C_S1,包括```fixed-length```string和```variable-length```string
 
