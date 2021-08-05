@@ -16,11 +16,15 @@ class CodeMarshall;
 class CodeUnmarshall;
 class ConstantMarshallFactory;
 class ConstantUnmarshallFactory;
+class SymbolBaseMarshall;
+class SymbolBaseUnmarshall;
 
 typedef SmartPointer<CodeMarshall> CodeMarshallSP;
 typedef SmartPointer<CodeUnmarshall> CodeUnmarshallSP;
 typedef SmartPointer<ConstantMarshallFactory> ConstantMarshallFactorySP;
 typedef SmartPointer<ConstantUnmarshallFactory> ConstantUnmarshallFactorySP;
+typedef SmartPointer<SymbolBaseMarshall> SymbolBaseMarshallSP;
+typedef SmartPointer<SymbolBaseUnmarshall> SymbolBaseUnmarshallSP;
 
 class ConstantMarshallImp : public ConstantMarshall {
 public:
@@ -113,6 +117,48 @@ private:
 	ConstantUnmarshallSP unmarshall_;
 };
 
+/**
+ * When we serialize a symbol vector, we serialize the symbol base first.
+ */
+class SymbolBaseMarshall {
+public:
+	SymbolBaseMarshall(const DataOutputStreamSP& out): out_(out), complete_(false), nextStart_(0), partial_(0){}
+	~SymbolBaseMarshall(){}
+	bool start(const SymbolBaseSP target, bool blocking, IO_ERR& ret);
+	bool resume(IO_ERR& ret);
+	void reset();
+
+private:
+	BufferWriter<DataOutputStreamSP> out_;
+	SymbolBaseSP target_;
+	unordered_map<long long, int> dict_;
+	bool complete_;
+	int nextStart_;
+	int partial_;
+	char buf_[MARSHALL_BUFFER_SIZE];
+};
+
+class SymbolBaseUnmarshall {
+public:
+	SymbolBaseUnmarshall(const DataInputStreamSP& in):symbaseId_(0), size_(0), in_(in){}
+	~SymbolBaseUnmarshall(){}
+	bool start(bool blocking, IO_ERR& ret);
+	bool resume(IO_ERR& ret);
+	void reset();
+	SymbolBaseSP getSymbolBase() const {
+		return obj_;
+	}
+
+private:
+	int symbaseId_;
+	int size_;
+	DataInputStreamSP in_;
+	SymbolBaseSP obj_;
+	vector<DolphinString> symbols_;
+	unordered_map<int, SymbolBaseSP> dict_;
+};
+
+
 class ScalarMarshall: public ConstantMarshallImp{
 public:
 	ScalarMarshall(const DataOutputStreamSP& out):ConstantMarshallImp(out), partial_(0){}
@@ -126,15 +172,20 @@ private:
 
 class VectorMarshall: public ConstantMarshallImp{
 public:
-	VectorMarshall(const DataOutputStreamSP& out):ConstantMarshallImp(out),nextStart_(0),partial_(0){}
+	VectorMarshall(const DataOutputStreamSP& out):ConstantMarshallImp(out),nextStart_(0),partial_(0), type_(DT_VOID), symbaseProgress_(-1){}
 	virtual ~VectorMarshall(){}
 	virtual bool start(const char* requestHeader, size_t headerSize, const ConstantSP& target, bool blocking, IO_ERR& ret);
 	virtual bool start(const ConstantSP& target, bool blocking, IO_ERR& ret);
 	virtual bool resume(IO_ERR& ret);
 	virtual void reset();
+	void resetSymbolBaseMarshall(bool createIfNotExist);
+
 private:
 	INDEX nextStart_;
 	int partial_;
+	DATA_TYPE type_;
+	int symbaseProgress_;
+	SymbolBaseMarshallSP symbaseMarshall_;
 	ConstantMarshallSP marshall_;
 };
 
@@ -234,17 +285,22 @@ private:
 
 class VectorUnmarshall: public ConstantUnmarshallImp{
 public:
-	VectorUnmarshall(const DataInputStreamSP& in, Session* session):ConstantUnmarshallImp(in, session), flag_(0), rows_(0), columns_(0), nextStart_(0), partial_(0), unmarshall_(0){}
+	VectorUnmarshall(const DataInputStreamSP& in, Session* session):ConstantUnmarshallImp(in, session), flag_(0), rows_(0), columns_(0), nextStart_(0),
+		partial_(0), symbaseProgress_(-1), unmarshall_(0){}
 	virtual ~VectorUnmarshall(){}
 	virtual bool start(short flag, bool blocking, IO_ERR& ret);
 	virtual bool resume(IO_ERR& ret);
 	virtual void reset();
+	void resetSymbolBaseUnmarshall(bool createIfNotExist);
+
 private:
 	short flag_;
 	int rows_;
 	int columns_;
 	INDEX nextStart_;
 	int partial_;
+	int symbaseProgress_;
+	SymbolBaseUnmarshallSP symbaseUnmarshall_;
 	ConstantUnmarshallSP unmarshall_;
 };
 
