@@ -1,12 +1,14 @@
 kafka,libPluginKafka.so
 kafkaProducer,producer,system,1,1,0
 kafkaProducerFlush,producerFlush,system,1,1,0
-kafkaProduce,produce,system,5,6,0
+kafkaProduce,produce,system,6,7,0
 kafkaConsumer,consumer,system,1,1,0
 kafkaSubscribe,subscribe,system,2,2,0
 kafkaUnsubscribe,unsubscribe,system,1,1,0
 kafkaConsumerPoll,consumerPoll,system,1,2,0
 kafkaPollByteStream,pollByteStream,system,1,2,0
+kafkaPollByteStreamWithKey,pollByteStreamWithKey,system,1,2,0
+kafkaPollAvro,pollAvro,system,1,2,0
 kafkaConsumerPollBatch,consumerPollBatch,system,2,3,0
 kafkaCreateSubJob,createSubJob,system,4,5,0
 kafkaGetJobStat,getJobStat,system,0,0,0
