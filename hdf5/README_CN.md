@@ -88,15 +88,24 @@ make
 
 #### 在Windows下安装
 
-HDF5 1.10.6安装方法同Linux。
+在msys2环境下，使用mingw编译hdf5 1.10.6.zip
 
-编译整个项目：
-```powershell
-mkdir build
-cd build
-cmake ..
-make
-```
++ 打开msys2终端，解压并进入hdf5所在目录
++ ./configure --host=x86_64-w64-mingw32 --build=x86_64-w64-mingw32 --prefix=$HOME/hdf5 --enable-cxx
++ 打开src/H5pubconf.h,在末尾添加以下宏定义
+    ```
+    #ifndef H5_HAVE_WIN32_API
+    #define H5_HAVE_WIN32_API 1
+    #endif
+
+    #ifndef H5_HAVE_MINGW
+    #define H5_HAVE_MINGW 1
+    #endif
+    ```
++ make -j8
++ make install -j8
+
+
 ## 2 用户接口
 
 ### 2.1 hdf5::ls
