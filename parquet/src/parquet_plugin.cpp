@@ -59,6 +59,18 @@ ConstantSP loadParquet(Heap *heap, vector<ConstantSP> &arguments)
     return ParquetPluginImp::loadParquet(filename->getString(), schema, column, rowGroupStart, rowGroupNum);
 }
 
+ConstantSP loadParquetHdfs(Heap *heap, vector<ConstantSP> &arguments)
+{
+    if(arguments[0]->getType() != DT_RESOURCE || arguments[0]->getString() != "hdfs readFile address")
+        throw IllegalArgumentException(__FUNCTION__,"The first arguments should be resource");
+    if(arguments[1]->getType() != DT_RESOURCE || arguments[1]->getString() != "hdfs readFile length")
+        throw IllegalArgumentException(__FUNCTION__,"The second arguments should be resource");
+    
+    void *buffer = (void *)arguments[0]->getLong();
+    uint64_t *length = (uint64_t *)arguments[1]->getLong();
+    return ParquetPluginImp::loadParquetHdfs(buffer, *length);
+}
+
 ConstantSP loadParquetEx(Heap *heap, vector<ConstantSP> &arguments)
 {
     ConstantSP db = arguments[0];
@@ -148,6 +160,24 @@ ConstantSP parquetDS(Heap *heap, vector<ConstantSP> &arguments)
     return ParquetPluginImp::parquetDS(filename, schema);
 }
 
+ConstantSP saveParquet(Heap *heap, vector<ConstantSP> &arguments)
+{
+    ConstantSP tb = arguments[0];
+    ConstantSP filename = arguments[1];
+    if(!tb->isTable())
+        throw IllegalArgumentException(__FUNCTION__, "tb must be a table.");
+    if(filename->getType() != DT_STRING)
+        throw IllegalArgumentException(__FUNCTION__, "The filename must be a string.");
+    return ParquetPluginImp::saveParquet(tb, filename->getString());
+}
+
+ConstantSP saveParquetHdfs(Heap *heap, vector<ConstantSP>& arguments)
+{
+    if(arguments.size()!=1 || !arguments[0]->isTable())
+        throw IllegalArgumentException(__FUNCTION__, "argument should be a table");
+    return ParquetPluginImp::saveParquetHdfs(arguments[0]);
+}
+
 namespace ParquetPluginImp
 {
 
@@ -159,6 +189,21 @@ void ParquetReadOnlyFile::open(const std::string &file_name)
     try
     {
         std::unique_ptr<parquet::ParquetFileReader> parquet_reader = parquet::ParquetFileReader::OpenFile(file_name, false);
+
+        _parquet_reader = std::move(parquet_reader);
+    }
+    catch (parquet::ParquetStatusException e)
+    {
+        throw IOException(e.what());
+    }
+}
+
+void ParquetReadOnlyFile::open(std::shared_ptr<arrow::io::RandomAccessFile> source)
+{
+    close();
+    try
+    {
+        std::unique_ptr<parquet::ParquetFileReader> parquet_reader = parquet::ParquetFileReader::Open(source);
 
         _parquet_reader = std::move(parquet_reader);
     }
@@ -181,6 +226,7 @@ void ParquetReadOnlyFile::close()
     if (_parquet_reader != nullptr)
         _parquet_reader->Close();
 }
+
 std::string getDafaultColumnType(parquet::Type::type physical_t)
 {
     switch (physical_t)
@@ -215,16 +261,42 @@ std::string getLayoutColumnType(std::shared_ptr<const parquet::LogicalType> &log
     parquet::LogicalType::Type::type logi_t = logical_t->type();
     switch (logi_t)
     {
-    case parquet::LogicalType::Type::INT:
-        switch (physical_t)
-        {
-        case parquet::Type::type::INT32:
-            return "INT";
-        case parquet::Type::type::INT64:
-            return "Long";
-        default:
-            throw RuntimeException("unsupported data type");
+    case parquet::LogicalType::Type::INT:{
+        const parquet::IntLogicalType* intLogical_t = static_cast<const parquet::IntLogicalType*>(logical_t.get());
+        int bitWidth = intLogical_t->bit_width();
+        if(bitWidth == 8){
+            if(sort_order == parquet::SortOrder::UNSIGNED)
+                return "SHORT";
+            else
+                return "CHAR";
         }
+        else if(bitWidth == 16){
+            if(sort_order == parquet::SortOrder::UNSIGNED)
+                return "INT";
+            else
+                return "SHORT";
+        }
+        else if(bitWidth == 32){
+            if(sort_order == parquet::SortOrder::UNSIGNED)
+                return "LONG";
+            else
+                return "INT";
+        }
+        else if(bitWidth == 64){
+                return "LONG";
+        }
+        else{
+            switch (physical_t)
+            {
+            case parquet::Type::type::INT32:
+                return "INT";
+            case parquet::Type::type::INT64:
+                return "LONG";
+            default:
+                throw RuntimeException("unsupported data type");
+            }
+        }
+    }
     case parquet::LogicalType::Type::STRING:
     {
         if (physical_t != parquet::Type::BYTE_ARRAY)
@@ -284,10 +356,12 @@ std::string getLayoutColumnType(parquet::ConvertedType::type converted_t, parque
     case parquet::ConvertedType::type::UNDEFINED:
         return getDafaultColumnType(physical_t);
     case parquet::ConvertedType::type::INT_8:
+        return "CHAR";
     case parquet::ConvertedType::type::INT_16:
+    case parquet::ConvertedType::type::UINT_8:
+        return "SHORT";
     case parquet::ConvertedType::type::INT_32:
     case parquet::ConvertedType::type::UINT_16:
-    case parquet::ConvertedType::type::UINT_8:
         return "INT";
     case parquet::ConvertedType::type::TIMESTAMP_MICROS:
         return "NANOTIMESTAMP";
@@ -297,6 +371,7 @@ std::string getLayoutColumnType(parquet::ConvertedType::type converted_t, parque
         return "DOUBLE";
     case parquet::ConvertedType::type::UINT_32:
     case parquet::ConvertedType::type::INT_64:
+    case parquet::ConvertedType::type::UINT_64:
         return "LONG";
     case parquet::ConvertedType::type::TIME_MICROS:
         return "NANOTIME";
@@ -343,6 +418,7 @@ bool getSchemaCol(const parquet::SchemaDescriptor *schema_descr, const ConstantS
     }
     return true;
 }
+
 TableSP extractParquetSchema(const string &filename)
 {
     ParquetReadOnlyFile file(filename);
@@ -358,21 +434,25 @@ TableSP extractParquetSchema(const string &filename)
     colNames[1] = "type";
     return Util::createTable(colNames, cols);
 }
+
 void createNewVectorSP(vector<VectorSP> &dolpindb_v, const TableSP &tb)
 {
     int col_num = dolpindb_v.size();
     for (int i = 0; i < col_num; i++)
     {
-        dolpindb_v[i] = Util::createVector(tb->getColumnType(i), 0);
+        if(tb->getColumnType(i) == DT_SYMBOL)
+            dolpindb_v[i] = Util::createVector(DT_STRING, 0);
+        else
+            dolpindb_v[i] = Util::createVector(tb->getColumnType(i), 0);
     }
 }
-TableSP appendColumnVecToTable(TableSP tb, vector<VectorSP> &colVec)
+
+TableSP appendColumnVecToTable(TableSP tb, vector<VectorSP> &colVec, INDEX& insertedRows)
 {
     if (tb->isNull())
         return tb;
 
     string errMsg;
-    INDEX insertedRows = 0;
     vector<ConstantSP> cols(colVec.size());
     int col_num = colVec.size();
     for (int i = 0; i < col_num; i++)
@@ -383,283 +463,85 @@ TableSP appendColumnVecToTable(TableSP tb, vector<VectorSP> &colVec)
         throw TableRuntimeException(errMsg);
     return tb;
 }
-bool convertToDTdate(vector<int> &intValue, parquetTime times_t, vector<long long> &longValue)
+
+template<typename T>
+bool convertToDTDate(vector<T> &intValue, parquetTime times_t, int bufSize)
 {
-    tm gmtBuf;
-    int buf_size = std::max(intValue.size(), longValue.size());
+    long long ratio;
     switch (times_t)
     {
     case parquetTime::Date:
         return true;
     case parquetTime::TimestampMicros:
-        for (int i = 0; i < buf_size; i++)
-        {
-            time_t ts = longValue[i] / 1000000;
-            tm *gmt = gmtime_r(&ts, &gmtBuf);
-            intValue[i] = (gmt == nullptr) ? 0 : Util::countDays(gmt->tm_year + 1900, gmt->tm_mon + 1, gmt->tm_mday);
-        }
-        return true;
+        ratio = Util::getTemporalConversionRatio(DT_TIMESTAMP,DT_DATE);
+        ratio = (- ratio) * 1000;
+        break;
     case parquetTime::TimestampMillis:
-        for (int i = 0; i < buf_size; i++)
-        {
-            time_t ts = longValue[i] / 1000;
-            tm *gmt = gmtime_r(&ts, &gmtBuf);
-            intValue[i] = (gmt == nullptr) ? 0 : Util::countDays(gmt->tm_year + 1900, gmt->tm_mon + 1, gmt->tm_mday);
-        }
-        return true;
-    case parquetTime::TimestampNanos:
-        for (int i = 0; i < buf_size; i++)
-        {
-            time_t ts = longValue[i] / 1000000000;
-            tm *gmt = gmtime_r(&ts, &gmtBuf);
-            intValue[i] = (gmt == nullptr) ? 0 : Util::countDays(gmt->tm_year + 1900, gmt->tm_mon + 1, gmt->tm_mday);
-        }
-        return true;
+        ratio = Util::getTemporalConversionRatio(DT_TIMESTAMP,DT_DATE);
+        break;
+    case parquetTime::TimestampNanos:        
+        ratio = Util::getTemporalConversionRatio(DT_NANOTIMESTAMP,DT_DATE);
+        break;
     default:
         return false;
     }
-}
-bool convertToDTminute(vector<int> &intValue, parquetTime times_t, vector<long long> &longValue)
-{
-    tm gmtBuf;
-    int buf_size = std::max(intValue.size(), longValue.size());
-    switch (times_t)
+    for (int i = 0; i < bufSize; i++)
     {
-    case parquetTime::Date:
-        for (int i = 0; i < buf_size; i++)
-        {
-            intValue[i] = 0;
-        }
-        return true;
-    case parquetTime::TimestampMicros:
-        for (int i = 0; i < buf_size; i++)
-        {
-            time_t ts = longValue[i] / 1000000;
-            tm *gmt = gmtime_r(&ts, &gmtBuf);
-            intValue[i] = (gmt == nullptr) ? 0 : gmt->tm_hour * 60 + gmt->tm_min;
-        }
-        return true;
-    case parquetTime::TimestampMillis:
-        for (int i = 0; i < buf_size; i++)
-        {
-            time_t ts = longValue[i] / 1000;
-            tm *gmt = gmtime_r(&ts, &gmtBuf);
-            intValue[i] = (gmt == nullptr) ? 0 : gmt->tm_hour * 60 + gmt->tm_min;
-        }
-        return true;
-    case parquetTime::TimestampNanos:
-        for (int i = 0; i < buf_size; i++)
-        {
-            time_t ts = longValue[i] / 1000000000;
-            tm *gmt = gmtime_r(&ts, &gmtBuf);
-            intValue[i] = (gmt == nullptr) ? 0 : gmt->tm_hour * 60 + gmt->tm_min;
-        }
-        return true;
-    case parquetTime::TimeMicros:
-        for (int i = 0; i < buf_size; i++)
-            intValue[i] = longValue[i] / 1000000 / 60;
-        return true;
-    case parquetTime::TimeMillis:
-        for (int i = 0; i < buf_size; i++)
-            intValue[i] = intValue[i] / 1000 / 60;
-        return true;
-    case parquetTime::TimeNanos:
-        for (int i = 0; i < buf_size; i++)
-            intValue[i] = longValue[i] / 1000000000 / 60;
-        return true;
-    default:
-        return false;
+        intValue[i] /= ratio;
     }
-}
-bool convertToDTtime(vector<int> &intValue, parquetTime times_t, vector<long long> &longValue)
-{
-    tm gmtBuf;
-    int buf_size = std::max(intValue.size(), longValue.size());
-    switch (times_t)
-    {
-    case parquetTime::Date:
-        for (int i = 0; i < buf_size; i++)
-        {
-            intValue[i] = 0;
-        }
-        return true;
-    case parquetTime::TimestampMicros:
-        for (int i = 0; i < buf_size; i++)
-        {
-            time_t ts = longValue[i] / 1000000;
-            tm *gmt = gmtime_r(&ts, &gmtBuf);
-            intValue[i] = (gmt == nullptr) ? 0 : ((gmt->tm_hour * 60 + gmt->tm_min) * 60 + gmt->tm_sec) * 1000 + ((longValue[i]) / 1000) % 1000;
-        }
-        return true;
-    case parquetTime::TimestampMillis:
-        for (int i = 0; i < buf_size; i++)
-        {
-            time_t ts = longValue[i] / 1000;
-            tm *gmt = gmtime_r(&ts, &gmtBuf);
-            intValue[i] = (gmt == nullptr) ? 0 : ((gmt->tm_hour * 60 + gmt->tm_min) * 60 + gmt->tm_sec) * 1000 + ((longValue[i]) / 1000) % 1000;
-        }
-        return true;
-    case parquetTime::TimestampNanos:
-        for (int i = 0; i < buf_size; i++)
-        {
-            time_t ts = longValue[i] / 1000000000;
-            tm *gmt = gmtime_r(&ts, &gmtBuf);
-            intValue[i] = (gmt == nullptr) ? 0 : ((gmt->tm_hour * 60 + gmt->tm_min) * 60 + gmt->tm_sec) * 1000 + ((longValue[i]) / 1000) % 1000;
-        }
-        return true;
-    case parquetTime::TimeMicros:
-        for (int i = 0; i < buf_size; i++)
-            intValue[i] = longValue[i] / 1000;
-        return true;
-    case parquetTime::TimeMillis:
-        return true;
-    case parquetTime::TimeNanos:
-        for (int i = 0; i < buf_size; i++)
-            intValue[i] = longValue[i] / 1000000;
-        return true;
-    default:
-        return false;
-    }
-}
-bool convertToDTnanotime(vector<int> &intValue, parquetTime times_t, vector<long long> &longValue)
-{
-    tm gmtBuf;
-    int buf_size = std::max(intValue.size(), longValue.size());
-    switch (times_t)
-    {
-    case parquetTime::Date:
-        for (int i = 0; i < buf_size; i++)
-        {
-            intValue[i] = 0;
-        }
-        return true;
-    case parquetTime::TimestampMicros:
-        for (int i = 0; i < buf_size; i++)
-        {
-            time_t ts = longValue[i] / 1000000;
-            tm *gmt = gmtime_r(&ts, &gmtBuf);
-            longValue[i] = (gmt == nullptr) ? 0 : ((gmt->tm_hour * 60 + gmt->tm_min) * 60 + gmt->tm_sec) * 1000000000 + longValue[i] % 1000000 * 1000;
-        }
-        return true;
-    case parquetTime::TimestampMillis:
-        for (int i = 0; i < buf_size; i++)
-        {
-            time_t ts = longValue[i] / 1000;
-            tm *gmt = gmtime_r(&ts, &gmtBuf);
-            longValue[i] = (gmt == nullptr) ? 0 : ((gmt->tm_hour * 60 + gmt->tm_min) * 60 + gmt->tm_sec) * 1000000000 + longValue[i] % 1000 * 1000000;
-        }
-        return true;
-    case parquetTime::TimestampNanos:
-        for (int i = 0; i < buf_size; i++)
-        {
-            time_t ts = longValue[i] / 1000000000;
-            tm *gmt = gmtime_r(&ts, &gmtBuf);
-            longValue[i] = (gmt == nullptr) ? 0 : ((gmt->tm_hour * 60 + gmt->tm_min) * 60 + gmt->tm_sec) * 1000000000 + longValue[i] % 1000000000;
-        }
-        return true;
-    case parquetTime::TimeMicros:
-        for (int i = 0; i < buf_size; i++)
-            intValue[i] = longValue[i] * 1000;
-        return true;
-    case parquetTime::TimeMillis:
-        for (int i = 0; i < buf_size; i++)
-            intValue[i] = longValue[i] * 1000000;
-        return true;
-    case parquetTime::TimeNanos:
-        return true;
-    default:
-        return false;
-    }
-}
-bool convertToDTsecond(vector<int> &intValue, parquetTime times_t, vector<long long> &longValue)
-{
-    tm gmtBuf;
-    int buf_size = std::max(intValue.size(), longValue.size());
-    switch (times_t)
-    {
-    case parquetTime::Date:
-        for (int i = 0; i < buf_size; i++)
-        {
-            intValue[i] = 0;
-        }
-        return true;
-    case parquetTime::TimestampMicros:
-        for (int i = 0; i < buf_size; i++)
-        {
-            time_t ts = longValue[i] / 1000000;
-            tm *gmt = gmtime_r(&ts, &gmtBuf);
-            intValue[i] = (gmt == nullptr) ? 0 : (gmt->tm_hour * 60 + gmt->tm_min) * 60 + gmt->tm_sec;
-        }
-        return true;
-    case parquetTime::TimestampMillis:
-        for (int i = 0; i < buf_size; i++)
-        {
-            time_t ts = longValue[i] / 1000;
-            tm *gmt = gmtime_r(&ts, &gmtBuf);
-            intValue[i] = (gmt == nullptr) ? 0 : (gmt->tm_hour * 60 + gmt->tm_min) * 60 + gmt->tm_sec;
-        }
-        return true;
-    case parquetTime::TimestampNanos:
-        for (int i = 0; i < buf_size; i++)
-        {
-            time_t ts = longValue[i] / 1000000000;
-            tm *gmt = gmtime_r(&ts, &gmtBuf);
-            intValue[i] = (gmt == nullptr) ? 0 : (gmt->tm_hour * 60 + gmt->tm_min) * 60 + gmt->tm_sec;
-        }
-        return true;
-    case parquetTime::TimeMicros:
-        for (int i = 0; i < buf_size; i++)
-            intValue[i] = longValue[i] / 1000000;
-        return true;
-    case parquetTime::TimeMillis:
-        for (int i = 0; i < buf_size; i++)
-            intValue[i] = longValue[i] / 1000;
-        return true;
-    case parquetTime::TimeNanos:
-        for (int i = 0; i < buf_size; i++)
-            intValue[i] = longValue[i] / 1000000000;
-        return true;
-    default:
-        return false;
-    }
+    return true;
 }
 
-bool convertToDTmonth(vector<int> &intValue, parquetTime times_t, vector<long long> &longValue)
+template<typename T>
+bool convertToDTMinute(vector<T> &intValue, parquetTime times_t, int bufSize)
 {
-    tm gmtBuf;
-    int buf_size = std::max(intValue.size(), longValue.size());
+    long long ratio;
     switch (times_t)
     {
     case parquetTime::Date:
-        for (int i = 0; i < buf_size; i++)
-        {
-            time_t ts = intValue[i] * 24 * 60 * 60;
-            tm *gmt = gmtime_r(&ts, &gmtBuf);
-            intValue[i] = (gmt == nullptr) ? 0 : (gmt->tm_year + 1900) * 12 + gmt->tm_mon;
-        }
-        return true;
+        return false;
     case parquetTime::TimestampMicros:
-        for (int i = 0; i < buf_size; i++)
+        ratio = Util::getTemporalConversionRatio(DT_TIME, DT_MINUTE);
+        ratio = (-ratio) * 1000;
+        for (int i = 0; i < bufSize; i++)
         {
-            time_t ts = longValue[i] / 1000000;
-            tm *gmt = gmtime_r(&ts, &gmtBuf);
-            intValue[i] = (gmt == nullptr) ? 0 : (gmt->tm_year + 1900) * 12 + gmt->tm_mon;
+            intValue[i] = intValue[i] % 86400000000 / ratio;
         }
         return true;
     case parquetTime::TimestampMillis:
-        for (int i = 0; i < buf_size; i++)
+        ratio = -Util::getTemporalConversionRatio(DT_TIME, DT_MINUTE);
+        for (int i = 0; i < bufSize; i++)
         {
-            time_t ts = longValue[i] / 1000;
-            tm *gmt = gmtime_r(&ts, &gmtBuf);
-            intValue[i] = (gmt == nullptr) ? 0 : (gmt->tm_year + 1900) * 12 + gmt->tm_mon;
+            intValue[i] = intValue[i] % 86400000 / ratio;
         }
         return true;
     case parquetTime::TimestampNanos:
-        for (int i = 0; i < buf_size; i++)
+        ratio = -Util::getTemporalConversionRatio(DT_NANOTIME, DT_MINUTE);
+        for (int i = 0; i < bufSize; i++)
         {
-            time_t ts = longValue[i] / 1000000000;
-            tm *gmt = gmtime_r(&ts, &gmtBuf);
-            intValue[i] = (gmt == nullptr) ? 0 : (gmt->tm_year + 1900) * 12 + gmt->tm_mon;
+            intValue[i] = intValue[i] % 86400000000000 / ratio;
+        }
+        return true;
+    case parquetTime::TimeMicros:
+        ratio = -Util::getTemporalConversionRatio(DT_TIME, DT_MINUTE);
+        ratio *= 1000; 
+        for (int i = 0; i < bufSize; i++)
+        {
+            intValue[i] = intValue[i] / ratio;
+        }
+        return true;
+    case parquetTime::TimeMillis:
+        ratio = -Util::getTemporalConversionRatio(DT_TIME, DT_MINUTE);
+        for (int i = 0; i < bufSize; i++)
+        {
+            intValue[i] = intValue[i] / ratio;
+        }
+        return true;
+    case parquetTime::TimeNanos:
+        ratio = -Util::getTemporalConversionRatio(DT_NANOTIME, DT_MINUTE);
+        for (int i = 0; i < bufSize; i++)
+        {
+            intValue[i] = intValue[i] / ratio;
         }
         return true;
     default:
@@ -667,31 +549,157 @@ bool convertToDTmonth(vector<int> &intValue, parquetTime times_t, vector<long lo
     }
 }
 
-bool convertToDTdatetime(vector<int> &intValue, parquetTime times_t, vector<long long> &longValue)
+template<typename T>
+bool convertToDTTime(vector<T> &intValue, parquetTime times_t, int bufSize)
 {
-    int buf_size = std::max(intValue.size(), longValue.size());
     switch (times_t)
     {
     case parquetTime::Date:
-        for (int i = 0; i < buf_size; i++)
+        return false;
+    case parquetTime::TimestampMicros:
+        for (int i = 0; i < bufSize; i++)
+        {
+            intValue[i] = intValue[i] % 86400000000 / 1000;
+        }
+        return true;
+    case parquetTime::TimestampMillis:
+        for (int i = 0; i < bufSize; i++)
+        {
+            intValue[i] = intValue[i] % 86400000;
+        }
+        return true;
+    case parquetTime::TimestampNanos:
+        for (int i = 0; i < bufSize; i++)
+        {
+            intValue[i] = intValue[i] % 86400000000000 / 1000000;
+        }
+        return true;
+    case parquetTime::TimeMicros:
+        for (int i = 0; i < bufSize; i++)
+            intValue[i] = intValue[i] / 1000;
+        return true;
+    case parquetTime::TimeMillis:
+        return true;
+    case parquetTime::TimeNanos:
+        for (int i = 0; i < bufSize; i++)
+            intValue[i] = intValue[i] / 1000000;
+        return true;
+    default:
+        return false;
+    }
+}
+
+template<typename T>
+bool convertToDTSecond(vector<T> &intValue, parquetTime times_t, int bufSize)
+{
+    switch (times_t)
+    {
+    case parquetTime::Date:
+        return false;
+    case parquetTime::TimestampMicros:
+        for (int i = 0; i < bufSize; i++)
+        {
+            intValue[i] = intValue[i] % 86400000000 / 1000000;
+        }
+        return true;
+    case parquetTime::TimestampMillis:
+        for (int i = 0; i < bufSize; i++)
+        {
+            intValue[i] = intValue[i] % 86400000 / 1000;
+        }
+        return true;
+    case parquetTime::TimestampNanos:
+        for (int i = 0; i < bufSize; i++)
+        {
+            intValue[i] = intValue[i] % 86400000000000 / 1000000000;
+        }
+        return true;
+    case parquetTime::TimeMicros:
+        for (int i = 0; i < bufSize; i++)
+            intValue[i] = intValue[i] / 1000000;
+        return true;
+    case parquetTime::TimeMillis:
+        for (int i = 0; i < bufSize; i++)
+            intValue[i] = intValue[i] / 1000;
+        return true;
+    case parquetTime::TimeNanos:
+        for (int i = 0; i < bufSize; i++)
+            intValue[i] = intValue[i] / 1000000000;
+        return true;
+    default:
+        return false;
+    }
+}
+
+template<typename T>
+bool convertToDTMonth(vector<T> &intValue, parquetTime times_t, int bufSize)
+{
+    int year, month, day;
+    long long ratio;
+    switch (times_t)
+    {
+    case parquetTime::Date:
+        for (int i = 0; i < bufSize; i++)
+        {
+			Util::parseDate(intValue[i], year, month, day);
+			intValue[i] = year*12+month-1;
+        }
+        return true;
+    case parquetTime::TimestampMicros:
+        ratio = Util::getTemporalConversionRatio(DT_TIMESTAMP,DT_DATE);
+        ratio = (- ratio) * 1000;
+        for (int i = 0; i < bufSize; i++)
+        {
+			Util::parseDate(intValue[i] / ratio, year, month, day);
+			intValue[i] = year*12+month-1;
+        }
+        return true;
+    case parquetTime::TimestampMillis:
+        ratio = -Util::getTemporalConversionRatio(DT_TIMESTAMP,DT_DATE);
+        for (int i = 0; i < bufSize; i++)
+        {
+			Util::parseDate(intValue[i] / ratio, year, month, day);
+			intValue[i] = year*12+month-1;
+        }
+        return true;
+    case parquetTime::TimestampNanos:
+        ratio = -Util::getTemporalConversionRatio(DT_NANOTIMESTAMP,DT_DATE);
+        for (int i = 0; i < bufSize; i++)
+        {
+			Util::parseDate(intValue[i] / ratio, year, month, day);
+			intValue[i] = year*12+month-1;
+        }
+        return true;
+    default:
+        return false;
+    }
+}
+
+template<typename T>
+bool convertToDTDatetime(vector<T> &intValue, parquetTime times_t, int bufSize)
+{
+    switch (times_t)
+    {
+    case parquetTime::Date:
+        for (int i = 0; i < bufSize; i++)
             intValue[i] = intValue[i] * 24 * 60 * 60;
         return true;
     case parquetTime::TimestampMicros:
-        for (int i = 0; i < buf_size; i++)
+        for (int i = 0; i < bufSize; i++)
         {
-            intValue[i] = longValue[i] / 1000000;
+            intValue[i] = intValue[i] / 1000000;
         }
         return true;
     case parquetTime::TimestampMillis:
-        for (int i = 0; i < buf_size; i++)
+        for (int i = 0; i < bufSize; i++)
         {
-            intValue[i] = longValue[i] / 1000;
+            intValue[i] = intValue[i] / 1000;
         }
         return true;
     case parquetTime::TimestampNanos:
-        for (int i = 0; i < buf_size; i++)
+        for (int i = 0; i < bufSize; i++)
         {
-            intValue[i] = longValue[i] / 1000000000;
+            intValue[i] = intValue[i] / 1000000000;
         }
         return true;
     default:
@@ -699,17 +707,54 @@ bool convertToDTdatetime(vector<int> &intValue, parquetTime times_t, vector<long
     }
 }
 
-bool convertToDTtimestamp(vector<int> &intValue, parquetTime times_t, vector<long long> &longValue)
+bool convertToDTNanotime(vector<int> &intValue, parquetTime times_t, vector<long long> &longValue, int bufSize)
 {
-    int buf_size = std::max(intValue.size(), longValue.size());
     switch (times_t)
     {
     case parquetTime::Date:
-        for (int i = 0; i < buf_size; i++)
+        return false;
+    case parquetTime::TimestampMicros:
+        for (int i = 0; i < bufSize; i++)
+        {
+            longValue[i] = longValue[i] % 86400000000 * 1000;
+        }
+        return true;
+    case parquetTime::TimestampMillis:
+        for (int i = 0; i < bufSize; i++)
+        {
+            longValue[i] = longValue[i] % 86400000 * 1000000;
+        }
+        return true;
+    case parquetTime::TimestampNanos:
+        for (int i = 0; i < bufSize; i++)
+        {
+            longValue[i] = longValue[i] % 86400000000000;
+        }
+    case parquetTime::TimeMicros:
+        for (int i = 0; i < bufSize; i++)
+            longValue[i] = longValue[i] * 1000;
+        return true;
+    case parquetTime::TimeMillis:
+        for (int i = 0; i < bufSize; i++)
+            longValue[i] = intValue[i] * 1000000;
+        return true;
+    case parquetTime::TimeNanos:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool convertToDTTimestamp(vector<int> &intValue, parquetTime times_t, vector<long long> &longValue, int bufSize)
+{
+    switch (times_t)
+    {
+    case parquetTime::Date:
+        for (int i = 0; i < bufSize; i++)
             longValue[i] = intValue[i] * 24 * 60 * 60 * 1000;
         return true;
     case parquetTime::TimestampMicros:
-        for (int i = 0; i < buf_size; i++)
+        for (int i = 0; i < bufSize; i++)
         {
             longValue[i] = longValue[i] / 1000;
         }
@@ -717,7 +762,7 @@ bool convertToDTtimestamp(vector<int> &intValue, parquetTime times_t, vector<lon
     case parquetTime::TimestampMillis:
         return true;
     case parquetTime::TimestampNanos:
-        for (int i = 0; i < buf_size; i++)
+        for (int i = 0; i < bufSize; i++)
         {
             longValue[i] = longValue[i] / 1000000;
         }
@@ -727,23 +772,22 @@ bool convertToDTtimestamp(vector<int> &intValue, parquetTime times_t, vector<lon
     }
 }
 
-bool convertToDTnanotimestamp(vector<int> &intValue, parquetTime times_t, vector<long long> &longValue)
+bool convertToDTNanotimestamp(vector<int> &intValue, parquetTime times_t, vector<long long> &longValue, int bufSize)
 {
-    int buf_size = std::max(intValue.size(), longValue.size());
     switch (times_t)
     {
     case parquetTime::Date:
-        for (int i = 0; i < buf_size; i++)
+        for (int i = 0; i < bufSize; i++)
             longValue[i] = intValue[i] * 24 * 60 * 60 * 1000 * 1000000;
         return true;
     case parquetTime::TimestampMicros:
-        for (int i = 0; i < buf_size; i++)
+        for (int i = 0; i < bufSize; i++)
         {
             longValue[i] = longValue[i] * 1000;
         }
         return true;
     case parquetTime::TimestampMillis:
-        for (int i = 0; i < buf_size; i++)
+        for (int i = 0; i < bufSize; i++)
         {
             longValue[i] = longValue[i] * 1000000;
         }
@@ -753,233 +797,6 @@ bool convertToDTnanotimestamp(vector<int> &intValue, parquetTime times_t, vector
     default:
         return false;
     }
-}
-
-bool convertParquetToDolphindbChar(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, vector<char> &buffer)
-{
-    switch (col_descr->physical_type())
-    {
-    case parquet::Type::BOOLEAN:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:BOOLEAN" + "->" + Util::getDataTypeString(DT_CHAR));
-    case parquet::Type::INT32:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:INT32" + "->" + Util::getDataTypeString(DT_CHAR));
-    case parquet::Type::INT64:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:INT64" + "->" + Util::getDataTypeString(DT_CHAR));
-    case parquet::Type::INT96:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:INT96" + "->" + Util::getDataTypeString(DT_CHAR));
-    case parquet::Type::DOUBLE:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:DOUBLE" + "->" + Util::getDataTypeString(DT_CHAR));
-    case parquet::Type::FLOAT:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FLOAT" + "->" + Util::getDataTypeString(DT_CHAR));
-    case parquet::Type::FIXED_LEN_BYTE_ARRAY:
-    {
-        int FIXED_LENGTH = col_descr->type_length();
-        if (FIXED_LENGTH > 1 || FIXED_LENGTH <= 0)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FIXED_LEN_BYTE_ARRAY(fixed length=" + std::to_string(FIXED_LENGTH) + ") ->" + Util::getDataTypeString(DT_CHAR));
-        parquet::FixedLenByteArrayReader *flba_reader = static_cast<parquet::FixedLenByteArrayReader *>(column_reader.get());
-        while (flba_reader->HasNext())
-        {
-            vector<parquet::FixedLenByteArray> value;
-            int64_t values_read = 0;
-            vector<short> def_level;
-            vector<short> rep_level;
-            vector<char> char_value;
-            int64_t rows_read = flba_reader->ReadBatch(100, def_level.data(), rep_level.data(), value.data(), &values_read);
-            if (rows_read == values_read && rows_read != 0)
-                memcpy(char_value.data(), value.data(), values_read);
-            else
-            {
-                for (size_t le = 0; le < def_level.size(); le++)
-                {
-                    if (def_level[le] >= col_descr->max_definition_level())
-                    {
-                        char_value.push_back(static_cast<char>(*value[le].ptr));
-                    }
-                    else
-                    {
-                        char_value.push_back(CHAR_MIN);
-                    }
-                }
-            }
-            buffer.insert(buffer.end(), char_value.begin(), char_value.end());
-        }
-        break;
-    }
-    case parquet::Type::BYTE_ARRAY:
-    {
-        parquet::ByteArrayReader *ba_reader = static_cast<parquet::ByteArrayReader *>(column_reader.get());
-
-        while (ba_reader->HasNext())
-        {
-            vector<parquet::ByteArray> value;
-            int64_t values_read;
-            vector<short> def_level;
-            vector<short> rep_level;
-            vector<char> char_value;
-            ba_reader->ReadBatch(100, def_level.data(), rep_level.data(), value.data(), &values_read);
-            for (size_t le = 0; le < def_level.size(); le++)
-            {
-                if (value[le].len > 1)
-                    throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:ByteArray(length>1)" + "->" + Util::getDataTypeString(DT_CHAR));
-                if (def_level[le] >= col_descr->max_definition_level())
-                {
-                    char_value.push_back(static_cast<char>(*value[le].ptr));
-                }
-                else
-                {
-                    char_value.push_back(CHAR_MIN);
-                }
-            }
-            buffer.insert(buffer.end(), char_value.begin(), char_value.end());
-        }
-        break;
-    }
-    default:
-        throw RuntimeException("unsupported data type");
-    }
-    return true;
-}
-
-bool convertParquetToDolphindbBool(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, vector<char> &buffer)
-{
-    switch (col_descr->physical_type())
-    {
-    case parquet::Type::BOOLEAN:
-    {
-        parquet::BoolReader *bool_reader = static_cast<parquet::BoolReader *>(column_reader.get());
-        while (bool_reader->HasNext())
-        {
-            bool value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = bool_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
-            {
-                buffer.push_back(static_cast<char>(value));
-            }
-            else if (rows_read != 0)
-            {
-                buffer.push_back(CHAR_MIN);
-            }
-        }
-        break;
-    }
-    case parquet::Type::INT32:
-    {
-        parquet::Int32Reader *int32_reader = static_cast<parquet::Int32Reader *>(column_reader.get());
-        // Read all the rows in the column
-        while (int32_reader->HasNext())
-        {
-            int32_t value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int32_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
-            {
-                buffer.push_back(static_cast<char>(value != 0));
-            }
-            else if (rows_read != 0)
-            {
-                buffer.push_back(CHAR_MIN);
-            }
-        }
-        break;
-    }
-    case parquet::Type::INT64:
-    {
-        parquet::Int64Reader *int64_reader = static_cast<parquet::Int64Reader *>(column_reader.get());
-        while (int64_reader->HasNext())
-        {
-            int64_t value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int64_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
-            {
-                buffer.push_back(static_cast<char>(value != 0));
-            }
-            else if (rows_read != 0)
-            {
-                buffer.push_back(CHAR_MIN);
-            }
-        }
-        break;
-    }
-    case parquet::Type::INT96:
-    {
-        parquet::Int96Reader *int96_reader = static_cast<parquet::Int96Reader *>(column_reader.get());
-        while (int96_reader->HasNext())
-        {
-            parquet::Int96 value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int96_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
-            {
-                buffer.push_back(static_cast<char>(value.value[0] != 0 && value.value[1] && value.value[2]));
-            }
-            else if (rows_read != 0)
-            {
-                buffer.push_back(CHAR_MIN);
-            }
-        }
-        break;
-    }
-    case parquet::Type::DOUBLE:
-    {
-        parquet::DoubleReader *double_reader = static_cast<parquet::DoubleReader *>(column_reader.get());
-        while (double_reader->HasNext())
-        {
-            double value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = double_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
-            {
-                buffer.push_back(static_cast<char>(value != 0));
-            }
-            else if (rows_read != 0)
-            {
-                buffer.push_back(CHAR_MIN);
-            }
-        }
-        break;
-    }
-    case parquet::Type::FLOAT:
-    {
-        parquet::FloatReader *float_reader = static_cast<parquet::FloatReader *>(column_reader.get());
-        while (float_reader->HasNext())
-        {
-            float value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = float_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
-            {
-                buffer.push_back(static_cast<char>(value != 0));
-            }
-            else if (rows_read != 0)
-            {
-                buffer.push_back(CHAR_MIN);
-            }
-        }
-        break;
-    }
-    case parquet::Type::FIXED_LEN_BYTE_ARRAY:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FIXED_LEN_BYTE_ARRAY" + "->" + Util::getDataTypeString(DT_BOOL));
-    case parquet::Type::BYTE_ARRAY:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:BYTE_ARRAY" + "->" + Util::getDataTypeString(DT_BOOL));
-
-    default:
-        throw RuntimeException("unsupported data type");
-    }
-    return true;
 }
 
 parquetTime convertParquetTimes(const std::shared_ptr<const parquet::LogicalType> &logical_t, parquet::ConvertedType::type converted_t)
@@ -1039,8 +856,360 @@ parquetTime convertParquetTimes(const std::shared_ptr<const parquet::LogicalType
     return parquetTime::None;
 }
 
-bool convertParquetToDolphindbInt(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, vector<int> &buffer, DATA_TYPE times_t)
+int convertParquetToDolphindbChar(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, char* buffer, size_t batchSize, bool& containNull)
 {
+    int64_t values_read = 0;
+    vector<short> def_level(batchSize);
+    vector<short> rep_level(batchSize);
+    int64_t rows_read = 0;
+    switch (col_descr->physical_type())
+    {
+    case parquet::Type::BOOLEAN:
+    {
+        parquet::BoolReader *bool_reader = static_cast<parquet::BoolReader *>(column_reader.get());
+        vector<char> bool_value(batchSize);
+        while(bool_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += bool_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (bool*)bool_value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        if (rows_read == values_read && rows_read != 0)
+        {
+            memcpy(buffer, bool_value.data(), rows_read * sizeof(char));
+        }
+        else if (rows_read != 0)
+        {
+            int index = 0;
+            for (int64_t le = 0; le < rows_read; le++)
+            {
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    buffer[le] = bool_value[index++];
+                }
+                else
+                {
+                    buffer[le] = CHAR_MIN;
+                }
+            }
+        }
+        return rows_read;
+    }
+    case parquet::Type::INT32:
+    {
+        parquet::Int32Reader *int32_reader = static_cast<parquet::Int32Reader *>(column_reader.get());
+        // Read all the rows in the column
+        vector<int32_t> value(batchSize);
+        while(int32_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int32_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int32_t*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }             
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
+        {
+            if (def_level[le] >= col_descr->max_definition_level())
+            {
+                buffer[le] = value[index++];
+            }
+            else
+            {
+                buffer[le] = CHAR_MIN;
+            }
+        }
+        return rows_read;
+    }
+    case parquet::Type::INT64:
+    {
+        parquet::Int64Reader *int64_reader = static_cast<parquet::Int64Reader *>(column_reader.get());
+        vector<int64_t> value(batchSize);
+        while(int64_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int64_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int64_t*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }      
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
+        {
+            if (def_level[le] >= col_descr->max_definition_level())
+            {
+                buffer[le] = value[index++];
+            }
+            else
+            {
+                buffer[le] = CHAR_MIN;
+            }
+        }
+        return rows_read;
+    }
+    case parquet::Type::INT96:
+    {
+        parquet::Int96Reader *int96_reader = static_cast<parquet::Int96Reader *>(column_reader.get());
+        vector<parquet::Int96> value(batchSize);
+        while(int96_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int96_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::Int96*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }  
+        containNull = rows_read != values_read;            
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
+        {
+            if (def_level[le] >= col_descr->max_definition_level())
+            {
+                buffer[le] = value[index++].value[2];
+            }
+            else
+            {
+                buffer[le] = CHAR_MIN;
+            }
+        }
+        return rows_read;
+    }
+    case parquet::Type::DOUBLE:
+        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:DOUBLE" + "->" + Util::getDataTypeString(DT_CHAR));
+    case parquet::Type::FLOAT:
+        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FLOAT" + "->" + Util::getDataTypeString(DT_CHAR));
+    case parquet::Type::FIXED_LEN_BYTE_ARRAY:
+    {
+        int FIXED_LENGTH = col_descr->type_length();
+        if (FIXED_LENGTH > 1 || FIXED_LENGTH <= 0)
+            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FIXED_LEN_BYTE_ARRAY(fixed length=" + std::to_string(FIXED_LENGTH) + ") ->" + Util::getDataTypeString(DT_CHAR));
+        parquet::FixedLenByteArrayReader *flba_reader = static_cast<parquet::FixedLenByteArrayReader *>(column_reader.get());
+        vector<parquet::FixedLenByteArray> value(batchSize);
+        while(flba_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            int64_t le = rows_read;
+            rows_read += flba_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::FixedLenByteArray*)value.data(), &valuesRead);
+            int index = 0;
+            for (; le < rows_read; le++)
+            {
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    buffer[le] = static_cast<char>(*value[index++].ptr);
+                }
+                else
+                {
+                    containNull = true;
+                    buffer[le] = CHAR_MIN;
+                }
+            }
+        }
+        return rows_read;
+    }
+    case parquet::Type::BYTE_ARRAY:
+    {
+        parquet::ByteArrayReader *ba_reader = static_cast<parquet::ByteArrayReader *>(column_reader.get());
+        vector<parquet::ByteArray> value(batchSize);
+        while(ba_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            int64_t le = rows_read;
+            rows_read += ba_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::ByteArray*)value.data(), &valuesRead);
+            values_read += valuesRead;
+            int index = 0;
+            for (; le < rows_read; le++)
+            {
+                if (value[index].len > 1)
+                    throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:ByteArray(length>1)" + "->" + Util::getDataTypeString(DT_CHAR));
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    buffer[le] = static_cast<char>(*value[index++].ptr);
+                }
+                else
+                {
+                    containNull = true;
+                    buffer[le] = CHAR_MIN;
+                }
+            }
+        }              
+        return rows_read;
+    }
+    default:
+        throw RuntimeException("unsupported data type");
+    }
+    return 0;
+}
+
+int convertParquetToDolphindbBool(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, char* buffer, size_t batchSize, bool& containNull)
+{
+    int64_t values_read = 0;
+    vector<short> def_level(batchSize);
+    vector<short> rep_level(batchSize);
+    int64_t rows_read = 0;
+    switch (col_descr->physical_type())
+    {
+    case parquet::Type::BOOLEAN:
+    {
+        parquet::BoolReader *bool_reader = static_cast<parquet::BoolReader *>(column_reader.get());
+        vector<char> bool_value(batchSize);
+        while(bool_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += bool_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (bool*)bool_value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        if (rows_read == values_read && rows_read != 0)
+        {
+            memcpy(buffer, bool_value.data(), rows_read * sizeof(char));
+        }
+        else if (rows_read != 0)
+        {
+            int index = 0;
+            for (int64_t le = 0; le < rows_read; le++)
+            {
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    buffer[le] = bool_value[index++];
+                }
+                else
+                {
+                    buffer[le] = CHAR_MIN;
+                }
+            }
+        }
+        return rows_read;
+    }
+    case parquet::Type::INT32:
+    {
+        parquet::Int32Reader *int32_reader = static_cast<parquet::Int32Reader *>(column_reader.get());
+        // Read all the rows in the column
+        vector<int32_t> value(batchSize);
+        while(int32_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int32_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int32_t*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }             
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
+        {
+            if (def_level[le] >= col_descr->max_definition_level())
+            {
+                buffer[le] = (value[index++] != 0);
+            }
+            else
+            {
+                buffer[le] = CHAR_MIN;
+            }
+        }
+        return rows_read;
+    }
+    case parquet::Type::INT64:
+    {
+        parquet::Int64Reader *int64_reader = static_cast<parquet::Int64Reader *>(column_reader.get());
+        vector<int64_t> value(batchSize);
+        while(int64_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int64_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int64_t*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }      
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
+        {
+            if (def_level[le] >= col_descr->max_definition_level())
+            {
+                buffer[le] = (value[index++] != 0);
+            }
+            else
+            {
+                buffer[le] = CHAR_MIN;
+            }
+        }
+        return rows_read;
+    }
+    case parquet::Type::INT96:
+    {
+        parquet::Int96Reader *int96_reader = static_cast<parquet::Int96Reader *>(column_reader.get());
+        vector<parquet::Int96> value(batchSize);
+        while(int96_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int96_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::Int96*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }  
+        containNull = rows_read != values_read;            
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
+        {
+            if (def_level[le] >= col_descr->max_definition_level())
+            {
+                buffer[le] = (value[index].value[0] != 0 && value[index].value[1] && value[index].value[2]);
+                index ++;
+            }
+            else
+            {
+                buffer[le] = CHAR_MIN;
+            }
+        }
+        return rows_read;
+    }
+    case parquet::Type::DOUBLE:
+    {
+        parquet::DoubleReader *double_reader = static_cast<parquet::DoubleReader *>(column_reader.get());
+        vector<double> value(batchSize);
+        while(double_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += double_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (double*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }       
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
+        {
+            if (def_level[le] >= col_descr->max_definition_level())
+            {
+                buffer[le] = (value[index++] != 0);
+            }
+            else
+            {
+                buffer[le] = CHAR_MIN;
+            }
+        }
+        return rows_read;
+    }
+    case parquet::Type::FLOAT:
+    {
+        parquet::FloatReader *float_reader = static_cast<parquet::FloatReader *>(column_reader.get());
+        vector<float> value(batchSize);
+        while(float_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += float_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (float*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
+        {
+            if (def_level[le] >= col_descr->max_definition_level())
+            {
+                buffer[le] = (value[index++] != 0);
+            }
+            else
+            {
+                buffer[le] = CHAR_MIN;
+            }
+        }
+        return rows_read;
+    }
+    case parquet::Type::FIXED_LEN_BYTE_ARRAY:
+        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FIXED_LEN_BYTE_ARRAY" + "->" + Util::getDataTypeString(DT_BOOL));
+    case parquet::Type::BYTE_ARRAY:
+        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:BYTE_ARRAY" + "->" + Util::getDataTypeString(DT_BOOL));
+
+    default:
+        throw RuntimeException("unsupported data type");
+    }
+    return 0;
+}
+
+int convertParquetToDolphindbInt(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, int* buffer, DATA_TYPE times_t, size_t batchSize, bool& containNull)
+{
+    int64_t values_read = 0;
+    vector<short> def_level(batchSize);
+    vector<short> rep_level(batchSize);
+    int64_t rows_read = 0;
     switch (col_descr->physical_type())
     {
     case parquet::Type::BOOLEAN:
@@ -1048,278 +1217,270 @@ bool convertParquetToDolphindbInt(int col_idx, std::shared_ptr<parquet::ColumnRe
         if (times_t != DT_INT)
             throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:BOOLEAN" + "->" + Util::getDataTypeString(times_t));
         parquet::BoolReader *bool_reader = static_cast<parquet::BoolReader *>(column_reader.get());
-        while (bool_reader->HasNext())
+        vector<char> value(batchSize);
+        while(bool_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += bool_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (bool*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            bool value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = bool_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                buffer.push_back(static_cast<int>(value));
+                buffer[le] = value[index++];
             }
-            else if (rows_read != 0)
+            else
             {
-                buffer.push_back(INT32_MIN);
+                buffer[le] = INT_MIN;
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::INT32:
     {
         parquet::Int32Reader *int32_reader = static_cast<parquet::Int32Reader *>(column_reader.get());
         // Read all the rows in the column
-
-        while (int32_reader->HasNext())
-        {
-            int32_t value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int32_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
-            {
-                buffer.push_back(value);
-            }
-            else if (rows_read != 0)
-            {
-                buffer.push_back(INT32_MIN);
-            }
-        }
+        vector<int32_t> value(batchSize);
+        while(int32_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int32_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int32_t*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
         if(col_descr->logical_type()->is_decimal() || col_descr->converted_type()==parquet::ConvertedType::DECIMAL)
         {
             int scale=std::pow(10, col_descr->type_scale());
-            for(auto &x:buffer)
-                if(x!=INT32_MIN)
-                    x=x/scale;
-            break;
+            for(int i = 0; i < values_read; i++)
+                value[i]=value[i]/scale;
         }
-        parquetTime parquetT = convertParquetTimes(col_descr->logical_type(), col_descr->converted_type());
-        if (parquetT == parquetTime::None)
-            break;
-        vector<long long> longValue;
-        switch (times_t)
+        else{
+            parquetTime parquetT = convertParquetTimes(col_descr->logical_type(), col_descr->converted_type());
+            if (parquetT != parquetTime::None){
+                switch (times_t)
+                {
+                case DT_DATE:
+                    convertToDTDate(value, parquetT, values_read);
+                    break;
+                case DT_MONTH:
+                    convertToDTMonth(value, parquetT, values_read);
+                    break;
+                case DT_TIME:
+                    convertToDTTime(value, parquetT, values_read);
+                    break;
+                case DT_SECOND:
+                    convertToDTSecond(value, parquetT, values_read);
+                    break;
+                case DT_MINUTE:
+                    convertToDTMinute(value, parquetT, values_read);
+                    break;
+                case DT_DATETIME:
+                    convertToDTDatetime(value, parquetT, values_read);
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+        int index = 0;
+        if (rows_read == values_read && rows_read != 0)
         {
-        case DT_DATE:
-            convertToDTdate(buffer, parquetT, longValue);
-            break;
-        case DT_MONTH:
-            convertToDTmonth(buffer, parquetT, longValue);
-            break;
-        case DT_TIME:
-            convertToDTtime(buffer, parquetT, longValue);
-            break;
-        case DT_SECOND:
-            convertToDTsecond(buffer, parquetT, longValue);
-            break;
-        case DT_MINUTE:
-            convertToDTminute(buffer, parquetT, longValue);
-            break;
-        case DT_DATETIME:
-            convertToDTdatetime(buffer, parquetT, longValue);
-            break;
-        default:
-            break;
+            memcpy(buffer, value.data(), sizeof(int) * rows_read);
         }
-        break;
+        else{
+            for (int64_t le = 0; le < rows_read; le++)
+            {
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    buffer[le] = value[index++];
+                }
+                else
+                {
+                    buffer[le] = INT_MIN;
+                }
+            }
+        }
+        return rows_read;
     }
     case parquet::Type::INT64:
     {
-        vector<long long> longValue;
+        vector<int64_t> value(batchSize);
         parquet::Int64Reader *int64_reader = static_cast<parquet::Int64Reader *>(column_reader.get());
-        while (int64_reader->HasNext())
-        {
-            int64_t value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int64_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
-            {
-                longValue.push_back(value);
-            }
-            else if (rows_read != 0)
-            {
-                longValue.push_back(INT64_MIN);
-            }
-        }
+        while(int64_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int64_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int64_t*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
         if(col_descr->logical_type()->is_decimal() || col_descr->converted_type()==parquet::ConvertedType::DECIMAL)
         {
             long long scale=std::pow(10,col_descr->type_scale());
-            for (auto x : longValue){   
-                if (x == INT64_MIN)
-                    buffer.push_back(INT32_MIN);
-                else if (x/scale >= INT32_MAX)
-                    buffer.push_back(INT32_MAX);
-                else if (x/scale <= INT32_MIN + 1)
-                    buffer.push_back(INT32_MIN + 1);
-                else
-                    buffer.push_back(static_cast<int>(x/scale));
+            for(int i = 0; i < values_read; i++){
+                value[i]=value[i]/scale;
             }
-            break;
-        }
-        parquetTime parquetT = convertParquetTimes(col_descr->logical_type(), col_descr->converted_type());
-        if (parquetT == parquetTime::None || times_t == DT_INT)
-        {
-            for (auto x : longValue)
+        }else{
+            parquetTime parquetT = convertParquetTimes(col_descr->logical_type(), col_descr->converted_type());
+            if (parquetT != parquetTime::None && times_t != DT_INT)
             {
-                if (x == INT64_MIN)
-                    buffer.push_back(INT32_MIN);
-                else if (x >= INT32_MAX)
-                    buffer.push_back(INT32_MAX);
-                else if (x <= INT32_MIN + 1)
-                    buffer.push_back(INT32_MIN + 1);
-                else
-                    buffer.push_back(static_cast<int>(x));
+                switch (times_t)
+                {
+                case DT_DATE:
+                    convertToDTDate(value, parquetT, values_read);
+                    break;
+                case DT_MONTH:
+                    convertToDTMonth(value, parquetT, values_read);
+                    break;
+                case DT_TIME:
+                    convertToDTTime(value, parquetT, values_read);
+                    break;
+                case DT_SECOND:
+                    convertToDTSecond(value, parquetT, values_read);
+                    break;
+                case DT_MINUTE:
+                    convertToDTMinute(value, parquetT, values_read);
+                    break;
+                case DT_DATETIME:
+                    convertToDTDatetime(value, parquetT, values_read);
+                    break;
+                default:
+                    break;
+                }
             }
-            break;
         }
-        buffer.resize(longValue.size());
-        switch (times_t)
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-        case DT_DATE:
-            convertToDTdate(buffer, parquetT, longValue);
-            break;
-        case DT_MONTH:
-            convertToDTmonth(buffer, parquetT, longValue);
-            break;
-        case DT_TIME:
-            convertToDTtime(buffer, parquetT, longValue);
-            break;
-        case DT_SECOND:
-            convertToDTsecond(buffer, parquetT, longValue);
-            break;
-        case DT_MINUTE:
-            convertToDTminute(buffer, parquetT, longValue);
-            break;
-        case DT_DATETIME:
-            convertToDTdatetime(buffer, parquetT, longValue);
-            break;
-        default:
-            break;
+            if (def_level[le] >= col_descr->max_definition_level())
+            {
+                buffer[le] = value[index++];
+            }
+            else
+            {
+                buffer[le] = INT_MIN;
+            }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::INT96:
     {
         vector<long long> longValue;
         parquet::Int96Reader *int96_reader = static_cast<parquet::Int96Reader *>(column_reader.get());
-        while (int96_reader->HasNext())
-        {
-            parquet::Int96 value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int96_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+        vector<parquet::Int96> value(batchSize);
+        while(int96_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int96_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::Int96*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        if(times_t == DT_INT){
+            int index = 0;
+            for (int64_t le = 0; le < rows_read; le++)
             {
-                if (times_t != DT_INT)
+                if (def_level[le] >= col_descr->max_definition_level())
                 {
-                    long long nanosTimes = parquet::Int96GetNanoSeconds(value);
-                    longValue.push_back(nanosTimes);
+                    buffer[le] = value[index++].value[2];
                 }
                 else
-                    buffer.push_back(static_cast<int>(value.value[2]));
-            }
-            else if (rows_read != 0)
-            {
-                if (times_t != DT_INT)
                 {
-                    longValue.push_back(INT64_MIN);
+                    buffer[le] = INT_MIN;
+                }
+            }
+        }
+        else{
+            longValue.resize(values_read);
+            for(int i = 0; i <values_read; i++ ){
+                longValue[i] = parquet::Int96GetNanoSeconds(value[i]);
+            }
+            switch (times_t)
+            {
+            case DT_DATE:
+                convertToDTDate(longValue, parquetTime::TimestampNanos, values_read);
+                break;
+            case DT_MONTH:
+                convertToDTMonth(longValue, parquetTime::TimestampNanos, values_read);
+                break;
+            case DT_TIME:
+                convertToDTTime(longValue, parquetTime::TimestampNanos, values_read);
+                break;
+            case DT_SECOND:
+                convertToDTSecond(longValue, parquetTime::TimestampNanos, values_read);
+                break;
+            case DT_MINUTE:
+                convertToDTMinute(longValue, parquetTime::TimestampNanos, values_read);
+                break;
+            case DT_DATETIME:
+                convertToDTDatetime(longValue, parquetTime::TimestampNanos, values_read);
+                break;
+            default:
+                break;
+            }
+            int index = 0;
+            for (int64_t le = 0; le < rows_read; le++)
+            {
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    buffer[le] = longValue[index++];
                 }
                 else
-                    buffer.push_back(INT32_MIN);
+                {
+                    buffer[le] = INT_MIN;
+                }
             }
         }
-        if (times_t != DT_INT)
-            buffer.resize(longValue.size());
-        switch (times_t)
-        {
-        case DT_DATE:
-            convertToDTdate(buffer, parquetTime::TimestampNanos, longValue);
-            break;
-        case DT_MONTH:
-            convertToDTmonth(buffer, parquetTime::TimestampNanos, longValue);
-            break;
-        case DT_TIME:
-            convertToDTtime(buffer, parquetTime::TimestampNanos, longValue);
-            break;
-        case DT_SECOND:
-            convertToDTsecond(buffer, parquetTime::TimestampNanos, longValue);
-            break;
-        case DT_MINUTE:
-            convertToDTminute(buffer, parquetTime::TimestampNanos, longValue);
-            break;
-        case DT_DATETIME:
-            convertToDTdatetime(buffer, parquetTime::TimestampNanos, longValue);
-            break;
-        default:
-            break;
-        }
-        break;
+        return rows_read;
     }
     case parquet::Type::DOUBLE:
     {
         if (times_t != DT_INT)
             throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:DOUBLE" + "->" + Util::getDataTypeString(times_t));
         parquet::DoubleReader *double_reader = static_cast<parquet::DoubleReader *>(column_reader.get());
-        while (double_reader->HasNext())
+        vector<double> value(batchSize);
+        while(double_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += double_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (double*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }       
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            double value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = double_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                if (value >= INT32_MAX)
-                    buffer.push_back(INT32_MAX);
-                else if (value <= INT32_MIN + 1)
-                    buffer.push_back(INT32_MIN + 1);
-                else
-                {
-                    int v = value >= 0 ? (value + 0.5) : (value - 0.5);
-                    buffer.push_back(v);
-                }
+                buffer[le] = value[index++];
             }
-            else if (rows_read != 0)
+            else
             {
-                buffer.push_back(INT32_MIN);
+                buffer[le] = INT_MIN;
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::FLOAT:
     {
         if (times_t != DT_INT)
             throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FLOAT" + "->" + Util::getDataTypeString(times_t));
         parquet::FloatReader *float_reader = static_cast<parquet::FloatReader *>(column_reader.get());
-        while (float_reader->HasNext())
+        vector<float> value(batchSize);
+        while(float_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += float_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (float*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            float value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = float_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                if (value >= INT32_MAX)
-                    buffer.push_back(INT32_MAX);
-                else if (value <= INT32_MIN + 1)
-                    buffer.push_back(INT32_MIN + 1);
-                else
-                {
-                    int v = value >= 0 ? (value + 0.5) : (value - 0.5);
-                    buffer.push_back(v);
-                }
+                buffer[le] = value[index++];
             }
-            else if (rows_read != 0)
+            else
             {
-                buffer.push_back(INT32_MIN);
+                buffer[le] = INT_MIN;
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::FIXED_LEN_BYTE_ARRAY:
         throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FIXED_LEN_BYTE_ARRAY" + "->" + Util::getDataTypeString(DT_INT));
@@ -1329,33 +1490,40 @@ bool convertParquetToDolphindbInt(int col_idx, std::shared_ptr<parquet::ColumnRe
     default:
         throw RuntimeException("unsupported data type");
     }
-    return true;
+    return 0;
 }
 
-bool convertParquetToDolphindbShort(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, vector<short> &buffer)
+int convertParquetToDolphindbShort(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, short* buffer, size_t batchSize, bool& containNull)
 {
+    int64_t values_read = 0;
+    vector<short> def_level(batchSize);
+    vector<short> rep_level(batchSize);
+    int64_t rows_read = 0;
     switch (col_descr->physical_type())
     {
     case parquet::Type::BOOLEAN:
     {
         parquet::BoolReader *bool_reader = static_cast<parquet::BoolReader *>(column_reader.get());
-        while (bool_reader->HasNext())
+        vector<char> value(batchSize);
+        while(bool_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += bool_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (bool*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            bool value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = bool_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                buffer.push_back(static_cast<short>(value));
+                buffer[le] = value[index++];
             }
-            else if (rows_read != 0)
+            else
             {
-                buffer.push_back(INT16_MIN);
+                buffer[le] = SHRT_MIN;
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::INT32:
     {
@@ -1389,29 +1557,26 @@ bool convertParquetToDolphindbShort(int col_idx, std::shared_ptr<parquet::Column
         }
         parquet::Int32Reader *int32_reader = static_cast<parquet::Int32Reader *>(column_reader.get());
         // Read all the rows in the column
-
-        while (int32_reader->HasNext())
+        vector<int32_t> value(batchSize);
+        while(int32_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int32_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int32_t*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            int32_t value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int32_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                if (value >= INT16_MAX)
-                    buffer.push_back(INT16_MAX);
-                else if (value <= INT16_MIN + 1)
-                    buffer.push_back(INT16_MIN + 1);
-                else
-                    buffer.push_back(static_cast<short>(value));
+                buffer[le] = value[index++];
             }
-            else if (rows_read != 0)
+            else
             {
-                buffer.push_back(INT16_MIN);
+                buffer[le] = SHRT_MIN;
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::INT64:
     {
@@ -1442,108 +1607,98 @@ bool convertParquetToDolphindbShort(int col_idx, std::shared_ptr<parquet::Column
             }
         }
         parquet::Int64Reader *int64_reader = static_cast<parquet::Int64Reader *>(column_reader.get());
-        while (int64_reader->HasNext())
+        vector<int64_t> value(batchSize);
+        while(int64_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int64_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int64_t*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            int64_t value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int64_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                if (value >= INT16_MAX)
-                    buffer.push_back(INT16_MAX);
-                else if (value <= INT16_MIN + 1)
-                    buffer.push_back(INT16_MIN + 1);
-                else
-                    buffer.push_back(static_cast<int>(value));
+                buffer[le] = value[index++];
             }
-            else if (rows_read != 0)
+            else
             {
-                buffer.push_back(INT16_MIN);
+                buffer[le] = SHRT_MIN;
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::INT96:
     {
         parquet::Int96Reader *int96_reader = static_cast<parquet::Int96Reader *>(column_reader.get());
-        while (int96_reader->HasNext())
+        vector<parquet::Int96> value(batchSize);
+        while(int96_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int96_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::Int96*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            parquet::Int96 value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int96_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
-                if (value.value[2] >= INT16_MAX)
-                    buffer.push_back(INT16_MAX);
-                else if (static_cast<short>(value.value[2]) <= INT16_MIN + 1)
-                    buffer.push_back(INT16_MIN + 1);
-                else
-                    buffer.push_back(static_cast<short>(value.value[2]));
-            else if (rows_read != 0)
-                buffer.push_back(INT16_MIN);
+            if (def_level[le] >= col_descr->max_definition_level())
+            {
+                buffer[le] = value[index++].value[2];
+            }
+            else
+            {
+                buffer[le] = SHRT_MIN;
+            }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::DOUBLE:
     {
         parquet::DoubleReader *double_reader = static_cast<parquet::DoubleReader *>(column_reader.get());
-        while (double_reader->HasNext())
+        vector<double> value(batchSize);
+        while(double_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += double_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (double*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }       
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            double value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = double_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                if (value >= INT16_MAX)
-                    buffer.push_back(INT16_MAX);
-                else if (value <= INT16_MIN + 1)
-                    buffer.push_back(INT16_MIN + 1);
-                else
-                {
-                    short v = value >= 0 ? (value + 0.5) : (value - 0.5);
-                    buffer.push_back(v);
-                }
+                buffer[le] = value[index++];
             }
-            else if (rows_read != 0)
+            else
             {
-                buffer.push_back(INT16_MIN);
+                buffer[le] = SHRT_MIN;
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::FLOAT:
     {
         parquet::FloatReader *float_reader = static_cast<parquet::FloatReader *>(column_reader.get());
-        while (float_reader->HasNext())
+        vector<float> value(batchSize);
+        while(float_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += float_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (float*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            float value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = float_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                if (value >= INT16_MAX)
-                    buffer.push_back(INT16_MAX);
-                else if (value <= INT16_MIN + 1)
-                    buffer.push_back(INT16_MIN + 1);
-                else
-                {
-                    short v = value >= 0 ? (value + 0.5) : (value - 0.5);
-                    buffer.push_back(v);
-                }
+                buffer[le] = value[index++];
             }
-            else if (rows_read != 0)
+            else
             {
-                buffer.push_back(INT16_MIN);
+                buffer[le] = SHRT_MIN;
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::FIXED_LEN_BYTE_ARRAY:
         throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:INT32" + "->" + Util::getDataTypeString(DT_SHORT));
@@ -1553,250 +1708,282 @@ bool convertParquetToDolphindbShort(int col_idx, std::shared_ptr<parquet::Column
     default:
         throw RuntimeException("unsupported data type");
     }
-    return true;
+    return 0;
 }
 
-bool convertParquetToDolphindbLong(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, vector<long long> &buffer, DATA_TYPE times_t)
+int convertParquetToDolphindbLong(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, long long* buffer, DATA_TYPE times_t, size_t batchSize, bool& containNull)
 {
+    int64_t values_read = 0;
+    vector<short> def_level(batchSize);
+    vector<short> rep_level(batchSize);
+    int64_t rows_read = 0;
     switch (col_descr->physical_type())
     {
     case parquet::Type::BOOLEAN:
     {
         parquet::BoolReader *bool_reader = static_cast<parquet::BoolReader *>(column_reader.get());
-        while (bool_reader->HasNext())
+        vector<char> value(batchSize);
+        while(bool_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += bool_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (bool*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            bool value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = bool_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                buffer.push_back(static_cast<long long>(value));
+                buffer[le] = value[index++];
             }
-            else if (rows_read != 0)
+            else
             {
-                buffer.push_back(INT64_MIN);
+                buffer[le] = LLONG_MIN;
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::INT32:
     {
-        vector<int> intValue;
         parquet::Int32Reader *int32_reader = static_cast<parquet::Int32Reader *>(column_reader.get());
         // Read all the rows in the column
 
-        while (int32_reader->HasNext())
-        {
-            int32_t value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int32_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
-            {
-                intValue.push_back(value);
-            }
-            else if (rows_read != 0)
-            {
-                intValue.push_back(INT32_MIN);
-            }
+        vector<int32_t> value(batchSize);
+        while(int32_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int32_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int32_t*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
         }
+        containNull = rows_read != values_read;
         if(col_descr->logical_type()->is_decimal() || col_descr->converted_type()==parquet::ConvertedType::DECIMAL)
         {
             int scale=std::pow(10, col_descr->type_scale());
-            for (auto x : intValue)
-            {   if (x == INT32_MIN)
-                    buffer.push_back(INT64_MIN);
-                else
-                    buffer.push_back((long long)(x/scale));
-            }
-            break;
+            for(int i = 0; i < values_read; i++)
+                value[i]=value[i]/scale;
         }
         parquetTime parquetT = convertParquetTimes(col_descr->logical_type(), col_descr->converted_type());
-        if (parquetT == parquetTime::None || times_t == DT_LONG)
+        if (parquetT != parquetTime::None && times_t != DT_LONG)
         {
-            for (auto x : intValue)
+            vector<long long> longV;
+            switch (times_t)
             {
-                if (x == INT32_MIN)
-                    buffer.push_back(INT64_MIN);
-                else
-                    buffer.push_back((long long)x);
+            case DT_NANOTIME:
+                convertToDTNanotime(value, parquetT, longV, values_read);
+                break;
+            case DT_NANOTIMESTAMP:
+                convertToDTNanotimestamp(value, parquetT, longV, values_read);
+                break;
+            case DT_TIMESTAMP:
+                convertToDTTimestamp(value, parquetT, longV, values_read);
+                break;
+            default:
+                break;
             }
-            break;
+            int index = 0;
+            for (int64_t le = 0; le < rows_read; le++)
+            {
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    buffer[le] = longV[index++];
+                }
+                else
+                {
+                    buffer[le] = LLONG_MIN;
+                }
+            }
+            return rows_read;
         }
-        buffer.resize(intValue.size());
-        switch (times_t)
+         int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-        case DT_NANOTIME:
-            convertToDTnanotime(intValue, parquetT, buffer);
-            break;
-        case DT_NANOTIMESTAMP:
-            convertToDTnanotimestamp(intValue, parquetT, buffer);
-            break;
-        case DT_TIMESTAMP:
-            convertToDTtimestamp(intValue, parquetT, buffer);
-            break;
-        default:
-            break;
+            if (def_level[le] >= col_descr->max_definition_level())
+            {
+                buffer[le] = value[index++];
+            }
+            else
+            {
+                buffer[le] = LLONG_MIN;
+            }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::INT64:
     {
 
         parquet::Int64Reader *int64_reader = static_cast<parquet::Int64Reader *>(column_reader.get());
-        while (int64_reader->HasNext())
-        {
-            int64_t value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int64_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
-            {
-                buffer.push_back(static_cast<long long>(value));
-            }
-            else if (rows_read != 0)
-            {
-                buffer.push_back(INT64_MIN);
-            }
+        vector<long long> value(batchSize);
+        while(int64_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int64_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int64_t*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
         }
+        containNull = rows_read != values_read;
         if(col_descr->logical_type()->is_decimal() || col_descr->converted_type()==parquet::ConvertedType::DECIMAL)
         {
-            long long scale=std::pow(10, col_descr->type_scale());
-            for (auto &x : buffer)
-                if(x!=INT64_MIN)
-                    x=x/scale;
-            break;
+            int scale=std::pow(10, col_descr->type_scale());
+            for(int i = 0; i < values_read; i++)
+                value[i]=value[i]/scale;
         }
-        parquetTime parquetT = convertParquetTimes(col_descr->logical_type(), col_descr->converted_type());
-        if (parquetT == parquetTime::None || times_t == DT_LONG)
+        else{
+            parquetTime parquetT = convertParquetTimes(col_descr->logical_type(), col_descr->converted_type());
+            if (parquetT != parquetTime::None){
+                vector<int> intValue(values_read);
+                switch (times_t)
+                {
+                case DT_NANOTIME:
+                    convertToDTNanotime(intValue, parquetT, value, values_read);
+                    break;
+                case DT_NANOTIMESTAMP:
+                    convertToDTNanotimestamp(intValue, parquetT, value, values_read);
+                    break;
+                case DT_TIMESTAMP:
+                    convertToDTTimestamp(intValue, parquetT, value, values_read);
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+        int index = 0;
+        if(col_descr->sort_order() == parquet::SortOrder::UNSIGNED)
         {
-            break;
+            for (size_t i = 0; i < value.size(); i++)
+                if(value[i] < 0)
+                    value[i] = LLONG_MIN;
         }
-        vector<int> intValue;
-        switch (times_t)
+        if (rows_read == values_read && rows_read != 0)
         {
-        case DT_NANOTIME:
-            convertToDTnanotime(intValue, parquetT, buffer);
-            break;
-        case DT_NANOTIMESTAMP:
-            convertToDTnanotimestamp(intValue, parquetT, buffer);
-            break;
-        case DT_TIMESTAMP:
-            convertToDTtimestamp(intValue, parquetT, buffer);
-            break;
-        default:
-            break;
+            memcpy(buffer, value.data(), sizeof(long long) * rows_read);
         }
-        break;
+        else{
+            for (int64_t le = 0; le < rows_read; le++)
+            {
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    buffer[le] = value[index++];
+                }
+                else
+                {
+                    buffer[le] = LLONG_MIN;
+                }
+            }
+        }
+        return rows_read;
     }
     case parquet::Type::INT96:
     {
+        vector<long long> longValue;
         parquet::Int96Reader *int96_reader = static_cast<parquet::Int96Reader *>(column_reader.get());
-        while (int96_reader->HasNext())
-        {
-            parquet::Int96 value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int96_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+        vector<parquet::Int96> value(batchSize);
+        while(int96_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int96_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::Int96*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }
+        containNull = rows_read != values_read;
+        if(times_t == DT_LONG){
+            int index = 0;
+            for (int64_t le = 0; le < rows_read; le++)
             {
-                if (times_t != DT_LONG)
+                if (def_level[le] >= col_descr->max_definition_level())
                 {
-                    long long nanosTimes = parquet::Int96GetNanoSeconds(value);
-                    buffer.push_back(nanosTimes);
+                    int64_t v = value[index].value[1];
+                    v = v << 32;
+                    v += value[index++].value[2];
+                    buffer[le] = v;
                 }
                 else
                 {
-                    int64_t v = value.value[1];
-                    v = v << 32;
-                    v += value.value[2];
-                    buffer.push_back(static_cast<long long>(v));
+                    buffer[le] = LLONG_MIN;
                 }
             }
-            else if (rows_read != 0)
+        }
+        else{
+            longValue.resize(values_read);
+            for(int i = 0; i <values_read; i++ ){
+                longValue[i] = parquet::Int96GetNanoSeconds(value[i]);
+            }
+            vector<int> intValue;
+            switch (times_t)
             {
-                buffer.push_back(INT64_MIN);
+            case DT_TIMESTAMP:
+                convertToDTTimestamp(intValue, parquetTime::TimestampNanos, longValue, values_read);
+                break;
+            case DT_NANOTIMESTAMP:
+                convertToDTNanotimestamp(intValue, parquetTime::TimestampNanos, longValue, values_read);
+                break;
+            case DT_NANOTIME:
+                convertToDTNanotime(intValue, parquetTime::TimestampNanos, longValue, values_read);
+                break;
+            default:
+                break;
+            }
+            int index = 0;
+            for (int64_t le = 0; le < rows_read; le++)
+            {
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    buffer[le] = longValue[index++];
+                }
+                else
+                {
+                    buffer[le] = LLONG_MIN;
+                }
             }
         }
-        vector<int> intValue;
-        switch (times_t)
-        {
-        case DT_TIMESTAMP:
-            convertToDTtimestamp(intValue, parquetTime::TimestampNanos, buffer);
-            break;
-        case DT_NANOTIMESTAMP:
-            convertToDTnanotimestamp(intValue, parquetTime::TimestampNanos, buffer);
-            break;
-        case DT_NANOTIME:
-            convertToDTnanotime(intValue, parquetTime::TimestampNanos, buffer);
-            break;
-        default:
-            break;
-        }
-        break;
+        return rows_read;
     }
     case parquet::Type::DOUBLE:
     {
+        if (times_t != DT_LONG)
+            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:DOUBLE" + "->" + Util::getDataTypeString(times_t));
         parquet::DoubleReader *double_reader = static_cast<parquet::DoubleReader *>(column_reader.get());
-        while (double_reader->HasNext())
+        vector<double> value(batchSize);
+        while(double_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += double_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (double*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }       
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            double value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = double_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                if (value >= INT64_MAX)
-                    buffer.push_back(INT64_MAX);
-                else if (value <= INT64_MIN + 1)
-                    buffer.push_back(INT64_MIN + 1);
-                else
-                {
-                    long long v = value >= 0 ? (value + 0.5) : (value - 0.5);
-                    buffer.push_back(v);
-                }
+                buffer[le] = value[index++];
             }
-            else if (rows_read != 0)
+            else
             {
-                buffer.push_back(INT64_MIN);
+                buffer[le] = LLONG_MIN;
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::FLOAT:
     {
+        if (times_t != DT_LONG)
+            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FLOAT" + "->" + Util::getDataTypeString(times_t));
         parquet::FloatReader *float_reader = static_cast<parquet::FloatReader *>(column_reader.get());
-        while (float_reader->HasNext())
+        vector<float> value(batchSize);
+        while(float_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += float_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (float*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }       
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            float value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = float_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                if (value >= INT64_MAX)
-                    buffer.push_back(INT64_MAX);
-                else if (value <= INT64_MIN + 1)
-                    buffer.push_back(INT64_MIN + 1);
-                else
-                {
-                    long long v = value >= 0 ? (value + 0.5) : (value - 0.5);
-                    buffer.push_back(v);
-                }
+                buffer[le] = value[index++];
             }
-            else if (rows_read != 0)
+            else
             {
-                buffer.push_back(INT64_MIN);
+                buffer[le] = LLONG_MIN;
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::FIXED_LEN_BYTE_ARRAY:
         throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FIXED_LEN_BYTE_ARRAY" + "->" + Util::getDataTypeString(DT_LONG));
@@ -1806,38 +1993,40 @@ bool convertParquetToDolphindbLong(int col_idx, std::shared_ptr<parquet::ColumnR
     default:
         throw RuntimeException("unsupported data type");
     }
-    return true;
+    return 0;
 }
 
-bool isDecimal(const parquet::ColumnDescriptor *col_descr)
+int convertParquetToDolphindbFloat(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, float* buffer, size_t batchSize, bool& containNull)
 {
-    return col_descr->logical_type()->is_decimal() || (col_descr->converted_type()==parquet::ConvertedType::DECIMAL);
-}
-
-bool convertParquetToDolphindbFloat(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, vector<float> &buffer)
-{
+    int64_t values_read = 0;
+    vector<short> def_level(batchSize);
+    vector<short> rep_level(batchSize);
+    int64_t rows_read = 0;
     switch (col_descr->physical_type())
     {
     case parquet::Type::BOOLEAN:
     {
         parquet::BoolReader *bool_reader = static_cast<parquet::BoolReader *>(column_reader.get());
-        while (bool_reader->HasNext())
+        vector<char> value(batchSize);
+        while(bool_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += bool_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (bool*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }       
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            bool value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = bool_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                buffer.push_back(static_cast<float>(value));
+                buffer[le] = value[index++];
             }
-            else if (rows_read != 0)
+            else
             {
-                buffer.push_back(FLT_MIN);
+                buffer[le] = FLT_NMIN;
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::INT32:
     {
@@ -1845,124 +2034,162 @@ bool convertParquetToDolphindbFloat(int col_idx, std::shared_ptr<parquet::Column
         // Read all the rows in the column
         bool Decimal=isDecimal(col_descr);
         int scale=std::pow(10, col_descr->type_scale());
-        while (int32_reader->HasNext())
-        {
-            int32_t value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int32_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+        vector<int32_t> value(batchSize);
+        while(int32_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int32_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int32_t*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }
+        containNull = rows_read != values_read;              
+        int index = 0;
+        if(Decimal){
+            for (int64_t le = 0; le < rows_read; le++)
             {
-                if(Decimal)
+                if (def_level[le] >= col_descr->max_definition_level())
                 {
-                    double v=((double)value)/scale;
-                    buffer.push_back(static_cast<float>(v));
+                    buffer[le] = ((double)value[index++])/scale;
                 }
-                buffer.push_back(static_cast<float>(value));
+                else
+                {
+                    buffer[le] = FLT_NMIN;
+                }
             }
-            else if (rows_read != 0)
+
+        }else{
+            for (int64_t le = 0; le < rows_read; le++)
             {
-                buffer.push_back(FLT_MIN);
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    buffer[le] = value[index++];
+                }
+                else
+                {
+                    buffer[le] = FLT_NMIN;
+                }
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::INT64:
     {
         long long scale=std::pow(10, col_descr->type_scale());
         bool Decimal=isDecimal(col_descr);
         parquet::Int64Reader *int64_reader = static_cast<parquet::Int64Reader *>(column_reader.get());
-        while (int64_reader->HasNext())
-        {
-            int64_t value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int64_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+        vector<int64_t> value(batchSize);
+        while(int64_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int64_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int64_t*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        if(Decimal){
+            for (int64_t le = 0; le < rows_read; le++)
             {
-                if(Decimal)
+                if (def_level[le] >= col_descr->max_definition_level())
                 {
-                    double v=((double)value)/scale;
-                    buffer.push_back(static_cast<float>(v));
+                    buffer[le] = ((double)value[index++])/scale;
                 }
-                else 
-                    buffer.push_back(static_cast<float>(value));
+                else
+                {
+                    buffer[le] = FLT_NMIN;
+                }
             }
-            else if (rows_read != 0)
+
+        }else{
+            for (int64_t le = 0; le < rows_read; le++)
             {
-                buffer.push_back(FLT_MIN);
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    buffer[le] = value[index++];
+                }
+                else
+                {
+                    buffer[le] = FLT_NMIN;
+                }
             }
         }
-        
-        break;
+        return rows_read;
     }
     case parquet::Type::INT96:
     {
         parquet::Int96Reader *int96_reader = static_cast<parquet::Int96Reader *>(column_reader.get());
-        while (int96_reader->HasNext())
+        vector<parquet::Int96> value(batchSize);
+        while(int96_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int96_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::Int96*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            parquet::Int96 value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int96_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                int64_t v = value.value[1];
+                int64_t v = value[index].value[1];
                 v = v << 32;
-                v += value.value[2];
-                buffer.push_back(static_cast<float>(v));
+                v += value[index++].value[2];
+                buffer[le] = v;
             }
-            else if (rows_read != 0)
+            else
             {
-                buffer.push_back(FLT_MIN);
+                buffer[le] = FLT_NMIN;
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::DOUBLE:
     {
         parquet::DoubleReader *double_reader = static_cast<parquet::DoubleReader *>(column_reader.get());
-        while (double_reader->HasNext())
+        vector<double> value(batchSize);
+        while(double_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += double_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (double*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            double value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = double_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                buffer.push_back(static_cast<float>(value));
+                buffer[le] = value[index++];
             }
-            else if (rows_read != 0)
+            else
             {
-                buffer.push_back(FLT_MIN);
+                buffer[le] = FLT_NMIN;
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::FLOAT:
     {
         parquet::FloatReader *float_reader = static_cast<parquet::FloatReader *>(column_reader.get());
-        while (float_reader->HasNext())
-        {
-            float value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = float_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+        vector<float> value(batchSize);
+        while(float_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += float_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (float*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        if(rows_read == values_read){
+            memcpy(buffer, value.data(), sizeof(float) * rows_read);
+        }
+        else{
+            for (int64_t le = 0; le < rows_read; le++)
             {
-                buffer.push_back(value);
-            }
-            else if (rows_read != 0)
-            {
-                buffer.push_back(FLT_MIN);
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    buffer[le] = value[index++];
+                }
+                else
+                {
+                    buffer[le] = FLT_NMIN;
+                }
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::FIXED_LEN_BYTE_ARRAY:
         throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FIXED_LEN_BYTE_ARRAY" + "->" + Util::getDataTypeString(DT_FLOAT));
@@ -1972,173 +2199,229 @@ bool convertParquetToDolphindbFloat(int col_idx, std::shared_ptr<parquet::Column
     default:
         throw RuntimeException("unsupported data type");
     }
-    return true;
+    return 0;
 }
 
-bool convertParquetToDolphindbDouble(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, vector<double> &buffer)
+int convertParquetToDolphindbDouble(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, double* buffer, size_t batchSize, bool& containNull)
 {
+    int64_t values_read = 0;
+    vector<short> def_level(batchSize);
+    vector<short> rep_level(batchSize);
+    int64_t rows_read = 0;
     switch (col_descr->physical_type())
     {
     case parquet::Type::BOOLEAN:
     {
         parquet::BoolReader *bool_reader = static_cast<parquet::BoolReader *>(column_reader.get());
-        while (bool_reader->HasNext())
+        vector<char> value(batchSize);
+        while(bool_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += bool_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (bool*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            bool value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = bool_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                buffer.push_back(static_cast<double>(value));
+                buffer[le] = value[index++];
             }
-            else if (rows_read != 0)
+            else
             {
-                buffer.push_back(DBL_MIN);
+                buffer[le] = DBL_NMIN;
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::INT32:
     {
-        int scale=std::pow(10, col_descr->type_scale());
-        bool Decimal=isDecimal(col_descr);
         parquet::Int32Reader *int32_reader = static_cast<parquet::Int32Reader *>(column_reader.get());
         // Read all the rows in the column
-
-        while (int32_reader->HasNext())
-        {
-            int32_t value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int32_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+        bool Decimal=isDecimal(col_descr);
+        int scale=std::pow(10, col_descr->type_scale());
+        vector<int32_t> value(batchSize);
+        while(int32_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int32_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int32_t*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        if(Decimal){
+            for (int64_t le = 0; le < rows_read; le++)
             {
-                if(Decimal)
+                if (def_level[le] >= col_descr->max_definition_level())
                 {
-                    double v=((double)value)/scale;
-                    buffer.push_back(v);
+                    buffer[le] = ((double)value[index++])/scale;
                 }
                 else
-                    buffer.push_back(static_cast<double>(value));
+                {
+                    buffer[le] = DBL_NMIN;
+                }
             }
-            else if (rows_read != 0)
+
+        }else{
+            for (int64_t le = 0; le < rows_read; le++)
             {
-                buffer.push_back(DBL_MIN);
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    buffer[le] = value[index++];
+                }
+                else
+                {
+                    buffer[le] = DBL_NMIN;
+                }
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::INT64:
     {
         long long scale=std::pow(10, col_descr->type_scale());
         bool Decimal=isDecimal(col_descr);
         parquet::Int64Reader *int64_reader = static_cast<parquet::Int64Reader *>(column_reader.get());
-        while (int64_reader->HasNext())
-        {
-            int64_t value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int64_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+        vector<int64_t> value(batchSize);
+        while(int64_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int64_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int64_t*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        if(Decimal){
+            for (int64_t le = 0; le < rows_read; le++)
             {
-                if(Decimal)
+                if (def_level[le] >= col_descr->max_definition_level())
                 {
-                    double v=((double)value)/scale;
-                    buffer.push_back(v);
+                    buffer[le] = ((double)value[index++])/scale;
                 }
                 else
-                    buffer.push_back(static_cast<double>(value));
+                {
+                    buffer[le] = DBL_NMIN;
+                }
             }
-            else if (rows_read != 0)
+
+        }else{
+            for (int64_t le = 0; le < rows_read; le++)
             {
-                buffer.push_back(DBL_MIN);
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    buffer[le] = value[index++];
+                }
+                else
+                {
+                    buffer[le] = DBL_NMIN;
+                }
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::INT96:
     {
         parquet::Int96Reader *int96_reader = static_cast<parquet::Int96Reader *>(column_reader.get());
-        while (int96_reader->HasNext())
+        vector<parquet::Int96> value(batchSize);
+        while(int96_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int96_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::Int96*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            parquet::Int96 value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int96_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                int64_t v = value.value[1];
+                int64_t v = value[index].value[1];
                 v = v << 32;
-                v += value.value[2];
-                buffer.push_back(static_cast<double>(v));
+                v += value[index++].value[2];
+                buffer[le] = v;
             }
-            else if (rows_read != 0)
+            else
             {
-                buffer.push_back(DBL_MIN);
+                buffer[le] = DBL_NMIN;
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::DOUBLE:
     {
         parquet::DoubleReader *double_reader = static_cast<parquet::DoubleReader *>(column_reader.get());
-        while (double_reader->HasNext())
-        {
-            double value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = double_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+        vector<double> value(batchSize);
+        while(double_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += double_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (double*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        if(rows_read == values_read){
+            memcpy(buffer, value.data(), sizeof(double) * rows_read);
+        }
+        else{
+            for (int64_t le = 0; le < rows_read; le++)
             {
-                buffer.push_back((double)value);
-            }
-            else if (rows_read != 0)
-            {
-                buffer.push_back(DBL_MIN);
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    buffer[le] = value[index++];
+                }
+                else
+                {
+                    buffer[le] = DBL_NMIN;
+                }
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::FLOAT:
     {
         parquet::FloatReader *float_reader = static_cast<parquet::FloatReader *>(column_reader.get());
-        while (float_reader->HasNext())
-        {
-            float value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = float_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+        vector<float> value(batchSize);
+        while(float_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += float_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (float*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        if(rows_read == values_read){
+            for (int64_t le = 0; le < rows_read; le++)
             {
-                buffer.push_back((double)value);
-            }
-            else if (rows_read != 0)
+                buffer[le] = value[le];
+            }        
+        }
+        else{
+            for (int64_t le = 0; le < rows_read; le++)
             {
-                buffer.push_back(DBL_MIN);
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    buffer[le] = value[index++];
+                }
+                else
+                {
+                    buffer[le] = FLT_NMIN;
+                }
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::FIXED_LEN_BYTE_ARRAY:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FIXED_LEN_BYTE_ARRAY" + "->" + Util::getDataTypeString(DT_DOUBLE));
+        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FIXED_LEN_BYTE_ARRAY" + "->" + Util::getDataTypeString(DT_FLOAT));
     case parquet::Type::BYTE_ARRAY:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:BYTE_ARRAY" + "->" + Util::getDataTypeString(DT_DOUBLE));
+        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:BYTE_ARRAY" + "->" + Util::getDataTypeString(DT_FLOAT));
 
     default:
         throw RuntimeException("unsupported data type");
     }
-    return true;
+    return 0;
 }
 
-bool convertParquetToDolphindbString(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, vector<string> &buffer, DATA_TYPE string_t)
+int convertParquetToDolphindbString(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, vector<string> &buffer, DATA_TYPE string_t, size_t batchSize, bool& containNull)
 {
+    int64_t values_read = 0;
+    vector<short> def_level(batchSize);
+    vector<short> rep_level(batchSize);
+    int64_t rows_read = 0;
     switch (col_descr->physical_type())
     {
     case parquet::Type::BOOLEAN:
@@ -2146,164 +2429,178 @@ bool convertParquetToDolphindbString(int col_idx, std::shared_ptr<parquet::Colum
         if (string_t == DT_UUID || string_t == DT_INT128)
             throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:BOOLEAN" + "->" + Util::getDataTypeString(string_t));
         parquet::BoolReader *bool_reader = static_cast<parquet::BoolReader *>(column_reader.get());
-        while (bool_reader->HasNext())
+        vector<char> value(batchSize);
+        while(bool_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += bool_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (bool*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            bool value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = bool_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                if (value)
-                    buffer.push_back("true");
-                else
-                    buffer.push_back("false");
+                buffer[le] = value[index++]? "true":"false";
             }
-            else if (rows_read != 0)
+            else
             {
-
-                buffer.push_back(STR_MIN);
+                buffer[le] = "";
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::INT32:
     {
         if (string_t == DT_UUID || string_t == DT_INT128)
             throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:INT32" + "->" + Util::getDataTypeString(string_t));
         parquet::Int32Reader *int32_reader = static_cast<parquet::Int32Reader *>(column_reader.get());
-        // Read all the rows in the column
-
-        while (int32_reader->HasNext())
+        vector<int32_t> value(batchSize);
+        while(int32_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int32_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int32_t*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            int32_t value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int32_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                buffer.push_back(std::to_string(value));
+                buffer[le] = std::to_string(value[index++]);
             }
-            else if (rows_read != 0)
+            else
             {
-                buffer.push_back(STR_MIN);
+                buffer[le] = "";
             }
         }
-
-        break;
+        return rows_read;
     }
     case parquet::Type::INT64:
     {
         if (string_t == DT_UUID || string_t == DT_INT128)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:INT64" + "->" + Util::getDataTypeString(string_t));
+            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:INT32" + "->" + Util::getDataTypeString(string_t));
         parquet::Int64Reader *int64_reader = static_cast<parquet::Int64Reader *>(column_reader.get());
-        while (int64_reader->HasNext())
+        vector<int64_t> value(batchSize);
+        while(int64_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int64_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int64_t*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            int64_t value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int64_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                buffer.push_back(std::to_string(value));
+                buffer[le] = std::to_string(value[index++]);
             }
-            else if (rows_read != 0)
+            else
             {
-                buffer.push_back(STR_MIN);
+                buffer[le] = "";
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::INT96:
     {
         if (string_t == DT_UUID)
             throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:INT96" + "->" + Util::getDataTypeString(string_t));
         parquet::Int96Reader *int96_reader = static_cast<parquet::Int96Reader *>(column_reader.get());
-        while (int96_reader->HasNext())
-        {
-            parquet::Int96 value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = int96_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+        vector<parquet::Int96> value(batchSize);
+        while(int96_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += int96_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::Int96*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        if(string_t == DT_INT128){
+            for (int64_t le = 0; le < rows_read; le++)
             {
-                if (string_t == DT_INT128)
+                if (def_level[le] >= col_descr->max_definition_level())
                 {
                     char bytes[16];
                     for (int i = 0; i < 3; i++)
                     {
-                        bytes[i * 4] = (char)((value.value[i] >> 24) & 0xFF);
-                        bytes[i * 4 + 1] = (char)((value.value[i] >> 16) & 0xFF);
-                        bytes[i * 4 + 2] = (char)((value.value[i] >> 8) & 0xFF);
-                        bytes[i * 4 + 3] = (char)(value.value[i] & 0xFF);
+                        bytes[i * 4] = (char)((value[index].value[i] >> 24) & 0xFF);
+                        bytes[i * 4 + 1] = (char)((value[index].value[i] >> 16) & 0xFF);
+                        bytes[i * 4 + 2] = (char)((value[index].value[i] >> 8) & 0xFF);
+                        bytes[i * 4 + 3] = (char)(value[index].value[i] & 0xFF);
                     }
-                    buffer.push_back(string(bytes));
+                    buffer[le] = string(bytes);
+                    index++;
                 }
                 else
                 {
-                    buffer.push_back(parquet::Int96ToString(value));
+                    buffer[le] = "";
                 }
             }
-            else if (rows_read != 0)
+        }else{
+            for (int64_t le = 0; le < rows_read; le++)
             {
-                buffer.push_back(STR_MIN);
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    buffer[le] = parquet::Int96ToString(value[index++]);
+                }
+                else
+                {
+                    buffer[le] = "";
+                }
             }
         }
-        break;
     }
     case parquet::Type::DOUBLE:
     {
         if (string_t == DT_UUID || string_t == DT_INT128)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:DOUBLE" + "->" + Util::getDataTypeString(string_t));
+            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:INT32" + "->" + Util::getDataTypeString(string_t));
         parquet::DoubleReader *double_reader = static_cast<parquet::DoubleReader *>(column_reader.get());
-        while (double_reader->HasNext())
+        vector<double> value(batchSize);
+        while(double_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += double_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (double*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }       
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            double value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = double_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                std::ostringstream out;
-                out << value;
-                buffer.push_back(out.str());
+                buffer[le] = std::to_string(value[index++]);
             }
-            else if (rows_read != 0)
+            else
             {
-                buffer.push_back(STR_MIN);
+                buffer[le] = "";
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::FLOAT:
     {
         if (string_t == DT_UUID || string_t == DT_INT128)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FLOAT" + "->" + Util::getDataTypeString(string_t));
+            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:INT32" + "->" + Util::getDataTypeString(string_t));
         parquet::FloatReader *float_reader = static_cast<parquet::FloatReader *>(column_reader.get());
-        while (float_reader->HasNext())
+        vector<float> value(batchSize);
+        while(float_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            rows_read += float_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (float*)value.data() + values_read, &valuesRead);
+            values_read += valuesRead;
+        }              
+        containNull = rows_read != values_read;
+        int index = 0;
+        for (int64_t le = 0; le < rows_read; le++)
         {
-            float value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = float_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+            if (def_level[le] >= col_descr->max_definition_level())
             {
-                std::ostringstream out;
-                out << value;
-                buffer.push_back(out.str());
+                buffer[le] = std::to_string(value[index++]);
             }
-            else if (rows_read != 0)
+            else
             {
-                buffer.push_back(STR_MIN);
+                buffer[le] = "";
             }
         }
-        break;
+        return rows_read;
     }
     case parquet::Type::FIXED_LEN_BYTE_ARRAY:
     {
@@ -2312,55 +2609,61 @@ bool convertParquetToDolphindbString(int col_idx, std::shared_ptr<parquet::Colum
         int fixed_length = col_descr->type_length();
         if (string_t == DT_UUID && fixed_length != 16)
             throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FIXED_LEN_BYTE_ARRAY, length NOT 16" + "->" + Util::getDataTypeString(string_t));
+        
         parquet::FixedLenByteArrayReader *flba_reader = static_cast<parquet::FixedLenByteArrayReader *>(column_reader.get());
-        while (flba_reader->HasNext())
-        {
-            parquet::FixedLenByteArray value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = flba_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+        vector<parquet::FixedLenByteArray> value(batchSize);
+        while(flba_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            int64_t le = rows_read;
+            rows_read += flba_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::FixedLenByteArray*)value.data(), &valuesRead);
+            int index = 0;
+            for (; le < rows_read; le++)
             {
-                buffer.push_back(std::string(reinterpret_cast<const char *>(value.ptr), fixed_length));
-            }
-            else if (rows_read != 0)
-            {
-                buffer.push_back(STR_MIN);
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    buffer[le] =std::string(reinterpret_cast<const char *>(value[index++].ptr), fixed_length);
+
+                }
+                else
+                {
+                    buffer[le] = "";
+                    containNull = true;
+                }
             }
         }
-
-        break;
+        return rows_read;
     }
     case parquet::Type::BYTE_ARRAY:
     {
         if (string_t == DT_UUID || string_t == DT_INT128)
             throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:BYTE_ARRAY" + "->" + Util::getDataTypeString(string_t));
         parquet::ByteArrayReader *ba_reader = static_cast<parquet::ByteArrayReader *>(column_reader.get());
-        int i =0;
-        while (ba_reader->HasNext())
-        {
-            parquet::ByteArray value;
-            int64_t values_read;
-            short def_level;
-            short rep_level;
-            int64_t rows_read = ba_reader->ReadBatch(1, &def_level, &rep_level, &value, &values_read);
-            if (rows_read == values_read && rows_read != 0)
+        vector<parquet::ByteArray> value(batchSize);
+        while(ba_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            int64_t le = rows_read;
+            rows_read += ba_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::ByteArray*)value.data(), &valuesRead);
+            int index = 0;
+            for (; le < rows_read; le++)
             {
-                buffer.push_back(parquet::ByteArrayToString(value));
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    buffer[le] =parquet::ByteArrayToString(value[index++]);
+
+                }
+                else
+                {
+                    buffer[le] = "";
+                    containNull = true;
+                }
             }
-            else if (rows_read != 0)
-            {
-                buffer.push_back(STR_MIN);
-            }
-            i++;
         }
-        break;
+        return rows_read;
     }
     default:
         throw RuntimeException("unsupported data type");
     }
-    return true;
+    return 0;
 }
 
 ConstantSP loadParquet(const string &filename, const ConstantSP &schema, const ConstantSP &column, const int rowGroupStart, const int rowGroupNum)
@@ -2411,103 +2714,174 @@ ConstantSP loadParquet(const string &filename, const ConstantSP &schema, const C
     return loadParquet(&file, init_schema, columnToRead, rowGroupStart, rowGroupEnd);
 }
 
+ConstantSP loadParquetHdfs(void *buffer, int64_t len)
+{
+    std::shared_ptr<arrow::io::BufferReader> buf = std::make_shared<arrow::io::BufferReader>((uint8_t *)buffer, len);
+    int rowGroupStart = 0;
+    int rowGroupNum = 0;
+    ConstantSP schema = ParquetPluginImp::nullSP;
+    ConstantSP column = new Void();
+    ParquetReadOnlyFile file;
+    file.open(buf);
+    std::shared_ptr<parquet::FileMetaData> file_metadata = file.fileMetadataReader();
+    const parquet::SchemaDescriptor *s = file_metadata->schema();
+    int col_num = s->num_columns();
+    VectorSP columnToRead;
+    if(column->isNull()){
+        columnToRead = Util::createIndexVector(0, col_num);
+    }else{
+        columnToRead = column;
+        int maxIndex = columnToRead->max()->getInt();
+        int minIndex = columnToRead->min()->getInt();
+        if(maxIndex >= col_num){
+            throw IllegalArgumentException("loadParquet", "Invalid column index " + std::to_string(maxIndex) + " to load");
+        }
+        if(minIndex < 0){
+            throw IllegalArgumentException("loadParquet", "Invalid column index " + std::to_string(minIndex) + " to load");        
+        }
+    }
+    int row_group_num = file_metadata->num_row_groups();
+    if (rowGroupStart >= row_group_num)
+        throw RuntimeException("rowGroupStart to read is out of range.");
+    int rowGroupEnd;
+    if (rowGroupNum == 0)
+    {
+        rowGroupEnd = row_group_num;
+    }
+    else
+    {
+        rowGroupEnd = rowGroupStart + rowGroupNum;
+        if (rowGroupEnd >= row_group_num)
+            rowGroupEnd = row_group_num;
+    }
+    ConstantSP init_schema = schema;
+    if (schema->isNull())
+    {
+        vector<ConstantSP> cols(2);
+        if (!getSchemaCol(s, columnToRead, cols))
+            throw RuntimeException("get schema failed");
+        vector<string> colNames(2);
+        colNames[0] = "name";
+        colNames[1] = "type";
+        init_schema = Util::createTable(colNames, cols);
+    }
+    return loadParquet(&file, init_schema, columnToRead, rowGroupStart, rowGroupEnd);
+}
+
 ConstantSP loadParquet(ParquetReadOnlyFile *file, const ConstantSP &schema, const ConstantSP &column, const int rowGroupStart, const int rowGroupEnd)
 {
     TableSP tableWithSchema = DBFileIO::createEmptyTableFromSchema(schema);
     int col_num = column->size();
-    vector<VectorSP> dolphindbCol(col_num);
-    createNewVectorSP(dolphindbCol, tableWithSchema);
+    char buf[1024 * 64 * 8];
+    long long rows_read = 0;
     for (int row = rowGroupStart; row < rowGroupEnd; row++)
     {
         std::shared_ptr<parquet::RowGroupReader> row_reader = file->rowReader(row);
         if (row_reader == nullptr)
             throw RuntimeException("Read parquet file failed.");
-        
-        for (int i = 0; i < col_num; i++)
-        {
+        size_t totalRows = row_reader->metadata()->num_rows();
+
+        size_t startRow = 0;
+        size_t batchRow = totalRows > 1024 * 64 ? 1024 * 64 : totalRows;
+        vector<std::shared_ptr<parquet::ColumnReader>> colReaders;
+        for (int i = 0; i < col_num; i++){
             int col_idx = column->getInt(i);
             std::shared_ptr<parquet::ColumnReader> column_reader = row_reader->Column(col_idx);
-            const parquet::ColumnDescriptor *col_descr = column_reader->descr();
-            if (col_descr->max_repetition_level() != 0)
-                throw RuntimeException("not support parquet repeated field yet.");
-            DATA_TYPE dolphin_t = dolphindbCol[i]->getType();
-            switch (dolphin_t)
+            colReaders.push_back(column_reader);
+        }
+        INDEX insertRows = 1;
+        while(startRow < totalRows && insertRows != 0){
+            vector<VectorSP> dolphindbCol(col_num);
+            createNewVectorSP(dolphindbCol, tableWithSchema);
+            for (int i = 0; i < col_num; i++)
             {
-            case DT_BOOL:
-            {
-                vector<char> buffer;
-                convertParquetToDolphindbBool(i, column_reader, col_descr, buffer);
-                dolphindbCol[i]->appendChar(buffer.data(), buffer.size());
-                break;
+                std::shared_ptr<parquet::ColumnReader> column_reader = colReaders[i];
+                const parquet::ColumnDescriptor *col_descr = column_reader->descr();
+                if (col_descr->max_repetition_level() != 0)
+                    throw RuntimeException("not support parquet repeated field yet.");
+                DATA_TYPE dolphin_t = dolphindbCol[i]->getType();
+                bool containNull;
+                switch (dolphin_t)
+                {
+                case DT_BOOL:
+                {
+                    rows_read = convertParquetToDolphindbBool(i, column_reader, col_descr, buf, batchRow, containNull);
+                    dolphindbCol[i]->appendChar(buf, rows_read);
+                    dolphindbCol[i]->setNullFlag(containNull);
+                    break;
+                }
+                case DT_CHAR:
+                {
+                    rows_read = convertParquetToDolphindbChar(i, column_reader, col_descr, buf, batchRow, containNull);
+                    dolphindbCol[i]->appendChar(buf, rows_read);
+                    dolphindbCol[i]->setNullFlag(containNull);
+                    break;
+                }
+                case DT_DATE:
+                case DT_MONTH:
+                case DT_TIME:
+                case DT_SECOND:
+                case DT_MINUTE:
+                case DT_DATETIME:
+                case DT_INT:
+                {
+                    rows_read = convertParquetToDolphindbInt(i, column_reader, col_descr, (int*)buf, dolphin_t, batchRow, containNull);
+                    dolphindbCol[i]->appendInt((int*)buf, rows_read);
+                    dolphindbCol[i]->setNullFlag(containNull);
+                    break;
+                }
+                case DT_LONG:
+                case DT_NANOTIME:
+                case DT_NANOTIMESTAMP:
+                case DT_TIMESTAMP:
+                {
+                    rows_read = convertParquetToDolphindbLong(i, column_reader, col_descr, (long long*)buf, dolphin_t, batchRow, containNull);
+                    dolphindbCol[i]->appendLong((long long *)buf, rows_read);
+                    dolphindbCol[i]->setNullFlag(containNull);
+                    break;
+                }
+                case DT_SHORT:
+                {
+                    rows_read = convertParquetToDolphindbShort(i, column_reader, col_descr, (short*)buf, batchRow, containNull);
+                    dolphindbCol[i]->appendShort((short *)buf, rows_read);
+                    dolphindbCol[i]->setNullFlag(containNull);
+                    break;
+                }
+                case DT_FLOAT:
+                {
+                    rows_read = convertParquetToDolphindbFloat(i, column_reader, col_descr, (float*)buf, batchRow, containNull);
+                    dolphindbCol[i]->appendFloat((float *)buf, rows_read);
+                    dolphindbCol[i]->setNullFlag(containNull);
+                    break;
+                }
+                case DT_DOUBLE:
+                {
+                    rows_read = convertParquetToDolphindbDouble(i, column_reader, col_descr, (double*)buf, batchRow, containNull);
+                    dolphindbCol[i]->appendDouble((double *)buf, rows_read);
+                    dolphindbCol[i]->setNullFlag(containNull);
+                    break;
+                }
+                case DT_INT128:
+                case DT_UUID:
+                case DT_STRING:
+                case DT_SYMBOL:
+                {
+                    vector<string> buffer(batchRow);
+                    rows_read =  convertParquetToDolphindbString(i, column_reader, col_descr, buffer, dolphin_t, batchRow, containNull);
+                    dolphindbCol[i]->appendString(buffer.data(), rows_read);
+                    dolphindbCol[i]->setNullFlag(containNull);
+                    break;
+                }
+                default:
+                    throw RuntimeException("unsupported data type.");
+                    break;
+                }
             }
-            case DT_CHAR:
-            {
-                vector<char> buffer;
-                convertParquetToDolphindbChar(i, column_reader, col_descr, buffer);
-                dolphindbCol[i]->appendChar(buffer.data(), buffer.size());
-                break;
-            }
-            case DT_DATE:
-            case DT_MONTH:
-            case DT_TIME:
-            case DT_SECOND:
-            case DT_MINUTE:
-            case DT_DATETIME:
-            case DT_INT:
-            {
-                vector<int> buffer;
-                convertParquetToDolphindbInt(i, column_reader, col_descr, buffer, dolphin_t);
-                dolphindbCol[i]->appendInt(buffer.data(), static_cast<int>(buffer.size()));
-                break;
-            }
-            case DT_LONG:
-            case DT_NANOTIME:
-            case DT_NANOTIMESTAMP:
-            case DT_TIMESTAMP:
-            {
-                vector<long long> buffer;
-                convertParquetToDolphindbLong(i, column_reader, col_descr, buffer, dolphin_t);
-                dolphindbCol[i]->appendLong(buffer.data(), static_cast<int>(buffer.size()));
-                break;
-            }
-            case DT_SHORT:
-            {
-                vector<short> buffer;
-                convertParquetToDolphindbShort(i, column_reader, col_descr, buffer);
-                dolphindbCol[i]->appendShort(buffer.data(), buffer.size());
-                break;
-            }
-            case DT_FLOAT:
-            {
-                vector<float> buffer;
-                convertParquetToDolphindbFloat(i, column_reader, col_descr, buffer);
-                dolphindbCol[i]->appendFloat(buffer.data(), buffer.size());
-                break;
-            }
-            case DT_DOUBLE:
-            {
-                vector<double> buffer;
-                convertParquetToDolphindbDouble(i, column_reader, col_descr, buffer);
-                dolphindbCol[i]->appendDouble(buffer.data(), buffer.size());
-                break;
-            }
-            case DT_INT128:
-            case DT_UUID:
-            case DT_STRING:
-            case DT_SYMBOL:
-            {
-                vector<string> buffer;
-                convertParquetToDolphindbString(i, column_reader, col_descr, buffer, dolphin_t);
-                dolphindbCol[i]->appendString(buffer.data(), buffer.size());
-                break;
-            }
-            default:
-                throw RuntimeException("unsupported data type.");
-                break;
-            }
+            tableWithSchema = appendColumnVecToTable(tableWithSchema, dolphindbCol, insertRows);
+            startRow += insertRows;
         }
     }
-    return appendColumnVecToTable(tableWithSchema, dolphindbCol);
+    return tableWithSchema;
 }
 
 ConstantSP loadFromParquetToDatabase(Heap *heap, vector<ConstantSP> &arguments)
@@ -2766,6 +3140,556 @@ ConstantSP parquetDS(const ConstantSP &filename, const ConstantSP &schema)
         dataSources->set(i, ds);
     }
     return dataSources;
+}
+
+const int16_t ONE = 1;
+const int16_t ZERO = 0;
+
+ConstantSP saveParquet(ConstantSP &table, const string &filename)
+{
+    std::shared_ptr<arrow::io::FileOutputStream> outfile;
+    PARQUET_ASSIGN_OR_THROW(
+        outfile,
+        arrow::io::FileOutputStream::Open(filename)
+    );
+    
+    std::shared_ptr<parquet::schema::GroupNode> schema = getParquetSchemaFromDolphindb(table);
+    parquet::WriterProperties::Builder builder;
+    std::unique_ptr<parquet::ParquetFileWriter> writer = parquet::ParquetFileWriter::Open(
+        outfile,
+        schema,
+        builder.build()
+    );
+
+    int colNum = table->columns();
+    parquet::RowGroupWriter *rowGroupWriter = writer->AppendRowGroup();
+    for(int i = 0; i < colNum; ++i)
+    {
+        parquet::ColumnWriter *columnWriter = rowGroupWriter->NextColumn();
+        VectorSP dolphinCol = table->getColumn(i);
+        if(dolphinCol->size() == 0){
+            continue;
+        }
+        ConstantSP front = dolphinCol->get(0);
+        switch(front->getType())
+        {
+        case DT_BOOL:
+        {
+            parquet::BoolWriter *parquetCol = dynamic_cast<parquet::BoolWriter*>(columnWriter);
+            writeBoolToParquet(parquetCol, dolphinCol);
+            break;
+        }
+        case DT_CHAR:
+        {
+            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
+            writeIntToParquet(parquetCol, dolphinCol);
+            break;
+        }
+        case DT_SHORT:
+        case DT_INT:
+        case DT_DATE:
+        case DT_TIME:
+        {
+            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
+            writeIntToParquet(parquetCol, dolphinCol);
+            break;
+        }
+        case DT_LONG:
+        case DT_TIMESTAMP:
+        case DT_NANOTIME:
+        case DT_NANOTIMESTAMP:
+        {
+            parquet::Int64Writer *parquetCol = dynamic_cast<parquet::Int64Writer*>(columnWriter);
+            writeLongToParquet(parquetCol, dolphinCol);
+            break;
+        }
+        case DT_MONTH:
+        {
+            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
+            auto transform = [](int v){
+                using months = std::chrono::duration<int, std::ratio<2629746> >;
+                using days = std::chrono::duration<int, std::ratio<86400> >;
+                v = std::chrono::duration_cast<days>(months(v)).count();
+                v = Util::getMonthStart(v - 719514);
+                return v;
+            };
+            writeIntToParquet(parquetCol, dolphinCol, transform);
+            break;
+        }
+        case DT_MINUTE:
+        {
+            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
+            auto transform = [](int v){
+                return v * 60 * 1000;
+            };
+            writeIntToParquet(parquetCol, dolphinCol, transform);
+            break;
+        }
+        case DT_SECOND:
+        {
+            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
+            auto transform = [](int v){
+                return v * 1000;
+            };
+            writeIntToParquet(parquetCol, dolphinCol, transform);
+            break;
+        }
+        case DT_DATETIME:
+        {
+            parquet::Int64Writer *parquetCol = dynamic_cast<parquet::Int64Writer*>(columnWriter);
+            auto transform = [](long long v){
+                return v * 1000;
+            };
+            writeLongToParquet(parquetCol, dolphinCol, transform);
+            break;
+        }
+        case DT_FLOAT:
+        {
+            parquet::FloatWriter *parquetCol = dynamic_cast<parquet::FloatWriter*>(columnWriter);
+            writeFloatToParquet(parquetCol, dolphinCol);
+            break;
+        }
+        case DT_DOUBLE:
+        {
+            parquet::DoubleWriter *parquetCol = dynamic_cast<parquet::DoubleWriter*>(columnWriter);
+            writeDoubleToParquet(parquetCol, dolphinCol);
+            break;
+        }
+        case DT_SYMBOL:
+        case DT_STRING:
+        {
+            parquet::ByteArrayWriter *parquetCol = dynamic_cast<parquet::ByteArrayWriter*>(columnWriter);
+            writeStringToParquet(parquetCol, dolphinCol);
+            break;
+        }
+        default:
+            throw RuntimeException("unsupported type.");
+        }
+    }
+
+    rowGroupWriter->Close();
+    writer->Close();
+    outfile->Close();
+    return new Void();
+}
+
+ConstantSP saveParquetHdfs(ConstantSP &table)
+{
+    std::shared_ptr<arrow::io::BufferOutputStream> outfile;
+    PARQUET_ASSIGN_OR_THROW(
+        outfile,
+        arrow::io::BufferOutputStream::Create()
+    );
+    std::shared_ptr<parquet::schema::GroupNode> schema = getParquetSchemaFromDolphindb(table);
+    parquet::WriterProperties::Builder builder;
+    std::unique_ptr<parquet::ParquetFileWriter> writer = parquet::ParquetFileWriter::Open(
+        outfile,
+        schema,
+        builder.build()
+    );
+
+    int colNum = table->columns();
+    parquet::RowGroupWriter *rowGroupWriter = writer->AppendRowGroup();
+    for(int i = 0; i < colNum; ++i)
+    {
+        parquet::ColumnWriter *columnWriter = rowGroupWriter->NextColumn();
+        VectorSP dolphinCol = table->getColumn(i);
+        if(dolphinCol->size() == 0){
+            continue;
+        }
+        ConstantSP front = dolphinCol->get(0);
+        switch(front->getType())
+        {
+        case DT_BOOL:
+        {
+            parquet::BoolWriter *parquetCol = dynamic_cast<parquet::BoolWriter*>(columnWriter);
+            writeBoolToParquet(parquetCol, dolphinCol);
+            break;
+        }
+        case DT_CHAR:
+        {
+            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
+            writeIntToParquet(parquetCol, dolphinCol);
+            break;
+        }
+        case DT_SHORT:
+        case DT_INT:
+        case DT_DATE:
+        case DT_TIME:
+        {
+            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
+            writeIntToParquet(parquetCol, dolphinCol);
+            break;
+        }
+        case DT_LONG:
+        case DT_TIMESTAMP:
+        case DT_NANOTIME:
+        case DT_NANOTIMESTAMP:
+        {
+            parquet::Int64Writer *parquetCol = dynamic_cast<parquet::Int64Writer*>(columnWriter);
+            writeLongToParquet(parquetCol, dolphinCol);
+            break;
+        }
+        case DT_MONTH:
+        {
+            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
+            auto transform = [](int v){
+                using months = std::chrono::duration<int, std::ratio<2629746> >;
+                using days = std::chrono::duration<int, std::ratio<86400> >;
+                v = std::chrono::duration_cast<days>(months(v)).count();
+                v = Util::getMonthStart(v - 719514);
+                return v;
+            };
+            writeIntToParquet(parquetCol, dolphinCol, transform);
+            break;
+        }
+        case DT_MINUTE:
+        {
+            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
+            auto transform = [](int v){
+                return v * 60 * 1000;
+            };
+            writeIntToParquet(parquetCol, dolphinCol, transform);
+            break;
+        }
+        case DT_SECOND:
+        {
+            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
+            auto transform = [](int v){
+                return v * 1000;
+            };
+            writeIntToParquet(parquetCol, dolphinCol, transform);
+            break;
+        }
+        case DT_DATETIME:
+        {
+            parquet::Int64Writer *parquetCol = dynamic_cast<parquet::Int64Writer*>(columnWriter);
+            auto transform = [](long long v){
+                return v * 1000;
+            };
+            writeLongToParquet(parquetCol, dolphinCol, transform);
+            break;
+        }
+        case DT_FLOAT:
+        {
+            parquet::FloatWriter *parquetCol = dynamic_cast<parquet::FloatWriter*>(columnWriter);
+            writeFloatToParquet(parquetCol, dolphinCol);
+            break;
+        }
+        case DT_DOUBLE:
+        {
+            parquet::DoubleWriter *parquetCol = dynamic_cast<parquet::DoubleWriter*>(columnWriter);
+            writeDoubleToParquet(parquetCol, dolphinCol);
+            break;
+        }
+        case DT_SYMBOL:
+        case DT_STRING:
+        {
+            parquet::ByteArrayWriter *parquetCol = dynamic_cast<parquet::ByteArrayWriter*>(columnWriter);
+            writeStringToParquet(parquetCol, dolphinCol);
+            break;
+        }
+        default:
+            throw RuntimeException("unsupported type.");
+        }
+    }
+
+    rowGroupWriter->Close();
+    writer->Close();
+    std::shared_ptr<arrow::Buffer> fileBuf;
+    PARQUET_ASSIGN_OR_THROW(
+        fileBuf,
+        outfile->Finish()
+    );
+    uint64_t *len = new uint64_t;
+    *len = fileBuf->size();
+    char *buffer = new char[*len];
+    memcpy((void *)buffer, (void *)fileBuf->data(), *len);
+    void *vBuf = (void *)buffer;
+    VectorSP res = Util::createVector(DT_LONG, 2, 2);
+    res->setLong(0, (long long)vBuf);
+    res->setLong(1, (long long)len);
+    return res;
+}
+
+std::shared_ptr<parquet::schema::GroupNode> getParquetSchemaFromDolphindb(const TableSP &table){
+    int colNum = table->columns();
+    parquet::schema::NodeVector types;
+    for(int i = 0; i < colNum; ++i)
+    {
+        switch(table->getColumnType(i))
+        {
+        case DT_BOOL:
+            types.push_back(
+                parquet::schema::PrimitiveNode::Make(
+                    table->getColumnName(i),
+                    parquet::Repetition::type::OPTIONAL,
+                    nullptr,
+                    parquet::Type::type::BOOLEAN
+                )
+            );
+            break;
+        case DT_CHAR:
+            types.push_back(
+                parquet::schema::PrimitiveNode::Make(
+                    table->getColumnName(i),
+                    parquet::Repetition::type::OPTIONAL,
+                    parquet::LogicalType::Int(8, true),
+                    parquet::Type::type::INT32
+                )
+            );
+            break;
+        case DT_SHORT:
+            types.push_back(
+                parquet::schema::PrimitiveNode::Make(
+                    table->getColumnName(i),
+                    parquet::Repetition::type::OPTIONAL,
+                    parquet::LogicalType::Int(16, true),
+                    parquet::Type::type::INT32
+                )
+            );
+            break;
+        case DT_INT:
+            types.push_back(
+                parquet::schema::PrimitiveNode::Make(
+                    table->getColumnName(i),
+                    parquet::Repetition::type::OPTIONAL,
+                    parquet::LogicalType::Int(32, true),
+                    parquet::Type::type::INT32
+                )
+            );
+            break;
+        case DT_LONG:
+            types.push_back(
+                parquet::schema::PrimitiveNode::Make(
+                    table->getColumnName(i),
+                    parquet::Repetition::type::OPTIONAL,
+                    parquet::LogicalType::Int(64, true),
+                    parquet::Type::type::INT64
+                )
+            );
+            break;
+        case DT_MONTH:
+        case DT_DATE:
+            types.push_back(
+                parquet::schema::PrimitiveNode::Make(
+                    table->getColumnName(i),
+                    parquet::Repetition::type::OPTIONAL,
+                    parquet::LogicalType::Date(),
+                    parquet::Type::type::INT32
+                )
+            );
+            break;
+        case DT_TIME:
+        case DT_MINUTE:
+        case DT_SECOND:
+            types.push_back(
+                parquet::schema::PrimitiveNode::Make(
+                    table->getColumnName(i),
+                    parquet::Repetition::type::OPTIONAL,
+                    parquet::LogicalType::Time(false, parquet::LogicalType::TimeUnit::unit::MILLIS),
+                    parquet::Type::type::INT32
+                )
+            );
+            break;
+        case DT_DATETIME:
+        case DT_TIMESTAMP:
+            types.push_back(
+                parquet::schema::PrimitiveNode::Make(
+                    table->getColumnName(i),
+                    parquet::Repetition::type::OPTIONAL,
+                    parquet::LogicalType::Timestamp(false, parquet::LogicalType::TimeUnit::unit::MILLIS),
+                    parquet::Type::type::INT64
+                )
+            );
+            break;
+        case DT_NANOTIME:
+            types.push_back(
+                parquet::schema::PrimitiveNode::Make(
+                    table->getColumnName(i),
+                    parquet::Repetition::type::OPTIONAL,
+                    parquet::LogicalType::Time(false, parquet::LogicalType::TimeUnit::unit::NANOS),
+                    parquet::Type::type::INT64
+                )
+            );
+            break;
+        case DT_NANOTIMESTAMP:
+            types.push_back(
+                parquet::schema::PrimitiveNode::Make(
+                    table->getColumnName(i),
+                    parquet::Repetition::type::OPTIONAL,
+                    parquet::LogicalType::Timestamp(false, parquet::LogicalType::TimeUnit::unit::NANOS),
+                    parquet::Type::type::INT64
+                )
+            );
+            break;
+        case DT_FLOAT:
+            types.push_back(
+                parquet::schema::PrimitiveNode::Make(
+                    table->getColumnName(i),
+                    parquet::Repetition::type::OPTIONAL,
+                    nullptr,
+                    parquet::Type::type::FLOAT
+                )
+            );
+            break;
+        case DT_DOUBLE:
+            types.push_back(
+                parquet::schema::PrimitiveNode::Make(
+                    table->getColumnName(i),
+                    parquet::Repetition::type::OPTIONAL,
+                    nullptr,
+                    parquet::Type::type::DOUBLE
+                )
+            );
+            break;
+        case DT_SYMBOL:
+        case DT_STRING:
+            types.push_back(
+                parquet::schema::PrimitiveNode::Make(
+                    table->getColumnName(i),
+                    parquet::Repetition::type::OPTIONAL,
+                    parquet::LogicalType::String(),
+                    parquet::Type::type::BYTE_ARRAY
+                )
+            );
+            break;
+        default:
+            throw RuntimeException("unsupported type.");
+        }
+    }
+    return std::dynamic_pointer_cast<parquet::schema::GroupNode>(
+        parquet::schema::GroupNode::Make(
+            table->getName(),
+            parquet::Repetition::type::REQUIRED,
+            types,
+            nullptr
+        )
+    );
+}
+
+void writeBoolToParquet(parquet::BoolWriter *parquetCol, const VectorSP &dolphinCol){
+    for(int j = 0; j < dolphinCol->size(); ++j){
+        ConstantSP value = dolphinCol->get(j);
+        if(value->isNull()){
+            parquetCol->WriteBatch(1, &ZERO, &ZERO, nullptr);
+        }
+        else{
+            bool v = value->getBool();
+            parquetCol->WriteBatch(1, &ONE, &ZERO, &v);
+        }
+    }
+}
+
+void writeIntToParquet(parquet::Int32Writer *parquetCol, const VectorSP &dolphinCol, int (*transform)(int)){
+    vector<int> buffer;
+    for(int j = 0; j < dolphinCol->size(); ++j){
+        ConstantSP value = dolphinCol->get(j);
+        if(value->isNull()){
+            if(!buffer.empty()){
+                vector<int16_t> ONEs(buffer.size(), ONE);
+                vector<int16_t> ZEROs(buffer.size(), ZERO);
+                parquetCol->WriteBatch(buffer.size(), ONEs.data(), ZEROs.data(), buffer.data());
+                buffer.clear();
+            }
+            parquetCol->WriteBatch(1, &ZERO, &ZERO, nullptr);
+        }
+        else{
+            buffer.push_back(transform(value->getInt()));
+        }
+    }
+    if(!buffer.empty()){
+        vector<int16_t> ONEs(buffer.size(), ONE);
+        vector<int16_t> ZEROs(buffer.size(), ZERO);
+        parquetCol->WriteBatch(buffer.size(), ONEs.data(), ZEROs.data(), buffer.data());
+    }
+}
+
+void writeLongToParquet(parquet::Int64Writer *parquetCol, const VectorSP &dolphinCol, long long (*transform)(long long)){
+    vector<int64_t> buffer;
+    for(int j = 0; j < dolphinCol->size(); ++j){
+        ConstantSP value = dolphinCol->get(j);
+        if(value->isNull()){
+            if(!buffer.empty()){
+                vector<int16_t> ONEs(buffer.size(), ONE);
+                vector<int16_t> ZEROs(buffer.size(), ZERO);
+                parquetCol->WriteBatch(buffer.size(), ONEs.data(), ZEROs.data(), buffer.data());
+                buffer.clear();
+            }
+            parquetCol->WriteBatch(1, &ZERO, &ZERO, nullptr);
+        }
+        else{
+            buffer.push_back(transform(value->getLong()));
+        }
+    }
+    if(!buffer.empty()){
+        vector<int16_t> ONEs(buffer.size(), ONE);
+        vector<int16_t> ZEROs(buffer.size(), ZERO);
+        parquetCol->WriteBatch(buffer.size(), ONEs.data(), ZEROs.data(), buffer.data());
+    }
+}
+
+void writeFloatToParquet(parquet::FloatWriter *parquetCol, const VectorSP &dolphinCol){
+    vector<float> buffer;
+    for(int j = 0; j < dolphinCol->size(); ++j){
+        ConstantSP value = dolphinCol->get(j);
+        if(value->isNull()){
+            if(!buffer.empty()){
+                vector<int16_t> ONEs(buffer.size(), ONE);
+                vector<int16_t> ZEROs(buffer.size(), ZERO);
+                parquetCol->WriteBatch(buffer.size(), ONEs.data(), ZEROs.data(), buffer.data());
+                buffer.clear();
+            }
+            parquetCol->WriteBatch(1, &ZERO, &ZERO, nullptr);
+        }
+        else{
+            buffer.push_back(value->getFloat());
+        }
+    }
+    if(!buffer.empty()){
+        vector<int16_t> ONEs(buffer.size(), ONE);
+        vector<int16_t> ZEROs(buffer.size(), ZERO);
+        parquetCol->WriteBatch(buffer.size(), ONEs.data(), ZEROs.data(), buffer.data());
+    }
+}
+
+void writeDoubleToParquet(parquet::DoubleWriter *parquetCol, const VectorSP &dolphinCol){
+    vector<double> buffer;
+    for(int j = 0; j < dolphinCol->size(); ++j){
+        ConstantSP value = dolphinCol->get(j);
+        if(value->isNull()){
+            if(!buffer.empty()){
+                vector<int16_t> ONEs(buffer.size(), ONE);
+                vector<int16_t> ZEROs(buffer.size(), ZERO);
+                parquetCol->WriteBatch(buffer.size(), ONEs.data(), ZEROs.data(), buffer.data());
+                buffer.clear();
+            }
+            parquetCol->WriteBatch(1, &ZERO, &ZERO, nullptr);
+        }
+        else{
+            buffer.push_back(value->getDouble());
+        }
+    }
+    if(!buffer.empty()){
+        vector<int16_t> ONEs(buffer.size(), ONE);
+        vector<int16_t> ZEROs(buffer.size(), ZERO);
+        parquetCol->WriteBatch(buffer.size(), ONEs.data(), ZEROs.data(), buffer.data());
+    }
+}
+
+void writeStringToParquet(parquet::ByteArrayWriter *parquetCol, const VectorSP &dolphinCol){
+    for(int j = 0; j < dolphinCol->size(); ++j){
+        ConstantSP value = dolphinCol->get(j);
+        if(value->isNull()){
+            parquetCol->WriteBatch(1, &ZERO, &ZERO, nullptr);
+        }else{
+            string v = value->getString();
+            parquet::ByteArray str;
+            str.ptr = reinterpret_cast<const uint8_t*>(v.data());
+            str.len = static_cast<uint32_t>(v.size());
+            parquetCol->WriteBatch(1, &ONE, &ZERO, &str);
+        }
+    }
 }
 
 } // namespace ParquetPluginImp
