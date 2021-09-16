@@ -97,7 +97,7 @@ make
     #ifndef H5_HAVE_WIN32_API
     #define H5_HAVE_WIN32_API 1
     #endif
-
+    
     #ifndef H5_HAVE_MINGW
     #define H5_HAVE_MINGW 1
     #endif
@@ -304,12 +304,6 @@ hdf5::loadHDF5Ex(db,`tb,,"/large_file.h5", "large_table")
 ```
 db = database("non_seq_on_disk", RANGE, 0 500 1000)
 hdf5::loadHDF5Ex(db,`tb,`col_4,"/smpl_numeric.h5","sint")
-```
-
-* 内存中的非SEQ分区表
-```
-db = database("", RANGE, 0 500 1000)
-t0 = hdf5::loadHDF5Ex(db,`tb,`col_4,"/smpl_numeric.h5","sint")
 ```
 
 * 内存中的非SEQ分区表
