@@ -189,8 +189,22 @@ kafka::consumer(config)
 
 ##### Arguments
 
-- 'config' is a dictionary indicating the Kafka consumer configuration, whose key is a string and value is an anyVector.
+- 'config' is a dictionary indicating the Kafka consumer configuration, whose key is a string and value is an anyVector. The keys of `config` can be found at https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md. Examples for user authentication in SASL protocol are as follows:
 
+```python
+consumerCfg = dict(string, any);
+consumerCfg["metadata.broker.list"] = "localhost";
+consumerCfg["group.id"] = "test";
+consumerCfg["sasl.mechanisms"] = "PLAIN";
+consumerCfg["security.protocol"] = "sasl_plaintext";
+consumerCfg["sasl.username"] = "admin";
+consumerCfg["sasl.password"] = "admin";
+consumer = kafka::consumer(consumerCfg);
+topics=["test"];
+kafka::subscribe(consumer, topics);
+kafka::consumerPoll(consumer);
+```
+ 
 ##### Details
 
 Create a Kafka consumer and return the handler.
