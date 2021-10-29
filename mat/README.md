@@ -129,7 +129,7 @@ ret=mat::convertToDatetime(ret);
 
 #### 语法
 
-mat::convertToDatetime(file, varName, data)
+mat::writeMat(file, varName, data)
 
 #### 详情
 
