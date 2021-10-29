@@ -13,7 +13,7 @@ unzip MCR_R2016a_glnxa64_installer.zip -d matlabFile
 cd matlabFile
 ./install -mode silent -agreeToLicense  yes  -destinationFolder  /home/zmx/Matlab //安装时指定安装位置
 ```
-需要指定matlab的接口库的链接位置，
+需要指定matlab的接口库的链接位置。
 ```
 cd <DolphinDBServerDir>
 export LD_LIBRARY_PATH=/home/zmx/Matlab/v901/bin/glnxa64:$LD_LIBRARY_PATH
@@ -26,7 +26,7 @@ export LD_LIBRARY_PATH=/home/zmx/Matlab/v901/bin/glnxa64:$LD_LIBRARY_PATH
 
 ### 1.2 插件编译
 
-需要cmake和对应编译器(linux为g++,window为MinGW)即可在本地编译mseed插件。
+需要cmake和对应编译器(linux为g++, window为MinGW)即可在本地编译mseed插件。
 
 #### linux
 
@@ -48,12 +48,9 @@ cmake -DmatlabRoot=/home/zmx/Matlab/v901/ ../   //指定matlab的安装位置
 make
 ```
 
-**注意**:编译之前请确保libDolphinDB.so在gcc可搜索的路径中。可使用`LD_LIBRARY_PATH`指定其路径，或者直接将其拷贝到build目录下。
+**注意**：编译之前请确保libDolphinDB.so在gcc可搜索的路径中。可使用`LD_LIBRARY_PATH`指定其路径，或者直接将其拷贝到build目录下。
 
 编译后目录下会产生文件libPluginMat.so和PluginMat.txt。
-
-
-
 
 ##  2. 用户接口
 
@@ -95,7 +92,7 @@ mat::loadMat(file, [schema])
 #### 返回值
 返回一个字典ret。
 varName: 变量名称。字符串类型。
-ret[varName]: 变量的数据。类型为对应数据类型的矩阵。如果是一个变量是字符数组类型，返回值则是一个类型为STRING的向量。
+ret[varName]: 变量的数据。为对应数据类型的矩阵。如果一个变量是字符数组类型，返回值则是一个类型为STRING的向量。
 
 #### 例子
 ```
@@ -111,21 +108,43 @@ mat::convertToDatetime(data)
 
 #### 详情
 
-把matlab中以double储藏的时间变量转换到DolphinDB的DATETIME。
+把matlab中以double储存的时间变量转换为DolphinDB的DATETIME。
 
 #### 参数
 
-* data：需要转换的变量。类型为double类型的scalar,vector,matrix。
+* data：需要转换的变量。类型为double类型的scalar, vector, matrix。
 
 #### 返回值
 
-返回值是对应与参数data的timedate类型的scalar,vector,matrix。
+返回值是对应于参数data的DATETIME类型的scalar, vector, matrix。
 
 #### 例子
 ```
 schema=mat::extractMatSchema("<FileDir>/simple.mat");
 ret=loadMat("<FileDir>/simple.mat",schema);
 ret=mat::convertToDatetime(ret);
+```
+
+### 2.4 mat::writeMat
+
+#### 语法
+
+mat::convertToDatetime(file, varName, data)
+
+#### 详情
+
+把一个矩阵写入到mat文件。
+
+#### 参数
+
+* file：被写入文件的文件名。为string类型的scalar。
+* varName：data写入文件后对应的变量名。为string类型的scalar。
+* data：需要写入的矩阵。可以是bool,char,short,int,long,float,double类型的matrix。
+
+#### 例子
+```
+data = matrix([1, 1, 1], [2, 2, 2]).float()
+mat::writeMat("var.mat", "var1", data)
 ```
 
 ## 3. 支持的数据类型
