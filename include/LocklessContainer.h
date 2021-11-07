@@ -1032,7 +1032,7 @@ public:
     }
 
     bool insert(const key_type & key, const mapped_type & value) {
-        writerMtx.lock();
+        LockGuard<Mutex> guard(&writerMtx);
         int curLeftRight = leftRight.load();
         int curVersionIdx = versionIdx.load();
         bool inserted1 = maps[!curLeftRight].insert(key, value);
@@ -1041,13 +1041,12 @@ public:
         versionIdx.store(!curVersionIdx);
         while(versions[curVersionIdx].isEmpty() == false);
         bool inserted2 = maps[curLeftRight].insert(key, value);
-        writerMtx.unlock();
         assert(inserted1 == inserted2);
         return inserted1 && inserted2;
     }
 
     bool upsert(const key_type &key, const mapped_type & value) {
-        writerMtx.lock();
+        LockGuard<Mutex> guard(&writerMtx);
         int curLeftRight = leftRight.load();
         int curVersionIdx = versionIdx.load();
 
@@ -1059,13 +1058,11 @@ public:
         while(versions[curVersionIdx].isEmpty() == false);
 
         maps[curLeftRight].upsert(key, value);
-
-        writerMtx.unlock();
         return upserted1;
     }
 
     inline void clear() {
-        writerMtx.lock();
+        LockGuard<Mutex> guard(&writerMtx);
         int curLeftRight = leftRight.load();
         int curVersionIdx = versionIdx.load();
         maps[!curLeftRight].clear();
@@ -1074,7 +1071,6 @@ public:
         versionIdx.store(!curVersionIdx);
         while(versions[curVersionIdx].isEmpty() == false);
         maps[curLeftRight].clear();
-        writerMtx.unlock();
     }
 
     inline size_t size() {
@@ -1130,7 +1126,7 @@ public:
     }
 
     bool insert(const key_type & key, const mapped_type & value) {
-        writerMtx.lock();
+        LockGuard<Mutex> g(&writerMtx);
         int curLeftRight = leftRight.load();
         int curVersionIdx = versionIdx.load();
         bool inserted1 = maps[!curLeftRight].insert(key, value);
@@ -1139,12 +1135,11 @@ public:
         versionIdx.store(!curVersionIdx);
         while(versions[curVersionIdx].isEmpty() == false);
         maps[curLeftRight].insert(key, value);
-        writerMtx.unlock();
         return inserted1;
     }
 
     bool upsert(const key_type &key, const mapped_type & value) {
-        writerMtx.lock();
+        LockGuard<Mutex> g(&writerMtx);
         int curLeftRight = leftRight.load();
         int curVersionIdx = versionIdx.load();
 
@@ -1156,13 +1151,11 @@ public:
         while(versions[curVersionIdx].isEmpty() == false);
 
         maps[curLeftRight].upsert(key, value);
-
-        writerMtx.unlock();
         return upserted1;
     }
 
     bool erase(const key_type & key) {
-        writerMtx.lock();
+        LockGuard<Mutex> g(&writerMtx);
         int curLeftRight = leftRight.load();
         int curVersionIdx = versionIdx.load();
         bool erased1 = maps[!curLeftRight].erase(key);
@@ -1171,12 +1164,11 @@ public:
         versionIdx.store(!curVersionIdx);
         while(versions[curVersionIdx].isEmpty() == false);
         maps[curLeftRight].erase(key);
-        writerMtx.unlock();
         return erased1;
     }
 
     inline void clear() {
-        writerMtx.lock();
+        LockGuard<Mutex> g(&writerMtx);
         int curLeftRight = leftRight.load();
         int curVersionIdx = versionIdx.load();
         maps[!curLeftRight].clear();
@@ -1185,7 +1177,6 @@ public:
         versionIdx.store(!curVersionIdx);
         while(versions[curVersionIdx].isEmpty() == false);
         maps[curLeftRight].clear();
-        writerMtx.unlock();
     }
 
     inline size_t size() {

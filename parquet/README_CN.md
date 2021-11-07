@@ -10,6 +10,7 @@ DolphinDB Parquet插件可將Parquet文件导入DolphinDB，并支持进行数�
     * [2.2 parquet::loadParquet](#22-parquetloadparquet)
     * [2.3 parquet::loadParquetEx](#23-parquetloadParquetEx)
     * [2.4 parquet::parquetDS](#26-parquetparquetDS)
+    * [2.5 parquet::saveParquet](#25-saveParquet)
 * [3 支持的数据类型](#3-支持的数据类型) 
 
 ## 1 安装
@@ -170,7 +171,7 @@ def i2d(mutable t){
 }
 t = parquet::loadParquetEx(db,`tb1,`date,dataFilePath,datasetName,,,,i2d)
 ```
-### 2.6 parquet::parquetDS
+### 2.4 parquet::parquetDS
 
 #### 语法
 
@@ -194,53 +195,110 @@ parquet::parquetDS(fileName,[schema])
 DataSource< loadParquet("userdata1.parquet",,,0,1) >
 ```
 
+### 2.5 parquet::saveParquet
+
+#### 语法
+
+parquet::saveParquet(table, fileName)
+
+#### 参数
+
+table: 要保存的表
+
+fileName: 保存的文件名，类型为字符串标量
+
+#### 详情
+
+将表table以parquet格式保存到文件中。
+
+#### 例子
+
+```
+parquet::saveParquet(tb, "userdata1.parquet")
+```
+
 ## 3 支持的数据类型
+
+### 3.1 加载
+
 系统根据Parquet的原始数据类型结合LogicalType和ConvertedType做数据的类型转换，优先按照LogicalType。如果没有定义LogicalType或者ConvertedType，则只根据原始数据类型转换。
 
 | Physical Type in Parquet    | Type in DolphinDB |
 | ----------------- | :-------------------------- |
 | BOOLEAN           | BOOL                        |
 | INT32             | INT                         |
-| INT64             | LONG                        | 
+| INT64             | LONG                        |
 | INT96             | NANOTIMESTAMP               |
-| FLOAT             | FLOAT                       | 
-| DOUBLE            | DOUBLE                      | 
-| BYTE_ARRAY        | STRING                      | 
+| FLOAT             | FLOAT                       |
+| DOUBLE            | DOUBLE                      |
+| BYTE_ARRAY        | STRING                      |
 | FIXED_LEN_BYTE_ARRAY | STRING                   |
 
 | Converted Type in Parquet    | Type in DolphinDB |
 | --------------------------- | :-------------------------- |
 | INT_8\UINT_8\UINT_16\INT_16\INT_32  | INT                 |
 | TIMESTAMP_MICROS                    | NANOTIMESTAMP       |
-| TIMESTAMP_MILLIS                    | TIMESTAMP           | 
+| TIMESTAMP_MILLIS                    | TIMESTAMP           |
 | DECIMAL                             | DOUBLE              |
-| UINT_32\INT_64                      | LONG                | 
-| TIME_MICROS                         | NANOTIME            | 
-| TIME_MILLIS                         | TIME                | 
-| DATE                                | DATE                | 
-| ENUM                                | SYMBOL              | 
-| UTF8                                | STRING              | 
+| UINT_32\INT_64\UINT_64              | LONG                |
+| TIME_MICROS                         | NANOTIME            |
+| TIME_MILLIS                         | TIME                |
+| DATE                                | DATE                |
+| ENUM                                | SYMBOL              |
+| UTF8                                | STRING              |
 | MAP                                 | not support         |
-| LIST                                | not support         | 
+| LIST                                | not support         |
 | JSON                                | not support         |
 | BSON                                | not support         |
 | MAP_KEY_VALUE                       | not support         |
 
+
 | Logical Type in Parquet    | TimeUnit in Parquet     | Type in DolphinDB|
 | -------------------------- | :--------------------------- |:-----------------|
-| INT                        |          \                   | INT\LONG         |
+| INT(bit_width=8,is_signed=true)                       |          \                   | CHAR         |
+| INT(bit_width=8,is_signed=false or bit_width=16,is_signed=true)                       |          \                   | SHORT         |
+| INT(bit_width=16,is_signed=false or bit_width=32,is_signed=true)                       |          \                   | INT         |
+| INT(bit_width=32,is_signed=false or bit_width=64,is_signed=true)                       |          \                   | LONG         |
+| INT(bit_width=64,is_signed=false)      |          \       | LONG             |
 | ENUM                       |          \                   | SYMBOL           |
-| DECIMAL                    |          \                   | DOUBLE           | 
-| DATE                       |          \                   | DATE             | 
-| TIME                       |     MILLIS\MICROS\NANOS      | TIME\NANOTIME\NANOTIME    | 
-| TIMESTAMP                  |     MILLIS\MICROS\NANOS      | TIMESTAMP\NANOTIMESTAMP\NANOTIMESTAMP   | 
-| INTEGER                    |          \                   | INT\LONG         | 
+| DECIMAL                    |          \                   | DOUBLE           |
+| DATE                       |          \                   | DATE             |
+| TIME                       |     MILLIS\MICROS\NANOS      | TIME\NANOTIME\NANOTIME    |
+| TIMESTAMP                  |     MILLIS\MICROS\NANOS      | TIMESTAMP\NANOTIMESTAMP\NANOTIMESTAMP   |
+| INTEGER                    |          \                   | INT\LONG         |
 | STRING                     |          \                   | STRING           |
 | JSON                       |          \                   | not support      |
 | BSON                       |          \                   | not support      |
 | UUID                       |          \                   | not support      |
 | MAP                        |          \                   | not support      |
-| LIST                       |          \                   | not support      | 
+| LIST                       |          \                   | not support      |
 | NIL                        |          \                   | not support      |
 
 > **请注意：parquet repeated field 还未支持, DECIMAL仅支持Physical Type为INT32或INT64**
+
+> **由于DolphinDB不支持无符号类型，所以读取parquet中的UINT_64时若发生溢出，则会取DolphinDB中的NULL值**
+
+### 3.2 保存
+
+保存时，系统根据给出表的结构自动转换到Parquet文件支持的类型。
+
+| Type in DolphinDB | Physical Type in Parquet | Logical Type in Parquet |
+| ----------------- | ------------------------ | ----------------------- |
+| BOOL              | BOOLEAN                  | \                       |
+| CHAR              | FIXED_LEN_BYTE_ARRAY     | \                       |
+| SHORT             | INT32                    | INT(16)                 |
+| INT               | INT32                    | INT(32)                 |
+| LONG              | INT64                    | INT(64)                 |
+| DATE              | INT32                    | DATE                    |
+| MONTH             | INT32                    | DATE                    |
+| TIME              | INT32                    | TIME_MILLIS             |
+| MINUTE            | INT32                    | TIME_MILLIS             |
+| SECOND            | INT32                    | TIME_MILLIS             |
+| DATETIME          | INT64                    | TIMESTAMP_MILLIS        |
+| TIMESTAMP         | INT64                    | TIMESTAMP_MILLIS        |
+| NANOTIME          | INT64                    | TIME_NANOS              |
+| NANOTIMESTAMP     | INT64                    | TIMESTAMP_NANOS         |
+| FLOAT             | FLOAT                    | \                       |
+| DOUBLE            | DOUBLE                   | \                       |
+| STRING            | BYTE_ARRAY               | STRING                  |
+| SYMBOL            | BYTE_ARRAY               | STRING                  |

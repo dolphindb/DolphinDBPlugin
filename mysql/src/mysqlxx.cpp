@@ -378,6 +378,7 @@ Value Row::operator[](const char *name) const {
 
 size_t Row::size() const { return res->getNumFields(); }
 
+enum_field_types Row::getTypeAt(int n) const { return res->typeAt(n); }
 // ResultBase
 
 ResultBase::ResultBase(MYSQL_RES *res_, Connection *conn_, const Query *query_) : res_(res_), conn_(conn_), query_(query_) {

@@ -10,6 +10,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/embed.h>
 #include <pybind11/numpy.h>
+#include <pybind11/chrono.h>
 #include <iostream>
 namespace py = pybind11;
 
@@ -47,6 +48,7 @@ struct Preserved {
     const static py::handle npdatetime64D_;
     const static py::handle npdatetime64m_;
     const static py::handle npdatetime64s_;
+    const static py::handle npdatetime64h_;
     const static py::handle npdatetime64ms_;
     const static py::handle npdatetime64us_;
     const static py::handle npdatetime64ns_;
@@ -87,6 +89,7 @@ const py::handle Preserved::npdatetime64M_ = py::dtype("datetime64[M]").inc_ref(
 const py::handle Preserved::npdatetime64D_ = py::dtype("datetime64[D]").inc_ref();
 const py::handle Preserved::npdatetime64m_ = py::dtype("datetime64[m]").inc_ref();
 const py::handle Preserved::npdatetime64s_ = py::dtype("datetime64[s]").inc_ref();
+const py::handle Preserved::npdatetime64h_ = py::dtype("datetime64[h]").inc_ref();
 const py::handle Preserved::npdatetime64ms_ = py::dtype("datetime64[ms]").inc_ref();
 const py::handle Preserved::npdatetime64us_ = py::dtype("datetime64[us]").inc_ref();
 const py::handle Preserved::npdatetime64ns_ = py::dtype("datetime64[ns]").inc_ref();
@@ -134,6 +137,24 @@ void append(const py::array &pyArray, int size, std::function<void(T *, int)> f)
 }
 
 static inline void SET_NPNAN(void *p, size_t len = 1) { std::fill((uint64_t *)p, ((uint64_t *)p) + len, 9221120237041090560LL); }
+static string generateColumnName(const string& str){
+    char buf[32];
+    int cursor = 0;
+    if((str.empty() || (!Util::isLetter(str[0]) && str[0] && str[0]>=0))){
+        buf[cursor++] = 'c';
+    }
+    int len = std::min(31 - cursor, (int)str.length());
+    int i = 0;
+    while (i < len) {
+        char cur=str.at(i++);
+        if((cur>='a' && cur<='z') || (cur>='A' && cur<='Z') || (cur>='0' && cur<='9') || cur=='_' || cur<0)
+            buf[cursor++] = cur;
+        else
+            buf[cursor++] = '_';
+    }
+    buf[cursor] = 0;
+    return buf;
+}
 
 PyObject* dolphin2py(ConstantSP input, bool dateFrameFlag) {
     DATA_FORM dForm = input->getForm();
@@ -160,7 +181,7 @@ PyObject* dolphin2py(ConstantSP input, bool dateFrameFlag) {
         }
         else if (dType == DT_DATE || dType == DT_MONTH || dType == DT_TIME ||
                  dType == DT_MINUTE || dType == DT_SECOND || dType == DT_DATETIME ||
-                 dType == DT_TIMESTAMP || dType == DT_NANOTIME || dType == DT_NANOTIMESTAMP) {
+                 dType == DT_TIMESTAMP || dType == DT_NANOTIME || dType == DT_NANOTIMESTAMP || dType == DT_DATEHOUR) {
             if (dType == DT_DATE) {
                 py::object ret = Preserved::datetime64_(input->getLong(), "D");
                 Py_INCREF(ret.ptr());
@@ -188,6 +209,11 @@ PyObject* dolphin2py(ConstantSP input, bool dateFrameFlag) {
             }
             else if (dType == DT_NANOTIME || dType == DT_NANOTIMESTAMP) {
                 py::object ret = Preserved::datetime64_(input->getLong(), "ns");
+                Py_INCREF(ret.ptr());
+                return ret.ptr();
+            }
+            else if (dType == DT_DATEHOUR) {
+                py::object ret = Preserved::datetime64_(input->getLong(), "h");
                 Py_INCREF(ret.ptr());
                 return ret.ptr();
             }
@@ -544,6 +570,32 @@ PyObject* dolphin2py(ConstantSP input, bool dateFrameFlag) {
                     Py_IncRef(pyVec.ptr());
                     return pyVec.ptr();
                 }
+                case DT_DATEHOUR: {
+                    if(dateFrameFlag) {
+                        py::array pyVec(py::dtype("datetime64[ns]"), {size}, {});
+                        ddbVec->getLong(0, size, (long long *)pyVec.mutable_data());
+                        long long *p = (long long *)pyVec.mutable_data();
+                        if (UNLIKELY(ddbVec->hasNull())) {
+                            for (size_t i = 0; i < size; ++i) {
+                                if (UNLIKELY(p[i] == INT64_MIN)) { continue; }
+                                p[i] *= 3600000000000ll;
+                            }
+                        }
+                        else {
+                            for (size_t i = 0; i < size; ++i) {
+                                p[i] *= 3600000000000ll;
+                            }
+                        }
+                        Py_IncRef(pyVec.ptr());
+                        return pyVec.ptr();
+                    }
+                    else {
+                        py::array pyVec(py::dtype("datetime64[h]"), {size}, {});
+                        ddbVec->getLong(0, size, (long long *)pyVec.mutable_data());
+                        Py_IncRef(pyVec.ptr());
+                        return pyVec.ptr();
+                    }
+                }
                 case DT_FLOAT: {
                     py::array pyVec(py::dtype("float32"), {size}, {});
                     ddbVec->getFloat(0, size, (float *)pyVec.mutable_data());
@@ -773,6 +825,8 @@ static PY_TYPE getPyTypeEx(py::handle obj) {
             return PY_NP_DATETIME_m;
         else if (type.equal(Preserved::npdatetime64s_))
             return PY_NP_DATETIME_s;
+        else if (type.equal(Preserved::npdatetime64h_))
+            return PY_NP_DATETIME_h;
         else if (type.equal(Preserved::npdatetime64ms_))
             return PY_NP_DATETIME_ms;
         else if (type.equal(Preserved::npdatetime64us_))
@@ -821,6 +875,8 @@ static DATA_TYPE numpyToDolphinDBType(py::array array) {
         return DT_MINUTE;
     else if (type.equal(Preserved::npdatetime64s_))
         return DT_DATETIME;
+    else if (type.equal(Preserved::npdatetime64h_))
+        return DT_DATEHOUR;
     else if (type.equal(Preserved::npdatetime64ms_))
         return DT_TIMESTAMP;
     else if (type.equal(Preserved::npdatetime64us_))
@@ -835,7 +891,8 @@ static DATA_TYPE numpyToDolphinDBType(py::array array) {
         return DT_ANY;
 }
 
-ConstantSP py2dolphin(PyObject *input, bool free) {
+ConstantSP py2dolphin(PyObject *input, bool free, bool addIndex) {
+    ProtectGil pgil;
     PY_TYPE pType = getPyType(input);
     if (pType == PY_STRING) {
         const char *str;
@@ -1054,6 +1111,7 @@ ConstantSP py2dolphin(PyObject *input, bool free) {
                 case DT_MINUTE:
                 case DT_SECOND:
                 case DT_DATETIME:
+                case DT_DATEHOUR:
                 case DT_TIMESTAMP:
                 case DT_NANOTIME:
                 case DT_NANOTIMESTAMP: {
@@ -1176,28 +1234,52 @@ ConstantSP py2dolphin(PyObject *input, bool free) {
         py::object dataframe = py::handle(input).cast<py::object>();
         py::object pyLabel = dataframe.attr("columns");
         //py::dict typeIndicators = py::getattr(dataframe, "__DolphinDB_Type__", py::dict());
-        size_t columnSize = pyLabel.attr("size").cast<size_t>();
-        vector<std::string> columnNames;
-        columnNames.reserve(columnSize);
-        static py::object stringType = py::eval("str");
-        for (auto it = pyLabel.begin(); it != pyLabel.end(); ++it) {
-            if (!py::isinstance(*it, stringType)) {
-                throw RuntimeException("DolphinDB only support string as column names, and each of them must be a valid variable name.");
+        if(addIndex){
+            size_t columnSize = pyLabel.attr("size").cast<size_t>() + 1;
+            vector<std::string> columnNames;
+            columnNames.reserve(columnSize);
+            vector<ConstantSP> columns;
+            columns.reserve(columnSize);
+            py::object index = dataframe.attr("index");
+            py::object pyName = index.attr("name");
+            string indexName;
+            if(py::isinstance(pyName, py::none().get_type())){
+                indexName = "index";
+            }else{
+                indexName = index.attr("name").cast<string>();
+                indexName = generateColumnName(indexName);
             }
-            auto cur = it->cast<string>();
-            if (!Util::isVariableCandidate(cur)) {
-                throw RuntimeException("'" + cur + "' is not a valid variable name, thus can not be used as a column name in DolphinDB.");
+            columnNames.push_back(indexName);
+            columns.push_back(py2dolphin(py::handle(index).cast<py::array>().ptr()));
+            for (auto it = pyLabel.begin(); it != pyLabel.end(); ++it) {
+                columns.push_back(py2dolphin(dataframe[*it].ptr()));
+                auto cur = py2dolphin((*it).ptr());
+                string name = cur->getString();
+                if (!Util::isVariableCandidate(name)) {
+                    name = generateColumnName(name);
+                }
+                columnNames.emplace_back(name);
             }
-            columnNames.emplace_back(cur);
+            TableSP ddbTbl = Util::createTable(columnNames, columns);
+            return ddbTbl;
+        }else{
+            size_t columnSize = pyLabel.attr("size").cast<size_t>();
+            vector<std::string> columnNames;
+            columnNames.reserve(columnSize);
+            vector<ConstantSP> columns;
+            columns.reserve(columnSize);
+            for (auto it = pyLabel.begin(); it != pyLabel.end(); ++it) {
+                columns.push_back(py2dolphin(dataframe[*it].ptr()));
+                auto cur = py2dolphin((*it).ptr());
+                string name = cur->getString();
+                if (!Util::isVariableCandidate(name)) {
+                    name = generateColumnName(name);
+                }
+                columnNames.emplace_back(name);
+            }
+            TableSP ddbTbl = Util::createTable(columnNames, columns);
+            return ddbTbl;
         }
-        vector<ConstantSP> columns;
-        columns.reserve(columnSize);
-        for (size_t i = 0; i < columnSize; ++i) {
-            columns.emplace_back(py2dolphin(dataframe[columnNames[i].data()].ptr() ,false));
-            //columns.emplace_back(py2dolphin(py::array(dataframe[columnNames[i].data()]).ptr(), false));
-        }
-        TableSP ddbTbl = Util::createTable(columnNames, columns);
-        return ddbTbl;
     }
     else if (pType == PY_NP_DATETIME) {
         auto re = py::handle(input).attr("astype")("float64").cast<double>();
@@ -1224,6 +1306,11 @@ ConstantSP py2dolphin(PyObject *input, bool free) {
         if (re == 9221120237041090560LL) { return new Void; }
         return new DateTime(re);
     }
+    else if (pType == PY_NP_DATETIME_h) {
+        auto re = py::handle(input).attr("astype")("float64").cast<double>();
+        if (re == 9221120237041090560LL) { return new Void; }
+        return new DateHour(re);
+    }
     else if (pType == PY_NP_DATETIME_ms) {
         auto re = py::handle(input).attr("astype")("float64").cast<double>();
         if (re == 9221120237041090560LL) { return new Void; }
@@ -1239,6 +1326,31 @@ ConstantSP py2dolphin(PyObject *input, bool free) {
         if (re == 9221120237041090560LL) { return new Void; }
         return new NanoTimestamp(re);
     }
-    else
+    else if (input != nullptr){
+        if (!PyDateTimeAPI) { PyDateTime_IMPORT; }
+        if(PyDate_CheckExact(input)){
+            int year = PyDateTime_GET_YEAR(input);
+            int month = PyDateTime_GET_MONTH(input);
+            int day = PyDateTime_GET_DAY(input);
+            return new Date(year, month, day);
+        }else if(PyTime_CheckExact(input)){
+            int hour = PyDateTime_TIME_GET_HOUR(input);
+            int minute = PyDateTime_TIME_GET_MINUTE(input);
+            int second = PyDateTime_TIME_GET_SECOND(input);
+            int microsecond = PyDateTime_TIME_GET_MICROSECOND(input);
+            return new Time(hour, minute, second, microsecond/1000);
+        }else if(PyDateTime_CheckExact(input)){
+            int year = PyDateTime_GET_YEAR(input);
+            int month = PyDateTime_GET_MONTH(input);
+            int day = PyDateTime_GET_DAY(input);
+            int hour = PyDateTime_DATE_GET_HOUR(input);
+            int minute = PyDateTime_DATE_GET_MINUTE(input);
+            int second = PyDateTime_DATE_GET_SECOND(input);
+            return new DateTime(year, month, day, hour, minute, second);
+        }else{
+            return nullptr;
+        }
+    } else {
         return nullptr;
+    }
 }

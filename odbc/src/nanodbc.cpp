@@ -2755,11 +2755,14 @@ private:
             // nvarchar(max)).
             bool is_blob = false;
 
-            if (sqlsize == 0)
+            if (sqlsize == 0 || sqlsize > INT_MAX)
             {
+                sqlsize = 0;
                 switch (sqltype)
                 {
+                case SQL_CHAR:
                 case SQL_VARCHAR:
+                case SQL_WCHAR:
                 case SQL_WVARCHAR:
                 {
                     // Divide in half, due to sqlsize being 32-bit in Win32 (and 64-bit in x64)
@@ -2822,7 +2825,6 @@ private:
                 break;
             case SQL_CHAR:
             case SQL_VARCHAR:
-            case SQL_NVARCHAR:
                 col.ctype_ = sql_ctype<std::string>::value;
                 col.clen_ = (col.sqlsize_ + 1) * sizeof(SQLCHAR);
                 if (is_blob)
@@ -2844,6 +2846,13 @@ private:
             case SQL_LONGVARCHAR:
                 col.ctype_ = sql_ctype<std::string>::value;
                 col.blob_ = true;
+                col.clen_ = 0;
+                col.sqlsize_ = 0;
+                break;
+            case SQL_WLONGVARCHAR:
+                col.ctype_ = sql_ctype<wide_string>::value;
+                col.blob_ = true;
+                col.sqlsize_ = 0;
                 col.clen_ = 0;
                 break;
             case SQL_BINARY:
@@ -2881,6 +2890,10 @@ private:
             }
             else
             {
+                #ifdef WINDOWS
+                if(col.ctype_ == SQL_C_CHAR)
+                    col.clen_ *= sizeof(wchar_t);
+                #endif
                 col.pdata_ = new char[rowset_size_ * col.clen_];
                 NANODBC_CALL_RC(
                     SQLBindCol,

@@ -8,9 +8,10 @@
 #include<vector>
 #include<string>
 #include<unordered_map>
+using namespace std;
 
-unordered_map<std::string, std::string> smtpHost;
-unordered_map<std::string, int> smtpPost;
+unordered_map<string, string> smtpHost;
+unordered_map<string, int> smtpPost;
 bool firstConfigSmtp = true;
 
 size_t curlWriteData(void *ptr, size_t size, size_t nmemb, string *data) {
@@ -19,8 +20,8 @@ size_t curlWriteData(void *ptr, size_t size, size_t nmemb, string *data) {
 }
 
 CSendMail::CSendMail(
-        const std::string &strUser,
-        const std::string &strPsw
+        const string &strUser,
+        const string &strPsw
 ) {
     m_strUser = strUser;
     m_strPsw = strPsw;
@@ -55,14 +56,13 @@ size_t CSendMail::read_callback(void *ptr, size_t size, size_t nmemb, void *user
     return 0;
 }
 
-bool CSendMail::ConstructHead(const std::string &strSubject, const std::string &strContent) {
+bool CSendMail::ConstructHead(const string &strSubject, const string &strContent) {
     m_MailContent.push_back("MIME-Versioin: 1.0\n");
-    std::string strTemp = "To: ";
-    for (std::list<std::string>::iterator it = m_RecipientList.begin(); it != m_RecipientList.end();) {
+    string strTemp = "To: ";
+    for (list<string>::iterator it = m_RecipientList.begin(); it != m_RecipientList.end();) {
         strTemp += *it;
         it++;
-        if (it != m_RecipientList.end())
-            strTemp += ",";
+        strTemp += ",";
     }
     strTemp += "\n";
     m_MailContent.push_back(strTemp);
@@ -81,7 +81,7 @@ bool CSendMail::ConstructHead(const std::string &strSubject, const std::string &
     return true;
 }
 
-ConstantSP CSendMail::SendMail(const std::string &strSubject, const std::string &strMailBody) {
+ConstantSP CSendMail::SendMail(const string &strSubject, const string &strMailBody) {
     ConstantSP res = Util::createDictionary(DT_STRING, nullptr, DT_ANY, nullptr);
     char errorBuf[CURL_ERROR_SIZE];
     m_MailContent.clear();
@@ -96,21 +96,22 @@ ConstantSP CSendMail::SendMail(const std::string &strSubject, const std::string 
         curl_easy_cleanup(curl);
         curl_global_cleanup();
         throw IllegalArgumentException(__FUNCTION__, "Init curl failed");
-        return res;
     }
-    std::string strListMailTo;
-    for (std::list<std::string>::iterator it = m_RecipientList.begin(); it != m_RecipientList.end(); it++) {
+    string strListMailTo;
+    list<string>::iterator lastIter = m_RecipientList.end()--;
+    for (list<string>::iterator it = m_RecipientList.begin(); it != m_RecipientList.end(); it++) {
         strListMailTo += it->c_str();
-        strListMailTo += ' ';
+        if(lastIter != it)
+            strListMailTo += ' ';
     }
-    for (std::list<std::string>::iterator it = m_RecipientList.begin(); it != m_RecipientList.end(); it++) {
+    for (list<string>::iterator it = m_RecipientList.begin(); it != m_RecipientList.end(); it++) {
         rcpt_list = curl_slist_append(rcpt_list, it->c_str());
     }
     string strSmtpServer;
     int port = 25;
     int pos = m_strUser.find_first_of('@');
     string tmp = m_strUser.substr(pos + 1);
-    if (smtpHost.count(tmp) != 0)
+    if (pos > 1 && smtpHost.count(tmp) != 0)
         strSmtpServer = smtpHost[tmp];
     else {
         curl_slist_free_all(rcpt_list);
@@ -122,9 +123,9 @@ ConstantSP CSendMail::SendMail(const std::string &strSubject, const std::string 
     if (smtpPost.count(tmp) != 0)
         port = smtpPost[tmp];
 
-    std::string strUrl = "smtp://" + strSmtpServer;
+    string strUrl = "smtp://" + strSmtpServer;
     strUrl += ":";
-    strUrl += std::to_string(port);
+    strUrl += to_string(port);
     curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errorBuf);
     curl_easy_setopt(curl, CURLOPT_URL, strUrl.c_str());
     curl_easy_setopt(curl, CURLOPT_USERNAME, m_strUser.c_str());

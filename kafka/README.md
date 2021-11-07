@@ -120,7 +120,7 @@ Create a Kafka producer by the configuration passed in and return the handler of
 ##### Syntax
 
 ```shell
-kafka::produce(producer, topic, key, value, json[,partition]);
+kafka::produce(producer, topic, key, value, json, [partition] );
 ```
 
 ##### Arguments
@@ -169,7 +169,7 @@ kafka::getProducerTime(producer)
 ##### Syntax
 
 ``` shell
-kafka::setProducerTime(producer,timeout)
+kafka::setProducerTime(producer, timeout)
 ```
 
 ##### Arguments
@@ -228,12 +228,12 @@ kafka::unsubscribe(consumer)
 
 Unsubscribe all topics.
 
-#### 3.3.4 Poll a message 
+#### 3.3.4 Poll a message
 
 ##### Syntax
 
 ```
-kafka::consumerPoll(consumer[,timeout:int])
+kafka::consumerPoll(consumer, [timeout])
 ```
 
 ##### Arguments
@@ -252,7 +252,7 @@ Save the subscribed data to DolphinDB. It returns a DolphinDB tuple. The first e
 ##### Syntax
 
 ``` shell
-kafka::consumerPollBatch(consumer,batch_size[,time_out:int])
+kafka::consumerPollBatch(consumer, batch_size, [time_out])
 ```
 
 ##### Arguments
@@ -266,7 +266,7 @@ kafka::consumerPollBatch(consumer,batch_size[,time_out:int])
 ##### Syntax
 
 ```shell
-kafka::createSubJob(consumer,table,parser,description[,timeout:int])
+kafka::createSubJob(consumer, table, parser, description, [timeout])
 ```
 
 ##### Arguments
@@ -310,7 +310,7 @@ kafka::cancelSubJob(connection)
 ##### Syntax
 
 ```shell
-kafka::pollDict(consumer,batch_size[,timeout:int])
+kafka::pollDict(consumer, batch_size, [timeout])
 ```
 
 ##### Arguments
@@ -344,7 +344,7 @@ Commit the offset of the last processed message to producer synchronously. If th
 ##### Syntax
 
 ``` shell
-kafka::commitTopic(consumer,topics,partitions,offsets)
+kafka::commitTopic(consumer, topics, partitions, offsets)
 ```
 
 ##### Arguments
@@ -375,7 +375,7 @@ Commit the offset of the last processed message to producer asynchronously.
 ##### Syntax
 
 ```
-kafka::asyncCommitTopic(consumer,topics,partitions,offsets)
+kafka::asyncCommitTopic(consumer, topics, partitions, offsets)
 ```
 
 ##### Arguments
@@ -402,7 +402,7 @@ kafka::getConsumerTime(consumer)
 ##### Syntax
 
 ``` shell
-kafka::setConsumerTime(consumer,timeout)
+kafka::setConsumerTime(consumer, timeout)
 ```
 
 ##### Arguments
@@ -415,7 +415,7 @@ kafka::setConsumerTime(consumer,timeout)
 ##### Syntax
 
 ``` shell
-kafka::assign(consumer,topics,partitions,offsets)
+kafka::assign(consumer, topics, partitions, offsets)
 ```
 
 ##### Arguments
@@ -462,7 +462,7 @@ kafka::getAssignment(consumer)
 ##### Syntax
 
 ``` shell
-kafka::getOffset(consumer,topic,partition)
+kafka::getOffset(consumer, topic, partition)
 ```
 
 ##### Arguments
@@ -480,7 +480,7 @@ Print the offsets of the consumer.
 ##### Syntax
 
 ``` shell
-kafka::getOffsetCommitted(consumer,topics,partitions,offsets[,timeout:int])
+kafka::getOffsetCommitted(consumer, topics, partitions, offsets, [timeout])
 ```
 
 ##### Arguments
@@ -500,7 +500,7 @@ Gets the offsets committed for the given topic/partition list.
 ##### Syntax
 
 ``` shell
-kafka::getOffsetPosition(consumer,topics,partitions)
+kafka::getOffsetPosition(consumer, topics, partitions)
 ```
 
 ##### Arguments
@@ -534,7 +534,7 @@ Stores the offsets on the currently assigned topic/partitions (legacy).
 ##### Syntax
 
 ``` shell
-storeOffset(consumer,topics,partitions,offsets)
+storeOffset(consumer, topics, partitions, offsets)
 ```
 
 ##### Arguments
@@ -603,7 +603,7 @@ Get the consumer group queue servicing corresponding to.
 ##### Syntax
 
 ```shell 
-kafka::getPartitionQueue(consumer,topic,partition)
+kafka::getPartitionQueue(consumer, topic, partition)
 ```
 
 ##### Arguments
@@ -637,7 +637,7 @@ Returns the length of the queue
 ##### Syntax
 
 ```shell 
-kafka::forToQueue(queue,forward_queue)
+kafka::forToQueue(queue, forward_queue)
 ```
 
 ##### Arguments
@@ -666,7 +666,7 @@ Disable forwarding to another queue.
 ##### Syntax
 
 ```shell 
-kafka::setQueueTime(queue,timeout)
+kafka::setQueueTime(queue, timeout)
 ```
 
 ##### Arguments
@@ -695,7 +695,7 @@ Gets the configured timeout.
 ##### Syntax
 
 ```shell 
-kafka::queuePoll(queue[,timeout])
+kafka::queuePoll(queue, [timeout])
 ```
 
 ##### Arguments
@@ -708,7 +708,7 @@ kafka::queuePoll(queue[,timeout])
 ##### Syntax
 
 ```shell 
-kafka::queuePollBatch(queue, batch_size[,timeout])
+kafka::queuePollBatch(queue, batch_size, [timeout])
 ```
 
 ##### Arguments

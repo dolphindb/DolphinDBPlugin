@@ -34,7 +34,7 @@ endif ()
 
 add_definitions(-DLOGGING_LEVEL_1)
 include_directories(${DOLPHINDB_INC_DIR})
-link_directories(${DOLPHINDB_LIB_DIR})
+link_directories(${CMAKE_BINARY_DIR}/../bin/win64 ${CMAKE_BINARY_DIR} ${DOLPHINDB_LIB_DIR})
 aux_source_directory(. SOURCE)
 add_library(MatchingEngine SHARED ${SOURCE})
 if(WIN32)

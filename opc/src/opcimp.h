@@ -12,6 +12,7 @@
 #include "opcda_i.h"
 #include "opccomn.h"
 #include "opcda.h"
+#include "CoreConcept.h"
 // global id
 static unsigned long long global_id = 0;
 //
@@ -104,17 +105,23 @@ private:
 
     bool _connected;
     bool _endSubFlag;
-
+    long long _recv;    // received packet number
+    long long _createTime;
+    string _errorMsg;
+    string _tagName;
+    string _serverName;
 public:
-    explicit OPCClient(std::string& host, int id): _host(host), threadId_(id) {
+    explicit OPCClient(std::string& host, int id,std::string server): _host(host), threadId_(id),_serverName(server) {
         coInit();
         _connected = false;
         group = NULL;
         _endSubFlag = true;
+        sessionClosed = false;
     }
     ~OPCClient() {
         //if(_connected) disconnect();
         coRelease();
+        cout<<"opc client is freed!"<<endl;
     }
     void getServerList(std::vector<std::string>& serverNameList, std::vector<CLSID>& serverCLSIDList);
     void getServerList();
@@ -130,10 +137,23 @@ public:
     bool getConnected(){return _connected;}
     void setSubFlag(bool s){_endSubFlag=s;}
     bool getSubFlag(){return _endSubFlag;}
+    void incRecv() { _recv++; }
+    void resetRecv(){_recv=0;}
+    long long getRecv(){ return _recv; }
+    string getErrorMsg(){ return _errorMsg; }
+    void setErrorMsg(string errorMsg){ _errorMsg = errorMsg; }
+    long long getCreateTime(){ return _createTime; }
+    void setCreateTime(long long createTime){ _createTime=createTime;}
     int id() { return threadId_; }
+    string getHost(){return  _host;}
+    void setTagName(string tag){_tagName=tag;}
+    string getTagName(){return _tagName;}
+    string getServerName(){return _serverName;}
 public:
     COPCGroup* group;
     int threadId_;
+    SessionSP session;
+    bool sessionClosed;
 };
 
 

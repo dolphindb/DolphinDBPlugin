@@ -103,6 +103,7 @@ public:
     Semaphore isStopped_;
     std::string startUrl_;
     std::string endUrl_;
+    std::string runningUrl_;
     CURL *curl_ = NULL;
     long long readByte_ = 0;
     long long dataNumber_ = 0;
@@ -113,9 +114,9 @@ public:
         return startUrl_;
     }
 
-    HttpSession(std::string startUrl, std::string endUrl, string cookieSet, SessionSP session) :
+    HttpSession(std::string startUrl, std::string endUrl, string cookieSet, SessionSP session, string runningUrl) :
             data_(HttpData, 256, nullptr, nullptr, nullptr, false, this, nullptr),
-            head_(HttpHead, nullptr), isStopped_(1), cookieSet_(cookieSet) {
+            head_(HttpHead, nullptr), isStopped_(1), cookieSet_(cookieSet), runningUrl_(runningUrl) {
         startUrl_ = startUrl;
         endUrl_ = endUrl;
         ConstantSP params, timeout, headers, parser, handle;
@@ -273,17 +274,17 @@ public:
     }
 
 private:
-    SessionSP session_;
     httpClient::RequestMethod method_;
     FunctionDefSP parser_;
     ConstantSP handle_;
+    HttpSession *http_;
+    int parserInterval_;
     vector<string> url_;
     ConstantSP params_;
-    ConstantSP timeout_;
     ConstantSP headers_;
-    HttpSession *http_;
+    ConstantSP timeout_;
     int cycles_;
-    int parserInterval_;
+    SessionSP session_;
     bool flag_ = true;
     long long cycles_completed = 0;
 };

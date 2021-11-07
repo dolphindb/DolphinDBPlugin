@@ -1151,8 +1151,7 @@ private:
 
 class Param{
 public:
-	Param(const string& name, bool readOnly, const ConstantSP& defaultValue = nullptr):
-		name_(name),readOnly_(readOnly),meta_(-1), defaultValue_(defaultValue){}
+	Param(const string& name, bool readOnly, const ConstantSP& defaultValue = nullptr);
 	Param(Session* session, const DataInputStreamSP& in);
 	const string& getName() const {return name_;}
 	bool isReadOnly() const{return readOnly_;}
@@ -1208,7 +1207,7 @@ public:
 	inline int getMaxParamCount() const { return maxParamNum_;}
 	inline int getMinParamCount() const {	return minParamNum_;}
 	inline bool acceptParamCount(int count) const { return minParamNum_ <= count && maxParamNum_ >= count;}
-	inline int getParamCount() const {return minParamNum_;}
+	inline int getParamCount() const {return maxParamNum_;}
 	const ParamSP& getParam(int index) const;
 	inline bool isUserDefined() const {return defType_ == USERDEFFUNC;}
 	inline bool isSystemFunction() const {return defType_ == SYSFUNC;}
@@ -1629,10 +1628,10 @@ private:
 
 class Domain{
 public:
-	Domain(const string& owner, PARTITION_TYPE partitionType, bool isLocalDomain) : partitionType_(partitionType), isLocalDomain_(isLocalDomain), isExpired_(false),
-			retentionPeriod_(-1), retentionDimension_(-1), tzOffset_(INT_MIN), key_(false), owner_(owner){}
-	Domain(const string& owner, PARTITION_TYPE partitionType, bool isLocalDomain, const Guid& key) : partitionType_(partitionType), isLocalDomain_(isLocalDomain),
-			isExpired_(false), retentionPeriod_(-1), retentionDimension_(-1), tzOffset_(INT_MIN), key_(key), owner_(owner){}
+	Domain(const string& owner, PARTITION_TYPE partitionType, bool isLocalDomain, DBENGINE_TYPE engineType = DBENGINE_TYPE::OLAP, ATOMIC atomic = ATOMIC::TRANS) : partitionType_(partitionType), isLocalDomain_(isLocalDomain), isExpired_(false),
+			tableIndependentChunk_(false), retentionPeriod_(-1), retentionDimension_(-1), tzOffset_(INT_MIN), key_(false), owner_(owner), engineType_(engineType), atomic_(atomic){}
+	Domain(const string& owner, PARTITION_TYPE partitionType, bool isLocalDomain, const Guid& key, DBENGINE_TYPE engineType = DBENGINE_TYPE::OLAP, ATOMIC atomic = ATOMIC::TRANS) : partitionType_(partitionType), isLocalDomain_(isLocalDomain),
+			isExpired_(false), tableIndependentChunk_(false), retentionPeriod_(-1), retentionDimension_(-1), tzOffset_(INT_MIN), key_(key), owner_(owner), engineType_(engineType), atomic_(atomic){}
 	virtual ~Domain(){}
 	int getPartitionCount() const { return partitions_.size();}
 	DomainPartitionSP getPartition(int index) const { return partitions_[index];}
@@ -1675,6 +1674,12 @@ public:
 	void setRentionPeriod(int retentionPeriod, int retentionDimension, int tzOffset);
 	string getOwner() const { return owner_;}
 	bool isOwner(const string& owner) const { return owner == owner_;}
+	void setEngineType(DBENGINE_TYPE type) { engineType_ = type;}
+	DBENGINE_TYPE getEngineType() const { return engineType_;}
+	void setAtomicLevel(ATOMIC atomicLevel) { atomic_ = atomicLevel;}
+	ATOMIC getAtomicLevel() const { return atomic_;}
+	void setTableIndependentChunk(bool option) { tableIndependentChunk_ = option;}
+	bool isTableIndependentChunk() const { return tableIndependentChunk_;}
 
 	/*
 	 * The input arguments set1 and set2 must be sorted by the key value of domain partitions. The ranking of key values must be the same as
@@ -1705,6 +1710,7 @@ protected:
 	PARTITION_TYPE partitionType_;
 	bool isLocalDomain_;
 	bool isExpired_;
+    bool tableIndependentChunk_;
 	int retentionPeriod_; // in hours
 	int retentionDimension_;
 	int tzOffset_;
@@ -1712,6 +1718,8 @@ protected:
 	string name_;
 	string dir_;
 	string owner_;
+	DBENGINE_TYPE engineType_;
+	ATOMIC atomic_;
 	SymbolBaseManagerSP symbaseManager_;
 	unordered_map<string, TableHeader> tables_;
 	mutable Mutex mutex_;

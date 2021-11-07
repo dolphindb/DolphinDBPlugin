@@ -11,6 +11,32 @@
 using namespace std;
 DictionarySP status_dict = Util::createDictionary(DT_STRING, nullptr, DT_ANY, nullptr);
 
+string urlEncode(string url){
+    string tmp;
+    for(int i = 0; i < url.size(); ++i){
+        if(url[i] == ' '){
+            tmp += "%20";
+        }
+        else{
+            tmp += url[i];
+        }
+    }
+    return tmp;
+}
+
+string getUTC()
+{
+    char szBuf[256] = {0};
+    struct timeval    tv;
+    struct timezone   tz;
+    struct tm         *p;
+    gettimeofday(&tv, &tz);
+    p = gmtime(&tv.tv_sec);
+    snprintf(szBuf, 256, "%02d-%02d-%02dT%02d:%02d:%02d.%06ld", p->tm_year + 1900, p->tm_mon + 1, p->tm_mday, p->tm_hour, p->tm_min, p->tm_sec, tv.tv_usec);
+
+    return szBuf;
+}
+
 size_t parserWriteData(void *ptr, size_t size, size_t nmemb, WriteBase *paraMdata) {
 
     size_t writeSize = size * nmemb;
@@ -82,16 +108,16 @@ size_t parserWriteData(void *ptr, size_t size, size_t nmemb, WriteBase *paraMdat
                     if (!parser_data.isNull() && parser_data->isTable()) {
                         data->http_->dataNumber_ += parser_data->size();
                         if (data->handle_->isTable()) {
-                            TableSP result = data->handle_;
+                            TableSP handle = data->handle_;
 
                             TableSP table_insert = (TableSP) parser_data;
-                            int length = table_insert->columns();
+                            int length = handle->columns();
                             if (table_insert->columns() < length) {
                                 LOG_ERR("HttpClientPlugin: The columns of the table returned is smaller than the handler table.");
                             }
                             if (table_insert->columns() > length)
                                 LOG_ERR("HttpClientPlugin: The columns of the table returned is larger than the handler table, and the information may be ignored.");
-                            vector<ConstantSP> args = {result, table_insert};
+                            vector<ConstantSP> args = {handle, table_insert};
                             session->getFunctionDef("append!")->call(heap, args);
                         } else {
                             vector<ConstantSP> args = {parser_result};
@@ -114,7 +140,7 @@ size_t parserWriteData(void *ptr, size_t size, size_t nmemb, WriteBase *paraMdat
         }
     } else if (paraMdata->flag_ == HttpHead && *(paraMdata->needParse_) == false) {
         WriteHead *data = (WriteHead *) paraMdata;
-        long long index = data->startIndex;
+        size_t index = data->startIndex;
         while (index < data->buffer_.size()) {
             index = data->startIndex;
             while (index < data->buffer_.size()) {
@@ -142,9 +168,8 @@ std::string findCookie(std::string headers) {
     pos = headers.find("Set-Cookie");
     if (-1 != pos) {
         int pos2 = headers.find('\n', pos);
-        if (-1 != pos2) {
-            if (headers[pos + 1])
-                return headers.substr(pos + 12, pos2 - pos - 12);
+        if (-1 != pos2 && pos2 - pos - 12 > 0) {
+            return headers.substr(pos + 12, pos2 - pos - 12);
         }
     }
     return "";
@@ -217,7 +242,7 @@ HttpSession::httpRequest(SessionSP &session, httpClient::RequestMethod method, c
         }
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerList);
 
-        curl_easy_setopt(curl, CURLOPT_URL, urlString.c_str());
+        curl_easy_setopt(curl, CURLOPT_URL, urlEncode(urlString).c_str());
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "curl/7.47.0");
         curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 50L);
@@ -322,7 +347,7 @@ HttpSession::httpRequest(SessionSP &session, httpClient::RequestMethod method, c
         curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &elapsed);
         if (responseCode != 200)
             LOG_ERR("HttpClientPlugin: " + head_.buffer_ + data_.buffer_);
-        curl_slist_free_all(headerList);
+            curl_slist_free_all(headerList);
     } else {
         throw RuntimeException("Could not initialize request object");
     }
@@ -351,6 +376,9 @@ void AppendTable::run() {
                 break;
         }
         stopFlag = http_->data_.needStop_ || stopFlag;
+        if(!stopFlag && http_ != nullptr){
+            LOG_WARN("HttpClientPlugin: " + http_->runningUrl_ + "The HTTP connection was disconnected.");
+        }
         if (stopFlag)
             break;
         incCycles_completed();
@@ -509,16 +537,21 @@ ConstantSP httpCancelSubJob(Heap *heap, vector<ConstantSP> args) {
     return new Void();
 }
 
+string creatRunningUrl(vector<string> url){
+    string ret = url[0];
+    for (size_t i = 1; i < url.size(); ++i) {
+        ret += (", " + url[i]);
+    }
+    return ret;
+}
+
 SubConnection::SubConnection(vector<string> url, ConstantSP params, int parserInterval, ConstantSP timeout,
                              ConstantSP headers, ConstantSP handle, Heap *heap, FunctionDefSP parser,
                              httpClient::RequestMethod method, int cycles, string cookieSet)
         : heap_(heap) {
     session_ = heap->currentSession()->copy();
-    http_ = new HttpSession(url[0], "", cookieSet, session_);
-    runningUrl_ = url[0];
-    for (size_t i = 1; i < url.size(); ++i) {
-        runningUrl_ += (", " + url[i]);
-    }
+    http_ = new HttpSession(url[0], "", cookieSet, session_, creatRunningUrl(url));
+    runningUrl_ = creatRunningUrl(url);
     connected_ = true;
     createTime_ = Util::getEpochTime();
     session_->setUser(heap->currentSession()->getUser());

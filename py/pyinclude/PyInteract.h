@@ -10,6 +10,7 @@
 
 extern "C" ConstantSP runCommand(Heap* heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP importModule(Heap* heap, vector<ConstantSP>& arguments);
+extern "C" ConstantSP reloadModule(Heap* heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP getObject(Heap* heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP getFunction(Heap* heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP cvtPy2Dol(Heap* heap, vector<ConstantSP>& arguments);

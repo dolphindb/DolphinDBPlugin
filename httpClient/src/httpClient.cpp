@@ -138,6 +138,7 @@ namespace httpClient {
                     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, paramString.c_str());
                     break;
                 default:
+                    curl_easy_cleanup(curl);
                     throw RuntimeException("Unknown request method");
             }
 
@@ -150,6 +151,8 @@ namespace httpClient {
                     int pos = str_headers.find_first_of(':');
                     int last = str_headers.find_last_of(':');
                     if (pos != last || pos == -1 || pos == 0 || pos == (int) str_headers.size() - 1) {
+                        curl_easy_cleanup(curl);
+                        curl_slist_free_all(headerList);
                         throw IllegalArgumentException(__FUNCTION__, "If the parameter 'header' is a STRING, it must be in the format of XXX:XXX. ");
                     }
                 }

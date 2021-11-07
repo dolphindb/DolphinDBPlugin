@@ -158,6 +158,7 @@ opc::subscribe(connection, tagName, handler)
 
 > 订阅tag的值
 
+
 例子
 
 ```
@@ -177,16 +178,36 @@ conn10 = opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,10)
 opc::subscribe(conn10,".testBool",   callback1{t3})
 ```
 
-### 2.6 取消订阅
+
+### 2.6 查询订阅
 
 语法
 ```
-opc::unsubcribe(connection)
+opc::getSubscriberStat()
+```
+参数
+- 无。
+
+详情
+
+> 查询所有订阅信息。返回的结果是一个包含8列的表，分别是："subscriptionId", 表示订阅标识符；"user",表示建立订阅的会话用户; "host", 表示OPC server的地址； "serverName", 表示OPC server的名称； "tag", 表示订阅标签； "createTimestamp"， 表示可以订阅建立时间；"receivedPackets",表示订阅收到的消息报文数；"errorMsg"，表示订阅的最新错误信息。
+
+例子
+```
+t=opc::getSubscriberStat()
+for(sub in t[`subscriptionId]){
+	opc::unsubscribe(sub)
+}
 ```
 
-参数
+### 2.7 取消订阅
 
-- connection 是`connect`函数返回的值。
+语法
+```
+opc::unsubcribe(subscription)
+```
+参数
+- subscription是`connect`函数返回的值或`getSubscriberStat`返回的订阅标识符。
 
 详情
 
@@ -197,17 +218,13 @@ opc::unsubcribe(connection)
 opc::unsubcribe(connection)
 ```
 
-### 2.7 关闭连接
-
+### 2.8 关闭连接
 语法
 ```
 opc::close(connection)
 ```
-
 参数
-
 - connection 是`connect`函数返回的值。
-
 详情
 
 > 断开与OPC server的连接。

@@ -502,13 +502,14 @@ public:
 		size_ -= curSize;
 		n -= curSize;
 
-		while(n > 0){
+		while(n > 0 && size_ > 0){
 			curSize = sizeFunc_(items_.front());
 			if(curSize > n)
 				break;
 			container.push_back(items_.front());
 			items_.pop();
 			size_ -= curSize;
+			n -= curSize;
 		}
 		if(full && size_ < capacity_)
 			full_.notifyAll();

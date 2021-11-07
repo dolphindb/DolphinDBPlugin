@@ -353,7 +353,7 @@ public:
 	virtual ConstantSP getValue() const {return ConstantSP(new String(val_));}
 	virtual DATA_TYPE getType() const {return internalType();}
 	virtual DATA_TYPE getRawType() const { return internalType();}
-	virtual DATA_CATEGORY getCategory() const {return blob_ ? BINARY : LITERAL;}
+	virtual DATA_CATEGORY getCategory() const {return LITERAL;}
 	virtual long long getAllocatedMemory() const {return sizeof(DolphinString);}
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
 	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
@@ -381,6 +381,7 @@ public:
 	virtual bool containNotMarshallableObject() const {return true;}
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
 	ObjectSP getCode() const { return code_;}
+	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
 
 private:
 	ObjectSP code_;
@@ -416,6 +417,7 @@ public:
 	DomainSitePoolSP getSitePool() const {return sites_;}
 	bool isTable() const { return isTable_;}
 	bool isLocalMode() const { return localMode_;}
+	virtual bool isLargeConstant() const { return false;}
 
 private:
 	vector<ObjectSP> code_;
@@ -807,6 +809,37 @@ private:
 	string desc_;
 };
 
+class Duration : public Int {
+public:
+	Duration(DURATION unit, int val);
+	virtual ~Duration(){}
+	virtual DATA_TYPE getType() const { return DT_DURATION;}
+	virtual DATA_TYPE getRawType() const { return DT_DURATION;}
+	virtual DATA_CATEGORY getCategory() const { return SYSTEM;}
+	virtual long long getLong() const;
+	virtual string getScript() const {return getString();}
+	virtual ConstantSP getValue() const {return ConstantSP(new Duration(unit_, val_));}
+	virtual ConstantSP getInstance() const {return ConstantSP(new Duration(unit_, val_));}
+	virtual string getString() const { return toString(unit_, val_);}
+	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
+	IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
+	DURATION getUnit() const { return unit_;}
+	int getDuration() const { return val_;}
+	long long toDuration(DURATION newDuration) const;
+	bool convertibleTo(DURATION to) const { return convertible(unit_, to);}
+	static bool convertible(DURATION from, DURATION to);
+	static Duration* parseDuration(const string& str);
+	static string toString(long long val);
+	static string toString(DURATION unit, int val);
+	static DURATION getDuration(DATA_TYPE type);
+	static DURATION getDuration(const string& unit);
+
+private:
+	static const string durationSymbols_[11];
+	static const long long durationRatios_[11][11];
+	DURATION unit_;
+};
+
 class Long: public AbstractScalar<long long>{
 public:
 	Long(long long val=0):AbstractScalar(val){}
@@ -857,7 +890,7 @@ public:
 
 class Double: public AbstractScalar<double>{
 public:
-	Double(double val=0):AbstractScalar(val){}
+	Double(double val=0):AbstractScalar((std::isnan(val)|| std::isinf(val)) ? DBL_NMIN : val){}
 	virtual ~Double(){}
 	virtual bool isNull() const {return val_==DBL_NMIN;}
 	virtual void setNull(){val_=DBL_NMIN;}

@@ -429,7 +429,7 @@ hdf5::saveHDF5(tb, "example.h5", "dataset name in hdf5")
 | H5T_NATIVE_ULLONG | 0 | unsigned long long          | unsupported                  |
 
 
-* DolphinDB中数值类型都为有符号类型。为了防止溢出，所有无符号类型会被转化为高一阶的有符号类型，64位无符号类型不予支持。
+* DolphinDB中数值类型都为有符号类型。为了防止溢出，除64位无符号类型外，所有无符号类型会被转化为高一阶的有符号类型。特别的，64位无符号类型转化为64位有符号类型，若发生溢出则返回64位有符号类型的最大值。
 
 * H5T_NATIVE_CHAR 对应C中的char类型，而char是否有符号依赖与编译器及平台。若有符号依赖，则在DolphinDB中转化为char，否则为short。
 
