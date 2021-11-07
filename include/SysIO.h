@@ -39,11 +39,13 @@ class UdpSocket;
 class DataInputStream;
 class DataOutputStream;
 class DataStream;
+class Buffer;
 typedef SmartPointer<Socket> SocketSP;
 typedef SmartPointer<UdpSocket> UdpSocketSP;
 typedef SmartPointer<DataInputStream> DataInputStreamSP;
 typedef SmartPointer<DataOutputStream> DataOutputStreamSP;
 typedef SmartPointer<DataStream> DataStreamSP;
+typedef SmartPointer<Buffer> BufferSP;
 
 class Socket{
 public:

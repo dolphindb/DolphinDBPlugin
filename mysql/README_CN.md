@@ -298,6 +298,10 @@ t=mysql::loadEx(conn, db, "",`stockid, 'select  * from US where stockid<=1000000
 
 | MySQL类型          | 对应的DolphinDB类型 |
 | ------------------ | :------------------ |
+| bit(1)-bit(8)      | CHAR                |
+| bit(9)-bit(16)     | SHORT               |
+| bit(17)-bit(32)    | INT                 |
+| bit(33)-bit(64)    | LONG                |
 | tinyint            | CHAR                |
 | tinyint unsigned   | SHORT               |
 | smallint           | SHORT               |

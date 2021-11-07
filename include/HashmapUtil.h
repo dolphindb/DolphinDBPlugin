@@ -515,19 +515,19 @@ public:
 	~hprecord_guard() { ptr->retire(); }
 
 	// transparent access to the hp array
-	void protect (T *p) noexcept {
+	void protect (T *p)  {
 		ptr->hp = p;
 		std::atomic_thread_fence(std::memory_order_seq_cst);
 	}
 
 	// reset hp pointers
-	inline void reset() noexcept { ptr->reset(); }
+	inline void reset()  { ptr->reset(); }
 
 	// Try to delete a managed shared pointer.
 	// This is the classic operation from original hazard pointer: we add the
 	// pointer to a "wait list" and if the list is bigger than a given threshold
 	// we try to concretely delete elements in the wait-list.
-	void retire_node(T* node) noexcept {
+	void retire_node(T* node)  {
 		ptr->rlist.push_back(node);
 		if (ptr->rlist.size() >= hpm.threshold()) {
 			scan();
@@ -537,7 +537,7 @@ public:
 
 	// try to delete all unused pointers
 	// this is also a classical example from the original hazard pointers design
-	void scan() noexcept {
+	void scan()  {
 		std::unordered_set<T*>      plist;
 		for (auto cur = hpm.begin(); cur != 0; cur = cur->next) {
 			T *p = cur->hp;
@@ -554,7 +554,7 @@ public:
 	}
 
 	// try to delete unused pointers from free hprecords
-	void help_scan() noexcept {
+	void help_scan()  {
 		for (auto cur = hpm.begin(); cur != 0; cur = cur->next) {
 			if (!cur->try_acquire()) continue;
 			// steal pointers from other record to this record

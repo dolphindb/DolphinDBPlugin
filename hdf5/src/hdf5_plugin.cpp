@@ -362,6 +362,7 @@ std::string getLayoutColumnType(hdf5_type_layout &layout)
         return "INT";
     case IS_U_INT_INTEGER:
     case IS_S_LLONG_INTEGER:
+    case IS_U_LLONG_INTEGER:
         return "LONG";
     case IS_FLOAT_FLOAT:
         return "FLOAT";
@@ -369,7 +370,6 @@ std::string getLayoutColumnType(hdf5_type_layout &layout)
         return "DOUBLE";
     case IS_UNIX_TIME:
         return "TIMESTAMP";
-    case IS_U_LLONG_INTEGER:
     case IS_COMPOUND:
     case IS_ARRAY:
     default:
@@ -1484,7 +1484,7 @@ H5ColumnSP TypeColumn::createNewColumn(H5DataType &srcType)
         csp = new LLongColumn();
         break;
     case IS_U_LLONG_INTEGER:
-        csp = nullptr; //unsupported;
+        csp = new LLongColumn(); //unsupported;
         break;
     case IS_FLOAT_FLOAT:
         csp = new FloatColumn();
@@ -1557,7 +1557,7 @@ bool TypeColumn::convertHdf5SimpleType(H5DataType &srcType,
         cid = H5T_NATIVE_LLONG;
         break;
     case IS_U_LLONG_INTEGER:
-        cid = -1; //unsupported
+        cid = H5T_NATIVE_LLONG; //unsupported
         break;
     case IS_FLOAT_FLOAT:
         cid = H5T_NATIVE_FLOAT;
@@ -1730,7 +1730,7 @@ int TypeColumn::doAppend(void *data, int len, DATA_TYPE basicType)
         r = v->appendDouble((double *)data, len);
         break;
     case DT_STRING:
-        r = v->appendString((char **)data, len);
+        r = v->appendString((const char **)data, len);
         break;
     default:
         r = false;

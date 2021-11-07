@@ -250,6 +250,7 @@ ConstantSP odbcClose(Heap* heap, vector<ConstantSP>& args) {
   ConstantSP csp = odbcGetConnection(heap, args, "odbc::close");
   nanodbc::connection* cp = (nanodbc::connection*)(csp->getLong());
   cp->disconnect();
+  cp->deallocate();
   return Util::createConstant(DT_VOID);
 }
 
@@ -554,7 +555,7 @@ ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args) {
               for (int j = 0; j < curLine; ++j)
                 buf[j].pointer = colBuf[j].pointer;
             }
-            arrCol[col]->appendString((char**)buf, curLine);
+            arrCol[col]->appendString((const char**)buf, curLine);
             for (int j = 0; j < curLine; ++j) delete[] buf[j].pointer;
 #else
             if (sqltype == SQL_DECIMAL || sqltype == SQL_NUMERIC) {
@@ -571,7 +572,7 @@ ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args) {
                 }
               }
             }
-            arrCol[col]->appendString((char**)(&buffers[col][0]), curLine);
+            arrCol[col]->appendString((const char**)(&buffers[col][0]), curLine);
             for (int j = 0; j < curLine; ++j) delete[] buffers[col][j].pointer;
 #endif
             break;

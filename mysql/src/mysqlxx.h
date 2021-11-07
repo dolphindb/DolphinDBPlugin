@@ -317,6 +317,7 @@ class Row {
     /** Get the value by index. */
     Value at(size_t n) const { return operator[](n); }
 
+    enum_field_types getTypeAt(int n) const;
     /** Number of columns. */
     size_t size() const;
 

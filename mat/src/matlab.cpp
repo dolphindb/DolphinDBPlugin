@@ -54,8 +54,6 @@ bool convertToDTBool(mxArray *var, ConstantSP &sp)
     else
     {
         row = mxGetM(var);
-        if (row == 0)
-            row = 1;
     }
     sp = Util::createMatrix(DT_BOOL, col, row, row * col);
     if (col == 0)
@@ -365,8 +363,6 @@ bool convertToDTChar(mxArray *var, ConstantSP &sp)
     else
     {
         row = mxGetM(var);
-        if (row == 0)
-            row = 1;
     }
     sp = Util::createMatrix(DT_CHAR, col, row, row * col);
     if (col == 0)
@@ -635,8 +631,6 @@ bool convertToDTShort(mxArray *var, ConstantSP &sp)
     else
     {
         row = mxGetM(var);
-        if (row == 0)
-            row = 1;
     }
     sp = Util::createMatrix(DT_SHORT, col, row, row * col);
     if (col == 0)
@@ -905,8 +899,6 @@ bool convertToDTInt(mxArray *var, ConstantSP &sp)
     else
     {
         row = mxGetM(var);
-        if (row == 0)
-            row = 1;
     }
     sp = Util::createMatrix(DT_INT, col, row, row * col);
     if (col == 0)
@@ -1175,8 +1167,6 @@ bool convertToDTLong(mxArray *var, ConstantSP &sp)
     else
     {
         row = mxGetM(var);
-        if (row == 0)
-            row = 1;
     }
     sp = Util::createMatrix(DT_LONG, col, row, row * col);
     if (col == 0)
@@ -1468,8 +1458,6 @@ bool convertToDTFloat(mxArray *var, ConstantSP &sp)
     else
     {
         row = mxGetM(var);
-        if (row == 0)
-            row = 1;
     }
     sp = Util::createMatrix(DT_FLOAT, col, row, row * col);
     if (col == 0)
@@ -1764,8 +1752,6 @@ bool convertToDTDouble(mxArray *var, ConstantSP &sp)
     else
     {
         row = mxGetM(var);
-        if (row == 0)
-            row = 1;
     }
     sp = Util::createMatrix(DT_DOUBLE, col, row, row * col);
     if (col == 0)
@@ -2060,8 +2046,6 @@ bool convertToDTString(mxArray *var, ConstantSP &sp)
     else
     {
         row = mxGetM(var);
-        if (row == 0)
-            row = 1;
     }
     int index = 0, freq = row * col / mIndex;
     sp = Util::createVector(DT_STRING, 0, 0);
@@ -2425,4 +2409,169 @@ ConstantSP convertToDatetime(Heap *heap, vector<ConstantSP> &args)
         ((VectorSP)ret)->setLong(index, leacy, q);
         return ret;
     }
+}
+
+ConstantSP writeMat(Heap *heap, vector<ConstantSP> &args){
+    if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR)
+        throw IllegalArgumentException(__FUNCTION__, "File must be a string scalar");
+    if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR)
+        throw IllegalArgumentException(__FUNCTION__, "VarName must be a string scalar");
+    if(args[2]->getForm() != DF_MATRIX){
+        throw IllegalArgumentException(__FUNCTION__, "Data must be a matrix");
+    }
+    string file = args[0]->getString();
+    string varName = args[1]->getString();
+    VectorSP data = args[2];
+    MATFile *pMF = matOpen(file.c_str(), "w");
+    if (pMF == NULL)
+        throw RuntimeException("Can't write to " + file);
+    int columns = data->columns();
+    int rows = data->rows();
+    switch (data->getType()) {
+        case DT_FLOAT:{
+            mxArray * tmp = mxCreateNumericMatrix(rows, columns, mxSINGLE_CLASS, mxREAL);
+            if(tmp == nullptr){
+                matClose(pMF);
+                throw RuntimeException("Can't write to " + file + ", Because can't create data");
+            }
+            vector<float> dstBuffer(columns * rows);
+            dstBuffer.resize(columns * rows);
+            vector<float> buffer(rows);
+            for(int i = 0; i < columns; ++i){
+                const float *ptr = data->getFloatConst(i * rows, rows, buffer.data());
+                for(int j = 0; j < rows; ++j){
+                    dstBuffer[i * rows + j] = ptr[j];
+                }
+            }
+            memcpy((void *)(mxGetPr(tmp)), (void *)dstBuffer.data(),sizeof (float ) * columns * rows);
+            matPutVariable(pMF, varName.c_str(), tmp);
+            mxDestroyArray(tmp);
+            break;
+        }
+        case DT_DOUBLE:{
+            mxArray * tmp = mxCreateNumericMatrix(rows, columns, mxDOUBLE_CLASS, mxREAL);
+            if(tmp == nullptr){
+                matClose(pMF);
+                throw RuntimeException("Can't write to " + file + ", Because can't create data");
+            }
+            vector<double> dstBuffer(columns * rows);
+            dstBuffer.resize(columns * rows);
+            vector<double> buffer(rows);
+            for(int i = 0; i < columns; ++i){
+                const double *ptr = data->getDoubleConst(i * rows, rows, buffer.data());
+                for(int j = 0; j < rows; ++j){
+                    dstBuffer[i * rows + j] = ptr[j];
+                }
+            }
+            memcpy((void *)(mxGetPr(tmp)), (void *)dstBuffer.data(),sizeof (double) * columns * rows);
+            matPutVariable(pMF, varName.c_str(), tmp);
+            mxDestroyArray(tmp);
+            break;
+        }
+        case DT_BOOL:{
+            mxArray * tmp = mxCreateNumericMatrix(rows, columns, mxLOGICAL_CLASS, mxREAL);
+            if(tmp == nullptr){
+                matClose(pMF);
+                throw RuntimeException("Can't write to " + file + ", Because can't create data");
+            }
+            vector<char> dstBuffer(columns * rows);
+            dstBuffer.resize(columns * rows);
+            vector<char> buffer(rows);
+            for(int i = 0; i < columns; ++i){
+                const char *ptr = data->getBoolConst(i * rows, rows, buffer.data());
+                for(int j = 0; j < rows; ++j){
+                    dstBuffer[i * rows + j] = ptr[j];
+                }
+            }
+            memcpy((void *)(mxGetPr(tmp)), (void *)dstBuffer.data(),sizeof (char) * columns * rows);
+            matPutVariable(pMF, varName.c_str(), tmp);
+            mxDestroyArray(tmp);
+            break;
+        }
+        case DT_INT:{
+            mxArray * tmp = mxCreateNumericMatrix(rows, columns, mxINT32_CLASS, mxREAL);
+            if(tmp == nullptr){
+                matClose(pMF);
+                throw RuntimeException("Can't write to " + file + ", Because can't create data");
+            }
+            vector<int> dstBuffer(columns * rows);
+            dstBuffer.resize(columns * rows);
+            vector<int> buffer(rows);
+            for(int i = 0; i < columns; ++i){
+                const int *ptr = data->getIntConst(i * rows, rows, buffer.data());
+                for(int j = 0; j < rows; ++j){
+                    dstBuffer[i * rows + j] = ptr[j];
+                }
+            }
+            memcpy((void *)(mxGetPr(tmp)), (void *)dstBuffer.data(),sizeof (int) * columns * rows);
+            matPutVariable(pMF, varName.c_str(), tmp);
+            mxDestroyArray(tmp);
+            break;
+        }
+        case DT_LONG:{
+            mxArray * tmp = mxCreateNumericMatrix(rows, columns, mxINT64_CLASS, mxREAL);
+            if(tmp == nullptr){
+                matClose(pMF);
+                throw RuntimeException("Can't write to " + file + ", Because can't create data");
+            }
+            vector<long long> dstBuffer(columns * rows);
+            dstBuffer.resize(columns * rows);
+            vector<long long> buffer(rows);
+            for(int i = 0; i < columns; ++i){
+                const long long *ptr = data->getLongConst(i * rows, rows, buffer.data());
+                for(int j = 0; j < rows; ++j){
+                    dstBuffer[i * rows + j] = ptr[j];
+                }
+            }
+            memcpy((void *)(mxGetPr(tmp)), (void *)dstBuffer.data(),sizeof (long long) * columns * rows);
+            matPutVariable(pMF, varName.c_str(), tmp);
+            mxDestroyArray(tmp);
+            break;
+        }
+        case DT_CHAR:{
+            mxArray * tmp = mxCreateNumericMatrix(rows, columns, mxINT8_CLASS, mxREAL);
+            if(tmp == nullptr){
+                matClose(pMF);
+                throw RuntimeException("Can't write to " + file + ", Because can't create data");
+            }
+            vector<char> dstBuffer(columns * rows);
+            dstBuffer.resize(columns * rows);
+            vector<char> buffer(rows);
+            for(int i = 0; i < columns; ++i){
+                const char *ptr = data->getCharConst(i * rows, rows, buffer.data());
+                for(int j = 0; j < rows; ++j){
+                    dstBuffer[i * rows + j] = ptr[j];
+                }
+            }
+            memcpy((void *)(mxGetPr(tmp)), (void *)dstBuffer.data(),sizeof (char) * columns * rows);
+            matPutVariable(pMF, varName.c_str(), tmp);
+            mxDestroyArray(tmp);
+            break;
+        }
+        case DT_SHORT:{
+            mxArray * tmp = mxCreateNumericMatrix(rows, columns, mxINT16_CLASS, mxREAL);
+            if(tmp == nullptr){
+                matClose(pMF);
+                throw RuntimeException("Can't write to " + file + ", Because can't create data");
+            }
+            vector<short> dstBuffer(columns * rows);
+            dstBuffer.resize(columns * rows);
+            vector<short> buffer(rows);
+            for(int i = 0; i < columns; ++i){
+                const short *ptr = data->getShortConst(i * rows, rows, buffer.data());
+                for(int j = 0; j < rows; ++j){
+                    dstBuffer[i * rows + j] = ptr[j];
+                }
+            }
+            memcpy((void *)(mxGetPr(tmp)), (void *)dstBuffer.data(),sizeof (short ) * columns * rows);
+            matPutVariable(pMF, varName.c_str(), tmp);
+            mxDestroyArray(tmp);
+            break;
+        }
+        default:{
+            throw RuntimeException("The DolphinDB data type " + std::to_string(data->getType()) + " is not supported");
+        }
+    }
+    matClose(pMF);
+    return new Bool(true);
 }

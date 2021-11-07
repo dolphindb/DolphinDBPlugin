@@ -89,10 +89,13 @@ mongoConnection::mongoConnection(std::string hostname, int port, std::string use
         throw IllegalArgumentException(__FUNCTION__, "User id or password is incorrect for the given database");
     }
     if(user_==""&&password_==""){
-        mongoc_client_destroy(mclient);
-        mongoc_database_destroy(mdatabase);
         char **test=mongoc_client_get_database_names_with_opts(mclient,NULL,NULL);
-        if(!test)throw IllegalArgumentException(__FUNCTION__, "User id or password is incorrect for the given database");
+        if(!test){
+            mongoc_client_destroy(mclient);
+            mongoc_database_destroy(mdatabase);
+            throw IllegalArgumentException(__FUNCTION__, "User id or password is incorrect for the given database");
+        }
+        return;
     }
     bson_error_t  errors;
     bson_t *command=BCON_NEW ("ping", BCON_INT32 (1));
@@ -2298,7 +2301,7 @@ TableSP mongoConnection::extractLoad(std::string &collection,std::string &condit
     bson_t* bsonQuery=bson_new_from_json((const uint8_t*)str,-1,NULL);
     if(bsonQuery==NULL){
         mongoc_collection_destroy(mcollection);
-        string strTmp="This BSON structure doesn't fit:";
+        string strTmp="The BSON structure doesn't fit:";
         throw IllegalArgumentException(__FUNCTION__,strTmp +str);
     }
     str=option.c_str();
@@ -2306,7 +2309,7 @@ TableSP mongoConnection::extractLoad(std::string &collection,std::string &condit
     if(boption==NULL){
         mongoc_collection_destroy(mcollection);
         bson_destroy(bsonQuery);
-        string strTmp="This BSON structure doesn't fit:";
+        string strTmp="The BSON structure doesn't fit:";
         throw IllegalArgumentException(__FUNCTION__, strTmp+str);
     }
     mongoc_cursor_t* cursor=mongoc_collection_find_with_opts (mcollection,bsonQuery,boption,NULL);

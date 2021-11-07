@@ -8,6 +8,7 @@
 #include "Concurrent.h"
 #include "ScalarImp.h"
 #include "cppkafka/cppkafka.h"
+#include "Logger.h"
 
 #define ENDLOOP 1897
 

@@ -14,11 +14,43 @@ namespace py = pybind11;
 bool initFlag = false;
 static py::scoped_interpreter guard{};
 
+class PyFunction{
+public:
+    PyFunction(PyObject* module, const string& name, bool convert): funcName_(name), convert_(convert){
+        ProtectGil proGil;
+        PyObject *pyDict = PyModule_GetDict(module);
+        func_ = PyDict_GetItemString(pyDict, name.c_str());// Borrowed reference
+        if (func_ == NULL)
+            throw RuntimeException("getFunc: No such function in this object");
+    }
+    ~PyFunction(){}
+    PyObject * getFunc(){
+        return func_;
+    }
+    std::string getName(){
+        return funcName_;
+    }
+    bool concvert(){
+        return convert_;
+    }
+private:
+    std::string funcName_;
+    PyObject *func_;
+    bool convert_;
+};
+
 static void pyObjectOnClose(Heap *heap, vector<ConstantSP> &args) {
     ProtectGil proGil;
     PyObject *obj = reinterpret_cast<PyObject *>(args[0]->getLong());
     if (obj != nullptr) {
         Py_DecRef(obj);
+        args[0]->setLong(0);
+    }
+}
+static void pyFunctionOnClose(Heap *heap, vector<ConstantSP> &args) {
+    PyFunction *obj = reinterpret_cast<PyFunction *>(args[0]->getLong());
+    if (obj != nullptr) {
+        delete obj;
         args[0]->setLong(0);
     }
 }
@@ -29,7 +61,6 @@ static void doNothing(Heap *heap, vector<ConstantSP> &args) {
 static void init() {
     if (!initFlag) {
         if(!Py_IsInitialized()) {
-
             Py_Initialize();
         }
         PyEval_InitThreads();
@@ -80,6 +111,23 @@ ConstantSP importModule(Heap* heap, vector<ConstantSP>& arguments) {
         throw RuntimeException("importModule: No such module in your environment");
     //Pack the module and return
     std::unique_ptr<PyObject> pyobj = (std::unique_ptr<PyObject>)pModule;
+    FunctionDefSP onClose(Util::createSystemProcedure("importModule onclose()", pyObjectOnClose, 1, 1));
+    return Util::createResource((long long)pyobj.release(), "python module", onClose, heap->currentSession());
+}
+
+ConstantSP reloadModule(Heap* heap, vector<ConstantSP>& arguments){
+    if (arguments[0]->getType() != DT_RESOURCE
+    || (arguments[0]->getString() != "python module" && arguments[0]->getString() != "python object"))
+        throw IllegalArgumentException("getObject", "First argument should be a module or an object!");
+    if (!initFlag) {
+        init();
+    }
+    ProtectGil proGil;
+    PyObject *origin = reinterpret_cast<PyObject *>(arguments[0]->getLong());
+    PyObject *update = PyImport_ReloadModule(origin);
+    if(update == nullptr)
+        throw RuntimeException("reloadModule: fail to reload module!");
+    std::unique_ptr<PyObject> pyobj = (std::unique_ptr<PyObject>)update;
     FunctionDefSP onClose(Util::createSystemProcedure("importModule onclose()", pyObjectOnClose, 1, 1));
     return Util::createResource((long long)pyobj.release(), "python module", onClose, heap->currentSession());
 }
@@ -148,23 +196,27 @@ ConstantSP getObject(Heap* heap, vector<ConstantSP>& arguments) {
  * return <resource> ptr_to_function
  */
 ConstantSP getFunction(Heap* heap, vector<ConstantSP>& arguments) {
+    string funcName = "getFunc";
+    string syntax = "Usage: getFunc(module, funcName, [convert=true]). ";
     if (arguments[0]->getType() != DT_RESOURCE
         || (arguments[0]->getString() != "python module" && arguments[0]->getString() != "python object"))
-        throw IllegalArgumentException("getFunction", "First input should be a python module");
+        throw IllegalArgumentException(funcName, syntax + "module must be a python module.");
     if (arguments[1]->getType() != DT_STRING)
-        throw IllegalArgumentException("getFunction", "Second input should be a string");
+        throw IllegalArgumentException(funcName, syntax + "funcName be a string.");
+    bool convert = true;
+    if (arguments.size()>=3 && !arguments[2]->isNothing()) {
+        if(arguments[2]->getType() != DT_BOOL)
+            throw IllegalArgumentException(funcName, syntax + "convert must be a bool.");
+        convert = arguments[2]->getBool();
+    }
     if (!initFlag) {
         init();
     }
     ProtectGil proGil;
     PyObject *inPyObj = reinterpret_cast<PyObject *>(arguments[0]->getLong());
-    PyObject *pyDict = PyModule_GetDict(inPyObj);
-    PyObject *pyFunc = PyDict_GetItemString(pyDict, arguments[1]->getString().c_str());
-    if (pyFunc == nullptr)
-        throw RuntimeException("getFunc: No such function in this object");
-    std::unique_ptr<PyObject> pyobj = (std::unique_ptr<PyObject>)pyFunc;
-    FunctionDefSP onClose(Util::createSystemProcedure("getFunction onclose()", doNothing, 1, 1));
-    return Util::createResource((long long)pyobj.release(), "python function", onClose, heap->currentSession());
+    std::unique_ptr<PyFunction> pyfunc(new PyFunction(inPyObj, arguments[1]->getString(), convert));
+    FunctionDefSP onClose(Util::createSystemProcedure("getFunction onclose()", pyFunctionOnClose, 1, 1));
+    return Util::createResource((long long)pyfunc.release(), "python function", onClose, heap->currentSession());
 }
 
 /*
@@ -174,29 +226,27 @@ ConstantSP getFunction(Heap* heap, vector<ConstantSP>& arguments) {
  * arguments[1]: <null> or <string> name of attribute
  * if args.size = 1
  *     must be basic one, convert straightly
- * if args.size = 2:PluginDemo
- *     1st arg is high-level obj
- *     2nd arg is basic obj
- *     extract 2nd from 1st and convert
+ * if args.size = 2:
  */
 ConstantSP cvtPy2Dol(Heap* heap, vector<ConstantSP>& arguments) {
+    string funcName = "fromPy";
+    string syntax = "Usage: fromPy(obj, [addIndex=false]). ";
     if (arguments[0]->isNull() || arguments[0]->getType() != DT_RESOURCE
-        || (arguments[0]->getString() != "python object" && arguments[0]->getString() != "python module"))
-        throw IllegalArgumentException("cvtPyObject", "First input should be a python object");
+        || (arguments[0]->getString() != "python object" && arguments[0]->getString() != "python module" && arguments[0]->getString() != "python objectRet"))
+        throw IllegalArgumentException(funcName, syntax + "obj must be a python object");
+    bool addIndex = false;
+    if (arguments.size() >=2 && !arguments[1]->isNothing()){
+        if (arguments[1]->getType() != DT_BOOL)
+            throw IllegalArgumentException(funcName, syntax + "addIndex must be a bool indicating whether to add index when obj is a dataframe");
+        addIndex = arguments[1]->getBool();
+    }
     if (!initFlag) {
         init();
     }
     ProtectGil proGil;
     ConstantSP result;
     PyObject *pyObj = reinterpret_cast<PyObject *>(arguments[0]->getLong());
-    if (arguments.size() == 1)
-        result = py2dolphin(pyObj);
-    else {
-        if (arguments[1]->getType() != DT_STRING)
-            throw IllegalArgumentException("cvtPyObject", "Second input should be a string");
-        PyObject *obj = PyObject_GetAttrString(pyObj, arguments[1]->getString().c_str());
-        result = py2dolphin(obj);
-    }
+    result = py2dolphin(pyObj, true, addIndex);
     if (result.get() == nullptr)
         throw IllegalArgumentException("cvtPyObject", "The object type is not supported");
     return result;
@@ -230,7 +280,7 @@ ConstantSP cvtDol2Py(Heap* heap, vector<ConstantSP>& arguments) {
  * return: <python object> ptr to output python object
  */
 ConstantSP callFunction(Heap* heap, vector<ConstantSP>& arguments) {
-    if (arguments[0]->getString() != "python function")
+    if (arguments[0]->getType()!=DT_RESOURCE && arguments[0]->getString() != "python function")
         throw IllegalArgumentException("callFunction", "The first arg should be a python function.");
     if (!initFlag) {
         init();
@@ -254,13 +304,23 @@ ConstantSP callFunction(Heap* heap, vector<ConstantSP>& arguments) {
             throw RuntimeException("callFunction: Error when creating input args.");
         }
     }
-    PyObject *pFunc = reinterpret_cast<PyObject *>(arguments[0]->getLong());
-    PyObject *res = PyObject_CallObject(pFunc, pArgs);
+
+    PyFunction *pFunc = reinterpret_cast<PyFunction *>(arguments[0]->getLong());
+    PyObject *func = pFunc->getFunc();
+    PyObject *res = PyObject_CallObject(func, pArgs);
     Py_DECREF(pArgs);
-    if (res == nullptr)
-        throw IllegalArgumentException("callFunction", "Error when calling python function.");
-    FunctionDefSP onClose(Util::createSystemProcedure("callFunction onclose()", doNothing, 1, 1));
-    return pyObjectRet(res, heap->currentSession(), onClose);
+    if (res == nullptr){
+        PyObject *exc, *val, *tb;
+        PyErr_Fetch(&exc, &val, &tb);
+        if(exc){
+            py::str errMsg = py::handle(val).cast<py::str>();
+            string msg = py::handle(errMsg).cast<std::string>();
+            throw RuntimeException("Error when call function "+ pFunc->getName()+": "+ msg);
+        }
+        throw RuntimeException("Error when call function "+ pFunc->getName());
+    }
+    FunctionDefSP onClose(Util::createSystemProcedure("callFunction onclose()", pyObjectOnClose, 1, 1));
+    return pyObjectRet(res, heap->currentSession(), onClose, pFunc->concvert());
 }
 
 /*
@@ -314,14 +374,14 @@ ConstantSP createObject(Heap* heap, vector<ConstantSP>& arguments) {
             if (arguments[i]->getString() != "python object"){
                 arg = dolphin2py(arguments[i]);
                 if (arg == nullptr){
-                    throw IllegalArgumentException("getInstanceByName", "Invalid argument.");
+                    throw IllegalArgumentException("createObject", "Invalid argument.");
                 }
             } else {
                 arg = reinterpret_cast<PyObject *>(arguments[i]->getLong());
                 Py_INCREF(arg);
             }
             if (PyTuple_SetItem(pArgs, i-argi, arg) == -1){
-                throw RuntimeException("getInstanceByName: Error when creating input args.");
+                throw RuntimeException("createObject: Error when creating input args.");
             }
         }
         PyObject *pyClass = reinterpret_cast<PyObject *>(arguments[0]->getLong());
@@ -334,7 +394,7 @@ ConstantSP createObject(Heap* heap, vector<ConstantSP>& arguments) {
     }
     std::unique_ptr<PyObject> pyobj = (std::unique_ptr<PyObject>)pInstance;
     FunctionDefSP onClose(Util::createSystemProcedure("createObject onclose()", doNothing, 1, 1));
-    Constant* pyRes = new PyResource((long long)pyobj.release(), "python resource instance", onClose, heap->currentSession(), isNew);
+    ConstantSP pyRes = new PyResource((long long)pyobj.release(), "python resource instance", onClose, heap->currentSession(), isNew);
     pyRes->setOOInstance(true);
     return pyRes;
 }
@@ -466,7 +526,7 @@ ConstantSP getInstanceByName(Heap* heap, vector<ConstantSP>& arguments) {
     }
     std::unique_ptr<PyObject> pyobj = (std::unique_ptr<PyObject>)pInstance;
     FunctionDefSP onClose(Util::createSystemProcedure("getInstanceByName onclose()", doNothing, 1, 1));
-    Constant* pyRes = new PyResource((long long)pyobj.release(), "python resource instance", onClose, heap->currentSession(), true);
+    ConstantSP pyRes = new PyResource((long long)pyobj.release(), "python resource instance", onClose, heap->currentSession(), true);
     pyRes->setOOInstance(true);
     return pyRes;
 }

@@ -4,6 +4,18 @@
 
 #include "PyResource.h"
 #include "Protect.h"
+#include <pybind11/embed.h>
+
+namespace py = pybind11;
+
+static void pyObjectOnClose(Heap *heap, vector<ConstantSP> &args) {
+    ProtectGil proGil;
+    PyObject *obj = reinterpret_cast<PyObject *>(args[0]->getLong());
+    if (obj != nullptr) {
+        Py_DecRef(obj);
+        args[0]->setLong(0);
+    }
+}
 
 PyResource::~PyResource() noexcept {
     if (!this->isNew)
@@ -16,10 +28,6 @@ PyResource::~PyResource() noexcept {
     }
 }
 
-ConstantSP PyResource::createResource(PyObject *obj) const{
-    return pyObjectRet(obj, this->session, this->onClose);
-}
-
 ConstantSP PyResource::getMember(const ConstantSP& key) const {
     ProtectGil proGil;
     PyObject *pyObj, *pyValue;
@@ -28,13 +36,13 @@ ConstantSP PyResource::getMember(const ConstantSP& key) const {
     pyValue = PyObject_GetAttrString(pyObj, name.c_str());
     if (pyValue == nullptr)
         throw IllegalArgumentException("PyResource::getMember", "No such attribute in the instance.");
-    return this->createResource(pyValue);
+    FunctionDefSP onClose(Util::createSystemProcedure("getInstanceByName onclose()", pyObjectOnClose, 1, 1));
+    return pyObjectRet(pyValue, this->session, onClose);
 }
 
 ConstantSP PyResource::callMethod(const string &name, Heap* heap, vector<ConstantSP> &arguments) const{
     ProtectGil proGil;
     PyObject *pyClsInst = reinterpret_cast<PyObject*>(this->getLong());
-    string methodName = name;
     int argc = arguments.size();
     PyObject *pArgs = PyTuple_New(argc);
     for (int i = 0; i < argc; ++i){
@@ -52,13 +60,22 @@ ConstantSP PyResource::callMethod(const string &name, Heap* heap, vector<Constan
             throw IllegalArgumentException("PyResource::callMethod", "Error when creating input args.");
         }
     }
-    PyObject *pyFunc = PyObject_GetAttrString(pyClsInst, methodName.c_str());
+    PyObject *pyFunc = PyObject_GetAttrString(pyClsInst, name.c_str());
     if (pyFunc == nullptr)
-        throw IllegalArgumentException("PyResource::callMethod",  "The class instance has no method '"+methodName+"'");
-    PyObject *res = PyObject_CallObject(pyFunc, pArgs);
-    //PyObject *res = PyObject_CallFunctionObjArgs(pyFunc, pArgs);
+        throw IllegalArgumentException("PyResource::callMethod",  "The class instance has no method '"+ name +"'");
+    PyObject *res;
+    res = PyObject_CallObject(pyFunc, pArgs);
     Py_DECREF(pArgs);
-    if (res == nullptr)
-        throw IllegalArgumentException("PyResource::callMethod", "Error when calling method.");
-    return this->createResource(res);
+    if (res == nullptr){
+        PyObject *exc, *val, *tb;
+        PyErr_Fetch(&exc, &val, &tb);
+        if(exc){
+            py::str errMsg = py::handle(val).cast<py::str>();
+            string msg = py::handle(errMsg).cast<std::string>();
+            throw RuntimeException("Error when call function "+ name +": "+ msg);
+        }
+        throw RuntimeException("Error when call function "+ name);
+    }
+    FunctionDefSP onClose(Util::createSystemProcedure("pyObject onclose()", pyObjectOnClose, 1, 1));
+    return pyObjectRet(res, this->session, onClose);
 }

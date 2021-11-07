@@ -17,7 +17,7 @@ endif ()
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -fPIC -std=c++11 -Wall -rdynamic ")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -DDEBUG -fPIC -std=c++11 -Wall -rdynamic ")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -fPIC -std=c++11 -Wall -rdynamic ")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -std=c++11 -Wall -rdynamic ")
 
 
@@ -25,10 +25,10 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
 link_directories(${CMAKE_BINARY_DIR})
 
 aux_source_directory("./src" plugin_kafka_src)
-aux_source_directory("./cppkafka/src" cppkafka)
+aux_source_directory("cppkafka/src" cppkafka)
 
 add_subdirectory(cppkafka)
 
-add_library(PluginKafka SHARED ${plugin_kafka_src} client.h client.cpp)
-#target_link_libraries(PluginKafka librdkafka.a librdkafka++.a libcppkafka.a libz.a DolphinDB)
-target_link_libraries(PluginKafka rdkafka++ cppkafka DolphinDB)
+add_library(PluginKafka SHARED ${plugin_kafka_src})
+target_link_libraries(PluginKafka librdkafka.a librdkafka++.a libcppkafka.a libz.a DolphinDB)
+#target_link_libraries(PluginKafka rdkafka++ cppkafka DolphinDB)
