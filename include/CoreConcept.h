@@ -958,6 +958,32 @@ public:
 	virtual bool getStringSafe(INDEX offset, INDEX* indices, int len, char** buf) const {return false;}
 	virtual bool getBinarySafe(INDEX offset, INDEX* indices, int len, int unitLength, unsigned char* buf) const {return false;}
 
+	/**
+	 * An array vector must implement following methods.
+	 */
+	virtual ConstantSP flatten(INDEX rowStart, INDEX count) const {throw RuntimeException("flatten method not supported");}
+	virtual ConstantSP rowSum(INDEX rowStart, INDEX count) const {throw RuntimeException("rowSum method not supported");}
+	virtual ConstantSP rowSum2(INDEX rowStart, INDEX count) const {throw RuntimeException("rowSum2 method not supported");}
+	virtual ConstantSP rowCount(INDEX rowStart, INDEX count) const {throw RuntimeException("rowCount method not supported");}
+	virtual ConstantSP rowSize(INDEX rowStart, INDEX count) const {throw RuntimeException("rowSize method not supported");}
+	virtual ConstantSP rowAvg(INDEX rowStart, INDEX count) const {throw RuntimeException("rowAvg method not supported");}
+	virtual ConstantSP rowStd(INDEX rowStart, INDEX count) const {throw RuntimeException("rowStd method not supported");}
+	virtual ConstantSP rowStdp(INDEX rowStart, INDEX count) const {throw RuntimeException("rowStdp method not supported");}
+	virtual ConstantSP rowVar(INDEX rowStart, INDEX count) const {throw RuntimeException("rowVar method not supported");}
+	virtual ConstantSP rowVarp(INDEX rowStart, INDEX count) const {throw RuntimeException("rowVarp method not supported");}
+	virtual ConstantSP rowMin(INDEX rowStart, INDEX count) const {throw RuntimeException("rowMin method not supported");}
+	virtual ConstantSP rowMax(INDEX rowStart, INDEX count) const {throw RuntimeException("rowMax method not supported");}
+	virtual ConstantSP rowProd(INDEX rowStart, INDEX count) const {throw RuntimeException("rowProd method not supported");}
+	virtual ConstantSP rowAnd(INDEX rowStart, INDEX count) const {throw RuntimeException("rowAnd method not supported");}
+	virtual ConstantSP rowOr(INDEX rowStart, INDEX count) const {throw RuntimeException("rowOr method not supported");}
+	virtual ConstantSP rowXor(INDEX rowStart, INDEX count) const {throw RuntimeException("rowXor method not supported");}
+	virtual ConstantSP rowMed(INDEX rowStart, INDEX count) const {throw RuntimeException("rowMed method not supported");}
+	virtual ConstantSP rowKurtosis(INDEX rowStart, INDEX count, bool biased) const {throw RuntimeException("rowKurtosis method not supported");}
+	virtual ConstantSP rowSkew(INDEX rowStart, INDEX count, bool biased) const {throw RuntimeException("rowSkew method not supported");}
+	virtual ConstantSP rowPercentile(INDEX rowStart, INDEX count, double percentile) const {throw RuntimeException("rowPercentile method not supported");}
+	virtual ConstantSP rowRank(INDEX rowStart, INDEX count, bool ascending, int groupNum, bool ignoreNA, int tiesMethod, bool percent) const {throw RuntimeException("rowRank method not supported");}
+	virtual ConstantSP rowDenseRank(INDEX rowStart, INDEX count, bool ascending, bool ignoreNA, bool percent) const {throw RuntimeException("rowDenseRank method not supported");}
+
 private:
 	string name_;
 };
@@ -1248,8 +1274,7 @@ private:
 
 class Param{
 public:
-	Param(const string& name, bool readOnly, const ConstantSP& defaultValue = nullptr):
-		name_(name),readOnly_(readOnly),meta_(-1), defaultValue_(defaultValue){}
+	Param(const string& name, bool readOnly, const ConstantSP& defaultValue = nullptr);
 	Param(Session* session, const DataInputStreamSP& in);
 	const string& getName() const {return name_;}
 	bool isReadOnly() const{return readOnly_;}
@@ -1305,7 +1330,7 @@ public:
 	inline int getMaxParamCount() const { return maxParamNum_;}
 	inline int getMinParamCount() const {	return minParamNum_;}
 	inline bool acceptParamCount(int count) const { return minParamNum_ <= count && maxParamNum_ >= count;}
-	inline int getParamCount() const {return minParamNum_;}
+	inline int getParamCount() const {return maxParamNum_;}
 	const ParamSP& getParam(int index) const;
 	inline bool isUserDefined() const {return defType_ == USERDEFFUNC;}
 	inline bool isSystemFunction() const {return defType_ == SYSFUNC;}
@@ -1357,7 +1382,6 @@ protected:
 	unsigned short extraFlag_;
 	int returnMeta_;
 };
-
 
 class SQLTransaction {
 public:
@@ -1729,10 +1753,10 @@ private:
 
 class Domain{
 public:
-	Domain(const string& owner, PARTITION_TYPE partitionType, bool isLocalDomain, DBENGINE_TYPE engineType = DBENGINE_TYPE::OLAP) : partitionType_(partitionType), isLocalDomain_(isLocalDomain), isExpired_(false),
-			retentionPeriod_(-1), retentionDimension_(-1), tzOffset_(INT_MIN), key_(false), owner_(owner), engineType_(engineType){}
-	Domain(const string& owner, PARTITION_TYPE partitionType, bool isLocalDomain, const Guid& key, DBENGINE_TYPE engineType = DBENGINE_TYPE::OLAP) : partitionType_(partitionType), isLocalDomain_(isLocalDomain),
-			isExpired_(false), retentionPeriod_(-1), retentionDimension_(-1), tzOffset_(INT_MIN), key_(key), owner_(owner), engineType_(engineType){}
+	Domain(const string& owner, PARTITION_TYPE partitionType, bool isLocalDomain, DBENGINE_TYPE engineType = DBENGINE_TYPE::OLAP, ATOMIC atomic = ATOMIC::TRANS) : partitionType_(partitionType), isLocalDomain_(isLocalDomain), isExpired_(false),
+			tableIndependentChunk_(false), retentionPeriod_(-1), retentionDimension_(-1), tzOffset_(INT_MIN), key_(false), owner_(owner), engineType_(engineType), atomic_(atomic){}
+	Domain(const string& owner, PARTITION_TYPE partitionType, bool isLocalDomain, const Guid& key, DBENGINE_TYPE engineType = DBENGINE_TYPE::OLAP, ATOMIC atomic = ATOMIC::TRANS) : partitionType_(partitionType), isLocalDomain_(isLocalDomain),
+			isExpired_(false), tableIndependentChunk_(false), retentionPeriod_(-1), retentionDimension_(-1), tzOffset_(INT_MIN), key_(key), owner_(owner), engineType_(engineType), atomic_(atomic){}
 	virtual ~Domain(){}
 	int getPartitionCount() const { return partitions_.size();}
 	DomainPartitionSP getPartition(int index) const { return partitions_[index];}
@@ -1779,6 +1803,10 @@ public:
 	bool isOwner(const string& owner) const { return owner == owner_;}
 	void setEngineType(DBENGINE_TYPE type) { engineType_ = type;}
 	DBENGINE_TYPE getEngineType() const { return engineType_;}
+	void setAtomicLevel(ATOMIC atomicLevel) { atomic_ = atomicLevel;}
+	ATOMIC getAtomicLevel() const { return atomic_;}
+	void setTableIndependentChunk(bool option) { tableIndependentChunk_ = option;}
+	bool isTableIndependentChunk() const { return tableIndependentChunk_;}
 
 	/*
 	 * The input arguments set1 and set2 must be sorted by the key value of domain partitions. The ranking of key values must be the same as
@@ -1815,6 +1843,7 @@ protected:
 	PARTITION_TYPE partitionType_;
 	bool isLocalDomain_;
 	bool isExpired_;
+	bool tableIndependentChunk_;
 	int retentionPeriod_; // in hours
 	int retentionDimension_;
 	int tzOffset_;
@@ -1823,6 +1852,7 @@ protected:
 	string dir_;
 	string owner_;
 	DBENGINE_TYPE engineType_;
+	ATOMIC atomic_;
 	SymbolBaseManagerSP symbaseManager_;
 	unordered_map<string, TableHeader> tables_;
 	mutable Mutex mutex_;

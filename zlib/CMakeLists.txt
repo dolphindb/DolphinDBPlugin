@@ -4,7 +4,6 @@ project(PluginZlib)
 set(CMAKE_CXX_STANDARD 11)
 
 set(DOLPHIN_INCLUDE_DIR "../include" CACHE STRING "")
-set(DOLPHIN_LIBRARY_DIR "/usr/local/lib" CACHE STRING "")
 set(ZLIB_INCLUDE_DIR "/usr/local/include" CACHE STRING "")
 set(ZLIB_LIBRARY_DIR "/usr/local/lib" CACHE STRING "")
 
@@ -33,9 +32,9 @@ endif()
 add_library(
 	${PROJECT_NAME} SHARED
         ${PLUGINZLIB_SRC})
-
+link_directories("${CMAKE_BINARY_DIR}")
 target_link_libraries(
 	${PROJECT_NAME}
-        ${DOLPHIN_LIBRARY_DIR}/libDolphinDB.so
+        libDolphinDB.so
         ${ZLIB_LIBRARY_DIR}/libz.so)
 

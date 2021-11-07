@@ -21,7 +21,7 @@ void AppendTable::run() {
             try {
                 auto parser_result = parser_->call(session_->getHeap().get(), parser_string);
                 if(!parser_result->isTable()) {
-                    cerr << "The parser should return a table." << endl;
+                    LOG_ERR("The parser should return a table.");
                     return;
                 }
 
@@ -30,13 +30,11 @@ void AppendTable::run() {
                     TableSP result = handle_;
                     int length = result->columns();
                     if (table_insert->columns() < length) {
-                        cerr << "The columns of the table returned is smaller than the handler table." << endl;
+                        LOG_ERR("The columns of the table returned is smaller than the handler table.");
                         return;
                     }
                     if (table_insert->columns() > length)
-                        cerr
-                                << "The columns of the table returned is larger than the handler table, and the information may be ignored."
-                                << endl;
+                        LOG_ERR("The columns of the table returned is larger than the handler table, and the information may be ignored.");
 
                     if (result->isSegmentedTable()) {
                         vector<ConstantSP> args = {result, table_insert};
@@ -47,7 +45,7 @@ void AppendTable::run() {
                         vector<ConstantSP> args = {table_insert};
                         bool add = result->append(args, insertedRows, errMsg);
                         if (!add) {
-                            cerr << errMsg << endl;
+                            LOG_ERR(errMsg);
                         }
                     }
                 }
@@ -57,11 +55,11 @@ void AppendTable::run() {
                 }
             }
             catch (TraceableException &exception) {
-                cerr << exception.what() << endl;
+                LOG_ERR(exception.what());
                 continue;
             }
             catch(Exception &exception){
-                cerr << exception.what() << endl;
+                LOG_ERR(exception.what());
                 continue;
             }
         }
@@ -76,7 +74,7 @@ SubConnection::~SubConnection() {
     if (connected_) {
         connected_ = false;
     }
-    std::cout<<"client: " << description_ << " is freed"<<std::endl;
+    LOG_INFO("client: " + description_ + " is freed");
 }
 
 

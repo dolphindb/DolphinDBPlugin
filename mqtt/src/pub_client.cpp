@@ -161,7 +161,7 @@ ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
         topicStr = args[1]->getString();
     }
     if (args[2]->isTable()) {
-        if (conn->getFormatter() == nullptr) {
+        if (conn->getFormatter().isNull()== true) {
             throw IllegalArgumentException(__FUNCTION__,
                                            "Please reconnect,the formatter must be provided while publishing table.");
         }

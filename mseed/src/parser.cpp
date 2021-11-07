@@ -2,6 +2,7 @@
 #include "ScalarImp.h"
 #include "Util.h"
 #include "libmseed.h"
+#include "Logger.h"
 
 using namespace std;
 Mutex mutexLock;
@@ -30,9 +31,9 @@ FILE *SCFmemopen(void *buf, size_t size, const char *mode)
 
 extern void print_stderr(const char *message);
 
-extern bool processFirstBlock(MS3Record *msr, char &typeStr, VectorSP &col);
+extern bool processFirstBlock(MS3Record *msr, char &typeStr, VectorSP &col, long long size);
 
-extern int processOneBlock(MS3Record *msr, VectorSP &value, vector<string> &sBuffer, char type);
+extern int processOneBlock(MS3Record *msr, VectorSP &value, vector<string> &sBuffer, char type, int len);
 
 ConstantSP mseedParse(Heap *heap, vector<ConstantSP> &args) {
     if (!(
@@ -40,113 +41,86 @@ ConstantSP mseedParse(Heap *heap, vector<ConstantSP> &args) {
             (args[0]->getType() == DT_CHAR && args[0]->getForm() == DF_VECTOR)))
         throw IllegalArgumentException(__FUNCTION__, "Data must be a string scalar or a character vector");
     FILE *fp = NULL;
-    std::shared_ptr<char> ptr;
-    char *buffer = NULL;
+    std::string data;
+    long long size = 0;/*Stack array size. The stack array is used when the data size is less than MAX_STACK_BUFFER_SIZE. */
+    if (args[0]->getType() == DT_STRING) {
+        size = 0;
+    }else{
+        size = args[0]->size();
+        if(size == 0){
+            throw IllegalArgumentException(__FUNCTION__, "Vector size can't be zero");
+        }else if(size > MAX_STACK_BUFFER_SIZE){
+            size = 0;
+        }
+    }
+    char bufferTemp[size];
+    vector<char> bufferVector;
+    char* buffer;
 #ifdef LINUX
     if (args[0]->getType() == DT_STRING) {
-        std::string data = args[0]->getString();
-        int size = data.size();
-        try {
-            buffer = (char *) malloc(size * sizeof(char));
+        data = args[0]->getString();
+        fp = fmemopen((void *)(data.c_str()), data.size(), "rw");
+        if (fp == NULL)
+        {
+            throw RuntimeException("Fmemopen fail. Because " + string(strerror(errno)));
         }
-        catch (std::bad_alloc) {
-            throw RuntimeException(
-                    "The given miniSEED byte stream data cannot be parsed because there is not enough memory");
-        }
-        if (buffer == NULL) {
-            throw RuntimeException(
-                    "The given miniSEED byte stream data cannot be parsed because there is not enough memory");
-        }
-        std::shared_ptr<char> sptr(buffer);
-        ptr = sptr;
-        const char *cdata = data.c_str();
-        for (int i = 0; i < size; ++i) {
-            buffer[i] = cdata[i];
-        }
-        fp = fmemopen((void *) buffer, size, "rw");
+        size = data.size();
     } else {
-        int size = args[0]->size();
-        try {
-            buffer = (char *) malloc(size * sizeof(char));
+        if(size > 0){
+            buffer = bufferTemp;
+        }else{
+            size = args[0]->size();
+            bufferVector.resize(size);
+            buffer = bufferVector.data();
         }
-        catch (std::bad_alloc) {
-            throw RuntimeException(
-                    "The given miniSEED byte stream data cannot be parsed because there is not enough memory");
-        }
-        if (buffer == NULL) {
-            throw RuntimeException(
-                    "The given miniSEED byte stream data cannot be parsed because there is not enough memory");
-        }
-        std::shared_ptr<char> sptr(buffer);
-        ptr = sptr;
         ((VectorSP) args[0])->getChar(0, size, (char *) buffer);
-        fp = fmemopen((void *) buffer, size, "rw");
+        fp = fmemopen((void *) buffer, size, "rw"); 
+        if (fp == NULL)
+        {
+            throw RuntimeException("Fmemopen fail. Because " + string(strerror(errno)));
+        }
     }
 #else
     if (args[0]->getType() == DT_STRING)
     {
-        std::string data = args[0]->getString();
-        int size = data.size();
-        try{
-            buffer = (char *)malloc(size * sizeof(char));
-        }
-        catch(std::bad_alloc){
-            throw RuntimeException("The given miniSEED byte stream data cannot be parsed because there is not enough memory");
-        }
-        if (buffer == NULL)
-        {
-            throw RuntimeException("The given miniSEED byte stream data cannot be parsed because there is not enough memory");
-        }
-        std::shared_ptr<char> sptr(buffer);
-        ptr = sptr;
-        const char *cdata = data.c_str();
-        for (int i = 0; i < size; ++i)
-        {
-            buffer[i] = cdata[i];
-        }
+        data = args[0]->getString();
         mutexLock.lock();
-        fp = SCFmemopen((void *)buffer, size, "rb");
+        fp = SCFmemopen(data.c_str(), data.size(), "rb");
         if (fp == NULL)
         {
             mutexLock.unlock();
-            throw RuntimeException("Out the memory");
+            throw RuntimeException("SCFmemopen fail");
         }
+        size = data.size();
     }
     else
     {
-        int size = args[0]->size();
-        try{
-        buffer = (char *)malloc(size * sizeof(char));
+        if(size > 0){
+            buffer = bufferTemp;
+        }else{
+            size = args[0]->size();
+            bufferVector.resize(size);
+            buffer = bufferVector.data();
         }
-        catch(std::bad_alloc){
-            throw RuntimeException("The given miniSEED byte stream data cannot be parsed because there is not enough memory");
-        }
-        if (buffer == NULL)
-        {
-            throw RuntimeException("The given miniSEED byte stream data cannot be parsed because there is not enough memory");
-        }
-        std::shared_ptr<char> sptr(buffer);
-        ptr = sptr;
         ((VectorSP)args[0])->getChar(0, size, (char *)buffer);
         mutexLock.lock();
         fp = SCFmemopen((void *)buffer, size, "rb");
         if (fp == NULL)
         {
             mutexLock.unlock();
-            throw RuntimeException("The given miniSEED byte stream data cannot be parsed because there is not enough memory");
+            throw RuntimeException("SCFmemopen fail");
         }
     }
 #endif
     MS3Record *msr = nullptr;
     int retcode;
     static uint32_t flags = MSF_VALIDATECRC | MSF_PNAMERANGE | MSF_UNPACKDATA;
-    int mIndex = 1024;
 
     bool first = true;
-    vector<string> sBuffer(mIndex);
+    vector<string> sBuffer(0);
     vector<ConstantSP> cols;
     VectorSP col;
-    char type;
+    char type = 'z';
     long long num = 0;
     vector<int> blockNum;
     vector<string> vecId;
@@ -158,13 +132,12 @@ ConstantSP mseedParse(Heap *heap, vector<ConstantSP> &args) {
     try {
         while ((retcode = ms3_readmsr(&msr, "the byte stream", NULL, NULL, flags, 0, fp, &dmsfp)) == MS_NOERROR) {
             if (first) {
-                processFirstBlock(msr, type, col);
+                processFirstBlock(msr, type, col, size);
                 first = false;
             }
 
-            processOneBlock(msr, col, sBuffer, type);
-
-            int len = msr->samplecnt;
+            int len = msr->numsamples;
+            processOneBlock(msr, col, sBuffer, type, len);
             num += len;
 
             blockNum.push_back(len);
@@ -190,31 +163,25 @@ ConstantSP mseedParse(Heap *heap, vector<ConstantSP> &args) {
     int index = 0;
     for (size_t i = 0; i < blockNum.size(); ++i) {
         int curNum = blockNum[i];
-        string curId = vecId[i];
-        id->fill(index, curNum, new String(curId));
+        id->fill(index, curNum, new String(vecId[i]));
 
         long long curStart = vecTime[i];
         long long step = 1000 / samprate[i];
         long long buffer[Util::BUF_SIZE];
-        int lines = curNum / Util::BUF_SIZE;
-        int line = curNum % Util::BUF_SIZE;
-        for (int x = 0; x < lines; ++x) {
-            long long *p = VecTime->getLongBuffer(index + x * Util::BUF_SIZE, Util::BUF_SIZE, buffer);
-            for (int y = 0; y < Util::BUF_SIZE; ++y) {
+
+        int offect = 0;
+        while(offect < curNum){
+            int size = curNum - offect >= Util::BUF_SIZE ? Util::BUF_SIZE : curNum - offect;
+            long long *p = VecTime->getLongBuffer(index + offect, size, buffer);
+            for (int y = 0; y < size; ++y) {
                 p[y] = curStart;
                 curStart += step;
             }
-            VecTime->setLong(index, Util::BUF_SIZE, p);
+            VecTime->setLong(index + offect, size, p);
+            offect += size;
         }
-        long long *p = VecTime->getLongBuffer(index + lines * Util::BUF_SIZE, line, buffer);
-        for (int y = 0; y < line; ++y) {
-            p[y] = curStart;
-            curStart += step;
-        }
-        VecTime->setLong(index, line, p);
-        index += line;
+        index += curNum;
     }
-
     if (col.isNull())
         throw RuntimeException("The given miniSEED byte stream data cannot be parsed");
 
@@ -226,103 +193,11 @@ ConstantSP mseedParse(Heap *heap, vector<ConstantSP> &args) {
     return ret;
 }
 
-void processOneBlockStream(MS3Record *msr, VectorSP &value, vector<string> &sBuffer, char type) {
-    int len = min(msr->numsamples, msr->samplecnt);
-    char *ptr = (char *) (msr->datasamples);
-    switch (type) {
-        case 'a': {
-            if (msr->sampletype != 'a')
-                throw RuntimeException("Can not convert from asill type in  miniSEED into INT type in DolphinDB.");
-            sBuffer.push_back((char *) ptr);
-        }
-        case 'i': {
-            int buffer[len];
-            switch (msr->sampletype) {
-                case 'a':
-                    throw RuntimeException("Can not convert from asill type in miniSEED into INT type in DolphinDB.");
-                    break;
-                case 'f': {
-                    for (int i = 0; i < len; ++i) {
-                        buffer[i] = ((float *) ptr)[i];
-                    }
-                    value->appendInt(buffer, len);
-                    break;
-                }
-                case 'd': {
-                    for (int i = 0; i < len; ++i) {
-                        buffer[i] = ((double *) ptr)[i];
-                    }
-                    value->appendInt(buffer, len);
-                    break;
-                }
-                case 'i':
-                    value->appendInt((int *) ptr, len);
-                    break;
-                default:
-                    break;
-            }
-            break;
-        }
-        case 'f': {
-            float buffer[len];
-            switch (msr->sampletype) {
-                case 'a':
-                    throw RuntimeException("Can not convert from asill type in miniSEED into FLOAT type in DolphinDB.");
-                    break;
-                case 'i': {
-                    for (int i = 0; i < len; ++i) {
-                        buffer[i] = ((int *) ptr)[i];
-                    }
-                    value->appendFloat(buffer, len);
-                    break;
-                }
-                case 'd': {
-                    for (int i = 0; i < len; ++i) {
-                        buffer[i] = ((double *) ptr)[i];
-                    }
-                    value->appendFloat(buffer, len);
-                    break;
-                }
-                case 'f':
-                    value->appendFloat((float *) ptr, len);
-                    break;
-                default:
-                    break;
-            }
-            break;
-        }
-        case 'd': {
-            double buffer[len];
-            switch (msr->sampletype) {
-                case 'a':
-                    throw RuntimeException(
-                            "Can not convert from asill type in miniSEED into DOUBLE type in DolphinDB.");
-                    break;
-                case 'i': {
-                    for (int i = 0; i < len; ++i) {
-                        buffer[i] = ((int *) ptr)[i];
-                    }
-                    value->appendDouble(buffer, len);
-                    break;
-                }
-                case 'f': {
-                    for (int i = 0; i < len; ++i) {
-                        buffer[i] = ((float *) ptr)[i];
-                    }
-                    value->appendDouble(buffer, len);
-                    break;
-                }
-                case 'd':
-                    value->appendDouble((double *) ptr, len);
-                    break;
-                default:
-                    break;
-            }
-            break;
-        }
-        default:
-            break;
-    }
+bool isAvailableType(char type){
+    if(type == 'i' || type == 'd' || type == 'f' || type == 'a')
+        return true;
+    LOG_WARN(string("MseedPlugin : The mseed data type ") + type + " is not supported. ");
+    return false;
 }
 
 ConstantSP mseedParseStream(Heap *heap, vector<ConstantSP> &args) {
@@ -331,114 +206,86 @@ ConstantSP mseedParseStream(Heap *heap, vector<ConstantSP> &args) {
             (args[0]->getType() == DT_CHAR && args[0]->getForm() == DF_VECTOR)))
         throw IllegalArgumentException(__FUNCTION__, "Data must be a string scalar or a character vector");
     FILE *fp = NULL;
-    int size = 0;
-    std::shared_ptr<char> ptr;
-    char *buffer = NULL;
+    vector<char> bufferVector;
+    std::string data;
+    long long size = 0;
+    if (args[0]->getType() == DT_STRING) {
+        size = 1;
+    }else{
+        size = args[0]->size();
+        if(size == 0){
+            throw IllegalArgumentException(__FUNCTION__, "Vector size can't be zero");
+        }else if(size > MAX_STACK_BUFFER_SIZE){
+            size = 0;
+        }
+    }
+    char bufferTemp[size];
+    char* buffer;
 #ifdef LINUX
     if (args[0]->getType() == DT_STRING) {
-        std::string data = args[0]->getString();
+        data = args[0]->getString();
+        fp = fmemopen((void *)(data.c_str()), data.size(), "rw");
+        if (fp == NULL)
+        {
+            throw RuntimeException("Fmemopen fail. Because " + string(strerror(errno)));
+        }
         size = data.size();
-        try {
-            buffer = (char *) malloc(size * sizeof(char));
-        }
-        catch (std::bad_alloc) {
-            throw RuntimeException(
-                    "The given miniSEED byte stream data cannot be parsed because there is not enough memory");
-        }
-        if (buffer == NULL) {
-            throw RuntimeException(
-                    "The given miniSEED byte stream data cannot be parsed because there is not enough memory");
-        }
-        std::shared_ptr<char> sptr(buffer);
-        ptr = sptr;
-        const char *cdata = data.c_str();
-        for (int i = 0; i < size; ++i) {
-            buffer[i] = cdata[i];
-        }
-        fp = fmemopen((void *) buffer, size, "rw");
     } else {
-        size = args[0]->size();
-        try {
-            buffer = (char *) malloc(size * sizeof(char));
+        if(size > 0){
+            buffer = bufferTemp;
+        }else{
+            size = args[0]->size();
+            bufferVector.resize(size);
+            buffer = bufferVector.data();
         }
-        catch (std::bad_alloc) {
-            throw RuntimeException(
-                    "The given miniSEED byte stream data cannot be parsed because there is not enough memory");
-        }
-        if (buffer == NULL) {
-            throw RuntimeException(
-                    "The given miniSEED byte stream data cannot be parsed because there is not enough memory");
-        }
-        std::shared_ptr<char> sptr(buffer);
-        ptr = sptr;
         ((VectorSP) args[0])->getChar(0, size, (char *) buffer);
-        fp = fmemopen((void *) buffer, size, "rw");
+        fp = fmemopen((void *) buffer, size, "rw"); 
+        if (fp == NULL)
+        {
+            throw RuntimeException("Fmemopen fail. Because " + string(strerror(errno)));
+        }
     }
 #else
     if (args[0]->getType() == DT_STRING)
     {
-        std::string data = args[0]->getString();
-        size = data.size();
-        try{
-            buffer = (char *)malloc(size * sizeof(char));
-        }
-        catch(std::bad_alloc){
-            throw RuntimeException("The given miniSEED byte stream data cannot be parsed because there is not enough memory");
-        }
-        if (buffer == NULL)
-        {
-            throw RuntimeException("The given miniSEED byte stream data cannot be parsed because there is not enough memory");
-        }
-        std::shared_ptr<char> sptr(buffer);
-        ptr = sptr;
-        const char *cdata = data.c_str();
-        for (int i = 0; i < size; ++i)
-        {
-            buffer[i] = cdata[i];
-        }
+        data = args[0]->getString();
         mutexLock.lock();
-        fp = SCFmemopen((void *)buffer, size, "rb");
+        fp = SCFmemopen(data.c_str(), data.size(), "rb");
         if (fp == NULL)
         {
             mutexLock.unlock();
-            throw RuntimeException("Out the memory");
+            throw RuntimeException("SCFmemopen fail");
         }
+        size = data.size();
     }
     else
     {
-        size = args[0]->size();
-        try{
-        buffer = (char *)malloc(size * sizeof(char));
+        if(size > 0){
+            buffer = bufferTemp;
+        }else{
+            size = args[0]->size();
+            bufferVector.resize(size);
+            buffer = bufferVector.data();
         }
-        catch(std::bad_alloc){
-            throw RuntimeException("The given miniSEED byte stream data cannot be parsed because there is not enough memory");
-        }
-        if (buffer == NULL)
-        {
-            throw RuntimeException("The given miniSEED byte stream data cannot be parsed because there is not enough memory");
-        }
-        std::shared_ptr<char> sptr(buffer);
-        ptr = sptr;
         ((VectorSP)args[0])->getChar(0, size, (char *)buffer);
         mutexLock.lock();
         fp = SCFmemopen((void *)buffer, size, "rb");
         if (fp == NULL)
         {
             mutexLock.unlock();
-            throw RuntimeException("The given miniSEED byte stream data cannot be parsed because there is not enough memory");
+            throw RuntimeException("SCFmemopen fail");
         }
     }
 #endif
     MS3Record *msr = nullptr;
     int retcode;
     static uint32_t flags = MSF_VALIDATECRC | MSF_PNAMERANGE | MSF_UNPACKDATA;
-    int mIndex = 1024;
 
     bool first = true;
-    vector<string> sBuffer(mIndex);
+    vector<string> sBuffer(0);
     vector<ConstantSP> cols;
     VectorSP col;
-    char type;
+    char type = 'z';
     long long num = 0;
     vector<int> blockNum;
     vector<int> expectedCount;
@@ -449,15 +296,17 @@ ConstantSP mseedParseStream(Heap *heap, vector<ConstantSP> &args) {
     MS3FileParam dmsfp = {"", 0, 0, 0, 0, NULL, 0, 0, 0, {LMIO::LMIO_NULL, NULL, NULL, 0}};
     ms3_readmsr(&msr, NULL, NULL, NULL, flags, 0, NULL, &dmsfp);
     try {
-        while ((retcode = ms3_readmsr(&msr, "the byte stream", NULL, NULL, flags, 0, fp, &dmsfp)) == MS_NOERROR) {
+        while ((retcode = ms3_readmsr(&msr, "the byte stream", NULL, NULL, flags, 0, fp, &dmsfp)) == MS_NOERROR) { 
+            if(!isAvailableType(msr->sampletype))
+                break;
             if (first) {
-                processFirstBlock(msr, type, col);
+                processFirstBlock(msr, type, col, size);
                 first = false;
             }
 
-            processOneBlockStream(msr, col, sBuffer, type);
+            int len = msr->numsamples;
+            processOneBlock(msr, col, sBuffer, type, len);
 
-            int len = min(msr->numsamples, msr->samplecnt);
             num += len;
             reclenIndex += msr->reclen;
             msr->reclen=-1;
@@ -475,8 +324,6 @@ ConstantSP mseedParseStream(Heap *heap, vector<ConstantSP> &args) {
 #endif
         throw e;
     }
-    if(msr!= nullptr && msr->reclen > 0 && reclenIndex == 0 && msr->reclen <= size)
-        reclenIndex = msr->reclen;
     ms3_readmsr(&msr, NULL, NULL, NULL, flags, 0, NULL, &dmsfp);
     msr3_free(&msr);
 #ifndef LINUX
@@ -491,37 +338,33 @@ ConstantSP mseedParseStream(Heap *heap, vector<ConstantSP> &args) {
 
     for (size_t i = 0; i < blockNum.size(); ++i) {
         int curNum = blockNum[i];
-        string curId = vecId[i];
-        id->fill(index, curNum, new String(curId));
+        id->fill(index, curNum, new String(vecId[i]));
 
         long long curStart = vecTime[i];
         long long step = 1000 / samprate[i];
         long long buffer[Util::BUF_SIZE];
-        int lines = curNum / Util::BUF_SIZE;
-        int line = curNum % Util::BUF_SIZE;
-        for (int x = 0; x < lines; ++x) {
-            long long *p = VecTime->getLongBuffer(index + x * Util::BUF_SIZE, Util::BUF_SIZE, buffer);
-            for (int y = 0; y < Util::BUF_SIZE; ++y) {
+
+        int offect = 0;
+        while(offect < curNum){
+            int size = curNum - offect >= Util::BUF_SIZE ? Util::BUF_SIZE : curNum - offect;
+            long long *p = VecTime->getLongBuffer(index + offect, size, buffer);
+            for (int y = 0; y < size; ++y) {
                 p[y] = curStart;
                 curStart += step;
             }
-            VecTime->setLong(index, Util::BUF_SIZE, p);
+            VecTime->setLong(index + offect, size, p);
+            offect += size;
         }
-        long long *p = VecTime->getLongBuffer(index + lines * Util::BUF_SIZE, line, buffer);
-        for (int y = 0; y < line; ++y) {
-            p[y] = curStart;
-            curStart += step;
-        }
-        VecTime->setLong(index, line, p);
-        index += line;
+        index += curNum;
     }
 
     DictionarySP ret = Util::createDictionary(DT_STRING, NULL, DT_ANY, NULL);
     ret->set(new String("size"), new Long(reclenIndex));
     ret->set(new String("parseChunkProcessedCount"), new Long(blockNum.size()));
 
-    if (col.isNull())
+    if (col.isNull()) {
         return ret;
+    }
 
     cols.push_back(id);
     cols.push_back(VecTime);
@@ -541,7 +384,7 @@ ConstantSP mseedParseStream(Heap *heap, vector<ConstantSP> &args) {
     }
     metaStartTime->appendLong(vecSingleTime.data(), numOfBlock);
 
-    VectorSP metaReceived = Util::createVector(DT_TIMESTAMP, numOfBlock, numOfBlock);
+    VectorSP metaReceived = Util::createVector(DT_TIMESTAMP, numOfBlock, numOfBlock); 
     ConstantSP curentTime = new Long(Util::getEpochTime());
     metaReceived->fill(0, numOfBlock, curentTime);
 
@@ -555,7 +398,7 @@ ConstantSP mseedParseStream(Heap *heap, vector<ConstantSP> &args) {
     vecSampleRate->appendDouble(samprate.data(), numOfBlock);
 
     colName = {"id", "startTime", "receivedTime", "actualCount", "expectedCount", "sampleRate"};
-    cols.clear();
+    cols.clear(); 
     cols.push_back(metaSid);
     cols.push_back(metaStartTime);
     cols.push_back(metaReceived);
@@ -565,5 +408,79 @@ ConstantSP mseedParseStream(Heap *heap, vector<ConstantSP> &args) {
     tmpTable = Util::createTable(colName, cols);
     ret->set(new String("metaData"), tmpTable);
 
+    return ret;
+}
+
+ConstantSP mseedParseStreamInfo(Heap *heap, vector<ConstantSP> &args){
+    if (!(
+            (args[0]->getType() == DT_STRING && args[0]->getForm() == DF_SCALAR) ||
+            (args[0]->getType() == DT_CHAR && args[0]->getForm() == DF_VECTOR)))
+        throw IllegalArgumentException(__FUNCTION__, "Data must be a string scalar or a character vector");
+    vector<char> bufferVector;
+    long long size = 1;
+    if (args[0]->getType() == DT_STRING) {
+        size = 1;
+    }else{
+        size = args[0]->size();
+        if(size == 0){
+            throw IllegalArgumentException(__FUNCTION__, "Vector size can't be zero");
+        }else if(size > MAX_STACK_BUFFER_SIZE){
+            size = 0;
+        }
+    }
+    char bufferTemp[size];
+    char* buffer;
+    std::string data;
+    if (args[0]->getType() == DT_STRING) {
+        data = args[0]->getString();
+        size = data.size();
+        buffer = (char*)data.c_str();
+    } else {
+        if(size > 0){
+            buffer = bufferTemp;
+        }else{
+            size = args[0]->size();
+            bufferVector.resize(size);
+            buffer = bufferVector.data();
+        }
+        ((VectorSP) args[0])->getChar(0, size, (char *) buffer);
+    }
+    vector<string> sidVec;
+    vector<int> blockVec;
+    int index = 0;
+    uint8_t formatversion;
+    int complete = 0;
+    int len = -1;
+    while(index < size){
+        len = ms3_detect(buffer + index, size - index, &formatversion);
+        if(len <= 0){
+            break;
+        }
+        char sid[50];
+        char * flag = ms2_recordsid(buffer + index, sid, 50);
+        if(flag == nullptr)
+            break;
+        blockVec.push_back(len);
+        sidVec.push_back(sid);
+        ++complete;
+        index += len;
+    }
+    if(index > size) {
+        index -= len;
+        blockVec.pop_back();
+        sidVec.pop_back();
+        complete--;
+    }
+    DictionarySP ret = Util::createDictionary(DT_STRING, NULL, DT_ANY, NULL);
+    ret->set(new String("size"), new Int(index));
+    int dataSize = complete;
+    VectorSP sidVector = Util::createVector(DT_STRING, dataSize, dataSize);
+    VectorSP blockVector = Util::createVector(DT_INT, dataSize, dataSize);
+    sidVector->setString(0, dataSize, sidVec.data());
+    blockVector->setInt(0, dataSize, blockVec.data());
+    vector<ConstantSP> cols = {sidVector, blockVector};
+    vector<string> colNames = {"sid", "blockLen"};
+    TableSP t = Util::createTable(colNames, cols);
+    ret->set(new String("data"), t);
     return ret;
 }

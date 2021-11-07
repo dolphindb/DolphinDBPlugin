@@ -134,15 +134,16 @@ py::toPy(obj)
 
 #### 语法
 
-py::fromPy(obj)
+py::fromPy(obj, [addIndex=false])
 
 #### 参数
 
 - obj: 需要转换的python对象。
+- addIndex: 当obj为pandas.DataFrame才需设置，若为true表示将pandas.DataFrame的index作为转换后的table的第一列；若为false表示舍弃pandas.DataFrame的index列，默认为false。
 
 #### 详情
 
-将python对象转换为dolphindb数据类型，目前支持的数据类型见[5.2小节](#52-python对象转成dolphindb对象)。
+将python对象转换为dolphindb数据类型，目前支持的数据类型见[5.2小节](#52-python对象转成dolphindb对象)。pandas.DataFrame转换成table保留index的例子见[4.7小节](#47-dataframe转换成table保留index)。
 
 #### 例子
 
@@ -230,16 +231,17 @@ linear_model = py::getObj(sklearn, "linear_model"); //获取sklearn子模块line
 
 #### 语法
 
-py::getFunc(module, funcName)
+py::getFunc(module, funcName, [convert=true])
 
 #### 参数
 
 - module: 预先导入的模块，如py::importModule和py::getObj的返回值。
 - funcName: 需要获取的函数名称，类型为字符串标量。
+- convert: 表示在调用该函数后结果是否需要自动转换成dolphindb对应的数据类型，默认为true。
 
 #### 详情
 
-获取python模块内的**静态**方法。返回的函数对象能直接调用，函数参数可直接接受dolphindb数据类型，不需要预先转换。目前函数参数不支持key参数的形式，会直接返回dolphindb数据类型（在能够转换的情况）或 python对象（若不能转换）。
+获取python模块内的**静态**方法。返回的函数对象能直接调用，函数参数可直接接受dolphindb数据类型，不需要预先转换。目前函数参数不支持key参数的形式，若设置convert=true，则调用结果会直接返回dolphindb数据类型（在能够转换的情况），若设置convert=true，则调用结果不进行转换为python对象。
 
 #### 例子
 
@@ -263,7 +265,7 @@ py::getInstanceFromObj(obj, [args])
 - obj: 预先获得的python类对象，如py::getObj的返回值。
 - args: 要传给实例对象的参数，若没有则不填。
 
-#### 详情
+#### 详情见
 
 通过预先获得的python类对象获取python类实例对象。返回的对象支持以"``` . ```"方式访问类属性与类方法。会直接返回dolphindb数据类型（在能够转换的情况）或 python对象（不能转换）。
 
@@ -300,6 +302,26 @@ linearInst = py::getInstance(linear_model,"LinearRegression")
 ```
 
 **注意**：py::getFunc获取的是模块中的静态方法。如果要调用实例方法，需要用py::getInstanceFromObj或py::getInstance获取类实例对象，然后用"``` . ```"方式访问类方法。
+
+### 3.9 py::reloadModule
+
+py::reloadModule(module)
+
+#### 参数
+
+- module: 预先导入的模块，如py::importModule的返回值。
+
+#### 详情
+
+如果修改了之前导入的模块，重新执行importModule并不能导入修改后的模块，需要调用reloadModule重新导入该模块才能获取到修改后的模块。
+
+#### 例子
+
+```
+model = py::importModule("fibo"); //fibo为4.6小节自己实现的模块
+
+model = py::reloadModule(model);  //如果修改了fibo.py需要调用reloadModule重新导入该模块才能获取到修改后的模块
+```
 
 ## 4. 实例
 
@@ -339,7 +361,7 @@ linearInst = py::getInstance(linear_model,"LinearRegression")
    re;
    
    random = py::getObj(np, "random"); //获取numpy子模块random
-   randint = py::getFunc(random, "randint"); //获取random中的randint函数
+   randint = py::getFunc(random, "randint"); //获取random中的randint函数见
    re = randint(0,1000,[2,3]); //执行randint函数
    re;
    ```
@@ -412,6 +434,30 @@ re = fib2(10);  //调用fib2函数
 re;   //output: 0 1 1 2 3 5 8
 ```
 
+### 4.7 DataFrame转换成table保留index
+
+在调用某些python函数时如果返回DataFrame，若要保留index作为转换后table的第一列，需要在调用getFunc时指定convert=false，然后手动调用fromPy函数将结果转换成table，需要设置addIndex=true。首先实现一个函数返回一个pandas.DataFrame，将其保存成demo.py，并将其拷贝到dolphindb所在的目录下（或者拷贝到sys.path打印的lib路径下）：
+
+```python
+import pandas as pd
+import numpy as np
+def createDF():
+    index=pd.Index(['a','b','c'])
+    df=pd.DataFrame(np.random.randint(1,10,(3,3)),index=index)
+    return df
+```
+
+之后加载插件，导入模块加载函数并调用，这样返回的结果中第一列便为dataframe的index：
+
+```
+loadPlugin("/path/to/plugin/PluginPy.txt"); //加载插件
+
+model = py::importModule("demo");
+func1 = py::getFunc(model, "createDF", false)
+tem = func1()
+re =  py::fromPy(tem, true)
+```
+
 ## 5. 支持的数据类型
 
 ### 5.1 DolphinDB数据类型转成Python对象
@@ -435,6 +481,7 @@ re;   //output: 0 1 1 2 3 5 8
 | TIMESTAMP         | datetime64[ms]   |
 | NANOTIME          | datetime64[ns]   |
 | NANOTIMESTAMP     | datetime64[ns]   |
+| DATEHOUR          | datetime64[s]    |
 | vector            | NumPy.array      |
 | matrix            | NumPy.array      |
 | set               | Set              |
@@ -462,6 +509,7 @@ re;   //output: 0 1 1 2 3 5 8
 | datetime64[D] | DATE |
 | datetime64[m] | MINUTE |
 | datetime64[s] | DATETIME |
+| datetime64[h] | DATEHOUR |
 | datetime64[ms] | TIMESTAMP |
 | datetime64[us] | NANOTIMESTAMP |
 | datetime64[ns] | NANOTIMESTAMP |
@@ -473,4 +521,12 @@ re;   //output: 0 1 1 2 3 5 8
 | pandas.DataFrame | table |
 
 - numpy.array会根据维度转换成vector（1维）或者matrix（2维）。
+
 - pandas.DataFrame中的时间数据类型都是datetime64[ns]，所以在转换成table时，时间类型都会转换成NANOTIMESTAMP类型。
+
+- 从pandas.DataFrame转换成table时，如果列名不符合dolphindb支持的列名，则会根据以下规则自动调整列名：
+
+  - 若数据中列名存在中文或英文字母、数字或下划线之外的字符，将其转换为下划线。
+  - 若数据中列名第一个字符不是中文或英文字母，添加”c”作为该列名首字符。
+
+  

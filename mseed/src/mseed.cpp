@@ -21,8 +21,8 @@ public:
 
 oneLogInit obj;
 
-void processFirstBlock(MS3Record *msr, char &typeStr, VectorSP &col) {
-    int mIndex = 1024;
+void processFirstBlock(MS3Record *msr, char &typeStr, VectorSP &col, long long size) {
+    int mIndex = size / 256 * 100 + 1;
     if (msr->sampletype == 'i') {
         typeStr = 'i';
         col = Util::createVector(DT_INT, 0, mIndex);
@@ -32,28 +32,26 @@ void processFirstBlock(MS3Record *msr, char &typeStr, VectorSP &col) {
     } else if (msr->sampletype == 'd') {
         typeStr = 'd';
         col = Util::createVector(DT_DOUBLE, 0, mIndex);
-    } else if (msr->sampletype == 'a') {
-        typeStr = 'a';
-        col = Util::createVector(DT_SYMBOL, 0, mIndex);
+    }
+    else{
+        throw RuntimeException(string("The MSEED data type") + msr->sampletype + "is not supported");
     }
 }
 
-void processOneBlock(MS3Record *msr, VectorSP &value, vector<string> &sBuffer, char type) {
-    int len = msr->samplecnt;
+void processOneBlock(MS3Record *msr, VectorSP &value, vector<string> &sBuffer, char type, int len) {
     char *ptr = (char *) (msr->datasamples);
     switch (type) {
-        case 'a': {
-            if (msr->sampletype != 'a')
-                throw RuntimeException("Can not convert from asill type in  miniSEED into INT type in DolphinDB.");
-            sBuffer.push_back((char *) ptr);
-        }
         case 'i': {
             int buffer[len];
             switch (msr->sampletype) {
+                case 'i':
+                    assert(msr->datasize >= len * sizeof(int));
+                    value->appendInt((int *) ptr, len);
+                    break;
                 case 'a':
                     throw RuntimeException("Can not convert from asill type in miniSEED into INT type in DolphinDB.");
-                    break;
                 case 'f': {
+                    assert(msr->datasize >= len * sizeof(float));
                     for (int i = 0; i < len; ++i) {
                         buffer[i] = ((float *) ptr)[i];
                     }
@@ -61,17 +59,15 @@ void processOneBlock(MS3Record *msr, VectorSP &value, vector<string> &sBuffer, c
                     break;
                 }
                 case 'd': {
+                    assert(msr->datasize >= len * sizeof(double));
                     for (int i = 0; i < len; ++i) {
                         buffer[i] = ((double *) ptr)[i];
                     }
                     value->appendInt(buffer, len);
                     break;
                 }
-                case 'i':
-                    value->appendInt((int *) ptr, len);
-                    break;
                 default:
-                    break;
+                    throw RuntimeException(string("Can not convert from ") + msr->sampletype + " type in miniSEED into INT type in DolphinDB.");
             }
             break;
         }
@@ -80,8 +76,8 @@ void processOneBlock(MS3Record *msr, VectorSP &value, vector<string> &sBuffer, c
             switch (msr->sampletype) {
                 case 'a':
                     throw RuntimeException("Can not convert from asill type in miniSEED into FLOAT type in DolphinDB.");
-                    break;
                 case 'i': {
+                    assert(msr->datasize >= len * sizeof(int));
                     for (int i = 0; i < len; ++i) {
                         buffer[i] = ((int *) ptr)[i];
                     }
@@ -89,6 +85,7 @@ void processOneBlock(MS3Record *msr, VectorSP &value, vector<string> &sBuffer, c
                     break;
                 }
                 case 'd': {
+                    assert(msr->datasize >= len * sizeof(double));
                     for (int i = 0; i < len; ++i) {
                         buffer[i] = ((double *) ptr)[i];
                     }
@@ -96,10 +93,11 @@ void processOneBlock(MS3Record *msr, VectorSP &value, vector<string> &sBuffer, c
                     break;
                 }
                 case 'f':
+                    assert(msr->datasize >= len * sizeof(float));
                     value->appendFloat((float *) ptr, len);
                     break;
                 default:
-                    break;
+                    throw RuntimeException(string("Can not convert from ") + msr->sampletype + " type in miniSEED into INT type in DolphinDB.");
             }
             break;
         }
@@ -109,8 +107,8 @@ void processOneBlock(MS3Record *msr, VectorSP &value, vector<string> &sBuffer, c
                 case 'a':
                     throw RuntimeException(
                             "Can not convert from asill type in miniSEED into DOUBLE type in DolphinDB.");
-                    break;
                 case 'i': {
+                    assert(msr->datasize >= len * sizeof(int));
                     for (int i = 0; i < len; ++i) {
                         buffer[i] = ((int *) ptr)[i];
                     }
@@ -118,6 +116,7 @@ void processOneBlock(MS3Record *msr, VectorSP &value, vector<string> &sBuffer, c
                     break;
                 }
                 case 'f': {
+                    assert(msr->datasize >= len * sizeof(float));
                     for (int i = 0; i < len; ++i) {
                         buffer[i] = ((float *) ptr)[i];
                     }
@@ -125,15 +124,16 @@ void processOneBlock(MS3Record *msr, VectorSP &value, vector<string> &sBuffer, c
                     break;
                 }
                 case 'd':
+                    assert(msr->datasize >= len * sizeof(double));
                     value->appendDouble((double *) ptr, len);
                     break;
                 default:
-                    break;
+                    throw RuntimeException(string("Can not convert from ") + msr->sampletype + " type in miniSEED into INT type in DolphinDB.");
             }
             break;
         }
         default:
-            break;
+            throw RuntimeException(string("The MSEED data type") + type + "is not supported");
     }
 }
 
@@ -145,13 +145,12 @@ ConstantSP mseedRead(Heap *heap, vector<ConstantSP> &args) {
     MS3Record *msr = nullptr;
     int retcode;
     static uint32_t flags = MSF_VALIDATECRC | MSF_PNAMERANGE | MSF_UNPACKDATA;
-    int mIndex = 1024;
 
     bool first = true;
-    vector<string> sBuffer(mIndex);
+    vector<string> sBuffer(0);
     vector<ConstantSP> cols;
     VectorSP col;
-    char type;
+    char type = 'z';
     long long num = 0;
     vector<int> blockNum;
     vector<string> vecId;
@@ -162,13 +161,13 @@ ConstantSP mseedRead(Heap *heap, vector<ConstantSP> &args) {
     try {
         while ((retcode = ms3_readmsr(&msr, file.c_str(), NULL, NULL, flags, 0, NULL, &dmsfp)) == MS_NOERROR) {
             if (first) {
-                processFirstBlock(msr, type, col);
+                processFirstBlock(msr, type, col, file.size());
                 first = false;
             }
 
-            processOneBlock(msr, col, sBuffer, type);
+            int len = msr->numsamples;
+            processOneBlock(msr, col, sBuffer, type, len);
 
-            int len = msr->samplecnt;
             num += len;
 
             blockNum.push_back(len);
@@ -190,28 +189,23 @@ ConstantSP mseedRead(Heap *heap, vector<ConstantSP> &args) {
     int index = 0;
     for (size_t i = 0; i < blockNum.size(); ++i) {
         int curNum = blockNum[i];
-        string curId = vecId[i];
-        id->fill(index, curNum, new String(curId));
+        id->fill(index, curNum, new String(vecId[i]));
 
         long long curStart = vecTime[i];
         long long step = 1000 / samprate[i];
         long long buffer[Util::BUF_SIZE];
-        int lines = curNum / Util::BUF_SIZE;
-        int line = curNum % Util::BUF_SIZE;
-        for (int x = 0; x < lines; ++x) {
-            long long *p = VecTime->getLongBuffer(index + x * Util::BUF_SIZE, Util::BUF_SIZE, buffer);
-            for (int y = 0; y < Util::BUF_SIZE; ++y) {
+
+        int offect = 0;
+        while(offect < curNum){
+            int size = curNum - offect >= Util::BUF_SIZE ? Util::BUF_SIZE : curNum - offect;
+            long long *p = VecTime->getLongBuffer(index + offect, size, buffer);
+            for (int y = 0; y < size; ++y) {
                 p[y] = curStart;
                 curStart += step;
             }
-            VecTime->setLong(index, Util::BUF_SIZE, p);
+            VecTime->setLong(index + offect, size, p);
+            offect += size;
         }
-        long long *p = VecTime->getLongBuffer(index + lines * Util::BUF_SIZE, line, buffer);
-        for (int y = 0; y < line; ++y) {
-            p[y] = curStart;
-            curStart += step;
-        }
-        VecTime->setLong(index, line, p);
         index += curNum;
     }
     cols.push_back(id);

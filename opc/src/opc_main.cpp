@@ -1,10 +1,9 @@
 #include "opc_main.h"
+#include "ScalarImp.h"
 #include <Windows.h>
 #include <random>
 #include <utility>
-#include "ScalarImp.h"
 #include "opcimp.h"
-
 DictionarySP dict = Util::createDictionary(DT_STRING, 0, DT_LONG, 0);
 
 class DummyOutput: public Output{

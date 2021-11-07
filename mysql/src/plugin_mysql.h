@@ -24,6 +24,7 @@ extern "C" ConstantSP mysqlTables(const ConstantSP &connection);
 extern "C" ConstantSP mysqlLoadEx(Heap *heap, vector<ConstantSP> &args);
 
 namespace dolphindb {
+bool littleEndian = false;
 const char *getDolphinDBTypeStr(DATA_TYPE mysql_type);
 ConstantSP messageSP(const std::string &s);
 vector<ConstantSP> getArgs(vector<ConstantSP> &args, size_t nMaxArgs);
@@ -37,6 +38,7 @@ bool parseTime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nul
 bool parseMinute(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
 bool parseSecond(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
 bool parseDatetime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
+bool parseBit(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len, size_t maxStrLen);
 
 const set<DATA_TYPE> time_type{DT_TIMESTAMP, DT_NANOTIME, DT_NANOTIMESTAMP, DT_DATE, DT_MONTH, DT_TIME, DT_MINUTE, DT_SECOND, DT_DATETIME};
 bool compatible(DATA_TYPE dst, DATA_TYPE src);

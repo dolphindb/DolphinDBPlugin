@@ -195,7 +195,41 @@ stringBuf=concat(buf);
 ret=mseed::parseStream(stringBuf);
 ```
 
-### 2.5 mseed::streamize
+### 2.5 mseed::parseStreamInfo
+
+#### 语法
+
+mseed::parseStreamInfo(data)
+
+#### 详情
+
+解析miniseed格式的字节流的块信息，返回一个字典，包含一个内存表和成功解析的字节流长度。
+
+#### 参数
+
+* data: miniseed格式的字节流。为string类型或char类型的vector。
+
+#### 返回值
+
+返回一个dolphindb字典，包含如下键值:
+* ret[`data]:
+  一个dolphindb内存表，包含如下字段：
+  * sid：读取到的mseed块的分量名称。字符串类型。
+  * blockLen：读取到的mseed块的长度。类型为int。
+* ret[`size]:
+  成功解析的字节流的长度。类型为int的常量。
+
+#### 例子
+```
+fin=file("/media/zmx/aaa");
+buf=fin.readBytes(512);
+ret=mseed::parseStreamInfo(buf);
+
+stringBuf=concat(buf);
+ret=mseed::parseStreamInfo(stringBuf);
+```
+
+### 2.6 mseed::streamize
 
 #### 语法
 

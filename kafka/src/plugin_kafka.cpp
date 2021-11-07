@@ -104,7 +104,7 @@ static ConstantSP extractMessage(Message &msg) {
 
 ConstantSP kafkaConsumerPoll(Heap *heap, vector<ConstantSP> &args) {
     const auto usage = string(
-            "Usage: consumerPoll(consumer[,timeout:int]).\n"
+            "Usage: consumerPoll(consumer, [timeout]).\n"
             "return: [err, msg]\n"
             "err: empty if no error else error info string.\n"
             "msg: [topic, partition, key, value, timestamp].\n"
@@ -130,7 +130,7 @@ ConstantSP kafkaConsumerPoll(Heap *heap, vector<ConstantSP> &args) {
 
 ConstantSP kafkaPollByteStream(Heap *heap, vector<ConstantSP> &args){
     const auto usage = string(
-            "Usage: pollByteStream(consumer[,timeout:int]).\n"
+            "Usage: pollByteStream(consumer, [timeout]).\n"
             "return: [err/byte_stream]\n"
     );
 
@@ -167,7 +167,7 @@ ConstantSP kafkaPollByteStream(Heap *heap, vector<ConstantSP> &args){
 
 ConstantSP kafkaConsumerPollBatch(Heap *heap, vector<ConstantSP> &args) {
     const auto usage = string(
-            "Usage: consumerPollBatch(consumer, batch_size[,timeout:int]).\n"
+            "Usage: consumerPollBatch(consumer, batch_size, [timeout]).\n"
             "err: empty if no error else some other error string.\n"
             "msgs: vector [topic partition key value timestamp].\n"
     );
@@ -211,7 +211,7 @@ ConstantSP kafkaConsumerPollBatch(Heap *heap, vector<ConstantSP> &args) {
 
 ConstantSP kafkaCreateSubJob(Heap *heap, vector<ConstantSP> args){
     const auto usage = string(
-            "Usage: createSubJob(consumer,table,parser,description[,timeout:int]).\n"
+            "Usage: createSubJob(consumer, table, parser, description, [timeout]).\n"
     );
 
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != consumer_desc)
@@ -334,7 +334,7 @@ ConstantSP kafkaCancelSubJob(Heap *heap, vector<ConstantSP> args){
 
 ConstantSP kafkaPollDict(Heap *heap, vector<ConstantSP> &args){
     const auto usage = string(
-            "Usage: pollDict(consumer, batch_size[,timeout:int]).\n"
+            "Usage: pollDict(consumer, batch_size, [timeout]).\n"
             "err: empty if no error else some other error string.\n"
             "msgs: vector [topic partition key value timestamp].\n"
     );
@@ -386,7 +386,7 @@ ConstantSP kafkaCommit(Heap *heap, vector<ConstantSP> &args) {
 
 ConstantSP kafkaCommitTopic(Heap *heap, vector<ConstantSP> &args){
     const auto usage = string(
-            "Usage: commitTopic(consumer,topic:vector<string>,partition:vector<int>,offset:vector<int>).\n"
+            "Usage: commitTopic(consumer, topic, partition, offset).\n"
     );
 
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != consumer_desc)
@@ -411,7 +411,7 @@ ConstantSP kafkaAsyncCommit(Heap *heap, vector<ConstantSP> &args) {
 
 ConstantSP kafkaAsyncCommitTopic(Heap *heap, vector<ConstantSP> &args){
     const auto usage = string(
-            "Usage: asyncCommitTopic(consumer,topic:vector<string>,partition:vector<int>,offset:vector<int>).\n"
+            "Usage: asyncCommitTopic(consumer, topic, partition, offset).\n"
     );
 
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != consumer_desc)
@@ -434,18 +434,13 @@ ConstantSP kafkaUnsubscribe(Heap *heap, vector<ConstantSP> &args) {
 Configuration createConf(ConstantSP & dict, bool consumer) {
     Configuration configuration = {
             {"metadata.broker.list", "115.239.209.234:9092"},
-            {"group.id","test"},
     };
     bool group_id = false;
 
-    cout << dict->getString() << endl;
     auto keys = dict->keys();
-    cout << keys->getString() << endl;
     for (auto i = 0; i < keys->size(); i++) {
         auto key = keys->get(i);
-        cout <<key->getString() << endl;
         auto value = dict->getMember(key);
-        cout << value->getString() << endl;
         if (value->getType() == DT_STRING) {
             configuration.set(key->getString(), value->getString());
         } else if (value->getType() == DT_BOOL) {
@@ -464,7 +459,7 @@ Configuration createConf(ConstantSP & dict, bool consumer) {
 
 ConstantSP kafkaSetConsumerTimeout(Heap *heap, vector<ConstantSP> &args){
     const auto usage = string(
-            "Usage: setConsumerTime(consumer,timeout).\n"
+            "Usage: setConsumerTime(consumer, timeout).\n"
     );
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != consumer_desc)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
@@ -480,7 +475,7 @@ ConstantSP kafkaSetConsumerTimeout(Heap *heap, vector<ConstantSP> &args){
 
 ConstantSP kafkaSetProducerTimeout(Heap *heap, vector<ConstantSP> &args){
     const auto usage = string(
-            "Usage: setProducerTime(producer,timeout).\n"
+            "Usage: setProducerTime(producer, timeout).\n"
     );
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != producer_desc)
         throw IllegalArgumentException(__FUNCTION__, usage + "producer should be a producer handle.");
@@ -520,7 +515,7 @@ ConstantSP kafkaGetProducerTimeout(Heap *heap, vector<ConstantSP> &args){
 
 ConstantSP kafkaConsumerAssign(Heap *heap, vector<ConstantSP> &args){
     const auto usage = string(
-            "Usage: assign(consumer,topic:vector<string>,partition:vector<int>,offset:vector<int>).\n"
+            "Usage: assign(consumer, topic, partition, offset).\n"
     );
 
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != consumer_desc)
@@ -579,7 +574,7 @@ ConstantSP kafkaConsumerResume(Heap *heap, vector<ConstantSP> &args){
 
 ConstantSP kafkaGetOffset(Heap *heap, vector<ConstantSP> &args){
     const auto usage = string(
-            "Usage: getOffset(consumer,topic:string,partition:int).\n"
+            "Usage: getOffset(consumer, topic, partition).\n"
     );
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != consumer_desc)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
@@ -606,7 +601,7 @@ ConstantSP kafkaGetOffset(Heap *heap, vector<ConstantSP> &args){
 
 ConstantSP kafkaGetOffsetsCommitted(Heap *heap, vector<ConstantSP> &args){
     const auto usage = string(
-            "Usage: getOffsetCommitted(consumer,topic:vector<string>,partition:vector<int>,offset:vector<int>[,timeout:int]).\n"
+            "Usage: getOffsetCommitted(consumer, topic, partition, offset, [timeout]).\n"
     );
 
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != consumer_desc)
@@ -634,7 +629,7 @@ ConstantSP kafkaGetOffsetsCommitted(Heap *heap, vector<ConstantSP> &args){
 
 ConstantSP kafkaGetOffsetPosition(Heap *heap, vector<ConstantSP> &args){
     const auto usage = string(
-            "Usage: getOffsetPosition(consumer,topic:vector<string>,partition:vector<int>).\n"
+            "Usage: getOffsetPosition(consumer, topic, partition).\n"
     );
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != consumer_desc)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
@@ -659,7 +654,7 @@ ConstantSP kafkaStoreConsumedOffsets(Heap *heap, vector<ConstantSP> &args){
 
 ConstantSP kafkaStoreOffsets(Heap *heap, vector<ConstantSP> &args){
     const auto usage = string(
-            "Usage: storeOffset(consumer,topic:vector<string>,partition:vector<int>,offset:vector<int>).\n"
+            "Usage: storeOffset(consumer, topic, partition, offset).\n"
     );
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != consumer_desc)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
@@ -733,7 +728,7 @@ ConstantSP kafkaGetQueueTime(Heap *heap, vector<ConstantSP> &args){
 
 ConstantSP kafkaQueueConsume(Heap *heap, vector<ConstantSP> &args){
     const auto usage = string(
-            "Usage: queuePoll(queue[,timeout]).\n"
+            "Usage: queuePoll(queue, [timeout]).\n"
             "return: [err, msg]\n"
             "err: empty if no error else error info string.\n"
             "msg: [topic, partition, key, value, timestamp].\n"
@@ -757,7 +752,7 @@ ConstantSP kafkaQueueConsume(Heap *heap, vector<ConstantSP> &args){
 
 ConstantSP kafkaQueueConsumeBatch(Heap *heap, vector<ConstantSP> &args){
     const auto usage = string(
-            "Usage: queuePollBatch(queue, batch_size[,timeout]).\n"
+            "Usage: queuePollBatch(queue, batch_size, [timeout]).\n"
             "err: empty if no error else some other error string.\n"
             "msgs: vector [topic partition key value timestamp].\n"
     );
@@ -1015,7 +1010,7 @@ inline static int getLength(ConstantSP &data){
 }
 
 static void produceMessage(ConstantSP &produce, ConstantSP &pTopic, ConstantSP &key, ConstantSP &value, ConstantSP &json, ConstantSP &pPartition){
-    const auto usage = string("Usage: produce(producer, topic: string, key, value, json[,partition]).\n");
+    const auto usage = string("Usage: produce(producer, topic: string, key, value, json, [partition]).\n");
     if(produce->getType()!=DT_RESOURCE || produce->getString() != producer_desc)
         throw IllegalArgumentException(__FUNCTION__, usage + "producer should be a producer handle.");
     auto producer = getConnection<Producer>(produce);

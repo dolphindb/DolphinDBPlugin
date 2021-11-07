@@ -52,6 +52,7 @@ ConstantSP mysqlConnect(Heap *heap, vector<ConstantSP> &args) {
     const char *fmt = "mysql connection to [%s]";
     vector<char> descBuf(cup->str().size() + strlen(fmt));
     sprintf(descBuf.data(), fmt, cup->str().c_str());
+    dolphindb::littleEndian = Util::isLittleEndian();
     FunctionDefSP onClose(Util::createSystemProcedure("mysql connection onClose()", mysqlConnectionOnClose, 1, 1));
     return Util::createResource((long long)cup.release(), descBuf.data(), onClose, heap->currentSession());
 }
@@ -558,7 +559,7 @@ vector<size_t> MySQLExtractor::getMaxStrlen(mysqlxx::ResultBase &res) {
         ret[i] = res.maxLengthAt(i);
         auto t = res.typeAt(i);
         if (t == mysqlxx::MYSQL_TYPE_STRING || t == mysqlxx::MYSQL_TYPE_VAR_STRING ||
-            t == mysqlxx::MYSQL_TYPE_VARCHAR || t == mysqlxx::MYSQL_TYPE_ENUM) {
+            t == mysqlxx::MYSQL_TYPE_VARCHAR || t == mysqlxx::MYSQL_TYPE_ENUM || t == mysqlxx::MYSQL_TYPE_BIT) {
             ret[i] += 1;
         } else if (t == mysqlxx::MYSQL_TYPE_BLOB || t == mysqlxx::MYSQL_TYPE_TINY_BLOB ||
                    t == mysqlxx::MYSQL_TYPE_MEDIUM_BLOB || t == mysqlxx::MYSQL_TYPE_LONG_BLOB) {
@@ -654,62 +655,65 @@ void Pack::append(const mysqlxx::Row &row) {
         for (size_t col = 0; col < nCol_; ++col) {
             char *dst = rawBuffers_[col] + size_ * typeLen_[col];
             auto val = row[col];
-            switch (srcDt_[col]) {
-                case DT_BOOL:
-                    containNull_[col] = containNull_[col] | parseScalar<bool>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                    break;
-                case DT_CHAR:
-                    containNull_[col] = containNull_[col] | parseScalar<char>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                    break;
-                case DT_SHORT:
-                    containNull_[col] = containNull_[col] | parseScalar<short>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                    break;
-                case DT_INT:
-                    containNull_[col] = containNull_[col] | parseScalar<int>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                    break;
-                case DT_LONG:
-                    containNull_[col] = containNull_[col] | parseScalar<long long>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                    break;
-                case DT_FLOAT:
-                    containNull_[col] = containNull_[col] | parseScalar<float>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                    break;
-                case DT_DOUBLE:
-                    containNull_[col] = containNull_[col] | parseScalar<double>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                    break;
-                case DT_TIMESTAMP:
-                    containNull_[col] = containNull_[col] | parseTimestamp(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                    break;
-                case DT_NANOTIME:
-                    containNull_[col] = containNull_[col] | parseNanotime(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                    break;
-                case DT_NANOTIMESTAMP:
-                    containNull_[col] = containNull_[col] | parseNanoTimestamp(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                    break;
-                case DT_DATE:
-                    containNull_[col] = containNull_[col] | parseDate(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                    break;
-                case DT_MONTH:
-                    containNull_[col] = containNull_[col] | parseMonth(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                    break;
-                case DT_TIME:
-                    containNull_[col] = containNull_[col] | parseTime(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                    break;
-                case DT_MINUTE:
-                    containNull_[col] = containNull_[col] | parseMinute(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                    break;
-                case DT_SECOND:
-                    containNull_[col] = containNull_[col] | parseSecond(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                    break;
-                case DT_DATETIME:
-                    containNull_[col] = containNull_[col] | parseDatetime(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                    break;
-                case DT_SYMBOL:
-                case DT_STRING:
-                    containNull_[col] = containNull_[col] | parseString(dst, val, maxStrLen_[col]);
-                    break;
-                default:
-                    throw NotImplementedException(__FUNCTION__, "Not yet.");
-            }
+            if(row.getTypeAt(col) == mysqlxx::MYSQL_TYPE_BIT)
+                containNull_[col] = containNull_[col] | parseBit(dst, val,  dstDt_[col], nullVal_[col], typeLen_[col], maxStrLen_[col]);
+            else
+                switch (srcDt_[col]) {
+                    case DT_BOOL:
+                        containNull_[col] = containNull_[col] | parseScalar<bool>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                        break;
+                    case DT_CHAR:
+                        containNull_[col] = containNull_[col] | parseScalar<char>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                        break;
+                    case DT_SHORT:
+                        containNull_[col] = containNull_[col] | parseScalar<short>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                        break;
+                    case DT_INT:
+                        containNull_[col] = containNull_[col] | parseScalar<int>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                        break;
+                    case DT_LONG:
+                        containNull_[col] = containNull_[col] | parseScalar<long long>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                        break;
+                    case DT_FLOAT:
+                        containNull_[col] = containNull_[col] | parseScalar<float>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                        break;
+                    case DT_DOUBLE:
+                        containNull_[col] = containNull_[col] | parseScalar<double>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                        break;
+                    case DT_TIMESTAMP:
+                        containNull_[col] = containNull_[col] | parseTimestamp(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                        break;
+                    case DT_NANOTIME:
+                        containNull_[col] = containNull_[col] | parseNanotime(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                        break;
+                    case DT_NANOTIMESTAMP:
+                        containNull_[col] = containNull_[col] | parseNanoTimestamp(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                        break;
+                    case DT_DATE:
+                        containNull_[col] = containNull_[col] | parseDate(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                        break;
+                    case DT_MONTH:
+                        containNull_[col] = containNull_[col] | parseMonth(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                        break;
+                    case DT_TIME:
+                        containNull_[col] = containNull_[col] | parseTime(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                        break;
+                    case DT_MINUTE:
+                        containNull_[col] = containNull_[col] | parseMinute(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                        break;
+                    case DT_SECOND:
+                        containNull_[col] = containNull_[col] | parseSecond(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                        break;
+                    case DT_DATETIME:
+                        containNull_[col] = containNull_[col] | parseDatetime(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                        break;
+                    case DT_SYMBOL:
+                    case DT_STRING:
+                            containNull_[col] = containNull_[col] | parseString(dst, val, maxStrLen_[col]);
+                        break;
+                    default:
+                        throw NotImplementedException(__FUNCTION__, "Not yet.");
+                }
         }
         ++size_;
         assert(size_ <= capacity_);
@@ -1019,6 +1023,71 @@ bool parseNanotime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char*
     return false;
 }
 
+static string bin2str(const char* tmp, size_t len, size_t maxStrLen)
+{
+	string data;
+    unsigned char mask = 0x80;
+	for (size_t i = 0; i < len; i++){
+        for (short j = 0; j < 8; j++)
+            if (tmp[i] & (mask >> j)){
+                data += '1';
+            }
+            else
+                data += '0';
+	}
+    return data.substr(len * 8 - maxStrLen);
+}
+
+bool parseBit(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len, size_t maxStrLen){
+    if(dstDt == DT_STRING){
+        if (val.empty()){
+            (*((char **)dst))[0] = '\0';
+            return true;
+        }    
+        string bitStr(bin2str(val.data(), val.size(), maxStrLen - 1));
+        memcpy(*((char **)dst), bitStr.data(), bitStr.size());
+        (*((char **)dst))[bitStr.size()] = '\0';
+        return false;
+    }
+    else{
+        if(val.empty()){
+            memcpy(dst, nullVal, len);
+            return true;
+        }
+        else if(dstDt == DT_BOOL){
+            const char *tmp = val.data();
+            unsigned char mask = 0xFF;
+            for (size_t i = 0; i < val.size(); i++)
+                if (tmp[i] & mask){
+                    bool bo = true;
+                    memcpy(dst, &bo, sizeof(bool));
+                    return false;
+                }
+            memset(dst, 0, len);
+            return false;
+        }
+        else{
+            if(len > val.length()){
+                size_t emptyLen = len - val.length() ;
+                memset(dst, 0, emptyLen);
+                memcpy(dst + emptyLen, val.data(), val.length());
+            }
+            else if(len < val.length()){
+                size_t valLen = val.length() - len;
+                memcpy(dst, val.data() + valLen, len);
+            }
+            else{
+                memcpy(dst, val.data(), len);
+            }
+            if(littleEndian){
+                for (size_t i = 0; i < (len / 2); i++)
+                    std::swap(dst[i], dst[len - 1 - i]);
+            }
+            return false;
+        }
+    }
+}
+
 //////////////////////////////////// util
 const char *getDolphinDBTypeStr(DATA_TYPE type) {
     return Util::getDataTypeString(type).c_str();
@@ -1044,6 +1113,19 @@ vector<ConstantSP> getArgs(vector<ConstantSP> &args, size_t nMaxArgs) {
 DATA_TYPE getDolphinDBType(mysqlxx::enum_field_types type, bool isUnsigned, bool isEnum, int maxStrLen) {
     using namespace mysqlxx;
     switch (type) {
+        case MYSQL_TYPE_BIT:
+        {
+            if(maxStrLen > 0 && maxStrLen <= 8)
+                return DT_CHAR;
+            else if(maxStrLen > 8 && maxStrLen <= 16)
+                return DT_SHORT;
+            else if(maxStrLen > 16 && maxStrLen <= 32)
+                return DT_INT;
+            else if(maxStrLen > 32 && maxStrLen <= 64)
+                return DT_LONG;
+            else
+                throw IllegalArgumentException(__FUNCTION__, "MySQL type " + std::string(getMySQLTypeStr(type)) + " wrong length : " + std::to_string(maxStrLen) + " .");
+        }
         case MYSQL_TYPE_TINY:
             return isUnsigned ? DT_SHORT : DT_CHAR;
         case MYSQL_TYPE_SHORT:

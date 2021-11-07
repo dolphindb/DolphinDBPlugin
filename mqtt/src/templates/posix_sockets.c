@@ -11,9 +11,6 @@
 #include <windows.h>
 #include <ws2tcpip.h>
 #endif
-#if defined(__VMS)
-#include <ioctl.h>
-#endif
 #include <fcntl.h>
 #include "posix_sockets.h"
 
@@ -43,12 +40,8 @@ int open_nb_socket(const char* addr, const char* port) {
         if (sockfd == -1) continue;
 
         /* connect to server */
-        rv = connect(sockfd, p->ai_addr, p->ai_addrlen);
-        if(rv == -1) {
-          close(sockfd);
-          sockfd = -1;
-          continue;
-        }
+        rv = connect(sockfd, servinfo->ai_addr, servinfo->ai_addrlen);
+        if(rv == -1) continue;
         break;
     }
 
@@ -67,15 +60,6 @@ int open_nb_socket(const char* addr, const char* port) {
 #endif
       ioctlsocket(sockfd, FIONBIO, &iMode);
     }
-#endif
-#if defined(__VMS)
-    /* 
-        OpenVMS only partially implements fcntl. It works on file descriptors
-        but silently fails on socket descriptors. So we need to fall back on
-        to the older ioctl system to set non-blocking IO
-    */
-    int on = 1;                 
-    if (sockfd != -1) ioctl(sockfd, FIONBIO, &on);
 #endif
 
     /* return the new socket fd */

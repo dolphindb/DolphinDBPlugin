@@ -250,6 +250,7 @@ ConstantSP odbcClose(Heap* heap, vector<ConstantSP>& args) {
   ConstantSP csp = odbcGetConnection(heap, args, "odbc::close");
   nanodbc::connection* cp = (nanodbc::connection*)(csp->getLong());
   cp->disconnect();
+  cp->deallocate();
   return Util::createConstant(DT_VOID);
 }
 

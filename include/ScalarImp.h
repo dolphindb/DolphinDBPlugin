@@ -431,6 +431,7 @@ public:
 	DomainSitePoolSP getSitePool() const {return sites_;}
 	bool isTable() const { return isTable_;}
 	bool isLocalMode() const { return localMode_;}
+	virtual bool isLargeConstant() const { return false;}
 
 private:
 	vector<ObjectSP> code_;
@@ -867,8 +868,8 @@ public:
 	static DURATION getDuration(const string& unit);
 
 private:
-	static const string durationSymbols_[10];
-	static const long long durationRatios_[10][10];
+	static const string durationSymbols_[11];
+	static const long long durationRatios_[11][11];
 	DURATION unit_;
 };
 
@@ -922,7 +923,7 @@ public:
 
 class Double: public AbstractScalar<double>{
 public:
-	Double(double val=0):AbstractScalar(val){}
+	Double(double val=0):AbstractScalar((std::isnan(val)|| std::isinf(val)) ? DBL_NMIN : val){}
 	virtual ~Double(){}
 	virtual bool isNull() const {return val_==DBL_NMIN;}
 	virtual void setNull(){val_=DBL_NMIN;}

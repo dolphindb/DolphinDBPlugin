@@ -83,6 +83,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <limits.h>
 
 #ifndef __clang__
 #include <cstdint>
