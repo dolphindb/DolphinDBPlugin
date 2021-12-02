@@ -276,7 +276,7 @@ parquet::saveParquet(tb, "userdata1.parquet")
 | LIST                       |          \                   | not support      |
 | NIL                        |          \                   | not support      |
 
-> **请注意：parquet repeated field 还未支持, DECIMAL仅支持Physical Type为INT32或INT64**
+> **请注意：parquet repeated field 还未支持, DECIMAL仅支持Physical Type为INT32, INT64或FIXED_LEN_BYTE_ARRAY**
 
 > **由于DolphinDB不支持无符号类型，所以读取parquet中的UINT_64时若发生溢出，则会取DolphinDB中的NULL值**
 

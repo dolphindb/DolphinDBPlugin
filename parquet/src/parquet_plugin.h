@@ -21,6 +21,8 @@
 #include <parquet/api/reader.h>
 #include <parquet/api/writer.h>
 #include <arrow/io/file.h>
+#include "arrow/util/decimal.h"
+#include "arrow/result.h"
 extern "C" ConstantSP extractParquetSchema(const ConstantSP &filename);
 extern "C" ConstantSP loadParquet(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP loadParquetHdfs(Heap *heap, vector<ConstantSP> &arguments);

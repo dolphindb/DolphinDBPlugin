@@ -2192,7 +2192,33 @@ int convertParquetToDolphindbFloat(int col_idx, std::shared_ptr<parquet::ColumnR
         return rows_read;
     }
     case parquet::Type::FIXED_LEN_BYTE_ARRAY:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FIXED_LEN_BYTE_ARRAY" + "->" + Util::getDataTypeString(DT_FLOAT));
+    {
+        int fixed_length = col_descr->type_length();
+        parquet::FixedLenByteArrayReader *flba_reader = static_cast<parquet::FixedLenByteArrayReader *>(column_reader.get());
+        vector<parquet::FixedLenByteArray> value(batchSize);
+        while(flba_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            int64_t le = rows_read;
+            rows_read += flba_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::FixedLenByteArray*)value.data(), &valuesRead);
+            int index = 0;
+            for (; le < rows_read; le++)
+            {
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    arrow::Result<arrow::Decimal128> t = arrow::Decimal128::FromBigEndian(value[index++].ptr, fixed_length);
+                    if(!t.ok()){
+                        throw RuntimeException(t.status().ToString());
+                    }
+                    buffer[le] = (*t).ToFloat(col_descr->type_scale());
+                }
+                else
+                {
+                    buffer[le] = FLT_NMIN;
+                }
+            }
+        }
+        return rows_read;
+    }
     case parquet::Type::BYTE_ARRAY:
         throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:BYTE_ARRAY" + "->" + Util::getDataTypeString(DT_FLOAT));
 
@@ -2406,9 +2432,35 @@ int convertParquetToDolphindbDouble(int col_idx, std::shared_ptr<parquet::Column
         return rows_read;
     }
     case parquet::Type::FIXED_LEN_BYTE_ARRAY:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FIXED_LEN_BYTE_ARRAY" + "->" + Util::getDataTypeString(DT_FLOAT));
+    {
+        int fixed_length = col_descr->type_length();
+        parquet::FixedLenByteArrayReader *flba_reader = static_cast<parquet::FixedLenByteArrayReader *>(column_reader.get());
+        vector<parquet::FixedLenByteArray> value(batchSize);
+        while(flba_reader->HasNext() && rows_read < (int64_t)batchSize){
+            int64_t valuesRead = 0;
+            int64_t le = rows_read;
+            rows_read += flba_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::FixedLenByteArray*)value.data(), &valuesRead);
+            int index = 0;
+            for (; le < rows_read; le++)
+            {
+                if (def_level[le] >= col_descr->max_definition_level())
+                {
+                    arrow::Result<arrow::Decimal128> t = arrow::Decimal128::FromBigEndian(value[index++].ptr, fixed_length);
+                    if(!t.ok()){
+                        throw RuntimeException(t.status().ToString());
+                    }
+                    buffer[le] = (*t).ToDouble(col_descr->type_scale());
+                }
+                else
+                {
+                    buffer[le] = DBL_NMIN;
+                }
+            }
+        }
+        return rows_read;
+    }
     case parquet::Type::BYTE_ARRAY:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:BYTE_ARRAY" + "->" + Util::getDataTypeString(DT_FLOAT));
+        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:BYTE_ARRAY" + "->" + Util::getDataTypeString(DT_DOUBLE));
 
     default:
         throw RuntimeException("unsupported data type");
