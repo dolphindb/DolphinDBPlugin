@@ -226,10 +226,10 @@ p = mqtt::createCsvParser([BOOL,CHAR,SHORT,INT,LONG,DATE,MONTH,TIME,MINUTE,SECON
 p(s)
 ```
 
-### 5.3 createCsvFormatter
+### 5.3 createJsonFormatter
 
 ```
-mqtt::createCsvFormatter()
+mqtt::createJsonFormatter()
 ```
 该函数创建一个JSON格式的Formatter函数。
 
