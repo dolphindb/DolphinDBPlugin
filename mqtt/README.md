@@ -217,11 +217,11 @@ s=f(t)
 p = mqtt::createCsvParser([BOOL,CHAR,SHORT,INT,LONG,DATE,MONTH,TIME,MINUTE,SECOND,DATETIME,TIMESTAMP,NANOTIME,NANOTIMESTAMP,FLOAT,DOUBLE,STRING,SYMBOL])
 p(s)
 ```
-### 5.3 createCsvFormatter
+### 5.3 createJsonFormatter
 
 **Syntax**
 ```
-mqtt::createCsvFormatter()
+mqtt::createJsonFormatter()
 ```
 This function creates a Formatter function in JSON format
 
