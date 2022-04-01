@@ -11,7 +11,7 @@ Apache Parquet 文件采用列式存储格式，可用于高效存储与提取�
     * [2.2 parquet::loadParquet](#22-parquetloadparquet)
     * [2.3 parquet::loadParquetEx](#23-parquetloadparquetex)
     * [2.4 parquet::parquetDS](#24-parquetparquetds)
-    * [2.5 parquet::saveParquet](#25-parquetsaveparquet)
+    * [2.5 parquet::saveParquet](#25-saveparquet)
 * [3 支持的数据类型](#3-支持的数据类型) 
     * [3.1 导入](#31-导入)
     * [3.2 导出](#32-导出)
@@ -73,15 +73,15 @@ make
 
 ### 1.3 安装插件
 
-在 Linux 导入 DolphinDB 提供的[预编译 Parquet 插件](https://gitee.com/dolphindb/DolphinDBPlugin/tree/master/parquet/bin/linux64)，或用户自行编译的插件。
+在Linux导入 DolphinDB 提供的[预编译 Parquet 插件](https://gitee.com/dolphindb/DolphinDBPlugin/tree/master/parquet/bin/linux64)，或用户自行编译的插件。
 
-(1) 添加插件所在路径到 LIB 搜索路径 LD_LIBRARY_PATH
+(1) 添加插件所在路径到LIB搜索路径 LD_LIBRARY_PATH
 
 ```
 export LD_LIBRARY_PATH=/path_to_parquet_plugin/:$LD_LIBRARY_PATH
 ```
 
-(2) 启动 DolphinDB server 并导入插件
+(2) 启动DolphinDB server并导入插件
 
 ```
 loadPlugin("/path_to_parquet_plugin/PluginParquet.txt")
@@ -119,7 +119,7 @@ parquet::loadParquet(fileName,[schema],[column],[rowGroupStart],[rowGroupNum])
 * fileName: Parquet 文件名，类型为字符串标量。
 * schema: 可选参数，必须是包含列名和列数据类型的表。通过设置该参数，可改变系统自动生成的列数据类型。
 * column: 可选参数，整数向量，表示要读取的列索引。若不指定，读取所有列。
-* rowGroupStart: 可选参数，是一个非负整数。从哪一个 row group 开始读取 Parquet 文件。若不指定，默认从文件起始位置读取。
+* rowGroupStart: 可选参数，是一个非负整数。从哪一个 row group开始读取parquet文件。若不指定，默认从文件起始位置读取。
 * rowGroupNum: 可选参数，要读取 row group 的数量。若不指定，默认读到文件的结尾。
 
 #### 详情
@@ -142,7 +142,7 @@ parquet::loadParquetEx(dbHandle,tableName,partitionColumns,fileName,[schema],[co
 * dbHandle：数据库句柄
 * tableName：一个字符串，表示表的名称。
 * partitionColumns: 字符串标量或向量，表示分区列。在组合分区中，该参数是字符串向量。
-* fileName：Parquet 文件名，类型为字符串标量。
+* fileName：Parquet文件名，类型为字符串标量。
 * schema: 可选参数，必须是包含列名和列数据类型的表。通过设置该参数，可改变系统自动生成的列数据类型。
 * column: 可选参数，整数向量，表示读取的列索引。若不指定，读取所有列。
 * rowGroupStart: 可选参数，从哪一个 row group 开始读取 Parquet 文件。若不指定，默认从文件起始位置读取。
@@ -296,7 +296,7 @@ DolphinDB 在导入 Parquet 数据时，优先按照源文件中定义的 Logica
 > **请注意：**
 >- 暂不支持转化Parquet 中的 repeated 字段。
 >- 在 Parquet 中标注了 DECIMAL 类型的字段中，仅支持转化原始数据类型（physical type）为 INT32, INT64 和 FIXED_LEN_BYTE_ARRAY 的数据。
->- 由于 DolphinDB 不支持无符号类型，所以读取parquet中的UINT_64时若发生溢出，则会取 DolphinDB 中的 NULL 值。
+>- 由于DolphinDB不支持无符号类型，所以读取parquet中的UINT_64时若发生溢出，则会取DolphinDB中的 NULL 值。
 
 ### 3.2 导出
 
