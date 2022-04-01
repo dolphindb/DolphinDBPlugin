@@ -1,68 +1,79 @@
 # DolphinDB Parquet Plugin
 
-Apache Parquet 文件采用列式存储格式，可用于高效存储与提取数据。DolphinDB 提供的 Parquet 插件支持将 Parquet 文件导入和导出 DolphinDB，并进行数据类型转换。
+Apache Parquet is a columnar storage format for efficient data storage and retrieval. This tutorial introduces how to use DolphinDB Parquet plugin to import and export Parquet files to and from DolphinDB.
 
-* [1 安装插件](#1-安装插件)
-    * [1.1 下载预编译插件](#11-下载预编译插件)
-    * [1.2 （可选）手动编译插件](#12-（可选）手动编译插件)
-    * [1.3 安装插件](#13-安装插件)
-* [2 用户接口](#3-用户接口)  
+* [1 Install the Plugin](#1-install-the-plugin)
+    * [1.1 Download Precompiled Binaries](#11-download-precompiled-binaries)
+    * [1.2 (Optional) Build a Plugin](#12-optional-build-a-plugin)
+    * [1.3 Load the Plugin](#13-load-the-plugin)
+* [2 Methods](#2-methods)  
     * [2.1 parquet::extractParquetSchema](#21-parquetextractparquetschema)
     * [2.2 parquet::loadParquet](#22-parquetloadparquet)
     * [2.3 parquet::loadParquetEx](#23-parquetloadparquetex)
     * [2.4 parquet::parquetDS](#24-parquetparquetds)
     * [2.5 parquet::saveParquet](#25-parquetsaveparquet)
-* [3 支持的数据类型](#3-支持的数据类型) 
-    * [3.1 导入](#31-导入)
-    * [3.2 导出](#32-导出)
+* [3 Data Type Mappings](#3-data-type-mappings) 
+    * [3.1 Import](#31-import)
+    * [3.2 Export](#32-export)
 
-## 1 安装插件
+## 1 Install the Plugin
 
-### 1.1 下载预编译插件
+### 1.1 Download Precompiled Binaries
 
-DolphinDB 提供了预编译的 Parquet 插件，可在 Linux 系统上直接进行安装。[点击此处下载插件](https://gitee.com/dolphindb/DolphinDBPlugin/tree/master/parquet/bin/linux64) 
+You can download precompiled binaries for DolphinDB Parquet Plugin [here](https://github.com/dolphindb/DolphinDBPlugin/tree/master/parquet/bin/linux64). It can be installed directly on Linux (See Chap 02).
 
-请注意插件的版本应与 DolphinDB 客户端版本相同，可以通过切换分支获取相应版本。
+Please note that the plugin version should be consistent with your DolphinDB server version. You can switch branches to obtain the expected version.
 
-### 1.2 （可选）手动编译插件
+### 1.2 (Optional) Build a Plugin
 
-用户也可根据业务需求，自行编译 Parquet 插件进行安装。方法如下：
+You can also manually compile a Parquet plugin with [CMake](https://cmake.org/) on Linux following the instructions:
 
-#### （Linux）使用 CMake构建
-
-（1）安装 CMake：
+(1) Install CMake
 
 ```
 sudo apt-get install cmake
 ```
 
-（2）安装 zlib：
+(2) Install zlib
 
 ```
 sudo apt-get install zlib1g
 ```
 
-（3）编译 Parquet 开发包：
+(3) Compile Parquet Development Kit
 
 ```
 git clone https://github.com/apache/arrow.git
 cd arrow/cpp
 mkdir build
 cd build
-cmake .. -DARROW_PARQUET=ON -DARROW_IPC=ON -DARROW_BUILD_INTEGRATION=ON -DARROW_BUILD_STATIC=ON -DPARQUET_BUILD_SHARED=OFF -DARROW_BUILD_SHARED=OFF -DARROW_DEPENDENCY_USE_SHARED=OFF -DARROW_WITH_ZLIB=ON -DARROW_WITH_SNAPPY=ON -DARROW_WITH_ZSTD=ON -DARROW_WITH_LZ4=ON -DARROW_WITH_BZ2=ON
+cmake .. -DARROW_PARQUET=ON 
+        -DARROW_IPC=ON 
+        -DARROW_BUILD_INTEGRATION=ON 
+        -DARROW_BUILD_STATIC=ON 
+        -DPARQUET_BUILD_SHARED=OFF 
+        -DARROW_BUILD_SHARED=OFF 
+        -DARROW_DEPENDENCY_USE_SHARED=OFF 
+        -DARROW_WITH_ZLIB=ON 
+        -DARROW_WITH_SNAPPY=ON 
+        -DARROW_WITH_ZSTD=ON 
+        -DARROW_WITH_LZ4=ON 
+        -DARROW_WITH_BZ2=ON
 ```
 
-> **请注意：编译环境中的依赖库 libstdc++ 需要和 dolphindb server 下的一致。DolphinDB 提供的预编译版本插件支持 zlib，snappy，zstd，lz4 和 bz2 压缩格式，您可在此基础上根据需要支持的压缩类型增减编译选项。详情请参考 [Apache Arrow 相关文档](https://github.com/apache/arrow/blob/master/docs/source/developers/cpp/building.rst#optional-components)。**
+> **Note:** 
+The dependency library libstdc++ in the compilation environment must be the same as that of the DolphinDB server. The precompiled Parquet plugin supports 5 compression algorithms: zlib, snappy, zstd, lz4 and bz2. You can change the compression options as needed. For more details on the optional building components, see Building Arrow C++.
 
-（4）编译完成后，拷贝以下文件到目标目录：
+(4) After compiling, copy the following files to the target directories.
 
-| **Files**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | **Target Directory**         |
+| **Files **                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | **Target Directory**         |
 |-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------|
 | arrow/cpp/build/src/parquet/parquet_version.h                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | ./parquetApi/include/parquet |
 | arrow/cpp/src/arrow<br>arrow/cpp/src/parquet<br>arrow/cpp/src/generated                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | ./parquetApi/include         |
 | arrow/cpp/build/release/libarrow.a<br>arrow/cpp/build/release/libparquet.a<br>arrow/cpp/build/thrift_ep-install/lib/libthrift.a<br>arrow/cpp/build/utf8proc_ep-install/lib/libutf8proc.a<br>arrow/cpp/build/jemalloc_ep-prefix/src/jemalloc_ep/lib/libjemalloc_pic.a<br>arrow/cpp/build/zstd_ep-install/lib64/libzstd.a<br>arrow/cpp/build/zlib_ep/src/zlib_ep-install/lib/libz.a<br>arrow/cpp/build/snappy_ep/src/snappy_ep-install/lib/libsnappy.a<br>arrow/cpp/build/lz4_ep-prefix/src/lz4_ep/lib/liblz4.a<br>arrow/cpp/build/bzip2_ep-install/lib/libbz2.a<br>arrow/cpp/build/boost_ep-prefix/src/boost_ep/stage/lib/libboost_regex.a | ./parquetApi/lib/linux       |
 
-编译整个项目：
+
+(5) Build the entire project
 
 ```
 mkdir build
@@ -71,110 +82,127 @@ cmake ../path_to_parquet_plugin/
 make
 ```
 
-### 1.3 安装插件
+### 1.3 Load the Plugin
 
-在 Linux 导入 DolphinDB 提供的[预编译 Parquet 插件](https://gitee.com/dolphindb/DolphinDBPlugin/tree/master/parquet/bin/linux64)，或用户自行编译的插件。
+Load the precompiled plugin provided by DolphinDB or the manually compiled plugin on Linux.
 
-(1) 添加插件所在路径到 LIB 搜索路径 LD_LIBRARY_PATH
+(1) Add the plugin path to the library search path LD_LIBRARY_PATH
 
 ```
 export LD_LIBRARY_PATH=/path_to_parquet_plugin/:$LD_LIBRARY_PATH
 ```
 
-(2) 启动 DolphinDB server 并导入插件
-
+(2) Start DolphinDB server and load the plugin
 ```
 loadPlugin("/path_to_parquet_plugin/PluginParquet.txt")
 ```
 
-## 2 用户接口
+## 2 Methods
 
 ### 2.1 parquet::extractParquetSchema
 
-#### 语法
+#### **Syntax**
 
 parquet::extractParquetSchema(fileName)
 
-#### 参数  
+#### **Parameters** 
 
-* fileName: Parquet 文件名，类型为字符串标量。
+* fileName: a STRING scalar indicating the Parquet file name.
 
-#### 详情
+#### **Details**
 
-获取 Parquet 文件的结构，返回两列：列名和数据类型。
+Return the schema of the input Parquet file. It includes 2 columns: column names and their data types.
 
-#### 例子
+#### **Examples**
+
 ```
 parquet::extractParquetSchema("userdata1.parquet")
 ```
 
 ### 2.2 parquet::loadParquet
 
-#### 语法
+#### **Syntax**
 
 parquet::loadParquet(fileName,[schema],[column],[rowGroupStart],[rowGroupNum])
 
-#### 参数
+#### **Parameters** 
 
-* fileName: Parquet 文件名，类型为字符串标量。
-* schema: 可选参数，必须是包含列名和列数据类型的表。通过设置该参数，可改变系统自动生成的列数据类型。
-* column: 可选参数，整数向量，表示要读取的列索引。若不指定，读取所有列。
-* rowGroupStart: 可选参数，是一个非负整数。从哪一个 row group 开始读取 Parquet 文件。若不指定，默认从文件起始位置读取。
-* rowGroupNum: 可选参数，要读取 row group 的数量。若不指定，默认读到文件的结尾。
+* fileName: a STRING scalar indicating the Parquet file name.
 
-#### 详情
+* schema: a table with the column names and their data types. Specify the parameter to modify the data types of the columns generated by the system. It is an optional parameter.
 
-将 Parquet 文件数据加载为 DolphinDB 数据库的内存表。关于 Parquet 数据类型及在 DolphinDB 中的转化规则，参见下文[数据类型](#3-支持的数据类型)章节。
+* column: a vector of integers indicating the column index to be imported. It is an optional parameter and all columns will be read if it is not specified.
 
-#### 例子
+* rowGroupStart: a non-negative integer indicating the index of the row group from which the data import starts. It is an optional parameter, and the file will be read from the beginning if it is not specified.
+
+* rowGroupNum: an integer indicating the number of row groups to be read. It is an optional parameter, and the method will read to the end of the file if it is not specified.
+
+#### **Details**
+
+Import a Parquet file to a DolphinDB in-memory table. 
+
+Regarding data type conversion, please see [Data Type Mappings](#3-Data-Type-Mappings).
+
+#### **Examples**
+
 ```
 parquet::loadParquet("userdata1.parquet")
 ```
 
 ### 2.3 parquet::loadParquetEx
 
-#### 语法
+#### **Syntax**
 
-parquet::loadParquetEx(dbHandle,tableName,partitionColumns,fileName,[schema],[column],[rowGroupStart],[rowGroupNum],[tranform])
+parquet::loadParquetEx(dbHandle,tableName,[partitionColumns],fileName,[schema],[column],[rowGroupStart],[rowGroupNum],[tranform])
 
-#### 参数
+#### **Parameters** 
 
-* dbHandle：数据库句柄
-* tableName：一个字符串，表示表的名称。
-* partitionColumns: 字符串标量或向量，表示分区列。在组合分区中，该参数是字符串向量。
-* fileName：Parquet 文件名，类型为字符串标量。
-* schema: 可选参数，必须是包含列名和列数据类型的表。通过设置该参数，可改变系统自动生成的列数据类型。
-* column: 可选参数，整数向量，表示读取的列索引。若不指定，读取所有列。
-* rowGroupStart: 可选参数，从哪一个 row group 开始读取 Parquet 文件。若不指定，默认从文件起始位置读取。
-* rowGroupNum: 可选参数，要读取 row group 的数量。若不指定，默认读到文件的结尾。
-* tranform: 可选参数，为一元函数，且该函数接受的参数必须是一个表。如果指定了 *transform* 参数，需要先创建分区表，再加载数据，程序会对数据文件中的数据执行 transform 参数指定的函数，再将得到的结果保存到分区表中。
+* dbHandle: a database handle
 
-#### 详情
+* tableName: a STRING indicating the table name
 
-将 Parquet 文件数据加载到DolphinDB 数据库的分区表，返回该表的元数据。 
+* partitionColumns: a STRING scalar or vector indicating the partitioning column(s). For a composite partition, it is a vector.
 
-* 如果要将数据文件加载到分布式数据库或本地磁盘数据库中，必须指定 dbHandle，并且不能为空字符串。
+* fileName: a STRING scalar indicating the Parquet file name.
 
-* 如果要将数据文件加载到内存数据库中，那么 dbHandle 为空字符串或者不指定 dbHandle。
+* schema: a table with the column names and their data types. Specify the parameter to modify the data types of the columns that are determined by DolphinDB automatically. It is an optional parameter.
 
-关于 Parquet 数据类型及在 DolphinDB 中的转化规则，参见下文[数据类型](#3-支持的数据类型)章节。
+* column: a vector of integers indicating the column index to be imported. It is an optional parameter and all columns will be read if it is not specified.
 
-#### 例子
+* rowGroupStart: a non-negative integer indicating the index of the row group from which the data import starts. It is an optional parameter, and the file will be read from the beginning if it is not specified.
 
-* dfs 分区表
+* rowGroupNum: an integer indicating the number of row groups to be read. It is an optional parameter, and the method will read to the end of the file if it is not specified.
+
+* transform: a unary function and the input argument must be a table. If it is specified, a partitioned table must be created before loading the file. The method will first apply the specified function to the data, and then save the result to the partitioned table.
+
+#### **Details**
+
+Load a Parquet file to a DolphinDB partitioned table and return a table object with metadata of the table.
+
+* If *dbHandle* is specified and is not an empty string "": load the file to a DFS database.
+
+* If *dbHandle* is an empty string "" or unspecified: load the file to a partitioned in-memory table.
+
+Regarding data type conversion, please see [Data Type Mappings](#3-Data-Type-Mappings).
+
+#### **Examples**
+
+* Import to a partitioned DFS table
 
 ```
 db = database("dfs://rangedb", RANGE, 0 500 1000)
 parquet::loadParquetEx(db,`tb,`id,"userdata1.parquet")
 ```
 
-* 内存中的非SEQ分区表
+* Import to a partitioned in-memory table
+
 ```
 db = database("", RANGE, 0 500 1000)
 parquet::loadParquetEx(db,`tb,`id,"userdata1.parquet")
 ```
 
-* 指定参数 *transform*，将数值类型表示的日期和时间（如：20200101）转化为指定类型（比如：日期类型）
+* Specify the parameter *transform* to transform the default data type (e.g. 20200101) to a specific type (e.g. DATE)
+
 ```
 dbPath="dfs://DolphinDBdatabase"
 db=database(dbPath,VALUE,2020.01.01..2020.01.30)
@@ -191,20 +219,22 @@ t = parquet::loadParquetEx(db,`tb1,`date,dataFilePath,datasetName,,,,i2d)
 
 ### 2.4 parquet::parquetDS
 
-#### 语法
+#### **Syntax**
 
 parquet::parquetDS(fileName,[schema])
 
-#### 参数
+#### **Parameters**
 
-* fileName: Parquet 文件名，类型为字符串标量。
-* schema: 可选参数，必须是包含列名和列数据类型的表。通过设置该参数，可改变系统自动生成的列数据类型。
+* fileName: a STRING scalar indicating the Parquet file name.
 
-#### 详情
+* schema: a table with the column names and their data types. Specify the parameter to modify the data types of the columns that are determined by DolphinDB automatically. It is an optional parameter.
 
-根据输入的 Parquet 文件名创建数据源列表，生成的数据源数量等价于 row group 的数量。
+#### **Details**
 
-#### 例子
+Create data sources based on the input file name. The number of tables is the same as the number of row groups.
+
+#### **Examples**
+
 ```
 >ds = parquet::parquetDS("userdata1.parquet")
 >size ds;
@@ -215,31 +245,31 @@ DataSource< loadParquet("userdata1.parquet",,,0,1) >
 
 ### 2.5 parquet::saveParquet
 
-#### 语法
+#### **Syntax**
 
 parquet::saveParquet(table, fileName)
 
-#### 参数
+#### **Parameters**
 
-table: 要保存的表
+* table: the table to be exported
 
-fileName: 保存的文件名，类型为字符串标量
+* fileName: a STRING scalar indicating the Parquet file name to save the table
 
-#### 详情
+#### **Details**
 
-将 DolphinDB 中的表以 Parquet 格式保存到文件中。
+Export a DolphinDB table to a Parquet file.
 
-#### 例子
+#### **Examples**
 
 ```
 parquet::saveParquet(tb, "userdata1.parquet")
 ```
 
-## 3 支持的数据类型
+## 3 Data Type Mappings
 
-### 3.1 导入
+### 3.1 Import
 
-DolphinDB 在导入 Parquet 数据时，优先按照源文件中定义的 LogicalType 转换相应的数据类型。如果没有定义 LogicalType 或 ConvertedType，则只根据原始数据类型（physical type）转换。
+When a Parquet file is imported to DolphinDB, the data types are converted based on the `LogicalType` as annotated in the file. If the `LogicalType` or `ConvertedType` is not defined, the conversion will be performed based on the physical types.
 
 | Logical Type in Parquet    | TimeUnit in Parquet     | Type in DolphinDB|
 | -------------------------- | :--------------------------- |:-----------------|
@@ -293,14 +323,16 @@ DolphinDB 在导入 Parquet 数据时，优先按照源文件中定义的 Logica
 | BYTE_ARRAY        | STRING                      |
 | FIXED_LEN_BYTE_ARRAY | STRING                   |
 
-> **请注意：**
->- 暂不支持转化Parquet 中的 repeated 字段。
->- 在 Parquet 中标注了 DECIMAL 类型的字段中，仅支持转化原始数据类型（physical type）为 INT32, INT64 和 FIXED_LEN_BYTE_ARRAY 的数据。
->- 由于 DolphinDB 不支持无符号类型，所以读取parquet中的UINT_64时若发生溢出，则会取 DolphinDB 中的 NULL 值。
 
-### 3.2 导出
+> **Note:** 
+    - Conversion of the Parquet repeated fields is not supported.
+    - DECIMAL can be used to convert data of the following physical types: INT32, INT64 and FIXED_LEN_BYTE_ARRAY.
+    - DolphinDB does not support unsigned data types. Therefore, in case of UINT_64 overflow when loading a Parquet file, the data will be converted to NULL values in DolphinDB.
 
-将 DolphinDB 数据导出为 Parquet 文件时，系统根据给出表的结构自动转换到 Parquet 文件支持的类型。
+
+### 3.2 Export
+
+When exporting data from DolphinDB to a Parquet file, the system will convert the data types to Parquet types based on the given table schema.
 
 | Type in DolphinDB | Physical Type in Parquet | Logical Type in Parquet |
 | ----------------- | ------------------------ | ----------------------- |
