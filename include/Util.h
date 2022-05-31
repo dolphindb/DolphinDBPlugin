@@ -23,6 +23,13 @@ using std::istream;
 class ConstantFactory;
 class CodeFactory;
 
+#ifdef NDEBUG
+#define ASSERT(x) do { (void)sizeof(x);} while (0)
+#else
+#include <cassert>
+#define ASSERT(x) assert(x)
+#endif
+
 class Util{
 public:
 	static string HOME_DIR;

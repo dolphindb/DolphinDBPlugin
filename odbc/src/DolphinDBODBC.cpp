@@ -5,33 +5,14 @@
  *      Author: xinjing.zhou
  */
 #include "DolphinDBODBC.h"
-#include "Util.h"
-#ifndef LINUX
-#include <windows.h>
-#endif
-#include <sql.h>
-#include <sqlext.h>
-#include <cassert>
-#include <climits>
-#include <cstdio>
-#include <iostream>
-#include <locale>
-#include <map>
 
-#include <vector>
-#include "cvt.h"
-#include "nanodbc/nanodbc.h"
-
-#include <fstream>
-#include <iostream>
-
-std::ifstream typetran;
-std::string typetranlog = "./plugins/odbc/typetran.txt";
+// std::ifstream typetran;
+// std::string typetranlog = "./plugins/odbc/typetran.txt";
 
 using namespace std;
 
 static void odbcConnectionOnClose(Heap* heap, vector<ConstantSP>& args) {
-  nanodbc::connection* cp = (nanodbc::connection*)(args[0]->getLong());
+  OdbcConnection* cp = (OdbcConnection*)(args[0]->getLong());
   if (cp != nullptr) {
     delete cp;
     args[0]->setLong(0);
@@ -146,8 +127,20 @@ static ConstantSP odbcGetConnection(Heap* heap, vector<ConstantSP>& args,
                                     const string& funcName) {
   if (args[0]->getType() == DT_STRING) {
     u16string connStr = utf8_to_utf16(args[0]->getString());
+    string dataBaseType;
+    if(args.size() >= 2){
+      if(args[1]->getType() != DT_STRING && args[1]->getForm() != DF_SCALAR)
+        throw IllegalArgumentException(
+            funcName,
+            "DataBaseType must be a string scalar. ");
+      dataBaseType = args[1]->getString();
+      if(dataBaseType != "PostgreSQL" && dataBaseType != "MYSQL" && dataBaseType != "SQLServer")
+        throw IllegalArgumentException(
+            funcName,
+            "DataBaseType must be PostgreSQL, SQLServer, or MYSQL. ");
+    }
     try {
-      unique_ptr<nanodbc::connection> cup(new nanodbc::connection(connStr));
+      unique_ptr<OdbcConnection> cup(new OdbcConnection(nanodbc::connection(connStr), dataBaseType));
       const char* fmt = "odbc connection to [%s]";
       vector<char> descBuf(connStr.size() + strlen(fmt));
       sprintf(descBuf.data(), fmt, connStr.c_str());
@@ -248,7 +241,7 @@ ConstantSP odbcClose(Heap* heap, vector<ConstantSP>& args) {
         "Unknown argument type, must be an odbc connection handle");
   }
   ConstantSP csp = odbcGetConnection(heap, args, "odbc::close");
-  nanodbc::connection* cp = (nanodbc::connection*)(csp->getLong());
+  nanodbc::connection* cp = ((OdbcConnection*)csp->getLong())->getConnection();
   cp->disconnect();
   cp->deallocate();
   return Util::createConstant(DT_VOID);
@@ -256,7 +249,7 @@ ConstantSP odbcClose(Heap* heap, vector<ConstantSP>& args) {
 
 ConstantSP odbcConnect(Heap* heap, vector<ConstantSP>& args) {
   assert(heap);
-  assert(args.size() == 1);
+  assert(args.size() <= 2);
   if (args[0]->getType() != DT_STRING) {
     throw IllegalArgumentException(
         "odbc::connect",
@@ -289,7 +282,7 @@ ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args) {
 
   u16string querySql = utf8_to_utf16(args[1]->getString());
   ConstantSP csp = odbcGetConnection(heap, args, "odbc::query");
-  nanodbc::connection* cp = (nanodbc::connection*)(csp->getLong());
+  nanodbc::connection* cp = ((OdbcConnection*)csp->getLong())->getConnection();
   
   nanodbc::result results;
   nanodbc::statement hstmt;
@@ -298,8 +291,8 @@ ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args) {
 
   } catch (const runtime_error& e) {
     const char* fmt = "Executed query [%s]: %s";
-    vector<char> errorMsgBuf(querySql.size() + strlen(e.what()) + strlen(fmt));
-    sprintf(errorMsgBuf.data(), fmt, querySql.c_str(), e.what());
+    vector<char> errorMsgBuf(args[1]->getString().size() + strlen(e.what()) + strlen(fmt));
+    sprintf(errorMsgBuf.data(), fmt, args[1]->getString().c_str(), e.what());
     throw TableRuntimeException(errorMsgBuf.data());
   }
 
@@ -616,7 +609,7 @@ ConstantSP odbcExecute(Heap* heap, vector<ConstantSP>& args) {
 
   u16string querySql = utf8_to_utf16(args[1]->getString());
   ConstantSP csp = odbcGetConnection(heap, args, "odbc::query");
-  nanodbc::connection* cp = (nanodbc::connection*)(csp->getLong());
+  nanodbc::connection* cp = ((OdbcConnection*)csp->getLong())->getConnection();
 
   try {
     nanodbc::just_execute(*cp, querySql);
@@ -630,44 +623,16 @@ ConstantSP odbcExecute(Heap* heap, vector<ConstantSP>& args) {
   return Util::createConstant(DT_VOID);
 }
 
-string sqltypename(DATA_TYPE t) {
-  enum DATA_TYPE {
-    DT_VOID,
-    DT_BOOL,
-    DT_CHAR,
-    DT_SHORT,
-    DT_INT,
-    DT_LONG,
-    DT_DATE,
-    DT_MONTH,
-    DT_TIME,
-    DT_MINUTE,
-    DT_SECOND,
-    DT_DATETIME,
-    DT_TIMESTAMP,
-    DT_NANOTIME,
-    DT_NANOTIMESTAMP,
-    DT_FLOAT,
-    DT_DOUBLE,
-    DT_SYMBOL,
-    DT_STRING,
-    DT_UUID,
-    DT_FUNCTIONDEF,
-    DT_HANDLE,
-    DT_CODE,
-    DT_DATASOURCE,
-    DT_RESOURCE,
-    DT_ANY,
-    DT_COMPRESS,
-    DT_DICTIONARY,
-    DT_DATEHOUR,
-    DT_DATEMINUTE,
-    DT_OBJECT
-  };
+#define TO_STRING(s) #s
+
+string sqltypename(DATA_TYPE t, string datebaseType) {
 
   switch (t) {
     case DT_BOOL:
-      return "bit";
+      if (datebaseType == "PostgreSQL")
+        return "boolean";
+      else
+        return "bit";
       break;
     case DT_CHAR:
       return "char(1)";
@@ -697,23 +662,35 @@ string sqltypename(DATA_TYPE t) {
       return "time";
       break;
     case DT_DATETIME:
-      return "datetime";
+      if(datebaseType == "PostgreSQL")
+        return "timestamp";
+      else
+        return "datetime";
       break;
 
     case DT_TIMESTAMP:
-      return "datetime";
+      if(datebaseType == "PostgreSQL")
+        return "timestamp";
+      else
+        return "datetime";
       break;
     case DT_NANOTIME:
       return "time";
       break;
     case DT_NANOTIMESTAMP:
-      return "datetime";
+      if(datebaseType == "PostgreSQL")
+        return "timestamp";
+      else
+        return "datetime";
       break;
     case DT_FLOAT:
       return "float";
       break;
     case DT_DOUBLE:
-      return "double";
+      if(datebaseType == "PostgreSQL")
+        return "double precision";
+      else 
+        return "double";
       break;
     case DT_SYMBOL:
       return "varchar(255)";
@@ -723,53 +700,27 @@ string sqltypename(DATA_TYPE t) {
       break;
 
     default:
-      break;
+      throw RuntimeException("The data type " + Util::getDataTypeString(t) +" of dolphindb is not supported. ");
   }
-  return "";
 }
 
-string getvaluestr(ConstantSP p, DATA_TYPE t) {
-  enum DATA_TYPE {
-    DT_VOID,
-    DT_BOOL,
-    DT_CHAR,
-    DT_SHORT,
-    DT_INT,
-    DT_LONG,
-    DT_DATE,
-    DT_MONTH,
-    DT_TIME,
-    DT_MINUTE,
-    DT_SECOND,
-    DT_DATETIME,
-    DT_TIMESTAMP,
-    DT_NANOTIME,
-    DT_NANOTIMESTAMP,
-    DT_FLOAT,
-    DT_DOUBLE,
-    DT_SYMBOL,
-    DT_STRING,
-    DT_UUID,
-    DT_FUNCTIONDEF,
-    DT_HANDLE,
-    DT_CODE,
-    DT_DATASOURCE,
-    DT_RESOURCE,
-    DT_ANY,
-    DT_COMPRESS,
-    DT_DICTIONARY,
-    DT_DATEHOUR,
-    DT_DATEMINUTE,
-    DT_OBJECT
-  };
+string getvaluestr(ConstantSP p, DATA_TYPE t, string databaseType) {  
   if (p->isNull()) return "null";
   string s;
   switch (t) {
     case DT_BOOL:
-      if (p->getBool())
-        return "1";
-      else
-        return "0";
+      if(databaseType == "PostgreSQL"){
+        if (p->getBool())
+          return "true";
+        else
+          return "false";
+      }
+      else{
+        if (p->getBool())
+          return "1";
+        else
+          return "0";
+      }
 
       break;
     case DT_CHAR:
@@ -859,11 +810,23 @@ string getvaluestr(ConstantSP p, DATA_TYPE t) {
     case DT_SYMBOL:
     case DT_STRING:
       s+="\'";
-      for(auto i:p->getString())
+      if (databaseType == "PostgreSQL")
       {
-        if(i=='\\' || i=='\'')
-          s+="\\";
-        s+=i;
+        for (auto i : p->getString())
+        {
+          if (i == '\'')
+            s += "\'";
+          s += i;
+        }
+      }
+      else
+      {
+        for (auto i : p->getString())
+        {
+          if (i == '\\' || i == '\'')
+            s += "\\";
+          s += i;
+        }
       }
       s+="\'";
       return s;
@@ -884,7 +847,7 @@ ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args) {
   assert(args.size() >= 2);
 
   ConstantSP csp = odbcGetConnection(heap, args, "odbc::query");
-  nanodbc::connection* cp = (nanodbc::connection*)(csp->getLong());
+  nanodbc::transaction cp(*(((OdbcConnection*)csp->getLong())->getConnection()));
   TableSP t = args[1];
   string tablename = args[2]->getString();
   bool flag = true;
@@ -892,44 +855,11 @@ ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args) {
   bool insertIgnore = false;
   if (args.size() > 4) insertIgnore = args[4]->getBool();
 
-  std::map<DATA_TYPE, string> transmap;
-  for (int i = 0; i < 30; i++) {
-    transmap[(DATA_TYPE)i] = sqltypename((DATA_TYPE)i);
-  }
-  if (args.size() > 5) {
-    std::string dsn;
-    dsn = args[5]->getString();
-    if (insertIgnore && (dsn != "" || dsn != "MySQL"))
+  string databaseType = ((OdbcConnection*)csp->getLong())->getDataBaseType();
+  if (insertIgnore && (databaseType != "" || databaseType != "MySQL"))
       throw IllegalArgumentException("odbc::append",
                                      "insert ignore can only use in MySQL");
 
-
-
-    typetran.open(typetranlog);
-    if (!typetran) throw "The path or file does not exist";
-
-
-
-    string now;
-    while (getline(typetran, now)) {
-      if (now.find(dsn) != now.npos) break;
-    }
-
-    while (getline(typetran, now)) {
-      if (now.find("[") != now.npos && now.find("]") != now.npos) break;
-      if (now.find("=") == now.npos) break;
-      int p = now.find("=");
-      string l = now.substr(0, p);
-      string r = now.substr(p + 1, now.size() - p - 1);
-      l.erase(0, l.find_first_not_of(" "));
-      l.erase(l.find_last_not_of(" ") + 1);
-      r.erase(0, r.find_first_not_of(" "));
-      r.erase(r.find_last_not_of(" ") + 1);
-
-      transmap[Util::getDataType(l)] = r;
-    }
-    typetran.close();
-  }
   int inrows = 3000;
   vector<VectorSP> cols;
   vector<DATA_TYPE> coltype;
@@ -944,15 +874,15 @@ ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args) {
   if (flag) {
     string createstring = "create table " + tablename + "(";
     for (int i = 0; i < t->columns(); i++) {
-      createstring += t->getColumnName(i) + " " + transmap[coltype[i]];
+      createstring += t->getColumnName(i) + " " + sqltypename(coltype[i], databaseType);
       if (i < t->columns() - 1) createstring += ",";
     }
     createstring += ")";
 
     querySql = utf8_to_utf16(createstring);
     try {
-      nanodbc::just_execute(*cp, querySql);
-    } catch (const runtime_error& e) {
+      nanodbc::just_execute(cp, querySql);
+    } catch (const exception& e) {
       const char* fmt = "Executed query [%s]: %s";
       vector<char> errorMsgBuf(querySql.size() + strlen(e.what()) +
                                strlen(fmt));
@@ -970,7 +900,7 @@ ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args) {
   for (int i = 0; i < rows; i++) {
     string insertstring = "(";
     for (int j = 0; j < t->columns(); j++) {
-      insertstring += getvaluestr(cols[j]->get(i), coltype[j]);
+      insertstring += getvaluestr(cols[j]->get(i), coltype[j], databaseType);
       if (j < t->columns() - 1) insertstring += ",";
     }
     insertstring += ")";
@@ -983,7 +913,7 @@ ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args) {
       q += ";";
       u16string querySql = utf8_to_utf16(q);
       try {
-        nanodbc::just_execute(*cp, querySql);
+        nanodbc::just_execute(cp, querySql);
       } catch (const runtime_error& e) {
         const char* fmt = "Executed query [%s]: %s";
         vector<char> errorMsgBuf(querySql.size() + strlen(e.what()) +
@@ -1001,7 +931,7 @@ ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args) {
     q[q.length() - 1] = ';';
     querySql = utf8_to_utf16(q);
     try {
-      nanodbc::just_execute(*cp, querySql);
+      nanodbc::just_execute(cp, querySql);
     } catch (const runtime_error& e) {
       const char* fmt = "Executed query [%s]: %s";
       vector<char> errorMsgBuf(querySql.size() + strlen(e.what()) +
@@ -1009,6 +939,14 @@ ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args) {
       sprintf(errorMsgBuf.data(), fmt, querySql.c_str(), e.what());
       throw TableRuntimeException(errorMsgBuf.data());
     }
+  }
+  try{
+    cp.commit();
+  }catch(const runtime_error &e){
+      const char* fmt = "Failed to append data : %s";
+      vector<char> errorMsgBuf(strlen(e.what()) + strlen(fmt));
+      sprintf(errorMsgBuf.data(), fmt, e.what());
+      throw TableRuntimeException(errorMsgBuf.data());
   }
   return Util::createConstant(DT_VOID);
 }

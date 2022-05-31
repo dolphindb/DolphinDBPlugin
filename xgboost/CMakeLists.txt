@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 
 project(dolphindb_xgboost_plugin)
+add_definitions(-DLOCKFREE_SYMBASE)
 
 if (WIN32 OR MINGW)
     set (platform_macro "-DWINDOWS")

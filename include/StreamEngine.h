@@ -164,6 +164,9 @@ public:
     ConstantSP getWindow(INDEX colStart, int colLength, INDEX rowStart, int rowLength) const override;
     ConstantSP getMember(const ConstantSP &key) const override;
     long long getSnapshotMessageId() const { return snapshotMessageId_;}
+    virtual bool readPermitted(const AuthenticatedUserSP& user) const;
+    virtual bool writePermitted(const AuthenticatedUserSP& user) const;
+    virtual bool isJoinEngine() {return false;}
 
 protected:
     const string engineType_;

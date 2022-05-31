@@ -1,5 +1,5 @@
 CC=D:\x86_64-8.1.0-posix-seh-rt_v6-rev0\mingw64\bin\g++
-CFLAGS=-DWINDOWS -O2 -std=c++11 -Wall
+CFLAGS=-DWINDOWS -O2 -std=c++11 -Wall -DLOCKFREE_SYMBASE
 XGBOOST_DIR=xgboost_static/lib
 INCLUDES=-I../include -Ixgboost_static/include -Iinclude
 

@@ -54,11 +54,7 @@ void AppendTable::run() {
                     ((FunctionDefSP)handle_)->call(heap_, args);
                 }
             }
-            catch (TraceableException &exception) {
-                LOG_ERR(exception.what());
-                continue;
-            }
-            catch(Exception &exception){
+            catch (exception &exception) {
                 LOG_ERR(exception.what());
                 continue;
             }

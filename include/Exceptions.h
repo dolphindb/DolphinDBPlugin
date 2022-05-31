@@ -223,6 +223,30 @@ private:
 	const string errMsg_;
 };
 
+class DataNodeNotReadyException: public TraceableException{
+public:
+    DataNodeNotReadyException(const string& errMsg) : errMsg_("<DataNodeNotReady>" + errMsg){}
+    virtual const char* what() const throw(){
+        return errMsg_.c_str();
+    }
+    virtual ~DataNodeNotReadyException() throw(){}
+
+private:
+    const string errMsg_;
+};
+
+class NoPrivilegeException: public TraceableException{
+public:
+	NoPrivilegeException(const string& errMsg, bool notAuthenticated) : errMsg_((notAuthenticated ? "<NotAuthenticated>" : "<NoPrivilege>") + errMsg){}
+    virtual const char* what() const throw(){
+        return errMsg_.c_str();
+    }
+    virtual ~NoPrivilegeException() throw(){}
+
+private:
+    const string errMsg_;
+};
+
 class UserException: public TraceableException{
 public:
 	UserException(const string exceptionType, const string& msg) : exceptionType_(exceptionType), msg_(msg){}

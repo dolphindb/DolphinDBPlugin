@@ -72,6 +72,7 @@ class DomainSitePool;
 class DomainPartition;
 class Domain;
 class PartitionGuard;
+class Function;
 struct TableUpdate;
 struct TableUpdateSizer;
 struct TableUpdateUrgency;
@@ -82,6 +83,9 @@ class IoTransaction;
 class Decoder;
 class VolumeMapper;
 class SystemHandle;
+struct InferredType;
+struct FunctionSignature;
+class Transaction;
 
 typedef SmartPointer<AuthenticatedUser> AuthenticatedUserSP;
 typedef SmartPointer<ByteArrayCodeBuffer> ByteArrayCodeBufferSP;
@@ -118,6 +122,9 @@ typedef SmartPointer<DistributedCall> DistributedCallSP;
 typedef SmartPointer<JobProperty> JobPropertySP;
 typedef SmartPointer<VolumeMapper> VolumeMapperSP;
 typedef SmartPointer<Decoder> DecoderSP;
+typedef SmartPointer<InferredType> InferredTypeSP;
+typedef SmartPointer<FunctionSignature> FunctionSignatureSP;
+typedef SmartPointer<Transaction> TransactionSP;
 
 typedef ConstantSP(*OptrFunc)(const ConstantSP&,const ConstantSP&);
 typedef ConstantSP(*SysFunc)(Heap* heap,vector<ConstantSP>& arguments);
@@ -333,8 +340,8 @@ class SymbolBase{
 public:
 	SymbolBase(bool supportOrder = false);
 	SymbolBase(const vector<DolphinString>& symbols, bool supportOrder = false);
-	SymbolBase(const string& symbolFile, bool snapshot = false, bool supportOrder=false);
-	SymbolBase(const string& symbolFile, const DataInputStreamSP& in, bool snapshot = false);
+	SymbolBase(const string& symbolFile, bool snapshot = false, bool supportOrder=false, bool readOnly = false);
+	SymbolBase(const string& symbolFile, const DataInputStreamSP& in, bool snapshot = false, bool readOnly = false);
 	SymbolBase* copy();
 	bool saveSymbolBase(string& errMsg, bool sync = false);
 	IO_ERR serialize(int offset, int length, Buffer& buf);
@@ -411,6 +418,7 @@ private:
 	deque<int> sortedIndices_;
 	mutable Mutex writeMutex_;
 	mutable Mutex versionMutex_;
+    bool readOnly_ = false;
 };
 
 class SymbolBaseManager{
@@ -455,19 +463,32 @@ namespace std {
 	};
 }
 
+struct FunctionSignature {
+	InferredTypeSP returnTy;
+	vector<InferredTypeSP> paramTys;
+	vector<int> missingParams;
+	FunctionDef* func;
+	void* jitFunc;
+	Function* funcObj;
+
+	FunctionSignature() : func(0), jitFunc(0), funcObj(0){}
+};
+
 struct InferredType {
-	DATA_FORM form;
-	DATA_TYPE type;
-	DATA_CATEGORY category;
-	InferredType(DATA_FORM form = DF_SCALAR, DATA_TYPE type = DT_VOID, DATA_CATEGORY category = NOTHING):
-		form(form), type(type), category(category) {}
-	bool operator ==(const InferredType & rhs) const {
-		return form == rhs.form && type == rhs.type && category == rhs.category;
-	}
-	bool operator !=(const InferredType & rhs) const {
-		return !operator==(rhs);
-	}
-	string getString();
+    DATA_FORM form;
+    DATA_TYPE type;
+    DATA_CATEGORY category;
+    FunctionSignatureSP signature;
+
+    InferredType(DATA_FORM form = DF_SCALAR, DATA_TYPE type = DT_VOID, DATA_CATEGORY category = NOTHING):
+        form(form), type(type), category(category){}
+    bool operator ==(const InferredType & rhs) const {
+        return form == rhs.form && type == rhs.type && category == rhs.category;
+    }
+    bool operator !=(const InferredType & rhs) const {
+        return !operator==(rhs);
+    }
+    string getString();
 };
 
 namespace std {
@@ -672,6 +693,14 @@ public:
 	virtual bool set(INDEX index, const ConstantSP& value){return false;}
 	virtual bool set(INDEX column, INDEX row, const ConstantSP& value){return false;}
 	virtual bool set(const ConstantSP& index, const ConstantSP& value) {return false;}
+	/**
+	 * Replace the cell value specified by the index with the new value specified by valueIndex.
+	 *
+	 * index: scalar or vector. Make sure all indices in are valid, i.e. no less than zero and less than the size of the value.
+	 * value: vector.
+	 * valueIndex: index vector to filter value. Make sure all indices in the vector are valid, i.e. no less than zero and less than the size of the value.
+	 *
+	 */
 	virtual bool set(const ConstantSP& index, const ConstantSP& value, const ConstantSP& valueIndex) {return false;}
 	virtual bool setNonNull(const ConstantSP& index, const ConstantSP& value) {return false;}
 	virtual bool setItem(INDEX index, const ConstantSP& value){return set(index,value);}
@@ -767,8 +796,20 @@ public:
 	virtual bool remove(const ConstantSP& index){return false;}
 	virtual bool append(const ConstantSP& value){return append(value, 0, value->size());}
 	virtual bool append(const ConstantSP& value, INDEX count){return append(value, 0, count);}
+	/**
+	 * Append the value of the given vector at the specified range to the end of the current vector.
+	 *
+	 * start:
+	 * count:
+	 */
 	virtual bool append(const ConstantSP& value, INDEX start, INDEX count){return false;}
-	virtual bool append(const ConstantSP& value, const ConstantSP& index){return false;}
+	/**
+	 * Append the value specified by the index to the end of the vector.
+	 *
+	 * value: vector.
+	 * index: index vector. Make sure all indices in the vector are valid, i.e. no less than zero and less than the size of the value.
+	 */
+	virtual bool append(const ConstantSP& value, const ConstantSP& index){return append(value->get(index), 0, index->size());}
 	virtual bool appendBool(const char* buf, int len){return false;}
 	virtual bool appendChar(const char* buf, int len){return false;}
 	virtual bool appendShort(const short* buf, int len){return false;}
@@ -793,7 +834,23 @@ public:
 	virtual ConstantSP getWindow(INDEX colStart, int colLength, INDEX rowStart, int rowLength) const {return getSubVector(rowStart,rowLength);}
 	virtual ConstantSP getSubVector(INDEX start, INDEX length) const { throw RuntimeException("getSubVector method not supported");}
 	virtual ConstantSP getSubVector(INDEX start, INDEX length, INDEX capacity) const { return getSubVector(start, length);}
+	/**
+	 * Fill the value of the vector at the specified range by the value of the given vector.
+	 *
+	 * start: the starting position of the current vector to fill.
+	 * length: the number of cells of the current vector to fill.
+	 * value: vector
+	 */
 	virtual void fill(INDEX start, INDEX length, const ConstantSP& value)=0;
+	/**
+	 * Fill the value of the vector at the specified range by the value of the given vector at the specified index.
+	 *
+	 * start: the starting position of the current vector to fill.
+	 * length: the number of cells of the current vector to fill.
+	 * value: vector
+	 * index: index vector. Make sure all indices in the vector are valid, i.e. no less than zero and less than the size of the value.
+	 */
+	virtual void fill(INDEX start, INDEX length, const ConstantSP& value, const ConstantSP& index) { fill(start, length, value->get(index));}
 	virtual void next(INDEX steps)=0;
 	virtual void prev(INDEX steps)=0;
 	virtual void reverse()=0;
@@ -1139,7 +1196,7 @@ public:
 	virtual void release() const {}
 	virtual void checkout() const {}
 	virtual TableSP getSegment(Heap* heap, const DomainPartitionSP& partition, PartitionGuard* guard = 0) { throw RuntimeException("Table::getSegment() not supported");}
-	virtual TableSP getSegment(Heap* heap, const DomainPartitionSP& partition, vector<ObjectSP>& filters, const vector<string>& colNames, PartitionGuard* guard = 0) { throw RuntimeException("Table::getSegment() not supported");}
+	virtual TableSP getSegment(Heap* heap, const DomainPartitionSP& partition, vector<ObjectSP>& filters, const vector<string>& colNames, PartitionGuard* guard = 0, INDEX limit = 0, bool byKey=false) { throw RuntimeException("Table::getSegment() not supported");}
 	virtual const TableSP& getEmptySegment() const { throw RuntimeException("Table::getEmptySegment() not supported");}
 	virtual bool segmentExists(const DomainPartitionSP& partition) const { throw RuntimeException("Table::segmentExists() not supported");}
 	virtual long long getAllocatedMemory() const = 0;
@@ -1190,7 +1247,7 @@ public:
      *
      * removedGroupBys: an output parameter. The groupBy objects for sortkeys. These objects are removed from the input groupBy.
      *
-     * groupedFilters: an output parameter£¬ the filter for each tablet
+     * groupedFilters: an output parameterï¿½ï¿½ the filter for each tablet
      */
     virtual void groupBySortKeys(vector<string>& groupBy, const ConstantSP& filter, vector<TableSP>& tablets, vector<string>& removedGroupBys, vector<ConstantSP>& groupedFilters){}
 
@@ -1208,6 +1265,17 @@ public:
 	void setAliasTable(bool option);
 	void setExpired(bool option);
 	inline Mutex* getLock() const { return lock_;}
+	virtual bool writePermitted(const AuthenticatedUserSP& user) const { return true; }
+    virtual const string& getPhysicalName() const {return getName();}
+	virtual void setAccessControl(bool option) {
+		if (option) {
+			flag_ |= 16;
+		}
+		else {
+			flag_ &= ~16;
+		}
+	}
+	virtual bool isAccessControl() const { return flag_ & 16; }
 
 private:
 	/*
@@ -1215,6 +1283,7 @@ private:
 	 * BIT1: stream table
 	 * BIT2: alias table
 	 * BIT3: expired
+	 * BIT4: access control or not
 	 */
 	char flag_;
 	char engineType_;
@@ -1326,6 +1395,8 @@ public:
 	inline bool isScalarFunction() const { return extraFlag_ & 16;}
 	inline void setHigherOrderFunction(bool option){ if(option) extraFlag_ |= 32; else extraFlag_ &= ~32;}
 	inline bool isHigherOrderFunction() const { return extraFlag_ & 32;}
+	inline void setArrayAggFunction(bool option){ if(option) extraFlag_ |= 64; else extraFlag_ &= ~64;}
+	inline bool isArrayAggFunction() const { return extraFlag_ & 64;}
 	inline bool variableParamNum() const {	return minParamNum_<maxParamNum_;}
 	inline int getMaxParamCount() const { return maxParamNum_;}
 	inline int getMinParamCount() const {	return minParamNum_;}
@@ -1597,6 +1668,15 @@ public:
 	virtual string getLastErrorMessage() const = 0;
 	virtual void* getPrivateKey() const = 0;
 	virtual void setPrivateKey(void* key) = 0;
+	inline bool getCompressionOption() const { return flag_ & 64;}
+	inline void setCompressionOption(bool option){ if(option) flag_ |= 64; else flag_ &= ~64;}
+	inline int getDepth() const { return (flag_ >> 8) & 7;}
+	inline void setDepth(int depth) { flag_ = (flag_ & ~(7<<8)) | (depth << 8);}
+	inline bool getEnableTransactionStatement() { return flag_ & 2048; }
+	inline void setEanbleTransactionStatement(bool option) { if(option) flag_ |= 2048; else flag_ &= ~2048; }
+	virtual TransactionSP getTransaction() { return transaction_; }
+	virtual void setTransaction(const TransactionSP& transaction) { transaction_ =  transaction; }
+
 
 protected:
 	long long sessionID_;
@@ -1611,7 +1691,22 @@ protected:
 	Guid jobId_;
 	int priority_;
 	int parallelism_;
+	// bit11: enableTransactionStatement
 	int flag_;
+	bool enableTransactionStatement_;
+	TransactionSP transaction_;
+};
+
+class Transaction {
+public:
+	virtual TABLE_TYPE getTableType() = 0;
+	virtual void endTransaction(TransactionSP transaction) = 0;
+	virtual void commit() = 0;
+	virtual void abort() = 0;
+	virtual bool needRetry() = 0;
+	virtual uint64_t getTxnId() const = 0;
+	virtual ~Transaction() {}
+private:
 };
 
 class Heap{
@@ -1753,10 +1848,10 @@ private:
 
 class Domain{
 public:
-	Domain(const string& owner, PARTITION_TYPE partitionType, bool isLocalDomain, DBENGINE_TYPE engineType = DBENGINE_TYPE::OLAP, ATOMIC atomic = ATOMIC::TRANS) : partitionType_(partitionType), isLocalDomain_(isLocalDomain), isExpired_(false),
-			tableIndependentChunk_(false), retentionPeriod_(-1), retentionDimension_(-1), tzOffset_(INT_MIN), key_(false), owner_(owner), engineType_(engineType), atomic_(atomic){}
-	Domain(const string& owner, PARTITION_TYPE partitionType, bool isLocalDomain, const Guid& key, DBENGINE_TYPE engineType = DBENGINE_TYPE::OLAP, ATOMIC atomic = ATOMIC::TRANS) : partitionType_(partitionType), isLocalDomain_(isLocalDomain),
-			isExpired_(false), tableIndependentChunk_(false), retentionPeriod_(-1), retentionDimension_(-1), tzOffset_(INT_MIN), key_(key), owner_(owner), engineType_(engineType), atomic_(atomic){}
+	Domain(const string& owner, PARTITION_TYPE partitionType, bool isLocalDomain, DBENGINE_TYPE engineType = DBENGINE_TYPE::OLAP, ATOMIC atomic = ATOMIC::TRANS, int flag = 0) : partitionType_(partitionType), isLocalDomain_(isLocalDomain), isExpired_(false),
+			tableIndependentChunk_(false), retentionPeriod_(-1), retentionDimension_(-1), hoursToColdVolume_(-1), tzOffset_(INT_MIN), key_(false), owner_(owner), engineType_(engineType), atomic_(atomic), flag_(flag){}
+	Domain(const string& owner, PARTITION_TYPE partitionType, bool isLocalDomain, const Guid& key, DBENGINE_TYPE engineType = DBENGINE_TYPE::OLAP, ATOMIC atomic = ATOMIC::TRANS, int flag = 0) : partitionType_(partitionType), isLocalDomain_(isLocalDomain),
+			isExpired_(false), tableIndependentChunk_(false), retentionPeriod_(-1), retentionDimension_(-1),  hoursToColdVolume_(-1), tzOffset_(INT_MIN), key_(key), owner_(owner), engineType_(engineType), atomic_(atomic), flag_(flag){}
 	virtual ~Domain(){}
 	int getPartitionCount() const { return partitions_.size();}
 	DomainPartitionSP getPartition(int index) const { return partitions_[index];}
@@ -1785,10 +1880,11 @@ public:
 	virtual int getPartitionDimensions() const { return 1;}
 	virtual DomainSP getDimensionalDomain(int dimension) const;
 	virtual DomainSP copy() const = 0;
-	bool addTable(const string& tableName, const string& owner, vector<ColumnDesc>& cols, vector<int>& partitionColumns);
-	bool addTable(const string& tableName, const string& owner, vector<ColumnDesc>& cols, vector<int>& partitionColumns, vector<pair<int, bool>>& sortColumns, DUPLICATE_POLICY rowDuplicatePolicy);
-	bool getTable(const string& tableName, string& owner, vector<ColumnDesc>& cols, vector<int>& partitionColumns) const;
-	bool getTable(const string& tableName, string& owner, vector<ColumnDesc>& cols, vector<int>& partitionColumns, vector<pair<int, bool>>& sortColumns, DUPLICATE_POLICY& rowDuplicatePolicy) const;
+	bool addTable(const string& tableName, const string& owner, const string& physicalIndex, vector<ColumnDesc>& cols, vector<int>& partitionColumns);
+	bool addTable(const string& tableName, const string& owner, const string& physicalIndex, vector<ColumnDesc>& cols, vector<int>& partitionColumns, vector<pair<int, bool>>& sortColumns, DUPLICATE_POLICY rowDuplicatePolicy, const vector<pair<int, FunctionDefSP>>& sortKeyMappingFunction);
+	bool getTable(const string& tableName, string& owner, string& physicalIndex, vector<ColumnDesc>& cols, vector<int>& partitionColumns) const;
+	bool getTable(const string& tableName, string& owner, string& physicalIndex, vector<ColumnDesc>& cols, vector<int>& partitionColumns, vector<pair<int, bool>>& sortColumns, DUPLICATE_POLICY& rowDuplicatePolicy, vector<pair<int, FunctionDefSP>>& sortKeyMappingFunction) const;
+	string getTabletPhysicalIndex(const string& tableName);
 	bool existsTable(const string& tableName);
 	bool removeTable(const string& tableName);
 	bool listTables(vector<string>& tableNames);
@@ -1797,17 +1893,20 @@ public:
 	inline bool isExpired() const { return isExpired_;}
 	inline int getRentionPeriod() const { return retentionPeriod_;}
 	inline int getRentionDimension() const { return retentionDimension_;}
+    inline int getHoursToColdVolume() const {return hoursToColdVolume_;}
 	inline int getTimeZoneOffset() const { return tzOffset_;}
-	void setRentionPeriod(int retentionPeriod, int retentionDimension, int tzOffset);
+	void setRentionPeriod(int retentionPeriod, int retentionDimension, int tzOffset, int hoursToColdVolume);
 	string getOwner() const { return owner_;}
 	bool isOwner(const string& owner) const { return owner == owner_;}
 	void setEngineType(DBENGINE_TYPE type) { engineType_ = type;}
 	DBENGINE_TYPE getEngineType() const { return engineType_;}
 	void setAtomicLevel(ATOMIC atomicLevel) { atomic_ = atomicLevel;}
 	ATOMIC getAtomicLevel() const { return atomic_;}
+	void setSingleTablet(bool option = true){ if(option) flag_ |= 1; else flag_ &= ~1;}
+    bool isSingleTableTablet() const {return flag_ & 1;}
 	void setTableIndependentChunk(bool option) { tableIndependentChunk_ = option;}
 	bool isTableIndependentChunk() const { return tableIndependentChunk_;}
-
+    static string getUniqueIndex(long long id);
 	/*
 	 * The input arguments set1 and set2 must be sorted by the key value of domain partitions. The ranking of key values must be the same as
 	 * the ranking of partition column values when the partition is range-based or value-based.
@@ -1819,6 +1918,13 @@ public:
 	static DomainSP createDomain(const string& owner, PARTITION_TYPE  partitionType, const ConstantSP& scheme);
 	static DomainSP createDomain(const string& owner, PARTITION_TYPE  partitionType, const ConstantSP& scheme, const ConstantSP& sites);
 
+    static int codeDimension(int d, int h){
+        return (h<<8) + (d&0xff);
+    }
+    static void decodeDimension(int c, int& d, int& h){
+        d = c&0xff;
+        h = c>>8;
+    }
 protected:
 	static VectorSP parseSites(const ConstantSP& sites);
 	static ConstantSP formatSites(const vector<DomainPartitionSP>& partitions);
@@ -1828,16 +1934,18 @@ protected:
 protected:
 	struct TableHeader {
 		TableHeader() : rowDuplicatePolicy_(DUPLICATE_POLICY::KEEP_ALL){}
-		TableHeader(const string& owner, vector<ColumnDesc>& tablesType, vector<int>& partitionKeys): rowDuplicatePolicy_(DUPLICATE_POLICY::KEEP_ALL), owner_(owner),
-				tablesType_(tablesType), partitionKeys_(partitionKeys){}
-		TableHeader(const string& owner, vector<ColumnDesc>& tablesType, vector<int>& partitionKeys, vector<pair<int, bool>>& sortKeys,
-				DUPLICATE_POLICY rowDuplicatePolicy): rowDuplicatePolicy_(rowDuplicatePolicy), owner_(owner),
-				tablesType_(tablesType), partitionKeys_(partitionKeys), sortKeys_(sortKeys){}
+		TableHeader(const string& owner, const string& physicalIndex, vector<ColumnDesc>& tablesType, vector<int>& partitionKeys): rowDuplicatePolicy_(DUPLICATE_POLICY::KEEP_ALL), owner_(owner),
+				physicalIndex_(physicalIndex), tablesType_(tablesType), partitionKeys_(partitionKeys){}
+		TableHeader(const string& owner, const string& physicalIndex, vector<ColumnDesc>& tablesType, vector<int>& partitionKeys, vector<pair<int, bool>>& sortKeys,
+				DUPLICATE_POLICY rowDuplicatePolicy,const vector<pair<int, FunctionDefSP>>& sortKeyMappingFunction): rowDuplicatePolicy_(rowDuplicatePolicy), owner_(owner), physicalIndex_(physicalIndex),
+				tablesType_(tablesType), partitionKeys_(partitionKeys), sortKeys_(sortKeys), sortKeyMappingFunction_(sortKeyMappingFunction){}
 		DUPLICATE_POLICY rowDuplicatePolicy_;
 		string owner_;
+		string physicalIndex_;
 		vector<ColumnDesc> tablesType_;
 		vector<int> partitionKeys_;
 		vector<pair<int, bool>> sortKeys_;
+        vector<pair<int, FunctionDefSP>> sortKeyMappingFunction_;
 	};
 	vector<DomainPartitionSP> partitions_;
 	PARTITION_TYPE partitionType_;
@@ -1846,6 +1954,7 @@ protected:
 	bool tableIndependentChunk_;
 	int retentionPeriod_; // in hours
 	int retentionDimension_;
+    int hoursToColdVolume_;
 	int tzOffset_;
 	Guid key_; //the unique identity for this domain
 	string name_;
@@ -1853,6 +1962,7 @@ protected:
 	string owner_;
 	DBENGINE_TYPE engineType_;
 	ATOMIC atomic_;
+    int flag_;
 	SymbolBaseManagerSP symbaseManager_;
 	unordered_map<string, TableHeader> tables_;
 	mutable Mutex mutex_;
@@ -1949,6 +2059,8 @@ public:
 	inline bool isViewMode() const { return viewMode_;}
 	inline bool isCancellable() const {return cancellable_;}
 	inline void setCancellable(bool option){cancellable_ = option;}
+	inline int getDepth() const { return depth_;}
+	inline void setDepth(int depth){ depth_ = depth;}
 	virtual void setLastSuccessfulSite(){}
 	virtual int getLastSite(){return -1;}
 	static ConstantSP mergeDistributedCallResult(vector<DistributedCallSP>& calls);
@@ -1974,6 +2086,7 @@ private:
 	bool cancellable_;
 	bool carryover_ = false;
 	bool callbackMode_ = false;
+	unsigned char depth_ = 0;
 	Heap* heap_;
 	SessionSP session_;
 };
@@ -2045,6 +2158,16 @@ public:
 	virtual IO_ERR code(const VectorSP& vec, bool lsnFlag, const DataOutputStreamSP& out, int& checksum) = 0;
 	virtual IO_ERR decode(const VectorSP& vec, INDEX rowOffset, INDEX skipRows, bool fullLoad, int checksum, const DataInputStreamSP& in,
 			long long byteSize, long long byteOffset, INDEX& postRows, INDEX& postRowOffset, long long& postByteOffset, long long& lsn) = 0;
+	/**
+	 * Calculate the CRC32 checksum of the first given number of rows of the decompressed vector.
+	 *
+	 * in: the input data stream. The cursor must be pointed to the first row of the vector. If the input column file has a header,
+	 *     the pointer must be after the header.
+	 * type: the data type of the column.
+	 * rows: the number of rows to calculate
+	 * symbase: it is must be provided if the data type is SYMBOL or SYMBOL[].
+	 */
+	virtual int checksum(const DataInputStreamSP& in, DATA_TYPE type, INDEX rows, const SymbolBaseSP& symbase = nullptr) = 0;
 	inline int getID() const {return id_;}
 	inline bool isAppendable() const {return appendable_;}
 	inline bool codeSymbolAsString() const { return codeSymbolAsString_;}
@@ -2102,6 +2225,8 @@ public:
 			const string& partitionColName, vector<string>& secPartitionColNames, IoTransaction* tran, int compressionMode = 0);
 	static Table* loadTable(Session* session, const string& directory, const string& tableName, const SymbolBaseManagerSP& symbaseManager, const DomainSP& domain, const ConstantSP& partitions, TABLE_TYPE tableType, bool memoryMode);
 	static Table* loadTable(Session* session, SystemHandle* db, const string& tableName, const ConstantSP& partitions, TABLE_TYPE tableType, bool memoryMode);
+	// This function will load data from both cacheEngine and disk
+	static Table* loadTable(const string& tableName, const string& physicalDir, const Guid& chunkID, const string& chunkPath, const vector<ColumnDesc>& colDescs, INDEX startRows, INDEX endRows);
 	static void removeTable(SystemHandle* db, const string& tableName);
 	static SystemHandle* openDatabase(const string& directory, const DomainSP& localDomain);
 	static bool saveDatabase(SystemHandle* db);
@@ -2128,12 +2253,12 @@ public:
 	static long long loadColumn(const string& colFile, long long fileOffset, bool& isLittleEndian, char& compressType, int devId, const SymbolBaseSP& symbase, INDEX skipRows, INDEX rows, const VectorSP& col, INDEX& rowOffset);
 	static Vector* loadTextVector(bool includeHeader, DATA_TYPE type, const string& path);
 	static long long saveColumn(const VectorSP& col, const string& colFile, int devId, INDEX existingTableSize, bool chunkNode, bool append, int compressionMode, IoTransaction* tran = NULL, long long lsn = -1);
-	static bool saveTableHeader(const string& owner, const vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices, long long rows, const string& tableFile, IoTransaction* tran);
-	static bool saveTableHeader(const string& owner, const vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices, vector<pair<int, bool>>& sortKeys,
+	static bool saveTableHeader(const string& owner, const string& physicalIndex, const vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices, long long rows, const string& tableFile, IoTransaction* tran);
+	static bool saveTableHeader(const string& owner, const string& physicalIndex, const vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices, vector<pair<int, bool>>& sortKeys,
 			DUPLICATE_POLICY rowDuplicatePolicy, long long rows, const string& tableFile, IoTransaction* tran);
-	static bool loadTableHeader(const DataInputStreamSP& in, string& owner, vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices);
-	static bool loadTableHeader(const DataInputStreamSP& in, string& owner, vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices,
-			vector<pair<int, bool>>& sortKeys, DUPLICATE_POLICY& rowDuplicatePolicy);
+	static bool loadTableHeader(const DataInputStreamSP& in, string& owner, string& physicalIndex, vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices, DBENGINE_TYPE engineType);
+	static bool loadTableHeader(const DataInputStreamSP& in, string& owner, string& physicalIndex, vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices,
+			vector<pair<int, bool>>& sortKeys, DUPLICATE_POLICY& rowDuplicatePolicy, DBENGINE_TYPE engineType, vector<std::pair<int, FunctionDefSP>>& sortKeyMappingFunction);
 	static void removeBasicTable(const string& directory, const string& tableName);
 	static TableSP createEmptyTableFromSchema(const TableSP& schema);
 	static long long truncateColumnByLSN(const string& colFile, int devId, long long expectedLSN, bool sync=true);
@@ -2159,7 +2284,7 @@ public:
 	static int getMappedDeviceId(const string& path);
 	static void setVolumeMapper(const VolumeMapperSP& volumeMapper) { volumeMapper_ = volumeMapper;}
 	static unsigned int checksum(const DataInputStreamSP& in, long long offset, long long length);
-
+    static long long getColumnLeastLSN(const string& colFile);
 private:
 	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseManagerSP& symbaseManager,	const SymbolBaseSP& symbase,
 			int rows, long long& postFileOffset, INDEX& rowOffset, bool& isLittleEndian, char& compressType);

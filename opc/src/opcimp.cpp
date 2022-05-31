@@ -496,7 +496,8 @@ STDMETHODIMP CAsynchDataCallback::OnDataChange(DWORD Transid, OPCHANDLE grphandl
     IAsynchDataCallback *usrHandler = callbacksGroup.getUsrAsynchHandler();
     if (usrHandler) {
         map<ItemID, OPCItemData *> dataChanges;
-        updateOPCData(dataChanges, count, clienthandles, values, quality, time, errors);
+        vector<SmartPointer<OPCItemData>> itemStoreVec;
+        updateOPCData(dataChanges, count, clienthandles, values, quality, time, errors, itemStoreVec);
         usrHandler->OnDataChange(callbacksGroup, dataChanges);
     }
     return S_OK;
