@@ -1,5 +1,23 @@
 #include "hdf5_plugin.h"
 
+class InitHdf5Filter{
+public: 
+    InitHdf5Filter(){
+        try{
+            char *version, *date;
+            int r = register_blosc(&version, &date);
+            if(r < 0)
+                LOG_ERR("PluginHDF5: Failed to registe blosc filter. ");
+            else
+                LOG_INFO("PluginHDF5: Sucess to registe blosc filter. Blosc version info : " + string(version) + " " + string(date));
+        }catch(exception &e){
+            LOG_ERR(e.what());
+        }
+    }
+};
+
+static InitHdf5Filter initHdf5Filter;
+
 ConstantSP h5ls(const ConstantSP &h5_path)
 {
     if (h5_path->getType() != DT_STRING)
@@ -310,7 +328,7 @@ void h5lsTable(const string &filename, vector<string> &datasetName, vector<strin
         return 0;
     };
 
-    H5Ovisit(file.id(), H5_INDEX_CRT_ORDER, H5_ITER_NATIVE, callback, &datasetTableInfo);
+    H5Ovisit(file.id(), H5_INDEX_CRT_ORDER, H5_ITER_NATIVE, callback, &datasetTableInfo, H5O_INFO_BASIC);
 
     datasetName = std::move(datasetTableInfo.nameVal);
     datasetDims = std::move(datasetTableInfo.dimsVal);
@@ -337,7 +355,7 @@ void h5ls(const string &filename, vector<string> &objsName, vector<string> &objs
         return 0;
     };
 
-    H5Ovisit(file.id(), H5_INDEX_CRT_ORDER, H5_ITER_NATIVE, callback, &nameAndType);
+    H5Ovisit(file.id(), H5_INDEX_CRT_ORDER, H5_ITER_NATIVE, callback, &nameAndType, H5O_INFO_BASIC);
 
     objsName = std::move(nameAndType.nameVal);
     objsType = std::move(nameAndType.typeVal);
@@ -370,6 +388,8 @@ std::string getLayoutColumnType(hdf5_type_layout &layout)
         return "DOUBLE";
     case IS_UNIX_TIME:
         return "TIMESTAMP";
+    case IS_BIT:
+        return "BOOL";
     case IS_COMPOUND:
     case IS_ARRAY:
     default:
@@ -912,6 +932,7 @@ ConstantSP loadHDF5(const hid_t set, const ConstantSP &schema, const size_t star
     case H5T_TIME:
     case H5T_STRING:
     case H5T_ENUM:
+    case H5T_BITFIELD:
         return readSimpleDataset(set, t, tableWithSchema, startRow, rowNum);
     case H5T_COMPOUND:
     case H5T_ARRAY:
@@ -1117,11 +1138,12 @@ ConstantSP loadHDF5Ex(Heap *heap, const SystemHandleSP &db, const string &tableN
 				cols.push_back(ColumnDesc(name, type, extra));
 			}
 
-            if (!DBFileIO::saveTableHeader(owner, cols, partitionColumnIndices, 0, tableFile, NULL))
+            string physicalIndex = tableName;
+            if (!DBFileIO::saveTableHeader(owner, physicalIndex, cols, partitionColumnIndices, 0, tableFile, NULL))
                 throw IOException("Failed to save table header " + tableFile);
             if (!DBFileIO::saveDatabase(db.get()))
                 throw IOException("Failed to save database " + db->getDatabaseDir());
-            db->getDomain()->addTable(tableName, owner, cols, partitionColumnIndices);
+            db->getDomain()->addTable(tableName, owner, physicalIndex, cols, partitionColumnIndices);
             vector<ConstantSP> loadTableArgs = {db, tableName_};
             return heap->currentSession()->getFunctionDef("loadTable")->call(heap, loadTableArgs);
             // return DBFileIO::loadTable(heap->currentSession(), db.get(), tableName, nullSP, SEGTBL, false);
@@ -1495,6 +1517,9 @@ H5ColumnSP TypeColumn::createNewColumn(H5DataType &srcType)
     case IS_UNIX_TIME:
         csp = new UNIX64BitTimestampColumn();
         break;
+    case IS_BIT:
+        csp = new BoolColumn();
+        break;
     default:
         csp = nullptr;
         break;
@@ -1567,6 +1592,9 @@ bool TypeColumn::convertHdf5SimpleType(H5DataType &srcType,
         break;
     case IS_UNIX_TIME:
         cid = Util::isLittleEndian() ? H5T_UNIX_D64LE : H5T_UNIX_D64BE;
+        break;
+    case IS_BIT:
+        cid = H5T_NATIVE_B8;
         break;
     default:
         cid = -1;
@@ -1745,7 +1773,7 @@ template <class src_t>
 void numeric_pack_to_bool(pack_info_t t)
 {
     static_assert(std::is_arithmetic<src_t>::value, "src type is not integer or float");
-    static_assert(std::is_signed<src_t>::value, "src type is not signed");
+    //static_assert(std::is_signed<src_t>::value, "src type is not signed");
 
     char *buf = (char *)t.buffer;
     for (int i = 0; i != t.len; i++)
@@ -2525,6 +2553,68 @@ bool FloatPointNumColumn::compatible(DATA_TYPE destType) const
     }
 }
 
+bool BoolColumn::compatible(DATA_TYPE destType) const
+{
+    switch (destType)
+    {
+    case DT_BOOL:
+    case DT_CHAR:
+    case DT_SHORT:
+    case DT_INT:
+    case DT_LONG:
+    case DT_FLOAT:
+    case DT_DOUBLE:
+        return true;
+    default:
+        return false;
+    }
+}
+
+template <class dest_type>
+void packBoolTo(pack_info_t t)
+{
+    numeric_pack_to_bool<dest_type>(t);
+}
+
+DATA_TYPE BoolColumn::packData(pack_info_t t)
+{
+    switch (destType_)
+    {
+    case DT_BOOL:
+        packBoolTo<bool>(t);
+        return DT_CHAR;
+    case DT_CHAR:
+        packBoolTo<char>(t);
+        return DT_CHAR;
+    case DT_SHORT:
+        packBoolTo<short>(t);
+        return DT_SHORT;
+    case DT_INT:
+        packBoolTo<int>(t);
+        return DT_INT;
+    case DT_LONG:
+        packBoolTo<long long>(t);
+        return DT_LONG;
+    case DT_FLOAT:
+        packBoolTo<float>(t);
+        return DT_FLOAT;
+    case DT_DOUBLE:
+        packBoolTo<double>(t);
+        return DT_DOUBLE;
+    case DT_TIMESTAMP:
+        packBoolTo<long long>(t);
+        return DT_LONG;
+    case DT_NANOTIME:
+        packBoolTo<long long>(t);
+        return DT_LONG;
+    case DT_NANOTIMESTAMP:
+        packBoolTo<long long>(t);
+        return DT_LONG;
+    default:
+        return DT_VOID;
+    }
+}
+
 char *H5Object::getName(hid_t id)
 {
     static char n[30];
@@ -3105,6 +3195,8 @@ int addTypeFlag(hid_t type_id, H5T_class_t type_class)
     }
     case H5T_TIME:
         return IS_UNIX_TIME;
+    case H5T_BITFIELD:
+        return IS_BIT;
     default:
         return -1;
     }

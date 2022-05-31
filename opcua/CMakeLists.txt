@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 project(OPC_UA)
+add_definitions(-DLOCKFREE_SYMBASE)
 if (WIN32 OR MINGW)
     set (platform_macro "-DWINDOWS")
     set (plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginOPCUA_win.txt")

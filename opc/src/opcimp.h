@@ -111,7 +111,7 @@ private:
     string _tagName;
     string _serverName;
 public:
-    explicit OPCClient(std::string& host, int id,std::string server): _host(host), threadId_(id),_serverName(server) {
+    explicit OPCClient(std::string& host, int id,std::string server): _host(host), _serverName(server), threadId_(id) {
         coInit();
         _connected = false;
         group = NULL;
@@ -285,13 +285,14 @@ public:
     * Enter the OPC items data that resulted from an operation
     */
     static void updateOPCData(map<ItemID, OPCItemData *> &opcData, DWORD count, OPCHANDLE * clienthandles,
-                              VARIANT* values, WORD * quality,FILETIME * time, HRESULT * errors){
+                              VARIANT* values, WORD * quality,FILETIME * time, HRESULT * errors, vector<SmartPointer<OPCItemData>> &itemStoreVec){
         // see page 136 - returned arrays may be out of order
         for (unsigned i = 0; i < count; i++){
 
             ItemID itemID = clienthandles[i];
             OPCItemData * data = makeOPCDataItem(values[i], quality[i], time[i], errors[i]);
             opcData[itemID] = data;
+            itemStoreVec.push_back(data);
         }
     }
 };

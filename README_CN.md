@@ -59,7 +59,7 @@ foo,foo,system,1,1,0
 编译需要用到DolphinDB的核心库 libDolphinDB.so 或 libDolphinDB.dll，该核心库实现了[include](./include)目录下声明的类。编译步骤如下（以Linux操作系统上编译为例）：
 ```
 cd demo
-g++ -DLINUX -fPIC -std=c++11 -D_GLIBCXX_USE_CXX11_ABI=0 -c src/Demo.cpp -I../include -o Demo.o
+g++ -DLINUX -fPIC -std=c++11 -D_GLIBCXX_USE_CXX11_ABI=0 -DLOCKFREE_SYMBASE -c src/Demo.cpp -I../include -o Demo.o
 g++ -fPIC -shared -o libPluginDemo.so Demo.o -lDolphinDB -L/home/DolphinDB_Linux64_V1.20.0/server
 ```
 > 请注意： 
@@ -90,5 +90,6 @@ foo
    1. 确保[include](./include)下的头文件和 libDolphinDB.so 或 libDolphinDB.dll 实现保持一致.
    2. 确保用于编译插件的```gcc```版本和编译 libDolphinDB.so 或 libDolphinDB.dll 的版本保持一致，以免出现不同版本的编译器ABI不兼容的问题。
    3. 插件与DolphinDB server在同一个进程中运行，若插件crash，那整个系统就会crash。因此在开发的插件时候要注意完善错误检测机制，除了插件函数所在线程可以抛出异常（server在调用插件函数时俘获了异常），其他线程都必须自己俘获异常，并不得抛出异常。
+   4. 确保宏LOCKFREE_SYMBASE已经添加。
 * 如果编译时出现链接问题（undefined reference），并且包含 std::__cxx11 字样，务必检查用于编译插件的gcc版本（gcc 6.2.0 且有--disable-libstdcxx-dual-abi）。
 

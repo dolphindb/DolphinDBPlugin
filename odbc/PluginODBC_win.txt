@@ -1,0 +1,6 @@
+odbc,libPluginODBC.dll
+odbcQuery,query,system,2,4,0
+odbcConnect,connect,system,1,1,0
+odbcClose,close,system,1,1,0
+odbcExecute,execute,system,2,3,0
+odbcAppend,append,system,3,6,0

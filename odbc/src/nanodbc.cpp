@@ -376,8 +376,8 @@ recent_error(SQLHANDLE handle, SQLSMALLINT handle_type, long& native, std::strin
             (SQLSMALLINT)i,
             sql_state,
             &native_error,
-            0,
-            0,
+            sql_message.data(),
+            (SQLSMALLINT)SQL_MAX_MESSAGE_LENGTH,
             &total_bytes);
 
         if (success(rc) && total_bytes > 0)
@@ -385,18 +385,6 @@ recent_error(SQLHANDLE handle, SQLSMALLINT handle_type, long& native, std::strin
 
         if (rc == SQL_NO_DATA)
             break;
-
-        NANODBC_CALL_RC(
-            NANODBC_FUNC(SQLGetDiagRec),
-            rc,
-            handle_type,
-            handle,
-            (SQLSMALLINT)i,
-            sql_state,
-            &native_error,
-            sql_message.data(),
-            (SQLSMALLINT)sql_message.size(),
-            &total_bytes);
 
         if (!success(rc))
         {
@@ -2755,9 +2743,8 @@ private:
             // nvarchar(max)).
             bool is_blob = false;
 
-            if (sqlsize == 0 || sqlsize > INT_MAX)
+            if (sqlsize == 0)
             {
-                sqlsize = 0;
                 switch (sqltype)
                 {
                 case SQL_CHAR:
@@ -2826,7 +2813,7 @@ private:
             case SQL_CHAR:
             case SQL_VARCHAR:
                 col.ctype_ = sql_ctype<std::string>::value;
-                col.clen_ = (col.sqlsize_ + 1) * sizeof(SQLCHAR);
+                col.clen_ = std::min((col.sqlsize_ + 1) * sizeof(SQLCHAR), (SQLULEN)16384);
                 if (is_blob)
                 {
                     col.clen_ = 0;
@@ -2836,7 +2823,7 @@ private:
             case SQL_WCHAR:
             case SQL_WVARCHAR:
                 col.ctype_ = sql_ctype<wide_string>::value;
-                col.clen_ = (col.sqlsize_ + 1) * sizeof(SQLWCHAR);
+                col.clen_ = std::min((col.sqlsize_ + 1) * sizeof(SQLWCHAR), (SQLULEN)16384);
                 if (is_blob)
                 {
                     col.clen_ = 0;
@@ -2845,15 +2832,15 @@ private:
                 break;
             case SQL_LONGVARCHAR:
                 col.ctype_ = sql_ctype<std::string>::value;
-                col.blob_ = true;
-                col.clen_ = 0;
-                col.sqlsize_ = 0;
+                if (col.sqlsize_ > 131072)  //128KB
+                    col.sqlsize_ = 131072;
+                col.clen_ = (col.sqlsize_ + 1) * sizeof(SQLCHAR);
                 break;
             case SQL_WLONGVARCHAR:
                 col.ctype_ = sql_ctype<wide_string>::value;
-                col.blob_ = true;
-                col.sqlsize_ = 0;
-                col.clen_ = 0;
+                if (col.sqlsize_ > 131072)
+                    col.sqlsize_ = 131072;
+                col.clen_ = (col.sqlsize_ + 1) * sizeof(SQLWCHAR);
                 break;
             case SQL_BINARY:
             case SQL_VARBINARY:

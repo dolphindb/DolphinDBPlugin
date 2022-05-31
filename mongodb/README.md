@@ -214,7 +214,36 @@ schema=table(`item`type`qty as name,`STRING`STRING`INT as type)
 tb2 = mongodb::load(conn, 'dolphindb:US',query,option,schema)
 ```
 
-### 2.3. mongodb::close
+### 2.3 mongodb::aggregate(connection, collcetionName, pipeline, option, [schema])
+
+#### 语法
+
+mongodb::aggregate(connection, collcetionName, pipeline, option, [schema])
+
+#### 参数
+
+* connection: 通过mongodb::connect获得的MongoDB连接句柄。
+* collcetionName: 一个MongoDB中集合的名字。有两种参数模式(`collectionName和"databaseName:collectionName"),第一种会查询由mongodb::connect创建的connection的database，第二种是查询指定database中的collection。
+  采用"databaseName:collectionName"的样式会提供一次对临时数据库的查询，将会访问由mongodb::connect方法创建mongodb连接时设置的数据库或者是当前指定的数据库，
+  上一次的load方法的设置的临时数据库不会影响当前数据库的选择。
+* pipeline: MongoDB据聚合或操作，保留bson格式的json文档，类似:{ "aa" : { "$numberInt" : "13232" } }、{ "datetime" : { "$gt" : {"$date":"2019-02-28T00:00:00.000Z" }} }，类型为string。
+* option: MongoDB查询选项，保留bson格式的json文档，类似:{"limit":123}对查询结果在MongoDB中进行预处理再返回，类型为string。
+* schema: 包含列名和列的数据类型的表。如果我们想要改变由系统自动决定的列的数据类型，需要在schema表中修改数据类型，并且把它作为load函数的一个参数。
+
+#### 详情
+
+将MongoDB的查询结果导入DolphinDB中的内存表。支持的数据类型以及数据转化规则可见用户手册数据类型章节。
+
+#### 例子
+
+```
+conn = mongodb::connect(`localhost, 27017, "", "", `DolphinDB)
+pipeline = "{ \"pipeline\" : [ { \"$project\" : { \"str\" : \"$obj1.str\" } } ] }"
+option="{}"
+mongodb::aggregate(conn, "test1:collnetion1",pipeline,option)
+```
+
+### 2.4 mongodb::close
 
 #### 语法
 

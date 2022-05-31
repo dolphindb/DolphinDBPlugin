@@ -7,6 +7,58 @@
 #include <bson.h>
 #include <mongoc.h>
 
+string getBsonString(bson_type_t type){
+    switch(type){
+        case BSON_TYPE_ARRAY:
+            return "BSON ARRAY";
+        case BSON_TYPE_BINARY:
+            return "BSON BINARY";
+        case BSON_TYPE_BOOL:
+            return "BSON BOOL";
+        case BSON_TYPE_CODE:
+            return "BSON CODE";
+        case BSON_TYPE_CODEWSCOPE:
+            return "BSON CODEWSCOPE";
+        case BSON_TYPE_DATE_TIME:
+            return "BSON DATE_TIME";
+        case BSON_TYPE_DBPOINTER:
+            return "BSON DBPOINTER";
+        case BSON_TYPE_DECIMAL128:
+            return "BSON DECIMAL128";
+        case BSON_TYPE_DOCUMENT:
+            return "BSON DOCUMENT";
+        case BSON_TYPE_DOUBLE:
+            return "BSON DOUBLE";
+        case BSON_TYPE_EOD:
+            return "BSON EOD";
+        case BSON_TYPE_INT32:
+            return "BSON INT32";
+        case BSON_TYPE_INT64:
+            return "BSON INT64";
+        case BSON_TYPE_MAXKEY:
+            return "BSON MAXKEY";
+        case BSON_TYPE_MINKEY:
+            return "BSON MINKEY";
+        case BSON_TYPE_NULL:
+            return "BSON NULL";
+        case BSON_TYPE_OID:
+            return "BSON OID";
+        case BSON_TYPE_REGEX:
+            return "BSON REGEX";
+        case BSON_TYPE_SYMBOL:
+            return "BSON SYMBOL";
+        case BSON_TYPE_TIMESTAMP:
+            return "BSON TIMESTAMP";
+        case BSON_TYPE_UNDEFINED:
+            return "BSON UNDEFINED";
+        case BSON_TYPE_UTF8:
+            return "BSON UTF8";
+        default:
+            return "BSON UNKNOWN";
+    }
+    return "BSON UNKNOWN";
+} 
+
 static bool isMongoInit=false;
 static Mutex lock;
 ConstantSP messageSP(const std::string &s) {
@@ -40,8 +92,8 @@ class mongoConnection{
     int port_=27017;
     Mutex mtx_;
     bool initialized_ = false;
-    TableSP extractLoad(std::string& collection,std::string& condition,std::string& option,TableSP& schema);
-    TableSP load(std::string collection,std::string condition,std::string option,TableSP schema);
+    TableSP extractLoad(std::string& collection,std::string& condition,std::string& option,TableSP& schema, bool aggregate);
+    TableSP load(std::string collection,std::string condition,std::string option,TableSP schema, bool aggregate);
     ~mongoConnection();
 };
 
@@ -66,6 +118,7 @@ mongoConnection::mongoConnection(std::string hostname, int port, std::string use
         lock.lock();
         if(!isMongoInit){
             mongoc_init ();
+            isMongoInit = true;
         }
         lock.unlock();
     }
@@ -162,11 +215,11 @@ ConstantSP mongodbConnect(Heap *heap, vector<ConstantSP> &args) {
 
 ConstantSP mongodbLoad(Heap *heap, vector<ConstantSP> &arguments) {
     auto args = getArgs(arguments, 4);
-    std::string usage = "Usage: load(connection, condition,option).";
+    std::string usage = "Usage: load(connection, condition,option, [schema]).";
     std::string collection,condition,option;
     TableSP schema = nullptr;
     if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "Collection must be a string");
+        throw IllegalArgumentException(__FUNCTION__, usage + "collcetionName must be a string");
     } else {
         collection = args[1]->getString();
     }
@@ -186,7 +239,36 @@ ConstantSP mongodbLoad(Heap *heap, vector<ConstantSP> &arguments) {
         }
         schema = arguments[4];
     }
-    return safeOp(args[0], [&](mongoConnection *conn) { return conn->load(collection,condition,option,schema); });
+    return safeOp(args[0], [&](mongoConnection *conn) { return conn->load(collection,condition,option,schema, false); });
+}
+
+ConstantSP mongodbAggregate(Heap *heap, vector<ConstantSP> &arguments) {
+    auto args = getArgs(arguments, 4);
+    std::string usage = "Usage: aggregate(connection, condition,option, [schema]).";
+    std::string collection,condition,option;
+    TableSP schema = nullptr;
+    if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR) {
+        throw IllegalArgumentException(__FUNCTION__, usage + "collcetionName must be a string");
+    } else {
+        collection = args[1]->getString();
+    }
+    if (args[2]->getType() != DT_STRING || args[2]->getForm() != DF_SCALAR) {
+        throw IllegalArgumentException(__FUNCTION__, usage + "Pipeline must be a string");
+    } else {
+        condition = args[2]->getString();
+    }
+    if (args[3]->getType() != DT_STRING || args[3]->getForm() != DF_SCALAR) {
+        throw IllegalArgumentException(__FUNCTION__, usage + "Option must be a string");
+    } else {
+        option = args[3]->getString();
+    }
+    if (arguments.size()==5&&!arguments[4]->isNothing()) {
+        if (!arguments[4]->isTable()) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "schema must be a table");
+        }
+        schema = arguments[4];
+    }
+    return safeOp(args[0], [&](mongoConnection *conn) { return conn->load(collection,condition,option,schema, true); });
 }
 
 std::wstring stringToWstring(const std::string &strInput,unsigned int uCodePage){
@@ -397,7 +479,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                         break;
                     }
                     default: {
-                        throw IllegalArgumentException(__FUNCTION__, "Mongodb type is not supported");
+                        throw IllegalArgumentException(__FUNCTION__, "The Mongodb " + getBsonString(btype) + " type does not support conversions. ");
                     }
                 }
                 len++;
@@ -621,7 +703,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                 break;
                             }
                             default: {
-                                throw RuntimeException("Mongodb type is not supported");
+                                throw RuntimeException("The Mongodb " + getBsonString(btype) + " type does not support conversions. ");
                             }
                         }
                     }
@@ -1941,7 +2023,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
             index=0;
         }
     }
-     for(int i=0;i<len;++i){
+    for(int i=0;i<len;++i){
         DATA_TYPE type=colType[i];
         VectorSP vec=cols[i];
         char* colBuffer=buffer[i];
@@ -1989,10 +2071,10 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                 throw RuntimeException("Data types are not supported");
             }
         }
-     }
-     for(int i=0;i<len;++i){
-         if(buffer[i]!=NULL)free(buffer[i]);
-     }
+    }
+    for(int i=0;i<len;++i){
+        if(buffer[i]!=NULL)free(buffer[i]);
+    }
     for(auto a:nullMap){
         double tmp[mIndex];
         for(int i=0;i<mIndex;++i)tmp[i]=DBL_NMIN;
@@ -2071,7 +2153,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                         break;
                     }
                     default: {
-                        throw RuntimeException("Mongodb type is not supported");
+                        throw RuntimeException("The Mongodb " + getBsonString(btype) + " type does not support conversions. ");
                     }
                 }
             }
@@ -2089,9 +2171,13 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
             if(colName[i]==colName[j])throw RuntimeException("Column names cannot be the same");
         }
     }
+    bson_error_t queryError;
+    if(mongoc_cursor_error(cursor, &queryError)){
+        throw IllegalArgumentException(__FUNCTION__, string(queryError.message));
+    }
 }
 
-TableSP mongoConnection::extractLoad(std::string &collection,std::string &condition,std::string &option,TableSP &schema){
+TableSP mongoConnection::extractLoad(std::string &collection,std::string &condition,std::string &option,TableSP &schema, bool aggregate){
     bool schemaEx=false;
     vector<std::string> colName;
     vector<DATA_TYPE>  colType;
@@ -2240,7 +2326,7 @@ TableSP mongoConnection::extractLoad(std::string &collection,std::string &condit
                 mmap[colName[i]]=std::vector<std::string>();
             }
             else{
-                throw IllegalArgumentException(__FUNCTION__, "The Type "+vecType->getString(i)+" is not supported");
+                throw IllegalArgumentException(__FUNCTION__, "The Mongodb "+vecType->getString(i)+" type does not support conversions. ");
             }
         }
     }
@@ -2261,9 +2347,9 @@ TableSP mongoConnection::extractLoad(std::string &collection,std::string &condit
         if(dbPtr==NULL){
             throw IllegalArgumentException(__FUNCTION__, "Database name have error");
         }
+        Defer df([=](){mongoc_database_destroy(dbPtr);});
         char **collectionList=mongoc_database_get_collection_names_with_opts(dbPtr,NULL,NULL);
         if(collectionList==NULL){
-            mongoc_database_destroy(dbPtr);
             throw IllegalArgumentException(__FUNCTION__, "Not authorized on database\""+dbTmp+"\" to query data");
         }
         bool flag=false;
@@ -2273,7 +2359,6 @@ TableSP mongoConnection::extractLoad(std::string &collection,std::string &condit
                 break;
             }
         }
-        mongoc_database_destroy(dbPtr);
         if(!flag){
             throw IllegalArgumentException(__FUNCTION__, "The collection does not exist on the given database");
         }
@@ -2299,64 +2384,36 @@ TableSP mongoConnection::extractLoad(std::string &collection,std::string &condit
     if(mcollection==NULL){
         throw IllegalArgumentException(__FUNCTION__, "Connect Mongodb collection faild");
     }
+    Defer df([=](){ mongoc_collection_destroy(mcollection);});
     const char * str=condition.c_str();
     bson_t* bsonQuery=bson_new_from_json((const uint8_t*)str,-1,NULL);
     if(bsonQuery==NULL){
-        mongoc_collection_destroy(mcollection);
         string strTmp="The BSON structure doesn't fit:";
         throw IllegalArgumentException(__FUNCTION__,strTmp +str);
     }
+    Defer df2([=](){bson_destroy(bsonQuery);});
     str=option.c_str();
     bson_t* boption=bson_new_from_json((const uint8_t*)str,-1,NULL);
     if(boption==NULL){
-        mongoc_collection_destroy(mcollection);
-        bson_destroy(bsonQuery);
         string strTmp="The BSON structure doesn't fit:";
         throw IllegalArgumentException(__FUNCTION__, strTmp+str);
     }
-    mongoc_cursor_t* cursor=mongoc_collection_find_with_opts (mcollection,bsonQuery,boption,NULL);
+    mongoc_cursor_t* cursor;
+    if(aggregate)
+        cursor = mongoc_collection_aggregate(mcollection, MONGOC_QUERY_NONE, bsonQuery, boption, NULL);
+    else
+        cursor = mongoc_collection_find_with_opts (mcollection,bsonQuery,boption,NULL);
 
-    try{
-       realLoad(colName,colType,cols,schemaEx,mIndex,buffer,mmap,nullMap,bsonQuery,boption,cursor,mcollection);
-    }
-    catch(IllegalArgumentException& e){
-        bson_destroy(bsonQuery);
-        bson_destroy(boption);
-        mongoc_cursor_destroy(cursor);
-        mongoc_collection_destroy (mcollection);
-        throw e;
-    }
-    catch(RuntimeException& e){
-        bson_destroy(bsonQuery);
-        bson_destroy(boption);
-        mongoc_cursor_destroy(cursor);
-        mongoc_collection_destroy (mcollection);
-        throw e;
-    }
-
+    Defer df3([=](){mongoc_cursor_destroy(cursor);});
+    realLoad(colName,colType,cols,schemaEx,mIndex,buffer,mmap,nullMap,bsonQuery,boption,cursor,mcollection);
     TableSP ret=Util::createTable(colName,cols);
-    bson_destroy(bsonQuery);
-    bson_destroy(boption);
-    mongoc_cursor_destroy(cursor);
-    mongoc_collection_destroy (mcollection);
-    //mongoc_cleanup ();
-    
     return ret;
 }
-TableSP mongoConnection::load(std::string collection,std::string condition,std::string option,TableSP schema){
+
+TableSP mongoConnection::load(std::string collection,std::string condition,std::string option,TableSP schema, bool aggregate){
     mtx_.lock();
+    Defer df([=](){mtx_.unlock();});
     TableSP ret;
-    try{
-        ret=extractLoad(collection,condition,option,schema);
-    }
-    catch(IllegalArgumentException& e){
-        mtx_.unlock();
-        throw e;
-    }
-    catch(RuntimeException& e){
-        mtx_.unlock();
-        throw e;
-    }
-    mtx_.unlock();
+    ret=extractLoad(collection,condition,option,schema, aggregate);
     return ret;
 }

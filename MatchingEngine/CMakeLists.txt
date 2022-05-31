@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 project(MatchingEngine)
+add_definitions(-DLOCKFREE_SYMBASE)
 
 set(DOLPHINDB_INC_DIR "../include" CACHE STRING "")
 set(DOLPHINDB_LIB_DIR "/usr/local/lib" CACHE STRING "")

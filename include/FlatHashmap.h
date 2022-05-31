@@ -1863,7 +1863,8 @@ public:
     typedef HashPolicy hash_policy;
     FlatHashmap(size_t initialCap = DEFAULT_HM_CAPACITY, float probeLimitScalingFactor = 1.0f)
         : impl(new SwissTableImpl<Key, T, Hasher, KeyEqual>()) {
-        }
+        impl->resize(NormalizeCapacity(initialCap));
+    }
     
     inline bool find(const key_type & key, mapped_type & recv) {
         return impl->find(key, recv);

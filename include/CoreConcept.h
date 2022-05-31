@@ -82,6 +82,7 @@ class IoTransaction;
 class Decoder;
 class VolumeMapper;
 class SystemHandle;
+class Transaction;
 
 typedef SmartPointer<AuthenticatedUser> AuthenticatedUserSP;
 typedef SmartPointer<ByteArrayCodeBuffer> ByteArrayCodeBufferSP;
@@ -118,6 +119,7 @@ typedef SmartPointer<DistributedCall> DistributedCallSP;
 typedef SmartPointer<JobProperty> JobPropertySP;
 typedef SmartPointer<VolumeMapper> VolumeMapperSP;
 typedef SmartPointer<Decoder> DecoderSP;
+typedef SmartPointer<Transaction> TransactionSP;
 
 typedef ConstantSP(*OptrFunc)(const ConstantSP&,const ConstantSP&);
 typedef ConstantSP(*SysFunc)(Heap* heap,vector<ConstantSP>& arguments);
@@ -333,8 +335,8 @@ class SymbolBase{
 public:
 	SymbolBase(bool supportOrder = false);
 	SymbolBase(const vector<DolphinString>& symbols, bool supportOrder = false);
-	SymbolBase(const string& symbolFile, bool snapshot = false, bool supportOrder=false);
-	SymbolBase(const string& symbolFile, const DataInputStreamSP& in, bool snapshot = false);
+	SymbolBase(const string& symbolFile, bool snapshot = false, bool supportOrder=false, bool readOnly = false);
+	SymbolBase(const string& symbolFile, const DataInputStreamSP& in, bool snapshot = false, bool readOnly = false);
 	SymbolBase* copy();
 	bool saveSymbolBase(string& errMsg, bool sync = false);
 	IO_ERR serialize(int offset, int length, Buffer& buf);
@@ -403,11 +405,12 @@ private:
 	Mutex keyMutex_;
 	IrremovableFlatHashmap<DolphinString, int> keyMap_;
 #else
-	IrremovableLocklessFlatHashmap<string, int> keyMap_;
+	IrremovableLocklessFlatHashmap<DolphinString, int> keyMap_;
 #endif
 	deque<int> sortedIndices_;
 	mutable Mutex writeMutex_;
 	mutable Mutex versionMutex_;
+    bool readOnly_ = false;
 };
 
 class SymbolBaseManager{
@@ -1086,13 +1089,24 @@ public:
 	void setAliasTable(bool option);
 	void setExpired(bool option);
 	inline Mutex* getLock() const { return lock_;}
-
+	virtual bool writePermitted(const AuthenticatedUserSP& user) const { return true; }
+    virtual const string& getPhysicalName() const {return getName();}
+	virtual void setAccessControl(bool option) {
+		if (option) {
+			flag_ |= 16;
+		}
+		else {
+			flag_ &= ~16;
+		}
+	}
+	virtual bool isAccessControl() const { return flag_ & 16; }
 private:
 	/*
 	 * BIT0: shared table
 	 * BIT1: stream table
 	 * BIT2: alias table
 	 * BIT3: expired
+	 * BIT4: access control or not
 	 */
 	char flag_;
 	string owner_;
@@ -1350,7 +1364,7 @@ public:
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const = 0;
 	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const = 0;
 
-  private:
+private:
 	int priority_;
 	bool unary_;
 };
@@ -1473,6 +1487,11 @@ public:
 	virtual string getLastErrorMessage() const = 0;
 	virtual void* getPrivateKey() const = 0;
 	virtual void setPrivateKey(void* key) = 0;
+	inline bool getEnableTransactionStatement() { return flag_ & 2048; }
+	inline void setEanbleTransactionStatement(bool option) { if(option) flag_ |= 2048; else flag_ &= ~2048; }
+	virtual TransactionSP getTransaction() { return transaction_; }
+	virtual void setTransaction(const TransactionSP& transaction) { transaction_ =  transaction; }
+
 
 protected:
 	long long sessionID_;
@@ -1487,7 +1506,22 @@ protected:
 	Guid jobId_;
 	int priority_;
 	int parallelism_;
+	// bit11: enableTransactionStatement
 	int flag_;
+	bool enableTransactionStatement_;
+	TransactionSP transaction_;
+};
+
+class Transaction {
+public:
+	virtual TABLE_TYPE getTableType() = 0;
+	virtual void endTransaction(TransactionSP transaction) = 0;
+	virtual void commit() = 0;
+	virtual void abort() = 0;
+	virtual bool needRetry() = 0;
+	virtual uint64_t getTxnId() const = 0;
+	virtual ~Transaction() {}
+private:
 };
 
 class Heap{
@@ -1628,10 +1662,10 @@ private:
 
 class Domain{
 public:
-	Domain(const string& owner, PARTITION_TYPE partitionType, bool isLocalDomain, DBENGINE_TYPE engineType = DBENGINE_TYPE::OLAP, ATOMIC atomic = ATOMIC::TRANS) : partitionType_(partitionType), isLocalDomain_(isLocalDomain), isExpired_(false),
-			tableIndependentChunk_(false), retentionPeriod_(-1), retentionDimension_(-1), tzOffset_(INT_MIN), key_(false), owner_(owner), engineType_(engineType), atomic_(atomic){}
-	Domain(const string& owner, PARTITION_TYPE partitionType, bool isLocalDomain, const Guid& key, DBENGINE_TYPE engineType = DBENGINE_TYPE::OLAP, ATOMIC atomic = ATOMIC::TRANS) : partitionType_(partitionType), isLocalDomain_(isLocalDomain),
-			isExpired_(false), tableIndependentChunk_(false), retentionPeriod_(-1), retentionDimension_(-1), tzOffset_(INT_MIN), key_(key), owner_(owner), engineType_(engineType), atomic_(atomic){}
+	Domain(const string& owner, PARTITION_TYPE partitionType, bool isLocalDomain, DBENGINE_TYPE engineType = DBENGINE_TYPE::OLAP, ATOMIC atomic = ATOMIC::TRANS, int flag = 0) : partitionType_(partitionType), isLocalDomain_(isLocalDomain), isExpired_(false),
+			tableIndependentChunk_(false), retentionPeriod_(-1), retentionDimension_(-1), hoursToColdVolume_(-1), tzOffset_(INT_MIN), key_(false), owner_(owner), engineType_(engineType), atomic_(atomic), flag_(flag){}
+	Domain(const string& owner, PARTITION_TYPE partitionType, bool isLocalDomain, const Guid& key, DBENGINE_TYPE engineType = DBENGINE_TYPE::OLAP, ATOMIC atomic = ATOMIC::TRANS, int flag = 0) : partitionType_(partitionType), isLocalDomain_(isLocalDomain),
+			isExpired_(false), tableIndependentChunk_(false), retentionPeriod_(-1), retentionDimension_(-1),  hoursToColdVolume_(-1), tzOffset_(INT_MIN), key_(key), owner_(owner), engineType_(engineType), atomic_(atomic), flag_(flag){}
 	virtual ~Domain(){}
 	int getPartitionCount() const { return partitions_.size();}
 	DomainPartitionSP getPartition(int index) const { return partitions_[index];}
@@ -1660,8 +1694,9 @@ public:
 	virtual int getPartitionDimensions() const { return 1;}
 	virtual DomainSP getDimensionalDomain(int dimension) const;
 	virtual DomainSP copy() const = 0;
-	bool addTable(const string& tableName, const string& owner, vector<ColumnDesc>& cols, vector<int>& partitionColumns);
-	bool getTable(const string& tableName, string& owner, vector<ColumnDesc>& cols, vector<int>& partitionColumns) const;
+	bool addTable(const string& tableName, const string& owner, const string& physicalIndex, vector<ColumnDesc>& cols, vector<int>& partitionColumns);
+	bool getTable(const string& tableName, string& owner, string& physicalIndex, vector<ColumnDesc>& cols, vector<int>& partitionColumns) const;
+    string getTabletPhysicalIndex(const string& tableName);
 	bool existsTable(const string& tableName);
 	bool removeTable(const string& tableName);
 	bool listTables(vector<string>& tableNames);
@@ -1670,8 +1705,9 @@ public:
 	inline bool isExpired() const { return isExpired_;}
 	inline int getRentionPeriod() const { return retentionPeriod_;}
 	inline int getRentionDimension() const { return retentionDimension_;}
+    inline int getHoursToColdVolume() const {return hoursToColdVolume_;}
 	inline int getTimeZoneOffset() const { return tzOffset_;}
-	void setRentionPeriod(int retentionPeriod, int retentionDimension, int tzOffset);
+	void setRentionPeriod(int retentionPeriod, int retentionDimension, int tzOffset, int hoursToColdVolume);
 	string getOwner() const { return owner_;}
 	bool isOwner(const string& owner) const { return owner == owner_;}
 	void setEngineType(DBENGINE_TYPE type) { engineType_ = type;}
@@ -1680,7 +1716,9 @@ public:
 	ATOMIC getAtomicLevel() const { return atomic_;}
 	void setTableIndependentChunk(bool option) { tableIndependentChunk_ = option;}
 	bool isTableIndependentChunk() const { return tableIndependentChunk_;}
-
+    void setSingleTablet(bool option = true){ if(option) flag_ |= 1; else flag_ &= ~1;}
+    bool isSingleTableTablet() const {return flag_ & 1;}
+    static string getUniqueIndex(long long id);
 	/*
 	 * The input arguments set1 and set2 must be sorted by the key value of domain partitions. The ranking of key values must be the same as
 	 * the ranking of partition column values when the partition is range-based or value-based.
@@ -1692,6 +1730,13 @@ public:
 	static DomainSP createDomain(const string& owner, PARTITION_TYPE  partitionType, const ConstantSP& scheme);
 	static DomainSP createDomain(const string& owner, PARTITION_TYPE  partitionType, const ConstantSP& scheme, const ConstantSP& sites);
 
+    static int codeDimension(int d, int h){
+        return (h<<8) + (d&0xff);
+    }
+    static void decodeDimension(int c, int& d, int& h){
+        d = c&0xff;
+        h = c>>8;
+    }
 protected:
 	static VectorSP parseSites(const ConstantSP& sites);
 	static ConstantSP formatSites(const vector<DomainPartitionSP>& partitions);
@@ -1701,8 +1746,9 @@ protected:
 protected:
 	struct TableHeader {
 		TableHeader(){}
-		TableHeader(const string& owner, vector<ColumnDesc>& tablesType, vector<int>& tablesPartition): owner_(owner), tablesType_(tablesType), tablesPartition_(tablesPartition){}
+		TableHeader(const string& owner, const string& physicalIndex, vector<ColumnDesc>& tablesType, vector<int>& tablesPartition): owner_(owner), physicalIndex_(physicalIndex), tablesType_(tablesType), tablesPartition_(tablesPartition){}
 		string owner_;
+        string physicalIndex_;
 		vector<ColumnDesc> tablesType_;
 		vector<int> tablesPartition_;
 	};
@@ -1713,6 +1759,7 @@ protected:
     bool tableIndependentChunk_;
 	int retentionPeriod_; // in hours
 	int retentionDimension_;
+    int hoursToColdVolume_;
 	int tzOffset_;
 	Guid key_; //the unique identity for this domain
 	string name_;
@@ -1720,6 +1767,7 @@ protected:
 	string owner_;
 	DBENGINE_TYPE engineType_;
 	ATOMIC atomic_;
+    int flag_;
 	SymbolBaseManagerSP symbaseManager_;
 	unordered_map<string, TableHeader> tables_;
 	mutable Mutex mutex_;
@@ -1913,6 +1961,16 @@ public:
 	virtual IO_ERR code(const VectorSP& vec, bool lsnFlag, const DataOutputStreamSP& out, int& checksum) = 0;
 	virtual IO_ERR decode(const VectorSP& vec, INDEX rowOffset, INDEX skipRows, bool fullLoad, int checksum, const DataInputStreamSP& in,
 			long long byteSize, long long byteOffset, INDEX& postRows, INDEX& postRowOffset, long long& postByteOffset, long long& lsn) = 0;
+	/**
+	 * Calculate the CRC32 checksum of the first given number of rows of the decompressed vector.
+	 *
+	 * in: the input data stream. The cursor must be pointed to the first row of the vector. If the input column file has a header,
+	 *     the pointer must be after the header.
+	 * type: the data type of the column.
+	 * rows: the number of rows to calculate
+	 * symbase: it is must be provided if the data type is SYMBOL or SYMBOL[].
+	 */
+	virtual int checksum(const DataInputStreamSP& in, DATA_TYPE type, INDEX rows, const SymbolBaseSP& symbase = nullptr) = 0;
 	inline int getID() const {return id_;}
 	inline bool isAppendable() const {return appendable_;}
 	inline bool codeSymbolAsString() const { return codeSymbolAsString_;}
@@ -1970,6 +2028,8 @@ public:
 			const string& partitionColName, vector<string>& secPartitionColNames, IoTransaction* tran, int compressionMode = 0);
 	static Table* loadTable(Session* session, const string& directory, const string& tableName, const SymbolBaseManagerSP& symbaseManager, const DomainSP& domain, const ConstantSP& partitions, TABLE_TYPE tableType, bool memoryMode);
 	static Table* loadTable(Session* session, SystemHandle* db, const string& tableName, const ConstantSP& partitions, TABLE_TYPE tableType, bool memoryMode);
+	// This function will load data from both cacheEngine and disk
+	static Table* loadTable(const string& tableName, const string& physicalDir, const Guid& chunkID, const string& chunkPath, const vector<ColumnDesc>& colDescs, INDEX startRows, INDEX endRows);
 	static void removeTable(SystemHandle* db, const string& tableName);
 	static SystemHandle* openDatabase(const string& directory, const DomainSP& localDomain);
 	static bool saveDatabase(SystemHandle* db);
@@ -1979,11 +2039,25 @@ public:
 	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseManagerSP& symbaseManager);
 	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseSP& symbase);
 	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseSP& symbase, int rows, long long& postFileOffset, INDEX& rowOffset, bool& isLittleEndian, char& compressType);
+	/**
+	 * colFile: the full path of the column file
+	 * fileOffset: the starting point to read data from the column file.
+	 * isLittleEndian: true if the machine is little endian.
+	 * compressType: 0, no compression; 1, LZ4; 2, Delta of delta. If compressType is -1 and fileOffset  is zero, the system will read the compress type from the column file.
+	 * devId: use DBFileIO::getMappedDeviceId(colFile) to get the devId
+	 * symbase: symbol base if the column is type of SYMBOL.
+	 * skipRows: the number of rows to skip before appending to the given vector.
+	 * rows: the number of rows to append to the given vector.
+	 * col: the in-memory vector to store the data. The vector may already contains data. The new data is appended to the vector.
+	 * rowOffset: the row number (starting from zero) of the file block next to the last read block.
+	 *
+	 * return: the file offset of the file block next to the last read block.
+	 */
 	static long long loadColumn(const string& colFile, long long fileOffset, bool& isLittleEndian, char& compressType, int devId, const SymbolBaseSP& symbase, INDEX skipRows, INDEX rows, const VectorSP& col, INDEX& rowOffset);
 	static Vector* loadTextVector(bool includeHeader, DATA_TYPE type, const string& path);
 	static long long saveColumn(const VectorSP& col, const string& colFile, int devId, INDEX existingTableSize, bool chunkNode, bool append, int compressionMode, IoTransaction* tran = NULL, long long lsn = -1);
-	static bool saveTableHeader(const string& owner, const vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices, long long rows, const string& tableFile, IoTransaction* tran);
-	static bool loadTableHeader(const DataInputStreamSP& in, string& owner, vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices);
+	static bool saveTableHeader(const string& owner, const string& physicalIndex, const vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices, long long rows, const string& tableFile, IoTransaction* tran);
+	static bool loadTableHeader(const DataInputStreamSP& in, string& owner, string& physicalIndex, vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices);
 	static void removeBasicTable(const string& directory, const string& tableName);
 	static TableSP createEmptyTableFromSchema(const TableSP& schema);
 	static long long truncateColumnByLSN(const string& colFile, int devId, long long expectedLSN, bool sync=true);
@@ -1995,17 +2069,21 @@ public:
 	static bool checkPartitionColumnCompatibility(DATA_TYPE partitionSchemeType, DATA_TYPE partitionDataType);
 	static void saveSymbolBases(const SymbolBaseSP& symbase, IoTransaction* tran);
 	static void collectColumnDesc(Table* table, vector<ColumnDesc>& cols);
+	static void collectColumnDesc(Table* table, vector<ColumnDesc>& cols, vector<int>& compressMethods);
 	static ConstantSP convertColumn(const ConstantSP& col, const ColumnDesc& desiredType, SymbolBaseSP& symbase);
 	static ConstantSP convertColumn(const ConstantSP& col, const ColumnDesc& desiredType, const SymbolBaseSP& symbase);
+	static int getCompressionMethod(const ColumnDesc& col, int defaultMethod);
 	static VectorSP decompress(const VectorSP& col);
 	static VectorSP decompress(const VectorSP& col, const DecoderSP decoder);
-	static VectorSP compress(const VectorSP& col);
+	static TableSP decompressTable(const TableSP& tbl);
+	static VectorSP compress(const VectorSP& col, int compressMode = 1);
 	static TableSP compressTable(const TableSP& table);
+	static TableSP compressTable(const TableSP& table, vector<ColumnDesc>& types);
 	static ConstantSP appendDataToFile(Heap* heap, vector<ConstantSP>& arguments);
 	static int getMappedDeviceId(const string& path);
 	static void setVolumeMapper(const VolumeMapperSP& volumeMapper) { volumeMapper_ = volumeMapper;}
 	static unsigned int checksum(const DataInputStreamSP& in, long long offset, long long length);
-
+    static long long getColumnLeastLSN(const string& colFile);
 private:
 	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseManagerSP& symbaseManager,	const SymbolBaseSP& symbase,
 			int rows, long long& postFileOffset, INDEX& rowOffset, bool& isLittleEndian, char& compressType);

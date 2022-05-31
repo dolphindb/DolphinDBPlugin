@@ -100,7 +100,7 @@ private:
     OPCClient *_conn;
 
 public:
-    CMyCallback(Heap *heap,OPCClient *conn, ConstantSP callback) : _heap(heap),_conn(conn), _handler(callback) {
+    CMyCallback(Heap *heap,OPCClient *conn, ConstantSP callback) : _heap(heap), _handler(callback), _conn(conn){
     }
     void OnDataChange(COPCGroup &group, map<ItemID, OPCItemData *> &changes) {
         // printf("Group %s, item changes\n", group.getName().c_str());
@@ -123,6 +123,7 @@ public:
                 ((FunctionDefSP)_handler)->call(_heap, args);
             } catch (exception &e) {
                 cout << "Failed to append:" << e.what() << endl;
+                LOG_ERR("Plugin OPC: " + string(e.what()));
                 _conn->setErrorMsg(e.what());
             }
         }
@@ -175,7 +176,7 @@ struct Task {    // connect or sub
           errMsg(new string()) {
     }
     explicit Task(Heap *heap, FUNC &&func, vector<ConstantSP> &args, CountDownLatchSP latch)
-        : act(CALL), heap(heap), func(func), args(args), latch(latch), errMsg(new string()) {
+        : act(CALL), heap(heap), latch(latch), func(func), args(args), errMsg(new string()) {
         retTable = reinterpret_cast<Table **>(new long long);
     }
     explicit Task(Heap *heap, OPCClient *conn, CountDownLatchSP latch)
@@ -189,42 +190,51 @@ public:
     }
     void run() override {
         while (true) {
-            Task t;
-            if (queue_.pop(t)) {
-                try {
-                    switch (t.act) {
-                        case Task::SUB:
-                            subInternal(t);
-                            break;
-                        case Task::CONN:
-                            connectInternal(t);
-                            break;
-                        case Task::UNSUB:
-                            unsubInternal(t);
-                            break;
-                        case Task::CALL:
-                            (*t.retTable) = t.func(t.heap, t.args);
-                            t.latch->countDown();
-                            break;
-                        default:
-                            break;
+            try{
+                Task t;
+                if (queue_.pop(t)) {
+                    try {
+                        switch (t.act) {
+                            case Task::SUB:
+                                subInternal(t);
+                                break;
+                            case Task::CONN:
+                                connectInternal(t);
+                                break;
+                            case Task::UNSUB:
+                                unsubInternal(t);
+                                break;
+                            case Task::CALL:
+                                (*t.retTable) = t.func(t.heap, t.args);
+                                t.latch->countDown();
+                                break;
+                            default:
+                                break;
+                        }
+                    } catch (exception &e) {
+                        // cout <<"Failed to work:"<< e.what() << endl;
+                        LOG_ERR("Plugin OPC: " + string(e.what()));
+                        *t.errMsg = e.what();
+                        //*t.retTable = 0;
+                        t.latch->countDown();
                     }
-                } catch (exception &e) {
-                    // cout <<"Failed to work:"<< e.what() << endl;
-                    *t.errMsg = e.what();
-                    //*t.retTable = 0;
-                    t.latch->countDown();
                 }
-            }
 
-            MSG msg;
-            for (int i = 0; i < 100; ++i) {
-                if (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE)) {
-                    TranslateMessage(&msg);
-                    DispatchMessageA(&msg);
+                MSG msg;
+                for (int i = 0; i < 100; ++i) {
+                    if (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE)) {
+                        TranslateMessage(&msg);
+                        DispatchMessageA(&msg);
+                    }
                 }
+                Sleep(1);    // todo: is this needed?
             }
-            Sleep(1);    // todo: is this needed?
+            catch(bad_alloc &e){
+                LOG_ERR("Plugin OPC: Out of Memory. ");
+            }
+            catch(...){
+                LOG_ERR("Plugin OPC: Fail to work. ");
+            }
         }
     }
     void sub(Heap *heap, OPCClient *conn, ConstantSP tagName, ConstantSP callback) {

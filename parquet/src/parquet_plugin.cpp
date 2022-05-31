@@ -3056,12 +3056,12 @@ ConstantSP loadParquetEx(Heap *heap, const SystemHandleSP &db, const string &tab
                 int extra = type == DT_SYMBOL ? baseId : -1;
                 cols.push_back(ColumnDesc(name, type, extra));
             }
-
-            if (!DBFileIO::saveTableHeader(owner, cols, partitionColumnIndices, 0, tableFile, NULL))
+            string physicalIndex = tableName;
+            if (!DBFileIO::saveTableHeader(owner, physicalIndex, cols, partitionColumnIndices, 0, tableFile, NULL))
                 throw IOException("Failed to save table header " + tableFile);
             if (!DBFileIO::saveDatabase(db.get()))
                 throw IOException("Failed to save database " + db->getDatabaseDir());
-            db->getDomain()->addTable(tableName, owner, cols, partitionColumnIndices);
+            db->getDomain()->addTable(tableName, owner, physicalIndex, cols, partitionColumnIndices);
             vector<ConstantSP> loadTableArgs = {db, tableName_};
             return heap->currentSession()->getFunctionDef("loadTable")->call(heap, loadTableArgs);
         }

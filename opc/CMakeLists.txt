@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 project(DolphinDBPlugin)
+add_definitions(-DLOCKFREE_SYMBASE)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_VERBOSE_MAKEFILE ON)

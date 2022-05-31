@@ -295,8 +295,8 @@ class ConditionalNotifier {
 public:
 	ConditionalNotifier() {}
 	~ConditionalNotifier() {}
-	void wait() { cv_.wait(mtx_); }
-	bool wait(int milliSeconds) { return cv_.wait(mtx_, milliSeconds); }
+	void wait() { LockGuard<Mutex> guard(&mtx_); cv_.wait(mtx_); }
+	bool wait(int milliSeconds) { LockGuard<Mutex> guard(&mtx_); return cv_.wait(mtx_, milliSeconds); }
 	void notify() { cv_.notify(); }
 	void notifyAll() { cv_.notifyAll(); }
 private:

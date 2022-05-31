@@ -1,15 +1,9 @@
 #include "PluginHdfs.h"
+#include <iostream>
+#include <memory>
+using namespace std;
 
-template <typename T>
-static void hdfsOnClose(Heap *heap, vector<ConstantSP> &args)
-{
-    T *pObject = (T *)(args[0]->getLong());
-    if (pObject != nullptr)
-    {
-        delete (T *)(args[0]->getLong());
-        args[0]->setLong(0);
-    }
-}
+Mutex mutex;
 
 template <typename T>
 static T *getConnection(ConstantSP &handler)
@@ -28,26 +22,53 @@ static T *getConnection(ConstantSP &handler)
     }
 }
 
+template <typename T>
+static void hdfsOnClose(Heap *heap, vector<ConstantSP> &args)
+{
+    T *pObject = (T *)(args[0]->getLong());
+    if (pObject != nullptr)
+    {
+        delete (T *)(args[0]->getLong());
+        args[0]->setLong(0);
+    }
+}
+
+static void hdfsOnCloseforConnect(Heap *heap, vector<ConstantSP> &args)
+{
+    LockGuard<Mutex> lock(&mutex);
+    if(args[0]->getLong() == 0){
+        LOG_ERR("PluginHdfs: The object is empty. ");
+        return;
+    }
+    auto fs =  (hdfs_internal *)(args[0]->getLong());
+    if (hdfsDisconnect(fs) == -1)
+    {
+        args[0]->setLong(0);
+        throw RuntimeException("Error occurred when disconnecting.");
+    }
+    args[0]->setLong(0);
+}
+
 ConstantSP hdfs_Connect(Heap *heap, vector<ConstantSP> &args)
 {
     const auto usage = string("Usage: connect(nameMode, port, [userName], [kerbTicketCachePath])\n");
-
     struct hdfsBuilder *pbld = hdfsNewBuilder();
     string host, userName, path;
+
     if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR)
-        throw IllegalArgumentException(__FUNCTION__, usage + "nameMode[:port] must be a legal string.");
+         throw IllegalArgumentException(__FUNCTION__, usage + "nameMode[:port] must be a legal string.");
     host = args[0]->getString();
     hdfsBuilderSetNameNode(pbld, host.c_str());
     if (args[1]->getType() != DT_INT || args[1]->getForm() != DF_SCALAR)
-        throw IllegalArgumentException(__FUNCTION__, usage + "port must be an integer.");
-    hdfsBuilderSetNameNodePort(pbld, args[1]->getInt());
-    if (args.size() > 2)
-    {
-        if (args[2]->getType() != DT_STRING || args[2]->getForm() != DF_SCALAR || args[2]->getForm() != DF_SCALAR)
-            throw IllegalArgumentException(__FUNCTION__, usage + "userName must be a legal string.");
-        userName = args[2]->getString();
-        hdfsBuilderSetUserName(pbld, userName.c_str());
-    }
+         throw IllegalArgumentException(__FUNCTION__, usage + "port must be an integer.");
+     hdfsBuilderSetNameNodePort(pbld, args[1]->getInt());
+     if (args.size() > 2)
+     {
+         if (args[2]->getType() != DT_STRING || args[2]->getForm() != DF_SCALAR || args[2]->getForm() != DF_SCALAR)
+             throw IllegalArgumentException(__FUNCTION__, usage + "userName must be a legal string.");
+         userName = args[2]->getString();
+         hdfsBuilderSetUserName(pbld, userName.c_str());
+     }
     if (args.size() > 3)
     {
         if (args[3]->getType() != DT_STRING || args[3]->getForm() != DF_SCALAR)
@@ -55,16 +76,16 @@ ConstantSP hdfs_Connect(Heap *heap, vector<ConstantSP> &args)
         path = args[3]->getString();
         hdfsBuilderSetKerbTicketCachePath(pbld, path.c_str());
     }
-
     hdfsFS fs = hdfsBuilderConnect(pbld);
     if (fs == nullptr)
         throw RuntimeException("Failed to connect to hdfs.");
-    FunctionDefSP onClose(Util::createSystemProcedure("hdfsFS onClose()", hdfsOnClose<hdfs_internal>, 1, 1));
-    return Util::createResource(
+    FunctionDefSP onClose(Util::createSystemProcedure("hdfsFS onClose()", hdfsOnCloseforConnect, 1, 1));
+    ConstantSP ret = Util::createResource(
         (long long)fs,
         "hdfsFS connection",
         onClose,
         heap->currentSession());
+    return ret;
 }
 
 ConstantSP hdfs_Disconnect(Heap *heap, vector<ConstantSP> &args)
@@ -85,7 +106,6 @@ ConstantSP hdfs_Disconnect(Heap *heap, vector<ConstantSP> &args)
 ConstantSP hdfs_Exists(Heap *heap, vector<ConstantSP> &args)
 {
     const auto usage = string("Usage: exists(hdfsFS, path).\n");
-
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != "hdfsFS connection")
         throw IllegalArgumentException(__FUNCTION__, usage + "hdfsFS should be a hdfsFS handle.");
     if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR)
@@ -127,8 +147,11 @@ ConstantSP hdfs_Move(Heap *heap, vector<ConstantSP> &args)
     if (args[3]->getType() != DT_STRING || args[3]->getForm() != DF_SCALAR)
         throw IllegalArgumentException(__FUNCTION__, usage + "dst path must be a legal string.");
 
+    if(strcmp(args[1]->getString().c_str(), args[3]->getString().c_str()) == 0){
+        throw IllegalArgumentException(__FUNCTION__, usage + "src path is same as dst path.");
+    }
     if (hdfsMove(getConnection<hdfs_internal>(args[0]), args[1]->getString().c_str(), getConnection<hdfs_internal>(args[2]), args[3]->getString().c_str()) == -1)
-        throw RuntimeException("Error occurred when copying");
+        throw RuntimeException("Error occurred when moving");
     return new Void();
 }
 
@@ -157,7 +180,7 @@ ConstantSP hdfs_Rename(Heap *heap, vector<ConstantSP> &args)
     if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR)
         throw IllegalArgumentException(__FUNCTION__, usage + "oldPath must be a legal string.");
     if (args[2]->getType() != DT_STRING || args[2]->getForm() != DF_SCALAR)
-        throw IllegalArgumentException(__FUNCTION__, usage + "oldPath must be a legal string.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "newPath must be a legal string.");
 
     if (hdfsRename(getConnection<hdfs_internal>(args[0]), args[1]->getString().c_str(), args[2]->getString().c_str()) == -1)
         throw RuntimeException("Error occurred when renaming");
@@ -269,7 +292,6 @@ ConstantSP hdfs_freeFileInfo(Heap *heap, vector<ConstantSP> &args)
 ConstantSP hdfs_readFile(Heap *heap, vector<ConstantSP> &args)
 {
     const auto usage = string("Usage: readFile(hdfsFS, path, handler).\n");
-
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != "hdfsFS connection")
         throw IllegalArgumentException(__FUNCTION__, usage + "hdfsFS should be a hdfsFS handle.");
     if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR)
@@ -291,8 +313,7 @@ ConstantSP hdfs_readFile(Heap *heap, vector<ConstantSP> &args)
     char *buffer = new char[*bufSize];
     void *vBuf = buffer;
     tSize readSize = *bufSize;
-    hdfsRead(fs, pFile, vBuf, readSize);
-
+    hdfsPread(fs, pFile, 0, vBuf, readSize);
     FunctionDefSP onCloseChar(Util::createSystemProcedure("hdfs readFile onClose()", hdfsOnClose<char>, 1, 1));
     FunctionDefSP onCloseLong(Util::createSystemProcedure("hdfs readFile onClose()", hdfsOnClose<uint64_t>, 1, 1));
     vector<ConstantSP> handlerArgs(2);

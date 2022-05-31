@@ -13,6 +13,7 @@
 #include "Concurrent.h"
 #include "ScalarImp.h"
 #include "hdfs.h"
+#include "Logger.h"
 
 using namespace std;
 
