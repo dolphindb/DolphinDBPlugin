@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -std=c++11 -fPIC -DLINUX -o3 -Wall  -D_GLIBCXX_USE_CXX11_ABI=0
+CFLAGS = -std=c++11 -fPIC -DLINUX -o3 -Wall  -D_GLIBCXX_USE_CXX11_ABI=0 -DLOCKFREE_SYMBASE
 INCLUDES =-I$(CURL_DIR)/include -I$(SSL_DIR)/include -I/$(Z_DIR)/include -I../include 
 
 CURL_LIBS := lib/linux64/libcurl.a

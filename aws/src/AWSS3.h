@@ -9,8 +9,10 @@
 #define AWSS3PLUGIN_H_
 
 #include "CoreConcept.h"
+#include "ScalarImp.h"
 #include "Util.h"
 #include "SysIO.h"
+#include "Logger.h"
 #include <sstream>
 #include <fstream>
 #include <iostream>
@@ -30,6 +32,9 @@ extern "C" void uploadS3Object(Heap* heap, vector<ConstantSP>& args);
 extern "C" ConstantSP listS3Bucket(Heap* heap, vector<ConstantSP>& args);
 extern "C" void deleteS3Bucket(Heap* heap, vector<ConstantSP>& args);
 extern "C" void createS3Bucket(Heap* heap, vector<ConstantSP>& args);
+extern "C" ConstantSP headS3Object(Heap* heap, vector<ConstantSP>& args);
+extern "C" void copyS3Object(Heap* heap, vector<ConstantSP>& args);
+
 #if 0
 extern "C" ConstantSP createS3InputStream(Heap* heap, vector<ConstantSP>& args);
 

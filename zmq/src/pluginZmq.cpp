@@ -34,16 +34,13 @@ ConstantSP zmqSocket(Heap *heap, vector<ConstantSP> &args) {
     string socketType = args[0]->getString();
     FunctionDefSP formatter = args[1];
     std::unique_ptr<ZmqPushSocket> cup(new ZmqPushSocket(socketType, formatter, batchSize));
-    const char *fmt = "zmq socket bind [%s]";
-    vector<char> descBuf(cup->str().size() + strlen(fmt));
-    sprintf(descBuf.data(), fmt, cup->str().c_str());
     FunctionDefSP onClose(
             Util::createSystemProcedure("zmq connection onClose()", connectionOnClose<ZmqPushSocket>, 1, 1));
-    return Util::createResource((long long) cup.release(), descBuf.data(), onClose, heap->currentSession());
+    return Util::createResource((long long) cup.release(), "zmq socket", onClose, heap->currentSession());
 }
 
 ConstantSP zmqConnect(Heap *heap, vector<ConstantSP> &args) {
-    if (args[0]->getType() != DT_RESOURCE || args[0]->getLong() == 0) {
+    if (args[0]->getType() != DT_RESOURCE || args[0]->getLong() == 0 || args[0]->getString().find("zmq socket") == string::npos) {
         throw IllegalArgumentException(__FUNCTION__, "handle must be a zmq connection");
     }
     ZmqPushSocket *socket = reinterpret_cast<ZmqPushSocket *> (args[0]->getLong());
@@ -63,7 +60,7 @@ ConstantSP zmqConnect(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP zmqBind(Heap *heap, vector<ConstantSP> &args) {
-    if (args[0]->getType() != DT_RESOURCE || args[0]->getLong() == 0) {
+    if (args[0]->getType() != DT_RESOURCE || args[0]->getLong() == 0 || args[0]->getString().find("zmq socket") == string::npos) {
         throw IllegalArgumentException(__FUNCTION__, "handle must be a zmq connection");
     }
     ZmqPushSocket *socket = reinterpret_cast<ZmqPushSocket *> (args[0]->getLong());
@@ -83,7 +80,7 @@ ConstantSP zmqBind(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP zmqSend(Heap *heap, vector<ConstantSP> &args) {
-    if (args[0]->getType() != DT_RESOURCE || args[0]->getLong() == 0) {
+    if (args[0]->getType() != DT_RESOURCE || args[0]->getLong() == 0 || args[0]->getString().find("zmq socket") == string::npos) {
         throw IllegalArgumentException(__FUNCTION__, "handle must be a zmq connection");
     }
     ZmqPushSocket *socket = reinterpret_cast<ZmqPushSocket *> (args[0]->getLong());
@@ -163,7 +160,7 @@ ConstantSP zmqSend(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP zmqCreateSubJob(Heap *heap, vector<ConstantSP> &args) {
-    if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR) {
+    if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR || args[0]->getString().find("zmq socket") == string::npos) {
         throw RuntimeException("addr must be a string scalar");
     }
     string addr = args[0]->getString();
@@ -356,4 +353,13 @@ ConstantSP zmqCancelSubJob(Heap *heap, vector<ConstantSP> args) {
         LOG_INFO("subscription: " + std::to_string(conn->getLong()) + " is stopped. ");
     }
     return new Void();
+}
+
+ConstantSP zmqCreatepusher(Heap *heap, vector<ConstantSP> &args){
+    if (args[0]->getType() != DT_RESOURCE || args[0]->getLong() == 0 || args[0]->getString().find("zmq socket") == string::npos) {
+        throw IllegalArgumentException(__FUNCTION__, "handle must be a zmq connection");
+    }
+    if(args[1]->getForm() != DF_TABLE)
+        throw new RuntimeException("dummy table must be as table. ");
+    return new  ZmqPusher(args[0], (TableSP)args[1], heap);
 }

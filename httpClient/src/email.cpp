@@ -33,8 +33,9 @@ CSendMail::CSendMail(
         smtpHost["163.com"] = "smtp.163.com";
         smtpHost["yeah.net"] = "smtp.yeah.net";
         smtpHost["sohu.com"] = "smtp.sohu.com";
-        smtpHost["dolphindb.com"] = "smtp.ionos.com";
+        smtpHost["dolphindb.com"] = "smtp.office365.com";
         smtpHost["qq.com"] = "smtp.qq.com";
+        smtpPost["dolphindb.com"] = 587;
         firstConfigSmtp = false;
     }
 }
@@ -72,7 +73,7 @@ bool CSendMail::ConstructHead(const string &strSubject, const string &strContent
         strTemp += "\n";
         m_MailContent.push_back(strTemp);
     }
-    m_MailContent.push_back("Content-Transfer-Encoding: 8bit\n");
+    // m_MailContent.push_back("Content-Transfer-Encoding: 8bit\n");
     m_MailContent.push_back("Content-Type: text/html; \n Charset=\"UTF-8\"\n\n");
     if (strContent != "") {
         m_MailContent.push_back(strContent);
@@ -135,6 +136,7 @@ ConstantSP CSendMail::SendMail(const string &strSubject, const string &strMailBo
     curl_easy_setopt(curl, CURLOPT_MAIL_RCPT, rcpt_list);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+    curl_easy_setopt(curl, CURLOPT_USE_SSL, CURLUSESSL_ALL);
     curl_easy_setopt(curl, CURLOPT_READDATA, this);
     curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
     curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);

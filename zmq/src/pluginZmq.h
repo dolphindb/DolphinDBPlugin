@@ -28,6 +28,8 @@ extern "C" ConstantSP zmqCancelSubJob(Heap *heap, vector<ConstantSP> args);
 
 extern "C" ConstantSP zmqGetSubJobStat(Heap *heap, vector<ConstantSP> &args);
 
+extern "C" ConstantSP zmqCreatepusher(Heap *heap, vector<ConstantSP> &args);
+
 static shared_ptr<zmq::socket_t> createZmqSocket(zmq::context_t &context, const string &socketType) {
     if (socketType == "ZMQ_PUB") {
         return shared_ptr<zmq::socket_t>(new zmq::socket_t(context, ZMQ_PUB));
@@ -59,11 +61,13 @@ public:
         prefix_ = prefix;
     }
 
-    string str() {
-        return addr_;
-    }
+    // string str() {
+    //     return addr_;
+    // }
 
-    ~ZmqSocket() {}
+    virtual ~ZmqSocket() {
+        LOG_INFO("PluginZmq: socket[" + addr_ + "] is closed. ");
+    }
 
     shared_ptr<zmq::socket_t> getSocket() {
         return zmq_Socket_;
@@ -101,6 +105,8 @@ public:
         return batchSize_;
     }
 
+    virtual ~ZmqPushSocket(){};
+
 protected:
     FunctionDefSP formatter_;
     int batchSize_;
@@ -126,6 +132,8 @@ public:
     void close(){
         zmq_Socket_->close();
     }
+
+    virtual ~ZmqSubSocket(){};
 
 protected:
     FunctionDefSP parser_;
@@ -242,6 +250,86 @@ public:
         appendTable_->setNeedStop();
         thread_->join();
     }
+};
+
+class ZmqPusher : public Table{
+
+private:
+    ConstantSP zmqSocket_;
+    TableSP dummytable_;
+    SessionSP session_;
+
+public: 
+    ZmqPusher(ConstantSP zmqSocket, TableSP dummytable, Heap* heap){
+        zmqSocket_ = zmqSocket;
+        vector<string> colNames;
+        vector<DATA_TYPE> colTypes;
+        int cols = dummytable->columns();
+        for(int i = 0; i < cols; ++i){
+            colNames.push_back(dummytable->getColumnName(i));
+            colTypes.push_back(dummytable->getColumnType(i));
+        }
+        dummytable_ = Util::createTable(colNames, colTypes, 0, 0);
+        session_ = heap->currentSession()->copy();
+    }
+
+    virtual ~ZmqPusher(){}
+
+    virtual bool append(vector<ConstantSP>& values, INDEX& insertedRows, string& errMsg){
+        if(values.size() < 0){
+            errMsg = "The size of the values is 0";
+            return false;
+        }
+        try{
+            vector<ConstantSP> args{zmqSocket_, values[0]};
+            bool ret =zmqSend(session_->getHeap().get(), args)->getBool();
+            if(!ret)
+                return false;
+        }
+        catch(exception &e){
+            errMsg = e.what();
+            return false;
+        }
+        insertedRows = values[0]->rows();
+        return true;
+    }
+    virtual string getString() const {return dummytable_->getString();};
+    virtual string getString(INDEX index) const {return dummytable_->getString(index);};
+    virtual ConstantSP get(const ConstantSP& index) const {return dummytable_->get(index);};
+    virtual ConstantSP getColumn(INDEX index) const {return dummytable_->getColumn(index);};
+    virtual ConstantSP getColumn(const string& name) const {return dummytable_->getColumn(name);};
+    virtual ConstantSP getColumn(const string& qualifier, const string& name) const {return dummytable_->getColumn(qualifier, name);};
+    virtual ConstantSP getColumn(INDEX index, const ConstantSP& rowFilter) const {return dummytable_->getColumn(index, rowFilter);};
+    virtual ConstantSP getColumn(const string& name, const ConstantSP& rowFilter) const {return dummytable_->getColumn(name, rowFilter);};
+    virtual ConstantSP getColumn(const string& qualifier, const string& name, const ConstantSP& rowFilter) const {return dummytable_->getColumn(qualifier, name, rowFilter);};
+    virtual ConstantSP getWindow(INDEX colStart, int colLength, INDEX rowStart, int rowLength) const {return dummytable_->getWindow(colStart, colLength, rowStart, rowLength);};
+    virtual bool sizeable() const {return dummytable_->sizeable();};
+    virtual INDEX size() const {return dummytable_->size();};
+    virtual INDEX columns() const {return dummytable_->columns();};
+    virtual ConstantSP getMember(const ConstantSP& key) const {return dummytable_->getMember(key);};
+    virtual ConstantSP keys() const {return dummytable_->keys();};
+    virtual ConstantSP values() const {return dummytable_->values();};
+    virtual long long getAllocatedMemory() const {return dummytable_->getAllocatedMemory();};
+    virtual ConstantSP getValue() const {return dummytable_->getValue();};
+    virtual ConstantSP getValue(INDEX capacity) const {return dummytable_->getValue(capacity);};
+    virtual const string& getColumnName(int index) const {return dummytable_->getColumnName(index);};
+    virtual const string& getColumnQualifier(int index) const {return dummytable_->getColumnQualifier(index);};
+    virtual void setColumnName(int index, const string& name) {return dummytable_->setColumnName(index, name);};
+    virtual int getColumnIndex(const string& name) const {return dummytable_->getColumnIndex(name);};
+    virtual bool contain(const string& qualifier, const string& name) const {return dummytable_->contain(qualifier, name);};
+    virtual bool contain(ColumnRef* col) const {return dummytable_->contain(col);};
+    virtual bool contain(const ColumnRefSP& col) const {return dummytable_->contain(col);};
+    virtual bool contain(const string& name) const {return dummytable_->contain(name);};
+    virtual bool containAll(const vector<ColumnRefSP>& cols) const {return dummytable_->containAll(cols);};
+    virtual void setName(const string& name) {return dummytable_->setName(name);};
+    virtual bool remove(const ConstantSP& indexSP, string& errMsg) {return dummytable_->remove(indexSP, errMsg);};
+    virtual DATA_TYPE getColumnType(int index) const {return dummytable_->getColumnType(index);};
+	virtual TABLE_TYPE getTableType() const {return dummytable_->getTableType();};
+    virtual ConstantSP getInstance(INDEX size) const {return dummytable_->getInstance(size);};
+    virtual ConstantSP getColumn(const string& name, const ConstantSP& rowFilter) {return dummytable_->getColumn(name, rowFilter);};
+    virtual const string& getName() const {return dummytable_->getName();};
+    virtual bool update(vector<ConstantSP>& values, const ConstantSP& indexSP, vector<string>& colNames, string& errMsg) {return dummytable_->update(values, indexSP, colNames, errMsg);};
+    virtual ConstantSP getInstance() const {return ((ConstantSP)dummytable_)->getInstance();};
 };
 
 #endif //PLUGINZMQ_PLUGINZMQ_H

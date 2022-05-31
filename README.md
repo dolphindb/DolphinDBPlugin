@@ -64,7 +64,7 @@ The compiler needs to use DolphinDB's core library ```libDolphinDB.so```, which 
 
 ```
 cd demo
-g++ -DLINUX -fPIC -c src/Demo.cpp -I../include -o Demo.o
+g++ -DLINUX -fPIC -DLOCKFREE_SYMBASE -c src/Demo.cpp -I../include -o Demo.o
 g++ -fPIC -shared -o libPluginDemo.so Demo.o -lDolphinDB
 ```
 

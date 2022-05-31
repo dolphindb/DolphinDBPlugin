@@ -243,6 +243,46 @@ zmq::cancelSubJob(sub1)
 zmq::cancelSubJob(42070480)
 ```
 
+### 3.4 zmq::zmqCreatepusher
+
+#### 语法
+
+zmq::zmqCreatepusher(socket, dummyTable)
+
+#### 详情
+
+创建一个zmq的pusher，支持用append方法和作为流数据引擎的outputTable。
+
+#### 参数
+
+* socket: zmq的socket。
+* dummyTable: 提供输入参数的schema。
+
+#### 例子
+```
+share streamTable(1000:0, `time`sym`volume, [TIMESTAMP, SYMBOL, INT]) as trades
+output1 = table(10000:0, `time`sym`sumVolume, [TIMESTAMP, SYMBOL, INT])
+
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:55632")
+pusher = zmq::createPusher(socket, output1)
+
+engine1 = createTimeSeriesEngine(name="engine1", windowSize=60000, step=60000, metrics=<[sum(volume)]>, dummyTable=trades, outputTable=pusher, timeColumn=`time, useSystemTime=false, keyColumn=`sym, garbageSize=50, useWindowStartTime=false)
+subscribeTable(tableName="trades", actionName="engine1", offset=0, handler=append!{engine1}, msgAsTable=true);
+
+insert into trades values(2018.10.08T01:01:01.785,`A,10)
+insert into trades values(2018.10.08T01:01:02.125,`B,26)
+insert into trades values(2018.10.08T01:01:10.263,`B,14)
+insert into trades values(2018.10.08T01:01:12.457,`A,28)
+insert into trades values(2018.10.08T01:02:10.789,`A,15)
+insert into trades values(2018.10.08T01:02:12.005,`B,9)
+insert into trades values(2018.10.08T01:02:30.021,`A,10)
+insert into trades values(2018.10.08T01:04:02.236,`A,29)
+insert into trades values(2018.10.08T01:04:04.412,`B,32)
+insert into trades values(2018.10.08T01:04:05.152,`B,23)
+```
+
 ## 4. 打/解包功能
 
 ### 4.1 createCSVFormatter

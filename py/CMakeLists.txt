@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 project(PluginPy)
+add_definitions(-DLOCKFREE_SYMBASE)
 
 set(CMAKE_CXX_STANDARD 11)
 set(PYTHON "3.7" CACHE STRING "python edition")

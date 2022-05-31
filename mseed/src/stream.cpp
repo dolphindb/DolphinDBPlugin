@@ -56,30 +56,30 @@ extern "C" ConstantSP mseedStreamize(Heap *heap, vector<ConstantSP> &args) {
         char *sidData[sum];
         for (size_t i = 0; i < sum; i += 10240) {
             int size = min((size_t) 10240, sum - i);
-            tmp->appendString((const char**)(sid->getStringConst(i, size, sidData)), size);
+            tmp->appendString(const_cast<const char **>(sid->getStringConst(i, size, sidData)), size);
         }
         sid = tmp;
     }
     ConstantSP ret = Util::createVector(DT_CHAR, 0);
     int mIndex = 8192;
-    shared_ptr<int> sidBuffer = make_shared<int>(mIndex);
-    shared_ptr<long long> tsBuffer = make_shared<long long>(mIndex);
-    shared_ptr<int> dataBuffer = make_shared<int>(mIndex * 2);
-    const int *sidPtr = sid->getIntConst(0, 0, sidBuffer.get());
-    const long long *tsPtr = ts->getLongConst(0, 0, tsBuffer.get());
+    vector<int> sidBuffer(mIndex);
+    vector<long long> tsBuffer(mIndex);
+    vector<double> dataBuffer(mIndex);
+    const int *sidPtr = sid->getIntConst(0, 0, sidBuffer.data());
+    const long long *tsPtr = ts->getLongConst(0, 0, tsBuffer.data());
     const void *dataPtr;
     double step = 1000 / sampleRate;
     while (offect < sum) {
         VectorSP value;
         int size = min(sum - stepBegin, (size_t) mIndex);
-        sidPtr = sid->getIntConst(offect, size, sidBuffer.get());
-        tsPtr = ts->getLongConst(offect, size, tsBuffer.get());
+        sidPtr = sid->getIntConst(offect, size, sidBuffer.data());
+        tsPtr = ts->getLongConst(offect, size, tsBuffer.data());
         if (data->getType() == DT_INT)
-            dataPtr = data->getIntConst(offect, size, dataBuffer.get());
+            dataPtr = data->getIntConst(offect, size, (int*)dataBuffer.data());
         else if (data->getType() == DT_FLOAT)
-            dataPtr = data->getFloatBuffer(offect, size, (float *) (dataBuffer.get()));
+            dataPtr = data->getFloatBuffer(offect, size, (float *) (dataBuffer.data()));
         else
-            dataPtr = data->getDoubleConst(offect, size, (double *) (dataBuffer.get()));
+            dataPtr = data->getDoubleConst(offect, size, dataBuffer.data());
         if(tsPtr[offect - stepBegin] == LONG_MIN)
             throw RuntimeException("The column ts can't be null");
         if (size == 1) {

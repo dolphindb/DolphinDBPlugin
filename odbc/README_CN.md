@@ -91,13 +91,14 @@ use odbc;
 ### 4.1 odbc::connect()
 
 #### 语法
-* odbc::connect(connStr)
+* odbc::connect(connStr, [dataBaseType])
 
 #### 参数
 * connStr: ODBC连接字符串。有关连接字符串格式的更多信息，请参阅 [连接字符串参考](https://www.connectionstrings.com). ODBC DSN必须由系统管理员创建。
 有关连接字符串格式的更多信息，请参阅 [DSN连接字符串](https://www.connectionstrings.com/dsn/). 我们还可以创建到数据库的DSN-Less连接。
 无需DSN的连接而不是依赖存储在文件或系统注册表中的信息，而是在连接字符串中指定驱动程序名称和所有特定于驱动程序的信息。例如: [SQL server的DSN-less连接字符串](https://www.connectionstrings.com/sql-server/) 
 和[MySQL的DSN-less连接字符串](https://www.connectionstrings.com/mysql/). 
+* dataBaseType: 数据库类型。 如"MYSQL", "SQLServer", "PostgreSQL"。
 
 *** 请注意，驱动程序名称可能会有所不同，具体取决于安装的ODBC版本。
 
@@ -187,6 +188,46 @@ t=table(1..10 as id,take(now(),10) as time,rand(1..100,10) as value)
 odbc::append(conn1, t,"ddbtale" ,true)
 odbc::query(conn1,"SELECT * FROM ecimp_ver3.ddbtale")
 ```
+
+## 5 类型支持
+### 5.1 查询类型支持
+| type in ODBC     | Type in DolphinDB|
+| --------------------------- |-----------------|
+|   SQL_BIT   | BOOL|
+| SQL_TINYINT / SQL_SMALLINT | SHORT|
+|SQL_INTEGER|INT|
+|SQL_BIGINT|LONG|
+|SQL_REAL|FLOAT|
+|SQL_FLOAT/SQL_DOUBLE/SQL_DECIMAL/SQL_NUMERIC|DOUBLE|
+|SQL_DATE/SQL_TYPE_DATE|DATE|
+|SQL_TIME/SQL_TYPE_TIME|SECOND|
+|SQL_TIMESTAMP/SQL_TYPE_TIMESTAMP|TIMESTAMP|
+|SQL_CHAR(len == 1)|CHAR|
+|SQL_CHAR(len <= 30)/SQL_VARCHAR(len <= 30)|SYMBOL|
+|...|STRING|
+### 5.2 转换类型支持
+| type in DolphinDB     | Type in PostgreSQL|
+| --------------------------- |-----------------|
+|   BOOL   | bit|
+|CHAR|char(1)|
+|SHORT|smallint|
+|INT|int|
+|LONG|bigint|
+|DATE|date|
+|MONTH|date|
+|TIME|time|
+|MINUTE|time|
+|SECOND|time|
+|DATETIME|timestamp|
+|TIMESTAMP|timestamp|
+|NANOTIME|time|
+NANOTIMESTAMP|timestamp|
+|FLOAT|float|
+|DOUBLE|double precision|
+|SYMBOL|varchar(255)|
+|STRING|varchar(255)|
+
+
 
 
 
