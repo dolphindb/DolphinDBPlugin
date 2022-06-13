@@ -2,9 +2,9 @@
 
 为对接恒生 NSQ 极速行情服务软件，DolphinDB 开发了 NSQ 插件。通过该插件能够获取上海和深圳市场的行情。主要获得以下三种行情：
 
-1. 主推-现货深度行情主推回调（OnRtnSecuDepthMarketData->snapshot
-2. 主推-现货逐笔成交行情主推回调（OnRtnSecuTransactionTradeData->trade
-3. 主推-现货逐笔委托行情主推回调（OnRtnSecuTransactionEntrustData->ticks
+1. 主推-现货深度行情主推回调（OnRtnSecuDepthMarketData->snapshot）
+2. 主推-现货逐笔成交行情主推回调（OnRtnSecuTransactionTradeData->trade）
+3. 主推-现货逐笔委托行情主推回调（OnRtnSecuTransactionEntrustData->orders）
 
 恒生公司发布了 NSQ 极速行情服务软件的 SDK，名称为 HSNsqApi。其对应 linux 下的 libHSNsqApi.so 或 windows 下的 HSNsqApi.dll。编译时需要将对应动态库拷贝至插件项目的 lib/[linux.x/win][32/64]（如 lib/linux.x64) 文件夹。在运行时需要保证对应链接库能被找到。
 
@@ -33,7 +33,7 @@ DolphinDB_Linux64_V2.00.6, DolphinDB_Linux64_V1.30.18, DolphinDB_Win64_V1.30.18_
 其中，若使用 Linux 系统，在使用 NSQ 插件前，需指定环境变量：
 
 ```
-export LD_LIBRARY_PATH=/hdd/hdd2/hzy/single/plugins/nsq:$LD_LIBRARY_PATH 
+export LD_LIBRARY_PATH= /your_plugin_path:$LD_LIBRARY_PATH 
 ```
 
 ## 构建
@@ -110,15 +110,15 @@ loadPlugin("/path/to/PluginNsq.txt");
 `type` 一个字符串，表示行情的类型，包含以下值：
 * "snapshot"：表示回调函数 OnRtnSecuDepthMarketData（主推 - 现货深度行情）获取的行情数据。
 * "trade"：表示回调函数 OnRtnSecuTransactionTradeData（主推 - 现货逐笔成交行情主）获取的行情数据。
-* "ticks"：表示回调函数 OnRtnSecuTransactionEntrustData（主推 - 现货逐笔委托行情）获取的行情数据。
+* "orders"：表示回调函数 OnRtnSecuTransactionEntrustData（主推 - 现货逐笔委托行情）获取的行情数据。
 
-`location`: 一个字符串，表示上海证券交易所或深圳证券交易。上交所用 `sh` 表示，深交所用 `sz` 表示。
+`location`: 一个字符串，表示上海证券交易所或深圳证券交易所。上海证券交易所用 `sh` 表示，深圳证券交易所用 `sz` 表示。
 
 `streamTable`: 表示一个共享流表的表对象。订阅前需要创建一个流表，且该流表的 schema 需要和获取的行情数据结构一致。请注意，建议设置为一个持久化后的流表对象（参见 [enableTableShareAndPersistence](https://www.dolphindb.cn/cn/help/FunctionsandCommands/CommandsReferences/e/enableTableShareAndPersistence.html) 或 [enableTablePersistence](https://www.dolphindb.cn/cn/help/FunctionsandCommands/CommandsReferences/e/enableTablePersistence.html)）。否则，可能会发生 OOM。
 
 **函数详情**
 
-表示对上交所后深交所发布的某种行情数据进行订阅，并将结果保存到由参数 `streamTable` 指定的流表中。
+表示对上海证券交易所或深圳证券交易所发布的某种行情数据进行订阅，并将结果保存到由参数 `streamTable` 指定的流表中。
 
 订阅成功后，在日志（dolphindb.log) 中会有打印如下信息(若出现 successfully，表示订阅成功)：
 
@@ -138,7 +138,7 @@ unsubscribe 命令的两个参数 `type` 和 `location` 的说明同 subscribe �
 
 **函数详情**
 
-表示取消对上海证券交易所或深圳证券交易所发布的某种行情数据的订阅，例如：unsubscribe(\`snapshot, \`sz) 表示取消对深交所的 snapshot 行情数据的订阅。
+表示取消对上海证券交易所或深圳证券交易所发布的某种行情数据的订阅，例如：unsubscribe(\`snapshot, \`sz) 表示取消对深圳证券交易所的 snapshot 行情数据的订阅。
 
 取消订阅成功后，在日志（dolphindb.log) 中会有打印如下信息(若出现 successfully，表示取消订阅成功)：
 
@@ -178,12 +178,12 @@ select * from status;
 ```
 topicType     isConnected isSubscribed processedMsgCount lastErrMsg failedMsgCount lastFailedTimestamp
 -------------- ----------- ------------ ----------------- ---------- -------------- -------------------
-(snapshot, sh) 1           1            0                            0
-(snapshot, sz) 1           1            0                            0
-(trade, sh)    1           1            0                            0
-(trade, sz)    1           1            0                            0
-(ticks, sh)    1           1            0                            0
-(ticks, sz)    1           1            0                            0
+(snapshot, sh) true        true         0                            0
+(snapshot, sz) true        true         0                            0
+(trade, sh)    true        true         0                            0
+(trade, sz)    true        true         0                            0
+(orders, sh)    true        true         0                            0
+(orders, sz)    true        true         0                            0
 ```
 
 ## 示例
@@ -195,22 +195,22 @@ topicType     isConnected isSubscribed processedMsgCount lastErrMsg failedMsgCou
 login("admin", "123456")
 // 加载插件
 loadPlugin("Your_plugin_path/PluginNsq.txt");
-t = streamTable(
+t1 = streamTable(
 	xxx // schema
 )
-t1 = streamTable(
+t2 = streamTable(
 	xxx
 );
 go
 // 流表持久化
-enableTableShareAndPersistence(table=t, tableName=`snapshot_sh, cacheSize=100000)
-enableTableShareAndPersistence(table=t1, tableName=`trade_sh, cacheSize=100000)
+enableTableShareAndPersistence(table=t1, tableName=`snapshot_sh, cacheSize=100000)
+enableTableShareAndPersistence(table=t2, tableName=`trade_sh, cacheSize=100000)
 nsq::connect(your_config_path);
-// 订阅上交所的深度行情
+// 订阅上海证券交易所的深度行情
 nsq::subscribe(`snapshot, `sh, snapshot_sh);
 // 取消订阅
 nsq::unsubscribe(`snapshot, `sh)
-// 订阅上交所的逐笔成交行情
+// 订阅上海证券交易所的逐笔成交行情
 nsq::subscribe(`trade`, `sh`, trade_sh);
 // 用这个表对象进行操作
 select * from snapshot_sh limit 100;
@@ -247,34 +247,34 @@ nsq::close();
 
   login failed: iRet [iRet], error: [errorMsg]
 
-5. API 未初始化错误，需要检查是否 connect() 成功
+5. API 未初始化错误，需要检查是否 connect() 成功。
 
   API is not initialized. Please check whether the connection is set up via connect().
 
-6. subscribe 的 `streamTable` 参数错误，需要是一个 shared streamTable（共享流表）
+6. subscribe 的 `streamTable` 参数错误，需要是一个 shared streamTable（共享流表）。
 
   The third parameter "streamTable" must be a shared stream table.
 
-7. subscribe 的 `location` 参数错误，需要是 `sh` 或 `sz`
+7. subscribe 的 `location` 参数错误，需要是 `sh` 或 `sz`。
 
   The second parameter "location" must be `sh` or `sz`.
 
-8. subscribe 的 `type` 参数错误，应该是 `snapshot` or `trade` or `ticks`
+8. subscribe 的 `type` 参数错误，应该是 `snapshot` or `trade` or `orders`。
 
-  The first parameter "type" must be  `snapshot`, `trade` or `ticks`.
+  The first parameter "type" must be  `snapshot`, `trade` or `orders`.
 
-9. subscribe `streamTable` 参数的 schema 错误，schema 需和 SDK 一致
+9. subscribe `streamTable` 参数的 schema 错误，schema 需和 SDK 一致。
 
   Subscription failed. Please check if the schema of “streamTable” is correct.
 
-10. 重复订阅错误，想要更换同一类订阅 (如 `snapshot`, `sh` 两个字段唯一标识一类订阅) 订阅的流表，需要先执行 unsubscribe，然后再更新订阅
+10. 重复订阅错误，想要更换同一类订阅 (如 `snapshot`, `sh` 两个字段唯一标识一类订阅) 订阅的流表，需要先执行 unsubscribe，然后再更新订阅。
 
   Subscription already exists. To update subscription, call unsubscribe() and try again.
 
-11. unsubscribe 时 API 未初始化错误
+11. unsubscribe 时 API 未初始化错误。
 
    API is not initialized. Please check whether the connection is set up via connect().
 
-12. close() 错误，在未初始化（未调用 connect）的 API 上进行了 close
+12. close() 错误，在未初始化（未调用 connect）的 API 上进行了 close。
 
    Failed to close(). There is no connection to close.
