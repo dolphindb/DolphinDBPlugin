@@ -4,7 +4,7 @@
 
 1. 主推-现货深度行情主推回调（OnRtnSecuDepthMarketData->snapshot）
 2. 主推-现货逐笔成交行情主推回调（OnRtnSecuTransactionTradeData->trade）
-3. 主推-现货逐笔委托行情主推回调（OnRtnSecuTransactionEntrustData->ticks）
+3. 主推-现货逐笔委托行情主推回调（OnRtnSecuTransactionEntrustData->orders）
 
 恒生公司发布了 NSQ 极速行情服务软件的 SDK，名称为 HSNsqApi。其对应 linux 下的 libHSNsqApi.so 或 windows 下的 HSNsqApi.dll。编译时需要将对应动态库拷贝至插件项目的 lib/[linux.x/win][32/64]（如 lib/linux.x64) 文件夹。在运行时需要保证对应链接库能被找到。
 
@@ -110,7 +110,7 @@ loadPlugin("/path/to/PluginNsq.txt");
 `type` 一个字符串，表示行情的类型，包含以下值：
 * "snapshot"：表示回调函数 OnRtnSecuDepthMarketData（主推 - 现货深度行情）获取的行情数据。
 * "trade"：表示回调函数 OnRtnSecuTransactionTradeData（主推 - 现货逐笔成交行情主）获取的行情数据。
-* "ticks"：表示回调函数 OnRtnSecuTransactionEntrustData（主推 - 现货逐笔委托行情）获取的行情数据。
+* "orders"：表示回调函数 OnRtnSecuTransactionEntrustData（主推 - 现货逐笔委托行情）获取的行情数据。
 
 `location`: 一个字符串，表示上海证券交易所或深圳证券交易所。上海证券交易所用 `sh` 表示，深圳证券交易所用 `sz` 表示。
 
@@ -182,8 +182,8 @@ topicType     isConnected isSubscribed processedMsgCount lastErrMsg failedMsgCou
 (snapshot, sz) true        true         0                            0
 (trade, sh)    true        true         0                            0
 (trade, sz)    true        true         0                            0
-(ticks, sh)    true        true         0                            0
-(ticks, sz)    true        true         0                            0
+(orders, sh)    true        true         0                            0
+(orders, sz)    true        true         0                            0
 ```
 
 ## 示例
@@ -259,9 +259,9 @@ nsq::close();
 
   The second parameter "location" must be `sh` or `sz`.
 
-8. subscribe 的 `type` 参数错误，应该是 `snapshot` or `trade` or `ticks`。
+8. subscribe 的 `type` 参数错误，应该是 `snapshot` or `trade` or `orders`。
 
-  The first parameter "type" must be  `snapshot`, `trade` or `ticks`.
+  The first parameter "type" must be  `snapshot`, `trade` or `orders`.
 
 9. subscribe `streamTable` 参数的 schema 错误，schema 需和 SDK 一致。
 
