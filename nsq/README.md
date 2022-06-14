@@ -8,6 +8,8 @@
 
 恒生公司发布了 NSQ 极速行情服务软件的 SDK，名称为 HSNsqApi。其对应 linux 下的 libHSNsqApi.so 或 windows 下的 HSNsqApi.dll。编译时需要将对应动态库拷贝至插件项目的 lib/[linux.x/win][32/64]（如 lib/linux.x64) 文件夹。在运行时需要保证对应链接库能被找到。
 
+请注意，DolphinDB 仅提供对接 HSNsqApi 的 NSQ 插件。数据源和接入服务可咨询数据服务商或证券公司。
+
 本文包含以下内容：
 - [DolphinDB NSQ Plugin](#dolphindb-nsq-plugin)
 	- [支持 NSQ 的 server 版本](#支持-nsq-的-server-版本)
