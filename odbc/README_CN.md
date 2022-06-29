@@ -38,7 +38,7 @@ yum install mysql-connector
 可以使用以下脚本解决问题：:
 ```
 cd /usr/lib64
-ln -s libodbc.so.2.0.0.0 libodbc.so.1
+ln -s libodbc.so.2.0.0 libodbc.so.1
 ```
 
 请使用正确的lib文件名代替 ```libodbc.so.2.0.0```.
