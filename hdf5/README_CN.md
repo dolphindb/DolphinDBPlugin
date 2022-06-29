@@ -2,36 +2,38 @@
 
 DolphinDB HDF5插件可將HDF5文件导入DolphinDB，并支持进行数据类型转换。
 
-* [1 安装](#1-安装)
-    * [1.1 预编译安装](#11-预编译安装)
-    * [1.2 编译安装](#12-编译安装)
-* [2 用户接口](#2-用户接口)  
-    * [2.1 hdf5::ls](#21-hdf5ls)
-    * [2.2 hdf5::lsTable](#22-hdf5lstable)
-    * [2.3 hdf5::extractHDF5Schema](#23-hdf5extracthdf5schema)
-    * [2.4 hdf5::loadHDF5](#24-hdf5loadhdf5)
-    * [2.5 hdf5::loadHDF5Ex](#25-hdf5loadhdf5ex)
-    * [2.6 hdf5::HDF5DS](#26-hdf5hdf5ds)
-    * [2.7 hdf5::saveHDF5](#27-hdf5savehdf5)
-* [3 支持的数据类型](#3-支持的数据类型) 
-    * [3.1 integer](#31-integer)
-    * [3.2 float](#32-float)
-    * [3.3 time](#33-time)
-    * [3.4 string](#34-string)
-    * [3.5 enum](#35-enum)
-    * [3.6 compound and array](#36-compound-and-array)
-* [4 表结构](#4表结构)  
-    * [4.1 简单类型](#41-简单类型)
-    * [4.2 复杂类型](#42-复杂类型)
-* [5 性能](#5-性能数据)  
-
+- [DolphinDB HDF5 Plugin](#dolphindb-hdf5-plugin)
+  - [1 安装](#1-安装)
+    - [1.1 预编译安装](#11-预编译安装)
+    - [1.2 编译安装](#12-编译安装)
+  - [2 用户接口](#2-用户接口)
+    - [2.1 hdf5::ls](#21-hdf5ls)
+    - [2.2 hdf5::lsTable](#22-hdf5lstable)
+    - [2.3 hdf5::extractHDF5Schema](#23-hdf5extracthdf5schema)
+    - [2.4 hdf5::loadHDF5](#24-hdf5loadhdf5)
+    - [2.5 hdf5::loadHDF5Ex](#25-hdf5loadhdf5ex)
+    - [2.6 hdf5::HDF5DS](#26-hdf5hdf5ds)
+    - [2.7 hdf5::saveHDF5](#27-hdf5savehdf5)
+  - [3 支持的数据类型](#3-支持的数据类型)
+    - [3.1 integer](#31-integer)
+    - [3.2 float](#32-float)
+    - [3.3 time](#33-time)
+    - [3.4 string](#34-string)
+    - [3.5 enum](#35-enum)
+    - [3.6 compound and array](#36-compound-and-array)
+  - [4 表结构](#4-表结构)
+    - [4.1 简单类型](#41-简单类型)
+    - [4.2 复杂类型](#42-复杂类型)
+  - [5 性能](#5-性能)
+    - [5.1 环境](#51-环境)
+    - [5.2 数据集导入性能](#52-数据集导入性能)
 ## 1 安装
 
 ### 1.1 预编译安装
 
 可以导入DolphinDB安装包中或者bin目录下预编译好的HDF5插件。
 
-#### Linux
+#### Linux <!-- omit in toc -->
 
 (1) 添加插件所在路径到LIB搜索路径 LD_LIBRARY_PATH
 ```
@@ -43,7 +45,7 @@ export LD_LIBRARY_PATH=/path_to_hdf5_plugin/:$LD_LIBRARY_PATH
 loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
 ```
 
-#### Windows
+#### Windows <!-- omit in toc -->
 
 ```
 loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
@@ -53,18 +55,31 @@ loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
 
 可使用以下方法编译HDF5插件，编译成功后通过以上方法导入。
 
-#### 在Linux下安装
+#### 在Linux下安装 <!-- omit in toc -->
 
 安装cmake：
 ```bash
 sudo apt install cmake
 ```
-编译安装HDF5 1.10.6：
+编译c-blosc
 ```bash
-# 在https://portal.hdfgroup.org/display/support/HDF5+1.10.6#files下载源码
+#在https://github.com/Blosc/c-blosc/releases/tag/v1.21.1 下载源码
+cd c-blosc-1.21.1
+mkdir build
+cd build
+cmake -DCMAKE_C_FLAGS="-fPIC -std=c11" ..
+make -j
+cp blosc/src/blosc.h /path_to_hdf5_plugin/include/c-blosc
+cp blosc/src/blosc-export.h /path_to_hdf5_plugin/include/c-blosc
+cp blosc/libblosc.a /path_to_hdf5_plugin/lib
+```
+
+编译HDF5 1.13.1：
+```bash
+# 在https://portal.hdfgroup.org/display/support/HDF5+1.13.1#files下载源码
 # 若您不熟悉插件源代码，请不要下载其他版本，hdf5版本兼容性差，可能导致安装失败
-tar -xvf hdf5-1.10.6.tar.gz
-cd hdf5-1.10.6
+tar -xvf hdf5-1.13.1.tar.gz
+cd hdf5-1.13.1
 export CFLAGS="-fPIC -std=c11"
 export CXXFLAGS="-fPIC -std=c++11"
 ./configure --enable-cxx
@@ -86,12 +101,21 @@ cmake ..
 make
 ```
 
-#### 在Windows下安装
+#### 在Windows下安装 <!-- omit in toc -->
+在msys2环境下，使用mingw编译hdf5 1.13.1.zip
++ 使用 mingw-w64-x86_64编译器
+```
+export PATH=/PATH_to mingw-w64/x86_64-5.3.0-win32-seh-rt_v4-rev0/mingw64/bin/:$PATH
+```
++ 安装make
+```
+pacman -S make
+```
 
-在msys2环境下，使用mingw编译hdf5 1.10.6.zip
-
-+ 打开msys2终端，解压并进入hdf5所在目录
-+ ./configure --host=x86_64-w64-mingw32 --build=x86_64-w64-mingw32 --prefix=$HOME/hdf5 --enable-cxx
++ 打开msys2终端，进入已经解压好的hdf5-1.13.1所在目录
+```
+ CFLAGS="-std=c11" CXXFLAGS="-std=c++11" ./configure --host=x86_64-w64-mingw32 --build=x86_64-w64-mingw32 --prefix=/d/hdf5_1.13.1 --enable-cxx --enable-tests=no --enable-tools=no with_pthread=no
+```
 + 打开src/H5pubconf.h,在末尾添加以下宏定义
     ```
     #ifndef H5_HAVE_WIN32_API
@@ -102,27 +126,60 @@ make
     #define H5_HAVE_MINGW 1
     #endif
     ```
-+ make -j8
++ 开始编译
+```
+make -j8
 + make install -j8
+```
 
++ 拷贝编译文件到hdf插件文件目录
+```
+cp $HOME/hdf5/include/* /path_to_hdf5_plugin/include_win/hdf5
+cp $HOME/hdf5/lib/libhdf5.a /path_to_hdf5_plugin/build
+cp $HOME/hdf5/lib/libhdf5_cpp.a /path_to_hdf5_plugin/build
+cp $HOME/hdf5/lib/libhdf5_hl.a /path_to_hdf5_plugin/build
+cp $HOME/hdf5/lib/libhdf5_hl_cpp.a /path_to_hdf5_plugin/build
+```
+
++ 打开Windows的CMD命令行终端
+
++ 编译c_blosc
+```
+cd c_blosc-1.21.1
+mkdir build
+cd build
+cmake  ../ -G "MinGW Makefiles"
+mingw32-make -j8
+copy .\blosc\libblosc.a /path_to_hdf5_plugin\build\
+```
++ 复制libDolphinDB.dll到hdf5编译目录
+```
+copy /path_to_dolphindb/libDolphinDB.dll /path_to_hdf5_plugin/build
+```
+
++ hdf5插件编译
+```
+cmake  ../ -G "MinGW Makefiles"
+mingw32-make -j
+```
 
 ## 2 用户接口
 
 ### 2.1 hdf5::ls
 
-#### 语法
+#### 语法 <!-- omit in toc -->
 
 hdf5::ls(fileName)
 
-#### 参数  
+#### 参数  <!-- omit in toc -->
 
 * fileName: HDF5文件名，类型为string。
 
-#### 详情
+#### 详情 <!-- omit in toc -->
 
 列出一个HDF5文件中的所有对象(数据集(dataset)和组(group))以及对象类型(objType)。在对象类型中，数据集会包括其列数及行数。例如DataSet{(7,3)}代表7列3行。
 
-#### 例子   
+#### 例子   <!-- omit in toc -->
 ```
 hdf5::ls("/smpl_numeric.h5")
 
@@ -151,19 +208,19 @@ output:
 ```
 ### 2.2 hdf5::lsTable
 
-#### 语法
+#### 语法 <!-- omit in toc -->
 
 hdf5::lsTable(fileName)
 
-#### 参数  
+#### 参数  <!-- omit in toc -->
 
 * fileName: HDF5文件名，类型为string。
 
-#### 详情
+#### 详情 <!-- omit in toc -->
 
 列出一个HDF5文件中的所有table信息，即HDF5数据集(dataset)对象信息，包括表名、列数及行数、表的类型。
 
-#### 例子   
+#### 例子   <!-- omit in toc -->
 ```
 hdf5::lsTable("/smpl_numeric.h5")
 
@@ -183,20 +240,20 @@ output:
 
 ### 2.3 hdf5::extractHDF5Schema
 
-#### 语法
+#### 语法 <!-- omit in toc -->
 
 hdf5::extractHDF5Schema(fileName, datasetName)
 
-#### 参数
+#### 参数 <!-- omit in toc -->
 
 * fileName: HDF5文件名，类型为字符串标量。
 * datasetName: dataset名称，即表名。可通过ls或lsTable获得，类型为字符串标量。
 
-#### 详情
+#### 详情 <!-- omit in toc -->
 
 生成HDF5文件中指定数据集的结构，包括两列：列名和数据类型。
 
-#### 例子
+#### 例子 <!-- omit in toc -->
 ```
 hdf5::extractHDF5Schema("/smpl_numeric.h5","sint")
 
@@ -228,11 +285,11 @@ output:
 
 ### 2.4 hdf5::loadHDF5
 
-#### 语法
+#### 语法 <!-- omit in toc -->
 
 hdf5::loadHDF5(fileName,datasetName,[schema],[startRow],[rowNum])
 
-#### 参数
+#### 参数 <!-- omit in toc -->
 
 * fileName: HDF5文件名，类型为字符串标量。
 * datasetName: dataset名称，即表名。可通过ls或lsTable获得，类型为字符串标量。
@@ -240,11 +297,11 @@ hdf5::loadHDF5(fileName,datasetName,[schema],[startRow],[rowNum])
 * startRow: 从哪一行开始读取HDF5数据集。若不指定，默认从数据集起始位置读取。
 * rowNum: 读取HDF5数据集的行数。若不指定，默认读到数据集的结尾。
 
-#### 详情
+#### 详情 <!-- omit in toc -->
 
 将HDF5文件中的指定数据集加载为DolphinDB数据库的内存表。读取的行数为HDF5文件中定义的行数，而不是读取结果中的DolphinDB表的行数。支持的数据类型，以及数据转化规则可见[数据类型](#3-支持的数据类型)章节。
 
-#### 例子
+#### 例子 <!-- omit in toc -->
 ```
 hdf5::loadHDF5("/smpl_numeric.h5","sint")
 
@@ -267,11 +324,11 @@ output:
 
 ### 2.5 hdf5::loadHDF5Ex
 
-#### 语法
+#### 语法 <!-- omit in toc -->
 
 hdf5::loadHDF5Ex(dbHandle,tableName,[partitionColumns],fileName,datasetName,[schema],[startRow],[rowNum],[tranform])
 
-#### 参数
+#### 参数 <!-- omit in toc -->
 
 * dbHandle与tableName: 若要将输入数据文件保存在分布式数据库中，需要指定数据库句柄和表名。
 * partitionColumns: 字符串标量或向量，表示分区列。当分区数据库不是SEQ分区时，我们需要指定分区列。在组合分区中，partitionColumns是字符串向量。
@@ -282,11 +339,11 @@ hdf5::loadHDF5Ex(dbHandle,tableName,[partitionColumns],fileName,datasetName,[sch
 * rowNum: 读取HDF5数据集的行数。若不指定，默认读到数据集的结尾。
 * tranform: 一元函数，并且该函数接受的参数必须是一个表。如果指定了transform参数，需要先创建分区表，再加载数据，程序会对数据文件中的数据执行transform参数指定的函数，再将得到的结果保存到数据库中。
 
-#### 详情
+#### 详情 <!-- omit in toc -->
 
 将HDF5文件中的数据集转换为DolphinDB数据库的分布式表，然后将表的元数据加载到内存中。读取的行数为HDF5文件中定义的行数，而不是读取结果中的DolphinDB表的行数。支持的数据类型,以及数据转化规则可见[数据类型](#3-支持的数据类型)章节。
 
-#### 例子
+#### 例子 <!-- omit in toc -->
 
 * 磁盘上的SEQ分区表
 ```
@@ -312,6 +369,12 @@ db = database("", RANGE, 0 500 1000)
 t0 = hdf5::loadHDF5Ex(db,`tb,`col_4,"/smpl_numeric.h5","sint")
 ```
 
+* 内存中的非SEQ分区表
+```
+db = database("", RANGE, 0 500 1000)
+t0 = hdf5::loadHDF5Ex(db,`tb,`col_4,"/smpl_numeric.h5","sint")
+```
+
 * 指定transform 将数值类型表示的日期和时间(比如:20200101)转化为指定类型(比如:日期类型)
 ```
 dbPath="dfs://DolphinDBdatabase"
@@ -329,22 +392,22 @@ t = hdf5::loadHDF5Ex(db,`tb1,`trans_time,dataFilePath,datasetName,,,,i2d)
 ```
 ### 2.6 hdf5::HDF5DS
 
-#### 语法
+#### 语法 <!-- omit in toc -->
 
 hdf5::HDF5DS(fileName,datasetName,[schema],[dsNum])
 
-#### 参数
+#### 参数 <!-- omit in toc -->
 
 * fileName: HDF5文件名，类型为字符串标量。
 * datasetName: 数据集名，即表名。可通过`ls`或`lsTable`获得，类型为字符串标量。
 * schema: 包含列名和列的数据类型的表。若要改变由系统自动决定的列的数据类型，需要在schema表中修改数据类型，并且把它作为`HDF5DS`函数的一个参数。
 * dsNum: 需要生成的数据源数量。整个表会被均分为dsNum份。如果不指定，默认生成1个数据源。
 
-#### 详情
+#### 详情 <!-- omit in toc -->
 
 根据输入的文件名和数据集名创建数据源列表。
 
-#### 例子
+#### 例子 <!-- omit in toc -->
 ```
 >ds = hdf5::HDF5DS(smpl_numeric.h5","sint")
 >size ds;
@@ -375,11 +438,11 @@ res = mr(ds, def(x) : x,,,false)
 ```
 ### 2.7 hdf5::saveHDF5
 
-#### 语法
+#### 语法 <!-- omit in toc -->
 
 hdf5::saveHDF5(table, fileName, datasetName, [append], [stringMaxLength])
 
-#### 参数
+#### 参数 <!-- omit in toc -->
 
 table: 要保存的内存表。
 
@@ -391,17 +454,26 @@ append: 是否追加数据到已存在dataset。类型为布尔型，默认为fa
 
 stringMaxLength: 字符串最大长度，类型为数值类型，默认为16。仅对table中的string和symbol类型起作用。
 
-#### 详情
+#### 详情 <!-- omit in toc -->
 
 将DolphinDB数据库的内存表保存到HDF5文件中的指定数据集。支持的数据类型，以及数据转化规则可见[数据类型](#3-支持的数据类型)章节。
 
-#### 例子
+#### 例子 <!-- omit in toc -->
 
 ```
 hdf5::saveHDF5(tb, "example.h5", "dataset name in hdf5")
 ```
 
-> 注意：HDF5文件中无法存入空值。若DolphinDB表中存在空值，会按照[数据类型](#3-支持的数据类型)中的默认值存入。
+> 注意：
+> 
+> 1. HDF5文件中无法存入空值。若DolphinDB表中存在空值，会按照[数据类型](#3-支持的数据类型)中的默认值存入。
+> 2. 若需通过python读取由HDF5插件生成的h5文件，需要使用通过h5py库进行读取。例如：
+> ```python
+> import h5py
+> f = h5py.File("/home/workDir/dolphindb_src/build/test.h5", 'r')
+> print(f['aaa']['TimeStamp'])
+> print(f['aaa']['StockID'])
+> ```
 
 ## 3 支持的数据类型
 
@@ -420,7 +492,7 @@ hdf5::saveHDF5(tb, "example.h5", "dataset name in hdf5")
 | H5T_NATIVE_LONG   | 0  | long                        | int/long                     |
 | H5T_NATIVE_ULONG  | 0 | unsigned long               | unsupported/long             |
 | H5T_NATIVE_LLONG  | 0 | long long                   | long                         |
-| H5T_NATIVE_ULLONG | 0 | unsigned long long          | unsupported                  |
+| H5T_NATIVE_ULLONG | 0 | unsigned long long          | unsupported/long                  |
 
 
 * DolphinDB中数值类型都为有符号类型。为了防止溢出，除64位无符号类型外，所有无符号类型会被转化为高一阶的有符号类型。特别的，64位无符号类型转化为64位有符号类型，若发生溢出则返回64位有符号类型的最大值。
@@ -488,14 +560,14 @@ hdf5::saveHDF5(tb, "example.h5", "dataset name in hdf5")
 
 简单类型导入DolphinDB后的table与HDF5文件中的table完全一致。
 
-#### HDF5中的简单类型表
+#### HDF5中的简单类型表 <!-- omit in toc -->
 
 |     | 1       | 2       |
 | --- | :------ | :------ |
 | 1   | int(10) | int(67) |
 | 2   | int(20) | int(76) |
 
-#### 导入DolphinDB后的简单类型表
+#### 导入DolphinDB后的简单类型表 <!-- omit in toc -->
 
 |     | col_1 | col_2 |
 | --- | :---- | :---- |
@@ -506,7 +578,7 @@ hdf5::saveHDF5(tb, "example.h5", "dataset name in hdf5")
 
 复杂类型导入DolphinDB后的类型取决于复杂类型的结构。
 
-####  HDF5中的复合类型表
+####  HDF5中的复合类型表 <!-- omit in toc -->
 
 |     | 1                        | 2                        |
 | --- | :----------------------- | :----------------------- |
@@ -522,7 +594,7 @@ hdf5::saveHDF5(tb, "example.h5", "dataset name in hdf5")
 | 3   | 12   | 22   | 32.7 |
 | 4   | 13   | 23   | 33.7 |
 
-#### HDF5中的数组类型表
+#### HDF5中的数组类型表 <!-- omit in toc -->
 
 |     | 1             | 2               |
 | --- | :------------ | :-------------- |
@@ -539,7 +611,7 @@ hdf5::saveHDF5(tb, "example.h5", "dataset name in hdf5")
 | 4   | 15      | 16      | 17      |
 
 
-#### HDF5中的嵌套类型表
+#### HDF5中的嵌套类型表 <!-- omit in toc -->
 
 对嵌套的复杂类型，结果中会添加'A'前缀代表数组，'C'前缀代表复合类型。
 
