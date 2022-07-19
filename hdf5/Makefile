@@ -1,4 +1,4 @@
-CFLAGS = -g -Wall -std=c++11 -fPIC -DLINUX -DLINUX -O2 -Wall -Werror
+CFLAGS = -g -Wall -std=c++11 -fPIC -DLINUX -DLINUX -O2 -Wall -Werror -DLOCKFREE_SYMBASE
 INCLUDES= -I../include -I./include
 
 HDF5_INCLUDES = $(shell  h5c++ -shlib -show|xargs -n1|grep "^\-I")

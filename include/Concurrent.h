@@ -75,7 +75,7 @@ private:
 
 class RWLock{
 public:
-	RWLock(bool preferWrite=false);
+	RWLock();
 	~RWLock();
 	void acquireRead();
 	void acquireWrite();
@@ -88,7 +88,6 @@ private:
 	SRWLOCK lock_;
 #else
 	pthread_rwlock_t lock_;
-    pthread_rwlockattr_t attr_;
 #endif
 };
 
@@ -672,7 +671,6 @@ public:
 		if (acquireLock)
 			group_->lock(h_);
 	}
-	MutexGroupGuard(){}
 	void unlock(){
 		if(group_ != NULL){
 			group_->unlock(h_);

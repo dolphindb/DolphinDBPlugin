@@ -122,6 +122,18 @@ private:
 	const IO_ERR errCode_;
 };
 
+class FileChunkVersionCheckException : public exception{
+public:
+    FileChunkVersionCheckException(const string& errMsg) : errMsg_(errMsg){}
+    virtual const char* what() const throw(){
+        return errMsg_.c_str();
+    }
+    virtual ~FileChunkVersionCheckException() throw(){}
+
+private:
+    const string errMsg_;
+};
+
 class DataCorruptionException: public exception {
 public:
 	DataCorruptionException(const string& errMsg) : errMsg_("<DataCorruption>" + errMsg){}

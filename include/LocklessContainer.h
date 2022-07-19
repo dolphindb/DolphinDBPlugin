@@ -25,6 +25,7 @@
 #define CACHE_LINE_SIZE  64 // 64 byte cache line on x86 and x86-64
 #define CACHE_LINE_SCALE 6  // log base 2 of the cache line size
 
+
 #define EXPECT_FALSE(x)     __builtin_expect(!!(x), 0)
 
 #ifndef NBD_SINGLE_THREADED
@@ -1120,32 +1121,15 @@ public:
     }
 
     bool insert(const key_type & key, const mapped_type & value) {
-        bool inserted1 = false, inserted2 = false;
         LockGuard<Mutex> g(&writerMtx);
-
         int curLeftRight = leftRight.load();
         int curVersionIdx = versionIdx.load();
-        inserted1 = maps[!curLeftRight].insert(key, value);
+        bool inserted1 = maps[!curLeftRight].insert(key, value);
         leftRight.store(!curLeftRight);
         while(versions[!curVersionIdx].isEmpty() == false);
         versionIdx.store(!curVersionIdx);
         while(versions[curVersionIdx].isEmpty() == false);
-
-        try {
-            inserted2 = maps[curLeftRight].insert(key, value);
-        } catch(...) {
-            int curLeftRight = leftRight.load();
-            int curVersionIdx = versionIdx.load();
-            maps[!curLeftRight].erase(key);
-            leftRight.store(!curLeftRight);
-            while(versions[!curVersionIdx].isEmpty() == false);
-            versionIdx.store(!curVersionIdx);
-            while(versions[curVersionIdx].isEmpty() == false);
-            maps[curLeftRight].erase(key);
-            inserted1 = inserted2 = false;
-			throw;
-        }
-        assert(inserted1 == inserted2);
+        maps[curLeftRight].insert(key, value);
         return inserted1;
     }
 

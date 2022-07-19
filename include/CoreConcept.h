@@ -72,7 +72,6 @@ class DomainSitePool;
 class DomainPartition;
 class Domain;
 class PartitionGuard;
-class Function;
 struct TableUpdate;
 struct TableUpdateSizer;
 struct TableUpdateUrgency;
@@ -83,8 +82,6 @@ class IoTransaction;
 class Decoder;
 class VolumeMapper;
 class SystemHandle;
-struct InferredType;
-struct FunctionSignature;
 class Transaction;
 
 typedef SmartPointer<AuthenticatedUser> AuthenticatedUserSP;
@@ -122,8 +119,6 @@ typedef SmartPointer<DistributedCall> DistributedCallSP;
 typedef SmartPointer<JobProperty> JobPropertySP;
 typedef SmartPointer<VolumeMapper> VolumeMapperSP;
 typedef SmartPointer<Decoder> DecoderSP;
-typedef SmartPointer<InferredType> InferredTypeSP;
-typedef SmartPointer<FunctionSignature> FunctionSignatureSP;
 typedef SmartPointer<Transaction> TransactionSP;
 
 typedef ConstantSP(*OptrFunc)(const ConstantSP&,const ConstantSP&);
@@ -198,7 +193,7 @@ private:
      *
      */
     unsigned char allFlag_;
-    std::atomic<bool> expired_;
+    bool expired_;
     unordered_set<string> permissions_;
 };
 
@@ -387,12 +382,10 @@ public:
 	int getVersion(){return version_;}
     const string& getDBPath() const {return dbPath_;}
     void setDBPath(const string& dbPath) { dbPath_ = dbPath;}
-    string getString() const;
-    string getString(int start, int length) const;
 	static int readSymbolBaseVersion(const string symbolFile);
 
 private:
-	SymbolBase(int size, const DynamicArray<DolphinString>& keys, bool supportOrder = false);
+    SymbolBase(int size, const DynamicArray<DolphinString>& keys, bool supportOrder = false);
 	int getOrdinalCandidate(const DolphinString& symbol);
 	void reAssignOrdinal(int capacity);
 	bool reload(const string& symbolFile, const DataInputStreamSP& in, bool snapshot = false);
@@ -463,32 +456,19 @@ namespace std {
 	};
 }
 
-struct FunctionSignature {
-	InferredTypeSP returnTy;
-	vector<InferredTypeSP> paramTys;
-	vector<int> missingParams;
-	FunctionDef* func;
-	void* jitFunc;
-	Function* funcObj;
-
-	FunctionSignature() : func(0), jitFunc(0), funcObj(0){}
-};
-
 struct InferredType {
-    DATA_FORM form;
-    DATA_TYPE type;
-    DATA_CATEGORY category;
-    FunctionSignatureSP signature;
-
-    InferredType(DATA_FORM form = DF_SCALAR, DATA_TYPE type = DT_VOID, DATA_CATEGORY category = NOTHING):
-        form(form), type(type), category(category){}
-    bool operator ==(const InferredType & rhs) const {
-        return form == rhs.form && type == rhs.type && category == rhs.category;
-    }
-    bool operator !=(const InferredType & rhs) const {
-        return !operator==(rhs);
-    }
-    string getString();
+	DATA_FORM form;
+	DATA_TYPE type;
+	DATA_CATEGORY category;
+	InferredType(DATA_FORM form = DF_SCALAR, DATA_TYPE type = DT_VOID, DATA_CATEGORY category = NOTHING):
+		form(form), type(type), category(category) {}
+	bool operator ==(const InferredType & rhs) const {
+		return form == rhs.form && type == rhs.type && category == rhs.category;
+	}
+	bool operator !=(const InferredType & rhs) const {
+		return !operator==(rhs);
+	}
+	string getString();
 };
 
 namespace std {
@@ -607,7 +587,6 @@ public:
 	virtual ConstantSP get(INDEX index) const {return getValue();}
 	virtual ConstantSP get(INDEX column, INDEX row) const {return get(row);}
 	virtual ConstantSP get(const ConstantSP& index) const {return getValue();}
-	virtual ConstantSP get(INDEX offset, const ConstantSP& index) const {return getValue();}
 	virtual ConstantSP getColumn(INDEX index) const {return getValue();}
 	virtual ConstantSP getRow(INDEX index) const {return get(index);}
 	virtual ConstantSP getItem(INDEX index) const {return get(index);}
@@ -674,7 +653,6 @@ public:
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const {return serialize(buffer);}
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const {throw RuntimeException("code serialize method not supported");}
     virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const {throw RuntimeException("serialize method not supported");}
-    virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int targetNumElement, int& numElement, int& partial) const;
     virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial) {throw RuntimeException("deserialize method not supported");}
 
 	virtual void nullFill(const ConstantSP& val){}
@@ -693,15 +671,6 @@ public:
 	virtual bool set(INDEX index, const ConstantSP& value){return false;}
 	virtual bool set(INDEX column, INDEX row, const ConstantSP& value){return false;}
 	virtual bool set(const ConstantSP& index, const ConstantSP& value) {return false;}
-	/**
-	 * Replace the cell value specified by the index with the new value specified by valueIndex.
-	 *
-	 * index: scalar or vector. Make sure all indices in are valid, i.e. no less than zero and less than the size of the value.
-	 * value: vector.
-	 * valueIndex: index vector to filter value. Make sure all indices in the vector are valid, i.e. no less than zero and less than the size of the value.
-	 *
-	 */
-	virtual bool set(const ConstantSP& index, const ConstantSP& value, const ConstantSP& valueIndex) {return false;}
 	virtual bool setNonNull(const ConstantSP& index, const ConstantSP& value) {return false;}
 	virtual bool setItem(INDEX index, const ConstantSP& value){return set(index,value);}
 	virtual bool setColumn(INDEX index, const ConstantSP& value){return assign(value);}
@@ -720,7 +689,6 @@ public:
 	virtual bool setDouble(INDEX start, int len, const double* buf){return false;}
 	virtual bool setString(INDEX start, int len, const string* buf){return false;}
 	virtual bool setString(INDEX start, int len, char** buf){return false;}
-	virtual bool setString(INDEX start, int len, const DolphinString** buf){return false;}
 	virtual bool setBinary(INDEX start, int len, int unitLength, const unsigned char* buf){return false;}
 	virtual bool setData(INDEX start, int len, void* buf) {return false;}
 
@@ -785,7 +753,6 @@ public:
 	virtual bool isLargeConstant() const { return isMatrix() || size()>1024; }
 	virtual bool isView() const {return false;}
 	virtual bool isRepeatingVector() const {return false;}
-	virtual VECTOR_TYPE getVectorType() const {return VECTOR_TYPE::OTHER;}
 	virtual void initialize(){}
 	virtual INDEX getCapacity() const = 0;
 	virtual	INDEX reserve(INDEX capacity) {throw RuntimeException("Vector::reserve method not supported");}
@@ -794,35 +761,20 @@ public:
 	virtual void clear()=0;
 	virtual bool remove(INDEX count){return false;}
 	virtual bool remove(const ConstantSP& index){return false;}
-	virtual bool append(const ConstantSP& value){return append(value, 0, value->size());}
-	virtual bool append(const ConstantSP& value, INDEX count){return append(value, 0, count);}
-	/**
-	 * Append the value of the given vector at the specified range to the end of the current vector.
-	 *
-	 * start:
-	 * count:
-	 */
-	virtual bool append(const ConstantSP& value, INDEX start, INDEX count){return false;}
-	/**
-	 * Append the value specified by the index to the end of the vector.
-	 *
-	 * value: vector.
-	 * index: index vector. Make sure all indices in the vector are valid, i.e. no less than zero and less than the size of the value.
-	 */
-	virtual bool append(const ConstantSP& value, const ConstantSP& index){return append(value->get(index), 0, index->size());}
-	virtual bool appendBool(const char* buf, int len){return false;}
-	virtual bool appendChar(const char* buf, int len){return false;}
-	virtual bool appendShort(const short* buf, int len){return false;}
-	virtual bool appendInt(const int* buf, int len){return false;}
-	virtual bool appendLong(const long long* buf, int len){return false;}
-	virtual bool appendIndex(const INDEX* buf, int len){return false;}
-	virtual bool appendFloat(const float* buf, int len){return false;}
-	virtual bool appendDouble(const double* buf, int len){return false;}
-	virtual bool appendString(const DolphinString** buf, int len){return false;}
-	virtual bool appendString(const string* buf, int len){return false;}
-	virtual bool appendString(const char** buf, int len){return false;}
-	virtual bool appendGuid(const Guid* buf, int len){return appendBinary((const unsigned char*)buf, len, 16);}
-	virtual bool appendBinary(const unsigned char* buf, int len, int unitLength){return false;}
+	virtual bool append(const ConstantSP& value){return append(value, value->size());}
+	virtual bool append(const ConstantSP& value, INDEX count){return false;}
+	virtual bool appendBool(char* buf, int len){return false;}
+	virtual bool appendChar(char* buf, int len){return false;}
+	virtual bool appendShort(short* buf, int len){return false;}
+	virtual bool appendInt(int* buf, int len){return false;}
+	virtual bool appendLong(long long* buf, int len){return false;}
+	virtual bool appendIndex(INDEX* buf, int len){return false;}
+	virtual bool appendFloat(float* buf, int len){return false;}
+	virtual bool appendDouble(double* buf, int len){return false;}
+	virtual bool appendString(string* buf, int len){return false;}
+	virtual bool appendString(char** buf, int len){return false;}
+	virtual bool appendGuid(Guid* buf, int len){return appendBinary((unsigned char*)buf, len, 16);}
+	virtual bool appendBinary(unsigned char* buf, int len, int unitLength){return false;}
 	virtual string getString() const;
 	virtual string getScript() const;
 	virtual string getString(INDEX index) const = 0;
@@ -834,23 +786,7 @@ public:
 	virtual ConstantSP getWindow(INDEX colStart, int colLength, INDEX rowStart, int rowLength) const {return getSubVector(rowStart,rowLength);}
 	virtual ConstantSP getSubVector(INDEX start, INDEX length) const { throw RuntimeException("getSubVector method not supported");}
 	virtual ConstantSP getSubVector(INDEX start, INDEX length, INDEX capacity) const { return getSubVector(start, length);}
-	/**
-	 * Fill the value of the vector at the specified range by the value of the given vector.
-	 *
-	 * start: the starting position of the current vector to fill.
-	 * length: the number of cells of the current vector to fill.
-	 * value: vector
-	 */
 	virtual void fill(INDEX start, INDEX length, const ConstantSP& value)=0;
-	/**
-	 * Fill the value of the vector at the specified range by the value of the given vector at the specified index.
-	 *
-	 * start: the starting position of the current vector to fill.
-	 * length: the number of cells of the current vector to fill.
-	 * value: vector
-	 * index: index vector. Make sure all indices in the vector are valid, i.e. no less than zero and less than the size of the value.
-	 */
-	virtual void fill(INDEX start, INDEX length, const ConstantSP& value, const ConstantSP& index) { fill(start, length, value->get(index));}
 	virtual void next(INDEX steps)=0;
 	virtual void prev(INDEX steps)=0;
 	virtual void reverse()=0;
@@ -883,20 +819,16 @@ public:
 	virtual ConstantSP minmax(INDEX start, INDEX length) const;
 	virtual ConstantSP max() const = 0;
 	virtual ConstantSP max(INDEX start, INDEX length) const = 0;
-	virtual void max(INDEX start, INDEX length, const ConstantSP& out) const = 0;
 	virtual INDEX imax() const = 0;
 	virtual INDEX imax(INDEX start, INDEX length) const = 0;
 	virtual ConstantSP min() const = 0;
 	virtual ConstantSP min(INDEX start, INDEX length) const = 0;
-	virtual void min(INDEX start, INDEX length, const ConstantSP& out) const = 0;
 	virtual INDEX imin() const = 0;
 	virtual INDEX imin(INDEX start, INDEX length) const = 0;
 	virtual ConstantSP avg() const = 0;
 	virtual ConstantSP avg(INDEX start, INDEX length) const = 0;
-	virtual void avg(INDEX start, INDEX length, const ConstantSP& out) const = 0;
 	virtual ConstantSP sum() const = 0;
 	virtual ConstantSP sum(INDEX start, INDEX length) const = 0;
-	virtual void sum(INDEX start, INDEX length, const ConstantSP& out) const = 0;
 	virtual ConstantSP sum2() const = 0;
 	virtual ConstantSP sum2(INDEX start, INDEX length) const = 0;
 	virtual ConstantSP prd() const = 0;
@@ -921,20 +853,10 @@ public:
 	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict = false) const = 0;
 
 	/**
-	 * Find the first element that is no less than the target value in the sorted vector. If all elements are
-	 * less than the target value, return the size of the vector.
+	 * Find the first element that is no less than the target value in the sorted vector.
 	 * start: the starting point of the search.
 	 */
 	virtual INDEX lowerBound(INDEX start, const ConstantSP& target)=0;
-	/**
-	 * Find the range of the specified value in a sorted vector.
-	 *
-	 * target: the target value. it must be a scalar.
-	 * range: in/out parameter in the format of pair<offset, length>. When serving as a input parameter,
-	 * it specifies the range to search. The search result is stored in this parameter too. If no element
-	 * equals to the target value, the length of the output is set to 0.
-	 */
-	virtual void equalRange(const ConstantSP& target, pair<INDEX, INDEX>& range) const {throw RuntimeException("equalRange method not supported");}
 
 	virtual bool equalToPrior(INDEX start, INDEX length, bool* result){ return false;}
 	virtual bool equalToPrior(INDEX prior, const INDEX* indices, INDEX length, bool* result){ return false;}
@@ -992,54 +914,6 @@ public:
 	virtual bool findRange(INDEX* ascIndices,const ConstantSP& target,INDEX* targetIndices,vector<pair<INDEX,INDEX> >& ranges)=0;
 	virtual bool findRange(const ConstantSP& target,INDEX* targetIndices,vector<pair<INDEX,INDEX> >& ranges)=0;
 	virtual long long getAllocatedMemory(INDEX size) const {return Constant::getAllocatedMemory();}
-	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const {throw RuntimeException("serialize method not supported");}
-	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int targetNumElement, int& numElement, int& partial) const;
-
-	/**
-	 * The following series of safe operators assumes:
-	 * (1) indices is ascending sorted
-	 * (2) offset + indices are guaranteed valid ( between 0 and size - 1)
-	 */
-	virtual bool isNullSafe(INDEX offset, INDEX* indices, int len, char* buf) const {return false;}
-	virtual bool isValidSafe(INDEX offset, INDEX* indices, int len, char* buf) const {return false;}
-	virtual bool getBoolSafe(INDEX offset, INDEX* indices, int len, char* buf) const {return false;}
-	virtual bool getCharSafe(INDEX offset, INDEX* indices, int len,char* buf) const {return false;}
-	virtual bool getShortSafe(INDEX offset, INDEX* indices, int len, short* buf) const {return false;}
-	virtual bool getIntSafe(INDEX offset, INDEX* indices, int len, int* buf) const {return false;}
-	virtual bool getLongSafe(INDEX offset, INDEX* indices, int len, long long* buf) const {return false;}
-	virtual bool getIndexSafe(INDEX offset, INDEX* indices, int len, INDEX* buf) const {return false;}
-	virtual bool getFloatSafe(INDEX offset, INDEX* indices, int len, float* buf) const {return false;}
-	virtual bool getDoubleSafe(INDEX offset, INDEX* indices, int len, double* buf) const {return false;}
-	virtual bool getSymbolSafe(INDEX offset, INDEX* indices, int len, int* buf, SymbolBase* symBase,bool insertIfNotThere) const {return false;}
-	virtual bool getStringSafe(INDEX offset, INDEX* indices, int len, DolphinString** buf) const {return false;}
-	virtual bool getStringSafe(INDEX offset, INDEX* indices, int len, char** buf) const {return false;}
-	virtual bool getBinarySafe(INDEX offset, INDEX* indices, int len, int unitLength, unsigned char* buf) const {return false;}
-
-	/**
-	 * An array vector must implement following methods.
-	 */
-	virtual ConstantSP flatten(INDEX rowStart, INDEX count) const {throw RuntimeException("flatten method not supported");}
-	virtual ConstantSP rowSum(INDEX rowStart, INDEX count) const {throw RuntimeException("rowSum method not supported");}
-	virtual ConstantSP rowSum2(INDEX rowStart, INDEX count) const {throw RuntimeException("rowSum2 method not supported");}
-	virtual ConstantSP rowCount(INDEX rowStart, INDEX count) const {throw RuntimeException("rowCount method not supported");}
-	virtual ConstantSP rowSize(INDEX rowStart, INDEX count) const {throw RuntimeException("rowSize method not supported");}
-	virtual ConstantSP rowAvg(INDEX rowStart, INDEX count) const {throw RuntimeException("rowAvg method not supported");}
-	virtual ConstantSP rowStd(INDEX rowStart, INDEX count) const {throw RuntimeException("rowStd method not supported");}
-	virtual ConstantSP rowStdp(INDEX rowStart, INDEX count) const {throw RuntimeException("rowStdp method not supported");}
-	virtual ConstantSP rowVar(INDEX rowStart, INDEX count) const {throw RuntimeException("rowVar method not supported");}
-	virtual ConstantSP rowVarp(INDEX rowStart, INDEX count) const {throw RuntimeException("rowVarp method not supported");}
-	virtual ConstantSP rowMin(INDEX rowStart, INDEX count) const {throw RuntimeException("rowMin method not supported");}
-	virtual ConstantSP rowMax(INDEX rowStart, INDEX count) const {throw RuntimeException("rowMax method not supported");}
-	virtual ConstantSP rowProd(INDEX rowStart, INDEX count) const {throw RuntimeException("rowProd method not supported");}
-	virtual ConstantSP rowAnd(INDEX rowStart, INDEX count) const {throw RuntimeException("rowAnd method not supported");}
-	virtual ConstantSP rowOr(INDEX rowStart, INDEX count) const {throw RuntimeException("rowOr method not supported");}
-	virtual ConstantSP rowXor(INDEX rowStart, INDEX count) const {throw RuntimeException("rowXor method not supported");}
-	virtual ConstantSP rowMed(INDEX rowStart, INDEX count) const {throw RuntimeException("rowMed method not supported");}
-	virtual ConstantSP rowKurtosis(INDEX rowStart, INDEX count, bool biased) const {throw RuntimeException("rowKurtosis method not supported");}
-	virtual ConstantSP rowSkew(INDEX rowStart, INDEX count, bool biased) const {throw RuntimeException("rowSkew method not supported");}
-	virtual ConstantSP rowPercentile(INDEX rowStart, INDEX count, double percentile) const {throw RuntimeException("rowPercentile method not supported");}
-	virtual ConstantSP rowRank(INDEX rowStart, INDEX count, bool ascending, int groupNum, bool ignoreNA, int tiesMethod, bool percent) const {throw RuntimeException("rowRank method not supported");}
-	virtual ConstantSP rowDenseRank(INDEX rowStart, INDEX count, bool ascending, bool ignoreNA, bool percent) const {throw RuntimeException("rowDenseRank method not supported");}
 
 private:
 	string name_;
@@ -1122,7 +996,7 @@ private:
 
 class Table: public Constant{
 public:
-	Table() : Constant(1539), flag_(0), engineType_((char)DBENGINE_TYPE::OLAP), lock_(0){}
+	Table() : Constant(1539), flag_(0), lock_(0){}
 	virtual ~Table();
 	virtual string getScript() const {return getName();}
 	virtual ConstantSP getColumn(const string& name) const = 0;
@@ -1181,9 +1055,6 @@ public:
 	virtual bool isAppendable() const {return false;}
 	virtual bool isEditable() const {return false;}
 	virtual bool isSchemaEditable() const {return false;}
-	virtual int getSortKeyCount() const { return 0;}
-	virtual int getSortKeyColumnIndex(int index){return -1;}
-	virtual int isAscendingKey(int index) { return true;}
 	virtual DomainSP getGlobalDomain() const {return DomainSP();}
 	virtual DomainSP getLocalDomain() const {return DomainSP();}
 	virtual int getGlobalPartitionColumnIndex() const {return -1;}
@@ -1196,7 +1067,6 @@ public:
 	virtual void release() const {}
 	virtual void checkout() const {}
 	virtual TableSP getSegment(Heap* heap, const DomainPartitionSP& partition, PartitionGuard* guard = 0) { throw RuntimeException("Table::getSegment() not supported");}
-	virtual TableSP getSegment(Heap* heap, const DomainPartitionSP& partition, vector<ObjectSP>& filters, const vector<string>& colNames, PartitionGuard* guard = 0, INDEX limit = 0, bool byKey=false) { throw RuntimeException("Table::getSegment() not supported");}
 	virtual const TableSP& getEmptySegment() const { throw RuntimeException("Table::getEmptySegment() not supported");}
 	virtual bool segmentExists(const DomainPartitionSP& partition) const { throw RuntimeException("Table::segmentExists() not supported");}
 	virtual long long getAllocatedMemory() const = 0;
@@ -1210,56 +1080,11 @@ public:
 	virtual int getKeyColumnIndex(int index) const { throw RuntimeException("Table::getKeyColumnIndex() not supported");}
 	virtual string getChunkPath() const { return "";}
 	virtual void share(){};
-
-	/**
-	 * Filter the table by a set of column and value relationships.
-	 *
-	 * filterExprs is an in/out parameter. If a filter is applied, it will be removed from filters.
-	 *
-	 * limit 0: no limit on each key, positive: first n rows, negative: last n rows
-	 *
-	 * byKey  true: limit by key, false: global limit
-	 *
-	 * Return an index vector. If no filter is applied or applied filters satisfy all rows of the table, return a null pointer.
-	 */
-	virtual ConstantSP filter(vector<ObjectSP>& filterExprs, INDEX limit = 0, bool byKey = true) const { return nullptr;}
-	virtual bool supportBlockFilter() const {return false;}
-	/**
-	 * Prepare data in advance.
-	 *
-	 * rows: the row indices. If rows is a null pointer, load all rows. The indices are in ascending order.
-	 * cols: the column indices. if empty, load all columns. The indices are in ascending order.
-	 *
-	 * return: true if this table supports the feature.
-	 */
-	virtual bool prepareData(const ConstantSP& rows, const vector<int>& cols) { return false;}
-
-	/**
-     * Group by the data according to sortkeys.
-     *
-     * groupBy: an in-out parameter. If there are sortKeys in groupBy columns, then we fill group the data by sortkeys, and remove
-     * sortKey columns from groupBy.
-     *
-     * filter: an input parameter. The filter for the whole table. If the filter is specified, it must be in strictly ascending order.
-     *
-     * tablets: an outout parameter. If there are sortKeys in groupBy columns, then we will group the data and save them in tablets,
-     * i.e. each tablet in tablets is a group. If there is no sortKey column in groupBy, then tablets will be empty.
-     *
-     * removedGroupBys: an output parameter. The groupBy objects for sortkeys. These objects are removed from the input groupBy.
-     *
-     * groupedFilters: an output parameter�� the filter for each tablet
-     */
-    virtual void groupBySortKeys(vector<string>& groupBy, const ConstantSP& filter, vector<TableSP>& tablets, vector<string>& removedGroupBys, vector<ConstantSP>& groupedFilters){}
-
-    virtual DUPLICATE_POLICY getRowDuplicatePolicy() const { return DUPLICATE_POLICY::KEEP_ALL;}
-
-    inline bool isSharedTable() const {return flag_ & 1;}
+	inline bool isSharedTable() const {return flag_ & 1;}
 	inline bool isRealtimeTable() const {return flag_ & 2;}
 	inline bool isAliasTable() const {return flag_ & 4;}
 	inline const string& getOwner() const {return owner_;}
 	inline void setOwner(const string& owner){ owner_ = owner;}
-	inline DBENGINE_TYPE getEngineType() const { return (DBENGINE_TYPE)engineType_;}
-	inline void setEngineType(DBENGINE_TYPE engineType) { engineType_ = (char)engineType;}
 	void setSharedTable(bool option);
 	void setRealtimeTable(bool option);
 	void setAliasTable(bool option);
@@ -1276,7 +1101,6 @@ public:
 		}
 	}
 	virtual bool isAccessControl() const { return flag_ & 16; }
-
 private:
 	/*
 	 * BIT0: shared table
@@ -1286,7 +1110,6 @@ private:
 	 * BIT4: access control or not
 	 */
 	char flag_;
-	char engineType_;
 	string owner_;
 	Mutex* lock_;
 };
@@ -1395,8 +1218,6 @@ public:
 	inline bool isScalarFunction() const { return extraFlag_ & 16;}
 	inline void setHigherOrderFunction(bool option){ if(option) extraFlag_ |= 32; else extraFlag_ &= ~32;}
 	inline bool isHigherOrderFunction() const { return extraFlag_ & 32;}
-	inline void setArrayAggFunction(bool option){ if(option) extraFlag_ |= 64; else extraFlag_ &= ~64;}
-	inline bool isArrayAggFunction() const { return extraFlag_ & 64;}
 	inline bool variableParamNum() const {	return minParamNum_<maxParamNum_;}
 	inline int getMaxParamCount() const { return maxParamNum_;}
 	inline int getMinParamCount() const {	return minParamNum_;}
@@ -1529,7 +1350,6 @@ private:
 	int index_;
 	bool acceptFunctionDef_;
 };
-
 
 class Operator{
 public:
@@ -1668,10 +1488,8 @@ public:
 	virtual string getLastErrorMessage() const = 0;
 	virtual void* getPrivateKey() const = 0;
 	virtual void setPrivateKey(void* key) = 0;
-	inline bool getCompressionOption() const { return flag_ & 64;}
-	inline void setCompressionOption(bool option){ if(option) flag_ |= 64; else flag_ &= ~64;}
-	inline int getDepth() const { return (flag_ >> 8) & 7;}
-	inline void setDepth(int depth) { flag_ = (flag_ & ~(7<<8)) | (depth << 8);}
+    inline int getDepth() const { return (flag_ >> 8) & 7;}
+    inline void setDepth(int depth) { flag_ = (flag_ & ~(7<<8)) | (depth << 8);}
 	inline bool getEnableTransactionStatement() { return flag_ & 2048; }
 	inline void setEanbleTransactionStatement(bool option) { if(option) flag_ |= 2048; else flag_ &= ~2048; }
 	virtual TransactionSP getTransaction() { return transaction_; }
@@ -1835,7 +1653,6 @@ public:
 	const string& getName() const {return name_;}
 	DATA_TYPE getType() const {return type_;}
 	int getExtra() const {return extra_;}
-	int getCompressionMethod(int defaultMethod) const;
 	const string& getComment() const { return comment_;}
 	void setComment(const string& comment) { comment_ = comment;}
 
@@ -1881,10 +1698,8 @@ public:
 	virtual DomainSP getDimensionalDomain(int dimension) const;
 	virtual DomainSP copy() const = 0;
 	bool addTable(const string& tableName, const string& owner, const string& physicalIndex, vector<ColumnDesc>& cols, vector<int>& partitionColumns);
-	bool addTable(const string& tableName, const string& owner, const string& physicalIndex, vector<ColumnDesc>& cols, vector<int>& partitionColumns, vector<pair<int, bool>>& sortColumns, DUPLICATE_POLICY rowDuplicatePolicy, const vector<pair<int, FunctionDefSP>>& sortKeyMappingFunction);
 	bool getTable(const string& tableName, string& owner, string& physicalIndex, vector<ColumnDesc>& cols, vector<int>& partitionColumns) const;
-	bool getTable(const string& tableName, string& owner, string& physicalIndex, vector<ColumnDesc>& cols, vector<int>& partitionColumns, vector<pair<int, bool>>& sortColumns, DUPLICATE_POLICY& rowDuplicatePolicy, vector<pair<int, FunctionDefSP>>& sortKeyMappingFunction) const;
-	string getTabletPhysicalIndex(const string& tableName);
+    string getTabletPhysicalIndex(const string& tableName);
 	bool existsTable(const string& tableName);
 	bool removeTable(const string& tableName);
 	bool listTables(vector<string>& tableNames);
@@ -1902,10 +1717,10 @@ public:
 	DBENGINE_TYPE getEngineType() const { return engineType_;}
 	void setAtomicLevel(ATOMIC atomicLevel) { atomic_ = atomicLevel;}
 	ATOMIC getAtomicLevel() const { return atomic_;}
-	void setSingleTablet(bool option = true){ if(option) flag_ |= 1; else flag_ &= ~1;}
-    bool isSingleTableTablet() const {return flag_ & 1;}
 	void setTableIndependentChunk(bool option) { tableIndependentChunk_ = option;}
 	bool isTableIndependentChunk() const { return tableIndependentChunk_;}
+    void setSingleTablet(bool option = true){ if(option) flag_ |= 1; else flag_ &= ~1;}
+    bool isSingleTableTablet() const {return flag_ & 1;}
     static string getUniqueIndex(long long id);
 	/*
 	 * The input arguments set1 and set2 must be sorted by the key value of domain partitions. The ranking of key values must be the same as
@@ -1933,25 +1748,18 @@ protected:
 
 protected:
 	struct TableHeader {
-		TableHeader() : rowDuplicatePolicy_(DUPLICATE_POLICY::KEEP_ALL){}
-		TableHeader(const string& owner, const string& physicalIndex, vector<ColumnDesc>& tablesType, vector<int>& partitionKeys): rowDuplicatePolicy_(DUPLICATE_POLICY::KEEP_ALL), owner_(owner),
-				physicalIndex_(physicalIndex), tablesType_(tablesType), partitionKeys_(partitionKeys){}
-		TableHeader(const string& owner, const string& physicalIndex, vector<ColumnDesc>& tablesType, vector<int>& partitionKeys, vector<pair<int, bool>>& sortKeys,
-				DUPLICATE_POLICY rowDuplicatePolicy,const vector<pair<int, FunctionDefSP>>& sortKeyMappingFunction): rowDuplicatePolicy_(rowDuplicatePolicy), owner_(owner), physicalIndex_(physicalIndex),
-				tablesType_(tablesType), partitionKeys_(partitionKeys), sortKeys_(sortKeys), sortKeyMappingFunction_(sortKeyMappingFunction){}
-		DUPLICATE_POLICY rowDuplicatePolicy_;
+		TableHeader(){}
+		TableHeader(const string& owner, const string& physicalIndex, vector<ColumnDesc>& tablesType, vector<int>& tablesPartition): owner_(owner), physicalIndex_(physicalIndex), tablesType_(tablesType), tablesPartition_(tablesPartition){}
 		string owner_;
-		string physicalIndex_;
+        string physicalIndex_;
 		vector<ColumnDesc> tablesType_;
-		vector<int> partitionKeys_;
-		vector<pair<int, bool>> sortKeys_;
-        vector<pair<int, FunctionDefSP>> sortKeyMappingFunction_;
+		vector<int> tablesPartition_;
 	};
 	vector<DomainPartitionSP> partitions_;
 	PARTITION_TYPE partitionType_;
 	bool isLocalDomain_;
 	bool isExpired_;
-	bool tableIndependentChunk_;
+    bool tableIndependentChunk_;
 	int retentionPeriod_; // in hours
 	int retentionDimension_;
     int hoursToColdVolume_;
@@ -2059,8 +1867,8 @@ public:
 	inline bool isViewMode() const { return viewMode_;}
 	inline bool isCancellable() const {return cancellable_;}
 	inline void setCancellable(bool option){cancellable_ = option;}
-	inline int getDepth() const { return depth_;}
-	inline void setDepth(int depth){ depth_ = depth;}
+    inline int getDepth() const { return depth_;}
+    inline void setDepth(int depth){ depth_ = depth;}
 	virtual void setLastSuccessfulSite(){}
 	virtual int getLastSite(){return -1;}
 	static ConstantSP mergeDistributedCallResult(vector<DistributedCallSP>& calls);
@@ -2086,7 +1894,7 @@ private:
 	bool cancellable_;
 	bool carryover_ = false;
 	bool callbackMode_ = false;
-	unsigned char depth_ = 0;
+    unsigned char depth_ = 0;
 	Heap* heap_;
 	SessionSP session_;
 };
@@ -2120,16 +1928,28 @@ public:
 	virtual ~StaticStageExecutor(){}
 	virtual vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks);
 	virtual vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks, const JobProperty& jobProp);
+    void setForbidProbingGroupSize(bool flag){forbidProbingGroupSize_ = flag;}
+    bool getForbidProbingGroupSize() const {return forbidProbingGroupSize_;}
+    void setMonitorProcessAndMemory(bool flag, const string& script){monitorProcessAndMemory_ = flag; script_ = script;}
+    bool getMonitorProcessAndMemory() const {return monitorProcessAndMemory_;}
 
 private:
-	void groupRemoteCalls(const vector<DistributedCallSP>& tasks, vector<DistributedCallSP>& groupedCalls, const ClusterNodesSP& clusterNodes);
+    void groupRemoteCalls(const vector<vector<DistributedCallSP>>& tasks, vector<DistributedCallSP>& groupedCalls, const ClusterNodesSP& clusterNodes, int groupSize);
 
+    bool probingGroupSize(bool& groupCall, const vector<DistributedCallSP>& tasks, const ClusterNodesSP& clusterNodes, vector<vector<DistributedCallSP >>& siteCalls,
+                            vector<std::pair<int,DistributedCallSP>>& needCheckTasks);
 private:
+    const int MIN_TASK_COUNT_FOR_PROBING_GROUP_SIZE = 4; // if all site's task count is less or equal than it, will group call directly and won't prob group size
+    const int TASK_LIMIT_OF_A_GROUP = 1024; // the max task size of a group
 	bool parallel_;
 	bool reExecuteOnOOM_;
 	bool trackJobs_;
 	bool resumeOnError_;
 	bool scheduleRemoteSite_;
+    bool forbidProbingGroupSize_ = true;
+    bool monitorProcessAndMemory_ = false;
+    long long monitorId_ = 0;
+    string script_;
 };
 
 class PipelineStageExecutor : public StageExecutor {
@@ -2150,14 +1970,15 @@ private:
 	int parallel_;
 };
 
+
 class Decoder {
 public:
 	Decoder(int id, bool appendable) : id_(id), appendable_(appendable), codeSymbolAsString_(false){}
 	virtual ~Decoder(){}
 	virtual VectorSP code(const VectorSP& vec, bool lsnFlag) = 0;
-	virtual IO_ERR code(const VectorSP& vec, bool lsnFlag, const DataOutputStreamSP& out, int& checksum) = 0;
+	virtual IO_ERR code(const VectorSP& vec, bool lsnFlag, const DataOutputStreamSP& out, int& checksum, int offset = 0) = 0;
 	virtual IO_ERR decode(const VectorSP& vec, INDEX rowOffset, INDEX skipRows, bool fullLoad, int checksum, const DataInputStreamSP& in,
-			long long byteSize, long long byteOffset, INDEX& postRows, INDEX& postRowOffset, long long& postByteOffset, long long& lsn) = 0;
+			long long byteSize, long long byteOffset, INDEX& postRows, INDEX& postRowOffset, long long& postByteOffset, long long& lsn, int& partial) = 0;
 	/**
 	 * Calculate the CRC32 checksum of the first given number of rows of the decompressed vector.
 	 *
@@ -2254,11 +2075,7 @@ public:
 	static Vector* loadTextVector(bool includeHeader, DATA_TYPE type, const string& path);
 	static long long saveColumn(const VectorSP& col, const string& colFile, int devId, INDEX existingTableSize, bool chunkNode, bool append, int compressionMode, IoTransaction* tran = NULL, long long lsn = -1);
 	static bool saveTableHeader(const string& owner, const string& physicalIndex, const vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices, long long rows, const string& tableFile, IoTransaction* tran);
-	static bool saveTableHeader(const string& owner, const string& physicalIndex, const vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices, vector<pair<int, bool>>& sortKeys,
-			DUPLICATE_POLICY rowDuplicatePolicy, long long rows, const string& tableFile, IoTransaction* tran);
-	static bool loadTableHeader(const DataInputStreamSP& in, string& owner, string& physicalIndex, vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices, DBENGINE_TYPE engineType);
-	static bool loadTableHeader(const DataInputStreamSP& in, string& owner, string& physicalIndex, vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices,
-			vector<pair<int, bool>>& sortKeys, DUPLICATE_POLICY& rowDuplicatePolicy, DBENGINE_TYPE engineType, vector<std::pair<int, FunctionDefSP>>& sortKeyMappingFunction);
+	static bool loadTableHeader(const DataInputStreamSP& in, string& owner, string& physicalIndex, vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices);
 	static void removeBasicTable(const string& directory, const string& tableName);
 	static TableSP createEmptyTableFromSchema(const TableSP& schema);
 	static long long truncateColumnByLSN(const string& colFile, int devId, long long expectedLSN, bool sync=true);

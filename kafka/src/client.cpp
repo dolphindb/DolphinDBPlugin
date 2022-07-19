@@ -75,7 +75,7 @@ SubConnection::~SubConnection() {
 
 
 SubConnection::SubConnection(Heap *heap, std::string description, const FunctionDefSP& parser, ConstantSP handle, ConstantSP consumer, int timeout)
-    :description_(std::move(description)),heap_(heap) {
+        :description_(std::move(description)),heap_(heap) {
     connected_ = true;
     createTime_=Util::getEpochTime();
     session_ = heap->currentSession()->copy();

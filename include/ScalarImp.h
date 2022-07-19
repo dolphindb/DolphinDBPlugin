@@ -147,7 +147,6 @@ public:
 	}
 	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
 	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
-	virtual bool assign(const ConstantSP& value);
 	static string toString(const unsigned char* data);
 	static Int128* parseInt128(const char* str, int len);
 	static bool parseInt128(const char* str, size_t len, unsigned char* buf);
@@ -328,18 +327,6 @@ public:
 			buf[i]=tmp;
 		return buf;
 	}
-	virtual bool getSymbol(INDEX* indices, int len, int* buf, SymbolBase* symBase,bool insertIfNotThere) const {
-		int tmp=insertIfNotThere?symBase->findAndInsert(val_):symBase->find(val_);
-		for(int i=0;i<len;++i)
-			buf[i]= indices[i] >= 0 ? tmp : 0;
-		return true;
-	}
-	virtual bool getSymbol(INDEX start, int len, int* buf, SymbolBase* symBase,bool insertIfNotThere) const {
-		int tmp=insertIfNotThere?symBase->findAndInsert(val_):symBase->find(val_);
-		for(int i=0;i<len;++i)
-			buf[i]=tmp;
-		return true;
-	}
 	virtual bool getString(INDEX start, int len, DolphinString** buf) const {
 		for(int i=0;i<len;++i)
 			buf[i]=&val_;
@@ -374,7 +361,6 @@ public:
 	virtual int compare(INDEX index, const ConstantSP& target) const {
 		return val_.compare(target->getString());
 	}
-	virtual bool assign(const ConstantSP& value);
 
 protected:
 	inline DATA_TYPE internalType() const { return blob_ ? DT_BLOB : DT_STRING;}
@@ -432,7 +418,8 @@ public:
 	bool isTable() const { return isTable_;}
 	bool isLocalMode() const { return localMode_;}
 	virtual bool isLargeConstant() const { return false;}
-
+    void setTaskFirstLevel(bool flag) {isTaskFirstLevel_ = flag;}
+    bool isTaskFirstLevel() const {return isTaskFirstLevel_;}
 private:
 	vector<ObjectSP> code_;
 	vector<FunctionDefSP> transformers_;
@@ -442,6 +429,7 @@ private:
 	char action_; // -1: do nothing, 1: enable cache, i.e. set cache id, 0:clear cache after use.
 	bool isTable_; // check if it can be used in SQL statement as the source of a table.
 	bool localMode_;
+    bool isTaskFirstLevel_ = true;
 };
 
 
@@ -714,9 +702,6 @@ public:
 		return buffer->write(buf, length);
 	}
 	virtual int compare(INDEX index, const ConstantSP& target) const {
-		if(isNull()){
-			return target->isNull() ? 0 : -1;
-		}
 		if(getCategory() == FLOATING){
 			T val= (T)target->getDouble();
 			return val_==val?0:(val_<val?-1:1);
@@ -724,21 +709,6 @@ public:
 		else{
 			T val= (T)target->getLong();
 			return val_==val?0:(val_<val?-1:1);
-		}
-	}
-
-	virtual bool assign(const ConstantSP& value) {
-		if(value->isNull(0)){
-			setNull();
-			return true;
-		}
-		else if(getCategory() == FLOATING){
-			val_ = (T)value->getDouble();
-			return true;
-		}
-		else{
-			val_ = (T)value->getLong();
-			return true;
 		}
 	}
 
@@ -771,7 +741,6 @@ public:
 		else
 			return "0";
 	}
-	virtual bool assign(const ConstantSP& value);
 };
 
 class Char: public AbstractScalar<char>{
