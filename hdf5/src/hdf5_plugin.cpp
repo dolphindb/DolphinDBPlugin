@@ -3050,7 +3050,7 @@ size_t H5GeneralDataReader::readbyCol()
 
 void H5GeneralDataReader::doRead(hid_t mem_space_id, hid_t file_space_id)
 {
-    herr_t state = H5Dread(locId_, memTypeId_, mem_space_id, file_space_id, xferProperty_.id(), buffer_.data());
+    herr_t state = H5Dread(locId_, memTypeId_, H5S_BLOCK, file_space_id, xferProperty_.id(), buffer_.data());
 
     if (state < 0)
         throw RuntimeException("H5Dread return " + std::to_string(state));

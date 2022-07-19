@@ -418,7 +418,8 @@ public:
 	bool isTable() const { return isTable_;}
 	bool isLocalMode() const { return localMode_;}
 	virtual bool isLargeConstant() const { return false;}
-
+    void setTaskFirstLevel(bool flag) {isTaskFirstLevel_ = flag;}
+    bool isTaskFirstLevel() const {return isTaskFirstLevel_;}
 private:
 	vector<ObjectSP> code_;
 	vector<FunctionDefSP> transformers_;
@@ -428,6 +429,7 @@ private:
 	char action_; // -1: do nothing, 1: enable cache, i.e. set cache id, 0:clear cache after use.
 	bool isTable_; // check if it can be used in SQL statement as the source of a table.
 	bool localMode_;
+    bool isTaskFirstLevel_ = true;
 };
 
 

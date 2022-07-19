@@ -90,7 +90,7 @@ void CHSNsqSpiImpl::OnRspSecuDepthMarketDataCancel(CHSNsqRspInfoField *pRspInfo,
 
 // 如何根据表的Schema来创建 vectors，避免自己手动创建
 vector<ConstantSP> createVectors(int flag) {
-    // 0 是snapshot，1是trade，2是ticks
+    // 0 是snapshot，1是trade，2是orders
     vector<ConstantSP> columns;
     if (flag == 0) {
         columns.resize(snapshotTypes.size());
@@ -103,9 +103,9 @@ vector<ConstantSP> createVectors(int flag) {
             columns[i] = Util::createVector(tradeTypes[i], 1, 1);
         }
     } else if (flag == 2) {
-        columns.resize(ticksTypes.size());
-        for (size_t i = 0; i < ticksTypes.size(); i++) {
-            columns[i] = Util::createVector(ticksTypes[i], 1, 1);
+        columns.resize(ordersTypes.size());
+        for (size_t i = 0; i < ordersTypes.size(); i++) {
+            columns[i] = Util::createVector(ordersTypes[i], 1, 1);
         }
     } else {
         throw RuntimeException("flag error");
@@ -319,7 +319,7 @@ void CHSNsqSpiImpl::OnRtnSecuATPMarketData(CHSNsqSecuATPMarketDataField *pSecuDe
     //        MaxAsk1Count);
 }
 
-// trade 和 ticks混在了一起。。。他们都是 uTransaction，一个是type1，一个是type2
+// trade 和 orders混在了一起。。。他们都是 uTransaction，一个是type1，一个是type2
 void CHSNsqSpiImpl::OnRspSecuTransactionSubscribe(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {
     if (nRequestID == 10003) {
         subscribe_status[2] = 1;
@@ -419,7 +419,7 @@ void CHSNsqSpiImpl::OnRtnSecuTransactionEntrustData(
 
         vector<ObjectSP> args = {new String(tablenames[index])};
         ConstantSP table = session->getFunctionDef("objByName")->call(session->getHeap().get(), args);
-        TableSP tmp_table = Util::createTable(ticksColumnNames, ticksTypes, 0, 0);
+        TableSP tmp_table = Util::createTable(ordersColumnNames, ordersTypes, 0, 0);
         tmp_table->append(columns, insertedRows, errMsg);
         vector<ObjectSP> args2 = {table, tmp_table};
         session->getFunctionDef("append!")->call(session->getHeap().get(), args2);

@@ -55,7 +55,7 @@ bool convertToDTBool(mxArray *var, ConstantSP &sp)
     {
         row = mxGetM(var);
     }
-    sp = Util::createMatrix(DT_BOOL, col, row, row * col);
+    sp = Util::createMatrix(DT_BOOL, col, row, col);
     if (col == 0)
         return true;
     int index = 0, freq = row * col / mIndex;
@@ -364,7 +364,7 @@ bool convertToDTChar(mxArray *var, ConstantSP &sp)
     {
         row = mxGetM(var);
     }
-    sp = Util::createMatrix(DT_CHAR, col, row, row * col);
+    sp = Util::createMatrix(DT_CHAR, col, row, col);
     if (col == 0)
         return true;
     int index = 0, freq = row * col / mIndex;
@@ -632,7 +632,7 @@ bool convertToDTShort(mxArray *var, ConstantSP &sp)
     {
         row = mxGetM(var);
     }
-    sp = Util::createMatrix(DT_SHORT, col, row, row * col);
+    sp = Util::createMatrix(DT_SHORT, col, row, col);
     if (col == 0)
         return true;
     int index = 0, freq = row * col / mIndex;
@@ -900,7 +900,7 @@ bool convertToDTInt(mxArray *var, ConstantSP &sp)
     {
         row = mxGetM(var);
     }
-    sp = Util::createMatrix(DT_INT, col, row, row * col);
+    sp = Util::createMatrix(DT_INT, col, row, col);
     if (col == 0)
         return true;
     int index = 0, freq = row * col / mIndex;
@@ -1168,7 +1168,7 @@ bool convertToDTLong(mxArray *var, ConstantSP &sp)
     {
         row = mxGetM(var);
     }
-    sp = Util::createMatrix(DT_LONG, col, row, row * col);
+    sp = Util::createMatrix(DT_LONG, col, row, col);
     if (col == 0)
         return true;
     int index = 0, freq = row * col / mIndex;
@@ -1459,7 +1459,7 @@ bool convertToDTFloat(mxArray *var, ConstantSP &sp)
     {
         row = mxGetM(var);
     }
-    sp = Util::createMatrix(DT_FLOAT, col, row, row * col);
+    sp = Util::createMatrix(DT_FLOAT, col, row, col);
     if (col == 0)
         return true;
     int index = 0, freq = row * col / mIndex;
@@ -1753,7 +1753,7 @@ bool convertToDTDouble(mxArray *var, ConstantSP &sp)
     {
         row = mxGetM(var);
     }
-    sp = Util::createMatrix(DT_DOUBLE, col, row, row * col);
+    sp = Util::createMatrix(DT_DOUBLE, col, row, col);
     if (col == 0)
         return true;
     int index = 0, freq = row * col / mIndex;
@@ -2383,7 +2383,7 @@ ConstantSP convertToDatetime(Heap *heap, vector<ConstantSP> &args)
     {
         VectorSP data = args[0];
         int row = data->rows(), col = data->columns();
-        ConstantSP ret = Util::createMatrix(DT_DATETIME, col, row, row * col);
+        ConstantSP ret = Util::createMatrix(DT_DATETIME, col, row, col);
         double buffer[mIndex];
         long long lBuffer[mIndex];
         int index = 0;

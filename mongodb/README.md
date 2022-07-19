@@ -268,7 +268,32 @@ select count(*) from tb
 mongodb::close(conn)
 ```
 
-### 2.4. 查询数据示例
+### 2.5 mongodb::parseJson
+
+#### 语法
+
+mongodb::parseJson(str, keys, colnames, colTypes)
+
+#### 详情
+解析json类型的数据，转换到dolphindb的表。
+
+#### 参数
+* str: 需要解析的json格式的字符串，类型为string类型的vector。
+* originColNames: 原始json的键，类型为string类型的vector。
+* convertColNames: 结果表json的键，类型为string类型的vector。
+* types: 转换类型，类型为int类型的vector。
+
+#### 例子
+
+```
+data = ['{"a": 1, "b": 2}', '{"a": 2, "b": 3}']
+ mongodb::parseJson(data, 
+`a`b, 
+`col1`col2,
+[INT, INT] )
+```
+
+### 2.6 查询数据示例
 
 ```
 query='{"dt": { "$date" : "2016-06-22T00:00:00.000Z" } }';

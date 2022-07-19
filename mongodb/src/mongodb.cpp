@@ -6,6 +6,8 @@
 #include<unordered_map>
 #include <bson.h>
 #include <mongoc.h>
+#include "json.hpp"
+using namespace std;
 
 string getBsonString(bson_type_t type){
     switch(type){
@@ -2417,3 +2419,332 @@ TableSP mongoConnection::load(std::string collection,std::string condition,std::
     ret=extractLoad(collection,condition,option,schema, aggregate);
     return ret;
 }
+
+
+using namespace nlohmann;
+
+int ARRAY_VECTOR_TYPE_BASE = 64;
+
+ConstantSP mongodbParseJson(Heap *heap, vector<ConstantSP> &arguments)
+{
+    if(arguments[0]->getForm() != DF_VECTOR && arguments[0]->getType() != DT_STRING){
+        throw RuntimeException("str must be a string vector. ");
+    }
+    if(arguments[1]->getForm() != DF_VECTOR && arguments[1]->getType() != DT_STRING)
+        throw RuntimeException("origin colNames must be a string vector. ");
+    if(arguments[2]->getForm() != DF_VECTOR && arguments[2]->getType() != DT_STRING)
+        throw RuntimeException("convert colNames must be a string vector. ");
+    if(arguments[3]->getForm() != DF_VECTOR && arguments[2]->getType() != DT_INT)
+        throw RuntimeException("types must be a dictionary. ");
+    vector<string> originCol, convertCol;
+    DictionarySP originVec = arguments[1];
+    DictionarySP convertVec = arguments[2];
+    if(originVec->size() != convertVec->size())
+        throw RuntimeException("origin colNames must be equal than convert colNames. ");
+
+    VectorSP vec = arguments[0];
+    int rows = vec->size();
+
+    //get colName 
+    int colSize = originVec->size();
+    for(int i = 0; i < colSize; ++i){
+        originCol.emplace_back(originVec->getString(i));
+        convertCol.push_back(convertVec->getString(i));
+    }
+
+    //create output vectors
+    VectorSP types = arguments[3];
+    int maxIndex = 1024;
+    if(types->size() != colSize)
+        throw RuntimeException("types size must be equal than origin colNames. ");
+    vector<ConstantSP> cols;
+    vector<vector<char>> dataBuffer;
+    vector<vector<string>> dataStringBuffer;
+    vector<vector<INDEX>> arrayDataIndex;
+    vector<vector<char>> arrayDataBuffer;
+    cols.resize(colSize);
+    dataStringBuffer.resize(colSize);
+    dataBuffer.resize(colSize);
+    arrayDataIndex.resize(colSize);
+    vector<DATA_TYPE> colTypes;
+    for (int i = 0; i < colSize; ++i)
+    {
+        DATA_TYPE type = (DATA_TYPE)types->getInt(i);
+        if ((int)type < ARRAY_VECTOR_TYPE_BASE)
+        {
+            cols[i] = Util::createVector(type, 0, rows);
+            switch (type)
+            {
+            case DT_BOOL:
+                dataBuffer[i].resize(rows * sizeof(bool));
+                break;
+            case DT_INT:
+                dataBuffer[i].resize(rows * sizeof(int));
+                break;
+            case DT_FLOAT:
+                dataBuffer[i].resize(rows * sizeof(float));
+                break;
+            case DT_DOUBLE:
+                dataBuffer[i].resize(rows * sizeof(double));
+                break;
+            case DT_STRING:
+                dataStringBuffer[i].resize(rows * sizeof(char *));
+                break;
+            case DT_SYMBOL:
+                dataStringBuffer[i].resize(rows * sizeof(char *));
+                break;
+
+            default:
+                throw RuntimeException("The dolphindb type " + Util::getDataTypeString(type) + " is not supported");
+            }
+        }
+        else
+        {
+            //cols[i] = InternalUtil::createArrayVector((DATA_TYPE)type, 0);
+            switch (type - ARRAY_VECTOR_TYPE_BASE)
+            {
+            case DT_BOOL:
+                dataBuffer[i].resize(rows * sizeof(bool));
+                break;
+            case DT_INT:
+                dataBuffer[i].resize(rows * sizeof(int));
+                break;
+            case DT_FLOAT:
+                dataBuffer[i].resize(rows * sizeof(float));
+                break;
+            case DT_DOUBLE:
+                dataBuffer[i].resize(rows * sizeof(double));
+                break;
+
+            default:
+                throw RuntimeException("The dolphindb type " + Util::getDataTypeString(type) + " is not supported");
+            }
+        }
+        colTypes.push_back(type);
+    }
+
+
+    vector<string> originData;
+    originData.resize(rows);
+    char *buffer[maxIndex];
+    int times = rows / maxIndex + 1;
+    for (int timeIndex = 0; timeIndex < times; ++timeIndex)
+    {
+        // cout<<times<<endl;
+        int subSize = min(maxIndex, rows - maxIndex * timeIndex);
+        // cout<<subSize<<endl;
+        char **ptr = vec->getStringConst(maxIndex * timeIndex, subSize, buffer);
+        for (int subRowIndex = 0; subRowIndex < subSize; ++subRowIndex)
+        {
+            originData[subRowIndex] = ptr[subRowIndex];
+        }
+        for (int subRowIndex = 0; subRowIndex < subSize; ++subRowIndex)
+        {
+            json parsedObj = json::parse(originData[subRowIndex]);
+            for (int colIndex = 0; colIndex < colSize; ++colIndex)
+            {
+
+                json col = parsedObj[originCol[colIndex]];
+                // if (col.type() == json::value_t::array)
+                // {
+                //     if (col.size() != 1)
+                //         throw RuntimeException("col " + originCol[colIndex] + " index " + to_string(subRowIndex + timeIndex * maxIndex) + " json array size must be one.");
+                //     col = col[0];
+                // }
+                // cout<<col.type_name()<<endl;
+                try
+                {
+                    if ((int)colTypes[colIndex] < ARRAY_VECTOR_TYPE_BASE)
+                    {
+                        int dataOffect = subRowIndex + timeIndex * maxIndex;
+                        switch (colTypes[colIndex])
+                        {
+                        case DT_BOOL:
+                            if (col.is_null())
+                                ((bool *)dataBuffer[colIndex].data())[dataOffect] = CHAR_MIN;
+                            else
+                                ((bool *)dataBuffer[colIndex].data())[dataOffect] = col.get<bool>();
+                            break;
+                        case DT_INT:
+                            if (col.is_null())
+                                ((int *)dataBuffer[colIndex].data())[dataOffect] = INT_MIN;
+                            else
+                                ((int *)dataBuffer[colIndex].data())[dataOffect] = col.get<int>();
+                            break;
+                        case DT_FLOAT:
+                            if (col.is_null())
+                                ((float *)dataBuffer[colIndex].data())[dataOffect] = FLT_NMIN;
+                            else
+                                ((float *)dataBuffer[colIndex].data())[dataOffect] = col.get<int>();
+                            break;
+                        case DT_DOUBLE:
+                            if (col.is_null())
+                                ((double *)dataBuffer[colIndex].data())[dataOffect] = DBL_NMIN;
+                            else
+                                ((double *)dataBuffer[colIndex].data())[dataOffect] = col.get<double>();
+                            break;
+                        case DT_STRING:
+                            if (col.is_null())
+                                dataStringBuffer[colIndex][dataOffect] = "";
+                            else
+                                dataStringBuffer[colIndex][dataOffect] = col.get<string>();
+                            break;
+                        case DT_SYMBOL:
+                            if (col.is_null())
+                                dataStringBuffer[colIndex][dataOffect] = "";
+                            else
+                                dataStringBuffer[colIndex][dataOffect] = col.get<string>();
+                            break;
+
+                        default:
+                            throw RuntimeException("The dolphindb type " + Util::getDataTypeString(colTypes[colIndex]) + "is not supported to convert");
+                        }
+                    }
+                    else
+                    {
+                        int size = col.size();
+                        vector<INDEX>& colDataArrayIndex = arrayDataIndex[colIndex];
+                        int preIndex = colDataArrayIndex.size() == 0 ? 0 : colDataArrayIndex[colDataArrayIndex.size() - 1];
+                        if (col.type() == json::value_t::array && col.type() == json::value_t::null)
+                            throw RuntimeException("The col " + originCol[colIndex] + " json data must be array. ");
+                        switch (colTypes[colIndex] - ARRAY_VECTOR_TYPE_BASE)
+                        {
+                        case DT_BOOL:
+                            if((preIndex + size) * sizeof(bool) > dataBuffer[colIndex].size())
+                                dataBuffer[colIndex].resize(dataBuffer[colIndex].size() * 2 * sizeof(bool));
+                            if (col.is_null()){
+                                ((bool *)dataBuffer[colIndex].data())[preIndex] = CHAR_MIN;
+                                arrayDataIndex[colIndex].push_back(preIndex + 1);
+                            }
+                            else{
+                                int index = 0;
+                                for(auto it = col.begin(); it < col.end(); ++it, ++index){
+                                    ((bool *)dataBuffer[colIndex].data())[preIndex + index] = it->get<bool>();
+                                }
+                                arrayDataIndex[colIndex].push_back(preIndex + size);
+                            }
+                            break;
+                        case DT_INT:
+                            if((preIndex + size) * sizeof(int) > dataBuffer[colIndex].size())
+                                dataBuffer[colIndex].resize(dataBuffer[colIndex].size() * 2 * sizeof(int));
+                            if (col.is_null()){
+                                ((int *)dataBuffer[colIndex].data())[preIndex] = INT_MIN;
+                                arrayDataIndex[colIndex].push_back(preIndex + 1);
+                            }
+                            else{
+                                int index = 0;
+                                for(auto it = col.begin(); it < col.end(); ++it, ++index){
+                                    ((int *)dataBuffer[colIndex].data())[preIndex + index] = it->get<int>();
+                                }
+                                arrayDataIndex[colIndex].push_back(preIndex + size);
+                            }
+                            break;
+                        case DT_FLOAT:
+                            if((preIndex + size) * sizeof(float) > dataBuffer[colIndex].size())
+                                dataBuffer[colIndex].resize(dataBuffer[colIndex].size() * 2 * sizeof(float));
+                            if (col.is_null()){
+                                ((float *)dataBuffer[colIndex].data())[preIndex] = FLT_NMIN;
+                                arrayDataIndex[colIndex].push_back(preIndex + 1);
+                            }
+                            else{
+                                int index = 0;
+                                for(auto it = col.begin(); it < col.end(); ++it, ++index){
+                                    ((float *)dataBuffer[colIndex].data())[preIndex + index] = it->get<float>();
+                                }
+                                arrayDataIndex[colIndex].push_back(preIndex + size);
+                            }
+                            break;
+                        case DT_DOUBLE:
+                            if((preIndex + size) * sizeof(double) > dataBuffer[colIndex].size())
+                                dataBuffer[colIndex].resize(dataBuffer[colIndex].size() * 2 * sizeof(double));
+                            if (col.is_null()){
+                                ((double *)dataBuffer[colIndex].data())[preIndex] = FLT_NMIN;
+                                arrayDataIndex[colIndex].push_back(preIndex + 1);
+                            }
+                            else{
+                                int index = 0;
+                                for(auto it = col.begin(); it < col.end(); ++it, ++index){
+                                    ((double *)dataBuffer[colIndex].data())[preIndex + index] = it->get<double>();
+                                }
+                                arrayDataIndex[colIndex].push_back(preIndex + size);
+                            }
+                            break;
+
+                        default:
+                            throw RuntimeException("The dolphindb type " + Util::getDataTypeString(colTypes[colIndex]) + "is not supported to convert");
+                        }
+                    }
+                }
+                catch (exception &e)
+                {
+                    throw RuntimeException("col " + originCol[colIndex] + " " + e.what());
+                }
+            }
+        }
+    }
+
+
+        for (int colIndex = 0; colIndex < colSize; ++colIndex)
+        {
+            VectorSP& vec = (VectorSP&)cols[colIndex];
+            if ((int)colTypes[colIndex] < ARRAY_VECTOR_TYPE_BASE)
+            {
+                switch (colTypes[colIndex])
+                {
+                case DT_BOOL:
+                    vec->appendBool((char *)dataBuffer[colIndex].data(), rows);
+                    break;
+                case DT_INT:
+                    vec->appendInt((int *)dataBuffer[colIndex].data(), rows);
+                    break;
+                case DT_FLOAT:
+                    vec->appendFloat((float *)dataBuffer[colIndex].data(), rows);
+                    break;
+                case DT_DOUBLE:
+                    vec->appendDouble((double *)dataBuffer[colIndex].data(), rows);
+                    break;
+                case DT_STRING:
+                    vec->appendString((string *)dataStringBuffer[colIndex].data(), rows);
+                    break;
+                case DT_SYMBOL:
+                    vec->appendString((string *)dataStringBuffer[colIndex].data(), rows);
+                    break;
+
+                default:
+                    throw RuntimeException("The dolphindb type " + Util::getDataTypeString(colTypes[colIndex]) + "is not supported to append");
+                }
+            }else{
+                int indexVecSize = arrayDataIndex[colIndex].size();
+                VectorSP indexVec = Util::createVector(DT_INDEX, indexVecSize, indexVecSize);
+                int totalRows = arrayDataIndex[colIndex].size() == 0 ? 0 : arrayDataIndex[colIndex][arrayDataIndex[colIndex].size() - 1];
+                VectorSP vecValue = Util::createVector((DATA_TYPE)(colTypes[colIndex] - 64), 0, totalRows);
+                indexVec->setIndex(0, indexVecSize, arrayDataIndex[colIndex].data());
+                switch (colTypes[colIndex] - ARRAY_VECTOR_TYPE_BASE)
+                {
+                case DT_BOOL:
+                    vecValue->appendBool((char *)dataBuffer[colIndex].data(), totalRows);
+                    break;
+                case DT_INT:
+                    vecValue->appendInt((int *)dataBuffer[colIndex].data(), totalRows);
+                    break;
+                case DT_FLOAT:
+                    vecValue->appendFloat((float *)dataBuffer[colIndex].data(), totalRows);
+                    break;
+                case DT_DOUBLE:
+                    vecValue->appendDouble((double *)dataBuffer[colIndex].data(), totalRows);
+                    break;
+                default:
+                    throw RuntimeException("The dolphindb type " + Util::getDataTypeString(colTypes[colIndex]) + "is not supported to append");
+                }
+                vector<ConstantSP> args{indexVec, vecValue};
+                try{
+                vec = heap->currentSession()->getFunctionDef("arrayVector")->call(heap, args);
+                }catch(exception &e){
+                    throw RuntimeException("Col " + originCol[colIndex] + " data fail to create arrrayVector." + e.what());
+                }
+            }
+        }
+
+    return Util::createTable(convertCol, cols);
+}
+

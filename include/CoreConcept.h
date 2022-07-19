@@ -385,6 +385,7 @@ public:
 	static int readSymbolBaseVersion(const string symbolFile);
 
 private:
+    SymbolBase(int size, const DynamicArray<DolphinString>& keys, bool supportOrder = false);
 	int getOrdinalCandidate(const DolphinString& symbol);
 	void reAssignOrdinal(int capacity);
 	bool reload(const string& symbolFile, const DataInputStreamSP& in, bool snapshot = false);
@@ -1487,6 +1488,8 @@ public:
 	virtual string getLastErrorMessage() const = 0;
 	virtual void* getPrivateKey() const = 0;
 	virtual void setPrivateKey(void* key) = 0;
+    inline int getDepth() const { return (flag_ >> 8) & 7;}
+    inline void setDepth(int depth) { flag_ = (flag_ & ~(7<<8)) | (depth << 8);}
 	inline bool getEnableTransactionStatement() { return flag_ & 2048; }
 	inline void setEanbleTransactionStatement(bool option) { if(option) flag_ |= 2048; else flag_ &= ~2048; }
 	virtual TransactionSP getTransaction() { return transaction_; }
@@ -1864,6 +1867,8 @@ public:
 	inline bool isViewMode() const { return viewMode_;}
 	inline bool isCancellable() const {return cancellable_;}
 	inline void setCancellable(bool option){cancellable_ = option;}
+    inline int getDepth() const { return depth_;}
+    inline void setDepth(int depth){ depth_ = depth;}
 	virtual void setLastSuccessfulSite(){}
 	virtual int getLastSite(){return -1;}
 	static ConstantSP mergeDistributedCallResult(vector<DistributedCallSP>& calls);
@@ -1889,6 +1894,7 @@ private:
 	bool cancellable_;
 	bool carryover_ = false;
 	bool callbackMode_ = false;
+    unsigned char depth_ = 0;
 	Heap* heap_;
 	SessionSP session_;
 };
@@ -1922,16 +1928,28 @@ public:
 	virtual ~StaticStageExecutor(){}
 	virtual vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks);
 	virtual vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks, const JobProperty& jobProp);
+    void setForbidProbingGroupSize(bool flag){forbidProbingGroupSize_ = flag;}
+    bool getForbidProbingGroupSize() const {return forbidProbingGroupSize_;}
+    void setMonitorProcessAndMemory(bool flag, const string& script){monitorProcessAndMemory_ = flag; script_ = script;}
+    bool getMonitorProcessAndMemory() const {return monitorProcessAndMemory_;}
 
 private:
-	void groupRemoteCalls(const vector<DistributedCallSP>& tasks, vector<DistributedCallSP>& groupedCalls, const ClusterNodesSP& clusterNodes);
+    void groupRemoteCalls(const vector<vector<DistributedCallSP>>& tasks, vector<DistributedCallSP>& groupedCalls, const ClusterNodesSP& clusterNodes, int groupSize);
 
+    bool probingGroupSize(bool& groupCall, const vector<DistributedCallSP>& tasks, const ClusterNodesSP& clusterNodes, vector<vector<DistributedCallSP >>& siteCalls,
+                            vector<std::pair<int,DistributedCallSP>>& needCheckTasks);
 private:
+    const int MIN_TASK_COUNT_FOR_PROBING_GROUP_SIZE = 4; // if all site's task count is less or equal than it, will group call directly and won't prob group size
+    const int TASK_LIMIT_OF_A_GROUP = 1024; // the max task size of a group
 	bool parallel_;
 	bool reExecuteOnOOM_;
 	bool trackJobs_;
 	bool resumeOnError_;
 	bool scheduleRemoteSite_;
+    bool forbidProbingGroupSize_ = true;
+    bool monitorProcessAndMemory_ = false;
+    long long monitorId_ = 0;
+    string script_;
 };
 
 class PipelineStageExecutor : public StageExecutor {
@@ -1958,9 +1976,9 @@ public:
 	Decoder(int id, bool appendable) : id_(id), appendable_(appendable), codeSymbolAsString_(false){}
 	virtual ~Decoder(){}
 	virtual VectorSP code(const VectorSP& vec, bool lsnFlag) = 0;
-	virtual IO_ERR code(const VectorSP& vec, bool lsnFlag, const DataOutputStreamSP& out, int& checksum) = 0;
+	virtual IO_ERR code(const VectorSP& vec, bool lsnFlag, const DataOutputStreamSP& out, int& checksum, int offset = 0) = 0;
 	virtual IO_ERR decode(const VectorSP& vec, INDEX rowOffset, INDEX skipRows, bool fullLoad, int checksum, const DataInputStreamSP& in,
-			long long byteSize, long long byteOffset, INDEX& postRows, INDEX& postRowOffset, long long& postByteOffset, long long& lsn) = 0;
+			long long byteSize, long long byteOffset, INDEX& postRows, INDEX& postRowOffset, long long& postByteOffset, long long& lsn, int& partial) = 0;
 	/**
 	 * Calculate the CRC32 checksum of the first given number of rows of the decompressed vector.
 	 *

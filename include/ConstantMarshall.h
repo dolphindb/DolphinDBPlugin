@@ -122,7 +122,7 @@ private:
  */
 class SymbolBaseMarshall {
 public:
-	SymbolBaseMarshall(const DataOutputStreamSP& out): out_(out), complete_(false), nextStart_(0), partial_(0){}
+	SymbolBaseMarshall(const DataOutputStreamSP& out): out_(out), complete_(false), nextStart_(0), partial_(0), syms_(0){}
 	~SymbolBaseMarshall(){}
 	bool start(const SymbolBaseSP target, bool blocking, IO_ERR& ret);
 	bool resume(IO_ERR& ret);
@@ -135,6 +135,7 @@ private:
 	bool complete_;
 	int nextStart_;
 	int partial_;
+	int syms_;
 	char buf_[MARSHALL_BUFFER_SIZE];
 };
 
