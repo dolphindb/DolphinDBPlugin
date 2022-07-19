@@ -13,9 +13,11 @@
 #include <ScalarImp.h>
 #include <SysIO.h>
 #include <Util.h>
+#include<Logger.h>
 
 #include <H5Cpp.h>
 #include <hdf5_hl.h>
+#include <blosc_filter.h>
 
 extern "C" ConstantSP h5ls(const ConstantSP &h5_path);
 extern "C" ConstantSP h5lsTable(const ConstantSP &filename);
@@ -214,7 +216,9 @@ enum h5_type_flag {
     IS_FLOAT_FLOAT,
     IS_DOUBLE_FLOAT,
 
-    IS_UNIX_TIME
+    IS_UNIX_TIME,
+
+    IS_BIT
 };
 
 struct hdf5_type_layout
@@ -431,6 +435,14 @@ class UNIX64BitTimestampColumn : public TypeColumn
     UNIX64BitTimestampColumn() : TypeColumn(DT_TIMESTAMP) {}
 };
 
+class BoolColumn : public TypeColumn
+{
+  public:
+    bool compatible(DATA_TYPE destType) const override;
+    int h5size() const override { return sizeof(bool); }
+    DATA_TYPE packData(pack_info_t t) override;
+    BoolColumn() : TypeColumn(DT_BOOL) {}
+};
 class DatasetAppender : public Runnable
 {
 

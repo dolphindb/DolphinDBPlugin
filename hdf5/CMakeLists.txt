@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 
 project(dolphindb_hdf5_plugin)
+add_definitions(-DLOCKFREE_SYMBASE)
 if(WIN32)
     set (platform_macro "-DWINDOWS")
     set (plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginHdf5_win.txt")
@@ -21,18 +22,21 @@ replace_cxx_release_flag("-O3" "-O2")
 #replace -O3 with -O2
 
 if(WIN32)
-    include_directories("../include" "./include_win" )
+include_directories(${CMAKE_SOURCE_DIR}/../include ${CMAKE_SOURCE_DIR}/include_win/hdf5
+${CMAKE_SOURCE_DIR}/include_win/c-blosc ${CMAKE_SOURCE_DIR}/include_win/hdf5-blosc)
 elseif(UNIX)
-     include_directories("../include" "./include")
+     include_directories(${CMAKE_SOURCE_DIR}/../include ${CMAKE_SOURCE_DIR}/include/hdf5
+     ${CMAKE_SOURCE_DIR}/include/c-blosc ${CMAKE_SOURCE_DIR}/include/hdf5-blosc)
 endif()
 
 link_directories(${CMAKE_BINARY_DIR} ./lib)
+aux_source_directory(${PROJECT_SOURCE_DIR}/src DIR_SRCS)
 
-add_library(PluginHdf5 SHARED ./src/hdf5_plugin.cpp)
+add_library(PluginHdf5 SHARED ${DIR_SRCS})
 if(WIN32)
-    target_link_libraries(PluginHdf5 DolphinDB hdf5_hl hdf5_cpp hdf5 z)
+    target_link_libraries(PluginHdf5 DolphinDB hdf5_hl hdf5_cpp hdf5 blosc z)
 elseif(UNIX)
-    target_link_libraries(PluginHdf5 DolphinDB hdf5_hl hdf5_cpp hdf5 dl z)
+    target_link_libraries(PluginHdf5 DolphinDB hdf5_hl hdf5_cpp hdf5 blosc dl z)
 endif()
 
 add_custom_command(TARGET PluginHdf5 POST_BUILD
