@@ -1,96 +1,40 @@
-# DolphinDB KDB+ Plugin
+# DolphinDB kdb+ Plugin
 
-DolphinDB的KDB+数据导入插件，提供两种方式，可以将用户存储在磁盘上的KDB+数据导入DolphinDB,并支持全部数据类型。
-
-#### 方法 1 连接kdb+api导入
-
-连接kdb+数据库，在kdb+数据库中加载数据并通过kdb的c-api导入DolphinDB数据库
-
-操作顺序：connect() -> loadTable() -> close()
-
-不适用场景：
-
-1. 表中有 nested column
-2. tablePath是文件夹情况下, 数据文件不直接存在在tablePath文件夹下
-
-#### 方法 2 loadFile
-
-直接读取磁盘上的kdb+文件, 导入DolphinDB数据库
-
-操作顺序：loadFile()
-
-不适用场景：
-
-1. 单个表
-2. 采用1(q IPC) 3(snappy) 4(L4Z)种压缩方法持久化的数据
-3. 表中有 nested column
-4. 数据文件不直接存在在tablePath下
-
-
-
-### 各类表文件加载方式
-
-在满足上述条件的情况下，KDB+四种表文件加载方式说明
-
-- 单张表 object
-  
-  使用**第一种方法**，连接kdb+api导入
-  
-- 拓展表 splayed table
-
-  **两种方法都可以加载**
-
-  tablePath指定为存有数据文件的文件夹，symPath指定为存储symbol枚举数据的文件路径
-
-  如果未压缩、使用gzip压缩，则推荐使用第二种方法。执行效率更高
-
-- 分区表 partition table
-
-  本插件无法通过指定根目录，加载整个分区表、数据库
-
-  但是可以将tablePath指定为每个分区下的表格，分别加载其中数据，然后通过脚本在DolphinDB中组成一张完整的表格
-
-- 分段表 segment table
-
-  同partition table，可以将各段的各分区中的表读入，然后通过脚本在DolphinDB中组成一张完整的表格
-
-
+通过 DolphinDB 的 kdb+ 数据导入插件，可以将用户存储在磁盘上的 kdb+ 数据表导入 DolphinDB 数据库内存表。该插件支持导入所有 Q 语言的数据类型。目前支持两种导入模式：通过 loadTable 导入和通过 loadFile 导入。
 
 ## 1 预编译安装
 
-### 1.1 初始环境配置
+### 1.1 初始化环境配置
 
-#### KDB+
+#### 安装 kdb+ 数据库
 
-如果需要通过第一种方式从kdb+中导入数据，则需要已安装kdb+数据库
+如果通过第一种方式从 kdb+ 中导入数据，则需要先安装 kdb+ 数据库。
 
-官网申请64位社区版license：https://kx.com/developers/download-licenses/ 
+官网申请64位社区版 license：https://kx.com/developers/download-licenses/ 
 
-#### zlib
+#### 安装 zlib 包
 
-插件中解压缩功能依赖zlib
+插件中解压缩功能依赖 zlib
 
-Ubuntu：
+Ubuntu 系统：
 ```linux shell
 sudo apt install zlib1g
 ```
 
-CentOS：
+CentOS 系统：
 ```linux shell
 yum install -y zlib zlib-devel
 ```
 
-windows
+Windows 系统：
 
 http://www.winimage.com/zLibDll/
 
-**Windows环境下kdb+本体使用zlib过程中可能存在问题，因此建议connect()连接linux环境下的kdb+运行本插件**
-
-## 2 编译安装
+## 2 插件编译与加载
 
 ### 2.1 编译安装
 
-#### linux
+#### Linux 系统编译
 
 ```linux shell
 cd /path/to/plugins/kdb
@@ -100,21 +44,21 @@ cmake ..
 make
 ```
 
-#### Windows：
-- 下载安装[MinGW](http://www.mingw.org/)。确保将bin目录添加到系统环境变量Path中。
+#### Windows 系统编译
+- 下载安装[MinGW](http://www.mingw.org/)。确保将 bin 目录添加到系统环境变量 Path 中。
 - 下载安装[cmake](https://cmake.org/)。
 
-在编译开始之前，要将libDolphinDB.dll拷贝到build文件夹。
+编译开始之前，需要将 libDolphinDB.dll 拷贝至 build 文件夹。
 
 ```
-mkdir build                                                        # 新建build目录
-cp <ServerDir>/libDolphinDB.dll build                 # 拷贝 libDolphinDB.dll 到build目录下
+mkdir build                                           # 新建 build 目录
+cp <ServerDir>/libDolphinDB.dll build                 # 拷贝 libDolphinDB.dll 到 build 目录下
 cd build
 cmake  ../ -G "MinGW Makefiles"
 mingw32-make -j4
 ```
 
-### 2.2 Dolphindb加载插件
+### 2.2 DolphinDB 加载插件
 
 ```DolphinDB shell
 loadPlugin("/path/to/plugin/PluginKDB.txt")
@@ -132,40 +76,38 @@ connect(host, port, usernamePassword)
 
 #### 参数
 
-- 'host'是要连接的kdb+的主机地址
+- 'host' 是要连接的 kdb+ 数据库所在的主机地址
 
-- 'port'是要连接的kdb+的监听端口
+- 'port' 是要连接的 kdb+ 数据库所在的监听端口
 
-- 'usernamePassword'是所要连接的kdb+数据库 "用户名" + ":" + "密码"
+- 'usernamePassword' 是一个字符串，表示所要连接的 kdb+ 数据库的登录用户名和密码，格式为："username:password"
 
-   可以为空，如果kdb在启动时没有指定用户名和密码。不填写该参数或者填写任意字符串都可以进行连接
+   该参数可以为空。若启动 kdb+ 时没有指定用户名和密码，则该参数为空或任意字符串。
 
 #### 详情
 
-此方法通过建立与kdb+之间的连接，先将数据读入kdb+数据库，以此从kdb+中读取表格数据存入DolphinDB
+建立与 kdb+ 服务器之间的连接。返回一个连接句柄。
 
-**此方法需要预先启动KDB+, 并设置相同的端口、用户名、密码**
+如果建立连接失败，则会抛出异常。包括以下三种：
+1. 身份认证异常，用户名或密码错误
+2. 连接端口异常，对应主机的端口不存在
+3. 超时异常，建立连接超时
 
-示例：
-假设KDB用户名密码 admin:123456 存储在 ../passwordfiles/usrs中，同时两者都本地 
+**示例：**  
+假设登录 kdb+ 数据库的用户名和密码（admin:123456）存储在 ../passwordfiles/usrs 中，同时两者都本地 
 
 ```
-KDB shell：         q -p 5000 -U ../passwordfiles/usrs   // 注意-U一定需要大写
+kdb shell：         q -p 5000 -U ../passwordfiles/usrs   // 注意 -U 一定需要大写
 DolphinDB shell：   handle = kdb::connect("127.0.0.1", 5000, "admin:123456")
 ```
 
-返回值是一个建立与kdb+数据库连接之后的句柄，如果建立连接失败则会抛出异常。异常分为三种：
-1. 身份认证异常，用户名密码错误
-2. 连接端口异常，对应主机端口不存在
-3. 超时异常，建立连接超时
-
-#### 例子
+**例子**
 
 ```
-// 开启kdb时指定了用户名密码
+// 若开启 kdb+ 时指定了用户名和密码
 handle = kdb::connect("127.0.0.1", 5000, "admin:123456")
 
-// 开启kdb时未指定用户密码
+// 若开启 kdb+ 时未指定用户名和密码
 handle = kdb::connect("127.0.0.1", 5000)
 ```
 
@@ -179,33 +121,31 @@ loadTable(handle, tablePath, symPath)
 
 #### 参数
 
-- 'handle'是用于读取数据的handle
+- 'handle' 是 `connect` 返回的连接句柄
 
-- 'tablePath'是需要读取表格文件的路径，可以是文件夹，也可以是单个表文件
+- 'tablePath' 是需要读取的表文件路径。如果是 splayed table, partitioned table 或 segmented table，则指定为表文件目录；如果是 single object，则指定为表文件
 
-- 'symPath'是对应表格文件的sym文件路径
+- 'symPath' 是表文件对应的 sym 文件路径
   
-  可以为空，但是必须保证数据内没有已经枚举的symbol类型数据
+  该参数可以为空，此时必须保证表内不包含被枚举的 symbol 列。
 
-路径名称建议采取使用'/'隔开的方式。
+路径建议使用'/'分隔。
 
 #### 详情
 
-此方法是通过连接kdb+数据库，先在kdb+数据库中加载数据，再将数据导入DolphinDB数据库。因此，必须传入一个handle才能读取数据。
+连接 kdb+ 数据库，通过 kdb+ 数据库加载数据，再将数据导入 DolphinDB 内存表。返回一个内存表变量。
 
-返回值是一个table变量，可以直接存入DolphinDB中
+>在 kdb+ 数据库中，symbol 类型可以通过枚举存入 sym 文件，在表中使用 int 类型代替字符串进行存储，以减少字符串重复存储所占的空间，因此如果需要读取的表包含了枚举的 symbol 列，则需要读入 sym 文件才能正确读取表内的 symbol 列。
+>由于通过在 kdb+ 中先加载数据的方式进行导入，当读取一个将 symbol 列枚举后的表时，虽然指定或不指定 sym 文件，都能得到结果，但不指定 sym 文件时，kdb+ 会将 symbol 列读取为 long long 类型的数据。因此请留意所要读取的表是否含有被枚举的 symbol 列。
 
-*在kdb+数据库中，symbol类型可以通过枚举存入sym文件中，在表格中只使用int存储，减少字符串重复存储所占空间，因此如果需要读取的表格有对应的sym枚举，则需要读入sym文件才能读取表格内的symbol数据*
-*同时，由于通过在kdb+中先加载的方式读取数据，因此读取一个含有symbol数据的拓展表时，不管指不指定sym文件，都能得到结果，但是如果不指定sym表，symbol数据列只会读出long long类型数据。因此请留意所要读取的表是否含有symbol列*
-
-#### 例子
+**例子**
 
 ```
-// 表格存在symbol类型，并进行了枚举
+// 表中存在被枚举的 symbol 列
 DATA_DIR="/path/to/data/kdb_sample"
 Txns = kdb::loadTable(handle, DATA_DIR + "/2022.06.17/Txns", DATA_DIR + "/sym")
 
-// 拓展表中不存在symbol类型，或者单张表中symbol未进行枚举
+// 拓展表中不存在 symbol 类型，或者单张表中的 symbol 列未进行枚举
 DATA_DIR="/path/to/data/kdb_sample"
 Txns = kdb::loadTable(handle, DATA_DIR + "/2022.06.17/Txns", DATA_DIR)
 ```
@@ -220,31 +160,29 @@ loadFile(tablePath, symPath)
 
 #### 参数
 
-- 'tablePath'是需要读取表格文件的路径，只能是文件夹，不能是单张表文件
+- 'tablePath' 是需要读取的表文件路径。只能是 splayed table, partitioned table 或 segmented table 的表文件目录
 
-- 'symPath'是对应表格文件的sym文件路径
+- 'symPath' 是表文件对应的 sym 文件路径
   
-  可以为空，但是必须保证数据内没有已经枚举的symbol类型数据
+  该参数可以为空，此时必须保证表内不包含被枚举的 symbol 列。
 
-路径名称建议采取使用'/'隔开的方式。
+路径建议使用'/'分隔。
 
 #### 详情
 
-此方法是通过直接读取在磁盘上的kdb+数据文件，存入DolphinDB。
+直接读取磁盘上的 kdb+ 数据文件，将其存入 DolphinDB 内存表。返回一个内存表变量。
 
-返回值是一个table变量，可以直接存入DolphinDB中。
+>在 kdb+ 数据库中，symbol 类型可以通过枚举存入 sym 文件，在表中使用 int 类型代替字符串进行存储，以减少字符串重复存储所占的空间，因此如果需要读取的表包含了被枚举的 symbol 列，则需要读入 sym 文件才能正确读取表内的 symbol 列。
 
-*在kdb+数据库中，symbol类型可以通过枚举存入sym文件中，在表格中只使用int存储，减少字符串重复存储所占空间，因此如果需要读取的表格有对应的sym枚举，则需要读入sym文件才能读取表格内的symbol数据。*
-
-#### 例子
+**例子**
 
 ```
-//表格存在symbol类型，并进行了枚举
+//表中存在 symbol 类型，并进行了枚举
 DATA_DIR="/path/to/data/kdb_sample"
 Txns = kdb::loadFile(handle, DATA_DIR + "/2022.06.17/Txns", DATA_DIR + "/sym")
 
 
-表格中不存在symbol类型
+表中不存在 symbol 类型
 DATA_DIR="/path/to/data/kdb_sample"
 Txns = kdb::loadFile(handle, DATA_DIR + "/2022.06.17/Txns", DATA_DIR)
 ```
@@ -259,30 +197,31 @@ close(handle)
 
 #### 参数
 
-- 'handle'是需要关闭的handle
+- 'handle' 是连接句柄
 
 #### 详情
 
-关闭与KDB+建立连接的handle
-#### 例子
+关闭与 kdb+ 服务器建立的连接。
+
+**例子**
 
 ```
 kdb::close(handle)
 ```
 
-## Appendix
+### 3.5 完整示例
 
 ``` DolphinDB shell
-loadPlugin("/home/slshen/DolphinDBPlugin/kdb/build/PluginKDB.txt")
+loadPlugin("/home/DolphinDBPlugin/kdb/build/PluginKDB.txt")
 go
-// 连接kdb数据库
+// 连接 kdb+ 数据库
 handle = kdb::connect("127.0.0.1", 5000, "admin:123456")
 
 // 指定文件路径
-DATA_DIR="/home/slshen/KDB/data/kdb_sample"
-TEST_DATA_DIR="/home/slshen/KDB/data"
+DATA_DIR="/home/kdb/data/kdb_sample"
+TEST_DATA_DIR="/home/kdb/data"
 
-// 通过kdb+ api，加载数据到DolphinDB
+// 通过 loadTable，加载数据到 DolphinDB
 Daily = kdb::loadTable(handle, DATA_DIR + "/2022.06.17/Daily/", DATA_DIR + "/sym")
 Minute = kdb::loadTable(handle, DATA_DIR + "/2022.06.17/Minute", DATA_DIR + "/sym")
 Ticks = kdb::loadTable(handle, DATA_DIR + "/2022.06.17/Ticks/", DATA_DIR + "/sym")
@@ -291,7 +230,7 @@ Syms = kdb::loadTable(handle, DATA_DIR + "/2022.06.17/Syms/", DATA_DIR + "/sym")
 Txns = kdb::loadTable(handle, DATA_DIR + "/2022.06.17/Txns", DATA_DIR + "/sym")
 kdb::close(handle)
 
-// 直接读磁盘文件，加载数据到DolphinDB
+// 直接读磁盘文件，加载数据到 DolphinDB
 Daily2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Daily", DATA_DIR + "/sym")
 Minute2= kdb::loadFile(DATA_DIR + "/2022.06.17/Minute/", DATA_DIR + "/sym")
 Ticks2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Ticks/", DATA_DIR + "/sym")
@@ -299,3 +238,73 @@ Orders2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Orders/", DATA_DIR + "/sym")
 Syms2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Syms/", DATA_DIR + "/sym")
 Txns2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Txns/", DATA_DIR + "/sym")
 ```
+
+## 4 导入方法说明
+### 4.1 通过 loadTable 导入
+
+操作顺序：connect() -> loadTable() -> close()
+
+不适用场景：
+
+1. 待导入的表中包含 nested column。
+2. 数据文件不存储在 loadTable 指定的加载路径下。
+
+### 4.2 通过 loadFile 导入
+
+操作顺序：loadFile()
+
+不适用场景：
+
+1. 单个表（single object）。
+2. 采用 q IPC (1), snappy (3), L4Z (4) 这三类压缩方法持久化的数据。
+3. 待导入的表中包含 nested column。
+4. 数据文件不存储在 loadFile 指定的加载路径下。
+
+## 5 kdb+ 各类表文件加载方式说明
+
+在满足导入方法说明里所列条件的情况下，kdb+ 四种表文件导入方式说明：
+
+- 单张表（single object）
+  
+  只能使用**第一种方法**导入。
+  
+- 拓展表（splayed table）
+
+  **两种方法都可以导入**
+
+  tablePath 指定为存有数据文件的文件夹，symPath 指定为存储 symbol 枚举数据的文件路径
+
+  如果未压缩、使用 gzip 压缩，则推荐使用第二种方法。执行效率更高
+
+- 分区表（partitioned table）
+
+  本插件无法通过指定根目录，加载整个分区表、数据库
+
+  但是可以将 tablePath 指定为每个分区下的表格，分别加载其中的数据，然后通过脚本在 DolphinDB 中组成一张完整的表格
+
+- 分段表（segmented table）
+
+  同 partitioned table，可以将各分段的各分区中的表读入，然后通过脚本在 DolphinDB 中组成一张完整的表格
+
+## 6 kdb+ 与 DolphinDB 数据类型转换表
+
+| kdb+      | DolphinDB     | 字节长度 | 备注                                                                             |
+| --------- | ------------- | -------- | -------------------------------------------------------------------------------- |
+| boolean   | BOOL          | 1        |                                                                                  |
+| guid      | UUID          | 16       |                                                                                  |
+| byte      | CHAR          | 1        | DolphinDB 中没有独立的 byte 类型，转换为长度相同的 CHAR                           |
+| short     | SHORT         | 2        |                                                                                  |
+| int       | INT           | 4        |                                                                                  |
+| long      | LONG          | 8        |                                                                                  |
+| real      | FLOAT         | 4        |                                                                                  |
+| float     | DOUBLE        | 8        |                                                                                  |
+| char      | CHAR          | 1        | kdb+ 中 char 空值（""）当空格（" "）处理，因此不会转换为 DolphinDB CHAR 类型的空值 |
+| symbol    | SYMBOL        | 4        |                                                                                  |
+| timestamp | NANOTIMESTAMP | 8        |                                                                                  |
+| month     | MONTH         | 4        |                                                                                  |
+| data      | DATE          | 4        |                                                                                  |
+| datetime  | TIMESTAMP     | 8        |                                                                                  |
+| timespan  | NANOTIME      | 8        |                                                                                  |
+| minute    | MINUTE        | 4        |                                                                                  |
+| second    | SECOND        | 4        |                                                                                  |
+| time      | TIME          | 4        |                                                                                  |
