@@ -141,7 +141,7 @@ Produce key-value data. You can choose special partition to, and you can also ch
 ##### Syntax
 
 ``` shell
-kafka::produceFlush(producer);
+kafka::producerFlush(producer);
 ```
 
 ##### Arguments
