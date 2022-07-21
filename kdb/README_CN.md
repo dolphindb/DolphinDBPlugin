@@ -88,13 +88,13 @@ connect(host, port, usernamePassword)
 
 建立与 kdb+ 服务器之间的连接。返回一个连接句柄。
 
-如果建立连接失败，则会抛出异常。包括以下三种：
+如果建立连接失败，则会抛出异常。包括以下三种情况：
 1. 身份认证异常，用户名或密码错误
 2. 连接端口异常，对应主机的端口不存在
 3. 超时异常，建立连接超时
 
 **示例：**  
-假设登录 kdb+ 数据库的用户名和密码（admin:123456）存储在 ../passwordfiles/usrs 中，同时两者都本地 
+假设登录 kdb+ 数据库的用户名和密码（admin:123456）存储在 ../passwordfiles/usrs 中，且 kdb+ 服务器和 DolphinDB server 都位于同一个主机上。 
 
 ```
 kdb shell：         q -p 5000 -U ../passwordfiles/usrs   // 注意 -U 一定需要大写
@@ -123,9 +123,9 @@ loadTable(handle, tablePath, symPath)
 
 - 'handle' 是 `connect` 返回的连接句柄
 
-- 'tablePath' 是需要读取的表文件路径。如果是 splayed table, partitioned table 或 segmented table，则指定为表文件目录；如果是 single object，则指定为表文件
+- 'tablePath' 是一个字符串，表示需要读取的表文件路径。如果是 splayed table, partitioned table 或 segmented table，则指定为表文件目录；如果是 single object，则指定为表文件
 
-- 'symPath' 是表文件对应的 sym 文件路径
+- 'symPath' 是一个字符串，表示表文件对应的 sym 文件路径
   
   该参数可以为空，此时必须保证表内不包含被枚举的 symbol 列。
 
@@ -133,7 +133,7 @@ loadTable(handle, tablePath, symPath)
 
 #### 详情
 
-连接 kdb+ 数据库，通过 kdb+ 数据库加载数据，再将数据导入 DolphinDB 内存表。返回一个内存表变量。
+连接 kdb+ 数据库，通过 kdb+ 数据库加载数据，再将数据导入 DolphinDB 内存表。
 
 >在 kdb+ 数据库中，symbol 类型可以通过枚举存入 sym 文件，在表中使用 int 类型代替字符串进行存储，以减少字符串重复存储所占的空间，因此如果需要读取的表包含了枚举的 symbol 列，则需要读入 sym 文件才能正确读取表内的 symbol 列。
 >由于通过在 kdb+ 中先加载数据的方式进行导入，当读取一个将 symbol 列枚举后的表时，虽然指定或不指定 sym 文件，都能得到结果，但不指定 sym 文件时，kdb+ 会将 symbol 列读取为 long long 类型的数据。因此请留意所要读取的表是否含有被枚举的 symbol 列。
@@ -160,7 +160,7 @@ loadFile(tablePath, symPath)
 
 #### 参数
 
-- 'tablePath' 是需要读取的表文件路径。只能是 splayed table, partitioned table 或 segmented table 的表文件目录
+- 'tablePath' 是一个字符串，表示需要读取的表文件路径。只能是 splayed table, partitioned table 或 segmented table 的表文件目录
 
 - 'symPath' 是表文件对应的 sym 文件路径
   
@@ -170,7 +170,7 @@ loadFile(tablePath, symPath)
 
 #### 详情
 
-直接读取磁盘上的 kdb+ 数据文件，将其存入 DolphinDB 内存表。返回一个内存表变量。
+直接读取磁盘上的 kdb+ 数据文件，将其存入 DolphinDB 内存表。
 
 >在 kdb+ 数据库中，symbol 类型可以通过枚举存入 sym 文件，在表中使用 int 类型代替字符串进行存储，以减少字符串重复存储所占的空间，因此如果需要读取的表包含了被枚举的 symbol 列，则需要读入 sym 文件才能正确读取表内的 symbol 列。
 
@@ -244,47 +244,123 @@ Txns2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Txns/", DATA_DIR + "/sym")
 
 操作顺序：connect() -> loadTable() -> close()
 
-不适用场景：
+注意事项：
 
-1. 待导入的表中包含 nested column。
-2. 数据文件不存储在 loadTable 指定的加载路径下。
+1. 待导入的表中不应包含 nested column。
+2. loadTable 指定的加载路径应为单个表文件，或分区下的表路径（当表为分区表或分段表时）。
 
 ### 4.2 通过 loadFile 导入
 
 操作顺序：loadFile()
 
-不适用场景：
+注意事项：
 
-1. 单个表（single object）。
-2. 采用 q IPC (1), snappy (3), L4Z (4) 这三类压缩方法持久化的数据。
-3. 待导入的表中包含 nested column。
-4. 数据文件不存储在 loadFile 指定的加载路径下。
+1. 无法读取单个表（single object）。
+2. 无法读取采用 q IPC (1), snappy (3), L4Z (4) 这三类压缩方法持久化的数据。
+3. 待导入的表中不应包含 nested column。
+4. loadFile 指定的加载路径分区下的表路径。
 
 ## 5 kdb+ 各类表文件加载方式说明
 
-在满足导入方法说明里所列条件的情况下，kdb+ 四种表文件导入方式说明：
+在满足导入方法说明里所列条件的情况下，分别说明 kdb+ 四种表文件的导入方式：
 
 - 单张表（single object）
   
   只能使用**第一种方法**导入。
+
+  举例：
+  ``` 
+  目录结构：
+  path/to/data
+  ├── sym
+  └── table_name
+  ```
+  
+  ```
+  handle = kdb::connect("127.0.0.1", 5000, "username:password");
+  table = kdb::loadTable(handle, "path/to/data/table_name", "path/to/data/sym");
+  ```
   
 - 拓展表（splayed table）
 
   **两种方法都可以导入**
 
-  tablePath 指定为存有数据文件的文件夹，symPath 指定为存储 symbol 枚举数据的文件路径
+  如果未压缩或使用 gzip 压缩，则推荐使用第二种方法，导入效率会更高。
 
-  如果未压缩、使用 gzip 压缩，则推荐使用第二种方法。执行效率更高
+  举例：
+  ``` 
+  目录结构：
+  path/to/data
+  ├── sym
+  └── table_name
+      ├── date
+      ├── p
+      └── ti
+  ``` 
+
+  ```
+  handle = kdb::connect("127.0.0.1", 5000, "username:password");
+  table1 = kdb::loadTable(handle, "path/to/data/table_name/", "path/to/data/sym");
+
+  table2 = kdb::loadTable("path/to/data/table_name/", "path/to/data/sym");
+  ```
 
 - 分区表（partitioned table）
 
-  本插件无法通过指定根目录，加载整个分区表、数据库
+  本插件无法通过指定根目录，加载整个分区表、数据库。
 
-  但是可以将 tablePath 指定为每个分区下的表格，分别加载其中的数据，然后通过脚本在 DolphinDB 中组成一张完整的表格
+  但是可以将 tablePath 指定为每个分区下的表，分别加载其中的数据，然后通过脚本在 DolphinDB 中组成一张完整的表。
+
+  举例：
+
+  ``` 
+  目录结构：
+  path/to/data
+  ├── sym
+  ├── 2019.01.01
+  │   └── table_name
+  │       ├── p
+  │       └── ti
+  ├── 2019.01.02
+  │   └── table_name
+  │       ├── p
+  │       └── ti
+  └── 2019.01.03
+      └── table_name
+          ├── p
+          └── ti
+  ``` 
+
+```
+// 获取文件夹下的所有文件信息
+fileRes=files("path/to/data");
+
+// 删除 sym 条目，避免影响数据文件夹读取
+delete from fileRes where filename='sym';
+name='table_name';
+files = exec filename from fileRes;
+
+// 新建数据表，指定 schema
+table=table(10:0,`p`ti`date, [SECOND,DOUBLE,DATE])
+
+// 读取各个分区数据
+for (file in files) {
+        t = kdb::loadFile("path/to/data" +'/' + file +'/' + tablename + '/');
+
+        // 添加分区名所代表的数据
+        addColumn(t, ["date"],[DATE])
+        length=count(t)
+        newCol=take(date(file), length)
+        replaceColumn!(t, "date", newCol)
+
+        // 追加数据到 table 中
+        table.append!(t);
+}
+  ```
 
 - 分段表（segmented table）
 
-  同 partitioned table，可以将各分段的各分区中的表读入，然后通过脚本在 DolphinDB 中组成一张完整的表格
+  同 partitioned table，可以将各分段的各分区中的表读入，然后通过脚本在 DolphinDB 中组成一张完整的表。
 
 ## 6 kdb+ 与 DolphinDB 数据类型转换表
 
