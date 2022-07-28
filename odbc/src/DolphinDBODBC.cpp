@@ -856,7 +856,7 @@ ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args) {
   if (args.size() > 4) insertIgnore = args[4]->getBool();
 
   string databaseType = ((OdbcConnection*)csp->getLong())->getDataBaseType();
-  if (insertIgnore && (databaseType != "" || databaseType != "MySQL"))
+  if (insertIgnore && (databaseType != "" && databaseType != "MySQL"))
       throw IllegalArgumentException("odbc::append",
                                      "insert ignore can only use in MySQL");
 

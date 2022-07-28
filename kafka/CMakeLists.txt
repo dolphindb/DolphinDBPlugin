@@ -51,8 +51,8 @@ else ()
     add_subdirectory(cppkafka)
 
     add_library(PluginKafka SHARED ${plugin_kafka_src})
-    #target_link_libraries(PluginKafka librdkafka.a librdkafka++.a libcppkafka.a libz.a DolphinDB)
-    target_link_libraries(PluginKafka rdkafka++ cppkafka DolphinDB)
+    target_link_libraries(PluginKafka librdkafka.a librdkafka++.a libcppkafka.a libz.a DolphinDB)
+    # target_link_libraries(PluginKafka rdkafka++ cppkafka DolphinDB)
 endif()
 
 add_custom_command(TARGET PluginKafka POST_BUILD

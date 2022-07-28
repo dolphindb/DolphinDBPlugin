@@ -1,3 +1,8 @@
-
-odbc/tests/mssql-employees.bak
-odbc/tests/postgres.tar
+.vscode
+.workspace
+.idea
+cmake-build-debug
+build
+udpserver/test/pyfile
+udpserver/libevent2
+kdb/tmp/

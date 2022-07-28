@@ -14,15 +14,19 @@ void AppendTable::run() {
     vector<ConstantSP> parser_string;
     parser_string.emplace_back(Util::createConstant(DT_STRING));
 
-    while(true){
+    while(flag_){
         msg = consumer->poll(std::chrono::milliseconds(timeout_));
+        if(msg && msg.get_error() && msg.is_eof()) {
+            continue;
+        }
         if(msg){
             parser_string[0]->setString(string(msg.get_payload()));
             try {
                 auto parser_result = parser_->call(session_->getHeap().get(), parser_string);
                 if(!parser_result->isTable()) {
                     LOG_ERR("The parser should return a table.");
-                    return;
+                    continue;
+                    //return;
                 }
 
                 TableSP table_insert = parser_result;
@@ -31,7 +35,8 @@ void AppendTable::run() {
                     int length = result->columns();
                     if (table_insert->columns() < length) {
                         LOG_ERR("The columns of the table returned is smaller than the handler table.");
-                        return;
+                        continue;
+                        //return;
                     }
                     if (table_insert->columns() > length)
                         LOG_ERR("The columns of the table returned is larger than the handler table, and the information may be ignored.");
@@ -54,7 +59,11 @@ void AppendTable::run() {
                     ((FunctionDefSP)handle_)->call(heap_, args);
                 }
             }
-            catch (exception &exception) {
+            catch (TraceableException &exception) {
+                LOG_ERR(exception.what());
+                continue;
+            }
+            catch(std::exception &exception){
                 LOG_ERR(exception.what());
                 continue;
             }
@@ -82,6 +91,7 @@ SubConnection::SubConnection(Heap *heap, std::string description, const Function
     session_->setUser(heap->currentSession()->getUser());
 
     SmartPointer<AppendTable> append = new AppendTable(heap, parser, this, handle, consumer, timeout);
+    append_ = append;
     thread_ = new Thread(append);
     if (!thread_->isStarted()) {
         thread_->start();

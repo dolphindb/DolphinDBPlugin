@@ -268,7 +268,54 @@ select count(*) from tb
 mongodb::close(conn)
 ```
 
-### 2.4. 查询数据示例
+### 2.5 mongodb::parseJson
+
+#### 语法
+
+mongodb::parseJson(str, keys, colnames, colTypes)
+
+#### 详情
+解析json类型的数据，转换到dolphindb的表。
+
+#### 参数
+* str: 需要解析的json格式的字符串，类型为string类型的vector。
+* originColNames: 原始json的键，类型为string类型的vector。
+* convertColNames: 结果表json的键，类型为string类型的vector。
+* types: 转换类型，类型为int类型的vector。
+types支持bool、int、float、double、string以及arrayVector类型bool[]、int[]、float[]、double[].。其中int、float、double支持读取json中的int、float、double，可以相互转换。
+
+#### 例子
+
+```
+data = ['{"a": 1, "b": 2}', '{"a": 2, "b": 3}']
+ mongodb::parseJson(data, 
+`a`b, 
+`col1`col2,
+[INT, INT] )
+```
+
+### 2.6 mongodb::getCollections([databaseName])
+
+#### 语法
+
+mongodb::getCollections([databaseName])
+
+#### 参数
+
+* databaseName: 需要查询的数据库。如果不填，则为mongodb::connect所选的database。
+
+#### 详情
+
+获取指定database的所有集合的名字。
+
+#### 例子
+
+```
+conn = mongodb::connect("192.168.1.38", 27017, "", "")
+mongodb::getCollections(conn, "dolphindb")
+```
+
+## 3 查询数据示例
 
 ```
 query='{"dt": { "$date" : "2016-06-22T00:00:00.000Z" } }';

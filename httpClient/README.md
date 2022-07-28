@@ -19,14 +19,27 @@ wget https://curl.haxx.se/ca/cacert.pem
 
 ### 1.2 自行编译
 
-需要先构建 libcurl、libssl（版本为1.0.2）、libcrypto（版本为1.0.2）和libz的静态链接库。
+需要先构建 libcurl、libssl（arm版本为1.0.1，x86版本为1.0.2）、libcrypto（arm版本为1.0.1，x86版本为1.0.2）和libz的静态链接库。
 
-#### openssl-1.0.2i编译
+#### openssl编译
+
+1.0.1版本，适用于arm架构:
 
 ```
-wget https://www.openssl.org/source/old/1.0.2/openssl-1.0.2i.tar.gz
-tar -xzf openssl-1.0.2i.tar.gz
-cd openssl-1.0.2i
+wget https://www.openssl.org/source/old/1.0.1/openssl-1.0.1u.tar.gz
+tar -xzf openssl-1.0.2u.tar.gz
+cd openssl-1.0.1u
+./config shared --prefix=/tmp/ssl -fPIC
+make
+make install
+```
+
+1.0.2版本，适用于x86架构:
+
+```
+wget https://www.openssl.org/source/old/1.0.2/openssl-1.0.2u.tar.gz
+tar -xzf openssl-1.0.2u.tar.gz
+cd openssl-1.0.2u
 ./config shared --prefix=/tmp/ssl -fPIC
 make
 make install
@@ -38,7 +51,7 @@ make install
 wget https://github.com/curl/curl/releases/download/curl-7_47_0/curl-7.47.0.tar.gz
 tar -zxf curl-7.47.0.tar.gz
 cd curl-7.47.0
-CFLAGS="-fPIC" ./configure --prefix=/tmp/curl --without-nss --with-ssl=/tmp/ssl //指定前面安装的openssl的所在位置，否则不支持https协议。
+CFLAGS="-fPIC" ./configure --prefix=/tmp/curl --without-nss --with-ssl=/tmp/ssl --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt //指定前面安装的openssl的所在位置，否则不支持https协议。并且指定了https的默认证书位置。
 make
 make install
 ```

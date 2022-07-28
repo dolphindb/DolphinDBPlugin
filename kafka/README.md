@@ -56,10 +56,7 @@ sudo yum install openssl-devel
 cd /path/to/the/main/project/
 git submodule update --init --recursive
 ```
-copy the libDolphinDB.so to bin/linux64 or /lib
-``` shell
-cp /path/to/dolphindb/server/libDolphinDB.so /path/to/kafka/bin/linux64
-```
+
 
 ### 2.2 Build with `cmake`
 
@@ -74,6 +71,8 @@ make
 sudo make install
 cd ../..
 mkdir build
+# copy the libDolphinDB.so to ./build
+cp /path/to/dolphindb/server/libDolphinDB.so ./build
 cd build
 cmake ..
 make
@@ -135,6 +134,10 @@ kafka::produce(producer, topic, key, value, json, [partition] );
 ##### Details
 
 Produce key-value data. You can choose special partition to, and you can also choose  whether pass in json format.
+
+Attention:
+
+Please don't sent too much messages at once, it might causes `Local: Queue full` exception.
 
 #### 3.2.3 Producer flushing
 
@@ -280,6 +283,10 @@ kafka::createSubJob(consumer, table, parser, description, [timeout])
 ##### Details
 
 The parser need a string for input and return a table, and you can use mseed::parser for example or you can define a function by yourself.
+
+Attention:
+
+If you create a sub job with a consumer subscribed to a topic's partition which has been subscribed by another sub job consumer before, the messages would be split and distributed to different sub jobs. Please use this function carefully.
 
 #### 3.3.7 Get the muti-thread status
 
@@ -473,7 +480,7 @@ kafka::getOffset(consumer, topic, partition)
 
 ##### Details
 
-Print the offsets of the consumer.
+Print the offsets of the partition corresponding to the topic.
 
 #### 3.3.20 Get Offset Committed
 
@@ -632,6 +639,12 @@ kafka::queueLength(queue)
 
 Returns the length of the queue
 
+Attention: 
+
+This function might has bug on the ARM architecture computers, this function might return a result slightly bigger than the correct result.
+
+Don't use this function if the error occurs.
+
 #### 3.4.5 Forward to queue
 
 ##### Syntax
@@ -734,6 +747,12 @@ kafka::queueEvent(queue)
 ##### Details
 
 Extracts the next message in this Queue.
+
+Attention:
+
+If you delete a consumer when an event derived from it is still in it's lifecycle. Your program would stuck.
+
+So, please assign NULL to event variable after you finished all of your event-related operations. And make sure you don't delete the consumer which you used to produce the event while you still might use this event.
 
 #### 3.5.2 Get Event Name
 
@@ -1024,4 +1043,3 @@ conn = kafka::createSubJob(consumer,tab,mseed::parse,"test:0:get mseed data");
 kafka::getJobStat();
 kafka::cancelSubJob(conn);
 ```
-

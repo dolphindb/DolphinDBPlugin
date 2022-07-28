@@ -443,6 +443,7 @@ class BoolColumn : public TypeColumn
     DATA_TYPE packData(pack_info_t t) override;
     BoolColumn() : TypeColumn(DT_BOOL) {}
 };
+
 class DatasetAppender : public Runnable
 {
 

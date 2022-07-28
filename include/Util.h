@@ -240,7 +240,7 @@ public:
 	static bool removeDirectoryRecursive(const string& dir, string& errMsg);
 	static bool truncFile(const string& filename, long long newSize, string& errMsg);
 	static bool removeFile(const string& file, string& errMsg);
-	static bool copyFile(const string& destFile, const string& srcFile, string& errMsg);
+	static bool copyFile(const string& srcFile , const string& destFile, string& errMsg);
 	static bool syncFile(FILE* fp);
 	static bool exists(const string& filename, bool& isDir);
 	static bool exists(const string& filename);

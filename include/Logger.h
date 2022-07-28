@@ -54,6 +54,7 @@ public:
 	bool start(const string& fileName, long long sizeLimit);
 	void stop();
 	void setLogLevel(severity_type level) { level_ = level;}
+    severity_type getLogLevel() { return level_; }
 
 	template<severity_type severity , typename...Args>
 	void print(Args...args ){
@@ -118,10 +119,10 @@ extern Logger log_inst;
 #define LOG_INFO(...) XLOG_INFO("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
 #define LOG_WARN(...) XLOG_WARN("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
 #else
-#define LOG log_inst.print<severity_type::DEBUG>
-#define LOG_ERR log_inst.print<severity_type::ERR>
-#define LOG_INFO log_inst.print<severity_type::INFO>
-#define LOG_WARN log_inst.print<severity_type::WARNING>
+#define LOG(...) do { if (log_inst.getLogLevel() <= severity_type::DEBUG) {log_inst.print<severity_type::DEBUG>(__VA_ARGS__);} } while(0)
+#define LOG_ERR(...) do { log_inst.print<severity_type::ERR>(__VA_ARGS__); } while(0)
+#define LOG_INFO(...) do { if (log_inst.getLogLevel() <= severity_type::INFO) {log_inst.print<severity_type::INFO>(__VA_ARGS__);} } while(0)
+#define LOG_WARN(...) do { if (log_inst.getLogLevel() <= severity_type::WARNING) {log_inst.print<severity_type::WARNING>(__VA_ARGS__);} } while(0)
 #endif
 
 

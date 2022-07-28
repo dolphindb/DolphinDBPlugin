@@ -133,6 +133,11 @@ TableSP Connection::getTable(string tablePath, string symFilePath) {
         char * queryArg = const_cast<char*>(queryCommand.c_str());
         K colRes = k(handle_, queryArg,(K)0);
         
+        if(colRes->t == -128) {
+            string errMsg = colRes->s;
+            throw RuntimeException("kdb+ execution error " + errMsg + ".");
+        }
+
         int type = kK(kK(colRes->k)[1])[0]->t;
         long long length = (long long)(kK(kK(colRes->k)[1])[0]->n);
 
@@ -222,7 +227,7 @@ TableSP Connection::getTable(string tablePath, string symFilePath) {
             case KDB_STRING:
                 ptr = kS(kK(kK(colRes->k)[1])[0]);
                 cols[i] = Util::createVector(DT_SYMBOL,0,length);
-                ((VectorSP)cols[i])->appendString((char**)ptr, length);
+                ((VectorSP)cols[i])->appendString((const char**)ptr, length);
                 break;
             case KDB_TIMESTAMP:
             {
@@ -491,7 +496,6 @@ vector<string> loadSym(string symSrc) {
     // free(src);
     return symVec;
 }
-
 
 ConstantSP loadSplayedCol(string, vector<string>&);
 

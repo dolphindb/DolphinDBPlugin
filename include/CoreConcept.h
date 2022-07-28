@@ -2120,16 +2120,28 @@ public:
 	virtual ~StaticStageExecutor(){}
 	virtual vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks);
 	virtual vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks, const JobProperty& jobProp);
+    void setForbidProbingGroupSize(bool flag){forbidProbingGroupSize_ = flag;}
+    bool getForbidProbingGroupSize() const {return forbidProbingGroupSize_;}
+    void setMonitorProcessAndMemory(bool flag, const string& script){monitorProcessAndMemory_ = flag; script_ = script;}
+    bool getMonitorProcessAndMemory() const {return monitorProcessAndMemory_;}
 
 private:
-	void groupRemoteCalls(const vector<DistributedCallSP>& tasks, vector<DistributedCallSP>& groupedCalls, const ClusterNodesSP& clusterNodes);
+    void groupRemoteCalls(const vector<vector<DistributedCallSP>>& tasks, vector<DistributedCallSP>& groupedCalls, const ClusterNodesSP& clusterNodes, int groupSize);
 
+    bool probingGroupSize(bool& groupCall, const vector<DistributedCallSP>& tasks, const ClusterNodesSP& clusterNodes, vector<vector<DistributedCallSP >>& siteCalls,
+                            vector<std::pair<int,DistributedCallSP>>& needCheckTasks);
 private:
+    const int MIN_TASK_COUNT_FOR_PROBING_GROUP_SIZE = 4; // if all site's task count is less or equal than it, will group call directly and won't prob group size
+    const int TASK_LIMIT_OF_A_GROUP = 1024; // the max task size of a group
 	bool parallel_;
 	bool reExecuteOnOOM_;
 	bool trackJobs_;
 	bool resumeOnError_;
 	bool scheduleRemoteSite_;
+    bool forbidProbingGroupSize_ = true;
+    bool monitorProcessAndMemory_ = false;
+    long long monitorId_ = 0;
+    string script_;
 };
 
 class PipelineStageExecutor : public StageExecutor {
@@ -2155,9 +2167,9 @@ public:
 	Decoder(int id, bool appendable) : id_(id), appendable_(appendable), codeSymbolAsString_(false){}
 	virtual ~Decoder(){}
 	virtual VectorSP code(const VectorSP& vec, bool lsnFlag) = 0;
-	virtual IO_ERR code(const VectorSP& vec, bool lsnFlag, const DataOutputStreamSP& out, int& checksum) = 0;
+	virtual IO_ERR code(const VectorSP& vec, bool lsnFlag, const DataOutputStreamSP& out, int& checksum, int offset = 0) = 0;
 	virtual IO_ERR decode(const VectorSP& vec, INDEX rowOffset, INDEX skipRows, bool fullLoad, int checksum, const DataInputStreamSP& in,
-			long long byteSize, long long byteOffset, INDEX& postRows, INDEX& postRowOffset, long long& postByteOffset, long long& lsn) = 0;
+			long long byteSize, long long byteOffset, INDEX& postRows, INDEX& postRowOffset, long long& postByteOffset, long long& lsn, int& partial) = 0;
 	/**
 	 * Calculate the CRC32 checksum of the first given number of rows of the decompressed vector.
 	 *

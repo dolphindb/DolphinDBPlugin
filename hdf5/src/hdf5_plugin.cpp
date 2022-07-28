@@ -17,6 +17,7 @@ public:
 };
 
 static InitHdf5Filter initHdf5Filter;
+
 ConstantSP h5ls(const ConstantSP &h5_path)
 {
     if (h5_path->getType() != DT_STRING)
@@ -2613,6 +2614,7 @@ DATA_TYPE BoolColumn::packData(pack_info_t t)
         return DT_VOID;
     }
 }
+
 char *H5Object::getName(hid_t id)
 {
     static char n[30];

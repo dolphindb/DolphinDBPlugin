@@ -1,0 +1,9 @@
+[submodule "mysql/contrib/mariadb-connector-c"]
+	path = mysql/contrib/mariadb-connector-c
+	url = https://github.com/MariaDB/mariadb-connector-c.git
+[submodule "kafka/cppkafka"]
+	path = kafka/cppkafka
+	url = https://github.com/mfontanini/cppkafka.git
+[submodule "RTSeis/rtseis"]
+	path = RTSeis/rtseis
+	url = https://github.com/uofuseismo/rtseis.git

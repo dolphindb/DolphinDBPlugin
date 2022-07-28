@@ -48,7 +48,9 @@ public:
     }
     ~AppendTable() override = default;
     void run() override;
-
+    void setFlag(bool flag) {
+        flag_ = flag;
+    }
 private:
     SessionSP session_;
     SubConnection * client_;
@@ -68,6 +70,7 @@ private:
     Heap* heap_{};
     ThreadSP thread_;
     SessionSP session_;
+    SmartPointer<AppendTable> append_;
 public:
     SubConnection();
     SubConnection(Heap *heap, std::string description, const FunctionDefSP& parser, ConstantSP handle, ConstantSP consumer, int timeout);
@@ -86,7 +89,8 @@ public:
         return heap_;
     }
     void cancelThread(){
-        thread_->cancel();
+        append_->setFlag(false);
+        thread_->join();
     }
 };
 
