@@ -32,11 +32,11 @@ extern vector<string> tablenames;
 
 extern vector<string> snapshotColumnNames;
 extern vector<string> tradeColumnNames;
-extern vector<string> ticksColumnNames;
+extern vector<string> ordersColumnNames;
 
 extern vector<DATA_TYPE> snapshotTypes;
 extern vector<DATA_TYPE> tradeTypes;
-extern vector<DATA_TYPE> ticksTypes;
+extern vector<DATA_TYPE> ordersTypes;
 
 extern "C" ConstantSP nsqConnect(Heap* heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP subscribe(Heap* heap, vector<ConstantSP>& arguments);

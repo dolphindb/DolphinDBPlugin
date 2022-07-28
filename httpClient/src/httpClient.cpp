@@ -1,3 +1,39 @@
+/***************************************************************************
+ *                                  _   _ ____  _
+ *  Project                     ___| | | |  _ \| |
+ *                             / __| | | | |_) | |
+ *                            | (__| |_| |  _ <| |___
+ *                             \___|\___/|_| \_\_____|
+ *
+ * Copyright (C) 1998 - 2015, Daniel Stenberg, <daniel@haxx.se>, et al.
+ *
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at http://curl.haxx.se/docs/copyright.html.
+ *
+ * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+ * copies of the Software, and permit persons to whom the Software is
+ * furnished to do so, under the terms of the COPYING file.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied.
+ *
+ ***************************************************************************/
+/* <DESC>
+ * one way to set the necessary OpenSSL locking callbacks if you want to do
+ * multi-threaded transfers with HTTPS/FTPS with libcurl built to use OpenSSL.
+ * </DESC>
+ */
+/*
+ * This is not a complete stand-alone example.
+ *
+ * Author: Jeremy Brown
+ */
+
+#include <stdio.h>
+#include <pthread.h>
+#include <openssl/err.h>
+#include <vector>
 #include <Exceptions.h>
 #include <ScalarImp.h>
 #include <Util.h>
@@ -5,6 +41,7 @@
 #include <curl/curl.h>
 #include <openssl/ssl.h>
 #include <string>
+using namespace std;
 
 ConstantSP httpGet(Heap *heap, vector<ConstantSP> &args) {
     ConstantSP url = args[0];
@@ -78,8 +115,55 @@ ConstantSP httpPost(Heap *heap, vector<ConstantSP> &args) {
 
 namespace httpClient {
 
-    size_t curlWriteData(void *ptr, size_t size, size_t nmemb, string *data) {
-        data->append((char *) ptr, size * nmemb);
+    void handle_error(const char *file, int lineno, const char *msg)
+    {
+        fprintf(stderr, "** %s:%d %s\n", file, lineno, msg);
+        ERR_print_errors_fp(stderr);
+        /* exit(-1); */
+    }
+
+    /* This array will store all of the mutexes available to OpenSSL. */
+    vector<Mutex> mutex_buf;
+
+    static void locking_function(int mode, int n, const char *file, int line)
+    {
+        if (mode & CRYPTO_LOCK)
+            mutex_buf[n].lock();
+        else
+            mutex_buf[n].unlock();
+    }
+
+    static unsigned long id_function(void)
+    {
+        return ((unsigned long)pthread_self());
+    }
+
+    int thread_setup(void)
+    {
+        int i;
+        int nums = CRYPTO_num_locks();
+        for (i = 0; i < nums; i++)
+            mutex_buf.emplace_back(Mutex());
+        CRYPTO_set_id_callback(id_function);
+        CRYPTO_set_locking_callback(locking_function);
+        return 1;
+    }
+
+    class Init
+    {
+    public:
+        Init()
+        {
+            curl_global_init(CURL_GLOBAL_ALL);
+            thread_setup();
+        }
+    };
+
+    Init init;
+
+    size_t curlWriteData(void *ptr, size_t size, size_t nmemb, string *data)
+    {
+        data->append((char *)ptr, size * nmemb);
         return size * nmemb;
     }
 

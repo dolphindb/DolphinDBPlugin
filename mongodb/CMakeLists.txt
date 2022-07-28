@@ -24,7 +24,7 @@ elseif(UNIX)
     set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginMongodb.txt")
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -fPIC -O3 ")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -fPIC -g -o0 ")
 
 include_directories(${PROJECT_SOURCE_DIR}/include/libbson-1.0)
 include_directories(${PROJECT_SOURCE_DIR}/include/libmongoc-1.0)

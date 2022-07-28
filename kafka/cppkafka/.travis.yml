@@ -1,0 +1,43 @@
+language: cpp
+
+sudo: required
+
+compiler:
+  - gcc
+  - clang
+
+env:
+  - RDKAFKA_VERSION=v0.9.4
+  - RDKAFKA_VERSION=v0.11.6
+
+os:
+  - linux
+
+addons:
+  apt:
+    packages:
+    - libboost-dev
+    - libboost-program-options-dev
+    - zookeeper
+    - zookeeperd
+
+before_script:
+  - KAFKA_VERSION=2.11-2.2.0
+  - wget https://archive.apache.org/dist/kafka/2.2.0/kafka_$KAFKA_VERSION.tgz
+  - tar xvzf kafka_$KAFKA_VERSION.tgz
+  - ./kafka_$KAFKA_VERSION/bin/kafka-server-start.sh ./kafka_$KAFKA_VERSION/config/server.properties > /dev/null 2> /dev/null &
+  - git clone https://github.com/edenhill/librdkafka.git
+  - while ! echo "asd" | nc localhost 9092; do sleep 1; done
+  - ./kafka_$KAFKA_VERSION/bin/kafka-topics.sh --create --zookeeper localhost:2181 --topic cppkafka_test1 --partitions 3 --replication-factor 1
+  - ./kafka_$KAFKA_VERSION/bin/kafka-topics.sh --create --zookeeper localhost:2181 --topic cppkafka_test2 --partitions 3 --replication-factor 1
+
+script:
+  - cd librdkafka
+  - git checkout $RDKAFKA_VERSION
+  - ./configure --prefix=./install && make libs && make install
+  - cd ..
+  - mkdir build && cd build
+  - cmake .. -DCPPKAFKA_CMAKE_VERBOSE=ON -DRDKAFKA_ROOT=./librdkafka/install -DKAFKA_TEST_INSTANCE=localhost:9092
+  - make examples
+  - make tests
+  - ./tests/cppkafka_tests

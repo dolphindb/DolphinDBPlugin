@@ -320,7 +320,7 @@ share streamTable(
     array(CHAR, 0) as OrdType,
     array(LONG, 0) as OrdNo,
     array(LONG, 0) as BizIndex
-) as ticks_sh;
+) as orders_sh;
 
 share streamTable(
     array(SYMBOL, 0) as ExchangeID,
@@ -336,7 +336,7 @@ share streamTable(
     array(CHAR, 0) as OrdType,
     array(LONG, 0) as OrdNo,
     array(LONG, 0) as BizIndex
-) as ticks_sz;
+) as orders_sz;
 
 nsq::connect("/home/dolphindb/Documents/dolphindb0/src/DolphinDBPlugin/nsq/sdk_config.ini");
 nsq::subscribe(`snapshot, `sh, snapshot_sh);
@@ -347,8 +347,8 @@ nsq::subscribe(`snapshot, `sh, snapshot_sh);
 nsq::subscribe(`snapshot, `sz, snapshot_sz);
 nsq::subscribe(`trade, `sh, trade_sh);
 nsq::subscribe(`trade, `sz, trade_sz);
-nsq::subscribe(`ticks, `sh, ticks_sh);
-nsq::subscribe(`ticks, `sz, ticks_sz);
+nsq::subscribe(`orders, `sh, orders_sh);
+nsq::subscribe(`orders, `sz, orders_sz);
 
 // 获取每个订阅的状态
 status = nsq::getSubscriptionStatus();
@@ -357,7 +357,7 @@ select * from status;
 //nsq::close();
 
 select count(*)  from snapshot_sh;
-select count(*) from ticks_sh;
+select count(*) from orders_sh;
 select * from snapshot_sh limit 100;
 
 //nsq::unsubscribe(`snapshot, `sh)

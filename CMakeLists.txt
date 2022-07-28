@@ -1,0 +1,402 @@
+cmake_minimum_required(VERSION 3.17)
+project(DolphinDBPlugin)
+add_definitions(-DLOCKFREE_SYMBASE)
+
+set(CMAKE_CXX_STANDARD 14)
+
+include_directories(aws/src)
+include_directories(demo/src)
+include_directories(GLM/src)
+include_directories(hdf5/src)
+include_directories(httpClient/src)
+include_directories(include)
+include_directories(LinearAlgebra)
+include_directories(lr/include)
+include_directories(lr/src)
+include_directories(MarginingEngine)
+include_directories(MarginingEngine/margin)
+include_directories(MatchingEngine)
+include_directories(MatchingEngine/book)
+include_directories(ml/src)
+include_directories(mqtt/lib)
+include_directories(mqtt/src)
+include_directories(mqtt/src/templates)
+include_directories(mysql/contrib/mariadb-connector-c-cmake/common)
+include_directories(mysql/contrib/mariadb-connector-c-cmake/common/include)
+include_directories(mysql/contrib/mariadb-connector-c-cmake/common/include/mysql)
+include_directories(mysql/contrib/mariadb-connector-c-cmake/linux_x86_64/include)
+include_directories(mysql/contrib/mariadb-connector-c-cmake/win32/include)
+include_directories(mysql/contrib/mariadb-connector-c-cmake/win32_yineng/include)
+include_directories(mysql/src)
+include_directories(nag/src)
+include_directories(odbc/src)
+include_directories(odbc/src/nanodbc)
+include_directories(odbc/src/utfcpp)
+include_directories(odbc/src/utfcpp/utf8)
+include_directories(opc/OPCClientToolKit)
+include_directories(opc/src)
+include_directories(opcua/src)
+include_directories(OpenBlas/blasinclude)
+include_directories(OpenBlas/src)
+include_directories(pca)
+include_directories(Pycall/include)
+include_directories(Pycall/pybind11/include)
+include_directories(Pycall/pybind11/include/pybind11)
+include_directories(Pycall/pybind11/include/pybind11/detail)
+include_directories(Pycall/pybind11/tests)
+include_directories(Pycall/test)
+include_directories(quad/include)
+include_directories(quad/src)
+include_directories(RandomForest/src)
+include_directories(sstring/src)
+include_directories(stats/src)
+include_directories(SUFELoadDat/src)
+include_directories(SUFELoadDat/src/minizip)
+include_directories(svm/src)
+include_directories(taoli)
+include_directories(temporal)
+include_directories(tseries/src)
+include_directories(zlib/src)
+
+add_executable(DolphinDBPlugin
+        aws/src/AWSS3.cpp
+        aws/src/AWSS3.h
+        demo/src/Demo.cpp
+        demo/src/Demo.h
+        GLM/src/family.hpp
+        GLM/src/GLM.hpp
+        GLM/src/GLM_computation.hpp
+        GLM/src/GLM_impl.cpp
+        GLM/src/GLM_util.hpp
+        GLM/src/link.hpp
+        hdf5/src/hdf5_plugin.cpp
+        hdf5/src/hdf5_plugin.h
+        httpClient/src/httpClient.cpp
+        httpClient/src/httpClient.h
+        include/Concurrent.h
+        include/CoreConcept.h
+        include/DolphinString.h
+        include/Exceptions.h
+        include/FlatHashmap.h
+        include/Guid.h
+        include/HashmapUtil.h
+        include/LocklessContainer.h
+        include/Logger.h
+        include/ScalarImp.h
+        include/SmartPointer.h
+        include/StreamEngine.h
+        include/SysIO.h
+        include/Types.h
+        include/Util.h
+        LinearAlgebra/LinearAlgebra.cpp
+        LinearAlgebra/LinearAlgebra.h
+        LinearAlgebra/svd.cpp
+        lr/include/Concurrent.h
+        lr/include/CoreConcept.h
+        lr/include/Exceptions.h
+        lr/include/IO.h
+        lr/include/SmartPointer.h
+        lr/include/Types.h
+        lr/include/Util.h
+        lr/src/LR.cpp
+        lr/src/LR.h
+        MarginingEngine/margin/account.h
+        MarginingEngine/margin/callback.h
+        MarginingEngine/margin/config.h
+        MarginingEngine/margin/engine.cpp
+        MarginingEngine/margin/engine.h
+        MarginingEngine/margin/position.h
+        MarginingEngine/margin/types.h
+        MarginingEngine/test/test.cpp
+        MarginingEngine/export.cpp
+        MarginingEngine/export.h
+        MatchingEngine/book/callback.h
+        MatchingEngine/book/comparable_price.h
+        MatchingEngine/book/depth.h
+        MatchingEngine/book/depth_constants.h
+        MatchingEngine/book/depth_level.h
+        MatchingEngine/book/depth_order_book.h
+        MatchingEngine/book/listener.h
+        MatchingEngine/book/logger.h
+        MatchingEngine/book/order.h
+        MatchingEngine/book/order_book.h
+        MatchingEngine/book/order_tracker.h
+        MatchingEngine/book/test.cpp
+        MatchingEngine/book/types.h
+        MatchingEngine/Config.h
+        MatchingEngine/Exchange.cpp
+        MatchingEngine/Exchange.h
+        MatchingEngine/export.h
+        ml/src/Classification.cpp
+        ml/src/Classification.h
+        ml/src/LogisticRegression.cpp
+        ml/src/LogisticRegression.h
+        ml/src/MachineLearningUtil.cpp
+        ml/src/MachineLearningUtil.h
+        mqtt/lib/mqtt.c
+        mqtt/lib/mqtt.h
+        mqtt/lib/mqtt_pal.c
+        mqtt/lib/mqtt_pal.h
+        mqtt/src/templates/bio_sockets.h
+        mqtt/src/templates/openssl_sockets.h
+        mqtt/src/templates/posix_sockets.c
+        mqtt/src/templates/posix_sockets.h
+        mqtt/src/client.h
+        mqtt/src/json.hpp
+        mqtt/src/parser.cpp
+        mqtt/src/parser.h
+        mqtt/src/pub_client.cpp
+        mqtt/src/sub_client.cpp
+        mysql/contrib/mariadb-connector-c-cmake/common/include/mysql/mysql.h
+        mysql/contrib/mariadb-connector-c-cmake/common/include/mysql/mysqld_error.h
+        mysql/contrib/mariadb-connector-c-cmake/linux_x86_64/include/config.h
+        mysql/contrib/mariadb-connector-c-cmake/linux_x86_64/include/ma_config.h
+        mysql/contrib/mariadb-connector-c-cmake/linux_x86_64/include/mariadb_version.h
+        mysql/contrib/mariadb-connector-c-cmake/linux_x86_64/libmariadb/ma_client_plugin.c
+        mysql/contrib/mariadb-connector-c-cmake/win32/include/config.h
+        mysql/contrib/mariadb-connector-c-cmake/win32/include/ma_config.h
+        mysql/contrib/mariadb-connector-c-cmake/win32/include/mariadb_version.h
+        mysql/contrib/mariadb-connector-c-cmake/win32/libmariadb/ma_client_plugin.c
+        mysql/contrib/mariadb-connector-c-cmake/win32_yineng/include/config.h
+        mysql/contrib/mariadb-connector-c-cmake/win32_yineng/include/config.linux.h
+        mysql/contrib/mariadb-connector-c-cmake/win32_yineng/include/ma_config.h
+        mysql/contrib/mariadb-connector-c-cmake/win32_yineng/include/ma_config.linux.h
+        mysql/contrib/mariadb-connector-c-cmake/win32_yineng/include/mariadb_version.h
+        mysql/contrib/mariadb-connector-c-cmake/win32_yineng/include/mariadb_version.linux.h
+        mysql/contrib/mariadb-connector-c-cmake/win32_yineng/libmariadb/ma_client_plugin.c
+        mysql/contrib/mariadb-connector-c-cmake/win32_yineng/libmariadb/ma_client_plugin.linux.c
+        mysql/src/mysqlxx.cpp
+        mysql/src/mysqlxx.h
+        mysql/src/plugin_mysql.cpp
+        mysql/src/plugin_mysql.h
+        nag/src/NAGG.cpp
+        nag/src/NAGG.h
+        nag/src/TimeSeries.cpp
+        odbc/src/nanodbc/nanodbc.h
+        odbc/src/utfcpp/utf8/checked.h
+        odbc/src/utfcpp/utf8/core.h
+        odbc/src/utfcpp/utf8/cpp11.h
+        odbc/src/utfcpp/utf8/unchecked.h
+        odbc/src/utfcpp/utf8.h
+        odbc/src/cvt.cpp
+        odbc/src/cvt.h
+        odbc/src/DolphinDBODBC.cpp
+        odbc/src/DolphinDBODBC.h
+        odbc/src/nanodbc.cpp
+        opc/OPCClientToolKit/OPCClient.cpp
+        opc/OPCClientToolKit/OPCClient.h
+        opc/OPCClientToolKit/OPCClientToolKitDLL.h
+        opc/OPCClientToolKit/opccomn.h
+        opc/OPCClientToolKit/opccomn_i.c
+        opc/OPCClientToolKit/opcda.h
+        opc/OPCClientToolKit/opcda_i.c
+        opc/OPCClientToolKit/OpcEnum.h
+        opc/OPCClientToolKit/OpcEnum_i.c
+        opc/OPCClientToolKit/OPCGroup.cpp
+        opc/OPCClientToolKit/OPCGroup.h
+        opc/OPCClientToolKit/OPCHost.cpp
+        opc/OPCClientToolKit/OPCHost.h
+        opc/OPCClientToolKit/OPCItem.cpp
+        opc/OPCClientToolKit/OPCItem.h
+        opc/OPCClientToolKit/OPCItemData.cpp
+        opc/OPCClientToolKit/OPCItemData.h
+        opc/OPCClientToolKit/OPCProperties.cpp
+        opc/OPCClientToolKit/OPCProperties.h
+        opc/OPCClientToolKit/OPCServer.cpp
+        opc/OPCClientToolKit/OPCServer.h
+        opc/OPCClientToolKit/stdafx.cpp
+        opc/OPCClientToolKit/stdafx.h
+        opc/OPCClientToolKit/Transaction.cpp
+        opc/OPCClientToolKit/Transaction.h
+        opc/src/json.hpp
+        opc/src/opc_main.cpp
+        opc/src/opc_main.h
+        opc/src/opcda_i.h
+        opc/src/opcexception.h
+        opc/src/opcimp.cpp
+        opc/src/opcimp.h
+        opc/src/parser.cpp
+        opc/src/parser.h
+        opcua/src/opc_ua.cpp
+        opcua/src/opc_ua.h
+        OpenBlas/blasinclude/cblas.h
+        OpenBlas/blasinclude/f77blas.h
+        OpenBlas/blasinclude/openblas_config.h
+        OpenBlas/src/OpenBLASPlugin.cpp
+        OpenBlas/src/OpenBLASPlugin.h
+        OpenBlas/src/OpenBLASPluginHelp.cpp
+        OpenBlas/src/OpenBLASPluginHelp.h
+        pca/computeGramMatrix.cpp
+        pca/computeGramMatrix.hpp
+        pca/pca.cpp
+        pca/pca.hpp
+        pca/singularValue.cpp
+        pca/singularValue.hpp
+        pca/stat.hpp
+        pca/Util.cpp
+        pca/Util.hpp
+        Pycall/include/Concurrent.h
+        Pycall/include/CoreConcept.h
+        Pycall/include/Dol2Py.h
+        Pycall/include/DolphinString.h
+        Pycall/include/Exceptions.h
+        Pycall/include/FlatHashmap.h
+        Pycall/include/Guid.h
+        Pycall/include/HashmapUtil.h
+        Pycall/include/Imaging.h
+        Pycall/include/ImagingUtils.h
+        Pycall/include/ImDib.h
+        Pycall/include/ImPlatform.h
+        Pycall/include/LocklessContainer.h
+        Pycall/include/Logger.h
+        Pycall/include/Py2Dol.h
+        Pycall/include/pygetopt.h
+        Pycall/include/PyInteract.h
+        Pycall/include/PyInterUtil.h
+        Pycall/include/PyResource.h
+        Pycall/include/ScalarImp.h
+        Pycall/include/SmartPointer.h
+        Pycall/include/StreamEngine.h
+        Pycall/include/SysIO.h
+        Pycall/include/Types.h
+        Pycall/include/Util.h
+        Pycall/pybind11/include/pybind11/detail/class.h
+        Pycall/pybind11/include/pybind11/detail/common.h
+        Pycall/pybind11/include/pybind11/detail/descr.h
+        Pycall/pybind11/include/pybind11/detail/init.h
+        Pycall/pybind11/include/pybind11/detail/internals.h
+        Pycall/pybind11/include/pybind11/detail/typeid.h
+        Pycall/pybind11/include/pybind11/attr.h
+        Pycall/pybind11/include/pybind11/buffer_info.h
+        Pycall/pybind11/include/pybind11/cast.h
+        Pycall/pybind11/include/pybind11/chrono.h
+        Pycall/pybind11/include/pybind11/common.h
+        Pycall/pybind11/include/pybind11/complex.h
+        Pycall/pybind11/include/pybind11/eigen.h
+        Pycall/pybind11/include/pybind11/embed.h
+        Pycall/pybind11/include/pybind11/eval.h
+        Pycall/pybind11/include/pybind11/functional.h
+        Pycall/pybind11/include/pybind11/iostream.h
+        Pycall/pybind11/include/pybind11/numpy.h
+        Pycall/pybind11/include/pybind11/operators.h
+        Pycall/pybind11/include/pybind11/options.h
+        Pycall/pybind11/include/pybind11/pybind11.h
+        Pycall/pybind11/include/pybind11/pytypes.h
+        Pycall/pybind11/include/pybind11/stl.h
+        Pycall/pybind11/include/pybind11/stl_bind.h
+        Pycall/pybind11/tests/test_cmake_build/embed.cpp
+        Pycall/pybind11/tests/test_cmake_build/main.cpp
+        Pycall/pybind11/tests/test_embed/catch.cpp
+        Pycall/pybind11/tests/test_embed/external_module.cpp
+        Pycall/pybind11/tests/test_embed/test_interpreter.cpp
+        Pycall/pybind11/tests/constructor_stats.h
+        Pycall/pybind11/tests/cross_module_gil_utils.cpp
+        Pycall/pybind11/tests/local_bindings.h
+        Pycall/pybind11/tests/object.h
+        Pycall/pybind11/tests/pybind11_cross_module_tests.cpp
+        Pycall/pybind11/tests/pybind11_tests.cpp
+        Pycall/pybind11/tests/pybind11_tests.h
+        Pycall/pybind11/tests/test_async.cpp
+        Pycall/pybind11/tests/test_buffers.cpp
+        Pycall/pybind11/tests/test_builtin_casters.cpp
+        Pycall/pybind11/tests/test_call_policies.cpp
+        Pycall/pybind11/tests/test_callbacks.cpp
+        Pycall/pybind11/tests/test_chrono.cpp
+        Pycall/pybind11/tests/test_class.cpp
+        Pycall/pybind11/tests/test_constants_and_functions.cpp
+        Pycall/pybind11/tests/test_copy_move.cpp
+        Pycall/pybind11/tests/test_custom_type_casters.cpp
+        Pycall/pybind11/tests/test_docstring_options.cpp
+        Pycall/pybind11/tests/test_eigen.cpp
+        Pycall/pybind11/tests/test_enum.cpp
+        Pycall/pybind11/tests/test_eval.cpp
+        Pycall/pybind11/tests/test_exceptions.cpp
+        Pycall/pybind11/tests/test_factory_constructors.cpp
+        Pycall/pybind11/tests/test_gil_scoped.cpp
+        Pycall/pybind11/tests/test_iostream.cpp
+        Pycall/pybind11/tests/test_kwargs_and_defaults.cpp
+        Pycall/pybind11/tests/test_local_bindings.cpp
+        Pycall/pybind11/tests/test_methods_and_attributes.cpp
+        Pycall/pybind11/tests/test_modules.cpp
+        Pycall/pybind11/tests/test_multiple_inheritance.cpp
+        Pycall/pybind11/tests/test_numpy_array.cpp
+        Pycall/pybind11/tests/test_numpy_dtypes.cpp
+        Pycall/pybind11/tests/test_numpy_vectorize.cpp
+        Pycall/pybind11/tests/test_opaque_types.cpp
+        Pycall/pybind11/tests/test_operator_overloading.cpp
+        Pycall/pybind11/tests/test_pickling.cpp
+        Pycall/pybind11/tests/test_pytypes.cpp
+        Pycall/pybind11/tests/test_sequences_and_iterators.cpp
+        Pycall/pybind11/tests/test_smart_ptr.cpp
+        Pycall/pybind11/tests/test_stl.cpp
+        Pycall/pybind11/tests/test_stl_binders.cpp
+        Pycall/pybind11/tests/test_tagbased_polymorphic.cpp
+        Pycall/pybind11/tests/test_union.cpp
+        Pycall/pybind11/tests/test_virtual_functions.cpp
+        Pycall/src/Dol2Py.cpp
+        Pycall/src/Py2Dol.cpp
+        Pycall/src/PyInteract.cpp
+        Pycall/src/PyResource.cpp
+        Pycall/test/pycall/pycallc.cpp
+        Pycall/test/loadTest.cpp
+        Pycall/test/loadTest.h
+        Pycall/test/pyintereasy.cpp
+        Pycall/test/pyintereasy.h
+        Pycall/test/test.cpp
+        Pycall/test/util.cpp
+        quad/include/Array.cc
+        quad/include/Array.hh
+        quad/include/QuadProg++.cc
+        quad/include/QuadProg++.hh
+        quad/src/quad.cpp
+        quad/src/quad.h
+        RandomForest/src/RandomForest.cpp
+        RandomForest/src/RandomForest.h
+        sstring/src/SString.cpp
+        sstring/src/SString.h
+        stats/src/chi_squared.cpp
+        stats/src/chi_squared.hpp
+        stats/src/correlation.cpp
+        stats/src/correlation.hpp
+        stats/src/hypothesis.hpp
+        stats/src/kolmogorov_smirnov.cpp
+        stats/src/kolmogorov_smirnov.hpp
+        stats/src/mann_whitney_test.cpp
+        stats/src/mann_whitney_test.hpp
+        stats/src/one_way_anova.cpp
+        stats/src/one_way_anova.hpp
+        stats/src/stat.hpp
+        stats/src/t_test.cpp
+        stats/src/t_test.hpp
+        stats/src/Util.cpp
+        stats/src/Util.hpp
+        stats/src/whilcoxon_signed_rank_test.cpp
+        stats/src/whilcoxon_signed_rank_test.hpp
+        SUFELoadDat/src/minizip/crypt.h
+        SUFELoadDat/src/minizip/ioapi.c
+        SUFELoadDat/src/minizip/ioapi.h
+        SUFELoadDat/src/minizip/iowin32.c
+        SUFELoadDat/src/minizip/iowin32.h
+        SUFELoadDat/src/minizip/unzip.c
+        SUFELoadDat/src/minizip/unzip.h
+        SUFELoadDat/src/l2struct.h
+        SUFELoadDat/src/loadDat.cpp
+        SUFELoadDat/src/loadDat.h
+        SUFELoadDat/src/simpleZip.cpp
+        SUFELoadDat/src/simpleZip.h
+        svm/src/svm.cpp
+        svm/src/svm.h
+        svm/src/svmPlugin.cpp
+        svm/src/svmPlugin.h
+        taoli/plugin.cpp
+        taoli/plugin.h
+        temporal/get_tz_win_test.cpp
+        temporal/temporal.cpp
+        temporal/temporal.h
+        temporal/TimeZone.cpp
+        temporal/TimeZone.h
+        tseries/src/adfuller.cpp
+        tseries/src/adfuller.hpp
+        tseries/src/stat.hpp
+        zlib/src/ZlibImpl.cpp
+        zlib/src/ZlibImpl.h)

@@ -1,0 +1,16 @@
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
+
+add_custom_target(examples)
+macro(create_example example_name)
+    string(REPLACE "_" "-" sanitized_name ${example_name})
+    add_executable(${sanitized_name} EXCLUDE_FROM_ALL "${example_name}_example.cpp")
+    target_link_libraries(${sanitized_name} cppkafka RdKafka::rdkafka Boost::boost Boost::program_options)
+    add_dependencies(examples ${sanitized_name})
+endmacro()
+
+create_example(producer)
+create_example(buffered_producer)
+create_example(consumer)
+create_example(consumer_dispatcher)
+create_example(metadata)
+create_example(consumers_information)

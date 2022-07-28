@@ -158,6 +158,7 @@ opc::subscribe(connection, tagName, handler)
 
 > 订阅tag的值
 
+
 例子
 
 ```
@@ -167,7 +168,7 @@ opc::subscribe(conn1,".testString",  t1)
 
 t2 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
 conn2=opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,100)
-opc::subscribe(conn2,[".testReal8",".testReal4"],  t2)
+opc::subscribe(conn2,[".testReal8",".testReal4"],  t5)
 
 def callback1(mutable t, d) {
 	t.append!(d)
@@ -176,6 +177,7 @@ t3 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, BOOL, INT])
 conn10 = opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,10)
 opc::subscribe(conn10,".testBool",   callback1{t3})
 ```
+
 
 ### 2.6 查询订阅
 
@@ -217,16 +219,12 @@ opc::unsubcribe(connection)
 ```
 
 ### 2.8 关闭连接
-
 语法
 ```
 opc::close(connection)
 ```
-
 参数
-
 - connection 是`connect`函数返回的值。
-
 详情
 
 > 断开与OPC server的连接。

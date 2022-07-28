@@ -42,7 +42,7 @@ elseif(UNIX)
     endif()
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -O0 -fPIC -Wall  -D_hypot=hypot")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -O3 -fPIC -Wall  -D_hypot=hypot")
 
 add_subdirectory(pybind11)
 

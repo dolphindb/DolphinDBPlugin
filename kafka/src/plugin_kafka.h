@@ -236,7 +236,10 @@ static T *getConnection(ConstantSP &handler) {
 static void kafkaConsumerOnClose(Heap *heap, vector<ConstantSP> &args) {
     auto consumer = (Consumer *) args[0]->getLong();
     consumer->unsubscribe();
-    delete consumer;
+    if(consumer!= nullptr) {
+        delete consumer;
+        args[0]->setLong(0);
+    }
 }
 
 template<typename T, size_t N>

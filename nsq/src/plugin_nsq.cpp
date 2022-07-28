@@ -152,7 +152,7 @@ vector<string> tradeColumnNames{"ExchangeID", "InstrumentID", "TransFlag", "SeqN
                                 "TradeDate",  "TransactTime", "TrdPrice",  "TrdVolume", "TrdMoney",
                                 "TrdBuyNo",   "TrdSellNo",    "TrdBSFlag", "BizIndex"};
 
-vector<string> ticksColumnNames{"ExchangeID", "InstrumentID", "TransFlag", "SeqNo",     "ChannelNo",
+vector<string> ordersColumnNames{"ExchangeID", "InstrumentID", "TransFlag", "SeqNo",     "ChannelNo",
                                 "TradeDate",  "TransactTime", "OrdPrice",  "OrdVolume", "OrdSide",
                                 "OrdType",    "OrdNo",        "BizIndex"};
 
@@ -171,7 +171,7 @@ vector<DATA_TYPE> snapshotTypes{
 vector<DATA_TYPE> tradeTypes{DT_STRING, DT_STRING, DT_INT,    DT_LONG, DT_INT,  DT_DATE, DT_TIME,
                              DT_DOUBLE, DT_LONG,   DT_DOUBLE, DT_LONG, DT_LONG, DT_CHAR, DT_LONG};
 
-vector<DATA_TYPE> ticksTypes{DT_STRING, DT_STRING, DT_INT,  DT_LONG, DT_INT,  DT_DATE, DT_TIME,
+vector<DATA_TYPE> ordersTypes{DT_STRING, DT_STRING, DT_INT,  DT_LONG, DT_INT,  DT_DATE, DT_TIME,
                              DT_DOUBLE, DT_LONG,   DT_CHAR, DT_CHAR, DT_LONG, DT_LONG};
 
 SmartPointer<Session> session = nullptr;
@@ -331,7 +331,7 @@ bool checkColumns(TableSP tbl, int type) {
     } else if (type == 1) {
         col_types = tradeTypes;
     } else if (type == 2) {
-        col_types = ticksTypes;
+        col_types = ordersTypes;
     } else {
         return false;
     }
@@ -433,7 +433,7 @@ ConstantSP subscribe(Heap *heap, vector<ConstantSP> &arguments) {
         } else if (arguments[1]->getString() == "sz") {
             table_index = 3;
         }
-    } else if (arguments[0]->getString() == "ticks") {
+    } else if (arguments[0]->getString() == "orders") {
         if (!checkColumns(arguments[2], 2)) {
             std::string errMsg = "Subscription failed. Please check if the schema of “streamTable” is correct.";
             throw RuntimeException(errMsg);
@@ -444,7 +444,7 @@ ConstantSP subscribe(Heap *heap, vector<ConstantSP> &arguments) {
             table_index = 5;
         }
     } else {
-        std::string errMsg = "The first parameter `type` must be  `snapshot`, `trade` or `ticks`.";
+        std::string errMsg = "The first parameter `type` must be  `snapshot`, `trade` or `orders`.";
         throw RuntimeException(errMsg);
     }
     // printf("table_index: %d\n", table_index);
@@ -478,7 +478,7 @@ ConstantSP subscribe(Heap *heap, vector<ConstantSP> &arguments) {
         } else if (arguments[1]->getString() == "sz") {
             lpNsqApi->ReqSecuTransactionSubscribe(HS_TRANS_Trade, reqField_sub, nCount, 10004);
         }
-    } else if (arguments[0]->getString() == "ticks") {
+    } else if (arguments[0]->getString() == "orders") {
         if (arguments[1]->getString() == "sh") {
             lpNsqApi->ReqSecuTransactionSubscribe(HS_TRANS_Entrust, reqField_sub, nCount, 10005);
         } else if (arguments[1]->getString() == "sz") {
@@ -517,14 +517,14 @@ ConstantSP unsubscribe(Heap *heap, vector<ConstantSP> &arguments) {
         } else if (arguments[1]->getString() == "sz") {
             lpNsqApi->ReqSecuTransactionCancel(HS_TRANS_Trade, reqField_sub, nCount, 10004);
         }
-    } else if (arguments[0]->getString() == "ticks") {
+    } else if (arguments[0]->getString() == "orders") {
         if (arguments[1]->getString() == "sh") {
             lpNsqApi->ReqSecuTransactionCancel(HS_TRANS_Entrust, reqField_sub, nCount, 10005);
         } else if (arguments[1]->getString() == "sz") {
             lpNsqApi->ReqSecuTransactionCancel(HS_TRANS_Entrust, reqField_sub, nCount, 10006);
         }
     } else {
-        std::string errMsg = "The first parameter `type` must be  `snapshot`, `trade` or `ticks`.";
+        std::string errMsg = "The first parameter `type` must be  `snapshot`, `trade` or `orders`.";
         throw RuntimeException(errMsg);
     }
     return new Void();
@@ -546,8 +546,8 @@ ConstantSP unsubscribe(Heap *heap, vector<ConstantSP> &arguments) {
  *          (snapshot, sz): false
  *          (trade, sh): false
  *          (trade, sz): true
- *          (ticks, sh): false
- *          (ticks, sz): false
+ *          (orders, sh): false
+ *          (orders, sz): false
  */
 ConstantSP getSubscriptionStatus(Heap *heap, vector<Constant> &arguments) {
     session = heap->currentSession()->copy();
@@ -558,7 +558,7 @@ ConstantSP getSubscriptionStatus(Heap *heap, vector<Constant> &arguments) {
     TableSP tsp = Util::createTable(names, types, 0, 6);
 
     vector<string> topic_types{"(snapshot, sh)", "(snapshot, sz)", "(trade, sh)",
-                               "(trade, sz)",    "(ticks, sh)",    "(ticks, sz)"};
+                               "(trade, sz)",    "(orders, sh)",    "(orders, sz)"};
 
     // 对每一行都设置数据
     for (int i = 0; i < 6; i++) {
