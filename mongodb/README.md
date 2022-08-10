@@ -7,12 +7,15 @@ DolphinDB mongodb插件可以建立与mongodb服务器的连接，然后导入�
 ### 1.1 预编译安装
 
 #### Linux
+执行Linux命令，指定插件运行时需要的动态库路径
+``` shell
+export LD_LIBRARY_PATH=<PluginDir>/mongodb/bin/linux64:$LD_LIBRARY_PATH //指定动态库位置 
+```
 
 在DolphinDBPlugin/httpClient/bin/linux64目录下有预先编译的插件文件，在DolphinDB中执行以下命令导入mongodb插件：
 
 ```
 cd DolphinDB/server //进入DolphinDB server目录
-export LD_LIBRARY_PATH=<PluginDir>/mongodb/bin/linux64:$LD_LIBRARY_PATH //指定动态库位置 
 ./dolphindb //启动 DolphinDB server
  loadPlugin("<PluginDir>/mongodb/build/linux64/PluginMongodb.txt") //加载插件
 ```
