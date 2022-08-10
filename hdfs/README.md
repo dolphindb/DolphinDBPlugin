@@ -4,11 +4,14 @@ DolphinDB的HDFS插件可以从Hadoop的hdfs之中读取文件的信息，或者
 
 ## 1 预编译安装
 
+执行Linux命令，指定插件运行时需要的动态库路径
 ``` shell
 export LD_LIBRARY_PATH=/path/to/plugins/hdfs:$LD_LIBRARY_PATH
+```
+启动DolphinDB服务，并执行DolphinDB插件加载脚本
+``` shell
 loadPlugin("/path/to/plugins/hdfs/PluginHdfs.txt");
 ```
-
 ## 2 编译安装
 
 ### 2.1 编译环境搭建

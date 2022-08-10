@@ -7,12 +7,15 @@ DolphinDB mongodb插件可以建立与mongodb服务器的连接，然后导入�
 ### 1.1 预编译安装
 
 #### Linux
+执行Linux命令，指定插件运行时需要的动态库路径
+``` shell
+export LD_LIBRARY_PATH=<PluginDir>/mongodb/bin/linux64:$LD_LIBRARY_PATH //指定动态库位置 
+```
 
 在DolphinDBPlugin/httpClient/bin/linux64目录下有预先编译的插件文件，在DolphinDB中执行以下命令导入mongodb插件：
 
 ```
 cd DolphinDB/server //进入DolphinDB server目录
-export LD_LIBRARY_PATH=<PluginDir>/mongodb/bin/linux64:$LD_LIBRARY_PATH //指定动态库位置 
 ./dolphindb //启动 DolphinDB server
  loadPlugin("<PluginDir>/mongodb/build/linux64/PluginMongodb.txt") //加载插件
 ```
@@ -282,6 +285,7 @@ mongodb::parseJson(str, keys, colnames, colTypes)
 * originColNames: 原始json的键，类型为string类型的vector。
 * convertColNames: 结果表json的键，类型为string类型的vector。
 * types: 转换类型，类型为int类型的vector。
+types支持bool、int、float、double、string以及arrayVector类型bool[]、int[]、float[]、double[].。其中int、float、double支持读取json中的int、float、double，可以相互转换。
 
 #### 例子
 
@@ -293,7 +297,28 @@ data = ['{"a": 1, "b": 2}', '{"a": 2, "b": 3}']
 [INT, INT] )
 ```
 
-### 2.6 查询数据示例
+### 2.6 mongodb::getCollections([databaseName])
+
+#### 语法
+
+mongodb::getCollections([databaseName])
+
+#### 参数
+
+* databaseName: 需要查询的数据库。如果不填，则为mongodb::connect所选的database。
+
+#### 详情
+
+获取指定database的所有集合的名字。
+
+#### 例子
+
+```
+conn = mongodb::connect("192.168.1.38", 27017, "", "")
+mongodb::getCollections(conn, "dolphindb")
+```
+
+## 3 查询数据示例
 
 ```
 query='{"dt": { "$date" : "2016-06-22T00:00:00.000Z" } }';

@@ -8,8 +8,12 @@ OPC是自动化行业与其他行业用于数据安全交换的互操作性标�
 
 可以直接使用已编译好的 libPluginOPCUA.dll 或 libPluginOPCUA.so：
 
-```
+执行Linux命令，指定插件运行时需要的动态库路径
+``` shell
 export LD_LIBRARY_PATH=/path/to/PluginOPCUA:$LD_LIBRARY_PATH
+```
+启动DolphinDB服务，并执行DolphinDB插件加载脚本
+``` shell
 loadPlugin("/path/to/PluginOPCUA/PluginOPCUA.txt") 
 ```
 
