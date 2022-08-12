@@ -18,7 +18,7 @@ loadPlugin("<PluginDir>/zmq/bin/linux64/PluginZmq.txt") //加载插件
 
 #### 编译libzmq
 
-下载 [libzmq-4.3.4]https://github.com/zeromq/libzmq/releases/tag/v4.3.4
+下载 [libzmq-4.3.4](https://github.com/zeromq/libzmq/releases/tag/v4.3.4)
 ```bash
 cd libzmq-4.3.4
 cp include/zmq.h /path/to/PluginZmq/bin/include/
@@ -30,7 +30,7 @@ cp lib/libzmq.a /path/to/PluginZmq/bin/linux64/
 
 #### 获取cppzmq头文件
 
-下载 [cppzmq-4.7.1]https://github.com/zeromq/cppzmq/releases/tag/v4.7.1
+下载 [cppzmq-4.7.1](https://github.com/zeromq/cppzmq/releases/tag/v4.7.1)
 ```bash
 cd cppzmq-4.7.1
 cp zmq.hpp /path/to/PluginZmq/bin/include/
@@ -86,7 +86,7 @@ zmq::connect(socket, addr, [prefix])
 
 #### 详情
 
-进行zmq的socket连接。
+进行zmq的socket连接。tcp建立连接后会保活，使得网络断开又恢复后可以自动重连。
 
 #### 参数
 * socket: zmq连接句柄。
@@ -193,7 +193,23 @@ zmq::createSubJob(addr, type, isConnnect, handle, parser, [prefix])
 handle = streamTable(10:0, [`int], [INT])
 enableTableShareAndPersistence(table=handle, tableName=`test1, asynWrite=true, compress=true, cacheSize=10000000, retentionMinutes=120)
 parser = zmq::createJSONParser([INT], [`bool])
-zmq::createSubJob("tcp://localhost:55633", "ZMQ_SUB", handle, parser, "prefix1")
+zmq::createSubJob("tcp://localhost:55633", "ZMQ_SUB", true, handle, parser, "prefix1")
+```
+
+#### 与之搭配的python脚本
+```
+import zmq
+import time
+import sys
+
+context = zmq.Context()
+socket = context.socket(zmq.PUB)
+socket.bind("tcp://*:55633")
+msg = '[{"bool":234}]'
+
+while True:
+	socket.send(msg.encode('utf-8'))
+	time.sleep(2)
 ```
 
 ### 3.2 zmq::getSubJobStat
@@ -381,4 +397,27 @@ socket = zmq::socket("ZMQ_PUB", formatter)
 zmq::connect(socket, "tcp://localhost:55632")
 data = table(1..10 as id, take(now(), 10) as ts, rand(10, 10) as volume)
 zmq::send(socket, data)
+```
+### 5.1 与之搭配的python脚本
+
+```
+import zmq
+from zmq.sugar import socket
+import json
+if __name__=='__main__':
+    context = zmq.Context()
+    socket = context.socket(zmq.SUB)
+    
+    socket.setsockopt(zmq.TCP_KEEPALIVE, 1);
+    socket.setsockopt(zmq.TCP_KEEPALIVE_IDLE, 30);
+    socket.setsockopt(zmq.TCP_KEEPALIVE_INTVL, 1);
+    socket.setsockopt(zmq.TCP_KEEPALIVE_CNT, 5);
+    
+    socket.connect("tcp://192.168.0.48:55632")
+    zip_filter = ""
+    socket.setsockopt(zmq.SUBSCRIBE, zip_filter.encode('ascii'))
+
+    while True:
+        recvStr = socket.recv()
+        print (recvStr)
 ```
