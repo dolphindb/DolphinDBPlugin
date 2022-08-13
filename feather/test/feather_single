@@ -1,0 +1,39 @@
+try{
+	loadPlugin("/home/slshen/DolphinDBPlugin/feather/build/PluginFeather.txt")
+}catch(ex){}
+
+go
+
+DATA_DIR="/home/slshen/feather/data/";
+
+df_bool = feather::load(DATA_DIR+"df_bool.feather");
+df_uint8 = feather::load(DATA_DIR+"df_uint8.feather");
+df_int64 = feather::load(DATA_DIR+"df_int64.feather");
+df_float64 = feather::load(DATA_DIR+"df_float64.feather");
+df_float64x3 = feather::load(DATA_DIR+"df_float64x3.feather");
+df_string = feather::load(DATA_DIR+"df_string.feather");
+df_basic_type = feather::load(DATA_DIR+"df_basic_type.feather");
+df_basic_type_part = feather::load(DATA_DIR+"df_basic_type.feather", [ "bool","int16"]);
+
+df_time_type = feather::load(DATA_DIR+"df_time_type.feather");
+
+df_compress = feather::load(DATA_DIR+"df_compress.feather");
+//df_time_type.schema()
+pa_time_type = feather::load(DATA_DIR+"pa_time_type.feather");
+
+feather::save(df_bool, DATA_DIR + "tmp/df_bool.feather");
+feather::save(df_uint8, DATA_DIR + "tmp/df_uint8.feather");
+feather::save(df_int64, DATA_DIR + "tmp/df_int64.feather");
+feather::save(df_float64x3, DATA_DIR + "tmp/df_float64x3.feather");
+feather::save(df_string, DATA_DIR + "tmp/df_string.feather");
+feather::save(df_basic_type, DATA_DIR + "tmp/df_basic_type.feather");
+
+
+feather::save(df_basic_type, DATA_DIR + "tmp/df_basic_type.feather", "434");
+feather::save(df_basic_type, DATA_DIR + "tmp/df_basic_type.feather", "ZSTD");
+feather::save(df_basic_type, DATA_DIR + "tmp/df_basic_type.feather", "zstd");
+feather::save(df_basic_type, DATA_DIR + "tmp/df_basic_type.feather", "zstd",1);
+feather::save(df_basic_type, DATA_DIR + "tmp/df_basic_type.feather", "zstd","dfg");
+
+feather::save(pa_time_type, DATA_DIR + "tmp/pa_time_type222.feather");
+
