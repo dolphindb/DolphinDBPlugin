@@ -91,13 +91,13 @@ use odbc;
 ### 4.1 odbc::connect()
 
 #### 语法
-* odbc::connect(connStr)
+* odbc::connect(connStr, [dataBaseType])
 
 #### 参数
-* connStr: ODBC连接字符串。有关连接字符串格式的更多信息，请参阅 [连接字符串参考](https://www.connectionstrings.com). ODBC DSN必须由系统管理员创建。
-有关连接字符串格式的更多信息，请参阅 [DSN连接字符串](https://www.connectionstrings.com/dsn/). 我们还可以创建到数据库的DSN-Less连接。
-无需DSN的连接而不是依赖存储在文件或系统注册表中的信息，而是在连接字符串中指定驱动程序名称和所有特定于驱动程序的信息。例如: [SQL server的DSN-less连接字符串](https://www.connectionstrings.com/sql-server/) 
-和[MySQL的DSN-less连接字符串](https://www.connectionstrings.com/mysql/). 
+* connStr: ODBC连接字符串。有关连接字符串格式的更多信息，请参阅 [连接字符串参考](https://www.connectionstrings.com)。ODBC DSN必须由系统管理员创建。
+有关连接字符串格式的更多信息，请参阅 [DSN连接字符串](https://www.connectionstrings.com/dsn/)。我们还可以创建到数据库的DSN-Less连接。
+无需DSN的连接而不是依赖存储在文件或系统注册表中的信息，而是在连接字符串中指定驱动程序名称和所有特定于驱动程序的信息。例如: [SQL server的DSN-less连接字符串](https://www.connectionstrings.com/sql-server/)和[MySQL的DSN-less连接字符串](https://www.connectionstrings.com/mysql/)。
+* dataBaseType: 数据库类型。如"MYSQL", "SQLServer", "PostgreSQL"。建议连接时指定该参数，否则写入数据时可能出现报错。
 
 *** 请注意，驱动程序名称可能会有所不同，具体取决于安装的ODBC版本。
 
@@ -174,9 +174,8 @@ odbc::execute(conn1,"delete from ecimp_ver3.tbl_monitor where `timestamp` BETWEE
 * connHandle: 连接句柄。
 * tableData: DolphinDB表。 
 * tablename: 连接的数据库中表的名称。
-* createTableIfNotExist: 布尔值。 True表示要创建一个新表。默认值是true。
-* insertIgnore: 布尔值。 True如果有重复数据，会忽略插入。默认值为false。
-* databaseType: 数据库类型。 如"MYSQL", "PostgreSQL"。
+* createTableIfNotExist: 布尔值。True表示要创建一个新表。默认值是true。
+* insertIgnore: 布尔值。True如果有重复数据，会忽略插入。默认值为false。
 
 #### 描述
 
@@ -200,7 +199,7 @@ odbc::query(conn1,"SELECT * FROM ecimp_ver3.ddbtale")
 |SQL_REAL|FLOAT|
 |SQL_FLOAT/SQL_DOUBLE/SQL_DECIMAL/SQL_NUMERIC|DOUBLE|
 |SQL_DATE/SQL_TYPE_DATE|DATE|
-|SQL_TIME/SQL_TYPE_TIME|TIME|
+|SQL_TIME/SQL_TYPE_TIME|SECOND|
 |SQL_TIMESTAMP/SQL_TYPE_TIMESTAMP|TIMESTAMP|
 |SQL_CHAR(len == 1)|CHAR|
 |SQL_CHAR(len <= 30)/SQL_VARCHAR(len <= 30)|SYMBOL|
