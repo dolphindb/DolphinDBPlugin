@@ -183,7 +183,7 @@ zmq::createSubJob(addr, type, isConnnect, handle, parser, [prefix])
 
 * addr: 是一个STRING，格式为"transport://address:port"。transport表示要使用的底层协议，取值为tcp, ipc, inproc, pgm或epgm。address:port表示zmq绑定的地址和端口。
 * type: 为STRING类型，表示zmq的socket类型，取值为"ZMQ_SUB"h和"ZMQ_PULL"。
-* isConnnect: 为BOOL类型，是否是对addr进行连接，如果为否，则对addr进行绑定，。
+* isConnnect: 为BOOL类型，是否是对addr进行连接，如果为否，则对addr进行绑定。
 * handle: 一个函数或表，用于处理从zmq接收的消息。
 * parser: 一个函数，用于对发布的数据按CSV或JSON格式进行解包。由`createJSONParser`或`createCSVParser`创建。
 * prefix: 为STRING类型，表示消息前缀。
@@ -226,7 +226,7 @@ zmq::getSubJobStat()
 * subscriptionId: 表示订阅标识符。
 * addr: zmq订阅地址。
 * prefix: zmq订阅前缀。
-* recvPackets: zmq订阅订阅收到的消息报文数。
+* recvPackets: zmq订阅收到的消息报文数。
 * createTimestamp: 表示订阅建立时间。
 
 #### 例子
