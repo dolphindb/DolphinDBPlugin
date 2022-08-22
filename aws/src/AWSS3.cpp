@@ -37,6 +37,7 @@
 #include <chrono>
 #include <cstdint>
 #include <future>
+#include <thread>
 
 void setS3account(DictionarySP& account, Aws::Auth::AWSCredentials& credential, Aws::Client::ClientConfiguration& config) {
     Aws::String keyId;
@@ -44,7 +45,7 @@ void setS3account(DictionarySP& account, Aws::Auth::AWSCredentials& credential, 
     Aws::String region;
     Aws::String caPath;
     Aws::String caFile;
-    bool verifySSL = false;
+    //bool verifySSL = false;
     if (account->getMember("id")->isNull() || account->getMember("key")->isNull() || (account->getMember("region")->isNull())) {
         throw IllegalArgumentException("S3account", "s3account should have id, key, region");
     }
@@ -61,91 +62,94 @@ void setS3account(DictionarySP& account, Aws::Auth::AWSCredentials& credential, 
         config.caFile = caFile;
         // auto ssl = account->getMember("verifySSL");
         config.verifySSL = false;
-    } catch(...) {}
+    } catch(...) {
+        throw RuntimeException("s3account config error.");
+    }
 }
 
-class S3InitGuard {
+class S3ClientGuard{
 public:
-    S3InitGuard(DictionarySP& account) {
-        std::lock_guard<std::mutex> g{S3InitGuard::m_};
-        LOG("[S3InitGuard] use count ", count_ + 1);
-        try {
-            if (S3InitGuard::count_++ == 0) {
-                Init(account);
-            } else {
-                if (account.get() != S3InitGuard::init_dict_) {
-                    RWLockGuard<RWLock> cli_g{&S3InitGuard::client_lk_, true};
-                    client_ = newS3Client_(account);
-                    init_dict_ = account.get();
-                }
-            }
-        } catch(...) {
-            LOG("[S3InitGuard] ctor exception: use count ", count_ - 1);
-            if (--S3InitGuard::count_ == 0) {
-                Shutdown();
-            }
-            throw;
+    S3ClientGuard(DictionarySP& account){
+        if(awsInit_==false){
+            LOG("InitAPI");
+            awsInit_=true;
+            Aws::InitAPI(awsOptions_);
+            Aws::Utils::Logging::InitializeAWSLogging(
+                Aws::MakeShared<Aws::Utils::Logging::DefaultLogSystem>("AWS Logging",Aws::Utils::Logging::LogLevel::Trace,"aws_sdk_"));
         }
-        S3InitGuard::client_lk_.acquireRead();
+        accountKey_=account->getString();
+        while(true){
+            client_=popClient(accountKey_);
+            if(client_==nullptr)
+                break;
+            try{
+                auto outcome=client_->ListBuckets();
+                if(outcome.IsSuccess())
+                    break;
+            }catch(...){
+            }
+            delete client_;
+        }
+        if(client_==nullptr){
+            Aws::Auth::AWSCredentials credential;
+            Aws::Client::ClientConfiguration config;
+            setS3account(account, credential, config);
+            client_=new Aws::S3::S3Client(credential, config);
+        }
     }
-
-    ~S3InitGuard() {
-        S3InitGuard::client_lk_.releaseRead();
+    ~S3ClientGuard(){
+        std::lock_guard<std::mutex> _(a2cMutex_);
+        auto iter=account2client_.find(accountKey_);
+        if(iter!=account2client_.end()){
+            iter->second.push_back(client_);
+        }else{
+            account2client_[accountKey_]={client_};
+        }
+    }
+    static void clear(){
         {
-            std::lock_guard<std::mutex> g{S3InitGuard::m_};
-            LOG("[S3InitGuard] use count ", count_ - 1);
-            if (--S3InitGuard::count_ == 0) {
-                Shutdown();
+            std::lock_guard<std::mutex> _(a2cMutex_);
+            for(auto one : account2client_){
+                for(auto client : one.second)
+                    delete client;
             }
+            account2client_.clear();
+        }
+        if(awsInit_){
+            awsInit_=false;
+            Aws::ShutdownAPI(awsOptions_);
+            Aws::Utils::Logging::ShutdownAWSLogging();
         }
     }
-
-    static void Init(DictionarySP& account) {
-        LOG("[S3InitGuard] start init");
-        options_ = Aws::SDKOptions{};
-        Aws::InitAPI(options_);
-        Aws::Utils::Logging::InitializeAWSLogging(
-            Aws::MakeShared<Aws::Utils::Logging::DefaultLogSystem>("AWS Logging",Aws::Utils::Logging::LogLevel::Trace,"aws_sdk_"));
-        RWLockGuard<RWLock> g{&S3InitGuard::client_lk_, true};
-        client_ = newS3Client_(account);
-        init_dict_ = account.get();
-    }
-
-    static void Shutdown() {
-        LOG("[S3InitGuard] start shutdown");
-        Aws::ShutdownAPI(options_);
-        Aws::Utils::Logging::ShutdownAWSLogging();
-        delete client_;
-        client_ = nullptr;
-    }
-
-    static Aws::S3::S3Client* GetClient() {
+    Aws::S3::S3Client* get(){
         return client_;
     }
 private:
-
-    static std::mutex m_;
-    static volatile size_t count_;
-    static Aws::SDKOptions options_;
-    static Aws::S3::S3Client* client_;
-    static RWLock client_lk_;
-    static Dictionary* init_dict_;
-
-    static Aws::S3::S3Client* newS3Client_(DictionarySP s3account) {
-        Aws::Auth::AWSCredentials credential;
-        Aws::Client::ClientConfiguration config;
-        setS3account(s3account, credential, config);
-        return new Aws::S3::S3Client(credential, config);
+    static Aws::S3::S3Client* popClient(const string &key){
+        std::lock_guard<std::mutex> _(a2cMutex_);
+        auto iter=account2client_.find(key);
+        if(iter==account2client_.end())
+            return nullptr;
+        auto &vec=iter->second;
+        if(vec.empty()){
+            account2client_.erase(iter);
+            return nullptr;
+        }
+        auto client=vec.back();
+        vec.pop_back();
+        return client;
     }
+    Aws::S3::S3Client* client_;
+    string accountKey_;
+    static std::unordered_map<string,std::vector<Aws::S3::S3Client*>> account2client_;
+    static std::mutex a2cMutex_;
+    static bool awsInit_;
+    static Aws::SDKOptions awsOptions_;
 };
-
-std::mutex S3InitGuard::m_;
-size_t volatile S3InitGuard::count_ = 0;
-Aws::SDKOptions S3InitGuard::options_;
-Aws::S3::S3Client* S3InitGuard::client_ = nullptr;
-RWLock S3InitGuard::client_lk_;
-Dictionary* S3InitGuard::init_dict_ = nullptr;
-
+std::unordered_map<string,std::vector<Aws::S3::S3Client*>> S3ClientGuard::account2client_;
+std::mutex S3ClientGuard::a2cMutex_;
+bool S3ClientGuard::awsInit_=false;
+Aws::SDKOptions S3ClientGuard::awsOptions_={};
 
 template <typename R, typename E>
 static const R& GetResult(const Aws::Utils::Outcome<R, E>& result, const Aws::String& errPrefix) {
@@ -209,12 +213,12 @@ ConstantSP getS3Object(Heap* heap, vector<ConstantSP>& args) {
             outputFileName = Aws::String(args[3]->getString().c_str());
         }
         DictionarySP s3account = (DictionarySP)args[0];
-        S3InitGuard g{s3account};
+        S3ClientGuard g{s3account};
         Aws::S3::Model::GetObjectRequest objectRequest;
         objectRequest.WithBucket(bucketName).WithKey(keyName)
                 .SetResponseStreamFactory([&outputFileName](){
                     return Aws::New<Aws::FStream>("FStream to download file", outputFileName.c_str(), std::ios_base::out); });
-        auto getObjectOutcome = g.GetClient()->GetObject(objectRequest);
+        auto getObjectOutcome = g.get()->GetObject(objectRequest);
         if (!getObjectOutcome.IsSuccess()) {
             Aws::String error = "getS3Object cannot get object:\n" +
                 getObjectOutcome.GetError().GetExceptionName() + "\n" +
@@ -279,7 +283,7 @@ ConstantSP listS3Object(Heap* heap, vector<ConstantSP>& args) {
         const Aws::String prefixName(args[2]->getString().c_str());
 
         DictionarySP s3account = (DictionarySP)args[0];
-        S3InitGuard g{s3account};
+        S3ClientGuard g{s3account};
         Aws::S3::Model::ListObjectsRequest objectsRequest;
         objectsRequest.WithBucket(bucketName).WithPrefix(prefixName);
         // ptr is not null and str is not empty
@@ -293,7 +297,7 @@ ConstantSP listS3Object(Heap* heap, vector<ConstantSP>& args) {
             objectsRequest.WithMaxKeys(limit->getLong());
         }
 
-        auto listObjectsOutcome = g.GetClient()->ListObjects(objectsRequest);
+        auto listObjectsOutcome = g.get()->ListObjects(objectsRequest);
         if (listObjectsOutcome.IsSuccess()) {
             Aws::Vector<Aws::S3::Model::Object> objectList =
                 listObjectsOutcome.GetResult().GetContents();
@@ -379,7 +383,7 @@ ConstantSP readS3Object(Heap* heap, vector<ConstantSP>& args) {
     VectorSP ret = Util::createVector(DT_CHAR, 0);
     DictionarySP s3account = (DictionarySP)args[0];
 
-    S3InitGuard g{s3account};
+    S3ClientGuard g{s3account};
     {
         const Aws::String bucketName(args[1]->getString().c_str());
         const Aws::String keyName(args[2]->getString().c_str());
@@ -389,7 +393,7 @@ ConstantSP readS3Object(Heap* heap, vector<ConstantSP>& args) {
 
         Aws::S3::Model::GetObjectRequest objectRequest;
         objectRequest.WithBucket(bucketName).WithKey(keyName).WithRange(objectRange);
-        auto readObjectOutcome = g.GetClient()->GetObject(objectRequest);
+        auto readObjectOutcome = g.get()->GetObject(objectRequest);
         std::stringstream buf;
         buf << GetResultWithOwnership(readObjectOutcome, "readS3Object cannot read object").GetBody().rdbuf();
         std::string tempFile(buf.str());
@@ -411,7 +415,7 @@ void deleteS3Object(Heap* heap, vector<ConstantSP>& args) {
     assertArg(args[2]->getType() == DT_STRING || args[2]->isVector(), __func__, "key", "string");
     
     DictionarySP s3account = (DictionarySP)args[0];
-    S3InitGuard g{s3account};
+    S3ClientGuard g{s3account};
     const Aws::String bucketName(args[1]->getString().c_str());
     VectorSP keyNames = retriveVecStrArg(args[2]);
     std::vector<std::future<Aws::S3::Model::DeleteObjectsOutcome>> futures;
@@ -425,7 +429,7 @@ void deleteS3Object(Heap* heap, vector<ConstantSP>& args) {
             objects.push_back(Aws::S3::Model::ObjectIdentifier().WithKey(keyNames->getString(j).c_str()));
         }
         r.SetDelete(Aws::S3::Model::Delete().WithObjects(std::move(objects)));
-        futures.push_back(g.GetClient()->DeleteObjectsCallable(r));
+        futures.push_back(g.get()->DeleteObjectsCallable(r));
         i = upper;
     }
     for (size_t i = 0; i < futures.size(); ++i) {
@@ -475,7 +479,7 @@ void uploadS3Object(Heap* heap, vector<ConstantSP>& args) {
     }
     
     DictionarySP s3account = (DictionarySP)args[0];
-    S3InitGuard g{s3account};
+    S3ClientGuard g{s3account};
     {
         const Aws::String bucketName(args[1]->getString().c_str());
         std::vector<Aws::S3::Model::PutObjectOutcomeCallable> futures;
@@ -487,7 +491,7 @@ void uploadS3Object(Heap* heap, vector<ConstantSP>& args) {
             auto inputData = Aws::MakeShared<Aws::FStream>("PutObjectInputStream",
                 inputFileName.c_str(), std::ios_base::in | std::ios_base::binary);
             objectRequest.SetBody(inputData);
-            futures.push_back(g.GetClient()->PutObjectCallable(objectRequest));
+            futures.push_back(g.get()->PutObjectCallable(objectRequest));
         }
         for (size_t i = 0; i < futures.size(); ++i) {
             auto& future = futures[i];
@@ -514,8 +518,8 @@ ConstantSP listS3Bucket(Heap* heap, vector<ConstantSP>& args) {
     VectorSP tableCreationDate = Util::createVector(DT_STRING, 0);
     {
         DictionarySP s3account = (DictionarySP)args[0];
-        S3InitGuard g{s3account};
-        auto listBucketsOutcome = g.GetClient()->ListBuckets();
+        S3ClientGuard g{s3account};
+        auto listBucketsOutcome = g.get()->ListBuckets();
         if (listBucketsOutcome.IsSuccess()) {
             Aws::Vector<Aws::S3::Model::Bucket> bucketList =
                 listBucketsOutcome.GetResult().GetBuckets();
@@ -553,10 +557,10 @@ void deleteS3Bucket(Heap* heap, vector<ConstantSP>& args) {
     {
         const Aws::String bucketName(args[1]->getString().c_str());
         DictionarySP s3account = (DictionarySP)args[0];
-        S3InitGuard g{s3account};
+        S3ClientGuard g{s3account};
         Aws::S3::Model::DeleteBucketRequest BucketRequest;
         BucketRequest.SetBucket(bucketName);
-        auto deleteBucketOutcome = g.GetClient()->DeleteBucket(BucketRequest);
+        auto deleteBucketOutcome = g.get()->DeleteBucket(BucketRequest);
         if (!deleteBucketOutcome.IsSuccess()) {
             Aws::String error = "deleteS3Bucket cannot delete bucket:\n" +
                 deleteBucketOutcome.GetError().GetExceptionName() + "\n" +
@@ -579,13 +583,13 @@ void createS3Bucket(Heap* heap, vector<ConstantSP>& args) {
     {
         const Aws::String bucketName(args[1]->getString().c_str());
         DictionarySP s3account = (DictionarySP)args[0];
-        S3InitGuard g{s3account};
+        S3ClientGuard g{s3account};
         Aws::S3::Model::CreateBucketRequest BucketRequest;
         auto locationConstraint = Aws::S3::Model::BucketLocationConstraintMapper::
             GetBucketLocationConstraintForName(s3account->getMember("region")->getString().c_str());
         BucketRequest.WithBucket(bucketName).WithCreateBucketConfiguration(
             Aws::S3::Model::CreateBucketConfiguration().WithLocationConstraint(locationConstraint));
-        auto createBucketOutcome = g.GetClient()->CreateBucket(BucketRequest);
+        auto createBucketOutcome = g.get()->CreateBucket(BucketRequest);
         if (!createBucketOutcome.IsSuccess()) {
             Aws::String error = "createS3Bucket cannot create bucket:\n" +
                 createBucketOutcome.GetError().GetExceptionName() + "\n" +
@@ -602,11 +606,11 @@ ConstantSP headS3Object(Heap* heap, vector<ConstantSP>& args) {
     const Aws::String bucketName(args[1]->getString().c_str());
     const Aws::String keyName(args[2]->getString().c_str());
     DictionarySP s3account = (DictionarySP)args[0];
-    S3InitGuard g{s3account};
+    S3ClientGuard g{s3account};
 
     Aws::S3::Model::HeadObjectRequest request;
     request.WithBucket(bucketName).WithKey(keyName);
-    auto result = GetResult(g.GetClient()->HeadObject(request), "HeadS3Object cannot get object information");
+    auto result = GetResult(g.get()->HeadObject(request), "HeadS3Object cannot get object information");
     DictionarySP ret = Util::createDictionary(DT_STRING, SymbolBaseSP(), DT_ANY, SymbolBaseSP());
     ret->set("bucket name", new String(bucketName.c_str()));
     ret->set("key name", new String(keyName.c_str()));
@@ -630,7 +634,7 @@ void copyS3Object(Heap* heap, vector<ConstantSP>& args) {
     }
     const Aws::String bucket(args[1]->getString().c_str());
     DictionarySP s3account = (DictionarySP)args[0];
-    S3InitGuard g{s3account};
+    S3ClientGuard g{s3account};
     std::vector<Aws::S3::Model::CopyObjectOutcomeCallable> futures;
     for (int i = 0; i < srcPaths->size(); ++i) {
         const Aws::String srcPath(srcPaths->getString(i).c_str());
@@ -638,7 +642,7 @@ void copyS3Object(Heap* heap, vector<ConstantSP>& args) {
         Aws::S3::Model::CopyObjectRequest request;
         // details at: https://docs.aws.amazon.com/AmazonS3/latest/API/API_CopyObject.html
         request.WithBucket(bucket).WithKey(destPath).WithCopySource(bucket + "/" + srcPath);
-        futures.push_back(g.GetClient()->CopyObjectCallable(request)); 
+        futures.push_back(g.get()->CopyObjectCallable(request)); 
     }
     for (size_t i = 0; i < futures.size(); ++i) {
         futures[i].wait();
@@ -647,6 +651,208 @@ void copyS3Object(Heap* heap, vector<ConstantSP>& args) {
         }
         GetResult(futures[i].get(), Aws::String(__func__) + Aws::String(" cannot copy object ") + Aws::String(srcPaths->getString(i).c_str()));
     }
+}
+
+class Executor : public Runnable {
+    using Func = std::function<void()>;
+
+public:
+    explicit Executor(Func f) : func_(std::move(f)){};
+    void run() override { func_(); };
+
+private:
+    Func func_;
+};
+
+ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
+    //4+3+4 = 7-11 parameters
+    assertArg(args[0]->isDictionary(), __func__, "s3account", "Dictionary");
+    assertArg(args[1]->getType() == DT_STRING, __func__, "bucketName", "string");
+    assertArg(args[2]->getType() == DT_STRING, __func__, "objects", "string");
+    assertArg(args[3]->getType() == DT_INT, __func__, "threadCount", "int");
+    const int loadTextExBeginIndex = 4;
+    DictionarySP s3account = (DictionarySP)args[0];
+    std::string bucketName(args[1]->getString());
+    //next 3 parameter are loadTextEx(dbHandle, tableName, partitionColumns)
+    //missing filename parameter in loadTextEx
+    //next 4 parameter are loadTextEx(..., [delimiter], [schema], [skipRows=0], [transform])
+    VectorSP objects = retriveVecStrArg(args[2]);
+    if(objects->size() < 1){
+        throw RuntimeException("Object count "+std::to_string(objects->size()) + " must be equal or greater than 1.");
+    }
+    int threadCount = args[3]->getInt();
+    if(threadCount < 1){
+        throw RuntimeException("Thread count "+std::to_string(threadCount)+" must be equal or greater than 1.");
+    }
+    //prepare loadTextEx
+    auto loadTextExFunc=heap->currentSession()->getFunctionDef("loadTextEx");
+    if(loadTextExFunc.isNull()){
+        throw RuntimeException("Can't find function loadTextEx");
+    }
+    //loadTextEx(dbHandle, tableName, partitionColumns, filename, [delimiter], [schema], [skipRows=0], [transform])
+    vector<ConstantSP> loadTextExInputArgs;
+    {
+        loadTextExInputArgs.insert(loadTextExInputArgs.end(),args.begin()+loadTextExBeginIndex,args.begin()+loadTextExBeginIndex+3);
+        loadTextExInputArgs.push_back(nullptr);
+        loadTextExInputArgs.insert(loadTextExInputArgs.end(),args.begin()+loadTextExBeginIndex+3,args.end());
+    }
+    
+    vector<string> colObject,colMsg;
+    vector<int> colError;
+    std::string tempFolder;
+    {
+        static std::atomic<long long> lastTmpFileIndex(Util::getEpochTime());
+        tempFolder = "/tmp/DDB_S3Plugin_loadS3Object_"+std::to_string(lastTmpFileIndex.fetch_add(1));
+        std::string msg;
+        if(!Util::createDirectory(tempFolder, msg)){
+            throw RuntimeException("Create temp directory "+tempFolder+" error "+msg);
+        }
+    }
+    struct ObjectFile{
+        string filePath, objectInfo;
+        ObjectFile(){}
+        ObjectFile(const string &path,const string &info) : filePath(path), objectInfo(info){}
+    };
+    std::thread threads[threadCount];
+    //load text thread
+    SynchronizedQueue<ObjectFile> fileQueue;
+    std::mutex objectMutex;
+    Thread loadTextThread(new Executor([&]() {
+        ObjectFile objectFile;
+        vector<ConstantSP> loadTextExArgs(loadTextExInputArgs);
+        loadTextExArgs[3] = new String;
+        ConstantSP result;
+        string msg;
+        while(true){
+            fileQueue.blockingPop(objectFile);
+            if(objectFile.filePath.empty())
+                break;
+            loadTextExArgs[3]->setString(objectFile.filePath);
+            msg.clear();
+            try{
+                result = loadTextExFunc->call(heap, loadTextExArgs);
+            }catch(std::exception &e){
+                msg=e.what();
+            }catch(...){
+                msg="Unknow exception";
+            }
+            {//insert errorcode
+                std::lock_guard<std::mutex> _(objectMutex);
+                colObject.push_back(objectFile.objectInfo);
+                int errCode = 0;
+                if(msg.empty()==false){
+                    errCode=2;
+                }
+                colError.push_back(errCode);
+                colMsg.push_back(msg);
+            }
+            Util::removeFile(objectFile.filePath, msg);
+        }
+    }));
+    loadTextThread.start();
+    /*std::thread loadTextThread = std::thread(;*/
+    {//start download thread
+        int objectIndex=0;
+        for(auto &thread : threads){
+            thread = std::thread([&]() {
+                S3ClientGuard g{s3account};
+                std::string object, objectFileName, outputFilePath, unzipFolder;
+                string errMsg;
+                int errCode;
+                while(true){
+                    {//get next key in srcPaths
+                        std::lock_guard<std::mutex> _(objectMutex);
+                        if(objectIndex >= objects->size())
+                            break;
+                        object = objects->getString(objectIndex++);
+                    }
+                    errMsg.clear();
+                    errCode = 1;
+                    {
+                        objectFileName = object;
+                        objectFileName = Util::replace(objectFileName,'/','-');
+                        objectFileName = Util::replace(objectFileName,'\\','-');
+                        objectFileName = Util::replace(objectFileName,"--","-");
+                    }
+                    outputFilePath = tempFolder + "/" + objectFileName;
+                    try{
+                        Aws::S3::Model::GetObjectRequest objectRequest;
+                        objectRequest.WithBucket(bucketName.c_str()).WithKey(object.c_str())
+                                .SetResponseStreamFactory([&outputFilePath, &errCode](){
+                                    return Aws::New<Aws::FStream>("FStream to download file", outputFilePath.c_str(), std::ios_base::out); });
+                        auto getObjectOutcome = g.get()->GetObject(objectRequest);
+                        if (!getObjectOutcome.IsSuccess()) {
+                            Aws::String error = "getS3Object cannot get object:\n" +
+                                getObjectOutcome.GetError().GetExceptionName() + "\n" +
+                                getObjectOutcome.GetError().GetMessage() + "\n";
+                            errCode = 3;
+                            throw IOException(std::string(error.c_str()));
+                        }
+                        if(object.find(".zip")!=string::npos||
+                            object.find(".ZIP")!=string::npos){
+                            unzipFolder = outputFilePath + "_";
+                            string cmd="unzip "+outputFilePath+" -d "+unzipFolder;
+                            if(system(cmd.data()) == -1){
+                                errCode = 4;
+                                throw RuntimeException("unzip "+object+" failed, please install unzip package or check file format.");
+                            }
+                            string msg;
+                            Util::removeFile(outputFilePath, msg);
+                            std::function<void(const string &,const string &)> processDir=[&](const string &dir, const string &objectInfo){
+                                vector<FileAttributes> files;
+                                if(!Util::getDirectoryContent(dir, files, msg)){
+                                    errCode = 5;
+                                    throw IOException("Find unzip files in "+dir+" error "+msg);
+                                }
+                                string dirPath = dir + "/";
+                                string object= objectInfo + "/";
+                                for(auto &file : files){
+                                    if(!file.isDir){
+                                        fileQueue.push(ObjectFile(dirPath + file.name, object + file.name));
+                                    }else{
+                                        processDir(dirPath + file.name, object + file.name);
+                                    }
+                                }
+                            };
+                            processDir(unzipFolder, object);
+                        }else{
+                            fileQueue.push(ObjectFile(outputFilePath, object));
+                        }
+                        errCode = 0;
+                    }catch(std::exception &e){
+                        if(errCode == 0)
+                            errCode=6;
+                        errMsg = e.what();
+                    }catch(...){
+                        errCode = 7;
+                        errMsg = "Unknow exception.";
+                    }
+                    if(errCode != 0){
+                        std::lock_guard<std::mutex> _(objectMutex);
+                        colObject.push_back(object);
+                        colMsg.push_back(errMsg);
+                        colError.push_back(errCode);
+                    }
+                }
+            });
+        }
+    }
+    {//do some clean job
+        for(auto &one : threads){
+            one.join();
+        }
+        fileQueue.push(ObjectFile());
+        loadTextThread.join();
+        string msg;
+        if(!Util::removeDirectoryRecursive(tempFolder, msg)){
+            LOG_ERR("remove dir content failed ",msg);
+        }
+    }
+    TableSP resultTable = Util::createTable({"object","errorCode","errorInfo"},{DT_STRING,DT_INT,DT_STRING}, colObject.size(), 0);
+    ((Vector*)resultTable->getColumn(0).get())->setString(0, colObject.size(), colObject.data());
+    ((Vector*)resultTable->getColumn(1).get())->setInt(0, colError.size(), colError.data());
+    ((Vector*)resultTable->getColumn(2).get())->setString(0, colMsg.size(), colMsg.data());
+    return resultTable;
 }
 
 #if 0

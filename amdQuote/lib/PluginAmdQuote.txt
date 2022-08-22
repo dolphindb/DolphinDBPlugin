@@ -1,0 +1,7 @@
+amdQuote,libPluginAmdQuote.so
+connectAmd,connectAmd,system,5,5,0
+subscribeAmdSnapshot,subscribeAmdSnapshot,system,2,3,0
+subscribeAmdTickerExecution,subscribeAmdTickerExecution,system,2,3,0
+subscribeAmdTickerOrder,subscribeAmdTickerOrder,system,2,3,0
+unsubscribeAmdQuote,unsubscribeAmdQuote,system,2,4,0
+releaseAmd,releaseAmd,system,1,1,0

@@ -218,5 +218,51 @@ e.g.
 aws::createS3Bucket(account,'mys3bucket')
 ```
 
+**loadS3Object**
 
+Load S3 objects to a table
+
+
+Parameters
+
+* s3account: an S3 account defined before. It must contain id, key and region. 
+* bucket: the S3 bucket to be loaded.
+* key: a scalar or list of objects to be loaded. The object can be a text file or a ZIP file.
+* threadCount: a positive integer indicating the number of threads that can be used to load the objects.
+* dbHandle: the database where the imported data will be saved. It can be either a DFS database or an in-memory database.
+* tableName: a string indicating the name of the table with the imported data.
+* partitionColumns: a string scalar/vector indicating the partitioning column(s). For sequential partition, leave it unspecified; For composite partition, partitionColumns is a string vector.
+* delimiter: the table column separator. The default value is ','.
+* schema: a table. See the parameter schema of function loadText for the supported parameter.
+* skipRows: is an integer between 0 and 1024 indicating the rows in the beginning of the text file to be ignored. The default value is 0.
+* transform: is a unary function. The parameter of the function must be a table.
+* sortColumns: is a string scalar/vector indicating the columns based on which the table is sorted.
+* atomic: is a Boolean value indicating whether to guarantee atomicity when loading a file with the cache engine enabled. If it is set to true, the entire loading process of a file is a transaction; set to false to split the loading process into multiple transactions.
+* arrayDelimiter: is a single character indicating the delimiter for columns holding the array vectors in the file. Since the array vectors cannot be recognized automatically, you must use the schema parameter to update the data type of the type column with the corresponding array vector data type before import.
+
+Return
+
+* a table object with 3 columns object (STRING), errorCode (INT), and errorInfo (STRING), which indicates the imported files, error codes (0 means no error) and error messages .
+
+The error codes are explained as follows:
+1-Unknown issue.
+2-Failed to parse the file and write it to the table.
+3-Failed to download the file.
+4-Failed to unzip the file.
+5-Cannot find the unzipped file.
+6-An exception is raised and the error message is printed.
+7-Unknown exception is raised.
+
+Example
+
+```
+//create an account
+account=dict(string,string);
+account['id']='XXXXXXXXXXXXXXX';
+account['key']='XXXXXXXXXX';
+account['region']='us-east';
+//load S3 objects
+db = database(directory="dfs://rangedb", partitionType=RANGE, partitionScheme=0 51 101)
+aws::loadS3Object(account,'dolphindb-test-bucket','t2.zip',4,db,`pt, `ID);
+```
 
