@@ -9,3 +9,4 @@ deleteS3Bucket,deleteS3Bucket,command,2,2,0
 createS3Bucket,createS3Bucket,command,2,2,0
 headS3Object,headS3Object,system,3,3,0
 copyS3Object,copyS3Object,command,4,4,0
+loadS3Object,loadS3Object,system,7,11,0
