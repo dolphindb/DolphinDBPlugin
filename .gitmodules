@@ -1,6 +1,3 @@
-[submodule "kafka/cppkafka"]
-	path = kafka/cppkafka
-	url = https://github.com/mfontanini/cppkafka.git
 [submodule "RTseis/rtseis"]
 	path = RTseis/rtseis
 	url = https://github.com/uofuseismo/rtseis.git

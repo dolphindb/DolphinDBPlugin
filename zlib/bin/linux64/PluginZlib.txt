@@ -1,3 +1,0 @@
-zlib,libPluginZlib.so
-compressFile,compressFile,system,1,2,0
-decompressFile,decompressFile,system,1,1,0
