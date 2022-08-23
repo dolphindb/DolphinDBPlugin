@@ -6,6 +6,8 @@ DolphinDB database 支持动态载入外部插件，以拓展系统功能。插�
 
 插件分支应与DolphinDB Server的版本相匹配，即若DolphinDB Server是1.30版本，插件应用release130分支，若DolphinDB Server是2.00版本，插件应该用release200分支，其他版本依此类推。
 
+在DolphinDB server发布包的server/plugins目录下，已预下载了一些常用插件，如mysql、ODBC插件等，可直接加载使用。在每个插件的bin目录下已经包含了linux或windows操作系统上可执行的二进制文件，若无定制的需求，可直接下载bin文件使用。
+
 ## 加载插件
 
 ### 通过函数loadPlugin加载
