@@ -2,10 +2,9 @@
 
 DolphinDB database 支持动态载入外部插件，以拓展系统功能。插件仅支持使用C++编写，并且需要编译成so共享库或者dll共享库文件。
 
-## 目录结构
-* [include](./include)目录包含了DolphinDB的核心数据结构的类声明和一些工具类声明，这些类是实现插件的重要基础工具。  
-* [demo](./demo)目录包含了一个demo插件的实现。  
-* [odbc](./odbc)与[mysql](./mysql)等目录包含了ODBC与MySQL等插件的实现。
+## 下载
+
+插件分支应与DolphinDB Server的版本相匹配，即若DolphinDB Server是1.30版本，插件应用release130分支，若DolphinDB Server是2.00版本，插件应该用release200分支，其他版本依此类推。
 
 ## 加载插件
 
@@ -54,9 +53,9 @@ foo,foo,system,1,1,0
 ```
 以上描述文件定义了一个名为 demo 的插件，共享库文件名为 libPluginDemo.so。插件导出两个函数，第一个函数为`minmax`，该函数在DolphinDB中名字同样是`minmax`，operator类型，接受一个参数；第二个函数名字为`echo`，DolphinDB中名字同样是`echo`，system类型，接受一个参数。  
 
-写完描述文件之后，即可开始编写插件。内容请参考[demo](./demo)文件夹内容。
+写完描述文件之后，即可开始编写插件。内容请参考demo文件夹内容。
 
-编译需要用到DolphinDB的核心库 libDolphinDB.so 或 libDolphinDB.dll，该核心库实现了[include](./include)目录下声明的类。编译步骤如下（以Linux操作系统上编译为例）：
+编译需要用到DolphinDB的核心库 libDolphinDB.so 或 libDolphinDB.dll，该核心库实现了include目录下声明的类。编译步骤如下（以Linux操作系统上编译为例）：
 ```
 cd demo
 g++ -DLINUX -fPIC -std=c++11 -D_GLIBCXX_USE_CXX11_ABI=0 -DLOCKFREE_SYMBASE -c src/Demo.cpp -I../include -o Demo.o
@@ -82,12 +81,12 @@ foo
 1
 ```
 
-更复杂的插件实现请参考[odbc](./odbc)目录下的内容。
+更复杂的插件实现请参考odbc目录下的内容。
 
 ## Tips
 * 建议使用 ld 命令检查下编译器链接是否成功，so中是否存在未定义的引用。如果 ld 报错，那么DolphinDB也无法正确加载插件。
 * 如果载入插件之后出现了crash，可以采取尝试以下步骤。  
-   1. 确保[include](./include)下的头文件和 libDolphinDB.so 或 libDolphinDB.dll 实现保持一致.
+   1. 确保include下的头文件和 libDolphinDB.so 或 libDolphinDB.dll 实现保持一致.
    2. 确保用于编译插件的```gcc```版本和编译 libDolphinDB.so 或 libDolphinDB.dll 的版本保持一致，以免出现不同版本的编译器ABI不兼容的问题。
    3. 插件与DolphinDB server在同一个进程中运行，若插件crash，那整个系统就会crash。因此在开发的插件时候要注意完善错误检测机制，除了插件函数所在线程可以抛出异常（server在调用插件函数时俘获了异常），其他线程都必须自己俘获异常，并不得抛出异常。
    4. 确保宏LOCKFREE_SYMBASE已经添加。
