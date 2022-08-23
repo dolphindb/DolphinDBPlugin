@@ -1,3 +1,0 @@
-[submodule "RTseis/rtseis"]
-	path = RTseis/rtseis
-	url = https://github.com/uofuseismo/rtseis.git
