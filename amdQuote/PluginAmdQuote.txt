@@ -1,5 +1,5 @@
 amdQuote,libPluginAmdQuote.so
-amdConnect,connect,system,4,4,0
+amdConnect,connect,system,4,5,0
 subscribe,subscribe,system,4,5,0
 unsubscribe,unsubscribe,system,2,4,0
 getSchema,getSchema,system,1,1,0

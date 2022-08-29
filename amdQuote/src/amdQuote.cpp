@@ -5,6 +5,9 @@
 std::mutex AmdQuote::amdMutex_;
 AmdQuote* AmdQuote::instance_;
 
+bool receivedTimeFlag = false;
+bool isConnected = false;
+
 ConstantSP amdConnect(Heap *heap, vector<ConstantSP> &arguments) {
     // if (arguments[0]->getForm() != DF_PAIR) {
     //     throw RuntimeException("first argument illegal, should be stream table size");
@@ -43,12 +46,37 @@ ConstantSP amdConnect(Heap *heap, vector<ConstantSP> &arguments) {
         ports.push_back(arguments[3]->getInt(i));
     }
 
+    if (arguments.size() > 4) {
+        if (arguments[4]->getForm() != DF_DICTIONARY) {
+            throw IllegalArgumentException(__FUNCTION__, "options must be a dictionary"); 
+        }
+
+        DictionarySP options = arguments[4];
+        VectorSP keys = options->keys();
+        VectorSP values = options->values();
+        for(int i = 0; i < options->size(); ++i) {
+            ConstantSP key = keys->get(i);
+            if(key->getType() != DT_STRING)
+                throw IllegalArgumentException(__FUNCTION__, "key of options must be string");
+            std::string str = key->getString();
+            if(str != "ReceivedTime")
+                throw IllegalArgumentException(__FUNCTION__, "key of options must be 'ReceivedTime'");
+        }
+
+        ConstantSP value = options->getMember("ReceivedTime");
+        if (value->getType() != DT_BOOL) {
+            throw IllegalArgumentException(__FUNCTION__, "value of 'ReceivedTime' must be boolean");
+        }
+        receivedTimeFlag = value->getBool();
+    }
+
     SessionSP session = heap->currentSession()->copy(true);
     auto amdQuoteHandler = AmdQuote::getInstance(username, password, ips, ports, session);
     std::string handlerName("amdQuote");
     FunctionDefSP onClose(Util::createSystemProcedure("amdQuote onClose()", closeAmd, 1, 1));
     auto resource = Util::createResource((long long)amdQuoteHandler, handlerName, onClose, heap->currentSession());
 
+    isConnected = true;
     return resource;
 }
 
@@ -171,24 +199,30 @@ ConstantSP amdClose(Heap *heap, vector<ConstantSP> &arguments) {
         throw RuntimeException("release Amd err, illegal AmdQuote Handler"); 
     }
     AmdQuote::deleteInstance();
+    
+    isConnected = false;
+    receivedTimeFlag = false;
 
     ConstantSP ret = Util::createConstant(DT_STRING);
     ret->setString("release success");
     return ret;
 }
 
-ConstantSP getSchema(Heap *heap, vector<ConstantSP> &arguments) { // type 
+ConstantSP getSchema(Heap *heap, vector<ConstantSP> &arguments) { // type
+    if (isConnected == false) {
+        throw RuntimeException("call the connect function first");
+    }
     if (arguments[0]->getForm() != DF_SCALAR || arguments[0]->getType() != DT_STRING) {
         throw RuntimeException("first argument illegal, should be string");
     }
     std::string amdDataType = arguments[0]->getString();
     ConstantSP table;
     if (amdDataType == "snapshot") {
-        table = getSnapshotSchema();
+        table = getSnapshotSchema(receivedTimeFlag);
     } else if (amdDataType == "execution") {
-        table = getExecutionSchema();
+        table = getExecutionSchema(receivedTimeFlag);
     } else if (amdDataType == "order") {
-        table = getOrderSchema();
+        table = getOrderSchema(receivedTimeFlag);
     } else {
         throw RuntimeException("first argument illegal, should be one of `snapshot`, `execution` or `order`");
     }
