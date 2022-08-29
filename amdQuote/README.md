@@ -28,7 +28,7 @@ export LD_LIBRARY_PATH=/path_to_amdQuote/lib:$LD_LIBRARY_PATH
 
 ## 插件加载
 
-编译生成 libPluginNsq.so 之后，通过以下脚本加载插件：
+编译生成 libPluginAmdQuote.so 之后，通过以下脚本加载插件：
 
 ```
 loadPlugin("/path_to_pluginAmdQuote/PluginAmdQuote.txt");
