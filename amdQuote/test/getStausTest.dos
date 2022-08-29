@@ -1,13 +1,15 @@
 loadPlugin("/home/ruibinhuang/projects/DolphinDBPlugin/amdQuote/build/PluginAmdQuote.txt");
+go
 
 USERNAME=`jianghaoyang
 PASSWORD=`jianghaoyang
 IP=[`119.29.65.231]
 PORT=[8031]
 
+
 use amdQuote;
 
-amdhandler = amdQuote::connect(USERNAME, PASSWORD, IP, PORT)
+amdhandler = amdQuote::connect(USERNAME, PASSWORD, IP, PORT, dict(["ReceivedTime"], [true]))
 
 snapshotSchema = getSchema(`snapshot);
 snapshotTable = streamTable(10000:0, snapshotSchema[`name], snapshotSchema[`type]);
@@ -16,5 +18,8 @@ enableTableShareAndPersistence(table=snapshotTable, tableName=`snapshot1, cacheS
 enableTableShareAndPersistence(table=snapshotTable2, tableName=`snapshot2, cacheSize=10000)
 go
 amdQuote::subscribe(amdhandler, `snapshot, snapshot1, 101)
+amdQuote::unsubscribe(amdhandler, `all)
+
+close(amdhandler);
 re = select * from amdQuote::getStatus(amdhandler) where datatype  = "snapshot"
 

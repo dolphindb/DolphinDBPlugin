@@ -440,15 +440,23 @@ private:
             // if (enableLog_[0] == true) {
             //     latencyLog(0);
             // }
-            
-            long long startTime = Util::getNanoEpochTime();
+
+            long long startTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
             std::lock_guard<std::mutex> amdLock_(amdMutex_);
+
+            
+            bool receivedTimeFlag = false;
+            if (snapshotData_->columns() > (INDEX)snapshotDataTableMeta_.colTypes_.size()) {
+                snapshotDataTableMeta_.colNames_.push_back("receivedTime");
+                snapshotDataTableMeta_.colTypes_.push_back(DT_NANOTIMESTAMP);
+                receivedTimeFlag = true;
+            }
 
             std::vector<ConstantSP> cols;
             for (unsigned int snapshotIndex = 0; snapshotIndex < snapshotDataTableMeta_.colTypes_.size(); snapshotIndex++) {
                 cols.push_back(Util::createVector(snapshotDataTableMeta_.colTypes_[snapshotIndex], 0, cnt));
             }
-
+            
             std::vector<int> col0;
             std::vector<string> col1;
             std::vector<long long> col2;
@@ -552,6 +560,7 @@ private:
             std::vector<int> col91;
             std::vector<long long> col92;
             std::vector<char> col93;
+            std::vector<long long> col94;
 
             for (uint32_t i = 0; i < cnt; ++i) {
                 col0.emplace_back(snapshot[i].market_type);
@@ -796,6 +805,10 @@ private:
                 col92.emplace_back(snapshot[i].last_trade_time);
                 // 设置 varietyCategory
                 col93.emplace_back(snapshot[i].variety_category);
+
+                if (receivedTimeFlag) {
+                    col94.emplace_back(startTime);
+                }
             }
 
             ((VectorSP)cols[0])->appendInt(col0.data(), cnt);
@@ -901,6 +914,9 @@ private:
             ((VectorSP)cols[91])->appendInt(col91.data(), cnt);
             ((VectorSP)cols[92])->appendLong(col92.data(), cnt);
             ((VectorSP)cols[93])->appendChar(col93.data(), cnt);
+            if (receivedTimeFlag) {
+                ((VectorSP)cols[94])->appendLong(col94.data(), cnt);
+            }
 
             TableSP data = Util::createTable(snapshotDataTableMeta_.colNames_, cols);
             vector<ConstantSP> args = {snapshotData_, data};
@@ -917,8 +933,16 @@ private:
 
         // 接受并处理逐笔委托数据
         virtual void OnMDTickOrder(amd::ama::MDTickOrder* ticks, uint32_t cnt) {
-            long long startTime = Util::getNanoEpochTime();
+            long long startTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
             std::lock_guard<std::mutex> amdLock_(amdMutex_);
+
+            bool receivedTimeFlag = false;
+            if (orderData_->columns() > (INDEX)orderTableMeta_.colTypes_.size()) {
+                orderTableMeta_.colNames_.push_back("receivedTime");
+                orderTableMeta_.colTypes_.push_back(DT_NANOTIMESTAMP);
+                receivedTimeFlag = true;
+            }
+
             std::vector<ConstantSP> cols;
             for (unsigned int orderIndex = 0; orderIndex < orderTableMeta_.colTypes_.size(); orderIndex++) {
                 cols.push_back(Util::createVector(orderTableMeta_.colTypes_[orderIndex], 0, cnt));
@@ -937,6 +961,7 @@ private:
             vector<long long> col10;
             vector<long long> col11;
             vector<char> col12;
+            vector<long long> col13;
 
             for (uint32_t i = 0; i < cnt; ++i) {
                 col0.emplace_back(ticks[i].market_type);
@@ -966,6 +991,9 @@ private:
                 col11.emplace_back(ticks[i].biz_index);
 
                 col12.emplace_back(ticks[i].variety_category);
+                if (receivedTimeFlag) {
+                    col13.emplace_back(startTime);
+                }
             }
 
             ((VectorSP)cols[0])->appendInt(col0.data(), cnt);
@@ -981,6 +1009,9 @@ private:
             ((VectorSP)cols[10])->appendLong(col10.data(), cnt);
             ((VectorSP)cols[11])->appendLong(col11.data(), cnt);
             ((VectorSP)cols[12])->appendChar(col12.data(), cnt);
+            if (receivedTimeFlag) {
+                ((VectorSP)cols[13])->appendLong(col13.data(), cnt);
+            }
 
             INDEX insertedRows;
             string errMsg;
@@ -989,7 +1020,6 @@ private:
             vector<ConstantSP> args = {orderData_, tmp_table};
             session_->getFunctionDef("append!")->call(session_->getHeap().get(), args);
 
-            
             if (latencyFlag_) { 
                 long long diff = Util::getNanoEpochTime() - startTime;
                 latencyLog(2, startTime, cnt, diff);
@@ -1005,8 +1035,16 @@ private:
             // if (enableLog_[1] == true) {
             //     latencyLog(1);
             // }
-            long long startTime = Util::getNanoEpochTime();
+            long long startTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
             std::lock_guard<std::mutex> amdLock_(amdMutex_);
+
+            bool receivedTimeFlag = false;
+            if (executionData_->columns() > (INDEX)executionTableMeta_.colTypes_.size()) {
+                executionTableMeta_.colNames_.push_back("receivedTime");
+                executionTableMeta_.colTypes_.push_back(DT_NANOTIMESTAMP);
+                receivedTimeFlag = true;
+            }
+
             std::vector<ConstantSP> cols;
             for (unsigned int orderIndex = 0; orderIndex < executionTableMeta_.colTypes_.size(); orderIndex++) {
                 cols.emplace_back(Util::createVector(executionTableMeta_.colTypes_[orderIndex], 0, cnt));
@@ -1027,6 +1065,7 @@ private:
             std::vector<string> col12;
             std::vector<long long> col13;
             std::vector<char> col14;
+            std::vector<long long> col15;
 
             for (uint32_t i = 0; i < cnt; ++i) {
                 col0.emplace_back(tick[i].market_type);
@@ -1060,6 +1099,10 @@ private:
                 col13.emplace_back(tick[i].biz_index);
 
                 col14.emplace_back(tick[i].variety_category);
+
+                if (receivedTimeFlag) {
+                    col15.emplace_back(startTime);
+                }
             }
 
             ((VectorSP)cols[0])->appendInt(col0.data(), cnt);
@@ -1077,6 +1120,9 @@ private:
             ((VectorSP)cols[12])->appendString(col12.data(), cnt);
             ((VectorSP)cols[13])->appendLong(col13.data(), cnt);
             ((VectorSP)cols[14])->appendChar(col14.data(), cnt);
+            if (receivedTimeFlag) {
+                ((VectorSP)cols[15])->appendLong(col15.data(), cnt);
+            }
 
             INDEX insertedRows;
             string errMsg;

@@ -932,7 +932,7 @@ kafka::setMessageSize(size)
 
 - 'size' is the capacity of the message size you want to set. The `message_size` is no larger than the `buffer_size`, and the default value is 10k.
 
-## 4 Example
+## 4. Example
 
 ``` shell
 #create producer

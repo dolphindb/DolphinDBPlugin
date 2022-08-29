@@ -28,7 +28,7 @@ public:
         // 权证涨停价格       买入撤单笔数          买入撤单数量         买入撤单金额          卖出撤单笔数            卖出撤单数量           卖出撤单金额          买入总笔数        卖出总笔数           买入委托成交最大等待时间 
         "warUpperPrice", "withdrawBuyNumber", "withdrawBuyAmount", "withdrawBuyMoney", "withdrawSellNumber", "withdrawSellAmount", "withdrawSellMoney", "totalBidNumber", "totalOfferNumber", "bidTradeMaxDuration", \
         //  卖出委托成交最大等待时间   买方委托价位数   卖方委托价位数      最近成交时间      品种类别  
-        "offerTradeMaxDuration", "numBidOrders", "numOfferOrders", "lastTradeTime", "varietyCategory"
+        "offerTradeMaxDuration", "numBidOrders", "numOfferOrders", "lastTradeTime", "varietyCategory",
         };
 
         colTypes_ = {
@@ -41,7 +41,7 @@ public:
         DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_INT,  DT_STRING, DT_STRING, DT_LONG, DT_LONG, \
         DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, \
         DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_INT, DT_INT,  \
-        DT_INT,  DT_INT,  DT_LONG, DT_CHAR
+        DT_INT,  DT_INT,  DT_LONG, DT_CHAR,
         };
         for (unsigned int i = 0; i < colTypes_.size(); i++) {
             ConstantSP col_ = Util::createVector(colTypes_[i], 0);
@@ -63,12 +63,12 @@ public:
         //  市场类型       证券代码         时间        频道号        频道编号       成交价格      成交数量      成交金额
             "marketType", "securityCode", "execTime", "channelNo", "applSeqNum", "execPrice", "execVolume", "valueTrade", \
         //  买方委托索引      卖方委托索引        买卖方向  成交类型   行情类别       业务序号     品种类别
-            "bidAppSeqNum", "offerApplSeqNum", "side", "execType", "mdStreamId", "bizIndex", "varietyCategory"
+            "bidAppSeqNum", "offerApplSeqNum", "side", "execType", "mdStreamId", "bizIndex", "varietyCategory",
         };
 
         colTypes_ = {
             DT_INT, DT_SYMBOL, DT_TIMESTAMP, DT_INT, DT_LONG, DT_LONG, DT_LONG, DT_LONG, \
-            DT_LONG, DT_LONG, DT_CHAR, DT_CHAR, DT_STRING, DT_LONG, DT_CHAR
+            DT_LONG, DT_LONG, DT_CHAR, DT_CHAR, DT_STRING, DT_LONG, DT_CHAR,
         };
 
         for (unsigned int i = 0; i < colTypes_.size(); i++) {
@@ -93,17 +93,17 @@ public:
         //  市场类型       证券代码         频道号       频道索引       时间          委托价格      委托数量       
             "marketType", "securityCode", "channelNo", "applSeqNum", "orderTime", "orderPrice", "orderVolume", \
         //  买卖方向 订单类别      行情类别(仅深圳市场有效) 原始订单号  业务序号   品种类别
-            "side", "orderType", "mdStreamId", "origOrderNo", "bizIndex", "varietyCategory"
+            "side", "orderType", "mdStreamId", "origOrderNo", "bizIndex", "varietyCategory", 
         };
 
         colTypes_ = {
             DT_INT, DT_SYMBOL, DT_INT, DT_LONG, DT_TIMESTAMP, DT_LONG, DT_LONG, \
-            DT_CHAR, DT_CHAR, DT_STRING, DT_LONG, DT_LONG, DT_CHAR
+            DT_CHAR, DT_CHAR, DT_STRING, DT_LONG, DT_LONG, DT_CHAR,
         };
 
         for (unsigned int i = 0; i < colTypes_.size(); i++) {
             ConstantSP col_ = Util::createVector(colTypes_[i], 0);
-            colDataTypes_.push_back(col_); 
+            colDataTypes_.push_back(col_);
         };
     }
     ~AmdOrderTableMeta(){}
@@ -114,8 +114,12 @@ public:
     std::vector<ConstantSP> colDataTypes_;
 };
 
-TableSP getSnapshotSchema() {
+TableSP getSnapshotSchema(bool receivedTimeFlag) {
     AmdSnapshotTableMeta snapShotTableMeta;
+    if (receivedTimeFlag) {
+        snapShotTableMeta.colNames_.push_back("receivedTime");
+        snapShotTableMeta.colTypes_.push_back(DT_NANOTIMESTAMP);
+    }
     vector<ConstantSP> cols(2);
     cols[0] = Util::createVector(DT_STRING, snapShotTableMeta.colNames_.size());
     cols[1] = Util::createVector(DT_STRING, snapShotTableMeta.colTypes_.size());
@@ -130,8 +134,12 @@ TableSP getSnapshotSchema() {
     return table;
 }
 
-TableSP getExecutionSchema() {
+TableSP getExecutionSchema(bool receivedTimeFlag) {
     AmdExecutionTableMeta executionTableMeta;
+    if (receivedTimeFlag) {
+        executionTableMeta.colNames_.push_back("receivedTime");
+        executionTableMeta.colTypes_.push_back(DT_NANOTIMESTAMP);
+    }
     vector<ConstantSP> cols(2);
     cols[0] = Util::createVector(DT_STRING, executionTableMeta.colNames_.size());
     cols[1] = Util::createVector(DT_STRING, executionTableMeta.colTypes_.size());
@@ -146,8 +154,12 @@ TableSP getExecutionSchema() {
     return table;
 }
 
-TableSP getOrderSchema() {
+TableSP getOrderSchema(bool receivedTimeFlag) {
     AmdOrderTableMeta orderTableMeta;
+    if (receivedTimeFlag) {
+        orderTableMeta.colNames_.push_back("receivedTime");
+        orderTableMeta.colTypes_.push_back(DT_NANOTIMESTAMP);
+    }
     vector<ConstantSP> cols(2);
     cols[0] = Util::createVector(DT_STRING, orderTableMeta.colNames_.size());
     cols[1] = Util::createVector(DT_STRING, orderTableMeta.colTypes_.size());
@@ -165,15 +177,15 @@ TableSP getOrderSchema() {
 // FIXME
 bool checkSchema(const string& type, TableSP table) {
     if (type == "snapshot") {
-        if (table->columns() != 94) {
+        if (table->columns() != 94 && table->columns() != 95) {
             return false;
         }
     } else if (type == "execution") {
-        if (table->columns() != 15) {
+        if (table->columns() != 15 && table->columns() != 16) {
             return false;
         }
     } else {
-        if (table->columns() != 13) {
+        if (table->columns() != 13 && table->columns() != 14) {
             return false;
         }
     }
