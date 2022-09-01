@@ -18,7 +18,8 @@
 		- [windows](#windows)
 	- [插件加载](#插件加载)
 	- [API](#api)
-		- [nsq::connect(configFilePath)](#nsqconnectconfigfilepath)
+		- [nsq::connect(configFilePath, options)](#nsqconnectconfigfilepath-options)
+		- [nsq::getSchema(dataType)](#nsqgetschemadatatype)
 		- [nsq::subscribe(type, location, streamTable)](#nsqsubscribetype-location-streamtable)
 		- [nsq::unsubscribe(type, location)](#nsqunsubscribetype-location)
 		- [nsq::close()](#nsqclose)
@@ -28,9 +29,7 @@
 
 ## 支持 NSQ 的 server 版本
 
-目前，仅以下版本 server 支持 NSQ 插件：
-
-DolphinDB_Linux64_V2.00.6, DolphinDB_Linux64_V1.30.18, DolphinDB_Win64_V1.30.18_JIT, DolphinDB_Win64_V2.00.6_JIT
+目前，仅 DolphinDB_Linux64_V2.00.6, DolphinDB_Linux64_V1.30.18, DolphinDB_Win64_V1.30.18_JIT, DolphinDB_Win64_V2.00.6_JIT 及以上版 server 支持 NSQ 插件。
 
 其中，若使用 Linux 系统，在使用 NSQ 插件前，需指定环境变量：
 
@@ -93,17 +92,29 @@ loadPlugin("/path/to/PluginNsq.txt");
 
 ## API
 
-### nsq::connect(configFilePath)
+### nsq::connect(configFilePath, options)
 
 **参数**
 
 `configFilePath` 一个字符串，表示 `sdk_config.ini` 的绝对路径；若拷贝 `sdk_config.ini` 至 dolphindb server，则可以是相对于 dolphindb server 的一个相对路径。
+
+`options` 可选参数。是字典类型，表示扩展参数。当前键只支持receivedTime。详见后文示例。
 
 **函数详情**
 
 该函数将根据 NSQ 配置文件 `sdk_config.ini` 的配置，和行情服务器进行连接。连接成功后在日志文件 dolphindb.log 中会打印 “OnFrontConnected”。
 
 请注意，再次执行 connect 进行重新连接前，需要先执行 nsq::close() 断开连接，否则会抛出异常。
+
+### nsq::getSchema(dataType)
+
+**参数**
+
+`dataType` 一个字符串，表示所要获取的表结构的类型，包含snapshot，trade，orders。
+
+**函数详情**
+
+该函数需要在connect函数之后调用。后续根据getSchema返回的表结构创建流表。
 
 ### nsq::subscribe(type, location, streamTable)
 
@@ -190,24 +201,27 @@ topicType     isConnected isSubscribed processedMsgCount lastErrMsg failedMsgCou
 
 ## 示例
 
-在插件根目录中的 `nsq_script.txt` 文件展示了运用 nsq 插件的一个完整的实例。下面展示了部分脚本（略去了具体 schema 部分）：
+在插件根目录中的 `nsq_script.txt` 文件展示了运用 nsq 插件的一个完整的实例。下面展示了部分脚本：
 
 ```
 // 登录
 login("admin", "123456")
 // 加载插件
 loadPlugin("Your_plugin_path/PluginNsq.txt");
-t1 = streamTable(
-	xxx // schema
-)
-t2 = streamTable(
-	xxx
-);
+// 连接行情服务器，第二个参数为可选
+nsq::connect(your_config_path，dict(["ReceivedTime"], [true]);
+// 获取行情数据的表结构
+snapshotSchema = nsq::getSchema(`snapshot);
+tradeSchema = nsq::getSchema(`trade);
+// 根据表结构创建流表
+streamTable(1000:0, snapshotSchema[`name], snapshotSchema[`type]) as t1;
+streamTable(1000:0, tradeSchema[`name], tradeSchema[`type]) as t2;
+
 go
 // 流表持久化
 enableTableShareAndPersistence(table=t1, tableName=`snapshot_sh, cacheSize=100000)
 enableTableShareAndPersistence(table=t2, tableName=`trade_sh, cacheSize=100000)
-nsq::connect(your_config_path);
+
 // 订阅上海证券交易所的深度行情
 nsq::subscribe(`snapshot, `sh, snapshot_sh);
 // 取消订阅
