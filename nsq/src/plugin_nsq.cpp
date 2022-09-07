@@ -60,6 +60,9 @@ void SplitString(string &s, std::vector<std::string> &v, const string &c) {
 
 std::vector<string> sh_codes, sz_codes;
 
+bool receivedTimeFlag = false;
+bool isConnected = false;
+
 vector<string> snapshotColumnNames{"ExchangeID",
                                    "InstrumentID",
                                    "LastPrice",
@@ -75,46 +78,46 @@ vector<string> snapshotColumnNames{"ExchangeID",
                                    "TradeVolume",
                                    "TradeBalance",
                                    "AveragePrice",
-                                   "BidPrice[0]",
-                                   "BidPrice[1]",
-                                   "BidPrice[2]",
-                                   "BidPrice[3]",
-                                   "BidPrice[4]",
-                                   "BidPrice[5]",
-                                   "BidPrice[6]",
-                                   "BidPrice[7]",
-                                   "BidPrice[8]",
-                                   "BidPrice[9]",
-                                   "AskPrice[0]",
-                                   "AskPrice[1]",
-                                   "AskPrice[2]",
-                                   "AskPrice[3]",
-                                   "AskPrice[4]",
-                                   "AskPrice[5]",
-                                   "AskPrice[6]",
-                                   "AskPrice[7]",
-                                   "AskPrice[8]",
-                                   "AskPrice[9]",
-                                   "BidVolume[0]",
-                                   "BidVolume[1]",
-                                   "BidVolume[2]",
-                                   "BidVolume[3]",
-                                   "BidVolume[4]",
-                                   "BidVolume[5]",
-                                   "BidVolume[6]",
-                                   "BidVolume[7]",
-                                   "BidVolume[8]",
-                                   "BidVolume[9]",
-                                   "AskVolume[0]",
-                                   "AskVolume[1]",
-                                   "AskVolume[2]",
-                                   "AskVolume[3]",
-                                   "AskVolume[4]",
-                                   "AskVolume[5]",
-                                   "AskVolume[6]",
-                                   "AskVolume[7]",
-                                   "AskVolume[8]",
-                                   "AskVolume[9]",
+                                   "BidPrice0",
+                                   "BidPrice1",
+                                   "BidPrice2",
+                                   "BidPrice3",
+                                   "BidPrice4",
+                                   "BidPrice5",
+                                   "BidPrice6",
+                                   "BidPrice7",
+                                   "BidPrice8",
+                                   "BidPrice9",
+                                   "AskPrice0",
+                                   "AskPrice1",
+                                   "AskPrice2",
+                                   "AskPrice3",
+                                   "AskPrice4",
+                                   "AskPrice5",
+                                   "AskPrice6",
+                                   "AskPrice7",
+                                   "AskPrice8",
+                                   "AskPrice9",
+                                   "BidVolume0",
+                                   "BidVolume1",
+                                   "BidVolume2",
+                                   "BidVolume3",
+                                   "BidVolume4",
+                                   "BidVolume5",
+                                   "BidVolume6",
+                                   "BidVolume7",
+                                   "BidVolume8",
+                                   "BidVolume9",
+                                   "AskVolume0",
+                                   "AskVolume1",
+                                   "AskVolume2",
+                                   "AskVolume3",
+                                   "AskVolume4",
+                                   "AskVolume5",
+                                   "AskVolume6",
+                                   "AskVolume7",
+                                   "AskVolume8",
+                                   "AskVolume9",
                                    "TradesNum",
                                    "InstrumentTradeStatus",
                                    "TotalBidVolume",
@@ -146,15 +149,15 @@ vector<string> snapshotColumnNames{"ExchangeID",
                                    "DurationAfterSell",
                                    "BidOrdersNum",
                                    "AskOrdersNum",
-                                   "PreIOPV"};
+                                   "PreIOPV",};
 
 vector<string> tradeColumnNames{"ExchangeID", "InstrumentID", "TransFlag", "SeqNo",     "ChannelNo",
                                 "TradeDate",  "TransactTime", "TrdPrice",  "TrdVolume", "TrdMoney",
-                                "TrdBuyNo",   "TrdSellNo",    "TrdBSFlag", "BizIndex"};
+                                "TrdBuyNo",   "TrdSellNo",    "TrdBSFlag", "BizIndex",};
 
 vector<string> ordersColumnNames{"ExchangeID", "InstrumentID", "TransFlag", "SeqNo",     "ChannelNo",
                                 "TradeDate",  "TransactTime", "OrdPrice",  "OrdVolume", "OrdSide",
-                                "OrdType",    "OrdNo",        "BizIndex"};
+                                "OrdType",    "OrdNo",        "BizIndex",};
 
 // 原始的类型，用来创建columns和进行验证
 vector<DATA_TYPE> snapshotTypes{
@@ -172,7 +175,82 @@ vector<DATA_TYPE> tradeTypes{DT_STRING, DT_STRING, DT_INT,    DT_LONG, DT_INT,  
                              DT_DOUBLE, DT_LONG,   DT_DOUBLE, DT_LONG, DT_LONG, DT_CHAR, DT_LONG};
 
 vector<DATA_TYPE> ordersTypes{DT_STRING, DT_STRING, DT_INT,  DT_LONG, DT_INT,  DT_DATE, DT_TIME,
-                             DT_DOUBLE, DT_LONG,   DT_CHAR, DT_CHAR, DT_LONG, DT_LONG};
+                             DT_DOUBLE,  DT_LONG,   DT_CHAR, DT_CHAR, DT_LONG, DT_LONG};
+
+TableSP getSnapshotSchema() {
+    if (receivedTimeFlag == true && snapshotColumnNames[snapshotColumnNames.size() - 1] != "ReceivedTime") {
+        snapshotColumnNames.push_back("ReceivedTime");
+        snapshotTypes.push_back(DT_NANOTIMESTAMP);
+    }
+
+    if (receivedTimeFlag == false && snapshotColumnNames[snapshotColumnNames.size() - 1] == "ReceivedTime") {
+        snapshotColumnNames.pop_back();
+        snapshotTypes.pop_back();
+    }
+
+    vector<ConstantSP> cols(2);
+    cols[0] = Util::createVector(DT_STRING, snapshotColumnNames.size());
+    cols[1] = Util::createVector(DT_STRING, snapshotTypes.size());
+    for (unsigned int i = 0; i < snapshotColumnNames.size(); i++) {
+        cols[0]->setString(i, snapshotColumnNames[i]);
+        cols[1]->setString(i, Util::getDataTypeString(snapshotTypes[i]));
+    }
+
+    std::vector<string> colNames = {"name", "type"};
+    TableSP table = Util::createTable(colNames, cols);
+
+    return table;
+}
+
+TableSP getTradeSchema() {
+    if (receivedTimeFlag == true && tradeColumnNames[tradeColumnNames.size() - 1] != "ReceivedTime") {
+        tradeColumnNames.push_back("ReceivedTime");
+        tradeTypes.push_back(DT_NANOTIMESTAMP);
+    }
+
+    if (receivedTimeFlag == false && tradeColumnNames[tradeColumnNames.size() - 1] == "ReceivedTime") {
+        tradeColumnNames.pop_back();
+        tradeTypes.pop_back();
+    }
+
+    vector<ConstantSP> cols(2);
+    cols[0] = Util::createVector(DT_STRING, tradeColumnNames.size());
+    cols[1] = Util::createVector(DT_STRING, tradeTypes.size());
+    for (unsigned int i = 0; i < tradeColumnNames.size(); i++) {
+        cols[0]->setString(i, tradeColumnNames[i]);
+        cols[1]->setString(i, Util::getDataTypeString(tradeTypes[i]));
+    }
+
+    std::vector<string> colNames = {"name", "type"};
+    TableSP table = Util::createTable(colNames, cols);
+
+    return table;
+}
+
+TableSP getOrdersSchema() {
+    if (receivedTimeFlag == true && ordersColumnNames[ordersColumnNames.size() - 1] != "ReceivedTime") {
+        ordersColumnNames.push_back("ReceivedTime");
+        ordersTypes.push_back(DT_NANOTIMESTAMP);
+    }
+
+    if (receivedTimeFlag == false && ordersColumnNames[ordersColumnNames.size() - 1] == "ReceivedTime") {
+        ordersColumnNames.pop_back();
+        ordersTypes.pop_back();
+    }
+
+    vector<ConstantSP> cols(2);
+    cols[0] = Util::createVector(DT_STRING, ordersColumnNames.size());
+    cols[1] = Util::createVector(DT_STRING, ordersTypes.size());
+    for (unsigned int i = 0; i < ordersColumnNames.size(); i++) {
+        cols[0]->setString(i, ordersColumnNames[i]);
+        cols[1]->setString(i, Util::getDataTypeString(ordersTypes[i]));
+    }
+
+    std::vector<string> colNames = {"name", "type"};
+    TableSP table = Util::createTable(colNames, cols);
+
+    return table;
+}
 
 SmartPointer<Session> session = nullptr;
 // vector<TableSP> tables(6, nullptr);
@@ -195,7 +273,7 @@ CHSNsqReqSecuTransactionRebuildField reqTransRebuild;
 CHSNsqReqSecuDepthMarketDataField reqField_sub[1000];
 
 Mutex apiMutex;
-bool isConnected = false;
+
 
 ConstantSP nsqClose(Heap *heap, vector<ConstantSP> &arguments) {
     session = heap->currentSession()->copy();
@@ -226,6 +304,9 @@ ConstantSP nsqClose(Heap *heap, vector<ConstantSP> &arguments) {
         status[i].lastErrMsg = "";
         status[i].lastFailedTimestamp = Timestamp(LLONG_MIN);
     }
+    
+    isConnected = false;
+    receivedTimeFlag = false;
     return new Void();
 }
 
@@ -256,6 +337,32 @@ ConstantSP nsqConnect(Heap *heap, vector<ConstantSP> &arguments) {
         }
     }
     LockGuard<Mutex> guard{&apiMutex};
+
+    if (arguments.size() > 1) {
+        if (arguments[1]->getForm() != DF_DICTIONARY) {
+            throw IllegalArgumentException(__FUNCTION__, "options must be a dictionary"); 
+        }
+
+        DictionarySP options = arguments[1];
+        VectorSP keys = options->keys();
+        VectorSP values = options->values();
+        for(int i = 0; i < options->size(); ++i) {
+            ConstantSP key = keys->get(i);
+            if(key->getType() != DT_STRING)
+                throw IllegalArgumentException(__FUNCTION__, "key of options must be string");
+            std::string str = key->getString();
+            if(str != "receivedTime")
+                throw IllegalArgumentException(__FUNCTION__, "key of options must be 'receivedTime'");
+        }
+
+        ConstantSP value = options->getMember("receivedTime");
+        if (value->getType() != DT_BOOL) {
+            throw IllegalArgumentException(__FUNCTION__, "value of 'receivedTime' must be boolean");
+        }
+        receivedTimeFlag = value->getBool();
+    } else {
+        receivedTimeFlag = false;
+    }
 
     //初始化行情api
     // lpNsqApi = NewNsqApi("./log/");
@@ -321,6 +428,9 @@ ConstantSP nsqConnect(Heap *heap, vector<ConstantSP> &arguments) {
         std::string errMsg = "!! lpNsqApi == nullptr";
         throw RuntimeException(errMsg);
     }
+
+    isConnected = true;
+
     return new Void();
 }
 
@@ -584,4 +694,26 @@ ConstantSP getSubscriptionStatus(Heap *heap, vector<Constant> &arguments) {
     }
 
     return tsp;
+}
+
+ConstantSP getSchema(Heap *heap, vector<ConstantSP> &arguments) { // type 
+    if (isConnected == false) {
+        throw RuntimeException("call the connect function first");
+    }
+    if (arguments[0]->getForm() != DF_SCALAR || arguments[0]->getType() != DT_STRING) {
+        throw RuntimeException("first argument illegal, should be string");
+    }
+    string nsqDataType = arguments[0]->getString();
+    ConstantSP table;
+    if (nsqDataType == "snapshot") {
+        table = getSnapshotSchema();
+    } else if (nsqDataType == "trade") {
+        table = getTradeSchema();
+    } else if (nsqDataType == "orders") {
+        table = getOrdersSchema();
+    } else {
+        throw RuntimeException("first argument illegal, should be one of `snapshot`, `trade` or `orders`");
+    }
+
+    return table;
 }

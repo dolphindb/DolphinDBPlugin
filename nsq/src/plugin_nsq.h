@@ -41,7 +41,7 @@ extern vector<DATA_TYPE> ordersTypes;
 extern "C" ConstantSP nsqConnect(Heap* heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP subscribe(Heap* heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP unsubscribe(Heap* heap, vector<ConstantSP>& arguments);
-extern "C" ConstantSP getTable(Heap *heap, vector<ConstantSP> &arguments);
+extern "C" ConstantSP getSchema(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP nsqClose(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP getSubscriptionStatus(Heap *heap, vector<Constant> &arguments);
 

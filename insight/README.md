@@ -2,6 +2,8 @@
 
 为对接华泰 INSIGHT 行情服务软件，DolphinDB 开发了 INSIGHT 插件。通过该插件获取交易所的行情。
 
+> 注意：INSIGHT 插件仅支持 Linux 系统
+
 ## 1 使用 CMake 编译
 
 **注意：** 编译之前请确保 libDolphinDB.so 在 gcc 可搜索的路径中。可使用 LD_LIBRARY_PATH 指定其路径，或者直接将其拷贝到 build 或 lib 目录下。
@@ -15,7 +17,7 @@ make
 
 编译完成后，build 目录下将生成加载插件所需要的 libPluginInsight.so 文件。
 
-加载插件前，需要将 cert 文件夹放到 dolphindb 可执行文件同目录下，执行以下命令：
+加载插件前，需要将 [cert](include/cert) 文件夹放到 dolphindb 可执行文件同目录下，执行以下命令：
 ```bash
 cp -r /path_to_insight/include/cert /path_to_server/
 export LD_LIBRARY_PATH=/path_to_insight/lib:$LD_LIBRARY_PATH
@@ -148,7 +150,7 @@ loadPlugin(pluginFile);
 2. 创建用于保存订阅数据的表
 ```
 stockTickSchema = insight::getSchema(`StockTick);
-stockTickTable = streamTable(10000:0, stockTickSchema[`name], stockTickSchema[`type]);
+share streamTable(10000:0, stockTickSchema[`name], stockTickSchema[`type]) as stockTickTable;
 ```
 
 

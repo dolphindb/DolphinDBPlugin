@@ -130,7 +130,7 @@ Time *getNewTime(int time) {
     return new Time(hour, minute, second, ms);
 }
 
-void setSnapshotData(vector<ConstantSP> &columns, CHSNsqSecuDepthMarketDataField *pSecuDepthMarketData) {
+void setSnapshotData(vector<ConstantSP> &columns, CHSNsqSecuDepthMarketDataField *pSecuDepthMarketData, long long receivedTime) {
     columns[0]->set(0, new String(pSecuDepthMarketData->ExchangeID));
     columns[1]->set(0, new String(pSecuDepthMarketData->InstrumentID));
     columns[2]->set(0, new Double(pSecuDepthMarketData->LastPrice));
@@ -220,9 +220,12 @@ void setSnapshotData(vector<ConstantSP> &columns, CHSNsqSecuDepthMarketDataField
     columns[84]->set(0, new Int(pSecuDepthMarketData->BidOrdersNum));
     columns[85]->set(0, new Int(pSecuDepthMarketData->AskOrdersNum));
     columns[86]->set(0, new Double(pSecuDepthMarketData->PreIOPV));
+    if (columns.size() == 88) {
+        columns[87]->set(0, new Long(receivedTime));
+    }
 }
 
-void setTradeData(vector<ConstantSP> &columns, CHSNsqSecuTransactionTradeDataField *pSecuTransactionTradeData) {
+void setTradeData(vector<ConstantSP> &columns, CHSNsqSecuTransactionTradeDataField *pSecuTransactionTradeData, long long receivedTime) {
     columns[0]->set(0, new String(pSecuTransactionTradeData->ExchangeID));
     columns[1]->set(0, new String(pSecuTransactionTradeData->InstrumentID));
     columns[2]->set(0, new Int(pSecuTransactionTradeData->TransFlag));
@@ -237,9 +240,12 @@ void setTradeData(vector<ConstantSP> &columns, CHSNsqSecuTransactionTradeDataFie
     columns[11]->set(0, new Long(pSecuTransactionTradeData->TrdSellNo));
     columns[12]->set(0, new Char(pSecuTransactionTradeData->TrdBSFlag));
     columns[13]->set(0, new Long(pSecuTransactionTradeData->BizIndex));
+    if (columns.size() == 15) {
+        columns[14]->set(0, new Long(receivedTime));
+    }
 }
 
-void setEntrustData(vector<ConstantSP> &columns, CHSNsqSecuTransactionEntrustDataField *pSecuTransactionEntrustData) {
+void setEntrustData(vector<ConstantSP> &columns, CHSNsqSecuTransactionEntrustDataField *pSecuTransactionEntrustData, long long receivedTime) {
     columns[0]->set(0, new String(pSecuTransactionEntrustData->ExchangeID));
     columns[1]->set(0, new String(pSecuTransactionEntrustData->InstrumentID));
     columns[2]->set(0, new Int(pSecuTransactionEntrustData->TransFlag));
@@ -253,6 +259,9 @@ void setEntrustData(vector<ConstantSP> &columns, CHSNsqSecuTransactionEntrustDat
     columns[10]->set(0, new Char(pSecuTransactionEntrustData->OrdType));
     columns[11]->set(0, new Long(pSecuTransactionEntrustData->OrdNo));
     columns[12]->set(0, new Long(pSecuTransactionEntrustData->BizIndex));
+    if (columns.size() == 14) {
+        columns[13]->set(0, new Long(receivedTime));
+    }
 }
 
 Mutex mtx;
@@ -273,7 +282,8 @@ void CHSNsqSpiImpl::OnRtnSecuDepthMarketData(CHSNsqSecuDepthMarketDataField *pSe
         }
 
         vector<ConstantSP> columns = createVectors(0);
-        setSnapshotData(columns, pSecuDepthMarketData);
+        long long receivedTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+        setSnapshotData(columns, pSecuDepthMarketData, receivedTime);
 
         vector<ObjectSP> args = {new String(tablenames[index])};
         ConstantSP table = session->getFunctionDef("objByName")->call(session->getHeap().get(), args);
@@ -370,7 +380,8 @@ void CHSNsqSpiImpl::OnRtnSecuTransactionTradeData(CHSNsqSecuTransactionTradeData
         }
 
         vector<ConstantSP> columns = createVectors(1);
-        setTradeData(columns, pSecuTransactionTradeData);
+        long long receivedTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+        setTradeData(columns, pSecuTransactionTradeData, receivedTime);
 
         vector<ObjectSP> args = {new String(tablenames[index])};
         ConstantSP table = session->getFunctionDef("objByName")->call(session->getHeap().get(), args);
@@ -415,7 +426,8 @@ void CHSNsqSpiImpl::OnRtnSecuTransactionEntrustData(
         }
 
         vector<ConstantSP> columns = createVectors(2);
-        setEntrustData(columns, pSecuTransactionEntrustData);
+        long long receivedTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+        setEntrustData(columns, pSecuTransactionEntrustData, receivedTime);
 
         vector<ObjectSP> args = {new String(tablenames[index])};
         ConstantSP table = session->getFunctionDef("objByName")->call(session->getHeap().get(), args);
