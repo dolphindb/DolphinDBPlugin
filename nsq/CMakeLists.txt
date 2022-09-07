@@ -31,7 +31,7 @@ if(${CMAKE_BUILD_TYPE} MATCHES "Debug")
     message(STATUS "Build: Debug with -O0 -Wall -g -ggdb")
 else()
     set(CMAKE_BUILD_TYPE Release)
-    add_compile_options(${platform_macro} -O3)
+    add_compile_options(${platform_macro} -O3 -g)
     message(STATUS "Build: Release with -O3")
 endif()
 
