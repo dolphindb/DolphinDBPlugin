@@ -19,7 +19,7 @@ loadPlugin("/YOUR_SEVER_PATH/plugins/odbc/PluginODBC.txt");
 
 ### DolphinDB Server>=1.20.0 版本后可以通过preloadModules参数来自动加载
 
-前提是server的版本>=1.20; 需要预先加载的插件存在。否则sever启动的时候会有异常。多个插件用都好分离。
+前提是server的版本>=1.20; 需要预先加载的插件存在。否则sever启动的时候会有异常。多个插件用逗号分离。
 ```
 preloadModules=plugins::mysql,plugins::odbc
 ```
