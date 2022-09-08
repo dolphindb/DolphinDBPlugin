@@ -2,6 +2,8 @@
 
 DolphinDB的AWS插件，目前支持S3服务，需要链接AWS的动态库。
 
+AWS插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/aws/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/aws/README.md), [release120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/aws/README.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/aws/README.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
+
 ## 1 插件编译与加载
 
 注意首先需要[构建aws sdk](https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/setup.html)以及构建Zlib。Zlib自身构建时需要指定`-fPIC`参数。

@@ -2,6 +2,8 @@
 
 DolphinDB HDF5插件可將HDF5文件导入DolphinDB，并支持进行数据类型转换。
 
+HDF5插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/hdf5/README_CN.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/hdf5/README_CN.md), [release120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/hdf5/README_CN.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/hdf5/README_CN.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
+
 - [DolphinDB HDF5 Plugin](#dolphindb-hdf5-plugin)
   - [1 安装](#1-安装)
     - [1.1 预编译安装](#11-预编译安装)

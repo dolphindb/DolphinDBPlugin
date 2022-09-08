@@ -2,6 +2,8 @@
 
 为对接华泰 INSIGHT 行情服务软件，DolphinDB 开发了 INSIGHT 插件。通过该插件获取交易所的行情。
 
+INSIGHT 插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/insight/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/insight/README.md)。您当前查看的插件版本为 release200，请使用 DolphinDB 2.00.X 版本 server。若使用其它版本 server，请切换至相应插件分支。
+
 > 注意：INSIGHT 插件仅支持 Linux 系统
 
 ## 1 使用 CMake 编译

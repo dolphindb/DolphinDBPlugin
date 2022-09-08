@@ -20,6 +20,8 @@ DolphinDB 提供了 Kafka 插件用于发布或订阅 Kafka 流服务。该插�
 - Kafka Java API 的内置类型：String([UTF-8](https://dolphindb1.atlassian.net/browse/UTF-8)), Short, Integer, Long, Float, Double, Bytes, byte[] 以及 ByteBuffer
 - 以上数据类型所组成的向量
 
+Kafka 插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/kafka/README_CN.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/kafka/README_CN.md), [relsease120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/kafka/README.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/kafka/README.md)。您当前查看的插件版本为 release200，请使用 DolphinDB 2.00.X 版本 server。若使用其它版本 server，请切换至相应插件分支。
+
 ## 1. 预编译安装
 
 将文件夹下载解压到根目录下，在 Linux 中执行以下命令：

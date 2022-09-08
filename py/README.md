@@ -1,6 +1,8 @@
 # DolphinDB Py Plugin
 利用[python C-API](https://docs.python.org/zh-cn/3.7/c-api/index.html)协议，实现DolphinDB内调用python环境中的第三方库。本插件使用了[pybind11](https://github.com/pybind/pybind11) 库。
 
+Py插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/py/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/py/README.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
+
 ## 1. 准备工作
 
 ### 1.1 依赖库 

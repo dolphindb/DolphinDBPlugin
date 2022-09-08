@@ -2,6 +2,8 @@
 
 OPC是自动化行业与其他行业用于数据安全交换的互操作性标准。OPC DA只可用于Windows操作系统，OPC UA则可以独立于平台。本插件实现了DolphinDB与OPC UA服务器之间的数据传输。
 
+OPCUA插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/opcua/README_CN.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/opcua/README_CN.md), [relsease120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/opcua/README_CN.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/opcua/README_CN.md)。您当前查看的插件版本为 release200，请使用 DolphinDB 2.00.X 版本 server。若使用其它版本 server，请切换至相应插件分支。
+
 ## 1. 安装
 
 ### 1.1 预编译安装

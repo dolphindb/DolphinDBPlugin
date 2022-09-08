@@ -2,6 +2,8 @@
 
 DolphinDB的mat插件可以读取mat文件的数据加载到DolphinDB的一个矩阵的字典中。
 
+mat插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/mat/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/mat/README.md), [relsease120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/mat/README.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/mat/README.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
+
 ## 1. 安装构建
 
 ### 1.1 插件加载

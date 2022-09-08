@@ -10,6 +10,8 @@
 
 请注意，DolphinDB 仅提供对接 HSNsqApi 的 NSQ 插件。数据源和接入服务可咨询数据服务商或证券公司。
 
+NSQ 插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/nsq/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/nsq/README.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
+
 本文包含以下内容：
 - [DolphinDB NSQ Plugin](#dolphindb-nsq-plugin)
 	- [支持 NSQ 的 server 版本](#支持-nsq-的-server-版本)

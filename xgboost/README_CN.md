@@ -2,6 +2,8 @@
 
 该插件可以调用XGBoost库函数，对DolphinDB的表执行训练、预测、模型保存和加载。
 
+XGBoost插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/xgboost/README_CN.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/xgboost/README_CN.md), [release120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/xgboost/README_CN.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/xgboost/README.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
+
 ## 1. 安装构建
 
 可以直接使用我们已经编译好的libPluginXgboost.dll或libPluginXgboost.so。如果需要手动编译，请参考下面步骤：

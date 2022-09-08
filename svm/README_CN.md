@@ -2,7 +2,7 @@
 
 DolphinDB的SVM插件是基于libsvm<sup>[1](#参考文献)</sup>的插件，对常见的支持向量机算法进行了封装。用户可以在DolphinDB中对DolphinDB对象执行SVM模型的训练和预测。
 
-
+SVM插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/svm/README_CN.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/svm/README_CN.md), [release120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/svm/README_CN.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/svm/README.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
 
 ## 构建
 

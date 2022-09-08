@@ -2,6 +2,8 @@
 
 Apache Arrow Feather 文件采用列式存储格式，可用于高效存储与提取数据。DolphinDB 提供的 Feather 插件支持高效的将 Feather 文件导入和导出 DolphinDB，并且在导入导出过程中自动进行数据类型转换。
 
+Feather 插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/feather/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/feather/README.md)。您当前查看的插件版本为 release200，请使用 DolphinDB 2.00.X 版本 server。若使用其它版本 server，请切换至相应插件分支。
+
 ## 1 安装插件
 
 ### 1.1 Linux 编译

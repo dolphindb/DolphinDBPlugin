@@ -1,10 +1,12 @@
 # DolphinDB amdQuote Plugin(Linux)
 
+您正在查看的教程位于 release200 分支，需要使用 2.00.X 版本 server。
+
 ## 构建
 
 ### 使用cmake编译构建
 
-安装cmake
+安装 cmake
 
 ```bash
 sudo apt install cmake

@@ -2,6 +2,8 @@
 
 通过 DolphinDB 的 kdb+ 数据导入插件，可以将用户存储在磁盘上的 kdb+ 数据表导入 DolphinDB 数据库内存表。该插件支持导入所有 Q 语言的数据类型。目前支持两种导入模式：通过 loadTable 导入和通过 loadFile 导入。
 
+kdb+ 插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/kdb/README_CN.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/kdb/README_CN.md)。您当前查看的插件版本为 release200，请使用 DolphinDB 2.00.X 版本 server。若使用其它版本 server，请切换至相应插件分支。
+
 ## 1 预编译安装
 
 ### 1.1 初始化环境配置

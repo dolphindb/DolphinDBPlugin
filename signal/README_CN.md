@@ -40,6 +40,8 @@
 DolphinDB的signal插件对四个基础的信号处理函数（离散正弦变换、离散余弦变换、离散小波变换、反离散小波变换）进行了封装。用户可以在DolphinDB数据库软件中加载该插件以使用这四个函数进行信号处理。
 新增离散余弦变换的分布式版本。
 
+signal插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/signal/README_CN.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/signal/README_CN.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
+
 ## 构建
 
 该插件使用CMake编译（version >= 3.10)
@@ -61,77 +63,77 @@ loadPlugin("/path/to/PluginSignal.txt");
 # API
 ## 1. signal::dct
 对离散信号作离散余弦变换，返回变换序列
-### 语法
+**语法**
 
 ```
 signal::dct(X)
 ```
 
-### 参数
+**参数**
 - X: 输入的离散信号序列，应当是一个int或double类型的vector。
 
-### 返回值
+**返回值**
 
 返回变换后的序列向量，与输入向量等长，元素类型为double。
 
 ## 2. signal::dst
 对离散信号作离散正弦变换，返回变换序列
-### 语法
+**语法**
 
 ```
 signal::dst(X)
 ```
 
-### 参数
+**参数**
 - X: 输入的离散信号序列，应当是一个int或double类型的vector。
 
-### 返回值
+**返回值**
 
 返回变换后的序列向量，与输入向量等长，元素类型为double。
 
 ## 3. signal::dwt
 对离散信号作一维离散小波变换，返回由变换序列组成的table
-### 语法
+**语法**
 
 ```
 signal::dwt(X)
 ```
 
-### 参数
+**参数**
 - X: 输入的离散信号序列，应当是一个int或double类型的vector。
 
-### 返回值
+**返回值**
 
 返回变换序列组成的table，包含两个字段：cA，cD。cA对应变换后的近似部分序列，cD对应变换后的细节部分序列，两个序列等长。
 
 ## 4. signal::idwt
 对一维离散小波变换得到的两个序列作逆变换，返回得到的信号序列
-### 语法
+**语法**
 
 ```
 signal::idwt(X,Y)
 ```
 
-### 参数
+**参数**
 - X: 输入的近似部分序列（cA），应当是一个int或double类型的vector。
 - Y: 输入的细节部分序列（cD），应当是一个int或double类型的vector。
 
-### 返回值
+**返回值**
 
 返回逆变换得到的信号序列。
 
 ## 5. signal::dctParallel
 离散余弦变换的分布式版本，对离散信号作离散余弦变换，返回变换序列
-### 语法
+**语法**
 
 ```
 signal::dct(ds)
 ```
 
-### 参数
+**参数**
 - ds: 输入的数据源元组，包含若干个分区，分布在若干个控制节点中。
 
-### 返回值
+**返回值**
 
 返回变换后的序列向量，与输入向量等长，元素类型为double。
 
@@ -139,19 +141,19 @@ signal::dct(ds)
 
 一维快速傅立叶变换
 
-### 语法
+**语法**
 
 ```
 signal::fft(X,[n,norm])
 ```
 
-### 参数
+**参数**
 
 - X：要进行傅立叶变换的数据，类型为一维实数或复数vector。
 - n：傅立叶变换后输出向量的长度，默认为X的长度,类型为int。
 - norm：标准化模式，默认为"backward"不做标准化，"forward"将变换结果乘以1/n，"ortho"将变换结果乘以1/sqrt(n),类型为string。
 
-### 返回值
+**返回值**
 
 返回变换后长度为n的复数向量
 
@@ -167,19 +169,19 @@ signal::fft(X,[n,norm])
 
 一维快速傅立叶逆变换
 
-### 语法
+**语法**
 
 ```
 signal::ifft(X,[n,norm])
 ```
 
-### 参数
+**参数**
 
 - X：要进行傅立叶变换的数据，类型为一维实数或复数vector。
 - n：傅立叶变换后输出向量的长度，默认为X的长度,类型为int。
 - norm：标准化模式，默认为"backward",参数为"forward"时不做标准化，"backward"将变换结果乘以1/n，"ortho"将变换结果乘以1/sqrt(n),类型为string。
 
-### 返回值
+**返回值**
 
 返回变换后长度为n的复数向量
 
@@ -195,19 +197,19 @@ signal::ifft(X,[n,norm])
 
 二维快速傅立叶变换
 
-### 语法
+**语法**
 
 ```
 signal::fft2(X,[s,norm])
 ```
 
-### 参数
+**参数**
 
 - X：要进行傅立叶变换的数据，类型为实数或复数矩阵。
 - s：含有两个正整数的向量，分别对应傅立叶变换后输出矩阵的行数和列数，默认为X的行数和列数。
 - norm：标准化模式，默认为"backward"不做标准化，设n为矩阵中元素的个数，则"forward"将变换结果乘以1/n，"ortho"将变换结果乘以1/sqrt(n),类型为string。
 
-### 返回值
+**返回值**
 
 返回变换后行列数为s的复数矩阵
 
@@ -223,19 +225,19 @@ signal::fft2(X,[s,norm])
 
 二维快速傅立叶变换
 
-### 语法
+**语法**
 
 ```
 signal::ifft2(X,[s,norm])
 ```
 
-### 参数
+**参数**
 
 - X：要进行傅立叶变换的数据，类型为实数或复数矩阵。
 - s：含有两个正整数的向量，分别对应傅立叶变换后输出矩阵的行数和列数，默认为X的行数和列数。
 - norm：标准化模式，默认为"backward"。设n为矩阵中元素的个数，则参数为"forward"时不做标准化，"backward"将变换结果乘以1/n，"ortho"将变换结果乘以1/sqrt(n),类型为string。
 
-### 返回值
+**返回值**
 
 返回变换后行列数为s的复数矩阵
 
@@ -251,13 +253,13 @@ signal::ifft2(X,[s,norm])
 
 波形互相关
 
-### 语法
+**语法**
 
 ```
 signal::secc(data,template,k[,moveout,weight])
 ```
 
-### 参数
+**参数**
 
 + data：波形数据，长为l一维实数向量。
 + tempale：含有n段长为m波形数据的矩阵，每段数据存为矩阵中的一列，且l不小于m。
@@ -265,7 +267,7 @@ signal::secc(data,template,k[,moveout,weight])
 + movetout：时差，长度为n的double型一维向量，默认为全为0。
 + weight：权重,长度为n的double型一维向量，默认为全为1。
 
-### 返回值
+**返回值**
 
 cccSum：含有n列的矩阵，每列长为l-m+1，对应template的第n列与data互相关的结果。
 

@@ -9,6 +9,10 @@ DolphinDB database 支持动态载入外部插件，以拓展系统功能。插�
 
 ## 加载插件
 
+插件分支应与 DolphinDB Server 的版本相匹配，即若 DolphinDB Server 是 1.30 版本，插件应使用 release130 分支，若 DolphinDB Server 是 2.00 版本，插件应使用 release200 分支，其他版本依此类推。
+
+DolphinDB 目前发布的插件版本为 [release200](https://github.com/dolphindb/DolphinDBPlugin/tree/release200), [release130](https://github.com/dolphindb/DolphinDBPlugin/tree/release130), [release120](https://github.com/dolphindb/DolphinDBPlugin/tree/release120) 和 [release110](https://github.com/dolphindb/DolphinDBPlugin/tree/release110)，请根据当前使用的服务器版本号进行选择。
+
 ### 通过函数loadPlugin加载
 
 使用[`loadPlugin`](https://www.dolphindb.cn/cn/help/loadPlugin.html)函数加载外部插件。该函数接受一个文件路径，该文件描述插件的格式,例如：

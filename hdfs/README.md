@@ -2,6 +2,8 @@
 
 DolphinDB的HDFS插件可以从Hadoop的hdfs之中读取文件的信息，或者是将hdfs上的文件传至本地。
 
+HDFS插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/hdfs/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/hdfs/README.md), [release120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/hdfs/README.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
+
 ## 1 预编译安装
 
 执行Linux命令，指定插件运行时需要的动态库路径

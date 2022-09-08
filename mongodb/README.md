@@ -2,6 +2,8 @@
 
 DolphinDB mongodb插件可以建立与mongodb服务器的连接，然后导入数据到DolphinDB的内存表中。
 
+mongodb插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/mongodb/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/mongodb/README.md), [release120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/mongodb/README.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
+
 ## 1. 安装构建
 
 ### 1.1 预编译安装
@@ -33,7 +35,7 @@ cd DolphinDB/server //进入DolphinDB server目录
 
 ### 1.2 自行编译
 
-要用到mongodb-c-driver，它的依赖库包括snappy，ICU，openssl。
+要用到mongodb-c-driver，它的依赖库包括snapmongodb，ICU，openssl。
 
 在<PluginDir>/mongodb/bin目录下有对应与linux64和win64的依赖库，只需要cmake和对应编译器(linux为g++,window为MinGW)即可在本地编译mongodb插件。
 
@@ -82,7 +84,7 @@ mingw32-make -j4
 
 编译后目录下会产生文件libPluginMongodb.dll和PluginMongodb.txt，还会把<PluginDir>/mongodb/bin/windows下的4个动态库拷贝到该目录下。
 
->以下编译的mongodb-c-driver、snappy、ICU和openssl的依赖库文件，都可以在<PluginDir>/mongodb/bin目录下找到。
+>以下编译的mongodb-c-driver、snapmongodb、ICU和openssl的依赖库文件，都可以在<PluginDir>/mongodb/bin目录下找到。
 
 ### 1.3编译依赖库
 
@@ -100,12 +102,12 @@ sudo make install
 ```
 --prefix是为了指定安装位置，后面会使用到这个版本的openssl的头文件和静态库。
 
-##### 安装snappy
+##### 安装snapmongodb
 
 ```
-wget https://github.com/google/snappy/archive/1.1.7.tar.gz
+wget https://github.com/google/snapmongodb/archive/1.1.7.tar.gz
 tar -zxf 1.1.7.tar.gz
-cd snappy-1.1.7/cmake
+cd snapmongodb-1.1.7/cmake
 CXXFLAGS="-fPIC" cmake ..
 make
 sudo make install
