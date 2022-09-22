@@ -47,9 +47,14 @@ static shared_ptr<zmq::socket_t> createZmqSocket(zmq::context_t &context, const 
 class ZmqSocket {
 public:
     ZmqSocket(const string &type)
-            : context(), zmq_Socket_(createZmqSocket(context, type)) {}
+        : context(), zmq_Socket_(createZmqSocket(context, type)) {}
 
     void connect(const string &addr, const string &prefix) {
+        zmq_Socket_->set(zmq::sockopt::tcp_keepalive, 1);
+        zmq_Socket_->set(zmq::sockopt::tcp_keepalive_idle, 30);
+        zmq_Socket_->set(zmq::sockopt::tcp_keepalive_cnt, 5);
+        zmq_Socket_->set(zmq::sockopt::tcp_keepalive_intvl, 1);
+
         zmq_Socket_->connect(addr);
         addr_ = addr;
         prefix_ = prefix;
@@ -121,8 +126,8 @@ public:
         else
             bind(addr, prefix);
         if(type == "ZMQ_SUB")
-            zmq_Socket_->setsockopt(ZMQ_SUBSCRIBE, prefix.c_str(), prefix.size());
-        zmq_Socket_->setsockopt(ZMQ_RCVTIMEO, 100);
+            zmq_Socket_->set(zmq::sockopt::subscribe, prefix.c_str());
+        zmq_Socket_->set(zmq::sockopt::rcvtimeo, 100);
     }
 
     FunctionDefSP getParser() {
@@ -258,18 +263,18 @@ private:
     ConstantSP zmqSocket_;
     TableSP dummytable_;
     SessionSP session_;
+    vector<string> colNames_;
 
 public: 
     ZmqPusher(ConstantSP zmqSocket, TableSP dummytable, Heap* heap){
         zmqSocket_ = zmqSocket;
-        vector<string> colNames;
         vector<DATA_TYPE> colTypes;
         int cols = dummytable->columns();
         for(int i = 0; i < cols; ++i){
-            colNames.push_back(dummytable->getColumnName(i));
+            colNames_.push_back(dummytable->getColumnName(i));
             colTypes.push_back(dummytable->getColumnType(i));
         }
-        dummytable_ = Util::createTable(colNames, colTypes, 0, 0);
+        dummytable_ = Util::createTable(colNames_, colTypes, 0, 0);
         session_ = heap->currentSession()->copy();
     }
 
@@ -281,7 +286,22 @@ public:
             return false;
         }
         try{
-            vector<ConstantSP> args{zmqSocket_, values[0]};
+            TableSP inputTable;
+            if(values.size() == 1 && values[0]->isTuple()){
+                vector<ConstantSP> cols;
+                for(int i = 0 ; i < values[0]->size(); i++){
+                    cols.emplace_back(values[0]->get(i));
+                }
+                inputTable = Util::createTable(colNames_, cols);
+            } else if(values.size() == 1 && values[0]->isTable()){
+                inputTable = values[0];
+            }
+            else{
+                inputTable = Util::createTable(
+                    colNames_,
+                    vector<ConstantSP>(values.begin(), values.begin() + values.size()));
+            }
+            vector<ConstantSP> args{zmqSocket_, inputTable};
             bool ret =zmqSend(session_->getHeap().get(), args)->getBool();
             if(!ret)
                 return false;

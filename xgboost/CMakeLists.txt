@@ -6,7 +6,7 @@ add_definitions(-DLOCKFREE_SYMBASE)
 if (WIN32 OR MINGW)
     set (platform_macro "-DWINDOWS")
     set (plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginXgboost_win.txt")
-    set (xgboost_lib "xgboost.a")
+    set (xgboost_lib "xgboost.dll")
 elseif (UNIX)
     set (platform_macro "-DLINUX")
     add_compile_options("-D_GLIBCXX_USE_CXX11_ABI=0")
@@ -35,6 +35,11 @@ set_target_properties(PluginXgboost
     PROPERTIES
     LINK_FLAGS "-fopenmp -static-libstdc++"
     )
-add_custom_command( TARGET PluginXgboost POST_BUILD 
+
+if (WIN32 OR MINGW)
+    configure_file(${plugin_file} ${CMAKE_BINARY_DIR}/PluginXgboost.txt COPYONLY)
+elseif (UNIX)
+    add_custom_command( TARGET PluginXgboost POST_BUILD 
                     COMMAND cp ${plugin_file} "${CMAKE_BINARY_DIR}/PluginXgboost.txt"
                     COMMENT "copy PluginXgboost.txt")
+endif ()

@@ -37,12 +37,12 @@ extern "C" ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args);
 
 class OdbcConnection{
 public:
-    OdbcConnection(const nanodbc::connection& connection, const string& dataBaseTybe):connection_(connection),databaseTybe_(dataBaseTybe){}
+    OdbcConnection(const nanodbc::connection& connection, const string& dataBaseType):connection_(connection),dataBaseType_(dataBaseType){}
     nanodbc::connection* getConnection(){return &connection_;};
-    string getDataBaseType(){return databaseTybe_;}
+    string getDataBaseType(){return dataBaseType_;}
 private:
     nanodbc::connection connection_;
-    string databaseTybe_;
+    string dataBaseType_;
 };
 
 #endif /* DOLPHINDBODBC_H_ */

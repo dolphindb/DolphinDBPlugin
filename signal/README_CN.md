@@ -64,6 +64,7 @@ loadPlugin("/path/to/PluginSignal.txt");
 ## 1. signal::dct
 对离散信号作离散余弦变换，返回变换序列
 
+**语法**
 
 ```
 signal::dct(X)
@@ -79,7 +80,6 @@ signal::dct(X)
 
 ## 2. signal::dst
 对离散信号作离散正弦变换，返回变换序列
-
 **语法**
 
 ```
@@ -96,7 +96,6 @@ signal::dst(X)
 
 ## 3. signal::dwt
 对离散信号作一维离散小波变换，返回由变换序列组成的table
-
 **语法**
 
 ```
@@ -113,7 +112,6 @@ signal::dwt(X)
 
 ## 4. signal::idwt
 对一维离散小波变换得到的两个序列作逆变换，返回得到的信号序列
-
 **语法**
 
 ```
@@ -131,7 +129,6 @@ signal::idwt(X,Y)
 
 ## 5. signal::dctParallel
 离散余弦变换的分布式版本，对离散信号作离散余弦变换，返回变换序列
-
 **语法**
 
 ```
@@ -149,7 +146,6 @@ signal::dct(ds)
 ## 6. signal::fft
 
 一维快速傅立叶变换
-
 
 **语法**
 
@@ -180,7 +176,6 @@ signal::fft(X,[n,norm])
 
 一维快速傅立叶逆变换
 
-
 **语法**
 
 ```
@@ -209,7 +204,6 @@ signal::ifft(X,[n,norm])
 ## 10. signal::fft2
 
 二维快速傅立叶变换
-
 
 **语法**
 
@@ -240,7 +234,6 @@ signal::fft2(X,[s,norm])
 
 二维快速傅立叶变换
 
-
 **语法**
 
 ```
@@ -269,7 +262,6 @@ signal::ifft2(X,[s,norm])
 ## 14. signal::secc
 
 波形互相关
-
 
 **语法**
 

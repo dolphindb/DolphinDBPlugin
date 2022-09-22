@@ -100,7 +100,7 @@ loadPlugin("/path/to/PluginNsq.txt");
 
 `configFilePath` 一个字符串，表示 `sdk_config.ini` 的绝对路径；若拷贝 `sdk_config.ini` 至 dolphindb server，则可以是相对于 dolphindb server 的一个相对路径。
 
-`options` 可选参数。是字典类型，表示扩展参数。当前键只支持receivedTime。详见后文示例。
+`options` 可选参数。是字典类型，表示扩展参数。当前键只支持 receivedTime，表示是否显示接收时间，对应值为布尔值。详见后文示例。
 
 **函数详情**
 
@@ -112,11 +112,11 @@ loadPlugin("/path/to/PluginNsq.txt");
 
 **参数**
 
-`dataType` 一个字符串，表示所要获取的表结构的类型，包含snapshot，trade，orders。
+`dataType` 一个字符串，表示所要获取的表结构的类型，包含 snapshot, trade, orders。
 
 **函数详情**
 
-该函数需要在connect函数之后调用。后续根据getSchema返回的表结构创建流表。
+该函数需要在 connect 函数之后调用。后续根据 getSchema 返回的表结构创建流表。
 
 ### nsq::subscribe(type, location, streamTable)
 
@@ -191,7 +191,7 @@ select * from status;
 例如当前状态可能如下:
 
 ```
-topicType     isConnected isSubscribed processedMsgCount lastErrMsg failedMsgCount lastFailedTimestamp
+topicType     isConnected isSubscribed processedMsgCount lastErrMsg failedMsgCount lastFailedTimesconnecttamp
 -------------- ----------- ------------ ----------------- ---------- -------------- -------------------
 (snapshot, sh) true        true         0                            0
 (snapshot, sz) true        true         0                            0

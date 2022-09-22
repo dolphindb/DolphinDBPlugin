@@ -228,7 +228,13 @@ NANOTIMESTAMP|timestamp|
 |SYMBOL|varchar(255)|
 |STRING|varchar(255)|
 
+## 6 数据库支持情况
 
-
-
-
+| 需要连接的数据库 | 支持情况                                                     | 备注 |
+| ---------------- | ------------------------------------------------------------ | ---- |
+| MySQL            | centos7稳定，推荐在连接时指定“MYSQL”                         |      |
+| PostgreSQL       | centos7稳定，推荐在连接时指定“PostgreSQL”                    |      |
+| SQLServer        | centos7稳定，推荐在连接时指定“SQLServer”                     |      |
+| Clickhouse       | 需要uniodbc2.3.6及以上版本。<br />低版本unixodbc可能会导致在用户输入有语法错误的查询语句后程序崩溃。 |      |
+| SQLite           | 不推荐使用                                              |      |
+| Oracle           | 不推荐使用                                              |      |
