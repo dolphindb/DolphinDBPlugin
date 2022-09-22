@@ -177,7 +177,7 @@ zmq::createSubJob(addr, type, isConnnect, handle, parser, [prefix])
 
 #### 详情
 
-创建一个zmq订阅。
+创建一个zmq订阅，且满足网络断线重连后，订阅也自动重连。
 
 #### 参数
 
@@ -394,7 +394,7 @@ loadPlugin("/home/zmx/worker/DolphinDBPlugin/zmq/cmake-build-debug/PluginZmq.txt
 go
 formatter = zmq::createJSONFormatter()
 socket = zmq::socket("ZMQ_PUB", formatter)
-zmq::connect(socket, "tcp://localhost:55632")
+zmq::bind(socket, "tcp://localhost:55632")
 data = table(1..10 as id, take(now(), 10) as ts, rand(10, 10) as volume)
 zmq::send(socket, data)
 ```

@@ -90,7 +90,7 @@ ConstantSP zmqSend(Heap *heap, vector<ConstantSP> &args) {
     string prefix = socket->getPrefix();
     ConstantSP data = args[1];
     int batchSize = socket->getBatchSize();
-    if(data->getForm() == DF_TABLE && batchSize != -1){
+    if(batchSize != -1 && args[1]->getForm() == DF_TABLE){
         int index = 0;
         int size = data->size();
         while(index < size){
@@ -160,7 +160,7 @@ ConstantSP zmqSend(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP zmqCreateSubJob(Heap *heap, vector<ConstantSP> &args) {
-    if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR || args[0]->getString().find("zmq socket") == string::npos) {
+    if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR) {
         throw RuntimeException("addr must be a string scalar");
     }
     string addr = args[0]->getString();
@@ -272,7 +272,7 @@ void AppendTable::run() {
 
 ConstantSP zmqClose(Heap *heap, vector<ConstantSP> &args) {
     if (args[0]->getType() != DT_RESOURCE || args[0]->getLong() == 0 ||
-        args[0]->getString().find("zmq socket bind") != 0) {
+        args[0]->getString().find("zmq socket") != 0) {
         throw IllegalArgumentException(__FUNCTION__, "channel must be a zmq Socket handle");
     }
     ZmqSocket *socket = reinterpret_cast<ZmqSocket *> (args[0]->getLong());
@@ -297,7 +297,7 @@ ConstantSP zmqGetSubJobStat(Heap *heap, vector<ConstantSP> &args) {
         shared_ptr<ZmqSubSocket> subSocket = appendTable->getZmqSocket();
         connetionVec->setString(i, key);
         subAddrVec->setString(i, subSocket->getAddr());
-        prefixVec->setString(i, subSocket->getAddr());
+        prefixVec->setString(i, subSocket->getPrefix());
         recv->setLong(i, appendTable->getRecv());
         createTimestamp->setLong(i, zmqSubCon->getCreateTime());
     }

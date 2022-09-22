@@ -35,7 +35,7 @@ loadPlugin("/path_to_pluginAmdQuote/PluginAmdQuote.txt");
 ```
 ## 接口说明
 
-**amdQuote::connect(username, password, ips, ports)**
+**amdQuote::connect(username, password, ips, ports, options)**
 
 **参数**
 
@@ -46,6 +46,9 @@ loadPlugin("/path_to_pluginAmdQuote/PluginAmdQuote.txt");
 `ips` 为字符串向量, AMD 行情服务器 IP 列表，需要和端口列表数量相同。
 
 `ports` 为整型向量，AMD 行情服务器端口列表，需要和 IP 列表数量相同。
+
+`options` 可选参数。是字典类型，表示扩展参数。当前键只支持 receivedTime，表示是否获取插件收到行情数据的时间戳。    
+该参数指定为 dict(["ReceivedTime"], [true]) 时， getSchema 获取的表结构中将包含插件收到行情数据的时间戳列。
 
 **函数详情**
 
@@ -107,7 +110,7 @@ loadPlugin("/path_to_pluginAmdQuote/PluginAmdQuote.txt");
 
 **函数详情**
 
-获取行情数据的表结构。返回一个表，包含两列：name 和 type，分别表示该行情表结构的名字和类型。通过该表来创建具有相同结构的共享流表。
+该函数应该在 connect 函数之后调用。获取行情数据的表结构。返回一个表，包含两列：name 和 type，分别表示该行情表结构的名字和类型。通过该表来创建具有相同结构的共享流表。
 
 **amdQuote::getStatus(handle)**
 
@@ -127,7 +130,11 @@ loadPlugin("/path_to_pluginAmdQuote/PluginAmdQuote.txt");
 ```
 loadPlugin("Your_plugin_path/PluginAmdQuote.txt")
 ```
-2.获取对应的表结构
+2.连接 AMD 服务器
+```
+handle = amdQuote::connect(`admin, `123456, [`119.29.65.231], [8031], dict(["ReceivedTime"], [true]))
+```
+3.获取对应的表结构
 ```
 snapshotSchema = getSchema(`snapshot); 
 
@@ -136,7 +143,7 @@ executionSchema = getSchema(`execution);
 orderSchema = getSchema(`order);
 ```
 
-3.创建流表
+4.创建流表
 ```
 snapshotTable = streamTable(10000:0, snapshotSchema[`name], snapshotSchema[`type]);
 
@@ -144,7 +151,7 @@ executionTable = streamTable(10000:0, executionSchema[`name], executionSchema[`t
 
 orderTable = streamTable(10000:0, orderSchema[`name], orderSchema[`type]);
 ```
-4.共享并持久化流表
+5.共享并持久化流表
 ```
 enableTableShareAndPersistence(table=snapshotTable, tableName=`snapshot1, cacheSize=10000)
 
@@ -152,13 +159,9 @@ enableTableShareAndPersistence(table=executionTable, tableName=`execution1, cach
 
 enableTableShareAndPersistence(table=orderTable, tableName=`order1, cacheSize=10000)
 ```
-5.连接 AMD 服务器
-```
-handle = amdQuote::connect(`admin, `123456, [`119.29.65.231], [8031])
-```
 6.订阅深圳市场全部股票代码 
 
-因为 AMD API 文档中深圳市场的枚举值为102，所以 `subscirbe` 的 *marketType* 参数指定为102.
+因为 AMD API 文档中深圳市场的枚举值为102，所以 `subscribe` 的 *marketType* 参数指定为102.
 
 对应的订阅快照，逐笔成交和逐笔委托的示例为： 
 ```

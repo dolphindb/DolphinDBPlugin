@@ -449,6 +449,9 @@ private:
             if (snapshotData_->columns() > (INDEX)snapshotDataTableMeta_.colTypes_.size()) {
                 snapshotDataTableMeta_.colNames_.push_back("receivedTime");
                 snapshotDataTableMeta_.colTypes_.push_back(DT_NANOTIMESTAMP);
+            }
+
+            if (snapshotDataTableMeta_.colNames_.back() == "receivedTime") {
                 receivedTimeFlag = true;
             }
 
@@ -940,6 +943,9 @@ private:
             if (orderData_->columns() > (INDEX)orderTableMeta_.colTypes_.size()) {
                 orderTableMeta_.colNames_.push_back("receivedTime");
                 orderTableMeta_.colTypes_.push_back(DT_NANOTIMESTAMP);
+            }
+
+            if (orderTableMeta_.colNames_.back() == "receivedTime") {
                 receivedTimeFlag = true;
             }
 
@@ -1042,6 +1048,9 @@ private:
             if (executionData_->columns() > (INDEX)executionTableMeta_.colTypes_.size()) {
                 executionTableMeta_.colNames_.push_back("receivedTime");
                 executionTableMeta_.colTypes_.push_back(DT_NANOTIMESTAMP);
+            }
+
+            if (executionTableMeta_.colNames_.back() == "receivedTime") {
                 receivedTimeFlag = true;
             }
 

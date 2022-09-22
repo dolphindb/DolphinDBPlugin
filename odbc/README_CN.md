@@ -2,6 +2,8 @@
 
 通过ODBC的Plugin可以将其它数据源数据导入到DolphinDB数据库。
 
+ODBC插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/odbc/README_CN.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/odbc/README_CN.md), [relsease120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/odbc/README_CN.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/odbc/README_CN.md)。您当前查看的插件版本为 release200，请使用 DolphinDB 2.00.X 版本 server。若使用其它版本 server，请切换至相应插件分支。
+
 ## 1. Prerequisites
 
 根据不同的操作系统和数据库，该插件需要以下用于ODBC的数据库驱动程序。
@@ -226,7 +228,13 @@ NANOTIMESTAMP|timestamp|
 |SYMBOL|varchar(255)|
 |STRING|varchar(255)|
 
+## 6 数据库支持情况
 
-
-
-
+| 需要连接的数据库 | 支持情况                                                     | 备注 |
+| ---------------- | ------------------------------------------------------------ | ---- |
+| MySQL            | centos7稳定，推荐在连接时指定“MYSQL”                         |      |
+| PostgreSQL       | centos7稳定，推荐在连接时指定“PostgreSQL”                    |      |
+| SQLServer        | centos7稳定，推荐在连接时指定“SQLServer”                     |      |
+| Clickhouse       | 需要uniodbc2.3.6及以上版本。<br />低版本unixodbc可能会导致在用户输入有语法错误的查询语句后程序崩溃。 |      |
+| SQLite           | 不推荐使用                                              |      |
+| Oracle           | 不推荐使用                                              |      |

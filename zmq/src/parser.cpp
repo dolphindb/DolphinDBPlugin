@@ -45,6 +45,10 @@ ConstantSP parseJSON(Heap* heap, vector<ConstantSP>& args) {
         for (auto it = row.begin(); it != row.end(); ++it) {
             int curCol = colIdx[it.key()];
             //std::cout << curCol << " " << dt[curCol] << " " << it.key() << " " << it.value() << std::endl;
+            if(it->is_null()){
+                cols[curCol]->setNull(i);
+                continue;
+            }
             switch (dt[curCol]) {
                 case DT_BOOL:                                    // true, false, True, False
                     cols[curCol]->setBool(i, it->get<int>());    // todo: should be bool
@@ -162,13 +166,13 @@ ConstantSP parseCSV(Heap* heap, vector<ConstantSP>& args) {
     string original = args[3]->getString();    // row1 [rowDelimiter] row2 ...
 
     vector<string> data = Util::split(original, rowDelimiter);
-    int nCols = schema->size();
+    size_t nCols = schema->size();
     int nRows = data.size();
 
     vector<DATA_TYPE> dt(nCols);
     vector<ConstantSP> cols(nCols);
 
-    for (int i = 0; i < nCols; ++i) {
+    for (size_t i = 0; i < nCols; ++i) {
         dt[i] = (DATA_TYPE)schema->getInt(i);
         if (dt[i] == DT_SYMBOL)
             dt[i] = DT_STRING;
@@ -176,7 +180,9 @@ ConstantSP parseCSV(Heap* heap, vector<ConstantSP>& args) {
     }
     for (int i = 0; i < nRows; ++i) {
         vector<string> raw = Util::split(data[i], delimiter);
-        for (int j = 0; j < nCols; ++j) {
+        if(raw.size() < nCols)
+            throw RuntimeException("The number of elements in row " + std::to_string(i + 1) + " of the original data is less than the number of schemas. ");
+        for (size_t j = 0; j < nCols; ++j) {
             switch (dt[j]) {
                 case DT_BOOL:                                 // true, false, True, False
                     cols[j]->setBool(i, raw[j][0] == '1');    // todo: should be 0 or 1
@@ -282,7 +288,7 @@ ConstantSP parseCSV(Heap* heap, vector<ConstantSP>& args) {
         }
     }
     vector<string> colNames(nCols);
-    for (int i = 0; i < nCols; ++i)
+    for (size_t i = 0; i < nCols; ++i)
         colNames[i] = string("c").append(Util::convert(i));
     return Util::createTable(colNames, cols);
 }
