@@ -38,7 +38,7 @@ When we use loadPlugin to load the lib file, we may have an error message **libo
 Use the following script to solve the problem:
 ```
 cd /usr/lib64
-ln -s libodbc.so.2.0.0.0 libodbc.so.1
+ln -s libodbc.so.2.0.0 libodbc.so.1
 ```
 Please use the correct lib file name in place of ```libodbc.so.2.0.0```.
 
