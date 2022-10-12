@@ -35,7 +35,7 @@ cd DolphinDB/server //进入DolphinDB server目录
 
 ### 1.2 自行编译
 
-要用到mongodb-c-driver，它的依赖库包括snapmongodb，ICU，openssl。
+要用到mongodb-c-driver，它的依赖库包括snappy，ICU，openssl。
 
 在<PluginDir>/mongodb/bin目录下有对应与linux64和win64的依赖库，只需要cmake和对应编译器(linux为g++,window为MinGW)即可在本地编译mongodb插件。
 
@@ -84,7 +84,7 @@ mingw32-make -j4
 
 编译后目录下会产生文件libPluginMongodb.dll和PluginMongodb.txt，还会把<PluginDir>/mongodb/bin/windows下的4个动态库拷贝到该目录下。
 
->以下编译的mongodb-c-driver、snapmongodb、ICU和openssl的依赖库文件，都可以在<PluginDir>/mongodb/bin目录下找到。
+>以下编译的mongodb-c-driver、snappy、ICU和openssl的依赖库文件，都可以在<PluginDir>/mongodb/bin目录下找到。
 
 ### 1.3编译依赖库
 
@@ -102,12 +102,12 @@ sudo make install
 ```
 --prefix是为了指定安装位置，后面会使用到这个版本的openssl的头文件和静态库。
 
-##### 安装snapmongodb
+##### 安装snappy
 
 ```
-wget https://github.com/google/snapmongodb/archive/1.1.7.tar.gz
+wget https://github.com/google/snappy/archive/1.1.7.tar.gz
 tar -zxf 1.1.7.tar.gz
-cd snapmongodb-1.1.7/cmake
+cd snappy-1.1.7/cmake
 CXXFLAGS="-fPIC" cmake ..
 make
 sudo make install
@@ -172,7 +172,7 @@ mongodb::connect(host, port, user, password, [db])
 * port: MongoDB服务器的端口，类型为int。
 * user: MongoDB服务器的用户名，类型为string。如果没有开启mongodb用户权限认证，则填写空字符串""。
 * password: MongoDB服务器的密码，类型为string。如果没有开启mongodb用户权限认证，则填写空字符串""。
-* db: 验证登录用户的数据库，类型为string。在mongodb中储藏对应登录用户的数据库。如果不填写，将以参数`host`指定的mongodb服务器的`admin`数据库进行登录用户验证。
+* db: 验证登录用户的数据库，类型为string。在mongodb中存储对应登录用户的数据库。如果不填写，将以参数`host`指定的mongodb服务器的`admin`数据库进行登录用户验证。
 
 #### 详情
 
@@ -194,23 +194,23 @@ mongodb::load(connection, collcetionName, query, option, [schema])
 #### 参数
 
 * connection: 通过mongodb::connect获得的MongoDB连接句柄。
-* collcetionName: 一个MongoDB中集合的名字。有两种参数模式(`collectionName和"databaseName:collectionName"),第一种会查询由mongodb::connect创建的connection的database，第二种是查询指定database中的collection。
+* collcetionName: 一个MongoDB中集合的名字。有两种参数模式(`collectionName和"databaseName:collectionName")，第一种会查询由mongodb::connect创建的connection的database，第二种是查询指定database中的collection。
 采用"databaseName:collectionName"的样式会提供一次对临时数据库的查询，将会访问由mongodb::connect方法创建mongodb连接时设置的数据库或者是当前指定的数据库，
-上一次的load方法的设置的临时数据库不会影响当前数据库的选择。
-* query: MongoDB查询条件，保留bson格式的json文档，类似:{ "aa" : { "$numberInt" : "13232" } }、{ "datetime" : { "$gt" : {"$date":"2019-02-28T00:00:00.000Z" }} }，类型为string。
-* option: MongoDB查询选项，保留bson格式的json文档，类似:{"limit":123}对查询结果在MongoDB中进行预处理再返回，类型为string。
+上一次load方法设置的临时数据库不会影响当前数据库的选择。
+* query: MongoDB查询条件，保留bson格式的json文档，类似：{ "aa" : { "$numberInt" : "13232" } }、{ "datetime" : { "$gt" : {"$date":"2019-02-28T00:00:00.000Z" }} }，类型为string。
+* option: MongoDB查询选项，保留bson格式的json文档，类似：{"limit":123}对查询结果在MongoDB中进行预处理再返回，类型为string。
 * schema: 包含列名和列的数据类型的表。如果我们想要改变由系统自动决定的列的数据类型，需要在schema表中修改数据类型，并且把它作为load函数的一个参数。
 
 #### 详情
 
-将MongoDB的查询结果导入DolphinDB中的内存表。支持的数据类型以及数据转化规则可见用户手册数据类型章节。
+将MongoDB的查询结果导入DolphinDB中的内存表。支持的数据类型以及数据转化规则参见用户手册[数据类型章节](https://www.dolphindb.cn/cn/help/DataTypesandStructures/DataTypes/index.html)。
 
 #### 例子
 
 ```
 conn = mongodb::connect(`localhost, 27017, `root, `root, `DolphinDB)
-query=`{ "datetime" : { "$gt" : {"$date":"2019-02-28T00:00:00.000Z" }} }
-option=`{"limit":1234}
+query='{ "datetime" : { "$gt" : {"$date":"2019-02-28T00:00:00.000Z" }} }'
+option='{"limit":1234}'
 tb=mongodb::load(conn, `US,query,option)
 select count(*) from tb
 tb2 = mongodb::load(conn, 'dolphindb:US',query,option)
@@ -219,7 +219,7 @@ schema=table(`item`type`qty as name,`STRING`STRING`INT as type)
 tb2 = mongodb::load(conn, 'dolphindb:US',query,option,schema)
 ```
 
-### 2.3 mongodb::aggregate(connection, collcetionName, pipeline, option, [schema])
+### 2.3 mongodb::aggregate
 
 #### 语法
 
@@ -228,16 +228,17 @@ mongodb::aggregate(connection, collcetionName, pipeline, option, [schema])
 #### 参数
 
 * connection: 通过mongodb::connect获得的MongoDB连接句柄。
-* collcetionName: 一个MongoDB中集合的名字。有两种参数模式(`collectionName和"databaseName:collectionName"),第一种会查询由mongodb::connect创建的connection的database，第二种是查询指定database中的collection。
+* collcetionName: 一个MongoDB中集合的名字。有两种参数模式(`collectionName和"databaseName:collectionName")，第一种会查询由mongodb::connect创建的connection的database，第二种是查询指定database中的collection。
+
   采用"databaseName:collectionName"的样式会提供一次对临时数据库的查询，将会访问由mongodb::connect方法创建mongodb连接时设置的数据库或者是当前指定的数据库，
-  上一次的load方法的设置的临时数据库不会影响当前数据库的选择。
-* pipeline: MongoDB据聚合或操作，保留bson格式的json文档，类似:{ "aa" : { "$numberInt" : "13232" } }、{ "datetime" : { "$gt" : {"$date":"2019-02-28T00:00:00.000Z" }} }，类型为string。
-* option: MongoDB查询选项，保留bson格式的json文档，类似:{"limit":123}对查询结果在MongoDB中进行预处理再返回，类型为string。
+  上一次load方法设置的临时数据库不会影响当前数据库的选择。
+* pipeline: MongoDB聚合管道，保留bson格式的json文档，类似：{$group : {_id : "$by_user", num_tutorial : {$sum : 1}}}，类型为string。
+* option: MongoDB查询选项，保留bson格式的json文档，类似：{"limit":123}对查询结果在MongoDB中进行预处理再返回，类型为string。
 * schema: 包含列名和列的数据类型的表。如果我们想要改变由系统自动决定的列的数据类型，需要在schema表中修改数据类型，并且把它作为load函数的一个参数。
 
 #### 详情
 
-将MongoDB的查询结果导入DolphinDB中的内存表。支持的数据类型以及数据转化规则可见用户手册数据类型章节。
+将MongoDB的（聚合）查询结果导入DolphinDB中的内存表。支持的数据类型以及数据转化规则参见用户手册[数据类型章节](https://www.dolphindb.cn/cn/help/DataTypesandStructures/DataTypes/index.html)。
 
 #### 例子
 
@@ -280,14 +281,14 @@ mongodb::close(conn)
 mongodb::parseJson(str, keys, colnames, colTypes)
 
 #### 详情
-解析json类型的数据，转换到dolphindb的表。
+解析json类型的数据，转换到DolphinDB的内存表并返回该内存表。
 
 #### 参数
-* str: 需要解析的json格式的字符串，类型为string类型的vector。
-* originColNames: 原始json的键，类型为string类型的vector。
-* convertColNames: 结果表json的键，类型为string类型的vector。
-* types: 转换类型，类型为int类型的vector。
-types支持bool、int、float、double、string以及arrayVector类型bool[]、int[]、float[]、double[].。其中int、float、double支持读取json中的int、float、double，可以相互转换。
+* str: 需要解析的json格式的字符串，为string类型的vector。
+* keys: 原始json的键，为string类型的vector。
+* colnames: 结果表json的键，为string类型的vector。
+* colTypes: 向量，表示结果表中的数据类型。
+colTypes支持BOOL, INT, FLOAT, DOUBLE, STRING以及BOOL[], INT[], FLOAT[], DOUBLE[]类型的array vector。其中支持将json中的int, float, double类型转换为INT, FLOAT, DOUBLE，且三种类型之间可以相互转换。
 
 #### 例子
 
@@ -299,7 +300,7 @@ data = ['{"a": 1, "b": 2}', '{"a": 2, "b": 3}']
 [INT, INT] )
 ```
 
-### 2.6 mongodb::getCollections([databaseName])
+### 2.6 mongodb::getCollections
 
 #### 语法
 
@@ -352,7 +353,7 @@ t = select * from res
 | int64(long)   | LONG               |
 | bool           | BOOL               |
 
-DolphinDB中各类整形的最小值为NULL值，例如：INT的-2,147,483,648以及LONG的-9,223,372,036,854,775,808。
+DolphinDB中各类整型的最小值（例如：INT的-2,147,483,648以及LONG的-9,223,372,036,854,775,808）为NULL值。
 
 
 ### 3.2 浮点数类型
