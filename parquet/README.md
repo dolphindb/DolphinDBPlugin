@@ -2,6 +2,9 @@
 
 Apache Parquet is a columnar storage format for efficient data storage and retrieval. This tutorial introduces how to use DolphinDB Parquet plugin to import and export Parquet files to and from DolphinDB.
 
+The DolphinDB Parquet plugin has the branches [release 200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/parquet/README.md) and [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/parquet/README.md). Each plugin version corresponds to a DolphinDB server version. You're looking at the plugin documentation for release200. If you use a different DolphinDB server version, please refer to the corresponding branch of the plugin documentation.
+
+
 * [1 Install the Plugin](#1-install-the-plugin)
     * [1.1 Download Precompiled Binaries](#11-download-precompiled-binaries)
     * [1.2 (Optional) Build a Plugin](#12-optional-build-a-plugin)
