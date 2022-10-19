@@ -20,7 +20,7 @@ cmake ..
 make
 ```
 ### 1.2 windows上编译
-通过cmake和MinGW编译。因此需要先安装[cmake](https://cmake.org/)和[MinGW](http://www.mingw.org/)环境，目前在64位win10上用MinGW-W64-builds-4.3.3版本编译通过。把MingGW和cmake的bin目录加入Windows系统Path路径。 
+通过cmake和MinGW编译。因此需要先安装[cmake](https://cmake.org/)和[MinGW](http://www.mingw.org/)环境，目前在64位win10上用MinGW-W64-builds-4.3.3版本编译通过。把MinGW和cmake的bin目录加入Windows系统Path路径。 
 
 ```
     git clone https://github.com/dolphindb/DolphinDBPlugin.git
@@ -37,7 +37,7 @@ make
 ```
     set(MINGW32_LOCATION C://MinGW/MinGW/)  
 ```
-编译之后目录下会产生libPluginMQTTClient.dll.dll文件，然后按预编译安装方法导入并加载。
+编译之后目录下会产生libPluginMQTTClient.dll文件，然后按预编译安装方法导入并加载。
 
 
 ## 2. 准备
