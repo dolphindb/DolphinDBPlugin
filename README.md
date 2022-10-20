@@ -15,7 +15,7 @@ DolphinDB database supports dynamic loading of external plugins to extend system
 
 ## 1. Directory Structures
 
-Please switch to the corresponding branch to view the following listed directories for each plugin. The master branch doesn’t contain these directories.
+Please switch to the corresponding branch to view the following listed directories for each plugin.
 
 * ```include```The directory contains the class declarations and some tool class declarations for the core data structures of DolphinDB. These classes are important basic tools for implementing plug-ins.
 * ```demo```The directory contains a demo plug-in implementation. 
@@ -25,7 +25,7 @@ Please switch to the corresponding branch to view the following listed directori
 
 ### 2.1 Load via function loadPlugin
 
-Use the [`loadPlugin`](https://www.dolphindb.cn/cn/help/loadPlugin.html) function to load external plugins. This function accepts a file path, which describes the format of the plugin, for example:
+Use the [`loadPlugin`]([https://www.dolphindb.cn/cn/help/loadPlugin.html](https://www.dolphindb.com/help/FunctionsandCommands/FunctionReferences/l/loadPlugin.html)) function to load external plugins. This function accepts a file path, which describes the format of the plugin, for example:
 
 ```
 loadPlugin("/YOUR_SEVER_PATH/plugins/odbc/PluginODBC.txt"); 
