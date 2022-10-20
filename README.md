@@ -25,7 +25,7 @@ Please switch to the corresponding branch to view the following listed directori
 
 ### 2.1 Load via function loadPlugin
 
-Use the [`loadPlugin`](https://www.dolphindb.cn/cn/help/loadPlugin.html) function to load external plugins. This function accepts a file path, which describes the format of the plugin, for example:
+Use the [`loadPlugin`](https://www.dolphindb.com/help/FunctionsandCommands/FunctionReferences/l/loadPlugin.html) function to load external plugins. This function accepts a file path, which describes the format of the plugin, for example:
 
 ```
 loadPlugin("/YOUR_SEVER_PATH/plugins/odbc/PluginODBC.txt"); 
@@ -103,6 +103,7 @@ foo
 >echo(1);
 1
 ```
+
 ## 5. Tips
 * We recommend that you use the command ld to check if the compiler link is successful and if there are undefined references in the so. If the command ld generates an error, then DolphinDB can not load the plug-in correctly.
 * If the program crashes after loading the plugin, try the following steps:
