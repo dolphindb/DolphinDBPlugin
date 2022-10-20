@@ -82,10 +82,11 @@ In detail, the plugin provides the following 5 functions:
 ### 4.1 odbc::connect()
 
 #### Syntax
-* odbc::connect(connStr)
+* odbc::connect(connStr, [dataBaseType])
 
 #### Parameters
 * connStr: an ODBC connection string. For more information regarding the format of the connection string, please refer to [the Connection Strings Reference](https://www.connectionstrings.com). ODBC DSN must be created by the system administrator. Its connection strings can be referenced [DSN connection strings](https://www.connectionstrings.com/dsn/). We can also create DSN-Less connections to the database. Rather than relying on information stored in a file or in the system registry, DSN-less connections specify the driver name and all driver-specific information in the connection string. For examples: [SQL server's DSN-less connection string](https://www.connectionstrings.com/sql-server/) and [MySQL's DSN-less connection string](https://www.connectionstrings.com/mysql/). Please note that the driver name could be different depending on the version of ODBC installed.
+* dataBaseType: the type of the database, e.g., "MYSQL", "SQLServer", "PostgreSQL". It is recommended to specify this parameter to avoid errors when writing data.
 
 #### Details
 
@@ -173,3 +174,52 @@ odbc::append(conn1, t,"ddbtale" ,true)
 odbc::query(conn1,"SELECT * FROM ecimp_ver3.ddbtale")
 ```
 
+## 5 Support Data Types
+### 5.1 For Queries
+| Type in ODBC     | Type in DolphinDB|
+| --------------------------- |-----------------|
+|   SQL_BIT   | BOOL|
+| SQL_TINYINT / SQL_SMALLINT | SHORT|
+|SQL_INTEGER|INT|
+|SQL_BIGINT|LONG|
+|SQL_REAL|FLOAT|
+|SQL_FLOAT/SQL_DOUBLE/SQL_DECIMAL/SQL_NUMERIC|DOUBLE|
+|SQL_DATE/SQL_TYPE_DATE|DATE|
+|SQL_TIME/SQL_TYPE_TIME|SECOND|
+|SQL_TIMESTAMP/SQL_TYPE_TIMESTAMP|TIMESTAMP|
+|SQL_CHAR(len == 1)|CHAR|
+|SQL_CHAR(len <= 30)/SQL_VARCHAR(len <= 30)|SYMBOL|
+|...|STRING|
+
+### 5.2 For Data Conversion
+| Type in DolphinDB     | Type in PostgreSQL|
+| --------------------------- |-----------------|
+|   BOOL   | bit|
+|CHAR|char(1)|
+|SHORT|smallint|
+|INT|int|
+|LONG|bigint|
+|DATE|date|
+|MONTH|date|
+|TIME|time|
+|MINUTE|time|
+|SECOND|time|
+|DATETIME|timestamp|
+|TIMESTAMP|timestamp|
+|NANOTIME|time|
+NANOTIMESTAMP|timestamp|
+|FLOAT|float|
+|DOUBLE|double precision|
+|SYMBOL|varchar(255)|
+|STRING|varchar(255)|
+
+## 6 Supported Databases
+
+| Database | Details                                                     |
+| ---------------- | ------------------------------------------------------------ |
+| MySQL            | stable on CentOS7. It is recommended to specify "MYSQL" for the *dataBaseType* parameter when setting up connection.                         |      
+| PostgreSQL       | stable on CentOS7. It is recommended to specify "PostgreSQL" for the *dataBaseType* parameter when setting up connection.                    |      
+| SQLServer        | stable on CentOS7. It is recommended to specify "PostgreSQL" for the *dataBaseType* parameter when setting up            |      |
+| Clickhouse       | unixODBC-2.3.6 or higher version is required. Lower versions of unixODBC may cause the system to crash after the user enters a query statement with a syntax error.|      
+| SQLite           | not recommended                                     |
+| Oracle           | not recommended                                          |
