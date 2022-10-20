@@ -1,7 +1,7 @@
 # OPC Plugin
 
 - [OPC Plugin](#opc-plugin)
-  - [Install the Plugin](#install-the-plugin)
+  - [1. Install the Plugin](#1-install-the-plugin)
     - [1.1 Install OPC Core Components](#11-install-opc-core-components)
     - [1.2 Download Precompiled Binaries](#12-download-precompiled-binaries)
     - [1.3 Build a Plugin](#13-build-a-plugin)
@@ -18,7 +18,7 @@
 The OPC Data Access(OPC DA) plugin for DolphinDB has implemented the OPC DA 2.05a Specification, which can be used to access and collect data from OPC servers.
 
 
-## Install the Plugin
+## 1. Install the Plugin
 
 You can install the plugin by downloading precompiled binaries for DolphinDB OPC Plugin or by manually compiling the project. 
 
