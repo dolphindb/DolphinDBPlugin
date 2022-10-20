@@ -3,7 +3,7 @@
 The DolphinDB OPC plugin has the branches [release 200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/opc/README.md) and [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/opc/README.md). Each plugin version corresponds to a DolphinDB server version. You're looking at the plugin documentation for release200. If you use a different DolphinDB server version, please refer to the corresponding branch of the plugin documentation.
 
 - [OPC Plugin](#opc-plugin)
-  - [Install the Plugin](#install-the-plugin)
+  - [1. Install the Plugin](#1-install-the-plugin)
     - [1.1 Install OPC Core Components](#11-install-opc-core-components)
     - [1.2 Download Precompiled Binaries](#12-download-precompiled-binaries)
     - [1.3 Build a Plugin](#13-build-a-plugin)
@@ -20,7 +20,7 @@ The DolphinDB OPC plugin has the branches [release 200](https://github.com/dolph
 The OPC Data Access(OPC DA) plugin for DolphinDB has implemented the OPC DA 2.05a Specification, which can be used to access and collect data from OPC servers.
 
 
-## Install the Plugin
+## 1. Install the Plugin
 
 You can install the plugin by downloading precompiled binaries for DolphinDB OPC Plugin or by manually compiling the project. 
 
