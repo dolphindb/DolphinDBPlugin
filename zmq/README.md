@@ -55,24 +55,24 @@ make
 
 ### 2.1 zmq::socket
 
-#### 语法
+**语法**
 
 zmq::socket(type, formatter, [batchSize], [prefix])
 
-#### 详情
+**详情**
 
 创建一个zmq socket。
 
 **注意**：对connect, bind, send, close接口进行并发操作时，需要为各线程创建不同的zmq socket连接句柄。
 
-#### 参数
+**参数**
 
 * type: 为STRING类型，表示要创建的socket类型，取值为"ZMQ_PUB"和"ZMQ_PUSH"。
 * formatter: 一个函数，用于指定发布的数据的打包格式，包括CSV或JSON两种格式。由`createJSONFormatter`或`createCSVFormatter`创建。
 * batchSize: 为INT类型，表示每次发送的记录行数。当待发布内容是一个表时，可以进行分批发送。
 * prefix: 为STRING类型，表示发送前缀。
 
-#### 例子
+**例子**
 ```
 formatter = zmq::createJSONFormatter()
 socket = zmq::socket("ZMQ_PUB", formatter)
@@ -80,20 +80,20 @@ socket = zmq::socket("ZMQ_PUB", formatter)
 
 ### 2.2 zmq::connect
 
-#### 语法
+**语法**
 
 zmq::connect(socket, addr, [prefix])
 
-#### 详情
+**详情**
 
 进行zmq的socket连接。tcp建立连接后会保活，使得网络断开又恢复后可以自动重连。
 
-#### 参数
+**参数**
 * socket: zmq连接句柄。
-* addr: 是一个STRING，格式为"transport://address:port"，表示socket连接到的远端地址。transport表示要使用的底层协议，取值为tcp, ipc, inproc, pgm或epgm。address:port表示远端的IP地址和端口号。
+* addr: 地址，类型为STRING，格式为"transport://address:port"，表示socket连接到的远端地址。transport表示要使用的底层协议，取值为tcp, ipc, inproc, pgm或epgm。address:port表示远端的IP地址和端口号。
 * prefix: 发送前缀，类型为STRING。
 
-#### 例子
+**例子**
 ```
 formatter = zmq::createJSONFormatter()
 socket = zmq::socket("ZMQ_PUB", formatter)
@@ -102,20 +102,20 @@ zmq::connect(socket, "tcp://localhost:55632", "prefix1")
 
 ### 2.3 zmq::bind
 
-#### 语法
+**语法**
 
 zmq::bind(socket, addr, [prefix])
 
-#### 详情
+**详情**
 
 绑定socket，接收发来的链接请求。
 
-#### 参数
+**参数**
 * socket: zmq连接句柄。
-* addr: 是一个STRING，格式为"transport://address:port"，表示socket绑定的地址。transport表示要使用的底层协议，取值为tcp, ipc, inproc, pgm或epgm。address:port表示进行绑定的地址和端口号，*表示同一个服务器的所有IP。
+* addr: 地址，类型为STRING，格式为"transport://address:port"，表示socket绑定的地址。transport表示要使用的底层协议，取值为tcp, ipc, inproc, pgm或epgm。address:port表示进行绑定的地址和端口号，*表示同一个服务器的所有IP。
 * prefix: 发送前缀，类型为STRING。
 
-#### 例子
+**例子**
 ```
 formatter = zmq::createJSONFormatter()
 socket = zmq::socket("ZMQ_PUB", formatter)
@@ -124,15 +124,15 @@ zmq::bind(socket, "tcp://*:55631", "prefix1")
 
 ### 2.4 zmq::send
 
-#### 语法
+**语法**
 
 zmq::send(socket, data, [prefix])
 
-#### 详情
+**详情**
 
 发送一条zmq消息。
 
-#### 参数
+**参数**
 * socket: zmq连接句柄。
 * data: 发送的数据，为一个表。
 * prefix: 消息前缀，为STRING类型。
@@ -141,7 +141,7 @@ zmq::send(socket, data, [prefix])
 
 如果发送成功，返回true。
 
-#### 例子
+**例子**
 ```
 formatter = zmq::createJSONFormatter()
 socket = zmq::socket("ZMQ_PUB", formatter)
@@ -151,15 +151,15 @@ zmq::send(socket, table(1..10 as id))
 
 ### 2.5 zmq::close
 
-#### 语法
+**语法**
 
 zmq::close(socket)
 
-#### 详情
+**详情**
 
 关闭一个zmq连接句柄。
 
-#### 例子
+**例子**
 ```
 formatter = zmq::createJSONFormatter()
 socket = zmq::socket("ZMQ_PUB", formatter)
@@ -171,15 +171,15 @@ zmq::close(socket)
 
 ### 3.1 zmq::createSubJob
 
-#### 语法
+**语法**
 
 zmq::createSubJob(addr, type, isConnnect, handle, parser, [prefix])
 
-#### 详情
+**详情**
 
 创建一个zmq订阅，且满足网络断线重连后，订阅也自动重连。
 
-#### 参数
+**参数**
 
 * addr: 是一个STRING，格式为"transport://address:port"。transport表示要使用的底层协议，取值为tcp, ipc, inproc, pgm或epgm。address:port表示zmq绑定的地址和端口。
 * type: 为STRING类型，表示zmq的socket类型，取值为"ZMQ_SUB"h和"ZMQ_PULL"。
@@ -188,7 +188,7 @@ zmq::createSubJob(addr, type, isConnnect, handle, parser, [prefix])
 * parser: 一个函数，用于对发布的数据按CSV或JSON格式进行解包。由`createJSONParser`或`createCSVParser`创建。
 * prefix: 为STRING类型，表示消息前缀。
 
-#### 例子
+**例子**
 ```
 handle = streamTable(10:0, [`int], [INT])
 enableTableShareAndPersistence(table=handle, tableName=`test1, asynWrite=true, compress=true, cacheSize=10000000, retentionMinutes=120)
@@ -214,11 +214,11 @@ while True:
 
 ### 3.2 zmq::getSubJobStat
 
-#### 语法
+**语法**
 
 zmq::getSubJobStat()
 
-#### 详情
+**详情**
 
 查询所有zmq订阅信息。
 
@@ -229,7 +229,7 @@ zmq::getSubJobStat()
 * recvPackets: zmq订阅收到的消息报文数。
 * createTimestamp: 表示订阅建立时间。
 
-#### 例子
+**例子**
 ```
 handle = streamTable(10:0, [`int], [INT])
 enableTableShareAndPersistence(table=handle, tableName=`test1, asynWrite=true, compress=true, cacheSize=10000000, retentionMinutes=120)
@@ -241,19 +241,19 @@ zmq::getSubJobStat()
 
 ### 3.3 zmq::cancelSubJob
 
-#### 语法
+**语法**
 
 zmq::cancelSubJob(subscription)
 
-#### 详情
+**详情**
 
 关闭一个zmq订阅。
 
-#### 参数
+**参数**
 
 * subscription: 是`createSubJob`函数返回的值或`getJobStat`返回的订阅标识符。
 
-#### 例子
+**例子**
 ```
 zmq::cancelSubJob(sub1)
 zmq::cancelSubJob(42070480)
@@ -261,20 +261,20 @@ zmq::cancelSubJob(42070480)
 
 ### 3.4 zmq::zmqCreatepusher
 
-#### 语法
+**语法**
 
 zmq::zmqCreatepusher(socket, dummyTable)
 
-#### 详情
+**详情**
 
 创建一个zmq的pusher，支持用append方法和作为流数据引擎的outputTable。
 
-#### 参数
+**参数**
 
 * socket: zmq的socket。
 * dummyTable: 提供输入参数的schema。
 
-#### 例子
+**例子**
 ```
 share streamTable(1000:0, `time`sym`volume, [TIMESTAMP, SYMBOL, INT]) as trades
 output1 = table(10000:0, `time`sym`sumVolume, [TIMESTAMP, SYMBOL, INT])
