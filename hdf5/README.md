@@ -3,47 +3,86 @@
 DolphinDB's HDF5 plugin imports HDF5 datasets into DolphinDB and supports data type conversions.
 
 - [DolphinDB HDF5 Plugin](#dolphindb-hdf5-plugin)
-- [Build](#build)
-  - [For Linux users](#for-linux-users)
-    - [Build with cmake](#build-with-cmake)
-    - [Build with makefile](#build-with-makefile)
-  - [For Windows users](#for-windows-users)
-- [User-API](#user-api)
-  - [hdf5::ls](#hdf5ls)
-  - [hdf5::lsTable](#hdf5lstable)
-  - [hdf5::extractHDF5Schema](#hdf5extracthdf5schema)
-  - [hdf5::loadHDF5](#hdf5loadhdf5)
-  - [hdf5::loadHDF5Ex](#hdf5loadhdf5ex)
-  - [hdf5::HDF5DS](#hdf5hdf5ds)
-  - [hdf5::saveHDF5](#hdf5savehdf5)
-- [Data Types](#data-types)
-  - [integer](#integer)
-  - [float](#float)
-  - [time](#time)
-  - [string](#string)
-  - [enum](#enum)
-  - [compound and array](#compound-and-array)
-- [Table Struct](#table-struct)
-  - [Simple datatype table struct](#simple-datatype-table-struct)
-  - [complex datatype table struct](#complex-datatype-table-struct)
-- [Performance](#performance)
-  - [Environment](#environment)
-  - [Data import performance](#data-import-performance)
+- [1. Install the Plugin](#1-install-the-plugin)
+  - [1.1 Import Precompiled Binaries](#11-import-precompiled-binaries)
+  - [1.2 (Optional) Compiling](#12-optional-compiling)
+- [2. Methods](#2-methods)
+  - [2.1 hdf5::ls](#21-hdf5ls)
+  - [2.2 hdf5::lsTable](#22-hdf5lstable)
+  - [2.3 hdf5::extractHDF5Schema](#23-hdf5extracthdf5schema)
+  - [2.4 hdf5::loadHDF5](#24-hdf5loadhdf5)
+  - [2.5 hdf5::loadHDF5Ex](#25-hdf5loadhdf5ex)
+  - [2.6 hdf5::HDF5DS](#26-hdf5hdf5ds)
+  - [2.7 hdf5::saveHDF5](#27-hdf5savehdf5)
+- [3. Data Types](#3-data-types)
+  - [3.1 integer](#31-integer)
+  - [3.2 float](#32-float)
+  - [3.3 time](#33-time)
+  - [3.4 string](#34-string)
+  - [3.5 enum](#35-enum)
+  - [3.6 compound and array](#36-compound-and-array)
+- [4. Table Struct](#4-table-struct)
+  - [4.1 Simple datatype table struct](#41-simple-datatype-table-struct)
+  - [4.2 complex datatype table struct](#42-complex-datatype-table-struct)
+- [5. Performance](#5-performance)
+  - [5.1 Environment](#51-environment)
+  - [5.2 Data import performance](#52-data-import-performance)
 
-# Build
+# 1. Install the Plugin
 
-## For Linux users
+## 1.1 Import Precompiled Binaries
 
-### Build with cmake
-**Note:** [cmake](https://cmake.org/) is a popular project build tool that can help you easily solve third-party dependencies. 
+You can import the precompiled HDF5 plugin in the DolphinDB installation package or in the bin directory.
 
-Install cmake
-```bash
+**Linux**
+
+(1) Add the path where the plugin is located to the LIB search path LD_LIBRARY_PATH
+
+```
+export LD_LIBRARY_PATH=/path_to_hdf5_plugin/:$LD_LIBRARY_PATH
+```
+
+(2) Start the DolphinDB server and import the plugin.
+
+```
+loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
+```
+
+**Windows**
+
+```
+loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
+```
+
+## 1.2 (Optional) Compiling
+
+After compilation, you can import the plugin in the same way as described in section 1.1 Install Precompiled Plugin.
+
+**Compile on Linux**
+
+Install CMake
+
+```
 sudo apt install cmake
 ```
 
+Install c-blosc
+
+```
+#download source code at https://github.com/Blosc/c-blosc/releases/tag/v1.21.1
+cd c-blosc-1.21.1
+mkdir build
+cd build
+cmake -DCMAKE_C_FLAGS="-fPIC -std=c11" ..
+make -j
+cp blosc/src/blosc.h /path_to_hdf5_plugin/include/c-blosc
+cp blosc/src/blosc-export.h /path_to_hdf5_plugin/include/c-blosc
+cp blosc/libblosc.a /path_to_hdf5_plugin/lib
+```
+
 Install HDF5 development kit
-```bash
+
+```
 # download source code at https://portal.hdfgroup.org/display/support/HDF5+1.10.6#files
 # DO NOT download other versions unless you are familar with the source code of plugin
 tar -xvf hdf5-1.10.6.tar.gz
@@ -60,9 +99,10 @@ cp hdf5/lib/libhdf5.a /path_to_hdf5_plugin/lib
 cp hdf5/lib/libhdf5_cpp.a /path_to_hdf5_plugin/lib
 cp hdf5/lib/libhdf5_hl.a /path_to_hdf5_plugin/lib
 ```
+
 Build the entire project
 
-```bash
+```
 mkdir build
 cd build
 cp /path_to_dolphindb/libDolphinDB.so ./
@@ -70,54 +110,97 @@ cmake ..
 make
 ```
 
-### Build with makefile
+**Compile on Windows**
 
-Install HDF5 development kit in the same way of Linux
+Use MinGW to compile hdf5 1.13.1.zip in the MSYS2 environment.
 
-Execute "make" command
+* Use ``Mingw-w64-x86_64``
 
-```powershell
+* Install make
+
+```
+pacman -S make
+```
+
+Open the MSYS2 terminal and navigate into the directory where hdf5-1.13.1 is decompressed
+
+```
+ CFLAGS="-std=c11" CXXFLAGS="-std=c++11" ./configure --host=x86_64-w64-mingw32 --build=x86_64-w64-mingw32 --prefix=/d/hdf5_1.13.1 --enable-cxx --enable-tests=no --enable-tools=no with_pthread=no
+```
+
+Open src/H5pubconf.h and add the following #define in the end of it
+
+```
+#ifndef H5_HAVE_WIN32_API
+#define H5_HAVE_WIN32_API 1
+#endif
+
+#ifndef H5_HAVE_MINGW
+#define H5_HAVE_MINGW 1
+#endif
+```
+
+Start compiling
+
+```
+make -j8
++ make install -j8
+```
+
+Copy the compiled file to the HDF5 plugin directory
+
+```
+cp $HOME/hdf5/include/* /path_to_hdf5_plugin/include_win/hdf5
+cp $HOME/hdf5/lib/libhdf5.a /path_to_hdf5_plugin/build
+cp $HOME/hdf5/lib/libhdf5_cpp.a /path_to_hdf5_plugin/build
+cp $HOME/hdf5/lib/libhdf5_hl.a /path_to_hdf5_plugin/build
+cp $HOME/hdf5/lib/libhdf5_hl_cpp.a /path_to_hdf5_plugin/build
+```
+
+Open Command Prompt
+Build c_blosc
+
+```
+cd c_blosc-1.21.1
 mkdir build
 cd build
-cmake ..
-make
+cmake  ../ -G "MinGW Makefiles"
+mingw32-make -j8
+copy ./blosc/libblosc.a /path_to_hdf5_plugin/build/
 ```
 
-The libPluginHdf5.so file will be generated after the compilation.
-
-## For Windows users
-
-The `enable threadsafe` configuration must be used for Windows. It should be set when compiling HDF5.
-
-You may use `hdf5.dll` file that have been prebuilt.
-
-You can also build HDF5 yourself. Download the source code from the [official website of HDF5](https://www.hdfgroup.org/solutions/hdf5/), and follow the instructions to build. If you are to build HDF5 with configure, the `--enable-threadsafe` option must be used. If you are to build HDF5 with CMake, the `-DHDF5_ENABLE_THREADSAFE:BOOL=ON`, `-DHDF5_BUILD_CPP_LIB:BOOL=OFF`, `-DBUILD_SHARED_LIBS:BOOL=ON` must be added when compiling.
-
-# User-API
-
-
-**Remember:** Use `loadPlugin("/path_to_PluginHdf5.txt/PluginHdf5.txt")` to import HDF5 plugin before using the API. 
-If the plugin fails to load, you would need to add the path of the plugin to the library search path as follows, and then restart DolphinDB and load it again.
+Copy libDolphinDB.dll to HDF5 plugin directory
 
 ```
-export LD_LIBRARY_PATH=/path_to_PluginHdf5.txt/:$LD_LIBRARY_PATH
+copy /path_to_dolphindb/libDolphinDB.dll /path_to_hdf5_plugin/build
 ```
 
-## hdf5::ls
+Compile HDF5 plugin
 
-### Syntax
+```
+cmake  ../ -G "MinGW Makefiles"
+mingw32-make -j
+```
 
-* `hdf5::ls(filename)`
 
-### Parameters  
+# 2. Methods
 
-* `filename`: a HDF5 file name of type `string`.
+## 2.1 hdf5::ls
 
-### Details
+**Syntax**
 
-* List all the `HDF5 objects in a table including `dataset` and `group` and `(named type) namedType`. For the dataset, we will return the size (column size first followed by row size). For example, DataSet{(7,3)} represents 7 columns and 3 rows.
+* `hdf5::ls(fileName)`
 
-### Example   
+**Parameters**  
+
+* `fileName`: a HDF5 file name of type `string`.
+
+**Details**
+
+List all the HDF5 objects in a table (including dataset and group) and object type. For the dataset, we will return the size (column size first followed by row size). For example, DataSet{(7,3)} represents 7 columns and 3 rows.
+
+**Example**
+
 ```
 hdf5::ls("/smpl_numeric.h5")
 
@@ -146,20 +229,23 @@ output
 
 
 ```
-## hdf5::lsTable
 
-### Syntax
+## 2.2 hdf5::lsTable
 
-* `hdf5::lsTable(filename)`
+**Syntax**
 
-### Parameters  
+* `hdf5::lsTable(fileName)`
 
-* `filename`: a HDF5 file name of type `string`.
+**Parameters**   
 
-### Details
-* List all the table information in a table, that is, HDF5 `dataset` information, including table name, size, and type.
+* `fileName`: a HDF5 file name of type `string`.
 
-### Example   
+**Details**
+
+List all the table information in a table, i.e., HDF5 `dataset` information, including table name, size, and type.
+
+**Example**
+
 ```
 hdf5::lsTable("/smpl_numeric.h5")
 
@@ -177,20 +263,24 @@ output:
        /ushort	      7,3       H5T_NATIVE_USHORT
 ```
 
-## hdf5::extractHDF5Schema
+## 2.3 hdf5::extractHDF5Schema
 
-### Syntax
+**Syntax**
 
-* `hdf5::extractHDF5Schema(fileName,datasetName)`
+* `hdf5::extractHDF5Schema(fileName, datasetName)`
 
-### Parameters
-* `fileName`: a HDF5 file name of type `string`.
-* `datasetName`: the dataset name, i.e., the table name of type `string`. It can be obtained by using `ls` or `lsTable`.
+**Parameters** 
 
-### Details
-* Generate the schema table for the input data file. The schema table has 2 columns: column names and their data types.
+* `fileName`: a HDF5 file name of type string.
 
-### Example
+* `datasetName`: the dataset name, i.e., the table name of type string. It can be obtained by using `ls` or `lsTable`.
+
+**Details**
+
+Generate the schema table for the input data file. The schema table has 2 columns: column names and their data types.
+
+**Example**
+
 ```
 hdf5::extractHDF5Schema("/smpl_numeric.h5","sint")
 
@@ -220,25 +310,28 @@ output:
         c	CHAR
 ```
 
-## hdf5::loadHDF5
+## 2.4 hdf5::loadHDF5
 
-### Syntax
+**Syntax**
 
 * `hdf5::loadHDF5(fileName,datasetName,[schema],[startRow],[rowNum])`
 
-### Parameters
+**Parameters** 
+
 * `fileName`: a HDF5 file name of type `string`.
 * `datasetName`: the dataset name, i.e., the table name of type `string`. It can be obtained by using `ls` or `lsTable`.
 * `schema`: a table with column names and data types of columns. If there is a need to change the data type of a column that is automatically determined by the system,  the schema table needs to be modified and used as an argument in `loadHdf5`.
 * `startRow`: an integer indicating the start row to read. If not specified, the dataset will be read from the beginning.
 * `rowNum`: an integer indicating the number of rows to read. If not specified, `loadHdf5` will read until the end of data.
 
-### Details
+**Details**
+
 * Load an HDF5 file into a DolphinDB in-memory table.
 * The number of rows to read is defined in the HDF5 file, rather than the number of rows in the output DolphinDB table.
-* Supported data types, as well as data conversion rules are visible in the [Data Types] (#Data Types) section.
+* Supported data types, as well as data conversion rules are visible in the [Data Types](#Data Types) section.
 
-### Example
+**Example**
+
 ```
 hdf5::loadHDF5("/smpl_numeric.h5","sint")
 
@@ -260,14 +353,15 @@ output:
 
 > **Note: the dimension of the dataset must be less than or equal to 2, only 2D or 1D tables can be parsed**
 
-## hdf5::loadHDF5Ex
+## 2.5 hdf5::loadHDF5Ex
 
-### Syntax
+**Syntax**
 
 * `hdf5::loadHDF5Ex(dbHandle,tableName,[partitionColumns],fileName,datasetName,[schema],[startRow],[rowNum],[transform])`
 
-### Parameters
-* `dbHandle`和`tableName`: If the input data is to be saved into the distributed database, the database handle and table name should be specified.
+**Parameters** 
+
+* `dbHandle`and `tableName`: If the input data is to be saved into the distributed database, the database handle and table name should be specified.
 * `partitionColumns`: a string scalar/vector indicating partitioning column(s).
 * `fileName`: a HDF5 file name of type `string`.
 * `datasetName`: the dataset name, i.e., the table name of type `string`. It can be obtained by using `ls` or `lsTable`.
@@ -276,12 +370,14 @@ output:
 * `rowNum`: an integer indicating the number of rows to read. If not specified, `loadHdf5` will read until the end of data.
 * `transform`: an unary function. The parameter of the function must be a table. If parameter transform is specified, we need to first execute createPartitionedTable and then load the data. The system will apply the function specified in parameter transform and then save the results into the database.
 
-### Details
+**Details**
+
 * Load an HDF5 file into a distributed table in a distributed database. The result is a table object with the loaded metadata.
 * The number of rows to read is defined in the HDF5 file, rather than the number of rows in the output DolphinDB table.
-* Supported data types, as well as data conversion rules are visible in the [Data Types] (#Data Types) section.
+* Supported data types, as well as data conversion rules are visible in the [Data Types](#Data Types) section.
 
-### Example
+**Example**
+
 * SEQ partitioned table on disk
 ```
 db = database("seq_on_disk", SEQ, 16)
@@ -322,22 +418,24 @@ def i2d(mutable t){
 t = hdf5::loadHDF5Ex(db,`tb1,`trans_time,dataFilePath,datasetName,,,,i2d)
 ```
 
-## hdf5::HDF5DS
+## 2.6 hdf5::HDF5DS
 
-### Syntax
+**Syntax**
 
 * `hdf5::HDF5DS(fileName,datasetName,[schema],[dsNum])`
 
-### Parameter
+**Parameters** 
 * `fileName`: a HDF5 file name of type `string`.
 * `datasetName`: the dataset name, i.e., the table name of type `string`. It can be obtained by using `ls` or `lsTable`.
 * `schema`: a table with column names and data types of columns. If there is a need to change the data type of a column that is automatically determined by the system,  the schema table needs to be modified and used as an argument in `hdf5DS`.
 * `dsNum`: the number of data sources to be generated. `HDF5DS` will divide the whole table equally into `dsNum` tables. If not specified, it will generate one data source.
 
-### Details
-* Generate a tuple of data sources according to the input file name and dataset name.
+**Details**
 
-### Example
+Generate a tuple of data sources according to the input file name and dataset name.
+
+**Example**
+
 ```
 >ds = hdf5::HDF5DS(smpl_numeric.h5","sint")
 
@@ -361,14 +459,28 @@ DataSource< loadHDF5("/smpl_numeric.h5", "sint", , 1, 1) >
 >ds[2];
 DataSource< loadHDF5("/smpl_numeric.h5", "sint", , 2, 1) >
 ```
+> Note: HDF5 does not support concurrent reads.
 
-## hdf5::saveHDF5
+Wrong example:
 
-### Syntax
+```
+ds = hdf5::HDF5DS("/smpl_numeric.h5", "sint", ,3)
+res = mr(ds, def(x) : x)
+```
+Correct example (set parameter parallel of function mr to false) :
 
-- hdf5::saveHDF5(table, fileName, datasetName, [append], [stringMaxLength])
+```
+ds = hdf5::HDF5DS("/smpl_numeric.h5", "sint", ,3)
+res = mr(ds, def(x) : x,,,false)
+```
 
-### Parameter
+## 2.7 hdf5::saveHDF5
+
+**Syntax**
+
+* `hdf5::saveHDF5(table, fileName, datasetName, [append], [stringMaxLength])`
+
+**Parameters** 
 
 * `table`: The table will be saved.
 * `fileName`: a HDF5 file name of type `string`.
@@ -376,21 +488,28 @@ DataSource< loadHDF5("/smpl_numeric.h5", "sint", , 2, 1) >
 * `append`: If append data to an existed table or not. Logical type. Default value is false.
 * `stringMaxLength`: Maximum length of string. Default is 16. Only effect string and symbol type in table.
 
-### Details
+**Details**
 
-Save table in DolphinDB to certain file.
+Save the table in DolphinDB to certain dataset in HDF5 file. Supported data types and data conversion rules are visible in the [Data Types](#Data Types) section.
 
-### Example
+**Example**
 
 ```
 hdf5::saveHDF5(tb, "example.h5", "dataset name in hdf5")
 ```
+> Note: Null values are not supported in the HDF5 file. If there are NULL values in DolphinDB tables, they will be saved as the default value defined in [Data Types](#Data Types) section. To read h5 files generated by the HDF5 plugin through python, you can use the h5py library. 
 
-# Data Types
+For example, 
+```
+import h5py f = h5py.File("/home/workDir/dolphindb_src/build/test.h5", 'r') print(f['aaa']['TimeStamp']) print(f['aaa']['StockID'])
+```
+
+# 3. Data Types
 
 The floating point and integer types in the file are first converted to H5T_NATIVE_* type (via H5Tget_native_type)
 
-## integer
+## 3.1 integer
+
 | type in HDF5      | default value in HDF5 | corresponding c type        | corresponding dolphindb type |
 | ----------------- | --------------------- | :-------------------------- | :--------------------------- |
 | H5T_NATIVE_CHAR   | ‘\0’                  | signed char / unsigned char | char/short                   |
@@ -411,7 +530,8 @@ The floating point and integer types in the file are first converted to H5T_NATI
 * H5T_NATIVE_LONG and H5T_NATIVE_ULONG correspond to the `long` type in c. The size of the `long` depends on the compiler and platform. If the size of the `long` is the same as the `int`, it is the same as the `int` in the conversion process. If the length is the same as that of the `long long`, it will be converted to `long long`.
 * All integer types can be converted to the numeric type ```(bool,char,short,int,long,float,double)``` in dolphindb.  **overflow** may occur. e.g. the maximum value of an int will be returned when converting LONG to INT.
 
-## float
+## 3.2 float
+
 | type in HDF5      | default value in HDF5 | corresponding c type | corresponding dolphindb type |
 | ----------------- | --------------------- | :------------------- | :--------------------------- |
 | H5T_NATIVE_FLOAT  | +0.0f                 | float                | float                        |
@@ -421,7 +541,7 @@ Note: IEEE754 floating point types are all signed numbers.
 
 * All floating points types can be converted to the numeric type ```(bool,char,short,int,long,float,double)``` in dolphindb. **overflow** may occur. e.g. the maximum value of an `float` will be returned when converting DOUBLE to FLOAT.
 
-## time
+## 3.3 time
 | type in HDF5   | default type in HDF5    | corresponding c type | corresponding dolphindb type |
 | -------------- | ----------------------- | :------------------- | :--------------------------- |
 | H5T_UNIX_D32BE | 1970.01.01T00:00:00     | 4 bytes integer      | DT_TIMESTAMP                 |
@@ -433,66 +553,69 @@ Note: IEEE754 floating point types are all signed numbers.
 
 * All data types above can be converted to time-related types in dolphindb`(date,month,time,minute,second,datetime,timestamp,nanotime,nanotimestamp)`
 
-## string
+## 3.4 string
+
 | type in HDF5 | default value in HDF5 | corresponding c type | corresponding dolphindb type |
 | ------------ | --------------------- | :------------------- | :--------------------------- |
 | H5T_C_S1     | “”                    | char*                | DT_STRING                    |
 
-* H5T_C_S1,包括```fixed-length```string和```variable-length```string
+* H5T_C_S1,includes ```fixed-length```string and```variable-length```string
 
 * `string` type can be converted to a string-related type converted to dolphindb```(string,symbol)```
 
-## enum
+## 3.5 enum
+
 | type in HDF5 | corresponding c type | corresponding dolphindb type |
 | ------------ | :------------------- | :--------------------------- |
 | ENUM         | enum                 | DT_SYMBOL                    |
 
 * Enum type will be converted to a symbol variable in dolphindb. It is worth noting that the enumeration value and size relationship ** of each string will not be saved**. For example, if an enum variable is defined as HDF5_ENUM{"a"=100,"b"=2000,"c"=30000}, it will be converted to SYMBOL{"a"=3,"b"=1"c"=2}.
+* Enum type can be converted to a string-related type converted to dolphindb(string,symbol).
 
+## 3.6 compound and array
 
-## compound and array
 | type in HDF5 | corresponding c type | corresponding dolphindb type |
 | ------------ | :------------------- | :--------------------------- |
 | H5T_COMPOUND | struct               | \                            |
 | H5T_ARRAY    | array                | \                            |
 
 * Compound types and array types, as long as these complex types do not contain unsupported types, nested parsing will be supported.
-
 * Complex type conversion depends on its internal sub data type.
 
 
 
-# Table Struct
+# 4. Table Struct
 
-## Simple datatype table struct
-For simple data types, the table imported into dolphindb from  HDF5 file will keep ``` the same ``
+## 4.1 Simple datatype table struct
 
-### Simple data types in HDF5
+For simple data types, the table imported into dolphindb from  HDF5 file will keep the same.
+
+**Simple data types in HDF5**
 
 |     | 1       | 2       |
 | --- | :------ | :------ |
 | 1   | int(10) | int(67) |
 | 2   | int(20) | int(76) |
 
-### Converted data types in DolphinDB
+**Converted data types in DolphinDB**
 
 |     | col_1 | col_2 |
 | --- | :---- | :---- |
 | 1   | 10    | 67    |
 | 2   | 20    | 76    |
 
-## complex datatype table struct
+## 4.2 complex datatype table struct
 
 For complex data types, the data types in DolphinDB table depends on the structure of complex types
 
-###  Table of compound type in HDF5
+**Table of compound type in HDF5**
 
 |     | 1                        | 2                        |
 | --- | :----------------------- | :----------------------- |
 | 1   | struct{a:1 b:2 c:3.7}    | struct{a:12 b:22 c:32.7} |
 | 2   | struct{a:11 b:21 c:31.7} | struct{a:13 b:23 c:33.7} |
 
-###  The corresponding table in DolphinDB after converting
+**The corresponding table in DolphinDB after converting**
 |     | a    | b    | c    |
 | --- | :--- | :--- | :--- |
 | 1   | 1    | 2    | 3.7  |
@@ -500,14 +623,14 @@ For complex data types, the data types in DolphinDB table depends on the structu
 | 3   | 12   | 22   | 32.7 |
 | 4   | 13   | 23   | 33.7 |
 
-### Table of array in HDF5
+**Table of array in HDF5**
 
 |     | 1             | 2               |
 | --- | :------------ | :-------------- |
 | 1   | array(1,2,3)  | array(4,5,6)    |
 | 2   | array(8,9,10) | array(15,16,17) |
 
-### The correspoinding table in DolphinDB after converting
+**The corresponding table in DolphinDB after converting**
 
 |     | array_1 | array_2 | array_3 |
 | --- | :------ | :------ | :------ |
@@ -516,16 +639,17 @@ For complex data types, the data types in DolphinDB table depends on the structu
 | 3   | 8       | 9       | 10      |
 | 4   | 15      | 16      | 17      |
 
+**Table of nested compound types in HDF5**
+
 For table of nested complex data types in HDF5, we use prefix ```A```  to represent this as an array and  ```C``` as a compound type.
 
-###  Table of nested compound types in HDF5
 |     | 1                                                         | 2                                                          |
 | --- | :-------------------------------------------------------- | :--------------------------------------------------------- |
 | 1   | struct{a:array(1,2,3)<br>  b:2<br>  c:struct{d:"abc"}}    | struct{a:array(7,8,9)<br>  b:5<br>  c:struct{d:"def"}}     |
 | 2   | struct{a:array(11,21,31)<br>  b:0<br>  c:struct{d:"opq"}} | struct{a:array(51,52,53)<br>  b:24<br>  c:struct{d:"hjk"}} |
 
 
-### The corresponding table in DolphinDB after importing
+**The corresponding table in DolphinDB after importing**
 
 |     | Aa_1 | Aa_2 | Aa_3 | b    | Cc_d |
 | --- | :--- | :--- | :--- | :--- | :--- |
@@ -535,14 +659,14 @@ For table of nested complex data types in HDF5, we use prefix ```A```  to repres
 | 4   | 51   | 52   | 53   | 24   | hjk  |
 
 
-# Performance
+# 5. Performance
 
-## Environment
+## 5.1 Environment
 
 * cpu: i7-7700 3.60GHZ
 * ssd: read 460~500MB/S
 
-## Data import performance
+## 5.2 Data import performance
 
 * int  
     * rows 1024 * 1024 * 16 
