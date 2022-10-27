@@ -58,9 +58,12 @@ make install
 unzip libgd-gd-2.3.3.zip
 cd libgd-gd-2.3.3
 ```
-在 CMakeLists.txt 第319行添加
+在 CMakeLists.txt 第319行添加一行：
 ```
 set_target_properties(gd PROPERTIES LINK_FLAGS "-Wl,-rpath,$ORIGIN:.")
+```
+然后开始编译
+```
 mkdir build && cd build
 CMAKE_PREFIX_PATH=/tmp/libzlib:/tmp/libpng:/tmp/libjpeg  cmake -DCMAKE_INSTALL_PREFIX=/tmp/libgd/  -DENABLE_PNG=1 -DENABLE_JPEG=1 ..
 make -j
@@ -82,8 +85,8 @@ cd build
 ```
 拷贝前面安装好的 zlib, png, jpeg, gd 库到编译目录 build。
 ```
-cp /tmp/libgd/lib64/libgd.so.3.0.11 ./libgd.so.3
-cp /tmp/libpng/lib64/libpng16.so.16 .
+cp /tmp/libgd/lib/libgd.so.3.0.11 ./libgd.so.3
+cp /tmp/libpng/lib/libpng16.so.16.35.0 ./libpng16.so.16
 cp /tmp/libjpeg/lib/libjpeg.so .
 cp /tmp/libzlib/lib/libz.so.1.2.12 ./libz.so.1
 ln -s libgd.so.3 libgd.so
@@ -125,7 +128,7 @@ gp::plot(data, style, path, [props]）
     * size: 图片比例，1为初始长度。为数值类型的向量，包含两个元素，表示长和宽的比列。
     * xTics: 数值型标量，表示 X 轴的单位间隔。
     * yTics: 数值型标量，表示 Y 轴的单位间隔。
-
+  
     以下属性可以设置每个独立图像的特性。
     * lineColor: 字符串标量或向量，表示线条颜色。包含以下值："black", "red", "green", "blue", "cyan", "magenta", "yellow", "navy", "purple", "olive",  "orange", "violet", "pink", "white", "gray"。
     * lineWidth: 数值型标量或向量，表示线条宽度。
