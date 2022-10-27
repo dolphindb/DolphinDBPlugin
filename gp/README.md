@@ -23,7 +23,7 @@ loadPlugin("<PluginDir>/gp/bin/linux64/PluginGp.txt");
 
 编译依赖库:
 
-安装(zlib-1.2.12)[https://www.zlib.net/fossils/zlib-1.2.12.tar.gz]
+安装[zlib-1.2.12](https://www.zlib.net/fossils/zlib-1.2.12.tar.gz)
 ```
 tar -zxvf zlib-1.2.12.tar.gz
 cd zlib-1.2.12
@@ -33,7 +33,7 @@ make -j
 make install
 ```
 
-安装(libpng-1.6.35)[https://codeload.github.com/glennrp/libpng/zip/refs/tags/v1.6.35]
+安装[libpng-1.6.35](https://codeload.github.com/glennrp/libpng/zip/refs/tags/v1.6.35)
 ```
 unzip libpng-1.6.35.zip
 cd libpng-1.6.35
@@ -43,7 +43,7 @@ make -j
 make install
 ```
 
-安装(libjpeg-8.4.0)[https://codeload.github.com/LuaDist/libjpeg/zip/refs/tags/8.4.0]
+安装[libjpeg-8.4.0](https://codeload.github.com/LuaDist/libjpeg/zip/refs/tags/8.4.0)
 ```
 unzip libjpeg-8.4.0.zip
 cd libjpeg-8.4.0
@@ -53,7 +53,7 @@ make -j
 make install
 ```
 
-安装(libgd-gd-2.3.3)[https://codeload.github.com/libgd/libgd/zip/refs/tags/gd-2.3.3]
+安装[libgd-gd-2.3.3(https://codeload.github.com/libgd/libgd/zip/refs/tags/gd-2.3.3)
 ```
 unzip libgd-gd-2.3.3.zip
 cd libgd-gd-2.3.3
