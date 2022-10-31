@@ -477,7 +477,7 @@ extern "C" int gpInit(int argc_orig, char **argv)
     init_memory();
 
 //printf("here6\n");
-    interactive = FALSE;
+    interactive = true;
 
     /* April 2017:  We used to call init_terminal() here, but now   */
     /* We defer initialization until error handling has been set up. */
@@ -485,7 +485,7 @@ extern "C" int gpInit(int argc_orig, char **argv)
 # if defined(_WIN32) && !defined(WGP_CONSOLE)
     interactive = TRUE;
 # else
-    interactive = isatty(fileno(stdin));
+    //interactive = isatty(fileno(stdin));
 # endif
 
 //printf("here7\n");
