@@ -2,8 +2,6 @@
 
 Feather uses the Apache Arrow columnar memory format for data, which is organized for efficient analytic operations. The DolphinDB Feather plugin supports efficient import and export of Feather files with automatic data type conversion.
 
-The DolphinDB Feather plugin has the following versions: [release 200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/parquet/README.md) and [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/parquet/README.md). Each plugin version corresponds to a DolphinDB server version. You're looking at the plugin documentation for release200. You're looking at the plugin documentation for release200. If you use a different DolphinDB server version, please refer to the corresponding version of the plugin documentation.
-
 - [DolphinDB Feather Plugin](#dolphindb-feather-plugin)
   - [1 Install the Plugin](#1-install-the-plugin)
     - [1.1 Compile on Linux](#11-compile-on-linux)
