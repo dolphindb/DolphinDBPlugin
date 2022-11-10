@@ -15,7 +15,7 @@ include_directories(
 )
 
 set(BASE_DIR ${PROJECT_SOURCE_DIR})
-link_directories(${BASE_DIR}/lib)
+link_directories(${BASE_DIR}/lib/linux.x64)
 link_directories("${CMAKE_BINARY_DIR}")
 
 if(WIN32)

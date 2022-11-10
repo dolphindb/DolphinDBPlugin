@@ -216,7 +216,8 @@ struct CHSNsqSecuDepthMarketDataField
     HSTime	                      UpdateTime;
     // 量额数据
     ///数量，为总成交量(单位与交易所一致)
-    ///除了上海指数，债券与回购单位为手外，其他类型的单位都为股 
+    ///除了上海指数，债券与回购单位为手外，其他类型的单位都为股
+    ///20220425日起，上海债券指数、上海债券快照单位为千元面额
     HSIntVolume                   TradeVolume;
     ///成交金额，为总成交金额(单位元，与交易所一致)
     HSBalance                     TradeBalance;
@@ -296,6 +297,18 @@ struct CHSNsqSecuDepthMarketDataField
     HSNum                         AskOrdersNum;
     ///基金T-1日净值(SZ)
     HSPrice                       PreIOPV;
+    ///频道代码(SZ)
+    HSNum                         ChannelNo;
+
+    ///匹配成交最近成交价(SZ 债券现券交易)
+    HSPrice                       BondLastAuctionPrice;
+    ///匹配成交成交量(SZ 债券现券交易)
+    HSIntVolume                   BondAuctionVolume;
+    ///匹配成交成交金额(SZ 债券现券交易)
+    HSBalance                     BondAuctionBalance;
+    ///最近价成交方式(SZ 债券现券交易)
+    HSBondTradeType               BondLastTradeType;
+
     ///预留
     char                          R1[16];
 } ;
@@ -322,7 +335,6 @@ struct CHSNsqSecuDepthMarketDataPlusField
     HSTime	                      UpdateTime;
     // 量额数据
     ///数量，为总成交量（单位与交易所一致）
-    ///除了上海指数，债券与回购单位为手外，其他类型的单位都为股 
     HSIntVolume                   TradeVolume;
     ///成交金额，为总成交金额（单位元，与交易所一致）
     HSBalance                     TradeBalance;
@@ -413,7 +425,8 @@ struct CHSNsqSecuATPMarketDataField
     HSIntVolume	                  BidVolume1;
     ///一档申卖量
     HSIntVolume	                  AskVolume1;
-
+    ///频道代码(SZ)
+    HSNum                         ChannelNo;
     ///预留
     char                          R1[16];
 
@@ -432,8 +445,8 @@ struct CHSNsqSecuTransactionTradeDataField {
 	///HS_TRF_Unified(逐笔统一编号):表示逐笔成交与逐笔委托SeqNo字段统一编号
     HSTransFlag                   TransFlag;
     ///消息序号
-    ///SH:逐笔成交单独序号，在同一个ChannelNo内唯一,从1开始连续
-    ///SH:债券逐笔成交与委托统一序号，在同一个ChannelNo内唯一，从1开始连续
+    ///SH:非合并逐笔 成交单独序号，在同一个ChannelNo内唯一,从1开始连续
+    ///SH:债券逐笔、合并逐笔  成交与委托统一序号，在同一个ChannelNo内唯一，从1开始连续
     ///SZ:逐笔成交与委托统一序号，在同一个ChannelNo内唯一，从1开始连续
     HSSeqNo                       SeqNo;
     ///频道代码
@@ -470,8 +483,8 @@ struct CHSNsqSecuTransactionEntrustDataField {
 	///HS_TRF_Unified(逐笔统一编号):表示逐笔成交与逐笔委托SeqNo字段统一编号
     HSTransFlag                   TransFlag;
     ///消息序号
-    ///SH:逐笔委托单独序号，在同一个ChannelNo内唯一,从1开始连续
-    ///SH:债券逐笔成交与委托统一序号，在同一个ChannelNo内唯一，从1开始连续
+    ///SH:非合并逐笔 成交单独序号，在同一个ChannelNo内唯一,从1开始连续
+    ///SH:债券逐笔、合并后逐笔,  成交与委托、状态订单统一序号，在同一个ChannelNo内唯一，从1开始连续
     ///SZ:逐笔成交与委托统一序号，在同一个ChannelNo内唯一，从1开始连续
     HSSeqNo                       SeqNo;
     ///频道代码
@@ -494,20 +507,12 @@ struct CHSNsqSecuTransactionEntrustDataField {
     HSOrdType                     OrdType;
     /// SH: 原始订单号(仅适用上交所)
     HSSeqNo                       OrdNo;
-    /// SH: 逐笔成交与逐笔委托统一编号(仅适用上交所)
+    /// SH: 逐笔成交与逐笔委托统一编号(仅适用上交所, 使用合并逐笔后该字段无意义)
     HSSeqNo                       BizIndex;
+    /// SH: 已成交委托数量(仅适用上交所逐笔合并数据)
+    HSIntVolume                   TrdVolume;
 };
 
-///重建应答的逐笔数据信息
-struct CHSNsqSecuTransactionDataField {
-    ///该通道下最新的序号
-    HSSeqNo     LatestSeqNo;
-    HSTransType TransType;
-    union {
-        CHSNsqSecuTransactionTradeDataField TradeData;
-        CHSNsqSecuTransactionEntrustDataField EntrustData;
-    };
-};
 
 struct CHSNsqSecuInstrumentStaticInfoField {
     ///交易所代码
@@ -681,11 +686,196 @@ struct CHSNsqOptDepthMarketDataField
     HSTime                        LastEnquiryTime;
     ///未平仓合约数(SH)
     HSIntVolume                   LeaveQty;
+    ///频道代码(SZ)
+    HSNum                         ChannelNo;
     ///预留
     char                          R1[16];
 
 } ;
 
+struct CHSNsqReqHktDepthMarketDataField
+{
+    /// 交易所代码
+    HSExchangeID                  ExchangeID;
+    /// 合约代码
+    HSInstrumentID                InstrumentID;
+};
+
+struct CHSNsqHktInstrumentStaticInfoField 
+{
+    /// 交易所代码
+    HSExchangeID                  ExchangeID; 
+    /// 合约代码
+    HSInstrumentID                InstrumentID;
+    /// 合约名称
+    HSInstrumentName              InstrumentName;
+    /// 类型
+    HSSecurityType                SecurityType;
+    /// 昨收价
+    HSPrice                       PreClosePrice;
+    /// 合约最小交易量(买)
+    HSNum                         BuyVolumeUnit;
+    /// 合约最小交易量(卖)
+    HSNum                         SellVolumeUnit;
+    /// 交易日期，格式为YYYYMMDD
+    HSDate                        TradeDate;
+};
+
+
+struct CHSNsqHktDepthMarketDataField 
+{
+    /// 交易所代码
+    HSExchangeID                  ExchangeID;
+    /// 证券代码
+    HSInstrumentID                InstrumentID;
+    /// 最新价
+    HSPrice	                      LastPrice;
+    /// 昨收盘
+    HSPrice	                      PreClosePrice;
+    /// 最高价
+    HSPrice	                      HighPrice;
+    /// 最低价
+    HSPrice	                      LowPrice;
+    /// 按盘价(收盘后为收盘价)
+    HSPrice	                      NomianlPrice;
+    /// 交易日期，格式为YYYYMMDD
+    HSDate	                      TradeDate;
+    /// 更新时间,格式为HHMMSSsss
+    HSTime	                      UpdateTime;
+    /// 量额数据
+    /// 数量，为总成交量(单位与交易所一致) 
+    /// 单位为股
+    HSIntVolume	                  TradeVolume;
+    /// 成交金额，为总成交金额(单位港元，与交易所一致)
+    HSBalance                     TradeBalance;
+    /// 买卖盘 目前只有1档数据
+    /// 十档申买价
+    HSPrice                       BidPrice[10];
+    /// 十档申卖价
+    HSPrice                       AskPrice[10];
+    /// 十档申买量
+    HSIntVolume                   BidVolume[10];
+    /// 十档申卖量
+    HSIntVolume                   AskVolume[10];
+    /// 当前交易状态说明
+    HSInstrumentTradeStatus       InstrumentTradeStatus;
+    /// 港股通整手订单限制买入标识 
+    HSHktTradeLimit               BoardLotOrderBidLimit;
+    /// 港股通整手订单限制卖出标识
+    HSHktTradeLimit               BoardLotOrderAskLimit;
+    /// 港股通零股订单限制买入标识
+    HSHktTradeLimit               OddLotOrderBidLimit;
+    /// 港股通零股订单限制卖出标识
+    HSHktTradeLimit               OddLotOrderAskLimit;
+    /// 频道代码(SZ)
+    HSNum                         ChannelNo;
+    /// 预留
+    char                          R1[16];
+};
+
+
+///深圳 新债逐笔成交数据信息
+struct CHSNsqBondTransactionTradeDataField {
+    ///交易所代码
+    HSExchangeID                  ExchangeID;
+    /// 合约代码
+    HSInstrumentID                InstrumentID;
+    ///逐笔行情数据标识
+    ///HS_TRF_Alone(逐笔独立编号)：表示逐笔成交与逐笔委托SeqNo字段独立编号
+    ///HS_TRF_Unified(逐笔统一编号):表示逐笔成交与逐笔委托SeqNo字段统一编号
+    HSTransFlag                   TransFlag;
+    ///消息序号
+    ///SZ:逐笔成交与委托统一序号，在同一个ChannelNo内唯一，从1开始连续
+    HSSeqNo                       SeqNo;
+    ///频道代码
+    HSNum                         ChannelNo;
+    ///成交日期
+    HSDate                        TradeDate;
+    ///成交时间
+    HSTime                        TransactTime;
+    ///成交价格
+    HSPrice                       TrdPrice;
+    ///成交量
+    HSIntVolume                   TrdVolume;
+    ///买方订单号
+    HSSeqNo                       TrdBuyNo;
+    ///卖方订单号
+    HSSeqNo                       TrdSellNo;
+    /// SZ: 成交标识('4':撤; 'F':成交)
+    HSTrdType                     TrdBSFlag;
+    /// SZ: 债券逐笔交易方式
+    HSBondTradeType               TradeType;
+	/// 扩展信息
+    /// SZ: 结算周期
+    HSSettlPeriod                 SettlPeriod;
+    /// SZ: 结算方式
+    HSSettlType                   SettlType;
+};
+
+///逐笔委托数据信息
+struct CHSNsqBondTransactionEntrustDataField {
+    ///交易所代码
+    HSExchangeID                  ExchangeID;
+    /// 合约代码
+    HSInstrumentID                InstrumentID;
+    ///逐笔行情数据标识
+    ///HS_TRF_Alone(逐笔独立编号)：表示逐笔成交与逐笔委托SeqNo字段独立编号
+    ///HS_TRF_Unified(逐笔统一编号):表示逐笔成交与逐笔委托SeqNo字段统一编号
+    HSTransFlag                   TransFlag;
+    ///消息序号
+    ///SZ:逐笔成交与委托统一序号，在同一个ChannelNo内唯一，从1开始连续
+    HSSeqNo                       SeqNo;
+    ///频道代码
+    HSNum                         ChannelNo;
+    ///委托日期
+    HSDate                        TradeDate;
+    ///委托时间
+    HSTime                        TransactTime;
+    ///委托价格
+    HSPrice                       OrdPrice;
+    ///委托数量
+    HSIntVolume                   OrdVolume;
+    ///买卖方向
+    /// SZ: ('1':买; '2':卖; 'G':借入; 'F':出借)
+    HSDirection                   OrdSide;
+    ///订单类别
+    /// SZ: ('1':市价; '2':限价; 'U':本方最优)(适用于匹配及质押式回购匹配成交逐笔)
+    HSOrdType                     OrdType;
+    ///债券逐笔交易方式
+    HSBondTradeType               TradeType;
+    /// 扩展信息
+    /// SZ: 结算周期
+    HSSettlPeriod                 SettlPeriod;
+    /// SZ: 结算方式
+    HSSettlType                   SettlType;
+    /// SZ: 债券报价消息编号 (适用于点击成交行情)
+    HSQuoteID                     QuoteID;
+    /// SZ: 债券交易商代码
+    HSMemberID                    MemberID;
+    /// SZ: 债券交易主体类型
+    HSInvestorType                InvestorType;
+    /// SZ: 债券交易主体代码
+    HSInvestorID                  InvestorID;
+    /// SZ: 债券交易员代码
+    HSTraderCode                  TraderCode;
+};
+
+
+///重建应答的逐笔数据信息
+struct CHSNsqSecuTransactionDataField {
+    ///该通道下最新的序号
+    HSSeqNo                 LatestSeqNo;
+    ///重建返回的逐笔类型
+    /// SZ: ('1':逐笔成交; '2':逐笔委托; '3':新债券逐笔成交; '4':新债券逐笔委托)
+    /// SH: ('1':逐笔成交; '2':逐笔委托 )
+    HSRebuildTransType      TransType;
+    union {
+        CHSNsqSecuTransactionTradeDataField     TradeData;
+        CHSNsqSecuTransactionEntrustDataField   EntrustData;
+        CHSNsqBondTransactionTradeDataField     BondTradeData;
+        CHSNsqBondTransactionEntrustDataField   BondEntrustData;
+    };
+};
 
 #pragma pack(pop)
 #endif
