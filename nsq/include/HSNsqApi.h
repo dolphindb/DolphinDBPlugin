@@ -83,6 +83,11 @@ public:
     /// Description: 主推-现货盘后固定逐笔成交行情
     virtual void OnRtnSecuATPTransactionTradeData(CHSNsqSecuTransactionTradeDataField *pSecuTransactionTradeData) {};
 
+    /// Description: 主推-深证新债券逐笔成交行情
+    virtual void OnRtnBondTransactionTradeData(CHSNsqBondTransactionTradeDataField* pSecuTransactionTradeData) {};
+
+    /// Description: 主推-深证新债券逐笔委托行情
+    virtual void OnRtnBondTransactionEntrustData(CHSNsqBondTransactionEntrustDataField* pSecuTransactionEntrustData) {};
 
 
     /// Description: 获取当前交易日现货合约应答
@@ -133,6 +138,16 @@ public:
 
     /// Description: 重建应答超时-现货逐笔数据（本回调线程与其他回调线程不同）
     virtual void OnRspSecuTransactionDataTimeout(int nRequestID) {};
+
+
+    ////以下是港股通接口
+
+    /// Description: 获取当前交易日合约应答
+    virtual void OnRspQryHktInstruments(CHSNsqHktInstrumentStaticInfoField *pHktInstrumentStaticInfo, CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {};
+
+    /// Description: 主推-港股通行情
+    virtual void OnRtnHktDepthMarketData(CHSNsqHktDepthMarketDataField *pHktDepthMarketData) {};
+
 };
 
 
@@ -303,6 +318,15 @@ public:
     /// Input      : pReqSecuTransactionRebuild             重建范围 
     ///              nRequestID                             请求编号 
     virtual int ReqSecuTransactionRebuild(CHSNsqReqSecuTransactionRebuildField *pReqSecuTransactionRebuild, int nRequestID) = 0;
+
+
+    ////以下是港股通接口
+
+    /// Description: 当前交易日合约信息查询
+    /// Input      : pReqQryHktInstruments[]                代码信息查询请求结构体数组 
+    ///              nCount                                 查询行情合约个数。nCount为0，表示查询pReqQryHktInstruments[0].ExchangeID全市场
+    ///              nRequestID                             请求编号 
+    virtual int ReqQryHktInstruments(CHSNsqReqHktDepthMarketDataField pReqQryHktInstruments[], int nCount, int nRequestID) = 0;
 
 protected:
     ~CHSNsqApi(){};

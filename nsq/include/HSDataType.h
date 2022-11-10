@@ -2,12 +2,16 @@
 #define HS_DATATYPE_H
 
 /***
-version: V1.1.2.7
+version: V1.1.2.16
 note: HSDataType.h版本号与API动态库版本号无关
 
+V1.1.2.13头文件对API版本有要求，依赖如下：
+  FutuFPC1.0-APIV202023A-00-003(含)以上
+  nsq1.0-api.V202201.01.000(含)以上
 V1.1.2.6头文件对API版本有要求，依赖如下：
   FutuFPC1.0-APIV202024.00.000(含)以上 
   nsq1.0-api.V202001.13.002(含)以上
+
 ***/
 
 #ifdef _WIN32
@@ -43,7 +47,7 @@ typedef uint64_t			uint64;
 //////////////////////////////////////////////////////////////////////////
 /// HSInstrumentID：合约编码
 //////////////////////////////////////////////////////////////////////////
-typedef char HSInstrumentID[32];
+typedef char HSInstrumentID[81];
 
 //////////////////////////////////////////////////////////////////////////
 /// HSOptionsType：期权类型
@@ -80,6 +84,10 @@ typedef char HSExerciseStyle;
 #define HS_EI_CFFEX                 "F4"
 /// 上海国际能源交易中心股份有限公司
 #define HS_EI_INE                   "F5"
+/// 沪港通
+#define HS_EI_SSEHK                 "G"
+/// 深港通
+#define HS_EI_SZSEHK                "S"
 typedef char HSExchangeID[5];
 
 //////////////////////////////////////////////////////////////////////////
@@ -207,9 +215,9 @@ typedef char HSDirection;
 #define HS_OD_Apply          3
 /// 配股				      
 #define HS_OD_MarthSecu      4
-///债券转股
+/// 债券转股
 #define HS_OD_BondConv		 5
-///债券回售
+/// 债券回售
 #define HS_OD_BondCall		 6
 /// 质押入库		        
 #define HS_OD_PledgeIn       7
@@ -263,6 +271,12 @@ typedef char HSDirection;
 #define HS_OD_BuyRepay       40
 /// 现券还券		        
 #define HS_OD_HoldRepay      41
+/// 港股整手买入
+#define HS_OD_HkBuyRound     42
+/// 港股整手卖出
+#define HS_OD_HkSellRound    43
+/// 港股零股卖出
+#define HS_OD_HkSellOddLot   44
 typedef int32 HSOrderDirection;
 
 /////////////////////////////////////////////////////////////////////////
@@ -306,6 +320,7 @@ typedef int32 HSDurationTime;
 
 /////////////////////////////////////////////////////////////////////////
 /// HSPositionType：持仓类型类型
+/////////////////////////////////////////////////////////////////////////
 /// 权利方
 #define HS_PT_Right                 '0'
 /// 义务方
@@ -442,7 +457,7 @@ typedef char HSTransferSource;
 #define HS_TS_Canceled            '5'
 /// 待冲正
 #define HS_TS_PendingReversal     '7'
-///已冲正
+/// 已冲正
 #define HS_TS_Reversal            '8'
 /// 待报
 #define HS_TS_ToBeReported        'A'
@@ -513,7 +528,7 @@ typedef char HSOrderSysID[32];
 //////////////////////////////////////////////////////////////////////////
 /// HSCombPositionID：组合持仓编码
 //////////////////////////////////////////////////////////////////////////
-typedef char HSCombPositionID[32];
+typedef char HSCombPositionID[33];
 
 //////////////////////////////////////////////////////////////////////////
 /// HSPassword：密码
@@ -556,7 +571,7 @@ typedef double HSDelta;
 //////////////////////////////////////////////////////////////////////////
 /// HSInstrumentTradeStatus：合约交易状态
 //////////////////////////////////////////////////////////////////////////
-/// 启动(开始前)
+/// 启动(开市前)
 #define HS_IT_Init               'S'
 /// 集合竞价
 #define HS_IT_CallAuction        'C'
@@ -606,7 +621,7 @@ typedef char HSOpenRestriction[64];
 //////////////////////////////////////////////////////////////////////////
 /// HSProductID：合约品种类别
 //////////////////////////////////////////////////////////////////////////
-typedef char HSProductID[4];
+typedef char HSProductID[5];
 
 //////////////////////////////////////////////////////////////////////////
 /// HSMaxMarginSideAlgorithm：大额单边保证金算法类型
@@ -713,6 +728,26 @@ typedef char HSPasswordType;
 #define HS_CT_LimitFAKV                             20
 /// 盘后固定价格
 #define HS_CT_LimitPFP                              21
+/// 港股通当日有效竞价限价盘
+#define HS_CT_HkAtCrossingLimitGFD 					22
+/// 港股通即时全部成交否则撤销竞价限价盘
+#define HS_CT_HkAtCrossingLimitFOK 					23
+/// 港股通增强限价盘
+#define HS_CT_HkDayLimit 							24
+/// 结算价交易TAS
+#define HS_CT_TAS									25
+/// 持仓套保确认 
+#define HS_CT_HoldHedgeConfirm                      26
+/// 跨期套利确认
+#define HS_CT_SpreadArbitrageConfirm                27
+/// 跨式套利即时全部成交否则撤销
+#define HS_CT_SpanArbitrageFOK                      28
+/// 跨式套利即时成交剩余撤销
+#define HS_CT_SpanArbitrageFAK                      29
+/// 宽跨式套利即时全部成交否则撤销
+#define HS_CT_WideSpanArbitrageFOK                  30
+/// 宽跨式套利即时成交剩余撤销
+#define HS_CT_WideSpanArbitrageFAK                  31
 typedef int32 HSOrderCommand;
 
 //////////////////////////////////////////////////////////////////////////
@@ -728,7 +763,7 @@ typedef char HSBrokerOrderID[32];
 //////////////////////////////////////////////////////////////////////////
 /// HSBusinessName：业务名称
 //////////////////////////////////////////////////////////////////////////
-typedef char HSBusinessName[64];
+typedef char HSBusinessName[65];
 
 //////////////////////////////////////////////////////////////////////////
 /// HSUserApplicationType：投资者端应用类别
@@ -813,12 +848,10 @@ typedef char HSTransType;
 #define HS_TRF_Unified   2
 typedef int32 HSTransFlag;
 
-
-
 //////////////////////////////////////////////////////////////////////////
 /// HSInstrumentEngName：合约英文名称
 //////////////////////////////////////////////////////////////////////////
-typedef char HSInstrumentEngName[32];
+typedef char HSInstrumentEngName[64];
 
 //////////////////////////////////////////////////////////////////////////
 /// HSProductType：产品类型
@@ -837,6 +870,8 @@ typedef char HSInstrumentEngName[32];
 #define HS_PTYPE_Securities          '6'
 /// 股票期权
 #define HS_PTYPE_OptStock            '7'
+/// TAS合约
+#define HS_PTYPE_TAS                 '8'
 typedef char HSProductType;
 
 //////////////////////////////////////////////////////////////////////////
@@ -874,33 +909,33 @@ typedef char HSCombType;
 /// HSRiskLevel：风险等级
 //////////////////////////////////////////////////////////////////////////
 /// 默认型
-#define HS_RL_Default               '0'
+#define HS_RL_Default               "0"
 /// 保守型
-#define HS_RL_Keep                  '1'
+#define HS_RL_Keep                  "1"
 /// 谨慎型
-#define HS_RL_Cautions              '2'
+#define HS_RL_Cautions              "2"
 /// 稳健型
-#define HS_RL_Steady                '3'
+#define HS_RL_Steady                "3"
 /// 积极型
-#define HS_RL_Active                '4'
+#define HS_RL_Active                "4"
 /// 成长型
-#define HS_RL_Growth                '6'
+#define HS_RL_Growth                "6"
 /// 专业投资者
-#define HS_RL_Profession            '99'
+#define HS_RL_Profession            "99"
 /// 自定义风险等级
-#define HS_RL_Diy                   '100'
+#define HS_RL_Diy                   "100"
 typedef char HSRiskLevel[4];
 
 //////////////////////////////////////////////////////////////////////////
 /// HSAppIDType：客户端ID类型
 //////////////////////////////////////////////////////////////////////////
-///直连的投资者
+/// 直连的投资者
 #define HS_AT_Investor					 '1'
-///所有投资者共享一个操作员连接的中继
+/// 所有投资者共享一个操作员连接的中继
 #define HS_AT_OperatorRelay				 '2'
-///为每个投资者都创建连接的中继
+/// 为每个投资者都创建连接的中继
 #define HS_AT_InvestorRelay              '3'
-///未知
+/// 未知
 #define HS_AT_UnKnown				     '0'
 typedef char HSAppIDType;
 
@@ -933,15 +968,15 @@ typedef char HSAppAbnormalType;
 //////////////////////////////////////////////////////////////////////////
 /// HSTradeType：成交类型
 //////////////////////////////////////////////////////////////////////////
-///普通成交、套利组合拆仓
+/// 普通成交、套利组合拆仓
 #define HS_TT_Common                '0'
-///期权执行
+/// 期权执行
 #define HS_TT_OptionsExecution      '1'
-///OTC成交
+/// OTC成交
 #define HS_TT_OTC                   '2'
-///期转现衍生成交
+/// 期转现衍生成交
 #define HS_TT_EFPDerived            '3'
-///组合衍生成交
+/// 组合衍生成交
 #define HS_TT_CombinationDerived    '4'
 typedef char HSTradeType;
 
@@ -966,9 +1001,9 @@ typedef char HSOccasion[32];
 
 //////////////////////////////////////////////////////////////////////////
 /// 回报订阅模式
+//////////////////////////////////////////////////////////////////////
 enum SUB_TERT_TYPE
 {
-	//////////////////////////////////////////////////////////////////////
 	///从本交易日开始重传
 	HS_TERT_RESTART = 0,
 	///从上次收到的续传
@@ -1000,46 +1035,46 @@ typedef double HSRisk;
 //////////////////////////////////////////////////////////////////////////
 /// HSStockType:证券类别
 //////////////////////////////////////////////////////////////////////////
-///股票
+/// 股票
 #define HS_ST_Stock       "0"
-///基金
+/// 基金
 #define HS_ST_Fund        "1"
-///配股权证
+/// 配股权证
 #define HS_ST_MarthSecu   "3"
-///普通申购
+/// 普通申购
 #define HS_ST_Apply       "4"
-///记账国债
+/// 记账国债
 #define HS_ST_RegDebt     "9"
-///基金申赎
+/// 基金申赎
 #define HS_ST_FundAppRed  "A"
-///LOF基金
+/// LOF基金
 #define HS_ST_LofFund     "L"
-///ETF基金
+/// ETF基金
 #define HS_ST_EtfFund     "T"
-///ETF申赎
+/// ETF申赎
 #define HS_ST_EtfAppRed   "N"
-///创业板
+/// 创业板
 #define HS_ST_Gem         "c"
-///科创板股票
+/// 科创板股票
 #define HS_ST_Star        "e"
-///科创板存托凭证
+/// 科创板存托凭证
 #define HS_ST_StarCdr     "g"
-///注册制创业板
+/// 注册制创业板
 #define HS_ST_RegGem      "p"
-///注册制创业板存托凭证
+/// 注册制创业板存托凭证
 #define HS_ST_RegGemCdr   "q"
 typedef char HSStockType[5];               
 
 //////////////////////////////////////////////////////////////////////////
 /// HSSubStockType:证券子类别
 //////////////////////////////////////////////////////////////////////////
-///公开优先股
+/// 公开优先股
 #define HS_SST_PublicPreferStock       "01"
-///非公开优先股
+/// 非公开优先股
 #define HS_SST_NonPublicPreferStock    "02"
-///新股市值申购
+/// 新股市值申购
 #define HS_SST_MarketValueApply		   "41"
-///债券信用申购
+/// 债券信用申购
 #define HS_SST_BondCreditApply		   "G1"
 typedef char HSSubStockType[5];
 
@@ -1066,9 +1101,9 @@ typedef char HSCompactID[33];
 //////////////////////////////////////////////////////////////////////////
 /// HSCashGroupProp:头寸属性
 //////////////////////////////////////////////////////////////////////////
-///普通头寸
+/// 普通头寸
 #define HS_CGP_Common       '1'
-///专项头寸
+/// 专项头寸
 #define HS_CGP_Special      '2'
 typedef char HSCashGroupProp;
 
@@ -1258,7 +1293,6 @@ typedef char HSRealActionType;
 //////////////////////////////////////////////////////////////////////////
 /// HSBusinessFlag：业务标志
 //////////////////////////////////////////////////////////////////////////
-typedef int32 HSBusinessFlag;
 /// 客户资金调拨
 #define HS_BF_FundTrans	        2034
 /// 客户股份调拨
@@ -1287,8 +1321,9 @@ typedef int32 HSBusinessFlag;
 #define HS_BF_PayOff_HoldRepay	31104
 /// 融券现金了结
 #define HS_BF_SloCashRepay	    31107
-/// 融资融券合展期状态变更
+/// 融资融券合约展期状态变更
 #define HS_BF_CompactApply	    31118
+typedef int32 HSBusinessFlag;
 
 /////////////////////////////////////////////////////////////////////////
 /// HSOrderAssStatus：报单辅助状态
@@ -1311,7 +1346,6 @@ typedef int32 HSBusinessFlag;
 #define HS_OCR_CancelConfirmed		 '7'
 /// 撤单被交易所废单
 #define HS_OCR_CancelFailed 		 '8'
-
 typedef char HSOrderAssStatus;
 
 /////////////////////////////////////////////////////////////////////////
@@ -1376,5 +1410,328 @@ typedef char HSTopOrderType;
 /// 未知状态
 #define HS_EXS_Unknown				'X'
 typedef char HSExchangeStatus;
+
+//////////////////////////////////////////////////////////////////////////
+/// HSClientOrderID：客户端报单编号
+////////////////////////////////////////////////////////////////////////// 
+typedef int64 HSClientOrderID;
+
+//////////////////////////////////////////////////////////////////////////
+/// HSCompactStatus:合约状态
+//////////////////////////////////////////////////////////////////////////
+//开仓未归还
+#define   HS_CS_OpenNoret                      '0'  
+//部分归还
+#define   HS_CS_PartRet                        '1' 
+//合约已过期
+#define   HS_CS_Overload                       '2'   
+//客户自行归还
+#define   HS_CS_CustEnd                        '3'   
+//手工了结
+#define   HS_CS_ManEnd                         '4'    
+//未形成负债
+#define   HS_CS_NoDebit                        '5'    
+typedef char HSCompactStatus;
+
+//////////////////////////////////////////////////////////////////////////
+/// HSExchangeAccountID：交易编码
+//////////////////////////////////////////////////////////////////////////
+typedef char HSExchangeAccountID[32];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSCombStrategyType：组合策略类型
+//////////////////////////////////////////////////////////////////////////
+/// 基本定单
+#define HS_CST_NoReport 			'0'
+/// 套利定单
+#define HS_CST_Arbitrage			'1'
+/// 组合定单
+#define HS_CST_Comb					'2'
+/// 批量定单
+#define HS_CST_Batch				'3'
+/// 期权执行申请定单
+#define HS_CST_OptExec				'4'
+/// 双边报价定单
+#define HS_CST_Quote				'5'
+/// 互换订单
+#define HS_CST_Swap					'6'
+/// 跨期套利
+#define HS_CST_ArbiSP				'7'
+/// 跨品种套利
+#define HS_CST_ArbiSPC				'8'
+/// 期权垂直买权套利
+#define HS_CST_FOptBUL				'9'
+/// 期权垂直卖权套利
+#define HS_CST_FOptBER				'A'
+/// 期权水平买权套利
+#define HS_CST_FOptBLT				'B'
+/// 期权水平卖权套利
+#define HS_CST_FOptBRT				'C'
+/// 期权跨式套利
+#define HS_CST_FOptSTD				'D'
+/// 期权宽跨式套利
+#define HS_CST_FOptSTG				'E'
+/// 期权转换CNV
+#define HS_CST_CNV					'F'
+/// 期权三期跨期套利SPZ
+#define HS_CST_SPZ					'G'
+/// 期权期货保护PRT
+#define HS_CST_PRT					'H'
+/// 同合约对锁
+#define HS_CST_Lock					'I'
+/// 期权日历价差
+#define HS_CST_FOptCAS				'J'
+/// 买入期货期权
+#define HS_CST_FOptBFO				'K'
+/// 卖出期货期权
+#define HS_CST_FOptSFO				'L'
+typedef char HSCombStrategyType;
+
+//////////////////////////////////////////////////////////////////////////
+/// HSSysnodeName：系统节点名称
+//////////////////////////////////////////////////////////////////////////
+typedef char HSSysnodeName[64];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSQueryType：查询类型
+//////////////////////////////////////////////////////////////////////////
+/// 查询全部委托
+#define HS_QT_All					'0'
+/// 查询可撤委托
+#define HS_QT_Cancel				'1'
+typedef char HSQueryType;
+
+//////////////////////////////////////////////////////////////////////////
+/// HSCheckVersion：API结构体版本校验
+//////////////////////////////////////////////////////////////////////////
+typedef int32 HSCheckVersion;
+
+//////////////////////////////////////////////////////////////////////////
+/// HSLicenseFile：证书文件
+//////////////////////////////////////////////////////////////////////////
+typedef char HSLicenseFile[255];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSLicensePassward：证书密码
+//////////////////////////////////////////////////////////////////////////
+typedef char HSLicensePassward[32];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSSafeLevel：安全级别
+//////////////////////////////////////////////////////////////////////////
+/// 无加密
+#define HS_SL_None					"none"
+/// 通讯证书加密
+#define HS_SL_Pwd					"pwd"
+/// SSL加密
+#define HS_SL_SSL					"ssl"
+typedef char HSSafeLevel[32];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSHkszBusiness:港股非交易业务类别
+////////////////////////////////////////////////////////////////////////// 
+/// 配股认购申报
+#define HS_HKSZBS_PGRG "PGRG"
+/// 红利选择权申报
+#define HS_HKSZBS_QPSB "QPSB"
+/// 收购保管申报
+#define HS_HKSZBS_SGBG "SGBG"
+/// 投票申报
+#define HS_HKSZBS_TPSB "TPSB"
+typedef char HSHkszBusiness[5];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSCorbehaviorCode:公司行为代码
+////////////////////////////////////////////////////////////////////////// 
+typedef char HSCorbehaviorCode[17];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSPlacardId:公共编号
+////////////////////////////////////////////////////////////////////////// 
+typedef char HSPlacardId[21];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSMotionId:议案编号
+////////////////////////////////////////////////////////////////////////// 
+typedef char HSMotionId[21];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSAllotNo:订单申请编号
+////////////////////////////////////////////////////////////////////////// 
+typedef char HSAllotNo[25];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSCsdcBusiSerialNo:中登业务流水号
+////////////////////////////////////////////////////////////////////////// 
+typedef char HSCsdcBusiSerialNo[17];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSInfoKind:通知信息类型
+////////////////////////////////////////////////////////////////////////// 
+/// H01-港股通权益登记通知信息
+#define HS_IK_H01 "H01"
+/// H05-港股通结算汇兑比率通知信息
+#define HS_IK_H05 "H05"
+/// H06-港股通投票公告通知信息
+#define HS_IK_H06 "H06"
+/// H07-港股通现金收购通知信息
+#define HS_IK_H07 "H07"
+/// H08-港股通股份收购通知信息
+#define HS_IK_H08 "H08"
+/// H09-港股通现金和股份收购通知信息
+#define HS_IK_H09 "H09"
+/// H10-股份分拆合并通知信息
+#define HS_IK_H10 "H10"
+/// H12-港股通投票议案通知信息
+#define HS_IK_H12 "H12"
+/// H13-港股通公开配售通知信息
+#define HS_IK_H13 "H13"
+/// H14-港股通供股通知信息
+#define HS_IK_H14 "H14"
+typedef char HSInfoKind[4];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSReturnCode:返回代码
+////////////////////////////////////////////////////////////////////////// 
+typedef char HSReturnCode[9];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSReturnInfo:返回信息
+////////////////////////////////////////////////////////////////////////// 
+typedef char HSReturnInfo[256];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSBusinessType:业务类别
+////////////////////////////////////////////////////////////////////////// 
+/// '1'-证券配股, 对应港股非交易申报业务:配股认购-'PGRG'
+#define HS_BT_ZQPG '1'
+/// '6'-股息入账, 对应港股非交易申报业务:股息入账-'QPSB'
+#define HS_BT_GXRZ '6'
+/// 'U'-收购入账, 对应港股非交易申报业务:收购保管-'SGBG'
+#define HS_BT_SGRZ 'U'
+/// 'n'-权益数据, 对应港股非交易申报业务:投票申报-'TPSB'
+#define HS_BT_QYSJ 'n'
+typedef char HSBusinessType;
+
+//////////////////////////////////////////////////////////////////////////
+/// HSSslVersion：SSL版本
+//////////////////////////////////////////////////////////////////////////
+/// SSLV2
+#define HS_SV_SSLV2  "SSLV2"
+/// SSLV3
+#define HS_SV_SSLV3  "SSLV3"
+/// SSLV23
+#define HS_SV_SSLV23 "SSLV23"
+/// TLSV1
+#define HS_SV_TLSV1  "TLSV1"
+/// 格尔国密
+#define HS_SV_GEER   "gergmssl"
+/// 信安世纪国密
+#define HS_SV_XASJ   "xasjgmssl"
+typedef char HSSslVersion[32];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSHktTradeLimit：港股通订单交易限制类型
+//////////////////////////////////////////////////////////////////////////
+/// 未知
+#define HS_HKT_UNKNOWN            '0'
+/// 港股通订单限制交易
+#define HS_HKT_ORDER_LIMIT        '1'
+/// 港股通订单不限制交易
+#define HS_HKT_ORDER_UNLIMIT      '2'
+typedef char HSHktTradeLimit;
+
+//////////////////////////////////////////////////////////////////////////
+/// HSMemberID：交易商代码
+//////////////////////////////////////////////////////////////////////////
+typedef char	HSMemberID[7];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSQuoteID：报价消息编号
+//////////////////////////////////////////////////////////////////////////
+typedef char	HSQuoteID[11];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSInvestorType：债券交易主体类型
+//////////////////////////////////////////////////////////////////////////
+/// 自营
+#define HS_INT_ZY		"01"
+/// 资管
+#define HS_INT_ZG		"02"
+/// 机构经纪
+#define HS_INT_JGJJ		"03"
+/// 个人经纪
+#define HS_INT_GRJJ		"04"
+typedef char	HSInvestorType[3];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSInvestorID：债券交易主体代码
+//////////////////////////////////////////////////////////////////////////
+typedef char	HSInvestorID[11];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSTraderCode：交易员代码
+//////////////////////////////////////////////////////////////////////////
+typedef char	HSTraderCode[11];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSSettlPeriod：结算周期
+//////////////////////////////////////////////////////////////////////////
+typedef uint16  HSSettlPeriod;
+
+//////////////////////////////////////////////////////////////////////////
+/// HSSettlType：结算方式
+//////////////////////////////////////////////////////////////////////////
+/// 多边净额
+#define HS_SETTLTYPE_DBJE    103
+/// 逐笔全额
+#define HS_SETTLTYPE_ZBQE    104
+typedef uint16  HSSettlType;
+
+//////////////////////////////////////////////////////////////////////////
+/// HSBondTradeType：债券交易方式
+//////////////////////////////////////////////////////////////////////////
+/// 匹配成交
+#define  HS_BTT_PPCJ		  1
+/// 协商成交
+#define  HS_BTT_XSCJ		  2
+/// 点击成交
+#define  HS_BTT_DJCJ		  3
+/// 询价成交
+#define  HS_BTT_XJCJ		  4
+/// 竞买成交
+#define  HS_BTT_JMCJ          5
+/// 意向申报
+#define  HS_BTT_YXSB          6
+/// 匹配成交大额
+#define  HS_BTT_PPDE          7
+/// 质押式匹配成交
+#define  HS_BTT_ZYPPCJ        8
+/// 未知类型
+#define  HS_BTT_UNKNOWN       0
+typedef int8    HSBondTradeType;
+
+//////////////////////////////////////////////////////////////////////////
+/// HSRebuildTransType：重建返回逐笔类型
+//////////////////////////////////////////////////////////////////////////
+/// 逐笔成交
+#define HS_RTT_Trade	          '1'
+/// 逐笔委托
+#define HS_RTT_Entrust            '2'
+/// 债券逐笔成交
+#define HS_RTT_BOND_Trade         '3'
+/// 债券逐笔委托
+#define HS_RTT_BOND_Entrust       '4'
+typedef char HSRebuildTransType;
+
+//////////////////////////////////////////////////////////////////////////
+/// HSSeatID：席位号
+//////////////////////////////////////////////////////////////////////////
+typedef char HSSeatID[17];
+
+//////////////////////////////////////////////////////////////////////////
+/// HSSeatIndex：席位索引
+//////////////////////////////////////////////////////////////////////////
+typedef uint32 HSSeatIndex;
 
 #endif

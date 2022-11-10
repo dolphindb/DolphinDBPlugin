@@ -46,7 +46,7 @@ void CHSNsqSpiImpl::OnFrontDisconnected(int nResult) {
     //重新连接成功后，需要重新向服务器发起订阅请求
     LOG_INFO("nsq: OnFrontDisconnected\n");
     m_isConnected = false;
-    throw RuntimeException("DisConnected");
+    //throw RuntimeException("DisConnected");
 }
 
 void CHSNsqSpiImpl::OnRspUserLogin(CHSNsqRspUserLoginField *pRspUserLogin, CHSNsqRspInfoField *pRspInfo, int nRequestID,
