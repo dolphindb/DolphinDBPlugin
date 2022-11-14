@@ -2,6 +2,8 @@
 
 With DolphinDB ODBC plugin, you can import data from databases that support ODBC interface.
 
+The DolphinDB ODBC plugin has the branches [release 200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/odbc/README.md) and [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/odbc/README.md). Each plugin version corresponds to a DolphinDB server version. You're looking at the plugin documentation for release200. If you use a different DolphinDB server version, please refer to the corresponding branch of the plugin documentation.
+
 ## 1. Prerequisites
 
 This plugin requires the following database drivers for ODBC. 
