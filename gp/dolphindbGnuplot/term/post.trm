@@ -4147,18 +4147,24 @@ PS_open_prologue_file(char *name)
     char *ps_prologue_dir = NULL;
     char *ps_prologue_env;
     FILE *prologue_fd;
+	if(ps_prologue_dir==NULL)
+		printf("define GNUPLOT_PS_DIR-1\n");
 
     /* Allocate and load default directory into ps_prologue_dir.  */
     /* FIXME:  Why should we have to recalculate this every time? */
 #ifdef GNUPLOT_PS_DIR
+printf("define GNUPLOT_PS_DIR\n");
 # if defined(_WIN32) || defined(MSDOS) || defined(OS2)
     ps_prologue_dir = RelativePathToGnuplot(GNUPLOT_PS_DIR);
+printf("define GNUPLOT_PS_DIR1\n");
 # else
     /* use hardcoded _absolute_ path */
     ps_prologue_dir = gp_strdup(GNUPLOT_PS_DIR);
+printf("define GNUPLOT_PS_DIR2\n");
 # endif
 #endif /* system-dependent ps_prologue_dir */
 
+printf("define GNUPLOT_PS_DIR3\n");
     prologue_fd = NULL;
     /* First try current setting of "set psdir" */
     if (PS_psdir) {
@@ -4182,11 +4188,14 @@ PS_open_prologue_file(char *name)
     /* We should have a built-in copy of the headers */
     if (!prologue_fd) {
 	PS_dump_header_to_file(name);
+	printf("returnNULL\n");
 	return NULL;
     }
 #   endif
 
     /* Third try system default directory */
+
+	printf("ps_prologue_dir=NULL\n");
     if (!prologue_fd) {
 	fullname = gp_alloc(strlen(ps_prologue_dir) + strlen(name) + 4,"Prolog name");
 	strcpy(fullname, ps_prologue_dir);
@@ -4194,6 +4203,8 @@ PS_open_prologue_file(char *name)
 	prologue_fd = fopen(fullname, "r");
 	free(fullname);
     }
+	if(ps_prologue_dir==NULL)
+		printf("define GNUPLOT_PS_DIR4\n");
 
     free(ps_prologue_dir);
 

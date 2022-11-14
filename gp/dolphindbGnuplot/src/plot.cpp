@@ -291,10 +291,10 @@ extern "C" int gpInit(int argc_orig, char **argv)
 /* make sure that we really have revoked root access, this might happen if
    gnuplot is compiled without vga support but is installed suid by mistake */
 #ifdef __linux__
-    // if (setuid(getuid()) != 0) {
-	// fprintf(stderr,"gnuplot: refusing to run at elevated privilege\n");
-	// exit(EXIT_FAILURE);
-    //}
+    if (setuid(getuid()) != 0) {
+	fprintf(stderr,"gnuplot: refusing to run at elevated privilege\n");
+	exit(EXIT_FAILURE);
+    }
 #endif
 //printf("here2\n");
 /* HBB: Seems this isn't needed any more for DJGPP V2? */
@@ -477,7 +477,7 @@ extern "C" int gpInit(int argc_orig, char **argv)
     init_memory();
 
 //printf("here6\n");
-    interactive = true;
+    interactive = FALSE;
 
     /* April 2017:  We used to call init_terminal() here, but now   */
     /* We defer initialization until error handling has been set up. */
@@ -485,7 +485,7 @@ extern "C" int gpInit(int argc_orig, char **argv)
 # if defined(_WIN32) && !defined(WGP_CONSOLE)
     interactive = TRUE;
 # else
-    //interactive = isatty(fileno(stdin));
+    interactive = isatty(fileno(stdin));
 # endif
 
 //printf("here7\n");
