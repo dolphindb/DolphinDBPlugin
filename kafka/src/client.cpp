@@ -97,3 +97,4 @@ SubConnection::SubConnection(Heap *heap, std::string description, const Function
         thread_->start();
     }
 }
+
