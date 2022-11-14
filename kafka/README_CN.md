@@ -17,7 +17,7 @@
 DolphinDB 提供了 Kafka 插件用于发布或订阅 Kafka 流服务。该插件支持以下数据类型的序列化和反序列化：
 
 - DolphinDB 标量
-- Kafka Java API 的内置类型：String[UTF-8], Short, Integer, Long, Float, Double, Bytes, byte[] 以及 ByteBuffer
+- Kafka Java API 的内置类型：String([UTF-8](https://dolphindb1.atlassian.net/browse/UTF-8)), Short, Integer, Long, Float, Double, Bytes, byte[] 以及 ByteBuffer
 - 以上数据类型所组成的向量
 
 ## 1. 预编译安装

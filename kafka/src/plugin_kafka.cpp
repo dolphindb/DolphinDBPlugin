@@ -634,7 +634,7 @@ ConstantSP kafkaGetProducerTimeout(Heap *heap, vector<ConstantSP> &args){
 
 // use atomic timestamp to indicate the last assign time.
 // ddb would crash if the internal between assign() & unassign() is too short
-atomic<int64_t> assignTimeout;
+static volatile atomic<long long> assignTimeout;
 ConstantSP kafkaConsumerAssign(Heap *heap, vector<ConstantSP> &args){
     const auto usage = string(
             "Usage: assign(consumer, topic, partition, offset).\n"
@@ -645,13 +645,13 @@ ConstantSP kafkaConsumerAssign(Heap *heap, vector<ConstantSP> &args){
     auto consumer = getConnection<Consumer>(args[0]);
     Convertion convert(usage,args);
     consumer->assign(convert.topic_partitions);
-    assignTimeout.store(Util::getEpochTime(), memory_order_acquire);
+    assignTimeout.store(Util::getEpochTime());
     return new Void();
 }
 
 ConstantSP kafkaConsumerUnassign(Heap *heap, vector<ConstantSP> &args){
-    atomic<int64_t> current;
-    current.store(Util::getEpochTime(), memory_order_acquire);
+    atomic<long long> current;
+    current.store(Util::getEpochTime());
     if(current - assignTimeout < 2) {
         usleep(1000);
     }
@@ -1342,7 +1342,7 @@ static Vector* getMsg(Message &msg){
 static string kafkaGetString(const ConstantSP &data, bool key){
     if(data->getForm() == DF_SCALAR) {
         if(key && data->getType()!=DT_STRING && data->getType()!=DT_CHAR && data->getType() != DT_BOOL){
-            cout << "The key of json will be cast to string." << endl;
+            // cout << "The key of json will be cast to string." << endl;
             return "\"" + data->getString() + "\"";
         }
         else if (data->getType() == DT_BOOL)
@@ -1357,7 +1357,7 @@ static string kafkaGetString(const ConstantSP &data, bool key){
         else if(data->getType() == DT_INT || data->getType() == DT_DOUBLE || data->getType() == DT_FLOAT || data->getType() == DT_SHORT || data->getType() == DT_LONG)
             return data->getString();
         else{
-            cout << "The data type will be cast to string." << endl;
+            // cout << "The data type will be cast to string." << endl;
             return "\"" + data->getString() + "\"";
         }
     }
@@ -1383,30 +1383,36 @@ static string kafkaJsonSerialize(const ConstantSP &data){
         if(data->size() == 0)
             return string("{}");
         int length = data->size();
+
+        ConstantSP dictKeys = data->keys();
+        ConstantSP dictValues = data->values();
+
         result+="{";
-        result+=kafkaGetString(data->keys()->get(length-1), true);
+        result+=kafkaGetString(dictKeys->get(length-1), true);
         result+=":";
-        result+=kafkaGetString(data->values()->get(length-1));
+        result+=kafkaGetString(dictValues->get(length-1));
         for(int i = length-2;i>=0;i--){
             result+=",";
-            result+=kafkaGetString(data->keys()->get(i), true);
+            result+=kafkaGetString(dictKeys->get(i), true);
             result+=":";
-            result+=kafkaGetString(data->values()->get(i));
+            result+=kafkaGetString(dictValues->get(i));
         }
         result+="}";
     }
     else if(data->getForm() == DF_TABLE){
         if(data->size() == 0 || data->columns() == 0)
             return string("{}");
+        ConstantSP dictKeys = data->keys();
+        ConstantSP dictValues = data->values();
         result+="{";
-        result+=kafkaGetString(data->keys()->get(0), true);
+        result+=kafkaGetString(dictKeys->get(0), true);
         result+=":";
-        result+=kafkaJsonSerialize(data->values()->get(0));
+        result+=kafkaJsonSerialize(dictValues->get(0));
         for(int i = 1;i<data->columns();i++){
             result+=",";
-            result+=kafkaGetString(data->keys()->get(i), true);
+            result+=kafkaGetString(dictKeys->get(i), true);
             result+=":";
-            result+=kafkaJsonSerialize(data->values()->get(i));
+            result+=kafkaJsonSerialize(dictValues->get(i));
         }
         result+="}";
     }
