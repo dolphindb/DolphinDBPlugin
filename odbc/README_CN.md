@@ -92,11 +92,12 @@ make install
 ```
 
 若插件运行机器与编译机器不是同一个，则需要将编译好的 freetds 拷贝至运行机器上，即：
-* 将`/usr/local/freetds/lib`下的 freetds.conf, locales.conf, pool.conf 拷贝至到目标机器上的 `/usr/local/freetds/lib` 目录，需要
+* 将`/usr/local/freetds/lib`下的 freetds.conf, locales.conf, pool.conf 拷贝至到目标机器上的 `/usr/local/freetds/lib` 目录
 * 将`/usr/local/freetds/lib/ibtdsodbc.so.0.0.0` 拷贝至目标机器的 `/usr/local/freetds/lib` 目录。
 
 
 ## 3. 将插件加载到 DolphinDB 中
+
 
 使用 DolphinDB 函数 `loadPlugin` 加载插件。它唯一的参数是插件描述文件。例如，下面的 DolphinDB 脚本会加载插件：```PluginODBC.txt```:
 
@@ -129,7 +130,7 @@ use odbc;
 
 * 驱动程序名称可能会有所不同，具体取决于安装的 ODBC 版本。
 * 若数据库连接的端口指定错误，则会出现 server crash。
-* 必须通过 DSN 方式连接 Oracle 数据源，否则连接时用户名和密码可能校验失败；若修改 `/etc/odbc.ini` 中 DSN 配置的 database 和 password，则需要在 Oracle 命令行中 commit 后才能通过新配置进行连接（也可通过 isql 命令行工具进行验证验证配置是否生效）。
+* 必须通过 DSN 方式连接 Oracle 数据源，否则连接时用户名和密码可能校验失败；若修改 `/etc/odbc.ini` 中 DSN 配置的 database 和 password，则需要在 Oracle 命令行中 commit 后才能通过新配置进行连接（也可通过 isql 命令行工具验证配置是否生效）。
 * 通过 freeTDS 访问数据库时，必须保证 freetds.conf 中的 DSN 配置信息正确，否则可能出现 freeTDS crash 的情况。
 
 **描述**
@@ -257,7 +258,7 @@ NANOTIMESTAMP|timestamp|datetime64|timestamp|datetime|datetime|datetime|
 |SYMBOL|varchar(255)|varchar(255)|varchar(255)|varchar(255)|varchar(255)|varchar(255)|
 |STRING|varchar(255)|varchar(255)|varchar(255)|varchar(255)|varchar(255)|varchar(255)|
 
-## 5 问题分析与解决
+## 6 问题分析与解决
 
 1. 连接 windows 系统的 ClickHouse，查询得到的结果显示中文乱码。
 
