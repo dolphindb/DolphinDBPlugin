@@ -2,7 +2,7 @@ pluginFile = "/home/ruibinhuang/projects/DolphinDBPlugin/insight/build/PluginIns
 
 loadPlugin(pluginFile);
 go
-stockSchema = insight::getSchema(`StockType);
+stockSchema = insight::getSchema(`StockTick);
 indexSchema = insight::getSchema(`IndexType);
 futuresSchema = insight::getSchema(`FuturesType);
 transactionSchema = insight::getSchema(`StockTypeTransaction);
@@ -25,7 +25,7 @@ enableTableShareAndPersistence(table=futuresTable, tableName=`futuresTable1, cac
 enableTableShareAndPersistence(table=transactionTable, tableName=`transactionTable1, cacheSize=10000)
 enableTableShareAndPersistence(table=orderTable, tableName=`orderTable1, cacheSize=10000)
 
-handles = dict([`StockType], [stockTable]);
+handles = dict([`StockTick], [stockTable]);
 handles = dict([`IndexType], [indexTable]);
 handles = dict([`FuturesType], [futuresTable]);
 handles = dict([`StockTypeTransaction], [transactionTable]);
