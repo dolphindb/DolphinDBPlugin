@@ -1,19 +1,19 @@
 # DolphinDB ODBC plugin
 
-通过 ODBC Plugin，可以将其它数据源数据导入到 DolphinDB 数据库，或将 DolphinDB 内存表追加到其它数据库。
+通过 ODBC Plugin，可以连接其它数据源，将数据导入到 DolphinDB 数据库，或将 DolphinDB 内存表导出到其它数据库。
 
 ## 1. Prerequisites
 
 ODBC 插件支持的数据源见下表：
 
-| 需要连接的数据库 | 支持情况                                                     | 备注 |
-| ---------------- | ------------------------------------------------------------ | ---- |
-| MySQL          | centos7 稳定，连接时指定 “MYSQL”                         |      |
-| PostgreSQL     | centos7 稳定，连接时指定 “PostgreSQL”                    |      |
-| SQLServer      | centos7 稳定，连接时指定 “SQLServer”                     |      |
+| 需要连接的数据库 | 支持情况                                                |
+| ---------------- | -------------------------------------------------------|
+| MySQL          | centos7 稳定，连接时指定 “MySQL”                         |
+| PostgreSQL     | centos7 稳定，连接时指定 “PostgreSQL”                    |
+| SQLServer      | centos7 稳定，连接时指定 “SQLServer”                     |
 | Clickhouse     | centos7 稳定，连接时指定 “Clickhouse”    |      |
-| SQLite         | centos7 稳定，连接时指定 “SQLite”                                               |      |
-| Oracle         | centos7 稳定，连接时指定 “Oracle”                                              |      |
+| SQLite         | centos7 稳定，连接时指定 “SQLite”                        |
+| Oracle         | centos7 稳定，连接时指定 “Oracle”                        |
 
 使用该插件前，请根据操作系统和数据库安装相应的 ODBC 驱动。
 
@@ -58,7 +58,9 @@ PostgreSQL: https://www.postgresql.org/ftp/odbc/versions/msi/
 
 ## 2. 编译
 
-### 2.1 编译unixODBC-2.3.11
+### 2.1 编译 unixODBC-2.3.11
+推荐编译2.3.11版本的 unixODBC 库。
+
 ```
 wget https://src.fedoraproject.org/repo/pkgs/unixODBC/unixODBC-2.3.11.tar.gz/sha512/dddc32f90a7962e6988e1130a8093c6fb8b9ff532cad270d572250324aecbc739f45f9d8021d217313910bab25b08e69009b4f87456575535e93be1f46f5f13d/unixODBC-2.3.11.tar.gz
 tar -zxvf unixODBC-2.3.11.tar.gz
@@ -67,7 +69,7 @@ make -j
 make install
 ```
 
-### 2.2 编译odbc插件
+### 2.2 编译 ODBC 插件
 ```
 cd <plugin_odbc_dir>
 mkdir build
@@ -78,19 +80,23 @@ make -j
 
 编译生成插件 ```libPluginODBC.so```。
 
-### 2.3 编译freetds odbc
+### 2.3 编译 freetds odbc
+如需连接 SQLServer 数据源，则需要编译 freetds odbc：
 ```
 wget -c http://ibiblio.org/pub/Linux/ALPHA/freetds/stable/freetds-stable.tgz
+tar -zxvf freetds-stable.tgz
+cd freetds
 ./configure --prefix=/usr/local/freetds --with-tdsver=8.0 --enable-msdblib
 make -j
 make install
 ```
 
-如果需要将编译好的freetds odbc放到其他机器上使用，需要将/usr/local/freetds/lib下的freetds.conf, locales.conf, pool.conf放到目标机器上的/usr/local/freetds/lib目录下，需要将/usr/local/freetds/lib/ibtdsodbc.so.0.0.0拷到目标机器的/usr/local/freetds/lib目录下。
+若插件运行机器与编译机器不是同一个，则需要将编译好的 freetds 拷贝至运行机器上，即：
+* 将`/usr/local/freetds/lib`下的 freetds.conf, locales.conf, pool.conf 拷贝至到目标机器上的 `/usr/local/freetds/lib` 目录，需要
+* 将`/usr/local/freetds/lib/ibtdsodbc.so.0.0.0` 拷贝至目标机器的 `/usr/local/freetds/lib` 目录。
 
 
 ## 3. 将插件加载到 DolphinDB 中
-
 
 使用 DolphinDB 函数 `loadPlugin` 加载插件。它唯一的参数是插件描述文件。例如，下面的 DolphinDB 脚本会加载插件：```PluginODBC.txt```:
 
@@ -115,7 +121,7 @@ use odbc;
 
 **参数**
 * connStr: ODBC 连接字符串。有关连接字符串格式的更多信息，请参阅 [连接字符串参考](https://www.connectionstrings.com)。ODBC DSN 必须由系统管理员创建。
-有关 DNS 连接字符串的更多信息，请参阅 [DSN连接字符串](https://www.connectionstrings.com/dsn/)。我们还可以创建到数据库的 DSN-Less 连接。
+有关 DSN 连接字符串的更多信息，请参阅 [DSN连接字符串](https://www.connectionstrings.com/dsn/)。我们还可以创建到数据库的 DSN-Less 连接。
 无需依赖存储在文件或系统注册表中的信息，而是在连接字符串中指定驱动程序名称和所有特定于驱动程序的信息。例如: [SQL server 的 DSN-less 连接字符串](https://www.connectionstrings.com/sql-server/)和[MySQL 的 DSN-less 连接字符串](https://www.connectionstrings.com/mysql/)。
 * dataBaseType: 数据库类型。如"MySQL", "SQLServer", "PostgreSQL", "ClickHouse", "SQLite", "Oracle" 不区分大小写。建议连接时指定该参数，否则写入数据时可能出现报错。
 
