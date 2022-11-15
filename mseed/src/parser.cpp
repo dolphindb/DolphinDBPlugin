@@ -85,7 +85,7 @@ ConstantSP mseedParse(Heap *heap, vector<ConstantSP> &args) {
     {
         data = args[0]->getString();
         mutexLock.lock();
-        fp = SCFmemopen(data.c_str(), data.size(), "rb");
+        fp = SCFmemopen((void*)data.c_str(), data.size(), "rb");
         if (fp == NULL)
         {
             mutexLock.unlock();
@@ -250,7 +250,7 @@ ConstantSP mseedParseStream(Heap *heap, vector<ConstantSP> &args) {
     {
         data = args[0]->getString();
         mutexLock.lock();
-        fp = SCFmemopen(data.c_str(), data.size(), "rb");
+        fp = SCFmemopen((void*)data.c_str(), data.size(), "rb");
         if (fp == NULL)
         {
             mutexLock.unlock();
