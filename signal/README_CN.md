@@ -282,6 +282,43 @@ signal::secc(data,template,k[,moveout,weight])
 
 cccSum：含有n列的矩阵，每列长为l-m+1，对应template的第n列与data互相关的结果。
 
+## 15. signal::abs
+
+对复数进行求模。
+
+### 语法
+
+```
+signal::abs(data)
+```
+
+### 参数
+
++ data: 需要进行求的数据，类型为复数的scalar和vector。
+
+### 返回值
+
+如果参数data为复数的scalar，返回double的scalar。如果参数data为复数的vector，返回double的vector。
+
+## 16. signal::mul
+
+对复数进行乘法运算。
+
+### 语法
+
+```
+signal::mul(data, num)
+```
+
+### 参数
+
++ data: 需要进行乘法的数据，类型为复数的scalar和vector。
+* num: 乘数。类型为double的scalar。
+
+### 返回值
+
+如果参数data为复数的scalar，返回复数的scalar。如果参数data为复数的vector，返回复数的vector。
+
 # 示例
 
 ## 例1 dct离散余弦变换

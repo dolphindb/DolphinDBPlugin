@@ -926,3 +926,72 @@ ConstantSP secc(Heap *heap, vector<ConstantSP> &args)
     fftw_free(Y);
     return res;
 }
+
+ConstantSP absFuc(Heap *heap, vector<ConstantSP> &args){
+    if((!args[0]->isVector() && !args[0]->isScalar()) || args[0]->getType() != DT_COMPLEX || args[0]->hasNull()){
+        throw IllegalArgumentException("abs", "data must be a nonempty complex vector or a nonempty complex scalar.");
+    }
+    ConstantSP data = args[0];
+    if(args[0]->isScalar()){
+        double buffer[2];
+        data->getBinary(0, 1, 16, (unsigned char *)buffer);
+        return new Double(sqrt(buffer[0] * buffer[0] + buffer[1] * buffer[1]));
+    }
+    int vSize = data->size();
+    //std::vector<double> dataBuffer(vSize * 2);
+    //std::vector<double> retBuffer(vSize);
+    double dataBuffer[Util::BUF_SIZE * 2];
+    double retBuffer[Util::BUF_SIZE * 2];
+    
+    int index = 0;
+    VectorSP ret = Util::createVector(DT_DOUBLE, vSize, vSize);
+    while(index < vSize){
+        int subSize = std::min(vSize - index, Util::BUF_SIZE);
+        const unsigned char* dataPtr = data->getBinaryConst(index, subSize, 16, (unsigned char *)dataBuffer);
+        for (int i = 0; i < subSize; i++)
+        {
+            double x = ((double*)dataPtr)[i * 2];
+            double y =  ((double*)dataPtr)[i * 2 + 1];
+            retBuffer[i] = sqrt(x * x + y * y);
+        }
+        ret->setDouble(index, subSize, retBuffer);
+        index += subSize;
+    }
+    return ret;
+}
+
+ConstantSP mul(Heap *heap, vector<ConstantSP> &args){
+    if((!args[0]->isVector() && !args[0]->isScalar()) || args[0]->getType() != DT_COMPLEX || args[0]->hasNull()){
+        throw IllegalArgumentException("mul", "data must be a nonempty complex vector or a nonempty complex scalar.");
+    }
+    if(!args[1]->isNumber() || args[1]->getForm() != DF_SCALAR || args[1]->isNull())
+        throw IllegalArgumentException("mul", "num should be a non-empty numeric scalar");
+    ConstantSP data = args[0];
+    double num = args[1]->getDouble();
+    if(data->isScalar()){
+        double buffer[2];
+        data->getBinary(0, 1, 16, (unsigned char *)buffer);
+        return new Complex(buffer[0] * num, buffer[1] * num);
+    }
+    int vSize = data->size();
+    //std::vector<double> dataBuffer(vSize * 2);
+    //std::vector<double> retBuffer(vSize * 2);
+    VectorSP res = Util::createVector(DT_COMPLEX, vSize, vSize);
+    double dataBuffer[Util::BUF_SIZE * 2];
+    double retBuffer[Util::BUF_SIZE * 2];
+    int index = 0;
+    while(index < vSize){
+        int subSize = std::min(vSize - index, Util::BUF_SIZE);
+        const unsigned char* dataPtr = data->getBinaryConst(index, subSize, 16, (unsigned char *)dataBuffer);
+        for (int i = 0; i < subSize; i++)
+        {
+            double x = ((double*)dataPtr)[i * 2];
+            double y = ((double*)dataPtr)[i * 2 + 1];
+            retBuffer[i * 2] = x * num;
+            retBuffer[i * 2 + 1] = y * num;
+        }
+        res->setBinary(index, subSize, 16, (unsigned char *)retBuffer);
+        index += subSize;
+    }
+    return res;
+}
