@@ -4,6 +4,7 @@
 #include "CoreConcept.h"
 #include "FlatHashmap.h"
 #include "Util.h"
+#include "ScalarImp.h"
 
 #include "xgboost/c_api.h"
 
@@ -521,7 +522,7 @@ ConstantSP saveModel(const ConstantSP& model, const ConstantSP &fname) {
     }
 
     safe_xgboost(XGBoosterSaveModel(hBooster, fname->getString().c_str()));
-    return Util::createConstant(DT_VOID);
+    return new Void();
 }
 
 ConstantSP loadModel(Heap *heap, vector<ConstantSP> &args) {

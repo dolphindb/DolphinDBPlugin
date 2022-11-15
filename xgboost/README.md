@@ -1,36 +1,24 @@
-# XGBoost Plugin for DolphinDB
+# DolphinDB XGBoost 插件
 
-- [XGBoost Plugin for DolphinDB](#xgboost-plugin-for-dolphindb)
-  - [1. Install the Plugin](#1-install-the-plugin)
-    - [1.1 Compile on Linux](#11-compile-on-linux)
-    - [1.2 Compile on Windows](#12-compile-on-windows)
-  - [2. Interfaces](#2-interfaces)
-    - [2.1 xgboost::train](#21-xgboosttrain)
-    - [2.2 xgboost::predict](#22-xgboostpredict)
-    - [2.3 xgboost::saveModel](#23-xgboostsavemodel)
-    - [2.4 xgboost::loadModel](#24-xgboostloadmodel)
-  - [3. Examples](#3-examples)
+该插件可以调用 XGBoost 库函数，对 DolphinDB 的表执行训练、预测、模型保存和加载。
 
+## 安装构建
 
-DolphinDB XGBoost plugin offers methods for model training and prediction with given DolphinDB tables. You can also use the methods to save or load the trained models.
+可以直接使用我们已经编译好的位于 bin 目录下的 libPluginXgboost.dll 或 libPluginXgboost.so。如果你需要手动编译，请参考下面步骤：
 
-## 1. Install the Plugin
+### linux 环境下编译
 
-You can download precompiled binaries *libPluginXgboost.dll* or *libPluginXgboost.so* to install the DolphinDB XGBoost Plugin directly. To manually compile a XGBoost plugin, please follow the instructions:
+#### 编译 XGBoost 静态库
 
-### 1.1 Compile on Linux 
+首先，编译 XGBoost 静态库。步骤如下：
 
-- Build a static library
-
-The following steps show how to compile a static library
-
-(1) Download XGBoost from GitHub:
+1. 从 GitHub 上下载最新的 XGBoost 项目：
 
 ```
 git clone --recursive https://github.com/dmlc/xgboost
 ```
 
-(2) Use CMake to build a static library:
+2. 使用 CMake 编译为静态库：
 
 ```
 cd xgboost
@@ -40,9 +28,9 @@ cmake .. -G "MinGW Makefiles" -DBUILD_STATIC_LIB=ON
 make
 ```
 
-The static libraries are stored in *xgboost/lib/xgboost.a*, *xgboost/build/rabit/librabit.a*, *xgboost/build/dmlc-core/libdmlc.a*, respectively.
+编译得到的静态库分别位于 xgboost/lib/xgboost.a, xgboost/build/rabit/librabit.a, xgboost/build/dmlc-core/libdmlc.a。
 
-Create a directory of xgboost_static under the working directory of the project, and copy the header files as well as built libraries to the folder.
+在本项目所在的路径下创建一个名为 xgboost_static 的目录，将相关头文件和上一步编译得到的静态库库复制到其中。
 
 ```
 cd path_to/DolphinDBPlugin/xgboost
@@ -53,35 +41,35 @@ cp path_to/xgboost/build/dmlc-core/libdmlc.a xgboost_static/lib
 cp -r path_to/xgboost/include xgboost_static
 ```
 
-Note: please replace the “path_to” in the above script with the plugin directory.
+注意：请修改 path_to 为插件所在的实际路径。
 
-- Compile XGBoost plugin
-
-Compile with CMakeLists
-
+#### 编译 XGBoost 插件
+使用 CMakeLists 编译：
 ```
 mkdir build
 cd build
 cmake .. -DLIBDOLPHINDB=path_to_libDolphinDB
 make
 ```
+注意：请修改 path_to_libDolphinDB 为DolphinDB server的实际路径。若 libDolphinDB.so 在 g++ 搜索路径中，则不需要指定 LIBDOLPHINDB。
 
-Note: please replace the “path_to_libDolphinDB” in the above script with the path of DolphinDB server. If the file libDolphinDB.so is included in the g++ search path, then LIBDOLPHINDB is not required.
+### Windows 环境下编译
 
-### 1.2 Compile on Windows
+**目前 xgboost 插件 windows 下仅支持 DolphinDB JIT 版本**
+**推荐使用 8.1.0-posix 版本的 mingw64 进行编译**
 
-> Note: Currently the XGBoost plugin for Windows only supports DolphinDB server (JIT). It is recommended to compile with 8.1.0-posix version of MinGW-w64.
+#### 编译 XGBoost 静态库
 
-- Build a static library
+需要先编译 XGBoost 静态库。步骤如下：
 
-(1) Download XGBoost 1.2.0 from GitHub:
+1. 从 GitHub 上下载 1.2.0 版本的 XGBoost 项目：
 
 ```
 git clone -b release_1.2.0 https://github.com/dmlc/xgboost.git
 git submodule update --init --recursive
 ```
 
-(2) Build dynamic and static libraries with CMake
+2. 使用 CMake 编译为动态库与静态库：
 
 ```
 cd xgboost
@@ -91,9 +79,9 @@ cmake .. -G "MinGW Makefiles"
 make
 ```
 
-The libraries are stored in xgboost/lib/xgboost.dll, xgboost/build/rabit/libr abit.a, xgboost/build/dmlc-core/libdmlc.a, respectively.
+编译得到的动态库与静态库分别位于 xgboost/lib/xgboost.dll, xgboost/build/rabit/librabit.a, xgboost/build/dmlc-core/libdmlc.a。
 
-Please note that the static files for Linux system are stored under the directory of xgboost_static provided by DolphinDB. For Windows users, please first delete the files under the folder, and then copy the relevant header files and static libraries built above to the folder. See the following code: 
+请注意，因为 DolphinDB 提供的原始 xgboost_static 目录下存放了 Linux 系统的静态文件，所以对于 Windows 系统，需要先删除 xgboost_static 下的文件，然后将相关头文件和上一步编译得到的静态库库复制到其中，见下方代码：
 
 ```
 cd path_to/DolphinDBPlugin/xgboost
@@ -104,14 +92,11 @@ cp path_to/xgboost/build/dmlc-core/libdmlc.a xgboost_static/lib
 cp -r path_to/xgboost/include xgboost_static
 ```
 
-Note: please replace the “path_to” in the above script with the plugin directory.
+注意：请修改 path_to 为插件所在的实际路径。
 
- 
+#### 编译 XGBoost 插件
 
-- Compile XGBoost Plugin
-
-Compile with CMakeLists:
-
+使用 CMakeLists 编译：
 ```
 mkdir build
 cd build
@@ -119,120 +104,110 @@ cmake .. -G "MinGW Makefiles" -DLIBDOLPHINDB=path_to_libDolphinDB
 make
 ```
 
-Note: please replace the “path_to_libDolphinDB” in the above script with the server directory. If the file libDolphinDB.dll is in the library search path, it is not necessary to specify LIBDOLPHINDB.
+注意：请修改 path_to_libDolphinDB 为你的环境中的实际路径，若 libDolphinDB.dll 在系统路径中则不需要指定 LIBDOLPHINDB。
 
-After compiling the plugin, please copy the following dependencies to the sibling directory of libPluginXgboost.dll.
-
-Assuming it is under the build directory:
+在编译完成后需要将以下依赖库拷贝到 libPluginXgboost.dll 同级目录下，假设当前仍在 build 目录下。
 
 ```
 cp path_to/xgboost/lib/xgboost.dll ./
 cp path_to/mingw64/bin/libgomp-1.dll ./
 ```
 
- 
+## 用户接口
 
-## 2. Interfaces
+### `xgboost::train`
 
-### 2.1 xgboost::train
+#### 语法
 
-**Syntax**
+`xgboost::train(Y, X, [params], [numBoostRound=10], [model])`
 
-`xgboost::train(Y, X, [params], [numBoostRound=10], [xgbModel])`
+#### 参数
 
-**Parameters**
+- `Y`: 是一个向量，表示因变量。
+- `X`: 是一个矩阵或一个表，表示自变量。
+- `params`: 一个字典，表示 XGBoost 训练所用的参数，详情参考 [官方文档](https://xgboost.readthedocs.io/en/latest/parameter.html)。
+- `numBoostRound`: 一个正整数，表示 boosting 的迭代次数。
+- `model`: 一个 XGBoost 模型，用于继续训练。可以通过 `xgboost::train` 或 `xgboost::loadModel` 函数得到模型。
 
-- **Y:** a vector indicating the dependent variables.
-- **X:** a matrix or table indicating the independent variables.
-- **params:** a dictionary representing the parameters used for XGBoost training. See [XGBoost Docs](https://xgboost.readthedocs.io/en/latest/parameter.html).
-- **numBoostRound:** a positive integer indicating the number of boosting iterations.
-- **model:** an XGBoost model (allows training continuation). You can obtain a model with `xgboost::train`, or load an existing model with `xgboost::loadModel`.
+#### 详情
 
-**Details**
+对给定的表调用 XGBoost 库函数进行训练。返回值是训练得到的模型，可用于继续训练或预测。
 
-Train the given table or matrix. Return the trained model which can be used for further training or prediction.
+### `xgboost::predict`
 
- 
-
-### 2.2 xgboost::predict
-
-**Syntax**
+#### 语法
 
 `xgboost::predict(model, X, [outputMargin=false], [ntreeLimit=0], [predLeaf=false], [predContribs=false], [training=false])`
 
-**Parameters**
+#### 参数
 
-- **model:** an XGBoost model used for prediction. You can obtain a model with `xgboost::train`, or load an existing model with `xgboost::loadModel`.
-- **X:** a matrix or table for prediction
-- **outputMargin:** A Boolean value indicating whether to output the raw untransformed margin value.
-- **ntreeLimit:** a non-negative interger indicating which layer of trees are used in prediction. The default value is 0, indicating all trees are used.
-- **predLeaf:** a Boolean value. When this option is on, the output will be a matrix of (nsample, ntrees) with each record indicating the predicted leaf index of each sample in each tree.
-- **predContribs:** a Boolean value. When this is True the output will be a matrix of size (nsample, nfeats + 1) with each record indicating the feature contributions (SHAP values) for that prediction. The sum of all feature contributions is equal to the raw untransformed margin value of the prediction.
-- **training:** a Boolean value indicating whether the prediction value is used for training.
+- `model`: 用于预测的 XGBoost 模型。可以通过 `xgboost::train` 或 `xgboost::loadModel` 函数得到模型。
+- `X`: 是一个矩阵或一个表，表示用于预测的数据。
+- `outputMargin`: 一个布尔值，表示是否输出原始的未经转换的边际值（raw untransformed margin value）。
+- `ntreeLimit`: 一个非负整数，表示预测时使用的树的数量限制（默认值 0 表示使用所有树）。
+- `predLeaf`: 一个布尔值。如果为 true，将返回一个形状为 (样本数, 树的个数) 的矩阵，每一条记录表示每一个样本在每一棵树中的预测的叶节点的序号。
+- `predContribs`: 一个布尔值。如果为 true，将返回一个形状为 (样本数, 特征数 + 1) 的矩阵，每一条记录表示特征对预测的贡献（SHAP values）。所有特征贡献的总和等于未经转换的边际值（raw untransformed margin value）。
+- `training`: 一个布尔值。表示预测值是否用于训练。
 
-**Details**
+关于以上参数的具体用途说明，参见 [官方文档](https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.Booster.predict)。
 
-Predict with the given matrix or table.
+#### 详情
 
- 
+对给定的矩阵或表调用 XGBoost 库函数进行预测。
 
-### 2.3 xgboost::saveModel
+### `xgboost::saveModel`
 
-**Syntax**
+#### 语法
 
 `xgboost::saveModel(model, path)`
 
-**Parameters**
+#### 参数
 
-- **model:** an XGBoost model to be saved.
-- **path:** a string indicating where the model is saved.
+- `model`: 用于保存的 XGBoost 模型。
+- `path`: 一个字符串，表示保存的路径。
 
-**Details**
+#### 详情
 
-Save the trained model to disk.
+将训练得到的 XGBoost 模型保存到磁盘。
 
-### 2.4 xgboost::loadModel
+### `xgboost::loadModel`
 
-**Syntax**
+#### 语法
 
 `xgboost::loadModel(path)`
 
-**Parameter**
+#### 参数
 
-- **path:** a string indicating where the model is saved.
+- `path`: 一个字符串，表示模型所在的路径。
 
-**Details**
+#### 详情
 
-Load the model from disk.
+从磁盘上加载 XGBoost 模型。
 
-
-
-## 3. Examples
+## 综合使用范例
 
 ```
 loadPlugin("path_to/PluginXgboost.txt")
 
-// Create a table for training
+// 创建训练表
 t = table(1..5 as c1, 1..5 * 2 as c2, 1..5 * 3 as c3)
 label = 1 2 9 28 65
 
-// Set params
+// 设置模型参数
 params = {objective: "reg:linear", max_depth: 5, eta: 0.1, min_child_weight: 1, subsample: 0.5, colsample_bytree: 1, num_parallel_tree: 1}
 
-// Train the model
+// 训练模型
 model = xgboost::train(label, t, params, 100)
 
-// Predict with the model
+// 用模型预测
 xgboost::predict(model, t)
 
-// Save the model
+// 保存模型
 xgboost::saveModel(model, WORK_DIR + "/xgboost001.model")
 
-// Load the model
+// 加载模型
 model = xgboost::loadModel(WORK_DIR + "/xgboost001.model")
 
-// Continue training on the model
+// 在已有模型的基础上继续训练
 model = xgboost::train(label, t, params, 100, model)
 ```
-
- 
