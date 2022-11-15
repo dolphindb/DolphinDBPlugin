@@ -12,13 +12,13 @@ elseif(UNIX)
     add_compile_options("-D_GLIBCXX_USE_CXX11_ABI=0")
 endif()
 
-add_compile_options( "-std=c++11" "-fPIC" ${platform_macro} "-Wall" "-Werror")
+add_compile_options( "-std=c++11" "-fPIC" ${platform_macro} "-Wall" "-Werror" "-O3" "-fno-strict-aliasing")
 
 macro(replace_cxx_release_flag src_flag dest_flag)
     string(REPLACE "${src_flag}" "${dest_flag}" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 endmacro(replace_cxx_release_flag flag)
 
-replace_cxx_release_flag("-O3" "-O2") 
+#replace_cxx_release_flag("-O3" "-O2") 
 #replace -O3 with -O2
 
 if(WIN32)

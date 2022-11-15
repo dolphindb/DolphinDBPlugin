@@ -23,6 +23,7 @@ extern "C" ConstantSP h5ls(const ConstantSP &h5_path);
 extern "C" ConstantSP h5lsTable(const ConstantSP &filename);
 extern "C" ConstantSP extractHDF5Schema(const ConstantSP &filename, const ConstantSP &datasetName);
 extern "C" ConstantSP loadHDF5(Heap *heap, vector<ConstantSP> &arguments);
+extern "C" ConstantSP loadPandasHDF5(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP loadHDF5Ex(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP HDF5DS(Heap *heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP saveHDF5(Heap *heap, vector<ConstantSP> &arguments);
@@ -36,6 +37,8 @@ void h5lsTable(const string &filename, vector<string> &datasetName, vector<strin
                vector<string> &dataType);
 TableSP extractHDF5Schema(const string &filename, const string &datasetName);
 ConstantSP loadHDF5(const string &filename, const string &datasetName,
+                    const ConstantSP &schema, const size_t startRow, const size_t rowNum);
+ConstantSP loadPandasHDF5(const string &filename, const string &datasetName,
                     const ConstantSP &schema, const size_t startRow, const size_t rowNum);
 ConstantSP loadHDF5Ex(Heap* heap, const SystemHandleSP &db, const string &tableName, const ConstantSP &partitionColumnNames,
                       const string &filename, const string &datasetName, const TableSP &schema,
