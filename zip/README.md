@@ -1,12 +1,18 @@
 # DolphinDB zip Plugin
 
-该插件用于解压.zip文件
+该插件用于解压 ZIP 格式文件。
 
-## 构建
+## 1. 安装构建
 
-### 使用cmake编译构建
+### 1.1. 预编译安装
 
-安装cmake
+**Linux**
+
+预先编译的插件文件存放在 DolphinDBPlugin/releasexxx/zip/bin/linux64 目录下。将其下载至 /DolphinDB/server/plugins/zip。
+
+### 1.2. 使用 CMake 编译构建
+
+安装 CMake
 
 ```bash
 sudo apt install cmake
@@ -21,34 +27,41 @@ cmake ..
 make -j
 ```
 
-libPluginZip.so文件会在编译后生成。
+编译后将生成 libPluginZip.so 文件。
 
-## 插件加载
+### 1.3. 插件加载
 
-编译生成 libPluginZip.so 之后，通过以下脚本加载插件：
+通过以下脚本加载插件：
 
 ```
 loadPlugin("/path_to_pluginZip/PluginZip.txt");
 ```
 
-## 接口说明
+## 2. 接口说明
 
-**zip::unzip(zipFileName, outputDir, callback)**
+### 2.1. zip::unzip
+
+**语法**
+
+zip::unzip(zipFileName, outputDir, callback)
 
 **参数**
 
-`zipFileName` 为字符串标量，是压缩包路径，仅支持绝对路径。
+`zipFileName` 字符串，表示 ZIP 文件路径。仅支持绝对路径。
 
-`outputDir` 为字符串标量，可选，是解压文件输出路径，仅支持绝对路径。不传该参数或者该参数为""时，解压路径默认和压缩包路径相同，如果指定路径下有同名文件将直接覆盖。
+`outputDir` 字符串，表示解压文件的输出路径，可选。仅支持绝对路径。若该参数不传或为""时，则解压路径和压缩包路径相同。注意：指定路径下的同名文件将被覆盖。
 
-`callback` 为函数标量, 可选，用于处理解压文件。该函数有一个参数，该参数是字符串标量。
+`callback` 一个函数，仅接收一个 STRING 类型的参数，可选。
 
-**函数详情**
+**详情**
 
-该函数用于解压文件。需指定压缩文件，可指定解压文件路径和回调函数，传入回调函数后即可实现边解压边处理文件，更加高效。函数返回解压生成的文件名字。
+用于解压指定的 ZIP 格式文件。返回一个由解压文件路径组成的字符串向量。支持通过回调函数，对解压出的文件进行处理。当 ZIP 文件中包含多个文件时，可以实现每解压出一个文件，便被回调函数处理，提高 unzip 的处理效率。
 
-## 使用示例
+## 示例
 
+```python
 filenames = zip::unzip("/path_to_zipFile/test.zip", "/path_to_output/", func);
 
-
+print(filenames)
+["/path_to_output/test.csv"]
+```
