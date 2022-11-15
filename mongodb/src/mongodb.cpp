@@ -89,19 +89,20 @@ class mongoConnection{
     std::string user_;
     std::string password_;
     std::string db_;
-    mongoc_client_t      *mclient=NULL;
-    mongoc_database_t    *mdatabase=NULL;
+    mongoc_client_t      *mclient_=NULL;
+    mongoc_database_t    *mdatabase_=NULL;
     int port_=27017;
     Mutex mtx_;
     bool initialized_ = false;
     TableSP extractLoad(std::string& collection,std::string& condition,std::string& option,TableSP& schema, bool aggregate);
     TableSP load(std::string collection,std::string condition,std::string option,TableSP schema, bool aggregate);
+    VectorSP mongodbGetCollectionNames(string database);
     ~mongoConnection();
 };
 
 mongoConnection::~mongoConnection(){
-    mongoc_client_destroy(mclient);
-    mongoc_database_destroy(mdatabase);
+    mongoc_client_destroy(mclient_);
+    mongoc_database_destroy(mdatabase_);
 }
 
 ConstantSP safeOp(const ConstantSP &arg, std::function<ConstantSP(mongoConnection *)> &&f) {
@@ -117,12 +118,11 @@ ConstantSP safeOp(const ConstantSP &arg, std::function<ConstantSP(mongoConnectio
 mongoConnection::mongoConnection(std::string hostname, int port, std::string username, std::string password, std::string database)
 :host_(hostname),user_(username),password_(password),db_(database),port_(port){
     if(!isMongoInit){
-        lock.lock();
+        LockGuard<Mutex> lockGuard(&lock);
         if(!isMongoInit){
             mongoc_init ();
             isMongoInit = true;
         }
-        lock.unlock();
     }
     std::string strUri;
     if(user_==""&&password_==""){
@@ -136,29 +136,30 @@ mongoConnection::mongoConnection(std::string hostname, int port, std::string use
         else
         strUri="mongodb://"+user_+":"+password_+"@"+host_+":"+std::to_string(port_)+"/?authSource="+db_;
     }
-    mclient = mongoc_client_new (strUri.c_str());
-    if(mclient==NULL)throw IllegalArgumentException(__FUNCTION__, "User id or password is incorrect for the given database");
-    mdatabase = mongoc_client_get_database (mclient, db_.c_str());
-    if(mdatabase==NULL){
-        mongoc_client_destroy(mclient);
+    mclient_ = mongoc_client_new (strUri.c_str());
+    if(mclient_==NULL)throw IllegalArgumentException(__FUNCTION__, "User id or password is incorrect for the given database");
+    mdatabase_ = mongoc_client_get_database (mclient_, db_.c_str());
+    if(mdatabase_==NULL){
+        mongoc_client_destroy(mclient_);
         throw IllegalArgumentException(__FUNCTION__, "User id or password is incorrect for the given database");
     }
     if(user_==""&&password_==""){
-        char **test=mongoc_client_get_database_names_with_opts(mclient,NULL,NULL);
+        char **test=mongoc_client_get_database_names_with_opts(mclient_,NULL,NULL);
+        Defer df1([=](){bson_strfreev(test);});
         if(!test){
-            mongoc_client_destroy(mclient);
-            mongoc_database_destroy(mdatabase);
+            mongoc_client_destroy(mclient_);
+            mongoc_database_destroy(mdatabase_);
             throw IllegalArgumentException(__FUNCTION__, "User id or password is incorrect for the given database");
         }
         return;
     }
     bson_error_t  errors;
     bson_t *command=BCON_NEW ("ping", BCON_INT32 (1));
-    bool retval = mongoc_client_command_simple (mclient, db_.c_str(), command, NULL, NULL, &errors);
+    bool retval = mongoc_client_command_simple (mclient_, db_.c_str(), command, NULL, NULL, &errors);
     bson_destroy (command);
     if(!retval){
-        mongoc_client_destroy(mclient);
-        mongoc_database_destroy(mdatabase);
+        mongoc_client_destroy(mclient_);
+        mongoc_database_destroy(mdatabase_);
         std::string strError=errors.message;
         throw IllegalArgumentException(__FUNCTION__, "User id or password is incorrect for the given database");
     }
@@ -385,6 +386,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                     case BSON_TYPE_DOUBLE:{
                         colType.push_back(DT_DOUBLE);
                         char* ptr=(char*)malloc(mIndex*sizeof(double));
+                        if(ptr == nullptr)    throw std::bad_alloc();
                         buffer.push_back(ptr);
                         double t=bson_iter_double(&biter);
                         *((double*)(buffer[len])+index)=t;
@@ -403,6 +405,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                     case BSON_TYPE_INT32:{
                         colType.push_back(DT_INT);
                         char* ptr=(char*)malloc(mIndex*sizeof(int));
+                        if(ptr == nullptr)    throw std::bad_alloc();
                         buffer.push_back(ptr);
                         int t=bson_iter_int32(&biter);
                         *((int*)(buffer[len])+index)=t;
@@ -411,6 +414,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                     case BSON_TYPE_INT64:{
                         colType.push_back(DT_LONG);
                         char* ptr=(char*)malloc(mIndex*sizeof(long long ));
+                        if(ptr == nullptr)    throw std::bad_alloc();
                         buffer.push_back(ptr);
                         long long  t=bson_iter_int64(&biter);
                         *((long long*)(buffer[len])+index)=t;
@@ -431,6 +435,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                     case BSON_TYPE_BOOL:{
                         colType.push_back(DT_BOOL);
                         char* ptr=(char*)malloc(mIndex*sizeof(bool));
+                        if(ptr == nullptr)    throw std::bad_alloc();
                         buffer.push_back(ptr);
                         bool t=bson_iter_bool(&biter);
                         *((char*)(buffer[len])+index)=t;
@@ -439,6 +444,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                     case BSON_TYPE_DATE_TIME:{
                         colType.push_back(DT_TIMESTAMP);
                         char* ptr=(char*)malloc(mIndex*sizeof(long long ));
+                        if(ptr == nullptr)    throw std::bad_alloc();
                         buffer.push_back(ptr);
                         long long t=bson_iter_date_time(&biter);
                         *((long long*)(buffer[len])+index)=t;
@@ -447,6 +453,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                     case BSON_TYPE_DECIMAL128:{
                         colType.push_back(DT_DOUBLE);
                         char* ptr=(char*)malloc(mIndex*sizeof(double));
+                        if(ptr == nullptr)    throw std::bad_alloc();
                         buffer.push_back(ptr);
                         bson_decimal128_t dec ;
                         bson_iter_decimal128(&biter,&dec);
@@ -481,7 +488,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                         break;
                     }
                     default: {
-                        throw IllegalArgumentException(__FUNCTION__, "The Mongodb " + getBsonString(btype) + " type does not support conversions. ");
+                        throw RuntimeException("The Mongodb value whose key is " + string(ss) + " is of type " + getBsonString(btype) + " and is not supported. ");
                     }
                 }
                 len++;
@@ -510,6 +517,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                 colType[i]=DT_DOUBLE;
                                 cols[i]=Util::createVector(DT_DOUBLE,0,rNum);
                                 char* ptr=(char*)malloc(mIndex*sizeof(double));
+                                if(ptr == nullptr)    throw std::bad_alloc();
                                 buffer[i]=ptr;
                                 if(rNum<mIndex){
                                     for(long long j=0;j<rNum;++j){
@@ -563,6 +571,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                 colType[i]=DT_INT;
                                 cols[i]=Util::createVector(DT_INT,0,rNum);
                                 char* ptr=(char*)malloc(mIndex*sizeof(int));
+                                if(ptr == nullptr)    throw std::bad_alloc();
                                 buffer[i]=ptr;
                                 if(rNum<mIndex){
                                     for(long long j=0;j<rNum;++j){
@@ -586,6 +595,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                 colType[i]=DT_LONG;
                                 cols[i]=Util::createVector(DT_LONG,0,rNum);
                                 char* ptr=(char*)malloc(mIndex*sizeof(long long));
+                                if(ptr == nullptr)    throw std::bad_alloc();
                                 buffer[i]=ptr;
                                 if(rNum<mIndex){
                                     for(long long j=0;j<rNum;++j){
@@ -624,6 +634,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                 colType[i]=DT_BOOL;
                                 cols[i]=Util::createVector(DT_BOOL,0,rNum);
                                 char* ptr=(char*)malloc(mIndex*sizeof(bool));
+                                if(ptr == nullptr)    throw std::bad_alloc();
                                 buffer[i]=ptr;
                                 if(rNum<mIndex){
                                     for(long long j=0;j<rNum;++j){
@@ -647,6 +658,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                 colType[i]=DT_TIMESTAMP;
                                 cols[i]=Util::createVector(DT_TIMESTAMP,0,rNum);
                                 char* ptr=(char*)malloc(mIndex*sizeof(long long));
+                                if(ptr == nullptr)    throw std::bad_alloc();
                                 buffer[i]=ptr;
                                 if(rNum<mIndex){
                                     for(long long j=0;j<rNum;++j){
@@ -670,6 +682,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                 colType[i]=DT_DOUBLE;
                                 cols[i]=Util::createVector(DT_DOUBLE,0,rNum);
                                 char* ptr=(char*)malloc(mIndex*sizeof(double));
+                                if(ptr == nullptr)    throw std::bad_alloc();
                                 buffer[i]=ptr;
                                 if(rNum<mIndex){
                                     for(long long j=0;j<rNum;++j){
@@ -705,7 +718,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                 break;
                             }
                             default: {
-                                throw RuntimeException("The Mongodb " + getBsonString(btype) + " type does not support conversions. ");
+                                throw RuntimeException("The Mongodb value whose key is " + colName[i] + " is of type " + getBsonString(btype) + " and is not supported. ");
                             }
                         }
                     }
@@ -772,7 +785,8 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         case BSON_TYPE_OID:{
                                             throw RuntimeException("Cannot convert from Mongodb oid to Dolphindb BOOL");
                                         }
-                                        default:throw RuntimeException("unsupported data type");
+                                        default:
+                                            throw RuntimeException("The Mongodb value whose key is " + colName[i] + " is of type " + getBsonString(btype) + " and is not supported. ");
                                     }
                                     break;
                                 case DT_CHAR:
@@ -859,7 +873,8 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         case BSON_TYPE_OID:{
                                             throw RuntimeException("Cannot convert from Mongodb oid to Dolphindb CHAR");
                                         }
-                                        default:throw RuntimeException("unsupported data type");
+                                        default:
+                                            throw RuntimeException("The Mongodb value whose key is " + colName[i] + " is of type " + getBsonString(btype) + " and is not supported. ");
                                     }
                                     break;
                                 case DT_SHORT:
@@ -946,7 +961,8 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         case BSON_TYPE_OID:{
                                             throw RuntimeException("Cannot convert from Mongodb oid to Dolphindb SHORT");
                                         }
-                                        default:throw RuntimeException("unsupported data type");
+                                        default:
+                                            throw RuntimeException("The Mongodb value whose key is " + colName[i] + " is of type " + getBsonString(btype) + " and is not supported. ");
                                     }
                                     break;
                                 case DT_INT:{
@@ -1032,7 +1048,8 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         case BSON_TYPE_OID:{
                                             throw RuntimeException("Cannot convert from Mongodb oid to Dolphindb INT");
                                         }
-                                        default:throw RuntimeException("unsupported data type");
+                                        default:
+                                            throw RuntimeException("The Mongodb value whose key is " + colName[i] + " is of type " + getBsonString(btype) + " and is not supported. ");
                                     }
                                     break;
                                 }
@@ -1078,7 +1095,8 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         case BSON_TYPE_OID:{
                                             throw RuntimeException("Cannot convert from Mongodb oid to Dolphindb DATETIME");
                                         }
-                                        default:throw RuntimeException("unsupported data type");
+                                        default:
+                                            throw RuntimeException("The Mongodb value whose key is " + colName[i] + " is of type " + getBsonString(btype) + " and is not supported. ");
                                     }
                                     break;
                                 }
@@ -1124,7 +1142,8 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         case BSON_TYPE_OID:{
                                             throw RuntimeException("Cannot convert from Mongodb oid to Dolphindb TIMESTAMP");
                                         }
-                                        default:throw RuntimeException("unsupported data type");
+                                        default:
+                                            throw RuntimeException("The Mongodb value whose key is " + colName[i] + " is of type " + getBsonString(btype) + " and is not supported. ");
                                     }
                                     break;
                                 }
@@ -1171,7 +1190,8 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         case BSON_TYPE_OID:{
                                             throw RuntimeException("Cannot convert from Mongodb oid to Dolphindb NANOTIME");
                                         }
-                                        default:throw RuntimeException("unsupported data type");
+                                        default:
+                                            throw RuntimeException("The Mongodb value whose key is " + colName[i] + " is of type " + getBsonString(btype) + " and is not supported. ");
                                     }
                                     break;
                                 }
@@ -1218,7 +1238,8 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         case BSON_TYPE_OID:{
                                             throw RuntimeException("Cannot convert from Mongodb oid to Dolphindb NANOTIMESTAMP");
                                         }
-                                        default:throw RuntimeException("unsupported data type");
+                                        default:
+                                            throw RuntimeException("The Mongodb value whose key is " + colName[i] + " is of type " + getBsonString(btype) + " and is not supported. ");
                                     }
                                     break;
                                 }
@@ -1306,7 +1327,8 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         case BSON_TYPE_OID:{
                                             throw RuntimeException("Cannot convert from Mongodb oid to Dolphindb LONG");
                                         }
-                                        default:throw RuntimeException("unsupported data type");
+                                        default:
+                                            throw RuntimeException("The Mongodb value whose key is " + colName[i] + " is of type " + getBsonString(btype) + " and is not supported. ");
                                     }
                                     break;
                                 }
@@ -1352,7 +1374,8 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         case BSON_TYPE_OID:{
                                             throw RuntimeException("Cannot convert from Mongodb oid to Dolphindb DATE");
                                         }
-                                        default:throw RuntimeException("unsupported data type");
+                                        default:
+                                            throw RuntimeException("The Mongodb value whose key is " + colName[i] + " is of type " + getBsonString(btype) + " and is not supported. ");
                                     }
                                     break;
                                 }
@@ -1401,7 +1424,8 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         case BSON_TYPE_OID:{
                                             throw RuntimeException("Cannot convert from Mongodb oid to Dolphindb MONTH");
                                         }
-                                        default:throw RuntimeException("unsupported data type");
+                                        default:
+                                            throw RuntimeException("The Mongodb value whose key is " + colName[i] + " is of type " + getBsonString(btype) + " and is not supported. ");
                                     }
                                     break;
                                 }
@@ -1448,7 +1472,8 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         case BSON_TYPE_OID:{
                                             throw RuntimeException("Cannot convert from Mongodb oid to Dolphindb TIME");
                                         }
-                                        default:throw RuntimeException("unsupported data type");
+                                        default:
+                                            throw RuntimeException("The Mongodb value whose key is " + colName[i] + " is of type " + getBsonString(btype) + " and is not supported. ");
                                     }
                                     break;
                                 }
@@ -1495,7 +1520,8 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         case BSON_TYPE_OID:{
                                             throw RuntimeException("Cannot convert from Mongodb oid to Dolphindb MINUTE");
                                         }
-                                        default:throw RuntimeException("unsupported data type");
+                                        default:
+                                            throw RuntimeException("The Mongodb value whose key is " + colName[i] + " is of type " + getBsonString(btype) + " and is not supported. ");
                                     }
                                     break;
                                 }
@@ -1569,7 +1595,8 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         case BSON_TYPE_OID:{
                                             throw RuntimeException("Cannot convert from Mongodb oid to Dolphindb FLOAT");
                                         }
-                                        default:throw RuntimeException("unsupported data type");
+                                        default:
+                                            throw RuntimeException("The Mongodb value whose key is " + colName[i] + " is of type " + getBsonString(btype) + " and is not supported. ");
                                     }
                                     break;
                                 }
@@ -1643,7 +1670,8 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         case BSON_TYPE_OID:{
                                             throw RuntimeException("Cannot convert from Mongodb oid to Dolphindb DOUBLE");
                                         }
-                                        default:throw RuntimeException("unsupported data type");
+                                        default:
+                                            throw RuntimeException("The Mongodb value whose key is " + colName[i] + " is of type " + getBsonString(btype) + " and is not supported. ");
                                     }
                                     break;
                                 }
@@ -1728,7 +1756,8 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                             mmap[colName[i]].push_back("");
                                             break;
                                         }
-                                        default:throw RuntimeException("unsupported data type");
+                                        default:
+                                            throw RuntimeException("The Mongodb value whose key is " + colName[i] + " is of type " + getBsonString(btype) + " and is not supported. ");
                                     }
                                     break;
                                 }
@@ -1813,12 +1842,13 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                             mmap[colName[i]].push_back("");
                                             break;
                                         }
-                                        default:throw RuntimeException("unsupported data type");
+                                        default:
+                                            throw RuntimeException("The Mongodb value whose key is " + colName[i] + " is of type " + getBsonString(btype) + " and is not supported. ");
                                     }
                                     break;
                                 }
                                 default: {
-                                    throw RuntimeException("Data types are not supported");
+                                    throw RuntimeException("The dolphindb type " + Util::getDataTypeString(dtype) + " is not supported");
                                 }
                             }
                         }
@@ -1917,7 +1947,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                             case DT_HANDLE:
                                 break;
                             default: {
-                                throw RuntimeException("Data types are not supported");
+                                throw RuntimeException("Type " + Util::getDataTypeString(dtype) + " are not supported");
                             }
                         }
                     }
@@ -1966,7 +1996,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                 nullMap[i]++;
                                 break;
                         default: {
-                            throw RuntimeException("Data types are not supported");
+                            throw RuntimeException("Type " + Util::getDataTypeString(type) + " are not supported");
                         }
                     }
                 }
@@ -2018,7 +2048,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                         break;
                     case DT_HANDLE:break;
                     default: {
-                        throw RuntimeException("Data types are not supported");
+                        throw RuntimeException("The dolphindb type " + Util::getDataTypeString(type) + " is not supported");
                     }
                 }
             }
@@ -2070,13 +2100,13 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
             case DT_HANDLE:
                 break;
             default: {
-                throw RuntimeException("Data types are not supported");
+                throw RuntimeException("The dolphindb type " + Util::getDataTypeString(type) + " is not supported");
             }
         }
     }
-    for(int i=0;i<len;++i){
-        if(buffer[i]!=NULL)free(buffer[i]);
-    }
+    // for(int i=0;i<len;++i){
+    //     if(buffer[i]!=NULL)free(buffer[i]);
+    // }
     for(auto a:nullMap){
         double tmp[mIndex];
         for(int i=0;i<mIndex;++i)tmp[i]=DBL_NMIN;
@@ -2093,7 +2123,23 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
     if(len==0){ 
         const char* ct="{}";
         bson_t* nquery=bson_new_from_json((const uint8_t*)ct,-1,NULL);
-        mongoc_cursor_t* ncursor=mongoc_collection_find_with_opts (mcollection,nquery,boption,NULL);
+        if(nquery==NULL){
+            string strTmp="The BSON structure doesn't fit:";
+            throw IllegalArgumentException(__FUNCTION__,strTmp + ct);
+        }
+        Defer dfQuery([=](){bson_destroy(nquery);});
+
+        const char* optionStr = "{\"limit\":1}";
+        bson_t* noption = bson_new_from_json((const uint8_t*)optionStr,-1,NULL);
+        if(nquery==NULL){
+            string strTmp="The BSON structure doesn't fit:";
+            throw IllegalArgumentException(__FUNCTION__,strTmp + optionStr);
+        }
+        Defer dfOption([=](){bson_destroy(noption);});
+
+        mongoc_cursor_t* ncursor=mongoc_collection_find_with_opts (mcollection,nquery,noption,NULL);
+        Defer dfCursor([=](){mongoc_cursor_destroy(ncursor);});
+
         const bson_t *ndoc;
         if(mongoc_cursor_next(ncursor,&ndoc)){
             bson_iter_t biter;
@@ -2155,13 +2201,11 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                         break;
                     }
                     default: {
-                        throw RuntimeException("The Mongodb " + getBsonString(btype) + " type does not support conversions. ");
+                        throw RuntimeException("The Mongodb value whose key is " + string(ss) + " is of type " + getBsonString(btype) + " and is not supported. ");
                     }
                 }
             }
         }
-        bson_destroy(nquery);
-        mongoc_cursor_destroy(ncursor);
         if(len==0){
             colName.push_back("c_id");
             cols.push_back(Util::createVector(DT_STRING,0,0));
@@ -2185,6 +2229,13 @@ TableSP mongoConnection::extractLoad(std::string &collection,std::string &condit
     vector<DATA_TYPE>  colType;
     vector<ConstantSP> cols;
     vector<char*> buffer;
+    Defer dfBuffer([&](){
+        size_t size = buffer.size();
+        for(int i = 0; i < size; ++i){
+            if(buffer[i] != nullptr)
+                free(buffer[i]);
+        }
+        });
     unordered_map<string,vector<string>> mmap;
     unordered_map<int,long long> nullMap;
     int len=0;
@@ -2221,96 +2272,112 @@ TableSP mongoConnection::extractLoad(std::string &collection,std::string &condit
                 colType.push_back(DT_BOOL);
                 cols[i]=Util::createVector(DT_BOOL,0);
                 char* ptr=(char*)malloc(mIndex*sizeof(bool));
+                if(ptr == nullptr)    throw std::bad_alloc();
                 buffer.push_back(ptr);
             }
             else if(sType=="CHAR"){
                 colType.push_back(DT_CHAR);
                 cols[i]=Util::createVector(DT_CHAR,0);
                 char* ptr=(char*)malloc(mIndex*sizeof(char));
+                if(ptr == nullptr)    throw std::bad_alloc();
                 buffer.push_back(ptr);
             }
            else if(sType=="SHORT"){
                 colType.push_back(DT_SHORT);
                 cols[i]=Util::createVector(DT_SHORT,0);
                 char* ptr=(char*)malloc(mIndex*sizeof(short));
+                if(ptr == nullptr)    throw std::bad_alloc();
                 buffer.push_back(ptr);
             }
             else if(sType=="INT"){
                 colType.push_back(DT_INT);
                 cols[i]=Util::createVector(DT_INT,0);
                 char* ptr=(char*)malloc(mIndex*sizeof(int));
+                if(ptr == nullptr)    throw std::bad_alloc();
                 buffer.push_back(ptr);
             }
             else if(sType=="LONG"){
                 colType.push_back(DT_LONG);
                 cols[i]=Util::createVector(DT_LONG,0);
                 char* ptr=(char*)malloc(mIndex*sizeof(long long));
+                if(ptr == nullptr)    throw std::bad_alloc();
                 buffer.push_back(ptr);
             }
             else if(sType=="DATE"){
                 colType.push_back(DT_DATE);
                 cols[i]=Util::createVector(DT_DATE,0);
                 char* ptr=(char*)malloc(mIndex*sizeof(int));
+                if(ptr == nullptr)    throw std::bad_alloc();
                 buffer.push_back(ptr);
             }
             else if(sType=="MONTH"){
                 colType.push_back(DT_MONTH);
                 cols[i]=Util::createVector(DT_MONTH,0);
                 char* ptr=(char*)malloc(mIndex*sizeof(int));
+                if(ptr == nullptr)    throw std::bad_alloc();
                 buffer.push_back(ptr);
             }
             else if(sType=="TIME"){
                 colType.push_back(DT_TIME);
                 cols[i]=Util::createVector(DT_TIME,0);
                 char* ptr=(char*)malloc(mIndex*sizeof(int));
+                if(ptr == nullptr)    throw std::bad_alloc();
                 buffer.push_back(ptr);
             }
             else if(sType=="MINUTE"){
                 colType.push_back(DT_MINUTE);
                 cols[i]=Util::createVector(DT_MINUTE,0);
                 char* ptr=(char*)malloc(mIndex*sizeof(int));
+                if(ptr == nullptr)    throw std::bad_alloc();
                 buffer.push_back(ptr);
             }
             else if(sType=="SECOND"){
                 colType.push_back(DT_SECOND);
                 cols[i]=Util::createVector(DT_SECOND,0);
                 char* ptr=(char*)malloc(mIndex*sizeof(int));
+                if(ptr == nullptr)    throw std::bad_alloc();
                 buffer.push_back(ptr);
             }
             else if(sType=="DATETIME"){
                 colType.push_back(DT_DATETIME);
                 cols[i]=Util::createVector(DT_DATETIME,0);
                 char* ptr=(char*)malloc(mIndex*sizeof(long long));
+                if(ptr == nullptr)    throw std::bad_alloc();
                 buffer.push_back(ptr);
             }
             else if(sType=="TIMESTAMP"){
                 colType.push_back(DT_TIMESTAMP);
                 cols[i]=Util::createVector(DT_TIMESTAMP,0);
                 char* ptr=(char*)malloc(mIndex*sizeof(long long));
+                if(ptr == nullptr)    throw std::bad_alloc();
                 buffer.push_back(ptr);
             }
             else if(sType=="NANOTIME"){
                 colType.push_back(DT_NANOTIME);
                 cols[i]=Util::createVector(DT_NANOTIME,0);
                 char* ptr=(char*)malloc(mIndex*sizeof(long long));
+                if(ptr == nullptr)    throw std::bad_alloc();
                 buffer.push_back(ptr);
             }
             else if(sType=="NANOTIMESTAMP"){
                 colType.push_back(DT_NANOTIMESTAMP);
                 cols[i]=Util::createVector(DT_NANOTIMESTAMP,0);
                 char* ptr=(char*)malloc(mIndex*sizeof(long long));
+                if(ptr == nullptr)    throw std::bad_alloc();
                 buffer.push_back(ptr);
             }
             else if(sType=="FLOAT"){
                 colType.push_back(DT_FLOAT);
                 cols[i]=Util::createVector(DT_FLOAT,0);
                 char* ptr=(char*)malloc(mIndex*sizeof(float));
+                if(ptr == nullptr)    throw std::bad_alloc();
                 buffer.push_back(ptr);
             }
             else if(sType=="DOUBLE"){
                 colType.push_back(DT_DOUBLE);
                 cols[i]=Util::createVector(DT_DOUBLE,0);
                 char* ptr=(char*)malloc(mIndex*sizeof(double));
+                if(ptr == nullptr)    throw std::bad_alloc();
                 buffer.push_back(ptr);
             }
             else if(sType=="SYMBOL"){
@@ -2328,7 +2395,7 @@ TableSP mongoConnection::extractLoad(std::string &collection,std::string &condit
                 mmap[colName[i]]=std::vector<std::string>();
             }
             else{
-                throw IllegalArgumentException(__FUNCTION__, "The Mongodb "+vecType->getString(i)+" type does not support conversions. ");
+                throw IllegalArgumentException(__FUNCTION__, "The DolphinDB "+vecType->getString(i)+" type does not support conversions. ");
             }
         }
     }
@@ -2336,7 +2403,7 @@ TableSP mongoConnection::extractLoad(std::string &collection,std::string &condit
     //find collection for database
     int dbFIndex=collection.find_first_of(':');
     string dbTmp=db_;
-    mongoc_database_t *dbPtr=mdatabase;
+    mongoc_database_t *dbPtr=mdatabase_;
     if(dbFIndex!=-1){
         dbTmp=collection.substr(0,dbFIndex);
         collection=collection.substr(dbFIndex+1);
@@ -2345,12 +2412,13 @@ TableSP mongoConnection::extractLoad(std::string &collection,std::string &condit
         throw IllegalArgumentException(__FUNCTION__, "There is no database name");
     }
     if(db_!=dbTmp){
-        dbPtr= mongoc_client_get_database (mclient, dbTmp.c_str());
+        dbPtr= mongoc_client_get_database (mclient_, dbTmp.c_str());
         if(dbPtr==NULL){
             throw IllegalArgumentException(__FUNCTION__, "Database name have error");
         }
         Defer df([=](){mongoc_database_destroy(dbPtr);});
         char **collectionList=mongoc_database_get_collection_names_with_opts(dbPtr,NULL,NULL);
+        Defer df1([=](){bson_strfreev(collectionList);});
         if(collectionList==NULL){
             throw IllegalArgumentException(__FUNCTION__, "Not authorized on database\""+dbTmp+"\" to query data");
         }
@@ -2366,7 +2434,8 @@ TableSP mongoConnection::extractLoad(std::string &collection,std::string &condit
         }
     }
     else{
-        char **collectionList=mongoc_database_get_collection_names_with_opts(mdatabase,NULL,NULL);
+        char **collectionList=mongoc_database_get_collection_names_with_opts(mdatabase_,NULL,NULL);
+        Defer df1([=](){bson_strfreev(collectionList);});
         if(collectionList==NULL){
             throw IllegalArgumentException(__FUNCTION__, "The collection does not exist on the given database");
         }
@@ -2382,7 +2451,7 @@ TableSP mongoConnection::extractLoad(std::string &collection,std::string &condit
         }
     }
     
-    mongoc_collection_t* mcollection = mongoc_client_get_collection (mclient, dbTmp.c_str(),collection.c_str());
+    mongoc_collection_t* mcollection = mongoc_client_get_collection (mclient_, dbTmp.c_str(),collection.c_str());
     if(mcollection==NULL){
         throw IllegalArgumentException(__FUNCTION__, "Connect Mongodb collection faild");
     }
@@ -2400,24 +2469,71 @@ TableSP mongoConnection::extractLoad(std::string &collection,std::string &condit
         string strTmp="The BSON structure doesn't fit:";
         throw IllegalArgumentException(__FUNCTION__, strTmp+str);
     }
+    Defer df3([=](){bson_destroy(boption);});
     mongoc_cursor_t* cursor;
     if(aggregate)
         cursor = mongoc_collection_aggregate(mcollection, MONGOC_QUERY_NONE, bsonQuery, boption, NULL);
     else
         cursor = mongoc_collection_find_with_opts (mcollection,bsonQuery,boption,NULL);
 
-    Defer df3([=](){mongoc_cursor_destroy(cursor);});
+    Defer df4([=](){mongoc_cursor_destroy(cursor);});
     realLoad(colName,colType,cols,schemaEx,mIndex,buffer,mmap,nullMap,bsonQuery,boption,cursor,mcollection);
     TableSP ret=Util::createTable(colName,cols);
     return ret;
 }
 
 TableSP mongoConnection::load(std::string collection,std::string condition,std::string option,TableSP schema, bool aggregate){
-    mtx_.lock();
-    Defer df([=](){mtx_.unlock();});
+    LockGuard<Mutex> LockGuard(&mtx_);
     TableSP ret;
     ret=extractLoad(collection,condition,option,schema, aggregate);
     return ret;
+}
+
+VectorSP mongoConnection::mongodbGetCollectionNames(string database){
+    vector<string> collectionNames;
+    if(database == "")
+        database = "admin";
+    if(db_!=database){
+        mongoc_database_t* dbPtr= mongoc_client_get_database (mclient_, database.c_str());
+        if(dbPtr==NULL){
+            throw IllegalArgumentException(__FUNCTION__, "Database name have error");
+        }
+        Defer df([=](){mongoc_database_destroy(dbPtr);});
+        char **collectionList=mongoc_database_get_collection_names_with_opts(dbPtr,NULL,NULL);
+        if(collectionList==NULL){
+            throw IllegalArgumentException(__FUNCTION__, "Not authorized on database\""+database+"\" to query data");
+        }
+        for (int i = 0; collectionList[i]; i++){
+            collectionNames.emplace_back(collectionList[i]);
+        }
+        bson_strfreev(collectionList);
+    }
+    else{
+        char **collectionList=mongoc_database_get_collection_names_with_opts(mdatabase_,NULL,NULL);
+        if(collectionList==NULL){
+            throw IllegalArgumentException(__FUNCTION__, "The collection does not exist on the given database");
+        }
+        for (int i = 0; collectionList[i]; i++){
+            collectionNames.emplace_back(collectionList[i]);
+        }
+        bson_strfreev(collectionList);
+    }
+    int size = collectionNames.size();
+    VectorSP ret = Util::createVector(DT_STRING, 0, size);
+    ret->appendString(collectionNames.data(), size);
+    return ret;
+}
+
+
+ConstantSP mongodbGetCollections(Heap *heap, vector<ConstantSP> &arguments){
+    string dataBase;
+    if (arguments.size() > 1)
+    {
+        if (arguments[1]->getType() != DT_STRING || arguments[1]->getForm() != DF_SCALAR)
+            throw RuntimeException("database must be a string scalar. ");
+        dataBase = arguments[1]->getString();
+    }
+    return safeOp(arguments[0], [&](mongoConnection *conn) { return conn->mongodbGetCollectionNames(dataBase); });
 }
 
 
@@ -2427,15 +2543,15 @@ int ARRAY_VECTOR_TYPE_BASE = 64;
 
 ConstantSP mongodbParseJson(Heap *heap, vector<ConstantSP> &arguments)
 {
-    if(arguments[0]->getForm() != DF_VECTOR && arguments[0]->getType() != DT_STRING){
+    if(arguments[0]->getForm() != DF_VECTOR || arguments[0]->getType() != DT_STRING){
         throw RuntimeException("str must be a string vector. ");
     }
-    if(arguments[1]->getForm() != DF_VECTOR && arguments[1]->getType() != DT_STRING)
+    if(arguments[1]->getForm() != DF_VECTOR || arguments[1]->getType() != DT_STRING)
         throw RuntimeException("origin colNames must be a string vector. ");
-    if(arguments[2]->getForm() != DF_VECTOR && arguments[2]->getType() != DT_STRING)
+    if(arguments[2]->getForm() != DF_VECTOR || arguments[2]->getType() != DT_STRING)
         throw RuntimeException("convert colNames must be a string vector. ");
-    if(arguments[3]->getForm() != DF_VECTOR && arguments[2]->getType() != DT_INT)
-        throw RuntimeException("types must be a dictionary. ");
+    if(arguments[3]->getForm() != DF_VECTOR || arguments[3]->getType() != DT_INT)
+        throw RuntimeException("types must be a int vector. ");
     vector<string> originCol, convertCol;
     DictionarySP originVec = arguments[1];
     DictionarySP convertVec = arguments[2];
@@ -2561,7 +2677,7 @@ ConstantSP mongodbParseJson(Heap *heap, vector<ConstantSP> &arguments)
                         {
                         case DT_BOOL:
                             if (col.is_null())
-                                ((bool *)dataBuffer[colIndex].data())[dataOffect] = CHAR_MIN;
+                                ((char *)dataBuffer[colIndex].data())[dataOffect] = CHAR_MIN;
                             else
                                 ((bool *)dataBuffer[colIndex].data())[dataOffect] = col.get<bool>();
                             break;
@@ -2610,61 +2726,73 @@ ConstantSP mongodbParseJson(Heap *heap, vector<ConstantSP> &arguments)
                         switch (colTypes[colIndex] - ARRAY_VECTOR_TYPE_BASE)
                         {
                         case DT_BOOL:
-                            if((preIndex + size) * sizeof(bool) > dataBuffer[colIndex].size())
-                                dataBuffer[colIndex].resize(dataBuffer[colIndex].size() * 2 * sizeof(bool));
-                            if (col.is_null()){
-                                ((bool *)dataBuffer[colIndex].data())[preIndex] = CHAR_MIN;
+                            if((preIndex + size + 1) * sizeof(bool) > dataBuffer[colIndex].size())
+                                dataBuffer[colIndex].resize(max(dataBuffer[colIndex].size(), (preIndex + size + 1) * sizeof(bool)) * 2);
+                            if (col.is_null() || col.size() == 0){
+                                ((char *)dataBuffer[colIndex].data())[preIndex] = CHAR_MIN;
                                 arrayDataIndex[colIndex].push_back(preIndex + 1);
                             }
                             else{
                                 int index = 0;
                                 for(auto it = col.begin(); it < col.end(); ++it, ++index){
-                                    ((bool *)dataBuffer[colIndex].data())[preIndex + index] = it->get<bool>();
+                                    if(it->is_null())
+                                        ((char *)dataBuffer[colIndex].data())[preIndex + index] = CHAR_MIN;
+                                    else
+                                        ((bool *)dataBuffer[colIndex].data())[preIndex + index] = it->get<bool>();
                                 }
                                 arrayDataIndex[colIndex].push_back(preIndex + size);
                             }
                             break;
                         case DT_INT:
-                            if((preIndex + size) * sizeof(int) > dataBuffer[colIndex].size())
-                                dataBuffer[colIndex].resize(dataBuffer[colIndex].size() * 2 * sizeof(int));
-                            if (col.is_null()){
+                            if((preIndex + size + 1) * sizeof(int) > dataBuffer[colIndex].size())
+                                dataBuffer[colIndex].resize(max(dataBuffer[colIndex].size(), (preIndex + size + 1) * sizeof(int)) * 2);
+                            if (col.is_null() || col.size() == 0){
                                 ((int *)dataBuffer[colIndex].data())[preIndex] = INT_MIN;
                                 arrayDataIndex[colIndex].push_back(preIndex + 1);
                             }
                             else{
                                 int index = 0;
                                 for(auto it = col.begin(); it < col.end(); ++it, ++index){
-                                    ((int *)dataBuffer[colIndex].data())[preIndex + index] = it->get<int>();
+                                    if(it->is_null())
+                                        ((int *)dataBuffer[colIndex].data())[preIndex + index] = INT_MIN;
+                                    else
+                                        ((int *)dataBuffer[colIndex].data())[preIndex + index] = it->get<int>();
                                 }
                                 arrayDataIndex[colIndex].push_back(preIndex + size);
                             }
                             break;
                         case DT_FLOAT:
-                            if((preIndex + size) * sizeof(float) > dataBuffer[colIndex].size())
-                                dataBuffer[colIndex].resize(dataBuffer[colIndex].size() * 2 * sizeof(float));
-                            if (col.is_null()){
+                            if((preIndex + size + 1) * sizeof(float) > dataBuffer[colIndex].size())
+                                dataBuffer[colIndex].resize(max(dataBuffer[colIndex].size(), (preIndex + size + 1) * sizeof(float)) * 2);
+                            if (col.is_null() || col.size() == 0){
                                 ((float *)dataBuffer[colIndex].data())[preIndex] = FLT_NMIN;
                                 arrayDataIndex[colIndex].push_back(preIndex + 1);
                             }
                             else{
                                 int index = 0;
                                 for(auto it = col.begin(); it < col.end(); ++it, ++index){
-                                    ((float *)dataBuffer[colIndex].data())[preIndex + index] = it->get<float>();
+                                    if(it->is_null())
+                                        ((float *)dataBuffer[colIndex].data())[preIndex + index] = FLT_NMIN;
+                                    else
+                                        ((float *)dataBuffer[colIndex].data())[preIndex + index] = it->get<float>();
                                 }
                                 arrayDataIndex[colIndex].push_back(preIndex + size);
                             }
                             break;
                         case DT_DOUBLE:
-                            if((preIndex + size) * sizeof(double) > dataBuffer[colIndex].size())
-                                dataBuffer[colIndex].resize(dataBuffer[colIndex].size() * 2 * sizeof(double));
-                            if (col.is_null()){
-                                ((double *)dataBuffer[colIndex].data())[preIndex] = FLT_NMIN;
+                            if((preIndex + size + 1) * sizeof(double) > dataBuffer[colIndex].size())
+                                dataBuffer[colIndex].resize(max(dataBuffer[colIndex].size(), (preIndex + size + 1) * sizeof(double)) * 2);
+                            if (col.is_null() || col.size() == 0){
+                                ((double *)dataBuffer[colIndex].data())[preIndex] = DBL_NMIN;
                                 arrayDataIndex[colIndex].push_back(preIndex + 1);
                             }
                             else{
                                 int index = 0;
                                 for(auto it = col.begin(); it < col.end(); ++it, ++index){
-                                    ((double *)dataBuffer[colIndex].data())[preIndex + index] = it->get<double>();
+                                    if(it->is_null())
+                                        ((double *)dataBuffer[colIndex].data())[preIndex + index] = DBL_NMIN;
+                                    else
+                                        ((double *)dataBuffer[colIndex].data())[preIndex + index] = it->get<double>();
                                 }
                                 arrayDataIndex[colIndex].push_back(preIndex + size);
                             }

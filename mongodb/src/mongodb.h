@@ -6,6 +6,7 @@ extern "C" ConstantSP mongodbLoad(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP mongodbAggregate(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP mongodbClose(const ConstantSP &handle, const ConstantSP &b);
 extern "C" ConstantSP mongodbParseJson(Heap *heap, vector<ConstantSP> &arguments);
+extern "C" ConstantSP mongodbGetCollections(Heap *heap, vector<ConstantSP> &arguments);
 
 class Defer {
 public:
