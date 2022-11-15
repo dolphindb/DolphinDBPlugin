@@ -2,8 +2,6 @@
 
 DolphinDB's MySQL plugin offers high speed import of MySQL datasets or query results into DolphinDB. It supports data type conversion. Part of the plugin follows mysqlxx by Yandex.Clickhouse.
 
-The DolphinDB MySQL plugin has the branches [release 200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/mysql/README.md) and [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/mysql/README.md). Each plugin version corresponds to a DolphinDB server version. You're looking at the plugin documentation for release200. If you use a different DolphinDB server version, please refer to the corresponding branch of the plugin documentation.
-
 ## 1. Build
 
 ### 1.1 Install a precompiled distribution
@@ -15,7 +13,7 @@ In Linux:
 loadPlugin("/path/to/plugins/mysql/PluginMySQL.txt")
 ```
 
-In Windows:
+In Windows：
 ```
 loadPlugin("C:/path/to/mysql/PluginMySQL.txt")
 ```
@@ -168,8 +166,6 @@ mysql::load(connection, table_or_query, [schema], [startRow], [rowNum])
 
 **Note:** If 'table_or_query' is a SQL query, use 'LIMIT' in SQL query to specify 'startRow' and 'rowNum'.
 
-* allowEmptyTable: a Boolean indicating whether to allow importing an empty table from MySQL. The default value is false.
-
 #### Details
 
 Load a MySQL table or SQL query result into a DolphinDB in-memory table.
@@ -177,21 +173,20 @@ Load a MySQL table or SQL query result into a DolphinDB in-memory table.
 For details about supported data types as well as data conversion rules, please refer to the section of [Data Types](#Data Types) below.
 
 #### Examples
-
 ```
-conn = mysql::connect(`192.168.1.18, 3306, `root, `root, `DolphinDB)
-tb = mysql::load(conn, `US,,0,123456)
+conn = mysql::connect(`localhost, 3306, `root, `root, `DolphinDB)
+tb = mysql::load(conn, `US,,123,123456)
 select count(*) from tb
 ```
 
 ```
-conn = mysql::connect(`127.0.0.1, 3306, `root, `root, `DolphinDB)
-tb = mysql::load(conn, "SELECT PERMNO FROM US LIMIT 123456")
+conn = mysql::connect(`localhost, 3306, `root, `root, `DolphinDB)
+tb = mysql::load(conn, "SELECT PERMNO FROM US LIMIT 123,123456")
 select count(*) from tb
 ```
 
 ```
-mysql::load(conn, "SELECT now(6)");
+mysql::load(conn, "SELECT now(6)", table(`val as name, `NANOTIMESTAMP as type));
 ```
 
 ### 2.5 mysql::loadEx
@@ -208,10 +203,9 @@ mysql::loadEx(connection, dbHandle,tableName,partitionColumns,table_or_query,[sc
 * schema: a table with names and data types of columns. If we need to change the data type of a column that is automatically determined by the system, the schema table needs to be modified and used as an argument.
 * startRow: an integer indicating the index of the starting row to read. If unspecified, read from the first row. If 'table_or_query' is a SQL query, then 'startRow' should unspecified.
 * rowNum: an integer indicating the number of rows to read. If unspecified, read to the last row. If 'table_or_query' is a SQL query, then 'rowNum' should unspecified.
+* transform: apply certain transformation on a MySQL table or query before importing into DolphinDB database.
 
 **Note:** If 'table_or_query' is a SQL query, use 'LIMIT' in SQL query to specify 'startRow' and 'rowNum'.
-
-* transform: apply certain transformation on a MySQL table or query before importing into DolphinDB database.
 
 #### Details
 
@@ -221,18 +215,13 @@ For details about supported data types as well as data conversion rules, please 
 
 #### Examples
 
-* **Load data as a partitioned table on disk.**
-
-Load the entire table
-
+* Load data as a partitioned table on disk.
 ```
 dbPath = "C:/..."
 db = database(dbPath, RANGE, 0 500 1000)
 mysql::loadEx(conn, db,`tb, `PERMNO, `US)
 tb = loadTable(dbPath, `tb)
 ```
-
-Load via SQL statement
 
 ```
 dbPath = "C:/..."
@@ -241,33 +230,23 @@ mysql::loadEx(conn, db,`tb, `PERMNO, "SELECT * FROM US LIMIT 1000");
 tb = loadTable(dbPath, `tb)
 ```
 
-* **Load data as an in-memory partitioned table**
-
-Load the entire table
-
+* Load data as an in-memory partitioned table
 ```
 db = database("", RANGE, 0 50000 10000)
 tb = mysql::loadEx(conn, db,`tb, `PERMNO, `US)
 ```
-
-Load via SQL statement
 
 ```
 db = database("", RANGE, 0 50000 10000)
 tb = mysql::loadEx(conn, db,`tb, `PERMNO, "SELECT * FROM US LIMIT 100");
 ```
 
-* **Load data as a DFS partitioned table**
-
-Load the entire table
-
+* Load data as a DFS partitioned table
 ```
 db = database("dfs://US", RANGE, 0 50000 10000)
 mysql::loadEx(conn, db,`tb, `PERMNO, `US)
 tb = loadTable("dfs://US", `tb)
 ```
-
-Load via SQL statement
 
 ```
 db = database("dfs://US", RANGE, 0 50000 10000)
@@ -275,7 +254,7 @@ mysql::loadEx(conn, db,`tb, `PERMNO, "SELECT * FROM US LIMIT 1000");
 tb = loadTable("dfs://US", `tb)
 ```
 
-Load and transform data into a DFS partitioned table
+* Load and transform data into a DFS partitioned table
 
 ```
 db = database("dfs://US", RANGE, 0 50000 10000)
@@ -294,10 +273,6 @@ t=mysql::loadEx(conn, db, "",`stockid, 'select  * from US where stockid<=1000000
 
 | MySQL type         | DolphinDB type |
 | ------------------ | :--------------------------- |
-| bit(1)-bit(8)      | CHAR                         |
-| bit(9)-bit(16)     | SHORT                        |
-| bit(17)-bit(32)    | INT                          |
-| bit(33)-bit(64)    | LONG                         |
 | tinyint            | CHAR                         |
 | tinyint unsigned   | SHORT                        |
 | smallint           | SHORT                        |
@@ -370,6 +345,6 @@ t=mysql::loadEx(conn, db, "",`stockid, 'select  * from US where stockid<=1000000
 
 * US stocks daily data from 1990 to 2016 with 22 fields and 50,591,907 rows. Total size is 6.5GB.
 
-### 4.3 Time Consumed for Data Import
+### 4.3 Time Consumed for data import
 
 160.5 seconds

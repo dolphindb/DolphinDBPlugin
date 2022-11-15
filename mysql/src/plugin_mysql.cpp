@@ -8,6 +8,10 @@ using std::endl;
 
 ConstantSP safeOp(const ConstantSP &arg, std::function<ConstantSP(Connection *)> &&f) {
     if (arg->getType() == DT_RESOURCE) {
+        string desc = arg->getString();
+        if(desc.find("mysql connection") != 0) {
+            throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
+        }
         auto conn = (Connection *)(arg->getLong());
         return conn->connected() ? f(conn) : messageSP("Not connected yet.");
     } else {
@@ -288,7 +292,7 @@ TableSP MySQLExtractor::extractSchema(const std::string &table) {
 
         for (int i = 0; i < numFields; ++i) {
             colNames->set(i, new String(res.nameAt(i)));
-            colTypes->set(i, new String(getDolphinDBTypeStr(getDolphinDBType(res.typeAt(i), res.isUnsignedAt(i), res.isEnumAt(i), res.maxLengthAt(i)))));
+            colTypes->set(i, new String(Util::getDataTypeString(getDolphinDBType(res.typeAt(i), res.isUnsignedAt(i), res.isEnumAt(i), res.maxLengthAt(i)))));
             colRawType->set(i, new String(getMySQLTypeStr(res.typeAt(i))));
         }
         res.fetch();    // otherwise mysqlclient will hang
@@ -1090,7 +1094,11 @@ bool parseBit(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* null
 
 //////////////////////////////////// util
 const char *getDolphinDBTypeStr(DATA_TYPE type) {
-    return Util::getDataTypeString(type).c_str();
+    auto str = Util::getDataTypeString(type);
+    char* ptr = (char *)malloc(str.size()+1);
+    memcpy(ptr, str.c_str(), str.size()+1);
+    return (const char*)ptr;
+
 }
 
 ConstantSP messageSP(const std::string &s) {
