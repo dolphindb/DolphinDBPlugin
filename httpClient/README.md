@@ -19,9 +19,22 @@ wget https://curl.haxx.se/ca/cacert.pem
 
 ### 1.2 自行编译
 
-需要先构建 libcurl、libssl（版本为1.0.2）、libcrypto（版本为1.0.2）和libz的静态链接库。
+需要先构建 libcurl、libssl（arm版本为1.0.1，x86版本为1.0.2）、libcrypto（arm版本为1.0.1，x86版本为1.0.2）和libz的静态链接库。
 
-#### openssl-1.0.2u编译
+#### openssl编译
+
+1.0.1版本，适用于arm架构:
+
+```
+wget https://www.openssl.org/source/old/1.0.1/openssl-1.0.1u.tar.gz
+tar -xzf openssl-1.0.2u.tar.gz
+cd openssl-1.0.1u
+./config shared --prefix=/tmp/ssl -fPIC
+make
+make install
+```
+
+1.0.2版本，适用于x86架构:
 
 ```
 wget https://www.openssl.org/source/old/1.0.2/openssl-1.0.2u.tar.gz
@@ -30,6 +43,7 @@ cd openssl-1.0.2u
 ./config shared --prefix=/tmp/ssl -fPIC
 make
 make install
+```
 ```
 
 ### curl7.47.0编译
