@@ -639,8 +639,15 @@ char *
 gpgetDataLine( FILE *fin )
 {
     int len = 0;
+	//printf("gpgetDataLsine\n");
+	//printf("dataIndex--%d\n",dataIndex);
+	//printf("dataSize[blockIndex]--%d\n",dataSize[blockIndex]);
 	if ((max_line_len - len) < 256)
 	    df_line = gp_realloc(df_line, max_line_len *= 2, "datafile line buffer");
+
+	//printf("gpgetDataLsine1\n");
+    // if (!fgets(df_line, max_line_len, fin))
+	// return NULL;
 	if(dataIndex==dataSize[blockIndex]){
 		const char* str="e\n";
 		strcpy(df_line,str);
@@ -652,21 +659,32 @@ gpgetDataLine( FILE *fin )
 		int index=0;
 		int i=0;
 		for(i=0;i<dataLen[blockIndex];++i){
+			// printf("i---%d\n",i);
+			// printf("here\n");
 			if(i!=0){
 				strcpy(df_line+index," ");
 				index+=1;
 			}
+			// printf("here\n");
+			// printf("%d\n",blockIndex);
+			// printf("%lf\n",DataPtr[blockIndex][i][dataIndex]);
 			sprintf(str, "%lf",DataPtr[blockIndex][i][dataIndex]);
 			int indexLen=strlen(str);
 			strncpy(df_line+index,str,indexLen);
 			index+=indexLen;
 		}
 		df_line[index]='\n';
+		//strcpy(df_line+index,"\n");
 		index+=1;
 		df_line[index]='\0';
+		//printf("%d\n",index);
 		++dataIndex;
 	}
 	
+	// printf("gpgetDataLsine2\n");
+	// printf("df_line--%s\n",df_line);
+	// printf("dataIndex---%d",dataIndex);
+	// printf("gpgetDataLsine3\n");
     if (mixed_data_fp)
 	++inline_num;
     for (;;) {
@@ -690,6 +708,65 @@ gpgetDataLine( FILE *fin )
     /* NOTREACHED */
     return NULL;
 }
+
+// char *
+// gpgetDataLine( FILE *fin )
+// {
+//     int len = 0;
+
+// 	if ((max_line_len - len) < 64)
+// 	    df_line = gp_realloc(df_line, max_line_len *= 2, "datafile line buffer");
+
+//     // if (!fgets(df_line, max_line_len, fin))
+// 	// return NULL;
+// 	if(dataIndex==dataSize){
+// 		const char* str="e\n";
+// 		strcpy(df_line,str);
+// 	}
+// 	else{
+// 		char str[50];
+// 		int index=0;
+// 		sprintf(str, "%lf",firstDataPtr[dataIndex]);
+// 		int indexLen=strlen(str);
+// 		strncpy(df_line,str,indexLen);
+// 		index+=indexLen;
+
+// 		strcpy(df_line+index," ");
+// 		index+=1;
+
+// 		sprintf(str, "%lf",SecondDataPtr[dataIndex]);
+// 		indexLen=strlen(str);
+// 		strncpy(df_line+index,str,indexLen);
+// 		index+=indexLen;
+// 		strcpy(df_line+index,"\n");
+// 		index+=1;
+// 	}
+// 	printf("df_line--%s",df_line);
+//     if (mixed_data_fp)
+// 	++inline_num;
+// 	++dataIndex;
+//     for (;;) {
+// 	len += strlen(df_line + len);
+
+// 	if (len > 0 && df_line[len - 1] == '\n') {
+// 	    /* we have read an entire text-file line.
+// 	     * Strip the trailing linefeed and return
+// 	     */
+// 	    df_line[len - 1] = 0;
+// 	    return df_line;
+// 	}
+
+// 	if ((max_line_len - len) < 32)
+// 	    df_line = gp_realloc(df_line, max_line_len *= 2, "datafile line buffer");
+
+// 	if (!fgets(df_line + len, max_line_len - len, fin))
+// 	    return df_line;        /* unexpected end of file, but we have something to do */
+//     }
+
+//     /* NOTREACHED */
+//     return NULL;
+// }
+
 char *
 df_fgets( FILE *fin )
 {

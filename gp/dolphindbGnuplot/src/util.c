@@ -49,6 +49,9 @@
 # include <io.h>		/* for _access */
 #endif
 
+
+char error_message[128] = {'\0'};
+
 /* Exported (set-table) variables */
 
 /* decimal sign */
@@ -1149,7 +1152,6 @@ int_error(int t_num, const char str[], va_dcl)
     va_list args;
 #endif
 
-    char error_message[128] = {'\0'};
 
     /* reprint line if screen has been written to */
     print_line_with_error(t_num);
@@ -1170,9 +1172,36 @@ int_error(int t_num, const char str[], va_dcl)
 
     fputs("\n\n", stderr);
     fill_gpval_string("GPVAL_ERRMSG", error_message);
+	printf("error_message%s\n",error_message);
     plugin_common_error_exit(error_message);
 }
 
+
+//void
+//common_error_exit()
+//{
+//    /* We are bailing out of nested context without ever reaching */
+//    /* the normal cleanup code. Reset any flags before bailing.   */
+//    df_reset_after_error();
+//    eval_reset_after_error();
+//    clause_reset_after_error();
+//    parse_reset_after_error();
+//    pm3d_reset_after_error();
+//    set_iterator = cleanup_iteration(set_iterator);
+//    plot_iterator = cleanup_iteration(plot_iterator);
+//    scanning_range_in_progress = FALSE;
+//    inside_zoom = FALSE;
+//#ifdef HAVE_LOCALE_H
+//    setlocale(LC_NUMERIC, "C");
+//#endif
+//	printf("bail_to_command_line1\n");
+//    /* Load error state variables */
+//    update_gpval_variables(2);
+//
+//	printf("bail_to_command_line2\n");
+//    bail_to_command_line();
+//	printf("bail_to_command_line3\n");
+//}
 
 void
 plugin_common_error_exit(char* str)
@@ -1191,10 +1220,13 @@ plugin_common_error_exit(char* str)
 #ifdef HAVE_LOCALE_H
     setlocale(LC_NUMERIC, "C");
 #endif
+    //printf("bail_to_command_line1\n");
     /* Load error state variables */
     update_gpval_variables(2);
 
+    //printf("bail_to_command_line2\n");
     plugin_bail_to_command_line(str);
+    //printf("bail_to_command_line3\n");
 }
 
 
