@@ -17,7 +17,7 @@ sudo apt install cmake
 mkdir build
 cd build
 cp /path_to_dolphindb/libDolphinDB.so ../lib
-cmake ..
+cmake .. -DAMDAPIDIR=<amd_ami_dir>
 make -j
 ```
 

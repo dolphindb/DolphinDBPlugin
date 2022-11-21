@@ -1,6 +1,4 @@
 #include "amdQuote.h"
-#include "amdQuoteType.h"
-#include "ScalarImp.h"
 
 std::mutex AmdQuote::amdMutex_;
 AmdQuote* AmdQuote::instance_;
@@ -105,6 +103,11 @@ ConstantSP subscribe(Heap *heap, vector<ConstantSP> &arguments) { // amdHandler 
     }
     std::string type = arguments[1]->getString();
 
+    if (arguments[2]->getForm() != DF_TABLE) {
+        std::string errMsg = "The third parameter `streamTable` must be a shared stream table.";
+        throw RuntimeException(errMsg);
+    }
+
     TableSP table = arguments[2];
     if (table->getTableType() != REALTIMETBL || !table->isSharedTable()) {
         std::string errMsg = "The third parameter `streamTable` must be a shared stream table.";
@@ -138,8 +141,18 @@ ConstantSP subscribe(Heap *heap, vector<ConstantSP> &arguments) { // amdHandler 
         amdQuotePtr->subscribeExecution(marketType, table, codeList);
     } else if (type == "order") {
         amdQuotePtr->subscribeOrder(marketType, table, codeList);
+    } else if (type == "index") {
+        amdQuotePtr->subscribeIndex(marketType, table, codeList);
+    } else if (type == "orderQueue") {
+        amdQuotePtr->subscribeOrderQueue(marketType, table, codeList);
+    } else if (type == "fundSnapshot") {
+        amdQuotePtr->subscribeFundSnapshot(marketType, table, codeList);
+    } else if (type == "fundExecution") {
+        amdQuotePtr->subscribeFundExecution(marketType, table, codeList);
+    } else if (type == "fundOrder") {
+        amdQuotePtr->subscribeFundOrder(marketType, table, codeList);
     } else {
-        throw RuntimeException("second argument illegal, should be `snapshot`, `execution` or `order`");
+        throw RuntimeException("second argument illegal, should be `snapshot`, `execution`, `order`, `index`, `orderQueue`, fundSnapshot, `fundExecution` or `fundOrder");
     }
 
     ConstantSP ret = Util::createConstant(DT_STRING);
@@ -156,7 +169,7 @@ ConstantSP unsubscribe(Heap *heap, vector<ConstantSP> &arguments) {
 
     std::string amdDataType;
     if (arguments[1]->getForm() != DF_SCALAR || arguments[1]->getType() != DT_STRING) {
-        throw RuntimeException("second argument illegal, should be amd dataType, one of snapshot, execution, order, all");
+        throw RuntimeException("second argument illegal, should be amd dataType, one of `snapshot`, `execution`, `order`, `index`, `all`");
     }
     amdDataType = arguments[1]->getString();
 
@@ -223,8 +236,18 @@ ConstantSP getSchema(Heap *heap, vector<ConstantSP> &arguments) { // type
         table = getExecutionSchema(receivedTimeFlag);
     } else if (amdDataType == "order") {
         table = getOrderSchema(receivedTimeFlag);
+    } else if (amdDataType == "index") {
+        table = getIndexSchema(receivedTimeFlag);
+    } else if (amdDataType == "orderQueue") {
+        table = getOrderQueueSchema(receivedTimeFlag);
+    } else if (amdDataType == "fundSnapshot") {
+        table = getSnapshotSchema(receivedTimeFlag);
+    } else if (amdDataType == "fundExecution") {
+        table = getExecutionSchema(receivedTimeFlag);
+    } else if (amdDataType == "fundOrder") {
+        table = getOrderSchema(receivedTimeFlag);
     } else {
-        throw RuntimeException("first argument illegal, should be one of `snapshot`, `execution` or `order`");
+        throw RuntimeException("first argument illegal, should be one of `snapshot`, `execution`, `order`, `index`, `orderQueue`, `fundSnapshot`, `fundExecution` or `fundOrder`");
     }
 
     return table;
@@ -237,7 +260,7 @@ ConstantSP getStatus(Heap *heap, vector<ConstantSP> &arguments) {
     AmdQuote* amdQuotePtr = (AmdQuote*)arguments[0]->getLong();
     AmdQuote* instance = AmdQuote::getInstance();
     if (amdQuotePtr == nullptr || instance != amdQuotePtr) {
-        throw RuntimeException("release Amd err, illegal AmdQuote Handler");
+        throw RuntimeException("illegal AmdQuote Handler");
     }
 
     return instance->getStatus();

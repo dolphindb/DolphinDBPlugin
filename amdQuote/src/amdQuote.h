@@ -1,12 +1,19 @@
 #ifndef __AMD_QUOTE_H
 #define __AMD_QUOTE_H
+
+#include <mutex>
+#include <iostream>
+
+#include "ama.h"
+
 #include "CoreConcept.h"
 #include "amdQuoteType.h"
 #include "Logger.h"
 #include "Util.h"
-#include "ama.h"
-#include <mutex>
 #include "ScalarImp.h"
+#include "Plugin.h"
+
+using namespace dolphindb;
 
 inline long long countTemporalUnit(int days, long long multiplier, long long remainder){
 	return days == INT_MIN ? LLONG_MIN : days * multiplier + remainder;
@@ -159,12 +166,6 @@ public:
         amd::ama::SubscribeCategoryItem sub[codeSize];
         memset(sub, 0, sizeof(sub));
 
-        /*
-        if (market < (int)amd::ama::MarketType::kNone || market > (int)amd::ama::MarketType::kMax) {
-            LOG_ERR("subscribe Snapshot err, illegal market:", market);
-            return snapshotData_;
-        }*/
-
         if (codeList.size() == 0) {
             sub[0].data_type = amd::ama::SubscribeSecuDataType::kSnapshot;
             sub[0].category_type = amd::ama::SubscribeCategoryType::kStock;
@@ -203,12 +204,6 @@ public:
 
         amd::ama::SubscribeCategoryItem sub[codeSize];
         memset(sub, 0, sizeof(sub));
-
-        /*
-        if (market < (int)amd::ama::MarketType::kNone || market > (int)amd::ama::MarketType::kMax) {
-            LOG_ERR("subscribe Execution err, illegal market:", market);
-            return executionData_;
-        }*/
 
         if (codeList.size() == 0) {
             sub[0].data_type = amd::ama::SubscribeSecuDataType::kTickExecution;
@@ -249,11 +244,6 @@ public:
 
         amd::ama::SubscribeCategoryItem sub[codeSize];
         memset(sub, 0, sizeof(sub));
-        /*
-        if (market < (int)amd::ama::MarketType::kNone || market > (int)amd::ama::MarketType::kMax) {
-            LOG_ERR("subscribe Order err, illegal market:", market);
-            return orderData_;
-        }*/
 
         if (codeList.size() == 0) {
             sub[0].data_type = amd::ama::SubscribeSecuDataType::kTickOrder;
@@ -281,6 +271,205 @@ public:
         infoSet_.insert(info);
     }
 
+    // 订阅基金快照数据
+    void subscribeFundSnapshot(int market, TableSP table, std::vector<std::string> codeList) {
+        std::vector<std::string> nullCodeList;
+        unsubscribe("fundSnapshot", market, nullCodeList);
+        amdSpi_->setFundSnapshotData(table);
+        // 选择某个市场，如果codeList size为0 代表订阅全市场， 多个市场需要调用多次
+        unsigned int codeSize = 1;
+        if (codeList.size() > 0) {
+            codeSize = codeList.size();
+        }
+
+        amd::ama::SubscribeCategoryItem sub[codeSize];
+        memset(sub, 0, sizeof(sub));
+
+        if (codeList.size() == 0) {
+            sub[0].data_type = amd::ama::SubscribeSecuDataType::kSnapshot;
+            sub[0].category_type = amd::ama::SubscribeCategoryType::kFund;
+            sub[0].market = market;
+            sub[0].security_code[0] = '\0';
+        } else {
+            for (unsigned int codeIndex = 0; codeIndex < codeSize; codeIndex++) {
+                sub[codeIndex].data_type = amd::ama::SubscribeSecuDataType::kSnapshot;
+                sub[codeIndex].category_type = amd::ama::SubscribeCategoryType::kFund;
+                sub[codeIndex].market = market;
+                memcpy(sub[codeIndex].security_code, codeList[codeIndex].c_str(), codeList[codeIndex].length());
+            }
+        }
+        if (amd::ama::IAMDApi::SubscribeData(
+                amd::ama::SubscribeType::kAdd, sub, codeSize)
+        != amd::ama::ErrorCode::kSuccess)
+        {
+            std::lock_guard<std::mutex> amdLock_(amdMutex_);
+            amd::ama::IAMDApi::Release();
+            LOG_ERR("subscribe fundSnapshot err, market:", market);
+        }
+        Info info("fundSnapshot", market);
+        infoSet_.insert(info);
+    }
+
+    // 订阅基金逐笔成交
+    void subscribeFundExecution(int market, TableSP table, std::vector<std::string> codeList) {
+        std::vector<std::string> nullCodeList;
+        unsubscribe("fundExecution", market, nullCodeList);
+        amdSpi_->setFundExecutionData(table);
+        // 选择某个市场，如果codeList size为0 代表订阅全市场，多个市场需要调用多次
+        unsigned int codeSize = 1;
+        if (codeList.size() > 0) {
+            codeSize = codeList.size();
+        }
+
+        amd::ama::SubscribeCategoryItem sub[codeSize];
+        memset(sub, 0, sizeof(sub));
+
+        if (codeList.size() == 0) {
+            sub[0].data_type = amd::ama::SubscribeSecuDataType::kTickExecution;
+            sub[0].category_type = amd::ama::SubscribeCategoryType::kFund;
+            sub[0].market = market;
+            sub[0].security_code[0] = '\0';
+        } else {
+            for (unsigned int codeIndex = 0; codeIndex < codeSize; codeIndex++) {
+                sub[codeIndex].data_type = amd::ama::SubscribeSecuDataType::kTickExecution;
+                sub[codeIndex].category_type = amd::ama::SubscribeCategoryType::kFund;
+                sub[codeIndex].market = market;
+                memcpy(sub[codeIndex].security_code, codeList[codeIndex].c_str(), codeList[codeIndex].length());
+            }
+        }
+
+        if (amd::ama::IAMDApi::SubscribeData(
+                amd::ama::SubscribeType::kAdd, sub, codeSize)
+        != amd::ama::ErrorCode::kSuccess)
+        {
+            std::lock_guard<std::mutex> amdLock_(amdMutex_);
+            amd::ama::IAMDApi::Release();
+            LOG_ERR("subscribe fundExecution err, market:", market);
+        }
+        Info info("fundExecution", market);
+        infoSet_.insert(info);
+    }
+
+    // 订阅基金逐笔委托
+    void subscribeFundOrder(int market, TableSP table, std::vector<std::string> codeList) {
+        std::vector<std::string> nullCodeList;
+        unsubscribe("fundOrder", market, nullCodeList);
+        amdSpi_->setFundOrderData(table);
+        // 选择某个市场，如果codeList size为0 代表订阅全市场， 多个市场需要调用多次
+        unsigned int codeSize = 1;
+        if (codeList.size() > 0) {
+            codeSize = codeList.size();
+        }
+
+        amd::ama::SubscribeCategoryItem sub[codeSize];
+        memset(sub, 0, sizeof(sub));
+
+        if (codeList.size() == 0) {
+            sub[0].data_type = amd::ama::SubscribeSecuDataType::kTickOrder;
+            sub[0].category_type = amd::ama::SubscribeCategoryType::kFund;
+            sub[0].market = market;
+            sub[0].security_code[0] = '\0';
+        } else {
+            for (unsigned int codeIndex = 0; codeIndex < codeSize; codeIndex++) {
+                sub[codeIndex].data_type = amd::ama::SubscribeSecuDataType::kTickOrder;
+                sub[codeIndex].category_type = amd::ama::SubscribeCategoryType::kFund;
+                sub[codeIndex].market = market;
+                memcpy(sub[codeIndex].security_code, codeList[codeIndex].c_str(), codeList[codeIndex].length());
+            }
+        }
+
+        if (amd::ama::IAMDApi::SubscribeData(
+                amd::ama::SubscribeType::kAdd, sub, codeSize)
+        != amd::ama::ErrorCode::kSuccess)
+        {
+            std::lock_guard<std::mutex> amdLock_(amdMutex_);
+            amd::ama::IAMDApi::Release();
+            LOG_ERR("subscribe fundOrder err, market:", market);
+        }
+        Info info("fundOrder", market);
+        infoSet_.insert(info);
+    }
+
+    // 订阅指数快照数据
+    void subscribeIndex(int market, TableSP table, std::vector<std::string> codeList) {
+        std::vector<std::string> nullCodeList;
+        unsubscribe("index", market, nullCodeList);
+        amdSpi_->setIndexData(table);
+        // 选择某个市场，如果codeList size为0 代表订阅全市场， 多个市场需要调用多次
+        unsigned int codeSize = 1;
+        if (codeList.size() > 0) {
+            codeSize = codeList.size();
+        }
+
+        amd::ama::SubscribeCategoryItem sub[codeSize];
+        memset(sub, 0, sizeof(sub));
+
+        if (codeList.size() == 0) {
+            sub[0].data_type = amd::ama::SubscribeSecuDataType::kSnapshot;
+            sub[0].category_type = amd::ama::SubscribeCategoryType::kIndex;
+            sub[0].market = market;
+            sub[0].security_code[0] = '\0';
+        } else {
+            for (unsigned int codeIndex = 0; codeIndex < codeSize; codeIndex++) {
+                sub[codeIndex].data_type = amd::ama::SubscribeSecuDataType::kSnapshot;
+                sub[codeIndex].category_type = amd::ama::SubscribeCategoryType::kIndex;
+                sub[codeIndex].market = market;
+                memcpy(sub[codeIndex].security_code, codeList[codeIndex].c_str(), codeList[codeIndex].length());
+            }
+        }
+
+        if (amd::ama::IAMDApi::SubscribeData(
+                amd::ama::SubscribeType::kAdd, sub, codeSize)
+        != amd::ama::ErrorCode::kSuccess)
+        {
+            std::lock_guard<std::mutex> amdLock_(amdMutex_);
+            amd::ama::IAMDApi::Release();
+            LOG_ERR("subscribe Index err, market:", market);
+        }
+        Info info("index", market);
+        infoSet_.insert(info);
+    }
+
+    // 订阅委托队列所有类型数据
+    void subscribeOrderQueue(int market, TableSP table, std::vector<std::string> codeList) {
+        std::vector<std::string> nullCodeList;
+        unsubscribe("orderQueue", market, nullCodeList);
+        amdSpi_->setOrderQueueData(table);
+        // 选择某个市场，如果codeList size为0 代表订阅全市场， 多个市场需要调用多次
+        unsigned int codeSize = 1;
+        if (codeList.size() > 0) {
+            codeSize = codeList.size();
+        }
+
+        amd::ama::SubscribeCategoryItem sub[codeSize];
+        memset(sub, 0, sizeof(sub));
+
+        if (codeList.size() == 0) {
+            sub[0].data_type = amd::ama::SubscribeSecuDataType::kOrderQueue;
+            sub[0].category_type = amd::ama::SubscribeCategoryType::kNone;
+            sub[0].market = market;
+            sub[0].security_code[0] = '\0';
+        } else {
+            for (unsigned int codeIndex = 0; codeIndex < codeSize; codeIndex++) {
+                sub[codeIndex].data_type = amd::ama::SubscribeSecuDataType::kOrderQueue;
+                sub[codeIndex].category_type = amd::ama::SubscribeCategoryType::kNone;
+                sub[codeIndex].market = market;
+                memcpy(sub[codeIndex].security_code, codeList[codeIndex].c_str(), codeList[codeIndex].length());
+            }
+        }
+
+        if (amd::ama::IAMDApi::SubscribeData(
+                amd::ama::SubscribeType::kAdd, sub, codeSize)
+        != amd::ama::ErrorCode::kSuccess)
+        {
+            std::lock_guard<std::mutex> amdLock_(amdMutex_);
+            amd::ama::IAMDApi::Release();
+            LOG_ERR("subscribe OrderQueue err, market:", market);
+        }
+        Info info("orderQueue", market);
+        infoSet_.insert(info);
+    }
+
     void unsubscribe(std::string dataType, int market, std::vector<std::string> codeList) {
         // 取消订阅
         if (dataType == "snapshot") {
@@ -292,12 +481,6 @@ public:
 
             amd::ama::SubscribeCategoryItem sub[codeSize];
             memset(sub, 0, sizeof(sub));
-
-            /*
-            if (market < (int)amd::ama::MarketType::kNone || market > (int)amd::ama::MarketType::kMax) {
-                LOG_ERR("subscribe Snapshot err, illegal market:", market);
-                return;
-            }*/
 
             if (codeList.size() == 0) {
                 sub[0].data_type = amd::ama::SubscribeSecuDataType::kSnapshot;
@@ -394,6 +577,186 @@ public:
                 LOG_ERR("unsubscribe order err, market:", market);
                 return;
             }
+        } else if (dataType == "index") {
+            // 取消指数快照订阅
+            unsigned int codeSize = 1;
+            if (codeList.size() > 0) {
+                codeSize = codeList.size();
+            }
+
+            amd::ama::SubscribeCategoryItem sub[codeSize];
+            memset(sub, 0, sizeof(sub));
+
+            /*
+            if (market < (int)amd::ama::MarketType::kNone || market > (int)amd::ama::MarketType::kMax) {
+                LOG_ERR("unsubscribe order err, illegal market:", market);
+                return ;
+            }*/
+
+            if (codeList.size() == 0) {
+                sub[0].data_type = amd::ama::SubscribeSecuDataType::kSnapshot;
+                sub[0].category_type = amd::ama::SubscribeCategoryType::kIndex;
+                sub[0].market = market;
+                sub[0].security_code[0] = '\0';
+            } else {
+                for (unsigned int codeIndex = 0; codeIndex < codeSize; codeIndex++) {
+                    sub[codeIndex].data_type = amd::ama::SubscribeSecuDataType::kSnapshot;
+                    sub[codeIndex].category_type = amd::ama::SubscribeCategoryType::kIndex;
+                    sub[codeIndex].market = market;
+                    memcpy(sub[codeIndex].security_code, codeList[codeIndex].c_str(), codeList[codeIndex].length());
+                }
+            }
+            if (amd::ama::IAMDApi::SubscribeData(
+                amd::ama::SubscribeType::kDel, sub, codeSize)
+            != amd::ama::ErrorCode::kSuccess)
+            {   
+                std::lock_guard<std::mutex> amdLock_(amdMutex_);
+                LOG_ERR("unsubscribe order err, market:", market);
+                return;
+            }
+        } else if (dataType == "orderQueue") {
+            // 取消委托队列订阅
+            unsigned int codeSize = 1;
+            if (codeList.size() > 0) {
+                codeSize = codeList.size();
+            }
+
+            amd::ama::SubscribeCategoryItem sub[codeSize];
+            memset(sub, 0, sizeof(sub));
+
+            /*
+            if (market < (int)amd::ama::MarketType::kNone || market > (int)amd::ama::MarketType::kMax) {
+                LOG_ERR("unsubscribe order err, illegal market:", market);
+                return ;
+            }*/
+
+            if (codeList.size() == 0) {
+                sub[0].data_type = amd::ama::SubscribeSecuDataType::kOrderQueue;
+                sub[0].category_type = amd::ama::SubscribeCategoryType::kNone;
+                sub[0].market = 0;
+                sub[0].security_code[0] = '\0';
+            } else {
+                for (unsigned int codeIndex = 0; codeIndex < codeSize; codeIndex++) {
+                    sub[codeIndex].data_type = amd::ama::SubscribeSecuDataType::kOrderQueue;
+                    sub[codeIndex].category_type = amd::ama::SubscribeCategoryType::kNone;
+                    sub[codeIndex].market = market;
+                    memcpy(sub[codeIndex].security_code, codeList[codeIndex].c_str(), codeList[codeIndex].length());
+                }
+            }
+            // if (market == 0) {
+            //     amd::ama::IAMDApi::SubscribeData(
+            //         amd::ama::SubscribeType::kCancelAll, sub, codeSize);
+            // } else {
+            //     amd::ama::IAMDApi::SubscribeData(
+            //         amd::ama::SubscribeType::kDel, sub, codeSize);
+            // }
+            if (amd::ama::IAMDApi::SubscribeData(
+                amd::ama::SubscribeType::kDel, sub, codeSize)
+            != amd::ama::ErrorCode::kSuccess)
+            {   
+                std::lock_guard<std::mutex> amdLock_(amdMutex_);
+                LOG_ERR("unsubscribe order err, market:", market);
+                return;
+            }
+        } else if (dataType == "fundSnapshot") {
+            // 取消快照订阅
+            unsigned int codeSize = 1;
+            if (codeList.size() > 0) {
+                codeSize = codeList.size();
+            }
+
+            amd::ama::SubscribeCategoryItem sub[codeSize];
+            memset(sub, 0, sizeof(sub));
+
+            if (codeList.size() == 0) {
+                sub[0].data_type = amd::ama::SubscribeSecuDataType::kSnapshot;
+                sub[0].category_type = amd::ama::SubscribeCategoryType::kFund;
+                sub[0].market = market;
+                sub[0].security_code[0] = '\0';
+            } else {
+                for (unsigned int codeIndex = 0; codeIndex < codeSize; codeIndex++) {
+                    sub[codeIndex].data_type = amd::ama::SubscribeSecuDataType::kSnapshot;
+                    sub[codeIndex].category_type = amd::ama::SubscribeCategoryType::kFund;
+                    sub[codeIndex].market = market;
+                    memcpy(sub[codeIndex].security_code, codeList[codeIndex].c_str(), codeList[codeIndex].length());
+                }
+            }
+
+            if (amd::ama::IAMDApi::SubscribeData(
+                amd::ama::SubscribeType::kDel, sub, codeSize)
+            != amd::ama::ErrorCode::kSuccess)
+            {
+                std::lock_guard<std::mutex> amdLock_(amdMutex_);
+                LOG_ERR("unsubscribe fundSnapshot err, market:", market);
+                return;
+            }
+        } else if (dataType == "fundExecution") {
+            // 取消逐笔成交订阅
+            unsigned int codeSize = 1;
+            if (codeList.size() > 0) {
+                codeSize = codeList.size();
+            }
+
+            amd::ama::SubscribeCategoryItem sub[codeSize];
+            memset(sub, 0, sizeof(sub));
+
+            /*
+            if (market < (int)amd::ama::MarketType::kNone || market > (int)amd::ama::MarketType::kMax) {
+                LOG_ERR("unsubscribe execution err, illegal market:", market);
+                return ;
+            }*/
+
+            if (codeList.size() == 0) {
+                sub[0].data_type = amd::ama::SubscribeSecuDataType::kTickExecution;
+                sub[0].category_type = amd::ama::SubscribeCategoryType::kFund;
+                sub[0].market = market;
+                sub[0].security_code[0] = '\0';
+            } else {
+                for (unsigned int codeIndex = 0; codeIndex < codeSize; codeIndex++) {
+                    sub[codeIndex].data_type = amd::ama::SubscribeSecuDataType::kTickExecution;
+                    sub[codeIndex].category_type = amd::ama::SubscribeCategoryType::kFund;
+                    sub[codeIndex].market = market;
+                    memcpy(sub[codeIndex].security_code, codeList[codeIndex].c_str(), codeList[codeIndex].length());
+                }
+            }
+            if (amd::ama::IAMDApi::SubscribeData(
+                amd::ama::SubscribeType::kDel, sub, codeSize)
+            != amd::ama::ErrorCode::kSuccess)
+            {
+                std::lock_guard<std::mutex> amdLock_(amdMutex_);
+                LOG_ERR("subscribe fundExecution err, market:", market);
+            }
+        } else if (dataType == "fundOrder") {
+            // 取消逐笔委托订阅
+            unsigned int codeSize = 1;
+            if (codeList.size() > 0) {
+                codeSize = codeList.size();
+            }
+
+            amd::ama::SubscribeCategoryItem sub[codeSize];
+            memset(sub, 0, sizeof(sub));
+
+            if (codeList.size() == 0) {
+                sub[0].data_type = amd::ama::SubscribeSecuDataType::kTickOrder;
+                sub[0].category_type = amd::ama::SubscribeCategoryType::kFund;
+                sub[0].market = market;
+                sub[0].security_code[0] = '\0';
+            } else {
+                for (unsigned int codeIndex = 0; codeIndex < codeSize; codeIndex++) {
+                    sub[codeIndex].data_type = amd::ama::SubscribeSecuDataType::kTickOrder;
+                    sub[codeIndex].category_type = amd::ama::SubscribeCategoryType::kFund;
+                    sub[codeIndex].market = market;
+                    memcpy(sub[codeIndex].security_code, codeList[codeIndex].c_str(), codeList[codeIndex].length());
+                }
+            }
+            if (amd::ama::IAMDApi::SubscribeData(
+                amd::ama::SubscribeType::kDel, sub, codeSize)
+            != amd::ama::ErrorCode::kSuccess)
+            {   
+                std::lock_guard<std::mutex> amdLock_(amdMutex_);
+                LOG_ERR("unsubscribe fundOrder err, market:", market);
+                return;
+            }
         } else if (dataType == "all") {
             amd::ama::SubscribeCategoryItem sub[1];
             memset(sub, 0, sizeof(sub));
@@ -419,510 +782,371 @@ public:
         }
     }
 
+
     ~AmdQuote() {
-        cancelAll();
+        std::vector<std::string> codeList;
+        unsubscribe("all", 0, codeList);
         amd::ama::IAMDApi::Release();
     }
 
-
 private:
-    void cancelAll() {
-        std::vector<std::string> codeList;
-        unsubscribe("all", 0, codeList);
-    }
+    // 该类主要实现回调函数，回调函数用于接受并处理数据
     class AMDSpiImp : public amd::ama::IAMDSpi {
     public:
         AMDSpiImp(SessionSP session) : session_(session) {}
 
-        // 接受并处理快照数据
+        // 接受并处理快照数据（包含基金和股票数据）
         virtual void OnMDSnapshot(amd::ama::MDSnapshot* snapshot, uint32_t cnt) override {
-            // FIXME
-            // if (enableLog_[0] == true) {
-            //     latencyLog(0);
-            // }
-
             long long startTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
             std::lock_guard<std::mutex> amdLock_(amdMutex_);
 
+            // 基金和股票数据插入到不同的表
+            TableSP insertedTable;
+            uint8_t varietyCategory = snapshot[0].variety_category;
+            if (varietyCategory == 1) { // 股票快照
+                insertedTable = snapshotData_;
+            } else if (varietyCategory == 2) { // 基金快照
+                insertedTable = fundSnapshotData_;
+            } else {
+                amd::ama::IAMDApi::FreeMemory(snapshot);
+                return ;
+            }
             
+            // 检查是否需要时间戳列
             bool receivedTimeFlag = false;
-            if (snapshotData_->columns() > (INDEX)snapshotDataTableMeta_.colTypes_.size()) {
+            if (insertedTable->columns() > (INDEX)snapshotDataTableMeta_.colTypes_.size()) {
                 snapshotDataTableMeta_.colNames_.push_back("receivedTime");
                 snapshotDataTableMeta_.colTypes_.push_back(DT_NANOTIMESTAMP);
             }
-
             if (snapshotDataTableMeta_.colNames_.back() == "receivedTime") {
                 receivedTimeFlag = true;
             }
 
-            std::vector<ConstantSP> cols;
-            for (unsigned int snapshotIndex = 0; snapshotIndex < snapshotDataTableMeta_.colTypes_.size(); snapshotIndex++) {
-                cols.push_back(Util::createVector(snapshotDataTableMeta_.colTypes_[snapshotIndex], 0, cnt));
-            }
+            DdbVector<int> col0(0, cnt);
+            DdbVector<string> col1(0, cnt);
+            DdbVector<long long> col2(0, cnt);
+            DdbVector<string> col3(0, cnt);
+            DdbVector<long long> col4(0, cnt);
+            DdbVector<long long> col5(0, cnt);
+            DdbVector<long long> col6(0, cnt);
+            DdbVector<long long> col7(0, cnt);
+            DdbVector<long long> col8(0, cnt);
+            DdbVector<long long> col9(0, cnt);
+
+            DdbVector<long long> col10(0, cnt);
+            DdbVector<long long> col11(0, cnt);
+            DdbVector<long long> col12(0, cnt);
+            DdbVector<long long> col13(0, cnt);
+            DdbVector<long long> col14(0, cnt);
+            DdbVector<long long> col15(0, cnt);
+            DdbVector<long long> col16(0, cnt);
+            DdbVector<long long> col17(0, cnt);
+            DdbVector<long long> col18(0, cnt);
+            DdbVector<long long> col19(0, cnt);
+
+            DdbVector<long long> col20(0, cnt);
+            DdbVector<long long> col21(0, cnt);
+            DdbVector<long long> col22(0, cnt);
+            DdbVector<long long> col23(0, cnt);
+            DdbVector<long long> col24(0, cnt);
+            DdbVector<long long> col25(0, cnt);
+            DdbVector<long long> col26(0, cnt);
+            DdbVector<long long> col27(0, cnt);
+            DdbVector<long long> col28(0, cnt);
+            DdbVector<long long> col29(0, cnt);
+
+            DdbVector<long long> col30(0, cnt);
+            DdbVector<long long> col31(0, cnt);
+            DdbVector<long long> col32(0, cnt);
+            DdbVector<long long> col33(0, cnt);
+            DdbVector<long long> col34(0, cnt);
+            DdbVector<long long> col35(0, cnt);
+            DdbVector<long long> col36(0, cnt);
+            DdbVector<long long> col37(0, cnt);
+            DdbVector<long long> col38(0, cnt);
+            DdbVector<long long> col39(0, cnt);
             
-            std::vector<int> col0;
-            std::vector<string> col1;
-            std::vector<long long> col2;
-            std::vector<string> col3;
-            std::vector<long long> col4;
-            std::vector<long long> col5;
-            std::vector<long long> col6;
-            std::vector<long long> col7;
-            std::vector<long long> col8;
-            std::vector<long long> col9;
+            DdbVector<long long> col40(0, cnt);
+            DdbVector<long long> col41(0, cnt);
+            DdbVector<long long> col42(0, cnt);
+            DdbVector<long long> col43(0, cnt);
+            DdbVector<long long> col44(0, cnt);
+            DdbVector<long long> col45(0, cnt);
+            DdbVector<long long> col46(0, cnt);
+            DdbVector<long long> col47(0, cnt);
+            DdbVector<long long> col48(0, cnt);
+            DdbVector<long long> col49(0, cnt);
 
-            std::vector<long long> col10;
-            std::vector<long long> col11;
-            std::vector<long long> col12;
-            std::vector<long long> col13;
-            std::vector<long long> col14;
-            std::vector<long long> col15;
-            std::vector<long long> col16;
-            std::vector<long long> col17;
-            std::vector<long long> col18;
-            std::vector<long long> col19;
+            DdbVector<long long> col50(0, cnt);
+            DdbVector<long long> col51(0, cnt);
+            DdbVector<long long> col52(0, cnt);
+            DdbVector<long long> col53(0, cnt);
+            DdbVector<long long> col54(0, cnt);
+            DdbVector<long long> col55(0, cnt);
+            DdbVector<long long> col56(0, cnt);
+            DdbVector<long long> col57(0, cnt);
+            DdbVector<long long> col58(0, cnt);
+            DdbVector<long long> col59(0, cnt);
 
-            std::vector<long long> col20;
-            std::vector<long long> col21;
-            std::vector<long long> col22;
-            std::vector<long long> col23;
-            std::vector<long long> col24;
-            std::vector<long long> col25;
-            std::vector<long long> col26;
-            std::vector<long long> col27;
-            std::vector<long long> col28;
-            std::vector<long long> col29;
+            DdbVector<long long> col60(0, cnt);
+            DdbVector<long long> col61(0, cnt);
+            DdbVector<long long> col62(0, cnt);
+            DdbVector<long long> col63(0, cnt);
+            DdbVector<long long> col64(0, cnt);
+            DdbVector<int> col65(0, cnt);
+            DdbVector<string> col66(0, cnt);
+            DdbVector<string> col67(0, cnt);
+            DdbVector<long long> col68(0, cnt);
+            DdbVector<long long> col69(0, cnt);
 
-            std::vector<long long> col30;
-            std::vector<long long> col31;
-            std::vector<long long> col32;
-            std::vector<long long> col33;
-            std::vector<long long> col34;
-            std::vector<long long> col35;
-            std::vector<long long> col36;
-            std::vector<long long> col37;
-            std::vector<long long> col38;
-            std::vector<long long> col39;
-            
-            std::vector<long long> col40;
-            std::vector<long long> col41;
-            std::vector<long long> col42;
-            std::vector<long long> col43;
-            std::vector<long long> col44;
-            std::vector<long long> col45;
-            std::vector<long long> col46;
-            std::vector<long long> col47;
-            std::vector<long long> col48;
-            std::vector<long long> col49;
+            DdbVector<long long> col70(0, cnt);
+            DdbVector<long long> col71(0, cnt);
+            DdbVector<long long> col72(0, cnt);
+            DdbVector<long long> col73(0, cnt);
+            DdbVector<long long> col74(0, cnt);
+            DdbVector<long long> col75(0, cnt);
+            DdbVector<long long> col76(0, cnt);
+            DdbVector<long long> col77(0, cnt);
+            DdbVector<long long> col78(0, cnt);
+            DdbVector<long long> col79(0, cnt);
 
-            std::vector<long long> col50;
-            std::vector<long long> col51;
-            std::vector<long long> col52;
-            std::vector<long long> col53;
-            std::vector<long long> col54;
-            std::vector<long long> col55;
-            std::vector<long long> col56;
-            std::vector<long long> col57;
-            std::vector<long long> col58;
-            std::vector<long long> col59;
+            DdbVector<long long> col80(0, cnt);
+            DdbVector<long long> col81(0, cnt);
+            DdbVector<long long> col82(0, cnt);
+            DdbVector<long long> col83(0, cnt);
+            DdbVector<long long> col84(0, cnt);
+            DdbVector<long long> col85(0, cnt);
+            DdbVector<long long> col86(0, cnt);
+            DdbVector<long long> col87(0, cnt);
+            DdbVector<int> col88(0, cnt);
+            DdbVector<int> col89(0, cnt);
 
-            std::vector<long long> col60;
-            std::vector<long long> col61;
-            std::vector<long long> col62;
-            std::vector<long long> col63;
-            std::vector<long long> col64;
-            std::vector<int> col65;
-            std::vector<string> col66;
-            std::vector<string> col67;
-            std::vector<long long> col68;
-            std::vector<long long> col69;
-
-            std::vector<long long> col70;
-            std::vector<long long> col71;
-            std::vector<long long> col72;
-            std::vector<long long> col73;
-            std::vector<long long> col74;
-            std::vector<long long> col75;
-            std::vector<long long> col76;
-            std::vector<long long> col77;
-            std::vector<long long> col78;
-            std::vector<long long> col79;
-
-            std::vector<long long> col80;
-            std::vector<long long> col81;
-            std::vector<long long> col82;
-            std::vector<long long> col83;
-            std::vector<long long> col84;
-            std::vector<long long> col85;
-            std::vector<long long> col86;
-            std::vector<long long> col87;
-            std::vector<int> col88;
-            std::vector<int> col89;
-
-            std::vector<int> col90;
-            std::vector<int> col91;
-            std::vector<long long> col92;
-            std::vector<char> col93;
-            std::vector<long long> col94;
+            DdbVector<int> col90(0, cnt);
+            DdbVector<int> col91(0, cnt);
+            DdbVector<long long> col92(0, cnt);
+            DdbVector<char> col93(0, cnt);
+            DdbVector<long long> col94(0, cnt);
 
             for (uint32_t i = 0; i < cnt; ++i) {
-                col0.emplace_back(snapshot[i].market_type);
-                
-                std::string securityCode(snapshot[i].security_code);
-                col1.emplace_back(securityCode);
+                col0.add(snapshot[i].market_type);
+                col1.add(snapshot[i].security_code);
+                col2.add(convertTime(snapshot[i].orig_time));
+                col3.add(snapshot[i].trading_phase_code);
+                col4.add(snapshot[i].pre_close_price);
+                col5.add(snapshot[i].open_price);
+                col6.add(snapshot[i].high_price);
+                col7.add(snapshot[i].low_price);
+                col8.add(snapshot[i].last_price);
+                col9.add(snapshot[i].close_price);
 
-                col2.emplace_back(convertTime(snapshot[i].orig_time));
-
-                std::string tradingPhaseCode(snapshot[i].trading_phase_code);
-                col3.emplace_back(tradingPhaseCode);
-
-                // 设置preClosePrice
-                col4.emplace_back(snapshot[i].pre_close_price);
-
-                // 设置openPrice
-                col5.emplace_back(snapshot[i].open_price);
-
-                // 设置highPrice
-                col6.emplace_back(snapshot[i].high_price);
-
-                // 设置lowPrice
-                col7.emplace_back(snapshot[i].low_price);
-
-                // 设置lastPrice
-                col8.emplace_back(snapshot[i].last_price);
-
-                // 设置closePrice
-                col9.emplace_back(snapshot[i].close_price);
-
-                // 设置bidPrice
                 int bidPriceIndex = 0;
-                col10.emplace_back(snapshot[i].bid_price[bidPriceIndex]);
+                col10.add(snapshot[i].bid_price[bidPriceIndex++]);
+                col11.add(snapshot[i].bid_price[bidPriceIndex++]);
+                col12.add(snapshot[i].bid_price[bidPriceIndex++]);
+                col13.add(snapshot[i].bid_price[bidPriceIndex++]);
+                col14.add(snapshot[i].bid_price[bidPriceIndex++]);
+                col15.add(snapshot[i].bid_price[bidPriceIndex++]);
+                col16.add(snapshot[i].bid_price[bidPriceIndex++]);
+                col17.add(snapshot[i].bid_price[bidPriceIndex++]);
+                col18.add(snapshot[i].bid_price[bidPriceIndex++]);
+                col19.add(snapshot[i].bid_price[bidPriceIndex++]);
 
-                bidPriceIndex++;
-                col11.emplace_back(snapshot[i].bid_price[bidPriceIndex]);
-
-                bidPriceIndex++;
-                col12.emplace_back(snapshot[i].bid_price[bidPriceIndex]);
-
-                bidPriceIndex++;
-                col13.emplace_back(snapshot[i].bid_price[bidPriceIndex]);
-
-                bidPriceIndex++;
-                col14.emplace_back(snapshot[i].bid_price[bidPriceIndex]);
-
-                bidPriceIndex++;
-                col15.emplace_back(snapshot[i].bid_price[bidPriceIndex]);
-
-                bidPriceIndex++;
-                col16.emplace_back(snapshot[i].bid_price[bidPriceIndex]);
-
-                bidPriceIndex++;
-                col17.emplace_back(snapshot[i].bid_price[bidPriceIndex]);
-
-                bidPriceIndex++;
-                col18.emplace_back(snapshot[i].bid_price[bidPriceIndex]);
-
-                bidPriceIndex++;
-                col19.emplace_back(snapshot[i].bid_price[bidPriceIndex]);
-
-                // 设置bidVolume
                 int bidVolumeIndex = 0;
-                col20.emplace_back(snapshot[i].bid_volume[bidVolumeIndex]);
+                col20.add(snapshot[i].bid_volume[bidVolumeIndex++]);
+                col21.add(snapshot[i].bid_volume[bidVolumeIndex++]);
+                col22.add(snapshot[i].bid_volume[bidVolumeIndex++]);
+                col23.add(snapshot[i].bid_volume[bidVolumeIndex++]);
+                col24.add(snapshot[i].bid_volume[bidVolumeIndex++]);
+                col25.add(snapshot[i].bid_volume[bidVolumeIndex++]);
+                col26.add(snapshot[i].bid_volume[bidVolumeIndex++]);
+                col27.add(snapshot[i].bid_volume[bidVolumeIndex++]);
+                col28.add(snapshot[i].bid_volume[bidVolumeIndex++]);
+                col29.add(snapshot[i].bid_volume[bidVolumeIndex++]);
 
-                bidVolumeIndex++;
-                col21.emplace_back(snapshot[i].bid_volume[bidVolumeIndex]);
-
-                bidVolumeIndex++;
-                col22.emplace_back(snapshot[i].bid_volume[bidVolumeIndex]);
-
-                bidVolumeIndex++;
-                col23.emplace_back(snapshot[i].bid_volume[bidVolumeIndex]);
-
-                bidVolumeIndex++;
-                col24.emplace_back(snapshot[i].bid_volume[bidVolumeIndex]);
-
-                bidVolumeIndex++;
-                col25.emplace_back(snapshot[i].bid_volume[bidVolumeIndex]);
-
-                bidVolumeIndex++;
-                col26.emplace_back(snapshot[i].bid_volume[bidVolumeIndex]);
-
-                bidVolumeIndex++;
-                col27.emplace_back(snapshot[i].bid_volume[bidVolumeIndex]);
-
-                bidVolumeIndex++;
-                col28.emplace_back(snapshot[i].bid_volume[bidVolumeIndex]);
-
-                bidVolumeIndex++;
-                col29.emplace_back(snapshot[i].bid_volume[bidVolumeIndex]);
-
-                // 设置offerPrice
                 int offerPriceIndex = 0;
-                col30.emplace_back(snapshot[i].offer_price[offerPriceIndex]);
+                col30.add(snapshot[i].offer_price[offerPriceIndex++]);
+                col31.add(snapshot[i].offer_price[offerPriceIndex++]);
+                col32.add(snapshot[i].offer_price[offerPriceIndex++]);
+                col33.add(snapshot[i].offer_price[offerPriceIndex++]);
+                col34.add(snapshot[i].offer_price[offerPriceIndex++]);
+                col35.add(snapshot[i].offer_price[offerPriceIndex++]);
+                col36.add(snapshot[i].offer_price[offerPriceIndex++]);
+                col37.add(snapshot[i].offer_price[offerPriceIndex++]);
+                col38.add(snapshot[i].offer_price[offerPriceIndex++]);
+                col39.add(snapshot[i].offer_price[offerPriceIndex++]);
 
-                offerPriceIndex++;
-                col31.emplace_back(snapshot[i].offer_price[offerPriceIndex]);
-
-                offerPriceIndex++;
-                col32.emplace_back(snapshot[i].offer_price[offerPriceIndex]);
-
-                offerPriceIndex++;
-                col33.emplace_back(snapshot[i].offer_price[offerPriceIndex]);
-
-                offerPriceIndex++;
-                col34.emplace_back(snapshot[i].offer_price[offerPriceIndex]);
-
-                offerPriceIndex++;
-                col35.emplace_back(snapshot[i].offer_price[offerPriceIndex]);
-
-                offerPriceIndex++;
-                col36.emplace_back(snapshot[i].offer_price[offerPriceIndex]);
-
-                offerPriceIndex++;
-                col37.emplace_back(snapshot[i].offer_price[offerPriceIndex]);
-
-                offerPriceIndex++;
-                col38.emplace_back(snapshot[i].offer_price[offerPriceIndex]);
-
-                offerPriceIndex++;
-                col39.emplace_back(snapshot[i].offer_price[offerPriceIndex]);
-
-                // 设置offerVolume
                 int offerVolumeIndex = 0;
-                col40.emplace_back(snapshot[i].offer_volume[offerVolumeIndex]);
-                
-                offerVolumeIndex++;
-                col41.emplace_back(snapshot[i].offer_volume[offerVolumeIndex]);
-                
-                offerVolumeIndex++;
-                col42.emplace_back(snapshot[i].offer_volume[offerVolumeIndex]);
+                col40.add(snapshot[i].offer_volume[offerVolumeIndex++]);
+                col41.add(snapshot[i].offer_volume[offerVolumeIndex++]);
+                col42.add(snapshot[i].offer_volume[offerVolumeIndex++]);
+                col43.add(snapshot[i].offer_volume[offerVolumeIndex++]);
+                col44.add(snapshot[i].offer_volume[offerVolumeIndex++]);
+                col45.add(snapshot[i].offer_volume[offerVolumeIndex++]);
+                col46.add(snapshot[i].offer_volume[offerVolumeIndex++]);
+                col47.add(snapshot[i].offer_volume[offerVolumeIndex++]);
+                col48.add(snapshot[i].offer_volume[offerVolumeIndex++]);
+                col49.add(snapshot[i].offer_volume[offerVolumeIndex++]);
 
-                offerVolumeIndex++;
-                col43.emplace_back(snapshot[i].offer_volume[offerVolumeIndex]);
-
-                offerVolumeIndex++;
-                col44.emplace_back(snapshot[i].offer_volume[offerVolumeIndex]);
-
-                offerVolumeIndex++;
-                col45.emplace_back(snapshot[i].offer_volume[offerVolumeIndex]);
-
-                offerVolumeIndex++;
-                col46.emplace_back(snapshot[i].offer_volume[offerVolumeIndex]);
-
-                offerVolumeIndex++;
-                col47.emplace_back(snapshot[i].offer_volume[offerVolumeIndex]);
-
-                offerVolumeIndex++;
-                col48.emplace_back(snapshot[i].offer_volume[offerVolumeIndex]);
-
-                offerVolumeIndex++;
-                col49.emplace_back(snapshot[i].offer_volume[offerVolumeIndex]);
-
-                // 设置numTrade
-                col50.emplace_back(snapshot[i].num_trades);
-                // 设置totalVolumeTrade
-                col51.emplace_back(snapshot[i].total_volume_trade);
-                // 设置totalValueTrade
-                col52.emplace_back(snapshot[i].total_value_trade);
-                // 设置totalBidVolume
-                col53.emplace_back(snapshot[i].total_bid_volume);
-                // 设置totalOfferVolume
-                col54.emplace_back(snapshot[i].total_offer_volume);
-                // 设置weightedAvgBidPrice
-                col55.emplace_back(snapshot[i].weighted_avg_bid_price);
-                // 设置weightedAvgOfferPrice
-                col56.emplace_back(snapshot[i].weighted_avg_offer_price);
-                // 设置IOPV
-                col57.emplace_back(snapshot[i].IOPV);
-                // 设置yieldToMaturity
-                col58.emplace_back(snapshot[i].yield_to_maturity);
-                // 设置highLimited
-                col59.emplace_back(snapshot[i].high_limited);
-                // 设置lowLimited
-                col60.emplace_back(snapshot[i].low_limited);
-                // 设置priceEarningRatio1
-                col61.emplace_back(snapshot[i].price_earning_ratio1);
-                // 设置priceEarningRatio2
-                col62.emplace_back(snapshot[i].price_earning_ratio2);
-                // 设置change1
-                col63.emplace_back(snapshot[i].change1);
-                // 设置change2
-                col64.emplace_back(snapshot[i].change2);
-                // 设置channelNo
-                col65.emplace_back(snapshot[i].channel_no);
-                // 设置mdStreamId
-                std::string mdStreamId(snapshot[i].md_stream_id);
-                col66.emplace_back(mdStreamId);
-                // 设置instrumentStatus
-                std::string instrumentStatus(snapshot[i].instrument_status);
-                col67.emplace_back(instrumentStatus);
-                // 设置preCloseIopv
-                col68.emplace_back(snapshot[i].pre_close_iopv);
-                // 设置altWeightedAvgBidPrice
-                col69.emplace_back(snapshot[i].alt_weighted_avg_bid_price);
-                // 设置altWeightedAvgOfferPrice
-                col70.emplace_back(snapshot[i].alt_weighted_avg_offer_price);
-                // 设置etfBuyNumber
-                col71.emplace_back(snapshot[i].etf_buy_number);
-                // 设置etfBuyAmount
-                col72.emplace_back(snapshot[i].etf_buy_amount);
-                // 设置 etfBuyMoney
-                col73.emplace_back(snapshot[i].etf_buy_money);
-                // 设置 etfSellNumber
-                col74.emplace_back(snapshot[i].etf_sell_number);
-                // 设置 etfSellAmount
-                col75.emplace_back(snapshot[i].etf_sell_amount);
-                // 设置 etfSellMoney
-                col76.emplace_back(snapshot[i].etf_sell_money);
-                // 设置 totalWarrantExecVolume
-                col77.emplace_back(snapshot[i].total_warrant_exec_volume);
-                // 设置 warLowerPrice
-                col78.emplace_back(snapshot[i].war_lower_price);
-                // 设置 warUpperPrice
-                col79.emplace_back(snapshot[i].war_upper_price);
-                // 设置 withdrawBuyNumber
-                col80.emplace_back(snapshot[i].withdraw_buy_number);
-                // 设置 withdrawBuyAmount
-                col81.emplace_back(snapshot[i].withdraw_buy_amount);
-                // 设置 withdrawBuyMoney
-                col82.emplace_back(snapshot[i].withdraw_buy_money);
-                // 设置 withdrawSellNumber
-                col83.emplace_back(snapshot[i].withdraw_sell_number);
-                // 设置 withdrawSellAmount
-                col84.emplace_back(snapshot[i].withdraw_sell_amount);
-                // 设置 withdrawSellMoney
-                col85.emplace_back(snapshot[i].withdraw_sell_money);
-                // 设置 totalBidNumber
-                col86.emplace_back(snapshot[i].total_bid_number);
-                // 设置 totalOfferNumber
-                col87.emplace_back(snapshot[i].total_offer_number);
-                // 设置 bidTradeMaxDuration
-                col88.emplace_back(snapshot[i].bid_trade_max_duration);
-                // 设置 offerTradeMaxDuration
-                col89.emplace_back(snapshot[i].offer_trade_max_duration);
-                // 设置 numBidOrders
-                col90.emplace_back(snapshot[i].num_bid_orders);
-                // 设置 numOfferOrders
-                col91.emplace_back(snapshot[i].num_offer_orders);
-                // 设置 lastTradeTime
-                col92.emplace_back(snapshot[i].last_trade_time);
-                // 设置 varietyCategory
-                col93.emplace_back(snapshot[i].variety_category);
+                col50.add(snapshot[i].num_trades);
+                col51.add(snapshot[i].total_volume_trade);
+                col52.add(snapshot[i].total_value_trade);
+                col53.add(snapshot[i].total_bid_volume);
+                col54.add(snapshot[i].total_offer_volume);
+                col55.add(snapshot[i].weighted_avg_bid_price);
+                col56.add(snapshot[i].weighted_avg_offer_price);
+                col57.add(snapshot[i].IOPV);
+                col58.add(snapshot[i].yield_to_maturity);
+                col59.add(snapshot[i].high_limited);
+                col60.add(snapshot[i].low_limited);
+                col61.add(snapshot[i].price_earning_ratio1);
+                col62.add(snapshot[i].price_earning_ratio2);
+                col63.add(snapshot[i].change1);
+                col64.add(snapshot[i].change2);
+                col65.add(snapshot[i].channel_no);
+                col66.add(snapshot[i].md_stream_id);
+                col67.add(snapshot[i].instrument_status);
+                col68.add(snapshot[i].pre_close_iopv);
+                col69.add(snapshot[i].alt_weighted_avg_bid_price);
+                col70.add(snapshot[i].alt_weighted_avg_offer_price);
+                col71.add(snapshot[i].etf_buy_number);
+                col72.add(snapshot[i].etf_buy_amount);
+                col73.add(snapshot[i].etf_buy_money);
+                col74.add(snapshot[i].etf_sell_number);
+                col75.add(snapshot[i].etf_sell_amount);
+                col76.add(snapshot[i].etf_sell_money);
+                col77.add(snapshot[i].total_warrant_exec_volume);
+                col78.add(snapshot[i].war_lower_price);
+                col79.add(snapshot[i].war_upper_price);
+                col80.add(snapshot[i].withdraw_buy_number);
+                col81.add(snapshot[i].withdraw_buy_amount);
+                col82.add(snapshot[i].withdraw_buy_money);
+                col83.add(snapshot[i].withdraw_sell_number);
+                col84.add(snapshot[i].withdraw_sell_amount);
+                col85.add(snapshot[i].withdraw_sell_money);
+                col86.add(snapshot[i].total_bid_number);
+                col87.add(snapshot[i].total_offer_number);
+                col88.add(snapshot[i].bid_trade_max_duration);
+                col89.add(snapshot[i].offer_trade_max_duration);
+                col90.add(snapshot[i].num_bid_orders);
+                col91.add(snapshot[i].num_offer_orders);
+                col92.add(snapshot[i].last_trade_time);
+                col93.add(snapshot[i].variety_category);
 
                 if (receivedTimeFlag) {
-                    col94.emplace_back(startTime);
+                    col94.add(startTime);
                 }
             }
 
-            ((VectorSP)cols[0])->appendInt(col0.data(), cnt);
-            ((VectorSP)cols[1])->appendString(col1.data(), cnt);
-            ((VectorSP)cols[2])->appendLong(col2.data(), cnt);
-            ((VectorSP)cols[3])->appendString(col3.data(), cnt);
-            ((VectorSP)cols[4])->appendLong(col4.data(), cnt);
-            ((VectorSP)cols[5])->appendLong(col5.data(), cnt);
-            ((VectorSP)cols[6])->appendLong(col6.data(), cnt);
-            ((VectorSP)cols[7])->appendLong(col7.data(), cnt);
-            ((VectorSP)cols[8])->appendLong(col8.data(), cnt);
-            ((VectorSP)cols[9])->appendLong(col9.data(), cnt);
+            vector<ConstantSP> cols;
+            cols.push_back(col0.createVector(DT_INT));
+            cols.push_back(col1.createVector(DT_SYMBOL));
+            cols.push_back(col2.createVector(DT_TIMESTAMP));
+            cols.push_back(col3.createVector(DT_STRING));
+            cols.push_back(col4.createVector(DT_LONG));
+            cols.push_back(col5.createVector(DT_LONG));
+            cols.push_back(col6.createVector(DT_LONG));
+            cols.push_back(col7.createVector(DT_LONG));
+            cols.push_back(col8.createVector(DT_LONG));
+            cols.push_back(col9.createVector(DT_LONG));
 
-            ((VectorSP)cols[10])->appendLong(col10.data(), cnt);
-            ((VectorSP)cols[11])->appendLong(col11.data(), cnt);
-            ((VectorSP)cols[12])->appendLong(col12.data(), cnt);
-            ((VectorSP)cols[13])->appendLong(col13.data(), cnt);
-            ((VectorSP)cols[14])->appendLong(col14.data(), cnt);
-            ((VectorSP)cols[15])->appendLong(col15.data(), cnt);
-            ((VectorSP)cols[16])->appendLong(col16.data(), cnt);
-            ((VectorSP)cols[17])->appendLong(col17.data(), cnt);
-            ((VectorSP)cols[18])->appendLong(col18.data(), cnt);
-            ((VectorSP)cols[19])->appendLong(col19.data(), cnt);
+            cols.push_back(col10.createVector(DT_LONG));
+            cols.push_back(col11.createVector(DT_LONG));
+            cols.push_back(col12.createVector(DT_LONG));
+            cols.push_back(col13.createVector(DT_LONG));
+            cols.push_back(col14.createVector(DT_LONG));
+            cols.push_back(col15.createVector(DT_LONG));
+            cols.push_back(col16.createVector(DT_LONG));
+            cols.push_back(col17.createVector(DT_LONG));
+            cols.push_back(col18.createVector(DT_LONG));
+            cols.push_back(col19.createVector(DT_LONG));
 
-            ((VectorSP)cols[20])->appendLong(col20.data(), cnt);
-            ((VectorSP)cols[21])->appendLong(col21.data(), cnt);
-            ((VectorSP)cols[22])->appendLong(col22.data(), cnt);
-            ((VectorSP)cols[23])->appendLong(col23.data(), cnt);
-            ((VectorSP)cols[24])->appendLong(col24.data(), cnt);
-            ((VectorSP)cols[25])->appendLong(col25.data(), cnt);
-            ((VectorSP)cols[26])->appendLong(col26.data(), cnt);
-            ((VectorSP)cols[27])->appendLong(col27.data(), cnt);
-            ((VectorSP)cols[28])->appendLong(col28.data(), cnt);
-            ((VectorSP)cols[29])->appendLong(col29.data(), cnt);
+            cols.push_back(col20.createVector(DT_LONG));
+            cols.push_back(col21.createVector(DT_LONG));
+            cols.push_back(col22.createVector(DT_LONG));
+            cols.push_back(col23.createVector(DT_LONG));
+            cols.push_back(col24.createVector(DT_LONG));
+            cols.push_back(col25.createVector(DT_LONG));
+            cols.push_back(col26.createVector(DT_LONG));
+            cols.push_back(col27.createVector(DT_LONG));
+            cols.push_back(col28.createVector(DT_LONG));
+            cols.push_back(col29.createVector(DT_LONG));
 
-            ((VectorSP)cols[30])->appendLong(col30.data(), cnt);
-            ((VectorSP)cols[31])->appendLong(col31.data(), cnt);
-            ((VectorSP)cols[32])->appendLong(col32.data(), cnt);
-            ((VectorSP)cols[33])->appendLong(col33.data(), cnt);
-            ((VectorSP)cols[34])->appendLong(col34.data(), cnt);
-            ((VectorSP)cols[35])->appendLong(col35.data(), cnt);
-            ((VectorSP)cols[36])->appendLong(col36.data(), cnt);
-            ((VectorSP)cols[37])->appendLong(col37.data(), cnt);
-            ((VectorSP)cols[38])->appendLong(col38.data(), cnt);
-            ((VectorSP)cols[39])->appendLong(col39.data(), cnt);
+            cols.push_back(col30.createVector(DT_LONG));
+            cols.push_back(col31.createVector(DT_LONG));
+            cols.push_back(col32.createVector(DT_LONG));
+            cols.push_back(col33.createVector(DT_LONG));
+            cols.push_back(col34.createVector(DT_LONG));
+            cols.push_back(col35.createVector(DT_LONG));
+            cols.push_back(col36.createVector(DT_LONG));
+            cols.push_back(col37.createVector(DT_LONG));
+            cols.push_back(col38.createVector(DT_LONG));
+            cols.push_back(col39.createVector(DT_LONG));
 
-            ((VectorSP)cols[40])->appendLong(col40.data(), cnt);
-            ((VectorSP)cols[41])->appendLong(col41.data(), cnt);
-            ((VectorSP)cols[42])->appendLong(col42.data(), cnt);
-            ((VectorSP)cols[43])->appendLong(col43.data(), cnt);
-            ((VectorSP)cols[44])->appendLong(col44.data(), cnt);
-            ((VectorSP)cols[45])->appendLong(col45.data(), cnt);
-            ((VectorSP)cols[46])->appendLong(col46.data(), cnt);
-            ((VectorSP)cols[47])->appendLong(col47.data(), cnt);
-            ((VectorSP)cols[48])->appendLong(col48.data(), cnt);
-            ((VectorSP)cols[49])->appendLong(col49.data(), cnt);
+            cols.push_back(col40.createVector(DT_LONG));
+            cols.push_back(col41.createVector(DT_LONG));
+            cols.push_back(col42.createVector(DT_LONG));
+            cols.push_back(col43.createVector(DT_LONG));
+            cols.push_back(col44.createVector(DT_LONG));
+            cols.push_back(col45.createVector(DT_LONG));
+            cols.push_back(col46.createVector(DT_LONG));
+            cols.push_back(col47.createVector(DT_LONG));
+            cols.push_back(col48.createVector(DT_LONG));
+            cols.push_back(col49.createVector(DT_LONG));
 
-            ((VectorSP)cols[50])->appendLong(col50.data(), cnt);
-            ((VectorSP)cols[51])->appendLong(col51.data(), cnt);
-            ((VectorSP)cols[52])->appendLong(col52.data(), cnt);
-            ((VectorSP)cols[53])->appendLong(col53.data(), cnt);
-            ((VectorSP)cols[54])->appendLong(col54.data(), cnt);
-            ((VectorSP)cols[55])->appendLong(col55.data(), cnt);
-            ((VectorSP)cols[56])->appendLong(col56.data(), cnt);
-            ((VectorSP)cols[57])->appendLong(col57.data(), cnt);
-            ((VectorSP)cols[58])->appendLong(col58.data(), cnt);
-            ((VectorSP)cols[59])->appendLong(col59.data(), cnt);
+            cols.push_back(col50.createVector(DT_LONG));
+            cols.push_back(col51.createVector(DT_LONG));
+            cols.push_back(col52.createVector(DT_LONG));
+            cols.push_back(col53.createVector(DT_LONG));
+            cols.push_back(col54.createVector(DT_LONG));
+            cols.push_back(col55.createVector(DT_LONG));
+            cols.push_back(col56.createVector(DT_LONG));
+            cols.push_back(col57.createVector(DT_LONG));
+            cols.push_back(col58.createVector(DT_LONG));
+            cols.push_back(col59.createVector(DT_LONG));
 
-            ((VectorSP)cols[60])->appendLong(col60.data(), cnt);
-            ((VectorSP)cols[61])->appendLong(col61.data(), cnt);
-            ((VectorSP)cols[62])->appendLong(col62.data(), cnt);
-            ((VectorSP)cols[63])->appendLong(col63.data(), cnt);
-            ((VectorSP)cols[64])->appendLong(col64.data(), cnt);
-            ((VectorSP)cols[65])->appendInt(col65.data(), cnt);
-            ((VectorSP)cols[66])->appendString(col66.data(), cnt);
-            ((VectorSP)cols[67])->appendString(col67.data(), cnt);
-            ((VectorSP)cols[68])->appendLong(col68.data(), cnt);
-            ((VectorSP)cols[69])->appendLong(col69.data(), cnt);
+            cols.push_back(col60.createVector(DT_LONG));
+            cols.push_back(col61.createVector(DT_LONG));
+            cols.push_back(col62.createVector(DT_LONG));
+            cols.push_back(col63.createVector(DT_LONG));
+            cols.push_back(col64.createVector(DT_LONG));
+            cols.push_back(col65.createVector(DT_INT));
+            cols.push_back(col66.createVector(DT_STRING));
+            cols.push_back(col67.createVector(DT_STRING));
+            cols.push_back(col68.createVector(DT_LONG));
+            cols.push_back(col69.createVector(DT_LONG));
 
-            ((VectorSP)cols[70])->appendLong(col70.data(), cnt);
-            ((VectorSP)cols[71])->appendLong(col71.data(), cnt);
-            ((VectorSP)cols[72])->appendLong(col72.data(), cnt);
-            ((VectorSP)cols[73])->appendLong(col73.data(), cnt);
-            ((VectorSP)cols[74])->appendLong(col74.data(), cnt);
-            ((VectorSP)cols[75])->appendLong(col75.data(), cnt);
-            ((VectorSP)cols[76])->appendLong(col76.data(), cnt);
-            ((VectorSP)cols[77])->appendLong(col77.data(), cnt);
-            ((VectorSP)cols[78])->appendLong(col78.data(), cnt);
-            ((VectorSP)cols[79])->appendLong(col79.data(), cnt);
+            cols.push_back(col70.createVector(DT_LONG));
+            cols.push_back(col71.createVector(DT_LONG));
+            cols.push_back(col72.createVector(DT_LONG));
+            cols.push_back(col73.createVector(DT_LONG));
+            cols.push_back(col74.createVector(DT_LONG));
+            cols.push_back(col75.createVector(DT_LONG));
+            cols.push_back(col76.createVector(DT_LONG));
+            cols.push_back(col77.createVector(DT_LONG));
+            cols.push_back(col78.createVector(DT_LONG));
+            cols.push_back(col79.createVector(DT_LONG));
 
-            ((VectorSP)cols[80])->appendLong(col80.data(), cnt);
-            ((VectorSP)cols[81])->appendLong(col81.data(), cnt);
-            ((VectorSP)cols[82])->appendLong(col82.data(), cnt);
-            ((VectorSP)cols[83])->appendLong(col83.data(), cnt);
-            ((VectorSP)cols[84])->appendLong(col84.data(), cnt);
-            ((VectorSP)cols[85])->appendLong(col85.data(), cnt);
-            ((VectorSP)cols[86])->appendLong(col86.data(), cnt);
-            ((VectorSP)cols[87])->appendLong(col87.data(), cnt);
-            ((VectorSP)cols[88])->appendInt(col88.data(), cnt);
-            ((VectorSP)cols[89])->appendInt(col89.data(), cnt);
+            cols.push_back(col80.createVector(DT_LONG));
+            cols.push_back(col81.createVector(DT_LONG));
+            cols.push_back(col82.createVector(DT_LONG));
+            cols.push_back(col83.createVector(DT_LONG));
+            cols.push_back(col84.createVector(DT_LONG));
+            cols.push_back(col85.createVector(DT_LONG));
+            cols.push_back(col86.createVector(DT_LONG));
+            cols.push_back(col87.createVector(DT_LONG));
+            cols.push_back(col88.createVector(DT_INT));
+            cols.push_back(col89.createVector(DT_INT));
 
-            ((VectorSP)cols[90])->appendInt(col90.data(), cnt);
-            ((VectorSP)cols[91])->appendInt(col91.data(), cnt);
-            ((VectorSP)cols[92])->appendLong(col92.data(), cnt);
-            ((VectorSP)cols[93])->appendChar(col93.data(), cnt);
+            cols.push_back(col90.createVector(DT_INT));
+            cols.push_back(col91.createVector(DT_INT));
+            cols.push_back(col92.createVector(DT_LONG));
+            cols.push_back(col93.createVector(DT_CHAR));
             if (receivedTimeFlag) {
-                ((VectorSP)cols[94])->appendLong(col94.data(), cnt);
+                cols.push_back(col94.createVector(DT_NANOTIMESTAMP));
             }
 
             TableSP data = Util::createTable(snapshotDataTableMeta_.colNames_, cols);
-            vector<ConstantSP> args = {snapshotData_, data};
+            vector<ConstantSP> args = {insertedTable, data};
             session_->getFunctionDef("append!")->call(session_->getHeap().get(), args);
 
             if (latencyFlag_) {
@@ -934,13 +1158,25 @@ private:
             amd::ama::IAMDApi::FreeMemory(snapshot);
         }
 
-        // 接受并处理逐笔委托数据
+        // 接受并处理逐笔委托数据（包含基金和股票数据）
         virtual void OnMDTickOrder(amd::ama::MDTickOrder* ticks, uint32_t cnt) {
             long long startTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
             std::lock_guard<std::mutex> amdLock_(amdMutex_);
 
+            // 基金和股票数据插入到不同的表
+            TableSP insertedTable;
+            uint8_t varietyCategory = ticks[0].variety_category;
+            if (varietyCategory == 1) { // 股票逐笔委托
+                insertedTable = orderData_;
+            } else if (varietyCategory == 2) { // 基金逐笔委托
+                insertedTable = fundOrderData_;
+            } else {
+                amd::ama::IAMDApi::FreeMemory(ticks);
+                return ;
+            }
+
             bool receivedTimeFlag = false;
-            if (orderData_->columns() > (INDEX)orderTableMeta_.colTypes_.size()) {
+            if (insertedTable->columns() > (INDEX)orderTableMeta_.colTypes_.size()) {
                 orderTableMeta_.colNames_.push_back("receivedTime");
                 orderTableMeta_.colTypes_.push_back(DT_NANOTIMESTAMP);
             }
@@ -949,81 +1185,60 @@ private:
                 receivedTimeFlag = true;
             }
 
-            std::vector<ConstantSP> cols;
-            for (unsigned int orderIndex = 0; orderIndex < orderTableMeta_.colTypes_.size(); orderIndex++) {
-                cols.push_back(Util::createVector(orderTableMeta_.colTypes_[orderIndex], 0, cnt));
-            }
-            
-            vector<int> col0;
-            vector<string> col1;
-            vector<int> col2;
-            vector<long long> col3;
-            vector<long long> col4;
-            vector<long long> col5;
-            vector<long long> col6;
-            vector<char> col7;
-            vector<char> col8;
-            vector<string> col9;
-            vector<long long> col10;
-            vector<long long> col11;
-            vector<char> col12;
-            vector<long long> col13;
+            DdbVector<int> col0(0, cnt);
+            DdbVector<string> col1(0, cnt);
+            DdbVector<int> col2(0, cnt);
+            DdbVector<long long> col3(0, cnt);
+            DdbVector<long long> col4(0, cnt);
+            DdbVector<long long> col5(0, cnt);
+            DdbVector<long long> col6(0, cnt);
+            DdbVector<char> col7(0, cnt);
+            DdbVector<char> col8(0, cnt);
+            DdbVector<string> col9(0, cnt);
+            DdbVector<long long> col10(0, cnt);
+            DdbVector<long long> col11(0, cnt);
+            DdbVector<char> col12(0, cnt);
+            DdbVector<long long> col13(0, cnt);
 
             for (uint32_t i = 0; i < cnt; ++i) {
-                col0.emplace_back(ticks[i].market_type);
-            
-                std::string securityCode(ticks[i].security_code);
-                col1.emplace_back(securityCode);
-
-                col2.emplace_back(ticks[i].channel_no);
-
-                col3.emplace_back(ticks[i].appl_seq_num);
-
-                col4.emplace_back(convertTime(ticks[i].order_time));
-
-                col5.emplace_back(ticks[i].order_price);
-
-                col6.emplace_back(ticks[i].order_volume);
-
-                col7.emplace_back(ticks[i].side);
-
-                col8.emplace_back(ticks[i].order_type);
-
-                std::string mdStreamId(ticks[i].md_stream_id);
-                col9.emplace_back(mdStreamId);
-
-                col10.emplace_back(ticks[i].orig_order_no);
-
-                col11.emplace_back(ticks[i].biz_index);
-
-                col12.emplace_back(ticks[i].variety_category);
+                col0.add(ticks[i].market_type);
+                col1.add(ticks[i].security_code);
+                col2.add(ticks[i].channel_no);
+                col3.add(ticks[i].appl_seq_num);
+                col4.add(convertTime(ticks[i].order_time));
+                col5.add(ticks[i].order_price);
+                col6.add(ticks[i].order_volume);
+                col7.add(ticks[i].side);
+                col8.add(ticks[i].order_type);
+                col9.add(ticks[i].md_stream_id);
+                col10.add(ticks[i].orig_order_no);
+                col11.add(ticks[i].biz_index);
+                col12.add(ticks[i].variety_category);
                 if (receivedTimeFlag) {
-                    col13.emplace_back(startTime);
+                    col13.add(startTime);
                 }
             }
 
-            ((VectorSP)cols[0])->appendInt(col0.data(), cnt);
-            ((VectorSP)cols[1])->appendString(col1.data(), cnt);
-            ((VectorSP)cols[2])->appendInt(col2.data(), cnt);
-            ((VectorSP)cols[3])->appendLong(col3.data(), cnt);
-            ((VectorSP)cols[4])->appendLong(col4.data(), cnt);
-            ((VectorSP)cols[5])->appendLong(col5.data(), cnt);
-            ((VectorSP)cols[6])->appendLong(col6.data(), cnt);
-            ((VectorSP)cols[7])->appendChar(col7.data(), cnt);
-            ((VectorSP)cols[8])->appendChar(col8.data(), cnt);
-            ((VectorSP)cols[9])->appendString(col9.data(), cnt);
-            ((VectorSP)cols[10])->appendLong(col10.data(), cnt);
-            ((VectorSP)cols[11])->appendLong(col11.data(), cnt);
-            ((VectorSP)cols[12])->appendChar(col12.data(), cnt);
+            vector<ConstantSP> cols;
+            cols.push_back(col0.createVector(DT_INT));
+            cols.push_back(col1.createVector(DT_STRING));
+            cols.push_back(col2.createVector(DT_INT));
+            cols.push_back(col3.createVector(DT_LONG));
+            cols.push_back(col4.createVector(DT_TIMESTAMP));
+            cols.push_back(col5.createVector(DT_LONG));
+            cols.push_back(col6.createVector(DT_LONG));
+            cols.push_back(col7.createVector(DT_CHAR));
+            cols.push_back(col8.createVector(DT_CHAR));
+            cols.push_back(col9.createVector(DT_STRING));
+            cols.push_back(col10.createVector(DT_LONG));
+            cols.push_back(col11.createVector(DT_LONG));
+            cols.push_back(col12.createVector(DT_CHAR));
             if (receivedTimeFlag) {
-                ((VectorSP)cols[13])->appendLong(col13.data(), cnt);
+                cols.push_back(col13.createVector(DT_NANOTIMESTAMP));
             }
 
-            INDEX insertedRows;
-            string errMsg;
-            TableSP tmp_table = Util::createTable(orderTableMeta_.colNames_, orderTableMeta_.colTypes_, 0, 0);
-            tmp_table->append(cols, insertedRows, errMsg);
-            vector<ConstantSP> args = {orderData_, tmp_table};
+            TableSP data = Util::createTable(orderTableMeta_.colNames_, cols);
+            vector<ConstantSP> args = {insertedTable, data};
             session_->getFunctionDef("append!")->call(session_->getHeap().get(), args);
 
             if (latencyFlag_) { 
@@ -1035,17 +1250,24 @@ private:
             amd::ama::IAMDApi::FreeMemory(ticks);
         }
 
-            // 接受并处理逐笔成交数据
+        // 接受并处理逐笔成交数据（包含基金和股票数据）
         virtual void OnMDTickExecution(amd::ama::MDTickExecution* tick, uint32_t cnt) override {
-            // FIXME
-            // if (enableLog_[1] == true) {
-            //     latencyLog(1);
-            // }
             long long startTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
             std::lock_guard<std::mutex> amdLock_(amdMutex_);
 
+            TableSP insertedTable;
+            char varietyCategory = tick[0].variety_category;
+            if (varietyCategory == 1) { // 股票逐笔成交
+                insertedTable = executionData_;
+            } else if (varietyCategory == 2) { // 基金逐笔成交
+                insertedTable = fundExecutionData_;
+            } else {
+                amd::ama::IAMDApi::FreeMemory(tick);
+                return ;
+            }
+
             bool receivedTimeFlag = false;
-            if (executionData_->columns() > (INDEX)executionTableMeta_.colTypes_.size()) {
+            if (insertedTable->columns() > (INDEX)executionTableMeta_.colTypes_.size()) {
                 executionTableMeta_.colNames_.push_back("receivedTime");
                 executionTableMeta_.colTypes_.push_back(DT_NANOTIMESTAMP);
             }
@@ -1054,90 +1276,67 @@ private:
                 receivedTimeFlag = true;
             }
 
-            std::vector<ConstantSP> cols;
-            for (unsigned int orderIndex = 0; orderIndex < executionTableMeta_.colTypes_.size(); orderIndex++) {
-                cols.emplace_back(Util::createVector(executionTableMeta_.colTypes_[orderIndex], 0, cnt));
-            }
-
-            std::vector<int> col0;
-            std::vector<string> col1;
-            std::vector<long long> col2;
-            std::vector<int> col3;
-            std::vector<long long> col4;
-            std::vector<long long> col5;
-            std::vector<long long> col6;
-            std::vector<long long> col7;
-            std::vector<long long> col8;
-            std::vector<long long> col9;
-            std::vector<char> col10;
-            std::vector<char> col11;
-            std::vector<string> col12;
-            std::vector<long long> col13;
-            std::vector<char> col14;
-            std::vector<long long> col15;
+            DdbVector<int> col0(0, cnt);
+            DdbVector<string> col1(0, cnt);
+            DdbVector<long long> col2(0, cnt);
+            DdbVector<int> col3(0, cnt);
+            DdbVector<long long> col4(0, cnt);
+            DdbVector<long long> col5(0, cnt);
+            DdbVector<long long> col6(0, cnt);
+            DdbVector<long long> col7(0, cnt);
+            DdbVector<long long> col8(0, cnt);
+            DdbVector<long long> col9(0, cnt);
+            DdbVector<char> col10(0, cnt);
+            DdbVector<char> col11(0, cnt);
+            DdbVector<string> col12(0, cnt);
+            DdbVector<long long> col13(0, cnt);
+            DdbVector<char> col14(0, cnt);
+            DdbVector<long long> col15(0, cnt);
 
             for (uint32_t i = 0; i < cnt; ++i) {
-                col0.emplace_back(tick[i].market_type);
-
-                std::string securityCode(tick[i].security_code);
-                col1.emplace_back(securityCode);
-
-                col2.emplace_back(convertTime(tick[i].exec_time));
-
-                col3.emplace_back(tick[i].channel_no);
-
-                col4.emplace_back(tick[i].appl_seq_num);
-
-                col5.emplace_back(tick[i].exec_price);
-
-                col6.emplace_back(tick[i].exec_volume);
-
-                col7.emplace_back(tick[i].value_trade);
-
-                col8.emplace_back(tick[i].bid_appl_seq_num);
-                
-                col9.emplace_back(tick[i].offer_appl_seq_num);
-
-                col10.emplace_back(tick[i].side);
-
-                col11.emplace_back(tick[i].exec_type);
-
-                std::string mdStreamId(tick[i].md_stream_id);
-                col12.emplace_back(mdStreamId);
-
-                col13.emplace_back(tick[i].biz_index);
-
-                col14.emplace_back(tick[i].variety_category);
+                col0.add(tick[i].market_type);
+                col1.add(tick[i].security_code);
+                col2.add(convertTime(tick[i].exec_time));
+                col3.add(tick[i].channel_no);
+                col4.add(tick[i].appl_seq_num);
+                col5.add(tick[i].exec_price);
+                col6.add(tick[i].exec_volume);
+                col7.add(tick[i].value_trade);
+                col8.add(tick[i].bid_appl_seq_num);
+                col9.add(tick[i].offer_appl_seq_num);
+                col10.add(tick[i].side);
+                col11.add(tick[i].exec_type);
+                col12.add(tick[i].md_stream_id);
+                col13.add(tick[i].biz_index);
+                col14.add(tick[i].variety_category);
 
                 if (receivedTimeFlag) {
-                    col15.emplace_back(startTime);
+                    col15.add(startTime);
                 }
             }
 
-            ((VectorSP)cols[0])->appendInt(col0.data(), cnt);
-            ((VectorSP)cols[1])->appendString(col1.data(), cnt);
-            ((VectorSP)cols[2])->appendLong(col2.data(), cnt);
-            ((VectorSP)cols[3])->appendInt(col3.data(), cnt);
-            ((VectorSP)cols[4])->appendLong(col4.data(), cnt);
-            ((VectorSP)cols[5])->appendLong(col5.data(), cnt);
-            ((VectorSP)cols[6])->appendLong(col6.data(), cnt);
-            ((VectorSP)cols[7])->appendLong(col7.data(), cnt);
-            ((VectorSP)cols[8])->appendLong(col8.data(), cnt);
-            ((VectorSP)cols[9])->appendLong(col9.data(), cnt);
-            ((VectorSP)cols[10])->appendChar(col10.data(), cnt);
-            ((VectorSP)cols[11])->appendChar(col11.data(), cnt);
-            ((VectorSP)cols[12])->appendString(col12.data(), cnt);
-            ((VectorSP)cols[13])->appendLong(col13.data(), cnt);
-            ((VectorSP)cols[14])->appendChar(col14.data(), cnt);
+            vector<ConstantSP> cols;
+            cols.push_back(col0.createVector(DT_INT));
+            cols.push_back(col1.createVector(DT_SYMBOL));
+            cols.push_back(col2.createVector(DT_TIMESTAMP));
+            cols.push_back(col3.createVector(DT_INT));
+            cols.push_back(col4.createVector(DT_LONG));
+            cols.push_back(col5.createVector(DT_LONG));
+            cols.push_back(col6.createVector(DT_LONG));
+            cols.push_back(col7.createVector(DT_LONG));
+            cols.push_back(col8.createVector(DT_LONG));
+            cols.push_back(col9.createVector(DT_LONG));
+            cols.push_back(col10.createVector(DT_CHAR));
+            cols.push_back(col11.createVector(DT_CHAR));
+            cols.push_back(col12.createVector(DT_STRING));
+            cols.push_back(col13.createVector(DT_LONG));
+            cols.push_back(col14.createVector(DT_CHAR));
             if (receivedTimeFlag) {
-                ((VectorSP)cols[15])->appendLong(col15.data(), cnt);
+                cols.push_back(col15.createVector(DT_NANOTIMESTAMP));
             }
 
-            INDEX insertedRows;
-            string errMsg;
-            TableSP tmp_table = Util::createTable(executionTableMeta_.colNames_, executionTableMeta_.colTypes_, 0, 0);
-            tmp_table->append(cols, insertedRows, errMsg);
-            vector<ConstantSP> args = {executionData_, tmp_table};
+            TableSP data = Util::createTable(executionTableMeta_.colNames_, cols);
+            vector<ConstantSP> args = {insertedTable, data};
             session_->getFunctionDef("append!")->call(session_->getHeap().get(), args);
             
             if (latencyFlag_) { 
@@ -1147,6 +1346,324 @@ private:
 
             /* 手动释放数据内存, 否则会造成内存泄露 */
             amd::ama::IAMDApi::FreeMemory(tick);
+        }
+
+        // 接受并处理指数快照数据
+        virtual void OnMDIndexSnapshot(amd::ama::MDIndexSnapshot* index, uint32_t cnt) override {
+            long long startTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+            std::lock_guard<std::mutex> amdLock_(amdMutex_);
+
+            bool receivedTimeFlag = false;
+            if (indexData_->columns() > (INDEX)indexTableMeta_.colTypes_.size()) {
+                indexTableMeta_.colNames_.push_back("receivedTime");
+                indexTableMeta_.colTypes_.push_back(DT_NANOTIMESTAMP);
+            }
+
+            if (indexTableMeta_.colNames_.back() == "receivedTime") {
+                receivedTimeFlag = true;
+            }
+
+            DdbVector<int> col0(0, cnt);
+            DdbVector<string> col1(0, cnt);
+            DdbVector<long long> col2(0, cnt);
+            DdbVector<string> col3(0, cnt);
+            DdbVector<long long> col4(0, cnt);
+            DdbVector<long long> col5(0, cnt);
+            DdbVector<long long> col6(0, cnt);
+            DdbVector<long long> col7(0, cnt);
+            DdbVector<long long> col8(0, cnt);
+            DdbVector<long long> col9(0, cnt);
+            DdbVector<long long> col10(0, cnt);
+            DdbVector<long long> col11(0, cnt);
+            DdbVector<int> col12(0, cnt);
+            DdbVector<string> col13(0, cnt);
+            DdbVector<char> col14(0, cnt);
+            DdbVector<long long> col15(0, cnt);
+            
+            for (uint32_t i = 0; i < cnt; i++) {
+                col0.add(index[i].market_type);
+                col1.add(index[i].security_code);
+                col2.add(convertTime(index[i].orig_time));
+                col3.add(index[i].trading_phase_code);
+                col4.add(index[i].pre_close_index);
+                col5.add(index[i].open_index);
+                col6.add(index[i].high_index);
+                col7.add(index[i].low_index);
+                col8.add(index[i].last_index);
+                col9.add(index[i].close_index);
+                col10.add(index[i].total_volume_trade);
+                col11.add(index[i].total_value_trade);
+                col12.add(index[i].channel_no);
+                col13.add(index[i].md_stream_id);
+                col14.add(index[i].variety_category);
+                if (receivedTimeFlag) {
+                    col15.add(startTime);
+                }
+            }
+
+            vector<ConstantSP> cols;
+            cols.push_back(col0.createVector(DT_INT));
+            cols.push_back(col1.createVector(DT_SYMBOL));
+            cols.push_back(col2.createVector(DT_TIMESTAMP));
+            cols.push_back(col3.createVector(DT_STRING));
+            cols.push_back(col4.createVector(DT_LONG));
+            cols.push_back(col5.createVector(DT_LONG));
+            cols.push_back(col6.createVector(DT_LONG));
+            cols.push_back(col7.createVector(DT_LONG));
+            cols.push_back(col8.createVector(DT_LONG));
+            cols.push_back(col9.createVector(DT_LONG));
+            cols.push_back(col10.createVector(DT_LONG));
+            cols.push_back(col11.createVector(DT_LONG));
+            cols.push_back(col12.createVector(DT_INT));
+            cols.push_back(col13.createVector(DT_STRING));
+            cols.push_back(col14.createVector(DT_CHAR));
+            if (receivedTimeFlag) {
+                cols.push_back(col15.createVector(DT_NANOTIMESTAMP));
+            }
+
+            TableSP data = Util::createTable(indexTableMeta_.colNames_, cols);
+            vector<ConstantSP> args = {indexData_, data};
+            session_->getFunctionDef("append!")->call(session_->getHeap().get(), args);
+
+            /* 手动释放数据内存, 否则会造成内存泄露 */
+            amd::ama::IAMDApi::FreeMemory(index);
+        }
+
+        // 接受并处理委托队列数据
+        virtual void OnMDOrderQueue(amd::ama::MDOrderQueue* queue, uint32_t cnt) override {
+            long long startTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+            std::lock_guard<std::mutex> amdLock_(amdMutex_);
+
+            bool receivedTimeFlag = false;
+            if (orderQueueData_->columns() > (INDEX)orderQueueMeta_.colTypes_.size()) {
+                orderQueueMeta_.colNames_.push_back("receivedTime");
+                orderQueueMeta_.colTypes_.push_back(DT_NANOTIMESTAMP);
+            }
+
+            if (orderQueueMeta_.colNames_.back() == "receivedTime") {
+                receivedTimeFlag = true;
+            }
+
+            DdbVector<int> col0(0, cnt);
+            DdbVector<string> col1(0, cnt);
+            DdbVector<long long> col2(0, cnt);
+            DdbVector<char> col3(0, cnt);
+            DdbVector<long long> col4(0, cnt);
+            DdbVector<long long> col5(0, cnt);
+            DdbVector<int> col6(0, cnt);
+            DdbVector<int> col7(0, cnt);
+
+            DdbVector<long long> col8(0, cnt);
+            DdbVector<long long> col9(0, cnt);
+            DdbVector<long long> col10(0, cnt);
+            DdbVector<long long> col11(0, cnt);
+            DdbVector<long long> col12(0, cnt);
+            DdbVector<long long> col13(0, cnt);
+            DdbVector<long long> col14(0, cnt);
+            DdbVector<long long> col15(0, cnt);
+            DdbVector<long long> col16(0, cnt);
+            DdbVector<long long> col17(0, cnt);
+
+            DdbVector<long long> col18(0, cnt);
+            DdbVector<long long> col19(0, cnt);
+            DdbVector<long long> col20(0, cnt);
+            DdbVector<long long> col21(0, cnt);
+            DdbVector<long long> col22(0, cnt);
+            DdbVector<long long> col23(0, cnt);
+            DdbVector<long long> col24(0, cnt);
+            DdbVector<long long> col25(0, cnt);
+            DdbVector<long long> col26(0, cnt);
+            DdbVector<long long> col27(0, cnt);
+
+            DdbVector<long long> col28(0, cnt);
+            DdbVector<long long> col29(0, cnt);
+            DdbVector<long long> col30(0, cnt);
+            DdbVector<long long> col31(0, cnt);
+            DdbVector<long long> col32(0, cnt);
+            DdbVector<long long> col33(0, cnt);
+            DdbVector<long long> col34(0, cnt);
+            DdbVector<long long> col35(0, cnt);
+            DdbVector<long long> col36(0, cnt);
+            DdbVector<long long> col37(0, cnt);
+
+            DdbVector<long long> col38(0, cnt);
+            DdbVector<long long> col39(0, cnt);
+            DdbVector<long long> col40(0, cnt);
+            DdbVector<long long> col41(0, cnt);
+            DdbVector<long long> col42(0, cnt);
+            DdbVector<long long> col43(0, cnt);
+            DdbVector<long long> col44(0, cnt);
+            DdbVector<long long> col45(0, cnt);
+            DdbVector<long long> col46(0, cnt);
+            DdbVector<long long> col47(0, cnt);
+
+            DdbVector<long long> col48(0, cnt);
+            DdbVector<long long> col49(0, cnt);
+            DdbVector<long long> col50(0, cnt);
+            DdbVector<long long> col51(0, cnt);
+            DdbVector<long long> col52(0, cnt);
+            DdbVector<long long> col53(0, cnt);
+            DdbVector<long long> col54(0, cnt);
+            DdbVector<long long> col55(0, cnt);
+            DdbVector<long long> col56(0, cnt);
+            DdbVector<long long> col57(0, cnt);
+
+            DdbVector<int> col58(0, cnt);
+            DdbVector<string> col59(0, cnt);
+            DdbVector<char> col60(0, cnt);
+            DdbVector<long long> col61(0, cnt);
+
+            for (uint32_t i = 0; i < cnt; ++i) {
+                col0.add(queue[i].market_type);
+                col1.add(queue[i].security_code);
+                col2.add(convertTime(queue[i].order_time));
+                col3.add(queue[i].side);
+                col4.add(queue[i].order_price);
+                col5.add(queue[i].order_volume);
+                col6.add(queue[i].num_of_orders);
+                col7.add(queue[i].items);
+
+                col8.add(queue[i].volume[0]);
+                col9.add(queue[i].volume[1]);
+                col10.add(queue[i].volume[2]);
+                col11.add(queue[i].volume[3]);
+                col12.add(queue[i].volume[4]);
+                col13.add(queue[i].volume[5]);
+                col14.add(queue[i].volume[6]);
+                col15.add(queue[i].volume[7]);
+                col16.add(queue[i].volume[8]);
+                col17.add(queue[i].volume[9]);
+
+                col18.add(queue[i].volume[10]);
+                col19.add(queue[i].volume[11]);
+                col20.add(queue[i].volume[12]);
+                col21.add(queue[i].volume[13]);
+                col22.add(queue[i].volume[14]);
+                col23.add(queue[i].volume[15]);
+                col24.add(queue[i].volume[16]);
+                col25.add(queue[i].volume[17]);
+                col26.add(queue[i].volume[18]);
+                col27.add(queue[i].volume[19]);
+
+                col28.add(queue[i].volume[20]);
+                col29.add(queue[i].volume[21]);
+                col30.add(queue[i].volume[22]);
+                col31.add(queue[i].volume[23]);
+                col32.add(queue[i].volume[24]);
+                col33.add(queue[i].volume[25]);
+                col34.add(queue[i].volume[26]);
+                col35.add(queue[i].volume[27]);
+                col36.add(queue[i].volume[28]);
+                col37.add(queue[i].volume[29]);
+
+                col38.add(queue[i].volume[30]);
+                col39.add(queue[i].volume[31]);
+                col40.add(queue[i].volume[32]);
+                col41.add(queue[i].volume[33]);
+                col42.add(queue[i].volume[34]);
+                col43.add(queue[i].volume[35]);
+                col44.add(queue[i].volume[36]);
+                col45.add(queue[i].volume[37]);
+                col46.add(queue[i].volume[38]);
+                col47.add(queue[i].volume[39]);
+
+                col48.add(queue[i].volume[40]);
+                col49.add(queue[i].volume[41]);
+                col50.add(queue[i].volume[42]);
+                col51.add(queue[i].volume[43]);
+                col52.add(queue[i].volume[44]);
+                col53.add(queue[i].volume[45]);
+                col54.add(queue[i].volume[46]);
+                col55.add(queue[i].volume[47]);
+                col56.add(queue[i].volume[48]);
+                col57.add(queue[i].volume[49]);
+
+                col58.add(queue[i].channel_no);
+                col59.add(queue[i].md_stream_id);
+                col60.add(queue[i].variety_category);
+                if (receivedTimeFlag) {
+                    col61.add(startTime);
+                }
+            }
+
+            vector<ConstantSP> cols;
+            cols.push_back(col0.createVector(DT_INT));
+            cols.push_back(col1.createVector(DT_SYMBOL));
+            cols.push_back(col2.createVector(DT_TIMESTAMP));
+            cols.push_back(col3.createVector(DT_CHAR));
+            cols.push_back(col4.createVector(DT_LONG));
+            cols.push_back(col5.createVector(DT_LONG));
+            cols.push_back(col6.createVector(DT_INT));
+            cols.push_back(col7.createVector(DT_INT));
+
+            cols.push_back(col8.createVector(DT_LONG));
+            cols.push_back(col9.createVector(DT_LONG));
+            cols.push_back(col10.createVector(DT_LONG));
+            cols.push_back(col11.createVector(DT_LONG));
+            cols.push_back(col12.createVector(DT_LONG));
+            cols.push_back(col13.createVector(DT_LONG));
+            cols.push_back(col14.createVector(DT_LONG));
+            cols.push_back(col15.createVector(DT_LONG));
+            cols.push_back(col16.createVector(DT_LONG));
+            cols.push_back(col17.createVector(DT_LONG));
+
+            cols.push_back(col18.createVector(DT_LONG));
+            cols.push_back(col19.createVector(DT_LONG));
+            cols.push_back(col20.createVector(DT_LONG));
+            cols.push_back(col21.createVector(DT_LONG));
+            cols.push_back(col22.createVector(DT_LONG));
+            cols.push_back(col23.createVector(DT_LONG));
+            cols.push_back(col24.createVector(DT_LONG));
+            cols.push_back(col25.createVector(DT_LONG));
+            cols.push_back(col26.createVector(DT_LONG));
+            cols.push_back(col27.createVector(DT_LONG));
+
+            cols.push_back(col28.createVector(DT_LONG));
+            cols.push_back(col29.createVector(DT_LONG));
+            cols.push_back(col30.createVector(DT_LONG));
+            cols.push_back(col31.createVector(DT_LONG));
+            cols.push_back(col32.createVector(DT_LONG));
+            cols.push_back(col33.createVector(DT_LONG));
+            cols.push_back(col34.createVector(DT_LONG));
+            cols.push_back(col35.createVector(DT_LONG));
+            cols.push_back(col36.createVector(DT_LONG));
+            cols.push_back(col37.createVector(DT_LONG));
+
+            cols.push_back(col38.createVector(DT_LONG));
+            cols.push_back(col39.createVector(DT_LONG));
+            cols.push_back(col40.createVector(DT_LONG));
+            cols.push_back(col41.createVector(DT_LONG));
+            cols.push_back(col42.createVector(DT_LONG));
+            cols.push_back(col43.createVector(DT_LONG));
+            cols.push_back(col44.createVector(DT_LONG));
+            cols.push_back(col45.createVector(DT_LONG));
+            cols.push_back(col46.createVector(DT_LONG));
+            cols.push_back(col47.createVector(DT_LONG));
+
+            cols.push_back(col48.createVector(DT_LONG));
+            cols.push_back(col49.createVector(DT_LONG));
+            cols.push_back(col50.createVector(DT_LONG));
+            cols.push_back(col51.createVector(DT_LONG));
+            cols.push_back(col52.createVector(DT_LONG));
+            cols.push_back(col53.createVector(DT_LONG));
+            cols.push_back(col54.createVector(DT_LONG));
+            cols.push_back(col55.createVector(DT_LONG));
+            cols.push_back(col56.createVector(DT_LONG));
+            cols.push_back(col57.createVector(DT_LONG));
+
+            cols.push_back(col58.createVector(DT_INT));
+            cols.push_back(col59.createVector(DT_STRING));
+            cols.push_back(col60.createVector(DT_CHAR));
+            if (receivedTimeFlag) {
+                cols.push_back(col61.createVector(DT_NANOTIMESTAMP));
+            }
+
+            TableSP data = Util::createTable(orderQueueMeta_.colNames_, cols);
+            vector<ConstantSP> args = {orderQueueData_, data};
+            session_->getFunctionDef("append!")->call(session_->getHeap().get(), args);
+
+            /* 手动释放数据内存, 否则会造成内存泄露 */
+            amd::ama::IAMDApi::FreeMemory(queue);
         }
 
         virtual void OnEvent(uint32_t level, uint32_t code, const char* event_msg, uint32_t len)
@@ -1202,6 +1719,26 @@ private:
             orderData_ = orderData;
         }
 
+        void setIndexData(TableSP indexData) {
+            indexData_ = indexData;
+        }
+
+        void setOrderQueueData(TableSP orderQueueData) {
+            orderQueueData_ = orderQueueData;
+        }
+
+        void setFundSnapshotData(TableSP snapshotData) {
+            fundSnapshotData_ = snapshotData;
+        }
+
+        void setFundExecutionData(TableSP executionData) {
+            fundExecutionData_ = executionData;
+        }
+
+        void setFundOrderData(TableSP orderData) {
+            fundOrderData_ = orderData;
+        }
+
         TableSP getData(int type) {
             if (type == 0) {
                 return snapshotData_;
@@ -1220,9 +1757,17 @@ private:
         AmdSnapshotTableMeta  snapshotDataTableMeta_;
         AmdExecutionTableMeta executionTableMeta_;
         AmdOrderTableMeta  orderTableMeta_;
-        TableSP snapshotData_; // 保存快照数据, 建议定义成流表
-        TableSP executionData_; // 保存逐笔委托, 建议定义成流表
-        TableSP orderData_; // 保存逐笔成交, 建议定义成流表
+        AmdIndexTableMeta indexTableMeta_;
+        AmdOrderQueueTableMeta orderQueueMeta_;
+
+        TableSP snapshotData_; // 保存股票快照数据, 建议定义成流表
+        TableSP executionData_; // 保存股票逐笔委托, 建议定义成流表
+        TableSP orderData_; // 保存股票逐笔成交, 建议定义成流表
+        TableSP indexData_; // 保存指数快照数据, 建议定义成流表
+        TableSP orderQueueData_; // 保存委托队列数据, 建议定义成流表
+        TableSP fundSnapshotData_; // 保存基金快照数据, 建议定义成流表
+        TableSP fundExecutionData_; // 保存基金逐笔委托, 建议定义成流表
+        TableSP fundOrderData_; // 保存基金逐笔成交, 建议定义成流表
 
         struct Statistic {
             long long startTime = 0; // 起始时间（读到第一条数据的时间）
