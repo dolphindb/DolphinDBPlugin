@@ -1,9 +1,10 @@
 #ifndef __AMD_QUOTE_TYPE_H
 #define __AMD_QUOTE_TYPE_H
 
+#include "ama.h"
+
 #include "CoreConcept.h"
 #include "Util.h"
-#include "ama.h"
 
 class AmdSnapshotTableMeta {
 public:
@@ -43,16 +44,11 @@ public:
         DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_INT, DT_INT,  \
         DT_INT,  DT_INT,  DT_LONG, DT_CHAR,
         };
-        for (unsigned int i = 0; i < colTypes_.size(); i++) {
-            ConstantSP col_ = Util::createVector(colTypes_[i], 0);
-            colDataTypes_.push_back(col_); 
-        }
     }
 
 public:
     std::vector<string> colNames_;
     std::vector<DATA_TYPE> colTypes_;
-    std::vector<ConstantSP> colDataTypes_;
 };
 
 
@@ -70,11 +66,6 @@ public:
             DT_INT, DT_SYMBOL, DT_TIMESTAMP, DT_INT, DT_LONG, DT_LONG, DT_LONG, DT_LONG, \
             DT_LONG, DT_LONG, DT_CHAR, DT_CHAR, DT_STRING, DT_LONG, DT_CHAR,
         };
-
-        for (unsigned int i = 0; i < colTypes_.size(); i++) {
-            ConstantSP col_ = Util::createVector(colTypes_[i], 0);
-            colDataTypes_.push_back(col_); 
-        };
     }
 
     ~AmdExecutionTableMeta() {}
@@ -82,9 +73,7 @@ public:
 public:
     std::vector<string> colNames_;
     std::vector<DATA_TYPE> colTypes_;
-    std::vector<ConstantSP> colDataTypes_;
 };
-
 
 class AmdOrderTableMeta {
 public:
@@ -100,18 +89,74 @@ public:
             DT_INT, DT_SYMBOL, DT_INT, DT_LONG, DT_TIMESTAMP, DT_LONG, DT_LONG, \
             DT_CHAR, DT_CHAR, DT_STRING, DT_LONG, DT_LONG, DT_CHAR,
         };
-
-        for (unsigned int i = 0; i < colTypes_.size(); i++) {
-            ConstantSP col_ = Util::createVector(colTypes_[i], 0);
-            colDataTypes_.push_back(col_);
-        };
     }
     ~AmdOrderTableMeta(){}
 
 public:
     std::vector<string> colNames_;
     std::vector<DATA_TYPE> colTypes_; 
-    std::vector<ConstantSP> colDataTypes_;
+};
+
+class AmdIndexTableMeta {
+public:
+    AmdIndexTableMeta() {
+        colNames_ = {
+        //  市场类型       证券代码         时间        交易阶段代码         前收盘指数         今开盘指数   最高指数       
+            "marketType", "securityCode", "origTime", "tradingPhaseCode", "preCloseIndex", "openIndex", "highIndex", \
+        //  最低指数     最新指数      收盘指数      交易数量             成交总金额          频道代码      行情类别
+            "lowIndex", "lastIndex", "closeIndex", "totalVolumeTrade", "totalValueTrade", "channelNo", "mdStreamId",
+        //  品种类别
+            "varietyCategory",
+        };
+
+        colTypes_ = {
+            DT_INT, DT_SYMBOL, DT_TIMESTAMP, DT_STRING, DT_LONG, DT_LONG, DT_LONG, \
+            DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_INT, DT_STRING,
+            DT_CHAR,
+        };
+    }
+    ~AmdIndexTableMeta(){}
+
+public:
+    std::vector<string> colNames_;
+    std::vector<DATA_TYPE> colTypes_; 
+};
+
+class AmdOrderQueueTableMeta {
+public:
+    AmdOrderQueueTableMeta() {
+        colNames_ = {
+        //  市场类型       证券代码         委托时间     买卖方向 委托价格       订单数目       总委托笔数      明细个数      
+            "marketType", "securityCode", "orderTime", "side", "orderPrice", "orderVolume", "numOfOrders", "items", 
+        //  订单明细1-10 
+            "volume1", "volume2", "volume3", "volume4", "volume5", "volume6", "volume7", "volume8", "volume9", "volume10",
+        //  订单明细11-20
+            "volume11", "volume12", "volume13", "volume14", "volume15", "volume16", "volume17", "volume18", "volume19", "volume20",
+        //  订单明细21-30
+            "volume21", "volume22", "volume23", "volume24", "volume25", "volume26", "volume27", "volume28", "volume29", "volume30",
+        //  订单明细31-40 
+            "volume31", "volume32", "volume33", "volume34", "volume35", "volume36", "volume37", "volume38", "volume39", "volume40",
+        //  订单明细41-50 
+            "volume41", "volume42", "volume43", "volume44", "volume45", "volume46", "volume47", "volume48", "volume49", "volume50",
+        //  品种类别      行情类别       品种类别
+            "channelNo", "mdStreamId", "varietyCategory",
+        };
+
+        colTypes_ = {
+            DT_INT, DT_SYMBOL, DT_TIMESTAMP, DT_CHAR, DT_LONG, DT_LONG, DT_INT, DT_INT,
+            DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+            DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+            DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+            DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+            DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+            DT_INT, DT_STRING, DT_CHAR,
+        };
+    }
+    ~AmdOrderQueueTableMeta(){}
+
+public:
+    std::vector<string> colNames_;
+    std::vector<DATA_TYPE> colTypes_; 
 };
 
 TableSP getSnapshotSchema(bool receivedTimeFlag) {
@@ -174,7 +219,47 @@ TableSP getOrderSchema(bool receivedTimeFlag) {
     return table;
 }
 
-// FIXME
+TableSP getIndexSchema(bool receivedTimeFlag) {
+    AmdIndexTableMeta indexTableMeta;
+    if (receivedTimeFlag) {
+        indexTableMeta.colNames_.push_back("receivedTime");
+        indexTableMeta.colTypes_.push_back(DT_NANOTIMESTAMP);
+    }
+    vector<ConstantSP> cols(2);
+    cols[0] = Util::createVector(DT_STRING, indexTableMeta.colNames_.size());
+    cols[1] = Util::createVector(DT_STRING, indexTableMeta.colTypes_.size());
+    for (unsigned int i = 0; i < indexTableMeta.colNames_.size(); i++) {
+        cols[0]->setString(i, indexTableMeta.colNames_[i]);
+        cols[1]->setString(i, Util::getDataTypeString(indexTableMeta.colTypes_[i]));
+    }
+
+    std::vector<string> colNames = {"name", "type"};
+    TableSP table = Util::createTable(colNames, cols);
+
+    return table;
+}
+
+TableSP getOrderQueueSchema(bool receivedTimeFlag) {
+    AmdOrderQueueTableMeta orderQueueTableMeta;
+    if (receivedTimeFlag) {
+        orderQueueTableMeta.colNames_.push_back("receivedTime");
+        orderQueueTableMeta.colTypes_.push_back(DT_NANOTIMESTAMP);
+    }
+    vector<ConstantSP> cols(2);
+    cols[0] = Util::createVector(DT_STRING, orderQueueTableMeta.colNames_.size());
+    cols[1] = Util::createVector(DT_STRING, orderQueueTableMeta.colTypes_.size());
+    for (unsigned int i = 0; i < orderQueueTableMeta.colNames_.size(); i++) {
+        cols[0]->setString(i, orderQueueTableMeta.colNames_[i]);
+        cols[1]->setString(i, Util::getDataTypeString(orderQueueTableMeta.colTypes_[i]));
+    }
+
+    std::vector<string> colNames = {"name", "type"};
+    TableSP table = Util::createTable(colNames, cols);
+
+    return table;
+}
+
+// TODO(ruibinhuang@dolphindb.com): check the real attributes of the table
 bool checkSchema(const string& type, TableSP table) {
     if (type == "snapshot") {
         if (table->columns() != 94 && table->columns() != 95) {
@@ -182,6 +267,26 @@ bool checkSchema(const string& type, TableSP table) {
         }
     } else if (type == "execution") {
         if (table->columns() != 15 && table->columns() != 16) {
+            return false;
+        }
+    } else if (type == "index") {
+        if (table->columns() != 15 && table->columns() != 16) {
+            return false;
+        }
+    } else if (type == "orderQueue") {
+        if (table->columns() != 61 && table->columns() != 62) {
+            return false;
+        }
+    } else if (type == "fundSnapshot") {
+        if (table->columns() != 94 && table->columns() != 95) {
+            return false;
+        }
+    } else if (type == "fundExecution") {
+        if (table->columns() != 15 && table->columns() != 16) {
+            return false;
+        }
+    } else if (type == "fundOrder") {
+        if (table->columns() != 13 && table->columns() != 14) {
             return false;
         }
     } else {
@@ -193,4 +298,4 @@ bool checkSchema(const string& type, TableSP table) {
     return true;
 }
 
-#endif
+#endif // __AMD_QUOTE_TYPE_H

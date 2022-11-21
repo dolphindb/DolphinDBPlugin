@@ -15,7 +15,7 @@ sudo apt install cmake
 mkdir build
 cd build
 cp /path_to_dolphindb/libDolphinDB.so ../lib
-cmake ..
+cmake .. -DAMDAPIDIR=<amd_ami_dir>
 make -j
 ```
 
@@ -60,7 +60,7 @@ loadPlugin("/path_to_pluginAmdQuote/PluginAmdQuote.txt");
 
 `handle` connect 接口返回的句柄。
 
-`type` 字符串标量，表示行情的类型，包含三种类型：'snapshot', 'execution' 和 'order'。
+`type` 字符串标量，表示行情的类型，可取以下值：'snapshot'（股票快照）, 'execution'（股票逐笔成交）, 'order'（股票逐笔委托）, 'index'（指数）, 'orderQueue'（委托队列）, 'fundSnapshot'（基金快照）, 'fundExecution'（基金逐笔成交） 和 'fundOrder'（基金逐笔委托）。
 
 `streamTable` 表示一个共享流表的表对象。订阅前需要创建一个共享流表，且该流表的 schema 需要和获取的行情数据结构一致。可以通过插件提供的 getSchema 函数来获取行情数据的 schema。
 
@@ -78,7 +78,7 @@ loadPlugin("/path_to_pluginAmdQuote/PluginAmdQuote.txt");
 
 `handle` connect 接口返回的句柄。
 
-`dataType` 字符串标量，表示行情的类型，可取以下值：'snapshot', 'execution', 'order' 和 'all'。其中，'snapshot' 表示取消快照订阅；'execution' 表示取消逐笔成交订阅；'order' 表示取消逐笔委托订阅；'all' 表示取消所有订阅。
+`dataType` 字符串标量，表示行情的类型，可取以下值：'snapshot', 'execution', 'order', 'index', 'orderQueue', 'fundSnapshot', 'fundExecution', 'fundOrder' 和 'all'。其中，'all' 表示取消所有订阅。
 
 `marketType` 整型标量，表示市场类型，需要和 AMD 中定义的市场类型一致。
 
@@ -106,7 +106,7 @@ loadPlugin("/path_to_pluginAmdQuote/PluginAmdQuote.txt");
 
 **参数**
 
-`type` 字符串标量，表示行情的类型，包含三种类型：'snapshot', 'execution' 和 'order'。
+`type` 字符串标量，表示行情的类型，可取以下值：'snapshot', 'execution', 'order', 'index', 'orderQueue', 'fundSnapshot', 'fundExecution' 和 'fundOrder'。
 
 **函数详情**
 
