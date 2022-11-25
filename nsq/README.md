@@ -90,6 +90,8 @@ mingw32-make -j
 loadPlugin("/path/to/PluginNsq.txt");
 ```
 
+请注意，若使用 Windows 插件，加载时必须指定绝对路径，且路径中使用"\\\\"或"/"代替"\"。
+
 ## API
 
 ### nsq::connect(configFilePath, options)

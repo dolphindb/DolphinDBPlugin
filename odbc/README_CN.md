@@ -96,7 +96,7 @@ make install
 loadPlugin("./plugins/odbc/PluginODBC.txt")
 ```
 
-请注意，若使用 Windows 插件，加载时必须指定绝对路径，且路径中使用"\\"或"/"代替"\"。
+请注意，若使用 Windows 插件，加载时必须指定绝对路径，且路径中使用"\\\\"或"/"代替"\"。
 
 ## 4. 使用插件
 
