@@ -148,6 +148,7 @@ xgboost::loadModel(fname)
 
 ## 3. 使用范例
 
+注意，若使用 Windows 插件，加载时必须指定绝对路径，且路径中使用"\\"或"/"代替"\"。
 ```
 loadPlugin("path_to/PluginXgboost.txt")
 

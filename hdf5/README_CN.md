@@ -49,8 +49,9 @@ loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
 
 #### Windows <!-- omit in toc -->
 
+必须通过绝对路径加载，且路径中使用"\\"或"/"代替"\"。
 ```
-loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
+loadPlugin("path_to_hdf5_plugin/PluginHdf5.txt")
 ```
 
 ### 1.2 编译安装
