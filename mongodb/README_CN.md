@@ -29,7 +29,7 @@ cd DolphinDB/server //进入DolphinDB server目录
 ```
  loadPlugin("<PluginDir>/mongodb/bulid/win64/PluginMongodb.txt") //加载插件
  ```
-请注意，必须通过绝对路径加载，且路径中使用"\\"或"/"代替"\"。
+请注意，必须通过绝对路径加载，且路径中使用"\\\\"或"/"代替"\\"。
 
 ### 1.2 自行编译
 
