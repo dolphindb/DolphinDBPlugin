@@ -1799,13 +1799,13 @@ pause_command()
 	    do {
 		junk = getch();
 		if (ctrlc_flag)
-		    /bail_to_command_line();
+		    bail_to_command_line();
 	    } while (junk != EOF && junk != '\n' && junk != '\r');
 	} else /* paused_for_mouse */
 # endif /* !WGP_CONSOLE */
 	{
 	    if (!Pause(buf)) /* returns false if Ctrl-C or Cancel was pressed */
-		/bail_to_command_line();
+		bail_to_command_line();
 	}
 #elif defined(OS2) && defined(USE_MOUSE)
 	if (strcmp(term->name, "pm") == 0) {
@@ -1815,7 +1815,7 @@ pause_command()
 		 * would help to stop REXX programs w/o raising an error message
 		 * in RexxInterface() ...
 		 */
-		/bail_to_command_line();
+		bail_to_command_line();
 	    } else if (rc == 2) {
 		fputs(buf, stderr);
 		text = 1;
@@ -1845,7 +1845,7 @@ pause_command()
 #  endif
 		/* Check if Ctrl-C was pressed */
 		if (junk == 0x03)
-		    /bail_to_command_line();
+		    bail_to_command_line();
 	    } while (junk != EOF && junk != '\n' && junk != '\r');
 	    fputc('\n', stderr);
 	}
@@ -3287,7 +3287,7 @@ cgets_emu(char *str, int len)
 #  else				/* !plain DOS */
 
 #   define PUT_STRING(s) fputs(s, stderr)
-//#   define GET_STRING(s,l) fgets(s, l, stdin)
+#   define GET_STRING(s,l) fgets(s, l, stdin)
 #   define GET_STRING(s,l) a=1
 
 #  endif			/* !plain DOS */
@@ -3342,8 +3342,8 @@ gp_get_string(char * buffer, size_t len, const char * prompt)
 {
 # ifdef USE_READLINE
     if (interactive){
-	return gpgetCommand(buffer, len);
-	return rlgets(buffer, len, prompt);
+		return gpgetCommand(buffer, len);
+		return rlgets(buffer, len, prompt);
 	}
     else
 	return fgets_ipc(buffer, len);
@@ -3375,7 +3375,6 @@ read_line(const char *prompt, int start)
 
     do {
 	/* grab some input */
-	char* a=NULL;
 	if (gp_get_string(gp_input_line + start, gp_input_line_len - start,
 		         ((more) ? ">" : prompt))
 	    == (char *) NULL)

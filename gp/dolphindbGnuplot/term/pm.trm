@@ -832,7 +832,7 @@ PM_abortplot(void)
     PM_must_abort = FALSE;
     term_reset();
     (void) putc('\n', stderr);
-    plugin_bail_to_command_line("abortplot");
+    plugin_bail_to_command_line("Gnuplot wants to abort");
 }
 
 
