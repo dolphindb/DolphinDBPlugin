@@ -1,5 +1,7 @@
 OPC DA插件实现了OPC DA 2.05A版本规范，可用于访问并采集OPC服务器的数据。
 
+OPC插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/opc/README_CN.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/opc/README_CN.md), [relsease120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/opc/README_CN.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/opc/README_CN.md)。您当前查看的插件版本为 release200，请使用 DolphinDB 2.00.X 版本 server。若使用其它版本 server，请切换至相应插件分支。
+
 ## 1. 安装
 
 OPC插件目前提供两种安装方式，一种是预编译安装，另一种是编译安装。OPC插件依赖[OPC核心组件](https://opcfoundation.org/developer-tools/samples-and-tools-classic/core-components/#)，两种方式都要先安装OPC核心组件。
@@ -16,7 +18,7 @@ OPC插件目前提供两种安装方式，一种是预编译安装，另一种�
 ```
 loadPlugin("C:/path/to/opc/PluginOpc.txt")
 ```
-请注意，必须指定绝对路径，且路径中使用"\\\\"或"/"代替"\"
+请注意，必须指定绝对路径，且路径中使用"\\\\"或"/"代替"\\"
 
 ### 1.3 编译安装
 
@@ -159,7 +161,6 @@ opc::subscribe(connection, tagName, handler)
 
 > 订阅tag的值
 
-
 例子
 
 ```
@@ -169,7 +170,7 @@ opc::subscribe(conn1,".testString",  t1)
 
 t2 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
 conn2=opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,100)
-opc::subscribe(conn2,[".testReal8",".testReal4"],  t5)
+opc::subscribe(conn2,[".testReal8",".testReal4"],  t2)
 
 def callback1(mutable t, d) {
 	t.append!(d)
@@ -178,7 +179,6 @@ t3 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, BOOL, INT])
 conn10 = opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,10)
 opc::subscribe(conn10,".testBool",   callback1{t3})
 ```
-
 
 ### 2.6 查询订阅
 
@@ -220,12 +220,16 @@ opc::unsubcribe(connection)
 ```
 
 ### 2.8 关闭连接
+
 语法
 ```
 opc::close(connection)
 ```
+
 参数
+
 - connection 是`connect`函数返回的值。
+
 详情
 
 > 断开与OPC server的连接。

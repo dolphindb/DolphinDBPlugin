@@ -2,6 +2,8 @@
 
 DolphinDB的MySQL导入插件可将MySQL中的数据表或语句查询结果高速导入DolphinDB，并且支持数据类型转换。本插件的部分设计参考了来自Yandex.Clickhouse的mysqlxx组件。
 
+mysql插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/mysql/README_CN.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/mysql/README_CN.md), [relsease120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/mysql/README_CN.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/mysql/README_CN.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
+
 ## 1. 安装
 
 ### 1.1 预编译安装
@@ -21,7 +23,7 @@ Windows环境(假设安装在C盘上)：
 ```
 loadPlugin("C:/path/to/mysql/PluginMySQL.txt")
 ```
-请注意，必须指定绝对路径，且路径中使用"\\\\"或"/"代替"\"。
+请注意，必须指定绝对路径，且路径中使用"\\\\"或"/"代替"\\"。
 
 ### 1.2 编译安装
 
