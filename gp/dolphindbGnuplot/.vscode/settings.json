@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.md": "bat",
+        "random": "c",
+        "*.trm": "c",
+        "typeinfo": "c"
+    }
+}

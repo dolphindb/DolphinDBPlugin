@@ -47,8 +47,7 @@
 
 #include "syscfg.h"		/* for MAX_LINE_LEN */
 #include "stdfn.h"		/* for safe_strncpy */
-
-//#ifdef TEST_STRFTIME		/* test case; link with stdfn */
+		/* test case; link with stdfn */
 #define strftime _strftime
 
 
@@ -67,7 +66,6 @@ char full_day_names[7][32] =
 char abbrev_day_names[7][8] =
 {ADAY0, ADAY1, ADAY2, ADAY3, ADAY4, ADAY5, ADAY6};
 
-//#endif /* TEST_STRFTIME */
 
 static void fill(char *from, char **pto, size_t *pmaxsize);
 static void number(int num, int pad, char **pto, size_t *pmaxsize);

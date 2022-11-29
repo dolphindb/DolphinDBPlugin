@@ -274,7 +274,7 @@ plugin_bail_to_command_line(char* str)
 extern "C" int gpInit(int argc_orig, char **argv)
 {
     int i;
-	//printf("here1\n");
+	printf("here1\n");
     /* We want the current value of argc to persist across a LONGJMP from int_error().
      * Without this the compiler may put it on the stack, which LONGJMP clobbers.
      * Here we try make it a volatile variable that optimization will not affect.
@@ -291,12 +291,12 @@ extern "C" int gpInit(int argc_orig, char **argv)
 /* make sure that we really have revoked root access, this might happen if
    gnuplot is compiled without vga support but is installed suid by mistake */
 #ifdef __linux__
-    // if (setuid(getuid()) != 0) {
-	// fprintf(stderr,"gnuplot: refusing to run at elevated privilege\n");
-	// exit(EXIT_FAILURE);
-    //}
+    if (setuid(getuid()) != 0) {
+	fprintf(stderr,"gnuplot: refusing to run at elevated privilege\n");
+	exit(EXIT_FAILURE);
+    }
 #endif
-//printf("here2\n");
+printf("here2\n");
 /* HBB: Seems this isn't needed any more for DJGPP V2? */
 /* HBB: disable all floating point exceptions, just keep running... */
 #if defined(DJGPP) && (DJGPP!=2)
@@ -324,7 +324,7 @@ extern "C" int gpInit(int argc_orig, char **argv)
 #endif
 
 
-//printf("here3\n");
+printf("here3\n");
 /* init progpath and get helpfile from executable directory */
 #if defined(MSDOS) || defined(OS2)
     {
@@ -382,7 +382,7 @@ extern "C" int gpInit(int argc_orig, char **argv)
     rl_complete_with_tilde_expansion = 1;
 #endif
 
-//printf("here4\n");
+printf("here4\n");
     for (i = 1; i < argc; i++) {
 	if (!argv[i])
 	    continue;
@@ -443,9 +443,9 @@ extern "C" int gpInit(int argc_orig, char **argv)
 
     setbuf(stderr, (char *) NULL);
 
-//printf("here5\n");
+printf("here5\n");
 #ifdef HAVE_SETVBUF
-//printf("here51\n");
+printf("here51\n");
     /* This was once setlinebuf(). Docs say this is
      * identical to setvbuf(,NULL,_IOLBF,0), but MS C
      * faults this (size out of range), so we try with
@@ -464,20 +464,20 @@ extern "C" int gpInit(int argc_orig, char **argv)
 
     //gpoutfile = stdout;
 
-//printf("here52\n");
+printf("here52\n");
     /* Initialize pre-loaded user variables */
     /* "pi" is hard-wired as the first variable */
     (void) add_udv_by_name("GNUTERM");
     (void) add_udv_by_name("NaN");
-//printf("here53\n");
+printf("here53\n");
     init_constants();
     udv_user_head = &(udv_NaN->next_udv);
 
-//printf("here54\n");
+printf("here54\n");
     init_memory();
 
-//printf("here6\n");
-    interactive = true;
+printf("here6\n");
+    interactive = FALSE;
 
     /* April 2017:  We used to call init_terminal() here, but now   */
     /* We defer initialization until error handling has been set up. */
@@ -485,10 +485,10 @@ extern "C" int gpInit(int argc_orig, char **argv)
 # if defined(_WIN32) && !defined(WGP_CONSOLE)
     interactive = TRUE;
 # else
-    //interactive = isatty(fileno(stdin));
+    interactive = isatty(fileno(stdin));
 # endif
 
-//printf("here7\n");
+printf("here7\n");
     /* Note: we want to know whether this is an interactive session so that we can
      * decide whether or not to write status information to stderr.  The old test
      * for this was to see if (argc > 1) but the addition of optional command line
@@ -702,7 +702,7 @@ RECOVER_FROM_ERROR_IN_DASH:
 		load_file(loadpath_fopen(*argv, "r"), gp_strdup(*argv), 4);
 	    }
     }
-	//printf("hereee\n");
+	printf("hereee\n");
     // /* take commands from stdin */
     // if (noinputfiles) {
 	//while (!com_line())

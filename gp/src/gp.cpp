@@ -3,9 +3,7 @@
 using namespace std;
 double *DataPtr[1024][6];
 extern int dataIndex;
-//data rows
 int dataSize[1024];
-//data cols
 int dataLen[1024];
 int blockIndex;
 int blockSize;
@@ -52,8 +50,6 @@ extern "C" char *gpgetCommand(char *buffer, size_t len) {
 extern "C" int com_line();
 
 extern "C" void gpSetCommand(std::string commad) {
-    if(commad.size() > 1023)
-        throw RuntimeException("Too many lines were drawn and the command transferred to gnuplot was too long. ");
     const char *origin = commad.c_str();
     strncpy(commandBuffer, origin, strlen(origin));
     commandBuffer[strlen(origin)] = '\0';
@@ -66,18 +62,9 @@ extern "C" void gpSetCommand(std::string commad) {
 }
 
 void gpSetPath(ConstantSP &path) {
-    string pathStr = path->getString();
-    if(Util::endWith(pathStr, ".png")){
-        gpSetCommand("set terminal png");
-        gpSetCommand("set output \"" + std::string(pathStr) + "\"");
-    }else if(Util::endWith(pathStr, ".jpeg")){
-        gpSetCommand("set terminal jpeg");
-        gpSetCommand("set output \"" + std::string(pathStr) + "\"");
-    }else{
-        gpSetCommand("set terminal postscript eps color solid ");
-        gpSetCommand("set output \"" + std::string(pathStr) + "\"");
-        gpSetCommand("set style fill transparent solid 0.4");
-    }
+    gpSetCommand("set terminal postscript eps color solid ");
+    gpSetCommand("set output \"" + std::string(path->getString()) + "\"");
+    gpSetCommand("set style fill transparent solid 0.4");
 }
 
 void gpSetStyle(std::string args) {
@@ -276,8 +263,6 @@ void gpSetProps(ConstantSP &props) {
             tmp += ret;
             gpSetCommand(tmp);
         } else if (strKey == "lineColor") {
-            if(value->getType() != DT_STRING)
-                throw RuntimeException("lineColor must be a string scalar or a string vector");
             if (value->getForm() == DF_SCALAR) {
                 lineColorVec.push_back(value->getString());
             } else if (value->getForm() == DF_VECTOR) {
@@ -292,22 +277,18 @@ void gpSetProps(ConstantSP &props) {
                 throw RuntimeException("lineColor must be a string scalar or a string vector");
             }
         } else if (strKey == "lineWidth") {
-            if(!value->isNumber())
-                throw RuntimeException("lineWidth must be a number scalar or a number vector");
             if (value->getForm() == DF_SCALAR) {
                 lineWidthVec.push_back(value->getDouble());
             } else if (value->getForm() == DF_VECTOR) {
                 int size = value->size();
                 double buffer[size];
                 VectorSP valueVector = value;
-                if(!valueVector->getDouble(0, size, buffer));
-                lineWidthVec = vector<double>(buffer, buffer + size);
+                double *p = valueVector->getDoubleBuffer(0, size, buffer);
+                lineWidthVec = vector<double>(p, p + size);
             } else {
                 throw RuntimeException("lineWidth must be a double scalar or a double vector");
             }
         } else if (strKey == "pointType") {
-            if(value->getType() != DT_INT)
-                throw RuntimeException("pointType must be a int scalar or a int vector");
             if (value->getForm() == DF_SCALAR) {
                 pointTypeVec.push_back(value->getInt());
             } else if (value->getForm() == DF_VECTOR) {
@@ -320,49 +301,37 @@ void gpSetProps(ConstantSP &props) {
                 throw RuntimeException("pointType must be a int scalar or a int vector");
             }
         } else if (strKey == "pointSize") {
-            if(!value->isNumber())
-                throw RuntimeException("pointSize must be a number scalar or a number vector");
             if (value->getForm() == DF_SCALAR) {
-                double pointSize = value->getDouble();
-                if(pointSize < 0)
-                    throw RuntimeException("pointSize must be greater than 0");
                 pointSizeVec.push_back(value->getDouble());
             } else if (value->getForm() == DF_VECTOR) {
                 int size = value->size();
                 double buffer[size];
                 VectorSP valueVector = value;
-                valueVector->getDouble(0, size, buffer);
-                pointSizeVec = vector<double>(buffer, buffer + size);
-                for(int i = 0; i < size; ++i){
-                    if(pointSizeVec[i] < 0)
-                        throw RuntimeException("pointSize must be greater than 0");
-                }
+                double *p = valueVector->getDoubleBuffer(0, size, buffer);
+                pointTypeVec = vector<int>(p, p + size);
             } else {
                 throw RuntimeException("pointSize must be a double scalar or a double vector");
             }
         } else if (strKey == "smooth") {
-            int size = 0;
-            if(value->getType() != DT_STRING)
-                throw RuntimeException("smooth must be a string scalar or a string vector");
             if (value->getForm() == DF_SCALAR) {
-                size = 1;
+                smoothVec.push_back(value->getString());
             } else if (value->getForm() == DF_VECTOR) {
-                size = value->size();
+                int size = value->size();
+                char *buffer[size];
+                VectorSP valueVector = value;
+                char **p = valueVector->getStringConst(0, size, buffer);
+                for (int i = 0; i < size; ++i) {
+                    string tmp = string(p[i]);
+                    if (tmp == "csplines")
+                        smooth = tmp;
+                    else if (tmp == "bezier") {
+                        smooth = tmp;
+                    } else
+                        throw RuntimeException("smooth must be bezier or csplines");
+                    lineColorVec.push_back(string(p[i]));
+                }
             } else {
                 throw RuntimeException("smooth must be a string scalar or a string vector");
-            }
-            char *buffer[size];
-            VectorSP valueVector = value;
-            char **p = valueVector->getStringConst(0, size, buffer);
-            for (int i = 0; i < size; ++i) {
-                string tmp = string(p[i]);
-                if (tmp == "csplines")
-                    smooth = tmp;
-                else if (tmp == "bezier") 
-                    smooth = tmp;
-                else
-                    throw RuntimeException("smooth must be bezier or csplines");
-                smoothVec.push_back(string(p[i]));
             }
         } else {
             throw RuntimeException("the porp " + strKey + " doesn't exist");
@@ -398,7 +367,7 @@ void convertData(ConstantSP &data, int blockIndex, int colIndex, std::shared_ptr
     } else if (data->getType() == DT_SHORT) {
         int frep = subDataSize / mIndex;
         int index = 0;
-        short tmpBuffer[1024]; 
+        short tmpBuffer[1024];
         for (int i = 0; i < frep; ++i) {
             short *p = data->getShortBuffer(index, mIndex, tmpBuffer);
             for (int j = 0; j < mIndex; ++j) {
@@ -509,16 +478,16 @@ void gpSetData(ConstantSP &data, std::string style) {
         size_t cols = data->size();
         for (size_t i = 1; i < cols; ++i) {
             tmp += (", '-' with " + style +
-                    ((titleVector.size() > i) ? (" title '" + titleVector[i] + "'") : " notitle"));
-            if (lineColorVec.size() > i)
+                    ((titleVector.size() >= i) ? (" title '" + titleVector[i] + "'") : " notitle"));
+            if (lineColorVec.size() >= i)
                 tmp += " lc rgb \"" + lineColorVec[i] + "\"";
-            if (lineWidthVec.size() > i)
+            if (lineWidthVec.size() >= i)
                 tmp += " lw " + std::to_string(lineWidthVec[i]);
-            if (pointTypeVec.size() > i)
+            if (pointTypeVec.size() >= i)
                 tmp += " pt " + std::to_string(pointTypeVec[i]);
-            if (pointSizeVec.size() > i)
+            if (pointSizeVec.size() >= i)
                 tmp += " ps " + std::to_string(pointSizeVec[i]);
-            if (smoothVec.size() > i)
+            if (smoothVec.size() >= i)
                 tmp += " smooth " + smoothVec[i];
         }
         std::shared_ptr<double> ptr[cols * 2];
@@ -530,15 +499,13 @@ void gpSetData(ConstantSP &data, std::string style) {
                 dataLen[i] = 1;
                 convertData(sp, i, 0, ptr[i]);
             } else if (sp->getForm() == DF_TABLE) {
-                int cows = ((TableSP)sp)->columns();
-                if(cows>=1){
+                if(cols>=1){
                     ConstantSP data1 = sp->getColumn(0);
                     int size = data1->size();
                     convertData(data1, i, 0, ptr[i]);
                     dataSize[i] = size;
                     dataLen[i] = 1;
-                } 
-                if(cows>=2){
+                }else if(cols>=2){
                     ConstantSP data2 = sp->getColumn(1);
                     convertData(data2, i, 1, ptr[i + cols]);
                     dataLen[i] = 2;
@@ -600,7 +567,7 @@ void gpSetData(ConstantSP &data, std::string style) {
         if(cows>=2){
             ConstantSP data2 = sp->getColumn(1);
             convertData(data2, 0, 1, ptr[1]);
-            dataLen[0] = 2;
+            dataLen[0] = 1;
         }
         dataIndex = 0;
         blockIndex = 0;
@@ -629,11 +596,23 @@ void onePlot() {
     gpSetCommand("unset style");
 }
 
-bool needGpInit = true;
+bool isGpInit = true;
 Mutex mLock;
+Mutex wLock;
+
+class pLock {
+public:
+    pLock() {
+        wLock.lock();
+    }
+
+    ~pLock() {
+        wLock.unlock();
+    }
+};
 
 ConstantSP gpPlot(Heap *heap, vector<ConstantSP> &args) {
-    LockGuard<Mutex> lock(&mLock);
+    pLock t;
     if (args[0]->getForm() != DF_VECTOR && args[0]->getForm() != DF_TABLE) {
         throw RuntimeException("Data must be a  vector or a table");
     }
@@ -648,10 +627,14 @@ ConstantSP gpPlot(Heap *heap, vector<ConstantSP> &args) {
             throw RuntimeException("Props must be a dictionary");
         }
     }
-    if (needGpInit) {
-        gpInit(0, NULL);
-        styleSetInit();
-        needGpInit = false;
+    if (isGpInit) {
+        mLock.lock();
+        if (isGpInit) {
+            gpInit(0, NULL);
+            styleSetInit();
+            isGpInit = false;
+        }
+        mLock.unlock();
     }
     onePlot();
     titleVector.clear();
@@ -666,4 +649,5 @@ ConstantSP gpPlot(Heap *heap, vector<ConstantSP> &args) {
         gpSetProps(args[3]);
     gpSetData(args[0], args[1]->getString());
     return new Bool(true);
+
 }

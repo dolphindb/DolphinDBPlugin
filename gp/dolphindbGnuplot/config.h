@@ -107,10 +107,6 @@
 /* Define if libgd supports png. */
 /* #undef HAVE_GD_PNG */
 
-#define HAVE_GD_JPEG
-
-#define HAVE_GD_PNG
-
 /* Define if libgd supports TrueType fonts through libfreetype. */
 /* #undef HAVE_GD_TTF */
 

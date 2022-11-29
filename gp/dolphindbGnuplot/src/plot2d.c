@@ -1223,7 +1223,7 @@ get_data(struct curve_points *current_plot)
 
     /* Deferred evaluation of plot title now that we know column headers */
     reevaluate_plot_title(current_plot);
-
+	printf("get_dataend\n");
     return ngood;                   /* 0 indicates an 'empty' file */
 }
 
@@ -2888,7 +2888,7 @@ eval_plots()
 		    this_plot->plot_type = NODATA;
 		    goto SKIPPED_EMPTY_FILE;
 		}
-
+		printf("get_dataend1\n");
 		/* Sep 2017 - Check for all points bad or out of range  */
 		/* (normally harmless but must not cause infinite loop) */
 		if (forever_iteration(plot_iterator)) {
@@ -2907,6 +2907,7 @@ eval_plots()
 		    make_bins(this_plot, nbins, binlow, binhigh, binwidth);
 		}
 
+		printf("get_dataend1\n");
 		/* Restore auto-scaling prior to smoothing operation */
 		switch (this_plot->plot_smooth) {
 		case SMOOTH_FREQUENCY:
@@ -2919,6 +2920,7 @@ eval_plots()
 		    break;
 		}
 
+		printf("get_dataend1\n");
 		/* Fiddle the auto-scaling data for specific plot styles */
 		if (this_plot->plot_style == HISTOGRAMS)
 		    histogram_range_fiddling(this_plot);
@@ -2931,6 +2933,7 @@ eval_plots()
 		if (polar)
 		    polar_range_fiddling(this_plot);
 
+		printf("get_dataend1\n");
 		/* sort */
 		switch (this_plot->plot_smooth) {
 		/* sort and average, if the style requires */
@@ -2991,6 +2994,7 @@ eval_plots()
 		    break;
 		}
 
+		printf("get_dataend111\n");
 		/* Images are defined by a grid representing centers of pixels.
 		 * Compensate for extent of the image so `set autoscale fix`
 		 * uses outer edges of outer pixels in axes adjustment.
@@ -3004,6 +3008,7 @@ eval_plots()
 
 	    }
 
+		printf("get_dataend11\n");
 	    SKIPPED_EMPTY_FILE:
 	    /* Note position in command line for second pass */
 		this_plot->token = c_token;
@@ -3015,6 +3020,7 @@ eval_plots()
 		this_plot->sample_var2->udv_value = original_value_sample_var2;
 	    }
 
+		printf("get_dataend2\n");
 	} /* !is_defn */
 
 	if (in_parametric) {
@@ -3025,6 +3031,7 @@ eval_plots()
 		break;
 	}
 
+		printf("get_dataend3\n");
 	/* Iterate-over-plot mechanism */
 	if (empty_iteration(plot_iterator) && this_plot)
 	    this_plot->plot_type = NODATA;
@@ -3042,6 +3049,7 @@ eval_plots()
 	    continue;
 	}
 
+		printf("get_dataend4\n");
 	plot_iterator = cleanup_iteration(plot_iterator);
 	if (equals(c_token, ",")) {
 	    c_token++;
@@ -3054,6 +3062,7 @@ eval_plots()
 	int_error(NO_CARET, "parametric function not fully specified");
 
 
+		printf("get_dataend5\n");
 /*** Second Pass: Evaluate the functions ***/
     /*
      * Everything is defined now, except the function data. We expect
@@ -3407,6 +3416,7 @@ eval_plots()
 
     }   /* some_functions */
 
+		printf("get_dataend6\n");
     /* if first_plot is NULL, we have no functions or data at all. This can
      * happen if you type "plot x=5", since x=5 is a variable assignment.
      */
@@ -3431,6 +3441,7 @@ eval_plots()
     if (spiderplot)
 	spiderplot_range_fiddling(first_plot);
 
+		printf("get_dataend7\n");
     /* gnuplot version 5.0 always used x1 to track autoscaled range
      * regardless of whether x1 or x2 was used to plot the data. 
      * In version 5.2 we track the x1/x2 axis data limits separately.
@@ -3471,6 +3482,7 @@ eval_plots()
     update_primary_axis_range(&axis_array[FIRST_X_AXIS]);
     update_primary_axis_range(&axis_array[SECOND_X_AXIS]);
 
+		printf("get_dataend8\n");
     if (this_plot && this_plot->plot_style == TABLESTYLE) {
 	/* the y axis range has no meaning in this case */
 	;
@@ -3502,6 +3514,7 @@ eval_plots()
 #endif
     }
 
+		printf("get_dataend9\n");
     /* This call cannot be in boundary(), called from do_plot(), because
      * it would cause logscaling problems if do_plot() itself was called for
      * refresh rather than for plot/replot.
@@ -3510,6 +3523,7 @@ eval_plots()
     if (is_plot_with_palette())
 	set_cbminmax();
 
+		printf("get_dataend10\n");
     /* if we get here, all went well, so record this line for replot */
     if (plot_token != -1) {
 	/* note that m_capture also frees the old replot_line */
@@ -3518,11 +3532,16 @@ eval_plots()
 	fill_gpval_string("GPVAL_LAST_PLOT", replot_line);
     }
 
+		printf("get_dataend12\n");
     if (table_mode) {
+		printf("get_dataend2dsa2d\n");
 	print_table(first_plot, plot_num);
 
+		printf("get_dataend2d2d\n");
     } else {
+		printf("%d\n",plot_num);
 	do_plot(first_plot, plot_num);
+		printf("get_dataend232d\n");
 
 	/* after do_plot(), axis_array[].min and .max
 	 * contain the plotting range actually used (rounded
@@ -3531,10 +3550,12 @@ eval_plots()
 	 */
 	save_writeback_all_axes();
 
+		printf("get_dataend22d\n");
 	/* Mark these plots as safe for quick refresh */
 	SET_REFRESH_OK(E_REFRESH_OK_2D, plot_num);
     }
 
+		printf("get_dataend22d\n");
     /* update GPVAL_ variables available to user */
     update_gpval_variables(1);
 }                               /* eval_plots */
