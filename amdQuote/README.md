@@ -47,8 +47,9 @@ loadPlugin("/path_to_pluginAmdQuote/PluginAmdQuote.txt");
 
 `ports` 为整型向量，AMD 行情服务器端口列表，需要和 IP 列表数量相同。
 
-`options` 可选参数。是字典类型，表示扩展参数。当前键只支持 receivedTime，表示是否获取插件收到行情数据的时间戳。    
-该参数指定为 dict(["ReceivedTime"], [true]) 时， getSchema 获取的表结构中将包含插件收到行情数据的时间戳列。
+`options` 可选参数。是字典类型，表示扩展参数。当前键支持 receivedTime和DailyIndex，receivedTime表示是否获取插件收到行情数据的时间戳，DailyIndex表示是否添加每天按channel_no递增的数据列。
+receivedTime参数指定为 dict(["ReceivedTime"], [true]) 时， getSchema 获取的表结构中将包含插件收到行情数据的时间戳列。
+DailyIndex参数指定为 dict(["DailyIndex"], [true]) 时， getSchema 获取的表结构中将包含插件收到行情数据的按 channel_no 递增的列。
 
 **函数详情**
 
@@ -67,6 +68,8 @@ loadPlugin("/path_to_pluginAmdQuote/PluginAmdQuote.txt");
 `marketType` 整型标量，可选。表示市场类型。需要和 AMD 中定义的市场类型一致。不传该参数表示订阅所有市场。
 
 `codeList` 字符串向量，可选。表示股票列表。不传该参数表示订阅所有股票。
+
+`transform`: 一元函数，插入到DolphinDB表库前对表进行转换，例如替换列。请注意，传入的一元函数中不能存在对DFS表的操作，例如：读取或写入DFS表，获取DFS表的schema等。
 
 **函数详情**
 
