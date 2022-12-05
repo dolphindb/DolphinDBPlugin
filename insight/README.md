@@ -36,7 +36,7 @@ insight::connect(handles, ip, port, user, password, [workPoolThreadCount])
 
 #### 参数
 
-`handles`：类型为 Dictionary，Dictionary 的键为'StockTick', 'IndexTick', 'FuturesTick', 'StockTransaction' 或 'StockOrder'，值为 table。
+`handles`：类型为 Dictionary，Dictionary 的键为'StockTick', 'IndexTick', 'FuturesTick', 'StockTransaction' 或 'StockOrder'，值为 table。请注意，table 不能为 DFS 表。
 
 `ip`：服务器地址，类型为字符串标量。
 
