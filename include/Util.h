@@ -40,7 +40,8 @@ public:
 	static string CLUSTER_CONFIG_FULLPATH;
 	static string CLUSTER_NODES_FULLPATH;
 	static string CONFIG_FULLPATH;
-	static string VER;
+    static string TRACE_LOG_DIR;
+    static string VER;
 	static int VERNUM;
 	static string CLIENT_NAME;
 	static string BUILD;
@@ -107,8 +108,8 @@ public:
 			void* data=0, void** dataSegment=0, int segmentSizeInBit=0, bool containNull=false);
 	static Vector* createSymbolMatrix(const SymbolBaseSP& symbolBase, int cols, int rows, int colCapacity, int* data=0, bool containNull=false);
 	static Vector* createDoubleMatrix(int cols, int rows);
-	static Vector* createPair(DATA_TYPE type){
-		Vector* pair=createVector(type,2);
+	static Vector* createPair(DATA_TYPE type, int extraParam = 0) {
+		Vector* pair = createVector(type, 2, 2, /*fast*/true, extraParam);
 		pair->setForm(DF_PAIR);
 		return pair;
 	}
@@ -117,8 +118,8 @@ public:
 	static Vector* createIndexVector(INDEX start, INDEX length);
 	static Vector* createIndexVector(INDEX length, bool arrayOnly);
 	static VectorSP createInverseIndexVector(const VectorSP& index, INDEX length);
-	static Constant* createConstant(DATA_TYPE dataType);
-	static Constant* createNullConstant(DATA_TYPE dataType);
+	static Constant* createConstant(DATA_TYPE dataType, int extraParam = 0);
+	static Constant* createNullConstant(DATA_TYPE dataType, int extraParam = 0);
 
 	static DataInputStreamSP createBlockFileInputStream(const string& filename, int devId, long long fileLength, int bufSize, long long offset, long long length);
 	static Constant* createResource(long long handle, const string& desc, const FunctionDefSP& onClose, Session* session);

@@ -11,6 +11,7 @@
 #include <climits>
 
 #include "CoreConcept.h"
+#include "DecimalUtil.h"
 #include "Util.h"
 
 using std::ostringstream;
@@ -172,6 +173,7 @@ public:
 	static bool parseUuid(const char* str, size_t len, unsigned char* buf);
 };
 
+# ifndef OPCUA
 class IPAddr : public Int128 {
 public:
 	IPAddr();
@@ -191,6 +193,7 @@ private:
 	static bool parseIP4(const char* str, size_t len, unsigned char* buf);
 	static bool parseIP6(const char* str, size_t len, unsigned char* buf);
 };
+# endif
 
 class DoublePair {
 public:
@@ -929,7 +932,7 @@ public:
 	virtual ~Double(){}
 	virtual bool isNull() const {return val_==DBL_NMIN;}
 	virtual void setNull(){val_=DBL_NMIN;}
-	virtual void setDouble(double val){ val_ = val;}
+	virtual void setDouble(double val){ val_ = (std::isnan(val)|| std::isinf(val)) ? DBL_NMIN : val; }
 	virtual DATA_TYPE getType() const {return DT_DOUBLE;}
 	virtual DATA_TYPE getRawType() const { return DT_DOUBLE;}
 	virtual ConstantSP getInstance() const {return ConstantSP(new Double());}
@@ -1110,6 +1113,829 @@ public:
 	static DateHour* parseDateHour(const string& str);
 	static string toString(int val);
 };
+
+
+class Decimal : public Constant {
+public:
+    Decimal() = default;
+    virtual ~Decimal() = default;
+
+public:  /// operator {+,-,*,/}
+    /**
+     * result = this + other
+     */
+    virtual ConstantSP add(const ConstantSP &other, const bool check_overflow) const = 0;
+
+    /**
+     * if `reverse` is false: result = this - other
+     * if `reverse` is true: result = other - this
+     */
+    virtual ConstantSP sub(const ConstantSP &other, const bool reverse, const bool check_overflow) const = 0;
+
+    /**
+     * result = this * other
+     */
+    virtual ConstantSP multiply(const ConstantSP &other, const bool check_overflow) const = 0;
+
+    /**
+     * if `reverse` is false: result = this / other
+     * if `reverse` is true: result = other / this
+     */
+    virtual ConstantSP divide(const ConstantSP &other, const bool reverse, const bool check_overflow) const = 0;
+
+public:
+    virtual DATA_CATEGORY getCategory() const override { return DENARY; }
+};
+
+template <typename T>
+class DecimalImpl : public Decimal {
+public:
+    using raw_data_t = T;
+
+    DecimalImpl() = delete;
+
+    explicit DecimalImpl(int scale) : scale_(scale), rawData_() {
+        if (scale_ < 0 || scale_ > decimal_util::MaxPrecision<T>::value) {
+            throw RuntimeException("Scale out of bound (valid range: [0, " +
+                    std::to_string(decimal_util::MaxPrecision<T>::value) + "], but get: " +
+                    std::to_string(scale) + ")");
+        }
+    }
+
+    // FIXME: should check scale here?
+    DecimalImpl(int scale, raw_data_t rawData) : scale_(scale), rawData_(rawData) {}
+
+    DecimalImpl(const DecimalImpl &other) : scale_(other.scale_), rawData_(other.rawData_) {}
+
+    template <typename U>
+    DecimalImpl(const DecimalImpl<U> &other) : DecimalImpl(other.scale_) {
+        if (other.rawData_ > std::numeric_limits<T>::max() ||
+                other.rawData_ <= std::numeric_limits<T>::min()) {
+            throw RuntimeException("Decimal math overflow");
+        }
+        rawData_ = static_cast<T>(other.rawData_);
+    }
+
+public:
+    int getScale() const { return scale_; }
+
+    raw_data_t getRawData() const { return rawData_; }
+
+    void setRawData(const raw_data_t data) { rawData_ = data; }
+
+    std::string toString() const {
+        return decimal_util::toString(scale_, rawData_);
+    }
+
+public:
+    template <typename U, typename R = typename std::conditional<sizeof(T) >= sizeof(U), T, U>::type>
+    void assign(const DecimalImpl<U> &other) {
+        if (std::is_same<T, U>::value && scale_ == other.scale_) {
+            rawData_ = other.rawData_;
+            return;
+        }
+
+        R value;
+        if (other.scale_ > scale_) {
+            R delta = 0;
+            if (other.rawData_ > 0) {
+                delta = static_cast<R>(0.5 * decimal_util::scaleMultiplier<R>(other.scale_ - scale_));
+            } else if (other.rawData_ < 0) {
+                delta = static_cast<R>(-0.5 * decimal_util::scaleMultiplier<R>(other.scale_ - scale_));
+            }
+
+            R rounded_val;
+            if (decimal_util::addOverflow(static_cast<R>(other.rawData_), delta, rounded_val)) {
+                throw RuntimeException("Decimal math overflow");
+            }
+            value = rounded_val / decimal_util::scaleMultiplier<R>(other.scale_ - scale_);
+        } else {
+            bool overflow = decimal_util::mulOverflow(static_cast<R>(other.rawData_),
+                                    decimal_util::scaleMultiplier<R>(scale_ - other.scale_), value);
+            if (overflow) {
+                throw RuntimeException("Decimal math overflow");
+            }
+        }
+
+        if (value > std::numeric_limits<T>::max() ||
+                value <= std::numeric_limits<T>::min()) {
+            throw RuntimeException("Decimal math overflow");
+        }
+        rawData_ = static_cast<T>(value);
+    }
+
+    /**
+     * @brief convert integer to decimal
+     * 
+     * @tparam U integer data type (short/int/long)
+     */
+    template <typename U>
+    typename std::enable_if<!std::is_same<U, float>::value && !std::is_same<U, double>::value, void>::type
+    assign(U value) {
+        if (value > std::numeric_limits<T>::max() ||
+                value <= std::numeric_limits<T>::min()) {
+            throw RuntimeException("Decimal math overflow");
+        }
+        bool overflow = decimal_util::mulOverflow(static_cast<T>(value),
+                                decimal_util::scaleMultiplier<T>(scale_), rawData_);
+        if (overflow) {
+            throw RuntimeException("Decimal math overflow");
+        }
+    }
+
+    /**
+     * @brief convert float to decimal
+     * 
+     * @tparam U float data type (float/double)
+     */
+    template <typename U>
+    typename std::enable_if<std::is_same<U, float>::value || std::is_same<U, double>::value, void>::type
+    assign(U value) {
+        value = value * decimal_util::scaleMultiplier<T>(scale_);
+        if (value > std::numeric_limits<T>::max() ||
+                value <= std::numeric_limits<T>::min()) {
+            throw RuntimeException("Decimal math overflow");
+        }
+        rawData_ = static_cast<T>(value);
+    }
+
+    template <typename U, typename R = typename std::conditional<sizeof(T) >= sizeof(U), T, U>::type>
+    int compare(const DecimalImpl<U> &other) const {
+        R lhs{}, rhs{};
+        if (scale_ < other.scale_) {
+            bool overflow = decimal_util::mulOverflow(static_cast<R>(rawData_),
+                    decimal_util::scaleMultiplier<R>(other.scale_ - scale_), lhs);
+            if (overflow) {
+                throw RuntimeException("Decimal math overflow");
+            }
+
+            rhs = static_cast<R>(other.rawData_);
+        } else {
+            lhs = static_cast<R>(rawData_);
+
+            bool overflow = decimal_util::mulOverflow(static_cast<R>(other.rawData_),
+                    decimal_util::scaleMultiplier<R>(scale_ - other.scale_), rhs);
+            if (overflow) {
+                throw RuntimeException("Decimal math overflow");
+            }
+        }
+
+        if (lhs < rhs) {
+            return -1;
+        } else if (lhs == rhs) {
+            return 0;
+        } else {
+            return 1;
+        }
+    }
+
+public:
+    ConstantSP add(const ConstantSP &other, const bool check_overflow) const override {
+        DATA_CATEGORY rhsCategory = other->getCategory();
+        decimal_util::checkArithmeticOperation(rhsCategory);
+
+        if (this->isNull() || other->isNull()) {
+            ConstantSP result(new DecimalImpl<T>(scale_));
+            result->setNull();
+            return result;
+        }
+
+        ConstantSP result;
+
+        if (rhsCategory == DENARY) {
+            DATA_TYPE rhsType = other->getType();
+            if (rhsType == DT_DECIMAL32) {
+                auto tmp = this->add(*reinterpret_cast<DecimalImpl<int32_t> *>(other.get()), check_overflow);
+                result = new decltype(tmp){tmp};
+            } else if (rhsType == DT_DECIMAL64) {
+                auto tmp = this->add(*reinterpret_cast<DecimalImpl<int64_t> *>(other.get()), check_overflow);
+                result = new decltype(tmp){tmp};
+            } else {
+                ASSERT("unreachable" && 0);
+            }
+        } else if (rhsCategory == FLOATING) {
+            double ans = other->getDouble() + this->getDouble();
+            result = new Double(ans);
+        } else {
+            DecimalImpl<T> rhsTmp{scale_};
+            if (false == rhsTmp.assign(other)) {
+                throw RuntimeException("Can't convert " + Util::getDataTypeString(other->getType()) + " to Decimal");
+            }
+
+            auto tmp = this->add(rhsTmp, check_overflow);
+            result = new decltype(tmp){tmp};
+        }
+
+        return result;
+    }
+
+    template <typename U, typename R = typename std::conditional<sizeof(T) >= sizeof(U), T, U>::type>
+    DecimalImpl<R> add(const DecimalImpl<U> &other, const bool check_overflow) const {
+        if (this->scale_ < other.scale_) {
+            return other.add(*this, check_overflow);
+        }
+
+        DecimalImpl<R> result(this->scale_);
+
+        if (check_overflow) {
+            bool overflow = false;
+
+            R scaled_value{};  // scale rhs
+            overflow |= decimal_util::mulOverflow(static_cast<R>(other.rawData_),
+                                                  decimal_util::scaleMultiplier<R>(this->scale_ - other.scale_),
+                                                  scaled_value);
+            overflow |= decimal_util::addOverflow(static_cast<R>(this->rawData_), scaled_value, result.rawData_);
+
+            if (overflow) {
+                throw RuntimeException("Decimal math overflow");
+            }
+
+        } else {
+            result.rawData_ = this->rawData_ +
+                    other.rawData_ * decimal_util::scaleMultiplier<R>(this->scale_ - other.scale_);
+        }
+
+        return result;
+    }
+
+    virtual ConstantSP sub(const ConstantSP &other, const bool reverse, const bool check_overflow) const override {
+        DATA_CATEGORY rhsCategory = other->getCategory();
+        decimal_util::checkArithmeticOperation(rhsCategory);
+
+        if (this->isNull() || other->isNull()) {
+            ConstantSP result(new DecimalImpl<T>(scale_));
+            result->setNull();
+            return result;
+        }
+
+        ConstantSP result;
+
+        if (rhsCategory == DENARY) {
+            DATA_TYPE rhsType = other->getType();
+            if (rhsType == DT_DECIMAL32) {
+                auto tmp = this->sub(*reinterpret_cast<DecimalImpl<int32_t> *>(other.get()), reverse, check_overflow);
+                result = new decltype(tmp){tmp};
+            } else if (rhsType == DT_DECIMAL64) {
+                auto tmp = this->sub(*reinterpret_cast<DecimalImpl<int64_t> *>(other.get()), reverse, check_overflow);
+                result = new decltype(tmp){tmp};
+            } else {
+                ASSERT("unreachable" && 0);
+            }
+        } else if (rhsCategory == FLOATING) {
+            double ans;
+            if (reverse) {
+                ans = other->getDouble() - this->getDouble();
+            } else {
+                ans = this->getDouble() - other->getDouble();
+            }
+            result = new Double(ans);
+        } else {
+            DecimalImpl<T> rhsTmp{scale_};
+            if (false == rhsTmp.assign(other)) {
+                throw RuntimeException("Can't convert " + Util::getDataTypeString(other->getType()) + " to Decimal");
+            }
+
+            auto tmp = this->sub(rhsTmp, reverse, check_overflow);
+            result = new decltype(tmp){tmp};
+        }
+
+        return result;
+    }
+
+    template <typename U, typename R = typename std::conditional<sizeof(T) >= sizeof(U), T, U>::type>
+    DecimalImpl<R> sub(const DecimalImpl<U> &other, const bool reverse, const bool check_overflow) const {
+        if (reverse) {
+            return other.sub(*this, /*reverse*/false, check_overflow);
+        }
+
+        /*
+         * Warning: (a - b) != -1 * (b - a)
+         */
+        if (this->scale_ < other.scale_) {  // scale lhs
+            DecimalImpl<R> result(other.scale_);
+
+            if (check_overflow) {
+                bool overflow = false;
+                R scaled_value{};
+                overflow |= decimal_util::mulOverflow(static_cast<R>(this->rawData_),
+                                                      decimal_util::scaleMultiplier<R>(other.scale_ - this->scale_),
+                                                      scaled_value);
+                overflow |= decimal_util::subOverflow(scaled_value, static_cast<R>(other.rawData_), result.rawData_);
+
+                if (overflow) {
+                    throw RuntimeException("Decimal math overflow");
+                }
+            } else {
+                result.rawData_ = this->rawData_ * decimal_util::scaleMultiplier<R>(other.scale_ - this->scale_) -
+                        other.rawData_;
+            }
+
+            return result;
+        } else {  // scale rhs
+            DecimalImpl<R> result(scale_);
+
+            if (check_overflow) {
+                bool overflow = false;
+                R scaled_value{};
+                overflow |= decimal_util::mulOverflow(static_cast<R>(other.rawData_),
+                                                    decimal_util::scaleMultiplier<R>(this->scale_ - other.scale_),
+                                                    scaled_value);
+                overflow |= decimal_util::subOverflow(static_cast<R>(this->rawData_), scaled_value, result.rawData_);
+
+                if (overflow) {
+                    throw RuntimeException("Decimal math overflow");
+                }
+            } else {
+                result.rawData_ = this->rawData_ -
+                        other.rawData_ * decimal_util::scaleMultiplier<R>(this->scale_ - other.scale_);
+            }
+
+            return result;
+        }
+    }
+
+    virtual ConstantSP multiply(const ConstantSP &other, const bool check_overflow) const override {
+        DATA_CATEGORY rhsCategory = other->getCategory();
+        decimal_util::checkArithmeticOperation(rhsCategory);
+
+        if (this->isNull() || other->isNull()) {
+            ConstantSP result(new DecimalImpl<T>(scale_));
+            result->setNull();
+            return result;
+        }
+
+        ConstantSP result;
+
+        if (rhsCategory == DENARY) {
+            DATA_TYPE rhsType = other->getType();
+            if (rhsType == DT_DECIMAL32) {
+                auto tmp = this->multiply(*reinterpret_cast<DecimalImpl<int32_t> *>(other.get()), check_overflow);
+                result = new decltype(tmp){tmp};
+            } else if (rhsType == DT_DECIMAL64) {
+                auto tmp = this->multiply(*reinterpret_cast<DecimalImpl<int64_t> *>(other.get()), check_overflow);
+                result = new decltype(tmp){tmp};
+            } else {
+                ASSERT("unreachable" && 0);
+            }
+        } else if (rhsCategory == FLOATING) {
+            double ans = other->getDouble() * this->getDouble();
+            result = new Double(ans);
+        } else {
+            // 4.000 * 2 => 8.000
+            DecimalImpl<T> rhsTmp{/*scale*/0};
+            if (false == rhsTmp.assign(other)) {
+                throw RuntimeException("Can't convert " + Util::getDataTypeString(other->getType()) + " to Decimal");
+            }
+
+            auto tmp = this->multiply(rhsTmp, check_overflow);
+            result = new decltype(tmp){tmp};
+        }
+
+        return result;
+    }
+
+    template <typename U, typename R = typename std::conditional<sizeof(T) >= sizeof(U), T, U>::type>
+    DecimalImpl<R> multiply(const DecimalImpl<U> &other, const bool check_overflow) const {
+        DecimalImpl<R> result(this->scale_ + other.scale_);
+
+        if (check_overflow) {
+            bool overflow = decimal_util::mulOverflow(this->rawData_, other.rawData_, result.rawData_);
+            if (overflow) {
+                throw RuntimeException("Decimal math overflow");
+            }
+        } else {
+            result.rawData_ = this->rawData_ * other.rawData_;
+        }
+        return result;
+    }
+
+    virtual ConstantSP divide(const ConstantSP &other, const bool reverse, const bool check_overflow) const override {
+        DATA_CATEGORY rhsCategory = other->getCategory();
+        decimal_util::checkArithmeticOperation(rhsCategory);
+
+        if (this->isNull() || other->isNull()) {
+            ConstantSP result(new DecimalImpl<T>(scale_));
+            result->setNull();
+            return result;
+        }
+
+        ConstantSP result;
+
+        if (rhsCategory == DENARY) {
+            DATA_TYPE rhsType = other->getType();
+            if (rhsType == DT_DECIMAL32) {
+                auto tmp = this->divide(*reinterpret_cast<DecimalImpl<int32_t> *>(other.get()), reverse, check_overflow);
+                result = new decltype(tmp){tmp};
+            } else if (rhsType == DT_DECIMAL64) {
+                auto tmp = this->divide(*reinterpret_cast<DecimalImpl<int64_t> *>(other.get()), reverse, check_overflow);
+                result = new decltype(tmp){tmp};
+            } else {
+                ASSERT("unreachable" && 0);
+            }
+        } else if (rhsCategory == FLOATING) {
+            double lhs, rhs;
+            if (reverse) {
+                lhs = other->getDouble();
+                rhs = this->getDouble();
+            } else {
+                lhs = this->getDouble();
+                rhs = other->getDouble();
+            }
+            if (rhs == 0) {
+                throw RuntimeException("Divide zero");
+            }
+            result = new Double(lhs / rhs);
+        } else {
+            // (2 / 4.000) => (2.000 / 4.000) => (2 * 1000 * 1000 / 4000 = 500)
+            // (4.000 / 2) => (4.000 / 2.000) => (4000 * 1000 / 2 * 1000 = 2000)
+            int rhsScale = scale_;
+
+            DecimalImpl<T> rhsTmp{rhsScale};
+            if (false == rhsTmp.assign(other)) {
+                throw RuntimeException("Can't convert " + Util::getDataTypeString(other->getType()) + " to Decimal");
+            }
+
+            auto tmp = this->divide(rhsTmp, reverse, check_overflow);
+            result = new decltype(tmp){tmp};
+        }
+
+        return result;
+    }
+
+    template <typename U, typename R = typename std::conditional<sizeof(T) >= sizeof(U), T, U>::type>
+    DecimalImpl<R> divide(const DecimalImpl<U> &other, const bool reverse, const bool check_overflow) const {
+        if (reverse) {
+            return other.divide(*this, /*reverse*/false, check_overflow);
+        }
+        DecimalImpl<R> result(this->scale_);
+
+        if (other.rawData_ == 0) {
+            throw RuntimeException("Divide zero");
+        }
+
+        if (check_overflow) {
+            bool overflow = decimal_util::mulDivOverflow(static_cast<R>(this->rawData_),
+                    decimal_util::scaleMultiplier<R>(other.scale_), static_cast<R>(other.rawData_), result.rawData_);
+            if (overflow) {
+                throw RuntimeException("Decimal math overflow");
+            }
+            return result;
+        } else {
+            result.rawData_ = this->rawData_ * decimal_util::scaleMultiplier<R>(other.scale_) / other.rawData_;
+        }
+        return result;
+    }
+
+public:  /// Interface of Constant
+    virtual int getExtraParamForType() const override { return scale_; }
+
+    virtual bool isNull() const override { return rawData_ == std::numeric_limits<T>::min(); }
+    virtual void setNull() override { rawData_ = std::numeric_limits<T>::min(); }
+
+    virtual DATA_TYPE getType() const override { return type(); }
+    virtual DATA_TYPE getRawType() const override { return type(); }
+
+    virtual ConstantSP getInstance() const override { return ConstantSP(new DecimalImpl(scale_, rawData_)); }
+    virtual ConstantSP getValue() const override { return ConstantSP(new DecimalImpl(scale_, rawData_)); }
+
+    virtual std::string getString() const override {
+        if (isNull()) {
+            return "";
+        }
+        return toString();
+    }
+
+    virtual bool isNull(INDEX start, int len, char *buf) const override {
+        char null = isNull();
+        for (int i = 0; i < len; ++i) {
+            buf[i] = null;
+        }
+        return true;
+    }
+
+    virtual bool isValid(INDEX start, int len, char *buf) const override {
+        char valid = !isNull();
+        for (int i = 0; i < len; ++i) {
+            buf[i] = valid;
+        }
+        return true;
+    }
+
+public:  // decimal to float
+    virtual float getFloat() const override {
+        if (isNull()) {
+            return FLT_NMIN;
+        }
+        return static_cast<float>(rawData_) / decimal_util::scaleMultiplier<T>(scale_);
+    }
+
+    virtual double getDouble() const override {
+        if (isNull()) {
+            return DBL_NMIN;
+        }
+        return static_cast<double>(rawData_) / decimal_util::scaleMultiplier<T>(scale_);
+    }
+
+    virtual bool getFloat(INDEX start, int len, float *buf) const override {
+        float tmp = getFloat();
+        for (int i = 0; i < len; ++i) {
+            buf[i] = tmp;
+        }
+        return true;
+    }
+
+    virtual bool getDouble(INDEX start, int len, double *buf) const override {
+        double tmp = getDouble();
+        for (int i = 0; i < len; ++i) {
+            buf[i] = tmp;
+        }
+        return true;
+    }
+
+    virtual const float *getFloatConst(INDEX start, int len, float *buf) const override {
+        getFloat(start, len, buf);
+        return buf;
+    }
+
+    virtual const double *getDoubleConst(INDEX start, int len, double *buf) const override {
+        getDouble(start, len, buf);
+        return buf;
+    }
+
+public:  // decimal to integer
+    virtual char getChar() const override { return toInteger<char>(CHAR_MIN); }
+    virtual short getShort() const override { return toInteger<short>(SHRT_MIN); }
+    virtual int getInt() const override { return toInteger<int>(INT_MIN); }
+    virtual long long getLong() const override { return toInteger<long long>(LLONG_MIN); }
+
+    virtual bool getChar(INDEX start, int len, char *buf) const override {
+        return toInteger<char>(CHAR_MIN, start, len, buf);
+    }
+    virtual bool getShort(INDEX start, int len, short *buf) const override {
+        return toInteger<short>(SHRT_MIN, start, len, buf);
+    }
+    virtual bool getInt(INDEX start, int len, int *buf) const override {
+        return toInteger<int>(INT_MIN, start, len, buf);
+    }
+    virtual bool getLong(INDEX start, int len, long long *buf) const override {
+        return toInteger<long long>(LLONG_MIN, start, len, buf);
+    }
+
+    virtual const char *getCharConst(INDEX start, int len, char *buf) const override {
+        getChar(start, len, buf);
+        return buf;
+    }
+    virtual const short *getShortConst(INDEX start, int len, short *buf) const override {
+        getShort(start, len, buf);
+        return buf;
+    }
+    virtual const int *getIntConst(INDEX start, int len, int *buf) const override {
+        getInt(start, len, buf);
+        return buf;
+    }
+    virtual const long long *getLongConst(INDEX start, int len, long long *buf) const override {
+        getLong(start, len, buf);
+        return buf;
+    }
+
+public:
+    virtual void setBinary(const unsigned char *val, int unitLength) override {
+        if (unitLength != static_cast<int>(sizeof(T))) {
+            throw RuntimeException("Invalid unit length");
+        }
+        rawData_ = *reinterpret_cast<const T *>(val);
+    }
+
+    virtual bool getBinary(INDEX start, int len, int unitLength, unsigned char *buf) const override {
+        if (unitLength != static_cast<int>(sizeof(T))) {
+            throw RuntimeException("Invalid unit length");
+        }
+        auto dst = reinterpret_cast<T *>(buf);
+        for (int i = 0; i < len; ++i) {
+            dst[i] = rawData_;
+        }
+        return true;
+    }
+
+    virtual const unsigned char *getBinaryConst(INDEX start, int len, int unitLength,
+                                                unsigned char *buf) const override {
+        getBinary(start, len, unitLength, buf);
+        return buf;
+    }
+
+private:
+    template <typename U>
+    U toInteger(U nullVal) const {
+        if (isNull()) {
+            return nullVal;
+        }
+        double x = static_cast<double>(rawData_) / decimal_util::scaleMultiplier<T>(scale_);
+        return (x < 0 ? static_cast<U>(x - 0.5) : static_cast<U>(x + 0.5));
+    }
+
+    template <typename U>
+    bool toInteger(U nullVal, INDEX start, int len, U *buf) const {
+        U tmp = toInteger<U>(nullVal);
+        for (int i = 0; i < len; ++i) {
+            buf[i] = tmp;
+        }
+        return true;
+    }
+
+public:
+    virtual bool assign(const ConstantSP &value) override {
+        if (value->isNull()) {
+            setNull();
+            return true;
+        }
+
+        #define NORMAL_CASE(TYPE, Type)     \
+            case DT_##TYPE: {               \
+                assign(value->get##Type()); \
+                break;                      \
+            }                               \
+        //======
+
+        DATA_TYPE type = value->getType();
+        switch (type) {
+            case DT_DECIMAL32: {
+                auto dec = reinterpret_cast<DecimalImpl<int32_t> *>(value.get());
+                assign(*dec);
+                break;
+            }
+            case DT_DECIMAL64: {
+                auto dec = reinterpret_cast<DecimalImpl<int64_t> *>(value.get());
+                assign(*dec);
+                break;
+            }
+            NORMAL_CASE(SHORT, Short);
+            NORMAL_CASE(INT, Int);
+            NORMAL_CASE(LONG, Long);
+            NORMAL_CASE(FLOAT, Float);
+            NORMAL_CASE(DOUBLE, Double);
+            case DT_BLOB:
+            case DT_STRING: {
+                decimal_util::toDecimal(value->getString(), getScale(), rawData_);
+                break;
+            }
+            default: return false;
+        }
+        return true;
+
+        #undef NORMAL_CASE
+    }
+
+    virtual int compare(INDEX /*index*/, const ConstantSP &target) const override {
+        DATA_CATEGORY cat = target->getCategory();
+        decimal_util::checkComparison(cat);
+
+        if (target->isNull()) {
+            if (this->isNull()) {
+                return 0;
+            }
+            return 1;
+        }
+
+        if (cat == FLOATING) {
+            double lhs = this->getDouble();
+            double rhs = target->getDouble();
+            if (lhs < rhs) {
+                return -1;
+            } else if (lhs == rhs) {
+                return 0;
+            } else {
+                return 1;
+            }
+        } else if (cat != DENARY) {
+            DecimalImpl<T> tmp{scale_};
+            tmp.assign(target);
+
+            if (rawData_ < tmp.rawData_) {
+                return -1;
+            } else if (rawData_ == tmp.rawData_) {
+                return 0;
+            } else {
+                return 1;
+            }
+        }
+
+        if (target->getType() == DT_DECIMAL32) {
+            return compare(*reinterpret_cast<DecimalImpl<int32_t> *>(target.get()));
+        } else if (target->getType() == DT_DECIMAL64) {
+            return compare(*reinterpret_cast<DecimalImpl<int64_t> *>(target.get()));
+        } else {
+            throw RuntimeException("Unknown decimal type");
+        }
+
+        return 0;
+    }
+
+    virtual int serialize(char *buf, int bufSize, INDEX indexStart, int offset,
+                          int &numElement, int &partial) const override {
+        int len = sizeof(raw_data_t) - offset;
+        if (len < 0) {
+            return -1;
+        }
+
+        if (bufSize >= len) {
+            numElement = 1;
+            partial = 0;
+        } else{
+            len = bufSize;
+            numElement = 0;
+            partial = offset + bufSize;
+        }
+        memcpy(buf, reinterpret_cast<const char *>(&rawData_) + offset, len);
+        return len;
+    }
+
+    virtual IO_ERR serialize(const ByteArrayCodeBufferSP &buffer) const {
+        #define check_ret() if (ret != OK) { return ret; }
+        IO_ERR ret = OK;
+
+        short flag = (DF_SCALAR << 8) + type();
+        ret = buffer->write(static_cast<char>(CONSTOBJ)); check_ret();
+        ret = buffer->write(flag); check_ret();
+
+        ret = buffer->write(scale_); check_ret();
+
+        char buf[sizeof(raw_data_t)];
+        int numElement, partial;
+        int length = serialize(buf, sizeof(buf), 0, 0, numElement, partial);
+        return buffer->write(buf, length);
+
+        #undef check_ret
+    }
+
+    IO_ERR deserialize(DataInputStream *in, INDEX indexStart, int offset, INDEX targetNumElement,
+                       INDEX &numElement, int &partial) override {
+        IO_ERR ret = in->read(reinterpret_cast<char *>(&rawData_), sizeof(raw_data_t));
+        if (ret != OK) {
+            return ret;
+        }
+
+        numElement = 1;
+        return OK;
+    }
+
+private:
+    template <typename U = T>
+    static constexpr typename std::enable_if<std::is_same<U, int32_t>::value == true, DATA_TYPE>::type
+    type() { return DT_DECIMAL32; }
+
+    template <typename U = T>
+    static constexpr typename std::enable_if<std::is_same<U, int64_t>::value == true, DATA_TYPE>::type
+    type() { return DT_DECIMAL64; }
+
+private:
+    template <bool check_overflow>
+    friend struct DecimalBinaryOperation;
+
+    template <typename U>
+    friend class DecimalImpl;
+
+    /**
+     * Determines how many decimal digits fraction can have.
+     * Valid range: [ 0 : precision_ ].
+     */
+    int scale_;
+    raw_data_t rawData_;
+};
+
+using Decimal32 = DecimalImpl<int32_t>;
+using Decimal64 = DecimalImpl<int64_t>;
+
+
+namespace decimal_util {
+
+template <typename T>
+DecimalImpl<T> convertFrom(const int scale, const ConstantSP &obj) {
+    DecimalImpl<T> ret{scale};
+
+    if (false == ret.assign(obj)) {
+        throw RuntimeException("Can't convert " + Util::getDataTypeString(obj->getType()) + " to DECIMAL");
+    }
+
+    return ret;
+}
+
+inline Decimal32 toDecimal32(const string &str, int scale) {
+    Decimal32 res(scale);
+    int32_t rawData;
+    toDecimal(str, scale, rawData);
+    res.setRawData(rawData);
+    return res;
+}
+
+inline Decimal64 toDecimal64(const string &str, int scale) {
+    Decimal64 res(scale);
+    int64_t rawData;
+    toDecimal(str, scale, rawData);
+    res.setRawData(rawData);
+    return res;
+}
+
+} // namespace decimal_util
 
 
 #endif /* SCALARIMP_H_ */

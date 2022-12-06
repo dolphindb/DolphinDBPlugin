@@ -282,6 +282,10 @@ private:
 	bool isCodeObject_;
 	char functionType_;
 	int partial_;
+
+	/// Used for Decimal data type.
+	DATA_TYPE dataType_ = DT_VOID;
+	int scale_ = -1;
 };
 
 class VectorUnmarshall: public ConstantUnmarshallImp{
@@ -298,6 +302,9 @@ private:
 	short flag_;
 	int rows_;
 	int columns_;
+	/** Used for Decimal type. */
+	int scale_ = -1;
+
 	INDEX nextStart_;
 	int partial_;
 	int symbaseProgress_;

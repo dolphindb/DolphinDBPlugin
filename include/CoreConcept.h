@@ -26,6 +26,7 @@
 #include "FlatHashmap.h"
 #include "SysIO.h"
 #include "DolphinString.h"
+#include "DecimalDefs.h"
 
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define LIKELY(x) (__builtin_expect((x), 1))
@@ -562,7 +563,7 @@ public:
 	inline bool isDictionary() const {return getForm()==DF_DICTIONARY;}
 	inline bool isChunk() const {return getForm()==DF_CHUNK;}
 	bool isTuple() const {return getForm()==DF_VECTOR && getType()==DT_ANY;}
-	bool isNumber() const { DATA_CATEGORY cat = getCategory(); return cat == INTEGRAL || cat == FLOATING;}
+	bool isNumber() const { DATA_CATEGORY cat = getCategory(); return cat == INTEGRAL || cat == FLOATING || cat == DENARY; }
 
 	virtual bool isDatabase() const {return false;}
 	virtual char getBool() const {throw RuntimeException("The object can't be converted to boolean scalar.");}
@@ -1040,6 +1041,47 @@ public:
 	virtual ConstantSP rowPercentile(INDEX rowStart, INDEX count, double percentile) const {throw RuntimeException("rowPercentile method not supported");}
 	virtual ConstantSP rowRank(INDEX rowStart, INDEX count, bool ascending, int groupNum, bool ignoreNA, int tiesMethod, bool percent) const {throw RuntimeException("rowRank method not supported");}
 	virtual ConstantSP rowDenseRank(INDEX rowStart, INDEX count, bool ascending, bool ignoreNA, bool percent) const {throw RuntimeException("rowDenseRank method not supported");}
+
+	/// A Decimal vector must implement following methods
+	/**
+	 * result = this[offset,offset+length) + other
+	 */
+	virtual void decimalVectorAdd(INDEX offset, INDEX length, const ConstantSP &other,
+			const ConstantSP &result) const {
+		throw RuntimeException("`decimalVectorAdd` method not supported");
+	}
+	/**
+	 * if `reverse` is false: result = this[offset,offset+length) - other
+	 * if `reverse` is true: result = other - this[offset,offset+length)
+	 */
+	virtual void decimalVectorSub(INDEX offset, INDEX length, const ConstantSP &other, const ConstantSP &result,
+			const bool reverse) const {
+		throw RuntimeException("`decimalVectorSub` method not supported");
+	}
+	/**
+	 * result = this[offset,offset+length) * other
+	 */
+	virtual void decimalVectorMultiply(INDEX offset, INDEX length, const ConstantSP &other,
+			const ConstantSP &result) const {
+		throw RuntimeException("`decimalVectorMultiply` method not supported");
+	}
+	/**
+	 * if `reverse` is false: result = this[offset,offset+length) / other
+	 * if `reverse` is true: result = other / this[offset,offset+length)
+	 */
+	virtual void decimalVectorDivide(INDEX offset, INDEX length, const ConstantSP &other, const ConstantSP &result,
+			const bool reverse) const {
+		throw RuntimeException("`decimalVectorDivide` method not supported");
+	}
+	/**
+	 * @brief compare between a decimal vector and other object (maybe a scalar or vector)
+	 *
+	 * @return ConstantSP a boolean vector
+	 */
+	virtual ConstantSP decimalVectorCompare(INDEX offset, INDEX length, decimal_util::CompareType comp,
+			const ConstantSP &other, const bool nullAsMinValue) const {
+		throw RuntimeException("`decimalVectorCompare` method not supported");
+	}
 
 private:
 	string name_;
@@ -1672,6 +1714,8 @@ public:
 	inline void setCompressionOption(bool option){ if(option) flag_ |= 64; else flag_ &= ~64;}
 	inline int getDepth() const { return (flag_ >> 8) & 7;}
 	inline void setDepth(int depth) { flag_ = (flag_ & ~(7<<8)) | (depth << 8);}
+    inline bool isTracing() { return tracing_; }
+    inline void setTracing(bool tracing) { tracing_ = tracing; }
 	inline bool getEnableTransactionStatement() { return flag_ & 2048; }
 	inline void setEanbleTransactionStatement(bool option) { if(option) flag_ |= 2048; else flag_ &= ~2048; }
 	virtual TransactionSP getTransaction() { return transaction_; }
@@ -1695,6 +1739,7 @@ protected:
 	int flag_;
 	bool enableTransactionStatement_;
 	TransactionSP transaction_;
+    bool tracing_ = false;
 };
 
 class Transaction {
@@ -1717,7 +1762,7 @@ public:
 	~Heap();
 
 	ConstantSP getValue(int index) const;
-	const ConstantSP& getReference(int index) const;
+	ConstantSP getReference(int index) const;
 	ConstantSP getReference(const string& name) const;
 	inline int size() const {return size_;}
 	inline bool isViewMode() const { return status_ & 1;}
@@ -2048,6 +2093,10 @@ public:
 	inline int getPriority() const { return priority_;}
 	inline void setParallelism(int parallelism) { parallelism_ = parallelism;}
 	inline int getParallelism() const { return parallelism_;}
+    inline const Guid &getSpanId() const { return spanId_; }
+    inline void setSpanId(const Guid &spanId) { spanId_ = spanId; }
+    inline const Guid &getParentSpanId() const { return parentSpanId_; }
+    inline void setParentSpanId(const Guid &spanId) { parentSpanId_ = spanId; }
 	void set(Heap* heap, const SessionSP& session, const Guid& jobId, const CountDownLatchSP& latch);
 	void set(Heap* heap, const SessionSP& session);
 	void done(const ConstantSP& result);
@@ -2059,6 +2108,8 @@ public:
 	inline bool isViewMode() const { return viewMode_;}
 	inline bool isCancellable() const {return cancellable_;}
 	inline void setCancellable(bool option){cancellable_ = option;}
+    inline bool isTracing() const { return tracing_; }
+    inline void setTracing(bool tracing) { tracing_ = tracing; }
 	inline int getDepth() const { return depth_;}
 	inline void setDepth(int depth){ depth_ = depth;}
 	virtual void setLastSuccessfulSite(){}
@@ -2086,6 +2137,9 @@ private:
 	bool cancellable_;
 	bool carryover_ = false;
 	bool callbackMode_ = false;
+    bool tracing_ = false;
+    Guid spanId_;
+    Guid parentSpanId_;
 	unsigned char depth_ = 0;
 	Heap* heap_;
 	SessionSP session_;
@@ -2272,7 +2326,10 @@ public:
 	static bool loadTableHeader(const DataInputStreamSP& in, string& owner, string& physicalIndex, vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices,
 			vector<pair<int, bool>>& sortKeys, DUPLICATE_POLICY& rowDuplicatePolicy, DBENGINE_TYPE engineType, vector<std::pair<int, FunctionDefSP>>& sortKeyMappingFunction);
 	static void removeBasicTable(const string& directory, const string& tableName);
-	static TableSP createEmptyTableFromSchema(const TableSP& schema);
+	/**
+	 * @param extras extra param for data type (i.e., scale for decimal)
+	 */
+	static TableSP createEmptyTableFromSchema(const TableSP& schema, const std::vector<long long> &extras = {});
 	static long long truncateColumnByLSN(const string& colFile, int devId, long long expectedLSN, bool sync=true);
 	static long long truncateColumnByRows(const string& colFile, int devId, INDEX rows, bool sync=true);
 	static void truncateSymbolBase(const string& symFile, int devId, INDEX rows, bool sync=true);
