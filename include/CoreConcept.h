@@ -1535,7 +1535,7 @@ public:
 	~Heap();
 
 	ConstantSP getValue(int index) const;
-	const ConstantSP& getReference(int index) const;
+	ConstantSP getReference(int index) const;
 	ConstantSP getReference(const string& name) const;
 	inline int size() const {return size_;}
 	inline bool isViewMode() const { return status_ & 1;}

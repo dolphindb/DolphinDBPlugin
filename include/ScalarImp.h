@@ -171,6 +171,7 @@ public:
 	static bool parseUuid(const char* str, size_t len, unsigned char* buf);
 };
 
+# ifndef OPCUA
 class IPAddr : public Int128 {
 public:
 	IPAddr();
@@ -190,6 +191,7 @@ private:
 	static bool parseIP4(const char* str, size_t len, unsigned char* buf);
 	static bool parseIP6(const char* str, size_t len, unsigned char* buf);
 };
+# endif
 
 class DoublePair {
 public:
@@ -896,7 +898,7 @@ public:
 	virtual ~Double(){}
 	virtual bool isNull() const {return val_==DBL_NMIN;}
 	virtual void setNull(){val_=DBL_NMIN;}
-	virtual void setDouble(double val){ val_ = val;}
+	virtual void setDouble(double val){ val_ = (std::isnan(val)|| std::isinf(val)) ? DBL_NMIN : val; }
 	virtual DATA_TYPE getType() const {return DT_DOUBLE;}
 	virtual DATA_TYPE getRawType() const { return DT_DOUBLE;}
 	virtual ConstantSP getInstance() const {return ConstantSP(new Double());}
