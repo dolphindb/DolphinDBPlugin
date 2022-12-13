@@ -5,13 +5,18 @@ DolphinDB的HDFS插件可以从Hadoop的hdfs之中读取文件的信息，或者
 HDFS插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/hdfs/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/hdfs/README.md), [release120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/hdfs/README.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
 
 ## 1 预编译安装
+预先编译的插件文件存放在 DolphinDBPlugin/hdfs/bin/linux64 目录下。将其下载至 /DolphinDB/server/plugins/hdfs。
 
 执行Linux命令，指定插件运行时需要的动态库路径
 ``` shell
 export LD_LIBRARY_PATH=/path/to/plugins/hdfs:$LD_LIBRARY_PATH
+find /usr/ -name "libjvm.so" //寻找系统上libjvm.so库的所在文件夹位置。
+export LD_LIBRARY_PATH=/path/to/libjvm.so/:$LD_LIBRARY_PATH
 ```
-启动DolphinDB服务，并执行DolphinDB插件加载脚本
+启动DolphinDB，加载插件：
 ``` shell
+cd DolphinDB/server //进入DolphinDB server目录
+./dolphindb //启动 DolphinDB server
 loadPlugin("/path/to/plugins/hdfs/PluginHdfs.txt");
 ```
 ## 2 编译安装
@@ -68,7 +73,7 @@ disconnect(hdfsFS)
 
 #### 参数
 
-- ‘hdfsFs’是connect()函数返回的句柄
+- ‘hdfsFS’是connect()函数返回的句柄
 
 #### 详情
 
@@ -84,7 +89,7 @@ exists(hdfsFS, path )
 
 #### 参数
 
-- ‘hdfsFs’是connect()函数返回的句柄
+- ‘hdfsFS’是connect()函数返回的句柄
 - ‘path’是你想判断是否存在的路径
 
 #### 详情
@@ -101,9 +106,9 @@ copy(hdfsFS1, src, hdfsFS2, dst)
 
 #### 参数
 
-- ‘hdfsFs1’是connect()函数返回的句柄
+- ‘hdfsFS1’是connect()函数返回的句柄
 - 'src'是源文件的路径
-- ‘hdfsFs2’是connect()函数返回的句柄
+- ‘hdfsFS2’是connect()函数返回的句柄
 - ‘dst’是目标文件的路径
 
 #### 详情
@@ -120,9 +125,9 @@ move(hdfsFS1,src,hdfsFS2,dst)
 
 #### 参数
 
-- ‘hdfsFs1’是connect()函数返回的句柄
+- ‘hdfsFS1’是connect()函数返回的句柄
 - 'src'是源文件的路径
-- ‘hdfsFs2’是connect()函数返回的句柄
+- ‘hdfsFS2’是connect()函数返回的句柄
 - ‘dst’是目标文件的路径
 
 #### 详情
@@ -139,7 +144,7 @@ delete(hdfsFS, path, recursive )
 
 #### 参数
 
-- ‘hdfsFs’是connect()函数返回的句柄
+- ‘hdfsFS’是connect()函数返回的句柄
 - 'path'是想要删除的文件的路径
 - ‘recursive’表示是否递归删除想要删除的目录
 
@@ -157,9 +162,9 @@ rename(hdfsFS, oldPath, newPath )
 
 #### 参数
 
-- ‘hdfsFs’是connect()函数返回的句柄
+- ‘hdfsFS’是connect()函数返回的句柄
 - 'oldPath'是重命名之前文件的路径
-- ‘newPath’是重命名之后文件的路径
+- ‘newPath’是重命名之后文件的路径。如果路径已经存在并且是一个目录，源文件将被移动到其中；如果路径存在并且是一个文件，或者缺少父级目录，则会报错。
 
 #### 详情
 
@@ -175,7 +180,7 @@ createDirectory(hdfsFS, path)
 
 #### 参数
 
-- ‘hdfsFs’是connect()函数返回的句柄
+- ‘hdfsFS’是connect()函数返回的句柄
 - ‘path’是想要创建的文件夹的路径
 
 #### 详情
@@ -192,7 +197,7 @@ chmod(hdfsFS, path, mode)
 
 #### 参数
 
-- ‘hdfsFs’是connect()函数返回的句柄
+- ‘hdfsFS’是connect()函数返回的句柄
 - ‘path’是想要修改权限的文件的路径
 - ‘mode’是想要修改成为的权限值
 
@@ -210,7 +215,7 @@ fileInfo=getListDirectory(hdfsFS, path)
 
 #### 参数
 
-- ‘hdfsFs’是connect()函数返回的句柄
+- ‘hdfsFS’是connect()函数返回的句柄
 - ‘path’是目标目录
 
 #### 详情
@@ -259,7 +264,7 @@ readFile(hdfsFS, path, handler)
 
 #### 参数
 
-- ‘hdfsFs’是connect()函数返回的句柄
+- ‘hdfsFS’是connect()函数返回的句柄
 - 'path'是想要读取的文件所在的路径
 - 'handler'是只能够接受两个传入参数的用来处理文件字节流的函数
 
@@ -267,17 +272,17 @@ readFile(hdfsFS, path, handler)
 
 从hdfs的服务器中读取数据，调用handler函数将数据处理后存放在内存表中，返回值为该内存表。
 
-### 3.13 writeFile
+### 3.14 writeFile
 
 #### 语法
 
 ``` shell
-readFile(hdfsFS, path, tabble, handler)
+readFile(hdfsFS, path, tb, handler)
 ```
 
 #### 参数
 
-- ‘hdfsFs’是connect()函数返回的句柄
+- ‘hdfsFS’是connect()函数返回的句柄
 - 'path'是想要读取的文件所在的路径
 - 'tb'要保存的内存表
 - 'handler'是接受一个内存表作为参数，将内存表转换为数据流的函数
