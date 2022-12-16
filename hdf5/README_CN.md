@@ -2,6 +2,8 @@
 
 DolphinDB HDF5插件可將HDF5文件导入DolphinDB，并支持进行数据类型转换。
 
+HDF5插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/hdf5/README_CN.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/hdf5/README_CN.md), [release120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/hdf5/README_CN.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/hdf5/README_CN.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
+
 - [DolphinDB HDF5 Plugin](#dolphindb-hdf5-plugin)
   - [1 安装](#1-安装)
     - [1.1 预编译安装](#11-预编译安装)
@@ -11,9 +13,10 @@ DolphinDB HDF5插件可將HDF5文件导入DolphinDB，并支持进行数据类�
     - [2.2 hdf5::lsTable](#22-hdf5lstable)
     - [2.3 hdf5::extractHDF5Schema](#23-hdf5extracthdf5schema)
     - [2.4 hdf5::loadHDF5](#24-hdf5loadhdf5)
-    - [2.5 hdf5::loadHDF5Ex](#25-hdf5loadhdf5ex)
-    - [2.6 hdf5::HDF5DS](#26-hdf5hdf5ds)
-    - [2.7 hdf5::saveHDF5](#27-hdf5savehdf5)
+    - [2.5 hdf5::loadPandasHDF5](#25-hdf5loadpandashdf5)
+    - [2.6 hdf5::loadHDF5Ex](#26-hdf5loadhdf5ex)
+    - [2.7 hdf5::HDF5DS](#27-hdf5hdf5ds)
+    - [2.8 hdf5::saveHDF5](#28-hdf5savehdf5)
   - [3 支持的数据类型](#3-支持的数据类型)
     - [3.1 integer](#31-integer)
     - [3.2 float](#32-float)
@@ -48,7 +51,6 @@ loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
 #### Windows <!-- omit in toc -->
 
 必须通过绝对路径加载，且路径中使用"\\\\"或"/"代替"\\"。
-
 ```
 loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
 ```
@@ -324,7 +326,34 @@ output:
 
 > **请注意：数据集的dataspace维度必须小于等于2。只有一维或二维表可以被解析。**
 
-### 2.5 hdf5::loadHDF5Ex
+### 2.5 hdf5::loadPandasHDF5
+
+#### 语法 <!-- omit in toc -->
+
+hdf5::loadPandasHDF5(fileName,groupName,[schema],[startRow],[rowNum])
+
+#### 参数 <!-- omit in toc -->
+
+* fileName: 由Pandas保存的HDF5文件名，类型为字符串标量。
+* groupName: group的标识符，即key名。
+* schema: 包含列名和列的数据类型的表。若要改变由系统自动决定的列的数据类型，需要在schema表中修改数据类型，并且把它作为`loadPandasHDF5`函数的一个参数。
+* startRow: 从哪一行开始读取HDF5数据集。若不指定，默认从数据集起始位置读取。
+* rowNum: 读取HDF5数据集的行数。若不指定，默认读到数据集的结尾。
+
+#### 详情 <!-- omit in toc -->
+
+将由Pandas保存的HDF5文件中的指定数据表加载为DolphinDB数据库的内存表。读取的行数为HDF5文件中定义的行数，而不是读取结果中的DolphinDB表的行数。支持的数据类型，以及数据转化规则可见[数据类型](#3-支持的数据类型)章节。
+
+#### 例子 <!-- omit in toc -->
+```
+hdf5::loadPandasHDF5("/home/ffliu/Data/data.h5","/s",,1,1)
+
+output:
+        A	 B	C  D  E
+        28 77	54 78 9
+```
+
+### 2.6 hdf5::loadHDF5Ex
 
 #### 语法 <!-- omit in toc -->
 
@@ -392,7 +421,7 @@ def i2d(mutable t){
 }
 t = hdf5::loadHDF5Ex(db,`tb1,`trans_time,dataFilePath,datasetName,,,,i2d)
 ```
-### 2.6 hdf5::HDF5DS
+### 2.7 hdf5::HDF5DS
 
 #### 语法 <!-- omit in toc -->
 
@@ -438,7 +467,7 @@ res = mr(ds, def(x) : x)
 ds = hdf5::HDF5DS("/smpl_numeric.h5", "sint", ,3)
 res = mr(ds, def(x) : x,,,false)
 ```
-### 2.7 hdf5::saveHDF5
+### 2.8 hdf5::saveHDF5
 
 #### 语法 <!-- omit in toc -->
 
