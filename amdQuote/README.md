@@ -2,11 +2,28 @@
 
 您正在查看的教程位于 release200 分支，需要使用 2.00.X 版本 server。
 
-## 构建
+DolphinDB amdQuote 插件目前仅支持 Linux 系统。本文仅介绍 Linux 系统上如何安装及使用该插件。
 
-### 使用cmake编译构建
+## 1. 安装构建
 
-安装cmake
+### 1.1. 预编译安装
+
+预先编译的插件文件存放在[bin/linux64](https://github.com/dolphindb/DolphinDBPlugin/tree/release130/amdQuote/bin/linux64) 目录。将该目录下的所有文件（包括动态库文件）下载至 DolphinDB server 所在机器的如下目录：/DolphinDB/server/plugins/amdQuote。
+
+Linux 终端执行以下命令，指定插件运行时需要的动态库路径
+```
+export LD_LIBRARY_PATH=/your_plugin_path:$LD_LIBRARY_PATH //指定动态库位置 
+```
+启动 DolphinDB，加载插件：
+```
+cd DolphinDB/server //进入 DolphinDB serve r目录
+./dolphindb //启动 DolphinDB server
+ loadPlugin("/your_plugin_path/PluginAmdQuote.txt") //加载插件
+```
+
+### 1.2. 使用 CMake 编译构建
+
+安装 CMake
 
 ```bash
 sudo apt install cmake
@@ -21,20 +38,10 @@ cmake .. -DAMDAPIDIR=<amd_ami_dir>
 make -j
 ```
 
-libPluginAmdQuote.so文件会在编译后生成。
+libPluginAmdQuote.so文件会在编译后生成。编译后 build 目录下会产生文件 libPluginAmdQuote.so 和 PluginAmdQuote.txt。
 
-在加载插件之前，执行下面的命令
-```bash
-export LD_LIBRARY_PATH=/path_to_amdQuote/lib:$LD_LIBRARY_PATH
-```
+参考 [预编译安装](#11-预编译安装) 指定动态库的环境变量，并加载插件。
 
-## 插件加载
-
-编译生成 libPluginAmdQuote.so 之后，通过以下脚本加载插件：
-
-```
-loadPlugin("/path_to_pluginAmdQuote/PluginAmdQuote.txt");
-```
 ## 接口说明
 
 **amdQuote::connect(username, password, ips, ports, options)**
@@ -49,9 +56,11 @@ loadPlugin("/path_to_pluginAmdQuote/PluginAmdQuote.txt");
 
 `ports` 为整型向量，AMD 行情服务器端口列表，需要和 IP 列表数量相同。
 
-`options` 可选参数。是字典类型，表示扩展参数。当前键支持 receivedTime和DailyIndex，receivedTime表示是否获取插件收到行情数据的时间戳，DailyIndex表示是否添加每天按channel_no递增的数据列。
-receivedTime参数指定为 dict(["ReceivedTime"], [true]) 时， getSchema 获取的表结构中将包含插件收到行情数据的时间戳列。
-DailyIndex参数指定为 dict(["DailyIndex"], [true]) 时， getSchema 获取的表结构中将包含插件收到行情数据的按 channel_no 递增的列。
+`options` 可选参数。是字典类型，表示扩展参数。当前键支持 receivedTime 和 DailyIndex。
+其中：
+
+* receivedTime 表示是否获取插件收到行情数据的时间戳。其指定为 dict(["ReceivedTime"], [true]) 时，getSchema 获取的表结构中将包含插件收到行情数据的时间戳列。
+* DailyIndex 表示是否添加每天按 channel_no 递增的数据列。其指定为 dict(["DailyIndex"], [true]) 时，getSchema 获取的表结构中将包含插件收到行情数据的按 channel_no 递增的列。
 
 **函数详情**
 
@@ -71,7 +80,7 @@ DailyIndex参数指定为 dict(["DailyIndex"], [true]) 时， getSchema 获取�
 
 `codeList` 字符串向量，可选。表示股票列表。不传该参数表示订阅所有股票。
 
-`transform`: 一元函数，插入到DolphinDB表库前对表进行转换，例如替换列。请注意，传入的一元函数中不能存在对DFS表的操作，例如：读取或写入DFS表，获取DFS表的schema等。
+`transform`: 一元函数（其参数是一个表）。插入到 DolphinDB 表前对表进行转换，例如替换列。请注意，传入的一元函数中不能存在对 DFS 表的操作，例如：读取或写入 DFS 表，获取 DFS 表的 schema 等。
 
 **函数详情**
 
