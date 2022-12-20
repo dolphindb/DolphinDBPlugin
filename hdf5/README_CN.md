@@ -134,7 +134,7 @@ make -j8
 + make install -j8
 ```
 
-+ 拷贝编译文件到hdf插件文件目录
++ 拷贝编译文件到hdf5插件文件目录
 ```
 cp $HOME/hdf5/include/* /path_to_hdf5_plugin/include_win/hdf5
 cp $HOME/hdf5/lib/libhdf5.a /path_to_hdf5_plugin/build
@@ -344,7 +344,7 @@ hdf5::loadPandasHDF5(fileName,groupName,[schema],[startRow],[rowNum])
 
 #### 例子 <!-- omit in toc -->
 ```
-hdf5::loadPandasHDF5("/home/ffliu/Data/data.h5","/s",,1,1)
+hdf5::loadPandasHDF5("../hdf5/h5file/data.h5","/s",,1,1)
 
 output:
         A	 B	C  D  E
