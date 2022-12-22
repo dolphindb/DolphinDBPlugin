@@ -85,7 +85,10 @@ Windows 系统下，需要将 [win32](https://github.com/dolphindb/DolphinDBPlug
 
 `configFilePath` 一个字符串，表示 `sdk_config.ini` 的绝对路径；若拷贝 `sdk_config.ini` 至 dolphindb server，则可以是相对于 dolphindb server 的一个相对路径。
 
-`options` 可选参数。是字典类型，表示扩展参数。当前键只支持 receivedTime，表示是否显示接收时间，对应值为布尔值。详见后文示例。
+`options` 可选参数。是字典类型，表示扩展参数，用法详见后文示例。当前键支持 receivedTime 和 getAllFieldNames。其中：
+
+* receivedTime 表示是否显示接收时间，对应值为布尔值。 
+* getAllFieldNames 表示是否接受所有字段数据，对应值为布尔值。
 
 **函数详情**
 
@@ -196,7 +199,7 @@ login("admin", "123456")
 // 加载插件
 loadPlugin("Your_plugin_path/PluginNsq.txt");
 // 连接行情服务器，第二个参数为可选
-nsq::connect(your_config_path，dict(["ReceivedTime"], [true]);
+nsq::connect(your_config_path，dict(["ReceivedTime"， "getAllFieldNames"], [true, true]);
 // 获取行情数据的表结构
 snapshotSchema = nsq::getSchema(`snapshot);
 tradeSchema = nsq::getSchema(`trade);
