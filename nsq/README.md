@@ -10,13 +10,13 @@
 
 请注意，DolphinDB 仅提供对接 HSNsqApi 的 NSQ 插件。数据源和接入服务可咨询数据服务商或证券公司。
 
-NSQ 插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/nsq/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/nsq/README.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。仅 DolphinDB_Linux64_V2.00.6, DolphinDB_Linux64_V1.30.18, DolphinDB_Win64_V1.30.18_JIT, DolphinDB_Win64_V2.00.6_JIT 及以上版 server 支持 NSQ 插件。
+NSQ 插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/nsq/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/nsq/README.md)。您当前查看的插件版本为release130，请使用DolphinDB 1.30.X版本server。若使用其它版本server，请切换至相应插件分支。仅 DolphinDB_Linux64_V2.00.6, DolphinDB_Linux64_V1.30.18, DolphinDB_Win64_V1.30.18_JIT, DolphinDB_Win64_V2.00.6_JIT 及以上版 server 支持 NSQ 插件。
 
 ## 1. 安装构建
 
 ### 1.1. 预编译安装
 
-1. 预先编译的插件文件存放在 [for Windows](https://github.com/dolphindb/DolphinDBPlugin/tree/release200/nsq/bin/win) 或 [for Linux](https://github.com/dolphindb/DolphinDBPlugin/tree/release200/nsq/bin/linux) 目录。将该目录下的所有文件（包括动态库文件）下载至 DolphinDB server 所在机器的如下目录：/DolphinDB/server/plugins/xxx。
+1. 预先编译的插件文件存放在 [for Windows](https://github.com/dolphindb/DolphinDBPlugin/tree/release130/nsq/bin/win) 或 [for Linux](https://github.com/dolphindb/DolphinDBPlugin/tree/release130/nsq/bin/linux) 目录。将该目录下的所有文件（包括动态库文件）下载至 DolphinDB server 所在机器的如下目录：/DolphinDB/server/plugins/xxx。
 
 2. 若使用 Linux 系统，在加载 NSQ 插件前，需为依赖库指定环境变量：
    
@@ -42,7 +42,7 @@ NSQ 插件目前支持版本：[relsease200](https://github.com/dolphindb/Dolphi
 
 首先，在 NSQ 插件文件夹下创建一个 build 文件夹，作为编译工作区。因为编译插件时需要链接 libDolphinDB.so （libDolphinDB.so 是运行 dolphindb 所依赖的库，非插件特有）。编译开始之前，需要将 dolphindb server 同级或上级目录下的 libDolphinDB.so  拷贝至 build 文件夹。
 
-注意：在 [lib](https://github.com/dolphindb/DolphinDBPlugin/tree/release200/nsq/lib) 下，有针对不同操作系统的 NSQ SDK 库，分别存放于不同的文件夹，需要根据当前构建系统的类型拷贝其中一个动态库至 lib 目录（默认是 linux64）。在插件运行的时候也需要加载此 so 库，因此还需要拷贝到能识别该 so 文件的路径下（例如：dolphindb server 下与 libDolphinDB.so 同级的目录）。
+注意：在 [lib](https://github.com/dolphindb/DolphinDBPlugin/tree/release130/nsq/lib) 下，有针对不同操作系统的 NSQ SDK 库，分别存放于不同的文件夹，需要根据当前构建系统的类型拷贝其中一个动态库至 lib 目录（默认是 linux64）。在插件运行的时候也需要加载此 so 库，因此还需要拷贝到能识别该 so 文件的路径下（例如：dolphindb server 下与 libDolphinDB.so 同级的目录）。
 
 ```
 mkdir build
@@ -53,7 +53,7 @@ make
 
 **Windows**
 
-Windows 系统下，需要将 [win32](https://github.com/dolphindb/DolphinDBPlugin/tree/release200/nsq/lib/win32) 或者 [win64](https://github.com/dolphindb/DolphinDBPlugin/tree/release200/nsq/lib/win64) 中的 HSNsqApi.dll 拷贝至 nsq/lib/ 目录。
+Windows 系统下，需要将 [win32](https://github.com/dolphindb/DolphinDBPlugin/tree/release130/nsq/lib/win32) 或者 [win64](https://github.com/dolphindb/DolphinDBPlugin/tree/release130/nsq/lib/win64) 中的 HSNsqApi.dll 拷贝至 nsq/lib/ 目录。
 
 1. 编译准备
 
