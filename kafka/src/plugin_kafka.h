@@ -8,7 +8,7 @@
 #include "Concurrent.h"
 #include "cppkafka/cppkafka.h"
 #include "ScalarImp.h"
-#include "ConstantMarshall.h"
+#include "ConstantMarshal.h"
 #include "json.hpp"
 #include "client.h"
 
@@ -20,10 +20,10 @@ using namespace cppkafka;
 using namespace std;
 using json = nlohmann::json;
 
-string producer_desc = "kafka producer connection";
-string consumer_desc = "kafka consumer connection";
-string queue_desc = "kafka queue connection";
-string event_desc = "kafka event connection";
+const string PRODUCER_DESC = "kafka producer connection";
+const string CONSUMER_DESC = "kafka consumer connection";
+const string QUEUE_DESC = "kafka queue connection";
+const string EVENT_DESC = "kafka event connection";
 
 
 DictionarySP status_dict = Util::createDictionary(DT_STRING,nullptr,DT_ANY,nullptr);
