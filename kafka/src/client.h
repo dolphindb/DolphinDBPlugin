@@ -40,8 +40,8 @@ public:
 
 class AppendTable : public Runnable {
 public:
-    AppendTable(Heap *heap, const FunctionDefSP& parser, SubConnection* client, ConstantSP handle, ConstantSP consumer, int timeout)
-            : client_(client), parser_(parser), handle_(handle), consumer_(consumer), heap_(heap), timeout_(timeout){
+    AppendTable(Heap *heap, const ConstantSP& parser, SubConnection* client, ConstantSP handle, ConstantSP consumer, int timeout)
+            : client_(client), parser_(parser), handle_(handle), consumer_(consumer), timeout_(timeout){
         session_ = heap->currentSession()->copy();
         session_->setUser(heap->currentSession()->getUser());
         session_->setOutput(new DummyOutput);
@@ -54,10 +54,9 @@ public:
 private:
     SessionSP session_;
     SubConnection * client_;
-    FunctionDefSP parser_;
+    ConstantSP parser_;
     ConstantSP handle_;
     ConstantSP consumer_;
-    Heap* heap_;
     bool flag_ = true;
     int timeout_;
 };
@@ -73,7 +72,7 @@ private:
     SmartPointer<AppendTable> append_;
 public:
     SubConnection();
-    SubConnection(Heap *heap, std::string description, const FunctionDefSP& parser, ConstantSP handle, ConstantSP consumer, int timeout);
+    SubConnection(Heap *heap, std::string description, const ConstantSP& parser, const ConstantSP& handle, const ConstantSP& consumer, int timeout);
     ~SubConnection();
     
     string getDescription(){
@@ -93,7 +92,6 @@ public:
         thread_->join();
     }
 };
-
 
 
 #endif //KAFKA_CLIENT_H
