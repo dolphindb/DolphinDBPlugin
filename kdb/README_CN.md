@@ -1,6 +1,6 @@
 # DolphinDB kdb+ Plugin
 
-通过 DolphinDB 的 kdb+ 数据导入插件，可以将用户存储在磁盘上的 kdb+ 数据表导入 DolphinDB 数据库内存表。该插件支持导入所有 Q 语言的数据类型。目前支持两种导入模式：通过 loadTable 导入和通过 loadFile 导入。
+DolphinDB 的 kdb+ 插件支持通过 loadTable 和 loadFile 接口将 kdb+ 数据表和 Q 语言数据类型导入 DolphinDB 内存表。
 
 ## 1 预编译安装
 
@@ -26,13 +26,15 @@ CentOS 系统：
 yum install -y zlib zlib-devel
 ```
 
-Windows 系统：
+## 2 插件加载与编译
 
-http://www.winimage.com/zLibDll/
+### 2.1 预编译安装
 
-## 2 插件编译与加载
+可以直接使用已编译好的插件，在 bin/ 文件夹中根据服务器操作系统选择适合的插件。
 
-### 2.1 编译安装
+请注意插件的版本应与 DolphinDB 客户端版本相同，通过切换分支获取相应版本。
+
+### 2.3 编译安装
 
 #### Linux 系统编译
 
@@ -44,6 +46,7 @@ cmake ..
 make
 ```
 
+<!-- Windows 还没有发布，暂时隐藏>
 #### Windows 系统编译
 - 下载安装[MinGW](http://www.mingw.org/)。确保将 bin 目录添加到系统环境变量 Path 中。
 - 下载安装[cmake](https://cmake.org/)。
@@ -57,8 +60,9 @@ cd build
 cmake  ../ -G "MinGW Makefiles"
 mingw32-make -j4
 ```
-
-### 2.2 DolphinDB 加载插件
+<!-->
+### 2.3 加载插件
+在 DolphinDB 客户端运行以下命令加载插件，需要将目录替换为 PluginKDB 文本文件所在的位置：
 
 ```DolphinDB shell
 loadPlugin("/path/to/plugin/PluginKDB.txt")
@@ -68,13 +72,13 @@ loadPlugin("/path/to/plugin/PluginKDB.txt")
 
 ### 3.1 connect
 
-#### 语法
+**语法**
 
 ``` shell
 connect(host, port, usernamePassword)
 ```
 
-#### 参数
+**参数**
 
 - 'host' 是要连接的 kdb+ 数据库所在的主机地址
 
@@ -84,7 +88,7 @@ connect(host, port, usernamePassword)
 
    该参数可以为空。若启动 kdb+ 时没有指定用户名和密码，则该参数为空或任意字符串。
 
-#### 详情
+**详情**
 
 建立与 kdb+ 服务器之间的连接。返回一个连接句柄。
 
@@ -96,12 +100,11 @@ connect(host, port, usernamePassword)
 **示例：**  
 假设登录 kdb+ 数据库的用户名和密码（admin:123456）存储在 ../passwordfiles/usrs 中，且 kdb+ 服务器和 DolphinDB server 都位于同一个主机上。 
 
+kdb+ 终端执行：
 ```
 kdb shell：         q -p 5000 -U ../passwordfiles/usrs   // 注意 -U 一定需要大写
-DolphinDB shell：   handle = kdb::connect("127.0.0.1", 5000, "admin:123456")
 ```
-
-**例子**
+DolphinDB 客户端执行：
 
 ```
 // 若开启 kdb+ 时指定了用户名和密码
@@ -113,13 +116,13 @@ handle = kdb::connect("127.0.0.1", 5000)
 
 ### 3.2 loadTable
 
-#### 语法
+**语法**
 
 ``` shell
 loadTable(handle, tablePath, symPath)
 ```
 
-#### 参数
+**参数**
 
 - 'handle' 是 `connect` 返回的连接句柄
 
@@ -129,14 +132,13 @@ loadTable(handle, tablePath, symPath)
   
   该参数可以为空，此时必须保证表内不包含被枚举的 symbol 列。
 
-路径建议使用'/'分隔。
+注意：路径中建议使用'/'分隔。
 
-#### 详情
+**详情**
 
 连接 kdb+ 数据库，通过 kdb+ 数据库加载数据，再将数据导入 DolphinDB 内存表。
 
 >在 kdb+ 数据库中，symbol 类型可以通过枚举存入 sym 文件，在表中使用 int 类型代替字符串进行存储，以减少字符串重复存储所占的空间，因此如果需要读取的表包含了枚举的 symbol 列，则需要读入 sym 文件才能正确读取表内的 symbol 列。
->由于通过在 kdb+ 中先加载数据的方式进行导入，当读取一个将 symbol 列枚举后的表时，虽然指定或不指定 sym 文件，都能得到结果，但不指定 sym 文件时，kdb+ 会将 symbol 列读取为 long long 类型的数据。因此请留意所要读取的表是否含有被枚举的 symbol 列。
 
 **例子**
 
@@ -152,13 +154,13 @@ Txns = kdb::loadTable(handle, DATA_DIR + "/2022.06.17/Txns", DATA_DIR)
 
 ### 3.3 loadFile
 
-#### 语法
+**语法**
 
 ``` shell
 loadFile(tablePath, symPath)
 ```
 
-#### 参数
+**参数**
 
 - 'tablePath' 是一个字符串，表示需要读取的表文件路径。只能是 splayed table, partitioned table 或 segmented table 的表文件目录
 
@@ -166,9 +168,9 @@ loadFile(tablePath, symPath)
   
   该参数可以为空，此时必须保证表内不包含被枚举的 symbol 列。
 
-路径建议使用'/'分隔。
+注意：路径中建议使用'/'分隔。
 
-#### 详情
+**详情**
 
 直接读取磁盘上的 kdb+ 数据文件，将其存入 DolphinDB 内存表。
 
@@ -189,17 +191,17 @@ Txns = kdb::loadFile(handle, DATA_DIR + "/2022.06.17/Txns", DATA_DIR)
 
 ### 3.4 close 
 
-#### 语法
+**语法**
 
 ``` shell
 close(handle)
 ```
 
-#### 参数
+**参数**
 
 - 'handle' 是连接句柄
 
-#### 详情
+**详情**
 
 关闭与 kdb+ 服务器建立的连接。
 
@@ -219,7 +221,6 @@ handle = kdb::connect("127.0.0.1", 5000, "admin:123456")
 
 // 指定文件路径
 DATA_DIR="/home/kdb/data/kdb_sample"
-TEST_DATA_DIR="/home/kdb/data"
 
 // 通过 loadTable，加载数据到 DolphinDB
 Daily = kdb::loadTable(handle, DATA_DIR + "/2022.06.17/Daily/", DATA_DIR + "/sym")
@@ -247,7 +248,7 @@ Txns2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Txns/", DATA_DIR + "/sym")
 注意事项：
 
 1. 待导入的表中不应包含 nested column。
-2. loadTable 指定的加载路径应为单个表文件，或分区下的表路径（当表为分区表或分段表时）。
+2. loadTable 指定的加载路径应为单个表文件，或表路径（表为拓展表、分区表或分段表时）。
 
 ### 4.2 通过 loadFile 导入
 
@@ -256,17 +257,17 @@ Txns2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Txns/", DATA_DIR + "/sym")
 注意事项：
 
 1. 无法读取单个表（single object）。
-2. 无法读取采用 q IPC (1), snappy (3), L4Z (4) 这三类压缩方法持久化的数据。
+2. 只能读取采用 gzip 压缩方法持久化的数据。
 3. 待导入的表中不应包含 nested column。
 4. loadFile 指定的加载路径分区下的表路径。
 
 ## 5 kdb+ 各类表文件加载方式说明
 
-在满足导入方法说明里所列条件的情况下，分别说明 kdb+ 四种表文件的导入方式：
+分别说明 kdb+ 四种表文件的导入方式：
 
 - 单张表（single object）
   
-  只能使用**第一种方法**导入。
+  只能使用 `loadTable()` 导入。
 
   举例：
   ``` 
@@ -283,7 +284,7 @@ Txns2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Txns/", DATA_DIR + "/sym")
   
 - 拓展表（splayed table）
 
-  **两种方法都可以导入**
+  `loadTable()` 或 `loadFile()`
 
   如果未压缩或使用 gzip 压缩，则推荐使用第二种方法，导入效率会更高。
 
