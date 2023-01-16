@@ -1,22 +1,22 @@
 DolphinDB HBase Plugin
 
- 本插件通过thrift接口连接到HBase，并读取数据。HBase版本为1.2.0，thrift版本为0.14.0。
+本插件通过 Thrift 接口连接到 HBase，并读取数据。推荐版本：HBase 版本为 1.2.0，Thrift 版本为 0.14.0。
 
 ## 1 安装
 
 ### 1.1 预编译安装
 
-可以导入DolphinDB安装包中或者bin目录下预编译好的HBase插件。
+可以导入 bin 目录下预编译好的 HBase 插件。
 
 #### Linux
 
-(1) 添加插件所在路径到LIB搜索路径 LD_LIBRARY_PATH
+(1) 添加插件所在路径到 LIB 搜索路径 LD_LIBRARY_PATH
 
 ```
 export LD_LIBRARY_PATH=path_to_hbase_plugin/:$LD_LIBRARY_PATH
 ```
 
-(2) 启动DolphinDB server并导入插件
+(2) 启动 DolphinDB server 并导入插件
 
 ```
 loadPlugin("path_to_hbase_plugin/PluginHBase.txt")
@@ -24,19 +24,19 @@ loadPlugin("path_to_hbase_plugin/PluginHBase.txt")
 
 ### 1.2 编译安装
 
-可以使用以下方法编译HBase插件，编译成功后通过以上方法导入。
+通过以下方法编译 HBase 插件，编译成功后通过以上方法导入插件。
 
-#### 在Linux下安装
+#### 在 Linux 下安装
 
-**使用cmake构建**
+**使用 cmake 构建**
 
-安装cmake：
+安装 cmake：
 
 ```
 sudo apt-get install cmake
 ```
 
-安装OpenSSL：
+安装 OpenSSL：
 
 ```
 sudo apt-get install openssl
@@ -51,15 +51,15 @@ cmake ../
 make
 ```
 
-### 1.3 开启thrift server
+### 1.3 开启 Thrift server
 
-可用以下命令开启thrift server，并指定端口9090：
+通过以下命令开启 Thrift server，并指定端口 9090：
 
 ```
 $HBASE_HOME/bin/hbase-daenom.sh start thrift -p 9090
 ```
 
-使用完毕后，使用以下命令关闭thrift：
+通过以下命令关闭 Thrift：
 
 ```
 $HBASE_HOME/bin/hbase-daemon.sh stop thrift
@@ -75,13 +75,13 @@ hbase::connect(host, port, [isFramed])
 
 #### 参数
 
-- host: 要连接的thrift server的IP地址，类型为string。
-- port: 要连接thrift server的端口号，类型为int。
-- isFramed: 为true表示通过TFramedTransport进行传输，为false表示通过TBufferedTransport进行传输，默认为false。
+- host: 要连接的 Thrift server 的 IP 地址，类型为 STRING。
+- port: 要连接 Thrift server 的端口号，类型为 INT。
+- isFramed: 布尔值，默认为 false，表示通过 TBufferedTransport 进行传输。若设置为 true，则表示通过 TFramedTransport 进行传输。
 
 #### 详情
 
-通过thrift server与hbase建立一个连接，返回一个hbase连接的句柄用于后续操作。
+通过 Thrift server 与 HBase 建立一个连接，返回一个 HBase 连接的句柄。
 
 #### 例子
 
@@ -89,7 +89,9 @@ hbase::connect(host, port, [isFramed])
 conn = hbase::connect("192.168.1.114", 9090)
 ```
 
-**注意**：如果这个连接长时间没有操作（默认为1min），hbase会自动关闭这个连接，用这个连接进行后续操作时会报`No more data to read`的错误，需要再次执行`hbase::connect`重新进行连接。这个时间可以在hbase的配置文件中进行修改，在conf/hbase-site.xml中添加如下配置表示一天没有操作会自动关闭：
+**注意**：如果该连接长时间（默认为 1min）没有操作，HBase 会自动关闭这个连接。此时再通过该连接进行后续操作时，会报 `No more data to read` 的错误，需要执行 `hbase::connect` 重新进行连接。通过 HBase 的配置文件（conf/hbase-site.xml）可修改超时时间。若添加如下配置，则表示一天没有操作时将自动关闭连接：
+
+修改 `hbase.thrift.server.socket.read.timeout` 和 `hbase.thrift.connection.max-idletime`
 
 ```
 <property>
@@ -98,8 +100,6 @@ conn = hbase::connect("192.168.1.114", 9090)
          <description>eg:milisecond</description>
 </property>
 ```
-
-此外，还需要修改conf/hbase-site.xml中`hbase.thrift.connection.max-idletime`的配置，将这个时间修改成上面同样的时间:
 
 ```
 <property>
@@ -116,11 +116,11 @@ hbase::showTables(hbaseConnection)
 
 #### 参数
 
-- hbaseConnection: 通过hbase::connect获得的hbase句柄。
+- hbaseConnection: 通过 hbase::connect 获得的 HBase 句柄。
 
 #### 详情
 
-显示已连接的数据库中所有的表名。
+显示已连接的数据库中所有表的表名。
 
 #### 例子
 
@@ -137,8 +137,8 @@ hbase::deleteTable(hbaseConnection, tableName)
 
 #### 参数
 
-- hbaseConnection: 通过hbase::connect获得的hbase句柄。
-- tableName: 要删除的表的名字，类型为string或者string vector。
+- hbaseConnection: 通过 hbase::connect 获得的 HBase 句柄。
+- tableName: 要删除的表的名字，类型为 STRING 或者 STRING vector。
 
 #### 详情
 
@@ -159,14 +159,14 @@ hbase::getRow(hbaseConnection, tableName, rowKey, [columnName])
 
 #### 参数
 
-- hbaseConnection: 通过hbase::connect获得的hbase句柄。
-- tableName: 需要读取数据的表的名字，类型为string。
-- rowKey: 需要读取的row的索引，类型为string。
-- columnName：需要获取的列名，若不指定默认读取所有列数据，类型为string或者string vector。
+- hbaseConnection: 通过 hbase::connect 获得的 HBase 句柄。
+- tableName: 需要读取数据的表的名字，类型为 STRING
+- rowKey: 需要读取的 row 的索引，类型为 STRING。
+- columnName：需要获取的列名，若不指定默认读取所有列数据，类型为 STRING 或者 STRING vector。
 
 #### 详情
 
-根据rowKey读取对应的数据。
+读取 rowKey 所对应的数据。
 
 #### 例子
 
@@ -183,27 +183,27 @@ hbase::load(hbaseConnection, tableName, [schema])
 
 #### 参数
 
-- hbaseConnection: 通过hbase::connect获得的hbase句柄。
-- tableName: 需要读取数据的表的名字，类型为string。
-- schema: 包含列名和列的数据类型的表。由于hbase中数据没有数据类型，全是以字节形式存储，若不指定schema会尝试以第一行数据为基准进行建表，需要保证表中每行的列数相同，否则会出错，此时返回的dolphindb表中每列数据类型都为string。若需要改变数据类型就需要指定schema，schema中的列名需要与hbase中所要读取的列名完全一致。
+- hbaseConnection: 通过 hbase::connect 获得的 HBase 句柄。
+- tableName: 需要读取数据的表的名字，类型为 STRING。
+- schema: 包含列名和列的数据类型的表。由于 HBase 中数据以字节形式存储，没有指定数据类型。若不指定 schema，插件会尝试以第一行数据为基准进行建表，返回的 DolphinDB 表中每列数据类型都为 STRING。请注意，需要保证表中每行数据具有相同的列数，否则会出错。指定 schema 则可以指定每列的数据类型。此时，schema 中的列名需要与 HBase 中所要读取的列名完全一致。
 
 #### 详情
 
-将hbase的查询结果导入DolphinDB中的内存表。schema中支持的数据格式见第3小节。
+将 HBase 的查询结果导入 DolphinDB 中的内存表。schema 中支持的数据格式见第3小节。
 
 #### 例子
 
 ```
 conn = hbase::connect("192.168.1.114", 9090)
-t =  table( ["cf:a","cf:b", "cf:c", "cf:time"] as name, ["STRING", "INT", "FLOAT", "TIMESTAMP"] as type)
+t =  table(["cf:a","cf:b", "cf:c", "cf:time"] as name, ["STRING", "INT", "FLOAT", "TIMESTAMP"] as type)
 t1 = hbase::load(conn, "test", t)
 ```
 
 ## 3 支持的数据格式
 
-schema中支持的数据类型如下表所示，如果需要将HBase中的数据转成DolphinDB中对应数据类型，HBase中存储的数据格式需要与下表相同，否则无法转换，会返回空值。
+schema 中支持的数据类型如下表所示。HBase 中存储的数据格式需要与下表相同，才能将 HBase 中的数据转成 DolphinDB 中对应数据类型，否则无法转换，且会返回空值。
 
-| Type          | HBase数据                                                    | DolphinDB数据                                                |
+| Type          | HBase 数据                                                    | DolphinDB 数据                                                |
 | ------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | BOOL          | true, 1, FALSE                                               | true, true, false                                            |
 | CHAR          | a                                                            | a                                                            |
