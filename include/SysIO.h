@@ -14,7 +14,7 @@
 #include "Types.h"
 #include "DolphinString.h"
 
-#define MAX_CAPACITY 262144
+#define MAX_CAPACITY 65536
 #define MAX_PACKET_SIZE 1400
 
 #ifdef LINUX

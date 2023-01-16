@@ -399,6 +399,7 @@ public:
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
 	ObjectSP getCode() const { return code_;}
 	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
+	virtual bool isLargeConstant() const { return false;}
 
 private:
 	ObjectSP code_;

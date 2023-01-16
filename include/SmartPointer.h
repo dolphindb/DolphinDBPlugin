@@ -122,9 +122,9 @@ public:
 		}
 	}
 
-    T& operator =(T* p){
+    T& operator =(T * p){
         if(p == counterP_->p_)
-            return *p;
+            return *((T*)counterP_->p_);
 
         if(counterP_->release()==0) {
             delete static_cast<T *>(counterP_->p_);
@@ -135,9 +135,8 @@ public:
             counterP_ = new Counter(p);
             counterP_->addRef();
         }
-        return *p;
+        return *((T*)counterP_->p_);
     }
-
 private:
 	template<class U> friend class SmartPointer;
 	Counter* counterP_;
