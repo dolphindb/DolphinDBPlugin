@@ -49,7 +49,7 @@ void AppendTable::run() {
                             //return;
                         }
                         if (table_insert->columns() > length)
-                            LOG_WARN("The columns of the table returned is larger than the handler table, and the information may be ignored.");
+                            LOG_ERR("The columns of the table returned is larger than the handler table, and the information may be ignored.");
 
                         if (result->isSegmentedTable()) {
                             vector<ConstantSP> args = {result, table_insert};
@@ -66,12 +66,7 @@ void AppendTable::run() {
                     }
                     else{
                         vector<ConstantSP> args = {table_insert};
-
-						if (handle_->getType() == DT_FUNCTIONDEF)
-                            ((FunctionDefSP)handle_)->call(session_->getHeap().get(), args);
-						else
-							LOG_ERR("Handle is not a function define.");
-
+                        ((FunctionDefSP)handle_)->call(session_->getHeap().get(), args);
                     }
                 } else if(parser_->getType() == DT_RESOURCE) {
                     ConstantSP content = Util::createTable({"string"}, parser_string);
@@ -112,7 +107,7 @@ SubConnection::~SubConnection() {
 }
 
 
-SubConnection::SubConnection(Heap *heap, std::string description, const ConstantSP& parser, const ConstantSP& handle, const ConstantSP& consumer, int timeout)
+SubConnection::SubConnection(Heap *heap, std::string description, const ConstantSP& parser, ConstantSP handle, ConstantSP consumer, int timeout)
     :description_(std::move(description)),heap_(heap) {
     connected_ = true;
     createTime_=Util::getEpochTime();
