@@ -1,2 +1,0 @@
-gp,libPluginGp.so
-gpPlot,plot,system,3,4,0
