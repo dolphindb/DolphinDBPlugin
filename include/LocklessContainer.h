@@ -25,7 +25,6 @@
 #define CACHE_LINE_SIZE  64 // 64 byte cache line on x86 and x86-64
 #define CACHE_LINE_SCALE 6  // log base 2 of the cache line size
 
-
 #define EXPECT_FALSE(x)     __builtin_expect(!!(x), 0)
 
 #ifndef NBD_SINGLE_THREADED
@@ -96,7 +95,6 @@ typedef uint64_t map_val_t;
 #else
 #define TRACE(flag, format, v1, v2) printf(format, (size_t)(v1), (size_t)(v2));puts("")
 #endif
-
 
 
 

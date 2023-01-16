@@ -1851,7 +1851,7 @@ KeyEqual FlatHashmapImpl<Key, T, HashPolicy, Hasher, KeyEqual>::key_equal_;
 template<typename Key,
          typename T,
          typename HashPolicy = power2_hash_policy,
-         typename Hasher = murmur_hasher<Key>,
+         typename Hasher = XXHasher<Key>,
          typename KeyEqual = std::equal_to<Key>>
 class FlatHashmap {
 public:
@@ -1959,7 +1959,7 @@ private:
 template<typename Key,
          typename T,
          typename HashPolicy = power2_hash_policy,
-         typename Hasher = murmur_hasher<Key>,
+         typename Hasher = XXHasher<Key>,
          typename KeyEqual = std::equal_to<Key>>
 using IrremovableFlatHashmap = FlatHashmap<Key, T, HashPolicy, Hasher, KeyEqual>;
 
@@ -2875,7 +2875,7 @@ struct MultiCombinedKey {
 template<int keyCounts, typename RawKeyType>
 struct MultiCombinedKeyHasher{ 
     uint64_t operator()(const MultiCombinedKey<keyCounts, RawKeyType> & lhs) {
-        return murmur32((const char *)&lhs.keys, sizeof(lhs.keys));
+        return XXHash64((const char *)&lhs.keys, sizeof(lhs.keys));
     }
 };
 
@@ -2962,6 +2962,12 @@ typedef MultiCombinedKeyHasher<2, uint32_t> Double4BKeyHasher;
 typedef MultiCombinedKeyEqual<2, uint32_t> Double4BKeyEqual;
 typedef MultiCombinedKeyHasher<3, uint32_t> Triple4BKeyHasher;
 typedef MultiCombinedKeyEqual<3, uint32_t> Triple4BKeyEqual;
+typedef MultiCombinedKey<2, DolphinString> DoubleDStrKey;
+typedef MultiCombinedKeyHasher<2, DolphinString> DoubleDStrKeyHasher;
+typedef MultiCombinedKeyEqual<2, DolphinString> DoubleDStrKeyEqual;
+typedef MultiCombinedKey<2, Guid> DoubleGuidKey;
+typedef MultiCombinedKeyHasher<2, Guid> DoubleGuidKeyHasher;
+typedef MultiCombinedKeyEqual<2, Guid> DoubleGuidKeyEqual;
 
 template<>
 struct murmur_hasher<Double4BKey> {
@@ -2972,6 +2978,20 @@ struct murmur_hasher<Double4BKey> {
 
 template<>
 struct murmur_hasher<Triple4BKey> {
+    uint64_t operator()(const Triple4BKey & key) {
+        return MultiCombinedKeyHasher<3, uint32_t>{}(key);
+    }
+};
+
+template<>
+struct XXHasher<Double4BKey> {
+    uint64_t operator()(const Double4BKey & key) {
+        return MultiCombinedKeyHasher<2, uint32_t>{}(key);
+    }
+};
+
+template<>
+struct XXHasher<Triple4BKey> {
     uint64_t operator()(const Triple4BKey & key) {
         return MultiCombinedKeyHasher<3, uint32_t>{}(key);
     }
@@ -3023,6 +3043,20 @@ struct murmur_hasher<Double8BKey> {
 
 template<>
 struct murmur_hasher<Triple8BKey> {
+    uint64_t operator()(const Triple8BKey & key) {
+        return MultiCombinedKeyHasher<3, uint64_t>{}(key);
+    }
+};
+
+template<>
+struct XXHasher<Double8BKey> {
+    uint64_t operator()(const Double8BKey & key) {
+        return MultiCombinedKeyHasher<2, uint64_t>{}(key);
+    }
+};
+
+template<>
+struct XXHasher<Triple8BKey> {
     uint64_t operator()(const Triple8BKey & key) {
         return MultiCombinedKeyHasher<3, uint64_t>{}(key);
     }

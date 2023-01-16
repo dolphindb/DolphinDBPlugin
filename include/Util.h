@@ -17,8 +17,6 @@
 
 #include "CoreConcept.h"
 
-
-
 using std::unordered_set;
 using std::istream;
 
