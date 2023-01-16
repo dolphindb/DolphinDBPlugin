@@ -1,73 +1,50 @@
 # DolphinDB MongoDB Plugin
 
-DolphinDB MongoDB plugin enables you to connect to the MongoDB server and import its data to DolphinDB in-memory tables.
+DolphinDB mongodb插件可以建立与mongodb服务器的连接，然后导入数据到DolphinDB的内存表中。
 
-The DolphinDB MongoDB plugin has the branches [release 200](https://github.com/dolphindb/DolphinDBPlugin/tree/release200/mongodb) and [release130](https://github.com/dolphindb/DolphinDBPlugin/tree/release130/mongodb). Each plugin version corresponds to a DolphinDB server version. You're looking at the plugin documentation for release200. If you use a different DolphinDB server version, please refer to the corresponding branch of the plugin documentation.
+## 1. 安装构建
 
-- [DolphinDB MongoDB Plugin](#dolphindb-mongodb-plugin)
-  - [1. Compile and Install Plugin](#1-compile-and-install-plugin)
-    - [1.1 Install Precompiled Plugin](#11-install-precompiled-plugin)
-    - [1.2 (Optional) Manually Compile Plugin](#12-optional-manually-compile-plugin)
-    - [1.3  (Optional) Compile Dependency Libraries](#13--optional-compile-dependency-libraries)
-  - [2. Methods](#2-methods)
-    - [2.1 mongodb::connect](#21-mongodbconnect)
-    - [2.2 mongodb::load](#22-mongodbload)
-    - [2.3 mongodb::aggregate](#23-mongodbaggregate)
-    - [2.4 mongodb::close](#24-mongodbclose)
-    - [2.5 mongodb::parseJson](#25-mongodbparsejson)
-    - [2.6 mongodb::getCollections](#26-mongodbgetcollections)
-  - [3. Query Examples](#3-query-examples)
-  - [4. Data Type Support](#4-data-type-support)
-    - [4.1 Integral](#41-integral)
-    - [4.2 Float](#42-float)
-    - [4.3 Temporal](#43-temporal)
-    - [4.4 Literal](#44-literal)
-
-## 1. Compile and Install Plugin
-
-### 1.1 Install Precompiled Plugin
+### 1.1 预编译安装
 
 #### Linux
-
-Enter the following command and specify the path for dynamic shared libraries that are required by the plugin:
-
-```
-export LD_LIBRARY_PATH=<PluginDir>/mongodb/bin/linux64:$LD_LIBRARY_PATH
+执行Linux命令，指定插件运行时需要的动态库路径
+``` shell
+export LD_LIBRARY_PATH=<PluginDir>/mongodb/bin/linux64:$LD_LIBRARY_PATH //指定动态库位置 
 ```
 
-Download the precompiled plugin file under the [DolphinDBPlugin/mongodb/bin](https://github.com/dolphindb/DolphinDBPlugin/tree/release200/mongodb/bin)/linux64 directory. Execute the following script in DolphinDB to load the plugin.
+在DolphinDBPlugin/httpClient/bin/linux64目录下有预先编译的插件文件，在DolphinDB中执行以下命令导入mongodb插件：
 
 ```
-cd DolphinDB/server //enter the DolphinDB server directory
-./dolphindb //start the DolphinDB server
- loadPlugin("<PluginDir>/mongodb/build/linux64/PluginMongodb.txt") //load the plugin
+cd DolphinDB/server //进入DolphinDB server目录
+./dolphindb //启动 DolphinDB server
+ loadPlugin("<PluginDir>/mongodb/build/linux64/PluginMongodb.txt") //加载插件
 ```
 
 #### Windows
 
-Download all the precompiled plugin files (including the dynamic libraries) under the [DolphinDBPlugin/mongodb/bin](https://github.com/dolphindb/DolphinDBPlugin/tree/release200/mongodb/bin)/win64 directory. Execute the following script in DolphinDB to load the MongoDB plugin to DolphinDB:
+将DolphinDBPlugin/mongodb/bin/win64目录下的所有文件（包括动态库文件）下载到本地server目录下的plugins目录。其中有预先编译的MongoDB插件文件。在DolphinDB中执行以下命令将其导入：
 
 ```
- loadPlugin("<PluginDir>/mongodb/bulid/win64/PluginMongodb.txt")
-```
+ loadPlugin("<PluginDir>/mongodb/bulid/win64/PluginMongodb.txt") //加载插件
+ ```
 
-### 1.2 (Optional) Manually Compile Plugin
 
-#### Prerequisites
+### 1.2 自行编译
 
-Download the precompiled dependency libraries. Find the dependency libraries for Linux64 and Win64 under the [/mongo/bin](https://github.com/dolphindb/DolphinDBPlugin/tree/release200/mongodb/bin) directory. You can compile the plugin with CMake and G++ on Linux or MinGW on Windows.
+为保证插件能够成功进行编译，将DolphinDBPlugins仓库下载到本地（请切换到相应的分支）。
+
+只需要安装CMake和对应编译器（linux为g++,window为MinGW），即可在本地编译mongodb插件。
 
 #### Linux
 
-**Build with CMake**
+##### 使用CMake构建：
 
-Install CMake
+安装CMake：
 
 ```
 sudo apt-get install cmake
 ```
-
-Build plugin
+构建插件内容：
 
 ```
 mkdir build
@@ -76,42 +53,44 @@ cmake  ../
 make
 ```
 
-**Note**: Before compilation, please make sure the DolphinDB library file *libDolphinDB.so* is under the GCC search path. You can add the plugin path to the library search path LD_LIBRARY_PATH or copy it to the *build* directory.
+**注意**:编译之前请确保libDolphinDB.so在gcc可搜索的路径中。可使用`LD_LIBRARY_PATH`指定其路径，或者直接将其拷贝到build目录下。
 
-After compilation, new files *libPluginMongodb.so* and *PluginMongodb.txt* are generated under the build directory. 
+编译后目录下会产生文件libPluginMongodb.so和PluginMongodb.txt。
 
 #### Windows
 
-**Prerequisites:**
+##### 在Windows环境中需要使用CMake和MinGW编译
 
-- Download and install [MinGW](http://www.mingw.org/). Add the generated bin directory to the PATH environment variable.
-- Download and install [CMake](https://cmake.org/).
+- 下载安装[MinGW](http://www.mingw.org/)。确保将bin目录添加到系统环境变量Path中。
+- 下载安装[CMake](https://cmake.org/)。
 
-**Build with CMake**
+###### 使用CMake构建：
 
-Before the compilation, add the *libDolphinDB.dll* file to the build directory.
+在编译开始之前，要将libDolphinDB.dll拷贝到build文件夹。
 
-Build plugin:
+构建插件内容：
 
 ```
-mkdir build           #create build directory
-cp <ServerDir>/libDolphinDB.dll build     # copy libDolphinDB.dll to the build directory
+mkdir build                                                        # 新建build目录
+cp <ServerDir>/libDolphinDB.dll build                 # 拷贝 libDolphinDB.dll 到build目录下
 cd build
 cmake  ../ -G "MinGW Makefiles"
 mingw32-make -j4
 ```
 
-After compilation, new files *libPluginMongodb.dll* and *PluginMongodb.txt* are generated under the build directory. The four dynamic libraries under /mongodb/bin/windows are also copied to the build directory.
+编译后目录下会产生文件libPluginMongodb.dll和PluginMongodb.txt，还会把<PluginDir>/mongodb/bin/windows下的4个动态库拷贝到该目录下。
 
-### 1.3  (Optional) Compile Dependency Libraries
+>以下编译的mongodb-c-driver、snappy、ICU和openssl的依赖库文件，都可以在<PluginDir>/mongodb/bin目录下找到。
 
-We provide precompiled dependency libraries (libmongoc, libbson, libicudata, libicuuc) at the [/mongodb/bin](https://github.com/dolphindb/DolphinDBPlugin/tree/release200/mongodb/bin) directory. Optionally, you can manually compile them by following the steps described in this section.
+### 1.3编译依赖库
 
 #### Linux
 
-**Install OpenSSL 1.0.2**
+我们在/mongodb/bin目录下提供预编译的依赖库 libmongoc, libbson, libicudata, libicuuc。你也可按照本节描述的步骤手动编译依赖库。
 
-```
+##### 安装版本1.0.2的openssl
+
+ ```
 wget https://www.openssl.org/source/old/1.0.2/openssl-1.0.2i.tar.gz
 tar -xzf openssl-1.0.2i.tar.gz
 cd openssl-1.0.2i
@@ -119,10 +98,9 @@ cd openssl-1.0.2i
 make 
 sudo make install
 ```
+--prefix是为了指定安装位置，安装mongo-c-driver时会使用到这个版本的openssl的头文件和静态库。
 
-Add "--prefix" to specify a location for all files to build to. The head and static libraries of OpenSSL 1.0.2 will be used during the installation of mongo-c-driver in a later step.
-
-**Install snappy**
+##### 安装snappy
 
 ```
 wget https://github.com/google/snappy/archive/1.1.7.tar.gz
@@ -133,7 +111,7 @@ make
 sudo make install
 ```
 
-**Install ICU**
+##### 安装ICU
 
 ```
 wget https://github.com/unicode-org/icu/releases/download/release-52-2/icu4c-52_2-src.tgz
@@ -144,10 +122,9 @@ make
 sudo make install
 ```
 
-**Install mongo-c-driver**
+##### 安装mongo-c-driver
 
-Specify the environment variables based on the directory you just specified when installing OpenSSL. 
-
+需要设置环境变量，在命令行中设置，正是刚刚安装openssl的位置。
 ```
 export OPENSSL_ROOT_DIR=/usr/local/openssl1.0.2
 export OPENSSL_CRYPTO_LIBRARY=/usr/local/openssl1.0.2/lib
@@ -160,17 +137,15 @@ mkdir cmake-build
 cd cmake-build
 cmake -DENABLE_AUTOMATIC_INIT_AND_CLEANUP=OFF -DCMAKE_BUILD_TYPE=Release -DENABLE_TESTS=OFF ..
 ```
-
-Now we can check in the terminal whether all dependency libraries of mongodb-c-driver have been installed.
-
+这里我们可以在终端看到mongodb-c-driver需要的依赖是否安装完全。
 ```
 make
 sudo make install
 ```
 
-**Add dependency libraries**
+##### 准备依赖库
 
-Copy *libDolphinDB.so* and other dependency libraries to the build directory (*DolphinDBPlugin/mongodb/bin/linux*).
+将libDolphinDB.so拷到编译目录（DolphinDBPlugin/mongodb/build）。
 
 ```
 cd DolphinDBPlugin/mongodb/bin/linux
@@ -181,27 +156,27 @@ cp /usr/local/lib/libicudata.so.52 .
 cp /usr/local/lib/libicuuc.so.52 .
 ```
 
-## 2. Methods
+##  2. 用户接口
 
 ### 2.1 mongodb::connect
 
-**Syntax**
+**语法**
 
 mongodb::connect(host, port, user, password, [db])
 
-**Arguments**
+**参数**
 
-- host: a string indicating the MongoDB server address
-- port: a integer indicating the port number of the MongoDB server
-- user: a string indicating the username to the MongoDB server. If the MongoDB authentication service is disabled, enter an empty string "".
-- password: a string indicating the password to the MongoDB server. If the MongoDB authentication service is disabled, enter an empty string "".
-- db: a string indicating the MongoDB database for user authentication. The database must have the credential information on the specified user. If this parameter is not specified, the "admin" database from the MongoDB server (specified by *host*) is used.
+* host: MongoDB服务器的地址，类型为string。
+* port: MongoDB服务器的端口，类型为int。
+* user: MongoDB服务器的用户名，类型为string。如果没有开启mongodb用户权限认证，则填写空字符串""。
+* password: MongoDB服务器的密码，类型为string。如果没有开启mongodb用户权限认证，则填写空字符串""。
+* db: 验证登录用户的数据库，类型为string。在mongodb中存储对应登录用户的数据库。如果不填写，将以参数`host`指定的mongodb服务器的`admin`数据库进行登录用户验证。
 
-**Details**
+**详情**
 
-Set up connection with the MongoDB server. Return a connection handle that can be used when calling `mongodb::load` and other methods.
+与MongoDB服务器建立一个连接。返回一个MongoDB连接的句柄，用于load。
 
-**Examples**
+**例子**
 
 ```
 conn = mongodb::connect(`localhost, 27017, `root, `root, `DolphinDB)
@@ -210,25 +185,23 @@ conn2 = mongodb::connect(`localhost, 27017, `root, `root)
 
 ### 2.2 mongodb::load
 
-**Syntax**
+**语法**
 
 mongodb::load(connection, collcetionName, query, option, [schema])
 
-**Arguments**
+**参数**
 
-- connection: the MongoDB connection handle returned by `mongodb::connect`
-- collectionName: the name of a MongoDB collection. There are two options to specify this parameter: 
-  - specify only the \`collection name - the system searches for the collection in the database (*db*) specified in `mongodb::connect`
-  - specify "databaseName:collectionName" - the system searches for the collection in the specified database
-- query: a JSON STRING indicating the query conditions in MongoDB. For example: `{ "aa" : { "$numberInt" : "13232" } }`, `{ "datetime" : { "$gt" : {"$date":"2019-02-28T00:00:00.000Z" }} }`
-- option: a JSON STRING indicating MongoDB query options. For example: `{"limit":123}` limits  the number of records or documents returned in the query.  
-- schema: a table containing column names and columns types. You can optionally change the default column types through the schema table and pass it to `mongodb::load` as an argument.
+* connection: 通过mongodb::connect获得的MongoDB连接句柄。
+* collcetionName: 一个MongoDB中集合的名字。有两种参数模式(`collectionName和"databaseName:collectionName")，第一种会查询在调用mongodb::connect时指定的数据库*db*，第二种是查询指定database中的collection。
+* query: MongoDB查询条件，JSON字符串，类似：{ "aa" : { "$numberInt" : "13232" } }, { "datetime" : { "$gt" : {"$date":"2019-02-28T00:00:00.000Z" }} }。
+* option: MongoDB查询选项，JSON字符串，类似：{"limit":123}对查询结果在MongoDB中进行预处理再返回。
+* schema: 包含列名和列的数据类型的表。如果我们想要改变由系统自动决定的列的数据类型，需要在schema表中修改数据类型，并且把它作为load函数的一个参数。
 
-**Details**
+**详情**
 
-Import the query result in MongoDB into a DolphinDB in-memory table. For information on data type support, see the [Data Type](https://dolphindb.com/help/DataTypesandStructures/DataTypes/index.html) section in the DolphinDB User Manual.
+将MongoDB的查询结果导入DolphinDB中的内存表。支持的数据类型以及数据转化规则参见用户手册[数据类型章节](https://www.dolphindb.cn/cn/help/DataTypesandStructures/DataTypes/index.html)。
 
-**Examples**
+**例子**
 
 ```
 conn = mongodb::connect(`localhost, 27017, `root, `root, `DolphinDB)
@@ -244,25 +217,23 @@ tb2 = mongodb::load(conn, 'dolphindb:US',query,option,schema)
 
 ### 2.3 mongodb::aggregate
 
-**Syntax**
+**语法**
 
 mongodb::aggregate(connection, collcetionName, pipeline, option, [schema])
 
-**Arguments**
+**参数**
 
-- connection: the MongoDB connection handle returned by `mongodb::connect`
-- collectionName: the name of a MongoDB collection. There are two options to specify this parameter: 
-  - specify only the `collection name - the system searches for the collection in the database (db) specified in mongodb::connect
-  - specify "databaseName:collectionName" - the system searches for the collection in the specified database
-- pipeline: a STRING indicating the MongoDB aggregation pipeline. For example, `{$group : {_id : "$by_user", num_tutorial : {$sum : 1}}}`.
-- option: a JSON STRING indicating MongoDB query options. For example: `{"limit":123}` limits  the number of records or documents returned in the query.  
-- schema: a table containing column names and columns types. You can optionally change the default column types through the schema table and pass it to `mongodb::load` as an argument.
+* connection: 通过mongodb::connect获得的MongoDB连接句柄。
+* collcetionName: 一个MongoDB中集合的名字。有两种参数模式(`collectionName和"databaseName:collectionName")，第一种会查询在调用mongodb::connect时指定的数据库*db*，第二种是查询指定database中的collection。
+* pipeline: MongoDB聚合管道，JSON字符串，类似：{$group : {_id : "$by_user", num_tutorial : {$sum : 1}}}。
+* option: MongoDB查询选项，JSON字符串，类似：{"limit":123}对查询结果在MongoDB中进行预处理再返回。
+* schema: 包含列名和列的数据类型的表。如果我们想要改变由系统自动决定的列的数据类型，需要在schema表中修改数据类型，并且把它作为load函数的一个参数。
 
-**Details**
+**详情**
 
-Import the result of an aggregate operation in MongoDB into a DolphinDB in-memory table. For information on data type support, see the [Data Type](https://dolphindb.com/help/DataTypesandStructures/DataTypes/index.html) section in the DolphinDB User Manual. 
+将MongoDB的（聚合）查询结果导入DolphinDB中的内存表。支持的数据类型以及数据转化规则参见用户手册[数据类型章节](https://www.dolphindb.cn/cn/help/DataTypesandStructures/DataTypes/index.html)。
 
-**Examples**
+**例子**
 
 ```
 conn = mongodb::connect(`localhost, 27017, "", "", `DolphinDB)
@@ -273,19 +244,19 @@ mongodb::aggregate(conn, "test1:collnetion1",pipeline,option)
 
 ### 2.4 mongodb::close
 
-**Syntax**
+**语法**
 
 mongodb::close(connection)
 
-**Arguments**
+**参数**
 
-- the MongoDB connection handle returned by `mongodb::connect`
+* connection: 通过mongodb::connect获得的MongoDB连接句柄。
 
-**Details**
+**详情**
 
-Close a MongoDB server connection.
+关闭一个MongoDB连接句柄。
 
-**Examples**
+**例子**
 
 ```
 conn = mongodb::connect(`localhost, 27017, `root, `root, `DolphinDB)
@@ -298,22 +269,21 @@ mongodb::close(conn)
 
 ### 2.5 mongodb::parseJson
 
-**Syntax**
+**语法**
 
 mongodb::parseJson(str, keys, colnames, colTypes)
 
-**Details**
+**详情**
+解析JSON类型的数据，转换到DolphinDB的内存表并返回该内存表。
 
-Parse a JSON string and convert it into a DolphinDB in-memory table. Return the in-memory table.
+**参数**
+* str: 需要解析的JSON格式的字符串，为string类型的vector。
+* keys: 转换后内存表的列名，一一对应原 JSON 中的键，为string类型的vector。
+* colnames: 结果表JSON的键，为string类型的vector。
+* colTypes: 向量，表示结果表中的数据类型。
+colTypes支持BOOL, INT, FLOAT, DOUBLE, STRING以及BOOL[], INT[], FLOAT[], DOUBLE[]类型的array vector。其中支持将JSON中的int, float, double类型转换为DolphinDB INT, FLOAT, DOUBLE类型中的的任意一种。
 
-**Arguments**
-
-- str: a STRING vector indicating the JSON string to be converted
-- keys: a STRING vector indicating the keys of *str*
-- colnames: a STRING vector indicating the column names in the result table. The column names correspond to the keys of *str*.
-- colTypes: a vector indicating the column types in the result table. Supported DolphinDB data types: BOOL, INT, FLOAT, DOUBLE, STRING and array vector of BOOL[], INT[] and DOUBLE[] type. You can convert the int, float and double types in JSON into any of the INT, FLOAT or DOUBLE type in DolphinDB.
-
-**Example**
+**例子**
 
 ```
 data = ['{"a": 1, "b": 2}', '{"a": 2, "b": 3}']
@@ -325,26 +295,26 @@ data = ['{"a": 1, "b": 2}', '{"a": 2, "b": 3}']
 
 ### 2.6 mongodb::getCollections
 
-**Syntax**
+**语法**
 
 mongodb::getCollections([databaseName])
 
-**Arguments**
+**参数**
 
-- databaseName: a STRING indicating a MongoDB database. If this parameter is not specified, the database specified in `mongodb::connect` is used.
+* databaseName: 需要查询的数据库。如果不填，则为mongodb::connect所选的database。
 
-**Details**
+**详情**
 
-Get the names of all the collections in the specified database.
+获取指定database的所有集合的名字。
 
-**Examples**
+**例子**
 
 ```
 conn = mongodb::connect("192.168.1.38", 27017, "", "")
 mongodb::getCollections(conn, "dolphindb")
 ```
 
-## 3. Query Examples
+## 3 查询数据示例
 
 ```
 query='{"dt": { "$date" : "2016-06-22T00:00:00.000Z" } }';
@@ -365,36 +335,35 @@ mongodb::close(con);
 t = select * from res
 ```
 
-## 4. Data Type Support
+## 4. 支持的数据类型
 
-### 4.1 Integral
+### 4.1 整型
 
-| Data Type in MongoDB | Data Type in DolphinDB |
-| :------------------- | :--------------------- |
-| int32                | INT                    |
-| int64(long)          | LONG                   |
-| bool                 | BOOL                   |
+| MongoDB类型          | 对应的DolphinDB类型 |
+| ------------------ | :------------------ |
+| int32            | INT                |
+| int64(long)   | LONG               |
+| bool           | BOOL               |
 
-In DolphinDB, the smallest value of each integral type (e.g. -2,147,483,648 for INT and -9,223,372,036,854,775,808 for LONG) is a NULL value.
+DolphinDB中各类整型的最小值（例如：INT的-2,147,483,648以及LONG的-9,223,372,036,854,775,808）为NULL值。
 
-### 4.2 Float
+### 4.2 浮点数类型
 
-| Data Type in MongoDB | Data Type in DolphinDB |
-| :------------------- | :--------------------- |
-| double               | DOUBLE                 |
-| decimal128           | DOUBLE                 |
+| MongoDB类型  | 对应的DolphinDB类型 |
+| ---------- | :------------------ |
+| double     | DOUBLE              |
+| decimal128    | DOUBLE              |
 
-### 4.3 Temporal
+### 4.3 时间类型
 
-| Data Type in MongoDB | Data Type in DolphinDB |
-| :------------------- | :--------------------- |
-| double               | DOUBLE                 |
-| decimal128           | DOUBLE                 |
+| MongoDB类型 | 对应的DolphinDB类型 |
+| --------- | :------------------ |
+|date     | timestamp             |
 
-### 4.4 Literal
+### 4.4 字符串类型
 
-| Data Type in MongoDB | Data Type in DolphinDB |
-| :------------------- | :--------------------- |
-| string               | STRING                 |
-| symbol               | STRING                 |
-| oid                  | STRING                 |
+| MongoDB类型           | 对应的DolphinDB类型 |
+| ------------------- | :------------------ |
+| string   | STRING              |
+| symbol | STRING              |
+| oid          | STRING             |
