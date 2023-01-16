@@ -546,7 +546,6 @@ term_end_plot()
     (*term->layer)(TERM_LAYER_END_TEXT);
 
     if (!multiplot) {
-		//printf("no multiplot\n");
 	FPRINTF((stderr, "- calling term->text()\n"));
 	(*term->text) ();
 	term_graphics = FALSE;
@@ -2886,7 +2885,7 @@ check_for_mouse_events()
 	term_reset();
 	putc('\n', stderr);
 	fprintf(stderr, "Ctrl-C detected!\n");
-	/bail_to_command_line();	/* return to prompt */
+	bail_to_command_line();	/* return to prompt */
     }
 #endif
 }

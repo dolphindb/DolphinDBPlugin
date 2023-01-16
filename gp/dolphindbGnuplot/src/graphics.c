@@ -1121,7 +1121,6 @@ do_plot(struct curve_points *plots, int pcount)
     /* Release the palette if we have used one (PostScript only?) */
     if (is_plot_with_palette() && term->previous_palette)
 	term->previous_palette();
-	//printf("term_end_plot\n");
     term_end_plot();
 }
 
