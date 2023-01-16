@@ -5,7 +5,7 @@ add_definitions(-DLOCKFREE_SYMBASE)
 set(CMAKE_CXX_STANDARD 11)
 
 set(DOLPHIN_INCLUDE_DIR "../include")
-set(DOLPHIN_LIBRARY_DIR "/usr/lib")
+set(DOLPHIN_LIBRARY_DIR  ${CMAKE_BINARY_DIR})
 
 aux_source_directory(src PLUGINSVM_SRC)
 
