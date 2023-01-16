@@ -1,4 +1,4 @@
-#ifndef __MQTT_H__
+#if !defined(__MQTT_H__)
 #define __MQTT_H__
 
 /*
@@ -25,7 +25,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifdef __cplusplus
+#if defined(__cplusplus)
 extern "C" {
 #endif
 
@@ -35,7 +35,7 @@ extern "C" {
 // If MQTTC_PAL_FILE is used, none of the default utils will be emitted and must be
 // provided by the config file. To start, I would suggest copying mqtt_pal.h
 // and modifying as needed.
-#ifdef MQTTC_PAL_FILE
+#if defined(MQTTC_PAL_FILE)
 #define MQTTC_STR2(x) #x
 #define MQTTC_STR(x) MQTTC_STR2(x)
 #include MQTTC_STR(MQTTC_PAL_FILE)
@@ -51,17 +51,17 @@ extern "C" {
  * 
  * @example simple_publisher.c
  * A simple program to that publishes the current time whenever ENTER is pressed. 
- *
+ * 
  * Usage:
  * \code{.sh}
  * ./bin/simple_publisher [address [port [topic]]]
- * \endcode
- *
+ * \endcode     
+ * 
  * Where \c address is the address of the MQTT broker, \c port is the port number the 
  * MQTT broker is running on, and \c topic is the name of the topic to publish with. Note
  * that all these arguments are optional and the defaults are \c address = \c "test.mosquitto.org",
  * \c port = \c "1883", and \c topic = "datetime".
- *
+ * 
  * @example simple_subscriber.c
  * A simple program that subscribes to a single topic and prints all updates that are received.
  * 
@@ -283,7 +283,7 @@ uint16_t __mqtt_unpack_uint16(const uint8_t *buf);
 ssize_t __mqtt_pack_str(uint8_t *buf, const char* str);
 
 /** @brief A macro to get the MQTT string length from a c-string. */
-#define __mqtt_packed_cstrlen(x) (2 + strlen(x))
+#define __mqtt_packed_cstrlen(x) (2 + (unsigned int)strlen(x))
 
 /* RESPONSES */
 
@@ -1216,7 +1216,7 @@ struct mqtt_client {
         /** @brief The size of the receive buffer's memory. */
         size_t mem_size;
 
-        /** @brief A pointer to the next writtable location in the receive buffer. */
+        /** @brief A pointer to the next writable location in the receive buffer. */
         uint8_t *curr;
 
         /** @brief The number of bytes that are still writable at curr. */
@@ -1614,7 +1614,9 @@ enum MQTTErrors mqtt_disconnect(struct mqtt_client *client);
  * @returns \c MQTT_OK upon success, an \ref MQTTErrors otherwise.
  */
 enum MQTTErrors mqtt_reconnect(struct mqtt_client *client);
-#ifdef __cplusplus
- }
+
+#if defined(__cplusplus)
+}
 #endif
+
 #endif
