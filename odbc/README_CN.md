@@ -4,7 +4,16 @@
 
 ## 1. Prerequisites
 
-ODBC 插件可以成功连接以下安装于 CentOS 7 的数据库：MySQL, PostgreSQL, SQLServer, Clickhouse, SQLite, Oracle。连接时需要指定数据库名称，如："MySQL"。
+ODBC 插件支持的数据源见下表：
+
+| 需要连接的数据库 | 支持情况                                                |
+| ---------------- | -------------------------------------------------------|
+| MySQL          | centos7 稳定，连接时指定 “MySQL”                         |
+| PostgreSQL     | centos7 稳定，连接时指定 “PostgreSQL”                    |
+| SQLServer      | centos7 稳定，连接时指定 “SQLServer”                     |
+| Clickhouse     | centos7 稳定，连接时指定 “Clickhouse”    |      |
+| SQLite         | centos7 稳定，连接时指定 “SQLite”                        |
+| Oracle         | centos7 稳定，连接时指定 “Oracle”                        |
 
 使用该插件前，请根据操作系统和数据库安装相应的 ODBC 驱动。
 
@@ -96,8 +105,6 @@ make install
 loadPlugin("./plugins/odbc/PluginODBC.txt")
 ```
 
-请注意，若使用 Windows 插件，加载时必须指定绝对路径，且路径中使用"\\\\"或"/"代替"\\"。
-
 ## 4. 使用插件
 
 您可以通过使用语句 ```use odbc``` 导入 ODBC 模块名称空间来省略前缀 “odbc ::”。但是，如果函数名称与其他模块中的函数名称冲突，则需要在函数名称中添加前缀 ```odbc ::```。
@@ -157,14 +164,14 @@ odbc::close(conn1)
 ### 4.3 odbc::query
 
 **语法**
-* odbc::query(connHandle|connStr, querySql, [t], [batchSize], [transform])
+* odbc::query(connHandle or connStr, querySql, [t], [batchSize], [tranform])
 
 **参数**
 * connHandle or connStr: 连接句柄或连接字符串。  
 * querySql: 表示查询的 SQL 语句。
 * t：表对象。若指定，查询结果将保存到该表中。请注意，t 的各字段类型必须与 ODBC 返回的结果兼容（见第5节类型支持），否则将引发异常。
 * batchSize: 从 ODBC 查询到的数据行数到达 batchSize 后，会将当前已经读到的数据 append 到表 t 中。默认值为 262,144。
-* transform: 一元函数，并且该函数接受的参数必须是一个表。如果指定了 transform 参数，需要先创建分区表，再加载数据。程序会对数据文件中的数据应用 transform 参数指定的函数后，将得到的结果保存到数据库中。
+* tranform: 一元函数，并且该函数接受的参数必须是一个表。如果指定了 transform 参数，需要先创建分区表，再加载数据。程序会对数据文件中的数据应用 transform 参数指定的函数后，将得到的结果保存到数据库中。
 
 ### 描述
 ```odbc::query``` 通过 connHandle 或 connStr 查询数据库并返回 DolphinDB 表。
@@ -255,7 +262,7 @@ NANOTIMESTAMP|timestamp|datetime64|timestamp|datetime|datetime|datetime|
 
 1. 连接 windows 系统的 ClickHouse，查询得到的结果显示中文乱码。
 
-   **解决方案：** 请选择 ANSI 的 ClickHouse ODBC 驱动。
+   **解决方案：** 请选择 ANSI 的 ClickHouser ODBC 驱动。
 
 2. 连接 ClickHouse 并读取数据时，datetime 类型数据返回空值或错误值。
    
