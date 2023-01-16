@@ -26,7 +26,7 @@ if(DEFINED BUILD_ARM)
     link_directories(${CMAKE_BINARY_DIR})
 
 else ()
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fPIC -o3 -Wall")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fPIC -O3 -Wall")
 	message(STATUS ${CURL_DIR}/include)
 	message(STATUS ${SSL_DIR}/include)
 	message(STATUS ${Z_DIR}/include)
