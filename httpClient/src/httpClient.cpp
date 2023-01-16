@@ -244,6 +244,7 @@ namespace httpClient {
             }
             curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerList);
 
+            curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
             curl_easy_setopt(curl, CURLOPT_URL, urlString.c_str());
             curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
             curl_easy_setopt(curl, CURLOPT_USERAGENT, "curl/7.47.0");
