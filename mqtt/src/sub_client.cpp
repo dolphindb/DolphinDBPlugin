@@ -23,66 +23,70 @@ DictionarySP dict = Util::createDictionary(DT_STRING,0,DT_ANY,0);
  */
 static void subCallback(void **socketHandle, struct mqtt_response_publish *published) {
     /* note that published->topic_name is NOT null-terminated (here we'll change it to a c-string) */
-    SubConnection *cp = (SubConnection *)(*socketHandle);
-    if (cp == NULL) {
-        //throw RuntimeException("Connection is not found.");
-        std::cout<<"Connection is not found."<<endl;
-        return;
+    try{
+        SubConnection *cp = (SubConnection *)(*socketHandle);
+        if (cp == NULL) {
+            //throw RuntimeException("Connection is not found.");
+            LOG_INFO("[PluginMQTT]: Connection is not found.");
+            return;
+        }
+        cp->setReceived();
+        cp->incRecv();
+
+        ConstantSP handler = cp->getHandler();
+
+        std::string topic((const char *)published->topic_name, 0, published->topic_name_size);
+        std::string msg((const char *)published->application_message, 0, published->application_message_size);
+
+        //std::cout<<*(int*)*socketHandle<<"Received publish:"<<topic<<",message:"<<(const char*)published->application_message;
+
+        vector<ConstantSP> args;
+
+        if (handler->isTable()) {
+            TableSP tp = handler;
+            ConstantSP m = Util::createConstant(DT_STRING);
+            m->setString(msg);
+            args.push_back(m);
+
+            TableSP resultTable;
+            try {
+                FunctionDefSP parser = cp->getParser();
+                resultTable= parser->call(cp->session->getHeap().get(), args);
+            }
+            catch(exception& e){
+                LOG_INFO("[PluginMQTT]: parse exception:");
+                LOG_INFO(e.what());
+                return;
+            }
+
+
+            vector<ConstantSP> args1 = {handler, resultTable};
+            Heap * heap=cp->session->getHeap().get();
+            cp->session->getFunctionDef("append!")->call(heap, args1);
+        } else {
+            ConstantSP t = Util::createConstant(DT_STRING);
+            t->setString(topic);
+            args.push_back(t);
+
+            ConstantSP m = Util::createConstant(DT_STRING);
+            m->setString(msg);
+            args.push_back(m);
+
+            FunctionDefSP cb = (FunctionDefSP)handler;
+            Heap * heap=cp->session->getHeap().get();
+            try {
+                cb->call(heap, args);
+            }
+            catch(exception& e){
+                LOG_INFO("[PluginMQTT]: call function exception:");
+                LOG_INFO(e.what());
+                return;
+            }
+        }
     }
-    cp->incRecv();
-
-    ConstantSP handler = cp->getHandler();
-
-    std::string topic((const char *)published->topic_name, 0, published->topic_name_size);
-    std::string msg((const char *)published->application_message, 0, published->application_message_size);
-
-    //std::cout<<*(int*)*socketHandle<<"Received publish:"<<topic<<",message:"<<(const char*)published->application_message;
-
-    vector<ConstantSP> args;
-
-    if (handler->isTable()) {
-        TableSP tp = handler;
-        ConstantSP m = Util::createConstant(DT_STRING);
-        m->setString(msg);
-        args.push_back(m);
-
-        TableSP resultTable;
-        try {
-            FunctionDefSP parser = cp->getParser();
-            resultTable= parser->call(cp->session->getHeap().get(), args);
-        }
-        catch(exception& e){
-            std::cout<<e.what()<<endl;
-            return;
-        }
-
-
-        vector<ConstantSP> args1 = {resultTable};
-        INDEX insertedRows = 1;
-        string errMsg;
-        tp->append(args1, insertedRows, errMsg);
-        if (insertedRows != resultTable->rows()) {
-            cout << "insert " << insertedRows << " err " << errMsg << endl;
-            return;
-        }
-    } else {
-        ConstantSP t = Util::createConstant(DT_STRING);
-        t->setString(topic);
-        args.push_back(t);
-
-        ConstantSP m = Util::createConstant(DT_STRING);
-        m->setString(msg);
-        args.push_back(m);
-
-        FunctionDefSP cb = (FunctionDefSP)handler;
-        Heap * heap=cp->session->getHeap().get();
-        try {
-             cb->call(heap, args);
-        }
-        catch(exception& e){
-            std::cout<<e.what()<<endl;
-            return;
-        }
+    catch(exception& e){
+        LOG_INFO("[PluginMQTT]: subCallback exception:");
+        LOG_INFO(e.what());
     }
 
 }
@@ -96,23 +100,24 @@ static void subCallback(void **socketHandle, struct mqtt_response_publish *publi
  *       client ingress/egress traffic will be handled every 100 ms.
  */
 
-static void *clientRefresher(void *client) {
-    while (1) {
-#ifdef WIN32
-        pthread_testcancel();
-#endif
-        mqtt_sync((struct mqtt_client *)client);
-        usleep(100000U);
+// static void *clientRefresher(void *client) {
+//     while (1) {
+// #ifdef WIN32
+//         pthread_testcancel();
+// #endif
+//         mqtt_sync((struct mqtt_client *)client);
+//         usleep(100000U);
 
-    }
-    return NULL;
-}
+//     }
+//     return NULL;
+// }
 
 /**
  * @brief Safelty closes the \p sockfd and cancels the \p clientDaemon before \c exit.
  */
 
 static void mqttConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
+    LOG_INFO("[PluginMQTT]: mqttConnectionOnClose");
 }
 
 /**
@@ -241,34 +246,30 @@ ConstantSP getSubscriberStat(const ConstantSP& handle, const ConstantSP& b){
 }
 /// Connection
 namespace mqtt {
-SubConnection::SubConnection() {
-    connected_ = false;
-    sockfd_ = -1;
-}
 
 SubConnection::~SubConnection() {
-    if (sockfd_ != -1) {
-        close(sockfd_);
-        sockfd_ = -1 ;
-    }
-    if (connected_) {
-        pthread_cancel(clientDaemon_);
-        connected_ = false;
-    }
-    cout<<"subconn is freed"<<endl;
+    isClosed_ = true;
+    clientDaemon_->join();
+    LOG_INFO("[PluginMQTT]: SubConnection is freed");
+    sockfd_->close();
 }
 
 SubConnection::SubConnection(std::string hostname, int port, std::string topic, FunctionDefSP parser, ConstantSP handler,
                              std::string userName,std::string password,Heap *pHeap)
-    : host_(hostname), port_(port), topic_(topic), parser_(parser), handler_(handler), pHeap_(pHeap) {
-    sockfd_ = open_nb_socket(host_.c_str(), std::to_string(port).c_str());
-    if (sockfd_ == -1) {
-        throw RuntimeException("Failed to open socket: ");
+    : ConnctionBase(new ConditionalNotifier()),
+    host_(hostname), port_(port), topic_(topic), parser_(parser), handler_(handler), pHeap_(pHeap), userName_(userName), password_(password) 
+    {
+    LOG_INFO("[PluginMQTT]: crete SubConnection");
+    sockfd_ = new Socket(hostname, port, false);
+    IO_ERR ret = sockfd_->connect();
+    if (ret != OK && ret != INPROGRESS) {
+        throw RuntimeException("Failed to connect. ");
     }
 
 
 
-    mqtt_init(&client_, sockfd_, sendbuf_, sizeof(sendbuf_), recvbuf_, sizeof(recvbuf_), subCallback);
+    mqtt_init(&client_, sockfd_->getHandle(), sendbuf_, sizeof(sendbuf_), recvbuf_, sizeof(recvbuf_), subCallback);
+    // mqtt_init_reconnect(&client_, reconnect_client, this, subCallback);
 
     /* Create an anonymous session */
     const char* client_id = NULL;
@@ -280,20 +281,20 @@ SubConnection::SubConnection(std::string hostname, int port, std::string topic, 
     }
     else{
         mqtt_connect(&client_, client_id, NULL, NULL, 0, userName.c_str(), password.c_str(), connect_flags, 400);
-        cout<<"user name provided:"<<userName<<" pwd:"<<password<<endl;
 
     }
 
     /* check that we don't have any errors */
     if (client_.error != MQTT_OK) {
-        std::cout << client_.error << std::endl;
         throw RuntimeException(mqtt_error_str(client_.error));
     }
 
-    /* start a thread to refresh the client (handle egress and ingree client traffic) */
-    if (pthread_create(&clientDaemon_, NULL, clientRefresher, &client_)) {
-        std::cout << "Failed to start client daemon." << std::endl;
-        throw RuntimeException("Failed to start client daemon.");
+    lockClient_ = new Mutex();
+    /* start a thread to refresh the client (handle egress and ingree clien traffic) */
+    SmartPointer<SyncData> syncData= new SyncData(this, lockClient_, freeNotifier_);
+    clientDaemon_ = new Thread(syncData);
+    if (!clientDaemon_->isStarted()) {
+        clientDaemon_->start();
     }
 
     connected_ = true;
@@ -302,15 +303,59 @@ SubConnection::SubConnection(std::string hostname, int port, std::string topic, 
     createTime_=Util::getEpochTime();
 
     /* subscribe */
-    mqtt_subscribe(&client_, topic.c_str(), 0);
+    mqtt_subscribe(&client_, topic.c_str(), 2);
 
     /* check for errors */
     if (client_.error != MQTT_OK) {
-        std::cout << client_.error << std::endl;
         throw RuntimeException(mqtt_error_str(client_.error));
     }
     session  =  pHeap->currentSession()->copy();
     session->setUser(pHeap->currentSession()->getUser());
 }
+
+void SubConnection::reconnect(){
+    sockfd_ = new Socket(host_, port_, false);
+    IO_ERR ret = sockfd_->connect();
+    if (ret != OK && ret != INPROGRESS){
+        LOG_ERR("[PluginMQTT]: Failed to connect. ");
+        return;
+    }
+    mqtt_reinit(&client_, sockfd_->getHandle(), sendbuf_, sizeof(sendbuf_), recvbuf_, sizeof(recvbuf_));
+    uint8_t connect_flags = MQTT_CONNECT_CLEAN_SESSION;
+    const char* client_id = NULL;
+    if(userName_=="") {
+        mqtt_connect(&client_, client_id, NULL, NULL, 0, NULL, NULL, connect_flags, 400);
+    }
+    else{
+        mqtt_connect(&client_, client_id, NULL, NULL, 0, userName_.c_str(), password_.c_str(), connect_flags, 400);
+    }
+    if (client_.error != MQTT_OK) {
+        throw RuntimeException(mqtt_error_str(client_.error));
+    }
+    mqtt_subscribe(&client_, topic_.c_str(), 2);
+    if (client_.error != MQTT_OK) {
+        
+        throw RuntimeException(mqtt_error_str(client_.error));
+    }
+}
+
+// void reconnect_client(struct mqtt_client* client, void **reconnect_state_vptr)
+// {
+//     LOG_INFO("reconnect_client");
+//     SubConnection* connection = *((SubConnection**) reconnect_state_vptr);
+
+//     /* Close the clients socket if this isn't the initial reconnect call */
+//     if (client->error != MQTT_ERROR_INITIAL_RECONNECT) {
+//         close(client->socketfd);
+//     }
+
+//     /* Perform error handling here. */
+//     if (client->error != MQTT_ERROR_INITIAL_RECONNECT) {
+//         printf("reconnect_client: called while client was in error state \"%s\"\n",
+//                mqtt_error_str(client->error)
+//         );
+//     }
+//     connection->reconnect();
+// }
 
 }    // namespace mqtt

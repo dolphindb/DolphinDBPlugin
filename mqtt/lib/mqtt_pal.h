@@ -1,4 +1,4 @@
-#ifndef __MQTT_PAL_H__
+#if !defined(__MQTT_PAL_H__)
 #define __MQTT_PAL_H__
 
 /*
@@ -24,6 +24,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
 
 /**
  * @file
@@ -63,6 +67,7 @@ SOFTWARE.
  * for sending and receiving data using the platforms socket calls.
  */
 
+
 /* UNIX-like platform support */
 #if defined(__unix__) || defined(__APPLE__) || defined(__NuttX__)
     #include <limits.h>
@@ -84,8 +89,8 @@ SOFTWARE.
     #define MQTT_PAL_MUTEX_LOCK(mtx_ptr) pthread_mutex_lock(mtx_ptr)
     #define MQTT_PAL_MUTEX_UNLOCK(mtx_ptr) pthread_mutex_unlock(mtx_ptr)
 
-    #ifndef MQTT_USE_CUSTOM_SOCKET_HANDLE
-        #ifdef MQTT_USE_MBEDTLS
+    #if !defined(MQTT_USE_CUSTOM_SOCKET_HANDLE)
+        #if defined(MQTT_USE_MBEDTLS)
             struct mbedtls_ssl_context;
             typedef struct mbedtls_ssl_context *mqtt_pal_socket_handle;
         #elif defined(MQTT_USE_WOLFSSL)
@@ -119,7 +124,6 @@ SOFTWARE.
     #include <windows.h>
     #include <time.h>
     #include <stdint.h>
-    #include <pthread.h>
 
     typedef SSIZE_T ssize_t;
     #define MQTT_PAL_HTONS(s) htons(s)
@@ -134,8 +138,9 @@ SOFTWARE.
     #define MQTT_PAL_MUTEX_LOCK(mtx_ptr) EnterCriticalSection(mtx_ptr)
     #define MQTT_PAL_MUTEX_UNLOCK(mtx_ptr) LeaveCriticalSection(mtx_ptr)
 
-    #ifndef MQTT_USE_CUSTOM_SOCKET_HANDLE
-        #ifdef MQTT_USE_BIO
+
+    #if !defined(MQTT_USE_CUSTOM_SOCKET_HANDLE)
+        #if defined(MQTT_USE_BIO)
             #include <openssl/bio.h>
             typedef BIO* mqtt_pal_socket_handle;
         #else
@@ -155,6 +160,13 @@ SOFTWARE.
  * @param[in] flags Flags which are passed to the underlying socket.
  * 
  * @returns The number of bytes sent if successful, an \ref MQTTErrors otherwise.
+ *
+ * Note about the error handling:
+ * - On an error, if some bytes have been processed already,
+ *   this function should return the number of bytes successfully
+ *   processed. (partial success)
+ * - Otherwise, if the error is an equivalent of EAGAIN, return 0.
+ * - Otherwise, return MQTT_ERROR_SOCKET_ERROR.
  */
 ssize_t mqtt_pal_sendall(mqtt_pal_socket_handle fd, const void* buf, size_t len, int flags);
 
@@ -168,7 +180,19 @@ ssize_t mqtt_pal_sendall(mqtt_pal_socket_handle fd, const void* buf, size_t len,
  * @param[in] flags Flags which are passed to the underlying socket.
  * 
  * @returns The number of bytes received if successful, an \ref MQTTErrors otherwise.
+ *
+ * Note about the error handling:
+ * - On an error, if some bytes have been processed already,
+ *   this function should return the number of bytes successfully
+ *   processed. (partial success)
+ * - Otherwise, if the error is an equivalent of EAGAIN, return 0.
+ * - Otherwise, return MQTT_ERROR_SOCKET_ERROR.
  */
 ssize_t mqtt_pal_recvall(mqtt_pal_socket_handle fd, void* buf, size_t bufsz, int flags);
+
+#if defined(__cplusplus)
+}
+#endif
+
 
 #endif
