@@ -90,7 +90,7 @@ void CHSNsqSpiImpl::OnRspSecuDepthMarketDataCancel(CHSNsqRspInfoField *pRspInfo,
 
 // 如何根据表的Schema来创建 vectors，避免自己手动创建
 vector<ConstantSP> createVectors(int flag) {
-    // 0 是snapshot，1是trade，2是orders
+    // 0 是snapshot，1是trade，2是orders, 3是所有字段的snapshot， 4是order和trade的结合
     vector<ConstantSP> columns;
     if (flag == 0) {
         columns.resize(snapshotTypes.size());
@@ -106,6 +106,18 @@ vector<ConstantSP> createVectors(int flag) {
         columns.resize(ordersTypes.size());
         for (size_t i = 0; i < ordersTypes.size(); i++) {
             columns[i] = Util::createVector(ordersTypes[i], 1, 1);
+        }
+    } else if (flag == 3) {
+        vector<DATA_TYPE> colTypes = snapshotTypes;
+        colTypes.insert(colTypes.end(), addedSnapshotTypes.begin(), addedSnapshotTypes.end());
+        columns.resize(colTypes.size());
+        for (size_t i = 0; i < colTypes.size(); i++) {
+            columns[i] = Util::createVector(colTypes[i], 1, 1);
+        }
+    } else if (flag == 4) {
+        columns.resize(tradeAndOrdersMergedTypes.size());
+        for (size_t i = 0; i < tradeAndOrdersMergedTypes.size(); i++) {
+            columns[i] = Util::createVector(tradeAndOrdersMergedTypes[i], 1, 1);
         }
     } else {
         throw RuntimeException("flag error");
@@ -130,7 +142,11 @@ Time *getNewTime(int time) {
     return new Time(hour, minute, second, ms);
 }
 
-void setSnapshotData(vector<ConstantSP> &columns, CHSNsqSecuDepthMarketDataField *pSecuDepthMarketData, long long receivedTime) {
+void setSnapshotData(vector<ConstantSP> &columns, CHSNsqSecuDepthMarketDataField *pSecuDepthMarketData, long long receivedTime,
+                     HSIntVolume Bid1Volume[], HSNum Bid1Count, HSNum MaxBid1Count,
+                     HSIntVolume Ask1Volume[], HSNum Ask1Count, HSNum MaxAsk1Count) {
+    assert(Bid1Count <= 50);
+    assert(Ask1Count <= 50);
     columns[0]->set(0, new String(pSecuDepthMarketData->ExchangeID));
     columns[1]->set(0, new String(pSecuDepthMarketData->InstrumentID));
     columns[2]->set(0, new Double(pSecuDepthMarketData->LastPrice));
@@ -220,47 +236,119 @@ void setSnapshotData(vector<ConstantSP> &columns, CHSNsqSecuDepthMarketDataField
     columns[84]->set(0, new Int(pSecuDepthMarketData->BidOrdersNum));
     columns[85]->set(0, new Int(pSecuDepthMarketData->AskOrdersNum));
     columns[86]->set(0, new Double(pSecuDepthMarketData->PreIOPV));
-    if (columns.size() == 88) {
-        columns[87]->set(0, new Long(receivedTime));
+    int i = 87;
+    if (receivedTimeFlag) {
+        columns[i++]->set(0, new Long(receivedTime));
+    }
+    if (getAllFieldNamesFlag) {
+        columns[i++]->set(0, new Int(Bid1Count));
+        columns[i++]->set(0, new Int(MaxBid1Count));
+        columns[i++]->set(0, new Int(Ask1Count));
+        columns[i++]->set(0, new Int(MaxAsk1Count));
+        int j;
+        for (j = 0; j < 50; j++) {
+            if (j < Bid1Count) {
+                columns[i++]->set(0, new Long(Bid1Volume[j]));
+            } else {
+                columns[i++]->set(0, new Long(0));
+            }
+        }
+        for (j = 0; j < 50; j++) {
+            if (j < Ask1Count) {
+                columns[i++]->set(0, new Long(Ask1Volume[j]));
+            } else {
+                columns[i++]->set(0, new Long(0));
+            }
+        }
     }
 }
 
 void setTradeData(vector<ConstantSP> &columns, CHSNsqSecuTransactionTradeDataField *pSecuTransactionTradeData, long long receivedTime) {
-    columns[0]->set(0, new String(pSecuTransactionTradeData->ExchangeID));
-    columns[1]->set(0, new String(pSecuTransactionTradeData->InstrumentID));
-    columns[2]->set(0, new Int(pSecuTransactionTradeData->TransFlag));
-    columns[3]->set(0, new Long(pSecuTransactionTradeData->SeqNo));
-    columns[4]->set(0, new Int(pSecuTransactionTradeData->ChannelNo));
-    columns[5]->set(0, getNewDate(pSecuTransactionTradeData->TradeDate));
-    columns[6]->set(0, getNewTime(pSecuTransactionTradeData->TransactTime));
-    columns[7]->set(0, new Double(pSecuTransactionTradeData->TrdPrice));
-    columns[8]->set(0, new Long(pSecuTransactionTradeData->TrdVolume));
-    columns[9]->set(0, new Double(pSecuTransactionTradeData->TrdMoney));
-    columns[10]->set(0, new Long(pSecuTransactionTradeData->TrdBuyNo));
-    columns[11]->set(0, new Long(pSecuTransactionTradeData->TrdSellNo));
-    columns[12]->set(0, new Char(pSecuTransactionTradeData->TrdBSFlag));
-    columns[13]->set(0, new Long(pSecuTransactionTradeData->BizIndex));
-    if (columns.size() == 15) {
-        columns[14]->set(0, new Long(receivedTime));
+    if (getAllFieldNamesFlag) {
+        columns[0]->set(0, new String(pSecuTransactionTradeData->ExchangeID));
+        columns[1]->set(0, new String(pSecuTransactionTradeData->InstrumentID));
+        columns[2]->set(0, new Int(pSecuTransactionTradeData->TransFlag));
+        columns[3]->set(0, new Long(pSecuTransactionTradeData->SeqNo));
+        columns[4]->set(0, new Int(pSecuTransactionTradeData->ChannelNo));
+        columns[5]->set(0, getNewDate(pSecuTransactionTradeData->TradeDate));
+        columns[6]->set(0, getNewTime(pSecuTransactionTradeData->TransactTime));
+        columns[7]->set(0, new Int(2));
+        columns[8]->set(0, new Double(pSecuTransactionTradeData->TrdPrice));
+        columns[9]->set(0, new Long(pSecuTransactionTradeData->TrdVolume));
+        columns[10]->set(0, new Double(pSecuTransactionTradeData->TrdMoney));
+        columns[11]->set(0, new Long(pSecuTransactionTradeData->TrdBuyNo));
+        columns[12]->set(0, new Long(pSecuTransactionTradeData->TrdSellNo));
+        columns[13]->set(0, new Char(pSecuTransactionTradeData->TrdBSFlag));
+        columns[14]->set(0, new Long(pSecuTransactionTradeData->BizIndex));
+        columns[15]->set(0, new Char(0));
+        columns[16]->set(0, new Char(0));
+        columns[17]->set(0, new Long(0));
+        columns[18]->set(0, new Long(0));
+        if (receivedTimeFlag) {
+            columns[19]->set(0, new Long(receivedTime));
+        }
+    } else {
+        columns[0]->set(0, new String(pSecuTransactionTradeData->ExchangeID));
+        columns[1]->set(0, new String(pSecuTransactionTradeData->InstrumentID));
+        columns[2]->set(0, new Int(pSecuTransactionTradeData->TransFlag));
+        columns[3]->set(0, new Long(pSecuTransactionTradeData->SeqNo));
+        columns[4]->set(0, new Int(pSecuTransactionTradeData->ChannelNo));
+        columns[5]->set(0, getNewDate(pSecuTransactionTradeData->TradeDate));
+        columns[6]->set(0, getNewTime(pSecuTransactionTradeData->TransactTime));
+        columns[7]->set(0, new Double(pSecuTransactionTradeData->TrdPrice));
+        columns[8]->set(0, new Long(pSecuTransactionTradeData->TrdVolume));
+        columns[9]->set(0, new Double(pSecuTransactionTradeData->TrdMoney));
+        columns[10]->set(0, new Long(pSecuTransactionTradeData->TrdBuyNo));
+        columns[11]->set(0, new Long(pSecuTransactionTradeData->TrdSellNo));
+        columns[12]->set(0, new Char(pSecuTransactionTradeData->TrdBSFlag));
+        columns[13]->set(0, new Long(pSecuTransactionTradeData->BizIndex));
+        if (receivedTimeFlag) {
+            columns[14]->set(0, new Long(receivedTime));
+        }
     }
 }
 
 void setEntrustData(vector<ConstantSP> &columns, CHSNsqSecuTransactionEntrustDataField *pSecuTransactionEntrustData, long long receivedTime) {
-    columns[0]->set(0, new String(pSecuTransactionEntrustData->ExchangeID));
-    columns[1]->set(0, new String(pSecuTransactionEntrustData->InstrumentID));
-    columns[2]->set(0, new Int(pSecuTransactionEntrustData->TransFlag));
-    columns[3]->set(0, new Long(pSecuTransactionEntrustData->SeqNo));
-    columns[4]->set(0, new Int(pSecuTransactionEntrustData->ChannelNo));
-    columns[5]->set(0, getNewDate(pSecuTransactionEntrustData->TradeDate));
-    columns[6]->set(0, getNewTime(pSecuTransactionEntrustData->TransactTime));
-    columns[7]->set(0, new Double(pSecuTransactionEntrustData->OrdPrice));
-    columns[8]->set(0, new Long(pSecuTransactionEntrustData->OrdVolume));
-    columns[9]->set(0, new Char(pSecuTransactionEntrustData->OrdSide));
-    columns[10]->set(0, new Char(pSecuTransactionEntrustData->OrdType));
-    columns[11]->set(0, new Long(pSecuTransactionEntrustData->OrdNo));
-    columns[12]->set(0, new Long(pSecuTransactionEntrustData->BizIndex));
-    if (columns.size() == 14) {
-        columns[13]->set(0, new Long(receivedTime));
+    if (getAllFieldNamesFlag) {
+        columns[0]->set(0, new String(pSecuTransactionEntrustData->ExchangeID));
+        columns[1]->set(0, new String(pSecuTransactionEntrustData->InstrumentID));
+        columns[2]->set(0, new Int(pSecuTransactionEntrustData->TransFlag));
+        columns[3]->set(0, new Long(pSecuTransactionEntrustData->SeqNo));
+        columns[4]->set(0, new Int(pSecuTransactionEntrustData->ChannelNo));
+        columns[5]->set(0, getNewDate(pSecuTransactionEntrustData->TradeDate));
+        columns[6]->set(0, getNewTime(pSecuTransactionEntrustData->TransactTime));
+        columns[7]->set(0, new Int(1));
+        columns[8]->set(0, new Double(pSecuTransactionEntrustData->OrdPrice));
+        columns[9]->set(0, new Long(pSecuTransactionEntrustData->OrdVolume));
+        columns[10]->set(0, new Double(0));
+        columns[11]->set(0, new Long(0));
+        columns[12]->set(0, new Long(0));
+        columns[13]->set(0, new Char(0));
+        columns[14]->set(0, new Long(pSecuTransactionEntrustData->BizIndex));
+        columns[15]->set(0, new Char(pSecuTransactionEntrustData->OrdSide));
+        columns[16]->set(0, new Char(pSecuTransactionEntrustData->OrdType));
+        columns[17]->set(0, new Long(pSecuTransactionEntrustData->OrdNo));
+        columns[18]->set(0, new Long(pSecuTransactionEntrustData->TrdVolume));
+        if (receivedTimeFlag) {
+            columns[19]->set(0, new Long(receivedTime));
+        }
+    } else {
+        columns[0]->set(0, new String(pSecuTransactionEntrustData->ExchangeID));
+        columns[1]->set(0, new String(pSecuTransactionEntrustData->InstrumentID));
+        columns[2]->set(0, new Int(pSecuTransactionEntrustData->TransFlag));
+        columns[3]->set(0, new Long(pSecuTransactionEntrustData->SeqNo));
+        columns[4]->set(0, new Int(pSecuTransactionEntrustData->ChannelNo));
+        columns[5]->set(0, getNewDate(pSecuTransactionEntrustData->TradeDate));
+        columns[6]->set(0, getNewTime(pSecuTransactionEntrustData->TransactTime));
+        columns[7]->set(0, new Double(pSecuTransactionEntrustData->OrdPrice));
+        columns[8]->set(0, new Long(pSecuTransactionEntrustData->OrdVolume));
+        columns[9]->set(0, new Char(pSecuTransactionEntrustData->OrdSide));
+        columns[10]->set(0, new Char(pSecuTransactionEntrustData->OrdType));
+        columns[11]->set(0, new Long(pSecuTransactionEntrustData->OrdNo));
+        columns[12]->set(0, new Long(pSecuTransactionEntrustData->BizIndex));
+        if (columns.size() == 14) {
+            columns[13]->set(0, new Long(receivedTime));
+        }
     }
 }
 
@@ -270,7 +358,6 @@ void CHSNsqSpiImpl::OnRtnSecuDepthMarketData(CHSNsqSecuDepthMarketDataField *pSe
                                              HSIntVolume Bid1Volume[], HSNum Bid1Count, HSNum MaxBid1Count,
                                              HSIntVolume Ask1Volume[], HSNum Ask1Count, HSNum MaxAsk1Count) {
     INDEX insertedRows;
-    string errMsg;
     LockGuard<Mutex> guard(&mtx);
     int index = -1;
 
@@ -280,19 +367,26 @@ void CHSNsqSpiImpl::OnRtnSecuDepthMarketData(CHSNsqSecuDepthMarketDataField *pSe
         } else if (string(pSecuDepthMarketData->ExchangeID) == "2") {
             index = 1;
         }
-
         vector<ConstantSP> columns = createVectors(0);
+        vector<string> colNames = snapshotColumnNames;
+        vector<DATA_TYPE> colTypes = snapshotTypes;
+        if (getAllFieldNamesFlag) {
+            columns = createVectors(3);
+            colNames.insert(colNames.end(), addedSnapshotColumnNames.begin(), addedSnapshotColumnNames.end());
+            colTypes.insert(colTypes.end(), addedSnapshotTypes.begin(), addedSnapshotTypes.end());
+        } else {
+            columns = createVectors(0);
+        }
         long long receivedTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        setSnapshotData(columns, pSecuDepthMarketData, receivedTime);
-
+        setSnapshotData(columns, pSecuDepthMarketData, receivedTime, 
+                        Bid1Volume, Bid1Count, MaxBid1Count,
+                        Ask1Volume, Ask1Count, MaxAsk1Count);
         vector<ObjectSP> args = {new String(tablenames[index])};
         ConstantSP table = session->getFunctionDef("objByName")->call(session->getHeap().get(), args);
-        TableSP tmp_table = Util::createTable(snapshotColumnNames, snapshotTypes, 0, 0);
-        tmp_table->append(columns, insertedRows, errMsg);
+		TableSP tmp_table = Util::createTable(colNames, columns);
         vector<ObjectSP> args2 = {table, tmp_table};
         session->getFunctionDef("append!")->call(session->getHeap().get(), args2);
-
-        setStatus(status[index], errMsg);
+        setStatus(status[index], "");
     } catch (std::exception &e) {
         setStatus(status[index], e.what());
     }
@@ -368,7 +462,6 @@ void CHSNsqSpiImpl::OnRspSecuTransactionCancel(CHSNsqRspInfoField *pRspInfo, int
 void CHSNsqSpiImpl::OnRtnSecuTransactionTradeData(CHSNsqSecuTransactionTradeDataField *pSecuTransactionTradeData) {
 
     INDEX insertedRows;
-    string errMsg;
     LockGuard<Mutex> guard(&mtx);
     int index = -1;
 
@@ -379,18 +472,28 @@ void CHSNsqSpiImpl::OnRtnSecuTransactionTradeData(CHSNsqSecuTransactionTradeData
             index = 3;
         }
 
-        vector<ConstantSP> columns = createVectors(1);
+        vector<ConstantSP> columns;
+        vector<string> colNames;
+        vector<DATA_TYPE> colTypes;
+        if (getAllFieldNamesFlag) {
+            columns = createVectors(4);
+            colNames = tradeAndOrdersMergedColumnNames;
+            colTypes = tradeAndOrdersMergedTypes;
+        } else {
+            columns = createVectors(1);
+            colNames = tradeColumnNames;
+            colTypes = tradeTypes;
+        }
         long long receivedTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         setTradeData(columns, pSecuTransactionTradeData, receivedTime);
 
         vector<ObjectSP> args = {new String(tablenames[index])};
         ConstantSP table = session->getFunctionDef("objByName")->call(session->getHeap().get(), args);
-        TableSP tmp_table = Util::createTable(tradeColumnNames, tradeTypes, 0, 0);
-        tmp_table->append(columns, insertedRows, errMsg);
+		TableSP tmp_table = Util::createTable(colNames, columns);
         vector<ObjectSP> args2 = {table, tmp_table};
         session->getFunctionDef("append!")->call(session->getHeap().get(), args2);
 
-        setStatus(status[index], errMsg);
+        setStatus(status[index], "");
 
     } catch (std::exception &e) {
         setStatus(status[index], e.what());
@@ -412,7 +515,6 @@ void CHSNsqSpiImpl::OnRtnSecuTransactionEntrustData(
     CHSNsqSecuTransactionEntrustDataField *pSecuTransactionEntrustData) {
 
     INDEX insertedRows;
-    string errMsg;
     LockGuard<Mutex> guard(&mtx);
     int index = -1;
 
@@ -425,18 +527,28 @@ void CHSNsqSpiImpl::OnRtnSecuTransactionEntrustData(
             throw RuntimeException("error ExchangeID");
         }
 
-        vector<ConstantSP> columns = createVectors(2);
+        vector<ConstantSP> columns;
+        vector<string> colNames;
+        vector<DATA_TYPE> colTypes;
+        if (getAllFieldNamesFlag) {
+            columns = createVectors(4);
+            colNames = tradeAndOrdersMergedColumnNames;
+            colTypes = tradeAndOrdersMergedTypes;
+        } else {
+            columns = createVectors(2);
+            colNames = ordersColumnNames;
+            colTypes = ordersTypes;
+        }
         long long receivedTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         setEntrustData(columns, pSecuTransactionEntrustData, receivedTime);
 
         vector<ObjectSP> args = {new String(tablenames[index])};
         ConstantSP table = session->getFunctionDef("objByName")->call(session->getHeap().get(), args);
-        TableSP tmp_table = Util::createTable(ordersColumnNames, ordersTypes, 0, 0);
-        tmp_table->append(columns, insertedRows, errMsg);
+		TableSP tmp_table = Util::createTable(colNames, columns);
         vector<ObjectSP> args2 = {table, tmp_table};
         session->getFunctionDef("append!")->call(session->getHeap().get(), args2);
 
-        setStatus(status[index], errMsg);
+        setStatus(status[index], "");
     } catch (std::exception &e) {
         setStatus(status[index], e.what());
     }
