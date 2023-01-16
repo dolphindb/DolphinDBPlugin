@@ -72,7 +72,7 @@ private:
     SmartPointer<AppendTable> append_;
 public:
     SubConnection();
-    SubConnection(Heap *heap, std::string description, const ConstantSP& parser, const ConstantSP& handle, const ConstantSP& consumer, int timeout);
+    SubConnection(Heap *heap, std::string description, const ConstantSP& parser, ConstantSP handle, ConstantSP consumer, int timeout);
     ~SubConnection();
     
     string getDescription(){
