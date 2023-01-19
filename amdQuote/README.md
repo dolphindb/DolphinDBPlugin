@@ -38,7 +38,7 @@ cmake .. -DAMDAPIDIR=<amd_ami_dir>
 make -j
 ```
 
-libPluginAmdQuote.so文件会在编译后生成。编译后 build 目录下会产生文件 libPluginAmdQuote.so 和 PluginAmdQuote.txt。
+libPluginAmdQuote.so 文件会在编译后生成。编译后 build 目录下会产生文件 libPluginAmdQuote.so 和 PluginAmdQuote.txt。
 
 参考 [预编译安装](#11-预编译安装) 指定动态库的环境变量，并加载插件。
 
@@ -66,13 +66,13 @@ libPluginAmdQuote.so文件会在编译后生成。编译后 build 目录下会�
 
 创建一个和 AMD 行情服务器之间的连接，返回一个句柄。
 
-**amdQuote::subscribe(handle, type, streamTable, marketType, codeList)**
+**amdQuote::subscribe(handle, type, streamTable, marketType, codeList, transform)**
 
 **参数**
 
 `handle` connect 接口返回的句柄。
 
-`type` 字符串标量，表示行情的类型，包含三种类型：'snapshot', 'execution' 和 'order'。
+`type` 字符串标量，表示行情的类型，可取以下值：'snapshot'（股票快照）, 'execution'（股票逐笔成交）, 'order'（股票逐笔委托）, 'index'（指数）, 'orderQueue'（委托队列）, 'fundSnapshot'（基金快照）, 'fundExecution'（基金逐笔成交），'fundOrder'（基金逐笔委托），'bondSnapshot'（债券快照），'bondOrder'（债券逐笔委托），'bondExecution'（债券逐笔成交）。
 
 `streamTable` 表示一个共享流表的表对象。订阅前需要创建一个共享流表，且该流表的 schema 需要和获取的行情数据结构一致。可以通过插件提供的 getSchema 函数来获取行情数据的 schema。
 
@@ -92,7 +92,7 @@ libPluginAmdQuote.so文件会在编译后生成。编译后 build 目录下会�
 
 `handle` connect 接口返回的句柄。
 
-`dataType` 字符串标量，表示行情的类型，可取以下值：'snapshot', 'execution', 'order' 和 'all'。其中，'snapshot' 表示取消快照订阅；'execution' 表示取消逐笔成交订阅；'order' 表示取消逐笔委托订阅；'all' 表示取消所有订阅。
+`dataType` 字符串标量，表示行情的类型，可取以下值：'snapshot', 'execution', 'order', 'index', 'orderQueue', 'fundSnapshot', 'fundExecution', 'fundOrder', 'bondSnapshot', 'bondOrder', 'bondExecution' 和 'all'。其中，'all' 表示取消所有订阅。
 
 `marketType` 整型标量，表示市场类型，需要和 AMD 中定义的市场类型一致。
 
@@ -120,7 +120,7 @@ libPluginAmdQuote.so文件会在编译后生成。编译后 build 目录下会�
 
 **参数**
 
-`type` 字符串标量，表示行情的类型，包含三种类型：'snapshot', 'execution' 和 'order'。
+`type` 字符串标量，表示行情的类型，可取以下值：'snapshot', 'execution', 'order', 'index', 'orderQueue', 'fundSnapshot', 'fundExecution', 'fundOrder', 'bondSnapshot', 'bondOrder' 和 'bondExecution'。
 
 **函数详情**
 
@@ -137,6 +137,41 @@ libPluginAmdQuote.so文件会在编译后生成。编译后 build 目录下会�
 获取当前连接下所有订阅的状态。返回一个表，包含三列：datatype, isSubscribed 和 marketType，分别表示订阅的行数数据类型，是否被订阅和订阅的市场类型。  
 
 注：getStatus 不会显示取消订阅部分股票的状态，因此，当取消对部分股票的订阅后，通过 getStatus 查看的结果为该股票所属的行情数据（datatype）被取消订阅（isSubscribed=false）。
+
+**amdQuote::getCodeList()**
+
+**参数**
+
+无
+
+**函数详情**
+
+获取当前连接下的代码表结构。
+
+**amdQuote::getETFCodeList()**
+
+**参数**
+
+无
+
+**函数详情**
+
+获取当前连接下的 ETF 代码表结构。
+
+
+**amdQuote::enableLatencyStatistics(handle, flag)**
+
+**参数**
+
+`handle` connect 接口返回的句柄。
+
+`flag` 布尔类型，表示是否开启统计耗时功能。
+
+**函数详情**
+
+开启或关闭耗时统计的功能。耗时指从插件接收到 AMD 消息至数据转换后写入流表的时间。开启后，统计信息将输出到 server 端 Log 日志，每隔30秒，进行一次统计输出。
+
+注意，开启耗时统计功能会增加 Log 文件的输出，因此建议仅当 AMD 插件出现性能问题时，才开启该功能排查问题。
 
 ## 使用示例
 
