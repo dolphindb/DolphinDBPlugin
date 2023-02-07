@@ -157,8 +157,8 @@ int getFilenames(unzFile uf, vector<string>& filenames)
     return 0;
 }
 
-
-int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, int* popt_overwrite, const char* password)
+//int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, int* popt_overwrite, const char* password)
+int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, int* popt_overwrite, const char* password, const string& outputPath)
 {
     char filename_inzip[256];
     char* filename_withoutpath;
@@ -197,19 +197,25 @@ int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, int
     {
         if ((*popt_extract_without_path)==0)
         {
-            printf("creating directory: %s\n",filename_inzip);
-            mymkdir(filename_inzip);
+            // printf("creating directory: %s\n",filename_inzip);
+            // mymkdir(filename_inzip);
+            string fileName = outputPath + filename_inzip;
+            printf("creating directory: %s\n",fileName.c_str());
+            mymkdir(fileName.c_str());
         }
     }
     else
     {
-        const char* write_filename;
+        //const char* write_filename;
+        string write_filename;
         int skip=0;
 
         if ((*popt_extract_without_path)==0)
-            write_filename = filename_inzip;
+            //write_filename = filename_inzip;
+            write_filename = outputPath + filename_inzip;
         else
-            write_filename = filename_withoutpath;
+            //write_filename = filename_withoutpath;
+            write_filename = outputPath + filename_withoutpath;
 
         err = unzOpenCurrentFilePassword(uf,password);
         if (err!=UNZ_OK)
@@ -221,7 +227,8 @@ int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, int
         {
             char rep=0;
             FILE* ftestexist;
-            ftestexist = FOPEN_FUNC(write_filename,"rb");
+            //ftestexist = FOPEN_FUNC(write_filename,"rb");
+            ftestexist = FOPEN_FUNC(write_filename.c_str(),"rb");
             if (ftestexist!=NULL)
             {
                 fclose(ftestexist);
@@ -230,7 +237,8 @@ int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, int
                     char answer[128];
                     int ret;
 
-                    printf("The file %s exists. Overwrite ? [y]es, [n]o, [A]ll: ",write_filename);
+                    //printf("The file %s exists. Overwrite ? [y]es, [n]o, [A]ll: ",write_filename);
+                    printf("The file %s exists. Overwrite ? [y]es, [n]o, [A]ll: ",write_filename.c_str());
                     ret = scanf("%1s",answer);
                     if (ret != 1)
                     {
@@ -252,27 +260,32 @@ int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, int
 
         if ((skip==0) && (err==UNZ_OK))
         {
-            fout=FOPEN_FUNC(write_filename,"wb");
+            //fout=FOPEN_FUNC(write_filename,"wb");
+            fout=FOPEN_FUNC(write_filename.c_str(),"wb");
             /* some zipfile don't contain directory alone before file */
             if ((fout==NULL) && ((*popt_extract_without_path)==0) &&
                                 (filename_withoutpath!=(char*)filename_inzip))
             {
                 char c=*(filename_withoutpath-1);
                 *(filename_withoutpath-1)='\0';
-                makedir(write_filename);
+                //makedir(write_filename);
+                makedir(write_filename.c_str());
                 *(filename_withoutpath-1)=c;
-                fout=FOPEN_FUNC(write_filename,"wb");
+                //fout=FOPEN_FUNC(write_filename,"wb");
+                fout=FOPEN_FUNC(write_filename.c_str(),"wb");
             }
 
             if (fout==NULL)
             {
-                printf("error opening %s\n",write_filename);
+                //printf("error opening %s\n",write_filename);
+                printf("error opening %s\n",write_filename.c_str());
             }
         }
 
         if (fout!=NULL)
         {
-            printf(" extracting: %s\n",write_filename);
+            //printf(" extracting: %s\n",write_filename);
+            printf(" extracting: %s\n",write_filename.c_str());
 
             do
             {
@@ -295,7 +308,9 @@ int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, int
                     fclose(fout);
 
             if (err==0)
-                change_file_date(write_filename,file_info.dosDate,
+            // change_file_date(write_filename,file_info.dosDate,
+            //                      file_info.tmu_date);
+                change_file_date(write_filename.c_str(),file_info.dosDate,
                                  file_info.tmu_date);
         }
 
@@ -332,7 +347,7 @@ int do_extract(unzFile uf, int opt_extract_without_path, int opt_overwrite, cons
         // 解压当前文件
         if (do_extract_currentfile(uf, &opt_extract_without_path,
                                        &opt_overwrite,
-                                       password) != UNZ_OK) {
+                                       password, outputDir) != UNZ_OK) {
             break;
         }
         

@@ -77,15 +77,9 @@ void unzipFile(const string& zipFilename, const string& outputDir, Heap* heap, F
         throw RuntimeException("Cannot open file " + zipFilename);
     }
 
-    // 获取当前工作路径。在该函数结束时切换回原来的工作路径
-    string currentDirName = get_current_dir_name();
-    if (/*!outputDir.empty() && */(retValue = chdir(outputDir.c_str()))) {
+    if(access(outputDir.c_str(), 2) != 0)
         throw RuntimeException("Cannot open file " + outputDir);
-    }
     retValue = do_extract(uf, 0, 1, nullptr, outputDir, heap, function);
-
-    // chdir back to original
-    retValue = chdir(currentDirName.c_str());
 
     unzClose(uf);
 
