@@ -1,5 +1,7 @@
 # ZeroMQ Plugin for DolphinDB
 
+The DolphinDB ZeroMQ plugin has the branches [release 200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/zmq/README_EN.md) and [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/zmq/README_EN.md). Each plugin version corresponds to a DolphinDB server version. If you use a different DolphinDB server version, refer to the corresponding branch of the plugin documentation.
+
 - [ZeroMQ Plugin for DolphinDB](#zeromq-plugin-for-dolphindb)
   - [1. Install the Plugin](#1-install-the-plugin)
     - [1.1 Download Precompiled Binaries](#11-download-precompiled-binaries)
@@ -71,9 +73,9 @@ cmake  ../
 make
 ```
 
-**Note:** Please make sure the file *libDolphinDB.so* is under the GCC search path before compilation. You can add the plugin path to the library search path `LD_LIBRARY_PATH` or copy it to the build directory.
+**Note:** Make sure the file *libDolphinDB.so* is under the GCC search path before compilation. You can add the plugin path to the library search path `LD_LIBRARY_PATH` or copy it to the build directory.
 
-*libPluginZmq.so* and *PluginZmq.txt* are generated under the working directory.
+*libPluginZmq.so* and *PluginZmq.txt* are generated under the working directory after successful compilation.
 
 ## 2. Send 
 
@@ -85,10 +87,10 @@ zmq::socket(type, formatter, [batchSize], [prefix])
 
 **Parameters**
 
-- type: is a STRING indicating the socket type to be created. It can be “ZMQ_PUB” and “ZMQ_PUSH”.
-- formatter: is a function used to package published data in a format. Currently supported functions are `createJsonFormatter` and `createCsvFormatter`.
-- batchSize: is an integer. When the content to be published is a table, it can be sent in batches, and *batchSize* indicates the number of rows sent each time.
-- prefix: a STRING indicating the message prefix.
+- type: a STRING scalar indicating the socket type to be created. It can be “ZMQ_PUB” and “ZMQ_PUSH”.
+- formatter: a function used to package published data in a specified format. Currently it supports methods `createJsonFormatter` and `createCsvFormatter`.
+- batchSize: an integer indicating the number of messages sent each time. For a table to be published, it can be sent in batches.
+- prefix: a STRING scalar indicating the message prefix.
 
 **Details**
 
@@ -99,10 +101,8 @@ Note: When using methods `connect`, `bind`, `send` and `close` for concurrent op
 **Example**
 
 ```
-handle = streamTable(10:0, [`int], [INT])
-enableTableShareAndPersistence(table=handle, tableName=`test1, asynWrite=true, compress=true, cacheSize=10000000, retentionMinutes=120)
-parser = zmq::createJSONParser([INT], [`bool])
-zmq::createSubJob("tcp://localhost:55633", "ZMQ_SUB", true, handle, parser, "prefix1")
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
 ```
 
 ### 2.2 zmq::connect
@@ -113,9 +113,9 @@ zmq::connect(socket, addr, [prefix])
 
 **Parameters**
 
-- socket: a zmq socket
+- socket: a zmq socket.
 - addr: the address string in the form of "protocol://interface:port", indicating the remote address to be connected to. "protocol" is the underlying transport protocol to use, including tcp, ipc, inproc, and epgm. "interface:port" is the remote IP address and port number.
-- prefix: a STRING indicating the message prefix.
+- prefix: a STRING scalar indicating the message prefix.
 
 **Details**
 
@@ -137,9 +137,9 @@ zmq::bind(socket, addr, [prefix])
 
 **Parameters**
 
-- socket: a zmq socket
+- socket: a zmq socket.
 - addr: the address string in the form of "protocol://interface:port", indicating the remote address to be connected to. "protocol" is the underlying transport protocol to use, including tcp, ipc, inproc, and epgm. "interface:port" is the remote IP address and port number.
-- prefix: a STRING indicating the message prefix.
+- prefix: a STRING scalar indicating the message prefix.
 
 **Details**
 
@@ -161,9 +161,9 @@ zmq::send(socket, data, [prefix])
 
 **Parameters**
 
-- socket: is a zmq socket
-- data: is a table to be sent
-- prefix: a STRING indicating the message prefix.
+- socket: a zmq socket.
+- data: a table to be sent.
+- prefix: a STRING scalar indicating the message prefix.
 
 **Details**
 
@@ -213,8 +213,8 @@ Create a zmq subscription. The subscription will automatically reconnect after n
 
 - addr: the address string in the form of "protocol://interface:port", indicating the remote address to be connected to. "protocol" is the underlying transport protocol to use, including tcp, ipc, inproc, and epgm. "interface:port" is the remote IP address and port number.
 - type: a STRING indicating the socket type to be created. It can be “ZMQ_SUB” and “ZMQ_PULL”.
-- isConnnect: a Boolean value indicating whether to connect to addr. If false the addr is binded.
-- handle: a function or a table used to handle messages sent from zmq
+- isConnnect: a Boolean value indicating whether to connect to *addr*. If false the *addr* is binded.
+- handle: a function or a table used to handle messages sent from zmq.
 - parser: is a function for parsing subscribed messages. Currently supported functions are `createJsonParser` and `createCsvParser`.
 - prefix: a STRING indicating the message prefix.
 
@@ -233,10 +233,12 @@ You can use it with a Python script:
 import zmq
 import time
 import sys
+
 context = zmq.Context()
 socket = context.socket(zmq.PUB)
 socket.bind("tcp://*:55633")
 msg = '[{"bool":234}]'
+
 while True:
 	socket.send(msg.encode('utf-8'))
 	time.sleep(2)
@@ -297,26 +299,32 @@ zmq::cancelSubJob(42070480)
 
 zmq::zmqCreatepusher(socket, dummyTable)
 
-**Details**
-
-Create a zmq pusher.
-
 **Parameters**
 
-- socket: is a zmq socket.
-- dummyTable: schema of the input table.
+- socket: a zmq socket.
+- dummyTable: a table object which receives the input messages.
+
+**Details**
+
+Create a zmq pusher. The plugin offers 2 ways to send messages to the pusher to forward the messages:
+
+- Append data to the pusher with method `append!`;
+- Ingest data from the output table of a streaming engine to the pusher.
 
 **Example**
 
 ```
 share streamTable(1000:0, `time`sym`volume, [TIMESTAMP, SYMBOL, INT]) as trades
 output1 = table(10000:0, `time`sym`sumVolume, [TIMESTAMP, SYMBOL, INT])
+
 formatter = zmq::createJSONFormatter()
 socket = zmq::socket("ZMQ_PUB", formatter)
 zmq::connect(socket, "tcp://localhost:55632")
 pusher = zmq::createPusher(socket, output1)
+
 engine1 = createTimeSeriesEngine(name="engine1", windowSize=60000, step=60000, metrics=<[sum(volume)]>, dummyTable=trades, outputTable=pusher, timeColumn=`time, useSystemTime=false, keyColumn=`sym, garbageSize=50, useWindowStartTime=false)
 subscribeTable(tableName="trades", actionName="engine1", offset=0, handler=append!{engine1}, msgAsTable=true);
+
 insert into trades values(2018.10.08T01:01:01.785,`A,10)
 insert into trades values(2018.10.08T01:01:02.125,`B,26)
 insert into trades values(2018.10.08T01:01:10.263,`B,14)
@@ -339,13 +347,13 @@ zmq::createCSVFormatter([format], [delimiter=','], [rowDelimiter=';'])
 
 **Parameters**
 
-- format: is a vector of STRING type.
-- delimiter: is the separator between columns, the default is ','.
-- rowDelimiter: is the separator between rows, the default is ';'.
+- format: a vector of STRING type.
+- delimiter: the delimiter between columns, the default is ','.
+- rowDelimiter: the delimiter between rows, the default is ';'.
 
 **Details**
 
-This function creates a Formatter function in CSV format.
+Create a Formatter function in CSV format.
 
 **Example**
 
@@ -364,12 +372,12 @@ zmq::createCSVParser(schema, [delimiter=','], [rowDelimiter=';'])
 **Parameters**
 
 - schema: a vector indicating the data type of each column.
-- delimiter: is the separator between columns, the default is ','.
-- rowDelimiter: is the separator between rows, the default is ';'.
+- delimiter: the delimiter between columns, the default is ','.
+- rowDelimiter: the delimiter between rows, the default is ';'.
 
 **Details**
 
-This function creates a Parser function in CSV format.
+Create a Parser function in CSV format.
 
 **Example**
 
@@ -390,13 +398,9 @@ p(s)
 
 zmq::createJSONFormatter()
 
-**Parameters**
-
-None
-
 **Details**
 
-This function creates a Formatter function in JSON format
+Create a Formatter function in JSON format
 
 **Example**
 
@@ -417,12 +421,12 @@ zmq::createJSONParser(schema, colNames)
 
 **Parameters**
 
-- schema: is a vector indicating the data type of each column.
-- colNames: is a vector indicating the name of each column.
+- schema: a vector indicating the data type of each column.
+- colNames: a vector indicating the name of each column.
 
 **Details**
 
-This function creates a Parser function in JSON format.
+Create a Parser function in JSON format.
 
 **Example**
 
@@ -468,6 +472,7 @@ if __name__=='__main__':
     socket.connect("tcp://192.168.0.48:55632")
     zip_filter = ""
     socket.setsockopt(zmq.SUBSCRIBE, zip_filter.encode('ascii'))
+
     while True:
         recvStr = socket.recv()
         print (recvStr)
