@@ -322,6 +322,102 @@ struct murmur_hasher<T*> {
     uint64_t operator()(const T* val);
 };
 
+uint64_t XXHash64(const char *key, int len);
+
+template<class T>
+struct XXHasher {
+    inline uint64_t operator()(const T&);
+};
+
+
+template<>
+struct XXHasher<std::string> {
+    uint64_t operator()(const std::string & val);
+};
+
+template<>
+struct XXHasher<DolphinString> {
+    uint64_t operator()(const DolphinString & val);
+};
+
+template<>
+struct XXHasher<Guid> {
+    uint64_t operator()(const Guid & val);
+};
+
+template<>
+struct XXHasher<bool> {
+    uint64_t operator()(const bool & val);
+};
+template<>
+struct XXHasher<char> {
+    uint64_t operator()(const char & val);
+};
+template<>
+struct XXHasher<signed char> {
+    uint64_t operator()(const signed char & val);
+};
+template<>
+struct XXHasher<unsigned char> {
+    uint64_t operator()(const unsigned char & val);
+};
+template<>
+struct XXHasher<char16_t> {
+    uint64_t operator()(const char16_t & val);
+};
+template<>
+struct XXHasher<char32_t> {
+    uint64_t operator()(const char32_t & val);
+};
+template<>
+struct XXHasher<wchar_t> {
+    uint64_t operator()(const wchar_t & val);
+};
+template<>
+struct XXHasher<short> {
+    uint64_t operator()(const short & val);
+};
+template<>
+struct XXHasher<unsigned short> {
+    uint64_t operator()(const unsigned short & val);
+};
+template<>
+struct XXHasher<int> {
+    uint64_t operator()(const int & val);
+};
+template<>
+struct XXHasher<unsigned int> {
+    uint64_t operator()(const unsigned int & val);
+};
+template<>
+struct XXHasher<long> {
+    uint64_t operator()(const long & val);
+};
+template<>
+struct XXHasher<unsigned long> {
+    uint64_t operator()(const unsigned long & val);
+};
+template<>
+struct XXHasher<long long> {
+    uint64_t operator()(const long long & val);
+};
+template<>
+struct XXHasher<unsigned long long> {
+    uint64_t operator()(const unsigned long long & val);
+};
+template<>
+struct XXHasher<float> {
+    uint64_t operator()(const float & val);
+};
+template<>
+struct XXHasher<double> {
+    uint64_t operator()(const double & val);
+};
+template<class T>
+struct XXHasher<T*> {
+    uint64_t operator()(const T* val);
+};
+
 /*
  * Copyright (c) 2013, Marwan Burelle
  * All rights reserved.

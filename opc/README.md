@@ -35,7 +35,9 @@ You can load the precompiled binaries under the [bin directory](https://github.c
 ```
 loadPlugin("C:/path/to/opc/PluginOpc.txt")
 ```
- 
+
+Note that you must load the plugin with an absolute path and replace "\\" with "\\\\" or "/".
+
 ### 1.3 Build a Plugin
 
 Install [cmake](https://cmake.org/). It is a popular project build tool that can help you easily solve third-party dependencies.

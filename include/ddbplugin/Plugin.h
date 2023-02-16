@@ -221,6 +221,10 @@ private:
 
 class PUtil {
 public:
+	static std::string  getVersionMarker(){
+		return "Ddb_Plugin_Version: 1.30.20.1";
+	}
+
 	static void enumBoolVector(const VectorSP &pVector, std::function<bool(const char *pbuf, INDEX startIndex, INDEX size)> func, INDEX offset = 0) {
 		enumDdbVector<char>(pVector, &Vector::getBoolConst, func, offset);
 	}
@@ -341,10 +345,18 @@ public:
 				});
 				break;
 			case DT_INT:
-				column_[i].intCol = new Column<int>(pVector, [=](const VectorSP &pVector, INDEX position, int len, int *buf) {
-					return pVector->getIntConst(position, len, buf);
-				});
+				if (pVector->getType() == DT_SYMBOL) {
+					column_[i].stringCol = new Column<DolphinString*>(pVector, [=](const VectorSP &pVector, INDEX position, int len, DolphinString** buf) {
+						return pVector->getStringConst(position, len, buf);
+					});
+				}
+				else{
+					column_[i].intCol = new Column<int>(pVector, [=](const VectorSP &pVector, INDEX position, int len, int *buf) {
+						return pVector->getIntConst(position, len, buf);
+					});
+				}
 				break;
+			case DT_TIMESTAMP:
 			case DT_LONG:
 				column_[i].longCol = new Column<long long>(pVector, [=](const VectorSP &pVector, INDEX position, int len, long long *buf) {
 					return pVector->getLongConst(position, len, buf);
@@ -362,7 +374,6 @@ public:
 				break;
 			case DT_BLOB:
 			case DT_STRING:
-			case DT_SYMBOL:
 				column_[i].stringCol = new Column<DolphinString*>(pVector, [=](const VectorSP &pVector, INDEX position, int len, DolphinString** buf) {
 					return pVector->getStringConst(position, len, buf);
 				});
@@ -467,10 +478,6 @@ public:
 		return column_[col].doubleCol->getValue(position_);
 	}
 	const DolphinString& getString(int col) const {
-		assert(column_[col].stringCol != nullptr);
-		return *column_[col].stringCol->getValue(position_);
-	}
-	const DolphinString& getBlob(int col) const {
 		assert(column_[col].stringCol != nullptr);
 		return *column_[col].stringCol->getValue(position_);
 	}

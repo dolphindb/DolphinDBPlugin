@@ -7,6 +7,7 @@
 #include <map>
 
 #include "CoreConcept.h"
+#include "ScalarImp.h"
 #include "Util.h"
 
 //========================================================================
@@ -18,10 +19,10 @@ template <typename T>
 struct MinPrecision { static constexpr int value = 1; };
 
 template <typename T>
-struct MaxPrecision { static constexpr int value = 0; };
+struct MaxPrecision;
 
-template <> struct MaxPrecision<int32_t> { static constexpr int value = 9; };
-template <> struct MaxPrecision<int64_t> { static constexpr int value = 18; };
+template <> struct MaxPrecision<int> { static constexpr int value = 9; };
+template <> struct MaxPrecision<long long> { static constexpr int value = 18; };
 
 
 inline int exp10_i32(int x) {
@@ -37,11 +38,12 @@ inline int exp10_i32(int x) {
         100000000,
         1000000000
     };
+    assert(x >= 0 && static_cast<size_t>(x) < sizeof(values)/sizeof(values[0]));
     return values[x];
 }
 
-inline int64_t exp10_i64(int x) {
-    constexpr int64_t values[] = {
+inline long long exp10_i64(int x) {
+    constexpr long long values[] = {
         1LL,
         10LL,
         100LL,
@@ -62,6 +64,7 @@ inline int64_t exp10_i64(int x) {
         100000000000000000LL,
         1000000000000000000LL
     };
+    assert(x >= 0 && static_cast<size_t>(x) < sizeof(values)/sizeof(values[0]));
     return values[x];
 }
 
@@ -69,13 +72,55 @@ template <typename T>
 inline T scaleMultiplier(int scale);
 
 template <>
-inline int32_t scaleMultiplier<int32_t>(int scale) {
-        return exp10_i32(scale);
+inline int scaleMultiplier<int>(int scale) {
+    return exp10_i32(scale);
 }
 
 template <>
-inline int64_t scaleMultiplier<int64_t>(int scale) {
+inline long long scaleMultiplier<long long>(int scale) {
     return exp10_i64(scale);
+}
+
+template <>
+inline long scaleMultiplier<long>(int scale) {
+    if (sizeof(long) == sizeof(int)) {
+        return exp10_i32(scale);
+    } else {
+        return exp10_i64(scale);
+    }
+}
+
+
+inline std::pair<DATA_TYPE, int> determineOperateResultType(const std::pair<DATA_TYPE, int> &lhs,
+                                                            const std::pair<DATA_TYPE, int> &rhs,
+                                                            bool is_mul, bool is_div) {
+    ASSERT(Util::getCategory(lhs.first) == DENARY && Util::getCategory(rhs.first) == DENARY);
+    DATA_TYPE resultType = std::max(lhs.first, rhs.first);
+
+    int resultScale = -1;
+    if (is_mul) {
+        resultScale = lhs.second + rhs.second;
+    } else if (is_div) {
+        resultScale = lhs.second;
+    } else {
+        resultScale = std::max(lhs.second, rhs.second);
+    }
+
+    return {resultType, resultScale};
+}
+
+inline std::pair<DATA_TYPE, int> determineOperateResultType(const ConstantSP &lhs, const ConstantSP &rhs,
+                                                            bool is_mul, bool is_div) {
+    if (lhs->getCategory() == DENARY && rhs->getCategory() == DENARY) {
+        return determineOperateResultType({lhs->getType(), lhs->getExtraParamForType()},
+                {rhs->getType(), rhs->getExtraParamForType()}, is_mul, is_div);
+    } else if (lhs->getCategory() == DENARY) {
+        return {lhs->getType(), lhs->getExtraParamForType()};
+    } else if (rhs->getCategory() == DENARY) {
+        return {rhs->getType(), rhs->getExtraParamForType()};
+    } else {
+        ASSERT("unreachable" && 0);
+    }
 }
 
 
@@ -393,6 +438,34 @@ inline void toDecimal(const string &str, int scale, T& rawData) {
     }
 }
 
+inline Decimal32 toDecimal32(const string &str, int scale) {
+    Decimal32 res(scale);
+    Decimal32::raw_data_t rawData;
+    toDecimal(str, scale, rawData);
+    res.setRawData(rawData);
+    return res;
+}
+
+inline Decimal64 toDecimal64(const string &str, int scale) {
+    Decimal64 res(scale);
+    Decimal64::raw_data_t rawData;
+    toDecimal(str, scale, rawData);
+    res.setRawData(rawData);
+    return res;
+}
+
+
+template <typename T>
+inline Decimal<T> convertFrom(const int scale, const ConstantSP &obj) {
+    Decimal<T> ret{scale};
+
+    if (false == ret.assign(obj)) {
+        throw RuntimeException("Can't convert " + Util::getDataTypeString(obj->getType()) + " to DECIMAL");
+    }
+
+    return ret;
+}
+
 }  // namespace decimal_util
 
 
@@ -400,6 +473,10 @@ inline void toDecimal(const string &str, int scale, T& rawData) {
 // Misc
 //========================================================================
 namespace decimal_util {
+
+enum class CompareType {
+    eq, ne, lt, gt, le, ge, between
+};
 
 inline std::string categoryToString(const DATA_CATEGORY cat) {
 #define NORMAL_CASE(tag) case tag: return #tag;
@@ -437,6 +514,7 @@ inline void checkComparison(const DATA_CATEGORY cat) {
 
 /**
  * @brief valid str: "DECIMAL32(2)", "decimal64(8)", or "decimal128(10)"
+ *                   "DECIMAL32(2)[]"
  * 
  * @return std::pair<DATA_TYPE, int> second: scale
  */
@@ -471,25 +549,42 @@ inline std::pair<DATA_TYPE, int> parseDecimalType(const std::string &str) {
         throw RuntimeException("Invalid decimal data type");
     }
 
-    if (str.size() < i + 3 || str[i] != '(' || str[str.size()-1] != ')') {
+    if (str.size() < i + 1 || str[i] != '(' /*|| str[str.size()-1] != ')'*/) {
         throw RuntimeException("Invalid decimal data type");
     }
     ++i;
 
     char digits[4] = {0};
-    for (size_t j = 0; j < 3 && i < str.size() - 1; ++j) {
+    bool noDigits = true;
+    for (size_t j = 0; j < 3 && i < str.size(); ++j) {
+        if (str[i] == ')') {
+            break;
+        }
         if (false == std::isdigit(str[i])) {
             throw RuntimeException("Invalid scale for decimal data type");
         }
         digits[j] = str[i];
+        noDigits = false;
         ++i;
     }
 
     if (str[i] != ')') {
         throw RuntimeException("Invalid decimal data type");
     }
+    if (noDigits) {
+        throw RuntimeException("Must specify scale for decimal data type");
+    }
 
     ret.second = std::strtol(digits, nullptr, 10);
+
+    ++i;
+    if (i < str.size()) {
+        if (str.size() != i + 2 || str[i] != '[' || str[i+1] != ']') {
+            throw RuntimeException("Invalid decimal data type");
+        }
+        // decimal array vector
+        ret.first = static_cast<DATA_TYPE>(static_cast<int>(ret.first) + ARRAY_TYPE_BASE);
+    }
 
     return ret;
 }
@@ -515,10 +610,16 @@ inline std::pair<DATA_TYPE, int> unpackDecimalTypeAndScale(const int value) {
          * | 1 |   scale   |  data type  |
          * +---+-----------+-------------+
          */
-        type = static_cast<DATA_TYPE>(value & 0xffff);
         scale = (value & (~0x80000000)) >> 16;
-        if (Util::getCategory(type) != DENARY) {
-            type = DT_VOID;
+        type = static_cast<DATA_TYPE>(value & 0xffff);
+        if (type >= ARRAY_TYPE_BASE) {
+            if (Util::getCategory(static_cast<DATA_TYPE>(static_cast<int>(type) - ARRAY_TYPE_BASE)) != DENARY) {
+                type = DT_VOID;
+            }
+        } else {
+            if (Util::getCategory(type) != DENARY) {
+                type = DT_VOID;
+            }
         }
     }
     return {type, scale};
@@ -533,5 +634,106 @@ inline std::pair<DATA_TYPE, int> unpackDecimalTypeAndScale(const int value) {
 inline int getScaleFromExtraParam(int extra) {
     return extra & 0x00ffffff;
 }
+
+/**
+ * @brief Convert a Decimal scalar/vector to Float scalar/vector.
+ */
+inline ConstantSP convertDecimalToFloat(const ConstantSP &obj) {
+    ASSERT(obj->getCategory() == DENARY);
+    ConstantSP ret;
+    if (obj->isVector()) {
+        ret = Util::createVector(DT_DOUBLE, 0, obj->size());
+        reinterpret_cast<Vector *>(ret.get())->append(obj);
+    } else {
+        ASSERT(obj->isScalar());
+        ret = Util::createConstant(DT_DOUBLE);
+        ret->setDouble(obj->getDouble());
+    }
+    return ret;
+}
+
+} // namespace decimal_util
+
+
+namespace decimal_util {
+
+#define ENABLE_FOR_DECIMAL(bits, T, return_type_t)                                                          \
+    template <typename U = T>                                                                               \
+    typename std::enable_if<std::is_same<U, Decimal##bits::raw_data_t>::value == true, return_type_t>::type \
+//======
+
+#define ENABLE_FOR_DECIMAL32(T, return_type_t) ENABLE_FOR_DECIMAL(32, T, return_type_t)
+#define ENABLE_FOR_DECIMAL64(T, return_type_t) ENABLE_FOR_DECIMAL(64, T, return_type_t)
+
+
+template <typename T>
+struct wrapper {
+    ENABLE_FOR_DECIMAL32(T, T)
+    static getDecimal(const ConstantSP &value, INDEX index, int scale) {
+        return value->getDecimal32(index, scale);
+    }
+    ENABLE_FOR_DECIMAL64(T, T)
+    static getDecimal(const ConstantSP &value, INDEX index, int scale) {
+        return value->getDecimal64(index, scale);
+    }
+
+    ENABLE_FOR_DECIMAL32(T, bool)
+    static getDecimal(const ConstantSP &value, INDEX start, int len, int scale, T *buf) {
+        return value->getDecimal32(start, len, scale, buf);
+    }
+    ENABLE_FOR_DECIMAL64(T, bool)
+    static getDecimal(const ConstantSP &value, INDEX start, int len, int scale, T *buf) {
+        return value->getDecimal64(start, len, scale, buf);
+    }
+
+    ENABLE_FOR_DECIMAL32(T, bool)
+    static getDecimal(const ConstantSP &value, INDEX *indices, int len, int scale, T *buf) {
+        return value->getDecimal32(indices, len, scale, buf);
+    }
+    ENABLE_FOR_DECIMAL64(T, bool)
+    static getDecimal(const ConstantSP &value, INDEX *indices, int len, int scale, T *buf) {
+        return value->getDecimal64(indices, len, scale, buf);
+    }
+
+    ENABLE_FOR_DECIMAL32(T, const T*)
+    static getDecimalConst(const ConstantSP &value, INDEX start, int len, int scale, T *buf) {
+        return value->getDecimal32Const(start, len, scale, buf);
+    }
+    ENABLE_FOR_DECIMAL64(T, const T*)
+    static getDecimalConst(const ConstantSP &value, INDEX start, int len, int scale, T *buf) {
+        return value->getDecimal64Const(start, len, scale, buf);
+    }
+
+    ENABLE_FOR_DECIMAL32(T, T*)
+    static getDecimalBuffer(const ConstantSP &value, INDEX start, int len, int scale, T *buf) {
+        return value->getDecimal32Buffer(start, len, scale, buf);
+    }
+    ENABLE_FOR_DECIMAL64(T, T*)
+    static getDecimalBuffer(const ConstantSP &value, INDEX start, int len, int scale, T *buf) {
+        return value->getDecimal64Buffer(start, len, scale, buf);
+    }
+
+    ENABLE_FOR_DECIMAL32(T, void)
+    static setDecimal(const ConstantSP &value, INDEX index, int scale, T val) {
+        value->setDecimal32(index, scale, val);
+    }
+    ENABLE_FOR_DECIMAL64(T, void)
+    static setDecimal(const ConstantSP &value, INDEX index, int scale, T val) {
+        value->setDecimal64(index, scale, val);
+    }
+
+    ENABLE_FOR_DECIMAL32(T, bool)
+    static setDecimal(const ConstantSP &value, INDEX start, int len, int scale, const T *buf) {
+        return value->setDecimal32(start, len, scale, buf);
+    }
+    ENABLE_FOR_DECIMAL64(T, bool)
+    static setDecimal(const ConstantSP &value, INDEX start, int len, int scale, const T *buf) {
+        return value->setDecimal64(start, len, scale, buf);
+    }
+};
+
+#undef ENABLE_FOR_DECIMAL64
+#undef ENABLE_FOR_DECIMAL32
+#undef ENABLE_FOR_DECIMAL
 
 } // namespace decimal_util

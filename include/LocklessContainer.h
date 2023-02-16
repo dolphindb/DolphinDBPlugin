@@ -25,7 +25,7 @@
 #define CACHE_LINE_SIZE  64 // 64 byte cache line on x86 and x86-64
 #define CACHE_LINE_SCALE 6  // log base 2 of the cache line size
 
-#define EXPECT_FALSE(x)     __builtin_expect(!!(x), 0)
+#define EXPECT_FALSE_INTERNAL(x)     __builtin_expect(!!(x), 0)
 
 #ifndef NBD_SINGLE_THREADED
 
@@ -95,7 +95,6 @@ typedef uint64_t map_val_t;
 #else
 #define TRACE(flag, format, v1, v2) printf(format, (size_t)(v1), (size_t)(v2));puts("")
 #endif
-
 
 
 
@@ -208,7 +207,7 @@ public:
 		// Now vp can be safely accessed
 		// This protection makes sure that concurrent removal won't delete entries
 		// that readers have references to.
-		if (EXPECT_FALSE(vp == (value_entry *)RETRY)) { // the value has been copied to the next table.
+		if (EXPECT_FALSE_INTERNAL(vp == (value_entry *)RETRY)) { // the value has been copied to the next table.
 			return find(key, recv);
 		} else if (vp == DOES_NOT_EXIST) {
 			return false;

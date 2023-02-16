@@ -79,13 +79,15 @@ private:
 	static int leapMonthDays[12];
 	static char escapes[128];
 	static string duSyms[10];
-	static long long tmporalDurationRatioMatrix[9][10];
-	static long long tmporalRatioMatrix[81];
-	static long long tmporalUplimit[9];
+	static long long tmporalDurationRatioMatrix[11][10];
+	static long long tmporalRatioMatrix[121];
+	static long long tmporalUplimit[11];
 	static SmartPointer<ConstantFactory> constFactory_;
 	static SmartPointer<CodeFactory> codeFactory_;
+	static unordered_map<int, int> temporalOrder_;
 
 public:
+	static void initTemporalOrder();
 	static char* allocateMemory(INDEX size, bool throwIfFail = true);
 	static bool isLittleEndian(){ int x=1; return *(char *)&x == 1;}
 	static Constant* parseConstant(int type, const string& word);
@@ -95,7 +97,7 @@ public:
 	static Table* createTable(const vector<string>& colNames, const vector<ConstantSP>& cols);
 	static TableSP reloadExpiredTable(Heap* heap, const TableSP& tbl);
 	static Set* createSet(DATA_TYPE keyType, const SymbolBaseSP& symbolBase, INDEX capacity);
-	static Dictionary* createDictionary(DATA_TYPE keyType, const SymbolBaseSP& keyBase, DATA_TYPE valueType, const SymbolBaseSP& valueBase);
+	static Dictionary* createDictionary(DATA_TYPE keyType, const SymbolBaseSP& keyBase, DATA_TYPE valueType, const SymbolBaseSP& valueBase, bool isOrdered=true);
 	static Vector* createVector(DATA_TYPE type, INDEX size, INDEX capacity=0, bool fast=true, int extraParam=0,
 		void* data=0, void** dataSegment=0, int segmentSizeInBit=0, bool containNull=false);
 	static Vector* createSymbolVector(const SymbolBaseSP& symbolBase, INDEX size, INDEX capacity=0, bool fast=true,
@@ -268,6 +270,26 @@ public:
 	static long long toLocalNanoTimestamp(long long epochNanoTime);
 	static long long* toLocalNaoTimestamp(long long* epochNanoTimes, int n);
 	static string toMicroTimestampStr(std::chrono::system_clock::time_point& tp, bool printDate = false);
+	static int compareTemporalGranularity(DATA_TYPE dt1, DATA_TYPE dt2) {
+		if (getCategory(dt1) != TEMPORAL || getCategory(dt2) != TEMPORAL) {
+			return 0;
+		}
+		const unordered_map<int, int>::const_iterator leftOrderIt = temporalOrder_.find(dt1);
+		const unordered_map<int, int>::const_iterator rightOrderIt = temporalOrder_.find(dt2);
+
+		if (leftOrderIt == temporalOrder_.cend() || rightOrderIt == temporalOrder_.cend()) {
+			return 0;
+		}
+		int leftOrder = leftOrderIt->second;
+		int rightOrder = rightOrderIt->second;
+		if (leftOrder > rightOrder) {
+			return 1;
+		}
+		else if (leftOrder == rightOrder) {
+			return 0;
+		}
+		else return -1;
+	}
 
 	static void split(const char* s, char delim, vector<string> &elems);
 	static void split(const string &s, char delim, vector<string> &elems);

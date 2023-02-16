@@ -131,8 +131,10 @@ public:
 		}
 	}
 
-	void unlock(){
-		if(res_ != NULL){
+	~LockGuard() { unlock(); }
+
+	void unlock() {
+		if (res_ != NULL) {
 			res_->unlock();
 			res_ = NULL;
 		}
@@ -145,10 +147,18 @@ public:
 		}
 	}
 
-    ~LockGuard(){
-		if(res_ != NULL)
-			res_->unlock();
+	LockGuard(const LockGuard &) = delete;
+	LockGuard& operator=(const LockGuard &) = delete;
+
+	LockGuard& operator=(LockGuard &&other) noexcept {
+		this->unlock();
+
+		using std::swap;
+		swap(res_, other.res_);
+
+		return *this;
 	}
+
 private:
 	T* res_;
 };
@@ -184,6 +194,8 @@ public:
 		}
 	}
 
+	~RWLockGuard() { destroy(); }
+
 	void upgrade(){
 		if(res_ != NULL){
 			if(exclusive_)
@@ -196,14 +208,31 @@ public:
 		}
 	}
 
-	~RWLockGuard(){
-		if(res_ != NULL){
-			if(exclusive_)
+	RWLockGuard(const RWLockGuard &) = delete;
+	RWLockGuard& operator=(const RWLockGuard &) = delete;
+
+	RWLockGuard& operator=(RWLockGuard &&other) noexcept {
+		this->destroy();
+
+		using std::swap;
+		swap(res_, other.res_);
+		swap(exclusive_, other.exclusive_);
+
+		return *this;
+	}
+
+private:
+	void destroy() {
+		if (res_ != NULL) {
+			if (exclusive_) {
 				res_->releaseWrite();
-			else
+			} else {
 				res_->releaseRead();
+			}
+			res_ = NULL;
 		}
 	}
+
 private:
 	T* res_;
 	bool exclusive_;
@@ -672,24 +701,35 @@ public:
 		if (acquireLock)
 			group_->lock(h_);
 	}
-	MutexGroupGuard(){}
-	void unlock(){
-		if(group_ != NULL){
+	MutexGroupGuard():h_(0), group_(nullptr){}
+
+	~MutexGroupGuard() { unlock(); }
+
+	void unlock() {
+		if (group_ != NULL) {
 			group_->unlock(h_);
 			group_ = NULL;
 		}
 	}
+
 	void relock(MutexGroup * group){
 		group_ = group;
 		if(group_ != NULL){
 			group_->lock(h_);
 		}
 	}
-	~MutexGroupGuard(){
-		if(group_ != NULL) {
-			group_->unlock(h_);
-			group_ = NULL;
-		}
+
+	MutexGroupGuard(const MutexGroupGuard &) = delete;
+	MutexGroupGuard& operator=(const MutexGroupGuard &) = delete;
+
+	MutexGroupGuard& operator=(MutexGroupGuard &&other) noexcept {
+		this->unlock();
+
+		using std::swap;
+		swap(h_, other.h_);
+		swap(group_, other.group_);
+
+		return *this;
 	}
 
 private:
