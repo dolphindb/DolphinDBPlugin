@@ -1,4 +1,4 @@
-odbc,libPluginODBC.so
+odbc,libPluginODBC.so,1.30.21.1.1
 odbcQuery,query,system,2,5,0
 odbcConnect,connect,system,1,2,0
 odbcClose,close,system,1,1,0

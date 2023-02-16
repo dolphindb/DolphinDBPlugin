@@ -29,11 +29,13 @@
 #include <fstream>
 #include <iostream>
 
-extern "C" ConstantSP odbcConnect(Heap* heap, vector<ConstantSP>& args);
-extern "C" ConstantSP odbcClose(Heap* heap, vector<ConstantSP>& args);
-extern "C" ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args);
-extern "C" ConstantSP odbcExecute(Heap* heap, vector<ConstantSP>& args);
-extern "C" ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args);
+extern "C" {
+	ConstantSP odbcConnect(Heap* heap, vector<ConstantSP>& args);
+	ConstantSP odbcClose(Heap* heap, vector<ConstantSP>& args);
+	ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args);
+	ConstantSP odbcExecute(Heap* heap, vector<ConstantSP>& args);
+	ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args);
+}
 
 class OdbcConnection{
 public:
