@@ -71,7 +71,7 @@ private:
     string password_;
 
 public:
-    Connection(std::string host, int port, uint8_t qos, FunctionDefSP formatter, int batchSize,std::string userName,std::string password);
+	Connection(const std::string& hostname, int port, uint8_t qos, const FunctionDefSP& formatter, int batchSize, const std::string& userName, const std::string& password);
     virtual ~Connection();
 
     MQTTErrors publishMsg(const char* topic_name, void* application_message, size_t application_message_size);
@@ -142,8 +142,9 @@ public:
     SessionSP session;
 
 public:
-    SubConnection(std::string hostname, int port, std::string topic, FunctionDefSP parser, ConstantSP handler,
-                  std::string userName,std::string password,Heap* pHeap);
+	SubConnection(const std::string& hostname, int port, const std::string& topic, const FunctionDefSP& parser,
+		const ConstantSP& handler, const std::string& userName, const std::string& password, Heap *pHeap);
+
     virtual ~SubConnection();
     ConstantSP getHandler() {
         return handler_;

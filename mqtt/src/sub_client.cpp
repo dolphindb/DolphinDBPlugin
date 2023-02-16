@@ -126,11 +126,11 @@ static void mqttConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
 
 ConstantSP mqttClientSub(Heap *heap, vector<ConstantSP> &args) {
     std::string usage = "Usage: subscribe(host, port, topic, [parser], handler,[username],[password]).";
-    std::string userName="";
-    std::string password="";
+    std::string userName;
+    std::string password;
 
     // parse args first
-    FunctionDefSP parser = NULL;
+    FunctionDefSP parser;
 
     if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException(__FUNCTION__, usage + "host must be a string");
@@ -181,7 +181,7 @@ ConstantSP mqttClientStopSub(const ConstantSP &handle, const ConstantSP &b) {
     std::string usage = "Usage: close(connection or connection ID). ";
     SubConnection *sc = NULL;
     string key;
-    ConstantSP conn = NULL;
+    ConstantSP conn;
     switch (handle->getType()){
         case DT_RESOURCE:
             sc = (SubConnection *)(handle->getLong());
@@ -254,8 +254,8 @@ SubConnection::~SubConnection() {
     sockfd_->close();
 }
 
-SubConnection::SubConnection(std::string hostname, int port, std::string topic, FunctionDefSP parser, ConstantSP handler,
-                             std::string userName,std::string password,Heap *pHeap)
+SubConnection::SubConnection(const std::string& hostname, int port, const std::string& topic, const FunctionDefSP& parser,
+		const ConstantSP& handler, const std::string& userName, const std::string& password, Heap *pHeap)
     : ConnctionBase(new ConditionalNotifier()),
     host_(hostname), port_(port), topic_(topic), parser_(parser), handler_(handler), pHeap_(pHeap), userName_(userName), password_(password) 
     {

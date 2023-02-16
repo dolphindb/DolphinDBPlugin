@@ -1,6 +1,20 @@
 # MQTT Client Plugin
 
-## 1. Build(tested on Linux 64bit GCC version 5.4.0)
+The DolphinDB MQTT plugin has the branches [release 200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/mqtt/README.md) and [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/mqtt/README.md). Each plugin version corresponds to a DolphinDB server version. You're looking at the plugin documentation for release200. If you use a different DolphinDB server version, please refer to the corresponding branch of the plugin documentation.
+
+
+## 1. Load Precompiled Plugin
+
+Use function `loadPlugin` to load MQTT client plugin.
+
+```
+loadPlugin("/YOUR_PATH/mqtt/PluginMQTTClient.txt"); 
+```
+
+Note: You can modify the path as appropriate. If you load plugin on a Windows OS, you must specify an absolute path and replace "\\" with "\\\\" or "/".
+
+## 2. Manually Compile Plugin
+### 2.1 Linux
 
 * This plugin has been successfully compiled with GCC (version 5.4.0) on 64-bits Linux operating system.
 * Before compiling, install [git](https://git-scm.com/) and [CMake](https://cmake.org/).
@@ -19,24 +33,37 @@ cmake ..
 make
 ```
 
-## 2. Load Plugin
-
-Use function `loadPlugin` to load MQTT client plugin.
+### 2.2 Windows
+This plugin has been successfully compiled with MinGW-W64-builds-4.3.3 on 64-bits Windows operating system. Install [cmake](https://cmake.org/) and [MinGW](http://www.mingw.org/) on your machine. Add the "bin" directories of MinGW and cmake to your PATH on Windows.
 
 ```
-loadPlugin("/YOUR_PATH/mqtt/PluginMQTTClient.txt"); 
+    git clone https://github.com/dolphindb/DolphinDBPlugin.git
+    cd DolphinDBPlugin/mqtt
+    mkdir build
+    cd build
+    cmake ..
+    copy /YOURPATH/libDolphinDB.dll . 
+    make
 ```
-Note:the path should be modified according to the situation.
+
+**Note:** To specify a different path for MinGW, modify the following line in *CmakeList.txt*:
+
+```
+    set(MINGW32_LOCATION C://MinGW/MinGW/)  
+```
+
+The *libPluginMQTTClient.dll* file is generated after compilation. Next, refer to the procedure described in Section 1 "Load Precompiled Plugin" to load the compiled plugin. 
 
 ## 3. Publish
-### 3.1 Connect to  a MQTT server/broker
+
+### 3.1 Connect to a MQTT server/broker
 
 **Syntax**
 
 ```
-mqtt::connect(host, port,[QoS=0],[formatter],[batchSize=0])
+mqtt::connect(host, port,[QoS=0],[formatter],[batchSize=0],[username],[password])
 ```
-The function connect to a MQTT server/broker. .
+The function connect to a MQTT server/broker. It returns a connection object which can be explicitly called to close with the `close` function, or it can be automatically released when the reference count is 0.
 
 **Arguments**
 
@@ -46,15 +73,15 @@ The function connect to a MQTT server/broker. .
 
 - 'Qos' is an integer indicating the quality of service. 0: at most once; 1: at least once; 2: only once. It is optional and the default value is 0.
 
-- 'formatter' is a function,this is used to package published data in a format. Currently supported functions are createJsonFormatter and createCsvFormatter.
+- 'formatter' is a function used to package published data in a format. Currently supported functions are ``createJsonFormatter`` and ``createCsvFormatter``.
 
-- 'batchSize' is an integer,when the content to be published is a table, it can be sent in batches, and batchSize indicates the number of rows sent each time.
+- 'batchSize' is an integer. When the content to be published is a table, it can be sent in batches, and *batchSize* indicates the number of rows sent each time.
 
-It returns a connection object which can be explicitly called to close the close function, or it can be automatically released when the reference count is 0. 
+- 'username' and 'password' are user credentials to the MQTT server/broker.
 
 **Example**
 ```
-f=createCsvFormatter([INT, TIMESTAMP, DOUBLE, DOUBLE,DOUBLE], ',', ';' )
+f=mqtt::createJsonFormatter()
 conn=connect("test.mosquitto.org",1883,0,f,50)
 ```
 
@@ -116,7 +143,7 @@ mqtt::close(conn)
 **Syntax**
 
 ```
-mqtt::subscribe(host, port, topic,parser, handler)
+mqtt::subscribe(host, port, topic, [parser], handler,[username],[password])
 ```
 
 **Arguments**
@@ -131,35 +158,53 @@ mqtt::subscribe(host, port, topic,parser, handler)
 
 - 'handler' is a function or a table to process the subscribed data.
 
+- 'username' and 'password' are strings indicating user credentials to the MQTT server/broker.
+
 **Details**
 
-Subscribe to a MQTT server/broker. It returns a connection object which can be explicitly called to close the close function, or it can be automatically released when the reference count is 0. 
+Subscribe to a MQTT server/broker. It returns a connection object.
 
 **Example**
 
 ```
 p = createCsvParser([INT, TIMESTAMP, DOUBLE, DOUBLE,DOUBLE], ',', ';' )
-sensorInfoTable = table( 10000:0,`deviceID`send_time`temperature`humidity`voltage ,[INT, TIMESTAMP, DOUBLE, DOUBLE,DOUBLE])
- 
+sensorInfoTable = table( 10000:0,`deviceID`send_time`temperature`humidity`voltage,[INT, TIMESTAMP, DOUBLE, DOUBLE,DOUBLE])
 conn = mqtt::subscribe("192.168.1.201",1883,"sensor/#",p,sensorInfoTable)
 ```
 
-### 4.2 Unsubscribe
+### 4.2 Check Subscription
+
+```
+mqtt::getSubscriberStat()    
+```
+Get the information on all subscriptions. Return a table with the following columns:
+
+- "subscriptionId" - ID of a subscription
+- "user" - the session user who created the subscription
+- "host" - IP address for the MQTT server/broker
+- "port" - Port number of the MQTT server/broker
+- "topic" - the subscription topic
+- "createTimestamp" - the time when the subscription was created
+- "receivedPackets" - the number of messages received
+
+### 4.3 Unsubscribe
 
 **Syntax**
 
 ```
-mqtt::unsubcribe(conn)  
+mqtt::unsubcribe(subscription)  
 ```
+Cancel subscription to the MQTT server/broker.
 
 **Arguments**
 
-- 'conn' is the value returned by the subscribe function.
+- 'subscription' is the value returned by the `subscribe` function or the subscription ID returned by `getSubscriberStat`.
 
 **Example**
 
 ```
-mqtt::unsubcribe(conn)    
+mqtt::unsubscribe(sub1) 
+mqtt::unsubscribe("350555232l")    
 ```
 
 ## 5. Formatter/Parser
@@ -190,6 +235,7 @@ t = createT(100)
 f = mqtt::createCsvFormatter([BOOL,CHAR,SHORT,INT,LONG,DATE,MONTH,TIME,MINUTE,SECOND,DATETIME,TIMESTAMP,NANOTIME,NANOTIMESTAMP,FLOAT,DOUBLE,STRING,SYMBOL])
 f(t)
 ```
+
 ### 5.2 createCsvParser
 
 **Syntax**
@@ -200,11 +246,10 @@ This function creates a Parser function in CSV format.
 
 **Arguments**
 
-- is an array of column data types。
+- 'schema' is an array of column data types
 - 'delimiter'is the separator between columns, the default is ','
 - 'rowDelimiter' is the separator between the lines, the default is ';'
 
-The return value is a function.
 
 **Example**
 ```
@@ -226,7 +271,7 @@ mqtt::createJsonFormatter()
 This function creates a Formatter function in JSON format
 
 **Arguments**
-    None.
+    None
 
 The return value is a function.
 
@@ -239,6 +284,7 @@ t = createT(100)
 f = mqtt::createJsonFormatter()
 f(t)
 ```
+
 ### 5.4 createJsonParser
 
 ```
@@ -249,7 +295,6 @@ This function creates a Parser function in JSON format.
 **Arguments**
 - 'schema' is a vector of data types for all columns.
 - 'colNames' is a column name vector
-The return value is a function.
 
 **Example**
 ```
