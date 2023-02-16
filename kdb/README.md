@@ -78,9 +78,9 @@ connect(host, port, usernamePassword)
 
 **Arguments**
 
-- host: the IP address where the kdb+ database is running.
-- port: the port that the kdb+ database is listening on.
-- usernamePassword: a STRING indicating the username and password for the kdb+ database you're connecting to. Specify the value in this format: "username:password". If the kdb+ database does not require authentication, leave this parameter empty or specify an arbitrary string.
+- host: the IP address where the kdb+ server is running.
+- port: the port that the kdb+ server is listening on.
+- usernamePassword: a STRING indicating the username and password for the kdb+ database you're connecting to. Specify the value in this format: "username:password". If the kdb+ server does not require authentication, leave this parameter empty or specify an arbitrary string.
 
 **Details**
 
@@ -101,7 +101,7 @@ kdb shell:         q -p 5000 -U ../passwordfiles/usrs   // note that "-U" must b
 DolphinDB shell:   handle = kdb::connect("127.0.0.1", 5000, "admin:123456")
 ```
 
-If the kdb+ database you're connecting to does not require authentication:
+If the kdb+ server you're connecting to does not require authentication:
 
 ```
 handle = kdb::connect("127.0.0.1", 5000)
@@ -246,7 +246,7 @@ For this option, you only need to call the `loadFile()` method.
 Note:
 
 1. This method cannot read the file of a single object.
-2. This method cannot read data compressed by q IPC(1), Snappy (3) or Lz4(4) algorithms.
+2. This method only reads data compressed by gzip.
 3. Please make sure that the table to be loaded doesn't contain nested columns.
 4. The *tablePath* parameter of `loadFile` must be the directories of column files of a splayed table, partitioned table or segmented table.
 

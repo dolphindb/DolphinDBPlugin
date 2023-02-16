@@ -1,4 +1,4 @@
-kdb,libPluginKDB.dll
+kdb,libPluginKDB.dll,1.30.21.1.1
 kdbConnect,connect,system,3,3,0
 kdbLoadTable,loadTable,system,2,3,0
 kdbLoadFile,loadFile,system,1,2,0
