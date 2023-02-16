@@ -51,7 +51,7 @@ Before using the AWS plugin, you need to preload and set the id, key and region.
 Start a DolphinDB server, then execute the following command:
 
 ```
-loadPlugin("path/to/DolphinDBPlugin/awss3/awss3.txt");
+loadPlugin("path/to/DolphinDBPlugin/awss3/PluginAWSS3.txt");
 ```
 
 ### 2.2 Set up account
@@ -301,4 +301,5 @@ account['region']='us-east';
 db = database(directory="dfs://rangedb", partitionType=RANGE, partitionScheme=0 51 101)
 aws::loadS3Object(account,'dolphindb-test-bucket','t2.zip',4,db,`pt, `ID);
 ```
+
 
