@@ -1,4 +1,4 @@
-mqtt,libPluginMQTTClient.dll
+mqtt,libPluginMQTTClient.dll,1.30.21.1.1
 mqttClientSub,subscribe,system,5,7,0
 mqttClientStopSub,unsubscribe,operator,1,1,0
 mqttClientConnect,connect,system,2,7,0

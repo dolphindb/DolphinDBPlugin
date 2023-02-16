@@ -95,10 +95,10 @@ ConstantSP mqttClientConnect(Heap *heap, vector<ConstantSP> &args) {
     std::string usage = "Usage: connect(host, port,[qos=0],[formatter],[batchsize=0],[username],[password]).";
 
     uint8_t publishFlags = MQTT_PUBLISH_QOS_0;
-    FunctionDefSP formatter = NULL;
+    FunctionDefSP formatter;
     int batchSize = 1;
-    std::string userName="";
-    std::string password="";
+    std::string userName;
+    std::string password;
 
     // parse args first
     if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR) {
@@ -294,7 +294,8 @@ Connection::~Connection(){
     LOG_INFO("[PluginMQTT]: close publish connection");
 }
 
-Connection::Connection(std::string hostname, int port, uint8_t qos, FunctionDefSP formatter, int batchSize,std::string userName,std::string password)
+Connection::Connection(const std::string& hostname, int port, uint8_t qos, const FunctionDefSP& formatter, int batchSize, 
+		const std::string& userName, const std::string& password)
     : ConnctionBase(new ConditionalNotifier()),
     host_(hostname), port_(port), publishFlags_(qos), formatter_(formatter), batchSize_(batchSize),
     userName_(userName), password_(password)
