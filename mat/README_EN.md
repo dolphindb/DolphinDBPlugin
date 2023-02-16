@@ -11,6 +11,7 @@ The DolphinDB mat plugin can be used to read data from a .mat file to DolphinDB 
   - [2. Methods](#2-methods)
     - [2.1 mat::extractMatSchema](#21-matextractmatschema)
     - [2.2 mat::loadMat](#22-matloadmat)
+    - [2.3 mat::convertToDatetime](#23-matconverttodatetime)
     - [2.4 mat::writeMat](#24-matwritemat)
   - [3. Data Type Conversion](#3-data-type-conversion)
     - [3.1 INT Type](#31-int-type)
@@ -119,7 +120,7 @@ schema=mat::extractMatSchema("<FileDir>/simple.mat");
 ret=mat::loadMat("<FileDir>/simple.mat",schema);
 ```
 
- 2.3 mat::convertToDatetime
+### 2.3 mat::convertToDatetime
 
 **Syntax**
 
