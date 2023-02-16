@@ -1,4 +1,4 @@
-opcua,libPluginOPCUA.so
+opcua,libPluginOPCUA.so,2.00.9.1.1
 getOpcUaServerList,getOpcServerList,system,1,1,0
 getOpcUaEndPointList,getOpcEndPointList,system,1,1,0
 connectOpcUaServer,connect,system,2,8,0
@@ -8,3 +8,4 @@ writeNode,writeNode,system,4,4,0
 subscribeNode,subscribe,system,4,4,0
 disconnect,close,operator,1,1,0
 endSub,unsubscribe,operator,1,1,0
+getSubscriberStat,getSubscriberStat,operator,0,0,0

@@ -21,7 +21,7 @@ replace_cxx_release_flag("-O3" "-O2")
 include_directories("./include" "../include")
 
 link_directories(./lib)
-link_directories(${LIBDOLPHINDB})
+link_directories(${CMAKE_BINARY_DIR})
 add_library(PluginOPCUA SHARED ./src/opc_ua.cpp)
 if (WIN32 OR MINGW)
     target_link_libraries(PluginOPCUA
