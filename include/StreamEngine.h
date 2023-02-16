@@ -127,6 +127,7 @@ public:
     ConstantSP getColumn(INDEX index) const override {return dummy_->getColumn(index);}
     const string &getColumnName(int index) const override { return colNames_->at(index); }
     DATA_TYPE getColumnType(int index) const override { return dummy_->getColumnType(index); }
+    int getColumnExtraParam(int index) const override { return dummy_->getColumnExtraParam(index);}
     INDEX columns() const override { return colNames_->size(); }
     INDEX size() const override { return 0; }
     const string &getColumnQualifier(int index) const override { return name_; }

@@ -1,4 +1,4 @@
-opc,libPluginOPC.dll
+opc,libPluginOPC.dll,1.30.21.1.1
 getOpcServerList,getOpcServerList,system,1,1,0
 connectOpcServer,connect,system,2,3,0
 readTag,readTag,system,2,3,0
