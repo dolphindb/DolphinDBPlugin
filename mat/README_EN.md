@@ -136,8 +136,7 @@ Convert the temporal variables in the .mat file to DolphinDB DATETIME values.
 ```
 schema=mat::extractMatSchema("<FileDir>/simple.mat");
 ret=loadMat("<FileDir>/simple.mat",schema);
-//t_num in simple.nat is a temporal variable of double type
-ret=mat::convertToDatetime(ret[`t_num]);
+ret=mat::convertToDatetime(ret);
 ```
 
 ### 2.4 mat::writeMat
