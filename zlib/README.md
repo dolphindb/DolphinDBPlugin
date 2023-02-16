@@ -1,6 +1,8 @@
 # DolphinDB Zlib Plugin
 
-DolphinDB的zlib插件，支持文件到文件的zlib压缩与解压缩
+DolphinDB的zlib插件，支持文件到文件的zlib压缩与解压缩。
+
+zlib插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/zlib/README_CN.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/zlib/README_CN.md), [release120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/zlib/README_CN.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/zlib/README_CN.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
 
 # Build
 
@@ -67,7 +69,7 @@ loadPlugin("path/to/DolphinDBPlugin/zlib/PluginZlib.txt");
       ```
       //loadPlugin
       zlib::decompressFile("/home/jccai/data.txt.gz");
-      //会将/home/jccai/data.txt.gz解压为/home/jccai/data.txt.gz
+      //会将/home/jccai/data.txt.gz解压为/home/jccai/data.txt
       //注意若输出文件有同名文件，则会被覆盖
       ```
 
