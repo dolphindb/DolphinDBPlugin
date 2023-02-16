@@ -72,7 +72,7 @@ cd build
 cmake ..
 make
 ```
-
+注意：编译之前请确保libDolphinDB.so在gcc可搜索的路径中。可使用LD_LIBRARY_PATH指定其路径，或者直接将其拷贝到build目录下。
 ### 1.2 DolphinDB 加载插件
 
 ```DolphinDB shell
