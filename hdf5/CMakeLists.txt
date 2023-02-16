@@ -31,6 +31,7 @@ endif()
 
 link_directories(${CMAKE_BINARY_DIR} ./lib)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src DIR_SRCS)
+aux_source_directory(${PROJECT_SOURCE_DIR}/lib_src DIR_SRCS)
 
 add_library(PluginHdf5 SHARED ${DIR_SRCS})
 if(WIN32)
