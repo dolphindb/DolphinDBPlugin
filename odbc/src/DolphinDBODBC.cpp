@@ -13,8 +13,8 @@
 
 using namespace std;
 
-map<long long, bool> connMap;
-Mutex odbcMutex;
+static map<long long, bool> connMap;
+static Mutex odbcMutex;
 
 static void odbcConnectionOnClose(Heap* heap, vector<ConstantSP>& args) {
   OdbcConnection* cp = (OdbcConnection*)(args[0]->getLong());
@@ -28,7 +28,7 @@ static void odbcConnectionOnClose(Heap* heap, vector<ConstantSP>& args) {
   }
 }
 
-nanodbc::connection* safeGet(ConstantSP arg) {
+nanodbc::connection* safeGet(const ConstantSP& arg) {
   if (arg->getType() == DT_RESOURCE && ((OdbcConnection *)(arg->getLong()) != nullptr)) {
       auto conn = (OdbcConnection *)(arg->getLong());
       nanodbc::connection* nanoConn = conn->getConnection();
@@ -153,7 +153,7 @@ static bool compatible(DATA_TYPE dolphinType, int sqlType, int colSize) {
 // DT_RESOURCE type.
 static ConstantSP odbcGetConnection(Heap* heap, vector<ConstantSP>& args,
                                     const string& funcName) {
-  if (args[0]->getType() == DT_STRING) {
+  if (args[0]->isScalar() && args[0]->getType() == DT_STRING) {
     u16string connStr = utf8_to_utf16(args[0]->getString());
     string dataBaseType;
     if(args.size() >= 2){
@@ -175,18 +175,21 @@ static ConstantSP odbcGetConnection(Heap* heap, vector<ConstantSP>& args,
       unique_ptr<OdbcConnection> cup(new OdbcConnection(nanodbc::connection(connStr), dataBaseType));
       const char* fmt = "odbc connection to [%s]";
       vector<char> descBuf(connStr.size() + strlen(fmt));
-      sprintf(descBuf.data(), fmt, connStr.c_str());
+	  sprintf(descBuf.data(), fmt, connStr.c_str());
       FunctionDefSP onClose(Util::createSystemProcedure(
           "odbc connection onClose()", odbcConnectionOnClose, 1, 1));
       ConstantSP res =
           Util::createResource((long long)cup.release(), descBuf.data(),
                                onClose, heap->currentSession());
       
+	  {
       LockGuard<Mutex> guard(&odbcMutex);
       connMap[res->getLong()] = true;
+	  }
 
       if(dataBaseType == "clickhouse") {
-        ConstantSP select1 = Util::createConstant(DT_STRING);
+		// can't use new String("select 1") for undefined error
+		ConstantSP select1 = Util::createConstant(DT_STRING);
         select1->setString("select 1");
         vector<ConstantSP> qArgs = {res, select1};
         ConstantSP ret = odbcQuery(heap, qArgs);
@@ -209,7 +212,7 @@ static ConstantSP odbcGetConnection(Heap* heap, vector<ConstantSP>& args,
 }
 
 void getColNames(const nanodbc::result& results, vector<std::string>& columnNames){
-  int columns = results.columns();
+  short columns = results.columns();
   for (short i = 0; i < columns; ++i) {
     columnNames[i] = utf16_to_utf8(results.column_name(i)); 
   }
@@ -217,7 +220,7 @@ void getColNames(const nanodbc::result& results, vector<std::string>& columnName
 
 void getColVecAndType(const nanodbc::result& results, vector<ConstantSP>& columnVecs, vector<DATA_TYPE>& columnTypes){
   int symbolCount = 0;
-  int columns = results.columns();
+  short columns = results.columns();
   for (short i = 0; i < columns; ++i) {
       columnTypes[i] =
           sqlType2DataType(results.column_datatype(i), results.column_size(i), results.column_c_datatype(i));
@@ -226,7 +229,7 @@ void getColVecAndType(const nanodbc::result& results, vector<ConstantSP>& column
       }
   }
   // multiple columns share the same symbol base
-  SymbolBaseSP symbolBaseSP;
+  SymbolBaseSP symbolBaseSP = nullptr;
   if (symbolCount > 0) {
     symbolBaseSP = new SymbolBase();
   }
@@ -316,12 +319,15 @@ ConstantSP odbcClose(Heap* heap, vector<ConstantSP>& args) {
     delete cspConn;
     csp->setLong(0);
   }
+  // can't use Expression::void_ for undefined error
   return Util::createConstant(DT_VOID);
 }
 
 ConstantSP odbcConnect(Heap* heap, vector<ConstantSP>& args) {
-  assert(heap);
-  assert(args.size() <= 2);
+  if (!heap)
+	throw RuntimeException("heap can't be null.");
+  if (args.size() > 2)
+	throw RuntimeException("arguments size can't greater than 2.");
   if (args[0]->getType() != DT_STRING) {
     throw IllegalArgumentException(
         "odbc::connect",
@@ -332,8 +338,10 @@ ConstantSP odbcConnect(Heap* heap, vector<ConstantSP>& args) {
 
 ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args) {
   const static int nanodbc_rowset_size = 1;
-  assert(heap);
-  assert(args.size() >= 2);
+  if (!heap)
+	throw RuntimeException("heap can't be null.");
+  if (args.size() < 2)
+	throw RuntimeException("arguments size can't less than 2.");
   FunctionDefSP tranform;
   int batchSize = -1;
   if(args.size() >= 4 && !args[3]->isNothing()){
@@ -362,10 +370,11 @@ ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args) {
      results = hStmt.execute_direct(*cp, querySql, nanodbc_rowset_size);
 
   } catch (const runtime_error& e) {
-    const char* fmt = "Executed query [%s]: %s";
+	const char* fmt = "Executed query [%s]: %s";
     vector<char> errorMsgBuf(args[1]->getString().size() + strlen(e.what()) + strlen(fmt));
     sprintf(errorMsgBuf.data(), fmt, args[1]->getString().c_str(), e.what());
     string content = string(errorMsgBuf.data());
+
     vector<ConstantSP> closeArg = {csp};
     if(content.find("Syntax error") != string::npos && content.find("query, subquery, possibly with UNION, SELECT subquery, SELECT") != string::npos) {
       odbcConnectionOnClose(heap, closeArg);
@@ -548,7 +557,7 @@ ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args) {
     }
     ++curLine;
     hasNext = results.next();
-    if (hasNext == false || curLine == BUF_SIZE) {
+    if (!hasNext || curLine == BUF_SIZE) {
       for (short col = 0; col < columns; ++col) {
         DATA_TYPE rawType = arrCol[col]->getRawType();
         int sqlType = results.column_datatype(col);
@@ -673,7 +682,7 @@ ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args) {
 
       if (arrCol[0]->size() > 0) {
         TableSP tmpTable = Util::createTable(colNames, columnVecs);
-        if(tranform.isNull() == false){
+        if(!tranform.isNull()){
           vector<ConstantSP> arg{tmpTable};
           tmpTable = tranform->call(heap, arg);
         }
@@ -692,8 +701,10 @@ ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args) {
 }
 
 ConstantSP odbcExecute(Heap* heap, vector<ConstantSP>& args) {
-  assert(heap);
-  assert(args.size() >= 2);
+  if (!heap)
+	throw RuntimeException("heap can't be null.");
+  if (args.size() < 2)
+	throw RuntimeException("arguments size can't less than 2.");
 
   u16string querySql = utf8_to_utf16(args[1]->getString());
   vector<ConstantSP> connArgs;
@@ -704,7 +715,7 @@ ConstantSP odbcExecute(Heap* heap, vector<ConstantSP>& args) {
   try {
     nanodbc::just_execute(*cp, querySql);
   } catch (const runtime_error& e) {
-    const char* fmt = "Executed query [%s]: %s";
+	const char* fmt = "Executed query [%s]: %s";
     vector<char> errorMsgBuf(querySql.size() + strlen(e.what()) + strlen(fmt));
     sprintf(errorMsgBuf.data(), fmt, querySql.c_str(), e.what());
     string content = string(errorMsgBuf.data());
@@ -720,7 +731,7 @@ ConstantSP odbcExecute(Heap* heap, vector<ConstantSP>& args) {
 
 #define TO_STRING(s) #s
 
-string sqlTypeName(DATA_TYPE t, string databaseType) {
+static string sqlTypeName(DATA_TYPE t, const string& databaseType) {
 
   switch (t) {
     case DT_BOOL:
@@ -732,36 +743,26 @@ string sqlTypeName(DATA_TYPE t, string databaseType) {
         return "char(1)";
       else
         return "bit";
-      break;
     case DT_CHAR:
       return "char(1)";
-      break;
     case DT_SHORT:
       return "smallint";
-      break;
     case DT_INT:
       return "int";
-      break;
     case DT_LONG:
     if (databaseType == "oracle")
         return "number";
       return "bigint";
-      break;
     case DT_DATE:
       return "date";
-      break;
     case DT_MONTH:
       return "date";
-      break;
     case DT_TIME:
       return "time";
-      break;
     case DT_MINUTE:
       return "time";
-      break;
     case DT_SECOND:
       return "time";
-      break;
     case DT_DATETIME:
       if(databaseType == "postgresql")
         return "timestamp";
@@ -771,7 +772,6 @@ string sqlTypeName(DATA_TYPE t, string databaseType) {
         return "datetime64";
       else
         return "datetime";
-      break;
 
     case DT_TIMESTAMP:
       if(databaseType == "postgresql")
@@ -782,10 +782,8 @@ string sqlTypeName(DATA_TYPE t, string databaseType) {
         return "timestamp";
       else
         return "datetime";
-      break;
     case DT_NANOTIME:
       return "time";
-      break;
     case DT_NANOTIMESTAMP:
       if(databaseType == "postgresql")
         return "timestamp";
@@ -795,13 +793,11 @@ string sqlTypeName(DATA_TYPE t, string databaseType) {
         return "timestamp(9)";
       else
         return "datetime";
-      break;
     case DT_FLOAT:
       if(databaseType == "sqlserver")
         return "float(24)";
       else
         return "float";
-      break;
     case DT_DOUBLE:
       if(databaseType == "postgresql")
         return "double precision";
@@ -811,20 +807,17 @@ string sqlTypeName(DATA_TYPE t, string databaseType) {
         return "binary_double";
       else 
         return "double";
-      break;
     case DT_SYMBOL:
       return "varchar(255)";
-      break;
     case DT_STRING:
       return "varchar(255)";
-      break;
 
     default:
       throw RuntimeException("The data type " + Util::getDataTypeString(t) +" of DolphinDB is not supported. ");
   }
 }
 
-string getValueStr(ConstantSP p, DATA_TYPE t, string databaseType) {  
+static string getValueStr(const ConstantSP& p, DATA_TYPE t, const string& databaseType) {  
   if (p->isNull()) return "null";
   string s;
   switch (t) {
@@ -842,7 +835,6 @@ string getValueStr(ConstantSP p, DATA_TYPE t, string databaseType) {
           return "0";
       }
 
-      break;
     case DT_CHAR:
       if(databaseType == "sqlite") {
         if(p->getString() == "\'") {
@@ -852,7 +844,6 @@ string getValueStr(ConstantSP p, DATA_TYPE t, string databaseType) {
         }
       }
       return "\'" + p->getString() + "\'";
-      break;
      
     case DT_DATE:
       s = p->getString();
@@ -863,7 +854,6 @@ string getValueStr(ConstantSP p, DATA_TYPE t, string databaseType) {
         s = "to_date(" + s + ", 'YYYY-MM-DD')";
       }
       return s;
-      break;
 
     case DT_MONTH:
       s = p->getString();
@@ -873,14 +863,12 @@ string getValueStr(ConstantSP p, DATA_TYPE t, string databaseType) {
       s += "-01";
       s = "\'" + s + "\'";
       return s;
-      break;
 
     case DT_TIME:
       s = p->getString();
       // s = s.substr(0, 8);
       s = "\'" + s + "\'";
       return s;
-      break;
 
     case DT_MINUTE:
       s = p->getString();
@@ -888,13 +876,11 @@ string getValueStr(ConstantSP p, DATA_TYPE t, string databaseType) {
       s += ":00";
       s = "\'" + s + "\'";
       return s;
-      break;
 
     case DT_SECOND:
       s = p->getString();
       s = "\'" + s + "\'";
       return s;
-      break;
 
     case DT_DATETIME:
       s = p->getString();
@@ -911,7 +897,6 @@ string getValueStr(ConstantSP p, DATA_TYPE t, string databaseType) {
         s = "\'" + s + "\'";
       }
       return s;
-      break;
 
     case DT_TIMESTAMP:
       s = p->getString();
@@ -925,14 +910,12 @@ string getValueStr(ConstantSP p, DATA_TYPE t, string databaseType) {
         s = "to_timestamp(" + s + ", 'YYYY-MM-DD HH24:MI:SS.ff')";
       }
       return s;
-      break;
 
     case DT_NANOTIME:
       s = p->getString();
       // s = s.substr(0, 15);
       s = "\'" + s + "\'";
       return s;
-      break;
 
     case DT_NANOTIMESTAMP:
       s = p->getString();
@@ -955,7 +938,6 @@ string getValueStr(ConstantSP p, DATA_TYPE t, string databaseType) {
         s = "to_timestamp(" + s + ", 'YYYY-MM-DD HH24:MI:SS.ff9')";
       }
       return s;
-      break;
       
     case DT_SYMBOL:
     case DT_STRING:
@@ -980,17 +962,17 @@ string getValueStr(ConstantSP p, DATA_TYPE t, string databaseType) {
       }
       s+="\'";
       return s;
-      break;
 
     default:
       return p->getString();
-      break;
   }
   return "";
 }
 ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args) {
-  assert(heap);
-  assert(args.size() >= 2);
+  if (!heap)
+	throw RuntimeException("heap can't be null.");
+  if (args.size() < 2)
+	throw RuntimeException("arguments size can't less than 2.");
 
   vector<ConstantSP> connArgs;
   connArgs.emplace_back(args[0]);
@@ -1038,8 +1020,9 @@ ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args) {
   if (flag) {
     string createString = "create table " + tableName + "(";
     for (int i = 0; i < t->columns(); i++) {
+	  if (i)
+	  	createString += ",";
       createString += t->getColumnName(i) + " " + sqlTypeName(colType[i], databaseType);
-      if (i < t->columns() - 1) createString += ",";
     }
     createString += ")";
 
@@ -1063,7 +1046,7 @@ ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args) {
       if(content.find("Syntax error") != string::npos && content.find("query, subquery, possibly with UNION, SELECT subquery, SELECT") != string::npos) {
         odbcConnectionOnClose(heap, closeArg);
       }
-      throw TableRuntimeException(errorMsgBuf.data());
+      throw TableRuntimeException(content);
     }
   }
   int rows = t->rows();
@@ -1075,8 +1058,9 @@ ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args) {
     for (int i = 0; i < rows; i++) {
       string insertString = "(";
       for (int j = 0; j < t->columns(); j++) {
+		if (j)
+	  	  insertString += ",";
         insertString += getValueStr(cols[j]->get(i), colType[j], databaseType);
-        if (j < t->columns() - 1) insertString += ",";
       }
       insertString += ")";
 
@@ -1106,8 +1090,9 @@ ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args) {
     for (int i = 0; i < rows; i++) {
       string insertString = "(";
       for (int j = 0; j < t->columns(); j++) {
+		if (j)
+			insertString += ",";
         insertString += getValueStr(cols[j]->get(i), colType[j], databaseType);
-        if (j < t->columns() - 1) insertString += ",";
       }
       insertString += ")";
       if (i % inRows != inRows - 1) {
@@ -1131,7 +1116,7 @@ ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args) {
           if(content.find("Syntax error") != string::npos && content.find("query, subquery, possibly with UNION, SELECT subquery, SELECT") != string::npos) {
             odbcConnectionOnClose(heap, closeArg);
           }
-          throw TableRuntimeException(errorMsgBuf.data());
+          throw TableRuntimeException(content);
         }
         if (insertIgnore)
           q = "INSERT IGNORE INTO " + tableName + " VALUES ";
@@ -1163,7 +1148,7 @@ ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args) {
       if(content.find("Syntax error") != string::npos && content.find("query, subquery, possibly with UNION, SELECT subquery, SELECT") != string::npos) {
         odbcConnectionOnClose(heap, closeArg);
       }
-      throw TableRuntimeException(errorMsgBuf.data());
+      throw TableRuntimeException(content);
     }
   }
   try{
