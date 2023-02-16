@@ -41,6 +41,7 @@
 #include <curl/curl.h>
 #include <openssl/ssl.h>
 #include <string>
+#include<urlencode.h>
 using namespace std;
 
 ConstantSP httpGet(Heap *heap, vector<ConstantSP> &args) {
@@ -61,7 +62,7 @@ ConstantSP httpGet(Heap *heap, vector<ConstantSP> &args) {
         params = new String("");
     if (args.size() >= 3) {
         timeout = args[2];
-        if (!timeout->isNumber() || timeout->getForm() != DF_SCALAR)
+        if (timeout.isNull() || !timeout->isNumber() || timeout->getForm() != DF_SCALAR)
             throw IllegalArgumentException(__FUNCTION__, "Timeout must be an integer scalar");
     } else
         timeout = new Int(0);
@@ -177,7 +178,7 @@ namespace httpClient {
             ConstantSP value = params->getMember(key);
             paramString += key->getString();
             paramString += "=";
-            paramString += value->getString();
+            paramString += (urlencode::EncodeString(value->getString()));
         }
         return paramString;
     }

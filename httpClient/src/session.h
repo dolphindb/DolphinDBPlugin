@@ -144,7 +144,7 @@ public:
         startUrl_ = startUrl;
         endUrl_ = endUrl;
         ConstantSP params, timeout, headers, parser, handle;
-        if (cookieSet != "") {
+        if (!cookieSet.empty()) {
             FILE *file = fopen(cookieSet.c_str(), "rb");
             if (file != NULL) {
                 char buffer[1024];
@@ -490,7 +490,7 @@ private:
     ConstantSP handle_;
     int parserInterval_;
     int minBlockSize_;
-    int maxBlockSize_;
+    size_t maxBlockSize_;
     shared_ptr<SynchronizedQueue<string>> queue_;
     shared_ptr<HttpSession> http_;
     string buffer_;
@@ -647,7 +647,7 @@ private:
     FunctionDefSP streamHeadParser_;
     int streamInfoParserInterval_;
     int minBlockSize_;
-    int maxBlockSize_;
+    size_t maxBlockSize_;
     vector<shared_ptr<SynchronizedQueue<string>>> queue_;
     SessionSP session_;
     shared_ptr<SynchronizedQueue<string>> receive_;

@@ -74,7 +74,10 @@ make install
 在使用`make`构建时，需要指定 CURL_DIR和SSL_DIR（假定 libssl.a 和 libcrypto.a 在同一个目录下）。例如：
 
 ```
-CURL_DIR=/tmp/curl SSL_DIR=/tmp/ssl Z_DIR=/tmp/zlib make
+mkdir build
+cd build
+cmake -DCURL_DIR=/tmp/curl -DSSL_DIR=/tmp/ssl -DZ_DIR=/tmp/zlib  ..
+make -j
 ```
 
 会在当前目录下编译出插件库 libPluginHttpClient.so。

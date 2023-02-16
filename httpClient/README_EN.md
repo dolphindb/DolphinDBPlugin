@@ -2,6 +2,9 @@
 
 DolphinDB's httpClient plugin enables you to send HTTP requests conveniently.
 
+The DolphinDB HTTPClient plugin has the branches [release 200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/httpClient/README_EN.md) and [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/httpClient/README_EN.md). Each plugin version corresponds to a DolphinDB server version. You're looking at the plugin documentation for release200. If you use a different DolphinDB server version, please refer to the corresponding branch of the plugin documentation.
+
+
 ## Build
 
 **Prerequisities**: The static library of libcurl, libssl(version 1.0.2), libcrypto(version 1.0.2) and libz are available.
