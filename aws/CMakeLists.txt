@@ -25,14 +25,16 @@ elseif(UNIX)
     set(platform_macro "-DLINUX")
 endif()
 
-if(${CMAKE_BUILD_TYPE} MATCHES "Debug")
-    add_compile_options(${platform_macro} -O0 -Wall -g -ggdb)
-    message(STATUS "Build: Debug with -O0 -Wall -g -ggdb")
-else()
-    set(CMAKE_BUILD_TYPE Release)
-    add_compile_options(${platform_macro} -O3 -std=c++11)
-    message(STATUS "Build: Release with -O3")
-endif()
+add_compile_options(${platform_macro} -O0 -Wall -g -ggdb)
+
+# if(${CMAKE_BUILD_TYPE} MATCHES "Debug")
+#     add_compile_options(${platform_macro} -O0 -Wall -g -ggdb)
+#     message(STATUS "Build: Debug with -O0 -Wall -g -ggdb")
+# else()
+#     set(CMAKE_BUILD_TYPE Release)
+#     add_compile_options(${platform_macro} -O3 -std=c++11)
+#     message(STATUS "Build: Release with -O3")
+# endif()
 
 add_library(
 	${PROJECT_NAME} SHARED

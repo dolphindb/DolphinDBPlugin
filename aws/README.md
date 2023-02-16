@@ -32,7 +32,7 @@ g++ -fPIC -shared -o libPluginAWSS3.so AWSS3.o -Wl,-Bstatic -lz -Wl,-Bdynamic -l
 ### 2.1 加载插件
 启动DolphinDB实例，执行下述命令加载插件：
 ```
-loadPlugin("path/to/DolphinDBPlugin/aws/s3/PluginAWSS3.txt");
+loadPlugin("path/to/DolphinDBPlugin/awss3/PluginAWSS3.txt");
 ```
 ### 2.2 设置账户
 ```
