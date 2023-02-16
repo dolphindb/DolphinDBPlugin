@@ -47,7 +47,9 @@ class ParquetReadOnlyFile
     void open(const std::string &file_name);
     void open(std::shared_ptr<arrow::io::RandomAccessFile> source);
     void close();
-    std::shared_ptr<parquet::FileMetaData> fileMetadataReader(){return _parquet_reader->metadata();}
+    std::shared_ptr<parquet::FileMetaData> fileMetadataReader() {
+		return (_parquet_reader.get() == nullptr) ? nullptr : _parquet_reader->metadata();
+	}
     std::shared_ptr<parquet::RowGroupReader> rowReader(int i);
     ~ParquetReadOnlyFile() { close(); }
    
@@ -134,6 +136,8 @@ int getRowGroup(const string &filename);
 void getParquetReadOnlyFile(Heap *heap, vector<ConstantSP> &arguments);
 
 inline bool isDecimal(const parquet::ColumnDescriptor *col_descr){
+  if (!col_descr)
+	return false;
   return col_descr->logical_type()->is_decimal() || (col_descr->converted_type()==parquet::ConvertedType::DECIMAL);
 }
 }
