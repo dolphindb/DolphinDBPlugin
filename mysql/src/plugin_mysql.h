@@ -10,6 +10,7 @@
 #include "ScalarImp.h"
 #include "Util.h"
 #include "mysqlxx.h"
+#include <ddbplugin/pluginVersion.h>
 #ifdef DEBUG
 #include <chrono>
 typedef std::chrono::high_resolution_clock Clock;
@@ -42,19 +43,19 @@ bool parseBit(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* null
 
 const set<DATA_TYPE> time_type{DT_TIMESTAMP, DT_NANOTIME, DT_NANOTIMESTAMP, DT_DATE, DT_MONTH, DT_TIME, DT_MINUTE, DT_SECOND, DT_DATETIME};
 bool compatible(DATA_TYPE dst, DATA_TYPE src);
-bool compatible(vector<DATA_TYPE> &dst, vector<DATA_TYPE> &src);
+void compatible(vector<DATA_TYPE> &dst, vector<DATA_TYPE> &src);
 
-class NotImplementedException : public exception {
-   public:
-    NotImplementedException(const string &functionName, const string &errMsg) : functionName_(functionName), errMsg_(errMsg) {}
-    virtual const char *what() const throw() { return errMsg_.c_str(); }
-    virtual ~NotImplementedException() throw() {}
-    const string &getFunctionName() const { return functionName_; }
+// class NotImplementedException : public exception {
+//    public:
+//     NotImplementedException(const string &functionName, const string &errMsg) : functionName_(functionName), errMsg_(errMsg) {}
+//     virtual const char *what() const throw() { return errMsg_.c_str(); }
+//     virtual ~NotImplementedException() throw() {}
+//     const string &getFunctionName() const { return functionName_; }
 
-   private:
-    const string functionName_;
-    const string errMsg_;
-};
+//    private:
+//     const string functionName_;
+//     const string errMsg_;
+// };
 
 DATA_TYPE getDolphinDBType(mysqlxx::enum_field_types t, bool isUnsigned, bool isEnum, int maxStrLen);
 size_t typeLen(DATA_TYPE dt);
@@ -68,7 +69,6 @@ class Connection : public mysqlxx::Connection {
     int port_ = 3306;
 
    public:
-    Connection();
     Connection(std::string hostname, int port, std::string username, std::string password, std::string database);
 
     ~Connection();
@@ -155,8 +155,6 @@ class MySQLExtractor {
 class Pack {
    public:
     Pack() : rawBuffers_(0), typeLen_(0), nCol_(0), size_(0), capacity_(0), srcDt_(0), dstDt_(0){};
-    explicit Pack(
-        vector<DATA_TYPE> srcDt, vector<DATA_TYPE> dstDt, vector<size_t> maxStrlen, TableSP &resultTable, size_t cap = DEFAULT_PACK_SIZE);
     ~Pack();
     void init(vector<DATA_TYPE> srcDt, vector<DATA_TYPE> dstDt, TableSP &t, vector<size_t> maxStrlen, size_t cap = DEFAULT_PACK_SIZE);
     void append(const mysqlxx::Row &);
@@ -190,37 +188,58 @@ template <typename T>
 inline void setter(char *dst, T &&val, DATA_TYPE &dstDt) {
     switch (dstDt) {
         case DT_BOOL:
-            *((bool *)dst) = static_cast<bool>(val);
+			{
+				bool temp = static_cast<bool>(val);
+				memcpy(dst, &temp, sizeof(bool));
+			}
             break;
         case DT_CHAR:
-            *dst = static_cast<char>(val);
-            break;
+			{
+				char temp = static_cast<char>(val);
+				memcpy(dst, &temp, sizeof(char));
+			}
+			break;
         case DT_SHORT:
-            *((short *)dst) = static_cast<short>(val);
+			{
+				short temp = static_cast<short>(val);
+				memcpy(dst, &temp, sizeof(short));
+			}
             break;
         case DT_TIMESTAMP:
         case DT_NANOTIME:
         case DT_NANOTIMESTAMP:
         case DT_LONG:
-            *((long long *)dst) = static_cast<long long>(val);
+			{
+				long long temp = static_cast<long long>(val);
+				memcpy(dst, &temp, sizeof(long long));
+			}
             break;
         case DT_DATETIME:
         case DT_DATE:
         case DT_MONTH:
         case DT_TIME:
-        case DT_MINUTE:
-        case DT_SECOND:
+         case DT_MINUTE:
+         case DT_SECOND:
         case DT_INT:
-            *((int *)dst) = static_cast<int>(val);
+			{
+				int temp = static_cast<int>(val);
+				memcpy(dst, &temp, sizeof(int));
+			}
             break;
         case DT_FLOAT:
-            *((float *)dst) = static_cast<float>(val);
-            break;
+			{
+				float temp = static_cast<float>(val);
+				memcpy(dst, &temp, sizeof(float));
+			}
+			break;
         case DT_DOUBLE:
-            *((double *)dst) = static_cast<double>(val);
+			{
+				double temp = static_cast<double>(val);
+				memcpy(dst, &temp, sizeof(double));
+			}
             break;
         default:
-            throw RuntimeException("Type: " + Util::getDataTypeString(dstDt) + " in setter not handled.");
+            throw RuntimeException("The" + Util::getDataTypeString(dstDt) + " type is not supported");
     }
 }
 
@@ -296,19 +315,19 @@ void getValNull(DATA_TYPE type, char* buf){
             memcpy(buf, &nullV, sizeof(double));
             return;
         }
-        case DT_SYMBOL:
-        case DT_STRING:
-        case DT_VOID:
-        case DT_UUID:
-        case DT_FUNCTIONDEF:
-        case DT_HANDLE:
-        case DT_CODE:
-        case DT_DATASOURCE:
-        case DT_RESOURCE:
-        case DT_ANY:
-        case DT_COMPRESS:
-        case DT_DICTIONARY:
-        case DT_OBJECT:
+        // case DT_SYMBOL:
+        // case DT_STRING:
+        // case DT_VOID:
+        // case DT_UUID:
+        // case DT_FUNCTIONDEF:
+        // case DT_HANDLE:
+        // case DT_CODE:
+        // case DT_DATASOURCE:
+        // case DT_RESOURCE:
+        // case DT_ANY:
+        // case DT_COMPRESS:
+        // case DT_DICTIONARY:
+        // case DT_OBJECT:
         default:
             throw IllegalArgumentException(__FUNCTION__, "type not supported yet.");
     }

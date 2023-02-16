@@ -192,8 +192,6 @@ ConstantSP mysqlLoadEx(Heap *heap, vector<ConstantSP> &arguments) {
 
 /// Connection
 namespace dolphindb {
-Connection::Connection() {
-}
 Connection::~Connection() {
 }
 
@@ -425,10 +423,8 @@ void MySQLExtractor::prepareForExtract(const ConstantSP &schema, mysqlxx::Result
     colNames_ = getColNames(res);
     srcColTypes_ = getColTypes(res);
     maxStrLen_ = getMaxStrlen(res);
-    dstColTypes_ = (schema.isNull() || schema->isNull()) ? srcColTypes_ : getDstType(schema);
-    if (!compatible(dstColTypes_, srcColTypes_)) {
-        throw IllegalArgumentException("extract", "Incompatible input schema");
-    }
+    dstColTypes_ = schema.isNull() ? srcColTypes_ : getDstType(schema);
+    compatible(dstColTypes_, srcColTypes_);
 }
 
 void MySQLExtractor::workerRequest() {
@@ -469,7 +465,7 @@ void MySQLExtractor::growTable(TableSP &t, Pack &p) {
 void MySQLExtractor::growTableEx(TableSP &t, Pack &p, Heap *heap, const FunctionDefSP &transform) {
     realGrowTable(p, [&](vector<ConstantSP> &cols) {
         TableSP tmpTable = Util::createTable(colNames_, cols);
-        if(!transform.isNull() && !transform->isNull()){
+        if(!transform.isNull()){
             vector<ConstantSP> arg={tmpTable};
             tmpTable = transform->call(heap, arg);
         }
@@ -524,7 +520,7 @@ void MySQLExtractor::realGrowTable(Pack &p, std::function<void(vector<ConstantSP
                 vec->setString(0, len, (char **)colBuffer);
                 break;
             default:
-                throw NotImplementedException(__FUNCTION__, "todo");
+                throw RuntimeException("The " + Util::getDataTypeString(dstColTypes_[idx]) + " type is not supported to realGrowTable");
         }
         if(p.containNull(idx))
             vec->setNullFlag(true);
@@ -583,16 +579,11 @@ vector<DATA_TYPE> MySQLExtractor::getDstType(const TableSP &schemaTable) {
 
     for (auto &t : ret) {
         auto cat = Util::getCategory(t);
-        if (t == DT_VOID || t == DT_ANY || cat == NOTHING || cat == MIXED || cat == SYSTEM) {
-            throw IllegalArgumentException(__FUNCTION__, "error schema");
+        if (cat != LOGICAL && cat != INTEGRAL && cat != FLOATING && cat != TEMPORAL && cat != LITERAL) {
+            throw RuntimeException("The " + Util::getDataTypeString(t) + " type is not supported");
         }
     }
     return ret;
-}
-
-/// Pack members
-Pack::Pack(vector<DATA_TYPE> srcDt, vector<DATA_TYPE> dstDt, vector<size_t> maxStrLen, TableSP &resultTable, size_t cap) {
-    init(srcDt, dstDt, resultTable, maxStrLen, cap);
 }
 
 unsigned long long Pack::getRowStorage(vector<DATA_TYPE> types, vector<size_t> maxStrlen) {
@@ -664,8 +655,8 @@ void Pack::append(const mysqlxx::Row &row) {
             else
                 switch (srcDt_[col]) {
                     case DT_BOOL:
-                        containNull_[col] = containNull_[col] | parseScalar<bool>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                        break;
+                         containNull_[col] = containNull_[col] | parseScalar<bool>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                         break;
                     case DT_CHAR:
                         containNull_[col] = containNull_[col] | parseScalar<char>(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                         break;
@@ -688,26 +679,26 @@ void Pack::append(const mysqlxx::Row &row) {
                         containNull_[col] = containNull_[col] | parseTimestamp(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                         break;
                     case DT_NANOTIME:
-                        containNull_[col] = containNull_[col] | parseNanotime(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                        break;
-                    case DT_NANOTIMESTAMP:
-                        containNull_[col] = containNull_[col] | parseNanoTimestamp(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                        break;
+                         containNull_[col] = containNull_[col] | parseNanotime(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                         break;
+                     case DT_NANOTIMESTAMP:
+                         containNull_[col] = containNull_[col] | parseNanoTimestamp(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                         break;
                     case DT_DATE:
                         containNull_[col] = containNull_[col] | parseDate(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                         break;
-                    case DT_MONTH:
-                        containNull_[col] = containNull_[col] | parseMonth(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                        break;
+                     case DT_MONTH:
+                         containNull_[col] = containNull_[col] | parseMonth(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                         break;
                     case DT_TIME:
                         containNull_[col] = containNull_[col] | parseTime(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                         break;
-                    case DT_MINUTE:
-                        containNull_[col] = containNull_[col] | parseMinute(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                        break;
-                    case DT_SECOND:
-                        containNull_[col] = containNull_[col] | parseSecond(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
-                        break;
+                     case DT_MINUTE:
+                         containNull_[col] = containNull_[col] | parseMinute(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                         break;
+                     case DT_SECOND:
+                         containNull_[col] = containNull_[col] | parseSecond(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
+                         break;
                     case DT_DATETIME:
                         containNull_[col] = containNull_[col] | parseDatetime(dst, val, dstDt_[col], nullVal_[col], typeLen_[col]);
                         break;
@@ -716,7 +707,7 @@ void Pack::append(const mysqlxx::Row &row) {
                             containNull_[col] = containNull_[col] | parseString(dst, val, maxStrLen_[col]);
                         break;
                     default:
-                        throw NotImplementedException(__FUNCTION__, "Not yet.");
+                        throw RuntimeException("The " + Util::getDataTypeString(srcDt_[col]) + " type is not supported to pack append");
                 }
         }
         ++size_;
@@ -895,21 +886,21 @@ bool parseDate(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nul
     return false;
 }
 
-bool parseMonth(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
-    if(val.empty()){
-        memcpy(dst, nullVal, len);
-        return true;
-    }
-    int y, m;
-    if (year(val, y) && month(val, m)) {
-        setter(dst, y * 12 + m - 1, dstDt);
-        return false;
-    } else {
-        memcpy(dst, nullVal, len);
-        return true;
-    }
-    return false;
-}
+ bool parseMonth(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
+     if(val.empty()){
+         memcpy(dst, nullVal, len);
+         return true;
+     }
+     int y, m;
+     if (year(val, y) && month(val, m)) {
+         setter(dst, y * 12 + m - 1, dstDt);
+         return false;
+     } else {
+         memcpy(dst, nullVal, len);
+         return true;
+     }
+     return false;
+ }
 
 bool parseTime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len) {
     if(val.empty()){
@@ -1093,13 +1084,13 @@ bool parseBit(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* null
 }
 
 //////////////////////////////////// util
-const char *getDolphinDBTypeStr(DATA_TYPE type) {
-    auto str = Util::getDataTypeString(type);
-    char* ptr = (char *)malloc(str.size()+1);
-    memcpy(ptr, str.c_str(), str.size()+1);
-    return (const char*)ptr;
+// const char *getDolphinDBTypeStr(DATA_TYPE type) {
+//     auto str = Util::getDataTypeString(type);
+//     char* ptr = (char *)malloc(str.size()+1);
+//     memcpy(ptr, str.c_str(), str.size()+1);
+//     return (const char*)ptr;
 
-}
+// }
 
 ConstantSP messageSP(const std::string &s) {
     auto message = Util::createConstant(DT_STRING);
@@ -1107,16 +1098,16 @@ ConstantSP messageSP(const std::string &s) {
     return message;
 }
 
-vector<ConstantSP> getArgs(vector<ConstantSP> &args, size_t nMaxArgs) {
-    auto ret = vector<ConstantSP>(nMaxArgs);
-    for (size_t i = 0; i < nMaxArgs; ++i) {
-        if (args.size() >= i + 1)
-            ret[i] = args[i];
-        else
-            ret[i] = Util::createNullConstant(DT_VOID);
-    }
-    return ret;
-}
+// vector<ConstantSP> getArgs(vector<ConstantSP> &args, size_t nMaxArgs) {
+//     auto ret = vector<ConstantSP>(nMaxArgs);
+//     for (size_t i = 0; i < nMaxArgs; ++i) {
+//         if (args.size() >= i + 1)
+//             ret[i] = args[i];
+//         else
+//             ret[i] = Util::createNullConstant(DT_VOID);
+//     }
+//     return ret;
+// }
 
 DATA_TYPE getDolphinDBType(mysqlxx::enum_field_types type, bool isUnsigned, bool isEnum, int maxStrLen) {
     using namespace mysqlxx;
@@ -1125,11 +1116,11 @@ DATA_TYPE getDolphinDBType(mysqlxx::enum_field_types type, bool isUnsigned, bool
         {
             if(maxStrLen > 0 && maxStrLen <= 8)
                 return DT_CHAR;
-            else if(maxStrLen > 8 && maxStrLen <= 16)
+            else if(maxStrLen <= 16)
                 return DT_SHORT;
-            else if(maxStrLen > 16 && maxStrLen <= 32)
+            else if(maxStrLen <= 32)
                 return DT_INT;
-            else if(maxStrLen > 32 && maxStrLen <= 64)
+            else if(maxStrLen <= 64)
                 return DT_LONG;
             else
                 throw IllegalArgumentException(__FUNCTION__, "MySQL type " + std::string(getMySQLTypeStr(type)) + " wrong length : " + std::to_string(maxStrLen) + " .");
@@ -1252,19 +1243,19 @@ size_t typeLen(DATA_TYPE dt) {
         case DT_SYMBOL:
         case DT_STRING:
             return sizeof(char *);
-        case DT_VOID:
-        case DT_UUID:
-        case DT_FUNCTIONDEF:
-        case DT_HANDLE:
-        case DT_CODE:
-        case DT_DATASOURCE:
-        case DT_RESOURCE:
-        case DT_ANY:
-        case DT_COMPRESS:
-        case DT_DICTIONARY:
-        case DT_OBJECT:
+        // case DT_VOID:
+        // case DT_UUID:
+        // case DT_FUNCTIONDEF:
+        // case DT_HANDLE:
+        // case DT_CODE:
+        // case DT_DATASOURCE:
+        // case DT_RESOURCE:
+        // case DT_ANY:
+        // case DT_COMPRESS:
+        // case DT_DICTIONARY:
+        // case DT_OBJECT:
         default:
-            throw IllegalArgumentException(__FUNCTION__, "type not supported yet.");
+                throw RuntimeException("The " + Util::getDataTypeString(dt) + " type is not supported");
     }
 }
 
@@ -1300,7 +1291,7 @@ bool compatible(DATA_TYPE dst, DATA_TYPE src) {
     return false;
 }
 
-bool compatible(vector<DATA_TYPE> &dst, vector<DATA_TYPE> &src) {
+void compatible(vector<DATA_TYPE> &dst, vector<DATA_TYPE> &src) {
     if (dst.size() != src.size()) {
         throw IllegalArgumentException(__FUNCTION__, "dst and src schema have different size");
     }
@@ -1314,7 +1305,6 @@ bool compatible(vector<DATA_TYPE> &dst, vector<DATA_TYPE> &src) {
             src[i] = dst[i];
         }
     }
-    return true;
 }
 
 }    // namespace dolphindb

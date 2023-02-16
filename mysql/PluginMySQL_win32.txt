@@ -1,4 +1,4 @@
-mysql,libPluginMySQL.dll
+mysql,libPluginMySQL.dll,2.00.9.1.1
 mysqlConnect,connect,system,5,5,0
 mysqlLoad,load,system,2,6,0
 mysqlLoadEx,loadEx,system,5,9,0
