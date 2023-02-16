@@ -8,7 +8,7 @@
 
 **Linux**
 
-预先编译的插件文件存放在 DolphinDBPlugin/releasexxx/zip/bin/linux64 目录下。将其下载至 /DolphinDB/server/plugins/zip。启动 DolphinDB，导入插件：
+预先编译的插件文件存放在 DolphinDBPlugin/releasexxx/zip/bin/linux64 目录下。将其下载至 /DolphinDB/server/plugins/zip。
 
 ### 1.2. 使用 CMake 编译构建
 
