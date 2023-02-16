@@ -4,7 +4,9 @@ DolphinDB 的 kdb+ 插件支持通过 loadTable 和 loadFile 接口将 kdb+ 数�
 
 kdb+ 插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/kdb/README_CN.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/kdb/README_CN.md)。您当前查看的插件版本为 release200，请使用 DolphinDB 2.00.X 版本 server。若使用其它版本 server，请切换至相应插件分支。
 
-## 1 预编译安装
+使用插件前，推荐阅读 [README插件指南](../README_CN.md)
+
+## 1 环境配置
 
 ### 1.1 初始化环境配置
 
@@ -30,17 +32,11 @@ yum install -y zlib zlib-devel
 
 ## 2 插件加载与编译
 
-### 2.1 编译安装
+### 2.1 预编译安装
 
 可以直接使用已编译好的插件，在 bin/ 文件夹中根据服务器操作系统选择适合的插件。
 
 请注意插件的版本应与 DolphinDB 客户端版本相同，通过切换分支获取相应版本。
-
-### 2.3 编译安装
-
-```DolphinDB shell
-loadPlugin("/path/to/plugin/PluginKDB.txt")
-```
 
 ### 2.3 编译安装
 
@@ -54,8 +50,9 @@ cd build
 cmake ..
 make
 ```
+注意：编译之前请确保 libDolphinDB.so 在 gcc 可搜索的路径中。可通过 ```export LD_LIBRARY_PATH=/path_to_dolphindb/:$LD_LIBRARY_PATH``` 指定其路径，或者直接将其拷贝到 build 目录下。
 
-<!-- Windows 还没有发布，暂时隐藏>
+<!-- Windows 还没有发布，暂时隐藏
 #### Windows 系统编译
 - 下载安装[MinGW](http://www.mingw.org/)。确保将 bin 目录添加到系统环境变量 Path 中。
 - 下载安装[cmake](https://cmake.org/)。
@@ -69,7 +66,7 @@ cd build
 cmake  ../ -G "MinGW Makefiles"
 mingw32-make -j4
 ```
-<!-->
+-->
 ### 2.3 加载插件
 在 DolphinDB 客户端运行以下命令加载插件，需要将目录替换为 PluginKDB 文本文件所在的位置：
 

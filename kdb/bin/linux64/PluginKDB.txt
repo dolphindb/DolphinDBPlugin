@@ -1,4 +1,4 @@
-kdb,libPluginKDB.so
+kdb,libPluginKDB.so,2.00.9.1.1
 kdbConnect,connect,system,2,3,0
 kdbLoadTable,loadTable,system,2,3,0
 kdbLoadFile,loadFile,system,1,2,0

@@ -248,7 +248,7 @@ For this option, you only need to call the `loadFile()` method.
 Note:
 
 1. This method cannot read the file of a single object.
-2. This method cannot read data compressed by q IPC(1), Snappy (3) or Lz4(4) algorithms.
+2. This method only reads data compressed by gzip.
 3. Please make sure that the table to be loaded doesn't contain nested columns.
 4. The *tablePath* parameter of `loadFile` must be the directories of column files of a splayed table, partitioned table or segmented table.
 
