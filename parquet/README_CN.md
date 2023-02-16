@@ -2,7 +2,7 @@
 
 Apache Parquet 文件采用列式存储格式，可用于高效存储与提取数据。DolphinDB 提供的 Parquet 插件支持将 Parquet 文件导入和导出 DolphinDB，并进行数据类型转换。
 
-Parquet插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/parquet/README_CN.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/parquet/README_CN.md), [relsease120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/parquet/README_CN.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/parquet/README_CN.md)。您当前查看的插件版本为 release200，请使用 DolphinDB 2.00.X 版本 server。若使用其它版本 server，请切换至相应插件分支。
+Parquet 插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/parquet/README_CN.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/parquet/README_CN.md), [relsease120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/parquet/README_CN.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/parquet/README_CN.md)。您当前查看的插件版本为 release200，请使用 DolphinDB 2.00.X 版本 server。若使用其它版本 server，请切换至相应插件分支。
 
 - [DolphinDB Parquet Plugin](#dolphindb-parquet-plugin)
   - [1 安装插件](#1-安装插件)
@@ -12,30 +12,10 @@ Parquet插件目前支持版本：[relsease200](https://github.com/dolphindb/Dol
     - [1.3 安装插件](#13-安装插件)
   - [2 用户接口](#2-用户接口)
     - [2.1 parquet::extractParquetSchema](#21-parquetextractparquetschema)
-      - [语法](#语法)
-      - [参数](#参数)
-      - [详情](#详情)
-      - [例子](#例子)
     - [2.2 parquet::loadParquet](#22-parquetloadparquet)
-      - [语法](#语法-1)
-      - [参数](#参数-1)
-      - [详情](#详情-1)
-      - [例子](#例子-1)
     - [2.3 parquet::loadParquetEx](#23-parquetloadparquetex)
-      - [语法](#语法-2)
-      - [参数](#参数-2)
-      - [详情](#详情-2)
-      - [例子](#例子-2)
     - [2.4 parquet::parquetDS](#24-parquetparquetds)
-      - [语法](#语法-3)
-      - [参数](#参数-3)
-      - [详情](#详情-3)
-      - [例子](#例子-3)
     - [2.5 parquet::saveParquet](#25-parquetsaveparquet)
-      - [语法](#语法-4)
-      - [参数](#参数-4)
-      - [详情](#详情-4)
-      - [例子](#例子-4)
   - [3 支持的数据类型](#3-支持的数据类型)
     - [3.1 导入](#31-导入)
     - [3.2 导出](#32-导出)
@@ -54,19 +34,19 @@ DolphinDB 提供了预编译的 Parquet 插件，可在 Linux 系统上直接进
 
 #### （Linux）使用 CMake构建
 
-（1）安装 CMake：
+(1) 安装 CMake：
 
 ```
 sudo apt-get install cmake
 ```
 
-（2）安装 zlib：
+(2) 安装 zlib：
 
 ```
 sudo apt-get install zlib1g
 ```
 
-（3）编译 Parquet 开发包：
+(3) 编译 Parquet 开发包：
 
 ```
 git clone https://github.com/apache/arrow.git
@@ -76,7 +56,7 @@ cd build
 cmake .. -DARROW_PARQUET=ON -DARROW_IPC=ON -DARROW_BUILD_INTEGRATION=ON -DARROW_BUILD_STATIC=ON -DPARQUET_BUILD_SHARED=OFF -DARROW_BUILD_SHARED=OFF -DARROW_DEPENDENCY_USE_SHARED=OFF -DARROW_WITH_ZLIB=ON -DARROW_WITH_SNAPPY=ON -DARROW_WITH_ZSTD=ON -DARROW_WITH_LZ4=ON -DARROW_WITH_BZ2=ON
 ```
 
-> **请注意：编译环境中的依赖库 libstdc++ 需要和 dolphindb server 下的一致。DolphinDB 提供的预编译版本插件支持 zlib，snappy，zstd，lz4 和 bz2 压缩格式，您可在此基础上根据需要支持的压缩类型增减编译选项。详情请参考 [Apache Arrow 相关文档](https://github.com/apache/arrow/blob/master/docs/source/developers/cpp/building.rst#optional-components)。**
+> **请注意：编译环境中的依赖库 libstdc++ 需要和 dolphindb server 下版本的一致。DolphinDB 提供的预编译版本插件支持 zlib, snappy, zstd, lz4 和 bz2 压缩格式，您可在此基础上根据需要支持的压缩类型增减编译选项。详情请参考 [Apache Arrow 相关文档](https://github.com/apache/arrow/blob/master/docs/source/developers/cpp/building.rst#optional-components)。**
 
 （4）编译完成后，拷贝以下文件到目标目录：
 
@@ -97,15 +77,15 @@ make
 
 ### 1.3 安装插件
 
-在Linux导入 DolphinDB 提供的[预编译 Parquet 插件](https://gitee.com/dolphindb/DolphinDBPlugin/tree/master/parquet/bin/linux64)，或用户自行编译的插件。
+在 Linux 导入 DolphinDB 提供的[预编译 Parquet 插件](https://gitee.com/dolphindb/DolphinDBPlugin/tree/master/parquet/bin/linux64)，或用户自行编译的插件。
 
-(1) 添加插件所在路径到LIB搜索路径 LD_LIBRARY_PATH
+(1) 添加插件所在路径到 LIB 搜索路径 LD_LIBRARY_PATH
 
 ```
 export LD_LIBRARY_PATH=/path_to_parquet_plugin/:$LD_LIBRARY_PATH
 ```
 
-(2) 启动DolphinDB server并导入插件
+(2) 启动 DolphinDB server 并导入插件
 
 ```
 loadPlugin("/path_to_parquet_plugin/PluginParquet.txt")
@@ -115,75 +95,75 @@ loadPlugin("/path_to_parquet_plugin/PluginParquet.txt")
 
 ### 2.1 parquet::extractParquetSchema
 
-#### 语法
+**语法**
 
 parquet::extractParquetSchema(fileName)
 
-#### 参数  
+**参数**  
 
 * fileName: Parquet 文件名，类型为字符串标量。
 
-#### 详情
+**详情**
 
 获取 Parquet 文件的结构，返回两列：列名和数据类型。
 
-#### 例子
+**例子**
 ```
 parquet::extractParquetSchema("userdata1.parquet")
 ```
 
 ### 2.2 parquet::loadParquet
 
-#### 语法
+**语法**
 
 parquet::loadParquet(fileName,[schema],[column],[rowGroupStart],[rowGroupNum])
 
-#### 参数
+**参数**
 
 * fileName: Parquet 文件名，类型为字符串标量。
 * schema: 可选参数，必须是包含列名和列数据类型的表。通过设置该参数，可改变系统自动生成的列数据类型。
 * column: 可选参数，整数向量，表示要读取的列索引。若不指定，读取所有列。
-* rowGroupStart: 可选参数，是一个非负整数。从哪一个 row group开始读取parquet文件。若不指定，默认从文件起始位置读取。
+* rowGroupStart: 可选参数，是一个非负整数。从哪一个 row group 开始读取 Parquet 文件。若不指定，默认从文件起始位置读取。
 * rowGroupNum: 可选参数，要读取 row group 的数量。若不指定，默认读到文件的结尾。
 
-#### 详情
+**详情**
 
 将 Parquet 文件数据加载为 DolphinDB 数据库的内存表。关于 Parquet 数据类型及在 DolphinDB 中的转化规则，参见下文[数据类型](#3-支持的数据类型)章节。
 
-#### 例子
+**例子**
 ```
 parquet::loadParquet("userdata1.parquet")
 ```
 
 ### 2.3 parquet::loadParquetEx
 
-#### 语法
+**语法**
 
 parquet::loadParquetEx(dbHandle,tableName,partitionColumns,fileName,[schema],[column],[rowGroupStart],[rowGroupNum],[tranform])
 
-#### 参数
+**参数**
 
 * dbHandle：数据库句柄
 * tableName：一个字符串，表示表的名称。
 * partitionColumns: 字符串标量或向量，表示分区列。在组合分区中，该参数是字符串向量。
-* fileName：Parquet文件名，类型为字符串标量。
+* fileName：Parquet 文件名，类型为字符串标量。
 * schema: 可选参数，必须是包含列名和列数据类型的表。通过设置该参数，可改变系统自动生成的列数据类型。
 * column: 可选参数，整数向量，表示读取的列索引。若不指定，读取所有列。
 * rowGroupStart: 可选参数，从哪一个 row group 开始读取 Parquet 文件。若不指定，默认从文件起始位置读取。
 * rowGroupNum: 可选参数，要读取 row group 的数量。若不指定，默认读到文件的结尾。
-* tranform: 可选参数，为一元函数，且该函数接受的参数必须是一个表。如果指定了 *transform* 参数，需要先创建分区表，再加载数据，程序会对数据文件中的数据执行 transform 参数指定的函数，再将得到的结果保存到分区表中。
+* tranform: 可选参数，为一元函数，且该函数接受的参数必须是一个表。如果指定了 *transform* 参数，需要先创建分区表，再加载数据，程序会对数据文件中的数据执行 *transform* 参数指定的函数，再将得到的结果保存到分区表中。
 
-#### 详情
+**详情**
 
-将 Parquet 文件数据加载到DolphinDB 数据库的分区表，返回该表的元数据。 
+将 Parquet 文件数据加载到 DolphinDB 数据库的分区表，返回该表的元数据。 
 
-* 如果要将数据文件加载到分布式数据库或本地磁盘数据库中，必须指定 dbHandle，并且不能为空字符串。
+* 如果要将数据文件加载到分布式数据库或本地磁盘数据库中，必须指定 *dbHandle*，并且不能为空字符串。
 
-* 如果要将数据文件加载到内存数据库中，那么 dbHandle 为空字符串或者不指定 dbHandle。
+* 如果要将数据文件加载到内存数据库中，那么 *dbHandle* 为空字符串或者不指定 *dbHandle*。
 
 关于 Parquet 数据类型及在 DolphinDB 中的转化规则，参见下文[数据类型](#3-支持的数据类型)章节。
 
-#### 例子
+**例子**
 
 * dfs 分区表
 
@@ -192,7 +172,7 @@ db = database("dfs://rangedb", RANGE, 0 500 1000)
 parquet::loadParquetEx(db,`tb,`id,"userdata1.parquet")
 ```
 
-* 内存中的非SEQ分区表
+* 分区内存表
 ```
 db = database("", RANGE, 0 500 1000)
 parquet::loadParquetEx(db,`tb,`id,"userdata1.parquet")
@@ -215,20 +195,20 @@ t = parquet::loadParquetEx(db,`tb1,`date,dataFilePath,datasetName,,,,i2d)
 
 ### 2.4 parquet::parquetDS
 
-#### 语法
+**语法**
 
 parquet::parquetDS(fileName,[schema])
 
-#### 参数
+**参数**
 
 * fileName: Parquet 文件名，类型为字符串标量。
 * schema: 可选参数，必须是包含列名和列数据类型的表。通过设置该参数，可改变系统自动生成的列数据类型。
 
-#### 详情
+**详情**
 
 根据输入的 Parquet 文件名创建数据源列表，生成的数据源数量等价于 row group 的数量。
 
-#### 例子
+**例子**
 ```
 >ds = parquet::parquetDS("userdata1.parquet")
 >size ds;
@@ -239,21 +219,21 @@ DataSource< loadParquet("userdata1.parquet",,,0,1) >
 
 ### 2.5 parquet::saveParquet
 
-#### 语法
+**语法**
 
 parquet::saveParquet(table, fileName)
 
-#### 参数
+**参数**
 
 table: 要保存的表
 
 fileName: 保存的文件名，类型为字符串标量
 
-#### 详情
+**详情**
 
 将 DolphinDB 中的表以 Parquet 格式保存到文件中。
 
-#### 例子
+**例子**
 
 ```
 parquet::saveParquet(tb, "userdata1.parquet")
@@ -318,9 +298,9 @@ DolphinDB 在导入 Parquet 数据时，优先按照源文件中定义的 Logica
 | FIXED_LEN_BYTE_ARRAY | STRING                   |
 
 > **请注意：**
->- 暂不支持转化Parquet 中的 repeated 字段。
+>- 暂不支持转化 Parquet 中的 repeated 字段。
 >- 在 Parquet 中标注了 DECIMAL 类型的字段中，仅支持转化原始数据类型（physical type）为 INT32, INT64 和 FIXED_LEN_BYTE_ARRAY 的数据。
->- 由于DolphinDB不支持无符号类型，所以读取parquet中的UINT_64时若发生溢出，则会取DolphinDB中的 NULL 值。
+>- 由于 DolphinDB 不支持无符号类型，所以读取 Parquet 中的 UINT_64 时若发生溢出，则会取 DolphinDB 中的 NULL 值。
 
 ### 3.2 导出
 
