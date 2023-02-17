@@ -5,13 +5,17 @@ DolphinDB database 支持动态载入外部插件，以拓展系统功能。插�
 ## 目录结构
 * [include](./include)目录包含了DolphinDB的核心数据结构的类声明和一些工具类声明，这些类是实现插件的重要基础工具。  
 * [demo](./demo)目录包含了一个demo插件的实现。  
-* [odbc](./odbc)与[mysql](./mysql)等目录包含了ODBC与MySQL等插件的实现。
+* [odbc](./odbc)与[mysql](./mysql)等目录包含了ODBC与MySQL
+* [odbc/bin](./odbc/bin)与[mysql/bin](./mysql/bin)等目录包含了ODBC与MySQL等插件的预编译版本，可直接加载。
+等插件的实现。
 
 ## 加载插件
 
-插件分支应与 DolphinDB Server 的版本相匹配，即若 DolphinDB Server 是 1.30 版本，插件应使用 release130 分支，若 DolphinDB Server 是 2.00 版本，插件应使用 release200 分支，其他版本依此类推。
+插件分支应与 DolphinDB Server 版本的前三位数字相匹配，即若 DolphinDB Server 是 1.30.21 版本，插件也应使用以 1.30.21 开头的版本，若 DolphinDB Server 是 2.00.9 版本，插件应使用以 2.00.9 开头的版本，其他版本依此类推。自2.00.9/1.30.21版本起，插件文件中增加了版本号信息。一旦插件与服务器版本号不匹配，在加载插件时会报错并停止加载。请在升级服务器后及时更新相应的插件，且不要随意修改已发布插件txt文件中的版本号。
 
 DolphinDB 目前发布的插件版本为 [release200](https://github.com/dolphindb/DolphinDBPlugin/tree/release200), [release130](https://github.com/dolphindb/DolphinDBPlugin/tree/release130), [release120](https://github.com/dolphindb/DolphinDBPlugin/tree/release120) 和 [release110](https://github.com/dolphindb/DolphinDBPlugin/tree/release110)，请根据当前使用的服务器版本号进行选择。
+
+在各个插件各自根目录下找到 bin/ 文件夹，里面是已经预编译好的插件。可以选取对应平台的插件进行加载。
 
 ### 通过函数loadPlugin加载
 
@@ -34,14 +38,15 @@ preloadModules=plugins::mysql,plugins::odbc
 
 DolphinDB使用一个文本文件来描述插件。该文件格式如下：首行描述插件名字和共享库文件名，其后每一行都描述一个共享库函数和DolphinDB函数的映射关系。  
 ```
-module name, lib file
+module name, lib file, plugin version
 function name in lib, function name in DolphinDB, function type, minParamCount, maxParamCount, isAggregate
 ...
 ...
 ```
 **解释**：
-* module name: 模块名  
-* lib file: 共享文件库文件名  
+* module name: 模块名
+* lib file: 共享文件库文件名
+* plugin version: 插件版本号  
 * function name in lib: 共享库中导出的函数名  
 * function name in DolphinDB: DolphinDB中的对应函数名  
 * function type: operator或者system  
@@ -52,11 +57,11 @@ function name in lib, function name in DolphinDB, function type, minParamCount, 
 ## 例子
 PluginDemo.txt:
 ```
-demo,libPluginDemo.so 
+demo,libPluginDemo.so,2.00.9.1.1
 minmax,minmax,operator,1,1,0
 foo,foo,system,1,1,0
 ```
-以上描述文件定义了一个名为 demo 的插件，共享库文件名为 libPluginDemo.so。插件导出两个函数，第一个函数为`minmax`，该函数在DolphinDB中名字同样是`minmax`，operator类型，接受一个参数；第二个函数名字为`echo`，DolphinDB中名字同样是`echo`，system类型，接受一个参数。  
+以上描述文件定义了一个名为 demo 的插件，共享库文件名为 libPluginDemo.so。插件版本号为2.00.9.1.1。插件导出两个函数，第一个函数为`minmax`，该函数在DolphinDB中名字同样是`minmax`，operator类型，接受一个参数；第二个函数名字为`echo`，DolphinDB中名字同样是`echo`，system类型，接受一个参数。
 
 写完描述文件之后，即可开始编写插件。内容请参考[demo](./demo)文件夹内容。
 
