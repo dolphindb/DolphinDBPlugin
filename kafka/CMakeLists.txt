@@ -27,6 +27,7 @@ if(DEFINED BUILD_ARM)
     link_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib)
 
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
     include_directories(/usr/local/boost/include)
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/)
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/cppkafka/include)
