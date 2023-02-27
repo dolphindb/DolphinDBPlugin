@@ -1,4 +1,4 @@
-amdQuote,libPluginAmdQuote.so
+amdQuote,libPluginAmdQuote.so,1.30.21.1.1
 amdConnect,connect,system,4,5,0
 subscribe,subscribe,system,4,6,0
 unsubscribe,unsubscribe,system,2,4,0

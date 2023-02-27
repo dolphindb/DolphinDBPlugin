@@ -1,10 +1,27 @@
 # DolphinDB amdQuote Plugin(Linux)
 
-## 构建
+DolphinDB amdQuote 插件目前仅支持 Linux 系统。本文仅介绍 Linux 系统上如何安装及使用该插件。
 
-### 使用cmake编译构建
+## 1. 安装构建
 
-安装cmake
+### 1.1. 预编译安装
+
+预先编译的插件文件存放在[bin/linux64](https://github.com/dolphindb/DolphinDBPlugin/tree/release130/amdQuote/bin/linux64) 目录。将该目录下的所有文件（包括动态库文件）下载至 DolphinDB server 所在机器的如下目录：/DolphinDB/server/plugins/amdQuote。
+
+Linux 终端执行以下命令，指定插件运行时需要的动态库路径
+```
+export LD_LIBRARY_PATH=/your_plugin_path:$LD_LIBRARY_PATH //指定动态库位置 
+```
+启动 DolphinDB，加载插件：
+```
+cd DolphinDB/server //进入 DolphinDB serve r目录
+./dolphindb //启动 DolphinDB server
+ loadPlugin("/your_plugin_path/PluginAmdQuote.txt") //加载插件
+```
+
+### 1.2. 使用 CMake 编译构建
+
+安装 CMake
 
 ```bash
 sudo apt install cmake
@@ -19,20 +36,10 @@ cmake .. -DAMDAPIDIR=<amd_ami_dir>
 make -j
 ```
 
-libPluginAmdQuote.so文件会在编译后生成。
+libPluginAmdQuote.so 文件会在编译后生成。编译后 build 目录下会产生文件 libPluginAmdQuote.so 和 PluginAmdQuote.txt。
 
-在加载插件之前，执行下面的命令
-```bash
-export LD_LIBRARY_PATH=/path_to_amdQuote/lib:$LD_LIBRARY_PATH
-```
+参考 [预编译安装](#11-预编译安装) 指定动态库的环境变量，并加载插件。
 
-## 插件加载
-
-编译生成 libPluginAmdQuote.so 之后，通过以下脚本加载插件：
-
-```
-loadPlugin("/path_to_pluginAmdQuote/PluginAmdQuote.txt");
-```
 ## 接口说明
 
 **amdQuote::connect(username, password, ips, ports, options)**
@@ -47,9 +54,11 @@ loadPlugin("/path_to_pluginAmdQuote/PluginAmdQuote.txt");
 
 `ports` 为整型向量，AMD 行情服务器端口列表，需要和 IP 列表数量相同。
 
-`options` 可选参数。是字典类型，表示扩展参数。当前键支持 receivedTime和DailyIndex，receivedTime表示是否获取插件收到行情数据的时间戳，DailyIndex表示是否添加每天按channel_no递增的数据列。
-receivedTime参数指定为 dict(["ReceivedTime"], [true]) 时， getSchema 获取的表结构中将包含插件收到行情数据的时间戳列。
-DailyIndex参数指定为 dict(["DailyIndex"], [true]) 时， getSchema 获取的表结构中将包含插件收到行情数据的按channel_no递增的列。
+`options` 可选参数。是字典类型，表示扩展参数。当前键支持 receivedTime 和 DailyIndex。
+其中：
+
+* receivedTime 表示是否获取插件收到行情数据的时间戳。其指定为 dict(["ReceivedTime"], [true]) 时，getSchema 获取的表结构中将包含插件收到行情数据的时间戳列。
+* DailyIndex 表示是否添加每天按 channel_no 递增的数据列。其指定为 dict(["DailyIndex"], [true]) 时，getSchema 获取的表结构中将包含插件收到行情数据的按 channel_no 递增的列。
 
 **函数详情**
 
@@ -61,7 +70,7 @@ DailyIndex参数指定为 dict(["DailyIndex"], [true]) 时， getSchema 获取�
 
 `handle` connect 接口返回的句柄。
 
-`type` 字符串标量，表示行情的类型，可取以下值：'snapshot'（股票快照）, 'execution'（股票逐笔成交）, 'order'（股票逐笔委托）, 'index'（指数）, 'orderQueue'（委托队列）, 'fundSnapshot'（基金快照）, 'fundExecution'（基金逐笔成交） 和 'fundOrder'（基金逐笔委托）。
+`type` 字符串标量，表示行情的类型，可取以下值：'snapshot'（股票快照）, 'execution'（股票逐笔成交）, 'order'（股票逐笔委托）, 'index'（指数）, 'orderQueue'（委托队列）, 'fundSnapshot'（基金快照）, 'fundExecution'（基金逐笔成交），'fundOrder'（基金逐笔委托），'bondSnapshot'（债券快照），'bondOrder'（债券逐笔委托），'bondExecution'（债券逐笔成交）。
 
 `streamTable` 表示一个共享流表的表对象。订阅前需要创建一个共享流表，且该流表的 schema 需要和获取的行情数据结构一致。可以通过插件提供的 getSchema 函数来获取行情数据的 schema。
 
@@ -69,7 +78,7 @@ DailyIndex参数指定为 dict(["DailyIndex"], [true]) 时， getSchema 获取�
 
 `codeList` 字符串向量，可选。表示股票列表。不传该参数表示订阅所有股票。
 
-`transform`: 一元函数，插入到DolphinDB表库前对表进行转换，例如替换列。
+`transform`: 一元函数（其参数是一个表）。插入到 DolphinDB 表前对表进行转换，例如替换列。请注意，传入的一元函数中不能存在对 DFS 表的操作，例如：读取或写入 DFS 表，获取 DFS 表的 schema 等。
 
 **函数详情**
 
@@ -81,7 +90,7 @@ DailyIndex参数指定为 dict(["DailyIndex"], [true]) 时， getSchema 获取�
 
 `handle` connect 接口返回的句柄。
 
-`dataType` 字符串标量，表示行情的类型，可取以下值：'snapshot', 'execution', 'order', 'index', 'orderQueue', 'fundSnapshot', 'fundExecution', 'fundOrder' 和 'all'。其中，'all' 表示取消所有订阅。
+`dataType` 字符串标量，表示行情的类型，可取以下值：'snapshot', 'execution', 'order', 'index', 'orderQueue', 'fundSnapshot', 'fundExecution', 'fundOrder', 'bondSnapshot', 'bondOrder', 'bondExecution' 和 'all'。其中，'all' 表示取消所有订阅。
 
 `marketType` 整型标量，表示市场类型，需要和 AMD 中定义的市场类型一致。
 
@@ -109,7 +118,7 @@ DailyIndex参数指定为 dict(["DailyIndex"], [true]) 时， getSchema 获取�
 
 **参数**
 
-`type` 字符串标量，表示行情的类型，可取以下值：'snapshot', 'execution', 'order', 'index', 'orderQueue', 'fundSnapshot', 'fundExecution' 和 'fundOrder'。
+`type` 字符串标量，表示行情的类型，可取以下值：'snapshot', 'execution', 'order', 'index', 'orderQueue', 'fundSnapshot', 'fundExecution', 'fundOrder', 'bondSnapshot', 'bondOrder' 和 'bondExecution'。
 
 **函数详情**
 
@@ -126,6 +135,41 @@ DailyIndex参数指定为 dict(["DailyIndex"], [true]) 时， getSchema 获取�
 获取当前连接下所有订阅的状态。返回一个表，包含三列：datatype, isSubscribed 和 marketType，分别表示订阅的行数数据类型，是否被订阅和订阅的市场类型。  
 
 注：getStatus 不会显示取消订阅部分股票的状态，因此，当取消对部分股票的订阅后，通过 getStatus 查看的结果为该股票所属的行情数据（datatype）被取消订阅（isSubscribed=false）。
+
+**amdQuote::getCodeList()**
+
+**参数**
+
+无
+
+**函数详情**
+
+获取当前连接下的代码表结构。
+
+**amdQuote::getETFCodeList()**
+
+**参数**
+
+无
+
+**函数详情**
+
+获取当前连接下的 ETF 代码表结构。
+
+
+**amdQuote::enableLatencyStatistics(handle, flag)**
+
+**参数**
+
+`handle` connect 接口返回的句柄。
+
+`flag` 布尔类型，表示是否开启统计耗时功能。
+
+**函数详情**
+
+开启或关闭耗时统计的功能。耗时指从插件接收到 AMD 消息至数据转换后写入流表的时间。开启后，统计信息将输出到 server 端 Log 日志，每隔30秒，进行一次统计输出。
+
+注意，开启耗时统计功能会增加 Log 文件的输出，因此建议仅当 AMD 插件出现性能问题时，才开启该功能排查问题。
 
 ## 使用示例
 
