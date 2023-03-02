@@ -1,7 +1,0 @@
-orc,libPluginOrc.so
-extractORCSchema,extractORCSchema,operator,1,1,0
-loadORC,loadORC,system,1,5,0
-loadORCHdfs,loadORCHdfs,system,2,2,0
-loadORCEx,loadORCEx,system,4,9,0
-orcDS,orcDS,system,2,4,0
-saveORC,saveORC,system,2,2,0
