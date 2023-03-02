@@ -1,4 +1,0 @@
-mongodb,libPluginMongodb.so
-mongodbConnect,connect,system,4,5,0
-mongodbLoad,load,system,4,5,0
-mongodbClose,close,operator,1,1,0
