@@ -1,4 +1,4 @@
-insight,libPluginInsight.so
+insight,libPluginInsight.so,1.30.21.1.1
 connectInsight,connect,system,5,6,0
 subscribe,subscribe,system,4,4,0
 unsubscribe,unsubscribe,system,1,1,0
