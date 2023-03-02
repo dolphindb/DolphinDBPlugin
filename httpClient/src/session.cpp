@@ -5,24 +5,12 @@
 #include <curl/curl.h>
 #include <openssl/ssl.h>
 #include <string>
+#include<urlencode.h>
 
 #include"session.h"
 
 using namespace std;
 DictionarySP status_dict = Util::createDictionary(DT_STRING, nullptr, DT_ANY, nullptr);
-
-string urlEncode(string url){
-    string tmp;
-    for(int i = 0; i < url.size(); ++i){
-        if(url[i] == ' '){
-            tmp += "%20";
-        }
-        else{
-            tmp += url[i];
-        }
-    }
-    return tmp;
-}
 
 string getUTC()
 {
@@ -242,7 +230,7 @@ HttpSession::httpRequest(SessionSP &session, httpClient::RequestMethod method, c
         }
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerList);
 
-        curl_easy_setopt(curl, CURLOPT_URL, urlEncode(urlString).c_str());
+        curl_easy_setopt(curl, CURLOPT_URL, urlString.c_str());
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "curl/7.47.0");
         curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 50L);

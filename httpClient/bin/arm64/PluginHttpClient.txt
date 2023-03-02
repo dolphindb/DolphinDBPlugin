@@ -1,9 +1,0 @@
-httpClient,libPluginHttpClient.so
-httpGet,httpGet,system,1,4,0
-httpPost,httpPost,system,1,4,0
-sendEmail,sendEmail,system,5,5,0
-emailSmtpConfig,emailSmtpConfig,system,2,3,0
-
-httpCreateSubJob,httpCreateSubJob,system,3,9,0
-httpCancelSubJob,httpCancelSubJob,system,1,1,0
-httpGetJobStat,httpGetJobStat,system,0,0,0

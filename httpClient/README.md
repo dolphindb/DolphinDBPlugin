@@ -2,6 +2,8 @@
 
 使用该插件可以便捷地进行HTTP请求或发送邮件。
 
+HTTP Client插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/httpClient/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/httpClient/README.md), [release120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/httpClient/README.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/httpClient/README.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
+
 ## 1. 安装构建
 
 ## 1.1 预编译安装
@@ -44,7 +46,6 @@ cd openssl-1.0.2u
 make
 make install
 ```
-```
 
 ### curl7.47.0编译
 
@@ -73,7 +74,10 @@ make install
 在使用`make`构建时，需要指定 CURL_DIR和SSL_DIR（假定 libssl.a 和 libcrypto.a 在同一个目录下）。例如：
 
 ```
-CURL_DIR=/tmp/curl SSL_DIR=/tmp/ssl Z_DIR=/tmp/zlib make
+mkdir build
+cd build
+cmake -DCURL_DIR=/tmp/curl -DSSL_DIR=/tmp/ssl -DZ_DIR=/tmp/zlib  ..
+make -j
 ```
 
 会在当前目录下编译出插件库 libPluginHttpClient.so。
@@ -169,7 +173,7 @@ httpClient::httpCreateSubJob(url, handle, parser, [paserInterval], [cycles], [co
 * url: 请求的URL字符串。类型是STRING类型的向量或者是常量。
 * handler: 一个函数或表，用于处理从http请求正文中接收的消息。
 * parser: 一个函数，用于对http请求正文解析。
-* paserInterval: parser函数每次解析http正文的字节数。若不指定则默认为每10240字节用parser解析收到的请求报文。
+* parserInterval: parser函数每次解析http正文的字节数。若不指定则默认为每10240字节用parser解析收到的请求报文。
 * cycles: 循环次数。若不指定则为无限循环。
 * cookieFile: 保存http协议Session连接中的cookie的文件名。类型为string类型。使用这个文件中的字符串初始化一个http Session的cookie，在发送的httpGet请求添加一个请求头"Cookie"。如果收到的http响应中有响应头"Set-Cookie"，会把cookie的值写入到这个文件中。如果为空，默认在当前DolphinDB server的home目录下httpClientCookie文件夹下。
 * params: 一个字符串或一个key是string的字典。http协议Post方法请求的会把参数放在http请求正文中。
@@ -185,6 +189,39 @@ url="127.0.0.1:8900/chunk_file"
 st = streamTable(1000000:0,`tag`ts`data,[SYMBOL,TIMESTAMP,INT])
 enableTableShareAndPersistence(table=st, tableName=`sc, asynWrite=true, compress=true, cacheSize=100000)
 job=httpClient::httpCreateSubJob(url, st, <parser>, 2560,  , "/home/zmx/httpJobCookie", )
+```
+
+### 2.2 httpCreateMutiParserSubJob
+
+创建一个循环请求httpGet的请求后台任务。
+
+语法：
+/
+httpClient::httpCreateMutiParserSubJob(url, handle, parseStreamInfo, parser, threadCount, paserInterval, MinBlockSize, [cycles], [cookieFile], [param], [timeout], [headers])
+
+参数：
+* url: 请求的URL字符串。类型是STRING类型的向量或者是常量。
+* handler: 一个函数或表，用于处理从http请求正文中接收的消息。
+* infoParser: 一个函数，用于对http请求正文字节流信息进行解析，用于切分字节流分发给parser。
+* parser: 一个函数，用于对http请求字节流信息进行解析。
+* threadCount: parser线程数。
+* parserInfoInterval: parser函数每次解析http正文的字节数。若不指定则默认为每10240字节用parser解析收到的请求报文。
+* parserInterval: parser函数每次解析http正文的字节数。若不指定则默认为每1024字节用parser解析收到的请求报文。
+* cycles: 循环次数。若不指定则为无限循环。
+* cookieFile: 保存http协议Session连接中的cookie的文件名。类型为string类型。使用这个文件中的字符串初始化一个http Session的cookie，在发送的httpGet请求添加一个请求头"Cookie"。如果收到的http响应中有响应头"Set-Cookie"，会把cookie的值写入到这个文件中。如果为空，默认在当前DolphinDB server的home目录下httpClientCookie文件夹下。
+* params: 一个字符串或一个key是string的字典。http协议Post方法请求的会把参数放在http请求正文中。
+    * 如果params为一个字符串（例如，"example"），则发出的完整http报文的请求正文l为"example"。
+    * 如果params为一个字典（例如，两个键值对"name"->"zmx"和"id"->"111"），则发出的完整http报文的请求正文为 "id=111&name=zmx"。
+* timeout: 超时时间，单位为毫秒。
+* headers: 一个字符串或一个键和值都是string的字典，填写http请求头部。如果headers为一个字典（两个键值对"groupName"->"dolphindb"和"groupId"->"11"），
+则发出的完整http报文添加请求头"groupId:11"和"groupName:dolphindb"。如果只是一个字符串，则必须是"xx:xx"格式，会添加一个http请求头。
+
+例子：
+```
+url="127.0.0.1:8900/chunk_file"
+st = streamTable(1000000:0,`tag`ts`data,[SYMBOL,TIMESTAMP,INT])
+enableTableShareAndPersistence(table=st, tableName=`sc, asynWrite=true, compress=true, cacheSize=100000)
+job=httpClient::httpCreateMutiParserSubJob(url, st, mseed::parseStreamInfo, mseed::paraseStream,10 ,10000000, 512, 512, 3 , "/home/zmx/httpJobCookie")
 ```
 
 ### 2.4 httpGetJobStat

@@ -15,12 +15,12 @@ public:
     );
 
 private:
-    std::string m_strUser;
-    std::string m_strPsw;
-    std::list<std::string> m_RecipientList;
-    std::string m_strMailFrom;
-    std::vector<std::string> m_MailContent;
-    int m_iMailContentPos;
+    std::string m_strUser_;
+    std::string m_strPsw_;
+    std::list<std::string> m_RecipientList_;
+    std::string m_strMailFrom_;
+    std::vector<std::string> m_MailContent_;
+    int m_iMailContentPos_;
 
 private:
     static size_t read_callback(void *ptr, size_t size, size_t nmemb, void *userp);
@@ -30,5 +30,5 @@ private:
 public:
     ConstantSP SendMail(const std::string &strSubject, const std::string &strMailBody);
 
-    void AddRecipient(const std::string &strMailTo) { m_RecipientList.push_back(strMailTo); }
+    void AddRecipient(const std::string &strMailTo) { m_RecipientList_.push_back(strMailTo); }
 };

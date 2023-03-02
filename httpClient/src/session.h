@@ -116,12 +116,12 @@ public:
 
     HttpSession(std::string startUrl, std::string endUrl, string cookieSet, SessionSP session, string runningUrl) :
             data_(HttpData, 256, nullptr, nullptr, nullptr, false, this, nullptr),
-            head_(HttpHead, nullptr), isStopped_(1), cookieSet_(cookieSet), runningUrl_(runningUrl) {
+            head_(HttpHead, nullptr), isStopped_(1), runningUrl_(runningUrl), cookieSet_(cookieSet){
         startUrl_ = startUrl;
         endUrl_ = endUrl;
         ConstantSP params, timeout, headers, parser, handle;
         isStopped_.acquire();
-        if (cookieSet != "") {
+		if (!cookieSet.empty()) {
             FILE *file = fopen(cookieSet.c_str(), "rb");
             if (file != NULL) {
                 char buffer[1024];
