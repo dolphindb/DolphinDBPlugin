@@ -16,7 +16,6 @@
   - [4.1 odbc::connect](#41-odbcconnect)
   - [4.2 odbc::close](#42-odbcclose)
   - [4.3 odbc::query](#43-odbcquery)
-  - [描述](#描述)
   - [4.4 odbc::execute](#44-odbcexecute)
   - [4.5 odbc::append](#45-odbcappend)
 - [5 类型支持](#5-类型支持)
