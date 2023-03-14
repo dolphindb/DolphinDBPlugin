@@ -241,7 +241,7 @@ conn1 = odbc::connect("Dsn=mysqlOdbcDsn")
 odbc::close(conn1)
 ```
 
-### 4.3 odbc::query
+### 4.3 `odbc::query`
 
 **语法**
 
