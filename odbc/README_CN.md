@@ -256,7 +256,7 @@ odbc::close(conn1)
 * `batchSize`: 从 ODBC 查询到的数据行数到达 `batchSize` 后，会将当前已经读到的数据 append 到表 `t` 中。默认值为 262,144。
 * `transform`: 一元函数，并且该函数接受的参数必须是一个表。如果指定了 `transform` 参数，需要先创建分区表，再加载数据。程序会对数据文件中的数据应用 `transform` 参数指定的函数后，将得到的结果保存到数据库中。
 
-### 描述
+**描述**
 
 `odbc::query` 通过 `connHandle` 或 `connStr` 查询数据库并返回 DolphinDB 表。
 
