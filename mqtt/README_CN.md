@@ -1,18 +1,39 @@
+- [1. 编译](#1-编译)
+  - [1.1 Linux上编译](#11-linux上编译)
+  - [1.2 windows上编译](#12-windows上编译)
+- [2. 准备](#2-准备)
+  - [2.1 通过函数 loadPlugin 加载](#21-通过函数-loadplugin-加载)
+  - [2.2 通过 preloadModules 参数来自动加载](#22-通过-preloadmodules-参数来自动加载)
+- [3. 发布功能](#3-发布功能)
+  - [3.1 连接](#31-连接)
+  - [3.2 发布](#32-发布)
+  - [3.3 关闭连接](#33-关闭连接)
+- [4. 订阅功能](#4-订阅功能)
+  - [4.1 订阅](#41-订阅)
+  - [4.2 查询订阅](#42-查询订阅)
+  - [4.3 取消订阅](#43-取消订阅)
+- [5. 打/解包功能](#5-打解包功能)
+  - [5.1 createCsvFormatter](#51-createcsvformatter)
+  - [5.2 createCsvParser](#52-createcsvparser)
+  - [5.3 createJsonFormatter](#53-createjsonformatter)
+  - [5.4 createJsonParser](#54-createjsonparser)
+- [6. 一个完整的例子](#6-一个完整的例子)
+
 mqtt插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/mqtt/README_CN.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/mqtt/README_CN.md), [relsease120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/mqtt/README_CN.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/mqtt/README_CN.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
 
 ## 1. 编译
 ### 1.1 Linux上编译
 
-* 以下步骤在64位Linux GCC version 5.4.0下编译测试通过。
+* 以下步骤在64位 Linux GCC version 5.4.0 下编译测试通过。
 * 在编译前需要先安装 [git](https://git-scm.com/) 和 [CMake](https://cmake.org/)。
 
-Ubuntu用户只需要在命令行输入以下命令即可：
+Ubuntu 用户只需要在命令行输入以下命令即可：
 
 ```bash
 $ sudo apt-get install git cmake
 ```
 
-* 在mqtt目录下创建build目录，进入后运行`cmake ..`和`make`，即可编译生成'libPluginMQTTClient.so'。
+* 在 mqtt 目录下创建 build 目录，进入后运行 `cmake ..` 和 `make`，即可编译生成 'libPluginMQTTClient.so'。
 
 ```
 mkdir build
@@ -21,7 +42,8 @@ cmake ..
 make
 ```
 ### 1.2 windows上编译
-通过cmake和MinGW编译。因此需要先安装[cmake](https://cmake.org/)和[MinGW](http://www.mingw.org/)环境，目前在64位win10上用MinGW-W64-builds-4.3.3版本编译通过。把MinGW和cmake的bin目录加入Windows系统Path路径。 
+
+因为需要通过 CMake 和 MinGW 编译，所以需要先安装 [CMake](https://cmake.org/)和 [MinGW](http://www.mingw.org/) 环境，目前在64位win10上用 MinGW-W64-builds-4.3.3 版本编译通过。把 MinGW 和 CMake 的 bin 目录加入 Windows 系统 Path 路径。 
 
 ```
     git clone https://github.com/dolphindb/DolphinDBPlugin.git
@@ -33,51 +55,64 @@ make
     make
 ```
 
-**注意：** 如果需要指定特定的MingW路径，请在CmakeList.txt中修改以下语句。
+**注意：** 如果需要指定特定的 MinGW 路径，请在 CmakeList.txt 中修改以下语句。
 
 ```
     set(MINGW32_LOCATION C://MinGW/MinGW/)  
 ```
-编译之后目录下会产生libPluginMQTTClient.dll文件，然后按预编译安装方法导入并加载。
-
+编译之后目录下会产生 libPluginMQTTClient.dll 文件，然后按预编译安装方法导入并加载。
 
 ## 2. 准备
 
-### 2.1 通过函数loadPlugin加载
+DolphinDB 提供两种方式加载插件，二者选一种即可：
 
-需要如下例所示先加载插件。用户需要根据具体情况修改其中的路径。请注意，若使用 Windows 插件，加载时必须指定绝对路径，且路径中使用"\\\\"或"/"代替"\\"。
+* 通过函数 loadPlugin 加载；
+* 通过配置参数 preloadModules 预加载。
+
+### 2.1 通过函数 loadPlugin 加载
+
+需要如下例所示先加载插件。用户需要根据具体情况修改其中的路径。
 
 ```
 loadPlugin("/YOUR_PATH/mqtt/PluginMQTTClient.txt"); 
 ```
 
-### 2.2 1.20.x 版本后通过 preloadModules参数来自动加载
+注意：若插件运行于 Linux 系统，则可以指定绝对或相对路径；若插件运行于 Window 系统，则必须指定绝对路径，且路径必须使用"\\\\"或"/"代替"\\"。
 
-前提是server的版本>=1.20; 需要预先加载的插件存在。否则sever启动的时候会有异常。多个插件用逗号分离。
+### 2.2 通过 preloadModules 参数来自动加载
+
+通过配置参数 preloadModules 预加载插件，server 在启动时会自动加载插件，用户无需再通过 loadPlugin 进行加载。对单机版服务，该参数在 dolphindb.cfg 中配置。对集群版，需要为 controller 和 datanode 加载相同的插件。最简单的方法是在 controller.cfg 和 cluster.cfg 中配置 preloadModules 参数。
+
+配置方法如下，多个插件用逗号分离：
 ```
 preloadModules=plugins::mqtt,plugins::odbc
 ```
 
+注意：
+
+* 1.20.x 以上版本 server 才支持设置 preloadModules。
+* preloadModules 用于指定预加载的模块类型（plugins 或 modules），插件文件路径需要通过 pluginDir 配置。详情参考[配置项说明](https://www.dolphindb.cn/cn/help/DatabaseandDistributedComputing/Configuration/StandaloneMode.html)。
 
 ## 3. 发布功能
-
 ### 3.1 连接
 
 ```
 mqtt::connect(host, port,[QoS=0],[formatter],[batchSize=0],[username],[password])
 ```
-建立一个与MQTT server/broker的连接。返回一个connection。可以显式的调用`close`函数去关闭，也可以在reference count为0的时候自动释放。
+建立一个与 MQTT server/broker 的连接。返回一个 connection。可以显式的调用 `close` 函数去关闭，也可以在 reference count 为0时自动释放。
 
-参数：
-- 'host'是一个字符串，表示MQTT server/broker的IP地址。
-- 'port'是一个整数，表示MQTT server/broker的端口号。
-- 'QoS'表示是一个整数，表示消息发布服务质量。0：至多一次；1：至少一次；2：只有一次。它是可选参数，默认是0。
-- 'formatter'是一个函数，用于对发布的数据按CSV或JSON格式进行打包。目前支持的函数由`createJsonFormatter`或`createCsvFormatter`创建。
-- 'batchSize'是一个整数。当待发布内容是一个表时，可以分批发送，batchSize表示每次发送的记录行数。
-- 'username'是一个字符串，用于登录MQTT server/broker的用户名。
-- 'password'是一个字符串，用于登录MQTT server/broker的密码。
+**参数**
 
-例子：
+- 'host' 是一个字符串，表示 MQTT server/broker 的 IP 地址。
+- 'port' 是一个整数，表示 MQTT server/broker 的端口号。
+- 'QoS' 表示是一个整数，表示消息发布服务质量。0：至多一次；1：至少一次；2：只有一次。它是可选参数，默认是0。
+- 'formatter' 是一个函数，用于对发布的数据按 CSV 或 JSON 格式进行打包。目前支持的函数由 `createJsonFormatter` 或 `createCsvFormatter` 创建。
+- 'batchSize' 是一个整数。当待发布内容是一个表时，可以分批发送，batchSize 表示每次发送的记录行数。
+- 'username' 是一个字符串，用于登录 MQTT server/broker 的用户名。
+- 'password' 是一个字符串，用于登录 MQTT server/broker 的密码。
+
+**例子**
+
 ```
 f=mqtt::createJsonFormatter()
 conn=connect("test.mosquitto.org",1883,0,f,50)
@@ -88,14 +123,16 @@ conn=connect("test.mosquitto.org",1883,0,f,50)
 ```
 mqtt::publish(conn,topic,obj)
 ```
-向MQTT server/broker发布消息。
+向 MQTT server/broker 发布消息。
 
-参数：
-- 'conn'是`connect`函数返回的值。
-- 'topic'是一个字符串，表示主题。
-- 'obj'是表或字符串或字符串数组，表示待发布的消息内容。
+**参数**
 
-例子：
+- 'conn' 是 `connect` 函数返回的值。
+- 'topic' 是一个字符串，表示主题。
+- 'obj' 是表或字符串或字符串数组，表示待发布的消息内容。
+
+**例子**
+
 ```
 mqtt::publish(conn,"dolphindb/topic1","welcome")
 mqtt::publish(conn,"devStr/sensor001",["hello world","welcome"])
@@ -111,12 +148,14 @@ mqtt::publish(conn,"dolphindb/device",t)
 mqtt::close(conn)
 ```
 
-断开与MQTT server/broker的连接。
+断开与 MQTT server/broker 的连接。
 
-参数：
-- 'conn'是connect函数返回的值。
+**参数**
 
-例子：
+- 'conn' 是 connect 函数返回的值。
+
+**例子**
+
 ```
 mqtt::close(conn)
 ```
@@ -129,18 +168,19 @@ mqtt::close(conn)
 mqtt::subscribe(host, port, topic, [parser], handler,[username],[password])
 ```
 
-向MQTT server/broker订阅消息。返回一个连接。
+向 MQTT server/broker 订阅消息。返回一个连接。
 
-参数：
-- 'host'是一个字符串，表示MQTT server/broker的IP地址。
-- 'port'是一个整数，表示MQTT server/broker的端口号。
-- 'topic'是一个字符串，表示订阅主题。
-- 'parser'是一个函数，用于对订阅的消息按CSV或JSON格式进行解析，目前支持的函数由createJsonParser或createCsvParser创建。
-- 'handler'是一个函数或表，用于处理从MQTT server/broker接收的消息。
-- 'username'是一个字符串，用于登录MQTT server/broker的用户名。
-- 'password'是一个字符串，用于登录MQTT server/broker的密码。
+**参数**
 
-例子：
+- 'host' 是一个字符串，表示 MQTT server/broker 的 IP 地址。
+- 'port' 是一个整数，表示 MQTT server/broker 的端口号。
+- 'topic' 是一个字符串，表示订阅主题。
+- 'parser' 是一个函数，用于对订阅的消息按 CSV 或 JSON 格式进行解析，目前支持的函数由 createJsonParser 或 createCsvParser 创建。
+- 'handler' 是一个函数或表，用于处理从 MQTT server/broker 接收的消息。
+- 'username' 是一个字符串，用于登录 MQTT server/broker 的用户名。
+- 'password' 是一个字符串，用于登录 MQTT server/broker 的密码。
+
+**例子**
 
 ```
 p = createCsvParser([INT, TIMESTAMP, DOUBLE, DOUBLE,DOUBLE], ',', ';' )
@@ -154,9 +194,13 @@ conn = mqtt::subscribe("192.168.1.201",1883,"sensor/#",p,sensorInfoTable)
 mqtt::getSubscriberStat()    
 ```
 
-查询所有订阅信息。返回的结果是一个包含7列的表，分别是："subscriptionId", 表示订阅标识符；"user",表示建立订阅的会话用户; "host", 表示MQTT server/broker的IP； "port", 表示MQTT server/broker的端口号； "topic", 表示订阅主题； "createTimestamp"， 表示可以订阅建立时间；"receivedPackets",表示订阅收到的消息报文数。
+查询所有订阅信息。返回的结果是一个包含7列的表，分别是："subscriptionId" 表示订阅标识符；"user" 表示建立订阅的会话用户; "host" 表示 MQTT server/broker 的 IP； "port" 表示 MQTT server/broker 的端口号；"topic" 表示订阅主题；"createTimestamp" 表示可以订阅建立时间；"receivedPackets" 表示订阅收到的消息报文数。
 
-例子：
+**参数**
+
+无。
+
+**例子**
 
 ```
 mqtt::getSubscriberStat()    
@@ -170,11 +214,11 @@ mqtt::unsubscribe(subscription)
 
 取消订阅MQTT server/broker。
 
-参数：
+**参数**
 
-- 'subscription'是`subscribe`函数返回的值或`getSubscriberStat`返回的订阅标识符。
+- 'subscription' 是 `subscribe` 函数返回的值或 `getSubscriberStat` 返回的订阅标识符。
 
-例子：
+**例子**
 
 ```
 mqtt::unsubscribe(sub1) 
@@ -188,14 +232,16 @@ mqtt::unsubscribe("350555232l")
 ```
 mqtt::createCsvFormatter([format], [delimiter=','], [rowDelimiter=';'])
 ```
-创建一个CSV格式的Formatter函数。
+创建一个 CSV 格式的 Formatter 函数。
 
-参数：
-- 'format' 是一个string向量。
-- 'delimiter'是列之间的分隔符，默认是','。
-- 'rowDelimiter'是行之间的分隔符，默认是';'。
+**参数**
 
-例子：
+- 'format' 是一个字符串向量。
+- 'delimiter' 是列之间的分隔符，默认是','。
+- 'rowDelimiter' 是行之间的分隔符，默认是';'。
+
+**例子**
+
 ```
 def createT(n) {
     return table(take([false, true], n) as bool, take('a'..'z', n) as char, take(short(-5..5), n) as short, take(-5..5, n) as int, take(-5..5, n) as long, take(2001.01.01..2010.01.01, n) as date, take(2001.01M..2010.01M, n) as month, take(time(now()), n) as time, take(minute(now()), n) as minute, take(second(now()), n) as second, take(datetime(now()), n) as datetime, take(now(), n) as timestamp, take(nanotime(now()), n) as nanotime, take(nanotimestamp(now()), n) as nanotimestamp, take(3.1415, n) as float, take(3.1415, n) as double, take(`AAPL`IBM, n) as string, take(`AAPL`IBM, n) as symbol)
@@ -210,14 +256,16 @@ f(t)
 ```
 mqtt::createCsvParser(schema, [delimiter=','], [rowDelimiter=';'])
 ```
-该函数创建一个CSV格式的Parser函数。
+该函数创建一个 CSV 格式的 Parser 函数。
 
-参数：
+**参数**
+
 - 'schema' 是一个列的数据类型的向量。
-- 'delimiter'是列之间的分隔符，默认是','。
-- 'rowDelimiter'是行之间的分隔符，默认是';'。
+- 'delimiter' 是列之间的分隔符，默认是','。
+- 'rowDelimiter' 是行之间的分隔符，默认是';'。
 
-例子：
+**例子**
+
 ```
 def createT(n) {
     return table(take([false, true], n) as bool, take('a'..'z', n) as char, take(short(-5..5), n) as short, take(-5..5, n) as int, take(-5..5, n) as long, take(2001.01.01..2010.01.01, n) as date, take(2001.01M..2010.01M, n) as month, take(time(now()), n) as time, take(minute(now()), n) as minute, take(second(now()), n) as second, take(datetime(now()), n) as datetime, take(now(), n) as timestamp, take(nanotime(now()), n) as nanotime, take(nanotimestamp(now()), n) as nanotimestamp, take(3.1415, n) as float, take(3.1415, n) as double, take(`AAPL`IBM, n) as string, take(`AAPL`IBM, n) as symbol)
@@ -234,11 +282,14 @@ p(s)
 ```
 mqtt::createJsonFormatter()
 ```
-该函数创建一个JSON格式的Formatter函数。
+该函数创建一个 JSON 格式的 Formatter 函数。
 
-参数：无。
+**参数**
 
-例子：
+无。
+
+**例子**
+
 ```
 def createT(n) {
     return table(take([false, true], n) as bool, take('a'..'z', n) as char, take(short(-5..5), n) as short, take(-5..5, n) as int, take(-5..5, n) as long, take(2001.01.01..2010.01.01, n) as date, take(2001.01M..2010.01M, n) as month, take(time(now()), n) as time, take(minute(now()), n) as minute, take(second(now()), n) as second, take(datetime(now()), n) as datetime, take(now(), n) as timestamp, take(nanotime(now()), n) as nanotime, take(nanotimestamp(now()), n) as nanotimestamp, take(3.1415, n) as float, take(3.1415, n) as double, take(`AAPL`IBM, n) as string, take(`AAPL`IBM, n) as symbol)
@@ -252,13 +303,15 @@ f(t)
 ```
 mqtt::createJsonParser(schema, colNames)
 ```
-该函数创建一个JSON格式的Parser函数。
+该函数创建一个 JSON 格式的 Parser 函数。
 
-参数：
+**参数**
+
 - 'schema' 是一个向量，表示列的数据类型。
 - 'colNames' 是一个向量，表示列名。
 
-例子：
+**例子**
+
 ```
 def createT(n) {
     return table(take([false, true], n) as bool, take('a'..'z', n) as char, take(short(-5..5), n) as short, take(-5..5, n) as int, take(-5..5, n) as long, take(2001.01.01..2010.01.01, n) as date, take(2001.01M..2010.01M, n) as month, take(time(now()), n) as time, take(minute(now()), n) as minute, take(second(now()), n) as second, take(datetime(now()), n) as datetime, take(now(), n) as timestamp, take(nanotime(now()), n) as nanotime, take(nanotimestamp(now()), n) as nanotimestamp, take(3.1415, n) as float, take(3.1415, n) as double, take(`AAPL`IBM, n) as string, take(`AAPL`IBM, n) as symbol)
