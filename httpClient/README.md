@@ -191,13 +191,13 @@ enableTableShareAndPersistence(table=st, tableName=`sc, asynWrite=true, compress
 job=httpClient::httpCreateSubJob(url, st, <parser>, 2560,  , "/home/zmx/httpJobCookie", )
 ```
 
-### 2.2 httpCreateMutiParserSubJob
+### 2.2 httpCreateMultiParserSubJob
 
 创建一个循环请求httpGet的请求后台任务。
 
 语法：
 /
-httpClient::httpCreateMutiParserSubJob(url, handle, parseStreamInfo, parser, threadCount, paserInterval, MinBlockSize, [cycles], [cookieFile], [param], [timeout], [headers])
+httpClient::httpCreateMultiParserSubJob(url, handle, parseStreamInfo, parser, threadCount, paserInterval, MinBlockSize, [cycles], [cookieFile], [param], [timeout], [headers])
 
 参数：
 * url: 请求的URL字符串。类型是STRING类型的向量或者是常量。
@@ -221,7 +221,7 @@ httpClient::httpCreateMutiParserSubJob(url, handle, parseStreamInfo, parser, thr
 url="127.0.0.1:8900/chunk_file"
 st = streamTable(1000000:0,`tag`ts`data,[SYMBOL,TIMESTAMP,INT])
 enableTableShareAndPersistence(table=st, tableName=`sc, asynWrite=true, compress=true, cacheSize=100000)
-job=httpClient::httpCreateMutiParserSubJob(url, st, mseed::parseStreamInfo, mseed::paraseStream,10 ,10000000, 512, 512, 3 , "/home/zmx/httpJobCookie")
+job=httpClient::httpCreateMultiParserSubJob(url, st,mseed::parseStream, mseed::parseStreamInfo,10 ,10000000, 512, 512, 3 , "/home/zmx/httpJobCookie")
 ```
 
 ### 2.4 httpGetJobStat
