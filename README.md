@@ -28,7 +28,7 @@ Please switch to the corresponding branch to view the following listed directori
 Use the [`loadPlugin`](https://www.dolphindb.com/help/FunctionsandCommands/FunctionReferences/l/loadPlugin.html) function to load external plugins. This function accepts a file path, which describes the format of the plugin, for example:
 
 ```
-loadPlugin("/YOUR_SEVER_PATH/plugins/odbc/PluginODBC.txt"); 
+loadPlugin("/YOUR_SERVER_PATH/plugins/odbc/PluginODBC.txt"); 
 ```
 
 ### 2.2 Load through configuration parameter preloadModules
