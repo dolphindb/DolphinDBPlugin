@@ -53,6 +53,8 @@ private:
     std::function<void()> code;
 };
 
+static Mutex nsqLock;
+
 extern "C"
 {
 	ConstantSP nsqConnect(Heap* heap, vector<ConstantSP>& arguments);

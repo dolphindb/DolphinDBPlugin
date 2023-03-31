@@ -54,7 +54,8 @@ typedef GenericBoundedQueue<SnapData *, ObjectSizer<SnapData *>, ObjectUrgency<S
 template <class CLASSTYPE>
 void testEntrustInsertCapability(int x, CLASSTYPE *opt)
 {
-    std::this_thread::sleep_for(std::chrono::milliseconds(40000));
+    //std::this_thread::sleep_for(std::chrono::milliseconds(40000));
+    Thread::sleep(40000);
     std::cout << "testEntrustInsertCapability run!!!!" << std::endl;
     std::chrono::milliseconds ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch());
@@ -80,7 +81,8 @@ void testEntrustInsertCapability(int x, CLASSTYPE *opt)
 template <class CLASSTYPE>
 void testSnapshotInsertCapability(int x, CLASSTYPE *opt)
 {
-    std::this_thread::sleep_for(std::chrono::milliseconds(40000));
+    //std::this_thread::sleep_for(std::chrono::milliseconds(40000));
+    Thread::sleep(40000);
     std::cout << "testSnapshotInsertCapability run!!!!" << std::endl;
     std::chrono::milliseconds ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch());
@@ -112,7 +114,8 @@ void testSnapshotInsertCapability(int x, CLASSTYPE *opt)
 template <class CLASSTYPE>
 void testTradeInsertCapability(int x, CLASSTYPE *opt)
 {
-    std::this_thread::sleep_for(std::chrono::milliseconds(40000));
+    //std::this_thread::sleep_for(std::chrono::milliseconds(40000));
+    Thread::sleep(40000);
     std::cout << "testTradeInsertCapability run!!!!" << std::endl;
     std::chrono::milliseconds ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch());
