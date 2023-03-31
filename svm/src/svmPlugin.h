@@ -16,6 +16,7 @@ extern "C" EXPORT_DLL ConstantSP saveModel(Heap *heap, vector<ConstantSP> &args)
 extern "C" EXPORT_DLL ConstantSP loadModel(Heap *heap, vector<ConstantSP> &args);
 
 namespace svm{
+    static Mutex mutex;
     typedef SmartPointer<struct svm_model> modelSP;
     ConstantSP fit(Heap * &heap, const ConstantSP &y, const ConstantSP &X, const ConstantSP &para, DATA_FORM df);
     ConstantSP predict(const ConstantSP &model, const ConstantSP &X, DATA_FORM df);

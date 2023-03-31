@@ -5,6 +5,7 @@
 #include "svm.h"
 
 ConstantSP fit(Heap *heap, vector<ConstantSP> &args){
+    LockGuard<Mutex> lk(&svm::mutex);
     ConstantSP X = args[1], y = args[0];
     if(y->getForm() != DF_VECTOR || !y->isNumber())
         throw IllegalArgumentException(__FUNCTION__, "Y must be a numeric vector.");
@@ -35,6 +36,7 @@ ConstantSP fit(Heap *heap, vector<ConstantSP> &args){
 }
 
 ConstantSP predict(Heap *heap, vector<ConstantSP> &args){
+    LockGuard<Mutex> lk(&svm::mutex);
     ConstantSP model = args[0], X = args[1];
     if(model->getType() != DT_RESOURCE || model->getString() != "SVM model")
         throw IllegalArgumentException(__FUNCTION__, "model must be a svm-model.");
@@ -59,6 +61,7 @@ ConstantSP predict(Heap *heap, vector<ConstantSP> &args){
 }
 
 ConstantSP score(Heap *heap, vector<ConstantSP> &args){
+    LockGuard<Mutex> lk(&svm::mutex);
     ConstantSP model = args[0], X = args[2], y = args[1];
     if(model->getType() != DT_RESOURCE || model->getString() != "SVM model")
         throw IllegalArgumentException(__FUNCTION__, "model must be a svm-model.");
@@ -86,6 +89,7 @@ ConstantSP score(Heap *heap, vector<ConstantSP> &args){
 }
 
 ConstantSP saveModel(Heap *heap, vector<ConstantSP> &args){
+    LockGuard<Mutex> lk(&svm::mutex);
     ConstantSP model = args[0], location = args[1];
     if(model->getType() != DT_RESOURCE || model->getString() != "SVM model")
         throw IllegalArgumentException(__FUNCTION__, "model must be a SVM-model.");
@@ -95,6 +99,7 @@ ConstantSP saveModel(Heap *heap, vector<ConstantSP> &args){
 }
 
 ConstantSP loadModel(Heap *heap, vector<ConstantSP> &args){
+    LockGuard<Mutex> lk(&svm::mutex);
     ConstantSP location = args[0];
     if(location->getType() != DT_STRING || !location->isScalar())
         throw IllegalArgumentException(__FUNCTION__, "path must be a string.");
