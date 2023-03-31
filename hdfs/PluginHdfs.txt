@@ -1,4 +1,4 @@
-hdfs,libPluginHdfs.so,2.00.9.1.1
+hdfs,libPluginHdfs.so,2.00.9.3.1
 hdfs_Connect,connect,system,2,4,0
 hdfs_Disconnect,disconnect,system,1,1,0
 hdfs_Exists,exists,system,2,2,0
