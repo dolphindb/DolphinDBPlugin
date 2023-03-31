@@ -1,4 +1,4 @@
-aws,libPluginAWSS3.so,2.00.9.1.1
+aws,libPluginAWSS3.so,2.00.9.3.1
 getS3Object,getS3Object,system,3,4,0
 listS3Object,listS3Object,system,3,7,0
 readS3Object,readS3Object,system,5,5,0
