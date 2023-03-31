@@ -30,6 +30,7 @@ extern "C" ConstantSP saveHDF5(Heap *heap, vector<ConstantSP> &arguments);
 
 namespace H5PluginImp
 {
+Mutex hdf5Mutex;
 ConstantSP nullSP = Util::createNullConstant(DT_VOID);
 void h5ls(const string &h5_path, vector<string> &objs_name, vector<string> &objs_type);
 TableSP h5read(const string &h5_path, const string &dataset_name, TableSP tb);

@@ -29,6 +29,7 @@ static InitHdf5Filter initHdf5Filter;
 
 ConstantSP h5ls(const ConstantSP &h5_path)
 {
+    LockGuard<Mutex> guard{&H5PluginImp::hdf5Mutex};
     if (h5_path->getType() != DT_STRING)
         throw IllegalArgumentException(__FUNCTION__, "The argument for h5ls must be a string.");
 
@@ -51,6 +52,7 @@ ConstantSP h5ls(const ConstantSP &h5_path)
 
 ConstantSP h5lsTable(const ConstantSP &filename)
 {
+    LockGuard<Mutex> guard{&H5PluginImp::hdf5Mutex};
     if (filename->getType() != DT_STRING)
         throw IllegalArgumentException(__FUNCTION__, "The argument for h5ls must be a string.");
 
@@ -75,6 +77,7 @@ ConstantSP h5lsTable(const ConstantSP &filename)
 }
 
 ConstantSP extractHDF5Schema(const ConstantSP& filename, const ConstantSP& datasetName) {
+    LockGuard<Mutex> guard{&H5PluginImp::hdf5Mutex};
     if (filename->getType() != DT_STRING || datasetName->getType() != DT_STRING)
         throw IllegalArgumentException(__FUNCTION__, "The filename and dataset must be a string.");
 
@@ -111,8 +114,8 @@ void checkHDF5Parameter(Heap* heap, vector<ConstantSP> &arguments,
         else
             throw IllegalArgumentException(__FUNCTION__, "startRow must be an integer.");
 
-        // if (startRow < 0)
-        //     throw IllegalArgumentException(__FUNCTION__, "startRow must be positive.");
+        if (startRow < 0)
+            throw IllegalArgumentException(__FUNCTION__, "startRow must be positive.");
     }
     if (arguments.size() >= 5) {
         if (arguments[4]->isScalar() && arguments[4]->isNumber())
@@ -122,13 +125,14 @@ void checkHDF5Parameter(Heap* heap, vector<ConstantSP> &arguments,
         else
             throw IllegalArgumentException(__FUNCTION__, "rowNum must be an integer.");
 
-        // if (rowNum < 0)
-        //     throw IllegalArgumentException(__FUNCTION__, "rowNum must be positive.");
+        if (rowNum < 0)
+            throw IllegalArgumentException(__FUNCTION__, "rowNum must be positive.");
     }
 }
 
 ConstantSP loadHDF5(Heap *heap, vector<ConstantSP>& arguments)
 {
+    LockGuard<Mutex> guard{&H5PluginImp::hdf5Mutex};
     ConstantSP filename;
     ConstantSP datasetName;
     ConstantSP schema;
@@ -140,6 +144,7 @@ ConstantSP loadHDF5(Heap *heap, vector<ConstantSP>& arguments)
 }
 
 ConstantSP loadPandasHDF5(Heap *heap, vector<ConstantSP>& arguments){
+    LockGuard<Mutex> guard{&H5PluginImp::hdf5Mutex};
     ConstantSP filename;
     ConstantSP groupname;
     ConstantSP schema;
@@ -152,6 +157,7 @@ ConstantSP loadPandasHDF5(Heap *heap, vector<ConstantSP>& arguments){
 
 ConstantSP loadHDF5Ex(Heap *heap, vector<ConstantSP>& arguments)
 {
+    LockGuard<Mutex> guard{&H5PluginImp::hdf5Mutex};
     ConstantSP db = arguments[0];
     ConstantSP tableName = arguments[1];
     ConstantSP partitionColumnNames = arguments[2];
@@ -187,8 +193,8 @@ ConstantSP loadHDF5Ex(Heap *heap, vector<ConstantSP>& arguments)
         else
             throw IllegalArgumentException(__FUNCTION__, "startRow must be an integer.");
 
-        // if (startRow < 0)
-        //     throw IllegalArgumentException(__FUNCTION__, "startRow must be nonnegative.");
+        if (startRow < 0)
+            throw IllegalArgumentException(__FUNCTION__, "startRow must be nonnegative.");
     }
     if (arguments.size() >= 8) {
         if (arguments[7]->isScalar() && arguments[7]->isNumber())
@@ -198,8 +204,8 @@ ConstantSP loadHDF5Ex(Heap *heap, vector<ConstantSP>& arguments)
         else
             throw IllegalArgumentException(__FUNCTION__, "rowNum must be an integer.");
 
-        // if (rowNum < 0)
-        //     throw IllegalArgumentException(__FUNCTION__, "rowNum must be nonnegative.");
+        if (rowNum < 0)
+            throw IllegalArgumentException(__FUNCTION__, "rowNum must be nonnegative.");
     }
     FunctionDefSP transform;
     if (arguments.size() >= 9) {
@@ -220,6 +226,7 @@ ConstantSP loadHDF5Ex(Heap *heap, vector<ConstantSP>& arguments)
 
 ConstantSP HDF5DS(Heap *heap, vector<ConstantSP>& arguments)
 {
+    LockGuard<Mutex> guard{&H5PluginImp::hdf5Mutex};
     ConstantSP filename = arguments[0];
     ConstantSP datasetName = arguments[1];
 
@@ -252,6 +259,7 @@ ConstantSP HDF5DS(Heap *heap, vector<ConstantSP>& arguments)
 }
 
 ConstantSP saveHDF5(Heap *heap, vector<ConstantSP> &arguments){
+    LockGuard<Mutex> guard{&H5PluginImp::hdf5Mutex};
     TableSP table = arguments[0];
     ConstantSP fileName = arguments[1];
     ConstantSP datasetName = arguments[2];
@@ -277,9 +285,9 @@ ConstantSP saveHDF5(Heap *heap, vector<ConstantSP> &arguments){
             throw IllegalArgumentException(__FUNCTION__, "stringMaxLength must be a integer.");
         }
         stringMaxLength = arguments[4]->getInt();
-        // if(stringMaxLength <= 0){
-        //     throw IllegalArgumentException(__FUNCTION__, "stringMaxLength must be positive.");
-        // }
+        if(stringMaxLength <= 0){
+            throw IllegalArgumentException(__FUNCTION__, "stringMaxLength must be positive.");
+        }
     }
     H5::Exception::dontPrint();
     return H5PluginImp::saveHDF5(table, fileName->getString(), datasetName->getString(), append, stringMaxLength);
@@ -294,24 +302,23 @@ std::string getDatasetDimsStr(hid_t loc_id, const char *name)
     H5DataSet dset(name, loc_id);
     H5DataSpace dspace(dset.id());
 
-    /*H5S_class_t spaceClass = */H5Sget_simple_extent_type(dspace.id());
-    // if (spaceClass == H5S_NULL)
-    //     return "NULL";
-    // if (spaceClass == H5S_SCALAR)
-    //     return "0";
-    // if (spaceClass == H5S_NO_CLASS)
-    //     return "";
+    H5S_class_t spaceClass = H5Sget_simple_extent_type(dspace.id());
+    if (spaceClass == H5S_NULL)
+        return "NULL";
+    if (spaceClass == H5S_SCALAR)
+        return "0";
+    if (spaceClass == H5S_NO_CLASS)
+        return "";
 
     std::vector<hsize_t> dims;
     dspace.currentDims(dims);
 
-    // if (dims.size() == 0)
-    //     return "0";
+    if (dims.size() == 0)
+        return "0";
 
     auto combineDimsOp = [](std::string &a, hsize_t b) -> std::string & {
         return a.append(1, ',').append(std::to_string(b));
     };
-
     std::string dimsInfo = std::to_string(dims.back());
     return std::accumulate(dims.rbegin() + 1, dims.rend(), dimsInfo, combineDimsOp);
 }
@@ -326,8 +333,8 @@ std::string getDatasetNativeTypeStr(hid_t loc_id, const char *name)
 
 std::string getHdf5ObjectTypeInfoStr(hid_t loc_id, const char *name, H5O_type_t type)
 {
-    // if (loc_id < 0)
-    //     return "";
+    if (loc_id < 0)
+        return "";
 
     if (type == H5O_TYPE_GROUP)
         return "Group";
@@ -474,9 +481,8 @@ void generateComplexTypeBasedColsNameAndColsType(vector<string> &colsName, vecto
 TableSP generateCompoundDatasetSchema(H5DataType &type) {
     std::vector<H5ColumnSP> h5Cols;
     H5DataType convertedType;
-
-    TypeColumn::createComplexColumns(type, h5Cols, convertedType);
-        // throw RuntimeException("unsupported data type");
+    if (!TypeColumn::createComplexColumns(type, h5Cols, convertedType))
+        throw RuntimeException("unsupported data type");
 
     vector<string> names, types;
     generateComplexTypeBasedColsNameAndColsType(names, types, convertedType.id());
@@ -2045,8 +2051,8 @@ bool TypeColumn::createArrayColumns(H5DataType &srcType, vector<H5ColumnSP> &col
                                     H5DataType &convertedType)
 {
 
-    isClassEqual(srcType.id(), H5T_ARRAY);
-        // return false;
+    if (!isClassEqual(srcType.id(), H5T_ARRAY))
+        return false;
 
     H5DataType base = H5Tget_super(srcType.id());
 
@@ -2790,8 +2796,8 @@ void SymbolColumn::createEnumMap(hid_t nativeEnumId)
     baseSize_ = H5Tget_size(base.id());
 
     int memNum = H5Tget_nmembers(nativeEnumId);
-    // if (memNum <= 0)
-    //     throw RuntimeException("invalid member num:" + std::to_string(memNum));
+    if (memNum <= 0)
+        throw RuntimeException("invalid member num:" + std::to_string(memNum));
 
     enumMap_.clear();
     for (int i = 0; i != memNum; i++)
@@ -3153,16 +3159,16 @@ void H5DataSet::close()
 
 hid_t H5DataSpace::openFromDataset(hid_t dset_id)
 {
-    id_ = H5Dget_space(dset_id);
-        // throw IOException("can't open dataspace", INVALIDDATA);
+    if ((id_ = H5Dget_space(dset_id)) <= 0)
+        throw IOException("can't open dataspace", INVALIDDATA);
 
     return id_;
 }
 
 hid_t H5DataSpace::create(int rank, const hsize_t *current_dims, const hsize_t *maximum_dims)
 {
-    id_ = H5Screate_simple(rank, current_dims, maximum_dims);
-        // throw RuntimeException("create hdf5 dataspace failed");
+    if ((id_ = H5Screate_simple(rank, current_dims, maximum_dims)) < 0)
+        throw RuntimeException("create hdf5 dataspace failed");
 
     return id_;
 }
@@ -3196,9 +3202,8 @@ size_t H5DataType::size() const
 
 hid_t H5DataType::openFromDataset(hid_t dset_id)
 {
-    id_ = H5Dget_type(dset_id);
-        // throw IOException("can't open dataspace", INVALIDDATA);
-
+    if ((id_ = H5Dget_type(dset_id)) <= 0)
+        throw IOException("can't open dataspace", INVALIDDATA);
     return id_;
 }
 
@@ -3235,13 +3240,13 @@ H5GeneralDataReader::H5GeneralDataReader(hid_t locId, int bufferByteLength, int 
 
 void H5GeneralDataReader::open(hid_t locId, int bufferByteLength, int vlenStrBufferByteLength, hid_t memTypeId)
 {
-    // if (memTypeId < 0)
-    //     throw RuntimeException("unknown memory data_type");
+    if (memTypeId < 0)
+        throw RuntimeException("unknown memory data_type");
 
     H5DataSpace dspace(locId);
     int rank = dspace.rank();
-    // if (rank > 2)
-    //     throw RuntimeException("rank of dataspace > 2");
+    if (rank > 2)
+        throw RuntimeException("rank of dataspace > 2");
 
     elementByteLength_ = H5Tget_size(memTypeId);
     memTypeId_ = memTypeId;
@@ -3257,10 +3262,10 @@ void H5GeneralDataReader::open(hid_t locId, int bufferByteLength, int vlenStrBuf
     {
         dspace.currentDims(dims);
         assert(dims.size() == (size_t)rank);
-        // if (rank == 0) {
-        //     dims.push_back(1);
-        //     dims.push_back(1);
-        // }
+        if (rank == 0) {
+            dims.push_back(1);
+            dims.push_back(1);
+        }
         if (rank == 1)
             dims.push_back(1);
     }
@@ -3359,8 +3364,8 @@ size_t H5GeneralDataReader::readbyRow(size_t offsetRow, size_t offsetCol)
 
     elementNum = prepareToRead(mem_space, file_space, offsetRow_, offsetCol_);
 
-    // if (elementNum != 0)
-    doRead(mem_space.id(), file_space.id());
+    if (elementNum != 0)
+        doRead(mem_space.id(), file_space.id());
 
     offsetRow_ += (offsetCol_ + elementNum) / colNum_;
     offsetCol_ = (offsetCol_ + elementNum) % colNum_;
@@ -3370,8 +3375,8 @@ size_t H5GeneralDataReader::readbyRow(size_t offsetRow, size_t offsetCol)
 size_t H5GeneralDataReader::prepareToRead(H5DataSpace &mem_space, H5DataSpace &file_space,
                                               size_t offsetRow, size_t offsetCol) const
 {
-    // if (spaceClass_ == H5S_NULL)
-    //     return 0;
+    if (spaceClass_ == H5S_NULL)
+        return 0;
     if (spaceClass_ == H5S_SCALAR)
     {
         mem_space.accept(H5S_ALL);
@@ -3387,8 +3392,8 @@ size_t H5GeneralDataReader::prepareToRead(H5DataSpace &mem_space, H5DataSpace &f
 
     size_t elementNum = 0;
     size_t elementNumReadMax = elementNumReadOnceMax();
-    // if (elementNumReadMax <= 0)
-    //     throw RuntimeException("Block size too small");
+    if (elementNumReadMax <= 0)
+        throw RuntimeException("Block size too small");
 
     size_t iRow = offsetRow;
     size_t iCol = offsetCol;
@@ -3411,7 +3416,7 @@ size_t H5GeneralDataReader::prepareToRead(H5DataSpace &mem_space, H5DataSpace &f
     H5Sselect_hyperslab(file_space.id(), H5S_SELECT_OR, offset, nullptr, count, nullptr);
 
     //select the middle lines
-    if (elementNumReadMax - elementNum >= colNum_ /*&& iRow < rowNum_*/)
+    if (elementNumReadMax - elementNum >= colNum_ && iRow < rowNum_)
     {
         size_t numOfEntireRowCanBeRead = (elementNumReadMax - elementNum) / colNum_;
         numOfEntireRowCanBeRead = std::min(numOfEntireRowCanBeRead, rowNum_ - iRow);
@@ -3644,8 +3649,8 @@ int addTypeFlag(hid_t type_id, H5T_class_t type_class)
         int size = H5Tget_size(t);
         H5T_sign_t hs = H5Tget_sign(t);
 
-        // if (hs == H5T_SGN_ERROR)
-        //     return -1;
+        if (hs == H5T_SGN_ERROR)
+            return -1;
 
         bool sign = hs == H5T_SGN_2;
 
@@ -3742,8 +3747,7 @@ bool getHdf5SimpleLayout(hid_t t, hdf5_type_layout &layout)
     layout.size = H5Tget_size(t);
     layout.flag = addTypeFlag(t, tclass);
 
-    // return tclass != H5T_COMPOUND && tclass != H5T_ARRAY && layout.flag >= 0 && t > 0;
-    return true;
+    return tclass != H5T_COMPOUND && tclass != H5T_ARRAY && layout.flag >= 0 && t > 0;
 }
 
 void _getMemoryLayoutInArrayType(hid_t type, std::vector<hdf5_type_layout> &layout, int belong_to)

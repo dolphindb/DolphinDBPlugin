@@ -80,10 +80,11 @@ cp blosc/libblosc.a /path_to_hdf5_plugin/lib
 
 编译HDF5 1.13.1：
 ```bash
-# 在https://portal.hdfgroup.org/display/support/HDF5+1.13.1#files下载源码
+# git clone https://github.com/HDFGroup/hdf5/ -b hdf5-1_13_1
 # 若您不熟悉插件源代码，请不要下载其他版本，hdf5版本兼容性差，可能导致安装失败
-tar -xvf hdf5-1.13.1.tar.gz
 cd hdf5-1.13.1
+export CC=gcc-4.8
+export CXX=g++-4.8
 export CFLAGS="-fPIC -std=c11"
 export CXXFLAGS="-fPIC -std=c++11"
 ./configure --enable-cxx
