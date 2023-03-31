@@ -1,0 +1,15 @@
+login("admin", "123456")
+pluginTxtPath = "/mnt/DolphinDBPlugin/mysql/build/PluginMySQL.txt"
+loadPlugin(pluginTxtPath)
+go
+
+conn = mysql::connect("127.0.0.1", 3306, "qli", "abc", "testdb")
+long(conn)
+mysql::showTables(conn)
+close(conn)
+long(conn)
+try {
+    mysql::showTables(conn)
+} catch(ex){
+    print(ex)
+}
