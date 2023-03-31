@@ -19,7 +19,6 @@
 
 using namespace std;
 
-
 // parameters for gzip process
 #define WINDOWS_BITS 15
 #define ENABLE_ZLIB_GZIP 32
@@ -48,10 +47,10 @@ Connection::Connection(string hostStr, int port, string usernamePassword) {
     char* host = const_cast<char*>(hostStr.c_str());
     char* usr = const_cast<char*>(usernamePassword.c_str());
 
-    I handle=khpu(host, port, usr);
+    I handle = khpu(host, port, usr);
     if(handle == 0) {
         throw RuntimeException("Authentication error.");
-    } else if((handle == -1)) {
+    } else if(handle == -1) {
         throw RuntimeException("Connection error.");
     } else if (handle == -2) {
         throw RuntimeException("Connection time out.");
@@ -79,6 +78,9 @@ static void kdbConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
 K Connection::kdbRun(string command) {
     char * arg = const_cast<char*>(command.c_str());
     K res = k(handle_, arg,(K)0);
+    if(!res) {
+        throw RuntimeException("kdb+ execution error. fail to execute " + command + ".");
+    }
     if(res->t == -128) {
         string errMsg = res->s;
         throw RuntimeException("kdb+ execution error " + errMsg + ".");
@@ -90,9 +92,18 @@ K Connection::kdbRun(string command) {
 TableSP Connection::getTable(string tablePath, string symFilePath) {
     LockGuard<Mutex> guard(&kdbMutex);
     // load symbol
+    // must use the file name to load sym in kdb+
+    // otherwise the serialized data could not find its sym list
+    string symName = "";
     if(symFilePath.size() > 0) {
+        vector<string> fields;
+        Util::split(symFilePath, '/', fields);
+        if(fields.size() == 0) {
+            throw RuntimeException("Invalid symFilePath");
+        }
+        symName = fields.back();
         // load sym to kdb
-        string arg = "sym:get`:" + symFilePath;
+        string arg = symName + ":get`:" + symFilePath;
         kdbRun(arg);
     }
 
@@ -105,6 +116,9 @@ TableSP Connection::getTable(string tablePath, string symFilePath) {
     string loadCommand = "\\l " + tablePath;
     char * loadArg = const_cast<char*>(loadCommand.c_str());
     K loadRes = k(handle_, loadArg,(K)0);
+    if(!loadRes) {
+        throw RuntimeException("kdb+ execution error. fail to execute " + loadCommand + ".");
+    }
     if(loadRes->t == -128) {
         string errMsg = loadRes->s;
         throw RuntimeException("load table failed: " + errMsg + ".");
@@ -116,6 +130,9 @@ TableSP Connection::getTable(string tablePath, string symFilePath) {
     string colsCommand = "cols " + tableName;
     char * colsArg = const_cast<char*>(colsCommand.c_str());
     K colsRes = k(handle_, colsArg,(K)0);
+    if(!colsRes) {
+        throw RuntimeException("kdb+ execution error. fail to execute " + colsCommand + ".");
+    }
     if(colsRes->t == -128) {
         string errMsg = colsRes->s;
         throw RuntimeException("get table failed: " + errMsg + ".");
@@ -132,7 +149,9 @@ TableSP Connection::getTable(string tablePath, string symFilePath) {
         string queryCommand = "select " +  colNames[i] + " from " + tableName;
         char * queryArg = const_cast<char*>(queryCommand.c_str());
         K colRes = k(handle_, queryArg,(K)0);
-        
+        if(!colsRes) {
+            throw RuntimeException("kdb+ execution error. fail to execute " + colsCommand + ".");
+        }
         if(colRes->t == -128) {
             string errMsg = colRes->s;
             throw RuntimeException("kdb+ execution error " + errMsg + ".");
@@ -322,18 +341,24 @@ TableSP Connection::getTable(string tablePath, string symFilePath) {
     string dropCommand = tableName + ":0";
     char* dropArg = const_cast<char*>(dropCommand.c_str());
     K dropRes = k(handle_, dropArg,(K)0);
+    if(!dropRes) {
+        LOG_INFO("kdb+ execution error. fail to execute " + dropCommand + ".");
+    }
     if(dropRes->t == -128) {
         string errMsg = dropRes->s;
-        throw RuntimeException("drop table failed: " + errMsg + ".");
+        LOG_INFO("drop table failed: " + errMsg + ".");
     }
 
     // drop sym table
-    dropCommand = "sym:0";
+    dropCommand = symName + ":0";
     dropArg = const_cast<char*>(dropCommand.c_str());
     dropRes = k(handle_, dropArg,(K)0);
+    if(!dropRes) {
+        LOG_INFO("kdb+ execution error. fail to execute " + dropCommand + ".");
+    }
     if(dropRes->t == -128) {
         string errMsg = dropRes->s;
-        throw RuntimeException("drop sym failed: " + errMsg + ".");
+        LOG_INFO("drop sym failed: " + errMsg + ".");
     }
 
     return Util::createTable(colNames, cols);
@@ -405,7 +430,7 @@ int decompress(FILE * fp, vector<unsigned char>& dest) {
     srcVec.resize(file_len);
     unsigned char *src;
     src = srcVec.data();
-    int bytes_read = fread(src, 1, file_len, fp);
+    int bytesRead = fread(src, 1, file_len, fp);
 
     // read meta data of compressed file
     // read block num of compressed file
@@ -479,7 +504,7 @@ vector<string> loadSym(string symSrc) {
     unsigned char *src = srcVec.data();
     // src = (unsigned char*)malloc(file_len);
     
-    int bytes_read = fread (src, 1, file_len, fp);
+    int bytesRead = fread (src, 1, file_len, fp);
     fclose(fp);
     
     vector<char> charVec;
@@ -537,7 +562,7 @@ TableSP loadSplayedTable(string tablePath, vector<string>& symList) {
     // decompress if compressed
     unsigned char *startSrc;
     startSrc = (unsigned char*)malloc(9);
-    int bytes_read = fread(startSrc, 1, 8, fp);
+    int bytesRead = fread(startSrc, 1, 8, fp);
     startSrc[8] = '\0';
     string headStr = "";
     headStr = (char*)startSrc;
@@ -567,7 +592,7 @@ TableSP loadSplayedTable(string tablePath, vector<string>& symList) {
         fseek(fp, 8, SEEK_SET);
         srcVec.resize(file_len);
         src = srcVec.data();
-        bytes_read = fread(src, 1, file_len, fp);
+        bytesRead = fread(src, 1, file_len, fp);
         fclose(fp);
     }
 
@@ -631,7 +656,7 @@ ConstantSP loadSplayedCol(string colSrc, vector<string>& symList) {
     // decompress if compressed
     unsigned char *startSrc;
     startSrc = (unsigned char*)malloc(9);
-    int bytes_read = fread(startSrc, 1, 8, fp);
+    int bytesRead = fread(startSrc, 1, 8, fp);
     startSrc[8] = '\0';
     string headStr = "";
     headStr = (char*)startSrc;
@@ -661,7 +686,7 @@ ConstantSP loadSplayedCol(string colSrc, vector<string>& symList) {
         file_len = ftell(fp);
         fseek(fp, 0, SEEK_SET);
         src = (unsigned char*)malloc(file_len);
-        bytes_read = fread(src, 1, file_len, fp);
+        bytesRead = fread(src, 1, file_len, fp);
         fclose(fp);
     }
 
