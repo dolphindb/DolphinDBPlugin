@@ -1,4 +1,6 @@
 #include "plugin_kafka.h"
+#include "Concurrent.h"
+#include <mutex>
 
 using namespace cppkafka;
 using namespace std;
@@ -348,12 +350,14 @@ ConstantSP kafkaCreateSubJob(Heap *heap, vector<ConstantSP> args){
             onClose,
             heap->currentSession()
     );
+    LockGuard<Mutex> _(dictLatch.get());
     status_dict->set(std::to_string(conn->getLong()),conn);
 
     return conn;
 }
 
 ConstantSP kafkaGetJobStat(Heap *heap, vector<ConstantSP> &args){
+    LockGuard<Mutex> _(dictLatch.get());
     int size = status_dict->size();
     ConstantSP connectionIdVec = Util::createVector(DT_STRING, size);
     ConstantSP userVec = Util::createVector(DT_STRING, size);
@@ -382,6 +386,7 @@ ConstantSP kafkaCancelSubJob(Heap *heap, vector<ConstantSP> args){
     string key;
     ConstantSP conn = nullptr;
     auto handle = args[0];
+    LockGuard<Mutex> _(dictLatch.get());
     switch (handle->getType()){
         case DT_RESOURCE:
             sc = (SubConnection *)(handle->getLong());
@@ -642,7 +647,12 @@ ConstantSP kafkaGetProducerTimeout(Heap *heap, vector<ConstantSP> &args){
 // use atomic timestamp to indicate the last assign time.
 // ddb would crash if the internal between assign() & unassign() is too short
 atomic<int64_t> assignTimeout;
+
+// concurrently using assign related function would cause crash, use a mutex to avoid crash
+// alert! It's a little inefficient, but assign operation would not be called frequently
+SmartPointer<Mutex> assignLatch = new Mutex();
 ConstantSP kafkaConsumerAssign(Heap *heap, vector<ConstantSP> &args){
+    LockGuard<Mutex> _(assignLatch.get());
     const auto usage = string(
             "Usage: assign(consumer, topic, partition, offset).\n"
     );
@@ -657,10 +667,11 @@ ConstantSP kafkaConsumerAssign(Heap *heap, vector<ConstantSP> &args){
 }
 
 ConstantSP kafkaConsumerUnassign(Heap *heap, vector<ConstantSP> &args){
+    LockGuard<Mutex> _(assignLatch.get());
     atomic<int64_t> current;
     current.store(Util::getEpochTime());
     if(current - assignTimeout < 2) {
-        usleep(1000);
+        Util::sleep(1);
     }
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, "consumer should be a consumer handle.");
@@ -670,6 +681,7 @@ ConstantSP kafkaConsumerUnassign(Heap *heap, vector<ConstantSP> &args){
 }
 
 ConstantSP kafkaConsumerGetAssignment(Heap *heap, vector<ConstantSP> &args){
+    LockGuard<Mutex> _(assignLatch.get());
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, "consumer should be a consumer handle.");
     auto consumer = getConnection<Consumer>(args[0]);

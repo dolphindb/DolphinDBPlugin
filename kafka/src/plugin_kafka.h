@@ -25,7 +25,7 @@ const string CONSUMER_DESC = "kafka consumer connection";
 const string QUEUE_DESC = "kafka queue connection";
 const string EVENT_DESC = "kafka event connection";
 
-
+SmartPointer<Mutex> dictLatch = new Mutex();
 DictionarySP status_dict = Util::createDictionary(DT_STRING,nullptr,DT_ANY,nullptr);
 
 /// See Config https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md
