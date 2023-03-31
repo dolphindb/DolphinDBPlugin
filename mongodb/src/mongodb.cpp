@@ -2156,6 +2156,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
 }
 
 TableSP mongoConnection::extractLoad(std::string &collection,std::string &condition,std::string &option,TableSP &schema, bool aggregate){
+    LockGuard<Mutex> LockGuard(&mtx_);
     bool schemaEx=false;
     vector<std::string> colName;
     vector<DATA_TYPE>  colType;
@@ -2422,6 +2423,7 @@ TableSP mongoConnection::load(std::string collection,std::string condition,std::
 }
 
 VectorSP mongoConnection::mongodbGetCollectionNames(string database){
+    LockGuard<Mutex> LockGuard(&mtx_);
     vector<string> collectionNames;
     if(database == "")
         database = "admin";
