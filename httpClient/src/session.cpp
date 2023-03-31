@@ -207,7 +207,7 @@ HttpSession::httpRequest(SessionSP &session, httpClient::RequestMethod method,
                          const std::string &url, const ConstantSP &params,
                          const ConstantSP &timeout,
                          const ConstantSP &headers, const FunctionDefSP &parser, int parserInterval,
-                         bool mutiThread, FunctionDefSP streamHeadParser,
+                         bool multiThread, FunctionDefSP streamHeadParser,
                          vector<shared_ptr<SynchronizedQueue<string>>> queue, int parserNum,
                          shared_ptr<SynchronizedQueue<string>> appendQueue) {
     if (session.isNull())
@@ -272,7 +272,7 @@ HttpSession::httpRequest(SessionSP &session, httpClient::RequestMethod method,
 
     bool needParse = false;
     head_ = WriteHead(HttpHead, &needParse);
-    if (mutiThread)
+    if (multiThread)
         data_ = WriteData(HttpDataManage, parserInterval, handle, parser, streamHeadParser, session,
                           data_.needStop_, this, &needParse, queue, parserNum, appendQueue);
     else
@@ -546,9 +546,9 @@ ConstantSP httpCreateSubJob(Heap *heap, vector<ConstantSP> &args) {
     return conn;
 }
 
-ConstantSP httpCreateMutiParserSubJob(Heap *heap, vector<ConstantSP> &args) {
+ConstantSP httpCreateMultiParserSubJob(Heap *heap, vector<ConstantSP> &args) {
     const auto usage = string(
-            "Usage: createmutiThreadSubJob(consumer, table, parser).\n"
+            "Usage: createMultiThreadSubJob(consumer, table, parser).\n"
     );
 
     ConstantSP params, timeout, headers, parser, handle, streamHeadParser;
@@ -655,13 +655,13 @@ ConstantSP httpCreateMutiParserSubJob(Heap *heap, vector<ConstantSP> &args) {
     if(parserInterval < maxBlockeSize){
         throw IllegalArgumentException(__FUNCTION__, "parserInterval must > maxBlockSize");
     }
-    std::unique_ptr<SubConnectionMutiThread> cup(new SubConnectionMutiThread(threadNum, url, params, minBlockSize, maxBlockeSize, timeout,
+    std::unique_ptr<SubConnectionMultiThread> cup(new SubConnectionMultiThread(threadNum, url, params, minBlockSize, maxBlockeSize, timeout,
                                         headers, handle, heap, parser, streamHeadParser, threadNum,
                                         httpClient::GET,cycles, cookiesSet,parserInterval));
-    FunctionDefSP onClose(Util::createSystemProcedure("http sub connection onClose()",httpConnectionOnClose<SubConnectionMutiThread>, 1, 1));
-    ConstantSP conn = Util::createResource((long long) cup.release(),"http subscribe mutithreadParser connection",onClose,heap->currentSession());
+    FunctionDefSP onClose(Util::createSystemProcedure("http sub connection onClose()",httpConnectionOnClose<SubConnectionMultiThread>, 1, 1));
+    ConstantSP conn = Util::createResource((long long) cup.release(),"http subscribe multithreadParser connection",onClose,heap->currentSession());
     status_dict->set(std::to_string(conn->getLong()), conn);
-    LOG_WARN("HttpClientPlugin: start a httpCreateMutiThreadSubJob");
+    LOG_WARN("HttpClientPlugin: start a httpCreateMultiThreadSubJob");
     return conn;
 }
 
@@ -712,8 +712,8 @@ ConstantSP httpCancelSubJob(Heap *heap, vector<ConstantSP> &args) {
             sc->cancelThread();
             LOG_WARN("subscription: " + std::to_string(conn->getLong()) + " is stopped. ");
         }
-    } else if (conn->getString() == "http subscribe mutithreadParser connection") {
-        SubConnectionMutiThread *sc = (SubConnectionMutiThread *) (conn->getLong());
+    } else if (conn->getString() == "http subscribe multithreadParser connection") {
+        SubConnectionMultiThread *sc = (SubConnectionMultiThread *) (conn->getLong());
         bool bRemoved = status_dict->remove(new String(key));
         if (bRemoved && sc != nullptr) {
             shared_ptr<HttpSession> http = sc->getHttp();
@@ -754,7 +754,7 @@ SubConnection::SubConnection(vector<string> url, ConstantSP params, int parserIn
     }
 }
 
-SubConnectionMutiThread::SubConnectionMutiThread(int parserNum, vector<string> url, ConstantSP params,
+SubConnectionMultiThread::SubConnectionMultiThread(int parserNum, vector<string> url, ConstantSP params,
                                                  int minBlockSize, int maxBlockSize, ConstantSP timeout, ConstantSP headers, ConstantSP handle, Heap *heap,
                                                  FunctionDefSP parser, FunctionDefSP streamHeadParser, int threadNum, httpClient::RequestMethod method,
                                                  int cycles, string cookieSet, int parserInterval)
@@ -767,9 +767,9 @@ SubConnectionMutiThread::SubConnectionMutiThread(int parserNum, vector<string> u
     session_->setUser(heap->currentSession()->getUser());
     for (int i = 0; i < parserNum; ++i) {
         shared_ptr<SynchronizedQueue<string>> queue = make_shared<SynchronizedQueue<string>>();
-        SmartPointer<MutiThreadParse> parse = new MutiThreadParse(heap, parser, handle, parserInterval, minBlockSize, maxBlockSize, queue,http_);
+        SmartPointer<MultiThreadParse> parse = new MultiThreadParse(heap, parser, handle, parserInterval, minBlockSize, maxBlockSize, queue,http_);
         ThreadSP thread = new Thread(parse);
-        mutiThreadParse_.push_back(parse);
+        multiThreadParse_.push_back(parse);
         parserThread_.push_back(thread);
         queueVec_.push_back(queue);
         if (!thread->isStarted()) {
@@ -817,8 +817,8 @@ ConstantSP httpGetJobStat(Heap *heap, vector<ConstantSP> &args) {
         string key = keys->getString(i);
         connectionIdVec->setString(i, key);
         ConstantSP conn = status_dict->getMember(key);
-        if (conn->getString() == "http subscribe mutithreadParser connection") {
-            auto *sc = (SubConnectionMutiThread *) (conn->getLong());
+        if (conn->getString() == "http subscribe multithreadParser connection") {
+            auto *sc = (SubConnectionMultiThread *) (conn->getLong());
             cycles_completedVec->setLong(i, sc->getCycles_completed());
             runningUrlVec->setString(i, sc->getRunnningUrl());
             timestampVec->setLong(i, sc->getCreateTime());
@@ -855,7 +855,7 @@ ConstantSP httpGetJobStat(Heap *heap, vector<ConstantSP> &args) {
     return Util::createTable(colNames, cols);
 }
 
-SubConnectionMutiThread::~SubConnectionMutiThread() {
+SubConnectionMultiThread::~SubConnectionMultiThread() {
     for (size_t i = 0; i < parserThread_.size(); ++i) {
         parserThread_[i]->cancel();
     }

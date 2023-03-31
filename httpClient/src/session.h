@@ -8,7 +8,7 @@ using namespace std;
 extern "C" ConstantSP httpCreateSubJob(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP httpCancelSubJob(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP httpGetJobStat(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP httpCreateMutiParserSubJob(Heap *heap, vector<ConstantSP> &args);
+extern "C" ConstantSP httpCreateMultiParserSubJob(Heap *heap, vector<ConstantSP> &args);
 enum HttpType {
     HttpHead = 0,
     HttpDataParse = 1,
@@ -16,7 +16,7 @@ enum HttpType {
     HttpTypeNone
 };
 
-class MutilThreadString {
+class MultilThreadString {
 public:
     string getString() {
         string ret;
@@ -63,7 +63,7 @@ private:
 
 class HttpSession;
 
-class MutiThreadParse;
+class MultiThreadParse;
 
 class WriteBase {
 public:
@@ -116,7 +116,7 @@ public:
     WriteData data_;
     WriteHead head_;
     Semaphore isStopped_;
-    MutilThreadString cookie_;
+    MultilThreadString cookie_;
     string cookieSet_;
     std::string startUrl_;
     std::string endUrl_;
@@ -185,7 +185,7 @@ public:
 
     ConstantSP httpRequest(SessionSP &session, httpClient::RequestMethod method, const ConstantSP &handle,
                            const std::string &url, const ConstantSP &params, const ConstantSP &timeout,
-                           const ConstantSP &headers, const FunctionDefSP &parser, int parserInterval, bool mutiThread,
+                           const ConstantSP &headers, const FunctionDefSP &parser, int parserInterval, bool multiThread,
                            FunctionDefSP streamHeadParser, vector<shared_ptr<SynchronizedQueue<string>>> queue,
                            int parserNum, shared_ptr<SynchronizedQueue<string>> appendQueue);
 
@@ -354,9 +354,9 @@ public:
     }
 };
 
-class MutiThreadParse : public Runnable {
+class MultiThreadParse : public Runnable {
 public:
-    MutiThreadParse(Heap *heap, FunctionDefSP &parser, ConstantSP &handle, int parserInterval, int minBlockSize, int maxBlockSize,
+    MultiThreadParse(Heap *heap, FunctionDefSP &parser, ConstantSP &handle, int parserInterval, int minBlockSize, int maxBlockSize,
                     shared_ptr<SynchronizedQueue<string>> queue, shared_ptr<HttpSession> http)
             : parser_(parser), handle_(handle), parserInterval_(parserInterval), minBlockSize_(minBlockSize), maxBlockSize_(maxBlockSize), queue_(queue), http_(http) {
         session_ = heap->currentSession()->copy();
@@ -743,16 +743,16 @@ private:
     shared_ptr<atomic<bool>> needCleanManageBuffer_;
 };
 
-class SubConnectionMutiThread {
+class SubConnectionMultiThread {
 public:
 
-    SubConnectionMutiThread(int parserThreadNum, vector<string> url, ConstantSP params, int minBlockSize, int maxBlockSize,
+    SubConnectionMultiThread(int parserThreadNum, vector<string> url, ConstantSP params, int minBlockSize, int maxBlockSize,
                             ConstantSP timeout, ConstantSP headers,
                             ConstantSP handle, Heap *heap, FunctionDefSP parser, FunctionDefSP streamHeadParser,
                             int threadNum, httpClient::RequestMethod method, int cycles,
                             string cookieSet, int parserInterval);
 
-    ~SubConnectionMutiThread();
+    ~SubConnectionMultiThread();
 
     string getRunnningUrl() {
         return runningUrl_;
@@ -790,7 +790,7 @@ private:
     long long createTime_{};
     Heap *heap_{};
     vector<ThreadSP> parserThread_;
-    vector<SmartPointer<MutiThreadParse>> mutiThreadParse_;
+    vector<SmartPointer<MultiThreadParse>> multiThreadParse_;
     ThreadSP thread_;
     SmartPointer<AppendMessage> appendMessage_;
     vector<shared_ptr<SynchronizedQueue<string>>> queueVec_;

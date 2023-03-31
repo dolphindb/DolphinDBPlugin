@@ -10,9 +10,25 @@
 #include<unordered_map>
 using namespace std;
 
-unordered_map<string, string> smtpHost;
-unordered_map<string, int> smtpPost;
-bool firstConfigSmtp = true;
+class SMTP_STATUS{
+public:
+    static unordered_map<string, string> smtpHost;
+    static unordered_map<string, int> smtpPost;
+    static Mutex mutex;
+};
+
+
+unordered_map<string, string> SMTP_STATUS::smtpHost = {
+{"126.com", "smtp.126.com"},
+{"163.com","smtp.163.com"},
+{"yeah.net","smtp.yeah.net"},
+{"sohu.com","smtp.sohu.com"},
+{"dolphindb.com", "smtp.office365.com"},
+{"qq.com", "smtp.qq.com"}};
+unordered_map<string, int> SMTP_STATUS::smtpPost = {{"dolphindb.com", 587}};
+
+Mutex SMTP_STATUS::mutex;
+
 
 size_t curlWriteData(void *ptr, size_t size, size_t nmemb, string *data) {
     data->append((char *) ptr, size * nmemb);
@@ -28,16 +44,6 @@ CSendMail::CSendMail(
     m_RecipientList_.clear();
     m_MailContent_.clear();
     m_iMailContentPos_ = 0;
-    if (firstConfigSmtp) {
-        smtpHost["126.com"] = "smtp.126.com";
-        smtpHost["163.com"] = "smtp.163.com";
-        smtpHost["yeah.net"] = "smtp.yeah.net";
-        smtpHost["sohu.com"] = "smtp.sohu.com";
-        smtpHost["dolphindb.com"] = "smtp.office365.com";
-        smtpHost["qq.com"] = "smtp.qq.com";
-        smtpPost["dolphindb.com"] = 587;
-        firstConfigSmtp = false;
-    }
 }
 
 size_t CSendMail::read_callback(void *ptr, size_t size, size_t nmemb, void *userp) {
@@ -111,17 +117,20 @@ ConstantSP CSendMail::SendMail(const string &strSubject, const string &strMailBo
     int port = 25;
     int pos = m_strUser_.find_first_of('@');
     string tmp = m_strUser_.substr(pos + 1);
-    if (pos > 1 && smtpHost.count(tmp) != 0)
-        strSmtpServer = smtpHost[tmp];
-    else {
-        curl_slist_free_all(rcpt_list);
-        curl_easy_cleanup(curl);
-        curl_global_cleanup();
-        throw IllegalArgumentException(__FUNCTION__,
-                                       "Enter @126.com,@163.com,@yeah.net,@sohu.com,@dolphindb.com,@qq.com or config the email smtpServer");
+    {
+        LockGuard<Mutex> lockGuard(&SMTP_STATUS::mutex);
+        if (pos > 1 && SMTP_STATUS::smtpHost.count(tmp) != 0)
+            strSmtpServer = SMTP_STATUS::smtpHost[tmp];
+        else {
+            curl_slist_free_all(rcpt_list);
+            curl_easy_cleanup(curl);
+            curl_global_cleanup();
+            throw IllegalArgumentException(__FUNCTION__,
+                                        "Enter @126.com,@163.com,@yeah.net,@sohu.com,@dolphindb.com,@qq.com or config the email smtpServer");
+        }
+        if (SMTP_STATUS::smtpPost.count(tmp) != 0)
+            port = SMTP_STATUS::smtpPost[tmp];
     }
-    if (smtpPost.count(tmp) != 0)
-        port = smtpPost[tmp];
 
     string strUrl = "smtp://" + strSmtpServer;
     strUrl += ":";
@@ -146,6 +155,7 @@ ConstantSP CSendMail::SendMail(const string &strSubject, const string &strMailBo
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curlWriteData);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseString);
     curl_easy_setopt(curl, CURLOPT_HEADERDATA, &headerString);
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
     CURLcode ret = curl_easy_perform(curl);
 
     long responseCode;
@@ -225,8 +235,10 @@ ConstantSP emailSmtpConfig(Heap *heap, vector<ConstantSP> &args) {
         throw IllegalArgumentException(__FUNCTION__, "EmailName can't be empty");
     if (args[1]->getString() == "")
         throw IllegalArgumentException(__FUNCTION__, "Host can't be empty");
-    smtpHost[args[0]->getString()] = args[1]->getString();
+    
+    LockGuard<Mutex> lockGuard(&SMTP_STATUS::mutex);
+    SMTP_STATUS::smtpHost[args[0]->getString()] = args[1]->getString();
     if (args.size() == 3)
-        smtpPost[args[0]->getString()] = args[2]->getInt();
+        SMTP_STATUS::smtpPost[args[0]->getString()] = args[2]->getInt();
     return new Bool(true);
 }
