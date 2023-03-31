@@ -59,8 +59,10 @@ libPluginAmdQuote.so 文件会在编译后生成。编译后 build 目录下会�
 `options` 可选参数。是字典类型，表示扩展参数。当前键支持 receivedTime 和 DailyIndex。
 其中：
 
-* receivedTime 表示是否获取插件收到行情数据的时间戳。其指定为 dict(["ReceivedTime"], [true]) 时，getSchema 获取的表结构中将包含插件收到行情数据的时间戳列。
+* ReceivedTime 表示是否获取插件收到行情数据的时间戳。其指定为 dict(["ReceivedTime"], [true]) 时，getSchema 获取的表结构中将包含插件收到行情数据的时间戳列。
 * DailyIndex 表示是否添加每天按 channel_no 递增的数据列。其指定为 dict(["DailyIndex"], [true]) 时，getSchema 获取的表结构中将包含插件收到行情数据的按 channel_no 递增的列。
+
+如果需要启用合并类型 'bondExecution'，'orderExecution'，'fundOrderExecution'，则 ReceivedTime 和 DailyIndex 必须指定为true。
 
 **函数详情**
 
@@ -72,11 +74,14 @@ libPluginAmdQuote.so 文件会在编译后生成。编译后 build 目录下会�
 
 `handle` connect 接口返回的句柄。
 
-`type` 字符串标量，表示行情的类型，可取以下值：'snapshot'（股票快照）, 'execution'（股票逐笔成交）, 'order'（股票逐笔委托）, 'index'（指数）, 'orderQueue'（委托队列）, 'fundSnapshot'（基金快照）, 'fundExecution'（基金逐笔成交），'fundOrder'（基金逐笔委托），'bondSnapshot'（债券快照），'bondOrder'（债券逐笔委托），'bondExecution'（债券逐笔成交）。
+`type` 字符串标量，表示行情的类型，可取以下值：'snapshot'（股票快照）, 'execution'（股票逐笔成交）, 'order'（股票逐笔委托）, 'index'（指数）, 'orderQueue'（委托队列）, 'fundSnapshot'（基金快照）, 'fundExecution'（基金逐笔成交），'fundOrder'（基金逐笔委托），'bondSnapshot'（债券快照），'bondOrder'（债券逐笔委托），'bondExecution'（债券逐笔成交），'orderExecution'（股票逐笔委托、逐笔成交合并），'fundOrderExecution'（基金逐笔委托、逐笔成交合并），'bondOrderExecution'（债券逐笔委托、逐笔成交合并）。
+注意，最后三种 type 获取的行情数据中。第一列 `HTSCSecurityID 会在末尾加上'.SZ' 或者 '.SH'
 
 `streamTable` 表示一个共享流表的表对象。订阅前需要创建一个共享流表，且该流表的 schema 需要和获取的行情数据结构一致。可以通过插件提供的 getSchema 函数来获取行情数据的 schema。
+注意，如果type类型是合并类型 'bondExecution'，'orderExecution'，'fundOrderExecution'。该参数需要传入一个字典。字典的key为整型标量，指代特定的channel，需要大于0。字典的value为共享流表。流表的 schema 需要和获取的行情数据结构一致。
 
 `marketType` 整型标量，可选。表示市场类型。需要和 AMD 中定义的市场类型一致。不传该参数表示订阅所有市场。
+注意，如果type类型是合并类型 'bondExecution'，'orderExecution'，'fundOrderExecution'，则一次只能订阅一种市场，重新订阅后将不会收到之前订阅的市场的数据。
 
 `codeList` 字符串向量，可选。表示股票列表。不传该参数表示订阅所有股票。
 
@@ -92,7 +97,7 @@ libPluginAmdQuote.so 文件会在编译后生成。编译后 build 目录下会�
 
 `handle` connect 接口返回的句柄。
 
-`dataType` 字符串标量，表示行情的类型，可取以下值：'snapshot', 'execution', 'order', 'index', 'orderQueue', 'fundSnapshot', 'fundExecution', 'fundOrder', 'bondSnapshot', 'bondOrder', 'bondExecution' 和 'all'。其中，'all' 表示取消所有订阅。
+`dataType` 字符串标量，表示行情的类型，可取以下值：'snapshot', 'execution', 'order', 'index', 'orderQueue', 'fundSnapshot', 'fundExecution', 'fundOrder', 'bondSnapshot', 'bondOrder', 'bondExecution'，'orderExecution'，'fundOrderExecution'，'bondOrderExecution' 和 'all'。其中，'all' 表示取消所有订阅。
 
 `marketType` 整型标量，表示市场类型，需要和 AMD 中定义的市场类型一致。
 
@@ -120,7 +125,7 @@ libPluginAmdQuote.so 文件会在编译后生成。编译后 build 目录下会�
 
 **参数**
 
-`type` 字符串标量，表示行情的类型，可取以下值：'snapshot', 'execution', 'order', 'index', 'orderQueue', 'fundSnapshot', 'fundExecution', 'fundOrder', 'bondSnapshot', 'bondOrder' 和 'bondExecution'。
+`type` 字符串标量，表示行情的类型，可取以下值：'snapshot', 'execution', 'order', 'index', 'orderQueue', 'fundSnapshot', 'fundExecution', 'fundOrder', 'bondSnapshot', 'bondOrder' 和 'bondExecution'，'orderExecution'，'fundOrderExecution'，'bondOrderExecution'。
 
 **函数详情**
 

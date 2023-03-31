@@ -1,13 +1,278 @@
 #ifndef __AMD_QUOTE_TYPE_H
 #define __AMD_QUOTE_TYPE_H
 
+#include "Logger.h"
+#include "Types.h"
 #include "ama.h"
 
 #include "CoreConcept.h"
 #include "Util.h"
+
 extern bool receivedTimeFlag;
 extern bool dailyIndexFlag;
+extern bool outputElapsedFlag;
 
+enum AMDDataType{
+    AMD_SNAPSHOT, 
+    AMD_EXECUTION,
+    AMD_ORDER,
+    AMD_INDEX, 
+    AMD_ORDER_QUEUE,
+    AMD_FUND_SNAPSHOT,
+    AMD_FUND_EXECUTION,
+    AMD_FUND_ORDER,
+    AMD_BOND_SNAPSHOT,
+    AMD_BOND_EXECUTION,
+    AMD_BOND_ORDER,
+    AMD_ERROR_DATA_TYPE,
+
+    AMD_ORDER_EXECUTION,
+    AMD_FUND_ORDER_EXECUTION,
+    AMD_BOND_ORDER_EXECUTION,
+};
+
+enum AMDTableType{
+    AMD_SNAPSHOT_SH, 
+    AMD_EXECUTION_SH,
+    AMD_ORDER_SH,
+    AMD_INDEX_SH, 
+    AMD_ORDER_QUEUE_SH,
+    AMD_FUND_SNAPSHOT_SH,
+    AMD_FUND_EXECUTION_SH,
+    AMD_FUND_ORDER_SH,
+    AMD_BOND_SNAPSHOT_SH,
+    AMD_BOND_EXECUTION_SH,
+    AMD_BOND_ORDER_SH,
+
+    AMD_SNAPSHOT_SZ, 
+    AMD_EXECUTION_SZ,
+    AMD_ORDER_SZ,
+    AMD_INDEX_SZ, 
+    AMD_ORDER_QUEUE_SZ,
+    AMD_FUND_SNAPSHOT_SZ,
+    AMD_FUND_EXECUTION_SZ,
+    AMD_FUND_ORDER_SZ,
+    AMD_BOND_SNAPSHOT_SZ,
+    AMD_BOND_EXECUTION_SZ,
+    AMD_BOND_ORDER_SZ,
+    AMD_ORDER_EXECUTION_SH,
+    AMD_ORDER_EXECUTION_SZ,
+    AMD_FUND_ORDER_EXECUTION_SH,
+    AMD_FUND_ORDER_EXECUTION_SZ,
+    AMD_BOND_ORDER_EXECUTION_SH,
+    AMD_BOND_ORDER_EXECUTION_SZ,
+    AMD_ERROR_TABLE_TYPE,
+};
+
+class Info {
+public:
+    Info(string datatype, int marketType) : datatype_(datatype), marketType_(marketType) {}
+    string datatype_;
+    int marketType_;
+    // vector<string> codeList;
+};
+
+class InfoHash {
+public:
+    size_t operator() (const Info& info) const {
+        return std::hash<string>{}(info.datatype_) ^
+               std::hash<int>{}(info.marketType_);
+    }
+};
+
+class InfoEqual {
+public:
+    bool operator() (const Info& info1, const Info& info2) const {
+        return info1.marketType_ == info2.marketType_ &&
+               info1.datatype_ == info2.datatype_;
+    }
+};
+
+class DailyIndex{
+public:
+    DailyIndex(): startTimestamp_(LONG_LONG_MIN), flag_(false){}
+    DailyIndex(long long startTimestamp){
+        if(startTimestamp != LONG_LONG_MIN){
+            startTimestamp_ = startTimestamp;
+            flag_ = true;
+        }else{
+            flag_ = false;
+        }
+    }
+    inline int getIndex(int32_t param, long long timestamp){
+        if(startTimestamp_ == LONG_LONG_MIN)
+            throw RuntimeException("getIndex failed because DailyIndex was not set");
+        const long long dateTimestamp = 24 * 60 * 60 * 1000;
+        long long originBase = startTimestamp_ / dateTimestamp;
+        long long newBase = timestamp / dateTimestamp;
+        if(originBase < newBase){
+            startTimestamp_ = newBase * dateTimestamp;
+            LOG_INFO("[PluginAmdQuote]: The new DailyIndex with channel_no as " + std::to_string(param) + " will start at " + std::to_string(startTimestamp_));
+            indexMap_.clear();
+        }
+        if(timestamp < startTimestamp_){
+            return INT_MIN;
+        }
+        if(indexMap_.count(param) != 0){
+            return ++indexMap_[param];
+        }else{
+            indexMap_[param] = 0;
+            return 0;
+        }   
+    }
+    long long getStartTimestamp(){
+        return startTimestamp_;
+    }
+
+public:
+    bool getFlag(){
+        return flag_;
+    }
+private:
+    unordered_map<int32_t, int> indexMap_;
+    long long startTimestamp_;
+    bool flag_;
+};
+template<class T>
+struct ObjectSizer {
+    inline int operator()(const T& obj){
+        return 1;
+    }
+};
+
+template<class T>
+struct ObjectUrgency {
+    inline bool operator()(const T& obj){
+        return false;
+    }
+};
+// union structure
+struct MDOrderExecution {
+    bool orderOrExecution;
+    long long reachTime;
+    union {
+        amd::ama::MDTickOrder tickOrder;
+        amd::ama::MDTickExecution tickExecution;
+    } uni;
+};
+struct MDBondOrderExecution {
+    bool orderOrExecution;
+    long long reachTime;
+    union {
+        amd::ama::MDBondTickOrder tickOrder;
+        amd::ama::MDBondTickExecution tickExecution;
+    } uni;
+};
+
+typedef GenericBoundedQueue<MDOrderExecution, ObjectSizer<MDOrderExecution>, ObjectUrgency<MDOrderExecution>> OrderExecutionQueue;
+typedef GenericBoundedQueue<MDBondOrderExecution, ObjectSizer<MDBondOrderExecution>, ObjectUrgency<MDBondOrderExecution>> BondOrderExecutionQueue;
+
+struct timeMDSnapshot {
+    long long reachTime;
+    amd::ama::MDSnapshot snapshot;
+};
+struct timeMDTickOrder {
+    long long reachTime;
+    amd::ama::MDTickOrder order;
+};
+struct timeMDTickExecution {
+    long long reachTime;
+    amd::ama::MDTickExecution execution;
+};
+
+struct timeMDBondSnapshot {
+    long long reachTime;
+    amd::ama::MDBondSnapshot bondSnapshot;
+};
+
+struct timeMDBondTickOrder {
+    long long reachTime;
+    amd::ama::MDBondTickOrder bondOrder;
+};
+
+struct timeMDBondTickExecution {
+    long long reachTime;
+    amd::ama::MDBondTickExecution bondExecution;
+};
+
+struct timeMDIndexSnapshot {
+    long long reachTime;
+    amd::ama::MDIndexSnapshot indexSnapshot;
+};
+struct timeMDOrderQueue {
+    long long reachTime;
+    amd::ama::MDOrderQueue orderQueue;
+};
+
+typedef GenericBoundedQueue<timeMDSnapshot, ObjectSizer<timeMDSnapshot>, ObjectUrgency<timeMDSnapshot>> SnapshotQueue;
+typedef GenericBoundedQueue<timeMDTickOrder, ObjectSizer<timeMDTickOrder>, ObjectUrgency<timeMDTickOrder>> OrderQueue;
+typedef GenericBoundedQueue<timeMDTickExecution, ObjectSizer<timeMDTickExecution>, ObjectUrgency<timeMDTickExecution>> ExecutionQueue;
+typedef GenericBoundedQueue<timeMDBondSnapshot, ObjectSizer<timeMDBondSnapshot>, ObjectUrgency<timeMDBondSnapshot>> BondSnapshotQueue;
+typedef GenericBoundedQueue<timeMDBondTickOrder, ObjectSizer<timeMDBondTickOrder>, ObjectUrgency<timeMDBondTickOrder>> BondOrderQueue;
+typedef GenericBoundedQueue<timeMDBondTickExecution, ObjectSizer<timeMDBondTickExecution>, ObjectUrgency<timeMDBondTickExecution>> BondExecutionQueue;
+typedef GenericBoundedQueue<timeMDIndexSnapshot, ObjectSizer<timeMDIndexSnapshot>, ObjectUrgency<timeMDIndexSnapshot>> IndexQueue;
+typedef GenericBoundedQueue<timeMDOrderQueue, ObjectSizer<timeMDOrderQueue>, ObjectUrgency<timeMDOrderQueue>> OrderQueueQueue;
+
+
+// typedef GenericBoundedQueue<amd::ama::MDSnapshot, ObjectSizer<amd::ama::MDSnapshot>, ObjectUrgency<amd::ama::MDSnapshot>> SnapshotQueue;
+// typedef GenericBoundedQueue<amd::ama::MDTickOrder, ObjectSizer<amd::ama::MDTickOrder>, ObjectUrgency<amd::ama::MDTickOrder>> OrderQueue;
+// typedef GenericBoundedQueue<amd::ama::MDTickExecution, ObjectSizer<amd::ama::MDTickExecution>, ObjectUrgency<amd::ama::MDTickExecution>> ExecutionQueue;
+// typedef GenericBoundedQueue<amd::ama::MDBondSnapshot, ObjectSizer<amd::ama::MDBondSnapshot>, ObjectUrgency<amd::ama::MDBondSnapshot>> BondSnapshotQueue;
+// typedef GenericBoundedQueue<amd::ama::MDBondTickOrder, ObjectSizer<amd::ama::MDBondTickOrder>, ObjectUrgency<amd::ama::MDBondTickOrder>> BondOrderQueue;
+// typedef GenericBoundedQueue<amd::ama::MDBondTickExecution, ObjectSizer<amd::ama::MDBondTickExecution>, ObjectUrgency<amd::ama::MDBondTickExecution>> BondExecutionQueue;
+// typedef GenericBoundedQueue<amd::ama::MDIndexSnapshot, ObjectSizer<amd::ama::MDIndexSnapshot>, ObjectUrgency<amd::ama::MDIndexSnapshot>> IndexQueue;
+// typedef GenericBoundedQueue<amd::ama::MDOrderQueue, ObjectSizer<amd::ama::MDOrderQueue>, ObjectUrgency<amd::ama::MDOrderQueue>> OrderQueueQueue;
+
+template <class ITEMTYPE>
+void blockHandling(SmartPointer<GenericBoundedQueue<ITEMTYPE, ObjectSizer<ITEMTYPE>, ObjectUrgency<ITEMTYPE>>> queue, std::function<void(vector<ITEMTYPE> &)> dealFunc, SmartPointer<bool> stopFlag, string msgPrefix, string threadInfo)
+{
+    LOG_INFO(msgPrefix, " ", threadInfo, " bg thread start ");
+    bool ret;
+    while (!*stopFlag)
+    {
+        long long size = 0;
+        try
+        {
+            ITEMTYPE item;
+            ret = queue->blockingPop(item, 100);
+            if (!ret)
+            {
+                if (*stopFlag)
+                    break;
+                else
+                {
+                    LOG(msgPrefix, " ", threadInfo, " bg thread pop size 0");
+                    continue;
+                }
+            }
+
+            size = std::min(queue->size(), (long long)2048);
+            vector<ITEMTYPE> items;
+            items.reserve(size + 1);
+            items.push_back(std::move(item));
+            if (size > 0)
+                queue->pop(items, size);
+
+            size = items.size();
+            LOG(msgPrefix, " ", threadInfo, " bg thread pop size ", size);
+
+            dealFunc(items);
+        }
+        catch (exception &e)
+        {
+            LOG_ERR(msgPrefix, " ", threadInfo, " Failed to process data of size ", size, " because ", e.what());
+        }
+    }
+    LOG_INFO(msgPrefix, " ", threadInfo, " bg thread end ");
+};
+
+class Defer {
+public:
+    Defer(std::function<void()> code): code(code) {}
+    ~Defer() { code(); }
+private:
+    std::function<void()> code;
+};
 class AmdSnapshotTableMeta {
 public:
     AmdSnapshotTableMeta() {
@@ -161,11 +426,37 @@ public:
     std::vector<DATA_TYPE> colTypes_; 
 };
 
-TableSP getSnapshotSchema(bool receivedTimeFlag, bool dailyIndexFlag);
-TableSP getExecutionSchema(bool receivedTimeFlag, bool dailyIndexFlag);
-TableSP getOrderSchema(bool receivedTimeFlag, bool dailyIndexFlag );
-TableSP getIndexSchema(bool receivedTimeFlag, bool dailyIndexFlag);
-TableSP getOrderQueueSchema(bool receivedTimeFlag, bool dailyIndexFlag);
+class AmdOrderExecutionTableMeta {
+public:
+    AmdOrderExecutionTableMeta() {
+        colNames_ = {
+//           证券代码           交易日期   交易时间  证券市场             证券类型         编号     来源种类      类型
+            "HTSCSecurityID", "MDDate", "MDTime", "SecurityIDSource", "SecurityType", "Index", "SourceType", "Type", \
+//   真实价格*10000   股数   买卖方向   冗余列    冗余列    逐笔数据序号   原始频道代码   数据接收时间戳
+            "Price", "Qty", "BSFlag", "BuyNo", "SellNo", "ApplSeqNum", "ChannelNo", "ReceiveTime",
+        };
+
+        colTypes_ = {
+            DT_SYMBOL, DT_DATE, DT_TIME, DT_SYMBOL, DT_SYMBOL, DT_LONG, DT_INT, DT_INT, \
+            DT_LONG, DT_LONG, DT_INT, DT_LONG, DT_LONG, DT_LONG, DT_INT, DT_TIMESTAMP,
+        };
+    }
+
+    ~AmdOrderExecutionTableMeta() {}
+
+public:
+    std::vector<string> colNames_;
+    std::vector<DATA_TYPE> colTypes_;
+};
+
+
+TableSP getSnapshotSchema(bool receivedTimeFlag, bool dailyIndexFlag, bool outputElapsedFlag);
+TableSP getExecutionSchema(bool receivedTimeFlag, bool dailyIndexFlag, bool outputElapsedFlag);
+TableSP getOrderSchema(bool receivedTimeFlag, bool dailyIndexFlag, bool outputElapsedFlag);
+TableSP getIndexSchema(bool receivedTimeFlag, bool dailyIndexFlag, bool outputElapsedFlag);
+TableSP getOrderQueueSchema(bool receivedTimeFlag, bool dailyIndexFlag, bool outputElapsedFlag);
+TableSP getOrderExecutionSchema(bool receivedTimeFlag, bool dailyIndexFlag, bool outputElapsedFlag);
+
 // TODO(ruibinhuang@dolphindb.com): check the real attributes of the table
 bool checkSchema(const string& type, TableSP table);
 #endif // __AMD_QUOTE_TYPE_H
