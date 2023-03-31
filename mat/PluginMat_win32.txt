@@ -1,4 +1,4 @@
-mat,libPluginMat.dll,2.00.9.1.1
+mat,libPluginMat.dll,2.00.9.3.1
 extractMatSchema,extractMatSchema,system,1,1,0
 loadMat,loadMat,system,1,2,0
 loadMatDict,loadMatDict,system,1,2,0
