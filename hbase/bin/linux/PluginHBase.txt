@@ -1,4 +1,4 @@
-hbase,libPluginHBase.so,1.30.21.1.1
+hbase,libPluginHBase.so,1.30.21.3.1
 hbaseConnect,connect,system,2,3,0
 showTables,showTables,system,1,1,0
 getRow,getRow,system,3,4,0
