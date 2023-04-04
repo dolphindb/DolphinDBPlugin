@@ -2,6 +2,7 @@
 
 With DolphinDB ODBC plugin, you can import data from databases that support ODBC interface.
 
+- [DolphinDB Tutorial: Calculate OHLC bars](#dolphindb-tutorial-calculate-ohlc-bars)
 - [DolphinDB ODBC plugin](#dolphindb-odbc-plugin)
   - [1. Prerequisites](#1-prerequisites)
     - [1.1 Ubuntu](#11-ubuntu)
@@ -103,10 +104,29 @@ LDFLAGS="-lrt" CFLAGS="-fPIC"  ./configure --prefix=/hdd1/gitlab/DolphinDBPlugin
 make -j
 make install
 ```
- 
+
 ### 2.2 Compile the ODBC Plugin
 
-Run the following commands. The plugin is compiled to a shared library named “libPluginODBC.so”.
+#### 2.2.1 Install Precompiled Plugin
+
+1. The precompiled plugin files can be found at *bin/win* (on Windows) and *bin/linux* (on Linux). Navigate to the directory as appropriate, and download all files (including the dynamic libraries) to the */DolphinDB/server/plugins/odbc* directory on the machine where the DolphinDB server is located.
+2. For Linux systems, make sure to specify environment variables for the dependent libraries before loading the plugin.
+
+Use the following command to check library dependencies under the ODBC plugin directory:
+
+```
+ldd libPluginODBC.so
+```
+
+If a library has been downloaded but still shows “not found“ in the result, specify an environment variable for it with LD_LIBRARY_PATH:
+
+```
+export LD_LIBRARY_PATH= /your_lib_path/:$LD_LIBRARY_PATH
+```
+
+#### 2.2.2 Manually Compile Plugin
+
+You can also manually compile the plugin to meet your own business requirements. Run the following commands. The plugin is compiled to a shared library named “libPluginODBC.so”.
 
 ```
 cd <plugin_odbc_dir>
@@ -158,12 +178,24 @@ make install
 
 ## 3. Load the plugin
 
-Load the plugin with function `loadPlugin`. Its sole parameter is a plugin description file. For example, the follwing DolphinDB script loads the plugin ```PluginODBC.txt```:
+1. Start DolphinDB:
+
 ```
-loadPlugin("./plugins/odbc/PluginODBC.txt")
+cd DolphinDB/server //navigate to DolphinDB server directory
+./dolphindb //start DolphinDB server
+```
+
+2. Load Plugin
+
+Load the plugin with function `loadPlugin`. Its sole parameter is a plugin description file. For example, the follwing DolphinDB script loads the plugin `PluginODBC.txt`:
+
+Load the plugin with function `loadPlugin`. Its sole parameter is a plugin description file. For example, the follwing DolphinDB script loads the plugin ```PluginODBC.txt```:
+
+```
+loadPlugin("/path/to/PluginNsq.txt");
 ```
 :bulb:**Note**:
-> If you load plugin on a Windows OS, you must specify an absolute path and replace "\" with "\\" or "/". If you load the plugin using Alpine Linux OS, an error may be reported that the dependent library cannot be found. You need to create a soft link between *libodbc.so.2* and *libodbc.so.1* using `ln -s /usr/lib/libodbc.so.2 libodbc.so.1`.
+> If you load plugin on a Windows OS, you must specify an absolute path and replace "\\" with "\\\\" or "/". If you load the plugin using Alpine Linux OS, an error may be reported that the dependent library cannot be found. You need to create a soft link between *libodbc.so.2* and *libodbc.so.1* using `ln -s /usr/lib/libodbc.so.2 libodbc.so.1`.
 
 ## 4. Methods
 
@@ -256,7 +288,7 @@ t=odbc::query(conn1,"SELECT max(time),min(time) FROM ecimp_ver3.tbl_monitor;")
 **Example**
 ```
 odbc::execute(conn1,"delete from ecimp_ver3.tbl_monitor where `timestamp` BETWEEN '2013-03-26 00:00:01' AND '2013-03-26 23:59:59'")
-```  
+```
 
 ### 4.5 odbc::append
 
