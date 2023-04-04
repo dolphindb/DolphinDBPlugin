@@ -369,6 +369,7 @@ Mutex apiMutex;
 
 
 ConstantSP nsqClose(Heap *heap, vector<ConstantSP> &arguments) {
+    LockGuard<Mutex> lockGuard(&nsqLock);
     session = heap->currentSession()->copy();
     LockGuard<Mutex> guard{&apiMutex};
     if (lpNsqApi == NULL) {
@@ -405,6 +406,7 @@ ConstantSP nsqClose(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP nsqConnect(Heap *heap, vector<ConstantSP> &arguments) {
+    LockGuard<Mutex> lockGuard(&nsqLock);
     bool success = false;
     if (lpNsqSpi != NULL){
         std::string errMsg = "You are already connected. To reconnect, please execute close() and try again.";
@@ -616,6 +618,7 @@ int setReqFieldSub(int flag) {
 
 // 订阅，并且进行列类型检查，设置传递的表
 ConstantSP subscribe(Heap *heap, vector<ConstantSP> &arguments) {
+    LockGuard<Mutex> lockGuard(&nsqLock);
     session = heap->currentSession()->copy();
     if (lpNsqApi == NULL || !lpNsqSpi->GetConnectStatus()) {
         std::string errMsg = "API is not initialized. Please check whether the connection is set up via connect().";
@@ -719,6 +722,7 @@ ConstantSP subscribe(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP unsubscribe(Heap *heap, vector<ConstantSP> &arguments) {
+    LockGuard<Mutex> lockGuard(&nsqLock);
     session = heap->currentSession()->copy();
     if (lpNsqApi == NULL || !lpNsqSpi->GetConnectStatus()) {
         std::string errMsg = "API is not initialized. Please check whether the connection is set up via connect().";
@@ -779,6 +783,7 @@ ConstantSP unsubscribe(Heap *heap, vector<ConstantSP> &arguments) {
  *          (orders, sz): false
  */
 ConstantSP getSubscriptionStatus(Heap *heap, vector<Constant> &arguments) {
+    LockGuard<Mutex> lockGuard(&nsqLock);
     session = heap->currentSession()->copy();
     // 创建一个表
     vector<DATA_TYPE> types{DT_STRING, DT_BOOL, DT_BOOL, DT_LONG, DT_STRING, DT_LONG, DT_TIMESTAMP};
@@ -815,6 +820,7 @@ ConstantSP getSubscriptionStatus(Heap *heap, vector<Constant> &arguments) {
 }
 
 ConstantSP getSchema(Heap *heap, vector<ConstantSP> &arguments) { // type 
+    LockGuard<Mutex> lockGuard(&nsqLock);
     if (isConnected == false) {
         throw RuntimeException("call the connect function first");
     }

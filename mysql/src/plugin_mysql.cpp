@@ -12,6 +12,9 @@ ConstantSP safeOp(const ConstantSP &arg, std::function<ConstantSP(Connection *)>
         if(desc.find("mysql connection") != 0) {
             throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
         }
+        if (arg->getLong() == 0){
+            throw IllegalArgumentException(__FUNCTION__, "Invalid connection handle.");
+        }
         auto conn = (Connection *)(arg->getLong());
         return conn->connected() ? f(conn) : messageSP("Not connected yet.");
     } else {

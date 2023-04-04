@@ -16,12 +16,16 @@
 
 using namespace std;
 using mqtt::SubConnection;
-
-DictionarySP dict = Util::createDictionary(DT_STRING,0,DT_ANY,0);
+namespace ddbMqttLockedDict{
+    static DictionarySP dict = Util::createDictionary(DT_STRING,0,DT_ANY,0);
+    static Mutex mu;
+}
 /**
  * @brief The function that would be called whenever a PUBLISH is received.
  */
+static Mutex SUB_CALLBACK_MUTEX;
 static void subCallback(void **socketHandle, struct mqtt_response_publish *published) {
+    LockGuard<Mutex> guard(&SUB_CALLBACK_MUTEX);
     /* note that published->topic_name is NOT null-terminated (here we'll change it to a c-string) */
     try{
         SubConnection *cp = (SubConnection *)(*socketHandle);
@@ -171,7 +175,8 @@ ConstantSP mqttClientSub(Heap *heap, vector<ConstantSP> &args) {
         new SubConnection(args[0]->getString(), args[1]->getInt(), args[2]->getString(), parser, args[4],userName,password, heap));
     FunctionDefSP onClose(Util::createSystemProcedure("mqtt sub connection onClose()", mqttConnectionOnClose, 1, 1));
     ConstantSP conn = Util::createResource((long long)cup.release(), "mqtt subscribe connection", onClose, heap->currentSession());
-    dict->set(std::to_string(conn->getLong()),conn);
+    LockGuard<Mutex> guard(&ddbMqttLockedDict::mu);
+    ddbMqttLockedDict::dict->set(std::to_string(conn->getLong()),conn);
 
     return conn;
 }
@@ -182,17 +187,18 @@ ConstantSP mqttClientStopSub(const ConstantSP &handle, const ConstantSP &b) {
     SubConnection *sc = NULL;
     string key;
     ConstantSP conn;
+    LockGuard<Mutex> guard(&ddbMqttLockedDict::mu);
     switch (handle->getType()){
         case DT_RESOURCE:
             sc = (SubConnection *)(handle->getLong());
             key = std::to_string(handle->getLong());
-            conn = dict->getMember(key);
+            conn = ddbMqttLockedDict::dict->getMember(key);
             if(conn->isNothing())
                 throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
             break;
         case DT_STRING:
             key = handle->getString();
-            conn = dict->getMember(key);
+            conn = ddbMqttLockedDict::dict->getMember(key);
             if(conn->isNothing())
                 throw IllegalArgumentException(__FUNCTION__, "Invalid connection string.");
             else
@@ -200,7 +206,7 @@ ConstantSP mqttClientStopSub(const ConstantSP &handle, const ConstantSP &b) {
             break;
         case DT_LONG:
             key = std::to_string(handle->getLong());
-            conn = dict->getMember(key);
+            conn = ddbMqttLockedDict::dict->getMember(key);
             if(conn->isNothing())
               throw IllegalArgumentException(__FUNCTION__, "Invalid connection integer.");
             else
@@ -211,14 +217,15 @@ ConstantSP mqttClientStopSub(const ConstantSP &handle, const ConstantSP &b) {
     }
 
 
-    bool bRemoved=dict->remove(new String(key));
+    bool bRemoved=ddbMqttLockedDict::dict->remove(new String(key));
     if (bRemoved && sc != nullptr) {
         delete sc;
     }
     return new Int(MQTT_OK);
 }
 ConstantSP getSubscriberStat(const ConstantSP& handle, const ConstantSP& b){
-    int size = dict->size();
+    LockGuard<Mutex> guard(&ddbMqttLockedDict::mu);
+    int size = ddbMqttLockedDict::dict->size();
     ConstantSP connectionIdVec = Util::createVector(DT_STRING, size);
     ConstantSP userVec = Util::createVector(DT_STRING, size);
     ConstantSP hostVec = Util::createVector(DT_STRING, size);
@@ -226,11 +233,11 @@ ConstantSP getSubscriberStat(const ConstantSP& handle, const ConstantSP& b){
     ConstantSP topicVec = Util::createVector(DT_STRING, size);
     ConstantSP timestampVec = Util::createVector(DT_TIMESTAMP, size);
     ConstantSP recvVec = Util::createVector(DT_LONG, size);
-    VectorSP keys = dict->keys();
+    VectorSP keys = ddbMqttLockedDict::dict->keys();
     for(int i = 0; i < keys->size();i++){
         string key = keys->getString(i);
         connectionIdVec->setString(i,key);
-        ConstantSP conn = dict->getMember(key);
+        ConstantSP conn = ddbMqttLockedDict::dict->getMember(key);
         SubConnection *sc = (SubConnection *)(conn->getLong());
         hostVec->setString(i,sc->getHost());
         portVec->setInt(i,sc->getPort());

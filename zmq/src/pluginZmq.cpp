@@ -1,6 +1,13 @@
 #include"pluginZmq.h"
 
-DictionarySP status_dict = Util::createDictionary(DT_STRING, nullptr, DT_ANY, nullptr);
+class ZmqStatus{
+public:
+    static DictionarySP status_dict;
+    static Mutex mutex;
+};
+
+DictionarySP ZmqStatus::status_dict = Util::createDictionary(DT_STRING, nullptr, DT_ANY, nullptr);
+Mutex ZmqStatus::mutex;
 
 template<class T>
 static void connectionOnClose(Heap *heap, vector<ConstantSP> &args) {
@@ -193,7 +200,8 @@ ConstantSP zmqCreateSubJob(Heap *heap, vector<ConstantSP> &args) {
             Util::createSystemProcedure("zmq sub connection onClose()", connectionOnClose<SubConnection>, 1, 1));
     ConstantSP conn = Util::createResource((long long) cup.release(), "zmq subscribe connection", onClose,
                                            heap->currentSession());
-    status_dict->set(to_string(conn->getLong()), conn);
+    LockGuard<Mutex> lock(&ZmqStatus::mutex);
+    ZmqStatus::status_dict->set(to_string(conn->getLong()), conn);
     return conn;
 }
 
@@ -282,16 +290,17 @@ ConstantSP zmqClose(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP zmqGetSubJobStat(Heap *heap, vector<ConstantSP> &args) {
-    int size = status_dict->size();
+    LockGuard<Mutex> lock(&ZmqStatus::mutex);
+    int size = ZmqStatus::status_dict->size();
     VectorSP connetionVec = Util::createVector(DT_STRING, size);
     VectorSP subAddrVec = Util::createVector(DT_STRING, size);
     VectorSP prefixVec = Util::createVector(DT_STRING, size);
     VectorSP recv = Util::createVector(DT_LONG, size);
     VectorSP createTimestamp = Util::createVector(DT_TIMESTAMP, size);
-    VectorSP keys = status_dict->keys();
+    VectorSP keys = ZmqStatus::status_dict->keys();
     for (int i = 0; i < size; ++i) {
         string key = keys->getString(i);
-        ConstantSP conn = status_dict->getMember(key);
+        ConstantSP conn = ZmqStatus::status_dict->getMember(key);
         SubConnection *zmqSubCon = (SubConnection *) conn->getLong();
         SmartPointer<AppendTable> appendTable = zmqSubCon->getAppendTable();
         shared_ptr<ZmqSubSocket> subSocket = appendTable->getZmqSocket();
@@ -307,6 +316,7 @@ ConstantSP zmqGetSubJobStat(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP zmqCancelSubJob(Heap *heap, vector<ConstantSP> args) {
+    LockGuard<Mutex> lock(&ZmqStatus::mutex);
     std::string usage = "Usage: cancelSubJob(connection or connection ID). ";
     SubConnection *sc = nullptr;
     string key;
@@ -316,13 +326,13 @@ ConstantSP zmqCancelSubJob(Heap *heap, vector<ConstantSP> args) {
         case DT_RESOURCE:
             sc = (SubConnection *) (handle->getLong());
             key = std::to_string(handle->getLong());
-            conn = status_dict->getMember(key);
+            conn = ZmqStatus::status_dict->getMember(key);
             if (conn->isNothing())
                 throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
             break;
         case DT_STRING:
             key = handle->getString();
-            conn = status_dict->getMember(key);
+            conn = ZmqStatus::status_dict->getMember(key);
             if (conn->isNothing())
                 throw IllegalArgumentException(__FUNCTION__, "Invalid connection string.");
             else
@@ -330,7 +340,7 @@ ConstantSP zmqCancelSubJob(Heap *heap, vector<ConstantSP> args) {
             break;
         case DT_LONG:
             key = std::to_string(handle->getLong());
-            conn = status_dict->getMember(key);
+            conn = ZmqStatus::status_dict->getMember(key);
             if (conn->isNothing())
                 throw IllegalArgumentException(__FUNCTION__, "Invalid connection integer.");
             else
@@ -338,7 +348,7 @@ ConstantSP zmqCancelSubJob(Heap *heap, vector<ConstantSP> args) {
             break;
         case DT_INT:
             key = std::to_string(handle->getInt());
-            conn = status_dict->getMember(key);
+            conn = ZmqStatus::status_dict->getMember(key);
             if (conn->isNothing())
                 throw IllegalArgumentException(__FUNCTION__, "Invalid connection integer.");
             else
@@ -347,7 +357,7 @@ ConstantSP zmqCancelSubJob(Heap *heap, vector<ConstantSP> args) {
         default:
             throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
     }
-    bool bRemoved = status_dict->remove(new String(key));
+    bool bRemoved = ZmqStatus::status_dict->remove(new String(key));
     if (bRemoved && sc != nullptr) {
         sc->cancelThread();
         LOG_INFO("subscription: " + std::to_string(conn->getLong()) + " is stopped. ");

@@ -4,7 +4,7 @@ Apache Arrow defines a columnar memory format, which combines the benefits of co
 
 The version of Apache Arrow used in this document is *9.0.0*.
 
-The DolphinDB zip plugin has different branches, such as release200 and release130. Each branch corresponds to a DolphinDB server version. Please make sure you are in the correct branch of the plugin documentation.
+The DolphinDB zip plugin has different branches, such as release200. Each branch corresponds to a DolphinDB server version. Please make sure you are in the correct branch of the plugin documentation.
 
 ## 1. Install Plugin
 
@@ -15,7 +15,7 @@ The DolphinDB zip plugin has different branches, such as release200 and release1
 a. Compile the plugin development kit
 
 ```
-git clone <https://github.com/apache/arrow.git>
+git clone https://github.com/apache/arrow.git
 cd arrow/cpp
 mkdir build
 cd build

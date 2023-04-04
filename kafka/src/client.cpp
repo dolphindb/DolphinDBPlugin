@@ -5,6 +5,7 @@
 #include "client.h"
 
 // #include "CoderBase.h"
+#include <mutex>
 #include <utility>
 #include <iostream>
 
@@ -58,6 +59,7 @@ void AppendTable::run() {
                             INDEX insertedRows = table_insert->size();
                             string errMsg;
                             vector<ConstantSP> args = {table_insert};
+                            LockGuard<Mutex> _(result->getLock());
                             bool add = result->append(args, insertedRows, errMsg);
                             if (!add) {
                                 LOG_ERR(errMsg);

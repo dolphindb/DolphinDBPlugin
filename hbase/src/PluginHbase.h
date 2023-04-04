@@ -9,11 +9,6 @@
 #include "Hbase.h"
 #include <transport/TSocket.h>
 
-using namespace apache::thrift;
-using namespace apache::thrift::protocol;
-using namespace apache::thrift::transport;
-
-using namespace apache::hadoop::hbase::thrift;
 
 extern "C" ConstantSP hbaseConnect(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP showTables(Heap *heap, vector<ConstantSP> &args);
@@ -37,10 +32,11 @@ private:
     std::string host_;
     int port_;
     //std::shared_ptr<TTransport> socket_;
-    std::shared_ptr<TSocket> socket_;
-    std::shared_ptr<TTransport> transport_;
-    std::shared_ptr<TProtocol> protocol_;
-    std::shared_ptr<HbaseClient> client_;
+    std::shared_ptr<apache::thrift::transport::TSocket> socket_;
+    std::shared_ptr<apache::thrift::transport::TTransport> transport_;
+    std::shared_ptr<apache::thrift::protocol::TProtocol> protocol_;
+    std::shared_ptr<apache::hadoop::hbase::thrift::HbaseClient> client_;
 
+    Mutex mtx_;
 };
 #endif //PLUGINHBASE_PLUGINHBASE_H

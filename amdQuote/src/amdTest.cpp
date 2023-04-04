@@ -1,5 +1,9 @@
 #include "amdQuote.h"
+#include "amdQuoteImp.h"
+#include "amdSpiImp.h"
+#include <iostream>
 #include <string>
+
 long long convertToAMDTime(long long dolphinTime, int days){
     int year;
     int month;
@@ -46,6 +50,9 @@ unordered_map<string, AMDDataType> nameType = {
 
 
 extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments){
+    if(stopTest) {
+        return new Void();
+    }
     // LOG_ERR("[PluginAmdQuote::testAmdData]: use testAmdData to append data");
     if(arguments[0]->getType() != DT_STRING || arguments[0]->getForm() != DF_SCALAR)
         throw IllegalArgumentException(__FUNCTION__, "data type must be a string");
@@ -100,9 +107,14 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments){
     int marketIndex = data->getColumnIndex("market");
     int dayIndex = data->getColumnIndex("days");
     int timeIndex = data->getColumnIndex(timeColumnName);
-    AmdQuote::AMDSpiImp * amdSpi = AmdQuote::getInstance()->getAMDSpi();
+    AMDSpiImp * amdSpi = AmdQuote::getInstance()->getAMDSpi();
+    
+    long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
     if(amdDataType == AMD_SNAPSHOT || amdDataType == AMD_FUND_SNAPSHOT){
         for(int i = 0; i < cnt; ++i){
+            if(stopTest) {
+                return new Void();
+            }
             amd::ama::MDSnapshot* snapshot = new amd::ama::MDSnapshot[rows];
             Defer df([=](){delete[] snapshot;});
             int index = 0;
@@ -119,10 +131,13 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments){
                 index++;
                 resultSet.next();
             }
-            amdSpi->pushSnashotDadata(snapshot, rows);
+            amdSpi->pushSnashotData(snapshot, rows, time);
         }
     }else if(amdDataType == AMD_EXECUTION || amdDataType == AMD_FUND_EXECUTION){
         for(int i = 0; i < cnt; ++i){
+            if(stopTest) {
+                return new Void();
+            }
             amd::ama::MDTickExecution* snapshot = new amd::ama::MDTickExecution[rows];
             Defer df([=](){delete[] snapshot;});
             int index = 0;
@@ -133,14 +148,18 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments){
                 snapshot[index].variety_category = amdDataType == AMD_EXECUTION ? 1 : 2;
                 snapshot[index].exec_time = convertToAMDTime(resultSet.getLong(timeIndex), resultSet.getInt(dayIndex));
                 snapshot[index].security_code[0] = '\0';
+                snapshot[index].security_code[1] = '\0';
                 snapshot[index].md_stream_id[0] = '\0';
                 index++;
                 resultSet.next();
             }
-            amdSpi->pushExecutionData(snapshot, rows);
+            amdSpi->pushExecutionData(snapshot, rows, time);
         }
     }else if(amdDataType == AMD_ORDER || amdDataType == AMD_FUND_ORDER){
         for(int i = 0; i < cnt; ++i){
+            if(stopTest) {
+                return new Void();
+            }
             amd::ama::MDTickOrder* snapshot = new amd::ama::MDTickOrder[rows];
             Defer df([=](){delete[] snapshot;});
             int index = 0;
@@ -151,14 +170,18 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments){
                 snapshot[index].variety_category = amdDataType == AMD_ORDER ? 1 : 2;
                 snapshot[index].order_time = convertToAMDTime(resultSet.getLong(timeIndex), resultSet.getInt(dayIndex));
                 snapshot[index].security_code[0] = '\0';
+                snapshot[index].security_code[1] = '\0';
                 snapshot[index].md_stream_id[0] = '\0';
                 index++;
                 resultSet.next();
             }
-            amdSpi->pushOrderDadata(snapshot, rows);
+            amdSpi->pushOrderData(snapshot, rows, time);
         }
     }else if(amdDataType == AMD_BOND_SNAPSHOT){
         for(int i = 0; i < cnt; ++i){
+            if(stopTest) {
+                return new Void();
+            }
             amd::ama::MDBondSnapshot* snapshot = new amd::ama::MDBondSnapshot[rows];
             Defer df([=](){delete[] snapshot;});
             int index = 0;
@@ -175,10 +198,13 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments){
                 index++;
                 resultSet.next();
             }
-            amdSpi->pushBondSnapshotData(snapshot, rows);
+            amdSpi->pushBondSnapshotData(snapshot, rows, time);
         }
     }else if(amdDataType == AMD_BOND_EXECUTION){
         for(int i = 0; i < cnt; ++i){
+            if(stopTest) {
+                return new Void();
+            }
             amd::ama::MDBondTickExecution* snapshot = new amd::ama::MDBondTickExecution[rows];
             Defer df([=](){delete[] snapshot;});
             int index = 0;
@@ -193,10 +219,13 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments){
                 index++;
                 resultSet.next();
             }
-            amdSpi->pushBondExecutionData(snapshot, rows);
+            amdSpi->pushBondExecutionData(snapshot, rows, time);
         }
     }else if(amdDataType == AMD_BOND_ORDER){
         for(int i = 0; i < cnt; ++i){
+            if(stopTest) {
+                return new Void();
+            }
             amd::ama::MDBondTickOrder* snapshot = new amd::ama::MDBondTickOrder[rows];
             Defer df([=](){delete[] snapshot;});
             int index = 0;
@@ -211,10 +240,13 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments){
                 index++;
                 resultSet.next();
             }
-            amdSpi->pushBondOrderData(snapshot, rows);
+            amdSpi->pushBondOrderData(snapshot, rows, time);
         }
     }else if(amdDataType == AMD_INDEX){
         for(int i = 0; i < cnt; ++i){
+            if(stopTest) {
+                return new Void();
+            }
             amd::ama::MDIndexSnapshot* snapshot = new amd::ama::MDIndexSnapshot[rows];
             Defer df([=](){delete[] snapshot;});
             int index = 0;
@@ -229,10 +261,13 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments){
                 index++;
                 resultSet.next();
             }
-            amdSpi->pushIndexData(snapshot, rows);
+            amdSpi->pushIndexData(snapshot, rows, time);
         }
     }else if(amdDataType == AMD_ORDER_QUEUE){
         for(int i = 0; i < cnt; ++i){
+            if(stopTest) {
+                return new Void();
+            }
             amd::ama::MDOrderQueue* snapshot = new amd::ama::MDOrderQueue[rows]; 
             Defer df([=](){delete[] snapshot;});
             int index = 0;
@@ -247,7 +282,7 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments){
                 index++;
                 resultSet.next();
             }
-            amdSpi->pushOrderQueueData(snapshot, rows);
+            amdSpi->pushOrderQueueData(snapshot, rows, time);
         }
     }
     return new Void();

@@ -12,9 +12,7 @@
 
 using namespace apache::thrift;
 using namespace apache::thrift::protocol;
-using namespace apache::thrift::transport;
 using namespace apache::hadoop::hbase::thrift;
-
 typedef std::vector<std::string> StrVec;
 typedef std::map<std::string,TCell> CellMap;
 
@@ -596,6 +594,7 @@ ConstantSP deleteTable(Heap *heap, vector<ConstantSP> &args){
 }
 
 HbaseConnect::HbaseConnect(const string &hostname, const int port, bool isFramed, int timeout):host_(hostname), port_(port){
+    using namespace apache::thrift::transport;
     socket_ = std::make_shared<TSocket>(hostname, port);
     socket_->setConnTimeout(timeout);
     if (isFramed) {
@@ -613,6 +612,7 @@ HbaseConnect::HbaseConnect(const string &hostname, const int port, bool isFramed
 }
 
 ConstantSP HbaseConnect::showTables() {
+    LockGuard<Mutex> lk(&mtx_);
     StrVec tables;
     try{
         client_->getTableNames(tables);
@@ -625,6 +625,7 @@ ConstantSP HbaseConnect::showTables() {
 }
 
 ConstantSP HbaseConnect::load(const std::string &tableName) {
+    LockGuard<Mutex> lk(&mtx_);
     bool found = false;
     StrVec tables;
     try{
@@ -702,6 +703,7 @@ ConstantSP HbaseConnect::load(const std::string &tableName) {
 }
 
 ConstantSP HbaseConnect::load(const std::string &tableName, TableSP schema) {
+    LockGuard<Mutex> lk(&mtx_);
     bool found = false;
     VectorSP vecName=schema->getColumn("name");
     if(vecName==nullptr){
@@ -1026,6 +1028,7 @@ ConstantSP HbaseConnect::load(const std::string &tableName, TableSP schema) {
 }
 
 ConstantSP HbaseConnect::getRow(const std::string &tableName, const std::string &rowKey) {
+    LockGuard<Mutex> lk(&mtx_);
     bool found = false;
     try{
         StrVec tables;
@@ -1058,6 +1061,7 @@ ConstantSP HbaseConnect::getRow(const std::string &tableName, const std::string 
 
 ConstantSP HbaseConnect::getRow(const std::string &tableName, const std::string &rowKey,
                                 const std::vector<std::string>& columnNames) {
+    LockGuard<Mutex> lk(&mtx_);
     bool found = false;
     try{
         StrVec tables;
@@ -1089,6 +1093,7 @@ ConstantSP HbaseConnect::getRow(const std::string &tableName, const std::string 
 }
 
 void HbaseConnect::deleteTable(const std::string &tableName) {
+    LockGuard<Mutex> lk(&mtx_);
     bool found = false;
     try{
         StrVec tables;
@@ -1112,6 +1117,7 @@ void HbaseConnect::deleteTable(const std::string &tableName) {
 }
 
 void HbaseConnect::close() {
+    LockGuard<Mutex> lk(&mtx_);
     try{
         transport_->close();
         socket_->close();

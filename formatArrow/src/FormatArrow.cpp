@@ -21,14 +21,10 @@ typedef std::map<int, std::map<int, ConstantUnmarshalSP>> UnmarshalMap;
 
 ConstantSP getSupportedFormats(Heap *heap, vector<ConstantSP> &args) {
     int len = 1;
-    int *marshalVec = new int[len];
-    marshalVec[0] = FORMAT_ARROW;           // 010
-
-    int *unmarshalVec = new int[len];
-    unmarshalVec[0] = INT_MIN;              // 010
-
-    VectorSP marshalCol     = Util::createVector(DT_INT, len, len, true, 0, marshalVec, 0, 0, true);
-    VectorSP unmarshalCol   = Util::createVector(DT_INT, len, len, true, 0, unmarshalVec, 0, 0, true);
+    VectorSP marshalCol     = Util::createVector(DT_INT, len, len);
+    marshalCol->setInt(0, FORMAT_ARROW);        // 010
+    VectorSP unmarshalCol   = Util::createVector(DT_INT, len, len);
+    unmarshalCol->setInt(0, INT_MIN);           // 010
     
     TableSP supportTable    = Util::createTable({"marshal", "unmarshal"}, {marshalCol, unmarshalCol});
     return supportTable;

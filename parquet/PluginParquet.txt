@@ -1,4 +1,4 @@
-parquet,libPluginParquet.so,2.00.9.1.1
+parquet,libPluginParquet.so,2.00.9.3.1
 extractParquetSchema,extractParquetSchema,operator,1,1,0
 loadParquet,loadParquet,system,1,5,0
 loadParquetHdfs,loadParquetHdfs,system,2,2,0

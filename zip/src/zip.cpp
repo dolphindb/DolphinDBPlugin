@@ -1,7 +1,7 @@
 #include "zip.h"
 #include "Util.h"
 
-void unzipFile(const string& zipFilename, const string& outputDir, Heap* heap, FunctionDefSP function);
+static ConstantSP unzipFile(const string& zipFilename, const string& outputDir, Heap* heap, FunctionDefSP function);
 
 ConstantSP unzip(Heap* heap, vector<ConstantSP>& args) {
     // 获取压缩文件的路径，需要是绝对路径
@@ -48,40 +48,43 @@ ConstantSP unzip(Heap* heap, vector<ConstantSP>& args) {
     }
     
     // 实际进行解压的函数
-    unzipFile(zipFilename, outputDir, heap, function);
-
     // 返回所有解压文件的名字
-    const char *zipFile = zipFilename.c_str();
-    unzFile uf = unzOpen64(zipFile);
-
-    vector<string> filenames;
-    (void)getFilenames(uf, filenames);
-
-    int size = (int)filenames.size();
-    ConstantSP ret = Util::createVector(DT_STRING, size, size);
-    for (int i = 0; i < size; i++) {
-        ret->setString(i, outputDir + filenames[i]);
-    }
-
-    return ret;
+    return unzipFile(zipFilename, outputDir, heap, function);
 }
-
-void unzipFile(const string& zipFilename, const string& outputDir, Heap* heap, FunctionDefSP function) {
-    unzFile uf = NULL;
-    int retValue = 0;
+namespace unzHelper{
+    class unzFileWrapper{
+        public:
+        unzFile uf;
+        unzFileWrapper(): uf(nullptr){}
+        ~unzFileWrapper(){
+            if(uf != nullptr){
+                unzClose(uf);
+            }
+        }
+    };
+}
+ConstantSP unzipFile(const string& zipFilename, const string& outputDir, Heap* heap, FunctionDefSP function) {
     const char *zipFile = zipFilename.c_str();
-
-    uf = unzOpen64(zipFile);
-    if (uf == NULL)
+    unzHelper::unzFileWrapper wrapper;
+    wrapper.uf = unzOpen64(zipFile);
+    if (wrapper.uf == NULL)
     {
         throw RuntimeException("Cannot open file " + zipFilename);
     }
 
-    if(access(outputDir.c_str(), 2) != 0)
+    if(access(outputDir.c_str(), 2) != 0){
         throw RuntimeException("Cannot open file " + outputDir);
-    retValue = do_extract(uf, 0, 1, nullptr, outputDir, heap, function);
+    }
+    std::vector<string> filenames;
 
-    unzClose(uf);
 
-    (void)retValue;
+    do_extract(wrapper.uf, 0, 1, nullptr, outputDir, heap, function);
+    unzGoToFirstFile(wrapper.uf);
+    getFilenames(wrapper.uf, filenames);
+    size_t size = filenames.size();
+    ConstantSP ret = Util::createVector(DT_STRING, size, size);
+    for (size_t i = 0; i < size; i++) {
+        ret->setString(i, outputDir + filenames[i]);
+    }
+    return ret;
 }

@@ -1,5 +1,0 @@
-mat,libPluginMat.so,2.00.9.1.1
-extractMatSchema,extractMatSchema,system,1,1,0
-loadMat,loadMat,system,1,2,0
-convertToDatetime,convertToDatetime,system,1,1,0
-writeMat,writeMat,system,3,3,0
