@@ -1,14 +1,14 @@
-# DolphinDB Matching Engine
+# DolphinDB Matching Engine 使用说明
 
-## Build
+## 编译插件
 
-Build plugin
+1. 执行以下命令完成插件编译：
 ```
 cmake . -DCMAKE_BUILD_TYPE=Release -DDOLPHINDB_LIB_DIR=/path/to/the/libDolphinDB.so -DDOLPHINDB_INC_DIR=/path/to/the/include
 make && make install
 ```
 
-Run test (gtest is required)
+2. 测试验证（必须已安装 libgtest-dev）。
 
 ```
 sudo apt-get install libgtest-dev #install gtest if not installed
@@ -29,12 +29,13 @@ make
 ./MatchingEngine
 ```
 
-## Example
+## 例子
 
-DolphinDB script
+使用该插件的例子脚本如下：
+
 ```
 /*
- * load matching engine plugin
+ * load matching engine plugin 
  */
 loadPlugin("/path/to/the/PluginMatchingEngine.txt")
 
