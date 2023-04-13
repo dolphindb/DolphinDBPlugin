@@ -1,6 +1,10 @@
 # DolphinDB zmq Plugin
 
-zmq插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/zmq/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/zmq/README.md), [release120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/zmq/README.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
+ZeroMQ（zmq）是一个可伸缩的分布式或并发应用程序设计的高性能异步消息库。它提供了一个消息队列库，但与面向消息的中间件不同，zmq 可以在没有专门的消息代理的情况下运行；该库名字中的 Zero 意为零代理。详情可参考：[ZeroMQ](https://zeromq.org/)。
+
+通过 DolphinDB 的 zmq 插件，用户可以创建 zmq socket，完成 zmq 消息通信的常见操作，包含通过请求应答机制的会话建立、发布、订阅以及消息的管道传输。
+
+ZMQ 插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/zmq/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/zmq/README.md), [release120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/zmq/README.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
 
 ## 1. 安装构建
 
