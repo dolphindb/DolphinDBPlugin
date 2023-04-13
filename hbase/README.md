@@ -1,4 +1,4 @@
-DolphinDB HBase Plugin
+# DolphinDB HBase Plugin
 
 本插件通过 Thrift 接口连接到 HBase，并读取数据。推荐版本：HBase 版本为 1.2.0，Thrift 版本为 0.14.0。
 
@@ -91,7 +91,7 @@ hbase::connect(host, port, [isFramed])
 conn = hbase::connect("192.168.1.114", 9090)
 ```
 
-**注意**：如果该连接长时间（默认为 1min）没有操作，HBase 会自动关闭这个连接。此时再通过该连接进行后续操作时，会报 `No more data to read` 的错误，需要执行 `hbase::connect` 重新进行连接。通过 HBase 的配置文件（conf/hbase-site.xml）可修改超时时间。若添加如下配置，则表示一天没有操作时将自动关闭连接：
+**注意**：如果该连接长时间（默认为 1min）没有操作，HBase 会自动关闭这个连接。此时再通过该连接进行后续操作时，会报 `No more data to read` 的错误，需要执行 `hbase::connect` 重新进行连接。通过 HBase 的配置文件（*conf/hbase-site.xml*）可修改超时时间。若添加如下配置，则表示一天没有操作时将自动关闭连接：
 
 修改 `hbase.thrift.server.socket.read.timeout` 和 `hbase.thrift.connection.max-idletime`
 
