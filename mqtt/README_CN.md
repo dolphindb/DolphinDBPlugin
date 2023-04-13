@@ -1,3 +1,5 @@
+# MQTT 插件使用说明
+
 mqtt插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/mqtt/README_CN.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/mqtt/README_CN.md), [relsease120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/mqtt/README_CN.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/mqtt/README_CN.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
 
 ## 1. 编译
@@ -22,9 +24,9 @@ cmake ..
 make
 ```
 
-### 1.2 windows上编译
+### 1.2 Windows上编译
 
-通过cmake和MinGW编译。因此需要先安装[cmake](https://cmake.org/)和[MinGW](http://www.mingw.org/)环境，目前在64位win10上用MinGW-W64-builds-4.3.3版本编译通过。把MinGW和cmake的bin目录加入Windows系统Path路径。 
+通过cmake和MinGW编译。因此需要先安装[cmake](https://cmake.org/)和[MinGW](http://www.mingw.org/)环境，目前在64位Windows 10上用MinGW-W64-builds-4.3.3版本编译通过。把MinGW和cmake的bin目录加入Windows系统Path路径。 
 
 ```
     git clone https://github.com/dolphindb/DolphinDBPlugin.git
