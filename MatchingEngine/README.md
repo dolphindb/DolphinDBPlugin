@@ -1,5 +1,9 @@
 # DolphinDB Matching Engine 使用说明
 
+## 简述
+
+DolphinDB Matching Engine 用于为股票市场、商品市场或其他金融交易所匹配和执行买入和卖出订单。
+
 ## 编译插件
 
 1. 执行以下命令完成插件编译：
