@@ -1,5 +1,9 @@
 # ZeroMQ Plugin for DolphinDB
 
+[ZeroMQ](https://zeromq.org/) (also known zmq) is an asynchronous messaging library, aimed at use in distributed or concurrent applications.
+
+Through the DolphinDB ZeroMQ plugin, users can create zmq sockets and communicate via zmq messages, which includes session establishment, message publish-subscribe and transmission.
+
 The DolphinDB ZeroMQ plugin has the branches [release 200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/zmq/README_EN.md) and [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/zmq/README_EN.md). Each plugin version corresponds to a DolphinDB server version. If you use a different DolphinDB server version, refer to the corresponding branch of the plugin documentation.
 
 - [ZeroMQ Plugin for DolphinDB](#zeromq-plugin-for-dolphindb)
@@ -88,7 +92,7 @@ zmq::socket(type, formatter, [batchSize], [prefix])
 **Parameters**
 
 - type: a STRING scalar indicating the socket type to be created. It can be “ZMQ_PUB” and “ZMQ_PUSH”.
-- formatter: a function used to package published data in a specified format. Currently it supports methods `createJsonFormatter` and `createCsvFormatter`.
+- formatter: a function used to package published data in a specified format. Currently it supports methods `createJsonFormatter` and `createCsvFormatter`. Alternatively, you can define a formatter function which takes data of method `zmq::send` as the argument.
 - batchSize: an integer indicating the number of messages sent each time. For a table to be published, it can be sent in batches.
 - prefix: a STRING scalar indicating the message prefix.
 
@@ -162,7 +166,7 @@ zmq::send(socket, data, [prefix])
 **Parameters**
 
 - socket: a zmq socket.
-- data: a table to be sent.
+- data: the data to be sent. Its data type must match the argument passing to formatter of method `zmq::socket`. Otherwise, the formatting will fail and an exception will be thrown.
 - prefix: a STRING scalar indicating the message prefix.
 
 **Details**
@@ -215,7 +219,7 @@ Create a zmq subscription. The subscription will automatically reconnect after n
 - type: a STRING indicating the socket type to be created. It can be “ZMQ_SUB” and “ZMQ_PULL”.
 - isConnnect: a Boolean value indicating whether to connect to *addr*. If false the *addr* is binded.
 - handle: a function or a table used to handle messages sent from zmq.
-- parser: is a function for parsing subscribed messages. Currently supported functions are `createJsonParser` and `createCsvParser`.
+- parser: is a function for parsing subscribed messages. Currently supported functions are `createJsonParser` and `createCsvParser`. It takes a STRING scalar as input and outputs a table.
 - prefix: a STRING indicating the message prefix.
 
 **Example**
