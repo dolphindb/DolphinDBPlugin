@@ -1,5 +1,9 @@
 # ZeroMQ Plugin for DolphinDB
 
+[ZeroMQ](https://zeromq.org/) (also known zmq) is an asynchronous messaging library, aimed at use in distributed or concurrent applications.
+
+Through the DolphinDB ZeroMQ plugin, users can create zmq sockets and communicate via zmq messages, which includes session establishment, message publish-subscribe and transmission.
+
 The DolphinDB ZeroMQ plugin has the branches [release 200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/zmq/README_EN.md) and [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/zmq/README_EN.md). Each plugin version corresponds to a DolphinDB server version. If you use a different DolphinDB server version, refer to the corresponding branch of the plugin documentation.
 
 - [ZeroMQ Plugin for DolphinDB](#zeromq-plugin-for-dolphindb)
