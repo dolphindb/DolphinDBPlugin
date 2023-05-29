@@ -1,3 +1,7 @@
+# mqtt 插件使用说明
+
+DolphinDB 的 mqtt 插件可用于向 MQTT 服务器发布或订阅消息。
+
 - [1. 编译](#1-编译)
   - [1.1 Linux上编译](#11-linux上编译)
   - [1.2 windows上编译](#12-windows上编译)
