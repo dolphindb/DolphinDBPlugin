@@ -1,4 +1,6 @@
-OPC DA插件实现了OPC DA 2.05A版本规范，可用于访问并采集OPC服务器的数据。
+# OPC 插件使用说明
+
+DolphinDB 的 OPC 插件可用于访问并采集自动化行业 OPC 服务器的数据。OPC DA插件实现了OPC DA 2.05A版本规范。
 
 ## 1. 安装
 
