@@ -75,7 +75,7 @@ libPluginAmdQuote.so 文件会在编译后生成。编译后 build 目录下会�
 `handle` connect 接口返回的句柄。
 
 `type` 字符串标量，表示行情的类型，可取以下值：'snapshot'（股票快照）, 'execution'（股票逐笔成交）, 'order'（股票逐笔委托）, 'index'（指数）, 'orderQueue'（委托队列）, 'fundSnapshot'（基金快照）, 'fundExecution'（基金逐笔成交），'fundOrder'（基金逐笔委托），'bondSnapshot'（债券快照），'bondOrder'（债券逐笔委托），'bondExecution'（债券逐笔成交），'orderExecution'（股票逐笔委托、逐笔成交合并），'fundOrderExecution'（基金逐笔委托、逐笔成交合并），'bondOrderExecution'（债券逐笔委托、逐笔成交合并）。
-注意，最后三种 type 获取的行情数据中。第一列 `HTSCSecurityID 会在末尾加上'.SZ' 或者 '.SH'
+注意，最后三种 type 获取的行情数据中。第一列 `SecurityID 会在末尾加上'.SZ' 或者 '.SH'
 
 `streamTable` 表示一个共享流表的表对象。订阅前需要创建一个共享流表，且该流表的 schema 需要和获取的行情数据结构一致。可以通过插件提供的 getSchema 函数来获取行情数据的 schema。
 注意，如果type类型是合并类型 'bondExecution'，'orderExecution'，'fundOrderExecution'。该参数需要传入一个字典。字典的key为整型标量，指代特定的channel，需要大于0。字典的value为共享流表。流表的 schema 需要和获取的行情数据结构一致。
