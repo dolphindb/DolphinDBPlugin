@@ -11,11 +11,20 @@
 #include <atomic>
 #include <type_traits>
 
+#if defined(__GNUC__) && __GNUC__ >= 4
+#define LIKELY(x) (__builtin_expect((x), 1))
+#define UNLIKELY(x) (__builtin_expect((x), 0))
+#else
+#define LIKELY(x) (x)
+#define UNLIKELY(x) (x)
+#endif
+
 class Counter {
 public:
 	Counter(void* p): p_(p), count_(0){}
-	int addRef(){ return atomic_fetch_add(&count_,1)+1;} //atomic operation
-	int release(){return atomic_fetch_sub(&count_,1)-1;} //atomic operation
+	// reference: https://github.com/llvm/llvm-project/blob/release/15.x/libcxx/include/__memory/shared_ptr.h#L105
+	int addRef(){ return atomic_fetch_add_explicit(&count_,1,std::memory_order_relaxed)+1;} //atomic operation
+	int release(){return atomic_fetch_sub_explicit(&count_,1,std::memory_order_acq_rel)-1;} //atomic operation
 	int getCount() const {return count_.load();}
 	void* p_;
 
@@ -27,23 +36,30 @@ private:
 template <class T>
 class SmartPointer {
 public:
-	SmartPointer(T* p=0): counterP_(new Counter(p)){
+	SmartPointer(T* p=0): counterP_(nullptr){
+		if (UNLIKELY(p == nullptr)) return;
+		counterP_ = new Counter(p);
 		counterP_->addRef();
 	}
 
 	SmartPointer(T* p, Counter* counter): counterP_(counter){
-		if (counterP_ == nullptr) {
+		if (UNLIKELY(counterP_ == nullptr)) {
 			counterP_ = new Counter(p);
 		}
 		counterP_->addRef();
 	}
 
 	Counter* getCounter() {
+		if (UNLIKELY(counterP_ == nullptr)) {
+			counterP_ = new Counter(nullptr);
+			counterP_->addRef();
+		}
 		return counterP_;
 	}
 
 	SmartPointer(const SmartPointer<T>& sp){
 		counterP_=sp.counterP_;
+		if (UNLIKELY(counterP_ == nullptr)) return;
 		counterP_->addRef();
 	}
 
@@ -51,14 +67,17 @@ public:
 	SmartPointer(const SmartPointer<U>& sp){
 		static_assert(std::is_convertible<U*, T*>::value || std::is_base_of<U, T>::value, "U must be implicitly convertible to T or T must be a subclass of U");
 		counterP_=sp.counterP_;
+		if (UNLIKELY(counterP_ == nullptr)) return;
 		counterP_->addRef();
 	}
 
 	T& operator *() const{
+		if (UNLIKELY(counterP_ == nullptr)) return *((T*)nullptr);
 		return *((T*)counterP_->p_);
 	}
 
 	T* operator ->() const{
+		if (UNLIKELY(counterP_ == nullptr)) return nullptr;
 		return (T*)counterP_->p_;
 	}
 
@@ -67,17 +86,22 @@ public:
 			return *((T*)counterP_->p_);
 
 		Counter* tmp = sp.counterP_;
+		if (UNLIKELY(counterP_ == nullptr && tmp == nullptr))
+			return *((T*)nullptr);
 		if(counterP_ == tmp)
 			return *((T*)tmp->p_);
-		tmp->addRef();
+		if (LIKELY(tmp != nullptr))
+			tmp->addRef();
 
 		Counter* oldCounter = counterP_;
 		counterP_= tmp;
 
-		if(oldCounter->release()==0){
+		if(LIKELY(oldCounter != nullptr) && oldCounter->release()==0){
 			delete (T*)oldCounter->p_;
 			delete oldCounter;
 		}
+		if (UNLIKELY(tmp == nullptr))
+			return *((T*)nullptr);
 		return *((T*)tmp->p_);
 	}
 
@@ -90,32 +114,30 @@ public:
 	}
 
 	void clear(){
-		Counter* tmp = new Counter(0);
-		tmp->addRef();
-
 		Counter* oldCounter = counterP_;
-		counterP_= tmp;
-
-		if(oldCounter->release()==0){
+		if(LIKELY(oldCounter != nullptr) && oldCounter->release()==0){
 			delete (T*)oldCounter->p_;
 			delete oldCounter;
 		}
+		counterP_ = nullptr;
 	}
 
 	bool isNull() const{
-		return counterP_->p_ == 0;
+		return counterP_ == nullptr || counterP_->p_ == nullptr;
 	}
 
 	int count() const{
+		if (counterP_ == nullptr) return 0;
 		return counterP_->getCount();
 	}
 
 	T* get() const{
+		if (UNLIKELY(counterP_ == nullptr)) return nullptr;
 		return (T*)counterP_->p_;
 	}
 
 	~SmartPointer(){
-		if(counterP_->release()==0){
+		if(LIKELY(counterP_ != nullptr) && counterP_->release()==0){
 			delete static_cast<T*>(counterP_->p_);
 			delete counterP_;
 			counterP_=0;
@@ -123,10 +145,10 @@ public:
 	}
 
     T& operator =(T* p){
-        if(p == counterP_->p_)
+        if(LIKELY(counterP_ != nullptr) && p == counterP_->p_)
             return *p;
 
-        if(counterP_->release()==0) {
+        if(LIKELY(counterP_ != nullptr) && counterP_->release()==0) {
             delete static_cast<T *>(counterP_->p_);
             counterP_->p_ = p;
             counterP_->addRef();

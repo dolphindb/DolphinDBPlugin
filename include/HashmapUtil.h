@@ -508,21 +508,15 @@ public:
 
 	// Ask for a record
 	hprecord<T>* acquire() noexcept {
-		hprecord<T>*      cur = reinterpret_cast<hprecord<T>*>(mine);;
-		if (cur != 0 && cur->manager == this) {
-			if (cur->try_acquire()) return cur;
-		}
-		cur = head.load();
+		hprecord<T>* cur = head.load();
 		for (; cur; cur = cur->next) {
 			if (!cur->try_acquire()) continue;
-			mine = cur;
 			return cur;
 		}
 		H.fetch_add(1);
 		void * ptr = mySmallAlloc(sizeof(hprecord<T>));
 		cur = new(ptr) hprecord<T>(this);
 		cur->try_acquire();
-		mine = cur;
 		hprecord<T>      *oldhead = head.load();
 		do
 			cur->next = oldhead;

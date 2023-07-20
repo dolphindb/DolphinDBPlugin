@@ -197,11 +197,11 @@ public:
 		throw RuntimeException("lowerBound method not supported for AnyVector");
 	}
 	virtual bool rank(bool sorted, INDEX* indices, INDEX* ranking){return false;}
-	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc){	return false;}
-	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict) const { return false;}
-	virtual bool sort(bool asc){return false;}
-	virtual bool sort(bool asc, Vector* indices){ return false;}
-	virtual INDEX sortTop(bool asc, Vector* indices, INDEX top){ return -1;}
+	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc, char nullsOrder){	return false;}
+	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict, char nullsOrder) const { return false;}
+	virtual bool sort(bool asc, char nullsOrder){return false;}
+	virtual bool sort(bool asc, Vector* indices, char nullsOrder){ return false;}
+	virtual INDEX sortTop(bool asc, Vector* indices, INDEX top, char nullsOrder){ return -1;}
 	virtual long long getAllocatedMemory();
 	void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
 	bool isHomogeneousScalar(DATA_TYPE& type) const;
@@ -219,6 +219,7 @@ public:
 		return memSize;
 	}
 	const ConstantSP& getConstant(INDEX index) const { return data_[index];}
+	ConstantSP flatten(INDEX rowStart, INDEX count) const;
 
 private:
 	mutable deque<ConstantSP> data_;
@@ -1553,7 +1554,7 @@ public:
 		throw RuntimeException("Immutable sub vector doesn't support method serialize");
 	}
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const {throw RuntimeException("Immutable sub vector doesn't support method serialize");}
-	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict) const {
+	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict, char nullsOrder = 0) const {
 		auto range = calculateOverlappedRange(start + offset_, length);
 		return source_->isSorted(range.first, range.second, asc, strict);
 	}
@@ -1563,12 +1564,12 @@ public:
 			((Vector*)result.get())->addIndex(0, result->size(), -offset_);
 		return result;
 	}
-	virtual bool sort(bool asc) {throw RuntimeException("Immutable sub vector doesn't support method sort");}
-	virtual bool sort(bool asc, Vector* indices) {throw RuntimeException("Immutable sub vector doesn't support method sort");}
-	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc) {
+	virtual bool sort(bool asc, char nullsOrder = 0) {throw RuntimeException("Immutable sub vector doesn't support method sort");}
+	virtual bool sort(bool asc, Vector* indices, char nullsOrder = 0) {throw RuntimeException("Immutable sub vector doesn't support method sort");}
+	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc, char nullsOrder = 0) {
 		if(!indices->add(start, length, (long long)offset_))
 			return false;
-		if(!source_->sortSelectedIndices(indices, start, length, asc))
+		if(!source_->sortSelectedIndices(indices, start, length, asc, nullsOrder))
 			return false;
 		return indices->add(start, length, (long long)-offset_);
 	}

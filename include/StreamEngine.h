@@ -143,7 +143,7 @@ public:
     int getColumnIndex(const string& name) const override;
     bool contain(const string& name) const override;
     bool contain(const string& qualifier, const string& name) const override;
-    bool contain(ColumnRef* col) const override;
+    bool contain(const ColumnRef* col) const override;
     bool contain(const ColumnRefSP& col) const override;
     bool containAll(const vector<ColumnRefSP>& cols) const override;
     ConstantSP getColumnLabel() const override;

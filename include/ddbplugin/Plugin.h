@@ -11,6 +11,7 @@
 #include "Concurrent.h"
 #include "CoreConcept.h"
 #include "Exceptions.h"
+#include "Logger.h"
 #include <functional>
 #include <cassert>
 
@@ -207,14 +208,21 @@ private:
 };
 
 class Executor : public Runnable {
-	using Func = std::function<void()>;
+    using Func = std::function<void()>;
 
 public:
-	explicit Executor(Func f) : func_(std::move(f)) {};
-	void run() override { func_(); };
+    explicit Executor(Func f) : func_(std::move(f)) {};
+    void run() override {
+        try{
+            func_();
+        }
+        catch(...){
+            LOG_ERR("an uncaught exception was found");
+        }
+    };
 
 private:
-	Func func_;
+    Func func_;
 };
 
 class PUtil {

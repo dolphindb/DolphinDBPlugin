@@ -37,6 +37,7 @@ public:
 	virtual char getChar() const {return CHAR_MIN;}
 	virtual short getShort() const {return SHRT_MIN;}
 	virtual int getInt() const {return INT_MIN;}
+	virtual INDEX getIndex() const {return INDEX_MIN;}
 	virtual long long  getLong() const {return LLONG_MIN;}
 	virtual float getFloat() const {return FLT_NMIN;}
 	virtual double getDouble() const {return DBL_NMIN;}
@@ -143,6 +144,7 @@ public:
 	}
 	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
 	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
+	virtual bool assign(const ConstantSP& value);
 	static string toString(const unsigned char* data);
 	static Int128* parseInt128(const char* str, int len);
 	static bool parseInt128(const char* str, size_t len, unsigned char* buf);
@@ -358,6 +360,7 @@ public:
 		return val_.compare(target->getString());
 	}
 	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getStringRef(valueIndex);return true;}
+	virtual bool assign(const ConstantSP& value);
 
 protected:
 	inline DATA_TYPE internalType() const { return blob_ ? DT_BLOB : DT_STRING;}
@@ -750,6 +753,19 @@ public:
 		}
 	}
 
+    virtual bool assign(const ConstantSP &value) {
+        if (value->isNull(0)) {
+            setNull();
+            return true;
+        } else if (getCategory() == FLOATING) {
+            val_ = (T)value->getDouble();
+            return true;
+        } else {
+            val_ = (T)value->getLong();
+            return true;
+        }
+    }
+
 protected:
 	T val_;
 };
@@ -784,6 +800,7 @@ public:
 			return "0";
 	}
 	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getBool(valueIndex);return true;}
+	virtual bool assign(const ConstantSP& value);
 };
 
 class Char: public AbstractScalar<char>{

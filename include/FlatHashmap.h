@@ -1870,6 +1870,10 @@ public:
         return impl->find(key, recv);
     }
 
+    inline bool findPointer(const key_type& key, mapped_type** recvPtr) {
+        return impl->findPointer(key, recvPtr);
+    }
+
     bool insert(const key_type & key, const mapped_type & value) {
         int ret = impl->insert(key, value);
         if (ret == INSERT_GOOD)
