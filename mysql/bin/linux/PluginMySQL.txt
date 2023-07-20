@@ -1,4 +1,4 @@
-mysql,libPluginMySQL.so,2.00.9.3.1
+mysql,libPluginMySQL.so,2.00.10
 mysqlConnect,connect,system,5,5,0
 mysqlLoad,load,system,2,6,0
 mysqlLoadEx,loadEx,system,5,9,0
