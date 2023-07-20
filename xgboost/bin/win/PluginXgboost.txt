@@ -1,0 +1,5 @@
+xgboost,libPluginXgboost.dll,2.00.10
+train,train,system,2,5,0
+predict,predict,system,2,7,0
+saveModel,saveModel,operator,2,2,0
+loadModel,loadModel,system,1,1,0
