@@ -1,4 +1,4 @@
-svm,libPluginSVM.so,1.30.21.3.1
+svm,libPluginSVM.so,1.30.22
 fit,fit,system,2,3,0
 predict,predict,system,2,2,0
 score,score,system,3,3,0
