@@ -123,6 +123,26 @@ public:
 	virtual char** getStringConst(INDEX start, int len, char** buf) const {
 		throw RuntimeException("getStringConst method not supported for AnyVector");
 	}
+
+public:  /// getDecimal{32,64,128}
+	virtual int getDecimal32(int scale) const override;
+	virtual long long getDecimal64(int scale) const override;
+	virtual wide_integer::int128 getDecimal128(int scale) const override;
+
+	virtual int getDecimal32(INDEX index, int scale) const override;
+	virtual long long getDecimal64(INDEX index, int scale) const override;
+	virtual wide_integer::int128 getDecimal128(INDEX index, int scale) const override;
+
+	virtual bool getDecimal32(INDEX start, int len, int scale, int *buf) const override;
+	virtual bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override;
+	virtual bool getDecimal128(INDEX start, int len, int scale, wide_integer::int128 *buf) const override;
+
+	virtual const int* getDecimal32Const(INDEX start, int len, int scale, int *buf) const override;
+	virtual const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const override;
+	virtual const wide_integer::int128* getDecimal128Const(INDEX start, int len, int scale,
+			wide_integer::int128 *buf) const override;
+
+public:
 	virtual INDEX size() const {return data_.size();}
 	virtual long long count() const{
 		return count(0, data_.size());
@@ -198,11 +218,11 @@ public:
 		throw RuntimeException("lowerBound method not supported for AnyVector");
 	}
 	virtual bool rank(bool sorted, INDEX* indices, INDEX* ranking){return false;}
-	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc){	return false;}
-	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict) const { return false;}
-	virtual bool sort(bool asc){return false;}
-	virtual bool sort(bool asc, Vector* indices){ return false;}
-	virtual INDEX sortTop(bool asc, Vector* indices, INDEX top){ return -1;}
+	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc, char nullsOrder){	return false;}
+	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict, char nullsOrder) const { return false;}
+	virtual bool sort(bool asc, char nullsOrder){return false;}
+	virtual bool sort(bool asc, Vector* indices, char nullsOrder){ return false;}
+	virtual INDEX sortTop(bool asc, Vector* indices, INDEX top, char nullsOrder){ return -1;}
 	virtual long long getAllocatedMemory();
 	virtual int getExtraParamForType() const override { return dt_; }
 
@@ -540,11 +560,11 @@ public:
 		throw RuntimeException("Sliced vector doesn't support method serialize");
 	}
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const {throw RuntimeException("Sliced vector doesn't support method serialize");}
-	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict) const {throw RuntimeException("Sliced vector doesn't support method isSorted");}
+	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict, char nullsOrder = 0) const {throw RuntimeException("Sliced vector doesn't support method isSorted");}
 	virtual ConstantSP topK(INDEX start, INDEX length, INDEX top, bool asc, bool extendEqualValue) const {throw RuntimeException("Sliced vector doesn't support method topK");}
-	virtual bool sort(bool asc) {throw RuntimeException("Sliced vector doesn't support method sort");}
-	virtual bool sort(bool asc, Vector* indices) {throw RuntimeException("Sliced vector doesn't support method sort");}
-	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc) {
+	virtual bool sort(bool asc, char nullsOrder = 0) {throw RuntimeException("Sliced vector doesn't support method sort");}
+	virtual bool sort(bool asc, Vector* indices, char nullsOrder = 0) {throw RuntimeException("Sliced vector doesn't support method sort");}
+	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc, char nullsOrder = 0) {
 		throw RuntimeException("Sliced vector doesn't support method sortSelectedIndices");
 	}
 
@@ -1657,7 +1677,17 @@ public:
 			return source_->setData(offset_ + start, len, buf);
 	}
 
-public:  /// {get,set}Decimal{32,64}
+public:  /// {get,set}Decimal{32,64,128}
+	virtual int getDecimal32(int scale) const override {
+		return getDecimal32(/*index*/0, scale);
+	}
+	virtual long long getDecimal64(int scale) const override {
+		return getDecimal64(/*index*/0, scale);
+	}
+	virtual wide_integer::int128 getDecimal128(int scale) const override {
+		return getDecimal128(/*index*/0, scale);
+	}
+
 	virtual int getDecimal32(INDEX index, int scale) const override {
 		if (index < 0 || index >= size_ || offset_ + index < 0 || offset_ + index >= source_->size()) {
 			return INT_MIN;
@@ -1669,6 +1699,12 @@ public:  /// {get,set}Decimal{32,64}
 			return LONG_MIN;
 		}
 		return source_->getDecimal64(offset_ + index, scale);
+	}
+	virtual wide_integer::int128 getDecimal128(INDEX index, int scale) const override {
+		if (index < 0 || index >= size_ || offset_ + index < 0 || offset_ + index >= source_->size()) {
+			return std::numeric_limits<wide_integer::int128>::min();
+		}
+		return source_->getDecimal128(offset_ + index, scale);
 	}
 
 	virtual bool getDecimal32(INDEX start, int len, int scale, int *buf) const override {
@@ -1723,6 +1759,34 @@ public:  /// {get,set}Decimal{32,64}
 		if (validLen < len) {
 			for (int i = validLen; i < len; ++i) {
 				buf[i] = LONG_MIN;
+			}
+		}
+		return true;
+	}
+	virtual bool getDecimal128(INDEX start, int len, int scale, wide_integer::int128 *buf) const override {
+		if (start < 0 || offset_ + start < 0) {
+			INDEX cur = 0;
+			if (start < 0) {
+				cur = std::max(cur, std::abs(start));
+			}
+			if (offset_ + start < 0) {
+				cur = std::max(cur, std::abs(offset_ + start));
+			}
+			cur = std::min(len, cur);
+			for (INDEX i = 0; i < cur; ++i) {
+				buf[i] = std::numeric_limits<wide_integer::int128>::min();
+			}
+			start += cur;
+			len -= cur;
+			buf += cur;
+		}
+		int validLen = std::max(0, std::min(len, std::min(size_ - start, source_->size() - offset_ - start)));
+		if (offset_ + start < source_->size() && validLen > 0 && !source_->getDecimal128(offset_ + start, validLen, scale, buf)) {
+			return false;
+		}
+		if (validLen < len) {
+			for (int i = validLen; i < len; ++i) {
+				buf[i] = std::numeric_limits<wide_integer::int128>::min();
 			}
 		}
 		return true;
@@ -1791,12 +1855,49 @@ public:  /// {get,set}Decimal{32,64}
 		}
 		return originalBuf;
 	}
+	virtual const wide_integer::int128* getDecimal128Const(INDEX start, int len, int scale,
+			wide_integer::int128 *buf) const override {
+		if (start >= 0 && start + len <= size_ && offset_ + start >= 0 && offset_ + start + len <= source_->size()) {
+			return source_->getDecimal128Const(offset_ + start, len, scale, buf);
+		}
+		wide_integer::int128* originalBuf = buf;
+		if (start < 0 || offset_ + start < 0) {
+			INDEX cur = 0;
+			if (start < 0) {
+				cur = std::max(cur, std::abs(start));
+			}
+			if (offset_ + start < 0) {
+				cur = std::max(cur, std::abs(offset_ + start));
+			}
+			cur = std::min(len, cur);
+			std::min(len, std::max(std::abs(start), std::abs(offset_ + start)));
+			for (INDEX i = 0; i < cur; ++i) {
+				buf[i] = std::numeric_limits<wide_integer::int128>::min();
+			}
+			start += cur;
+			len -= cur;
+			buf += cur;
+		}
+		int validLen = std::max(0, std::min(len, std::min(size_ - start, source_->size() - offset_ - start)));
+		if (offset_ + start < source_->size() && validLen > 0)
+			source_->getDecimal128(offset_ + start, validLen, scale, buf);
+		if (validLen < len) {
+			for (int i = validLen; i < len; ++i) {
+				buf[i] = std::numeric_limits<wide_integer::int128>::min();
+			}
+		}
+		return originalBuf;
+	}
 
 	virtual int* getDecimal32Buffer(INDEX start, int len, int scale, int *buf) const override {
 		return source_->getDecimal32Buffer(offset_ + start, len, scale, buf);
 	}
 	virtual long long* getDecimal64Buffer(INDEX start, int len, int scale, long long *buf) const override {
 		return source_->getDecimal64Buffer(offset_ + start, len, scale, buf);
+	}
+	virtual wide_integer::int128* getDecimal128Buffer(INDEX start, int len, int scale,
+			wide_integer::int128 *buf) const override {
+		return source_->getDecimal128Buffer(offset_ + start, len, scale, buf);
 	}
 
 	virtual void setDecimal32(INDEX index, int scale, int val) override {
@@ -1813,6 +1914,13 @@ public:  /// {get,set}Decimal{32,64}
 			source_->setDecimal64(offset_ + index, scale, val);
 		}
 	}
+	virtual void setDecimal128(INDEX index, int scale, wide_integer::int128 val) override {
+		if (!updatable_) {
+			throw RuntimeException("Immutable sub vector doesn't support method setDecimal128");
+		} else {
+			source_->setDecimal128(offset_ + index, scale, val);
+		}
+	}
 
 	virtual bool setDecimal32(INDEX start, int len, int scale, const int *buf) override {
 		if (!updatable_) {
@@ -1826,6 +1934,13 @@ public:  /// {get,set}Decimal{32,64}
 			throw RuntimeException("Immutable sub vector doesn't support method setDecimal64");
 		} else {
 			return source_->setDecimal64(offset_ + start, len, scale, buf);
+		}
+	}
+	virtual bool setDecimal128(INDEX start, int len, int scale, const wide_integer::int128 *buf) override {
+		if (!updatable_) {
+			throw RuntimeException("Immutable sub vector doesn't support method setDecimal128");
+		} else {
+			return source_->setDecimal128(offset_ + start, len, scale, buf);
 		}
 	}
 
@@ -2075,7 +2190,7 @@ public:
 	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
 	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int targetNumElement, int& numElement, int& partial) const;
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const {throw RuntimeException("Immutable sub vector doesn't support method serialize");}
-	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict) const {
+	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict, char nullsOrder = 0) const {
 		auto range = calculateOverlappedRange(start + offset_, length);
 		return source_->isSorted(range.first, range.second, asc, strict);
 	}
@@ -2085,12 +2200,12 @@ public:
 			((Vector*)result.get())->addIndex(0, result->size(), -offset_);
 		return result;
 	}
-	virtual bool sort(bool asc) {throw RuntimeException("Immutable sub vector doesn't support method sort");}
-	virtual bool sort(bool asc, Vector* indices) {throw RuntimeException("Immutable sub vector doesn't support method sort");}
-	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc) {
+	virtual bool sort(bool asc, char nullsOrder = 0) {throw RuntimeException("Immutable sub vector doesn't support method sort");}
+	virtual bool sort(bool asc, Vector* indices, char nullsOrder = 0) {throw RuntimeException("Immutable sub vector doesn't support method sort");}
+	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc, char nullsOrder = 0) {
 		if(!indices->add(start, length, (long long)offset_))
 			return false;
-		if(!source_->sortSelectedIndices(indices, start, length, asc))
+		if(!source_->sortSelectedIndices(indices, start, length, asc, nullsOrder))
 			return false;
 		return indices->add(start, length, (long long)-offset_);
 	}
@@ -2215,7 +2330,7 @@ private:
 				dst[i] = std::numeric_limits<int64_t>::min();
 			}
 		} else {
-			assert("unreachable" && 0);
+			throw RuntimeException("Unknown decimal type: unitLength = " + std::to_string(unitLength));
 		}
 	}
 
@@ -2392,6 +2507,9 @@ public:
 	virtual bool rank(bool sorted, INDEX* indices, INDEX* ranking){
 		throw RuntimeException("Array vector doesn't support method rank");
 	}
+	virtual void contain(const ConstantSP& target, const ConstantSP& resultSP) const {
+		throw RuntimeException("Array vector doesn't support method contain");
+	}
 	virtual void find(INDEX start, INDEX length, const ConstantSP& target, const ConstantSP& resultSP){
 		throw RuntimeException("Array vector doesn't support method find");
 	}
@@ -2418,13 +2536,13 @@ public:
 	}
 	virtual INDEX lowerBound(INDEX start, const ConstantSP& target){throw RuntimeException("Array vector doesn't support method lowerBound");}
 	virtual long long getAllocatedMemory() const;
-	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict) const { return false;}
+	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict, char nullOrders = 0) const { return false;}
 	virtual ConstantSP topK(INDEX start, INDEX length, INDEX top, bool asc, bool extendEqualValue) const {
 		throw RuntimeException("Array vector doesn't support method topK");
 	}
-	virtual bool sort(bool asc) {return false;}
-	virtual bool sort(bool asc, Vector* indices) {return false;}
-	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc) { return false;}
+	virtual bool sort(bool asc, char nullOrders = 0) {return false;}
+	virtual bool sort(bool asc, Vector* indices, char nullOrders = 0) {return false;}
+	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc, char nullOrders = 0) { return false;}
 
 	/**
 	 * Array vector serialization protocol

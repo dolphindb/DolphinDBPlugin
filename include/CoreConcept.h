@@ -1,3 +1,10 @@
+/*
+ * CoreConcept.h
+ *
+ *  Created on: Apr 20, 2017
+ *      Author: dzhou
+ */
+
 #ifndef CORECONCEPT_H_
 #define CORECONCEPT_H_
 
@@ -10,6 +17,7 @@
 #include <algorithm>
 #include <chrono>
 #include <functional>
+#include <atomic>
 
 #include "Types.h"
 #include "SmartPointer.h"
@@ -19,6 +27,7 @@
 #include "FlatHashmap.h"
 #include "SysIO.h"
 #include "DolphinString.h"
+#include "WideInteger.h"
 
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define LIKELY(x) (__builtin_expect((x), 1))
@@ -27,6 +36,7 @@
 #define LIKELY(x) (x)
 #define UNLIKELY(x) (x)
 #endif
+#define TRANSIENT(x) x->isTransient() ? x->getValue() : x
 
 using std::string;
 using std::vector;
@@ -83,12 +93,15 @@ class IoTransaction;
 class Decoder;
 class VolumeMapper;
 class SystemHandle;
+typedef SmartPointer<VolumeMapper> VolumeMapperSP;
+typedef SmartPointer<Decoder> DecoderSP;
 struct JITCfgNode;
 struct InferredType;
 struct FunctionSignature;
 class WindowJoinFunction;
 class ColumnContext;
 class Transaction;
+class Parser;
 
 typedef SmartPointer<AuthenticatedUser> AuthenticatedUserSP;
 typedef SmartPointer<ByteArrayCodeBuffer> ByteArrayCodeBufferSP;
@@ -130,13 +143,12 @@ typedef SmartPointer<ReducerContainer> ReducerContainerSP;
 typedef SmartPointer<DistributedCall> DistributedCallSP;
 typedef SmartPointer<JobProperty> JobPropertySP;
 typedef SmartPointer<JITCfgNode> JITCfgNodeSP;
-typedef SmartPointer<VolumeMapper> VolumeMapperSP;
-typedef SmartPointer<Decoder> DecoderSP;
 typedef SmartPointer<InferredType> InferredTypeSP;
 typedef SmartPointer<FunctionSignature> FunctionSignatureSP;
 typedef SmartPointer<WindowJoinFunction> WindowJoinFunctionSP;
 typedef SmartPointer<ColumnContext> ColumnContextSP;
 typedef SmartPointer<Transaction> TransactionSP;
+typedef SmartPointer<Parser> ParserSP;
 
 typedef ConstantSP(*OptrFunc)(const ConstantSP&, const ConstantSP&);
 typedef ConstantSP(*OptrFunc2)(Heap* heap, const ConstantSP&, const ConstantSP&);
@@ -397,7 +409,7 @@ public:
 	int atomicInsert(vector<DolphinString>& symbols, int sizeBeforeInsert);
 	void getOrdinalCandidate(const DolphinString& symbol, int& ordinal, SmartPointer<Array<int> >& ordinalBase);
 	void getOrdinalCandidate(const DolphinString& symbol1, const DolphinString& symbol2, int& ordinal1, int& ordinal2, SmartPointer<Array<int> >& ordinalBase);
-	int* getSortedIndices(bool asc, int& length);
+	int* getSortedIndices(bool asc, char nullsOrder, int& length);
 	inline bool supportOrder() const { return supportOrder_;}
 	/**
 	 * enableOrdinalBase and disableOrdinalBase can't be used in multi-threading environment.
@@ -545,14 +557,55 @@ public:
 	virtual ~Object(){}
 	virtual string getScript() const = 0;
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const = 0;
+	/**
+	 * @brief Get the components of the object in the form of a dictionary.
+	 *
+	 * @return If the object doesn't support this method, return an empty dictionary.
+	 */
+	virtual ConstantSP getComponent() const;
 	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const {}
 	virtual void collectVariables(vector<int>& vars, int minIndex, int maxIndex) const {}
 	virtual bool isLargeConstant() const {return false;}
+	/**
+	 * @biref Retrieve all ColumnRef objects contained in the currrent object.
+	 *
+	 * @param table: Use the given table to judge if a column reference is a variable in the case the name is ambiguous.
+	 * @param columns: in & out parameter, pair<string, string> represents a column's quanlifier and name.
+	 */
+	virtual void retrieveColumns(const TableSP& table, vector<pair<string,string>>& columns) const{}
+	/**
+	 * @brief Check if the current object contains special functions.
+	 *
+	 * @param aggrOnly: if only check aggregate functions.
+	 *
+	 * @return 0 (no aggregate function or order sensitive function), 1 (aggregate function only), or 2 (order sensitive function).
+	 */
+	virtual int checkSpecicalFunction(bool aggrOnly) const { return 0;}
+	/**
+	 * @brief Replace the SQLContext of any ColumnRef within the current object with the given new context.
+	 *
+	 * @param localize: replace the variable with the concrete object and detach the link of any column
+	 * reference to a variable if this parameter is set to true.
+	 *
+	 * @return If the returned pointer is null, the object doesn't contain any column reference.
+	 */
+	virtual ObjectSP copy(Heap* pHeap, const SQLContextSP& context, bool localize) const { return nullptr;}
+
+	/**
+	 * @brief Replace the SQLContext of any ColumnRef within the current object with the given new context, and materialize
+	 * all variables.
+	 *
+	 * @param table: Use the given table to judge if a column reference is a variable in the case the name is ambiguous.
+	 *
+	 * @return If the returned pointer is null, the object doesn't contain any column reference or variable.
+	 */
+	virtual ObjectSP copyAndMaterialize(Heap* pHeap, const SQLContextSP& context, const TableSP& table) const { return nullptr;}
+	virtual bool mayContainColumnRefOrVariable() const { return false;}
 };
 
 #define NOT_IMPLEMENT \
-	throw RuntimeException("Data type [" + std::to_string(static_cast<int>(getType())) + \
-			"] does not implement `" + __func__ + "`"); \
+	throw RuntimeException("Data type [" + std::to_string(static_cast<int>(getType())) + "] form [" + \
+			std::to_string(static_cast<int>(getForm())) + "] does not implement `" + __func__ + "`"); \
 //======
 
 class Constant: public Object{
@@ -627,6 +680,10 @@ public:
     virtual const unsigned char* getBinary() const {throw RuntimeException("The object can't be converted to int128 scalar.");}
 	virtual bool isNull() const {return false;}
 
+	virtual int getDecimal32(int scale) const { NOT_IMPLEMENT; }
+	virtual long long getDecimal64(int scale) const { NOT_IMPLEMENT; }
+	virtual wide_integer::int128 getDecimal128(int scale) const { NOT_IMPLEMENT; }
+
 	virtual void setBool(char val){}
 	virtual void setChar(char val){}
 	virtual void setShort(short val){}
@@ -655,6 +712,7 @@ public:
 
 	virtual int getDecimal32(INDEX index, int scale) const { NOT_IMPLEMENT; }
 	virtual long long getDecimal64(INDEX index, int scale) const { NOT_IMPLEMENT; }
+	virtual wide_integer::int128 getDecimal128(INDEX index, int scale) const { NOT_IMPLEMENT; }
 
 	virtual ConstantSP get(INDEX index) const {return getValue();}
 	virtual ConstantSP get(INDEX column, INDEX row) const {return get(row);}
@@ -717,6 +775,7 @@ public:
 
 	virtual bool getDecimal32(INDEX start, int len, int scale, int *buf) const { NOT_IMPLEMENT; }
 	virtual bool getDecimal64(INDEX start, int len, int scale, long long *buf) const { NOT_IMPLEMENT; }
+	virtual bool getDecimal128(INDEX start, int len, int scale, wide_integer::int128 *buf) const { NOT_IMPLEMENT; }
 
 	/**
 	 * @brief Judge the data according to indices is null or not
@@ -748,6 +807,7 @@ public:
 
 	virtual bool getDecimal32(INDEX *indices, int len, int scale, int *buf) const { NOT_IMPLEMENT; }
 	virtual bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const { NOT_IMPLEMENT; }
+	virtual bool getDecimal128(INDEX *indices, int len, int scale, wide_integer::int128 *buf) const { NOT_IMPLEMENT; }
 
 	/**
 	 * @brief Get the boolean data from start to (start + len - 1).
@@ -776,6 +836,10 @@ public:
 
 	virtual const int* getDecimal32Const(INDEX start, int len, int scale, int *buf) const { NOT_IMPLEMENT; }
 	virtual const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const { NOT_IMPLEMENT; }
+	virtual const wide_integer::int128* getDecimal128Const(INDEX start, int len, int scale,
+			wide_integer::int128 *buf) const {
+		NOT_IMPLEMENT;
+	}
 
 	/**
 	 * @brief Get a buffer for writing data from start to (start + len - 1).
@@ -803,6 +867,10 @@ public:
 
 	virtual int* getDecimal32Buffer(INDEX start, int len, int scale, int *buf) const { NOT_IMPLEMENT; }
 	virtual long long* getDecimal64Buffer(INDEX start, int len, int scale, long long *buf) const { NOT_IMPLEMENT; }
+	virtual wide_integer::int128* getDecimal128Buffer(INDEX start, int len, int scale,
+			wide_integer::int128 *buf) const {
+		NOT_IMPLEMENT;
+	}
 
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const {return serialize(buffer);}
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const {throw RuntimeException("code serialize method not supported");}
@@ -835,6 +903,7 @@ public:
 
 	virtual void setDecimal32(INDEX index, int scale, int val) { NOT_IMPLEMENT; }
 	virtual void setDecimal64(INDEX index, int scale, long long val) { NOT_IMPLEMENT; }
+	virtual void setDecimal128(INDEX index, int scale, wide_integer::int128 val) { NOT_IMPLEMENT; }
 
 	/**
 	 * @brief Replace the cell value specified by the index with the new value specified by valueIndex.
@@ -914,6 +983,7 @@ public:
 
 	virtual bool setDecimal32(INDEX start, int len, int scale, const int *buf) { NOT_IMPLEMENT; }
 	virtual bool setDecimal64(INDEX start, int len, int scale, const long long *buf) { NOT_IMPLEMENT; }
+	virtual bool setDecimal128(INDEX start, int len, int scale, const wide_integer::int128 *buf) { NOT_IMPLEMENT; }
 
 	/**
 	 * @brief Add inc to the underlying data from start to (start + length - 1).
@@ -1193,8 +1263,26 @@ public:
 	virtual ConstantSP lastNot(const ConstantSP& exclude) const = 0;
 	virtual ConstantSP lastNot(INDEX start, INDEX length, const ConstantSP& exclude) const = 0;
 	virtual void lastNot(INDEX start, INDEX length, const ConstantSP& exclude, const ConstantSP& out, INDEX outputStart=0) const = 0;
-	virtual bool isSorted(bool asc, bool strict = false) const { return isSorted(0, size(), asc, strict);}
-	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict = false) const = 0;
+	/**
+	 * @brief Return whether this vector is sorted.
+	 * 
+	 * @param asc: Indicating whether this vector is sorted in ascending order(true) or descending order(false).
+	 * @param strict: Indicating whether this vector is strictly increasing(decreasing).
+	 * @param nullsOrder: 0: NONE, 1: NULLS FIRST, 2: NULLS LAST.
+	 * @return True if sorted, else false.
+	*/
+	virtual bool isSorted(bool asc, bool strict = false, char nullsOrder = 0) const { return isSorted(0, size(), asc, strict, nullsOrder);}
+	/**
+	 * @brief Return whether the specified range of this vector is sorted.
+	 * 
+	 * @param start: The starting position of the specified range.
+	 * @param length: The length of the specified range.
+	 * @param asc: Indicating whether this vector is sorted in ascending order(true) or descending order(false).
+	 * @param strict: Indicating whether this vector is strictly increasing(decreasing).
+	 * @param nullsOrder: 0: NONE, 1: NULLS FIRST, 2: NULLS LAST.
+	 * @return True if sorted, else false.
+	*/
+	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict = false, char nullsOrder = 0) const = 0;
 
 	/**
 	 * Find the first element that is no less than the target value in the sorted vector. If all elements are
@@ -1219,29 +1307,46 @@ public:
 		return topK(0, size(), top, asc, extendEqualValue);
 	}
 	/**
-	 * Sort the whole vector with given order
-	 * asc: indicating if it is ascending order
+	 * @brief Sort the whole vector with given order.
+	 * 
+	 * @param asc: Indicating if it is ascending order.
+	 * @param nullsOrder: 0: NONE, 1: NULLS FIRST, 2: NULLS LAST.
+	 * @return True if sort succeed, else false.
 	 */
-	virtual bool sort(bool asc) = 0;
+	virtual bool sort(bool asc, char nullsOrder = 0) = 0;
 
 	/**
-	 * Sort the vector and the corresponding indices with given order
-	 * asc: indicating if it is ascending order
-	 * indices: the corresponding indices of the data to sort.The length of the data should be equal to
-	 * the length of the indices. The indices will be rearranged accordingly during sorting
+	 * @brief Sort the vector and the corresponding indices with given order.
+	 *
+	 * @param asc: Indicating if it is ascending order.
+	 * @param indices: The corresponding indices of the data to sort.The length of the data should be equal to
+	 * 				   the length of the indices. The indices will be rearranged accordingly during sorting.
+	 * @param nullsOrder: 0: NONE, 1: NULLS FIRST, 2: NULLS LAST.
+	 * @return True if sort succeed, else false.
 	 */
-	virtual bool sort(bool asc, Vector* indices) = 0;
-
-	virtual INDEX sortTop(bool asc, Vector* indices, INDEX top) {throw RuntimeException("sortTop method not supported");}
+    virtual bool sort(bool asc, Vector* indices, char nullsOrder = 0) = 0;
 
 	/**
-	 * Sort the selected indices based on the corresponding data with given order.
-	 * indices: the selected indices to sort
-	 * start: the start position in indices vector
-	 * length: the number of indices to sort
-	 * asc: indicating if it is ascending order
+	 * @brief Sort top-th elements of this vector and the corresponding indices with given order.
+	 *
+	 * @param asc: Indicating if it is ascending order.
+	 * @param indices: The corresponding indices of the data to sort.
+	 * @param nullsOrder: 0: NONE, 1: NULLS FIRST, 2: NULLS LAST.
+	 * @return True if sort succeed, else false.
 	 */
-	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc) = 0;
+	virtual INDEX sortTop(bool asc, Vector* indices, INDEX top, char nullsOrder = 0) {throw RuntimeException("sortTop method not supported");}
+
+	/**
+	 * @brief Sort the selected indices based on the corresponding data with given order.
+	 * 
+	 * @param indices: The selected indices to sort.
+	 * @param start: The start position in indices vector.
+	 * @param length: The number of indices to sort.
+	 * @param asc: Indicating if it is ascending order.
+	 * @param nullsOrder: 0: NONE, 1: NULLS FIRST, 2: NULLS LAST.
+	 * @return True if sort succeed, else false.
+	 */
+	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc, char nullsOrder = 0) = 0;
 
     /**
      * Find duplicated elements in an ascending-sorted array
@@ -1419,7 +1524,7 @@ public:
 	virtual int getColumnExtraParam(int index) const { throw RuntimeException("Table::getColumnExtraParam() not supported"); }
 	virtual bool contain(const string& name) const = 0;
 	virtual bool contain(const string& qualifier, const string& name) const = 0;
-	virtual bool contain(ColumnRef* col) const = 0;
+	virtual bool contain(const ColumnRef* col) const = 0;
 	virtual bool contain(const ColumnRefSP& col) const = 0;
 	virtual bool containAll(const vector<ColumnRefSP>& cols) const = 0;
 	virtual void setName(const string& name)=0;
@@ -1672,6 +1777,7 @@ public:
 	inline void setSyntax(const string& syntax){ syntax_ = syntax;}
 	string getSyntax() const;
 	inline void setModule(const string& module) { module_ = module;}
+	inline void setName(const string& name) { name_ = name; }
 	inline bool hasReturnValue() const {return flag_ & 1;}
 	inline bool isAggregatedFunction() const {	return flag_ & 2;}
 	inline bool isAggregatedFunction(int args) const {	return (flag_ & 2) && (argCountForAgg_ == 0 || args == (int)argCountForAgg_);}
@@ -1718,7 +1824,7 @@ public:
 	void checkArgumentSize(int actualArgCount);
 	virtual bool copyable() const {return false;}
 	virtual DATA_TYPE getRawType() const { return DT_STRING;}
-	virtual string getScript() const {return name_;}
+	virtual string getScript() const {return getFullName();}
 	virtual string getString() const {return name_;}
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const = 0;
 	virtual FunctionDefSP materializeFunctionDef(Heap* pHeap) { return FunctionDefSP();}
@@ -1781,7 +1887,8 @@ public:
 	ConstantSP getColumn(const string& name);
 	void cacheColumn(const string& name,const ConstantSP& col);
 	void enableCache();
-	void disableCache(){cache_=false;}
+	void disableCache(){flag_ &= ~1;}
+	inline bool isCacheEnabled() const { return flag_ & 1;}
 	void clear();
 	inline bool isInitialized() const { return !tableSP_.isNull();}
 	inline bool isNotInitialized() const { return tableSP_.isNull();}
@@ -1793,11 +1900,29 @@ public:
 			return true;
 		}
 	}
+	inline bool isWithinMetaCode() const { return flag_ & 2;}
+	inline void setWithinMetaCode(bool option) { if(option) flag_ |= 2; else flag_ &= ~2;}
+	inline bool isColumnRefDisabled() const { return flag_ & 4;}
+	inline void setColumnRefDisabled(bool option) { if(option) flag_ |= 4; else flag_ &= ~4;}
+	inline bool isCommaCrossJoinDisabled() const { return flag_ & 8;}
+	inline void setCommaCrossJoinDisabled(bool option) { if(option) flag_ |= 8; else flag_ &= ~8;}
+	inline bool isWithinFromClause() const { return flag_ & 16;}
+	inline void setWithinFromClause(bool option) { if(option) flag_ |= 16; else flag_ &= ~16;}
+	inline bool isWithinAnalyticFunction() const { return flag_ & 32;}
+	inline void setWithinAnalyticFunction(bool option) { if(option) flag_ |= 32; else flag_ &= ~32;}
 
 private:
 	TableSP tableSP_;
 	ConstantSP filterSP_;
-	bool cache_;
+	/**
+	 * bit0: 0: not cache columns, 1: cache
+	 * bit1: 0: not for meta code parsing, 1: for meta code parsing
+	 * bit2: 0: parse as column reference, 1: not parse as column reference
+	 * bit3: 0: allow comma as cross join, 1: not allow as cross join
+	 * bit4: 0: out of SQL FROM clause, 1: within SQL FROM clause
+	 * bit5: 0: not within analytic function, 1: within analytic function
+	 */
+	int flag_;
 	DictionarySP cachedCols_;
 	SQLTransactionSP transSP_;
 	vector<INDEX>* groups_;
@@ -1816,6 +1941,7 @@ public:
 	virtual ConstantSP getValue(Heap* pHeap);
 	virtual ConstantSP getReference(Heap* pHeap);
 	virtual OBJECT_TYPE getObjectType() const {return COLUMN;}
+	virtual ConstantSP getComponent() const;
 	const SQLContextSP getSQLContext() const {return contextSP_;}
 	const string& getQualifier() const { return qualifier_;}
 	const string& getName() const { return name_;}
@@ -1834,6 +1960,10 @@ public:
 	ColumnRef* localize() const{ return new ColumnRef(contextSP_, qualifier_, name_);}
 	bool operator ==(const ColumnRef& target);
 	virtual void collectVariables(vector<int>& vars, int minIndex, int maxIndex) const { if(index_<=maxIndex && index_>=minIndex) vars.push_back(index_);}
+	virtual void retrieveColumns(const TableSP& table, vector<pair<string,string>>& columns) const;
+	virtual ObjectSP copy(Heap* pHeap, const SQLContextSP& context, bool localize) const;
+	virtual ObjectSP copyAndMaterialize(Heap* pHeap, const SQLContextSP& context, const TableSP& table) const;
+	virtual bool mayContainColumnRefOrVariable() const { return true;}
 
 private:
 	SQLContextSP contextSP_;
@@ -1895,6 +2025,8 @@ public:
 	virtual bool run(const vector<string>& variables, vector<ConstantSP>& params)=0;
 	virtual bool test(const string& scriptFile, const string& resultFile, bool testMemoryLeaking)=0;
 	virtual FunctionDefSP parseFunctionDef(const string& script) = 0;
+	virtual vector<string> parseModuleStatement(const string& script) = 0;
+	virtual vector<vector<string>> parseUseStatement(const string& script) = 0;
 	virtual bool contain(const string& key) const =0;
 	virtual ConstantSP get(const string& key) const=0;
 	virtual vector<pair<string,ConstantSP>> getAll() const=0;
@@ -1970,6 +2102,10 @@ public:
 	inline void setEnableTransactionStatement(bool option) { if(option) flag_ |= 2048; else flag_ &= ~2048; }
 	inline bool isStreamingEnv() const { return flag_ & 4096;}
 	inline void setStreamingEnv(bool option) {if(option) flag_ |= 4096; else flag_ &= ~4096; }
+	inline int getSQLStandard() const { return (flag_ >> 13) & 15;}
+	inline void setSQLStandard(int sqlStandard) {flag_ = (flag_ & ~(15<<13)) | (sqlStandard << 13); }
+	inline bool serializeUniqueName() { return flag_ & (1 << 18); }
+	inline void setSerializeUniqueName(bool option) { if (option) flag_ |= (1 << 18); else flag_ &= ~(1 << 18); }
 	virtual TransactionSP getTransaction() { return transaction_; }
 	virtual void setTransaction(const TransactionSP& transaction) { transaction_ =  transaction; }
 	virtual int64_t getAsyncReplicationTaskId() { return asyncReplicationTaskId_; }
@@ -1980,7 +2116,9 @@ public:
 	inline long long getSeqNo() const { return seqNo_;}
 	inline void setSeqNo(long long seqNo) { seqNo_ = seqNo;}
 
-protected:
+    virtual DictionarySP parseScript(const vector<string> &source, const string &currentPath = "", int firstLine = 0) = 0;
+
+  protected:
 	long long sessionID_;
 	HeapSP heap_;
 	OutputSP out_;
@@ -1993,9 +2131,7 @@ protected:
 	Guid jobId_;
 	int priority_;
 	int parallelism_;
-	// bit11: enableTransactionStatement
 	int flag_;
-	bool enableTransactionStatement_;
 	TransactionSP transaction_;
 	// for async replication task execution
 	int64_t asyncReplicationTaskId_ = 0;
@@ -2054,6 +2190,8 @@ public:
     inline bool isTracing() const { return flag_ & 65536;}
     inline void setTracing() { flag_ |= 65536;}
     inline void setNonTracing() { flag_ &= ~65536;}
+	inline int getSQLStandard() const { return (flag_ >> 19) & 15;}
+	inline void setSQLStandard(int sqlStandard) {flag_ = (flag_ & ~(15<<19)) | (sqlStandard << 19); }
     inline void setParentSpanId(const Guid &spanId) { parentSpanId_ = spanId; }
     inline Guid &getParentSpanId() { return parentSpanId_; }
 	virtual IO_ERR readReady()=0;
@@ -2083,6 +2221,9 @@ protected:
 	 * bit8~10 the depth of the task
 	 * bit15: 0: pickle table to dataFrame    1: pickle table to list
 	 * bit16: 0: disable tracing, 1: enable tracing
+	 * bit17: 0: api, 1: stream subscription
+	 * bit18: reserved for output format
+	 * bit19~22: sql standard, 0: dolphindb, 1: oracle, 2: mysql
 	 */
 	long long flag_;
     Guid parentSpanId_;
@@ -2109,28 +2250,6 @@ public:
 protected:
 	ConstantSP obj_;
 };
-
-class DebugContext{
-public:
-	DebugContext();
-	void waitForExecution(Heap* pHeap, Statement* pStatement);
-	void waitForStop();
-	void continueExecution(int steps);
-	void decreaseSteps();
-	int getSteps() const { return steps_;}
-	bool continueFlag() const { return continueFlag_;}
-
-private:
-	int steps_;
-	bool continueFlag_;
-	bool stopped_;
-	Mutex mutex_;
-	ConditionalVariable execCondition_;
-	ConditionalVariable stopCondition_;
-	Heap* lastHeap_;
-	Statement* lastStatement_;
-};
-
 class Heap{
 public:
 	Heap():meta_(0), session_(0), size_(0), status_(0){}
@@ -2175,6 +2294,8 @@ public:
 		values_[index] = value;
 		flags_[index] = 2;
 	}
+	bool copyMeta(Heap *heap);
+	bool setMetaName(const string &name, int index);
 
 private:
 	struct HeapMeta{
@@ -2231,7 +2352,7 @@ private:
 
 class Statement{
 public:
-	Statement(STATEMENT_TYPE type):breakpoint_(false), jitudfHeader_(nullptr), type_(type){}
+	Statement(STATEMENT_TYPE type):breakpoint_(nullptr), jitudfHeader_(nullptr), type_(type), line_(0), moduleName_(""){}
 	virtual ~Statement(){}
 	virtual StatementSP clone() = 0;
 	STATEMENT_TYPE getType() const {return type_;}
@@ -2242,6 +2363,8 @@ public:
 	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const {}
 	void disableBreakpoint();
 	void enableBreakpoint();
+	void setBreakpoint(std::atomic<bool>* breakpoint) { breakpoint_ = breakpoint;}
+	bool getBreakpoint() { return nullptr != breakpoint_ ? breakpoint_->load() : false; }
 
     JITCfgNodeSP getCFGNode() const { return cfgNode_; }
     void setCFGNode(const JITCfgNodeSP& cfg) { cfgNode_ = cfg; }
@@ -2262,14 +2385,20 @@ public:
 	virtual vector<string> getVarNames() const;
 	virtual void setJITUDFHeader(Statement* header);
     void cleanInferredType();
+	void setLine(int line) { line_ = line;}
+	int getLine() { return line_;}
+    void setModuleName(string fileName) { moduleName_ = fileName; }
+    string getModuleName() { return moduleName_; }
 
 protected:
-	bool breakpoint_;
+	std::atomic<bool>* breakpoint_;
 	JITCfgNodeSP cfgNode_;
 	Statement* jitudfHeader_;
 
 private:
 	STATEMENT_TYPE type_;
+	int line_;
+	string moduleName_;
 };
 
 class StatementFactory {
@@ -2505,7 +2634,7 @@ public:
     static string getUniqueIndex(long long id);
 	/*
 	 * The input arguments set1 and set2 must be sorted by the key value of domain partitions. The ranking of key values must be the same as
-	 * the ranking of partition column values when the partition is range-based or value-based.
+	 * the ranking of partitioning column values when the partition is range-based or value-based.
 	 */
 	static void set_interaction(const vector<DomainPartitionSP>& set1, const vector<DomainPartitionSP>& set2, vector<DomainPartitionSP>& result);
 	static void set_union(const vector<DomainPartitionSP>& set1, const vector<DomainPartitionSP>& set2, vector<DomainPartitionSP>& result);
@@ -2703,12 +2832,13 @@ public:
     inline void setSpanId(const Guid &spanId) { spanId_ = spanId; }
     inline const Guid &getParentSpanId() const { return parentSpanId_; }
     inline void setParentSpanId(const Guid &spanId) { parentSpanId_ = spanId; }
-	void set(Heap* heap, const SessionSP& session, const Guid& jobId, const CountDownLatchSP& latch);
+	void set(Heap* heap, const SessionSP& session, const Guid& jobId, const CountDownLatchSP& latch, bool addDepth = true);
 	void set(Heap* heap, const SessionSP& session);
 	void done(const ConstantSP& result);
 	void done(const string& errMsg);
 	inline const string& getErrorMessage() const {return errMsg_;}
 	inline ConstantSP getResultObject() const {return execResult_;}
+	inline ConstantSP& getResultObjectRef()  {return execResult_;}
 	inline ConstantSP getCarryoverObject() const {return carryoverResult_;}
 	inline bool isLocalData() const { return local_;}
 	inline bool isViewMode() const { return viewMode_;}
@@ -2810,7 +2940,9 @@ public:
 	virtual ~StaticStageExecutor(){}
 	virtual vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks);
 	virtual vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks, const JobProperty& jobProp);
+	void execute(Heap* heap, const vector<DistributedCallSP>& tasks, const std::function<void(const vector<DistributedCallSP>&, int)>& callback);
     void setForbidProbingGroupSize(bool flag){forbidProbingGroupSize_ = flag;}
+    void setWaitRunningTaskFinishedOnError(bool flag){waitRunningTaskFinishedOnError_ = flag;}
     bool getForbidProbingGroupSize() const {return forbidProbingGroupSize_;}
     void setMonitorProcessAndMemory(bool flag, const string& script){monitorProcessAndMemory_ = flag; script_ = script;}
     bool getMonitorProcessAndMemory() const {return monitorProcessAndMemory_;}
@@ -2830,6 +2962,7 @@ private:
 	bool scheduleRemoteSite_;
     bool forbidProbingGroupSize_ = true;
     bool monitorProcessAndMemory_ = false;
+    bool waitRunningTaskFinishedOnError_ = false;
     long long monitorId_ = 0;
     string script_;
 };
@@ -3010,5 +3143,622 @@ private:
 	static inline DATA_TYPE getCompressedDataType(const VectorSP& vec){return (DATA_TYPE)vec->getChar(4);}
 	static VolumeMapperSP volumeMapper_;
 };
+
+class Tuple : public Object {
+public:
+	Tuple(const vector<ObjectSP>& arguments, bool isFunctionArgument = false, bool isDynamicVector = false, bool readonly=false): arguments_(arguments),
+		isFunctionArgument_(isFunctionArgument), isDynamicVector_(isDynamicVector), readonly_(readonly){}
+	Tuple(Session* session, const DataInputStreamSP& in);
+	inline bool isFunctionArgument() const { return isFunctionArgument_;}
+	inline bool isDynamicVector() const { return isDynamicVector_;}
+	inline bool readonly() const { return readonly_;}
+	ObjectSP getElement(int index) const {return arguments_[index];}
+	int getElementCount() const { return arguments_.size();}
+	virtual ConstantSP getValue(Heap* pHeap) { return getReference(pHeap);}
+	virtual ConstantSP getReference(Heap* pHeap);
+	virtual OBJECT_TYPE getObjectType() const {return TUPLE;}
+	virtual ConstantSP getComponent() const;
+	virtual string getScript() const;
+	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
+	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
+	virtual void collectVariables(vector<int>& vars, int minIndex, int maxIndex) const;
+	virtual void retrieveColumns(const TableSP& table, vector<pair<string,string>>& columns) const;
+	virtual int checkSpecicalFunction(bool aggrOnly) const;
+	virtual ObjectSP copy(Heap* pHeap, const SQLContextSP& context, bool localize) const;
+	virtual ObjectSP copyAndMaterialize(Heap* pHeap, const SQLContextSP& context, const TableSP& table) const;
+	virtual bool mayContainColumnRefOrVariable() const { return true;}
+
+private:
+	vector<ObjectSP> arguments_;
+	bool isFunctionArgument_;
+	bool isDynamicVector_;
+	bool readonly_;
+};
+
+
+class Expression: public Object{
+public:
+	Expression(const vector<ObjectSP> & objs, const vector<OperatorSP>&  optrs):
+		objs_(objs),optrs_(optrs), annotation_(0){}
+	Expression(const vector<ObjectSP> & objs, const vector<OperatorSP>&  optrs, int annotation):
+		objs_(objs),optrs_(optrs), annotation_(annotation){}
+	Expression(const SQLContextSP& context, Session* session, const DataInputStreamSP& in);
+	virtual ~Expression(){}
+	virtual OBJECT_TYPE getObjectType() const {return EXPRESSION;}
+	virtual ConstantSP getComponent() const;
+	virtual ConstantSP getReference(Heap* pHeap);
+	virtual ConstantSP getValue(Heap* pHeap);
+	int getObjectCount() const {return objs_.size();}
+	const ObjectSP& getObject(int index) const {return objs_[index];}
+	const vector<ObjectSP>& getObjects() const {return objs_;}
+	int getOperatorCount() const {return optrs_.size();}
+	const OperatorSP& getOperator(int index) const {return optrs_[index];}
+	const vector<OperatorSP>& getOperators() const {return optrs_;}
+	virtual string getScript() const;
+	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
+	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
+	virtual void collectVariables(vector<int>& vars, int minIndex, int maxIndex) const;
+	ObjectSP realizeNonColumnExpression(Heap* pHeap, unordered_set<string>& colNames);
+	ObjectSP realizeNonColumnExpression(Heap* pHeap, const TableSP& table);
+	//Assume all local variables in the expression has been materialized
+	ObjectSP realizeNonColumnExpression(Heap* pHeap);
+	inline int getAnnotation() const {return annotation_;}
+	inline bool getAnnotation(int bitOffset) const {return annotation_ & (bitOffset << 1);}
+	void setAnnotation(int bitOffset, bool bitOn);
+	virtual ObjectSP copy(Heap* pHeap, const SQLContextSP& context, bool localize) const;
+	virtual ObjectSP copyAndMaterialize(Heap* pHeap, const SQLContextSP& context, const TableSP& table) const;
+	virtual bool mayContainColumnRefOrVariable() const { return true;}
+	virtual void retrieveColumns(const TableSP& table, vector<pair<string,string>>& columns) const;
+	virtual int checkSpecicalFunction(bool aggrOnly) const;
+
+	static ConstantSP void_;
+	static ConstantSP null_;
+	static ConstantSP true_;
+	static ConstantSP false_;
+	static ConstantSP one_;
+	static ConstantSP zero_;
+	static ConstantSP voidDouble2_;
+	static OperatorSP logicAnd_;
+	static SQLContextSP context_;
+
+private:
+	static ObjectSP realizeNonColumnObject(Heap* pHeap, unordered_set<string>& colNames, const ObjectSP& obj);
+	static ObjectSP realizeNonColumnObject(Heap* pHeap, const TableSP&, const ObjectSP& obj);
+	//Assume all local variables in the expression has been materialized
+	static ObjectSP realizeNonColumnObject(Heap* pHeap, const ObjectSP& obj);
+
+private:
+	vector<ObjectSP> objs_;
+    vector<OperatorSP> optrs_;
+    /**
+     * The field doesn't involve in the calculation of the expression. But it is used to annotate the
+     * expression. For example, expressions in the SQL where clause may help decide which partition is
+     * relevant to the query. In the case of range partition or value partition, this flag can further
+     * tell if one can optimize the where clause, i.e. removal of the whole or part of the expression
+     * from the where clause. In this use case:
+     * 	bit0: 0 the part of the expression is used to decide the relevant partition.
+     * 	      1 the whole expression is used to decide the relevant partition.
+     * 	bit1: value partitioning column is used to decide the relevant partition.
+     * 	bit2: range partitioning column is used to decide the relevant partition.
+     * 	bit3: list partitioning column is used to decide the relevant partition.
+     */
+    int annotation_;
+};
+
+class InternalUtil {
+public:
+    static IO_ERR readBytes(const DataInputStreamSP& in, char* buf, int length);
+	static Vector* createArrayVector(DATA_TYPE type, INDEX size, INDEX valueSize=0, INDEX capacity=0, INDEX valueCapacity=0, bool fastMode=true, int extraParam=0);
+};
+
+template<class T>
+class CircularQueue{
+public:
+	CircularQueue(int capacity = 16) : capacity_(capacity), size_(0), head_(0), tail_(0), buf_(new T[capacity]){}
+	CircularQueue(const CircularQueue& copy){
+		capacity_ = copy.capacity_;
+		size_ = copy.size_;
+		head_ = copy.head_;
+		tail_ = copy.tail_;
+		buf_ = new T[capacity_];
+        // memcpy is shallow copy, will cause double free, so use std::copy instead
+		// memcpy(buf_, copy.buf_, sizeof(T) * capacity_);
+        std::copy(copy.buf_, copy.buf_ + capacity_, buf_);
+	}
+	CircularQueue(CircularQueue&& copy){
+		capacity_ = copy.capacity_;
+		size_ = copy.size_;
+		head_ = copy.head_;
+		tail_ = copy.tail_;
+		buf_ = copy.buf_;
+		copy.buf_ = nullptr;
+		copy.size_ = 0;
+		copy.capacity_ = 0;
+		copy.head_ = 0;
+		copy.tail_ = 0;
+	}
+	//assignment operator
+	CircularQueue & operator=(const CircularQueue & copy) {
+		if (this != &copy) {
+			int oldCapacity = capacity_;
+			capacity_ = copy.capacity_;
+			size_ = copy.size_;
+			head_ = copy.head_;
+			tail_ = copy.tail_;
+			if(oldCapacity != copy.capacity_){
+				delete[] buf_;
+				buf_ = new T[capacity_];
+			}
+            // memcpy is shallow copy, will cause double free, so use std::copy instead
+			// memcpy(buf_, copy.buf_, sizeof(T) * capacity_);
+            std::copy(copy.buf_, copy.buf_ + capacity_, buf_);
+		}
+		return (*this);
+	}
+	//move assignment operator
+	CircularQueue & operator=(CircularQueue && copy) {
+		if (this != &copy) {
+			capacity_ = copy.capacity_;
+			size_ = copy.size_;
+			head_ = copy.head_;
+			tail_ = copy.tail_;
+			delete[] buf_;
+			buf_ = copy.buf_;
+			copy.buf_ = nullptr;
+			copy.size_ = 0;
+			copy.capacity_ = 0;
+			copy.head_ = 0;
+			copy.tail_ = 0;
+		}
+		return (*this);
+	}
+	~CircularQueue(){ delete[] buf_;}
+	IO_ERR snapshotState(const DataOutputStreamSP& out){
+		int buf[3] = {size_, head_, tail_};
+		IO_ERR ret = out->write((const char*)buf, 12);
+		if(ret != OK) return ret;
+
+		return out->write((const char*)buf_, sizeof(T) * capacity_);
+	}
+	IO_ERR snapshotState(Buffer& out, int offset, int length){
+		int base = head_ + offset;
+		int end = std::min(length, capacity_ - base);
+		for(int i=0; i<end; ++i){
+			IO_ERR ret = out.write(buf_[base + i]);
+			if(ret != OK) return ret;
+		}
+
+		end = std::max(0, base + length - capacity_);
+		for(int i=0; i<end; ++i){
+			IO_ERR ret = out.write(buf_[i]);
+			if(ret != OK) return ret;
+		}
+		return OK;
+	}
+	IO_ERR restoreState(const DataInputStreamSP& in){
+		IO_ERR ret = in->readInt(size_);
+		if(ret != OK) return ret;
+		in->readInt(head_);
+		in->readInt(tail_);
+		if(head_ > size_ || tail_ > size_)
+			return INVALIDDATA;
+		return in->readBytes((char*)buf_, sizeof(T) * capacity_, false);
+	}
+	void push(T& value){
+		if(size_ >= capacity_){
+			// equivalent to head_ = (head_ + 1) % capacity_;
+			int head = (head_ + 1);
+			int cond = -(int)(head < capacity_);
+			head_ = (cond & head) | (~cond & (head - capacity_));
+
+			buf_[tail_] = value;
+			tail_ = head_;
+		}
+		else{
+			buf_[tail_] = value;
+
+			// equivalent to tail_ = (tail_ + 1) % capacity_;
+			int tail = tail_ + 1;
+			int cond = - (int)(tail < capacity_);
+			tail_ = (cond & tail) | (~cond & (tail - capacity_));
+
+			++size_;
+		}
+	}
+	inline int size() const {return size_;}
+	inline const T& get(int index) const {
+		// equivalent to buf_[(head_ + index) % capacity_]
+		index = head_ + index;
+		int cond = - (int)(index < capacity_);
+		return buf_[(cond & index) | (~cond & (index - capacity_))];
+	}
+	inline const T& tail() const {
+		//equivalent to tail_ == 0 ? buf_[capacity_ - 1] : buf_[tail_ - 1]
+		int cond = - (int)(tail_ == 0);
+		return buf_[(cond & (capacity_ - 1)) | (~cond & (tail_ - 1))];
+	}
+	inline const T& head() const { return buf_[head_];}
+
+private:
+	int capacity_;
+	int size_;
+	int head_;
+	int tail_;
+	T* buf_;
+};
+
+struct DoubleReader {
+	double operator()(Constant* vec, INDEX index) const {
+		return vec->getDouble(index);
+	}
+	double operator()(Constant* x) const {
+		return x->getDouble();
+	}
+	const double* getConst(Constant* x, INDEX start, int count, double* buf) const {
+		return x->getDoubleConst(start, count, buf);
+	}
+	double* getBuffer(Constant* x, INDEX start, int count, double* buf) const {
+		return x->getDoubleBuffer(start, count, buf);
+	}
+	bool operator()(Constant* vec, INDEX start, int count, double* buf) const {
+		return vec->getDouble(start, count, buf);
+	}
+	bool operator()(Constant* vec, INDEX* indices, int count, double* buf) const {
+		return vec->getDouble(indices, count, buf);
+	}
+	bool operator()(Vector* vec, INDEX offset, INDEX* sortedIndices, int count, double* buf) const {
+		return vec->getDoubleSafe(offset, sortedIndices, count, buf);
+	}
+};
+
+struct FloatReader {
+	float operator()(Constant* vec, INDEX index) const {
+		return vec->getFloat(index);
+	}
+	float operator()(Constant* x) const {
+		return x->getFloat();
+	}
+	const float* getConst(Constant* x, INDEX start, int count, float* buf) const {
+		return x->getFloatConst(start, count, buf);
+	}
+	float* getBuffer(Constant* x, INDEX start, int count, float* buf) const {
+		return x->getFloatBuffer(start, count, buf);
+	}
+	bool operator()(Constant* vec, INDEX start, int count, float* buf) const {
+		return vec->getFloat(start, count, buf);
+	}
+	bool operator()(Constant* vec, INDEX* indices, int count, float* buf) const {
+		return vec->getFloat(indices, count, buf);
+	}
+	bool operator()(Vector* vec, INDEX offset, INDEX* sortedIndices, int count, float* buf) const {
+		return vec->getFloatSafe(offset, sortedIndices, count, buf);
+	}
+};
+
+struct LongReader {
+	long long operator()(Constant* vec, INDEX index) const {
+		return vec->getLong(index);
+	}
+	long long operator()(Constant* x) const {
+		return x->getLong();
+	}
+	const long long* getConst(Constant* x, INDEX start, int count, long long* buf) const {
+		return x->getLongConst(start, count, buf);
+	}
+	long long* getBuffer(Constant* x, INDEX start, int count, long long* buf) const {
+		return x->getLongBuffer(start, count, buf);
+	}
+	bool operator()(Constant* vec, INDEX start, int count, uint64_t* buf) const {
+		return vec->getLong(start, count, (long long*)buf);
+	}
+	bool operator()(Constant* vec, INDEX start, int count, long long* buf) const {
+		return vec->getLong(start, count, buf);
+	}
+	bool operator()(Constant* vec, INDEX* indices, int count, long long* buf) const {
+		return vec->getLong(indices, count, buf);
+	}
+	bool operator()(Vector* vec, INDEX offset, INDEX* sortedIndices, int count, long long* buf) const {
+		return vec->getLongSafe(offset, sortedIndices, count, buf);
+	}
+};
+
+struct IntReader {
+	int operator()(Constant* vec, INDEX index) const {
+		return vec->getInt(index);
+	}
+	int operator()(Constant* x) const {
+		return x->getInt();
+	}
+	const int* getConst(Constant* x, INDEX start, int count, int* buf) const {
+		return x->getIntConst(start, count, buf);
+	}
+	int* getBuffer(Constant* x, INDEX start, int count, int* buf) const {
+		return x->getIntBuffer(start, count, buf);
+	}
+	bool operator()(Constant* vec, INDEX start, int count, uint32_t* buf) const{
+		return vec->getInt(start, count, (int*)buf);
+	}
+	bool operator()(Constant* vec, INDEX start, int count, int* buf) const{
+		return vec->getInt(start, count, buf);
+	}
+	bool operator()(Constant* vec, INDEX* indices, int count, int* buf) const{
+		return vec->getInt(indices, count, buf);
+	}
+	bool operator()(Vector* vec, INDEX offset, INDEX* sortedIndices, int count, int* buf) const{
+		return vec->getIntSafe(offset, sortedIndices, count, buf);
+	}
+};
+
+struct ShortReader {
+	short operator()(Constant* vec, INDEX index) const {
+		return vec->getShort(index);
+	}
+	short operator()(Constant* x) const {
+		return x->getShort();
+	}
+	const short* getConst(Constant* x, INDEX start, int count, short* buf) const {
+		return x->getShortConst(start, count, buf);
+	}
+	short* getBuffer(Constant* x, INDEX start, int count, short* buf) const {
+		return x->getShortBuffer(start, count, buf);
+	}
+	bool operator()(Constant* vec, INDEX start, int count, uint16_t* buf) const {
+		return vec->getShort(start, count, (short*)buf);
+	}
+	bool operator()(Constant* vec, INDEX start, int count, short* buf) const {
+		return vec->getShort(start, count, buf);
+	}
+	bool operator()(Constant* vec, INDEX* indices, int count, short* buf) const {
+		return vec->getShort(indices, count, buf);
+	}
+	bool operator()(Vector* vec, INDEX offset, INDEX* sortedIndices, int count, short* buf) const {
+		return vec->getShortSafe(offset, sortedIndices, count, buf);
+	}
+};
+
+struct CharReader {
+	char operator()(Constant* vec, INDEX index) const {
+		return vec->getChar(index);
+	}
+	char operator()(Constant* x) const {
+		return x->getChar();
+	}
+	const char* getConst(Constant* x, INDEX start, int count, char* buf) const {
+		return x->getCharConst(start, count, buf);
+	}
+	char* getBuffer(Constant* x, INDEX start, int count, char* buf) const {
+		return x->getCharBuffer(start, count, buf);
+	}
+	bool operator()(Constant* vec, INDEX start, int count, uint8_t* buf) const {
+		return vec->getChar(start, count, (char*)buf);
+	}
+	bool operator()(Constant* vec, INDEX start, int count, char* buf) const {
+		return vec->getChar(start, count, buf);
+	}
+	bool operator()(Constant* vec, INDEX* indices, int count, char* buf) const {
+		return vec->getChar(indices, count, buf);
+	}
+	bool operator()(Vector* vec, INDEX offset, INDEX* sortedIndices, int count, char* buf) const {
+		return vec->getCharSafe(offset, sortedIndices, count, buf);
+	}
+};
+
+struct BoolReader {
+	char operator()(Constant* vec, INDEX index) const {
+		return vec->getBool(index);
+	}
+	char operator()(Constant* x) const {
+		return x->getBool();
+	}
+	const char* getConst(Constant* x, INDEX start, int count, char* buf) const {
+		return x->getBoolConst(start, count, buf);
+	}
+	char* getBuffer(Constant* x, INDEX start, int count, char* buf) const {
+		return x->getBoolBuffer(start, count, buf);
+	}
+	bool operator()(Constant* vec, INDEX start, int count, char* buf) const {
+		return vec->getBool(start, count, buf);
+	}
+	bool operator()(Constant* vec, INDEX* indices, int count, char* buf) const {
+		return vec->getBool(indices, count, buf);
+	}
+	bool operator()(Vector* vec, INDEX offset, INDEX* sortedIndices, int count, char* buf) const {
+		return vec->getBoolSafe(offset, sortedIndices, count, buf);
+	}
+};
+
+struct GuidReader {
+	Guid operator()(Constant* x, INDEX index) const {
+		return x->getInt128(index);
+	}
+	Guid operator()(Constant* x) const {
+		return x->getInt128();
+	}
+	const Guid* getConst(Constant* x, INDEX start, int count, Guid* buf) const {
+		return (Guid*)x->getBinaryConst(start, count, 16, (unsigned char*)buf);
+	}
+	Guid* getBuffer(Constant* x, INDEX start, int count, Guid* buf) const {
+		return (Guid*)x->getBinaryBuffer(start, count, 16, (unsigned char*)buf);
+	}
+	bool operator()(Constant* vec, INDEX start, int count, Guid* buf) const {
+		return vec->getBinary(start, count, 16, (unsigned char*)buf);
+	}
+	bool operator()(Constant* vec, INDEX* indices, int count, Guid* buf) const {
+		return vec->getBinary(indices, count, 16, (unsigned char*)buf);
+	}
+	bool operator()(Vector* vec, INDEX offset, INDEX* sortedIndices, int count, Guid* buf) const {
+		return vec->getBinarySafe(offset, sortedIndices, count, 16, (unsigned char*)buf);
+	}
+};
+
+class AbstractFunctionDef : public FunctionDef{
+public:
+	AbstractFunctionDef(FUNCTIONDEF_TYPE defType, const string& name, const vector<ParamSP>& params, bool hasReturnValue=true, bool aggregation=false, bool sequential=false): FunctionDef(defType, name, params,
+		hasReturnValue, aggregation, sequential), val_(name){}
+	AbstractFunctionDef(FUNCTIONDEF_TYPE defType, const string& name, int minParamNum, int maxParamNum, bool hasReturnValue, bool aggregation=false, bool sequential=false) : FunctionDef(defType, name, minParamNum,
+		maxParamNum, hasReturnValue, aggregation, sequential), val_(name){}
+	virtual ~AbstractFunctionDef(){}
+	virtual char getBool() const {throw IncompatibleTypeException(DT_BOOL,DT_FUNCTIONDEF);}
+	virtual char getChar() const {throw IncompatibleTypeException(DT_CHAR,DT_FUNCTIONDEF);}
+	virtual short getShort() const {throw IncompatibleTypeException(DT_SHORT,DT_FUNCTIONDEF);}
+	virtual int getInt() const {throw IncompatibleTypeException(DT_INT,DT_FUNCTIONDEF);}
+	virtual long long getLong() const {throw IncompatibleTypeException(DT_LONG,DT_FUNCTIONDEF);}
+	virtual INDEX getIndex() const {throw IncompatibleTypeException(DT_INDEX,DT_FUNCTIONDEF);}
+	virtual float getFloat() const {throw IncompatibleTypeException(DT_FLOAT,DT_FUNCTIONDEF);}
+	virtual double getDouble() const {throw IncompatibleTypeException(DT_DOUBLE,DT_FUNCTIONDEF);}
+	virtual string getString() const {return val_;}
+	virtual bool isNull() const {return false;}
+	virtual void setString(const DolphinString& val) {val_ = val.getString();}
+	virtual void setNull(){}
+	virtual void nullFill(const ConstantSP& val){}
+	virtual bool isNull(INDEX start, int len, char* buf) const {
+		for(int i=0;i<len;++i)
+			buf[i]=false;
+		return true;
+	}
+	virtual bool isValid(INDEX start, int len, char* buf) const {
+		for(int i=0;i<len;++i)
+			buf[i]=true;
+		return true;
+	}
+	virtual ConstantSP getInstance() const { throw RuntimeException("FunctionDef::getInstance method not supported.");}
+	virtual ConstantSP getValue() const { throw RuntimeException("Function definition [" + name_ + "] is not copyable and can't serve as an operand in numeric calculation.");}
+	virtual DATA_FORM getForm() const {return DF_SCALAR;}
+	virtual long long getAllocatedMemory() const {return sizeof(string)+val_.size();}
+	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
+	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, INDEX& numElement);
+	virtual int compare(int index, const ConstantSP& target) const {
+		return val_.compare(target->getString());
+	}
+	inline void setSequentialFunction(bool option) {
+		if(option) extraFlag_ |= 8; else extraFlag_ &= ~8;
+	}
+
+private:
+	mutable string val_;
+};
+
+class PartialFunction : public AbstractFunctionDef{
+public:
+	PartialFunction(Function* pFuncCall);
+	PartialFunction(FunctionDefSP funcDef, const vector<ConstantSP>& arguments);
+	PartialFunction(Session* session, const DataInputStreamSP& buffer);
+	virtual ~PartialFunction();
+	virtual ConstantSP call(Heap* heap, vector<ConstantSP>& arguments);
+	virtual ConstantSP call(Heap* heap, const ConstantSP& a, const ConstantSP& b);
+	virtual ConstantSP call(Heap* heap,vector<ObjectSP>& arguments);
+	virtual FunctionDefSP materializeFunctionDef(Heap* pHeap);
+	virtual string getScript() const {return getString();}
+	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
+	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
+	inline FunctionDefSP getFunctionDef() const { return funcDef_;}
+	inline int getSetArgumentCount() const { return args_.size();}
+	inline ObjectSP getSetArgument(int index) const {return args_[index];}
+	inline int getMissingArgumentCount() const { return missingArgs_.size();}
+	inline int getMissingArgumentIndex(int index) const { return missingArgs_[index];}
+
+private:
+	string generateScript() const;
+
+private:
+	FunctionDefSP funcDef_;
+	FunctionDefSP materializedFuncDef_;
+	vector<ObjectSP> args_;
+	vector<ConstantSP> objs_;
+	vector<int> missingArgs_;
+	bool ready_;
+	Mutex* mutex_;
+};
+
+class ReactiveState;
+
+typedef SmartPointer<ReactiveState> ReactiveStateSP;
+
+typedef ReactiveStateSP(*StateFuncFactory)(const vector<ObjectSP>& args, const vector<int>& inputColIndices, const vector<DATA_TYPE>& inputColTypes, const vector<int>& outputColIndices);
+typedef ReactiveStateSP(*StateFuncFactoryWithContext)(const vector<ObjectSP>& args, const vector<int>& inputColIndices,
+													  const vector<DATA_TYPE>& inputColTypes,
+													  const vector<int>& outputColIndices, SQLContextSP &context,
+													  Heap *heap);
+
+													  class ReactiveState {
+public:
+	virtual ~ReactiveState(){}
+	virtual IO_ERR snapshotState(const DataOutputStreamSP& out) = 0;
+	virtual IO_ERR restoreState(const DataInputStreamSP& in) = 0;
+	virtual void append(Heap* heap, const ConstantSP& keyIndex) = 0;
+	virtual void addKeys(int count) = 0;
+	virtual void removeKeys(const vector<int>& keyIndices) = 0;
+	virtual void getMemoryUsed(long long& fixedMemUsed, long long& variableMemUsedPerKey) = 0;
+	// clearkeys() will NOT remove keys, but reset their state to initial state, used in segmentby
+	// add clearKeys for [cumsum, cummax, cummin, cumcount, cumavg, cumstd, cumvar, cumstdp, cumvarp], others not support.
+	// for those ReactiveState which NOT support segmentby, throw an execption
+	virtual void clearKeys(const ConstantSP& keyIndex) {
+		throw RuntimeException("ReactiveState NOT supported clearKeys()");
+	}
+	virtual void setTable(const TableSP& table){
+		table_ = table;
+	}
+	TableSP getTable() const {
+		return table_;
+	}
+	virtual void setSession(const SessionSP& session){
+		session_ = session;
+	}
+
+	virtual long long getAdditionalMemoryUsed(){ return 0; }
+	virtual bool isTimeMovingFunction(){return false;}
+protected:
+	template<class T>
+	void setData(int outputColIndex, INDEX* indices, int count, T* buf){
+		ConstantSP result = table_->getColumn(outputColIndex);
+		if(LIKELY(result->isFastMode())){
+			T* data = (T*)result->getDataArray();
+			for(int i=0; i<count; ++i){
+				data[indices[i]] = buf[i];
+			}
+		}
+		else{
+			T** dataSegment = (T**)result->getDataSegment();
+			int segmentSizeInBit = result->getSegmentSizeInBit();
+			int segmentMask = (1<<segmentSizeInBit) - 1;
+			for(int i=0; i<count; ++i){
+				dataSegment[indices[i] >> segmentSizeInBit][indices[i] & segmentMask] = buf[i];
+			}
+		}
+	}
+
+	void setString(int outputColIndex, INDEX* indices, int count, DolphinString* buf);
+
+	template<class T>
+	void removeElements(vector<T>& data, const vector<int>& keyIndices){
+		if(data.empty())
+			return;
+	    size_t dstCursor = keyIndices[0];
+	    size_t srcCursor = keyIndices[0] + 1;
+	    size_t indicesCursor = 1;
+	    size_t count = data.size();
+	    size_t indicesCount = keyIndices.size();
+	    while(srcCursor < count){
+	        if (indicesCursor < indicesCount) {
+	            while (srcCursor < (size_t)keyIndices[indicesCursor]) {
+	                data[dstCursor++] = std::move(data[srcCursor++]);
+	            }
+	            ++srcCursor;
+	            ++indicesCursor;
+	        }
+	        else {
+	            while (srcCursor < count) {
+	                data[dstCursor++] = std::move(data[srcCursor++]);
+	            }
+	        }
+	    }
+	    data.resize(count - indicesCount);
+	}
+
+protected:
+	SessionSP session_;
+	TableSP table_;
+};
+
 
 #endif /* CORECONCEPT_H_ */

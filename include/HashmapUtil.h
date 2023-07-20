@@ -13,6 +13,7 @@
 #include "Concurrent.h"
 #include "DolphinString.h"
 #include "Guid.h"
+#include "WideInteger.h"
 
 void* myAlloc(size_t size);
 void myFree(void * ptr);
@@ -317,6 +318,14 @@ template<>
 struct murmur_hasher<double> {
     uint64_t operator()(const double & val);
 };
+template<>
+struct murmur_hasher<wide_integer::int128> {
+    uint64_t operator()(const wide_integer::int128 & val);
+};
+template<>
+struct murmur_hasher<wide_integer::uint128> {
+    uint64_t operator()(const wide_integer::uint128 & val);
+};
 template<class T>
 struct murmur_hasher<T*> {
     uint64_t operator()(const T* val);
@@ -413,6 +422,14 @@ template<>
 struct XXHasher<double> {
     uint64_t operator()(const double & val);
 };
+template<>
+struct XXHasher<wide_integer::int128> {
+    uint64_t operator()(const wide_integer::int128 & val);
+};
+template<>
+struct XXHasher<wide_integer::uint128> {
+    uint64_t operator()(const wide_integer::uint128 & val);
+};
 template<class T>
 struct XXHasher<T*> {
     uint64_t operator()(const T* val);
@@ -508,21 +525,15 @@ public:
 
 	// Ask for a record
 	hprecord<T>* acquire() noexcept {
-		hprecord<T>*      cur = reinterpret_cast<hprecord<T>*>(mine);;
-		if (cur != 0 && cur->manager == this) {
-			if (cur->try_acquire()) return cur;
-		}
-		cur = head.load();
+		hprecord<T>* cur = head.load();
 		for (; cur; cur = cur->next) {
 			if (!cur->try_acquire()) continue;
-			mine = cur;
 			return cur;
 		}
 		H.fetch_add(1);
 		void * ptr = mySmallAlloc(sizeof(hprecord<T>));
 		cur = new(ptr) hprecord<T>(this);
 		cur->try_acquire();
-		mine = cur;
 		hprecord<T>      *oldhead = head.load();
 		do
 			cur->next = oldhead;

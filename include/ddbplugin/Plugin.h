@@ -213,7 +213,14 @@ class Executor : public Runnable {
 
 public:
     explicit Executor(Func f) : func_(std::move(f)) {};
-    void run() override { func_(); };
+    void run() override {
+        try{
+            func_();
+        }
+        catch(...){
+            LOG_ERR("an uncaught exception was found");
+        }
+    };
 
 private:
     Func func_;

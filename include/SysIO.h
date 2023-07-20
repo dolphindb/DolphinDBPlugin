@@ -69,10 +69,10 @@ public:
 	void setAutoClose(bool option) { autoClose_ = option;}
 	void enableSSL(SSL* ssl) { ssl_ = ssl;}
 	SSL* getSSL() const { return ssl_;}
+	bool setNonBlocking();
 	static bool ENABLE_TCP_NODELAY;
 
 private:
-	bool setNonBlocking();
 	bool setTcpNoDelay();
 	int getErrorCode();
 	void showSSLError(int err);

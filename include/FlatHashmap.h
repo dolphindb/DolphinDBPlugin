@@ -1870,6 +1870,10 @@ public:
         return impl->find(key, recv);
     }
 
+    inline bool findPointer(const key_type& key, mapped_type** recvPtr) {
+        return impl->findPointer(key, recvPtr);
+    }
+
     bool insert(const key_type & key, const mapped_type & value) {
         int ret = impl->insert(key, value);
         if (ret == INSERT_GOOD)
@@ -3090,4 +3094,44 @@ struct equal_to<Triple8BKey> {
     }
 };
 }
+
+
+#define DEF_MULTI_COMBINED_KEY(count, type, prefix, bytes) \
+typedef MultiCombinedKey<count, type> prefix##bytes##BKey; \
+typedef MultiCombinedKeyHasher<count, type> prefix##bytes##BKeyHasher; \
+typedef MultiCombinedKeyEqual<count, type> prefix##bytes##BKeyEqual; \
+\
+template<> struct murmur_hasher<prefix##bytes##BKey> { \
+    uint64_t operator()(const prefix##bytes##BKey & key) { \
+        return prefix##bytes##BKeyHasher{}(key); \
+    } \
+}; \
+template<> struct XXHasher<prefix##bytes##BKey> { \
+    uint64_t operator()(const prefix##bytes##BKey & key) { \
+        return prefix##bytes##BKeyHasher{}(key); \
+    } \
+}; \
+\
+namespace std \
+{ \
+template<> struct hash<prefix##bytes##BKey> { \
+    typedef prefix##bytes##BKey argument_type; \
+    typedef std::size_t result_type; \
+    result_type operator()(argument_type const& s) const { \
+        return prefix##bytes##BKeyHasher{}(s); \
+    } \
+}; \
+template<> struct equal_to<prefix##bytes##BKey> { \
+    bool operator()(const prefix##bytes##BKey & key1, const prefix##bytes##BKey & key2) const { \
+        return key1 == key2; \
+    } \
+}; \
+} \
+//======
+
+DEF_MULTI_COMBINED_KEY(2, wide_integer::int128, Double, 16);  // Double16BKey
+DEF_MULTI_COMBINED_KEY(3, wide_integer::int128, Triple, 16);  // Triple16BKey
+
+#undef DEF_MULTI_COMBINED_KEY
+
 #endif

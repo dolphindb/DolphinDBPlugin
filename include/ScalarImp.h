@@ -12,6 +12,7 @@
 
 #include "CoreConcept.h"
 #include "Util.h"
+#include "WideInteger.h"
 
 using std::ostringstream;
 
@@ -37,6 +38,7 @@ public:
 	virtual char getChar() const {return CHAR_MIN;}
 	virtual short getShort() const {return SHRT_MIN;}
 	virtual int getInt() const {return INT_MIN;}
+	virtual INDEX getIndex() const {return INDEX_MIN;}
 	virtual long long  getLong() const {return LLONG_MIN;}
 	virtual float getFloat() const {return FLT_NMIN;}
 	virtual double getDouble() const {return DBL_NMIN;}
@@ -81,8 +83,6 @@ public:
 	virtual bool getString(INDEX* indices, int len, DolphinString** buf) const;
 	virtual bool getString(INDEX* indices, int len, char** buf) const;
 	virtual bool getBinary(INDEX* indices, int len, int unitLength, unsigned char* buf) const;
-	virtual bool getDecimal32(INDEX *indices, int len, int scale, int *buf) const;
-	virtual bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const;
 	virtual long long getAllocatedMemory() const;
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
 	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
@@ -90,6 +90,16 @@ public:
 	virtual int compare(INDEX index, const ConstantSP& target) const {return target->getType() == DT_VOID ? 0 : -1;}
 
 public:  /// {get,set}Decimal{32,64}
+	virtual int getDecimal32(int scale) const override {
+		return INT_MIN;
+	}
+	virtual long long getDecimal64(int scale) const override {
+		return LLONG_MIN;
+	}
+	virtual wide_integer::int128 getDecimal128(int scale) const override {
+		return wide_integer::int128MinValue();
+	}
+
 	virtual int getDecimal32(INDEX index, int scale) const override {
 		int result = 0;
 		getDecimal32(index, /*len*/1, scale, &result);
@@ -100,11 +110,19 @@ public:  /// {get,set}Decimal{32,64}
 		getDecimal64(index, /*len*/1, scale, &result);
 		return result;
 	}
+	virtual wide_integer::int128 getDecimal128(INDEX index, int scale) const override {
+		wide_integer::int128 result = 0;
+		getDecimal128(index, /*len*/1, scale, &result);
+		return result;
+	}
 
 	virtual bool getDecimal32(INDEX start, int len, int scale, int *buf) const override {
 		return getDecimal(start, len, scale, buf);
 	}
 	virtual bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override {
+		return getDecimal(start, len, scale, buf);
+	}
+	virtual bool getDecimal128(INDEX start, int len, int scale, wide_integer::int128 *buf) const override {
 		return getDecimal(start, len, scale, buf);
 	}
 
@@ -115,6 +133,21 @@ public:  /// {get,set}Decimal{32,64}
 	virtual const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const override {
 		getDecimal(start, len, scale, buf);
 		return buf;
+	}
+	virtual const wide_integer::int128* getDecimal128Const(INDEX start, int len, int scale,
+			wide_integer::int128 *buf) const override {
+		getDecimal(start, len, scale, buf);
+		return buf;
+	}
+
+	virtual bool getDecimal32(INDEX *indices, int len, int scale, int *buf) const override {
+		return getDecimal(0, len, scale, buf);
+	}
+	virtual bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const override {
+		return getDecimal(0, len, scale, buf);
+	}
+	virtual bool getDecimal128(INDEX *indices, int len, int scale, wide_integer::int128 *buf) const override {
+		return getDecimal(0, len, scale, buf);
 	}
 
 private:
@@ -357,6 +390,54 @@ public:
 	virtual INDEX getIndex() const {throw IncompatibleTypeException(DT_INDEX, internalType());}
 	virtual float getFloat() const {throw IncompatibleTypeException(DT_FLOAT, internalType());}
 	virtual double getDouble() const {throw IncompatibleTypeException(DT_DOUBLE, internalType());}
+
+	virtual int getDecimal32(int scale) const override {
+		throw IncompatibleTypeException(DT_DECIMAL32, internalType());
+	}
+	virtual long long getDecimal64(int scale) const override {
+		throw IncompatibleTypeException(DT_DECIMAL64, internalType());
+	}
+	virtual wide_integer::int128 getDecimal128(int scale) const override {
+		throw IncompatibleTypeException(DT_DECIMAL128, internalType());
+	}
+	virtual int getDecimal32(INDEX index, int scale) const override {
+		throw IncompatibleTypeException(DT_DECIMAL32, internalType());
+	}
+	virtual long long getDecimal64(INDEX index, int scale) const override {
+		throw IncompatibleTypeException(DT_DECIMAL64, internalType());
+	}
+	virtual wide_integer::int128 getDecimal128(INDEX index, int scale) const override {
+		throw IncompatibleTypeException(DT_DECIMAL128, internalType());
+	}
+	virtual bool getDecimal32(INDEX start, int len, int scale, int *buf) const override {
+		throw IncompatibleTypeException(DT_DECIMAL32, internalType());
+	}
+	virtual bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override {
+		throw IncompatibleTypeException(DT_DECIMAL64, internalType());
+	}
+	virtual bool getDecimal128(INDEX start, int len, int scale, wide_integer::int128 *buf) const override {
+		throw IncompatibleTypeException(DT_DECIMAL128, internalType());
+	}
+	virtual bool getDecimal32(INDEX *indices, int len, int scale, int *buf) const override {
+		throw IncompatibleTypeException(DT_DECIMAL32, internalType());
+	}
+	virtual bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const override {
+		throw IncompatibleTypeException(DT_DECIMAL64, internalType());
+	}
+	virtual bool getDecimal128(INDEX *indices, int len, int scale, wide_integer::int128 *buf) const override {
+		throw IncompatibleTypeException(DT_DECIMAL128, internalType());
+	}
+	virtual const int* getDecimal32Const(INDEX start, int len, int scale, int *buf) const override {
+		throw IncompatibleTypeException(DT_DECIMAL32, internalType());
+	}
+	virtual const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const override {
+		throw IncompatibleTypeException(DT_DECIMAL64, internalType());
+	}
+	virtual const wide_integer::int128* getDecimal128Const(INDEX start, int len, int scale,
+			wide_integer::int128 *buf) const override {
+		throw IncompatibleTypeException(DT_DECIMAL128, internalType());
+	}
+
 	virtual string getString() const {return val_.getString();}
 	virtual string getScript() const {return Util::literalConstant(val_.getString());}
 	virtual const DolphinString& getStringRef() const {return val_;}
@@ -640,7 +721,17 @@ public:
 		return vec;
 	}
 
-public:  /// {get,set}Decimal{32,64}
+public:  /// {get,set}Decimal{32,64,128}
+	virtual int getDecimal32(int scale) const override {
+		return getDecimal32(/*index*/0, scale);
+	}
+	virtual long long getDecimal64(int scale) const override {
+		return getDecimal64(/*index*/0, scale);
+	}
+	virtual wide_integer::int128 getDecimal128(int scale) const override {
+		return getDecimal128(/*index*/0, scale);
+	}
+
 	virtual int getDecimal32(INDEX index, int scale) const override {
 		int result = 0;
 		getDecimal32(index, /*len*/1, scale, &result);
@@ -651,11 +742,19 @@ public:  /// {get,set}Decimal{32,64}
 		getDecimal64(index, /*len*/1, scale, &result);
 		return result;
 	}
+	virtual wide_integer::int128 getDecimal128(INDEX index, int scale) const override {
+		wide_integer::int128 result = 0;
+		getDecimal128(index, /*len*/1, scale, &result);
+		return result;
+	}
 
 	virtual bool getDecimal32(INDEX start, int len, int scale, int *buf) const override {
 		return getDecimal(start, len, scale, buf);
 	}
 	virtual bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override {
+		return getDecimal(start, len, scale, buf);
+	}
+	virtual bool getDecimal128(INDEX start, int len, int scale, wide_integer::int128 *buf) const override {
 		return getDecimal(start, len, scale, buf);
 	}
 
@@ -665,12 +764,19 @@ public:  /// {get,set}Decimal{32,64}
 	virtual bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const override {
 		return getDecimal(/*start*/0, len, scale, buf);
 	}
+	virtual bool getDecimal128(INDEX *indices, int len, int scale, wide_integer::int128 *buf) const override {
+		return getDecimal(/*start*/0, len, scale, buf);
+	}
 
 	virtual const int* getDecimal32Const(INDEX start, int len, int scale, int *buf) const override {
 		return getDecimal32Buffer(start, len, scale, buf);
 	}
 	virtual const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const override {
 		return getDecimal64Buffer(start, len, scale, buf);
+	}
+	virtual const wide_integer::int128* getDecimal128Const(INDEX start, int len, int scale,
+			wide_integer::int128 *buf) const override {
+		return getDecimal128Buffer(start, len, scale, buf);
 	}
 
 	virtual int* getDecimal32Buffer(INDEX start, int len, int scale, int *buf) const override {
@@ -681,6 +787,11 @@ public:  /// {get,set}Decimal{32,64}
 		getDecimal(start, len, scale, buf);
 		return buf;
 	}
+	virtual wide_integer::int128* getDecimal128Buffer(INDEX start, int len, int scale,
+			wide_integer::int128 *buf) const override {
+		getDecimal(start, len, scale, buf);
+		return buf;
+	}
 
 	virtual void setDecimal32(INDEX index, int scale, int val) override {
 		setDecimal32(index, /*len*/1, scale, &val);
@@ -688,11 +799,17 @@ public:  /// {get,set}Decimal{32,64}
 	virtual void setDecimal64(INDEX index, int scale, long long val) override {
 		setDecimal64(index, /*len*/1, scale, &val);
 	}
+	virtual void setDecimal128(INDEX index, int scale, wide_integer::int128 val) override {
+		setDecimal128(index, /*len*/1, scale, &val);
+	}
 
 	virtual bool setDecimal32(INDEX start, int len, int scale, const int *buf) override {
 		return setDecimal(start, len, scale, buf);
 	}
 	virtual bool setDecimal64(INDEX start, int len, int scale, const long long *buf) override {
+		return setDecimal(start, len, scale, buf);
+	}
+	virtual bool setDecimal128(INDEX start, int len, int scale, const wide_integer::int128 *buf) override {
 		return setDecimal(start, len, scale, buf);
 	}
 
@@ -1323,8 +1440,11 @@ public:
 
 template <typename T>
 class Decimal : public Constant {
-    static_assert(std::is_same<T, int>::value || std::is_same<T, long long>::value,
-            "only allow to instantiate Decimal<int> and Decimal<long long>");
+    using int128 = wide_integer::int128;
+    using uint128 = wide_integer::uint128;
+    static_assert(std::is_same<T, int>::value || std::is_same<T, long long>::value ||
+                  std::is_same<T, int128>::value,
+                  "only allow to instantiate Decimal<int>, Decimal<long long> and Decimal<int128>");
 public:
     using raw_data_t = T;
 
@@ -1340,8 +1460,11 @@ public:
     Decimal(const Decimal<U> &other);
 
 public:
+    static DATA_TYPE type();
+
     int getScale() const { return scale_; }
     raw_data_t getRawData() const { return rawData_; }
+	raw_data_t* getRawDataPointer() { return &rawData_; }
     void setRawData(const raw_data_t data) { rawData_ = data; }
 
     std::string toString() const;
@@ -1349,13 +1472,13 @@ public:
 public:  /// Interface of Constant
     virtual int getExtraParamForType() const override { return scale_; }
 
-    virtual bool isNull() const override { return rawData_ == std::numeric_limits<T>::min(); }
-    virtual void setNull() override { rawData_ = std::numeric_limits<T>::min(); }
+    virtual bool isNull() const override;
+    virtual void setNull() override;
 
     virtual DATA_TYPE getRawType() const override { return type(); }
 
-    virtual ConstantSP getInstance() const override { return ConstantSP(new Decimal(scale_, rawData_)); }
-    virtual ConstantSP getValue() const override { return ConstantSP(new Decimal(scale_, rawData_)); }
+    virtual ConstantSP getInstance() const override;
+    virtual ConstantSP getValue() const override;
 
     virtual std::string getString() const override {
         if (isNull()) {
@@ -1419,7 +1542,17 @@ public:  /// {get,set}Binary
     virtual const unsigned char *getBinaryConst(INDEX start, int len, int unitLength,
                                                 unsigned char *buf) const override;
 
-public:  /// {get,set}Decimal{32,64}
+public:  /// {get,set}Decimal{32,64,128}
+    virtual int getDecimal32(int scale) const override {
+        return getDecimal32(/*index*/0, scale);
+    }
+    virtual long long getDecimal64(int scale) const override {
+        return getDecimal64(/*index*/0, scale);
+    }
+    virtual wide_integer::int128 getDecimal128(int scale) const override {
+        return getDecimal128(/*index*/0, scale);
+    }
+
     virtual int getDecimal32(INDEX index, int scale) const override {
         int result = 0;
         getDecimal32(index, /*len*/1, scale, &result);
@@ -1430,11 +1563,19 @@ public:  /// {get,set}Decimal{32,64}
         getDecimal64(index, /*len*/1, scale, &result);
         return result;
     }
+    virtual wide_integer::int128 getDecimal128(INDEX index, int scale) const override {
+        wide_integer::int128 result = 0;
+        getDecimal128(index, /*len*/1, scale, &result);
+        return result;
+    }
 
     virtual bool getDecimal32(INDEX start, int len, int scale, int *buf) const override {
         return getDecimal(start, len, scale, buf);
     }
     virtual bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override {
+        return getDecimal(start, len, scale, buf);
+    }
+    virtual bool getDecimal128(INDEX start, int len, int scale, wide_integer::int128 *buf) const override {
         return getDecimal(start, len, scale, buf);
     }
 
@@ -1444,12 +1585,19 @@ public:  /// {get,set}Decimal{32,64}
     virtual bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const override {
         return getDecimal(/*start*/0, len, scale, buf);
     }
+    virtual bool getDecimal128(INDEX *indices, int len, int scale, wide_integer::int128 *buf) const override {
+        return getDecimal(/*start*/0, len, scale, buf);
+    }
 
     virtual const int* getDecimal32Const(INDEX start, int len, int scale, int *buf) const override {
         return getDecimal32Buffer(start, len, scale, buf);
     }
     virtual const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const override {
         return getDecimal64Buffer(start, len, scale, buf);
+    }
+    virtual const wide_integer::int128* getDecimal128Const(INDEX start, int len, int scale,
+                                                           wide_integer::int128 *buf) const override {
+        return getDecimal128Buffer(start, len, scale, buf);
     }
 
     virtual int* getDecimal32Buffer(INDEX start, int len, int scale, int *buf) const override {
@@ -1460,6 +1608,11 @@ public:  /// {get,set}Decimal{32,64}
         getDecimal(start, len, scale, buf);
         return buf;
     }
+    virtual wide_integer::int128* getDecimal128Buffer(INDEX start, int len, int scale,
+                                                      wide_integer::int128 *buf) const override {
+        getDecimal(start, len, scale, buf);
+        return buf;
+    }
 
     virtual void setDecimal32(INDEX index, int scale, int val) override {
         setDecimal32(index, /*len*/1, scale, &val);
@@ -1467,11 +1620,17 @@ public:  /// {get,set}Decimal{32,64}
     virtual void setDecimal64(INDEX index, int scale, long long val) override {
         setDecimal64(index, /*len*/1, scale, &val);
     }
+    virtual void setDecimal128(INDEX index, int scale, wide_integer::int128 val) override {
+        setDecimal128(index, /*len*/1, scale, &val);
+    }
 
     virtual bool setDecimal32(INDEX start, int len, int scale, const int *buf) override {
         return setDecimal(start, len, scale, buf);
     }
     virtual bool setDecimal64(INDEX start, int len, int scale, const long long *buf) override {
+        return setDecimal(start, len, scale, buf);
+    }
+    virtual bool setDecimal128(INDEX start, int len, int scale, const wide_integer::int128 *buf) override {
         return setDecimal(start, len, scale, buf);
     }
 
@@ -1525,15 +1684,6 @@ private:
     void assignFloat(U value);
 
 private:
-    template <typename U = T>
-    static constexpr typename std::enable_if<std::is_same<U, int>::value == true, DATA_TYPE>::type
-    type() { return DT_DECIMAL32; }
-
-    template <typename U = T>
-    static constexpr typename std::enable_if<std::is_same<U, long long>::value == true, DATA_TYPE>::type
-    type() { return DT_DECIMAL64; }
-
-private:
     template <typename U> friend class Decimal;
 
     /**
@@ -1546,6 +1696,7 @@ private:
 
 using Decimal32 = Decimal<int>;        // int32_t
 using Decimal64 = Decimal<long long>;  // int64_t
+using Decimal128 = Decimal<wide_integer::int128>;
 
 
 #endif /* SCALARIMP_H_ */

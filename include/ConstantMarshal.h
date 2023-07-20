@@ -64,15 +64,19 @@ public:
 	static IO_ERR serializeObjectAndDependency(Heap* pHeap, const Guid& id, const ObjectSP& obj, int minimumVer, bool skipSystemUDF, const ByteArrayCodeBufferSP& buffer);
 	static IO_ERR serializeObjectAndDependency(Heap* pHeap, const Guid& id, const ObjectSP& obj, const unordered_map<string, FunctionDef*>& extraDependencies, int minimumVer, bool skipSystemUDF, bool checkDependency, const ByteArrayCodeBufferSP& buffer);
 	static ObjectSP readObjectAndDependency(Session* session, const DataInputStreamSP& in, Guid& id);
+	static string getUniqueFuncName(const FunctionDef* func);
+	static string getNameFromUnqiueName(const string& uniqueName);
+	static bool isUniqueFuncName(const string& name);
 };
 
 class CodeMarshal: public ConstantMarshalImp{
 public:
-	CodeMarshal(Heap* heap, const DataOutputStreamSP& out, bool skipSystemUDF=false):ConstantMarshalImp(out),
-		heap_(heap), id_(false), marshalDependency_(true), skipSystemUDF_(skipSystemUDF), mininumVerRequired_(0),extraDependency_(0), doneConstants_(0), doneSize_(0){}
-	CodeMarshal(Heap* heap, const DataOutputStreamSP& out, bool marshallDependency, int mininumVerRequired, bool skipSystemUDF = false):ConstantMarshalImp(out),
+	CodeMarshal(Heap* heap, const DataOutputStreamSP& out, bool skipSystemUDF=false, bool uniqueFuncName=false):ConstantMarshalImp(out),
+		heap_(heap), id_(false), marshalDependency_(true), skipSystemUDF_(skipSystemUDF), mininumVerRequired_(0),extraDependency_(0),
+		doneConstants_(0), doneSize_(0), uniqueFuncName_(uniqueFuncName){}
+	CodeMarshal(Heap* heap, const DataOutputStreamSP& out, bool marshallDependency, int mininumVerRequired, bool skipSystemUDF = false, bool uniqueFuncName=false):ConstantMarshalImp(out),
 		heap_(heap), id_(false), marshalDependency_(marshallDependency), skipSystemUDF_(skipSystemUDF), mininumVerRequired_(mininumVerRequired),
-		extraDependency_(0), doneConstants_(0), doneSize_(0){}
+		extraDependency_(0), doneConstants_(0), doneSize_(0), uniqueFuncName_(uniqueFuncName){}
 	virtual ~CodeMarshal(){}
 	void setId(const Guid& id) { id_ = id;}
 	bool marshal(const char* requestHeader, size_t headerSize, const ObjectSP& target, bool blocking, IO_ERR& ret);
@@ -91,6 +95,7 @@ private:
 	int doneSize_;
 	ByteArrayCodeBufferSP buffer_;
 	ConstantMarshalSP marshal_;
+	bool uniqueFuncName_;
 };
 
 class CodeUnmarshal: public ConstantUnmarshalImp{

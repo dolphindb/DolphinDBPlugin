@@ -721,6 +721,11 @@ public:
 
 	MutexGroupGuard(const MutexGroupGuard &) = delete;
 	MutexGroupGuard& operator=(const MutexGroupGuard &) = delete;
+	MutexGroupGuard(MutexGroupGuard &&other) noexcept : h_(0), group_(nullptr) {
+		using std::swap;
+		swap(h_, other.h_);
+		swap(group_, other.group_);
+	}
 
 	MutexGroupGuard& operator=(MutexGroupGuard &&other) noexcept {
 		this->unlock();
