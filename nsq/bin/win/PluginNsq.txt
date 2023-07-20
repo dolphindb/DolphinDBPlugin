@@ -1,4 +1,4 @@
-nsq,libPluginNsq.dll,1.30.21.3.1
+nsq,libPluginNsq.dll,1.30.22
 nsqConnect,connect,system,1,2,0
 subscribe,subscribe,system,3,3,0
 unsubscribe,unsubscribe,system,2,2,0
