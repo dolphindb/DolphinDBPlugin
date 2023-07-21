@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <Concurrent.h>
+#include <Logger.h>
 
 #include "arrow/ipc/feather.h"
 #include "arrow/io/interfaces.h"
@@ -104,7 +105,7 @@ Status transCol(ConstantSP& retCol, std::shared_ptr<ChunkedArray> chunks, std::s
 
         ((VectorSP)retCol)->appendBool((char*)(colVec.data()), length);
         break;
-        
+
     }
     case DT_CHAR:
     {
@@ -236,11 +237,11 @@ Status transCol(ConstantSP& retCol, std::shared_ptr<ChunkedArray> chunks, std::s
     }
     case DT_DOUBLE:
     {
-        
+
         std::vector<double> colVec;
         std::vector<int64_t> nullVec;
         ARROW_RETURN_NOT_OK(getDataBuffer<double>(colVec, nullVec, chunks));
-        
+
         for(int i = 0; i < int(nullVec.size()); i++) {
             *reinterpret_cast<unsigned long long*>(&colVec[nullVec[i]]) = 0xffefffffffffffff;
         }
@@ -279,7 +280,7 @@ Status transCol(ConstantSP& retCol, std::shared_ptr<ChunkedArray> chunks, std::s
                 } else {
                     colVec[pos] = nullStr;
                 }
-                
+
                 pos++;
             }
         }
@@ -356,7 +357,7 @@ Status transCol(ConstantSP& retCol, std::shared_ptr<ChunkedArray> chunks, std::s
     default:
         return Status(StatusCode::TypeError, "unsupported type ");
     };
-    
+
     retCol->setNullFlag(retCol->hasNull());
     return Status::OK();
 }
@@ -366,7 +367,11 @@ class GetColRunnable: public Runnable {
         GetColRunnable(std::vector<ConstantSP>& cols, std::shared_ptr<ChunkedArray> chunks, std::shared_ptr<DataType> type, int index, Status& status): cols_(cols), chunks_(chunks), type_(type), index_(index), status_(status){
         }
     void run() {
-        status_ = transCol(cols_[index_], chunks_, type_);
+        try {
+            status_ = transCol(cols_[index_], chunks_, type_);
+        } catch (...) {
+            LOG_ERR("Error occurs when get cols data.");
+        }
     }
     private:
     std::vector<ConstantSP>& cols_;
@@ -463,7 +468,7 @@ Status loadFromFeather(string filePath, VectorSP columnToRead, TableSP& table) {
     std::vector<std::shared_ptr<ChunkedArray>> columns = outWhole->columns();
     vector<ThreadSP> colThreads(colNum);
     vector<arrow::Status> statList(colNum);
-    
+
     for(int i = 0; i < colNum; i++) {
         std::shared_ptr<DataType> type = columns[i]->type();
         GetColRunnableSP runnable = new GetColRunnable(cols, columns[i], type, i, statList[i]);
@@ -492,7 +497,7 @@ Status loadFromFeather(string filePath, VectorSP columnToRead, TableSP& table) {
         }
         table = Util::createTable(colNames, colsReMap);
     }
-    
+
 
     return Status::OK();
 }
@@ -632,7 +637,7 @@ Status transCol(std::shared_ptr<arrow::Array>& dest, VectorSP dolphinCol, DATA_T
         ARROW_RETURN_NOT_OK(builder.AppendValues(vecSrc, isValid));
         ARROW_RETURN_NOT_OK(builder.Finish(&array));
         break;
-    } 
+    }
     case DT_SHORT:
     {
         std::vector<int16_t> vecSrc(length);
@@ -652,7 +657,7 @@ Status transCol(std::shared_ptr<arrow::Array>& dest, VectorSP dolphinCol, DATA_T
         ARROW_RETURN_NOT_OK(builder.AppendValues(vecSrc, isValid));
         ARROW_RETURN_NOT_OK(builder.Finish(&array));
         break;
-    } 
+    }
     case DT_INT:
     {
         std::vector<int32_t> vecSrc(length);
@@ -671,7 +676,7 @@ Status transCol(std::shared_ptr<arrow::Array>& dest, VectorSP dolphinCol, DATA_T
         ARROW_RETURN_NOT_OK(builder.AppendValues(vecSrc, isValid));
         ARROW_RETURN_NOT_OK(builder.Finish(&array));
         break;
-    } 
+    }
     case DT_LONG:
     {
         std::vector<int64_t> vecSrc(length);
@@ -827,7 +832,7 @@ Status transCol(std::shared_ptr<arrow::Array>& dest, VectorSP dolphinCol, DATA_T
         ARROW_RETURN_NOT_OK(builder.AppendValues(vecSrc, isValid));
         ARROW_RETURN_NOT_OK(builder.Finish(&array));
         break;
-    } 
+    }
     case DT_DOUBLE:
     {
         std::vector<double> vecSrc(length);
@@ -849,7 +854,7 @@ Status transCol(std::shared_ptr<arrow::Array>& dest, VectorSP dolphinCol, DATA_T
         ARROW_RETURN_NOT_OK(builder.AppendValues(vecSrc, isValid));
         ARROW_RETURN_NOT_OK(builder.Finish(&array));
         break;
-    } 
+    }
     case DT_STRING:
     {
         // arrow::StringBuilder builder;
@@ -899,7 +904,11 @@ class TransColRunnable: public Runnable {
         TransColRunnable(std::vector<std::shared_ptr<arrow::Array>>& columns, VectorSP dolphinCol, DATA_TYPE type, int index, Status& status): columns_(columns), dolphinCol_(dolphinCol), type_(type), index_(index), status_(status){
         }
     void run() {
-        status_ = transCol(columns_[index_], dolphinCol_, type_);
+        try {
+            status_ = transCol(columns_[index_], dolphinCol_, type_);
+        } catch (...) {
+            LOG_ERR("Error occurs when trans cols data.");
+        }
     }
     private:
     std::vector<std::shared_ptr<arrow::Array>>& columns_;
@@ -952,7 +961,7 @@ arrow::Status saveToFeather(const ConstantSP& table, const ConstantSP& filename,
             return arrow::Status(stat.code(), stat.message() + " in Column " + ((TableSP)table)->getColumnName(i) + ".");
         }
     }
-    
+
     std::shared_ptr<arrow::Table> arrowTable = arrow::Table::Make(schema, columns);
     ARROW_ASSIGN_OR_RAISE(auto file, io::FileOutputStream::Open(filename->getString(), false));
     ARROW_RETURN_NOT_OK(ipc::feather::WriteTable(*arrowTable, file.get(), properties));
@@ -974,7 +983,7 @@ ConstantSP saveFeather(Heap *heap, vector<ConstantSP> &args){
     if(filename->getType() != DT_STRING){
         throw IllegalArgumentException(__FUNCTION__, usage + "The filePath must be a string.");
     }
-    
+
     if(args.size()>=3) {
         if(args[2]->getType() != DT_STRING) {
             throw IllegalArgumentException(__FUNCTION__, usage + "The compressMethod must be a string.");
@@ -989,7 +998,7 @@ ConstantSP saveFeather(Heap *heap, vector<ConstantSP> &args){
             properties.compression = Compression::type::LZ4_FRAME;
         } else if(compression == "zstd") {
             properties.compression = Compression::type::ZSTD;
-        } else {    
+        } else {
             throw IllegalArgumentException(__FUNCTION__, usage + "Unsupported compressMethod.");
         }
 
@@ -1010,7 +1019,7 @@ ConstantSP saveFeather(Heap *heap, vector<ConstantSP> &args){
     } else {
         auto properties = ipc::feather::WriteProperties::Defaults();
         arrow::Status status = saveToFeather(table, filename, properties);
-        
+
         if (!status.ok()) {
             throw RuntimeException(status.ToString());
         }
