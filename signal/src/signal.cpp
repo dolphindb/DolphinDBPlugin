@@ -17,6 +17,7 @@
 
 #define PI 3.1415926
 bool fftwInit = false;
+static Mutex LOCK_FFTW_LIB;
 static void dwt_get(int, int, vector<double>&, vector<double>&, vector<double>&);
 static void idwt_get(int, int, vector<double> &, vector<double> &, vector<double> &, omp_lock_t &);
 static string argsCheck1D(vector<ConstantSP> &args);
@@ -27,6 +28,7 @@ static ConstantSP fft2D(VectorSP matrix, int shapeRow, int shapeCol, double scal
 //离散余弦变换(DCT-II)
 ConstantSP dct(const ConstantSP &a, const ConstantSP &b)
 {
+    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if (!(a->getForm()==DF_VECTOR && a->isNumber() && (a->getCategory() == INTEGRAL || a->getCategory() == FLOATING) && a->size() > 0))
         throw IllegalArgumentException("dct", "The argument should be a nonempty integrial or floating vector.");
     if (a->hasNull())
@@ -115,6 +117,7 @@ ConstantSP dctNumReduce(const ConstantSP &mapRes1, const ConstantSP &mapRes2)
 }
 ConstantSP dctParallel(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     ConstantSP ds = args[0];
 
     FunctionDefSP num_mapfunc = heap->currentSession()->getFunctionDef("signal::dctNumMap");
@@ -133,6 +136,7 @@ ConstantSP dctParallel(Heap *heap, vector<ConstantSP> &args)
 //离散正弦变换(DST-I)
 ConstantSP dst(const ConstantSP &a, const ConstantSP &b)
 {
+    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if (!(a->getForm()==DF_VECTOR && a->isNumber() && (a->getCategory() == INTEGRAL || a->getCategory() == FLOATING) && a->size() > 0))
         throw IllegalArgumentException("dst", "The argument should be a nonempty integrial or floating vector.");
     if (a->hasNull())
@@ -168,6 +172,7 @@ ConstantSP dst(const ConstantSP &a, const ConstantSP &b)
 //一维离散小波变换(DWT)
 ConstantSP dwt(const ConstantSP &a, const ConstantSP &b)
 {
+    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if (!(a->getForm()==DF_VECTOR && a->isNumber() && (a->getCategory() == INTEGRAL || a->getCategory() == FLOATING) && a->size() > 0))
         throw IllegalArgumentException("dwt", "The argument should be a nonempty integrial or floating vector.");
     if (a->hasNull())
@@ -211,6 +216,7 @@ ConstantSP dwt(const ConstantSP &a, const ConstantSP &b)
 //一维离散小波逆变换(IDWT)
 ConstantSP idwt(const ConstantSP &a, const ConstantSP &b)
 {
+    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if (!(a->getForm()==DF_VECTOR && a->isNumber() && (a->getCategory() == INTEGRAL || a->getCategory() == FLOATING) && a->size() > 0))
         throw IllegalArgumentException("idwt", "The argument 1 should be a nonempty integrial or floating vector.");
     if (!(b->getForm()==DF_VECTOR && b->isNumber() && (b->getCategory() == INTEGRAL || b->getCategory() == FLOATING) && b->size() > 0))
@@ -373,7 +379,7 @@ static ConstantSP fft1D(VectorSP vec, int n, double scale, bool overwrite, bool 
         n = vSize;
     fftw_complex* a = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * std::max(vSize, n));
     double* buf = nullptr;
-    fftw_plan p;
+    fftw_plan p = nullptr;
     if (vec->isNumber())
     {
         buf = new double[std::max(vSize, n)];
@@ -400,15 +406,14 @@ static ConstantSP fft1D(VectorSP vec, int n, double scale, bool overwrite, bool 
     }
 
     fftw_execute(p);
-
     a[0][0] *= scale;
     a[0][1] *= scale;
     if (vec->isNumber()) {
         for (int i = 1; i <= n / 2; i++) {
             a[i][0] *= scale;
             a[i][1] *= scale;
-            a[n - i][0] = a[i][0];
-            a[n - i][1] = (-a[i][1]);
+			a[n - i][0] = a[i][0];
+			a[n - i][1] = (-a[i][1]);
             if (inverse) {
                 std::swap(a[i][0], a[n - i][0]);
                 std::swap(a[i][1], a[n - i][1]);
@@ -416,7 +421,7 @@ static ConstantSP fft1D(VectorSP vec, int n, double scale, bool overwrite, bool 
         }
         if (n % 2 == 0) {
             a[n / 2][1] = (-a[n / 2][1]);
-        } 
+        }
     }
     else {
         for (int i = 1; i <= n / 2; i++) {
@@ -438,6 +443,9 @@ static ConstantSP fft1D(VectorSP vec, int n, double scale, bool overwrite, bool 
     VectorSP res = Util::createVector(DT_COMPLEX, n, n);
     res->setBinary(0, n, 16, (unsigned char *)a);
     fftw_free(a);
+    if (p != nullptr) {
+        fftw_destroy_plan(p);
+    }
     if (buf)
         delete[] buf;
     return res;
@@ -445,6 +453,7 @@ static ConstantSP fft1D(VectorSP vec, int n, double scale, bool overwrite, bool 
 
 ConstantSP fft(Heap* heap, vector<ConstantSP>& args)
 {
+    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     string check = argsCheck1D(args);
     if (check != "")
         throw IllegalArgumentException("fft", check);
@@ -466,6 +475,7 @@ ConstantSP fft(Heap* heap, vector<ConstantSP>& args)
 
 ConstantSP fft1(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     string check = argsCheck1D(args);
     if (check != "")
         throw IllegalArgumentException("fft!", check);
@@ -487,6 +497,7 @@ ConstantSP fft1(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP ifft(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     string check = argsCheck1D(args);
     if (check != "")
         throw IllegalArgumentException("ifft", check);
@@ -508,6 +519,7 @@ ConstantSP ifft(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP ifft1(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     string check = argsCheck1D(args);
     if (check != "")
         throw IllegalArgumentException("ifft!", check);
@@ -562,7 +574,7 @@ static ConstantSP fft2D(VectorSP matrix, int shapeRow, int shapeCol, double scal
     int cols = matrix->columns();
     int n = shapeRow * shapeCol;
     fftw_complex *a = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * n);
-    fftw_plan p;
+    fftw_plan p = nullptr;
     if (inverse)
         p = fftw_plan_dft_2d(shapeRow, shapeCol, &a[0], &a[0], FFTW_FORWARD, FFTW_ESTIMATE);
     else
@@ -630,11 +642,15 @@ static ConstantSP fft2D(VectorSP matrix, int shapeRow, int shapeCol, double scal
     }
     fftw_free(coli);
     fftw_free(a);
+    if (p != nullptr) {
+        fftw_destroy_plan(p);
+    }
     return res;
 }
 
 ConstantSP fft2(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     string check = argsCheck2D(args);
     if (check != "")
         throw IllegalArgumentException("fft2", check);
@@ -662,6 +678,7 @@ ConstantSP fft2(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP fft21(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     string check = argsCheck2D(args);
     if (check != "")
         throw IllegalArgumentException("fft2!", check);
@@ -689,6 +706,7 @@ ConstantSP fft21(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP ifft2(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     string check = argsCheck2D(args);
     if (check != "")
         throw IllegalArgumentException("ifft2", check);
@@ -716,6 +734,7 @@ ConstantSP ifft2(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP ifft21(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     string check = argsCheck2D(args);
     if (check != "")
         throw IllegalArgumentException("ifft2!", check);
@@ -743,6 +762,7 @@ ConstantSP ifft21(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP secc(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if (args.size() > 5 || args.size() < 3)
         throw IllegalArgumentException("secc", "Need 3-5 arguments");
     if (!args[0]->isVector() || !args[0]->isNumber() || args[0]->size() <= 0)
@@ -849,7 +869,7 @@ ConstantSP secc(Heap *heap, vector<ConstantSP> &args)
     y.clear();
 
     //X=fft(s),Y=fft(y);
-    fftw_plan psy;
+    fftw_plan psy = nullptr;
     fftw_complex *X = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * sRows * k);
     fftw_complex *Y = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * cols * k);
     vector<double> in(k);
@@ -857,11 +877,19 @@ ConstantSP secc(Heap *heap, vector<ConstantSP> &args)
     in.clear();
     for (int i = 0; i < sRows; i++)
     {
+        if (psy != nullptr) {
+            fftw_destroy_plan(psy);
+            psy = nullptr;
+        }
         psy = fftw_plan_dft_r2c_1d(k, &s[i * k], &X[i * k], FFTW_BACKWARD);
         fftw_execute(psy);
     }
     for (int i = 0; i < cols; i++)
     {
+        if (psy != nullptr) {
+            fftw_destroy_plan(psy);
+            psy = nullptr;
+        }
         psy = fftw_plan_dft_r2c_1d(k, &yz[i * k], &Y[i * k], FFTW_BACKWARD);
         fftw_execute(psy);
     }
@@ -882,12 +910,16 @@ ConstantSP secc(Heap *heap, vector<ConstantSP> &args)
 
         //z=ifft(Z)
         vector<double> z(sRows * k);
-        fftw_plan pz;
+        fftw_plan pz = nullptr;
         fftw_complex *infc = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * k);
         pz = fftw_plan_dft_c2r_1d(k, infc, &z[0], FFTW_BACKWARD);
         fftw_free(infc);
         for (int i = 0; i < sRows; i++)
         {
+            if (pz != nullptr) {
+                fftw_destroy_plan(pz);
+                pz = nullptr;
+            }
             pz = fftw_plan_dft_c2r_1d(k, &Z[i * k], &z[i * k], FFTW_BACKWARD);
             fftw_execute(pz);
         }
@@ -921,13 +953,22 @@ ConstantSP secc(Heap *heap, vector<ConstantSP> &args)
                 res->setDouble(resIdx++, column[i]);
         }
         fftw_free(Z);
+        if (pz != nullptr) {
+            fftw_destroy_plan(pz);
+            pz = nullptr;
+        }
+        
     }
     fftw_free(X);
     fftw_free(Y);
+    if (psy != nullptr) {
+        fftw_destroy_plan(psy);
+    }
     return res;
 }
 
 ConstantSP absFuc(Heap *heap, vector<ConstantSP> &args){
+    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if((!args[0]->isVector() && !args[0]->isScalar()) || args[0]->getType() != DT_COMPLEX || args[0]->hasNull()){
         throw IllegalArgumentException("abs", "data must be a nonempty complex vector or a nonempty complex scalar.");
     }
@@ -961,6 +1002,7 @@ ConstantSP absFuc(Heap *heap, vector<ConstantSP> &args){
 }
 
 ConstantSP mul(Heap *heap, vector<ConstantSP> &args){
+    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if((!args[0]->isVector() && !args[0]->isScalar()) || args[0]->getType() != DT_COMPLEX || args[0]->hasNull()){
         throw IllegalArgumentException("mul", "data must be a nonempty complex vector or a nonempty complex scalar.");
     }
