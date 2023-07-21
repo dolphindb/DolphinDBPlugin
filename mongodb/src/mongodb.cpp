@@ -138,11 +138,11 @@ mongoConnection::mongoConnection(std::string hostname, int port, std::string use
         strUri="mongodb://"+user_+":"+password_+"@"+host_+":"+std::to_string(port_)+"/?authSource="+db_;
     }
     mclient_ = mongoc_client_new (strUri.c_str());
-    if(mclient_==NULL)throw IllegalArgumentException(__FUNCTION__, "User id or password is incorrect for the given database");
+    if(mclient_==NULL)throw IllegalArgumentException(__FUNCTION__, "Failed to connect mongodb. please check host, port.");
     mdatabase_ = mongoc_client_get_database (mclient_, db_.c_str());
     if(mdatabase_==NULL){
         mongoc_client_destroy(mclient_);
-        throw IllegalArgumentException(__FUNCTION__, "User id or password is incorrect for the given database");
+        throw IllegalArgumentException(__FUNCTION__, "Failed to connect mongodb database.");
     }
     if(user_==""&&password_==""){
         char **test=mongoc_client_get_database_names_with_opts(mclient_,NULL,NULL);
@@ -150,7 +150,7 @@ mongoConnection::mongoConnection(std::string hostname, int port, std::string use
         if(!test){
             mongoc_client_destroy(mclient_);
             mongoc_database_destroy(mdatabase_);
-            throw IllegalArgumentException(__FUNCTION__, "User id or password is incorrect for the given database");
+            throw IllegalArgumentException(__FUNCTION__, "Failed to connect mongodb: Authentication failed.");
         }
         return;
     }
@@ -161,8 +161,8 @@ mongoConnection::mongoConnection(std::string hostname, int port, std::string use
     if(!retval){
         mongoc_client_destroy(mclient_);
         mongoc_database_destroy(mdatabase_);
-        std::string strError=errors.message;
-        throw IllegalArgumentException(__FUNCTION__, "User id or password is incorrect for the given database");
+        std::string strError(errors.message, BSON_ERROR_BUFFER_SIZE);
+        throw IllegalArgumentException(__FUNCTION__, "Failed to connect mongodb: " + strError);
     }
 }
 
