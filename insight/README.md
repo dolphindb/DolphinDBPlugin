@@ -182,3 +182,11 @@ insight::unsubscribe(tcpClient);
 ```
 insight::close(tcpClient);
 ```
+
+# ReleaseNotes:
+
+## 故障修复
+
+* 修复了在断网时取消订阅失败的问题。（**2.00.10**）
+* 修复了在执行 insight::close 后，再次执行 insight::getStatus 时 server 宕机的问题。（**2.00.10**）
+* 修复了当首次连接时输入错误密码，后续连接一直报错的问题。（**2.00.10**）
