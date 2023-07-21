@@ -19,6 +19,9 @@
 #include <hdf5_hl.h>
 #include <blosc_filter.h>
 
+
+/* INTERFACES */
+
 extern "C" ConstantSP h5ls(const ConstantSP &h5_path);
 extern "C" ConstantSP h5lsTable(const ConstantSP &filename);
 extern "C" ConstantSP extractHDF5Schema(const ConstantSP &filename, const ConstantSP &datasetName);
@@ -28,24 +31,32 @@ extern "C" ConstantSP loadHDF5Ex(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP HDF5DS(Heap *heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP saveHDF5(Heap *heap, vector<ConstantSP> &arguments);
 
+
+/* HELPERS */
+
+void checkHDF5Parameter(Heap* heap, vector<ConstantSP> &arguments, ConstantSP &filename, ConstantSP& destOrGroupName, ConstantSP &schema, size_t& startRow, size_t& rowNum);
+
+
+/* H5_PLUGIN_IMP */
+
 namespace H5PluginImp
 {
 Mutex hdf5Mutex;
 ConstantSP nullSP = Util::createNullConstant(DT_VOID);
-void h5ls(const string &h5_path, vector<string> &objs_name, vector<string> &objs_type);
+void h5ls(const string &h5_path, vector<string> &objNames, vector<string> &objTypes);
 TableSP h5read(const string &h5_path, const string &dataset_name, TableSP tb);
 void h5lsTable(const string &filename, vector<string> &datasetName, vector<string> &datasetDims,
                vector<string> &dataType);
 TableSP extractHDF5Schema(const string &filename, const string &datasetName);
 ConstantSP loadHDF5(const string &filename, const string &datasetName,
-                    const ConstantSP &schema, const size_t startRow, const size_t rowNum);
+                    const ConstantSP &schema, size_t startRow, size_t rowNum);
 ConstantSP loadHDF5Ex(Heap* heap, const SystemHandleSP &db, const string &tableName, const ConstantSP &partitionColumnNames,
                       const string &filename, const string &datasetName, const TableSP &schema,
-                      const size_t startRow, const size_t rowNum, const FunctionDefSP &transform=nullSP);
+                      size_t startRow, size_t rowNum, const FunctionDefSP &transform=nullSP);
 ConstantSP loadPandasHDF5(const string &filename, const string &groupName,
-                    const ConstantSP &schema, const size_t startRow, const size_t rowNum);
+                    const ConstantSP &schema, size_t startRow, size_t rowNum);
 ConstantSP HDF5DS(const ConstantSP &filename, const ConstantSP &datasetName,
-                  const ConstantSP &schema, const size_t dsNum);
+                  const ConstantSP &schema, size_t dsNum);
 ConstantSP saveHDF5(const TableSP &table, const string &fileName, const string &datasetName, bool append, unsigned stringMaxLength);
 void appendHDF5(const TableSP &table, const string &fileName, const string &datasetName, unsigned stringMaxLength);
 void writeHDF5(const TableSP &table, const string &fileName, const string &datasetName, unsigned stringMaxLength);
@@ -129,8 +140,8 @@ class H5Object
 class H5ReadOnlyFile : public H5Object
 {
   public:
-    H5ReadOnlyFile() {};
-    H5ReadOnlyFile(const std::string &filename) { open(filename); }
+    H5ReadOnlyFile() = default;;
+    explicit H5ReadOnlyFile(const std::string &filename) { open(filename); }
     H5ReadOnlyFile(const H5ReadOnlyFile &rhs) = delete;
     H5ReadOnlyFile &operator=(const H5ReadOnlyFile &rhs) = delete;
     hid_t open(const std::string &filename);
@@ -141,7 +152,7 @@ class H5ReadOnlyFile : public H5Object
 class H5DataSet : public H5Object
 {
   public:
-    H5DataSet() {}
+    H5DataSet() = default;
     H5DataSet(const std::string &dset_name, hid_t loc_id) { open(dset_name, loc_id); }
     H5DataSet(const H5DataSet &rhs) = delete;
     H5DataSet &operator=(const H5DataSet &rhs) = delete;
@@ -153,8 +164,8 @@ class H5DataSet : public H5Object
 class H5DataSpace : public H5Object
 {
   public:
-    H5DataSpace() {}
-    H5DataSpace(hid_t dset_id) { openFromDataset(dset_id); }
+    H5DataSpace() = default;
+    explicit H5DataSpace(hid_t dset_id) { openFromDataset(dset_id); }
     H5DataSpace(int rank, const hsize_t *current_dims, const hsize_t *maximum_dims)
     {
         create(rank, current_dims, maximum_dims);
@@ -173,8 +184,8 @@ class H5DataSpace : public H5Object
 class H5DataType : public H5Object
 {
   public:
-    H5DataType() {}
-    H5DataType(hid_t id) { id_ = id; }
+    H5DataType() = default;
+    H5DataType(hid_t id) { id_ = id; } // memo: used in implicit conversion
     H5DataType(const H5DataType &rhs) = delete;
     H5DataType(H5DataType &&rhs)
     {
@@ -192,8 +203,8 @@ class H5DataType : public H5Object
 class H5Property : public H5Object
 {
   public:
-    H5Property() {}
-    H5Property(hid_t id) { id_ = id; }
+    H5Property() = default;
+    explicit H5Property(hid_t id) { id_ = id; }
     H5Property(const H5Property &rhs) = delete;
     H5Property &operator=(const H5Property &rhs) = delete;
     void close() override;
@@ -278,7 +289,7 @@ class TypeColumn
                                       H5DataType &convertedType);
 
     VectorSP createDolphinDBColumnVector(DATA_TYPE dt, int size, int cap);
-    VectorSP createDolphinDBColumnVector(VectorSP destVec, int size, int cap);
+    VectorSP createDolphinDBColumnVector(const VectorSP& destVec, int size, int cap);
     VectorSP createDolphinDBColumnVector(int size, int cap);
 
     DATA_TYPE srcType() const { return srcType_; }
@@ -293,7 +304,7 @@ class TypeColumn
     virtual VectorSP createCompatiableVector(VectorSP destVec, DATA_TYPE destType, int size, int cap);
     int doAppend(void *data, int len, DATA_TYPE basicType);
 
-    TypeColumn(DATA_TYPE srcType)
+    explicit TypeColumn(DATA_TYPE srcType)
         : srcType_(srcType)
     {
     }
@@ -465,7 +476,13 @@ class DatasetAppender : public Runnable
         eleNum_ = eleNum;
     }
 
-    virtual void run() override { append(); }
+    virtual void run() override {
+      try {
+        append();
+      } catch (...) {
+        LOG_ERR("Error occurred when append data.");
+      }
+    }
     virtual void append(){};
 
   protected:
