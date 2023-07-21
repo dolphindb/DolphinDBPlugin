@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
@@ -12,7 +13,19 @@
 #endif
 
 #include "HSNsqSpiImpl.h"
-#include "plugin_nsq.h"
+
+enum nsqType {
+    // 0 represents a snapshot.
+    // 1 represents trade.
+    // 2 represents orders.
+    // 3 represents a snapshot of all fields.
+    // 4 represents a combination of orders and trades.
+    nsqSnapshot,
+    nsqTrade,
+    nsqOrder,
+    nsqSnapshotOfAll,
+    nsqOrderTrade
+};
 
 void setStatus(Status &stat, const std::string &errMsg)
 {
@@ -30,64 +43,61 @@ void setStatus(Status &stat, const std::string &errMsg)
 
 void resetStatus(int id)
 {
-    subscribe_status[id] = 0;
+    SUBSCRIBE_STATUS[id] = 0;
 
-    status[id].processedMsgCount = 0;
-    status[id].failedMsgCount = 0;
-    status[id].lastErrMsg = "";
-    status[id].lastFailedTimestamp = Timestamp(LLONG_MIN);
+    STATUS[id].processedMsgCount = 0;
+    STATUS[id].failedMsgCount = 0;
+    STATUS[id].lastErrMsg = "";
+    STATUS[id].lastFailedTimestamp = Timestamp(LLONG_MIN);
 }
 
 void CHSNsqSpiImpl::OnFrontConnected()
 {
-    LOG_INFO("nsq: OnFrontConnected\n");
-    m_isConnected = true;
+    LOG_INFO(NSQ_PREFIX + " " + "nsq: OnFrontConnected\n");
+    isConnected = true;
 }
 
 void CHSNsqSpiImpl::OnFrontDisconnected(int nResult)
 {
-    LOG_INFO("OnFrontDisconnected: nResult %d\n", nResult);
-    // 断线后，可以重新连接
-    // 重新连接成功后，需要重新向服务器发起订阅请求
-    LOG_INFO("nsq: OnFrontDisconnected\n");
-    m_isConnected = false;
-    // throw RuntimeException("DisConnected");
+    LOG_INFO(NSQ_PREFIX + " " + "OnFrontDisconnected: nResult %d\n", nResult);
+    // After the disconnection, it is possible to reconnect.
+    // After successfully reconnecting, it is necessary to send a new subscription request to the server.
+    LOG_INFO(NSQ_PREFIX + " " + "nsq: OnFrontDisconnected\n");
+    isConnected = false;
 }
 
 void CHSNsqSpiImpl::OnRspUserLogin(CHSNsqRspUserLoginField *pRspUserLogin, CHSNsqRspInfoField *pRspInfo, int nRequestID,
                                    bool bIsLast)
 {
-    LOG_INFO("OnRspUserLogin errno=", pRspInfo->ErrorID, " errinfo=", pRspInfo->ErrorMsg);
+    LOG_INFO(NSQ_PREFIX + " " + "OnRspUserLogin errno=", pRspInfo->ErrorID, " errinfo=", pRspInfo->ErrorMsg);
     if (0 == pRspInfo->ErrorID)
-        m_isLogined = true;
+        isLogin = true;
 }
 
 // snapshot
 void CHSNsqSpiImpl::OnRspSecuDepthMarketDataSubscribe(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
 {
-    // LOG_INFO("pRspInfo->ErrorID: %d\n", pRspInfo->ErrorID);
-    // LOG_INFO("wjh1: 行情快照请求订阅成功\n");
     if (nRequestID == 10001)
     {
-        subscribe_status[0] = 1;
+        SUBSCRIBE_STATUS[0] = 1;
     }
     else if (nRequestID == 10002)
     {
-        subscribe_status[1] = 1;
+        SUBSCRIBE_STATUS[1] = 1;
     }
     if (pRspInfo->ErrorID != 0)
-    { // 说明有错误
-        throw RuntimeException(pRspInfo->ErrorMsg);
+    {
+        throw RuntimeException(NSQ_PREFIX + " " + pRspInfo->ErrorMsg);
     }
-    LOG_INFO("OnRspSecuDepthMarketDataSubscribe: nRequestID[", nRequestID, "], ErrorID[", pRspInfo->ErrorID,
+    LOG_INFO(NSQ_PREFIX + " " + "OnRspSecuDepthMarketDataSubscribe: nRequestID[", nRequestID, "], ErrorID[", pRspInfo->ErrorID,
              "], ErrorMsg: ", pRspInfo->ErrorMsg);
 }
 
 // snapshot
 void CHSNsqSpiImpl::OnRspSecuDepthMarketDataCancel(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
 {
-    // 取消订阅成功后需要将表设置回去
-    LOG_INFO("unsuscribe success: nRequestID = ", nRequestID);
+    // After successfully unsubscribing, it is necessary to set the table back
+    LOG_INFO(NSQ_PREFIX + " " + "unsubscribe success: nRequestID = ", nRequestID);
     if (nRequestID == 10001)
     {
         resetStatus(0);
@@ -97,63 +107,63 @@ void CHSNsqSpiImpl::OnRspSecuDepthMarketDataCancel(CHSNsqRspInfoField *pRspInfo,
         resetStatus(1);
     }
     if (pRspInfo->ErrorID != 0)
-    { // 说明有错误
-        throw RuntimeException(pRspInfo->ErrorMsg);
+    {
+        throw RuntimeException(NSQ_PREFIX + " " + pRspInfo->ErrorMsg);
     }
-    LOG_INFO("OnRspSecuDepthMarketDataCancel: nRequestID[", nRequestID, "], ErrorID[", pRspInfo->ErrorID,
+    LOG_INFO(NSQ_PREFIX + " " + "OnRspSecuDepthMarketDataCancel: nRequestID[", nRequestID, "], ErrorID[", pRspInfo->ErrorID,
              "], ErrorMsg: ", pRspInfo->ErrorMsg);
 }
 
-// 如何根据表的Schema来创建 vectors，避免自己手动创建
 vector<ConstantSP> createVectors(int flag, int size)
 {
-    // 0 是snapshot，1是trade，2是orders, 3是所有字段的snapshot， 4是order和trade的结合
+    // 0 represents a snapshot.
+    // 1 represents trade.
+    // 2 represents orders.
+    // 3 represents a snapshot of all fields.
+    // 4 represents a combination of orders and trades.
     vector<ConstantSP> columns;
-    if (flag == 0)
-    {
-        columns.resize(snapshotTypes.size());
-        for (size_t i = 0; i < snapshotTypes.size(); i++)
+    switch(flag) {
+        case nsqSnapshot:
+            columns.resize(SNAPSHOT_TYPES.size());
+            for (size_t i = 0; i < SNAPSHOT_TYPES.size(); i++)
+            {
+                columns[i] = Util::createVector(SNAPSHOT_TYPES[i], size, size);
+            }
+            break;
+        case nsqTrade:
+            columns.resize(TRADE_TYPES.size());
+            for (size_t i = 0; i < TRADE_TYPES.size(); i++)
+            {
+                columns[i] = Util::createVector(TRADE_TYPES[i], size, size);
+            }
+            break;
+        case nsqOrder:
+            columns.resize(ORDER_TYPES.size());
+            for (size_t i = 0; i < ORDER_TYPES.size(); i++)
+            {
+                columns[i] = Util::createVector(ORDER_TYPES[i], size, size);
+            }
+            break;
+        case nsqSnapshotOfAll:
         {
-            columns[i] = Util::createVector(snapshotTypes[i], size, size);
+            vector<DATA_TYPE> colTypes = SNAPSHOT_TYPES;
+            colTypes.insert(colTypes.end(), ADDED_SNAPSHOT_TYPES.begin(), ADDED_SNAPSHOT_TYPES.end());
+            columns.resize(colTypes.size());
+            for (size_t i = 0; i < colTypes.size(); i++)
+            {
+                columns[i] = Util::createVector(colTypes[i], size, size);
+            }
         }
-    }
-    else if (flag == 1)
-    {
-        columns.resize(tradeTypes.size());
-        for (size_t i = 0; i < tradeTypes.size(); i++)
-        {
-            columns[i] = Util::createVector(tradeTypes[i], size, size);
-        }
-    }
-    else if (flag == 2)
-    {
-        columns.resize(ordersTypes.size());
-        for (size_t i = 0; i < ordersTypes.size(); i++)
-        {
-            columns[i] = Util::createVector(ordersTypes[i], size, size);
-        }
-    }
-    else if (flag == 3)
-    {
-        vector<DATA_TYPE> colTypes = snapshotTypes;
-        colTypes.insert(colTypes.end(), addedSnapshotTypes.begin(), addedSnapshotTypes.end());
-        columns.resize(colTypes.size());
-        for (size_t i = 0; i < colTypes.size(); i++)
-        {
-            columns[i] = Util::createVector(colTypes[i], size, size);
-        }
-    }
-    else if (flag == 4)
-    {
-        columns.resize(tradeAndOrdersMergedTypes.size());
-        for (size_t i = 0; i < tradeAndOrdersMergedTypes.size(); i++)
-        {
-            columns[i] = Util::createVector(tradeAndOrdersMergedTypes[i], size, size);
-        }
-    }
-    else
-    {
-        throw RuntimeException("flag error");
+            break;
+        case nsqOrderTrade:
+            columns.resize(TRADE_AND_ORDER_MERGED_TYPES.size());
+            for (size_t i = 0; i < TRADE_AND_ORDER_MERGED_TYPES.size(); i++)
+            {
+                columns[i] = Util::createVector(TRADE_AND_ORDER_MERGED_TYPES[i], size, size);
+            }
+            break;
+        default:
+            throw RuntimeException(NSQ_PREFIX + " flag error");
     }
     return columns;
 }
@@ -182,7 +192,7 @@ void setMultSnapshotData(vector<ConstantSP> &columns, std::vector<SnapData *> &i
 
     HSIntVolume Bid1Volume[50];
     HSIntVolume Ask1Volume[50];
-    for (int r = 0; r < items.size(); r++)
+    for (size_t r = 0; r < items.size(); r++)
     {
         CHSNsqSecuDepthMarketDataField *pSecuDepthMarketData = items[r]->pSecuDepthMarketData;
         long long receivedTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
@@ -194,127 +204,127 @@ void setMultSnapshotData(vector<ConstantSP> &columns, std::vector<SnapData *> &i
         HSNum MaxAsk1Count = items[r]->MaxAsk1Count;
         assert(Bid1Count <= 50);
         assert(Ask1Count <= 50);
-        columns[0]->set(r, new String(pSecuDepthMarketData->ExchangeID));
-        columns[1]->set(r, new String(pSecuDepthMarketData->InstrumentID));
-        columns[2]->set(r, new Double(pSecuDepthMarketData->LastPrice));
-        columns[3]->set(r, new Double(pSecuDepthMarketData->PreClosePrice));
-        columns[4]->set(r, new Double(pSecuDepthMarketData->OpenPrice));
-        columns[5]->set(r, new Double(pSecuDepthMarketData->HighPrice));
-        columns[6]->set(r, new Double(pSecuDepthMarketData->LowPrice));
-        columns[7]->set(r, new Double(pSecuDepthMarketData->ClosePrice));
-        columns[8]->set(r, new Double(pSecuDepthMarketData->UpperLimitPrice));
-        columns[9]->set(r, new Double(pSecuDepthMarketData->LowerLimitPrice));
-        // TradeDate 是 DATE类型, YYYYMMDD
+        columns[0]->setString(r, pSecuDepthMarketData->ExchangeID);
+        columns[1]->setString(r, pSecuDepthMarketData->InstrumentID);
+        columns[2]->setDouble(r, pSecuDepthMarketData->LastPrice);
+        columns[3]->setDouble(r, pSecuDepthMarketData->PreClosePrice);
+        columns[4]->setDouble(r, pSecuDepthMarketData->OpenPrice);
+        columns[5]->setDouble(r, pSecuDepthMarketData->HighPrice);
+        columns[6]->setDouble(r, pSecuDepthMarketData->LowPrice);
+        columns[7]->setDouble(r, pSecuDepthMarketData->ClosePrice);
+        columns[8]->setDouble(r, pSecuDepthMarketData->UpperLimitPrice);
+        columns[9]->setDouble(r, pSecuDepthMarketData->LowerLimitPrice);
+        // TradeDate is DATE, YYYYMMDD
         columns[10]->set(r, getNewDate(pSecuDepthMarketData->TradeDate));
-        // UpdateTime 是 TIME 类型，HHMMSSsss
+        // UpdateTime is TIME, HHMMSSsss
         columns[11]->set(r, getNewTime(pSecuDepthMarketData->UpdateTime));
-        columns[12]->set(r, new Long(pSecuDepthMarketData->TradeVolume));
-        columns[13]->set(r, new Double(pSecuDepthMarketData->TradeBalance));
-        columns[14]->set(r, new Double(pSecuDepthMarketData->AveragePrice));
-        columns[15]->set(r, new Double(pSecuDepthMarketData->BidPrice[0]));
-        columns[16]->set(r, new Double(pSecuDepthMarketData->BidPrice[1]));
-        columns[17]->set(r, new Double(pSecuDepthMarketData->BidPrice[2]));
-        columns[18]->set(r, new Double(pSecuDepthMarketData->BidPrice[3]));
-        columns[19]->set(r, new Double(pSecuDepthMarketData->BidPrice[4]));
-        columns[20]->set(r, new Double(pSecuDepthMarketData->BidPrice[5]));
-        columns[21]->set(r, new Double(pSecuDepthMarketData->BidPrice[6]));
-        columns[22]->set(r, new Double(pSecuDepthMarketData->BidPrice[7]));
-        columns[23]->set(r, new Double(pSecuDepthMarketData->BidPrice[8]));
-        columns[24]->set(r, new Double(pSecuDepthMarketData->BidPrice[9]));
-        columns[25]->set(r, new Double(pSecuDepthMarketData->AskPrice[0]));
-        columns[26]->set(r, new Double(pSecuDepthMarketData->AskPrice[1]));
-        columns[27]->set(r, new Double(pSecuDepthMarketData->AskPrice[2]));
-        columns[28]->set(r, new Double(pSecuDepthMarketData->AskPrice[3]));
-        columns[29]->set(r, new Double(pSecuDepthMarketData->AskPrice[4]));
-        columns[30]->set(r, new Double(pSecuDepthMarketData->AskPrice[5]));
-        columns[31]->set(r, new Double(pSecuDepthMarketData->AskPrice[6]));
-        columns[32]->set(r, new Double(pSecuDepthMarketData->AskPrice[7]));
-        columns[33]->set(r, new Double(pSecuDepthMarketData->AskPrice[8]));
-        columns[34]->set(r, new Double(pSecuDepthMarketData->AskPrice[9]));
-        columns[35]->set(r, new Long(pSecuDepthMarketData->BidVolume[0]));
-        columns[36]->set(r, new Long(pSecuDepthMarketData->BidVolume[1]));
-        columns[37]->set(r, new Long(pSecuDepthMarketData->BidVolume[2]));
-        columns[38]->set(r, new Long(pSecuDepthMarketData->BidVolume[3]));
-        columns[39]->set(r, new Long(pSecuDepthMarketData->BidVolume[4]));
-        columns[40]->set(r, new Long(pSecuDepthMarketData->BidVolume[5]));
-        columns[41]->set(r, new Long(pSecuDepthMarketData->BidVolume[6]));
-        columns[42]->set(r, new Long(pSecuDepthMarketData->BidVolume[7]));
-        columns[43]->set(r, new Long(pSecuDepthMarketData->BidVolume[8]));
-        columns[44]->set(r, new Long(pSecuDepthMarketData->BidVolume[9]));
-        columns[45]->set(r, new Long(pSecuDepthMarketData->AskVolume[0]));
-        columns[46]->set(r, new Long(pSecuDepthMarketData->AskVolume[1]));
-        columns[47]->set(r, new Long(pSecuDepthMarketData->AskVolume[2]));
-        columns[48]->set(r, new Long(pSecuDepthMarketData->AskVolume[3]));
-        columns[49]->set(r, new Long(pSecuDepthMarketData->AskVolume[4]));
-        columns[50]->set(r, new Long(pSecuDepthMarketData->AskVolume[5]));
-        columns[51]->set(r, new Long(pSecuDepthMarketData->AskVolume[6]));
-        columns[52]->set(r, new Long(pSecuDepthMarketData->AskVolume[7]));
-        columns[53]->set(r, new Long(pSecuDepthMarketData->AskVolume[8]));
-        columns[54]->set(r, new Long(pSecuDepthMarketData->AskVolume[9]));
-        columns[55]->set(r, new Long(pSecuDepthMarketData->TradesNum));
-        columns[56]->set(r, new Char(pSecuDepthMarketData->InstrumentTradeStatus));
-        columns[57]->set(r, new Long(pSecuDepthMarketData->TotalBidVolume));
-        columns[58]->set(r, new Long(pSecuDepthMarketData->TotalAskVolume));
-        columns[59]->set(r, new Double(pSecuDepthMarketData->MaBidPrice));
-        columns[60]->set(r, new Double(pSecuDepthMarketData->MaAskPrice));
-        columns[61]->set(r, new Double(pSecuDepthMarketData->MaBondBidPrice));
-        columns[62]->set(r, new Double(pSecuDepthMarketData->MaBondAskPrice));
-        columns[63]->set(r, new Double(pSecuDepthMarketData->YieldToMaturity));
-        columns[64]->set(r, new Double(pSecuDepthMarketData->IOPV));
-        columns[65]->set(r, new Int(pSecuDepthMarketData->EtfBuycount));
-        columns[66]->set(r, new Int(pSecuDepthMarketData->EtfSellCount));
-        columns[67]->set(r, new Long(pSecuDepthMarketData->EtfBuyVolume));
-        columns[68]->set(r, new Double(pSecuDepthMarketData->EtfBuyBalance));
-        columns[69]->set(r, new Long(pSecuDepthMarketData->EtfSellVolume));
-        columns[70]->set(r, new Double(pSecuDepthMarketData->EtfSellBalance));
-        columns[71]->set(r, new Long(pSecuDepthMarketData->TotalWarrantExecVolume));
-        columns[72]->set(r, new Double(pSecuDepthMarketData->WarrantLowerPrice));
-        columns[73]->set(r, new Double(pSecuDepthMarketData->WarrantUpperPrice));
-        columns[74]->set(r, new Int(pSecuDepthMarketData->CancelBuyNum));
-        columns[75]->set(r, new Int(pSecuDepthMarketData->CancelSellNum));
-        columns[76]->set(r, new Long(pSecuDepthMarketData->CancelBuyVolume));
-        columns[77]->set(r, new Long(pSecuDepthMarketData->CancelSellVolume));
-        columns[78]->set(r, new Double(pSecuDepthMarketData->CancelBuyValue));
-        columns[79]->set(r, new Double(pSecuDepthMarketData->CancelSellValue));
-        columns[80]->set(r, new Int(pSecuDepthMarketData->TotalBuyNum));
-        columns[81]->set(r, new Int(pSecuDepthMarketData->TotalSellNum));
-        columns[82]->set(r, new Int(pSecuDepthMarketData->DurationAfterBuy));
-        columns[83]->set(r, new Int(pSecuDepthMarketData->DurationAfterSell));
-        columns[84]->set(r, new Int(pSecuDepthMarketData->BidOrdersNum));
-        columns[85]->set(r, new Int(pSecuDepthMarketData->AskOrdersNum));
-        columns[86]->set(r, new Double(pSecuDepthMarketData->PreIOPV));
+        columns[12]->setLong(r, pSecuDepthMarketData->TradeVolume);
+        columns[13]->setDouble(r, pSecuDepthMarketData->TradeBalance);
+        columns[14]->setDouble(r, pSecuDepthMarketData->AveragePrice);
+        columns[15]->setDouble(r, pSecuDepthMarketData->BidPrice[0]);
+        columns[16]->setDouble(r, pSecuDepthMarketData->BidPrice[1]);
+        columns[17]->setDouble(r, pSecuDepthMarketData->BidPrice[2]);
+        columns[18]->setDouble(r, pSecuDepthMarketData->BidPrice[3]);
+        columns[19]->setDouble(r, pSecuDepthMarketData->BidPrice[4]);
+        columns[20]->setDouble(r, pSecuDepthMarketData->BidPrice[5]);
+        columns[21]->setDouble(r, pSecuDepthMarketData->BidPrice[6]);
+        columns[22]->setDouble(r, pSecuDepthMarketData->BidPrice[7]);
+        columns[23]->setDouble(r, pSecuDepthMarketData->BidPrice[8]);
+        columns[24]->setDouble(r, pSecuDepthMarketData->BidPrice[9]);
+        columns[25]->setDouble(r, pSecuDepthMarketData->AskPrice[0]);
+        columns[26]->setDouble(r, pSecuDepthMarketData->AskPrice[1]);
+        columns[27]->setDouble(r, pSecuDepthMarketData->AskPrice[2]);
+        columns[28]->setDouble(r, pSecuDepthMarketData->AskPrice[3]);
+        columns[29]->setDouble(r, pSecuDepthMarketData->AskPrice[4]);
+        columns[30]->setDouble(r, pSecuDepthMarketData->AskPrice[5]);
+        columns[31]->setDouble(r, pSecuDepthMarketData->AskPrice[6]);
+        columns[32]->setDouble(r, pSecuDepthMarketData->AskPrice[7]);
+        columns[33]->setDouble(r, pSecuDepthMarketData->AskPrice[8]);
+        columns[34]->setDouble(r, pSecuDepthMarketData->AskPrice[9]);
+        columns[35]->setLong(r, pSecuDepthMarketData->BidVolume[0]);
+        columns[36]->setLong(r, pSecuDepthMarketData->BidVolume[1]);
+        columns[37]->setLong(r, pSecuDepthMarketData->BidVolume[2]);
+        columns[38]->setLong(r, pSecuDepthMarketData->BidVolume[3]);
+        columns[39]->setLong(r, pSecuDepthMarketData->BidVolume[4]);
+        columns[40]->setLong(r, pSecuDepthMarketData->BidVolume[5]);
+        columns[41]->setLong(r, pSecuDepthMarketData->BidVolume[6]);
+        columns[42]->setLong(r, pSecuDepthMarketData->BidVolume[7]);
+        columns[43]->setLong(r, pSecuDepthMarketData->BidVolume[8]);
+        columns[44]->setLong(r, pSecuDepthMarketData->BidVolume[9]);
+        columns[45]->setLong(r, pSecuDepthMarketData->AskVolume[0]);
+        columns[46]->setLong(r, pSecuDepthMarketData->AskVolume[1]);
+        columns[47]->setLong(r, pSecuDepthMarketData->AskVolume[2]);
+        columns[48]->setLong(r, pSecuDepthMarketData->AskVolume[3]);
+        columns[49]->setLong(r, pSecuDepthMarketData->AskVolume[4]);
+        columns[50]->setLong(r, pSecuDepthMarketData->AskVolume[5]);
+        columns[51]->setLong(r, pSecuDepthMarketData->AskVolume[6]);
+        columns[52]->setLong(r, pSecuDepthMarketData->AskVolume[7]);
+        columns[53]->setLong(r, pSecuDepthMarketData->AskVolume[8]);
+        columns[54]->setLong(r, pSecuDepthMarketData->AskVolume[9]);
+        columns[55]->setLong(r, pSecuDepthMarketData->TradesNum);
+        columns[56]->setChar(r, pSecuDepthMarketData->InstrumentTradeStatus);
+        columns[57]->setLong(r, pSecuDepthMarketData->TotalBidVolume);
+        columns[58]->setLong(r, pSecuDepthMarketData->TotalAskVolume);
+        columns[59]->setDouble(r, pSecuDepthMarketData->MaBidPrice);
+        columns[60]->setDouble(r, pSecuDepthMarketData->MaAskPrice);
+        columns[61]->setDouble(r, pSecuDepthMarketData->MaBondBidPrice);
+        columns[62]->setDouble(r, pSecuDepthMarketData->MaBondAskPrice);
+        columns[63]->setDouble(r, pSecuDepthMarketData->YieldToMaturity);
+        columns[64]->setDouble(r, pSecuDepthMarketData->IOPV);
+        columns[65]->setInt(r, pSecuDepthMarketData->EtfBuycount);
+        columns[66]->setInt(r, pSecuDepthMarketData->EtfSellCount);
+        columns[67]->setLong(r, pSecuDepthMarketData->EtfBuyVolume);
+        columns[68]->setDouble(r, pSecuDepthMarketData->EtfBuyBalance);
+        columns[69]->setLong(r, pSecuDepthMarketData->EtfSellVolume);
+        columns[70]->setDouble(r, pSecuDepthMarketData->EtfSellBalance);
+        columns[71]->setLong(r, pSecuDepthMarketData->TotalWarrantExecVolume);
+        columns[72]->setDouble(r, pSecuDepthMarketData->WarrantLowerPrice);
+        columns[73]->setDouble(r, pSecuDepthMarketData->WarrantUpperPrice);
+        columns[74]->setInt(r, pSecuDepthMarketData->CancelBuyNum);
+        columns[75]->setInt(r, pSecuDepthMarketData->CancelSellNum);
+        columns[76]->setLong(r, pSecuDepthMarketData->CancelBuyVolume);
+        columns[77]->setLong(r, pSecuDepthMarketData->CancelSellVolume);
+        columns[78]->setDouble(r, pSecuDepthMarketData->CancelBuyValue);
+        columns[79]->setDouble(r, pSecuDepthMarketData->CancelSellValue);
+        columns[80]->setInt(r, pSecuDepthMarketData->TotalBuyNum);
+        columns[81]->setInt(r, pSecuDepthMarketData->TotalSellNum);
+        columns[82]->setInt(r, pSecuDepthMarketData->DurationAfterBuy);
+        columns[83]->setInt(r, pSecuDepthMarketData->DurationAfterSell);
+        columns[84]->setInt(r, pSecuDepthMarketData->BidOrdersNum);
+        columns[85]->setInt(r, pSecuDepthMarketData->AskOrdersNum);
+        columns[86]->setDouble(r, pSecuDepthMarketData->PreIOPV);
         int i = 87;
-        if (receivedTimeFlag)
+        if (RECEIVED_TIME_FLAG)
         {
-            columns[i++]->set(r, new Long(receivedTime));
+            columns[i++]->setLong(r, receivedTime);
         }
-        if (getAllFieldNamesFlag)
+        if (GET_ALL_FIELD_NAMES_FLAG)
         {
-            columns[i++]->set(r, new Int(Bid1Count));
-            columns[i++]->set(r, new Int(MaxBid1Count));
-            columns[i++]->set(r, new Int(Ask1Count));
-            columns[i++]->set(r, new Int(MaxAsk1Count));
+            columns[i++]->setInt(r, Bid1Count);
+            columns[i++]->setInt(r, MaxBid1Count);
+            columns[i++]->setInt(r, Ask1Count);
+            columns[i++]->setInt(r, MaxAsk1Count);
             int j;
             for (j = 0; j < 50; j++)
             {
                 if (j < Bid1Count)
                 {
-                    columns[i++]->set(r, new Long(Bid1Volume[j]));
+                    columns[i++]->setLong(r, Bid1Volume[j]);
                 }
                 else
                 {
-                    columns[i++]->set(r, new Long(0));
+                    columns[i++]->setLong(r, 0);
                 }
             }
             for (j = 0; j < 50; j++)
             {
                 if (j < Ask1Count)
                 {
-                    columns[i++]->set(r, new Long(Ask1Volume[j]));
+                    columns[i++]->setLong(r, Ask1Volume[j]);
                 }
                 else
                 {
-                    columns[i++]->set(r, new Long(0));
+                    columns[i++]->setLong(r, 0);
                 }
             }
         }
@@ -324,55 +334,55 @@ void setMultSnapshotData(vector<ConstantSP> &columns, std::vector<SnapData *> &i
 void setMultTradeData(vector<ConstantSP> &columns, std::vector<CHSNsqSecuTransactionTradeDataField *> &items)
 {
     CHSNsqSecuTransactionTradeDataField *pSecuTransactionTradeData = nullptr;
-    for (int i = 0; i < items.size(); i++)
+    for (size_t i = 0; i < items.size(); i++)
     {
         pSecuTransactionTradeData = items[i];
         long long receivedTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        if (getAllFieldNamesFlag)
+        if (GET_ALL_FIELD_NAMES_FLAG)
         {
-            columns[0]->set(i, new String(pSecuTransactionTradeData->ExchangeID));
-            columns[1]->set(i, new String(pSecuTransactionTradeData->InstrumentID));
-            columns[2]->set(i, new Int(pSecuTransactionTradeData->TransFlag));
-            columns[3]->set(i, new Long(pSecuTransactionTradeData->SeqNo));
-            columns[4]->set(i, new Int(pSecuTransactionTradeData->ChannelNo));
+            columns[0]->setString(i, pSecuTransactionTradeData->ExchangeID);
+            columns[1]->setString(i, pSecuTransactionTradeData->InstrumentID);
+            columns[2]->setInt(i, pSecuTransactionTradeData->TransFlag);
+            columns[3]->setLong(i, pSecuTransactionTradeData->SeqNo);
+            columns[4]->setInt(i, pSecuTransactionTradeData->ChannelNo);
             columns[5]->set(i, getNewDate(pSecuTransactionTradeData->TradeDate));
             columns[6]->set(i, getNewTime(pSecuTransactionTradeData->TransactTime));
-            columns[7]->set(i, new Int(2));
-            columns[8]->set(i, new Double(pSecuTransactionTradeData->TrdPrice));
-            columns[9]->set(i, new Long(pSecuTransactionTradeData->TrdVolume));
-            columns[10]->set(i, new Double(pSecuTransactionTradeData->TrdMoney));
-            columns[11]->set(i, new Long(pSecuTransactionTradeData->TrdBuyNo));
-            columns[12]->set(i, new Long(pSecuTransactionTradeData->TrdSellNo));
-            columns[13]->set(i, new Char(pSecuTransactionTradeData->TrdBSFlag));
-            columns[14]->set(i, new Long(pSecuTransactionTradeData->BizIndex));
-            columns[15]->set(i, new Char(0));
-            columns[16]->set(i, new Char(0));
-            columns[17]->set(i, new Long(0));
-            columns[18]->set(i, new Long(0));
-            if (receivedTimeFlag)
+            columns[7]->setInt(i, 2);
+            columns[8]->setDouble(i, pSecuTransactionTradeData->TrdPrice);
+            columns[9]->setLong(i, pSecuTransactionTradeData->TrdVolume);
+            columns[10]->setDouble(i, pSecuTransactionTradeData->TrdMoney);
+            columns[11]->setLong(i, pSecuTransactionTradeData->TrdBuyNo);
+            columns[12]->setLong(i, pSecuTransactionTradeData->TrdSellNo);
+            columns[13]->setChar(i, pSecuTransactionTradeData->TrdBSFlag);
+            columns[14]->setLong(i, pSecuTransactionTradeData->BizIndex);
+            columns[15]->setChar(i, 0);
+            columns[16]->setChar(i, 0);
+            columns[17]->setLong(i, 0);
+            columns[18]->setLong(i, 0);
+            if (RECEIVED_TIME_FLAG)
             {
-                columns[19]->set(i, new Long(receivedTime));
+                columns[19]->setLong(i, receivedTime);
             }
         }
         else
         {
-            columns[0]->set(i, new String(pSecuTransactionTradeData->ExchangeID));
-            columns[1]->set(i, new String(pSecuTransactionTradeData->InstrumentID));
-            columns[2]->set(i, new Int(pSecuTransactionTradeData->TransFlag));
-            columns[3]->set(i, new Long(pSecuTransactionTradeData->SeqNo));
-            columns[4]->set(i, new Int(pSecuTransactionTradeData->ChannelNo));
+            columns[0]->setString(i, pSecuTransactionTradeData->ExchangeID);
+            columns[1]->setString(i, pSecuTransactionTradeData->InstrumentID);
+            columns[2]->setInt(i, pSecuTransactionTradeData->TransFlag);
+            columns[3]->setLong(i, pSecuTransactionTradeData->SeqNo);
+            columns[4]->setInt(i, pSecuTransactionTradeData->ChannelNo);
             columns[5]->set(i, getNewDate(pSecuTransactionTradeData->TradeDate));
             columns[6]->set(i, getNewTime(pSecuTransactionTradeData->TransactTime));
-            columns[7]->set(i, new Double(pSecuTransactionTradeData->TrdPrice));
-            columns[8]->set(i, new Long(pSecuTransactionTradeData->TrdVolume));
-            columns[9]->set(i, new Double(pSecuTransactionTradeData->TrdMoney));
-            columns[10]->set(i, new Long(pSecuTransactionTradeData->TrdBuyNo));
-            columns[11]->set(i, new Long(pSecuTransactionTradeData->TrdSellNo));
-            columns[12]->set(i, new Char(pSecuTransactionTradeData->TrdBSFlag));
-            columns[13]->set(i, new Long(pSecuTransactionTradeData->BizIndex));
-            if (receivedTimeFlag)
+            columns[7]->setDouble(i, pSecuTransactionTradeData->TrdPrice);
+            columns[8]->setLong(i, pSecuTransactionTradeData->TrdVolume);
+            columns[9]->setDouble(i, pSecuTransactionTradeData->TrdMoney);
+            columns[10]->setLong(i, pSecuTransactionTradeData->TrdBuyNo);
+            columns[11]->setLong(i, pSecuTransactionTradeData->TrdSellNo);
+            columns[12]->setChar(i, pSecuTransactionTradeData->TrdBSFlag);
+            columns[13]->setLong(i, pSecuTransactionTradeData->BizIndex);
+            if (RECEIVED_TIME_FLAG)
             {
-                columns[14]->set(i, new Long(receivedTime));
+                columns[14]->setLong(i, receivedTime);
             }
         }
     }
@@ -381,54 +391,54 @@ void setMultTradeData(vector<ConstantSP> &columns, std::vector<CHSNsqSecuTransac
 void setMultEntrustData(vector<ConstantSP> &columns, vector<CHSNsqSecuTransactionEntrustDataField *> items)
 {
     CHSNsqSecuTransactionEntrustDataField *pSecuTransactionEntrustData = nullptr;
-    for (int i = 0; i < items.size(); i++)
+    for (size_t i = 0; i < items.size(); i++)
     {
         pSecuTransactionEntrustData = items[i];
         long long receivedTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        if (getAllFieldNamesFlag)
+        if (GET_ALL_FIELD_NAMES_FLAG)
         {
-            columns[0]->set(i, new String(pSecuTransactionEntrustData->ExchangeID));
-            columns[1]->set(i, new String(pSecuTransactionEntrustData->InstrumentID));
-            columns[2]->set(i, new Int(pSecuTransactionEntrustData->TransFlag));
-            columns[3]->set(i, new Long(pSecuTransactionEntrustData->SeqNo));
-            columns[4]->set(i, new Int(pSecuTransactionEntrustData->ChannelNo));
+            columns[0]->setString(i, pSecuTransactionEntrustData->ExchangeID);
+            columns[1]->setString(i, pSecuTransactionEntrustData->InstrumentID);
+            columns[2]->setInt(i, pSecuTransactionEntrustData->TransFlag);
+            columns[3]->setLong(i, pSecuTransactionEntrustData->SeqNo);
+            columns[4]->setInt(i, pSecuTransactionEntrustData->ChannelNo);
             columns[5]->set(i, getNewDate(pSecuTransactionEntrustData->TradeDate));
             columns[6]->set(i, getNewTime(pSecuTransactionEntrustData->TransactTime));
-            columns[7]->set(i, new Int(1));
-            columns[8]->set(i, new Double(pSecuTransactionEntrustData->OrdPrice));
-            columns[9]->set(i, new Long(pSecuTransactionEntrustData->OrdVolume));
-            columns[10]->set(i, new Double(0));
-            columns[11]->set(i, new Long(0));
-            columns[12]->set(i, new Long(0));
-            columns[13]->set(i, new Char(0));
-            columns[14]->set(i, new Long(pSecuTransactionEntrustData->BizIndex));
-            columns[15]->set(i, new Char(pSecuTransactionEntrustData->OrdSide));
-            columns[16]->set(i, new Char(pSecuTransactionEntrustData->OrdType));
-            columns[17]->set(i, new Long(pSecuTransactionEntrustData->OrdNo));
-            columns[18]->set(i, new Long(pSecuTransactionEntrustData->TrdVolume));
-            if (receivedTimeFlag)
+            columns[7]->setInt(i, 1);
+            columns[8]->setDouble(i, pSecuTransactionEntrustData->OrdPrice);
+            columns[9]->setLong(i, pSecuTransactionEntrustData->OrdVolume);
+            columns[10]->setDouble(i, 0);
+            columns[11]->setLong(i, 0);
+            columns[12]->setLong(i, 0);
+            columns[13]->setChar(i, 0);
+            columns[14]->setLong(i, pSecuTransactionEntrustData->BizIndex);
+            columns[15]->setChar(i, pSecuTransactionEntrustData->OrdSide);
+            columns[16]->setChar(i, pSecuTransactionEntrustData->OrdType);
+            columns[17]->setLong(i, pSecuTransactionEntrustData->OrdNo);
+            columns[18]->setLong(i, pSecuTransactionEntrustData->TrdVolume);
+            if (RECEIVED_TIME_FLAG)
             {
-                columns[19]->set(i, new Long(receivedTime));
+                columns[19]->setLong(i, receivedTime);
             }
         }
         else
         {
-            columns[0]->set(i, new String(pSecuTransactionEntrustData->ExchangeID));
-            columns[1]->set(i, new String(pSecuTransactionEntrustData->InstrumentID));
-            columns[2]->set(i, new Int(pSecuTransactionEntrustData->TransFlag));
-            columns[3]->set(i, new Long(pSecuTransactionEntrustData->SeqNo));
-            columns[4]->set(i, new Int(pSecuTransactionEntrustData->ChannelNo));
+            columns[0]->setString(i, pSecuTransactionEntrustData->ExchangeID);
+            columns[1]->setString(i, pSecuTransactionEntrustData->InstrumentID);
+            columns[2]->setInt(i, pSecuTransactionEntrustData->TransFlag);
+            columns[3]->setLong(i, pSecuTransactionEntrustData->SeqNo);
+            columns[4]->setInt(i, pSecuTransactionEntrustData->ChannelNo);
             columns[5]->set(i, getNewDate(pSecuTransactionEntrustData->TradeDate));
             columns[6]->set(i, getNewTime(pSecuTransactionEntrustData->TransactTime));
-            columns[7]->set(i, new Double(pSecuTransactionEntrustData->OrdPrice));
-            columns[8]->set(i, new Long(pSecuTransactionEntrustData->OrdVolume));
-            columns[9]->set(i, new Char(pSecuTransactionEntrustData->OrdSide));
-            columns[10]->set(i, new Char(pSecuTransactionEntrustData->OrdType));
-            columns[11]->set(i, new Long(pSecuTransactionEntrustData->OrdNo));
-            columns[12]->set(i, new Long(pSecuTransactionEntrustData->BizIndex));
+            columns[7]->setDouble(i, pSecuTransactionEntrustData->OrdPrice);
+            columns[8]->setLong(i, pSecuTransactionEntrustData->OrdVolume);
+            columns[9]->setChar(i, pSecuTransactionEntrustData->OrdSide);
+            columns[10]->setChar(i, pSecuTransactionEntrustData->OrdType);
+            columns[11]->setLong(i, pSecuTransactionEntrustData->OrdNo);
+            columns[12]->setLong(i, pSecuTransactionEntrustData->BizIndex);
             if (columns.size() == 14)
             {
-                columns[13]->set(i, new Long(receivedTime));
+                columns[13]->setLong(i, receivedTime);
             }
         }
     }
@@ -436,7 +446,6 @@ void setMultEntrustData(vector<ConstantSP> &columns, vector<CHSNsqSecuTransactio
 
 void CHSNsqSpiImpl::asyncSnapshotHandle(std::vector<SnapData *> &items)
 {
-    INDEX insertedRows;
     int index = -1;
 
     try
@@ -450,33 +459,32 @@ void CHSNsqSpiImpl::asyncSnapshotHandle(std::vector<SnapData *> &items)
             index = 1;
         }
         vector<ConstantSP> columns = createVectors(0, items.size());
-        vector<string> colNames = snapshotColumnNames;
-        vector<DATA_TYPE> colTypes = snapshotTypes;
-        if (getAllFieldNamesFlag)
+        vector<string> colNames = SNAPSHOT_COLUMN_NAMES;
+        vector<DATA_TYPE> colTypes = SNAPSHOT_TYPES;
+        if (GET_ALL_FIELD_NAMES_FLAG)
         {
             columns = createVectors(3, items.size());
-            colNames.insert(colNames.end(), addedSnapshotColumnNames.begin(), addedSnapshotColumnNames.end());
-            colTypes.insert(colTypes.end(), addedSnapshotTypes.begin(), addedSnapshotTypes.end());
+            colNames.insert(colNames.end(), ADDED_SNAPSHOT_COLUMN_NAMES.begin(), ADDED_SNAPSHOT_COLUMN_NAMES.end());
+            colTypes.insert(colTypes.end(), ADDED_SNAPSHOT_TYPES.begin(), ADDED_SNAPSHOT_TYPES.end());
         }
         else
         {
             columns = createVectors(0, items.size());
         }
         setMultSnapshotData(columns, items);
-        vector<ObjectSP> args = {new String(tablenames[index])};
-        ConstantSP table = session->getFunctionDef("objByName")->call(session->getHeap().get(), args);
+        vector<ObjectSP> args = {new String(TABLE_NAMES[index])};
+        ConstantSP table = SESSION->getFunctionDef("objByName")->call(SESSION->getHeap().get(), args);
         TableSP tmp_table = Util::createTable(colNames, columns);
         vector<ObjectSP> args2 = {table, tmp_table};
-        session->getFunctionDef("append!")->call(session->getHeap().get(), args2);
-        setStatus(status[index], "");
+        SESSION->getFunctionDef("append!")->call(SESSION->getHeap().get(), args2);
+        setStatus(STATUS[index], "");
     }
     catch (exception &e)
     {
-        setStatus(status[index], e.what());
+        setStatus(STATUS[index], e.what());
     }
 }
 
-// 回调函数，先创建一行vector，再设置值，然后将数据添加到tsp里，用mutex锁住
 void CHSNsqSpiImpl::OnRtnSecuDepthMarketData(CHSNsqSecuDepthMarketDataField *pSecuDepthMarketData,
                                              HSIntVolume Bid1Volume[], HSNum Bid1Count, HSNum MaxBid1Count,
                                              HSIntVolume Ask1Volume[], HSNum Ask1Count, HSNum MaxAsk1Count)
@@ -494,7 +502,6 @@ void CHSNsqSpiImpl::OnRtnSecuDepthMarketData(CHSNsqSecuDepthMarketDataField *pSe
         val->MaxBid1Count = MaxBid1Count;
         val->Ask1Count = Ask1Count;
         val->MaxAsk1Count = MaxAsk1Count;
-        // recsum++;
         if (string(pSecuDepthMarketData->ExchangeID) == "1")
         {
             snapshotBlockingQueue1_->blockingPush(val);
@@ -505,12 +512,12 @@ void CHSNsqSpiImpl::OnRtnSecuDepthMarketData(CHSNsqSecuDepthMarketDataField *pSe
         }
         else
         {
-            throw RuntimeException("error ExchangeID");
+            throw RuntimeException(NSQ_PREFIX + " error ExchangeID");
         }
     }
     catch (const std::exception &e)
     {
-        LOG_ERR("[PluginNsq] OnRtnSecuDepthMarketData function has problem because ", e.what(), " or can not malloc");
+        LOG_ERR(NSQ_PREFIX + " " + "[PluginNsq] OnRtnSecuDepthMarketData function has problem because ", e.what(), " or can not malloc");
     }
 }
 
@@ -524,7 +531,7 @@ void CHSNsqSpiImpl::OnRtnSecuATPMarketData(CHSNsqSecuATPMarketDataField *pSecuDe
     //        "\tBidPrice1 %lf, BidVolume1 %" PRId64 ", Bid1Volume[0] %" PRId64 ", Bid1Count %d, MaxBid1Count %d\n"
     //        "\tAskPrice1 %lf, AskVolume1 %" PRId64 ", Ask1Volume[0] %" PRId64 ", Ask1Count %d, MaxAsk1Count %d\n",
     //        pSecuDepthMarketData->ExchangeID, pSecuDepthMarketData->InstrumentID, pSecuDepthMarketData->TradeDate,
-    //        pSecuDepthMarketData->UpdateTime, pSecuD·epthMarketData->PreClosePrice, pSecuDepthMarketData->ClosePrice,
+    //        pSecuDepthMarketData->UpdateTime, pSecuDepthMarketData->PreClosePrice, pSecuDepthMarketData->ClosePrice,
     //        pSecuDepthMarketData->InstrumentTradeStatus, pSecuDepthMarketData->TradeVolume,
 
     //        pSecuDepthMarketData->BidPrice1, pSecuDepthMarketData->BidVolume1, Bid1Volume[0], Bid1Count, MaxBid1Count,
@@ -532,30 +539,30 @@ void CHSNsqSpiImpl::OnRtnSecuATPMarketData(CHSNsqSecuATPMarketDataField *pSecuDe
     //        MaxAsk1Count);
 }
 
-// trade 和 orders混在了一起。。。他们都是 uTransaction，一个是type1，一个是type2
+// trade and order mix together, they are all uTransaction，one of type1，one of type2
 void CHSNsqSpiImpl::OnRspSecuTransactionSubscribe(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
 {
     if (nRequestID == 10003)
     {
-        subscribe_status[2] = 1;
+        SUBSCRIBE_STATUS[2] = 1;
     }
     else if (nRequestID == 10004)
     {
-        subscribe_status[3] = 1;
+        SUBSCRIBE_STATUS[3] = 1;
     }
     else if (nRequestID == 10005)
     {
-        subscribe_status[4] = 1;
+        SUBSCRIBE_STATUS[4] = 1;
     }
     else if (nRequestID == 10006)
     {
-        subscribe_status[5] = 1;
+        SUBSCRIBE_STATUS[5] = 1;
     }
     if (pRspInfo->ErrorID != 0)
-    { // 说明有错误
-        throw RuntimeException(pRspInfo->ErrorMsg);
+    {
+        throw RuntimeException(NSQ_PREFIX + " " + pRspInfo->ErrorMsg);
     }
-    LOG_INFO("OnRspSecuTransactionSubscribe: nRequestID[", nRequestID, "], ErrorID[", pRspInfo->ErrorID,
+    LOG_INFO(NSQ_PREFIX + " " + "OnRspSecuTransactionSubscribe: nRequestID[", nRequestID, "], ErrorID[", pRspInfo->ErrorID,
              "], ErrorMsg: ", pRspInfo->ErrorMsg);
 }
 
@@ -579,16 +586,15 @@ void CHSNsqSpiImpl::OnRspSecuTransactionCancel(CHSNsqRspInfoField *pRspInfo, int
         resetStatus(5);
     }
     if (pRspInfo->ErrorID != 0)
-    { // 说明有错误
-        throw RuntimeException(pRspInfo->ErrorMsg);
+    {
+        throw RuntimeException(NSQ_PREFIX + " " + pRspInfo->ErrorMsg);
     }
-    LOG_INFO("OnRspSecuTransactionCancel: nRequestID[", nRequestID, "], ErrorID[", pRspInfo->ErrorID,
+    LOG_INFO(NSQ_PREFIX + " " + "OnRspSecuTransactionCancel: nRequestID[", nRequestID, "], ErrorID[", pRspInfo->ErrorID,
              "], ErrorMsg: ", pRspInfo->ErrorMsg);
 }
 
 void CHSNsqSpiImpl::asyncTradeHandle(std::vector<CHSNsqSecuTransactionTradeDataField *> &items)
 {
-    INDEX insertedRows;
     int index = -1;
 
     try
@@ -605,32 +611,32 @@ void CHSNsqSpiImpl::asyncTradeHandle(std::vector<CHSNsqSecuTransactionTradeDataF
         vector<ConstantSP> columns;
         vector<string> colNames;
         vector<DATA_TYPE> colTypes;
-        if (getAllFieldNamesFlag)
+        if (GET_ALL_FIELD_NAMES_FLAG)
         {
             columns = createVectors(4, items.size());
-            colNames = tradeAndOrdersMergedColumnNames;
-            colTypes = tradeAndOrdersMergedTypes;
+            colNames = TRADE_AND_ORDER_MERGED_COLUMN_NAMES;
+            colTypes = TRADE_AND_ORDER_MERGED_TYPES;
         }
         else
         {
             columns = createVectors(1, items.size());
-            colNames = tradeColumnNames;
-            colTypes = tradeTypes;
+            colNames = TRADE_COLUMN_NAMES;
+            colTypes = TRADE_TYPES;
         }
 
         setMultTradeData(columns, items);
 
-        vector<ObjectSP> args = {new String(tablenames[index])};
-        ConstantSP table = session->getFunctionDef("objByName")->call(session->getHeap().get(), args);
+        vector<ObjectSP> args = {new String(TABLE_NAMES[index])};
+        ConstantSP table = SESSION->getFunctionDef("objByName")->call(SESSION->getHeap().get(), args);
         TableSP tmp_table = Util::createTable(colNames, columns);
         vector<ObjectSP> args2 = {table, tmp_table};
-        session->getFunctionDef("append!")->call(session->getHeap().get(), args2);
+        SESSION->getFunctionDef("append!")->call(SESSION->getHeap().get(), args2);
 
-        setStatus(status[index], "");
+        setStatus(STATUS[index], "");
     }
     catch (exception &e)
     {
-        setStatus(status[index], e.what());
+        setStatus(STATUS[index], e.what());
     }
 }
 
@@ -650,18 +656,17 @@ void CHSNsqSpiImpl::OnRtnSecuTransactionTradeData(CHSNsqSecuTransactionTradeData
         }
         else
         {
-            throw RuntimeException("error ExchangeID");
+            throw RuntimeException(NSQ_PREFIX + " error ExchangeID");
         }
     }
     catch (const std::exception &e)
     {
-        LOG_ERR("[PluginNsq] OnRtnSecuTransactionTradeData function has problem because ", e.what(), " or can not malloc");
+        LOG_ERR(NSQ_PREFIX + " OnRtnSecuTransactionTradeData function has problem because ", e.what(), " or can not malloc");
     }
 }
 
 void CHSNsqSpiImpl::asyncEntrustHandle(std::vector<CHSNsqSecuTransactionEntrustDataField *> &items)
 {
-    INDEX insertedRows;
     int index = -1;
 
     try
@@ -676,37 +681,37 @@ void CHSNsqSpiImpl::asyncEntrustHandle(std::vector<CHSNsqSecuTransactionEntrustD
         }
         else
         {
-            throw RuntimeException("error ExchangeID");
+            throw RuntimeException(NSQ_PREFIX + " " + "error ExchangeID");
         }
 
         vector<ConstantSP> columns;
         vector<string> colNames;
         vector<DATA_TYPE> colTypes;
-        if (getAllFieldNamesFlag)
+        if (GET_ALL_FIELD_NAMES_FLAG)
         {
             columns = createVectors(4, items.size());
-            colNames = tradeAndOrdersMergedColumnNames;
-            colTypes = tradeAndOrdersMergedTypes;
+            colNames = TRADE_AND_ORDER_MERGED_COLUMN_NAMES;
+            colTypes = TRADE_AND_ORDER_MERGED_TYPES;
         }
         else
         {
             columns = createVectors(2, items.size());
-            colNames = ordersColumnNames;
-            colTypes = ordersTypes;
+            colNames = ORDER_COLUMN_NAMES;
+            colTypes = ORDER_TYPES;
         }
         setMultEntrustData(columns, items);
 
-        vector<ObjectSP> args = {new String(tablenames[index])};
-        ConstantSP table = session->getFunctionDef("objByName")->call(session->getHeap().get(), args);
+        vector<ObjectSP> args = {new String(TABLE_NAMES[index])};
+        ConstantSP table = SESSION->getFunctionDef("objByName")->call(SESSION->getHeap().get(), args);
         TableSP tmp_table = Util::createTable(colNames, columns);
         vector<ObjectSP> args2 = {table, tmp_table};
-        session->getFunctionDef("append!")->call(session->getHeap().get(), args2);
+        SESSION->getFunctionDef("append!")->call(SESSION->getHeap().get(), args2);
 
-        setStatus(status[index], "");
+        setStatus(STATUS[index], "");
     }
     catch (exception &e)
     {
-        setStatus(status[index], e.what());
+        setStatus(STATUS[index], e.what());
     }
 }
 
@@ -728,12 +733,12 @@ void CHSNsqSpiImpl::OnRtnSecuTransactionEntrustData(
         }
         else
         {
-            throw RuntimeException("error ExchangeID");
+            throw RuntimeException(NSQ_PREFIX + " " + "error ExchangeID");
         }
     }
     catch (const std::exception &e)
     {
-        LOG_ERR("[PluginNsq] OnRtnSecuTransactionEntrustData function has problem because ", e.what(), " or can not malloc");
+        LOG_ERR(NSQ_PREFIX + " OnRtnSecuTransactionEntrustData function has problem because ", e.what(), " or can not malloc");
     }
 }
 
@@ -744,9 +749,9 @@ void CHSNsqSpiImpl::OnRspQrySecuInstruments(CHSNsqSecuInstrumentStaticInfoField 
 {
     char sz_buf[1024];
     int buf_len;
-    if (0 == m_iAllInstrCount)
+    if (0 == iAllInstrCount)
     {
-        LOG_INFO("RspQrySecuInstruments Successed !");
+        LOG_INFO(NSQ_PREFIX + " " + "RspQrySecuInstruments Successed !");
     }
 
     buf_len = snprintf(sz_buf, 1024,
@@ -767,72 +772,69 @@ void CHSNsqSpiImpl::OnRspQrySecuInstruments(CHSNsqSecuInstrumentStaticInfoField 
 
     if (strcmp(pSecuInstrumentStaticInfo->ExchangeID, HS_EI_SZSE) == 0)
     {
-        if (f_sz_stock_init == NULL)
+        if (fSzStockInit == NULL)
         {
-            f_sz_stock_init = fopen("sz_stock_code.txt", "w+");
-            if (f_sz_stock_init == NULL)
+            fSzStockInit = fopen("sz_stock_code.txt", "w+");
+            if (fSzStockInit == NULL)
             {
-                LOG_INFO("fopen sz_stock_code.txt fail: %s\n", strerror(errno));
+                LOG_INFO(NSQ_PREFIX + " " + "fopen sz_stock_code.txt fail: %s\n", strerror(errno));
             }
         }
-        if (f_sz_stock_init)
+        if (fSzStockInit)
         {
-            fwrite(sz_buf, buf_len, 1, f_sz_stock_init);
+            fwrite(sz_buf, buf_len, 1, fSzStockInit);
             if (bIsLast)
             {
-                fclose(f_sz_stock_init);
-                f_sz_stock_init = NULL;
+                fclose(fSzStockInit);
+                fSzStockInit = NULL;
             }
         }
     }
     else
     {
-        if (f_sh_stock_init == NULL)
+        if (fShStockInit == NULL)
         {
-            f_sh_stock_init = fopen("sh_stock_code.txt", "w+");
-            if (f_sh_stock_init == NULL)
+            fShStockInit = fopen("sh_stock_code.txt", "w+");
+            if (fShStockInit == NULL)
             {
-                LOG_INFO("fopen sh_stock_code.txt fail: %s\n", strerror(errno));
+                LOG_INFO(NSQ_PREFIX + " " + "fopen sh_stock_code.txt fail: %s\n", strerror(errno));
             }
         }
-        if (f_sh_stock_init)
+        if (fShStockInit)
         {
-            fwrite(sz_buf, buf_len, 1, f_sh_stock_init);
+            fwrite(sz_buf, buf_len, 1, fShStockInit);
             if (bIsLast)
             {
-                fclose(f_sh_stock_init);
-                f_sh_stock_init = NULL;
+                fclose(fShStockInit);
+                fShStockInit = NULL;
             }
         }
     }
 
-    m_iAllInstrCount++;
+    iAllInstrCount++;
     if (bIsLast)
     {
-        m_isAllInstrReady = true;
+        isAllInstrReady = true;
     }
 }
 
-/// Description: 期权订阅-行情应答
 void CHSNsqSpiImpl::OnRspOptDepthMarketDataSubscribe(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
 {
-    LOG_INFO("OnRspOptDepthMarketDataSubscribe: nRequestID[", nRequestID, "], ErrorID[", pRspInfo->ErrorID,
+    LOG_INFO(NSQ_PREFIX + " " + "OnRspOptDepthMarketDataSubscribe: nRequestID[", nRequestID, "], ErrorID[", pRspInfo->ErrorID,
              "], ErrorMsg: ", pRspInfo->ErrorMsg);
 }
 
-/// Description: 期权订阅取消-行情应答
 void CHSNsqSpiImpl::OnRspOptDepthMarketDataCancel(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
 {
-    LOG_INFO("OnRspOptDepthMarketDataCancel: nRequestID[", nRequestID, "], ErrorID[", pRspInfo->ErrorID,
+    LOG_INFO(NSQ_PREFIX + " " + "OnRspOptDepthMarketDataCancel: nRequestID[", nRequestID, "], ErrorID[", pRspInfo->ErrorID,
              "], ErrorMsg: ", pRspInfo->ErrorMsg);
 }
 
-/// Description: 主推-期权行情
 void CHSNsqSpiImpl::OnRtnOptDepthMarketData(CHSNsqOptDepthMarketDataField *pOptDepthMarketData)
 {
     CHSNsqOptDepthMarketDataField *p = pOptDepthMarketData;
 
-    LOG_INFO("%s,%lf,%lf,%lf,%lf,%lf,%lf,%" PRId64 ",%" PRId64 ",%lf,%lf,%lf,%lf,%lf,%lf,%" PRId64 ",%" PRId64
+    LOG_INFO(NSQ_PREFIX + " " + "%s,%lf,%lf,%lf,%lf,%lf,%lf,%" PRId64 ",%" PRId64 ",%lf,%lf,%lf,%lf,%lf,%lf,%" PRId64 ",%" PRId64
              ",%lf,%lf,%" PRId64 ",%c,%c,%lf,%" PRId64 ",%d,%" PRId64 "\n",
              p->InstrumentID, p->LastPrice, p->PreClosePrice, p->OpenPrice, p->HighPrice, p->LowPrice, p->ClosePrice,
              p->PreOpenInterest, p->OpenInterest, p->PreSettlementPrice, p->SettlementPrice, p->UpperLimitPrice,
@@ -842,24 +844,23 @@ void CHSNsqSpiImpl::OnRtnOptDepthMarketData(CHSNsqOptDepthMarketDataField *pOptD
     int i;
     for (i = 0; i < 10; i++)
     {
-        LOG_INFO("bid[%d]:%lf,%" PRId64 "\n", i, p->BidPrice[i], p->BidVolume[i]);
+        LOG_INFO(NSQ_PREFIX + " " + "bid[%d]:%lf,%" PRId64 "\n", i, p->BidPrice[i], p->BidVolume[i]);
     }
     for (i = 0; i < 10; i++)
     {
-        LOG_INFO("ask[%d]:%lf,%" PRId64 "\n", i, p->AskPrice[i], p->AskVolume[i]);
+        LOG_INFO(NSQ_PREFIX + " " + "ask[%d]:%lf,%" PRId64 "\n", i, p->AskPrice[i], p->AskVolume[i]);
     }
 }
 
-/// Description: 获取当前交易日合约应答
 void CHSNsqSpiImpl::OnRspQryOptInstruments(CHSNsqOptInstrumentStaticInfoField *pOptInstrumentStaticInfo,
                                            CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
 {
     char sz_buf[1024];
     int buf_len;
     CHSNsqOptInstrumentStaticInfoField *p = pOptInstrumentStaticInfo;
-    if (0 == m_iAllInstrCount)
+    if (0 == iAllInstrCount)
     {
-        LOG_INFO("RspQryOptInstruments Successed !");
+        LOG_INFO(NSQ_PREFIX + " " + "RspQryOptInstruments Successed !");
     }
 
     buf_len = snprintf(sz_buf, 1024,
@@ -899,60 +900,59 @@ void CHSNsqSpiImpl::OnRspQryOptInstruments(CHSNsqOptInstrumentStaticInfoField *p
 #endif
     if (strcmp(p->ExchangeID, HS_EI_SZSE) == 0)
     {
-        if (f_sz_opt_init == NULL)
+        if (fSzOptInit == NULL)
         {
-            f_sz_opt_init = fopen("sz_opt_code.txt", "w+");
-            if (f_sz_opt_init == NULL)
+            fSzOptInit = fopen("sz_opt_code.txt", "w+");
+            if (fSzOptInit == NULL)
             {
-                LOG_INFO("fopen sz_opt_code.txt fail: %s\n", strerror(errno));
+                LOG_INFO(NSQ_PREFIX + " " + "fopen sz_opt_code.txt fail: %s\n", strerror(errno));
             }
         }
-        if (f_sz_opt_init)
+        if (fSzOptInit)
         {
-            fwrite(sz_buf, buf_len, 1, f_sz_opt_init);
+            fwrite(sz_buf, buf_len, 1, fSzOptInit);
             if (bIsLast)
             {
-                fclose(f_sz_opt_init);
-                f_sz_opt_init = NULL;
+                fclose(fSzOptInit);
+                fSzOptInit = NULL;
             }
         }
     }
     else
     {
-        if (f_sh_opt_init == NULL)
+        if (fShOptInit == NULL)
         {
-            f_sh_opt_init = fopen("sh_opt_code.txt", "w+");
-            if (f_sh_opt_init == NULL)
+            fShOptInit = fopen("sh_opt_code.txt", "w+");
+            if (fShOptInit == NULL)
             {
-                LOG_INFO("fopen sh_opt_code.txt fail: %s\n", strerror(errno));
+                LOG_INFO(NSQ_PREFIX + " " + "fopen sh_opt_code.txt fail: %s\n", strerror(errno));
             }
         }
-        if (f_sh_opt_init)
+        if (fShOptInit)
         {
-            fwrite(sz_buf, buf_len, 1, f_sh_opt_init);
+            fwrite(sz_buf, buf_len, 1, fShOptInit);
             if (bIsLast)
             {
-                fclose(f_sh_opt_init);
-                f_sh_opt_init = NULL;
+                fclose(fShOptInit);
+                fShOptInit = NULL;
             }
         }
     }
 
-    m_iAllInstrCount++;
+    iAllInstrCount++;
     if (bIsLast)
     {
-        m_isAllInstrReady = true;
+        isAllInstrReady = true;
     }
 }
 
-/// Description: 获取合约的最新快照信息应答
 void CHSNsqSpiImpl::OnRspQryOptDepthMarketData(CHSNsqOptDepthMarketDataField *pOptDepthMarketData,
                                                CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {}
 
 void CHSNsqSpiImpl::OnRspSecuTransactionData(CHSNsqSecuTransactionDataField *pSecuTransactionData,
                                              CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
 {
-    LOG_INFO("[OnRspSecuTransactionData]: CHSNsqRspInfoField ErrorID %d ErrorMsg %s "
+    LOG_INFO(NSQ_PREFIX + " " + "[OnRspSecuTransactionData]: CHSNsqRspInfoField ErrorID %d ErrorMsg %s "
              "bIsLast %d\n",
              pRspInfo->ErrorID, pRspInfo->ErrorMsg, bIsLast);
     if (pRspInfo->ErrorID == 0)
@@ -960,7 +960,7 @@ void CHSNsqSpiImpl::OnRspSecuTransactionData(CHSNsqSecuTransactionDataField *pSe
         CHSNsqSecuTransactionDataField *p = pSecuTransactionData;
         if (p->TransType == HS_TRANS_Trade)
         {
-            LOG_INFO("[OnRspSecuTransactionData]: ExchangeID %s, InstrumentID %s, "
+            LOG_INFO(NSQ_PREFIX + " " + "[OnRspSecuTransactionData]: ExchangeID %s, InstrumentID %s, "
                      "TransFlag %d, SeqNo %" PRId64 ", ChannelNo %d,"
                      " TradeDate %d, TransactTime %d, TrdPrice %lf, TrdVolume %" PRId64 ", TrdMoney %lf,"
                      " TrdBuyNo %" PRId64 ", TrdSellNo %" PRId64 ", TrdBSFlag %c, BizIndex %" PRId64 "\n",
@@ -971,7 +971,7 @@ void CHSNsqSpiImpl::OnRspSecuTransactionData(CHSNsqSecuTransactionDataField *pSe
         }
         else if (p->TransType == HS_TRANS_Entrust)
         {
-            LOG_INFO("[OnRspSecuTransactionData]: ExchangeID %s, InstrumentID %s, "
+            LOG_INFO(NSQ_PREFIX + " " + "[OnRspSecuTransactionData]: ExchangeID %s, InstrumentID %s, "
                      "TransFlag %d, SeqNo %" PRId64 ", ChannelNo %d,"
                      " TradeDate %d, TransactTime %d, OrdPrice %lf, OrdVolume %" PRId64 ", OrdSide %c,"
                      " OrdType %c, OrdNo %" PRId64 ", BizIndex %" PRId64 "\n",
@@ -982,12 +982,12 @@ void CHSNsqSpiImpl::OnRspSecuTransactionData(CHSNsqSecuTransactionDataField *pSe
         }
         else
         {
-            LOG_INFO("error TransType:%c\n", p->TransType);
+            LOG_INFO(NSQ_PREFIX + " " + "error TransType:%c\n", p->TransType);
         }
     }
 }
 
 void CHSNsqSpiImpl::OnRspSecuTransactionDataTimeout(int nRequestID)
 {
-    LOG_INFO("OnRspSecuTransactionDataTimeout nRequestID=%d\n", nRequestID);
+    LOG_INFO(NSQ_PREFIX + " " + "OnRspSecuTransactionDataTimeout nRequestID=%d\n", nRequestID);
 }
