@@ -103,19 +103,6 @@ using mysqlxx::Query;
 class Pack;
 
 class MySQLExtractor {
-   private:
-    // only used in Executor
-    class Executor : public Runnable {
-       public:
-        explicit Executor(std::function<void()> &&f) : realWork_(f) {}
-
-       protected:
-        void run() override { realWork_(); }
-
-       private:
-        std::function<void()> realWork_;
-    };
-
    public:
     explicit MySQLExtractor(const Query &q);
     ~MySQLExtractor();
