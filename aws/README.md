@@ -53,7 +53,11 @@ account['verifySSL']=verify_or_not;      //e.g. false
 
 * s3account：账户account对象，至少需包含三个值（id, key 和 region）。
 * bucket：字符串，表示访问的桶名称。
-* prefix：可选参数，一个字符串，表示访问路径的前缀。
+* prefix：必选参数，一个字符串，表示访问路径的前缀, 可以传空字符串 `""`。
+* marker: 可选参数: 含义参考 [AWS S3](https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/API/API_ListObjects.html#API_ListObjects_RequestSyntax)
+* delimiter: 可选参数: : 含义参考 [AWS S3](https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/API/API_ListObjects.html#API_ListObjects_RequestSyntax)
+* nextMarker: 可选参数: 含义参考 [AWS S3](https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/API/API_ListObjects.html#API_ListObjects_RequestSyntax)
+* limit: 可选参数: 含义参考 [AWS S3](https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/API/API_ListObjects.html#API_ListObjects_RequestSyntax)
 
 **返回值**
 
@@ -70,7 +74,7 @@ account['verifySSL']=verify_or_not;      //e.g. false
 使用案例
 
 ```
-aws::listS3Object(account,'mys3bucket','test.csv')
+aws::listS3Object(account,'mys3bucket','test.csv',"")
 ```
 
 
@@ -263,3 +267,14 @@ account['region']='us-east';
 db = database(directory="dfs://rangedb", partitionType=RANGE, partitionScheme=0 51 101)
 aws::loadS3Object(account, 'dolphindb-test-bucket', 't2.zip', 4, db, `pt, `ID);
 ```
+
+# ReleaseNotes:
+
+## 故障修复
+
+* 接口 loadS3Object 增加对参数 threadCount 可用最大线程数的限制。（**1.30.22**）
+* 接口 getS3Object 增加对参数 outputFileName 有效性的检查。（**1.30.22**）
+
+## 功能优化
+
+* 优化了 loadS3Object 对临时文件的处理方法。（**1.30.22**）
