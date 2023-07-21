@@ -16,7 +16,7 @@ export LD_LIBRARY_PATH=/path/to/PluginOPCUA:$LD_LIBRARY_PATH
 ```
 启动DolphinDB服务，并执行DolphinDB插件加载脚本
 ``` shell
-loadPlugin("/path/to/PluginOPCUA/PluginOPCUA.txt") 
+loadPlugin("/path/to/PluginOPCUA/PluginOPCUA.txt")
 ```
 
 请注意，若使用 Windows 插件，加载时必须指定绝对路径，且路径中使用"\\\\"或"/"代替"\\"。
@@ -44,7 +44,7 @@ loadPlugin("/path/to/PluginOPCUA/PluginOPCUA.txt")
     cmake .. -G "MinGW Makefiles" -DENABLE_PROGRAMS=OFF
     make
     ```
-/libmbedcrypto.a $(LIB_DIR)/libmbedx509.a $(LIB_DIR)/libmbedtls.a 
+/libmbedcrypto.a $(LIB_DIR)/libmbedx509.a $(LIB_DIR)/libmbedtls.a
 编译得到静态库位于mbedtls/build/library下，分别是libmbedcrypto.a、libmbedx509.a、libmbedtls.a。
 
 安装open62541
@@ -71,7 +71,7 @@ make
 安装mbedtls
 ```
 sudo apt-get install libmbedtls-dev
-``` 
+```
 
 安装open62541方法与Windows一致，可不指定 -DMBEDTLS_INCLUDE_DIRS 和 -DMBEDTLS_LIBRARIES。
 
@@ -80,7 +80,7 @@ sudo apt-get install libmbedtls-dev
 安装mbedtls
 ```
 yum install mbedtls-devel
-``` 
+```
 
 安装open62541方法与Windows一致，可不指定 -DMBEDTLS_INCLUDE_DIRS 和 -DMBEDTLS_LIBRARIES。
 
@@ -238,7 +238,7 @@ opcua::readNode(conn, 1, ["test1","test4"],t2)
 t3 = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, INT, TIMESTAMP, SYMBOL])
 t4 = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, INT, TIMESTAMP, SYMBOL])
 t5 = table(200:0,`nodeID`value`timestamp`status, [SYMBOL, INT, TIMESTAMP, SYMBOL])
-opc::readNode(conn, 1, ["test1","test4", "test9"],[t3,t4,t5]) 
+opc::readNode(conn, 1, ["test1","test4", "test9"],[t3,t4,t5])
 ```
 
 ### 2.5. 写入Node（同步）
@@ -348,3 +348,8 @@ opcua::close(connection)
 ```
 opcua::close(connection)
 ```
+# ReleaseNotes:
+
+## 故障修复
+
+* 修复了多线程作业相关的 server 宕机的问题。（**2.00.10**）

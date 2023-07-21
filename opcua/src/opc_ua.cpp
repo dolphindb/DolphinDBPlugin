@@ -1,4 +1,5 @@
 #include "opc_ua.h"
+#include "Exceptions.h"
 #include<set>
 #include <iomanip>
 
@@ -6,7 +7,7 @@ std::map<UA_UInt32,OPCUASub* > OPCUASub::mapSub_;
 static void handlerTheAnswerChanged(UA_Client *client, UA_UInt32 subId, void *subContext,
                          UA_UInt32 monId, void *monContext, UA_DataValue *value);
 
-SmartPointer<Mutex> OPCUA_LATCH = new Mutex();
+Mutex OPCUA_LATCH;
 
 ConstantSP createSVCFromVector(vector<string> &v, DATA_TYPE t) {
     int totallySize = v.size();
@@ -62,7 +63,7 @@ UA_Guid convertUuidToUA_Guid(const unsigned char* data){
 }
 
 bool convertDTToUA(UA_Variant *variant, ConstantSP value){
-    
+
     bool isScalar = value->isScalar();
     bool isMatrix = value->isMatrix();
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
@@ -261,7 +262,7 @@ bool convertDTToUA(UA_Variant *variant, ConstantSP value){
                         uas[j*columns + i] = UA_STRING(&v[i*rows + j][0]);
                     }
                 }
-                
+
             }
             else{
                 for(int i = 0;i<value->size();i++){
@@ -590,7 +591,7 @@ ConstantSP toConstant(UA_Variant variant){
 }
 
 void OPCUASub::subs(){
-    LockGuard<Mutex> _(OPCUA_LATCH.get());
+    LockGuard<Mutex> _(&OPCUA_LATCH);
     UA_CreateSubscriptionRequest request = UA_CreateSubscriptionRequest_default();
     UA_CreateSubscriptionResponse response = UA_Client_Subscriptions_create(client_, request, NULL, NULL, NULL);
     if(response.responseHeader.serviceResult != UA_STATUSCODE_GOOD)
@@ -622,6 +623,7 @@ void OPCUASub::subs(){
 
 static void handlerTheAnswerChanged(UA_Client *client, UA_UInt32 subId, void *subContext,
                          UA_UInt32 monId, void *monContext, UA_DataValue *value){
+    LockGuard<Mutex> _(&OPCUA_LATCH);
     OPCUASub *sub = OPCUASub::mapSub_.find(subId)->second;
     string nodeid;
     nodeid = sub->monMap[monId];
@@ -632,7 +634,7 @@ static void handlerTheAnswerChanged(UA_Client *client, UA_UInt32 subId, void *su
     if(value->hasSourceTimestamp){
         sourceTimestamp->setLong(UA_DateTime_toUnixTimeStamp(value->sourceTimestamp));
     }
-    else 
+    else
         sourceTimestamp->setLong(INT64_MIN);
     ConstantSP status = Util::createConstant(DT_STRING);
     status->setString(string(UA_StatusCode_name(value->status)));
@@ -654,7 +656,7 @@ static void handlerTheAnswerChanged(UA_Client *client, UA_UInt32 subId, void *su
                 sub->setErrorMsg(errMsg);
             }
         }
-        
+
     } else {
         vector<ConstantSP> args = {resultTable};
         try{
@@ -667,7 +669,7 @@ static void handlerTheAnswerChanged(UA_Client *client, UA_UInt32 subId, void *su
 }
 
 ConstantSP OPCUAClient::readNode(vector<int> &nsIdx, vector<string> &nodeIdString, ConstantSP &table){
-    LockGuard<Mutex> _(OPCUA_LATCH.get());
+    LockGuard<Mutex> _(&OPCUA_LATCH);
     int numNode = nsIdx.size();
     UA_ReadRequest rReq;
     UA_ReadRequest_init(&rReq);
@@ -679,7 +681,7 @@ ConstantSP OPCUAClient::readNode(vector<int> &nsIdx, vector<string> &nodeIdStrin
     }
 
     UA_ReadResponse rResp = UA_Client_Service_read(client_, rReq);
-    if(rResp.responseHeader.serviceResult != UA_STATUSCODE_GOOD) 
+    if(rResp.responseHeader.serviceResult != UA_STATUSCODE_GOOD)
         throw RuntimeException("Could not call ReadNodesValue service. StatusCode " + string(UA_StatusCode_name(rResp.responseHeader.serviceResult)));
     if(table->isArray()){
         if((int)rResp.resultsSize!=numNode)
@@ -699,7 +701,7 @@ ConstantSP OPCUAClient::readNode(vector<int> &nsIdx, vector<string> &nodeIdStrin
             if(rResp.results[i].hasSourceTimestamp){
                 sourceTimestamp->setLong(UA_DateTime_toUnixTimeStamp(rResp.results[i].sourceTimestamp));
             }
-            else 
+            else
                 sourceTimestamp->setLong(INT64_MIN);
             vector<string> colNames = {"node id", "value", "timestamp", "status"};
             vector<ConstantSP> cols = {nodeId, value, sourceTimestamp, status};
@@ -745,7 +747,7 @@ ConstantSP OPCUAClient::readNode(vector<int> &nsIdx, vector<string> &nodeIdStrin
             if(rResp.results[i].hasSourceTimestamp){
                 sourceTimestamp->setLong(UA_DateTime_toUnixTimeStamp(rResp.results[i].sourceTimestamp));
             }
-            else 
+            else
                 sourceTimestamp->setLong(INT64_MIN);
             sourceTimestampVec->set(i, sourceTimestamp);
         }
@@ -797,7 +799,7 @@ ConstantSP OPCUAClient::readNode(vector<int> &nsIdx, vector<string> &nodeIdStrin
 }
 
 ConstantSP OPCUAClient::writeNode(vector<int> &nsIdx, vector<string> &nodeIdString, ConstantSP &value){
-    LockGuard<Mutex> _(OPCUA_LATCH.get());
+    LockGuard<Mutex> _(&OPCUA_LATCH);
     int numNode = nsIdx.size();
     if(numNode == 1){
         UA_Variant *myVariant = UA_Variant_new();
@@ -826,7 +828,7 @@ ConstantSP OPCUAClient::writeNode(vector<int> &nsIdx, vector<string> &nodeIdStri
     UA_WriteResponse wResp = UA_Client_Service_write(client_, wReq);
     UA_Variant_delete(myVariant);
     UA_StatusCode retval = wResp.responseHeader.serviceResult;
-    if(retval != UA_STATUSCODE_GOOD) 
+    if(retval != UA_STATUSCODE_GOOD)
         throw RuntimeException("Could not call WriteNodesValue service. StatusCode " + string(UA_StatusCode_name(retval)));
     for(size_t i = 0; i< wResp.resultsSize;i++){
         if(wResp.results[i]!=UA_STATUSCODE_GOOD){
@@ -848,7 +850,7 @@ void OPCUAClient::browseNode(UA_NodeId object, vector<int> &nameSpace, vector<st
     vector<UA_NodeId> nextNodeId;
     size_t nextCount = 0;
     for(size_t i = 0; i < bResp.resultsSize; ++i) {
-        if(nextNodeId.size() - nextCount< bResp.results[i].referencesSize) 
+        if(nextNodeId.size() - nextCount< bResp.results[i].referencesSize)
             nextNodeId.resize(nextNodeId.size() + bResp.results[i].referencesSize);
         for(size_t j = 1; j < bResp.results[i].referencesSize; ++j) {
             UA_ReferenceDescription *ref = &(bResp.results[i].references[j]);
@@ -876,7 +878,7 @@ void OPCUAClient::browseNode(UA_NodeId object, vector<int> &nameSpace, vector<st
     }
     UA_BrowseRequest_clear(&bReq);
     UA_BrowseResponse_clear(&bResp);
-    
+
     for(size_t i = 0; i<nextCount; i++){
         browseNode(nextNodeId[i], nameSpace, nodeid);
     }
@@ -884,7 +886,7 @@ void OPCUAClient::browseNode(UA_NodeId object, vector<int> &nameSpace, vector<st
 }
 
 ConstantSP OPCUAClient::browseNode(){
-    LockGuard<Mutex> _(OPCUA_LATCH.get());
+    LockGuard<Mutex> _(&OPCUA_LATCH);
     UA_NodeId object = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
     VectorSP nameSpaceVec = Util::createVector(DT_INT, 0);
     VectorSP nodeidVec = Util::createVector(DT_STRING, 0);
@@ -975,7 +977,7 @@ void OPCUAClient::connect(string endPointUrl, string clientUri, string username,
 }
 
 ConstantSP getOpcServerList(string serverUrl){
-    LockGuard<Mutex> _(OPCUA_LATCH.get());
+    LockGuard<Mutex> _(&OPCUA_LATCH);
     UA_ApplicationDescription *registeredServers = NULL;
     size_t registeredServersSize = 0;
     UA_Client *client = UA_Client_new();
@@ -1036,7 +1038,7 @@ ConstantSP getOpcServerList(string serverUrl){
 }
 
 ConstantSP getOpcEndPointList(string serverUrl){
-    LockGuard<Mutex> _(OPCUA_LATCH.get());
+    LockGuard<Mutex> _(&OPCUA_LATCH);
     UA_Client *client = UA_Client_new();
     UA_ClientConfig_setDefault(UA_Client_getConfig(client));
     UA_EndpointDescription *endpointArray = NULL;
@@ -1091,7 +1093,7 @@ ConstantSP getOpcEndPointList(string serverUrl){
 }
 
 ConstantSP getOpcUaServerList(Heap* heap, vector<ConstantSP>& arguments) {
-    LockGuard<Mutex> _(OPCUA_LATCH.get());
+    LockGuard<Mutex> _(&OPCUA_LATCH);
     if ((arguments[0]->getType() != DT_STRING) || !arguments[0]->isScalar()) {
         throw IllegalArgumentException(__FUNCTION__, "the host must be string scalar");
     }
@@ -1102,7 +1104,7 @@ ConstantSP getOpcUaServerList(Heap* heap, vector<ConstantSP>& arguments) {
 }
 
 ConstantSP getOpcUaEndPointList(Heap* heap, vector<ConstantSP>& arguments) {
-    LockGuard<Mutex> _(OPCUA_LATCH.get());
+    LockGuard<Mutex> _(&OPCUA_LATCH);
     if ((arguments[0]->getType() != DT_STRING) || !arguments[0]->isScalar()) {
         throw IllegalArgumentException(__FUNCTION__, "the host must be string scalar");
     }
@@ -1152,7 +1154,7 @@ loadFile(string path) {
 }
 
 ConstantSP connectOpcUaServer(Heap* heap, vector<ConstantSP>& arguments){
-    LockGuard<Mutex> _(OPCUA_LATCH.get());
+    LockGuard<Mutex> _(&OPCUA_LATCH);
     string serverurl = "";
     string username = "";
     string password = "";
@@ -1170,7 +1172,7 @@ ConstantSP connectOpcUaServer(Heap* heap, vector<ConstantSP>& arguments){
         throw IllegalArgumentException(__FUNCTION__, "the clientUri must be string scalar.");
     }
     clientUri = arguments[1]->getString();
-    if (arguments.size() == 3) 
+    if (arguments.size() == 3)
         throw IllegalArgumentException(__FUNCTION__, "the userName and the passWord must be a pair");
     if(arguments.size() >= 4){
         if (!arguments[2]->isNull() &&(arguments[2]->getType() != DT_STRING || !arguments[2]->isScalar())) {
@@ -1185,7 +1187,7 @@ ConstantSP connectOpcUaServer(Heap* heap, vector<ConstantSP>& arguments){
         if(!arguments[3]->isNull()){
             password = arguments[3]->getString();
         }
-        
+
     }
     if (arguments.size() >=5) {
         if (!arguments[4]->isNull() && (arguments[4]->getType() != DT_STRING || !arguments[4]->isScalar())) {
@@ -1226,7 +1228,7 @@ ConstantSP connectOpcUaServer(Heap* heap, vector<ConstantSP>& arguments){
             }
         }
     }
-    if (arguments.size() == 7) 
+    if (arguments.size() == 7)
         throw IllegalArgumentException(__FUNCTION__, "the certificatePath and the privateKeyPath must be a pair");
     if (arguments.size() ==8) {
         if (arguments[6]->getType() != DT_STRING || !arguments[6]->isScalar()){
@@ -1246,7 +1248,7 @@ ConstantSP connectOpcUaServer(Heap* heap, vector<ConstantSP>& arguments){
 }
 
 ConstantSP disconnect(const ConstantSP& handle, const ConstantSP& b) {
-    LockGuard<Mutex> _(OPCUA_LATCH.get());
+    LockGuard<Mutex> _(&OPCUA_LATCH);
     std::string usage = "Usage: close(conn). ";
     OPCUAClient* conn = nullptr;;
     if (handle->getType() == DT_RESOURCE) {
@@ -1263,7 +1265,7 @@ ConstantSP disconnect(const ConstantSP& handle, const ConstantSP& b) {
 }
 
 ConstantSP readNode(Heap* heap, vector<ConstantSP>& arguments){
-    LockGuard<Mutex> _(OPCUA_LATCH.get());
+    LockGuard<Mutex> _(&OPCUA_LATCH);
     std::string usage = "Usage: readNode(conn, nodeNamespace, nodeidString, table).";
 
     OPCUAClient* conn=nullptr;
@@ -1309,7 +1311,7 @@ ConstantSP readNode(Heap* heap, vector<ConstantSP>& arguments){
         for(int i = 0; i< arguments[2]->size();i++){
             nodeNamespace[i] = arguments[1]->getInt(i);
             nodeidString[i] = arguments[2]->getString(i);
-        }   
+        }
     }
     else
         throw IllegalArgumentException(__FUNCTION__, "the nodeNamespace must be int scalar or int array");
@@ -1336,14 +1338,14 @@ ConstantSP readNode(Heap* heap, vector<ConstantSP>& arguments){
     {
         table = new Void();
     }
-    
+
     return conn->readNode(nodeNamespace, nodeidString, table);
 
 
 }
 
 ConstantSP browseNode(Heap* heap, vector<ConstantSP>& arguments){
-    LockGuard<Mutex> _(OPCUA_LATCH.get());
+    LockGuard<Mutex> _(&OPCUA_LATCH);
     std::string usage = "Usage: browseNode(conn).";
     OPCUAClient* conn=nullptr;
     vector<int> nodeNamespace;
@@ -1360,7 +1362,7 @@ ConstantSP browseNode(Heap* heap, vector<ConstantSP>& arguments){
 }
 
 ConstantSP writeNode(Heap* heap, vector<ConstantSP>& arguments){
-    LockGuard<Mutex> _(OPCUA_LATCH.get());
+    LockGuard<Mutex> _(&OPCUA_LATCH);
     std::string usage = "Usage: writeNode(conn, nodeNamespace, nodeidString, value).";
 
     OPCUAClient* conn=nullptr;
@@ -1404,7 +1406,7 @@ ConstantSP writeNode(Heap* heap, vector<ConstantSP>& arguments){
         for(int i = 0; i< arguments[2]->size();i++){
             nodeidString[i] = arguments[2]->getString(i);
         }
-    }   
+    }
     else if(arguments[2]->isScalar()){
         if(!arguments[1]->isScalar()){
             throw IllegalArgumentException(__FUNCTION__, "the nodeidString is a scalar but the nodeNamespace  not");
@@ -1421,14 +1423,14 @@ ConstantSP writeNode(Heap* heap, vector<ConstantSP>& arguments){
     {
         throw IllegalArgumentException(__FUNCTION__, "the nodeidString must be string scalar or string array");
     }
-   
+
     return conn->writeNode(nodeNamespace, nodeidString, arguments[3]);;
 
 
 }
 
 ConstantSP subscribeNode(Heap* heap, vector<ConstantSP>& arguments){
-    LockGuard<Mutex> _(OPCUA_LATCH.get());
+    LockGuard<Mutex> _(&OPCUA_LATCH);
     std::string usage = "Usage: subscribe(conn, nodeNamespace, nodeidString, handle). ";
     vector<int> nodeNamespace;
     vector<string> nodeidString;
@@ -1465,7 +1467,7 @@ ConstantSP subscribeNode(Heap* heap, vector<ConstantSP>& arguments){
         for(int i = 0; i< arguments[2]->size();i++){
             nodeidString[i] = arguments[2]->getString(i);
         }
-    }   
+    }
     else if(arguments[2]->isScalar()){
         if(!arguments[1]->isScalar()){
             throw IllegalArgumentException(__FUNCTION__, "the nodeidString is a scalar but the nodeNamespace  not");
@@ -1492,7 +1494,7 @@ ConstantSP subscribeNode(Heap* heap, vector<ConstantSP>& arguments){
 }
 
 ConstantSP endSub(const ConstantSP& handle, const ConstantSP& b ){
-    LockGuard<Mutex> _(OPCUA_LATCH.get());
+    LockGuard<Mutex> _(&OPCUA_LATCH);
     std::string usage = "Usage: unsubscribe(conn). ";
     OPCUAClient* conn;
     if (handle->getType() == DT_RESOURCE) {
@@ -1538,13 +1540,13 @@ ConstantSP endSub(const ConstantSP& handle, const ConstantSP& b ){
     }
 
     //endflag = 1;
-    
+
 
     return new Void();
 }
 
 ConstantSP getSubscriberStat(const ConstantSP &handle, const ConstantSP &b) {
-    LockGuard<Mutex> _(OPCUA_LATCH.get());
+    LockGuard<Mutex> _(&OPCUA_LATCH);
     int size = OPCUASub::mapSub_.size();
     ConstantSP subscriptionIdVec = Util::createVector(DT_STRING, size);
     ConstantSP userVec = Util::createVector(DT_STRING, size);
@@ -1558,6 +1560,9 @@ ConstantSP getSubscriberStat(const ConstantSP &handle, const ConstantSP &b) {
     int i = 0;
     for(it=OPCUASub::mapSub_.begin();it!=OPCUASub::mapSub_.end();it++){
         OPCUASub *s = it->second;
+        if(!s) {
+            throw RuntimeException("invalid opcua connection.");
+        }
         subscriptionIdVec->setString(i, s->getSubID());
         userVec->setString(i,s->getUser());
         endPointUrlVec->setString(i,s->getEndPoint());
