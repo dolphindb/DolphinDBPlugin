@@ -17,7 +17,7 @@ macro(replace_cxx_release_flag src_flag dest_flag)
     string(REPLACE "${src_flag}" "${dest_flag}" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 endmacro(replace_cxx_release_flag flag)
 
-replace_cxx_release_flag("-O3" "-O2") 
+replace_cxx_release_flag("-O3" "-O2")
 include_directories("./include" "../include")
 
 link_directories(./lib)
@@ -36,8 +36,9 @@ elseif (UNIX)
         open62541
         DolphinDB
         )
+    set_target_properties(PluginOPCUA PROPERTIES LINK_FLAGS "-Wl,-rpath,$ORIGIN")
 endif ()
 
-add_custom_command( TARGET PluginOPCUA POST_BUILD 
+add_custom_command( TARGET PluginOPCUA POST_BUILD
                     COMMAND ${CMAKE_COMMAND} -E copy ${plugin_file} ${CMAKE_BINARY_DIR}/PluginOPCUA.txt
                     COMMENT "copy PluginOPCUA.txt")
