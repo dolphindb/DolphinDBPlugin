@@ -1,4 +1,4 @@
-#include <CoreConcept.h>
+#include "CoreConcept.h"
 #include "k.h"
 
 extern "C" ConstantSP kdbConnect(Heap *heap, vector<ConstantSP> &arguments);
@@ -30,21 +30,30 @@ enum kdbType {
     KDB_DICT = 99,
 };
 
+class Defer {
+public:
+    Defer(std::function<void()> code)
+        : code(code)
+    {
+    }
+    ~Defer() { code(); }
+
+private:
+    std::function<void()> code;
+};
+
 class Connection {
-   private:
-    std::string host_;
-    int port_;
-
-    int handle_;
-    bool connected_;
-
-   public:
-    Connection();
-    Connection(std::string host, int port, std::string usernamePassword);
+public:
+    Connection(const string& host, const int& port, const string& usernamePassword);
     ~Connection();
 
-    bool connected();
-    K kdbRun(std::string command);
-    TableSP getTable(std::string tablePath, std::string symFilePath);
-    std::string str() { return host_ + ":" + std::to_string(port_); }
+    TableSP getTable(const string& tablePath, const string& symFilePath);
+    string str() {
+        return host_ + ":" + std::to_string(port_);
+    }
+private:
+    string host_;
+    int port_;
+    int handle_;
+    // Mutex kdbMutex_;
 };
