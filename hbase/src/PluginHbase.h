@@ -10,33 +10,56 @@
 #include <transport/TSocket.h>
 
 
-extern "C" ConstantSP hbaseConnect(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP showTables(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP load(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP deleteTable(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP getRow(Heap *heap, vector<ConstantSP> &args);
+/* INTERFACES */
 
-class HbaseConnect{
+extern "C" ConstantSP connectH(Heap *heap, vector<ConstantSP> &args);
+extern "C" ConstantSP showTablesH(Heap *heap, vector<ConstantSP> &args);
+extern "C" ConstantSP loadH(Heap *heap, vector<ConstantSP> &args);
+extern "C" ConstantSP deleteTableH(Heap *heap, vector<ConstantSP> &args);
+extern "C" ConstantSP getRowH(Heap *heap, vector<ConstantSP> &args);
+
+
+/* HBASECONNECT */
+
+class HBaseConnect {
 public:
-    HbaseConnect(const string &hostname, const int port, bool isFramed, int timeout);
-    ~HbaseConnect(){}
-    void close();
-    ConstantSP showTables();
-    ConstantSP load(const std::string &tableName);
-    ConstantSP load(const std::string &tableName, TableSP schema);
-    void deleteTable(const std::string &tableName);
-    ConstantSP getRow(const std::string &tableName, const std::string &rowKey);
-    ConstantSP getRow(const std::string &tableName, const std::string &rowKey, const std::vector<std::string> &columnNames);
+    HBaseConnect(const string &hostname, int port, bool isFramed, int timeout);
+    ~HBaseConnect() = default;
+    void closeH();
+    ConstantSP showTablesH();
+    ConstantSP loadH(const std::string &tableName);
+    ConstantSP loadH(const std::string &tableName, const TableSP &schema);
+    void deleteTableH(const std::string &tableName);
+    ConstantSP getRowH(const std::string &tableName, const std::string &rowKey, const std::vector<std::string> &columnNames);
 
 private:
-    std::string host_;
-    int port_;
-    //std::shared_ptr<TTransport> socket_;
     std::shared_ptr<apache::thrift::transport::TSocket> socket_;
     std::shared_ptr<apache::thrift::transport::TTransport> transport_;
-    std::shared_ptr<apache::thrift::protocol::TProtocol> protocol_;
     std::shared_ptr<apache::hadoop::hbase::thrift::HbaseClient> client_;
 
     Mutex mtx_;
+
+    /* HELPERS */
+
+    static int englishMonthParserH(char first, char second, char third);
+    static bool partialDateParserH(const string &str, bool containDelimitor, int &part1, int &part2);
+    static bool dateParserH(const string &str, int &intVal);
+    static bool monthParserH(const string &str, int &intVal);
+    static bool timeParserH(const string &str, int &intVal);
+    static bool secondParserH(const string &str, int &intVal);
+    static bool minuteParserH(const string &str, int &intVal);
+    static bool dateTimeParserH(const string &str, int &intVal);
+    static bool nanoTimeParserH(const string &str, long long &longVal);
+    static bool nanoTimestampParserH(const string &str, long long &longVal);
+    static bool timestampParserH(const string &str, long long &longVal);
+
+    static void customThriftLogFunction(const char *message);
 };
-#endif //PLUGINHBASE_PLUGINHBASE_H
+
+
+/* HELPERS */
+
+HBaseConnect *getConnectionFromArg(ConstantSP &conn, const string &usage);
+void connectionOnCloseH(Heap *heap, vector<ConstantSP> &args);
+
+#endif//PLUGINHBASE_PLUGINHBASE_H
