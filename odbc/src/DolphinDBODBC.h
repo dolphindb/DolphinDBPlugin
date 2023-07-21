@@ -15,36 +15,25 @@
 #endif
 #include <sql.h>
 #include <sqlext.h>
+
 #include <cassert>
 #include <climits>
 #include <cstdio>
+#include <fstream>
 #include <iostream>
 #include <locale>
 #include <map>
-
 #include <vector>
+
+#include "Logger.h"
 #include "cvt.h"
 #include "nanodbc/nanodbc.h"
 
-#include <fstream>
-#include <iostream>
-
 extern "C" {
-	ConstantSP odbcConnect(Heap* heap, vector<ConstantSP>& args);
-	ConstantSP odbcClose(Heap* heap, vector<ConstantSP>& args);
-	ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args);
-	ConstantSP odbcExecute(Heap* heap, vector<ConstantSP>& args);
-	ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args);
+ConstantSP odbcConnect(Heap* heap, vector<ConstantSP>& args);
+ConstantSP odbcClose(Heap* heap, vector<ConstantSP>& args);
+ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args);
+ConstantSP odbcExecute(Heap* heap, vector<ConstantSP>& args);
+ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args);
 }
-
-class OdbcConnection{
-public:
-    OdbcConnection(const nanodbc::connection& connection, const string& dataBaseType):connection_(connection),dataBaseType_(dataBaseType){}
-    nanodbc::connection* getConnection(){return &connection_;};
-    string getDataBaseType(){return dataBaseType_;}
-private:
-    nanodbc::connection connection_;
-    string dataBaseType_;
-};
-
 #endif /* DOLPHINDBODBC_H_ */
