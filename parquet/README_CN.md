@@ -24,7 +24,7 @@ Parquet 插件目前支持版本：[relsease200](https://github.com/dolphindb/Do
 
 ### 1.1 下载预编译插件
 
-DolphinDB 提供了预编译的 Parquet 插件，可在 Linux 系统上直接进行安装。[点击此处下载插件](https://gitee.com/dolphindb/DolphinDBPlugin/tree/master/parquet/bin/linux64) 
+DolphinDB 提供了预编译的 Parquet 插件，可在 Linux 系统上直接进行安装。[点击此处下载插件](https://gitee.com/dolphindb/DolphinDBPlugin/tree/master/parquet/bin/linux64)
 
 请注意插件的版本应与 DolphinDB 客户端版本相同，可以通过切换分支获取相应版本。
 
@@ -99,7 +99,7 @@ loadPlugin("/path_to_parquet_plugin/PluginParquet.txt")
 
 parquet::extractParquetSchema(fileName)
 
-**参数**  
+**参数**
 
 * fileName: Parquet 文件名，类型为字符串标量。
 
@@ -326,3 +326,9 @@ DolphinDB 在导入 Parquet 数据时，优先按照源文件中定义的 Logica
 | DOUBLE            | DOUBLE                   | \                       |
 | STRING            | BYTE_ARRAY               | STRING                  |
 | SYMBOL            | BYTE_ARRAY               | STRING                  |
+
+# ReleaseNotes:
+
+## 功能优化
+
+* 优化了部分报错信息。（**2.00.10**）
