@@ -365,8 +365,12 @@ namespace svm{
                 if(value->getBool() == 0)
                     ::svm_set_print_string_function(print_null);
             }
-            else if(skey == "nu")
+            else if(skey == "nu") {
                 param.nu = value->getDouble();
+                if (param.nu <= 0 || param.nu > 1) {
+                    throw IllegalArgumentException(__FUNCTION__, "parameter \"nu\" should be in the range of (0,1].");
+                }
+            }
             else
                 throw IllegalArgumentException(__FUNCTION__, "unknown key " + skey);
         }
