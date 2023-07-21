@@ -14,6 +14,7 @@
 #endif
 
 #include "nanodbc/nanodbc.h"
+#include "Logger.h"
 
 #include <algorithm>
 #include <clocale>
@@ -236,7 +237,6 @@ inline std::string return_code(RETCODE rc)
     case SQL_STILL_EXECUTING:
         return "SQL_STILL_EXECUTING";
     }
-    NANODBC_ASSERT(0);
     return "unknown"; // should never make it here
 }
 #endif
@@ -261,11 +261,12 @@ constexpr std::size_t size(const T (&array)[N]) noexcept
 #endif
 
 template <std::size_t N>
-inline std::size_t size(NANODBC_SQLCHAR const (&array)[N]) noexcept
+inline std::size_t size(NANODBC_SQLCHAR const (&array)[N])
 {
     auto const n = std::char_traits<NANODBC_SQLCHAR>::length(array);
-    NANODBC_ASSERT(n < N);
-    return n < N ? n : N - 1;
+    if(n >= N)
+        throw RuntimeException("[PLUGIN::ODBC]: array size must be lesser than N. ");
+    return n;
 }
 
 template <class T>
@@ -781,7 +782,8 @@ inline void allocate_env_handle(SQLHENV& env)
 
 inline void allocate_dbc_handle(SQLHDBC& conn, SQLHENV env)
 {
-    NANODBC_ASSERT(env);
+    if(env == nullptr)
+        throw RuntimeException("[PLUGIN::ODBC]: env is null. ");
     if (conn)
         return;
 
@@ -879,12 +881,16 @@ public:
         try
         {
             disconnect();
+            deallocate();
+        }
+        catch (exception& e)
+        {
+            LOG_ERR("[PLUGIN::ODBC]: Failed to destroy connection_impl. : " + std::string(e.what()));
         }
         catch (...)
         {
-            // ignore exceptions thrown during disconnect
+            LOG_ERR("[PLUGIN::ODBC]: Failed to destroy connection_impl. ");
         }
-        deallocate();
     }
 
     void allocate()
@@ -902,7 +908,8 @@ public:
 #if !defined(NANODBC_DISABLE_ASYNC) && defined(SQL_ATTR_ASYNC_DBC_EVENT)
     void enable_async(void* event_handle)
     {
-        NANODBC_ASSERT(dbc_);
+        if(dbc_ == nullptr)
+            throw RuntimeException("[PLUGIN::ODBC]: dbc is null. ");
 
         RETCODE rc;
         NANODBC_CALL_RC(
@@ -923,7 +930,8 @@ public:
 
     void async_complete()
     {
-        NANODBC_ASSERT(dbc_);
+        if(dbc_ == nullptr)
+            throw RuntimeException("[PLUGIN::ODBC]: dbc is null. ");
 
         RETCODE rc, arc;
         NANODBC_CALL_RC(SQLCompleteAsync, rc, SQL_HANDLE_DBC, dbc_, &arc);
@@ -1225,26 +1233,36 @@ public:
 
     ~transaction_impl() noexcept
     {
-        if (!committed_)
-        {
-            conn_.rollback(true);
-            conn_.unref_transaction();
-        }
-
-        if (conn_.transactions() == 0 && conn_.connected())
-        {
-            if (conn_.rollback())
+        try{
+            if (!committed_)
             {
-                NANODBC_CALL(SQLEndTran, SQL_HANDLE_DBC, conn_.native_dbc_handle(), SQL_ROLLBACK);
-                conn_.rollback(false);
+                conn_.rollback(true);
+                conn_.unref_transaction();
             }
 
-            NANODBC_CALL(
-                SQLSetConnectAttr,
-                conn_.native_dbc_handle(),
-                SQL_ATTR_AUTOCOMMIT,
-                (SQLPOINTER)SQL_AUTOCOMMIT_ON,
-                SQL_IS_UINTEGER);
+            if (conn_.transactions() == 0 && conn_.connected())
+            {
+                if (conn_.rollback())
+                {
+                    NANODBC_CALL(SQLEndTran, SQL_HANDLE_DBC, conn_.native_dbc_handle(), SQL_ROLLBACK);
+                    conn_.rollback(false);
+                }
+
+                NANODBC_CALL(
+                    SQLSetConnectAttr,
+                    conn_.native_dbc_handle(),
+                    SQL_ATTR_AUTOCOMMIT,
+                    (SQLPOINTER)SQL_AUTOCOMMIT_ON,
+                    SQL_IS_UINTEGER);
+            }
+        }
+        catch (exception& e)
+        {
+            LOG_ERR("[PLUGIN::ODBC]: Failed to destroy transaction_impl. : " + std::string(e.what()));
+        }
+        catch (...)
+        {
+            LOG_ERR("[PLUGIN::ODBC]: Failed to destroy transaction_impl. ");
         }
     }
 
@@ -1353,11 +1371,22 @@ public:
 
     ~statement_impl() noexcept
     {
-        if (open() && connected())
+        try{
+            if (open() && connected())
+            {
+                checkStmt();
+                NANODBC_CALL(SQLCancel, stmt_);
+                reset_parameters();
+                deallocate_handle(stmt_, SQL_HANDLE_STMT);
+            }
+        }
+        catch (exception& e)
         {
-            NANODBC_CALL(SQLCancel, stmt_);
-            reset_parameters();
-            deallocate_handle(stmt_, SQL_HANDLE_STMT);
+            LOG_ERR("[PLUGIN::ODBC]: Failed to destroy statement_impl. : " + std::string(e.what()));
+        }
+        catch (...)
+        {
+            LOG_ERR("[PLUGIN::ODBC]: Failed to destroy statement_impl. ");
         }
     }
 
@@ -1385,13 +1414,22 @@ public:
 
     class connection& connection() { return conn_; }
 
-    void* native_statement_handle() const { return stmt_; }
+    void* native_statement_handle() const {
+        checkStmt();
+        return stmt_;
+    }
+
+    void checkStmt() const{
+        if(stmt_ == nullptr)
+            throw RuntimeException("[PLUGIN::ODBC]: HSTMT is null. ");
+    }
 
     void close()
     {
         if (open() && connected())
         {
             RETCODE rc;
+            checkStmt();
             NANODBC_CALL_RC(SQLCancel, rc, stmt_);
             if (!success(rc))
                 NANODBC_THROW_DATABASE_ERROR(stmt_, SQL_HANDLE_STMT);
@@ -1407,6 +1445,7 @@ public:
     void cancel()
     {
         RETCODE rc;
+        checkStmt();
         NANODBC_CALL_RC(SQLCancel, rc, stmt_);
         if (!success(rc))
             NANODBC_THROW_DATABASE_ERROR(stmt_, SQL_HANDLE_STMT);
@@ -1431,6 +1470,7 @@ public:
 #endif
 
         RETCODE rc;
+        checkStmt();
         NANODBC_CALL_RC(
             NANODBC_FUNC(SQLPrepare),
             rc,
@@ -1448,6 +1488,7 @@ public:
     void timeout(long timeout)
     {
         RETCODE rc;
+        checkStmt();
         NANODBC_CALL_RC(
             SQLSetStmtAttr,
             rc,
@@ -1468,6 +1509,7 @@ public:
         RETCODE rc;
         if (!async_enabled_)
         {
+            checkStmt();
             NANODBC_CALL_RC(
                 SQLSetStmtAttr,
                 rc,
@@ -1494,6 +1536,7 @@ public:
     {
         if (async_enabled_)
         {
+            checkStmt();
             RETCODE rc;
             NANODBC_CALL_RC(
                 SQLSetStmtAttr,
@@ -1522,6 +1565,7 @@ public:
         }
         else
         {
+            checkStmt();
             NANODBC_THROW_DATABASE_ERROR(stmt_, SQL_HANDLE_STMT);
         }
     }
@@ -1554,6 +1598,7 @@ public:
         if (async_)
         {
             RETCODE rc, arc;
+            checkStmt();
             NANODBC_CALL_RC(SQLCompleteAsync, rc, SQL_HANDLE_STMT, stmt_, &arc);
             if (!success(rc) || !success(arc))
                 NANODBC_THROW_DATABASE_ERROR(stmt_, SQL_HANDLE_STMT);
@@ -1605,6 +1650,7 @@ public:
 #endif
 
         RETCODE rc;
+        checkStmt();
         NANODBC_CALL_RC(
             SQLSetStmtAttr,
             rc,
@@ -1647,6 +1693,7 @@ public:
 
         if (open())
         {
+            checkStmt();
             // The ODBC cursor must be closed before subsequent executions, as described
             // here
             // http://msdn.microsoft.com/en-us/library/windows/desktop/ms713584%28v=vs.85%29.aspx
@@ -1666,7 +1713,7 @@ public:
         else
             enable_async(event_handle);
 #endif
-
+        checkStmt();
         NANODBC_CALL_RC(
             SQLSetStmtAttr,
             rc,
@@ -1701,6 +1748,7 @@ public:
 #endif
 
         RETCODE rc;
+        checkStmt();
         NANODBC_CALL_RC(
             NANODBC_FUNC(SQLProcedureColumns),
             rc,
@@ -1724,10 +1772,12 @@ public:
     {
         SQLLEN rows;
         RETCODE rc;
+        checkStmt();
         NANODBC_CALL_RC(SQLRowCount, rc, stmt_, &rows);
         if (!success(rc))
             NANODBC_THROW_DATABASE_ERROR(stmt_, SQL_HANDLE_STMT);
-        NANODBC_ASSERT(rows <= static_cast<SQLLEN>(std::numeric_limits<long>::max()));
+        if(rows > static_cast<SQLLEN>(std::numeric_limits<long>::max()))
+            throw RuntimeException("rowCount must be less than maximum value of the long type. ");
         return static_cast<long>(rows);
     }
 
@@ -1739,14 +1789,14 @@ public:
 #if defined(NANODBC_DO_ASYNC_IMPL)
         disable_async();
 #endif
-
+        checkStmt();
         NANODBC_CALL_RC(SQLNumResultCols, rc, stmt_, &cols);
         if (!success(rc))
             NANODBC_THROW_DATABASE_ERROR(stmt_, SQL_HANDLE_STMT);
         return cols;
     }
 
-    void reset_parameters() noexcept { NANODBC_CALL(SQLFreeStmt, stmt_, SQL_RESET_PARAMS); }
+    void reset_parameters() { NANODBC_CALL(SQLFreeStmt, stmt_, SQL_RESET_PARAMS); }
 
     short parameters() const
     {
@@ -1757,6 +1807,7 @@ public:
         disable_async();
 #endif
 
+        checkStmt();
         NANODBC_CALL_RC(SQLNumParams, rc, stmt_, &params);
         if (!success(rc))
             NANODBC_THROW_DATABASE_ERROR(stmt_, SQL_HANDLE_STMT);
@@ -1774,6 +1825,7 @@ public:
         disable_async();
 #endif
 
+        checkStmt();
         NANODBC_CALL_RC(
             SQLDescribeParam,
             rc,
@@ -1785,8 +1837,8 @@ public:
             &nullable);
         if (!success(rc))
             NANODBC_THROW_DATABASE_ERROR(stmt_, SQL_HANDLE_STMT);
-        NANODBC_ASSERT(
-            parameter_size < static_cast<SQLULEN>(std::numeric_limits<unsigned long>::max()));
+        if(parameter_size >= static_cast<SQLULEN>(std::numeric_limits<unsigned long>::max()))
+            throw RuntimeException("rowCount must be less than maximum value of the unsigned long type. ");
         return static_cast<unsigned long>(parameter_size);
     }
 
@@ -1807,9 +1859,61 @@ public:
             return SQL_PARAM_OUTPUT;
             break;
         default:
-            NANODBC_ASSERT(false);
-            throw programming_error("unrecognized param_direction value");
+            throw RuntimeException("[PLUGIN::ODBC]: unrecognized param_direction value");
         }
+    }
+
+// Alert!!! It's an add-on function which original nanodbc don't have
+void prepare_oracle_bind(
+        short param_index,
+        std::size_t batch_size,
+        param_direction direction,
+        bound_parameter& param)
+    {
+
+        if(param_index < 0)
+            throw RuntimeException("[PLUGIN::ODBC]: param index must be greater than zero. ");
+
+#if defined(NANODBC_DO_ASYNC_IMPL)
+        disable_async();
+#endif
+
+        checkStmt();
+        RETCODE rc;
+        SQLSMALLINT nullable; // unused
+        NANODBC_CALL_RC(
+            SQLDescribeParam,
+            rc,
+            stmt_,
+            param_index + 1,
+            &param.type_,
+            &param.size_,
+            &param.scale_,
+            &nullable);
+        if (!success(rc))
+            NANODBC_THROW_DATABASE_ERROR(stmt_, SQL_HANDLE_STMT);
+
+        // because we want to use to_timestamp() to transform data
+        // though this field is bind to a timestamp col, but input is string
+        param.type_ = 12;
+        // if(param.type_ == 93 || param.type_ == 91) {
+        //     param.type_ = 12;
+        // }
+
+        param.index_ = param_index;
+        param.iotype_ = param_type_from_direction(direction);
+
+        if (!bind_len_or_null_.count(param_index))
+            bind_len_or_null_[param_index] = std::vector<null_type>();
+        std::vector<null_type>().swap(bind_len_or_null_[param_index]);
+
+        // ODBC weirdness: this must be at least 8 elements in size
+        const std::size_t indicator_size = batch_size > 8 ? batch_size : 8;
+        bind_len_or_null_[param_index].reserve(indicator_size);
+        bind_len_or_null_[param_index].assign(indicator_size, SQL_NULL_DATA);
+
+        if(param.iotype_ <= 0)
+            throw RuntimeException("[PLUGIN::ODBC]: param type must be greater than 0. ");
     }
 
     // initializes bind_len_or_null_ and gets information for bind
@@ -1819,12 +1923,15 @@ public:
         param_direction direction,
         bound_parameter& param)
     {
-        NANODBC_ASSERT(param_index >= 0);
+
+        if(param_index < 0)
+            throw RuntimeException("[PLUGIN::ODBC]: param index must be greater than zero. ");
 
 #if defined(NANODBC_DO_ASYNC_IMPL)
         disable_async();
 #endif
 
+        checkStmt();
         RETCODE rc;
         SQLSMALLINT nullable; // unused
         NANODBC_CALL_RC(
@@ -1851,15 +1958,16 @@ public:
         bind_len_or_null_[param_index].reserve(indicator_size);
         bind_len_or_null_[param_index].assign(indicator_size, SQL_NULL_DATA);
 
-        NANODBC_ASSERT(param.index_ == param_index);
-        NANODBC_ASSERT(param.iotype_ > 0);
+        if(param.iotype_ <= 0)
+            throw RuntimeException("[PLUGIN::ODBC]: param type must be greater than 0. ");
     }
 
     // calls actual ODBC bind parameter function
     template <class T, typename std::enable_if<!is_character<T>::value, int>::type = 0>
     void bind_parameter(bound_parameter const& param, bound_buffer<T>& buffer)
     {
-        NANODBC_ASSERT(buffer.value_size_ > 0 || param.size_ > 0);
+        if(buffer.value_size_ <= 0 && param.size_ <= 0)
+            throw RuntimeException("[PLUGIN::ODBC]: value size, param size one of them can't be less than 1. ");
 
         auto value_size = buffer.value_size_;
         if (value_size == 0)
@@ -1880,6 +1988,10 @@ public:
         }
 
         RETCODE rc;
+        checkStmt();
+        // std::cout << "type2: " << param.type_ << ", size:" << buffer.value_size_ << " "<< param.size_ << " "<< param_size <<"\n";
+        // std::cout << sql_ctype<T>::value << " ";
+        // std::cout << param.scale_ << "\n";
         NANODBC_CALL_RC(
             SQLBindParameter,
             rc,
@@ -1906,6 +2018,10 @@ public:
         auto const buffer_size = buffer.value_size_ > 0 ? buffer.value_size_ : param.size_;
 
         RETCODE rc;
+        checkStmt();
+        // std::cout << "type: " << param.type_ << ", size:" << buffer.value_size_ << " "<< param.size_ << " "<< buffer_size <<"\n";
+        // std::cout << sql_ctype<T>::value << " ";
+        // std::cout << param.scale_ << "\n";
         NANODBC_CALL_RC(
             SQLBindParameter,
             rc,
@@ -1986,6 +2102,14 @@ public:
         bind_parameter(param, buffer);
     }
 
+// Alert!!! It's an add-on function which original nanodbc don't have
+    void bind_oracle_time_strings(
+        param_direction direction,
+        short param_index,
+        std::vector<std::basic_string<char>> const& values,
+        bool const* nulls = nullptr,
+        typename std::basic_string<char>::value_type const* null_sentry = nullptr);
+
     template <class T, typename = enable_if_character<T>>
     void bind_strings(
         param_direction direction,
@@ -2011,6 +2135,7 @@ public:
         prepare_bind(param_index, batch_size, PARAM_IN, param);
 
         RETCODE rc;
+        checkStmt();
         NANODBC_CALL_RC(
             SQLBindParameter,
             rc,
@@ -2160,6 +2285,7 @@ void statement::statement_impl::bind_strings(
     bind_parameter(param, buffer);
 }
 
+
 template <>
 bool statement::statement_impl::equals(const std::string& lhs, const std::string& rhs)
 {
@@ -2214,6 +2340,71 @@ std::vector<std::string::value_type>&
 statement::statement_impl::get_bound_string_data(short param_index)
 {
     return string_data_[param_index];
+}
+
+// Alert!!! It's an add-on function which original nanodbc don't have
+void statement::statement_impl::bind_oracle_time_strings(
+    param_direction direction,
+    short param_index,
+    std::vector<std::basic_string<char>> const& values,
+    bool const* nulls /*= nullptr*/,
+    typename std::basic_string<char>::value_type const* null_sentry /*= nullptr*/)
+{
+    using string_vector = std::vector<typename std::basic_string<char>::value_type>;
+    string_vector& string_data = get_bound_string_data<typename std::basic_string<char>::value_type>(param_index);
+
+    size_t const batch_size = values.size();
+
+    size_t max_length = 0;
+    for (std::size_t i = 0; i < batch_size; ++i)
+    {
+        max_length = std::max(values[i].length(), max_length);
+    }
+    // add space for null terminator
+    ++max_length;
+
+    string_data = string_vector(batch_size * max_length, 0);
+    for (std::size_t i = 0; i < batch_size; ++i)
+    {
+        std::copy(values[i].begin(), values[i].end(), string_data.data() + (i * max_length));
+    }
+    auto valuesPtr = string_data.data();
+    // bind_strings(
+    //     direction, param_index, valuesPtr, max_length, batch_size, nulls, null_sentry);
+
+    bound_parameter param;
+    prepare_oracle_bind(param_index, batch_size, direction, param);
+
+    if (null_sentry)
+    {
+        for (std::size_t i = 0; i < batch_size; ++i)
+        {
+            const std::basic_string<char> s_lhs(
+                valuesPtr + i * max_length, valuesPtr + (i + 1) * max_length);
+            const std::basic_string<char> s_rhs(null_sentry);
+            if (!equals(s_lhs, s_rhs))
+                bind_len_or_null_[param_index][i] = SQL_NTS;
+        }
+    }
+    else if (nulls)
+    {
+        for (std::size_t i = 0; i < batch_size; ++i)
+        {
+            if (!nulls[i])
+                bind_len_or_null_[param_index][i] = SQL_NTS; // null terminated
+        }
+    }
+    else
+    {
+        for (std::size_t i = 0; i < batch_size; ++i)
+        {
+            bind_len_or_null_[param_index][i] = SQL_NTS;
+        }
+    }
+
+    auto const buffer_length = max_length * sizeof(char);
+    bound_buffer<char> buffer(valuesPtr, batch_size, buffer_length);
+    bind_parameter(param, buffer);
 }
 
 } // namespace nanodbc
@@ -2279,7 +2470,19 @@ public:
         auto_bind();
     }
 
-    ~result_impl() noexcept { cleanup_bound_columns(); }
+    ~result_impl() noexcept {
+        try{
+            cleanup_bound_columns();
+        }
+        catch (exception& e)
+        {
+            LOG_ERR("[PLUGIN::ODBC]: Failed to destroy result_impl. : " + std::string(e.what()));
+        }
+        catch (...)
+        {
+            LOG_ERR("[PLUGIN::ODBC]: Failed to destroy result_impl. ");
+        }
+    }
 
     void* native_statement_handle() const { return stmt_.native_statement_handle(); }
 
@@ -2289,9 +2492,10 @@ public:
 
     bool has_affected_rows() const { return stmt_.affected_rows() != -1; }
 
-    long rows() const noexcept
+    long rows() const
     {
-        NANODBC_ASSERT(row_count_ <= static_cast<SQLULEN>(std::numeric_limits<long>::max()));
+        if(row_count_ > static_cast<SQLULEN>(std::numeric_limits<long>::max()))
+            throw RuntimeException("[PLUGIN::ODBC]: row count must be not greater than maximum value of the long type. ");
         return static_cast<long>(row_count_);
     }
 
@@ -2392,11 +2596,13 @@ public:
         if (pos == 0 || pos == static_cast<SQLULEN>(SQL_ROW_NUMBER_UNKNOWN))
             return 0;
 
-        NANODBC_ASSERT(pos < static_cast<SQLULEN>(std::numeric_limits<unsigned long>::max()));
+
+        if(pos >= static_cast<SQLULEN>(std::numeric_limits<unsigned long>::max()))
+            throw RuntimeException("[PLUGIN::ODBC]: position must be lesser than maximum value of the unsigned long type. ");
         return static_cast<unsigned long>(pos) + rowset_position_;
     }
 
-    bool at_end() const noexcept
+    bool at_end() const
     {
         if (at_end_)
             return true;
@@ -2450,7 +2656,8 @@ public:
         if (column >= bound_columns_size_)
             throw index_range_error();
         bound_column& col = bound_columns_[column];
-        NANODBC_ASSERT(col.sqlsize_ <= static_cast<SQLULEN>(std::numeric_limits<long>::max()));
+        if(col.sqlsize_ > static_cast<SQLULEN>(std::numeric_limits<long>::max()))
+            throw RuntimeException("[PLUGIN::ODBC]: column size must be not greater than maximum value of the long type. ");
         return static_cast<long>(col.sqlsize_);
     }
 
@@ -2511,7 +2718,8 @@ public:
         if (!success(rc))
             NANODBC_THROW_DATABASE_ERROR(stmt_.native_statement_handle(), SQL_HANDLE_STMT);
 
-        NANODBC_ASSERT(len % sizeof(NANODBC_SQLCHAR) == 0);
+        if(len % sizeof(NANODBC_SQLCHAR) != 0)
+            throw RuntimeException("[PLUGIN::ODBC]: The size of string length must be an integer multiple of the size of SQLCHAR. ");
         len = len / sizeof(NANODBC_SQLCHAR);
         return string(type_name, type_name + len);
     }
@@ -2642,7 +2850,7 @@ private:
     template <class T, typename std::enable_if<is_character<T>::value, int>::type = 0>
     void get_ref_from_string_column(short column, T& result) const;
 
-    void before_move() noexcept
+    void before_move()
     {
         for (short i = 0; i < bound_columns_size_; ++i)
         {
@@ -2654,16 +2862,17 @@ private:
         }
     }
 
-    void release_bound_resources(short column) noexcept
+    void release_bound_resources(short column)
     {
-        NANODBC_ASSERT(column < bound_columns_size_);
+        if(column >= bound_columns_size_)
+            throw RuntimeException("[PLUGIN::ODBC]: the index of release bound must be lesser than bound columns size. ");
         bound_column& col = bound_columns_[column];
         delete[] col.pdata_;
         col.pdata_ = 0;
         col.clen_ = 0;
     }
 
-    void cleanup_bound_columns() noexcept
+    void cleanup_bound_columns()
     {
         before_move();
         delete[] bound_columns_;
@@ -2708,8 +2917,10 @@ private:
         if (n_columns < 1)
             return;
 
-        NANODBC_ASSERT(!bound_columns_);
-        NANODBC_ASSERT(!bound_columns_size_);
+        if(bound_columns_ != nullptr)
+            throw RuntimeException("[PLUGIN::ODBC]: bound columns must be null before bind. ");
+        if(bound_columns_size_ != 0)
+            throw RuntimeException("[PLUGIN::ODBC]: bound column size must be 0 before bind. ");
         bound_columns_ = new bound_column[n_columns];
         bound_columns_size_ = n_columns;
 
@@ -2814,6 +3025,7 @@ private:
             case SQL_VARCHAR:
                 col.ctype_ = sql_ctype<std::string>::value;
                 col.clen_ = std::min((col.sqlsize_ + 1) * sizeof(SQLCHAR), (SQLULEN)16384);
+                col.clen_ = std::max(col.clen_,  static_cast<SQLULEN>(301));
                 if (is_blob)
                 {
                     col.clen_ = 0;
@@ -2882,6 +3094,7 @@ private:
                     col.clen_ *= sizeof(wchar_t);
                 #endif
                 col.pdata_ = new char[rowset_size_ * col.clen_];
+                memset(col.pdata_, 0, rowset_size_ * col.clen_);
                 NANODBC_CALL_RC(
                     SQLBindCol,
                     rc,
@@ -3215,8 +3428,9 @@ inline void result::result_impl::get_ref_impl(short column, T& result) const
         convert(date_str, result);
         return;
     }
+    default:
+        throw type_incompatible_error();
     }
-    throw type_incompatible_error();
 }
 
 template <>
@@ -3263,7 +3477,8 @@ inline void result::result_impl::get_ref_impl<std::vector<std::uint8_t>>(
                 {
                     auto const buffer_size_filled =
                         std::min<std::size_t>(ValueLenOrInd, buffer_size);
-                    NANODBC_ASSERT(buffer_size_filled <= buffer_size);
+                    if(buffer_size_filled > buffer_size)
+                        throw RuntimeException("[PLUGIN::ODBC]: the size of fill buffer can't be greater than buffer size. ");
                     out.insert(std::end(out), buffer, buffer + buffer_size_filled);
                 }
                 else if (ValueLenOrInd == SQL_NULL_DATA)
@@ -3284,8 +3499,8 @@ inline void result::result_impl::get_ref_impl<std::vector<std::uint8_t>>(
         }
         return;
     }
+    default: throw type_incompatible_error();
     }
-    throw type_incompatible_error();
 }
 
 namespace detail
@@ -3395,8 +3610,9 @@ void result::result_impl::get_ref_impl(short column, T& result) const
     case SQL_C_UBIGINT:
         result = (T) * (uint64_t*)(s);
         return;
+    default:
+        throw type_incompatible_error();
     }
-    throw type_incompatible_error();
 }
 
 } // namespace nanodbc
@@ -3426,7 +3642,8 @@ std::list<driver> list_drivers()
 
     connection env; // ensures handles RAII
     env.allocate();
-    NANODBC_ASSERT(env.native_env_handle());
+    if(env.native_env_handle() == nullptr)
+        throw RuntimeException("[PLUGIN::ODBC]: native env handle can't be null. ");
 
     std::list<driver> drivers;
     RETCODE rc{SQL_SUCCESS};
@@ -3447,9 +3664,9 @@ std::list<driver> list_drivers()
         if (rc == SQL_SUCCESS)
         {
             using char_type = string::value_type;
-            static_assert(
-                sizeof(NANODBC_SQLCHAR) == sizeof(char_type),
-                "incompatible SQLCHAR and string::value_type");
+
+            if(sizeof(NANODBC_SQLCHAR) != sizeof(char_type))
+                throw RuntimeException("[PLUGIN::ODBC]: incompatible SQLCHAR and string::value_type. ");
 
             driver drv;
             drv.name = string(&descr[0], &descr[std::char_traits<NANODBC_SQLCHAR>::length(descr)]);
@@ -3600,7 +3817,6 @@ void connection::connect(const string& connection_string, long timeout)
 {
     impl_->connect(connection_string, timeout);
 }
-
 #if !defined(NANODBC_DISABLE_ASYNC) && defined(SQL_ATTR_ASYNC_DBC_EVENT)
 bool connection::async_connect(
     const string& dsn,
@@ -3985,7 +4201,7 @@ short statement::parameters() const
     return impl_->parameters();
 }
 
-void statement::reset_parameters() noexcept
+void statement::reset_parameters()
 {
     impl_->reset_parameters();
 }
@@ -4115,6 +4331,15 @@ void statement::bind_strings(
     param_direction direction)
 {
     impl_->bind_strings(direction, param_index, values);
+}
+
+// Alert!!! It's an add-on function which original nanodbc don't have
+void statement::bind_oracle_time(
+    short param_index,
+    std::vector<std::basic_string<char>> const& values,
+    param_direction direction)
+{
+    impl_->bind_oracle_time_strings(direction, param_index, values);
 }
 
 template <class T, typename>
@@ -4691,7 +4916,7 @@ bool result::has_affected_rows() const
     return impl_->has_affected_rows();
 }
 
-long result::rows() const noexcept
+long result::rows() const
 {
     return impl_->rows();
 }
@@ -4748,7 +4973,7 @@ unsigned long result::position() const
     return impl_->position();
 }
 
-bool result::at_end() const noexcept
+bool result::at_end() const
 {
     return impl_->at_end();
 }

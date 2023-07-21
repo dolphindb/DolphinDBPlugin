@@ -2,27 +2,26 @@
 
 通过 ODBC 插件，可以连接其它数据源，将数据导入到 DolphinDB 数据库，或将 DolphinDB 内存表导出到其它数据库。
 
-- [DolphinDB ODBC 插件](#dolphindb-odbc-插件)
-  - [1. 前置条件](#1-前置条件)
-    - [1.1 Ubuntu](#11-ubuntu)
-    - [1.2 CentOS](#12-centos)
-    - [1.3 Windows](#13-windows)
-    - [1.4 Docker 容器环境 （Alpine Linux）](#14-docker-容器环境-alpine-linux)
-  - [2. Linux 环境下编译](#2-linux-环境下编译)
-    - [2.1 编译 unixODBC-2.3.11](#21-编译-unixodbc-2311)
-    - [2.2 编译 ODBC 插件](#22-编译-odbc-插件)
-    - [2.3 编译 freetds odbc](#23-编译-freetds-odbc)
-  - [3. 将插件加载到 DolphinDB 中](#3-将插件加载到-dolphindb-中)
-  - [4. 使用插件](#4-使用插件)
-    - [4.1 `odbc::connect`](#41-odbcconnect)
-    - [4.2 `odbc::close`](#42-odbcclose)
-    - [4.3 `odbc::query`](#43-odbcquery)
-    - [4.4 `odbc::execute`](#44-odbcexecute)
-    - [4.5 `odbc::append`](#45-odbcappend)
-  - [5 类型支持](#5-类型支持)
-    - [5.1 查询类型支持](#51-查询类型支持)
-    - [5.2 转换类型支持](#52-转换类型支持)
-  - [6 问题分析与解决](#6-问题分析与解决)
+- [1. 前置条件](#1-前置条件)
+  - [1.1 Ubuntu](#11-ubuntu)
+  - [1.2 CentOS](#12-centos)
+  - [1.3 Windows](#13-windows)
+  - [1.4 Docker 容器环境 （Alpine Linux）](#14-docker-容器环境-alpine-linux)
+- [2. 编译](#2-编译)
+  - [2.1 编译 unixODBC-2.3.11](#21-编译-unixodbc-2311)
+  - [2.2 编译 ODBC 插件](#22-编译-odbc-插件)
+  - [2.3 编译 freetds odbc](#23-编译-freetds-odbc)
+- [3. 将插件加载到 DolphinDB 中](#3-将插件加载到-dolphindb-中)
+- [4. 使用插件](#4-使用插件)
+  - [4.1 odbc::connect](#41-odbcconnect)
+  - [4.2 odbc::close](#42-odbcclose)
+  - [4.3 odbc::query](#43-odbcquery)
+  - [4.4 odbc::execute](#44-odbcexecute)
+  - [4.5 odbc::append](#45-odbcappend)
+- [5 类型支持](#5-类型支持)
+  - [5.1 查询类型支持](#51-查询类型支持)
+  - [5.2 转换类型支持](#52-转换类型支持)
+- [6 问题分析与解决](#6-问题分析与解决)
 
 
 
@@ -94,7 +93,7 @@ apk add unixodbc
 apk add unixodbc-dev
 ```
 
-## 2. Linux 环境下编译
+## 2. 编译
 
 ### 2.1 编译 unixODBC-2.3.11
 
@@ -189,7 +188,7 @@ use odbc;
 
 该插件提供以下5个功能：
 
-### 4.1 `odbc::connect`
+### 4.1 odbc::connect
 
 **语法**
 
@@ -220,7 +219,7 @@ conn2 = odbc::connect("Driver={MySQL ODBC 8.0 UNICODE Driver};Server=127.0.0.1;D
 conn3 = odbc::connect("Driver=SQL Server;Server=localhost;Database=zyb_test;User =sa;Password=DolphinDB123;")  
 ```
 
-### 4.2 `odbc::close`
+### 4.2 odbc::close
 
 **语法**
 
@@ -231,7 +230,6 @@ conn3 = odbc::connect("Driver=SQL Server;Server=localhost;Database=zyb_test;User
 * conn: 由 odbc::connect 创建的连接句柄。
 
 **描述**
-
 关闭一个 ODBC 连接。
 
 **例子**
@@ -241,7 +239,7 @@ conn1 = odbc::connect("Dsn=mysqlOdbcDsn")
 odbc::close(conn1)
 ```
 
-### 4.3 `odbc::query`
+### 4.3 odbc::query
 
 **语法**
 
@@ -265,7 +263,7 @@ odbc::close(conn1)
 t=odbc::query(conn1,"SELECT max(time),min(time) FROM ecimp_ver3.tbl_monitor;")
 ```
 
-### 4.4 `odbc::execute`
+### 4.4 odbc::execute
 
 **语法**
 
@@ -285,7 +283,7 @@ t=odbc::query(conn1,"SELECT max(time),min(time) FROM ecimp_ver3.tbl_monitor;")
 odbc::execute(conn1,"delete from ecimp_ver3.tbl_monitor where `timestamp` BETWEEN '2013-03-26 00:00:01' AND '2013-03-26 23:59:59'")
 ```
 
-### 4.5 `odbc::append`
+### 4.5 odbc::append
 
 **语法**
 
@@ -344,9 +342,9 @@ odbc::query(conn1,"SELECT * FROM ecimp_ver3.ddbtale")
 | MINUTE        | time             | time         | time          | time         | time         | time         |
 | SECOND        | time             | time         | time          | time         | time         | time         |
 | DATETIME      | timestamp        | datetime64   | date          | datetime     | datetime     | datetime     |
-| TIMESTAMP     | timestamp        | datetime64   | timestamp     | datetime     | datetime     | datetime     |
+| TIMESTAMP     | timestamp        | datetime64   | timestamp     | datetime2(3) | datetime     | datetime     |
 | NANOTIME      | time             | time         | time          | time         | time         | time         |
-| NANOTIMESTAMP | timestamp        | datetime64   | timestamp     | datetime     | datetime     | datetime     |
+| NANOTIMESTAMP | timestamp        | datetime64   | timestamp     | datetime2(7) | datetime     | datetime     |
 | FLOAT         | float            | float        | float         | float(24)    | float        | float        |
 | DOUBLE        | double precision | double       | binary_double | float(53)    | double       | double       |
 | SYMBOL        | varchar(255)     | varchar(255) | varchar(255)  | varchar(255) | varchar(255) | varchar(255) |
@@ -354,57 +352,7 @@ odbc::query(conn1,"SELECT * FROM ecimp_ver3.ddbtale")
 
 ## 6 问题分析与解决
 
-1. 连接 Windows 系统的 ClickHouse，查询得到的结果显示中文乱码。
-
-   **解决方法**： 请选择 ANSI 的 ClickHouse ODBC 驱动。
-
-2. 连接 ClickHouse 并读取数据时，`datetime` 类型数据返回空值或错误值。
-
-   **原因**： 低于 1.1.10 版本的 ClickHouse 的 ODBC 驱动将 `datetime` 返回为字符串类型，且返回的数据长度错误（长度过短），导致 ODBC 插件无法读取正确的字符串。
-
-   **解决方法**： 更新驱动到不小于1.1.10的版本。
-
-3. 使用 `yum install mysql-connector-odbc` 命令下载并安装 MySQL ODBC 驱动后，因驱动与 MySQL 数据源版本不一致而导致连接 MySQL 数据源时发生错误。
-
-   **原因**：Yum 仓库未及时更新，通过 `yum install mysql-connector-odbc` 下载及安装的 MySQL ODBC 驱动与 MySQL 数据源的版本不一致。使用 `yum install mysql-connector-odbc` 会根据 Yum 仓库 （Yum Repository）的配置情况下载对应版本的 MySQL ODBC 驱动。当 MySQL 数据源的版本较新，例如 8.0 版本时，请确保您本地的 Yum 仓库配置亦为最新。因此，为避免连接 MySQL 数据源时出现连接超时或无法找到 *libodbc.so.1* 文件等错误，可以通过以下方法获取最新版本的 MySQL ODBC 驱动。
-
-    **解决方法**：
-
-    **方法1**：在运行 `yum install mysql-connector-odbc` 命令前，运行以下命令以确保 MySQL Yum 仓库为最新：
-
-    ```
-    $> su root
-    $> yum update mysql-community-release
-    ```
-
-    有关更多 MySQL Yum 仓库的使用教程， 参考：[Installing Additional MySQL Products and Components with Yum](https://dev.mysql.com/doc/refman/8.0/en/linux-installation-yum-repo.html#yum-install-components)。
-
-    **方法2**：下载指定版本的 MySQL ODBC 驱动，修改 */etc/odbc.ini* 文件后，修改 `conn` 对应语句。例如，当 MySQL 数据源版本为 8.0 时：
-
-    1). 运行以下命令下载对应 MySQL 8.0 版本的 ODBC 驱动：
-
-    ```
-    wget https://dev.mysql.com/get/Downloads/Connector-ODBC/8.0/mysql-connector-odbc-8.0.32-1.el7.x86_64.rpm
-    rpm -ivh mysql-connector-odbc-8.0.32-1.el7.x86_64.rpm
-    rpm -ql mysql-connector-odbc-8.0.32-1.el7.x86_64
-    ```
-
-    2). 加载插件时，如遇到 `libodbc.so.1: cannot open shared object file: No such file or directory` 错误，说明依赖库无法找到，则在 *libodbc.so.2* 与 *libodbc.so.1* 之间建立软连接，然后重新加载插件。
-
-    ```
-    cd /usr/lib64
-    ln -s libodbc.so.2 libodbc.so.1
-    ```
-
-    3). 复制 */etc/odbcinst.ini* 中 `[MySQL ODBC 8.0 Unicode Driver]` 下 `Driver` 的指定路径，例如：
-
-    ```
-    [MySQL ODBC 8.0 Unicode Driver]
-    Driver=/usr/lib64/libmyodbc8w.so
-    UsageCount=1
-    ```
-
-    4). 使用上一步复制的信息以及连接 MySQL 数据源所需的登录信息修改 */etc/odbc.ini*：
+1. 连接 windows 系统的 ClickHouse，查询得到的结果显示中文乱码。
 
    **解决方法**： 请选择 ANSI 的 ClickHouse ODBC 驱动。
 
@@ -473,3 +421,16 @@ odbc::query(conn1,"SELECT * FROM ecimp_ver3.ddbtale")
     ```
     conn = odbc::connect("Driver=MySQL ODBC 8.0 Unicode Driver;Server=172.17.0.10;Port=3306;Database=testdb;User=root;Password=123456;", "MySQL");
     ```
+
+# ReleaseNotes:
+
+## 故障修复
+
+* 修复了关闭 ODBC 的连接时偶现 server 宕机的问题。（**2.00.10**）
+* 修复了读取 Oracle 的中文标点数据时出现乱码的问题。（**2.00.10**）
+* 修复了多个线程共用一个连接进行并发查询和写入时 server 宕机的问题。（**2.00.10**）
+
+## 功能优化
+
+* 优化了部分报错信息。（**2.00.10**）
+* 增加对接口 odbc::close 输入参数的校验。（**2.00.10**）
