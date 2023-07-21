@@ -459,3 +459,13 @@ if __name__=='__main__':
         recvStr = socket.recv()
         print (recvStr)
 ```
+
+# ReleaseNotes:
+
+## 故障修复
+
+* 接口 zmq::cancelSubJob 增加传入参数限制，只接受标量。（**2.00.10**）
+
+## 功能优化
+
+* 优化了部分报错信息。（**2.00.10**）
