@@ -1,4 +1,7 @@
 #include "orc_plugin.h"
+#include "Exceptions.h"
+#include <climits>
+#include <exception>
 
 ConstantSP extractORCSchema(const ConstantSP &filename)
 {
@@ -30,7 +33,7 @@ ConstantSP loadORC(Heap *heap, vector<ConstantSP> &arguments)
     if(arguments.size() >= 3 && !arguments[2]->isNull())
     {
         if(!arguments[2]->isVector() || arguments[2]->getCategory() != INTEGRAL)
-            throw IllegalArgumentException(__FUNCTION__, "column must be a vector.");
+            throw IllegalArgumentException(__FUNCTION__, "column must be a integer vector.");
         else
             column = arguments[2];
     }
@@ -65,7 +68,7 @@ ConstantSP loadORCHdfs(Heap *heap, vector<ConstantSP> &arguments)
         throw IllegalArgumentException(__FUNCTION__,"The first arguments should be resource");
     if(arguments[1]->getType() != DT_RESOURCE || arguments[1]->getString() != "hdfs readFile length")
         throw IllegalArgumentException(__FUNCTION__,"The second arguments should be resource");
-    
+
     void *buffer = (void *)arguments[0]->getLong();
     uint64_t *length = (uint64_t *)arguments[1]->getLong();
     return ORCPluginImp::loadORCFromBuf(buffer,*length);
@@ -101,7 +104,7 @@ ConstantSP loadORCEx(Heap *heap, vector<ConstantSP> &arguments)
     if (arguments.size() >= 6 && !arguments[5]->isNull())
     {
         if (!arguments[5]->isVector() || arguments[5]->getCategory() != INTEGRAL)
-            throw IllegalArgumentException(__FUNCTION__, "column must be a vector");
+            throw IllegalArgumentException(__FUNCTION__, "column must be a integer vector");
         else
             column = arguments[5];
     }
@@ -292,6 +295,9 @@ bool convertToDTnanotime(orc::TypeKind type, vector<long long> &buffer)
     case orc::TypeKind::TIMESTAMP:
         for(auto &x : buffer)
         {
+            if(x == INT64_MIN) {
+                continue;
+            }
             time_t ts = x / 1000000000;
             tm *gmt = gmtime_r(&ts, &gmtBuf);
             x = (gmt == nullptr) ? 0 : ((gmt->tm_hour * 60 + gmt->tm_min) * 60 + gmt->tm_sec) * 1000000000 + x % 1000000000;
@@ -310,8 +316,12 @@ bool convertToDTnanotimestamp(orc::TypeKind type, vector<long long> &buffer)
     case orc::TypeKind::TIMESTAMP:
         return true;
     case orc::TypeKind::DATE:
-        for(auto &x : buffer)
+        for(auto &x : buffer) {
+            if(x == INT64_MIN) {
+                continue;
+            }
             x = x * 24 * 60 * 60 * 1000 * 1000000;
+        }
         return true;
     default:
         return false;
@@ -322,12 +332,20 @@ bool convertToDTtimestamp(orc::TypeKind type, vector<long long> &buffer)
     switch(type)
     {
     case orc::TypeKind::TIMESTAMP:
-        for(auto &x : buffer)
+        for(auto &x : buffer) {
+            if(x == INT64_MIN) {
+                continue;
+            }
             x = x / 1000000;
+        }
         return true;
     case orc::TypeKind::DATE:
-        for(auto &x : buffer)
+        for(auto &x : buffer) {
+            if(x == INT64_MIN) {
+                continue;
+            }
             x = x * 24 * 60 * 60 * 1000;
+        }
         return true;
     default:
         return false;
@@ -341,6 +359,9 @@ bool convertToDTdate(orc::TypeKind type, vector<int> &buffer)
     case orc::TypeKind::TIMESTAMP:
         for(auto &x : buffer)
         {
+            if(x == INT32_MIN) {
+                continue;
+            }
             time_t ts = x / 1000;
             tm *gmt = gmtime_r(&ts, &gmtBuf);
             x = (gmt == nullptr) ? 0 : Util::countDays(gmt->tm_year + 1900, gmt->tm_mon + 1, gmt->tm_mday);
@@ -360,6 +381,9 @@ bool convertToDTmonth(orc::TypeKind type, vector<int> &buffer)
     case orc::TypeKind::TIMESTAMP:
         for(auto &x : buffer)
         {
+            if(x == INT32_MIN) {
+                continue;
+            }
             time_t ts = x / 1000;
             tm *gmt = gmtime_r(&ts, &gmtBuf);
             x = (gmt == nullptr) ? 0 : (gmt->tm_year + 1900) * 12 + gmt->tm_mon;
@@ -368,6 +392,9 @@ bool convertToDTmonth(orc::TypeKind type, vector<int> &buffer)
     case orc::TypeKind::DATE:
         for(auto &x : buffer)
         {
+            if(x == INT32_MIN) {
+                continue;
+            }
             time_t ts = x * 24 * 60 * 60;
             tm *gmt = gmtime_r(&ts, &gmtBuf);
             x = (gmt == nullptr) ? 0 : (gmt->tm_year + 1900) * 12 + gmt->tm_mon;
@@ -375,7 +402,7 @@ bool convertToDTmonth(orc::TypeKind type, vector<int> &buffer)
         return true;
     default:
         return false;
-    }  
+    }
 }
 bool convertToDTtime(orc::TypeKind type, vector<int> &buffer)
 {
@@ -385,6 +412,9 @@ bool convertToDTtime(orc::TypeKind type, vector<int> &buffer)
     case orc::TypeKind::TIMESTAMP:
         for(auto &x : buffer)
         {
+            if(x == INT32_MIN) {
+                continue;
+            }
             time_t ts = x / 1000;
             tm *gmt = gmtime_r(&ts, &gmtBuf);
             x = (gmt == nullptr) ? 0 : ((gmt->tm_hour * 60 + gmt->tm_min) * 60 + gmt->tm_sec) * 1000 + (x / 1000) % 1000;
@@ -398,7 +428,7 @@ bool convertToDTtime(orc::TypeKind type, vector<int> &buffer)
         return true;
     default:
         return false;
-    }  
+    }
 }
 bool convertToDTsecond(orc::TypeKind type, vector<int> &buffer)
 {
@@ -408,6 +438,9 @@ bool convertToDTsecond(orc::TypeKind type, vector<int> &buffer)
     case orc::TypeKind::TIMESTAMP:
         for(auto &x : buffer)
         {
+            if(x == INT32_MIN) {
+                continue;
+            }
             time_t ts = x / 1000;
             tm *gmt = gmtime_r(&ts, &gmtBuf);
             x = (gmt == nullptr) ? 0 : (gmt->tm_hour * 60 + gmt->tm_min) * 60 + gmt->tm_sec;
@@ -421,7 +454,7 @@ bool convertToDTsecond(orc::TypeKind type, vector<int> &buffer)
         return true;
     default:
         return false;
-    }  
+    }
 }
 bool convertToDTminute(orc::TypeKind type, vector<int> &buffer)
 {
@@ -431,6 +464,9 @@ bool convertToDTminute(orc::TypeKind type, vector<int> &buffer)
     case orc::TypeKind::TIMESTAMP:
         for(auto &x : buffer)
         {
+            if(x == INT32_MIN) {
+                continue;
+            }
             time_t ts = x / 1000;
             tm *gmt = gmtime_r(&ts, &gmtBuf);
             x = (gmt == nullptr) ? 0 : gmt->tm_hour * 60 + gmt->tm_min;
@@ -444,7 +480,7 @@ bool convertToDTminute(orc::TypeKind type, vector<int> &buffer)
         return true;
     default:
         return false;
-    }  
+    }
 }
 bool convertToDTdatetime(orc::TypeKind type, vector<int> &buffer)
 {
@@ -453,18 +489,24 @@ bool convertToDTdatetime(orc::TypeKind type, vector<int> &buffer)
     case orc::TypeKind::TIMESTAMP:
         for(auto &x : buffer)
         {
+            if(x == INT32_MIN) {
+                continue;
+            }
             x = x / 1000;
         }
         return true;
     case orc::TypeKind::DATE:
         for(auto &x : buffer)
         {
+            if(x == INT32_MIN) {
+                continue;
+            }
             x = x * 24 * 60 * 60;
         }
         return true;
     default:
         return false;
-    } 
+    }
 }
 
 int parseEnglishMonth(char first, char second, char third){
@@ -724,7 +766,7 @@ bool timestampParser(const string &str, long long &longVal){
 	if(end<0)
 		return false;
     int intVal;
-    dateParser(str.substr(end + 1), intVal);
+    dateParser(str.substr(0, end + 1), intVal);
 	if(intVal==INT_MIN){
 		longVal=LLONG_MIN;
 		return false;
@@ -807,7 +849,7 @@ bool convertORCToDolphindbBool(int col_idx, orc::StructVectorBatch *root, orc::T
                 if(str == "true")
                     buffer.push_back(1);
                 else if(str == "false")
-                    buffer.push_back(1);
+                    buffer.push_back(0);
                 else
                     throw RuntimeException("value of boolean type must be \"true\" or \"false\".");
             }
@@ -1086,7 +1128,11 @@ bool convertORCToDolphindbInt(int col_idx, orc::StructVectorBatch *root, orc::Ty
             switch(times_t)
             {
             case DT_INT:
-                intVal = stoi(str);
+                try {
+                    intVal = stoi(str);
+                } catch (exception& e) {
+                    throw RuntimeException("\"" + str + "\" can not be transformed can not be transformed to INT data.");
+                }
                 break;
             case DT_DATE:
                 dateParser(str, intVal);
@@ -1253,7 +1299,7 @@ bool convertORCToDolphindbLong(int col_idx, orc::StructVectorBatch *root, orc::T
                 buffer.push_back(INT64_MAX);
             else if(value <= INT64_MIN + 1)
                 buffer.push_back(INT64_MIN + 1);
-            else    
+            else
             {
                 long long v = value >= 0 ? (value + 0.5) : (value - 0.5);
                 buffer.push_back(v);
@@ -1277,7 +1323,11 @@ bool convertORCToDolphindbLong(int col_idx, orc::StructVectorBatch *root, orc::T
             switch(times_t)
             {
             case DT_LONG:
-                longVal = stoll(str);
+                try {
+                    longVal = stoll(str);
+                } catch (exception& e) {
+                    throw RuntimeException("\"" + str + "\" can not be transformed can not be transformed to LONG data.");
+                }
                 break;
             case DT_NANOTIME:
                 nanotimeParser(str, longVal);
@@ -1357,6 +1407,7 @@ bool convertORCToDolphindbLong(int col_idx, orc::StructVectorBatch *root, orc::T
         default:
             break;
         }
+        break;
     }
     default:
         throw RuntimeException("unsupported data type.");
@@ -1506,8 +1557,13 @@ bool convertORCToDolphindbFloat(int col_idx, orc::StructVectorBatch *root, orc::
             string str(data, len);
             if(col_batch->hasNulls && !col_batch->notNull[r])
                 buffer.push_back(FLT_MIN);
-            else
-                buffer.push_back(std::stof(str));
+            else {
+                try {
+                    buffer.push_back(std::stof(str));
+                } catch (exception& e) {
+                    throw RuntimeException("\"" + str + "\" can not be transformed can not be transformed to FLOAT data.");
+                }
+            }
         }
         break;
     }
@@ -1575,8 +1631,13 @@ bool convertORCToDolphindbDouble(int col_idx, orc::StructVectorBatch *root, orc:
             string str(data, len);
             if(col_batch->hasNulls && !col_batch->notNull[r])
                 buffer.push_back(DBL_MIN);
-            else
-                buffer.push_back(std::stod(str));
+            else {
+                try {
+                    buffer.push_back(std::stod(str));
+                } catch (exception& e) {
+                    throw RuntimeException("\"" + str + "\" can not be transformed can not be transformed to DOUBLE data.");
+                }
+            }
         }
         break;
     }
@@ -1870,7 +1931,7 @@ class HdfsInputStream : public orc::InputStream
             char *p = (char *)buffer+offset;
             memcpy(buf, (void *)p, len);
         }
-        const std::string& getName() const override 
+        const std::string& getName() const override
         {
             return message;
         }
@@ -2131,7 +2192,7 @@ ConstantSP loadFromORCToDatabase(Heap *heap, vector<ConstantSP> &arguments)
             throw RuntimeException("Failed to save the table to directory " + directory);
         return new Long(loadedTable->rows());
     }
-    else   
+    else
         return loadedTable;
 }
 
@@ -2480,7 +2541,7 @@ static unsigned saveORCBatch(orc::StructVectorBatch *root, const TableSP table, 
                     orcCol->notNull[j] = true;
                     orcCol->data[j] = v->getInt();
                 }
-                
+
             }
             break;
         }
@@ -2496,7 +2557,7 @@ static unsigned saveORCBatch(orc::StructVectorBatch *root, const TableSP table, 
                     orcCol->notNull[j] = true;
                     orcCol->data[j] = v->getLong();
                 }
-                
+
             }
             break;
         }
@@ -2512,7 +2573,7 @@ static unsigned saveORCBatch(orc::StructVectorBatch *root, const TableSP table, 
                     orcCol->notNull[j] = true;
                     orcCol->data[j] = v->getInt();
                 }
-                
+
             }
             break;
         }
@@ -2532,7 +2593,7 @@ static unsigned saveORCBatch(orc::StructVectorBatch *root, const TableSP table, 
                     m = Util::getMonthStart(m - 719514);
                     orcCol->data[j] = m;
                 }
-                
+
             }
             break;
         }
@@ -2583,7 +2644,7 @@ static unsigned saveORCBatch(orc::StructVectorBatch *root, const TableSP table, 
                     orcCol->data[j] = v->getInt();
                     orcCol->nanoseconds[j] = 0;
                 }
-                
+
             }
             break;
         }
@@ -2601,7 +2662,7 @@ static unsigned saveORCBatch(orc::StructVectorBatch *root, const TableSP table, 
                     orcCol->data[j] = millis / 1000;
                     orcCol->nanoseconds[j] = (millis % 1000) * 1000000;
                 }
-                
+
             }
             break;
         }
@@ -2635,7 +2696,7 @@ static unsigned saveORCBatch(orc::StructVectorBatch *root, const TableSP table, 
                     orcCol->notNull[j] = true;
                     orcCol->data[j] = v->getFloat();
                 }
-                
+
             }
             break;
         }
