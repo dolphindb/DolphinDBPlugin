@@ -1,4 +1,5 @@
 #include "plugin_mysql.h"
+#include "ddbplugin/Plugin.h"
 
 using dolphindb::Connection;
 using dolphindb::ConnectionSP;
@@ -18,7 +19,7 @@ ConstantSP safeOp(const ConstantSP &arg, std::function<ConstantSP(Connection *)>
         auto conn = (Connection *)(arg->getLong());
         return conn->connected() ? f(conn) : messageSP("Not connected yet.");
     } else {
-        throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
+        throw IllegalArgumentException(__FUNCTION__, "Must be a Resource Object.");
     }
 }
 
@@ -34,7 +35,11 @@ vector<ConstantSP> getArgs(vector<ConstantSP> &args, size_t nMaxArgs) {
 }
 
 static void mysqlConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
-    delete (Connection *)(args[0]->getLong());
+    Connection* conn = reinterpret_cast<Connection*>(args[0]->getLong());
+    if(conn != nullptr){
+        delete conn;
+        args[0]->setLong(0);
+    }
 }
 
 ConstantSP mysqlConnect(Heap *heap, vector<ConstantSP> &args) {
@@ -43,12 +48,18 @@ ConstantSP mysqlConnect(Heap *heap, vector<ConstantSP> &args) {
     if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException(__FUNCTION__, usage + "host must be a string");
     }
+	if (args[0]->getString().empty()) {
+		throw IllegalArgumentException(__FUNCTION__, usage + "host can't be empty");
+	}
     if (args[1]->getType() != DT_INT || args[1]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException(__FUNCTION__, usage + "port must be an integer");
     }
     if (args[2]->getType() != DT_STRING || args[2]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException(__FUNCTION__, usage + "user must be a string");
     }
+	if (args[2]->getString().empty()) {
+		throw IllegalArgumentException(__FUNCTION__, usage + "user can't be empty");
+	}
     if (args[3]->getType() != DT_STRING || args[3]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException(__FUNCTION__, usage + "password must be a string");
     }
@@ -56,12 +67,11 @@ ConstantSP mysqlConnect(Heap *heap, vector<ConstantSP> &args) {
         throw IllegalArgumentException(__FUNCTION__, usage + "db must be a string");
     }
     std::unique_ptr<Connection> cup(new Connection(args[0]->getString(), args[1]->getInt(), args[2]->getString(), args[3]->getString(), args[4]->getString()));
-    const char *fmt = "mysql connection to [%s]";
-    vector<char> descBuf(cup->str().size() + strlen(fmt));
-    sprintf(descBuf.data(), fmt, cup->str().c_str());
+    std::string desc = "mysql connection to [";
+    desc.append(cup->str()).append("]");
     dolphindb::littleEndian = Util::isLittleEndian();
     FunctionDefSP onClose(Util::createSystemProcedure("mysql connection onClose()", mysqlConnectionOnClose, 1, 1));
-    return Util::createResource((long long)cup.release(), descBuf.data(), onClose, heap->currentSession());
+    return Util::createResource((long long)cup.release(), desc.data(), onClose, heap->currentSession());
 }
 
 ConstantSP mysqlTables(const ConstantSP &connection) {
@@ -335,9 +345,13 @@ TableSP MySQLExtractor::extract(const ConstantSP &schema ,const bool &allowEmpty
 }
 
 void MySQLExtractor::extractEx(Heap *heap, TableSP &t, const FunctionDefSP &transform, const ConstantSP &schema) {
-    auto res = query_.use();
-    prepareForExtract(schema, res);
-    realExtract(res, schema, t, [&](Pack &p) { growTableEx(t, p, heap, transform); });
+    try {
+        auto res = query_.use();
+        prepareForExtract(schema, res);
+        realExtract(res, schema, t, [&](Pack &p) { growTableEx(t, p, heap, transform); });
+    } catch (mysqlxx::Exception &e) {
+        throw RuntimeException(std::string(e.name()) + " " + std::string(e.displayText()));
+    }
 }
 
 void MySQLExtractor::realExtract(mysqlxx::UseQueryResult &res, const ConstantSP &schema, TableSP &resultTable, std::function<void(Pack &)> callback) {
@@ -566,7 +580,7 @@ vector<size_t> MySQLExtractor::getMaxStrlen(mysqlxx::ResultBase &res) {
             ret[i] += 1;
         } else if (t == mysqlxx::MYSQL_TYPE_BLOB || t == mysqlxx::MYSQL_TYPE_TINY_BLOB ||
                    t == mysqlxx::MYSQL_TYPE_MEDIUM_BLOB || t == mysqlxx::MYSQL_TYPE_LONG_BLOB) {
-            ret[i] = 3 * 2048 + 1;
+            ret[i] = 65536;
         }
     }
     return ret;
@@ -1023,16 +1037,16 @@ bool parseNanotime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char*
 
 static string bin2str(const char* tmp, size_t len, size_t maxStrLen)
 {
-	string data;
+    string data;
     unsigned char mask = 0x80;
-	for (size_t i = 0; i < len; i++){
+    for (size_t i = 0; i < len; i++){
         for (short j = 0; j < 8; j++)
             if (tmp[i] & (mask >> j)){
                 data += '1';
             }
             else
                 data += '0';
-	}
+    }
     return data.substr(len * 8 - maxStrLen);
 }
 
