@@ -4,8 +4,10 @@
 #include <random>
 #include <utility>
 #include "opcimp.h"
-DictionarySP dict = Util::createDictionary(DT_STRING, 0, DT_LONG, 0);
-
+namespace opcPluginImp{
+    static DictionarySP dict = Util::createDictionary(DT_STRING, 0, DT_LONG, 0);
+    static Mutex mutex;
+}
 class DummyOutput: public Output{
 public:
     virtual bool timeElapsed(long long nanoSeconds){return true;}
@@ -65,7 +67,7 @@ public:
     }
 };
 
-ConstantSP toConstant(OPCItemData data, string itemName) {
+ConstantSP toConstant(OPCItemData& data, string itemName) {
     unsigned long long ms;
     vector<ConstantSP> cols;
     ConstantSP name = Util::createConstant(DT_STRING);
@@ -231,6 +233,9 @@ public:
             }
             catch(bad_alloc &e){
                 LOG_ERR("Plugin OPC: Out of Memory. ");
+            }
+            catch (exception &e){
+                LOG_ERR("Plugin OPC: Fail to work: ", e.what());
             }
             catch(...){
                 LOG_ERR("Plugin OPC: Fail to work. ");
@@ -430,8 +435,9 @@ ConstantSP getOpcServerList(Heap *heap, vector<ConstantSP> &arguments) {
     return retTable;
 }
 static void opcConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
+    LockGuard<Mutex> lk(&opcPluginImp::mutex);
     OPCClient *cp = (OPCClient *)(args[0]->getLong());
-    if (dict->getMember(std::to_string(args[0]->getLong()))->isNothing()) {
+    if (opcPluginImp::dict->getMember(std::to_string(reinterpret_cast<long long>(cp)))->isNothing()) {
         if (cp != nullptr) {
             delete cp;
             args[0]->setLong(0);
@@ -474,7 +480,7 @@ ConstantSP connectOpcServer(Heap *heap, vector<ConstantSP> &arguments) {
 ConstantSP disconnect(const ConstantSP &handle, const ConstantSP &b) {
     std::string usage = "Usage: close(conn). ";
     OPCClient *conn;
-    if (handle->getType() == DT_RESOURCE) {
+    if (handle->getType() == DT_RESOURCE && handle->getLong()>0) {
         conn = (OPCClient *)(handle->getLong());
 
     } else {
@@ -498,13 +504,15 @@ ConstantSP endSub(const ConstantSP &handle, const ConstantSP &b) {
         conn = (OPCClient *)(handle->getLong());
 
     } else if (handle->getType() == DT_STRING) {
-        ConstantSP c = dict->getMember(handle->getString());
+        LockGuard<Mutex> lk(&opcPluginImp::mutex);
+        ConstantSP c = opcPluginImp::dict->getMember(handle->getString());
         if (c->isNothing()) {
             throw IllegalArgumentException(__FUNCTION__, "Invalid connection string.");
         }
         conn = (OPCClient *)(c->getLong());
-    } else if (handle->getType() == DT_LONG || handle->getType() == DT_INT ) {
-        ConstantSP c = dict->getMember(handle->getString());
+    } else if (handle->getType() == DT_LONG) {
+        LockGuard<Mutex> lk(&opcPluginImp::mutex);
+        ConstantSP c = opcPluginImp::dict->getMember(handle->getString());
         if (c->isNothing()) {
             throw IllegalArgumentException(__FUNCTION__, "Invalid connection string.");
         }
@@ -516,13 +524,15 @@ ConstantSP endSub(const ConstantSP &handle, const ConstantSP &b) {
     if (conn != nullptr) {
         conn->setSubFlag(true);
         pool.unsub(conn);
-        dict->remove(new String(std::to_string(conn->id())));
+        LockGuard<Mutex> lk(&opcPluginImp::mutex);
+        opcPluginImp::dict->remove(new String(std::to_string((long long)conn)));
         if(conn->sessionClosed) delete conn;
     }
     return new Void();
 }
 ConstantSP getSubscriberStat(const ConstantSP &handle, const ConstantSP &b) {
-    int size = dict->size();
+    LockGuard<Mutex> lk(&opcPluginImp::mutex);
+    int size = opcPluginImp::dict->size();
     ConstantSP connectionIdVec = Util::createVector(DT_STRING, size);
     ConstantSP userVec = Util::createVector(DT_STRING, size);
     ConstantSP hostVec = Util::createVector(DT_STRING, size);
@@ -531,11 +541,11 @@ ConstantSP getSubscriberStat(const ConstantSP &handle, const ConstantSP &b) {
     ConstantSP timestampVec = Util::createVector(DT_TIMESTAMP, size);
     ConstantSP recvVec = Util::createVector(DT_LONG, size);
     ConstantSP errorMsgVec = Util::createVector(DT_STRING, size);
-    VectorSP keys = dict->keys();
+    VectorSP keys = opcPluginImp::dict->keys();
     for (int i = 0; i < keys->size(); i++) {
         string key = keys->getString(i);
-        connectionIdVec->setString(i, key);
-        OPCClient *conn = (OPCClient *)dict->getMember(key)->getLong();
+        OPCClient *conn = (OPCClient *)opcPluginImp::dict->getMember(key)->getLong();
+        connectionIdVec->setString(i, to_string(reinterpret_cast<long long>(conn)));
         hostVec->setString(i,conn->getHost());
         serverNameVec->setString(i,conn->getServerName());
         tagVec->setString(i,conn->getTagName());
@@ -1062,7 +1072,8 @@ ConstantSP subscribeTag(Heap *heap, vector<ConstantSP> &arguments) {
     conn->setErrorMsg("");
     conn->resetRecv();
     conn->setTagName(arguments[1]->getString());
-    dict->set(std::to_string(conn->id()), new Long((long long)conn));
+    LockGuard<Mutex> lk(&opcPluginImp::mutex);
+    opcPluginImp::dict->set(std::to_string(reinterpret_cast<long long>(conn)), new Long((long long)conn));
 
     return new Void();
 }
