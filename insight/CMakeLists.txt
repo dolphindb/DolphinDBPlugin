@@ -41,6 +41,8 @@ target_link_libraries(PluginInsight
     #gpr
 )
 
+set_target_properties(PluginInsight PROPERTIES LINK_FLAGS "-Wl,-rpath,$ORIGIN,-disable-new-dtags")
+
 set(plugin_file "${PROJECT_SOURCE_DIR}/PluginInsight.txt")
 add_custom_command(
     TARGET PluginInsight POST_BUILD
