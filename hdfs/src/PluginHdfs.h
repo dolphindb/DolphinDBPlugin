@@ -17,6 +17,8 @@
 
 using namespace std;
 
+static const string PLUGIN_HDFS_LOG_PREFIX = "[PLUGIN::HDFS]: ";
+
 extern "C" ConstantSP test(Heap *heap, vector<ConstantSP> &args);
 
 extern "C" ConstantSP hdfs_Connect(Heap *heap, vector<ConstantSP> &args);
