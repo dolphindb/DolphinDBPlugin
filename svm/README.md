@@ -186,3 +186,13 @@ R2->0.582937
 ##### 参考文献：
 
 1. Chih-Chung Chang and Chih-Jen Lin, LIBSVM : a library for support vector machines. ACM Transactions on Intelligent Systems and Technology, 2:27:1--27:27, 2011.  Software available at http://www.csie.ntu.edu.tw/~cjlin/libsvm
+
+# ReleaseNotes:
+
+## 故障修复
+
+* 修复了多线程执行 svm::fit 导致 server 宕机的问题。（**1.30.22**）
+
+# 功能优化
+
+* 接口 svm::fit 新增对参数 *params* 中键值"nu"输入值范围的检查。（**1.30.22**）
