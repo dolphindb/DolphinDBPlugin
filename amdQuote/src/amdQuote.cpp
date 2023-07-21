@@ -4,6 +4,7 @@
 #include "Exceptions.h"
 #include "SmartPointer.h"
 #include "Types.h"
+#include "Util.h"
 #include "amdQuoteType.h"
 #include <iostream>
 #include <ostream>
@@ -13,48 +14,56 @@
 Mutex AmdQuote::amdMutex_;
 AmdQuote* AmdQuote::instance_;
 
-bool receivedTimeFlag = false;
-bool dailyIndexFlag = false;
-bool outputElapsedFlag = false;
-bool isConnected = false;
-bool stopTest = true;
-int dailyStartTime = INT_MIN;
-const int zxDailyTime = 31200000;
+using dolphindb::DdbVector;
 
-unordered_set<string> optionsSet = {"DailyIndex", "ReceivedTime", "StartTime", "OutputElapsed"};
+bool RECEIVED_TIME_FLAG = false;
+bool DAILY_INDEX_FLAG = false;
+bool OUTPUT_ELAPSED_FLAG = false;
+bool IS_CONNECTED = false;
+bool STOP_TEST = true;
+int DAILY_START_TIME = INT_MIN;
+const int ZX_DAILY_TIME = 31200000;
+
+unordered_set<string> OPTION_SET = {"DailyIndex", "ReceivedTime", "StartTime", "OutputElapsed"};
+
+void closeAmd(Heap *heap, vector<ConstantSP> &arguments) {
+    // need release by hand
+    /*
+    AmdQuote* amdQuotePtr = (AmdQuote*)arguments[0]->getLong();
+    if (amdQuotePtr != nullptr) {
+        delete amdQuotePtr;
+    }*/
+}
+
 ConstantSP amdConnect(Heap *heap, vector<ConstantSP> &arguments) {
     LockGuard<Mutex> amdLock_(&AmdQuote::amdMutex_);
-    // if (arguments[0]->getForm() != DF_PAIR) {
-    //     throw RuntimeException("first argument illegal, should be stream table size");
-    // }
-    // ConstantSP tableSize  = arguments[0];
     if (arguments[0]->getForm() != DF_SCALAR || arguments[0]->getType() != DT_STRING) {
-        throw RuntimeException("first argument illegal, should be amd username");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] first argument illegal, should be amd username");
     }
-    std::string username = arguments[0]->getString();
+    string username = arguments[0]->getString();
     if (arguments[1]->getForm() != DF_SCALAR || arguments[1]->getType() != DT_STRING) {
-        throw RuntimeException("second argument illegal, should be amd password");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] second argument illegal, should be amd password");
     }
-    std::string password = arguments[1]->getString();
+    string password = arguments[1]->getString();
 
     if (arguments[2]->getForm() != DF_VECTOR || arguments[2]->getType() != DT_STRING) {
-        throw RuntimeException("third argument illegal, should be a vector of amd ips list.");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] third argument illegal, should be a vector of amd ips list.");
     }
 
     if (arguments[3]->getForm() != DF_VECTOR || arguments[3]->getType() != DT_INT) {
-        throw RuntimeException("fourth argument illegal, should be a vector of amd ports list.");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] fourth argument illegal, should be a vector of amd ports list.");
     }
 
     if (arguments[2]->size() != arguments[3]->size()) {
-        throw RuntimeException("third or fourth argument illegal, ips nums not equal to ports nums");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] third or fourth argument illegal, ips nums not equal to ports nums");
     }
-    std::vector<std::string> ips;
+    std::vector<string> ips;
     std::vector<int> ports;
 
     for (int i = 0; i < arguments[2]->size(); i++) {
         ips.push_back(arguments[2]->getString(i));
     }
-    
+
     for (int i = 0; i < arguments[3]->size(); i++) {
         ports.push_back(arguments[3]->getInt(i));
     }
@@ -62,10 +71,10 @@ ConstantSP amdConnect(Heap *heap, vector<ConstantSP> &arguments) {
     bool receivedTime = false;
     bool dailyIndex = false;
     bool outputElapsed = false;
-    dailyStartTime = INT_MIN;
+    DAILY_START_TIME = INT_MIN;
     if (arguments.size() > 4) {
         if (arguments[4]->getForm() != DF_DICTIONARY) {
-            throw IllegalArgumentException(__FUNCTION__, "options must be a dictionary"); 
+            throw IllegalArgumentException(__FUNCTION__, "options must be a dictionary");
         }
 
         DictionarySP options = arguments[4];
@@ -75,8 +84,8 @@ ConstantSP amdConnect(Heap *heap, vector<ConstantSP> &arguments) {
             ConstantSP key = keys->get(i);
             if(key->getType() != DT_STRING)
                 throw IllegalArgumentException(__FUNCTION__, "key of options must be string");
-            std::string str = key->getString();
-            if(optionsSet.count(str) == 0)
+            string str = key->getString();
+            if(OPTION_SET.count(str) == 0)
                 throw IllegalArgumentException(__FUNCTION__, "key of options must be 'ReceivedTime', 'DailyIndex', 'StartTime', 'OutputElapsed'");
         }
 
@@ -101,7 +110,7 @@ ConstantSP amdConnect(Heap *heap, vector<ConstantSP> &arguments) {
             if (value->getType() != DT_TIME || value->getForm() != DF_SCALAR) {
                 throw IllegalArgumentException(__FUNCTION__, "value of 'StartTime' must be time");
             }
-            dailyStartTime = value->getInt();
+            DAILY_START_TIME = value->getInt();
         }
 
         value = options->getMember("OutputElapsed");
@@ -115,57 +124,51 @@ ConstantSP amdConnect(Heap *heap, vector<ConstantSP> &arguments) {
         }
     }
     if(AmdQuote::instanceValid()) {
-        if(receivedTime != receivedTimeFlag || dailyIndex != dailyIndexFlag || outputElapsed != outputElapsedFlag) {
-            throw RuntimeException("Option is different from existed AmdQuote connection.");
+        if(receivedTime != RECEIVED_TIME_FLAG || dailyIndex != DAILY_INDEX_FLAG || outputElapsed != OUTPUT_ELAPSED_FLAG) {
+            throw RuntimeException("[PLUGIN::AMDQUOTE] Option is different from existed AmdQuote connection.");
         }
     } else {
-        receivedTimeFlag = receivedTime;
-        dailyIndexFlag = dailyIndex;
-        outputElapsedFlag = outputElapsed;
+        RECEIVED_TIME_FLAG = receivedTime;
+        DAILY_INDEX_FLAG = dailyIndex;
+        OUTPUT_ELAPSED_FLAG = outputElapsed;
     }
 
-    SessionSP session = heap->currentSession()->copy(true);
+    SessionSP session = heap->currentSession()->copy();
+    session->setUser(heap->currentSession()->getUser());
     auto amdQuoteHandler = AmdQuote::getInstance(username, password, ips, ports, session);
-    std::string handlerName("amdQuote");
+    string handlerName("amdQuote");
     FunctionDefSP onClose(Util::createSystemProcedure("amdQuote onClose()", closeAmd, 1, 1));
     auto resource = Util::createResource((long long)amdQuoteHandler, handlerName, onClose, heap->currentSession());
 
-    isConnected = true;
+    IS_CONNECTED = true;
     return resource;
-}
-
-void closeAmd(Heap *heap, vector<ConstantSP> &arguments) {
-    // need release by hand
-    /*
-    AmdQuote* amdQuotePtr = (AmdQuote*)arguments[0]->getLong();
-    if (amdQuotePtr != nullptr) {
-        delete amdQuotePtr;
-    }*/
 }
 
 bool checkDict(string type, ConstantSP dict) {
     // check if the dict's key is int and value is table
     ConstantSP keys = dict->keys();
-    std::unordered_map<int, TableSP> tables = {};
+    unordered_map<int, TableSP> tables;
     if(keys->size() == 0) {
-        throw RuntimeException("The third parameter dict must not be empty");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] The third parameter dict must not be empty");
     }
     for(int index = 0; index < keys->size(); ++index) {
         if(keys->get(index)->getType() != DT_INT) {
-            throw RuntimeException("The third parameter dict's key must be int");
+            throw RuntimeException("[PLUGIN::AMDQUOTE] The third parameter dict's key must be int");
         }
         if(keys->get(index)->getInt() < 0) {
-            throw RuntimeException("The third parameter dict's key must not less than 0");
+            throw RuntimeException("[PLUGIN::AMDQUOTE] The third parameter dict's key must not less than 0");
         }
         ConstantSP value = dict->getMember(keys->get(index));
         if(value->getForm() != DF_TABLE) {
-            throw RuntimeException("The third parameter dict's value should be shared stream table");
+            throw RuntimeException("[PLUGIN::AMDQUOTE] The third parameter dict's value should be shared stream table or IPC table");
         }
         if(!(((TableSP)value)->getTableType() == REALTIMETBL && ((TableSP)value)->isSharedTable())) {
-            throw RuntimeException("The third parameter dict's value should be shared stream table");
+            if(((TableSP)value)->getTableType() != IPCTBL) {
+                throw RuntimeException("[PLUGIN::AMDQUOTE] The third parameter dict's value should be shared stream table or IPC table");
+            }
         }
         if (!checkSchema(type, (TableSP)value)) {
-            throw RuntimeException("One of dict value's table schema mismatch");
+            throw RuntimeException("[PLUGIN::AMDQUOTE] One of dict value's table schema mismatch");
         }
     }
     //TODO more column quantity & type check
@@ -174,50 +177,47 @@ bool checkDict(string type, ConstantSP dict) {
 
 ConstantSP subscribe(Heap *heap, vector<ConstantSP> &arguments) { // amdHandler type(snapshot execution order) table marketType codeList
     LockGuard<Mutex> amdLock_(&AmdQuote::amdMutex_);
-    if (arguments[0]->getForm() != DF_SCALAR) {
-        throw RuntimeException("first argument illegal, should the obj return by connectAmd");
+    if (arguments[0]->getType() != DT_RESOURCE || arguments[0]->getString() != "amdQuote") {
+        throw RuntimeException("[PLUGIN::AMDQUOTE] first argument illegal, handle should be a amdQuote connection handle");
     }
     AmdQuote* amdQuotePtr = (AmdQuote*)arguments[0]->getLong();
     AmdQuote* instance = AmdQuote::getInstance();
     if (amdQuotePtr == nullptr || instance != amdQuotePtr) {
-        throw RuntimeException("first argument illegal, should the obj return by connectAmd");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] first argument illegal, handle should be a amdQuote connection handle");
     }
 
     if (arguments[1]->getForm() != DF_SCALAR && arguments[1]->getType() != DT_STRING) {
-        throw RuntimeException("second argument illegal, should be string");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] second argument illegal, should be string");
     }
-    std::string type = arguments[1]->getString();
-
-    // if (arguments[2]->getForm() != DF_TABLE) {
-    //     std::string errMsg = "The third parameter `streamTable` must be a shared stream table.";
-    //     throw RuntimeException(errMsg);
-    // }
+    string type = arguments[1]->getString();
 
     ConstantSP table = arguments[2];
     if(type == "orderExecution" || type == "fundOrderExecution" || type == "bondOrderExecution") {
         if (!(table->getForm() == DF_DICTIONARY && checkDict(type, table))) {
-            std::string errMsg = "The third parameter with type " + type + " must be a dict with int key and table value.";
+            string errMsg = "The third parameter with type " + type + " must be a dict with int key and table value.";
             throw RuntimeException(errMsg);
         }
     } else {
         if(!(table->getForm() ==DF_TABLE && ((TableSP)table)->getTableType() == REALTIMETBL && ((TableSP)table)->isSharedTable())) {
-            std::string errMsg = "The third parameter with type " + type + " must be a shared stream table.";
-            throw RuntimeException(errMsg);
+            if(!(table->getForm() ==DF_TABLE && ((TableSP)table)->getTableType() == IPCTBL)) {
+                string errMsg = "The third parameter with type " + type + " must be a shared stream table or IPC table.";
+                throw RuntimeException(errMsg);
+            }
         }
     }
 
     int marketType = 0;
     if (arguments.size() > 3) {
         if (arguments[3]->getForm() != DF_SCALAR || arguments[3]->getType() != DT_INT) {
-            throw RuntimeException("fourth argument illegal, should be amd marketType");
+            throw RuntimeException("[PLUGIN::AMDQUOTE] fourth argument illegal, should be amd marketType");
         }
         marketType = arguments[3]->getInt();
     }
 
-    std::vector<std::string> codeList;
+    std::vector<string> codeList;
     if (arguments.size() > 4 && !arguments[4]->isNothing()) {
         if (arguments[4]->getForm() != DF_VECTOR || arguments[4]->getType() != DT_STRING) {
-            throw RuntimeException("fifth argument illegal, should be codeList vector");
+            throw RuntimeException("[PLUGIN::AMDQUOTE] fifth argument illegal, should be codeList vector");
         }
         for (int i = 0; i < arguments[4]->size(); i++) {
             codeList.push_back(arguments[4]->getString(i));
@@ -227,62 +227,62 @@ ConstantSP subscribe(Heap *heap, vector<ConstantSP> &arguments) { // amdHandler 
     FunctionDefSP transform;
     if(arguments.size() > 5){
         if (arguments[5]->getForm() != DF_SCALAR || arguments[5]->getType() != DT_FUNCTIONDEF) {
-            throw RuntimeException("sixth argument illegal, transform should be a function");
+            throw RuntimeException("[PLUGIN::AMDQUOTE] sixth argument illegal, transform should be a function");
         }
         transform = arguments[5];
     }
 
     if ((transform.isNull() || transform->isNull()) && (table->getForm() == DF_TABLE && checkSchema(type, (TableSP)table) == false)) {
-        throw RuntimeException("schema mismatch");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] schema mismatch");
     }
 
     long long dailyIndexStartTimesParam = LONG_LONG_MIN;
-    if(dailyIndexFlag){
+    if(DAILY_INDEX_FLAG){
         if(marketType != 101 && marketType != 102)
-            throw RuntimeException("The dailyIndex can be set only when the market is 101 or 102");
+            throw RuntimeException("[PLUGIN::AMDQUOTE] The dailyIndex can be set only when the market is 101 or 102");
         int startTime;
-        if(dailyStartTime == INT_MIN)
-            startTime = zxDailyTime;
+        if(DAILY_START_TIME == INT_MIN)
+            startTime = ZX_DAILY_TIME;
         else
-            startTime = dailyStartTime;
+            startTime = DAILY_START_TIME;
         // FIXME time rule should explain
         const long long dateTimestamp = 24 * 60 * 60 * 1000;                // a mod
         long long now = Util::getEpochTime() + 8 * 3600 * 1000;             // add 8 hours
         long long diff = now % dateTimestamp;                               // a day left
         dailyIndexStartTimesParam = now / dateTimestamp * dateTimestamp;    // a day only
-        if(diff >= startTime){                                              // 
+        if(diff >= startTime){                                              //
             dailyIndexStartTimesParam += dateTimestamp;
         }
     }
-    LOG_INFO("[PluginAmdQuote]: subscribe " + std::to_string(marketType) + " " + type + " after timestamp " + std::to_string(dailyIndexStartTimesParam));
+    LOG_INFO("[PLUGIN::AMDQUOTE]: subscribe " + std::to_string(marketType) + " " + type + " after timestamp " + std::to_string(dailyIndexStartTimesParam));
     if (type == "snapshot") {
-        amdQuotePtr->subscribeSnapshot(marketType, (TableSP)table, codeList, transform, receivedTimeFlag, dailyIndexStartTimesParam);
+        amdQuotePtr->subscribeSnapshot(marketType, (TableSP)table, codeList, transform, RECEIVED_TIME_FLAG, dailyIndexStartTimesParam);
     } else if (type == "execution") {
-        amdQuotePtr->subscribeExecution(marketType, (TableSP)table, codeList, transform, receivedTimeFlag, dailyIndexStartTimesParam);
+        amdQuotePtr->subscribeExecution(marketType, (TableSP)table, codeList, transform, RECEIVED_TIME_FLAG, dailyIndexStartTimesParam);
     } else if (type == "order") {
-        amdQuotePtr->subscribeOrder(marketType, (TableSP)table, codeList, transform, receivedTimeFlag, dailyIndexStartTimesParam);
+        amdQuotePtr->subscribeOrder(marketType, (TableSP)table, codeList, transform, RECEIVED_TIME_FLAG, dailyIndexStartTimesParam);
     } else if (type == "index") {
-        amdQuotePtr->subscribeIndex(marketType, (TableSP)table, codeList, transform, receivedTimeFlag, dailyIndexStartTimesParam);
+        amdQuotePtr->subscribeIndex(marketType, (TableSP)table, codeList, transform, RECEIVED_TIME_FLAG, dailyIndexStartTimesParam);
     } else if (type == "orderQueue") {
-        amdQuotePtr->subscribeOrderQueue(marketType, (TableSP)table, codeList, transform, receivedTimeFlag, dailyIndexStartTimesParam);
+        amdQuotePtr->subscribeOrderQueue(marketType, (TableSP)table, codeList, transform, RECEIVED_TIME_FLAG, dailyIndexStartTimesParam);
     } else if (type == "fundSnapshot") {
-        amdQuotePtr->subscribeFundSnapshot(marketType, (TableSP)table, codeList, transform, receivedTimeFlag, dailyIndexStartTimesParam);
+        amdQuotePtr->subscribeFundSnapshot(marketType, (TableSP)table, codeList, transform, RECEIVED_TIME_FLAG, dailyIndexStartTimesParam);
     } else if (type == "fundExecution") {
-        amdQuotePtr->subscribeFundExecution(marketType, (TableSP)table, codeList, transform, receivedTimeFlag, dailyIndexStartTimesParam);
+        amdQuotePtr->subscribeFundExecution(marketType, (TableSP)table, codeList, transform, RECEIVED_TIME_FLAG, dailyIndexStartTimesParam);
     } else if (type == "fundOrder") {
-        amdQuotePtr->subscribeFundOrder(marketType, (TableSP)table, codeList, transform, receivedTimeFlag, dailyIndexStartTimesParam);
+        amdQuotePtr->subscribeFundOrder(marketType, (TableSP)table, codeList, transform, RECEIVED_TIME_FLAG, dailyIndexStartTimesParam);
     } else if (type == "bondSnapshot") {
-        amdQuotePtr->subscribeBondSnapshot(marketType, (TableSP)table, codeList, transform, receivedTimeFlag, dailyIndexStartTimesParam);
+        amdQuotePtr->subscribeBondSnapshot(marketType, (TableSP)table, codeList, transform, RECEIVED_TIME_FLAG, dailyIndexStartTimesParam);
     } else if (type == "bondExecution") {
-        amdQuotePtr->subscribeBondExecution(marketType, (TableSP)table, codeList, transform, receivedTimeFlag, dailyIndexStartTimesParam);
+        amdQuotePtr->subscribeBondExecution(marketType, (TableSP)table, codeList, transform, RECEIVED_TIME_FLAG, dailyIndexStartTimesParam);
     } else if (type == "bondOrder") {
-        amdQuotePtr->subscribeBondOrder(marketType, (TableSP)table, codeList, transform, receivedTimeFlag, dailyIndexStartTimesParam);
+        amdQuotePtr->subscribeBondOrder(marketType, (TableSP)table, codeList, transform, RECEIVED_TIME_FLAG, dailyIndexStartTimesParam);
 
     } else if (type == "orderExecution" || type == "fundOrderExecution" || type == "bondOrderExecution") {
-        amdQuotePtr->subscribeOrderExecution(type, marketType, (DictionarySP)table, codeList, transform, receivedTimeFlag, dailyIndexStartTimesParam);
+        amdQuotePtr->subscribeOrderExecution(type, marketType, (DictionarySP)table, codeList, transform, RECEIVED_TIME_FLAG, dailyIndexStartTimesParam);
 
     } else {
-        throw RuntimeException("second argument illegal, should be `snapshot`, `execution`, `order`, `index`, `orderQueue`, fundSnapshot, `fundExecution`, `fundOrder, 'orderExecution', 'fundOrderExecution' or 'bondOrderExecution'");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] second argument illegal, should be `snapshot`, `execution`, `order`, `index`, `orderQueue`, fundSnapshot, `fundExecution`, `fundOrder, 'orderExecution', 'fundOrderExecution' or 'bondOrderExecution'");
     }
 
     ConstantSP ret = Util::createConstant(DT_STRING);
@@ -296,31 +296,31 @@ ConstantSP unsubscribe(Heap *heap, vector<ConstantSP> &arguments) {
     AmdQuote* amdQuotePtr = (AmdQuote*)arguments[0]->getLong();
     AmdQuote* instance = AmdQuote::getInstance();
     if (amdQuotePtr == nullptr || instance != amdQuotePtr) {
-        throw RuntimeException("first argument illegal, should the obj return by connectAmd");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] first argument illegal, handle should be a amdQuote connection handle");
     }
 
-    std::string amdDataType;
+    string amdDataType;
     if (arguments[1]->getForm() != DF_SCALAR || arguments[1]->getType() != DT_STRING) {
-        throw RuntimeException("second argument illegal, should be amd dataType, one of `snapshot`, `execution`, `order`, `index`, `orderQueue`, fundSnapshot, `fundExecution`, `fundOrder, 'orderExecution', 'fundOrderExecution', 'bondOrderExecution' or `all`");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] second argument illegal, should be amd dataType, one of `snapshot`, `execution`, `order`, `index`, `orderQueue`, fundSnapshot, `fundExecution`, `fundOrder, 'orderExecution', 'fundOrderExecution', 'bondOrderExecution' or `all`");
     }
     amdDataType = arguments[1]->getString();
 
     if (amdDataType != "all" && arguments.size() <= 2) {
-        throw RuntimeException("argument illegal, data type is not all but market and codes missed");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] argument illegal, data type is not all but market and codes missed");
     }
 
     int marketType = 0;
     if (arguments.size() > 2) {
         if (arguments[2]->getForm() != DF_SCALAR || arguments[2]->getType() != DT_INT) {
-            throw RuntimeException("third argument illegal, should be amd marketType");
+            throw RuntimeException("[PLUGIN::AMDQUOTE] third argument illegal, should be amd marketType");
         }
         marketType = arguments[2]->getInt();
     }
 
-    std::vector<std::string> codeList;
+    std::vector<string> codeList;
     if (arguments.size() > 3) {
         if (arguments[3]->getForm() != DF_VECTOR || arguments[3]->getType() != DT_STRING) {
-            throw RuntimeException("fourth argument illegal, should be codeList vector");
+            throw RuntimeException("[PLUGIN::AMDQUOTE] fourth argument illegal, should be codeList vector");
         }
 
         for (int i = 0; i < arguments[3]->size(); i++) {
@@ -336,16 +336,16 @@ ConstantSP unsubscribe(Heap *heap, vector<ConstantSP> &arguments) {
 
 ConstantSP enableLatencyStatistics(Heap *heap, vector<ConstantSP> &arguments) {
     LockGuard<Mutex> amdLock_(&AmdQuote::amdMutex_);
-    if (arguments[0]->getForm() != DF_SCALAR) {
-        throw RuntimeException("first argument illegal, should the obj return by connectAmd");
+    if (arguments[0]->getType() != DT_RESOURCE || arguments[0]->getString() != "amdQuote") {
+        throw RuntimeException("[PLUGIN::AMDQUOTE] first argument illegal, handle should be a amdQuote connection handle");
     }
     if (arguments[1]->getForm() != DF_SCALAR || arguments[1]->getType() != DT_BOOL) {
-        throw RuntimeException("second argument illegal, should be a bool scalar");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] second argument illegal, should be a bool scalar");
     }
     AmdQuote* amdQuotePtr = (AmdQuote*)arguments[0]->getLong();
     AmdQuote* instance = AmdQuote::getInstance();
     if (amdQuotePtr == nullptr || instance != amdQuotePtr) {
-        throw RuntimeException("illegal AmdQuote Handler");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] illegal AmdQuote Handler");
     }
     bool flag = arguments[1]->getBool();
     amdQuotePtr->enableLatencyStatistics(flag);
@@ -354,18 +354,18 @@ ConstantSP enableLatencyStatistics(Heap *heap, vector<ConstantSP> &arguments) {
 
 ConstantSP amdClose(Heap *heap, vector<ConstantSP> &arguments) {
     LockGuard<Mutex> amdLock_(&AmdQuote::amdMutex_);
-    if (arguments[0]->getForm() != DF_SCALAR) {
-        throw RuntimeException("first argument illegal, should the obj return by connectAmd");
+    if (arguments[0]->getType() != DT_RESOURCE || arguments[0]->getString() != "amdQuote") {
+        throw RuntimeException("[PLUGIN::AMDQUOTE] first argument illegal, handle should be a amdQuote connection handle");
     }
     AmdQuote* amdQuotePtr = (AmdQuote*)arguments[0]->getLong();
     AmdQuote* instance = AmdQuote::getInstance();
     if (amdQuotePtr == nullptr || instance != amdQuotePtr) {
-        throw RuntimeException("release Amd err, illegal AmdQuote Handler");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] release Amd err, illegal AmdQuote Handler");
     }
     AmdQuote::deleteInstance();
-    
-    isConnected = false;
-    receivedTimeFlag = false;
+
+    IS_CONNECTED = false;
+    RECEIVED_TIME_FLAG = false;
 
     ConstantSP ret = Util::createConstant(DT_STRING);
     ret->setString("release success");
@@ -373,62 +373,65 @@ ConstantSP amdClose(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP getSchema(Heap *heap, vector<ConstantSP> &arguments) { // type
-    if (isConnected == false) {
-        throw RuntimeException("call the connect function first");
+    if (IS_CONNECTED == false) {
+        throw RuntimeException("[PLUGIN::AMDQUOTE] call the connect function first");
     }
     if (arguments[0]->getForm() != DF_SCALAR || arguments[0]->getType() != DT_STRING) {
-        throw RuntimeException("first argument illegal, should be string");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] first argument illegal, should be string");
     }
-    std::string amdDataType = arguments[0]->getString();
+    string amdDataType = arguments[0]->getString();
     ConstantSP table;
     if (amdDataType == "snapshot") {
-        table = getSnapshotSchema(receivedTimeFlag, dailyIndexFlag, outputElapsedFlag);
+        table = getSnapshotSchema(RECEIVED_TIME_FLAG, DAILY_INDEX_FLAG, OUTPUT_ELAPSED_FLAG);
     } else if (amdDataType == "execution") {
-        table = getExecutionSchema(receivedTimeFlag, dailyIndexFlag, outputElapsedFlag);
+        table = getExecutionSchema(RECEIVED_TIME_FLAG, DAILY_INDEX_FLAG, OUTPUT_ELAPSED_FLAG);
     } else if (amdDataType == "order") {
-        table = getOrderSchema(receivedTimeFlag, dailyIndexFlag, outputElapsedFlag);
+        table = getOrderSchema(RECEIVED_TIME_FLAG, DAILY_INDEX_FLAG, OUTPUT_ELAPSED_FLAG);
     } else if (amdDataType == "index") {
-        table = getIndexSchema(receivedTimeFlag, dailyIndexFlag, outputElapsedFlag);
+        table = getIndexSchema(RECEIVED_TIME_FLAG, DAILY_INDEX_FLAG, OUTPUT_ELAPSED_FLAG);
     } else if (amdDataType == "orderQueue") {
-        table = getOrderQueueSchema(receivedTimeFlag, dailyIndexFlag, outputElapsedFlag);
+        table = getOrderQueueSchema(RECEIVED_TIME_FLAG, DAILY_INDEX_FLAG, OUTPUT_ELAPSED_FLAG);
     } else if (amdDataType == "fundSnapshot") {
-        table = getSnapshotSchema(receivedTimeFlag, dailyIndexFlag, outputElapsedFlag);
+        table = getSnapshotSchema(RECEIVED_TIME_FLAG, DAILY_INDEX_FLAG, OUTPUT_ELAPSED_FLAG);
     } else if (amdDataType == "fundExecution") {
-        table = getExecutionSchema(receivedTimeFlag, dailyIndexFlag, outputElapsedFlag);
+        table = getExecutionSchema(RECEIVED_TIME_FLAG, DAILY_INDEX_FLAG, OUTPUT_ELAPSED_FLAG);
     } else if (amdDataType == "fundOrder") {
-        table = getOrderSchema(receivedTimeFlag, dailyIndexFlag, outputElapsedFlag);
+        table = getOrderSchema(RECEIVED_TIME_FLAG, DAILY_INDEX_FLAG, OUTPUT_ELAPSED_FLAG);
     } else if (amdDataType == "bondSnapshot") {
-        table = getSnapshotSchema(receivedTimeFlag, dailyIndexFlag, outputElapsedFlag);
+        table = getSnapshotSchema(RECEIVED_TIME_FLAG, DAILY_INDEX_FLAG, OUTPUT_ELAPSED_FLAG);
     } else if (amdDataType == "bondExecution") {
-        table = getExecutionSchema(receivedTimeFlag, dailyIndexFlag, outputElapsedFlag);
+        table = getExecutionSchema(RECEIVED_TIME_FLAG, DAILY_INDEX_FLAG, OUTPUT_ELAPSED_FLAG);
     } else if (amdDataType == "bondOrder") {
-        table = getOrderSchema(receivedTimeFlag, dailyIndexFlag, outputElapsedFlag);
+        table = getOrderSchema(RECEIVED_TIME_FLAG, DAILY_INDEX_FLAG, OUTPUT_ELAPSED_FLAG);
     } else if (amdDataType == "orderExecution" || amdDataType == "fundOrderExecution" || amdDataType == "bondOrderExecution") {
-        table = getOrderExecutionSchema(receivedTimeFlag, dailyIndexFlag, outputElapsedFlag);
+        table = getOrderExecutionSchema(RECEIVED_TIME_FLAG, DAILY_INDEX_FLAG, OUTPUT_ELAPSED_FLAG);
     } else {
-        throw RuntimeException("first argument illegal, should be one of `snapshot`, `execution`, `order`, `index`, `orderQueue`, fundSnapshot, `fundExecution`, `fundOrder, 'orderExecution', 'fundOrderExecution' or 'bondOrderExecution'");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] first argument illegal, should be one of `snapshot`, `execution`, `order`, `index`, `orderQueue`, fundSnapshot, `fundExecution`, `fundOrder, 'orderExecution', 'fundOrderExecution' or 'bondOrderExecution'");
     }
 
     return table;
 }
 
 ConstantSP getStatus(Heap *heap, vector<ConstantSP> &arguments) {
-    if (arguments[0]->getForm() != DF_SCALAR) {
-        throw RuntimeException("first argument illegal, should the obj return by connectAmd");
+    LockGuard<Mutex> amdLock_(&AmdQuote::amdMutex_);
+    if (arguments[0]->getType() != DT_RESOURCE || arguments[0]->getString() != "amdQuote") {
+        throw RuntimeException("[PLUGIN::AMDQUOTE] first argument illegal, handle should be a amdQuote connection handle");
     }
     AmdQuote* amdQuotePtr = (AmdQuote*)arguments[0]->getLong();
     AmdQuote* instance = AmdQuote::getInstance();
     if (amdQuotePtr == nullptr || instance != amdQuotePtr) {
-        throw RuntimeException("illegal AmdQuote Handler");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] illegal AmdQuote Handler");
     }
 
     return instance->getStatus();
 }
 
+#ifndef AMD_3_9_6
 ConstantSP getCodeList(Heap *heap, vector<ConstantSP> &arguments) {
+    LockGuard<Mutex> amdLock_(&AmdQuote::amdMutex_);
     AmdQuote* instance = AmdQuote::getInstance();
     if (instance == nullptr) {
-        throw RuntimeException("call amdQuote::connect before calling getCodeList");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] call amdQuote::connect before calling getCodeList");
     }
 
     amd::ama::CodeTableRecordList list;
@@ -441,7 +444,13 @@ ConstantSP getCodeList(Heap *heap, vector<ConstantSP> &arguments) {
     sub[1].market = amd::ama::MarketType::kSSE;                    //查询上交所代码表的数据
     strcpy(sub[1].security_code, "\0");                            //查询全部代码代码表的数据
 
-    bool ret = amd::ama::IAMDApi::GetCodeTableList(list, sub, 2);
+    bool ret;
+    try {
+        ret = amd::ama::IAMDApi::GetCodeTableList(list, sub, 2);
+    } catch(std::exception& exception) {
+        throw RuntimeException(string("[PLUGIN::AMDQUOTE] ") + exception.what());
+    }
+
     vector<ConstantSP> cols;
     vector<string> colName = {"securityCode", "marketType", "symbol", "englishName", "securityType", "currency", "varietyCategory", "preClosePrice", "closePrice",
     "underlyingSecurityId", "contractType", "exercisePrice", "expireDate", "highLimited", "lowLimited", "securityStatus", "priceTick", "buyQtyUnit", "sellQtyUnit",
@@ -462,7 +471,7 @@ ConstantSP getCodeList(Heap *heap, vector<ConstantSP> &arguments) {
         DdbVector<string> underlying_security_id(0, list.list_nums);                                            // 标的代码 (仅期权/权证有效)
         DdbVector<string>    contract_type(0, list.list_nums);                                                  // 合约类别 (仅期权有效)
         DdbVector<long long> exercise_price(0, list.list_nums);                                                 // 行权价(仅期权有效，类型:价格)
-        DdbVector<int> expire_date(0, list.list_nums);                                                          // 到期日 (仅期权有效)  
+        DdbVector<int> expire_date(0, list.list_nums);                                                          // 到期日 (仅期权有效)
         DdbVector<long long> high_limited(0, list.list_nums);                                                   // 涨停价(类型:价格)
         DdbVector<long long> low_limited(0, list.list_nums);                                                    // 跌停价(类型:价格)
         DdbVector<string> security_status(0, list.list_nums);                                                   // 产品状态标志
@@ -507,7 +516,7 @@ ConstantSP getCodeList(Heap *heap, vector<ConstantSP> &arguments) {
             underlying_security_id.add(list.records[i].underlying_security_id);                                 // 标的代码 (仅期权/权证有效)
             contract_type.add(list.records[i].contract_type);                                                   // 合约类别 (仅期权有效)
             exercise_price.add(list.records[i].exercise_price);                                                 // 行权价(仅期权有效，类型:价格)
-            expire_date.add(countDays(list.records[i].expire_date));                                            // 到期日 (仅期权有效)  
+            expire_date.add(countDays(list.records[i].expire_date));                                            // 到期日 (仅期权有效)
             high_limited.add(list.records[i].high_limited);                                                     // 涨停价(类型:价格)
             low_limited.add(list.records[i].low_limited);                                                       // 跌停价(类型:价格)
             security_status.add(list.records[i].security_status);                                               // 产品状态标志
@@ -574,15 +583,16 @@ ConstantSP getCodeList(Heap *heap, vector<ConstantSP> &arguments) {
         if(list.list_nums > 0)
             amd::ama::IAMDApi::FreeMemory(list.records);  //释放代码表内存池数据
     }else{
-        throw RuntimeException("GetCodeList failed");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] GetCodeList failed");
     }
     return Util::createTable(colName, cols);
 }
 
 ConstantSP getETFCodeList(Heap *heap, vector<ConstantSP> &arguments) {
+    LockGuard<Mutex> amdLock_(&AmdQuote::amdMutex_);
     AmdQuote* instance = AmdQuote::getInstance();
     if (instance == nullptr) {
-        throw RuntimeException("call amdQuote::connect before calling getETFCodeList");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] call amdQuote::connect before calling getETFCodeList");
     }
     amd::ama::ETFCodeTableRecordList list;
 
@@ -593,8 +603,13 @@ ConstantSP getETFCodeList(Heap *heap, vector<ConstantSP> &arguments) {
 
     etf[1].market = amd::ama::MarketType::kSSE;                    //查询上交所ETF代码表的数据
     strcpy(etf[1].security_code, "\0");                            //查询全部代码ETF代码表的数据
-    
-    bool ret = amd::ama::IAMDApi::GetETFCodeTableList(list, etf, 2);
+    bool ret;
+    try {
+        ret = amd::ama::IAMDApi::GetETFCodeTableList(list, etf, 2);
+    } catch(std::exception& exception) {
+        throw RuntimeException(string("[PLUGIN::AMDQUOTE] ") + exception.what());
+    }
+
     vector<ConstantSP> cols;
     vector<string> colName = {"securityCode", "creationRedemptionUnit", "maxCashRatio", "publish", "creation", "redemption", "creationRedemptionSwitch", "recordNum", "totalRecordNum", "estimateCashComponent",                                                  //预估现金差额(类型:金额)
     "tradingDay", "preTradingDay", "cashComponent", "navPerCu", "nav", "marketType", "symbol", "fundManagementCompany", "underlyingSecurityId", "underlyingSecurityIdSource", "dividendPerCu",                                                        //红利金额(类型:金额)
@@ -718,7 +733,17 @@ ConstantSP getETFCodeList(Heap *heap, vector<ConstantSP> &arguments) {
         if(list.etf_list_nums > 0)
             amd::ama::IAMDApi::FreeMemory(list.etf_records);  //释放ETF代码表内存池数据
     }else{
-        throw RuntimeException("getETFCodeList failed");
+        throw RuntimeException("[PLUGIN::AMDQUOTE] getETFCodeList failed");
     }
     return Util::createTable(colName, cols);
+}
+#endif
+
+ConstantSP setErrorLog(Heap *heap, vector<ConstantSP> &arguments) {
+    const string usage = "amdQuote::setLogError(flag)";
+    if(arguments[0]->getType() != DT_BOOL || arguments[0]->getForm() != DF_SCALAR) {
+        throw IllegalArgumentException(__FUNCTION__, usage + "flag must be a bool scalar.");
+    }
+    ERROR_LOG.store(arguments[0]->getBool());
+    return new Void();
 }

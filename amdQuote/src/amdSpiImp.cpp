@@ -1,13 +1,25 @@
 
 #include "amdSpiImp.h"
+#include "CoreConcept.h"
+#include "Exceptions.h"
+#include "LocklessContainer.h"
 #include "Types.h"
 #include "amdQuoteImp.h"
 #include "amdQuoteType.h"
+#include <climits>
 #include <iostream>
 
 using dolphindb::Executor;
-using dolphindb::DdbVector;
 
+template <>
+void AMDSpiImp::initQueueBuffer(vector<ConstantSP>& buffer, const AmdOrderExecutionTableMeta& meta) {
+    buffer = vector<ConstantSP>(meta.colNames_.size());
+    for(unsigned int i = 0; i < meta.colNames_.size(); ++i) {
+        buffer[i] = Util::createVector(meta.colTypes_[i], 0, BUFFER_SIZE);
+        ((VectorSP)buffer[i])->initialize();
+    }
+    buffer.push_back(Util::createVector(DT_NANOTIME, 0, BUFFER_SIZE));
+}
 
 void AMDSpiImp::startOrderExecution(string type) {
     if(type == "orderExecution") {
@@ -17,16 +29,19 @@ void AMDSpiImp::startOrderExecution(string type) {
             int channel = it->first;
             orderExecutionBoundQueue_[it->first] = new OrderExecutionQueue(
                 CAPACITY, ObjectSizer<MDOrderExecution>(), ObjectUrgency<MDOrderExecution>());
-                
+
             SmartPointer<Executor> executor = new Executor(
                 std::bind(&blockHandling<MDOrderExecution>,
-                        orderExecutionBoundQueue_[it->first], 
+                        orderExecutionBoundQueue_[it->first],
                         [this, channel](vector<MDOrderExecution>& data) {
                             OnMDorderExecutionHelper(channel, data.data(), data.size(), true);},
-                        orderExecutionStopFlag_, "[PluginAmdQuote]:", type
+                        orderExecutionStopFlag_, "[PLUGIN::AMDQUOTE]:", type
             ));
             orderExecutionThread_[it->first] = new Thread(executor);
             orderExecutionThread_[it->first]->start();
+            auto buffer = vector<ConstantSP>();
+            initQueueBuffer<AmdOrderExecutionTableMeta>(buffer, orderExecutionTableMeta_);
+            orderExecutionBuffer_[it->first] = buffer;
         }
     } else if(type == "fundOrderExecution") {
         *fundOrderExecutionStopFlag_ = false;
@@ -41,10 +56,13 @@ void AMDSpiImp::startOrderExecution(string type) {
                         fundOrderExecutionBoundQueue_[it->first],
                         [this, channel](vector<MDOrderExecution>& data) {
                             OnMDorderExecutionHelper(channel, data.data(), data.size(), false);},
-                        fundOrderExecutionStopFlag_, "[PluginAmdQuote]:", type
+                        fundOrderExecutionStopFlag_, "[PLUGIN::AMDQUOTE]:", type
             ));
             fundOrderExecutionThread_[it->first] = new Thread(executor);
             fundOrderExecutionThread_[it->first]->start();
+            auto buffer = vector<ConstantSP>();
+            initQueueBuffer<AmdOrderExecutionTableMeta>(buffer, orderExecutionTableMeta_);
+            fundOrderExecutionBuffer_[it->first] = buffer;
         }
     } else if(type == "bondOrderExecution") {
         *bondOrderExecutionStopFlag_ = false;
@@ -56,16 +74,18 @@ void AMDSpiImp::startOrderExecution(string type) {
 
             SmartPointer<Executor> executor = new Executor(
                 std::bind(&blockHandling<MDBondOrderExecution>,
-                        bondOrderExecutionBoundQueue_[it->first], 
+                        bondOrderExecutionBoundQueue_[it->first],
                         [this, channel](vector<MDBondOrderExecution>& data) {
                             OnMDBondOrderExecutionHelper(channel, data.data(), data.size());},
-                        bondOrderExecutionStopFlag_, "[PluginAmdQuote]:", type
+                        bondOrderExecutionStopFlag_, "[PLUGIN::AMDQUOTE]:", type
             ));
             bondOrderExecutionThread_[it->first] = new Thread(executor);
             bondOrderExecutionThread_[it->first]->start();
+            auto buffer = vector<ConstantSP>();
+            initQueueBuffer<AmdOrderExecutionTableMeta>(buffer, orderExecutionTableMeta_);
+            bondOrderExecutionBuffer_[it->first] = buffer;
         }
     }
-
 }
 
 void AMDSpiImp::clearOrderExecution(string type) {
@@ -80,6 +100,7 @@ void AMDSpiImp::clearOrderExecution(string type) {
             orderExecutionData_.clear();
             orderExecutionThread_.clear();
             orderExecutionBoundQueue_.clear();
+            orderExecutionBuffer_.clear();
         }
     } else if(type == "fundOrderExecution") {
         if (*fundOrderExecutionStopFlag_ == false) {
@@ -91,6 +112,7 @@ void AMDSpiImp::clearOrderExecution(string type) {
             fundOrderExecutionData_.clear();
             fundOrderExecutionThread_.clear();
             fundOrderExecutionBoundQueue_.clear();
+            fundOrderExecutionBuffer_.clear();
         }
     } else if(type == "bondOrderExecution") {
         if(*bondOrderExecutionStopFlag_ == false) {
@@ -102,6 +124,7 @@ void AMDSpiImp::clearOrderExecution(string type) {
             bondOrderExecutionData_.clear();
             bondOrderExecutionThread_.clear();
             bondOrderExecutionBoundQueue_.clear();
+            bondOrderExecutionBuffer_.clear();
         }
     }
 }
@@ -115,7 +138,7 @@ inline string AMDSpiImp::transMarket(int type) {
     return "";
 }
 
-// use stockOrFund to distinguish stock or fund 
+// use stockOrFund to distinguish stock or fund
 void AMDSpiImp::OnMDorderExecutionHelper(int channel, MDOrderExecution* ticks, uint32_t cnt, bool stockOrFund) {
     try{
         if(cnt == 0)return;
@@ -130,25 +153,13 @@ void AMDSpiImp::OnMDorderExecutionHelper(int channel, MDOrderExecution* ticks, u
             int marketType;
             uint8_t varietyCategory;
             AMDDataType datatype;
-            // stock ddbVector
-            DdbVector<string> col0(0, cnt);
-            DdbVector<int> col1(0, cnt);
-            DdbVector<int> col2(0, cnt);
-            DdbVector<string> col3(0, cnt);
-            DdbVector<string> col4(0, cnt);
-            DdbVector<int> col5(0, cnt);
-            DdbVector<int> col6(0, cnt);
-            DdbVector<int> col7(0, cnt);
-            DdbVector<long long> col8(0, cnt);
-            DdbVector<long long> col9(0, cnt);
-            DdbVector<int> col10(0, cnt);
-            DdbVector<long long> col11(0, cnt);
-            DdbVector<long long> col12(0, cnt);
-            DdbVector<long long> col13(0, cnt);
-            DdbVector<int> col14(0, cnt);
-            DdbVector<long long> col15(0, cnt);
-            DdbVector<long long> col16(0, cnt);
 
+            vector<ConstantSP>& buffer = orderExecutionBuffer_[channel];
+            for(unsigned int i = 0; i < buffer.size(); ++i) {
+                ((Vector*)(buffer[i].get()))->clear();
+            }
+            vector<long long> reachTimeVector;
+            reachTimeVector.reserve(cnt);
             for (uint32_t i = 0; i < cnt; ++i) {
                 if(ticks[i].orderOrExecution) {
                     marketType = ticks[i].uni.tickOrder.market_type;
@@ -160,7 +171,7 @@ void AMDSpiImp::OnMDorderExecutionHelper(int channel, MDOrderExecution* ticks, u
                 } else {
                     varietyCategory = ticks[i].uni.tickExecution.variety_category;
                 }
-                
+
                 if(varietyCategory == 1) {
                     datatype = AMD_ORDER_EXECUTION;
                 } else if(varietyCategory == 2) {
@@ -168,52 +179,77 @@ void AMDSpiImp::OnMDorderExecutionHelper(int channel, MDOrderExecution* ticks, u
                 } else {
                     return;
                 }
+                int colNum = 0;
                 if(datatype == AMD_ORDER_EXECUTION) {
                     if(ticks[i].orderOrExecution) {
                         if(marketType == 101) {
-                            col0.add(ticks[i].uni.tickOrder.security_code + string(".SH"));
+                            string securityCode = ticks[i].uni.tickOrder.security_code + string(".SH");
+                            ((Vector*)(buffer[colNum++]).get())->appendString(&securityCode, 1);
                         } else if (marketType == 102) {
-                            col0.add(ticks[i].uni.tickOrder.security_code + string(".SZ"));
+                            string securityCode = ticks[i].uni.tickOrder.security_code + string(".SZ");
+                            ((Vector*)(buffer[colNum++]).get())->appendString(&securityCode, 1);
                         }
-                        
-                        col1.add(convertToDate(ticks[i].uni.tickOrder.order_time));
-                        col2.add(convertToTime(ticks[i].uni.tickOrder.order_time));
-                        col3.add(transMarket(ticks[i].uni.tickOrder.market_type));
-                        col4.add("StockType");
+
+                        int orderDate = convertToDate(ticks[i].uni.tickOrder.order_time);
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&orderDate, 1);
+                        int orderTime = convertToTime(ticks[i].uni.tickOrder.order_time);
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&orderTime, 1);
+                        string securityIDSource = transMarket(ticks[i].uni.tickOrder.market_type);
+                        ((Vector*)(buffer[colNum++]).get())->appendString(&securityIDSource, 1);
+                        string securityType("StockType");
+                        ((Vector*)(buffer[colNum++]).get())->appendString(&securityType, 1);
+
                         //  make sure dailyIndexFlagTotal always true
                         int dailyIndex = INT_MIN;
-                        if(!getDailyIndex(dailyIndex, 
+                        if(!getDailyIndex(dailyIndex,
                                             dailyIndex_,
                                             28,             //change sizeof to constant
                                             ticks[i].uni.tickOrder.market_type,
                                             datatype,
                                             ticks[i].uni.tickOrder.channel_no,
                                             convertTime(ticks[i].uni.tickOrder.order_time))){
-                            LOG_ERR("[PluginAmdQuote]: getDailyIndex failed. ");
+                            LOG_ERR("[PLUGIN::AMDQUOTE]: getDailyIndex failed. ");
                             return;
                         }
-                        col5.add(dailyIndex);
-                        col6.add(0);
-                        col7.add(ticks[i].uni.tickOrder.order_type);
-                        col8.add(ticks[i].uni.tickOrder.order_price);
-                        col9.add(ticks[i].uni.tickOrder.order_volume);
-                        col10.add(ticks[i].uni.tickOrder.side);
-                        col11.add(ticks[i].uni.tickOrder.orig_order_no);
-                        col12.add(ticks[i].uni.tickOrder.orig_order_no);
-                        col13.add(ticks[i].uni.tickOrder.appl_seq_num);
-                        col14.add(ticks[i].uni.tickOrder.channel_no);
-                        // make sure receivedTimeFlag always true
-                        col15.add(ticks[i].reachTime);
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&dailyIndex, 1);
+                        int sourceType = 0;
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&sourceType, 1);
+                        int type = convertType(ticks[i].uni.tickOrder.order_type);
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&type, 1);
+                        long long orderPrice = ticks[i].uni.tickOrder.order_price;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&orderPrice, 1);
+                        long long orderVolume = ticks[i].uni.tickOrder.order_volume;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&orderVolume, 1);
+                        int BSFlag = convertBSFlag(ticks[i].uni.tickOrder.side);
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&BSFlag, 1);
+                        long long origOrderNo = ticks[i].uni.tickOrder.orig_order_no;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&origOrderNo, 1);
+                        // same as the previous one
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&origOrderNo, 1);
+                        long long applSeqNum = ticks[i].uni.tickOrder.appl_seq_num;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&applSeqNum, 1);
+                        int channelNo = ticks[i].uni.tickOrder.channel_no;
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&channelNo, 1);
+                        reachTimeVector.push_back(ticks[i].reachTime);
+                        long long reachTime = ticks[i].reachTime / 1000000;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&reachTime, 1);
                     } else {
                         if(marketType == 101) {
-                            col0.add(ticks[i].uni.tickExecution.security_code + string(".SH"));
+                            string securityCode = ticks[i].uni.tickExecution.security_code + string(".SH");
+                            ((Vector*)(buffer[colNum++]).get())->appendString(&securityCode, 1);
                         } else if (marketType == 102) {
-                            col0.add(ticks[i].uni.tickExecution.security_code + string(".SZ"));
+                            string securityCode = ticks[i].uni.tickExecution.security_code + string(".SZ");
+                            ((Vector*)(buffer[colNum++]).get())->appendString(&securityCode, 1);
                         }
-                        col1.add(convertToDate(ticks[i].uni.tickExecution.exec_time));
-                        col2.add(convertToTime(ticks[i].uni.tickExecution.exec_time));
-                        col3.add(transMarket(ticks[i].uni.tickExecution.market_type));
-                        col4.add("StockType");
+                        int orderDate = convertToDate(ticks[i].uni.tickExecution.exec_time);
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&orderDate, 1);
+                        int orderTime = convertToTime(ticks[i].uni.tickExecution.exec_time);
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&orderTime, 1);
+                        string securityIDSource = transMarket(ticks[i].uni.tickExecution.market_type);
+                        ((Vector*)(buffer[colNum++]).get())->appendString(&securityIDSource, 1);
+                        string securityType("StockType");
+                        ((Vector*)(buffer[colNum++]).get())->appendString(&securityType, 1);
+
                         //  make sure dailyIndexFlagTotal always true
                         int dailyIndex = INT_MIN;
                         if(!getDailyIndex(dailyIndex,
@@ -223,118 +259,108 @@ void AMDSpiImp::OnMDorderExecutionHelper(int channel, MDOrderExecution* ticks, u
                                             datatype,
                                             ticks[i].uni.tickExecution.channel_no,
                                             convertTime(ticks[i].uni.tickExecution.exec_time))){
-                            LOG_ERR("[PluginAmdQuote]: getDailyIndex failed. ");
+                            LOG_ERR("[PLUGIN::AMDQUOTE]: getDailyIndex failed. ");
                             return;
                         }
-                        col5.add(dailyIndex);
-                        col6.add(0);
-                        col7.add(ticks[i].uni.tickExecution.exec_type);
-                        col8.add(ticks[i].uni.tickExecution.exec_price);
-                        col9.add(ticks[i].uni.tickExecution.exec_volume);
-                        col10.add(ticks[i].uni.tickExecution.side);
-                        col11.add(ticks[i].uni.tickExecution.bid_appl_seq_num);
-                        col12.add(ticks[i].uni.tickExecution.offer_appl_seq_num);
-                        col13.add(ticks[i].uni.tickExecution.appl_seq_num);
-                        col14.add(ticks[i].uni.tickExecution.channel_no);
-                        // make sure receivedTimeFlag always true
-                        col15.add(ticks[i].reachTime);
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&dailyIndex, 1);
+                        int sourceType = 1;
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&sourceType, 1);
+                        int type = convertType(ticks[i].uni.tickExecution.exec_type);
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&type, 1);
+                        long long orderPrice = ticks[i].uni.tickExecution.exec_price;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&orderPrice, 1);
+                        long long orderVolume = ticks[i].uni.tickExecution.exec_volume;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&orderVolume, 1);
+                        int BSFlag = convertBSFlag(ticks[i].uni.tickExecution.side);
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&BSFlag, 1);
+                        long long origOrderNo = ticks[i].uni.tickExecution.bid_appl_seq_num;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&origOrderNo, 1);
+                        long long offerApplSeqNum = ticks[i].uni.tickExecution.offer_appl_seq_num;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&offerApplSeqNum, 1);
+                        long long applSeqNum = ticks[i].uni.tickExecution.appl_seq_num;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&applSeqNum, 1);
+                        int channelNo = ticks[i].uni.tickExecution.channel_no;
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&channelNo, 1);
+                        reachTimeVector.push_back(ticks[i].reachTime);
+                        long long reachTime = ticks[i].reachTime / 1000000;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&reachTime, 1);
                     }
                 }
             }
 
             vector<ConstantSP> cols;
-            cols.push_back(col0.createVector(DT_STRING));
-            cols.push_back(col1.createVector(DT_DATE));
-            cols.push_back(col2.createVector(DT_TIME));
-            cols.push_back(col3.createVector(DT_STRING));
-            cols.push_back(col4.createVector(DT_STRING));
-            cols.push_back(col5.createVector(DT_INT));
-            cols.push_back(col6.createVector(DT_INT));
-            cols.push_back(col7.createVector(DT_INT));
-            cols.push_back(col8.createVector(DT_LONG));
-            cols.push_back(col9.createVector(DT_LONG));
-            cols.push_back(col10.createVector(DT_INT));
-            cols.push_back(col11.createVector(DT_LONG));
-            cols.push_back(col12.createVector(DT_LONG));
-            cols.push_back(col13.createVector(DT_LONG));
-            cols.push_back(col14.createVector(DT_INT));
-            // make sure receivedTimeFlag always true
-            cols.push_back(col15.createVector(DT_NANOTIMESTAMP));
+            for(unsigned int i = 0; i < buffer.size()-1; ++i) {
+                cols.push_back(buffer[i]);
+            }
 
             vector<long long> bufVec;
             bufVec.resize(cols[15]->size());
-            auto col15Buffer = cols[15]->getLongConst(0, cols[15]->size(), bufVec.data());
 
             vector<string> colNames = orderExecutionTableMeta_.colNames_;
             if(outputElapsedFlag_) {
-                long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-                for(int i = 0; i < col15.size(); ++i) {
-                    col16.add(time - col15Buffer[i]);
-                }
-                cols.push_back(col16.createVector(DT_NANOTIME));
                 colNames.push_back("perPenetrationTime");
+                long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+                for(int i = 0; i < cols[15]->size(); ++i) {
+                    long long gap = time - reachTimeVector[i];
+                    ((Vector*)(buffer[16]).get())->appendLong(&gap, 1);
+                }
+                cols.push_back(buffer[16]);
             }
             TableSP data = Util::createTable(colNames, cols);
 
             if(orderExecutionFlag_ && !(stockInsertedTable.isNull())) {
                 vector<ConstantSP> args = {data};
-                try{
+                try {
                     if(!stockTransform.isNull())
                         data = stockTransform->call(session_->getHeap().get(), args);
-                }catch(exception &e){
-                    throw RuntimeException("call transform error " + string(e.what()));
+                } catch (exception &e) {
+                    throw RuntimeException("[PLUGIN::AMDQUOTE] call transform error " + string(e.what()));
                 }
-                if(stockInsertedTable.isNull())
-                    throw RuntimeException("stock insertedTable is null");
-                if(stockInsertedTable ->columns() != data->columns()) {
-                    throw RuntimeException("The number of columns of the table to insert must be the same as that of the original table");
+                if (stockInsertedTable.isNull()) {
+                    throw RuntimeException("[PLUGIN::AMDQUOTE] stock insertedTable is null");
+                }
+                if (stockInsertedTable ->columns() != data->columns()) {
+                    throw RuntimeException("[PLUGIN::AMDQUOTE] The number of columns of the table to insert must be the same as that of the original table");
                 }
                 args = {stockInsertedTable, data};
                 LockGuard<Mutex> _(stockInsertedTable->getLock());
                 vector<ConstantSP> colData(data->columns());
-                for(INDEX i = 0; i < data->columns(); ++i) {
-                    colData[i] = data->getColumn(i);
-                }
                 INDEX rows;
                 string errMsg;
+                for(INDEX i = 0; i < data->columns(); ++i) {
+                    colData[i] = data->getColumn(i);
+                    if (colData[i]->getType() != stockInsertedTable->getColumnType(i)) {
+                    throw RuntimeException("[PLUGIN::AMDQUOTE] The type of column " + std::to_string(i) +
+                        " does not match. Expected: " + Util::getDataTypeString(stockInsertedTable->getColumnType(i)) +
+                        ", Actual: " + Util::getDataTypeString(colData[i]->getType()) + ".");
+                    }
+                }
                 stockInsertedTable->append(colData, rows, errMsg);
                 if(errMsg != "") {
-                    LOG_ERR("[PluginAmdQuote]: OnMDTickOrderExecution channel " + std::to_string(channel) + " append failed, " + errMsg);
+                    LOG_ERR("[PLUGIN::AMDQUOTE]: OnMDTickOrderExecution channel " + std::to_string(channel) + " append failed, " + errMsg);
                     return;
                 }
                 if (latencyFlag_) {
                     long long diff = Util::toLocalNanoTimestamp(Util::getNanoEpochTime() - startTime);
-                    latencyLog(6, startTime, cnt, diff);
+                    latencyLog(AMD_ORDER_EXECUTION, startTime, cnt, diff);
                 }
             }
         } else {
-            if(!fundOrderExecutionFlag_) {
-                return;
-            }
+            if(!fundOrderExecutionFlag_) { return; }
+
             TableSP fundInsertedTable = fundOrderExecutionData_[channel];
             FunctionDefSP fundTransform = fundOrderExecutionTransform_;
             int marketType;
             uint8_t varietyCategory;
             AMDDataType datatype;
-            //fund ddbVector
-            DdbVector<string> fcol0(0, cnt);
-            DdbVector<int> fcol1(0, cnt);
-            DdbVector<int> fcol2(0, cnt);
-            DdbVector<string> fcol3(0, cnt);
-            DdbVector<string> fcol4(0, cnt);
-            DdbVector<int> fcol5(0, cnt);
-            DdbVector<int> fcol6(0, cnt);
-            DdbVector<int> fcol7(0, cnt);
-            DdbVector<long long> fcol8(0, cnt);
-            DdbVector<long long> fcol9(0, cnt);
-            DdbVector<int> fcol10(0, cnt);
-            DdbVector<long long> fcol11(0, cnt);
-            DdbVector<long long> fcol12(0, cnt);
-            DdbVector<long long> fcol13(0, cnt);
-            DdbVector<int> fcol14(0, cnt);
-            DdbVector<long long> fcol15(0, cnt);
-            DdbVector<long long> fcol16(0, cnt);
 
+            vector<ConstantSP>& buffer = fundOrderExecutionBuffer_[channel];
+            for(unsigned int i = 0; i < buffer.size(); ++i) {
+                ((Vector*)(buffer[i].get()))->clear();
+            }
+
+            vector<long long> reachTimeVector;
+            reachTimeVector.reserve(cnt);
             for (uint32_t i = 0; i < cnt; ++i) {
                 if(ticks[i].orderOrExecution) {
                     marketType = ticks[i].uni.tickOrder.market_type;
@@ -348,57 +374,80 @@ void AMDSpiImp::OnMDorderExecutionHelper(int channel, MDOrderExecution* ticks, u
                 }
                 if(varietyCategory == 1) {
                     datatype = AMD_ORDER_EXECUTION;
-                } else if(varietyCategory == 2) {
+                } else if (varietyCategory == 2) {
                     datatype = AMD_FUND_ORDER_EXECUTION;
                 } else {
                     return;
                 }
+                int colNum = 0;
                 if(datatype == AMD_FUND_ORDER_EXECUTION) {
                     if(ticks[i].orderOrExecution) {
                         if(marketType == 101) {
-                            fcol0.add(ticks[i].uni.tickOrder.security_code + string(".SH"));
+                            string securityCode = ticks[i].uni.tickOrder.security_code + string(".SH");
+                            ((Vector*)(buffer[colNum++]).get())->appendString(&securityCode, 1);
                         } else if (marketType == 102) {
-                            fcol0.add(ticks[i].uni.tickOrder.security_code + string(".SZ"));
+                            string securityCode = ticks[i].uni.tickOrder.security_code + string(".SZ");
+                            ((Vector*)(buffer[colNum++]).get())->appendString(&securityCode, 1);
                         }
-                        
-                        fcol1.add(convertToDate(ticks[i].uni.tickOrder.order_time));
-                        fcol2.add(convertToTime(ticks[i].uni.tickOrder.order_time));
-                        fcol3.add(transMarket(ticks[i].uni.tickOrder.market_type));
-                        fcol4.add("FundType");
+
+                        int orderDate = convertToDate(ticks[i].uni.tickOrder.order_time);
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&orderDate, 1);
+                        int orderTime = convertToTime(ticks[i].uni.tickOrder.order_time);
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&orderTime, 1);
+                        string securityIDSource = transMarket(ticks[i].uni.tickOrder.market_type);
+                        ((Vector*)(buffer[colNum++]).get())->appendString(&securityIDSource, 1);
+                        string securityType("FundType");
+                        ((Vector*)(buffer[colNum++]).get())->appendString(&securityType, 1);
                         //  make sure dailyIndexFlagTotal always true
                         int dailyIndex = INT_MIN;
-                        if(!getDailyIndex(dailyIndex, 
+                        if(!getDailyIndex(dailyIndex,
                                             dailyIndex_,
                                             28,             //change sizeof to constant
                                             ticks[i].uni.tickOrder.market_type,
                                             datatype,
                                             ticks[i].uni.tickOrder.channel_no,
                                             convertTime(ticks[i].uni.tickOrder.order_time))){
-                            LOG_ERR("[PluginAmdQuote]: getDailyIndex failed. ");
+                            LOG_ERR("[PLUGIN::AMDQUOTE]: getDailyIndex failed. ");
                             return;
                         }
-                        fcol5.add(dailyIndex);
-                        fcol6.add(0);
-                        fcol7.add(ticks[i].uni.tickOrder.order_type);
-                        fcol8.add(ticks[i].uni.tickOrder.order_price);
-                        fcol9.add(ticks[i].uni.tickOrder.order_volume);
-                        fcol10.add(ticks[i].uni.tickOrder.side);
-                        fcol11.add(ticks[i].uni.tickOrder.orig_order_no);
-                        fcol12.add(ticks[i].uni.tickOrder.orig_order_no);
-                        fcol13.add(ticks[i].uni.tickOrder.appl_seq_num);
-                        fcol14.add(ticks[i].uni.tickOrder.channel_no);
-                        // make sure receivedTimeFlag always true
-                        fcol15.add(ticks[i].reachTime);
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&dailyIndex, 1);
+                        int sourceType = 0;
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&sourceType, 1);
+                        int type = convertType(ticks[i].uni.tickOrder.order_type);
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&type, 1);
+                        long long orderPrice = ticks[i].uni.tickOrder.order_price;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&orderPrice, 1);
+                        long long orderVolume = ticks[i].uni.tickOrder.order_volume;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&orderVolume, 1);
+                        int BSFlag = convertBSFlag(ticks[i].uni.tickOrder.side);
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&BSFlag, 1);
+                        long long origOrderNo = ticks[i].uni.tickOrder.orig_order_no;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&origOrderNo, 1);
+                        // same as the previous one
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&origOrderNo, 1);
+                        long long applSeqNum = ticks[i].uni.tickOrder.appl_seq_num;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&applSeqNum, 1);
+                        int channelNo = ticks[i].uni.tickOrder.channel_no;
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&channelNo, 1);
+                        reachTimeVector.push_back(ticks[i].reachTime);
+                        long long reachTime = ticks[i].reachTime / 1000000;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&reachTime, 1);
                     } else {
                         if(marketType == 101) {
-                            fcol0.add(ticks[i].uni.tickExecution.security_code + string(".SH"));
+                            string securityCode = ticks[i].uni.tickExecution.security_code + string(".SH");
+                            ((Vector*)(buffer[colNum++]).get())->appendString(&securityCode, 1);
                         } else if (marketType == 102) {
-                            fcol0.add(ticks[i].uni.tickExecution.security_code + string(".SZ"));
+                            string securityCode = ticks[i].uni.tickExecution.security_code + string(".SZ");
+                            ((Vector*)(buffer[colNum++]).get())->appendString(&securityCode, 1);
                         }
-                        fcol1.add(convertToDate(ticks[i].uni.tickExecution.exec_time));
-                        fcol2.add(convertToTime(ticks[i].uni.tickExecution.exec_time));
-                        fcol3.add(transMarket(ticks[i].uni.tickExecution.market_type));
-                        fcol4.add("FundType");
+                        int orderDate = convertToDate(ticks[i].uni.tickExecution.exec_time);
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&orderDate, 1);
+                        int orderTime = convertToTime(ticks[i].uni.tickExecution.exec_time);
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&orderTime, 1);
+                        string securityIDSource = transMarket(ticks[i].uni.tickExecution.market_type);
+                        ((Vector*)(buffer[colNum++]).get())->appendString(&securityIDSource, 1);
+                        string securityType("FundType");
+                        ((Vector*)(buffer[colNum++]).get())->appendString(&securityType, 1);
                         //  make sure dailyIndexFlagTotal always true
                         int dailyIndex = INT_MIN;
                         if(!getDailyIndex(dailyIndex,
@@ -408,96 +457,97 @@ void AMDSpiImp::OnMDorderExecutionHelper(int channel, MDOrderExecution* ticks, u
                                             datatype,
                                             ticks[i].uni.tickExecution.channel_no,
                                             convertTime(ticks[i].uni.tickExecution.exec_time))){
-                            LOG_ERR("[PluginAmdQuote]: getDailyIndex failed. ");
+                            LOG_ERR("[PLUGIN::AMDQUOTE]: getDailyIndex failed. ");
                             return;
                         }
-                        fcol5.add(dailyIndex);
-                        fcol6.add(0);
-                        fcol7.add(ticks[i].uni.tickExecution.exec_type);
-                        fcol8.add(ticks[i].uni.tickExecution.exec_price);
-                        fcol9.add(ticks[i].uni.tickExecution.exec_volume);
-                        fcol10.add(ticks[i].uni.tickExecution.side);
-                        fcol11.add(ticks[i].uni.tickExecution.bid_appl_seq_num);
-                        fcol12.add(ticks[i].uni.tickExecution.offer_appl_seq_num);
-                        fcol13.add(ticks[i].uni.tickExecution.appl_seq_num);
-                        fcol14.add(ticks[i].uni.tickExecution.channel_no);
-                        // make sure receivedTimeFlag always true
-                        fcol15.add(ticks[i].reachTime);
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&dailyIndex, 1);
+                        int sourceType = 1;
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&sourceType, 1);
+                        int type = convertType(ticks[i].uni.tickExecution.exec_type);
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&type, 1);
+                        long long orderPrice = ticks[i].uni.tickExecution.exec_price;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&orderPrice, 1);
+                        long long orderVolume = ticks[i].uni.tickExecution.exec_volume;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&orderVolume, 1);
+                        int BSFlag = convertBSFlag(ticks[i].uni.tickExecution.side);
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&BSFlag, 1);
+                        long long origOrderNo = ticks[i].uni.tickExecution.bid_appl_seq_num;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&origOrderNo, 1);
+                        long long offerApplSeqNum = ticks[i].uni.tickExecution.offer_appl_seq_num;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&offerApplSeqNum, 1);
+                        long long applSeqNum = ticks[i].uni.tickExecution.appl_seq_num;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&applSeqNum, 1);
+                        int channelNo = ticks[i].uni.tickExecution.channel_no;
+                        ((Vector*)(buffer[colNum++]).get())->appendInt(&channelNo, 1);
+                        reachTimeVector.push_back(ticks[i].reachTime);
+                        long long reachTime = ticks[i].reachTime / 1000000;
+                        ((Vector*)(buffer[colNum++]).get())->appendLong(&reachTime, 1);
                     }
                 }
             }
             vector<ConstantSP> fcols;
-            fcols.push_back(fcol0.createVector(DT_STRING));
-            fcols.push_back(fcol1.createVector(DT_DATE));
-            fcols.push_back(fcol2.createVector(DT_TIME));
-            fcols.push_back(fcol3.createVector(DT_STRING));
-            fcols.push_back(fcol4.createVector(DT_STRING));
-            fcols.push_back(fcol5.createVector(DT_INT));
-            fcols.push_back(fcol6.createVector(DT_INT));
-            fcols.push_back(fcol7.createVector(DT_INT));
-            fcols.push_back(fcol8.createVector(DT_LONG));
-            fcols.push_back(fcol9.createVector(DT_LONG));
-            fcols.push_back(fcol10.createVector(DT_INT));
-            fcols.push_back(fcol11.createVector(DT_LONG));
-            fcols.push_back(fcol12.createVector(DT_LONG));
-            fcols.push_back(fcol13.createVector(DT_LONG));
-            fcols.push_back(fcol14.createVector(DT_INT));
-            // make sure receivedTimeFlag always true
-            fcols.push_back(fcol15.createVector(DT_NANOTIMESTAMP));
+            for(unsigned int i = 0; i < buffer.size()-1; ++i) {
+                fcols.push_back(buffer[i]);
+            }
 
             vector<long long> bufVec;
             bufVec.resize(fcols[15]->size());
-            auto col15Buffer = fcols[15]->getLongConst(0, fcols[15]->size(), bufVec.data());
 
             vector<string> fcolNames = orderExecutionTableMeta_.colNames_;
             if(outputElapsedFlag_) {
                 long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-                for(int i = 0; i < fcol15.size(); ++i) {
-                    fcol16.add(time - col15Buffer[i]);
+                for(int i = 0; i < fcols[15]->size(); ++i) {
+                    long long gap = time - reachTimeVector[i];
+                    ((Vector*)(buffer[16]).get())->appendLong(&gap, 1);
                 }
-                fcols.push_back(fcol16.createVector(DT_NANOTIME));
+                fcols.push_back(buffer[16]);
                 fcolNames.push_back("perPenetrationTime");
             }
 
-            TableSP fdata = Util::createTable(fcolNames, fcols);
+            TableSP fData = Util::createTable(fcolNames, fcols);
             if (fundOrderExecutionFlag_ && !(fundInsertedTable.isNull())){
-                vector<ConstantSP> fargs = {fdata};
+                vector<ConstantSP> fArgs = {fData};
                 try{
                     if(!fundTransform.isNull())
-                        fdata = fundTransform->call(session_->getHeap().get(), fargs);
+                        fData = fundTransform->call(session_->getHeap().get(), fArgs);
                 }catch(exception &e){
-                    throw RuntimeException("call transform error " + string(e.what()));
+                    throw RuntimeException("[PLUGIN::AMDQUOTE] call transform error " + string(e.what()));
                 }
 
                 if(fundInsertedTable.isNull())
-                    throw RuntimeException("fund insertedTable is null");
-                if(fundInsertedTable ->columns() != fdata->columns()) {
-                    throw RuntimeException("The number of columns of the table to insert must be the same as that of the original table");
+                    throw RuntimeException("[PLUGIN::AMDQUOTE] fund insertedTable is null");
+                if(fundInsertedTable ->columns() != fData->columns()) {
+                    throw RuntimeException("[PLUGIN::AMDQUOTE] The number of columns of the table to insert must be the same as that of the original table");
                 }
 
-                fargs = {fundInsertedTable, fdata};
+                fArgs = {fundInsertedTable, fData};
                 LockGuard<Mutex> _f(fundInsertedTable->getLock());
 
-                vector<ConstantSP> fcolData(fdata->columns());
-                for(INDEX i = 0; i < fdata->columns(); ++i) {
-                    fcolData[i] = fdata->getColumn(i);
+                vector<ConstantSP> fcolData(fData->columns());
+                for(INDEX i = 0; i < fData->columns(); ++i) {
+                    fcolData[i] = fData->getColumn(i);
+                    if (fcolData[i]->getType() != fundInsertedTable->getColumnType(i)) {
+                    throw RuntimeException("[PLUGIN::AMDQUOTE] The type of column " + std::to_string(i) +
+                        " does not match. Expected: " + Util::getDataTypeString(fundInsertedTable->getColumnType(i)) +
+                        ", Actual: " + Util::getDataTypeString(fcolData[i]->getType()) + ".");
+                    }
                 }
                 INDEX frows;
-                string ferrMsg;
-                fundInsertedTable->append(fcolData, frows, ferrMsg);
-                if(ferrMsg != "") {
-                    LOG_ERR("[PluginAmdQuote]: OnMDTickFundOrderExecution channel " + std::to_string(channel) + " append failed, " + ferrMsg);
+                string fErrMsg;
+                fundInsertedTable->append(fcolData, frows, fErrMsg);
+                if(fErrMsg != "") {
+                    LOG_ERR("[PLUGIN::AMDQUOTE]: OnMDTickFundOrderExecution channel " + std::to_string(channel) + " append failed, " + fErrMsg);
                     return;
                 }
-                if (latencyFlag_) { 
+                if (latencyFlag_) {
                     long long diff = Util::toLocalNanoTimestamp(Util::getNanoEpochTime() - startTime);
-                    latencyLog(7, startTime, cnt, diff);
+                    latencyLog(AMD_FUND_ORDER_EXECUTION, startTime, cnt, diff);
                 }
             }
         }
     }
     catch(exception &e){
-        LOG_ERR("[PluginAmdQuote]: OnMDTickOrderExecution channel " + std::to_string(channel) + " failed, ", e.what());
+        LOG_ERR("[PLUGIN::AMDQUOTE]: OnMDTickOrderExecution channel " + std::to_string(channel) + " failed, ", e.what());
     }
 }
 void AMDSpiImp::OnMDBondOrderExecutionHelper(int channel, MDBondOrderExecution* ticks, uint32_t cnt) {
@@ -530,43 +580,37 @@ void AMDSpiImp::OnMDBondOrderExecutionHelper(int channel, MDBondOrderExecution* 
         if(!bondOrderExecutionFlag_) {
             return;
         }
-
         AMDTableType tableTyeTotal = getAmdTableType(datatype, marketType);
         if(tableTyeTotal == AMD_ERROR_TABLE_TYPE){
-            LOG_ERR("[PluginAmdQuote]: error amd table type AMD_ERROR_TABLE_TYPE");
+            LOG_ERR("[PLUGIN::AMDQUOTE]: error amd table type AMD_ERROR_TABLE_TYPE");
             return;
         }
 
-        DdbVector<string> col0(0, cnt);
-        DdbVector<int> col1(0, cnt);
-        DdbVector<int> col2(0, cnt);
-        DdbVector<string> col3(0, cnt);
-        DdbVector<string> col4(0, cnt);
-        DdbVector<int> col5(0, cnt);
-        DdbVector<int> col6(0, cnt);
-        DdbVector<int> col7(0, cnt);
-        DdbVector<long long> col8(0, cnt);
-        DdbVector<long long> col9(0, cnt);
-        DdbVector<int> col10(0, cnt);
-        DdbVector<long long> col11(0, cnt);
-        DdbVector<long long> col12(0, cnt);
-        DdbVector<long long> col13(0, cnt);
-        DdbVector<int> col14(0, cnt);
-        DdbVector<long long> col15(0, cnt);
-        DdbVector<long long> col16(0, cnt);
-
+        vector<ConstantSP>& buffer = bondOrderExecutionBuffer_[channel];
+        for(unsigned int i = 0; i < buffer.size(); ++i) {
+            ((Vector*)(buffer[i].get()))->clear();
+        }
+        vector<long long> reachTimeVector;
+        reachTimeVector.reserve(cnt);
         for (uint32_t i = 0; i < cnt; ++i) {
+            int colNum = 0;
             if(ticks[i].orderOrExecution) {
                 if(marketType == 101) {
-                    col0.add(ticks[i].uni.tickOrder.security_code + string(".SH"));
+                    string securityCode = ticks[i].uni.tickOrder.security_code + string(".SH");
+                    ((Vector*)(buffer[colNum++]).get())->appendString(&securityCode, 1);
                 } else if (marketType == 102) {
-                    col0.add(ticks[i].uni.tickOrder.security_code + string(".SZ"));
+                    string securityCode = ticks[i].uni.tickOrder.security_code + string(".SZ");
+                    ((Vector*)(buffer[colNum++]).get())->appendString(&securityCode, 1);
                 }
-                col1.add(convertToDate(ticks[i].uni.tickOrder.order_time));
-                col2.add(convertToTime(ticks[i].uni.tickOrder.order_time));
-                col3.add(transMarket(ticks[i].uni.tickOrder.market_type));
-                col4.add("BondType");
-                
+                int orderDate = convertToDate(ticks[i].uni.tickOrder.order_time);
+                ((Vector*)(buffer[colNum++]).get())->appendInt(&orderDate, 1);
+                int orderTime = convertToTime(ticks[i].uni.tickOrder.order_time);
+                ((Vector*)(buffer[colNum++]).get())->appendInt(&orderTime, 1);
+                string securityIDSource = transMarket(ticks[i].uni.tickOrder.market_type);
+                ((Vector*)(buffer[colNum++]).get())->appendString(&securityIDSource, 1);
+                string securityType("BondType");
+                ((Vector*)(buffer[colNum++]).get())->appendString(&securityType, 1);
+
                 //  make sure dailyIndexFlagTotal always true
                 int dailyIndex = INT_MIN;
                 if(!getDailyIndex(dailyIndex,
@@ -576,31 +620,48 @@ void AMDSpiImp::OnMDBondOrderExecutionHelper(int channel, MDBondOrderExecution* 
                                     datatype,
                                     ticks[i].uni.tickOrder.channel_no,
                                     convertTime(ticks[i].uni.tickOrder.order_time))){
-                    LOG_ERR("[PluginAmdQuote]: getDailyIndex failed. ");
+                    LOG_ERR("[PLUGIN::AMDQUOTE]: getDailyIndex failed. ");
                     return;
                 }
-                col5.add(dailyIndex);
-                col6.add(0);
-                col7.add(ticks[i].uni.tickOrder.order_type);
-                col8.add(ticks[i].uni.tickOrder.order_price);
-                col9.add(ticks[i].uni.tickOrder.order_volume);
-                col10.add(ticks[i].uni.tickOrder.side);
-                col11.add(ticks[i].uni.tickOrder.orig_order_no);
-                col12.add(ticks[i].uni.tickOrder.orig_order_no);
-                col13.add(ticks[i].uni.tickOrder.appl_seq_num);
-                col14.add(ticks[i].uni.tickOrder.channel_no);
-                // make sure receivedTimeFlag always true
-                col15.add(ticks[i].reachTime);
+                ((Vector*)(buffer[colNum++]).get())->appendInt(&dailyIndex, 1);
+                int sourceType = 0;
+                ((Vector*)(buffer[colNum++]).get())->appendInt(&sourceType, 1);
+                int type = convertType(ticks[i].uni.tickOrder.order_type);
+                ((Vector*)(buffer[colNum++]).get())->appendInt(&type, 1);
+                long long orderPrice = ticks[i].uni.tickOrder.order_price;
+                ((Vector*)(buffer[colNum++]).get())->appendLong(&orderPrice, 1);
+                long long orderVolume = ticks[i].uni.tickOrder.order_volume;
+                ((Vector*)(buffer[colNum++]).get())->appendLong(&orderVolume, 1);
+                int BSFlag = convertBSFlag(ticks[i].uni.tickOrder.side);
+                ((Vector*)(buffer[colNum++]).get())->appendInt(&BSFlag, 1);
+                long long origOrderNo = ticks[i].uni.tickOrder.orig_order_no;
+                ((Vector*)(buffer[colNum++]).get())->appendLong(&origOrderNo, 1);
+                // same as the previous one
+                ((Vector*)(buffer[colNum++]).get())->appendLong(&origOrderNo, 1);
+                long long applSeqNum = ticks[i].uni.tickOrder.appl_seq_num;
+                ((Vector*)(buffer[colNum++]).get())->appendLong(&applSeqNum, 1);
+                int channelNo = ticks[i].uni.tickOrder.channel_no;
+                ((Vector*)(buffer[colNum++]).get())->appendInt(&channelNo, 1);
+                reachTimeVector.push_back(ticks[i].reachTime);
+                long long reachTime = ticks[i].reachTime / 1000000;
+                ((Vector*)(buffer[colNum++]).get())->appendLong(&reachTime, 1);
             } else {
                 if(marketType == 101) {
-                    col0.add(ticks[i].uni.tickExecution.security_code + string(".SH"));
+                    string securityCode = ticks[i].uni.tickExecution.security_code + string(".SH");
+                    ((Vector*)(buffer[colNum++]).get())->appendString(&securityCode, 1);
                 } else if (marketType == 102) {
-                    col0.add(ticks[i].uni.tickExecution.security_code + string(".SZ"));
+                    string securityCode = ticks[i].uni.tickExecution.security_code + string(".SZ");
+                    ((Vector*)(buffer[colNum++]).get())->appendString(&securityCode, 1);
                 }
-                col1.add(convertToDate(ticks[i].uni.tickExecution.exec_time));
-                col2.add(convertToTime(ticks[i].uni.tickExecution.exec_time));
-                col3.add(transMarket(ticks[i].uni.tickExecution.market_type));
-                col4.add("BondType");
+                int orderDate = convertToDate(ticks[i].uni.tickExecution.exec_time);
+                ((Vector*)(buffer[colNum++]).get())->appendInt(&orderDate, 1);
+                int orderTime = convertToTime(ticks[i].uni.tickExecution.exec_time);
+                ((Vector*)(buffer[colNum++]).get())->appendInt(&orderTime, 1);
+                string securityIDSource = transMarket(ticks[i].uni.tickExecution.market_type);
+                ((Vector*)(buffer[colNum++]).get())->appendString(&securityIDSource, 1);
+                string securityType("BondType");
+                ((Vector*)(buffer[colNum++]).get())->appendString(&securityType, 1);
+
                 //  make sure dailyIndexFlagTotal always true
                 int dailyIndex = INT_MIN;
                 if(!getDailyIndex(dailyIndex,
@@ -610,54 +671,50 @@ void AMDSpiImp::OnMDBondOrderExecutionHelper(int channel, MDBondOrderExecution* 
                                     datatype,
                                     ticks[i].uni.tickExecution.channel_no,
                                     convertTime(ticks[i].uni.tickExecution.exec_time))){
-                    LOG_ERR("[PluginAmdQuote]: getDailyIndex failed. ");
+                    LOG_ERR("[PLUGIN::AMDQUOTE]: getDailyIndex failed. ");
                     return;
                 }
-                col5.add(dailyIndex);
-                // }
-                col6.add(0);
-                col7.add(ticks[i].uni.tickExecution.exec_type);
-                col8.add(ticks[i].uni.tickExecution.exec_price);
-                col9.add(ticks[i].uni.tickExecution.exec_volume);
-                col10.add(ticks[i].uni.tickExecution.side);
-                col11.add(ticks[i].uni.tickExecution.bid_appl_seq_num);
-                col12.add(ticks[i].uni.tickExecution.offer_appl_seq_num);
-                col13.add(ticks[i].uni.tickExecution.appl_seq_num);
-                col14.add(ticks[i].uni.tickExecution.channel_no);
-                // make sure receivedTimeFlag always true
-                col15.add(ticks[i].reachTime);
+                ((Vector*)(buffer[colNum++]).get())->appendInt(&dailyIndex, 1);
+                int sourceType = 1;
+                ((Vector*)(buffer[colNum++]).get())->appendInt(&sourceType, 1);
+                int type = convertType(ticks[i].uni.tickExecution.exec_type);
+                ((Vector*)(buffer[colNum++]).get())->appendInt(&type, 1);
+                long long orderPrice = ticks[i].uni.tickExecution.exec_price;
+                ((Vector*)(buffer[colNum++]).get())->appendLong(&orderPrice, 1);
+                long long orderVolume = ticks[i].uni.tickExecution.exec_volume;
+                ((Vector*)(buffer[colNum++]).get())->appendLong(&orderVolume, 1);
+                int BSFlag = convertBSFlag(ticks[i].uni.tickExecution.side);
+                ((Vector*)(buffer[colNum++]).get())->appendInt(&BSFlag, 1);
+                long long origOrderNo = ticks[i].uni.tickExecution.bid_appl_seq_num;
+                ((Vector*)(buffer[colNum++]).get())->appendLong(&origOrderNo, 1);
+                long long offerApplSeqNum = ticks[i].uni.tickExecution.offer_appl_seq_num;
+                ((Vector*)(buffer[colNum++]).get())->appendLong(&offerApplSeqNum, 1);
+                long long applSeqNum = ticks[i].uni.tickExecution.appl_seq_num;
+                ((Vector*)(buffer[colNum++]).get())->appendLong(&applSeqNum, 1);
+                int channelNo = ticks[i].uni.tickExecution.channel_no;
+                ((Vector*)(buffer[colNum++]).get())->appendInt(&channelNo, 1);
+                reachTimeVector.push_back(ticks[i].reachTime);
+                long long reachTime = ticks[i].reachTime / 1000000;
+                ((Vector*)(buffer[colNum++]).get())->appendLong(&reachTime, 1);
             }
         }
 
         vector<ConstantSP> cols;
-        cols.push_back(col0.createVector(DT_STRING));
-        cols.push_back(col1.createVector(DT_DATE));
-        cols.push_back(col2.createVector(DT_TIME));
-        cols.push_back(col3.createVector(DT_STRING));
-        cols.push_back(col4.createVector(DT_STRING));
-        cols.push_back(col5.createVector(DT_INT));
-        cols.push_back(col6.createVector(DT_INT));
-        cols.push_back(col7.createVector(DT_INT));
-        cols.push_back(col8.createVector(DT_LONG));
-        cols.push_back(col9.createVector(DT_LONG));
-        cols.push_back(col10.createVector(DT_INT));
-        cols.push_back(col11.createVector(DT_LONG));
-        cols.push_back(col12.createVector(DT_LONG));
-        cols.push_back(col13.createVector(DT_LONG));
-        cols.push_back(col14.createVector(DT_INT));
-        cols.push_back(col15.createVector(DT_NANOTIMESTAMP));
+        for(unsigned int i = 0; i < buffer.size()-1; ++i) {
+            cols.push_back(buffer[i]);
+        }
 
         vector<long long> bufVec;
         bufVec.resize(cols[15]->size());
-        auto col15Buffer = cols[15]->getLongConst(0, cols[15]->size(), bufVec.data());
 
         vector<string> colNames = orderExecutionTableMeta_.colNames_;
         if(outputElapsedFlag_) {
             long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-            for(int i = 0; i < col15.size(); ++i) {
-                col16.add(time - col15Buffer[i]);
+            for(int i = 0; i < cols[15]->size(); ++i) {
+                long long gap = time - reachTimeVector[i];
+                ((Vector*)(buffer[16]).get())->appendLong(&gap, 1);
             }
-            cols.push_back(col16.createVector(DT_NANOTIME));
+            cols.push_back(buffer[16]);
             colNames.push_back("perPenetrationTime");
         }
         TableSP data = Util::createTable(colNames, cols);
@@ -667,13 +724,13 @@ void AMDSpiImp::OnMDBondOrderExecutionHelper(int channel, MDBondOrderExecution* 
             if(!transform.isNull())
                 data = transform->call(session_->getHeap().get(), args);
         }catch(exception &e){
-            throw RuntimeException("call transform error " + string(e.what()));
+            throw RuntimeException("[PLUGIN::AMDQUOTE] call transform error " + string(e.what()));
         }
 
         if(insertedTable.isNull())
-            throw RuntimeException("insertedTable is null");
+            throw RuntimeException("[PLUGIN::AMDQUOTE] insertedTable is null");
         if(insertedTable ->columns() != data->columns()) {
-            throw RuntimeException("The number of columns of the table to insert must be the same as that of the original table");
+            throw RuntimeException("[PLUGIN::AMDQUOTE] The number of columns of the table to insert must be the same as that of the original table");
         }
         args = {insertedTable, data};
         LockGuard<Mutex> _(insertedTable->getLock());
@@ -682,2595 +739,1088 @@ void AMDSpiImp::OnMDBondOrderExecutionHelper(int channel, MDBondOrderExecution* 
         vector<ConstantSP> colData(data->columns());
         for(INDEX i = 0; i < data->columns(); ++i) {
             colData[i] = data->getColumn(i);
+            if (colData[i]->getType() != insertedTable->getColumnType(i)) {
+            throw RuntimeException("[PLUGIN::AMDQUOTE] The type of column " + std::to_string(i) +
+                " does not match. Expected: " + Util::getDataTypeString(insertedTable->getColumnType(i)) +
+                ", Actual: " + Util::getDataTypeString(colData[i]->getType()) + ".");
+            }
         }
         insertedTable->append(colData, rows, errMsg);
         if(errMsg != "") {
-            LOG_ERR("[PluginAmdQuote]: OnMDTickBondOrderExecution channel " + std::to_string(channel) + " append failed, " + errMsg);
+            LOG_ERR("[PLUGIN::AMDQUOTE]: OnMDTickBondOrderExecution channel " + std::to_string(channel) + " append failed, " + errMsg);
             return;
         }
 
-        if (latencyFlag_) { 
+        if (latencyFlag_) {
             long long diff = Util::toLocalNanoTimestamp(Util::getNanoEpochTime() - startTime);
-            latencyLog(8, startTime, cnt, diff);
+            latencyLog(AMD_BOND_ORDER_EXECUTION, startTime, cnt, diff);
         }
     }
     catch(exception &e){
-        LOG_ERR("[PluginAmdQuote]: OnMDTickBondOrderExecution channel " + std::to_string(channel) + " failed, ", e.what());
+        LOG_ERR("[PLUGIN::AMDQUOTE]: OnMDTickBondOrderExecution channel " + std::to_string(channel) + " failed, ", e.what());
     }
 }
 
-// 接受并处理快照数据（包含基金和股票数据）
-void AMDSpiImp::OnMDSnapshotHelper(timeMDSnapshot* snapshot, uint32_t cnt) {
+template <typename T>
+inline void structReader(vector<ConstantSP>& buffer, T& data) {
+    throw RuntimeException("[PLUGIN::AMDQUOTE] Unsupported AMD data structure");
+}
+
+template <>
+inline void structReader(vector<ConstantSP>& buffer, timeMDOrderQueue& data) {
+    int colNum = 0;
+    int marketType = data.orderQueue.market_type;
+    ((Vector*)(buffer[colNum++]).get())->appendInt(&marketType, 1);
+    string securityCode = data.orderQueue.security_code;
+    ((Vector*)(buffer[colNum++]).get())->appendString(&securityCode, 1);
+    long long orderTime = convertTime(data.orderQueue.order_time);
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&orderTime, 1);
+    char side = data.orderQueue.side;
+    ((Vector*)(buffer[colNum++]).get())->appendChar(&side, 1);
+    long long orderPrice = data.orderQueue.order_price;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&orderPrice, 1);
+    long long orderVolume = data.orderQueue.order_volume;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&orderVolume, 1);
+    int numOfOrders = data.orderQueue.num_of_orders;
+    ((Vector*)(buffer[colNum++]).get())->appendInt(&numOfOrders, 1);
+    int items = data.orderQueue.items;
+    ((Vector*)(buffer[colNum++]).get())->appendInt(&items, 1);
+
+    long long volume0 = data.orderQueue.volume[0];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume0, 1);
+    long long volume1 = data.orderQueue.volume[1];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume1, 1);
+    long long volume2 = data.orderQueue.volume[2];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume2, 1);
+    long long volume3 = data.orderQueue.volume[3];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume3, 1);
+    long long volume4 = data.orderQueue.volume[4];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume4, 1);
+    long long volume5 = data.orderQueue.volume[5];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume5, 1);
+    long long volume6 = data.orderQueue.volume[6];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume6, 1);
+    long long volume7 = data.orderQueue.volume[7];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume7, 1);
+    long long volume8 = data.orderQueue.volume[8];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume8, 1);
+    long long volume9 = data.orderQueue.volume[9];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume9, 1);
+    long long volume10 = data.orderQueue.volume[10];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume10, 1);
+
+    long long volume11 = data.orderQueue.volume[11];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume11, 1);
+    long long volume12 = data.orderQueue.volume[12];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume12, 1);
+    long long volume13 = data.orderQueue.volume[13];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume13, 1);
+    long long volume14 = data.orderQueue.volume[14];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume14, 1);
+    long long volume15 = data.orderQueue.volume[15];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume15, 1);
+    long long volume16 = data.orderQueue.volume[16];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume16, 1);
+    long long volume17 = data.orderQueue.volume[17];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume17, 1);
+    long long volume18 = data.orderQueue.volume[18];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume18, 1);
+    long long volume19 = data.orderQueue.volume[19];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume19, 1);
+    long long volume20 = data.orderQueue.volume[20];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume20, 1);
+
+    long long volume21 = data.orderQueue.volume[21];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume21, 1);
+    long long volume22 = data.orderQueue.volume[22];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume22, 1);
+    long long volume23 = data.orderQueue.volume[23];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume23, 1);
+    long long volume24 = data.orderQueue.volume[24];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume24, 1);
+    long long volume25 = data.orderQueue.volume[25];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume25, 1);
+    long long volume26 = data.orderQueue.volume[26];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume26, 1);
+    long long volume27 = data.orderQueue.volume[27];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume27, 1);
+    long long volume28 = data.orderQueue.volume[28];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume28, 1);
+    long long volume29 = data.orderQueue.volume[29];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume29, 1);
+    long long volume30 = data.orderQueue.volume[30];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume30, 1);
+
+    long long volume31 = data.orderQueue.volume[31];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume31, 1);
+    long long volume32 = data.orderQueue.volume[32];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume32, 1);
+    long long volume33 = data.orderQueue.volume[33];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume33, 1);
+    long long volume34 = data.orderQueue.volume[34];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume34, 1);
+    long long volume35 = data.orderQueue.volume[35];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume35, 1);
+    long long volume36 = data.orderQueue.volume[36];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume36, 1);
+    long long volume37 = data.orderQueue.volume[37];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume37, 1);
+    long long volume38 = data.orderQueue.volume[38];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume38, 1);
+    long long volume39 = data.orderQueue.volume[39];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume39, 1);
+    long long volume40 = data.orderQueue.volume[40];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume40, 1);
+
+    long long volume41 = data.orderQueue.volume[41];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume41, 1);
+    long long volume42 = data.orderQueue.volume[42];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume42, 1);
+    long long volume43 = data.orderQueue.volume[43];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume43, 1);
+    long long volume44 = data.orderQueue.volume[44];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume44, 1);
+    long long volume45 = data.orderQueue.volume[45];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume45, 1);
+    long long volume46 = data.orderQueue.volume[46];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume46, 1);
+    long long volume47 = data.orderQueue.volume[47];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume47, 1);
+    long long volume48 = data.orderQueue.volume[48];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume48, 1);
+    long long volume49 = data.orderQueue.volume[49];
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&volume49, 1);
+
+    int channelNo = data.orderQueue.channel_no;
+    ((Vector*)(buffer[colNum++]).get())->appendInt(&channelNo, 1);
+    string mdStreamId = data.orderQueue.md_stream_id;
+    ((Vector*)(buffer[colNum++]).get())->appendString(&mdStreamId, 1);
+    char varietyCategory = data.orderQueue.variety_category;
+    ((Vector*)(buffer[colNum++]).get())->appendChar(&varietyCategory, 1);
+}
+
+template <>
+inline void structReader(vector<ConstantSP>& buffer, timeMDIndexSnapshot& data) {
+    int colNum = 0;
+    int marketType = data.indexSnapshot.market_type;
+    ((Vector*)(buffer[colNum++]).get())->appendInt(&marketType, 1);
+    string securityCode = data.indexSnapshot.security_code;
+    ((Vector*)(buffer[colNum++]).get())->appendString(&securityCode, 1);
+    long long origTime = convertTime(data.indexSnapshot.orig_time);
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&origTime, 1);
+    string tradingPhaseCode = data.indexSnapshot.trading_phase_code;
+    ((Vector*)(buffer[colNum++]).get())->appendString(&tradingPhaseCode, 1);
+    long long preCloseIndex = data.indexSnapshot.pre_close_index;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&preCloseIndex, 1);
+    long long openIndex = data.indexSnapshot.open_index;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&openIndex, 1);
+    long long highIndex = data.indexSnapshot.high_index;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&highIndex, 1);
+
+    long long lowIndex = data.indexSnapshot.low_index;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&lowIndex, 1);
+    long long lastIndex = data.indexSnapshot.last_index;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&lastIndex, 1);
+    long long closeIndex = data.indexSnapshot.close_index;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&closeIndex, 1);
+    long long totalVolumeTrade = data.indexSnapshot.total_volume_trade;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&totalVolumeTrade, 1);
+    long long totalValueTrade = data.indexSnapshot.total_value_trade;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&totalValueTrade, 1);
+    int channelNo = data.indexSnapshot.channel_no;
+    ((Vector*)(buffer[colNum++]).get())->appendInt(&channelNo, 1);
+    string mdStreamId = data.indexSnapshot.md_stream_id;
+    ((Vector*)(buffer[colNum++]).get())->appendString(&mdStreamId, 1);
+
+    char varietyCategory = data.indexSnapshot.variety_category;
+    ((Vector*)(buffer[colNum++]).get())->appendChar(&varietyCategory, 1);
+}
+
+template <>
+inline void structReader(vector<ConstantSP>& buffer, timeMDTickExecution& data) {
+    int colNum = 0;
+    int marketType = data.execution.market_type;
+    ((Vector*)(buffer[colNum++]).get())->appendInt(&marketType, 1);
+    string securityCode = data.execution.security_code;
+    ((Vector*)(buffer[colNum++]).get())->appendString(&securityCode, 1);
+    long long execTime = convertTime(data.execution.exec_time);
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&execTime, 1);
+    int channelNo = data.execution.channel_no;
+    ((Vector*)(buffer[colNum++]).get())->appendInt(&channelNo, 1);
+    long long applSeqNum = data.execution.appl_seq_num;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&applSeqNum, 1);
+    long long execPrice = data.execution.exec_price;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&execPrice, 1);
+    long long execVolume = data.execution.exec_volume;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&execVolume, 1);
+    long long valueTrade = data.execution.variety_category;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&valueTrade, 1);
+
+    long long bidAppSeqNum = data.execution.bid_appl_seq_num;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&bidAppSeqNum, 1);
+    long long offerApplSeqNum = data.execution.offer_appl_seq_num;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&offerApplSeqNum, 1);
+    char side = data.execution.side;
+    ((Vector*)(buffer[colNum++]).get())->appendChar(&side, 1);
+    char execType = data.execution.exec_type;
+    ((Vector*)(buffer[colNum++]).get())->appendChar(&execType, 1);
+    string mdStreamId = data.execution.md_stream_id;
+    ((Vector*)(buffer[colNum++]).get())->appendString(&mdStreamId, 1);
+    long long bizIndex = data.execution.biz_index;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&bizIndex, 1);
+    char varietyCategory = data.execution.variety_category;
+    ((Vector*)(buffer[colNum++]).get())->appendChar(&varietyCategory, 1);
+}
+
+template <>
+inline void structReader(vector<ConstantSP>& buffer, timeMDBondTickExecution& data) {
+    int colNum = 0;
+    int marketType = data.bondExecution.market_type;
+    ((Vector*)(buffer[colNum++]).get())->appendInt(&marketType, 1);
+    string securityCode = data.bondExecution.security_code;
+    ((Vector*)(buffer[colNum++]).get())->appendString(&securityCode, 1);
+    long long execTime = convertTime(data.bondExecution.exec_time);
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&execTime, 1);
+    int channelNo = data.bondExecution.channel_no;
+    ((Vector*)(buffer[colNum++]).get())->appendInt(&channelNo, 1);
+    long long applSeqNum = data.bondExecution.appl_seq_num;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&applSeqNum, 1);
+    long long execPrice = data.bondExecution.exec_price;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&execPrice, 1);
+    long long execVolume = data.bondExecution.exec_volume;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&execVolume, 1);
+    long long valueTrade = data.bondExecution.variety_category;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&valueTrade, 1);
+
+    long long bidAppSeqNum = data.bondExecution.bid_appl_seq_num;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&bidAppSeqNum, 1);
+    long long offerApplSeqNum = data.bondExecution.offer_appl_seq_num;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&offerApplSeqNum, 1);
+    char side = data.bondExecution.side;
+    ((Vector*)(buffer[colNum++]).get())->appendChar(&side, 1);
+    char execType = data.bondExecution.exec_type;
+    ((Vector*)(buffer[colNum++]).get())->appendChar(&execType, 1);
+    string mdStreamId = data.bondExecution.md_stream_id;
+    ((Vector*)(buffer[colNum++]).get())->appendString(&mdStreamId, 1);
+    long long bizIndex = LONG_LONG_MIN;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&bizIndex, 1);
+    char varietyCategory = data.bondExecution.variety_category;
+    ((Vector*)(buffer[colNum++]).get())->appendChar(&varietyCategory, 1);
+}
+
+template <>
+inline void structReader(vector<ConstantSP>& buffer, timeMDBondTickOrder& data) {
+    int colNum = 0;
+    int marketType = data.bondOrder.market_type;
+    ((Vector*)(buffer[colNum++]).get())->appendInt(&marketType, 1);
+    string securityCode(data.bondOrder.security_code);
+    ((Vector*)(buffer[colNum++]).get())->appendString(&securityCode, 1);
+    int channelNo = data.bondOrder.channel_no;
+    ((Vector*)(buffer[colNum++]).get())->appendInt(&channelNo, 1);
+    long long applSeqNum = data.bondOrder.appl_seq_num;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&applSeqNum, 1);
+    long long orderTime = convertTime(data.bondOrder.order_time);
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&orderTime, 1);
+    long long orderPrice = data.bondOrder.order_price;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&orderPrice, 1);
+    long long orderVolume = data.bondOrder.order_volume;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&orderVolume, 1);
+    int side = data.bondOrder.side;
+    ((Vector*)(buffer[colNum++]).get())->appendInt(&side, 1);
+    int orderType = data.bondOrder.order_type;
+    ((Vector*)(buffer[colNum++]).get())->appendInt(&orderType, 1);
+    string mdStreamId = data.bondOrder.md_stream_id;
+    ((Vector*)(buffer[colNum++]).get())->appendString(&mdStreamId, 1);
+    long long origOrderNo = data.bondOrder.orig_order_no;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&origOrderNo, 1);
+    long long bizIndex = LONG_LONG_MIN;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&bizIndex, 1);
+    int varietyCategory = data.bondOrder.variety_category;
+    ((Vector*)(buffer[colNum++]).get())->appendInt(&varietyCategory, 1);
+}
+
+template <>
+inline void structReader(vector<ConstantSP>& buffer, timeMDTickOrder& data) {
+    int colNum = 0;
+    int marketType = data.order.market_type;
+    ((Vector*)(buffer[colNum++]).get())->appendInt(&marketType, 1);
+    string securityCode(data.order.security_code);
+    ((Vector*)(buffer[colNum++]).get())->appendString(&securityCode, 1);
+    int channelNo = data.order.channel_no;
+    ((Vector*)(buffer[colNum++]).get())->appendInt(&channelNo, 1);
+    long long applSeqNum = data.order.appl_seq_num;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&applSeqNum, 1);
+    long long orderTime = convertTime(data.order.order_time);
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&orderTime, 1);
+    long long orderPrice = data.order.order_price;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&orderPrice, 1);
+    long long orderVolume = data.order.order_volume;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&orderVolume, 1);
+    int side = data.order.side;
+    ((Vector*)(buffer[colNum++]).get())->appendInt(&side, 1);
+    int orderType = data.order.order_type;
+    ((Vector*)(buffer[colNum++]).get())->appendInt(&orderType, 1);
+    string mdStreamId = data.order.md_stream_id;
+    ((Vector*)(buffer[colNum++]).get())->appendString(&mdStreamId, 1);
+    long long origOrderNo = data.order.orig_order_no;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&origOrderNo, 1);
+    long long bizIndex = data.order.biz_index;
+    ((Vector*)(buffer[colNum++]).get())->appendLong(&bizIndex, 1);
+    int varietyCategory = data.order.variety_category;
+    ((Vector*)(buffer[colNum++]).get())->appendInt(&varietyCategory, 1);
+}
+
+template <>
+inline void structReader(vector<ConstantSP>& buffer, timeMDBondSnapshot& data) {
+    int colNum = 0;
+    int marketType          = data.bondSnapshot.market_type;
+    ((Vector*)buffer[colNum++].get())->appendInt(&marketType, 1);
+    string securityCode     = data.bondSnapshot.security_code;
+    ((Vector*)buffer[colNum++].get())->appendString(&securityCode, 1);
+    long long origTime      = convertTime(data.bondSnapshot.orig_time);
+    ((Vector*)buffer[colNum++].get())->appendLong(&origTime, 1);
+    string tradingPhaseCode = data.bondSnapshot.trading_phase_code;
+    ((Vector*)buffer[colNum++].get())->appendString(&tradingPhaseCode, 1);
+    long long preClosePrice = data.bondSnapshot.pre_close_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&preClosePrice, 1);
+    long long openPrice     = data.bondSnapshot.open_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&openPrice, 1);
+    long long highPrice     = data.bondSnapshot.high_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&highPrice, 1);
+    long long lowPrice      = data.bondSnapshot.low_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&lowPrice, 1);
+    long long lastPrice     = data.bondSnapshot.last_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&lastPrice, 1);
+    long long closePrice    = data.bondSnapshot.close_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&closePrice, 1);
+
+    int bidPriceIndex = 0;
+    long long bidPrice1 = data.bondSnapshot.bid_price[bidPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice1, 1);
+    long long bidPrice2 = data.bondSnapshot.bid_price[bidPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice2, 1);
+    long long bidPrice3 = data.bondSnapshot.bid_price[bidPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice3, 1);
+    long long bidPrice4 = data.bondSnapshot.bid_price[bidPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice4, 1);
+    long long bidPrice5 = data.bondSnapshot.bid_price[bidPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice5, 1);
+    long long bidPrice6 = data.bondSnapshot.bid_price[bidPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice6, 1);
+    long long bidPrice7 = data.bondSnapshot.bid_price[bidPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice7, 1);
+    long long bidPrice8 = data.bondSnapshot.bid_price[bidPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice8, 1);
+    long long bidPrice9 = data.bondSnapshot.bid_price[bidPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice9, 1);
+    long long bidPrice10= data.bondSnapshot.bid_price[bidPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice10, 1);
+
+    int bidVolumeIndex = 0;
+    long long bidVolume1 = data.bondSnapshot.bid_volume[bidVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume1, 1);
+    long long bidVolume2 = data.bondSnapshot.bid_volume[bidVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume2, 1);
+    long long bidVolume3 = data.bondSnapshot.bid_volume[bidVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume3, 1);
+    long long bidVolume4 = data.bondSnapshot.bid_volume[bidVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume4, 1);
+    long long bidVolume5 = data.bondSnapshot.bid_volume[bidVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume5, 1);
+    long long bidVolume6 = data.bondSnapshot.bid_volume[bidVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume6, 1);
+    long long bidVolume7 = data.bondSnapshot.bid_volume[bidVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume7, 1);
+    long long bidVolume8 = data.bondSnapshot.bid_volume[bidVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume8, 1);
+    long long bidVolume9 = data.bondSnapshot.bid_volume[bidVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume9, 1);
+    long long bidVolume10= data.bondSnapshot.bid_volume[bidVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume10, 1);
+
+    int offerPriceIndex = 0;
+    long long offerPrice1 = data.bondSnapshot.offer_price[offerPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice1, 1);
+    long long offerPrice2 = data.bondSnapshot.offer_price[offerPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice2, 1);
+    long long offerPrice3 = data.bondSnapshot.offer_price[offerPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice3, 1);
+    long long offerPrice4 = data.bondSnapshot.offer_price[offerPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice4, 1);
+    long long offerPrice5 = data.bondSnapshot.offer_price[offerPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice5, 1);
+    long long offerPrice6 = data.bondSnapshot.offer_price[offerPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice6, 1);
+    long long offerPrice7 = data.bondSnapshot.offer_price[offerPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice7, 1);
+    long long offerPrice8 = data.bondSnapshot.offer_price[offerPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice8, 1);
+    long long offerPrice9 = data.bondSnapshot.offer_price[offerPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice9, 1);
+    long long offerPrice10= data.bondSnapshot.offer_price[offerPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice10, 1);
+
+    int offerVolumeIndex = 0;
+    long long offerVolume1  = data.bondSnapshot.offer_volume[offerVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume1, 1);
+    long long offerVolume2  = data.bondSnapshot.offer_volume[offerVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume2, 1);
+    long long offerVolume3  = data.bondSnapshot.offer_volume[offerVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume3, 1);
+    long long offerVolume4  = data.bondSnapshot.offer_volume[offerVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume4, 1);
+    long long offerVolume5  = data.bondSnapshot.offer_volume[offerVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume5, 1);
+    long long offerVolume6  = data.bondSnapshot.offer_volume[offerVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume6, 1);
+    long long offerVolume7  = data.bondSnapshot.offer_volume[offerVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume7, 1);
+    long long offerVolume8  = data.bondSnapshot.offer_volume[offerVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume8, 1);
+    long long offerVolume9  = data.bondSnapshot.offer_volume[offerVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume9, 1);
+    long long offerVolume10 = data.bondSnapshot.offer_volume[offerVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume10, 1);
+
+    long long numTrades             = data.bondSnapshot.num_trades;
+    ((Vector*)buffer[colNum++].get())->appendLong(&numTrades, 1);
+    long long totalVolumeTrade      = data.bondSnapshot.total_volume_trade;
+    ((Vector*)buffer[colNum++].get())->appendLong(&totalVolumeTrade, 1);
+    long long totalValueTrade       = data.bondSnapshot.total_value_trade;
+    ((Vector*)buffer[colNum++].get())->appendLong(&totalValueTrade, 1);
+    long long totalBidVolume        = data.bondSnapshot.total_bid_volume;
+    ((Vector*)buffer[colNum++].get())->appendLong(&totalBidVolume, 1);
+    long long totalOfferVolume      = data.bondSnapshot.total_offer_volume;
+    ((Vector*)buffer[colNum++].get())->appendLong(&totalOfferVolume, 1);
+    long long weightedAvgBidPrice   = data.bondSnapshot.weighted_avg_bid_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&weightedAvgBidPrice, 1);
+    long long weightedAvgOfferPrice = data.bondSnapshot.weighted_avg_offer_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&weightedAvgOfferPrice, 1);
+    long long ioPV                  = 0;
+    ((Vector*)buffer[colNum++].get())->appendLong(&ioPV, 1);
+    long long yieldToMaturity       = LONG_LONG_MIN;
+    ((Vector*)buffer[colNum++].get())->appendLong(&yieldToMaturity, 1);
+    long long highLimited           = data.bondSnapshot.high_limited;
+    ((Vector*)buffer[colNum++].get())->appendLong(&highLimited, 1);
+
+    long long lowLimited             = data.bondSnapshot.low_limited;
+    ((Vector*)buffer[colNum++].get())->appendLong(&lowLimited, 1);
+    long long priceEarningRatio1     = LONG_LONG_MIN;
+    ((Vector*)buffer[colNum++].get())->appendLong(&priceEarningRatio1, 1);
+    long long priceEarningRatio2     = LONG_LONG_MIN;
+    ((Vector*)buffer[colNum++].get())->appendLong(&priceEarningRatio2, 1);
+    long long change1                = data.bondSnapshot.change1;
+    ((Vector*)buffer[colNum++].get())->appendLong(&change1, 1);
+    long long change2                = data.bondSnapshot.change2;
+    ((Vector*)buffer[colNum++].get())->appendLong(&change2, 1);
+    int channelNo                    = data.bondSnapshot.channel_no;
+    ((Vector*)buffer[colNum++].get())->appendInt(&channelNo, 1);
+    string mdStreamID                = data.bondSnapshot.md_stream_id;
+    ((Vector*)buffer[colNum++].get())->appendString(&mdStreamID, 1);
+    string instrumentStatus          = data.bondSnapshot.instrument_status;
+    ((Vector*)buffer[colNum++].get())->appendString(&instrumentStatus, 1);
+    long long preCloseIOPV           = LONG_LONG_MIN;
+    ((Vector*)buffer[colNum++].get())->appendLong(&preCloseIOPV, 1);
+    long long altWeightedAvgBidPrice = LONG_LONG_MIN;
+    ((Vector*)buffer[colNum++].get())->appendLong(&altWeightedAvgBidPrice, 1);
+
+    long long altWeightedAvgOfferPrice = LONG_LONG_MIN;
+    ((Vector*)buffer[colNum++].get())->appendLong(&altWeightedAvgOfferPrice, 1);
+    long long etfBuyNumber             = LONG_LONG_MIN;
+    ((Vector*)buffer[colNum++].get())->appendLong(&etfBuyNumber, 1);
+    long long etfBuyAmount             = LONG_LONG_MIN;
+    ((Vector*)buffer[colNum++].get())->appendLong(&etfBuyAmount, 1);
+    long long etfBuyMoney              = LONG_LONG_MIN;
+    ((Vector*)buffer[colNum++].get())->appendLong(&etfBuyMoney, 1);
+    long long etfSellNumber            = LONG_LONG_MIN;
+    ((Vector*)buffer[colNum++].get())->appendLong(&etfSellNumber, 1);
+    long long etfSellAmount            = LONG_LONG_MIN;
+    ((Vector*)buffer[colNum++].get())->appendLong(&etfSellAmount, 1);
+    long long etfSellMoney             = LONG_LONG_MIN;
+    ((Vector*)buffer[colNum++].get())->appendLong(&etfSellMoney, 1);
+    long long totalWarrantExecVolume   = LONG_LONG_MIN;
+    ((Vector*)buffer[colNum++].get())->appendLong(&totalWarrantExecVolume, 1);
+    long long warLowerPrice            = LONG_LONG_MIN;
+    ((Vector*)buffer[colNum++].get())->appendLong(&warLowerPrice, 1);
+
+    long long warUpperPrice       = LONG_LONG_MIN;
+    ((Vector*)buffer[colNum++].get())->appendLong(&warUpperPrice, 1);
+    long long withdrawBuyNumber   = data.bondSnapshot.withdraw_buy_number;
+    ((Vector*)buffer[colNum++].get())->appendLong(&withdrawBuyNumber, 1);
+    long long withdrawBuyAmount   = data.bondSnapshot.withdraw_buy_amount;
+    ((Vector*)buffer[colNum++].get())->appendLong(&withdrawBuyAmount, 1);
+    long long withdrawBuyMoney    = data.bondSnapshot.withdraw_buy_money;
+    ((Vector*)buffer[colNum++].get())->appendLong(&withdrawBuyMoney, 1);
+    long long withdrawSellNumber  = data.bondSnapshot.withdraw_sell_number;
+    ((Vector*)buffer[colNum++].get())->appendLong(&withdrawSellNumber, 1);
+    long long withdrawSellAmount  = data.bondSnapshot.withdraw_sell_amount;
+    ((Vector*)buffer[colNum++].get())->appendLong(&withdrawSellAmount, 1);
+    long long withdrawSellMoney   = data.bondSnapshot.withdraw_sell_money;
+    ((Vector*)buffer[colNum++].get())->appendLong(&withdrawSellMoney, 1);
+    long long totalBidNumber      = data.bondSnapshot.total_bid_number;
+    ((Vector*)buffer[colNum++].get())->appendLong(&totalBidNumber, 1);
+    long long totalOfferNumber    = data.bondSnapshot.total_offer_number;
+    ((Vector*)buffer[colNum++].get())->appendLong(&totalOfferNumber, 1);
+    int bidTradeMaxDuration       = data.bondSnapshot.bid_trade_max_duration;
+    ((Vector*)buffer[colNum++].get())->appendInt(&bidTradeMaxDuration, 1);
+
+    int offerTradeMaxDuration       = data.bondSnapshot.offer_trade_max_duration;
+    ((Vector*)buffer[colNum++].get())->appendInt(&offerTradeMaxDuration, 1);
+    int numBidOrders                = data.bondSnapshot.num_bid_orders;
+    ((Vector*)buffer[colNum++].get())->appendInt(&numBidOrders, 1);
+    long long numOfferOrders        = data.bondSnapshot.num_offer_orders;
+    ((Vector*)buffer[colNum++].get())->appendLong(&numOfferOrders, 1);
+    long long lastTradeTime         = data.bondSnapshot.last_trade_time;
+    ((Vector*)buffer[colNum++].get())->appendLong(&lastTradeTime, 1);
+    char varietyCategory            = data.bondSnapshot.variety_category;
+    ((Vector*)buffer[colNum++].get())->appendChar(&varietyCategory, 1);
+}
+
+template <>
+inline void structReader(vector<ConstantSP>& buffer, timeMDSnapshot& data) {
+    int colNum = 0;
+    int marketType          = data.snapshot.market_type;
+    ((Vector*)buffer[colNum++].get())->appendInt(&marketType, 1);
+    string securityCode     = data.snapshot.security_code;
+    ((Vector*)buffer[colNum++].get())->appendString(&securityCode, 1);
+    long long origTime      = convertTime(data.snapshot.orig_time);
+    ((Vector*)buffer[colNum++].get())->appendLong(&origTime, 1);
+    string tradingPhaseCode = data.snapshot.trading_phase_code;
+    ((Vector*)buffer[colNum++].get())->appendString(&tradingPhaseCode, 1);
+    long long preClosePrice = data.snapshot.pre_close_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&preClosePrice, 1);
+    long long openPrice     = data.snapshot.open_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&openPrice, 1);
+    long long highPrice     = data.snapshot.high_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&highPrice, 1);
+    long long lowPrice      = data.snapshot.low_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&lowPrice, 1);
+    long long lastPrice     = data.snapshot.last_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&lastPrice, 1);
+    long long closePrice    = data.snapshot.close_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&closePrice, 1);
+
+    int bidPriceIndex = 0;
+    long long bidPrice1 = data.snapshot.bid_price[bidPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice1, 1);
+    long long bidPrice2 = data.snapshot.bid_price[bidPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice2, 1);
+    long long bidPrice3 = data.snapshot.bid_price[bidPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice3, 1);
+    long long bidPrice4 = data.snapshot.bid_price[bidPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice4, 1);
+    long long bidPrice5 = data.snapshot.bid_price[bidPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice5, 1);
+    long long bidPrice6 = data.snapshot.bid_price[bidPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice6, 1);
+    long long bidPrice7 = data.snapshot.bid_price[bidPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice7, 1);
+    long long bidPrice8 = data.snapshot.bid_price[bidPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice8, 1);
+    long long bidPrice9 = data.snapshot.bid_price[bidPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice9, 1);
+    long long bidPrice10= data.snapshot.bid_price[bidPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice10, 1);
+
+    int bidVolumeIndex = 0;
+    long long bidVolume1 = data.snapshot.bid_volume[bidVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume1, 1);
+    long long bidVolume2 = data.snapshot.bid_volume[bidVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume2, 1);
+    long long bidVolume3 = data.snapshot.bid_volume[bidVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume3, 1);
+    long long bidVolume4 = data.snapshot.bid_volume[bidVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume4, 1);
+    long long bidVolume5 = data.snapshot.bid_volume[bidVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume5, 1);
+    long long bidVolume6 = data.snapshot.bid_volume[bidVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume6, 1);
+    long long bidVolume7 = data.snapshot.bid_volume[bidVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume7, 1);
+    long long bidVolume8 = data.snapshot.bid_volume[bidVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume8, 1);
+    long long bidVolume9 = data.snapshot.bid_volume[bidVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume9, 1);
+    long long bidVolume10= data.snapshot.bid_volume[bidVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume10, 1);
+
+    int offerPriceIndex = 0;
+    long long offerPrice1 = data.snapshot.offer_price[offerPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice1, 1);
+    long long offerPrice2 = data.snapshot.offer_price[offerPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice2, 1);
+    long long offerPrice3 = data.snapshot.offer_price[offerPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice3, 1);
+    long long offerPrice4 = data.snapshot.offer_price[offerPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice4, 1);
+    long long offerPrice5 = data.snapshot.offer_price[offerPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice5, 1);
+    long long offerPrice6 = data.snapshot.offer_price[offerPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice6, 1);
+    long long offerPrice7 = data.snapshot.offer_price[offerPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice7, 1);
+    long long offerPrice8 = data.snapshot.offer_price[offerPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice8, 1);
+    long long offerPrice9 = data.snapshot.offer_price[offerPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice9, 1);
+    long long offerPrice10= data.snapshot.offer_price[offerPriceIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice10, 1);
+
+    int offerVolumeIndex = 0;
+    long long offerVolume1  = data.snapshot.offer_volume[offerVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume1, 1);
+    long long offerVolume2  = data.snapshot.offer_volume[offerVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume2, 1);
+    long long offerVolume3  = data.snapshot.offer_volume[offerVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume3, 1);
+    long long offerVolume4  = data.snapshot.offer_volume[offerVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume4, 1);
+    long long offerVolume5  = data.snapshot.offer_volume[offerVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume5, 1);
+    long long offerVolume6  = data.snapshot.offer_volume[offerVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume6, 1);
+    long long offerVolume7  = data.snapshot.offer_volume[offerVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume7, 1);
+    long long offerVolume8  = data.snapshot.offer_volume[offerVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume8, 1);
+    long long offerVolume9  = data.snapshot.offer_volume[offerVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume9, 1);
+    long long offerVolume10 = data.snapshot.offer_volume[offerVolumeIndex++];
+    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume10, 1);
+
+    long long numTrades             = data.snapshot.num_trades;
+    ((Vector*)buffer[colNum++].get())->appendLong(&numTrades, 1);
+    long long totalVolumeTrade      = data.snapshot.total_volume_trade;
+    ((Vector*)buffer[colNum++].get())->appendLong(&totalVolumeTrade, 1);
+    long long totalValueTrade       = data.snapshot.total_value_trade;
+    ((Vector*)buffer[colNum++].get())->appendLong(&totalValueTrade, 1);
+    long long totalBidVolume        = data.snapshot.total_bid_volume;
+    ((Vector*)buffer[colNum++].get())->appendLong(&totalBidVolume, 1);
+    long long totalOfferVolume      = data.snapshot.total_offer_volume;
+    ((Vector*)buffer[colNum++].get())->appendLong(&totalOfferVolume, 1);
+    long long weightedAvgBidPrice   = data.snapshot.weighted_avg_bid_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&weightedAvgBidPrice, 1);
+    long long weightedAvgOfferPrice = data.snapshot.weighted_avg_offer_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&weightedAvgOfferPrice, 1);
+    long long ioPV                  = data.snapshot.IOPV;
+    ((Vector*)buffer[colNum++].get())->appendLong(&ioPV, 1);
+    long long yieldToMaturity       = data.snapshot.yield_to_maturity;
+    ((Vector*)buffer[colNum++].get())->appendLong(&yieldToMaturity, 1);
+    long long highLimited           = data.snapshot.high_limited;
+    ((Vector*)buffer[colNum++].get())->appendLong(&highLimited, 1);
+
+    long long lowLimited             = data.snapshot.low_limited;
+    ((Vector*)buffer[colNum++].get())->appendLong(&lowLimited, 1);
+    long long priceEarningRatio1     = data.snapshot.price_earning_ratio1;
+    ((Vector*)buffer[colNum++].get())->appendLong(&priceEarningRatio1, 1);
+    long long priceEarningRatio2     = data.snapshot.price_earning_ratio2;
+    ((Vector*)buffer[colNum++].get())->appendLong(&priceEarningRatio2, 1);
+    long long change1                = data.snapshot.change1;
+    ((Vector*)buffer[colNum++].get())->appendLong(&change1, 1);
+    long long change2                = data.snapshot.change2;
+    ((Vector*)buffer[colNum++].get())->appendLong(&change2, 1);
+    int channelNo                    = data.snapshot.channel_no;
+    ((Vector*)buffer[colNum++].get())->appendInt(&channelNo, 1);
+    string mdStreamID                = data.snapshot.md_stream_id;
+    ((Vector*)buffer[colNum++].get())->appendString(&mdStreamID, 1);
+    string instrumentStatus          = data.snapshot.instrument_status;
+    ((Vector*)buffer[colNum++].get())->appendString(&instrumentStatus, 1);
+    long long preCloseIOPV           = data.snapshot.pre_close_iopv;
+    ((Vector*)buffer[colNum++].get())->appendLong(&preCloseIOPV, 1);
+    long long altWeightedAvgBidPrice = data.snapshot.alt_weighted_avg_bid_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&altWeightedAvgBidPrice, 1);
+
+    long long altWeightedAvgOfferPrice = data.snapshot.alt_weighted_avg_offer_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&altWeightedAvgOfferPrice, 1);
+    long long etfBuyNumber             = data.snapshot.etf_buy_number;
+    ((Vector*)buffer[colNum++].get())->appendLong(&etfBuyNumber, 1);
+    long long etfBuyAmount             = data.snapshot.etf_buy_amount;
+    ((Vector*)buffer[colNum++].get())->appendLong(&etfBuyAmount, 1);
+    long long etfBuyMoney              = data.snapshot.etf_buy_money;
+    ((Vector*)buffer[colNum++].get())->appendLong(&etfBuyMoney, 1);
+    long long etfSellNumber            = data.snapshot.etf_sell_number;
+    ((Vector*)buffer[colNum++].get())->appendLong(&etfSellNumber, 1);
+    long long etfSellAmount            = data.snapshot.etf_sell_amount;
+    ((Vector*)buffer[colNum++].get())->appendLong(&etfSellAmount, 1);
+    long long etfSellMoney             = data.snapshot.etf_sell_money;
+    ((Vector*)buffer[colNum++].get())->appendLong(&etfSellMoney, 1);
+    long long totalWarrantExecVolume   = data.snapshot.total_warrant_exec_volume;
+    ((Vector*)buffer[colNum++].get())->appendLong(&totalWarrantExecVolume, 1);
+    long long warLowerPrice            = data.snapshot.war_lower_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&warLowerPrice, 1);
+
+    long long warUpperPrice       = data.snapshot.war_upper_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&warUpperPrice, 1);
+    long long withdrawBuyNumber   = data.snapshot.withdraw_buy_number;
+    ((Vector*)buffer[colNum++].get())->appendLong(&withdrawBuyNumber, 1);
+    long long withdrawBuyAmount   = data.snapshot.withdraw_buy_amount;
+    ((Vector*)buffer[colNum++].get())->appendLong(&withdrawBuyAmount, 1);
+    long long withdrawBuyMoney    = data.snapshot.withdraw_buy_money;
+    ((Vector*)buffer[colNum++].get())->appendLong(&withdrawBuyMoney, 1);
+    long long withdrawSellNumber  = data.snapshot.withdraw_sell_number;
+    ((Vector*)buffer[colNum++].get())->appendLong(&withdrawSellNumber, 1);
+    long long withdrawSellAmount  = data.snapshot.withdraw_sell_amount;
+    ((Vector*)buffer[colNum++].get())->appendLong(&withdrawSellAmount, 1);
+    long long withdrawSellMoney   = data.snapshot.withdraw_sell_money;
+    ((Vector*)buffer[colNum++].get())->appendLong(&withdrawSellMoney, 1);
+    long long totalBidNumber      = data.snapshot.total_bid_number;
+    ((Vector*)buffer[colNum++].get())->appendLong(&totalBidNumber, 1);
+    long long totalOfferNumber    = data.snapshot.total_offer_number;
+    ((Vector*)buffer[colNum++].get())->appendLong(&totalOfferNumber, 1);
+    int bidTradeMaxDuration       = data.snapshot.bid_trade_max_duration;
+    ((Vector*)buffer[colNum++].get())->appendInt(&bidTradeMaxDuration, 1);
+
+    int offerTradeMaxDuration       = data.snapshot.offer_trade_max_duration;
+    ((Vector*)buffer[colNum++].get())->appendInt(&offerTradeMaxDuration, 1);
+    int numBidOrders                = data.snapshot.num_bid_orders;
+    ((Vector*)buffer[colNum++].get())->appendInt(&numBidOrders, 1);
+    long long numOfferOrders        = data.snapshot.num_offer_orders;
+    ((Vector*)buffer[colNum++].get())->appendLong(&numOfferOrders, 1);
+    long long lastTradeTime         = data.snapshot.last_trade_time;
+    ((Vector*)buffer[colNum++].get())->appendLong(&lastTradeTime, 1);
+    char varietyCategory            = data.snapshot.variety_category;
+    ((Vector*)buffer[colNum++].get())->appendChar(&varietyCategory, 1);
+}
+
+template <typename T>
+inline int getOriginTime(T& data) {
+    return 0;
+}
+
+template <>
+inline int getOriginTime(timeMDSnapshot& data) {
+    return data.snapshot.orig_time;
+}
+
+template <typename T>
+inline int getChannelNo(T& data) {
+    return 0;
+}
+
+template <>
+inline int getChannelNo(timeMDSnapshot& data) {
+    return data.snapshot.channel_no;
+}
+
+template <typename T>
+inline int getMarketType(T& data) {
+    return 0;
+}
+
+template <>
+inline int getMarketType(timeMDSnapshot& data) {
+    return data.snapshot.market_type;
+}
+
+template <>
+inline int getMarketType(timeMDTickOrder& data) {
+    return data.order.market_type;
+}
+
+template <>
+inline int getMarketType(timeMDTickExecution& data) {
+    return data.execution.market_type;
+}
+
+template <>
+inline int getMarketType(timeMDBondSnapshot& data) {
+    return data.bondSnapshot.market_type;
+}
+
+template <>
+inline int getMarketType(timeMDBondTickOrder& data) {
+    return data.bondOrder.market_type;
+}
+
+template <>
+inline int getMarketType(timeMDBondTickExecution& data) {
+    return data.bondExecution.market_type;
+}
+
+template <>
+inline int getMarketType(timeMDIndexSnapshot& data) {
+    return data.indexSnapshot.market_type;
+}
+
+template <>
+inline int getMarketType(timeMDOrderQueue& data) {
+    return data.orderQueue.market_type;
+}
+
+template <typename DataStruct, typename Meta>
+void AMDSpiImp::genericAMDHelper(
+    DataStruct* data,
+    uint32_t cnt,
+    TableSP& insertedTable,
+    FunctionDefSP transform,
+    bool& flag,
+    vector<ConstantSP>& buffer,
+    const Meta& meta,
+    const string& typeStr,
+    AMDDataType datatype
+) noexcept {
     try{
-        if(cnt == 0)return;
-        long long startTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        // std::lock_guard<std::mutex> amdLock_(amdMutex_);
+    if(cnt == 0) return;
+    long long startTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+    vector<long long> reachTimeVec;
+    if(outputElapsedFlag_) { reachTimeVec.reserve(cnt); }
 
-        // 基金和股票数据插入到不同的表
-        TableSP insertedTable = snapshotData_;
-        FunctionDefSP transform = snapshotTransform_;
-        TableSP fundInsertedTable = fundSnapshotData_;
-        FunctionDefSP fundTransform = fundSnapshotTransform_;
+    for(unsigned int i = 0; i < buffer.size(); ++i) {
+        ((Vector*)(buffer[i].get()))->clear();
+    }
 
-        uint8_t varietyCategory;
-        AMDDataType datatype;
-        int market_type;
+    for (uint32_t i = 0; i < cnt; ++i) {
+        if(!flag) { continue; }
+        structReader<DataStruct>(buffer, data[i]);
 
-        vector<long long> reachTimeVec;
+        if (receivedTimeFlag_) {
+            long long reachTime = data[i].reachTime;
+            ((Vector*)buffer[meta.colNames_.size()].get())->appendLong(&reachTime, 1);
+        }
+
+        int marketType = getMarketType<DataStruct>(data[i]);
+        if(dailyIndexFlag_){
+            int dailyIndex = INT_MIN;
+            if(!getDailyIndex(dailyIndex, dailyIndex_, sizeof(dailyIndex_), marketType,
+                datatype, getChannelNo(data[i]), convertTime(getOriginTime(data[i]))) ) {
+                LOG_ERR("[PLUGIN::AMDQUOTE]: getDailyIndex failed. ");
+                return;
+            }
+            ((Vector*)buffer[meta.colNames_.size()+1].get())->appendInt(&dailyIndex, 1);
+        }
+        reachTimeVec.push_back(data[i].reachTime);
+    }
+    if(flag) {
+        vector<ConstantSP> cols;
+        for(int i = 0; i < meta.colNames_.size(); ++i) {
+            cols.push_back(buffer[i]);
+        }
+        vector<string> colNames = meta.colNames_;
+        if(receivedTimeFlag_) {
+            colNames.push_back("receivedTime");
+            cols.push_back(buffer[colNames.size()-1]);
+        }
+        if(dailyIndexFlag_) {
+            colNames.push_back("dailyIndex");
+            cols.push_back(buffer[colNames.size()-1]);
+        }
         if(outputElapsedFlag_) {
-            reachTimeVec.reserve(cnt);
-        }
-        vector<long long> fundReachTimeVec;
-        if(outputElapsedFlag_) {
-            fundReachTimeVec.reserve(cnt);
-        }
-
-        DdbVector<int> col0(0, cnt);
-        DdbVector<string> col1(0, cnt);
-        DdbVector<long long> col2(0, cnt);
-        DdbVector<string> col3(0, cnt);
-        DdbVector<long long> col4(0, cnt);
-        DdbVector<long long> col5(0, cnt);
-        DdbVector<long long> col6(0, cnt);
-        DdbVector<long long> col7(0, cnt);
-        DdbVector<long long> col8(0, cnt);
-        DdbVector<long long> col9(0, cnt);
-
-        DdbVector<long long> col10(0, cnt);
-        DdbVector<long long> col11(0, cnt);
-        DdbVector<long long> col12(0, cnt);
-        DdbVector<long long> col13(0, cnt);
-        DdbVector<long long> col14(0, cnt);
-        DdbVector<long long> col15(0, cnt);
-        DdbVector<long long> col16(0, cnt);
-        DdbVector<long long> col17(0, cnt);
-        DdbVector<long long> col18(0, cnt);
-        DdbVector<long long> col19(0, cnt);
-
-        DdbVector<long long> col20(0, cnt);
-        DdbVector<long long> col21(0, cnt);
-        DdbVector<long long> col22(0, cnt);
-        DdbVector<long long> col23(0, cnt);
-        DdbVector<long long> col24(0, cnt);
-        DdbVector<long long> col25(0, cnt);
-        DdbVector<long long> col26(0, cnt);
-        DdbVector<long long> col27(0, cnt);
-        DdbVector<long long> col28(0, cnt);
-        DdbVector<long long> col29(0, cnt);
-
-        DdbVector<long long> col30(0, cnt);
-        DdbVector<long long> col31(0, cnt);
-        DdbVector<long long> col32(0, cnt);
-        DdbVector<long long> col33(0, cnt);
-        DdbVector<long long> col34(0, cnt);
-        DdbVector<long long> col35(0, cnt);
-        DdbVector<long long> col36(0, cnt);
-        DdbVector<long long> col37(0, cnt);
-        DdbVector<long long> col38(0, cnt);
-        DdbVector<long long> col39(0, cnt);
-        
-        DdbVector<long long> col40(0, cnt);
-        DdbVector<long long> col41(0, cnt);
-        DdbVector<long long> col42(0, cnt);
-        DdbVector<long long> col43(0, cnt);
-        DdbVector<long long> col44(0, cnt);
-        DdbVector<long long> col45(0, cnt);
-        DdbVector<long long> col46(0, cnt);
-        DdbVector<long long> col47(0, cnt);
-        DdbVector<long long> col48(0, cnt);
-        DdbVector<long long> col49(0, cnt);
-
-        DdbVector<long long> col50(0, cnt);
-        DdbVector<long long> col51(0, cnt);
-        DdbVector<long long> col52(0, cnt);
-        DdbVector<long long> col53(0, cnt);
-        DdbVector<long long> col54(0, cnt);
-        DdbVector<long long> col55(0, cnt);
-        DdbVector<long long> col56(0, cnt);
-        DdbVector<long long> col57(0, cnt);
-        DdbVector<long long> col58(0, cnt);
-        DdbVector<long long> col59(0, cnt);
-
-        DdbVector<long long> col60(0, cnt);
-        DdbVector<long long> col61(0, cnt);
-        DdbVector<long long> col62(0, cnt);
-        DdbVector<long long> col63(0, cnt);
-        DdbVector<long long> col64(0, cnt);
-        DdbVector<int> col65(0, cnt);
-        DdbVector<string> col66(0, cnt);
-        DdbVector<string> col67(0, cnt);
-        DdbVector<long long> col68(0, cnt);
-        DdbVector<long long> col69(0, cnt);
-
-        DdbVector<long long> col70(0, cnt);
-        DdbVector<long long> col71(0, cnt);
-        DdbVector<long long> col72(0, cnt);
-        DdbVector<long long> col73(0, cnt);
-        DdbVector<long long> col74(0, cnt);
-        DdbVector<long long> col75(0, cnt);
-        DdbVector<long long> col76(0, cnt);
-        DdbVector<long long> col77(0, cnt);
-        DdbVector<long long> col78(0, cnt);
-        DdbVector<long long> col79(0, cnt);
-
-        DdbVector<long long> col80(0, cnt);
-        DdbVector<long long> col81(0, cnt);
-        DdbVector<long long> col82(0, cnt);
-        DdbVector<long long> col83(0, cnt);
-        DdbVector<long long> col84(0, cnt);
-        DdbVector<long long> col85(0, cnt);
-        DdbVector<long long> col86(0, cnt);
-        DdbVector<long long> col87(0, cnt);
-        DdbVector<int> col88(0, cnt);
-        DdbVector<int> col89(0, cnt);
-
-        DdbVector<int> col90(0, cnt);
-        DdbVector<int> col91(0, cnt);
-        DdbVector<long long> col92(0, cnt);
-        DdbVector<char> col93(0, cnt);
-        DdbVector<long long> col94(0, cnt);
-        DdbVector<int> col95(0, cnt);
-        DdbVector<long long> col96(0, cnt);
-
-        DdbVector<int> fcol0(0, cnt);
-        DdbVector<string> fcol1(0, cnt);
-        DdbVector<long long> fcol2(0, cnt);
-        DdbVector<string> fcol3(0, cnt);
-        DdbVector<long long> fcol4(0, cnt);
-        DdbVector<long long> fcol5(0, cnt);
-        DdbVector<long long> fcol6(0, cnt);
-        DdbVector<long long> fcol7(0, cnt);
-        DdbVector<long long> fcol8(0, cnt);
-        DdbVector<long long> fcol9(0, cnt);
-
-        DdbVector<long long> fcol10(0, cnt);
-        DdbVector<long long> fcol11(0, cnt);
-        DdbVector<long long> fcol12(0, cnt);
-        DdbVector<long long> fcol13(0, cnt);
-        DdbVector<long long> fcol14(0, cnt);
-        DdbVector<long long> fcol15(0, cnt);
-        DdbVector<long long> fcol16(0, cnt);
-        DdbVector<long long> fcol17(0, cnt);
-        DdbVector<long long> fcol18(0, cnt);
-        DdbVector<long long> fcol19(0, cnt);
-
-        DdbVector<long long> fcol20(0, cnt);
-        DdbVector<long long> fcol21(0, cnt);
-        DdbVector<long long> fcol22(0, cnt);
-        DdbVector<long long> fcol23(0, cnt);
-        DdbVector<long long> fcol24(0, cnt);
-        DdbVector<long long> fcol25(0, cnt);
-        DdbVector<long long> fcol26(0, cnt);
-        DdbVector<long long> fcol27(0, cnt);
-        DdbVector<long long> fcol28(0, cnt);
-        DdbVector<long long> fcol29(0, cnt);
-
-        DdbVector<long long> fcol30(0, cnt);
-        DdbVector<long long> fcol31(0, cnt);
-        DdbVector<long long> fcol32(0, cnt);
-        DdbVector<long long> fcol33(0, cnt);
-        DdbVector<long long> fcol34(0, cnt);
-        DdbVector<long long> fcol35(0, cnt);
-        DdbVector<long long> fcol36(0, cnt);
-        DdbVector<long long> fcol37(0, cnt);
-        DdbVector<long long> fcol38(0, cnt);
-        DdbVector<long long> fcol39(0, cnt);
-        
-        DdbVector<long long> fcol40(0, cnt);
-        DdbVector<long long> fcol41(0, cnt);
-        DdbVector<long long> fcol42(0, cnt);
-        DdbVector<long long> fcol43(0, cnt);
-        DdbVector<long long> fcol44(0, cnt);
-        DdbVector<long long> fcol45(0, cnt);
-        DdbVector<long long> fcol46(0, cnt);
-        DdbVector<long long> fcol47(0, cnt);
-        DdbVector<long long> fcol48(0, cnt);
-        DdbVector<long long> fcol49(0, cnt);
-
-        DdbVector<long long> fcol50(0, cnt);
-        DdbVector<long long> fcol51(0, cnt);
-        DdbVector<long long> fcol52(0, cnt);
-        DdbVector<long long> fcol53(0, cnt);
-        DdbVector<long long> fcol54(0, cnt);
-        DdbVector<long long> fcol55(0, cnt);
-        DdbVector<long long> fcol56(0, cnt);
-        DdbVector<long long> fcol57(0, cnt);
-        DdbVector<long long> fcol58(0, cnt);
-        DdbVector<long long> fcol59(0, cnt);
-
-        DdbVector<long long> fcol60(0, cnt);
-        DdbVector<long long> fcol61(0, cnt);
-        DdbVector<long long> fcol62(0, cnt);
-        DdbVector<long long> fcol63(0, cnt);
-        DdbVector<long long> fcol64(0, cnt);
-        DdbVector<int> fcol65(0, cnt);
-        DdbVector<string> fcol66(0, cnt);
-        DdbVector<string> fcol67(0, cnt);
-        DdbVector<long long> fcol68(0, cnt);
-        DdbVector<long long> fcol69(0, cnt);
-
-        DdbVector<long long> fcol70(0, cnt);
-        DdbVector<long long> fcol71(0, cnt);
-        DdbVector<long long> fcol72(0, cnt);
-        DdbVector<long long> fcol73(0, cnt);
-        DdbVector<long long> fcol74(0, cnt);
-        DdbVector<long long> fcol75(0, cnt);
-        DdbVector<long long> fcol76(0, cnt);
-        DdbVector<long long> fcol77(0, cnt);
-        DdbVector<long long> fcol78(0, cnt);
-        DdbVector<long long> fcol79(0, cnt);
-
-        DdbVector<long long> fcol80(0, cnt);
-        DdbVector<long long> fcol81(0, cnt);
-        DdbVector<long long> fcol82(0, cnt);
-        DdbVector<long long> fcol83(0, cnt);
-        DdbVector<long long> fcol84(0, cnt);
-        DdbVector<long long> fcol85(0, cnt);
-        DdbVector<long long> fcol86(0, cnt);
-        DdbVector<long long> fcol87(0, cnt);
-        DdbVector<int> fcol88(0, cnt);
-        DdbVector<int> fcol89(0, cnt);
-
-        DdbVector<int> fcol90(0, cnt);
-        DdbVector<int> fcol91(0, cnt);
-        DdbVector<long long> fcol92(0, cnt);
-        DdbVector<char> fcol93(0, cnt);
-        DdbVector<long long> fcol94(0, cnt);
-        DdbVector<int> fcol95(0, cnt);
-        DdbVector<long long> fcol96(0, cnt);
-
-        for (uint32_t i = 0; i < cnt; ++i) {
-            varietyCategory = snapshot[i].snapshot.variety_category;
-            if (varietyCategory == 1) {
-                datatype = AMD_SNAPSHOT;
-                if(!snapshotFlag_) {
-                    continue;
-                }
-            } else if(varietyCategory == 2){
-                datatype = AMD_FUND_SNAPSHOT;
-                if(!fundSnapshotFlag_) {
-                    continue;
-                }
-            } else {
-                continue;
+            colNames.push_back("perPenetrationTime");
+            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+            for(int i = 0; i < cols[0]->size(); ++i) {
+                long long gap = time - reachTimeVec[i];
+                ((Vector*)buffer[colNames.size()-1].get())->appendLong(&gap, 1);
             }
-            market_type = snapshot[i].snapshot.market_type;
-            AMDTableType tableTyeTotal = getAmdTableType(datatype, market_type);
-            
-            if(tableTyeTotal == AMD_ERROR_TABLE_TYPE){
-                LOG_ERR("[PluginAmdQuote]: error amd table type AMD_ERROR_TABLE_TYPE");
-                return;
-            }
+            cols.push_back(buffer[colNames.size()-1]);
+        }
 
-            if(varietyCategory == 1) {
-                col0.add(snapshot[i].snapshot.market_type);
-                col1.add(snapshot[i].snapshot.security_code);
-                col2.add(convertTime(snapshot[i].snapshot.orig_time));
-                col3.add(snapshot[i].snapshot.trading_phase_code);
-                col4.add(snapshot[i].snapshot.pre_close_price);
-                col5.add(snapshot[i].snapshot.open_price);
-                col6.add(snapshot[i].snapshot.high_price);
-                col7.add(snapshot[i].snapshot.low_price);
-                col8.add(snapshot[i].snapshot.last_price);
-                col9.add(snapshot[i].snapshot.close_price);
+        TableSP data = Util::createTable(colNames, cols);
+        vector<ConstantSP> args = {data};
+        try{
+            if(!transform.isNull())
+                data = transform->call(session_->getHeap().get(), args);
+        } catch (exception &e){
+            throw RuntimeException("[PLUGIN::AMDQUOTE] call transform error " + string(e.what()));
+        }
 
-                int bidPriceIndex = 0;
-                col10.add(snapshot[i].snapshot.bid_price[bidPriceIndex++]);
-                col11.add(snapshot[i].snapshot.bid_price[bidPriceIndex++]);
-                col12.add(snapshot[i].snapshot.bid_price[bidPriceIndex++]);
-                col13.add(snapshot[i].snapshot.bid_price[bidPriceIndex++]);
-                col14.add(snapshot[i].snapshot.bid_price[bidPriceIndex++]);
-                col15.add(snapshot[i].snapshot.bid_price[bidPriceIndex++]);
-                col16.add(snapshot[i].snapshot.bid_price[bidPriceIndex++]);
-                col17.add(snapshot[i].snapshot.bid_price[bidPriceIndex++]);
-                col18.add(snapshot[i].snapshot.bid_price[bidPriceIndex++]);
-                col19.add(snapshot[i].snapshot.bid_price[bidPriceIndex++]);
+        if(insertedTable.isNull())
+            throw RuntimeException("[PLUGIN::AMDQUOTE] insertedTable is null");
+        if(insertedTable ->columns() != data->columns())
+            throw RuntimeException("[PLUGIN::AMDQUOTE] The number of columns in the table to be inserted "
+                + string("must be the same as the number of columns in the original table."));
 
-                int bidVolumeIndex = 0;
-                col20.add(snapshot[i].snapshot.bid_volume[bidVolumeIndex++]);
-                col21.add(snapshot[i].snapshot.bid_volume[bidVolumeIndex++]);
-                col22.add(snapshot[i].snapshot.bid_volume[bidVolumeIndex++]);
-                col23.add(snapshot[i].snapshot.bid_volume[bidVolumeIndex++]);
-                col24.add(snapshot[i].snapshot.bid_volume[bidVolumeIndex++]);
-                col25.add(snapshot[i].snapshot.bid_volume[bidVolumeIndex++]);
-                col26.add(snapshot[i].snapshot.bid_volume[bidVolumeIndex++]);
-                col27.add(snapshot[i].snapshot.bid_volume[bidVolumeIndex++]);
-                col28.add(snapshot[i].snapshot.bid_volume[bidVolumeIndex++]);
-                col29.add(snapshot[i].snapshot.bid_volume[bidVolumeIndex++]);
-
-                int offerPriceIndex = 0;
-                col30.add(snapshot[i].snapshot.offer_price[offerPriceIndex++]);
-                col31.add(snapshot[i].snapshot.offer_price[offerPriceIndex++]);
-                col32.add(snapshot[i].snapshot.offer_price[offerPriceIndex++]);
-                col33.add(snapshot[i].snapshot.offer_price[offerPriceIndex++]);
-                col34.add(snapshot[i].snapshot.offer_price[offerPriceIndex++]);
-                col35.add(snapshot[i].snapshot.offer_price[offerPriceIndex++]);
-                col36.add(snapshot[i].snapshot.offer_price[offerPriceIndex++]);
-                col37.add(snapshot[i].snapshot.offer_price[offerPriceIndex++]);
-                col38.add(snapshot[i].snapshot.offer_price[offerPriceIndex++]);
-                col39.add(snapshot[i].snapshot.offer_price[offerPriceIndex++]);
-
-                int offerVolumeIndex = 0;
-                col40.add(snapshot[i].snapshot.offer_volume[offerVolumeIndex++]);
-                col41.add(snapshot[i].snapshot.offer_volume[offerVolumeIndex++]);
-                col42.add(snapshot[i].snapshot.offer_volume[offerVolumeIndex++]);
-                col43.add(snapshot[i].snapshot.offer_volume[offerVolumeIndex++]);
-                col44.add(snapshot[i].snapshot.offer_volume[offerVolumeIndex++]);
-                col45.add(snapshot[i].snapshot.offer_volume[offerVolumeIndex++]);
-                col46.add(snapshot[i].snapshot.offer_volume[offerVolumeIndex++]);
-                col47.add(snapshot[i].snapshot.offer_volume[offerVolumeIndex++]);
-                col48.add(snapshot[i].snapshot.offer_volume[offerVolumeIndex++]);
-                col49.add(snapshot[i].snapshot.offer_volume[offerVolumeIndex++]);
-
-                col50.add(snapshot[i].snapshot.num_trades);
-                col51.add(snapshot[i].snapshot.total_volume_trade);
-                col52.add(snapshot[i].snapshot.total_value_trade);
-                col53.add(snapshot[i].snapshot.total_bid_volume);
-                col54.add(snapshot[i].snapshot.total_offer_volume);
-                col55.add(snapshot[i].snapshot.weighted_avg_bid_price);
-                col56.add(snapshot[i].snapshot.weighted_avg_offer_price);
-                col57.add(snapshot[i].snapshot.IOPV);
-                col58.add(snapshot[i].snapshot.yield_to_maturity);
-                col59.add(snapshot[i].snapshot.high_limited);
-                col60.add(snapshot[i].snapshot.low_limited);
-                col61.add(snapshot[i].snapshot.price_earning_ratio1);
-                col62.add(snapshot[i].snapshot.price_earning_ratio2);
-                col63.add(snapshot[i].snapshot.change1);
-                col64.add(snapshot[i].snapshot.change2);
-                col65.add(snapshot[i].snapshot.channel_no);
-                col66.add(snapshot[i].snapshot.md_stream_id);
-                col67.add(snapshot[i].snapshot.instrument_status);
-                col68.add(snapshot[i].snapshot.pre_close_iopv);
-                col69.add(snapshot[i].snapshot.alt_weighted_avg_bid_price);
-                col70.add(snapshot[i].snapshot.alt_weighted_avg_offer_price);
-                col71.add(snapshot[i].snapshot.etf_buy_number);
-                col72.add(snapshot[i].snapshot.etf_buy_amount);
-                col73.add(snapshot[i].snapshot.etf_buy_money);
-                col74.add(snapshot[i].snapshot.etf_sell_number);
-                col75.add(snapshot[i].snapshot.etf_sell_amount);
-                col76.add(snapshot[i].snapshot.etf_sell_money);
-                col77.add(snapshot[i].snapshot.total_warrant_exec_volume);
-                col78.add(snapshot[i].snapshot.war_lower_price);
-                col79.add(snapshot[i].snapshot.war_upper_price);
-                col80.add(snapshot[i].snapshot.withdraw_buy_number);
-                col81.add(snapshot[i].snapshot.withdraw_buy_amount);
-                col82.add(snapshot[i].snapshot.withdraw_buy_money);
-                col83.add(snapshot[i].snapshot.withdraw_sell_number);
-                col84.add(snapshot[i].snapshot.withdraw_sell_amount);
-                col85.add(snapshot[i].snapshot.withdraw_sell_money);
-                col86.add(snapshot[i].snapshot.total_bid_number);
-                col87.add(snapshot[i].snapshot.total_offer_number);
-                col88.add(snapshot[i].snapshot.bid_trade_max_duration);
-                col89.add(snapshot[i].snapshot.offer_trade_max_duration);
-                col90.add(snapshot[i].snapshot.num_bid_orders);
-                col91.add(snapshot[i].snapshot.num_offer_orders);
-                col92.add(snapshot[i].snapshot.last_trade_time);
-                col93.add(snapshot[i].snapshot.variety_category);
-                if(dailyIndexFlag_){
-                    int dailyIndex = INT_MIN;
-                    if(!getDailyIndex(dailyIndex, dailyIndex_, sizeof(dailyIndex_), snapshot[i].snapshot.market_type, datatype, snapshot[i].snapshot.channel_no, convertTime(snapshot[i].snapshot.orig_time))){
-                        LOG_ERR("[PluginAmdQuote]: getDailyIndex failed. ");
-                        return;
-                    }
-                    col95.add(dailyIndex);
-                }
-                if (receivedTimeFlag_) {
-                    col94.add(snapshot[i].reachTime);
-                }
-                reachTimeVec.push_back(snapshot[i].reachTime);
-
-            } else if(varietyCategory == 2) {
-                fcol0.add(snapshot[i].snapshot.market_type);
-                fcol1.add(snapshot[i].snapshot.security_code);
-                fcol2.add(convertTime(snapshot[i].snapshot.orig_time));
-                fcol3.add(snapshot[i].snapshot.trading_phase_code);
-                fcol4.add(snapshot[i].snapshot.pre_close_price);
-                fcol5.add(snapshot[i].snapshot.open_price);
-                fcol6.add(snapshot[i].snapshot.high_price);
-                fcol7.add(snapshot[i].snapshot.low_price);
-                fcol8.add(snapshot[i].snapshot.last_price);
-                fcol9.add(snapshot[i].snapshot.close_price);
-
-                int bidPriceIndex = 0;
-                fcol10.add(snapshot[i].snapshot.bid_price[bidPriceIndex++]);
-                fcol11.add(snapshot[i].snapshot.bid_price[bidPriceIndex++]);
-                fcol12.add(snapshot[i].snapshot.bid_price[bidPriceIndex++]);
-                fcol13.add(snapshot[i].snapshot.bid_price[bidPriceIndex++]);
-                fcol14.add(snapshot[i].snapshot.bid_price[bidPriceIndex++]);
-                fcol15.add(snapshot[i].snapshot.bid_price[bidPriceIndex++]);
-                fcol16.add(snapshot[i].snapshot.bid_price[bidPriceIndex++]);
-                fcol17.add(snapshot[i].snapshot.bid_price[bidPriceIndex++]);
-                fcol18.add(snapshot[i].snapshot.bid_price[bidPriceIndex++]);
-                fcol19.add(snapshot[i].snapshot.bid_price[bidPriceIndex++]);
-
-                int bidVolumeIndex = 0;
-                fcol20.add(snapshot[i].snapshot.bid_volume[bidVolumeIndex++]);
-                fcol21.add(snapshot[i].snapshot.bid_volume[bidVolumeIndex++]);
-                fcol22.add(snapshot[i].snapshot.bid_volume[bidVolumeIndex++]);
-                fcol23.add(snapshot[i].snapshot.bid_volume[bidVolumeIndex++]);
-                fcol24.add(snapshot[i].snapshot.bid_volume[bidVolumeIndex++]);
-                fcol25.add(snapshot[i].snapshot.bid_volume[bidVolumeIndex++]);
-                fcol26.add(snapshot[i].snapshot.bid_volume[bidVolumeIndex++]);
-                fcol27.add(snapshot[i].snapshot.bid_volume[bidVolumeIndex++]);
-                fcol28.add(snapshot[i].snapshot.bid_volume[bidVolumeIndex++]);
-                fcol29.add(snapshot[i].snapshot.bid_volume[bidVolumeIndex++]);
-
-                int offerPriceIndex = 0;
-                fcol30.add(snapshot[i].snapshot.offer_price[offerPriceIndex++]);
-                fcol31.add(snapshot[i].snapshot.offer_price[offerPriceIndex++]);
-                fcol32.add(snapshot[i].snapshot.offer_price[offerPriceIndex++]);
-                fcol33.add(snapshot[i].snapshot.offer_price[offerPriceIndex++]);
-                fcol34.add(snapshot[i].snapshot.offer_price[offerPriceIndex++]);
-                fcol35.add(snapshot[i].snapshot.offer_price[offerPriceIndex++]);
-                fcol36.add(snapshot[i].snapshot.offer_price[offerPriceIndex++]);
-                fcol37.add(snapshot[i].snapshot.offer_price[offerPriceIndex++]);
-                fcol38.add(snapshot[i].snapshot.offer_price[offerPriceIndex++]);
-                fcol39.add(snapshot[i].snapshot.offer_price[offerPriceIndex++]);
-
-                int offerVolumeIndex = 0;
-                fcol40.add(snapshot[i].snapshot.offer_volume[offerVolumeIndex++]);
-                fcol41.add(snapshot[i].snapshot.offer_volume[offerVolumeIndex++]);
-                fcol42.add(snapshot[i].snapshot.offer_volume[offerVolumeIndex++]);
-                fcol43.add(snapshot[i].snapshot.offer_volume[offerVolumeIndex++]);
-                fcol44.add(snapshot[i].snapshot.offer_volume[offerVolumeIndex++]);
-                fcol45.add(snapshot[i].snapshot.offer_volume[offerVolumeIndex++]);
-                fcol46.add(snapshot[i].snapshot.offer_volume[offerVolumeIndex++]);
-                fcol47.add(snapshot[i].snapshot.offer_volume[offerVolumeIndex++]);
-                fcol48.add(snapshot[i].snapshot.offer_volume[offerVolumeIndex++]);
-                fcol49.add(snapshot[i].snapshot.offer_volume[offerVolumeIndex++]);
-
-                fcol50.add(snapshot[i].snapshot.num_trades);
-                fcol51.add(snapshot[i].snapshot.total_volume_trade);
-                fcol52.add(snapshot[i].snapshot.total_value_trade);
-                fcol53.add(snapshot[i].snapshot.total_bid_volume);
-                fcol54.add(snapshot[i].snapshot.total_offer_volume);
-                fcol55.add(snapshot[i].snapshot.weighted_avg_bid_price);
-                fcol56.add(snapshot[i].snapshot.weighted_avg_offer_price);
-                fcol57.add(snapshot[i].snapshot.IOPV);
-                fcol58.add(snapshot[i].snapshot.yield_to_maturity);
-                fcol59.add(snapshot[i].snapshot.high_limited);
-                fcol60.add(snapshot[i].snapshot.low_limited);
-                fcol61.add(snapshot[i].snapshot.price_earning_ratio1);
-                fcol62.add(snapshot[i].snapshot.price_earning_ratio2);
-                fcol63.add(snapshot[i].snapshot.change1);
-                fcol64.add(snapshot[i].snapshot.change2);
-                fcol65.add(snapshot[i].snapshot.channel_no);
-                fcol66.add(snapshot[i].snapshot.md_stream_id);
-                fcol67.add(snapshot[i].snapshot.instrument_status);
-                fcol68.add(snapshot[i].snapshot.pre_close_iopv);
-                fcol69.add(snapshot[i].snapshot.alt_weighted_avg_bid_price);
-                fcol70.add(snapshot[i].snapshot.alt_weighted_avg_offer_price);
-                fcol71.add(snapshot[i].snapshot.etf_buy_number);
-                fcol72.add(snapshot[i].snapshot.etf_buy_amount);
-                fcol73.add(snapshot[i].snapshot.etf_buy_money);
-                fcol74.add(snapshot[i].snapshot.etf_sell_number);
-                fcol75.add(snapshot[i].snapshot.etf_sell_amount);
-                fcol76.add(snapshot[i].snapshot.etf_sell_money);
-                fcol77.add(snapshot[i].snapshot.total_warrant_exec_volume);
-                fcol78.add(snapshot[i].snapshot.war_lower_price);
-                fcol79.add(snapshot[i].snapshot.war_upper_price);
-                fcol80.add(snapshot[i].snapshot.withdraw_buy_number);
-                fcol81.add(snapshot[i].snapshot.withdraw_buy_amount);
-                fcol82.add(snapshot[i].snapshot.withdraw_buy_money);
-                fcol83.add(snapshot[i].snapshot.withdraw_sell_number);
-                fcol84.add(snapshot[i].snapshot.withdraw_sell_amount);
-                fcol85.add(snapshot[i].snapshot.withdraw_sell_money);
-                fcol86.add(snapshot[i].snapshot.total_bid_number);
-                fcol87.add(snapshot[i].snapshot.total_offer_number);
-                fcol88.add(snapshot[i].snapshot.bid_trade_max_duration);
-                fcol89.add(snapshot[i].snapshot.offer_trade_max_duration);
-                fcol90.add(snapshot[i].snapshot.num_bid_orders);
-                fcol91.add(snapshot[i].snapshot.num_offer_orders);
-                fcol92.add(snapshot[i].snapshot.last_trade_time);
-                fcol93.add(snapshot[i].snapshot.variety_category);
-                if(dailyIndexFlag_){
-                    int dailyIndex = INT_MIN;
-                    if(!getDailyIndex(dailyIndex, dailyIndex_, sizeof(dailyIndex_), snapshot[i].snapshot.market_type, datatype, snapshot[i].snapshot.channel_no, convertTime(snapshot[i].snapshot.orig_time))){
-                        LOG_ERR("[PluginAmdQuote]: getDailyIndex failed. ");
-                        return;
-                    }
-                    fcol95.add(dailyIndex);
-                }
-                if (receivedTimeFlag_) {
-                    fcol94.add(snapshot[i].reachTime);
-                }
-                fundReachTimeVec.push_back(snapshot[i].reachTime);
+        INDEX rows;
+        string errMsg;
+        vector<ConstantSP> colData(data->columns());
+        for(INDEX i = 0; i < data->columns(); ++i) {
+            colData[i] = data->getColumn(i);
+            if (colData[i]->getType() != insertedTable->getColumnType(i)) {
+            throw RuntimeException("[PLUGIN::AMDQUOTE] The type of column " + std::to_string(i) +
+                " does not match. Expected: " + Util::getDataTypeString(insertedTable->getColumnType(i)) +
+                ", Actual: " + Util::getDataTypeString(colData[i]->getType()) + ".");
             }
         }
-        if(snapshotFlag_) {
-            vector<ConstantSP> cols;
-            cols.push_back(col0.createVector(DT_INT));
-            cols.push_back(col1.createVector(DT_SYMBOL));
-            cols.push_back(col2.createVector(DT_TIMESTAMP));
-            cols.push_back(col3.createVector(DT_STRING));
-            cols.push_back(col4.createVector(DT_LONG));
-            cols.push_back(col5.createVector(DT_LONG));
-            cols.push_back(col6.createVector(DT_LONG));
-            cols.push_back(col7.createVector(DT_LONG));
-            cols.push_back(col8.createVector(DT_LONG));
-            cols.push_back(col9.createVector(DT_LONG));
-
-            cols.push_back(col10.createVector(DT_LONG));
-            cols.push_back(col11.createVector(DT_LONG));
-            cols.push_back(col12.createVector(DT_LONG));
-            cols.push_back(col13.createVector(DT_LONG));
-            cols.push_back(col14.createVector(DT_LONG));
-            cols.push_back(col15.createVector(DT_LONG));
-            cols.push_back(col16.createVector(DT_LONG));
-            cols.push_back(col17.createVector(DT_LONG));
-            cols.push_back(col18.createVector(DT_LONG));
-            cols.push_back(col19.createVector(DT_LONG));
-
-            cols.push_back(col20.createVector(DT_LONG));
-            cols.push_back(col21.createVector(DT_LONG));
-            cols.push_back(col22.createVector(DT_LONG));
-            cols.push_back(col23.createVector(DT_LONG));
-            cols.push_back(col24.createVector(DT_LONG));
-            cols.push_back(col25.createVector(DT_LONG));
-            cols.push_back(col26.createVector(DT_LONG));
-            cols.push_back(col27.createVector(DT_LONG));
-            cols.push_back(col28.createVector(DT_LONG));
-            cols.push_back(col29.createVector(DT_LONG));
-
-            cols.push_back(col30.createVector(DT_LONG));
-            cols.push_back(col31.createVector(DT_LONG));
-            cols.push_back(col32.createVector(DT_LONG));
-            cols.push_back(col33.createVector(DT_LONG));
-            cols.push_back(col34.createVector(DT_LONG));
-            cols.push_back(col35.createVector(DT_LONG));
-            cols.push_back(col36.createVector(DT_LONG));
-            cols.push_back(col37.createVector(DT_LONG));
-            cols.push_back(col38.createVector(DT_LONG));
-            cols.push_back(col39.createVector(DT_LONG));
-
-            cols.push_back(col40.createVector(DT_LONG));
-            cols.push_back(col41.createVector(DT_LONG));
-            cols.push_back(col42.createVector(DT_LONG));
-            cols.push_back(col43.createVector(DT_LONG));
-            cols.push_back(col44.createVector(DT_LONG));
-            cols.push_back(col45.createVector(DT_LONG));
-            cols.push_back(col46.createVector(DT_LONG));
-            cols.push_back(col47.createVector(DT_LONG));
-            cols.push_back(col48.createVector(DT_LONG));
-            cols.push_back(col49.createVector(DT_LONG));
-
-            cols.push_back(col50.createVector(DT_LONG));
-            cols.push_back(col51.createVector(DT_LONG));
-            cols.push_back(col52.createVector(DT_LONG));
-            cols.push_back(col53.createVector(DT_LONG));
-            cols.push_back(col54.createVector(DT_LONG));
-            cols.push_back(col55.createVector(DT_LONG));
-            cols.push_back(col56.createVector(DT_LONG));
-            cols.push_back(col57.createVector(DT_LONG));
-            cols.push_back(col58.createVector(DT_LONG));
-            cols.push_back(col59.createVector(DT_LONG));
-
-            cols.push_back(col60.createVector(DT_LONG));
-            cols.push_back(col61.createVector(DT_LONG));
-            cols.push_back(col62.createVector(DT_LONG));
-            cols.push_back(col63.createVector(DT_LONG));
-            cols.push_back(col64.createVector(DT_LONG));
-            cols.push_back(col65.createVector(DT_INT));
-            cols.push_back(col66.createVector(DT_STRING));
-            cols.push_back(col67.createVector(DT_STRING));
-            cols.push_back(col68.createVector(DT_LONG));
-            cols.push_back(col69.createVector(DT_LONG));
-
-            cols.push_back(col70.createVector(DT_LONG));
-            cols.push_back(col71.createVector(DT_LONG));
-            cols.push_back(col72.createVector(DT_LONG));
-            cols.push_back(col73.createVector(DT_LONG));
-            cols.push_back(col74.createVector(DT_LONG));
-            cols.push_back(col75.createVector(DT_LONG));
-            cols.push_back(col76.createVector(DT_LONG));
-            cols.push_back(col77.createVector(DT_LONG));
-            cols.push_back(col78.createVector(DT_LONG));
-            cols.push_back(col79.createVector(DT_LONG));
-
-            cols.push_back(col80.createVector(DT_LONG));
-            cols.push_back(col81.createVector(DT_LONG));
-            cols.push_back(col82.createVector(DT_LONG));
-            cols.push_back(col83.createVector(DT_LONG));
-            cols.push_back(col84.createVector(DT_LONG));
-            cols.push_back(col85.createVector(DT_LONG));
-            cols.push_back(col86.createVector(DT_LONG));
-            cols.push_back(col87.createVector(DT_LONG));
-            cols.push_back(col88.createVector(DT_INT));
-            cols.push_back(col89.createVector(DT_INT));
-
-            cols.push_back(col90.createVector(DT_INT));
-            cols.push_back(col91.createVector(DT_INT));
-            cols.push_back(col92.createVector(DT_LONG));
-            cols.push_back(col93.createVector(DT_CHAR));
-            
-            vector<string> colNames = snapshotDataTableMeta_.colNames_;
-            if(receivedTimeFlag_) {
-                cols.push_back(col94.createVector(DT_NANOTIMESTAMP));
-                colNames.push_back("receivedTime");
-            }
-            if(dailyIndexFlag_) {
-                cols.push_back(col95.createVector(DT_INT));
-                colNames.push_back("dailyIndex");
-            }
-            if(outputElapsedFlag_) {
-                colNames.push_back("perPenetrationTime");
-                long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-                for(int i = 0; i < col0.size(); ++i) {
-                    col96.add(time - reachTimeVec[i]);
-                }
-                cols.push_back(col96.createVector(DT_NANOTIME));
-            }
-
-            TableSP data = Util::createTable(colNames, cols);
-            vector<ConstantSP> args = {data};
-            try{
-                if(!transform.isNull())
-                    data = transform->call(session_->getHeap().get(), args);
-            }catch(exception &e){
-                throw RuntimeException("call transform error " + string(e.what()));
-            }
-
-            if(insertedTable.isNull())
-                throw RuntimeException("insertedTable is null");
-            if(insertedTable ->columns() != data->columns())
-                throw RuntimeException("The number of columns of the table to insert must be the same as that of the original table");
-            
-            INDEX rows;
-            string errMsg;
-            vector<ConstantSP> colData(data->columns());
-            for(INDEX i = 0; i < data->columns(); ++i) {
-                colData[i] = data->getColumn(i);
-            }
-            insertedTable->append(colData, rows, errMsg);
-            if(errMsg != "") {
-                LOG_ERR("[PluginAmdQuote]: OnMDsnapshot append failed, ", errMsg);
-                return;
-            }
-
-            if (latencyFlag_) {
-                long long diff = Util::toLocalNanoTimestamp(Util::getNanoEpochTime() - startTime);
-                latencyLog(0, startTime, cnt, diff);
-            }
+        LockGuard<Mutex> _(insertedTable->getLock());
+        insertedTable->append(colData, rows, errMsg);
+        if(errMsg != "") {
+            LOG_ERR("[PLUGIN::AMDQUOTE]: " + typeStr + " data append failed, ", errMsg);
+            return;
         }
-        
-        
-        if(fundSnapshotFlag_) {
-            vector<ConstantSP> fcols;
-            fcols.push_back(fcol0.createVector(DT_INT));
-            fcols.push_back(fcol1.createVector(DT_SYMBOL));
-            fcols.push_back(fcol2.createVector(DT_TIMESTAMP));
-            fcols.push_back(fcol3.createVector(DT_STRING));
-            fcols.push_back(fcol4.createVector(DT_LONG));
-            fcols.push_back(fcol5.createVector(DT_LONG));
-            fcols.push_back(fcol6.createVector(DT_LONG));
-            fcols.push_back(fcol7.createVector(DT_LONG));
-            fcols.push_back(fcol8.createVector(DT_LONG));
-            fcols.push_back(fcol9.createVector(DT_LONG));
 
-            fcols.push_back(fcol10.createVector(DT_LONG));
-            fcols.push_back(fcol11.createVector(DT_LONG));
-            fcols.push_back(fcol12.createVector(DT_LONG));
-            fcols.push_back(fcol13.createVector(DT_LONG));
-            fcols.push_back(fcol14.createVector(DT_LONG));
-            fcols.push_back(fcol15.createVector(DT_LONG));
-            fcols.push_back(fcol16.createVector(DT_LONG));
-            fcols.push_back(fcol17.createVector(DT_LONG));
-            fcols.push_back(fcol18.createVector(DT_LONG));
-            fcols.push_back(fcol19.createVector(DT_LONG));
+        for(unsigned int i = 0; i < buffer.size(); ++i) {
+            ((Vector*)(buffer[i].get()))->clear();
+        }
 
-            fcols.push_back(fcol20.createVector(DT_LONG));
-            fcols.push_back(fcol21.createVector(DT_LONG));
-            fcols.push_back(fcol22.createVector(DT_LONG));
-            fcols.push_back(fcol23.createVector(DT_LONG));
-            fcols.push_back(fcol24.createVector(DT_LONG));
-            fcols.push_back(fcol25.createVector(DT_LONG));
-            fcols.push_back(fcol26.createVector(DT_LONG));
-            fcols.push_back(fcol27.createVector(DT_LONG));
-            fcols.push_back(fcol28.createVector(DT_LONG));
-            fcols.push_back(fcol29.createVector(DT_LONG));
-
-            fcols.push_back(fcol30.createVector(DT_LONG));
-            fcols.push_back(fcol31.createVector(DT_LONG));
-            fcols.push_back(fcol32.createVector(DT_LONG));
-            fcols.push_back(fcol33.createVector(DT_LONG));
-            fcols.push_back(fcol34.createVector(DT_LONG));
-            fcols.push_back(fcol35.createVector(DT_LONG));
-            fcols.push_back(fcol36.createVector(DT_LONG));
-            fcols.push_back(fcol37.createVector(DT_LONG));
-            fcols.push_back(fcol38.createVector(DT_LONG));
-            fcols.push_back(fcol39.createVector(DT_LONG));
-
-            fcols.push_back(fcol40.createVector(DT_LONG));
-            fcols.push_back(fcol41.createVector(DT_LONG));
-            fcols.push_back(fcol42.createVector(DT_LONG));
-            fcols.push_back(fcol43.createVector(DT_LONG));
-            fcols.push_back(fcol44.createVector(DT_LONG));
-            fcols.push_back(fcol45.createVector(DT_LONG));
-            fcols.push_back(fcol46.createVector(DT_LONG));
-            fcols.push_back(fcol47.createVector(DT_LONG));
-            fcols.push_back(fcol48.createVector(DT_LONG));
-            fcols.push_back(fcol49.createVector(DT_LONG));
-
-            fcols.push_back(fcol50.createVector(DT_LONG));
-            fcols.push_back(fcol51.createVector(DT_LONG));
-            fcols.push_back(fcol52.createVector(DT_LONG));
-            fcols.push_back(fcol53.createVector(DT_LONG));
-            fcols.push_back(fcol54.createVector(DT_LONG));
-            fcols.push_back(fcol55.createVector(DT_LONG));
-            fcols.push_back(fcol56.createVector(DT_LONG));
-            fcols.push_back(fcol57.createVector(DT_LONG));
-            fcols.push_back(fcol58.createVector(DT_LONG));
-            fcols.push_back(fcol59.createVector(DT_LONG));
-
-            fcols.push_back(fcol60.createVector(DT_LONG));
-            fcols.push_back(fcol61.createVector(DT_LONG));
-            fcols.push_back(fcol62.createVector(DT_LONG));
-            fcols.push_back(fcol63.createVector(DT_LONG));
-            fcols.push_back(fcol64.createVector(DT_LONG));
-            fcols.push_back(fcol65.createVector(DT_INT));
-            fcols.push_back(fcol66.createVector(DT_STRING));
-            fcols.push_back(fcol67.createVector(DT_STRING));
-            fcols.push_back(fcol68.createVector(DT_LONG));
-            fcols.push_back(fcol69.createVector(DT_LONG));
-
-            fcols.push_back(fcol70.createVector(DT_LONG));
-            fcols.push_back(fcol71.createVector(DT_LONG));
-            fcols.push_back(fcol72.createVector(DT_LONG));
-            fcols.push_back(fcol73.createVector(DT_LONG));
-            fcols.push_back(fcol74.createVector(DT_LONG));
-            fcols.push_back(fcol75.createVector(DT_LONG));
-            fcols.push_back(fcol76.createVector(DT_LONG));
-            fcols.push_back(fcol77.createVector(DT_LONG));
-            fcols.push_back(fcol78.createVector(DT_LONG));
-            fcols.push_back(fcol79.createVector(DT_LONG));
-
-            fcols.push_back(fcol80.createVector(DT_LONG));
-            fcols.push_back(fcol81.createVector(DT_LONG));
-            fcols.push_back(fcol82.createVector(DT_LONG));
-            fcols.push_back(fcol83.createVector(DT_LONG));
-            fcols.push_back(fcol84.createVector(DT_LONG));
-            fcols.push_back(fcol85.createVector(DT_LONG));
-            fcols.push_back(fcol86.createVector(DT_LONG));
-            fcols.push_back(fcol87.createVector(DT_LONG));
-            fcols.push_back(fcol88.createVector(DT_INT));
-            fcols.push_back(fcol89.createVector(DT_INT));
-
-            fcols.push_back(fcol90.createVector(DT_INT));
-            fcols.push_back(fcol91.createVector(DT_INT));
-            fcols.push_back(fcol92.createVector(DT_LONG));
-            fcols.push_back(fcol93.createVector(DT_CHAR));
-            
-            vector<string> fcolNames = snapshotDataTableMeta_.colNames_;
-            if(receivedTimeFlag_) {
-                fcolNames.push_back("receivedTime");
-                fcols.push_back(fcol94.createVector(DT_NANOTIMESTAMP));
-            }
-            if(dailyIndexFlag_) {
-                fcolNames.push_back("dailyIndex");
-                fcols.push_back(fcol95.createVector(DT_INT));
-            }
-            if(outputElapsedFlag_) {
-                fcolNames.push_back("perPenetrationTime");
-                long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-                for(int i = 0; i < fcol0.size(); ++i) {
-                    fcol96.add(time - fundReachTimeVec[i]);
-                }
-                fcols.push_back(fcol96.createVector(DT_NANOTIME));
-            }
-
-            TableSP data = Util::createTable(fcolNames, fcols);
-            vector<ConstantSP> args = {data};
-            try{
-                if(!fundTransform.isNull())
-                    data = fundTransform->call(session_->getHeap().get(), args);
-            }catch(exception &e){
-                throw RuntimeException("call transform error " + string(e.what()));
-            }
-
-            if(fundInsertedTable.isNull())
-                throw RuntimeException("insertedTable is null");
-            if(fundInsertedTable ->columns() != data->columns())
-                throw RuntimeException("The number of columns of the table to insert must be the same as that of the original table");
-            
-            INDEX rows;
-            string errMsg;
-            vector<ConstantSP> colData(data->columns());
-            for(INDEX i = 0; i < data->columns(); ++i) {
-                colData[i] = data->getColumn(i);
-            }
-            fundInsertedTable->append(colData, rows, errMsg);
-            if(errMsg != "") {
-                LOG_ERR("[PluginAmdQuote]: OnMDsnapshot append failed, ", errMsg);
-                return;
-            }
-
-            if (latencyFlag_) {
-                long long diff = Util::toLocalNanoTimestamp(Util::getNanoEpochTime() - startTime);
-                latencyLog(0, startTime, cnt, diff);
-            }
+        if (latencyFlag_) {
+            long long diff = Util::toLocalNanoTimestamp(Util::getNanoEpochTime() - startTime);
+            latencyLog(datatype, startTime, cnt, diff);
         }
     }
-    catch(exception &e){
-        LOG_ERR("[PluginAmdQuote]: OnMDsnapshot failed, ", e.what());
     }
+    catch(exception &exception){
+        string errMsg = exception.what();
+        if(errMsg.find("[PLUGIN::AMDQUOTE]") == string::npos) {
+            LOG_ERR("[PLUGIN::AMDQUOTE]: ", errMsg);
+        } else {
+            LOG_ERR(errMsg);
+        }
+    }
+}
+
+void AMDSpiImp::OnMDSnapshotHelper(timeMDSnapshot* snapshot, uint32_t cnt) {
+    genericAMDHelper<timeMDSnapshot, AmdSnapshotTableMeta>(
+        snapshot,
+        cnt,
+        snapshotData_,
+        snapshotTransform_,
+        snapshotFlag_,
+        snapshotBuffer_,
+        snapshotDataTableMeta_,
+        "snapshot",
+        AMD_SNAPSHOT);
+}
+void AMDSpiImp::OnMDFundSnapshotHelper(timeMDSnapshot* snapshot, uint32_t cnt) {
+    genericAMDHelper<timeMDSnapshot, AmdSnapshotTableMeta>(
+        snapshot,
+        cnt,
+        fundSnapshotData_,
+        fundSnapshotTransform_,
+        fundSnapshotFlag_,
+        fundSnapshotBuffer_,
+        snapshotDataTableMeta_,
+        "fundSnapshot",
+        AMD_FUND_SNAPSHOT);
 }
 
 // 接受并处理快照数据(债券）
 void AMDSpiImp::OnMDBondSnapshotHelper(timeMDBondSnapshot* snapshot, uint32_t cnt) {
-    try{
-        if(cnt == 0)return;
-        long long startTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        // std::lock_guard<std::mutex> amdLock_(amdMutex_);
-
-        // 基金和股票数据插入到不同的表
-        TableSP insertedTable;
-        uint8_t varietyCategory = snapshot[0].bondSnapshot.variety_category;
-        FunctionDefSP transform;
-
-        AMDDataType datatype;
-        if (varietyCategory == 3) { // 债券快照
-            insertedTable = bondSnapshotData_;
-            transform = bondSnapshotTransform_;
-            datatype = AMD_BOND_SNAPSHOT;
-            if(!bondSnapshotFlag_) {
-                return;
-            }
-        }else {
-            return ;
-        }
-
-        int market_type = snapshot[0].bondSnapshot.market_type;
-        AMDTableType tableTyeTotal = getAmdTableType(datatype, market_type);
-        if(tableTyeTotal == AMD_ERROR_TABLE_TYPE){
-            LOG_ERR("[PluginAmdQuote]: error amd table type AMD_ERROR_TABLE_TYPE");
-            return;
-        }
-
-        vector<long long> reachTimeVec;
-        if(outputElapsedFlag_) {
-            reachTimeVec.reserve(cnt);
-        }
-
-        DdbVector<int> col0(0, cnt);
-        DdbVector<string> col1(0, cnt);
-        DdbVector<long long> col2(0, cnt);
-        DdbVector<string> col3(0, cnt);
-        DdbVector<long long> col4(0, cnt);
-        DdbVector<long long> col5(0, cnt);
-        DdbVector<long long> col6(0, cnt);
-        DdbVector<long long> col7(0, cnt);
-        DdbVector<long long> col8(0, cnt);
-        DdbVector<long long> col9(0, cnt);
-
-        DdbVector<long long> col10(0, cnt);
-        DdbVector<long long> col11(0, cnt);
-        DdbVector<long long> col12(0, cnt);
-        DdbVector<long long> col13(0, cnt);
-        DdbVector<long long> col14(0, cnt);
-        DdbVector<long long> col15(0, cnt);
-        DdbVector<long long> col16(0, cnt);
-        DdbVector<long long> col17(0, cnt);
-        DdbVector<long long> col18(0, cnt);
-        DdbVector<long long> col19(0, cnt);
-
-        DdbVector<long long> col20(0, cnt);
-        DdbVector<long long> col21(0, cnt);
-        DdbVector<long long> col22(0, cnt);
-        DdbVector<long long> col23(0, cnt);
-        DdbVector<long long> col24(0, cnt);
-        DdbVector<long long> col25(0, cnt);
-        DdbVector<long long> col26(0, cnt);
-        DdbVector<long long> col27(0, cnt);
-        DdbVector<long long> col28(0, cnt);
-        DdbVector<long long> col29(0, cnt);
-
-        DdbVector<long long> col30(0, cnt);
-        DdbVector<long long> col31(0, cnt);
-        DdbVector<long long> col32(0, cnt);
-        DdbVector<long long> col33(0, cnt);
-        DdbVector<long long> col34(0, cnt);
-        DdbVector<long long> col35(0, cnt);
-        DdbVector<long long> col36(0, cnt);
-        DdbVector<long long> col37(0, cnt);
-        DdbVector<long long> col38(0, cnt);
-        DdbVector<long long> col39(0, cnt);
-        
-        DdbVector<long long> col40(0, cnt);
-        DdbVector<long long> col41(0, cnt);
-        DdbVector<long long> col42(0, cnt);
-        DdbVector<long long> col43(0, cnt);
-        DdbVector<long long> col44(0, cnt);
-        DdbVector<long long> col45(0, cnt);
-        DdbVector<long long> col46(0, cnt);
-        DdbVector<long long> col47(0, cnt);
-        DdbVector<long long> col48(0, cnt);
-        DdbVector<long long> col49(0, cnt);
-
-        DdbVector<long long> col50(0, cnt);
-        DdbVector<long long> col51(0, cnt);
-        DdbVector<long long> col52(0, cnt);
-        DdbVector<long long> col53(0, cnt);
-        DdbVector<long long> col54(0, cnt);
-        DdbVector<long long> col55(0, cnt);
-        DdbVector<long long> col56(0, cnt);
-        DdbVector<long long> col57(0, cnt);
-        DdbVector<long long> col58(0, cnt);
-        DdbVector<long long> col59(0, cnt);
-
-        DdbVector<long long> col60(0, cnt);
-        DdbVector<long long> col61(0, cnt);
-        DdbVector<long long> col62(0, cnt);
-        DdbVector<long long> col63(0, cnt);
-        DdbVector<long long> col64(0, cnt);
-        DdbVector<int> col65(0, cnt);
-        DdbVector<string> col66(0, cnt);
-        DdbVector<string> col67(0, cnt);
-        DdbVector<long long> col68(0, cnt);
-        DdbVector<long long> col69(0, cnt);
-
-        DdbVector<long long> col70(0, cnt);
-        DdbVector<long long> col71(0, cnt);
-        DdbVector<long long> col72(0, cnt);
-        DdbVector<long long> col73(0, cnt);
-        DdbVector<long long> col74(0, cnt);
-        DdbVector<long long> col75(0, cnt);
-        DdbVector<long long> col76(0, cnt);
-        DdbVector<long long> col77(0, cnt);
-        DdbVector<long long> col78(0, cnt);
-        DdbVector<long long> col79(0, cnt);
-
-        DdbVector<long long> col80(0, cnt);
-        DdbVector<long long> col81(0, cnt);
-        DdbVector<long long> col82(0, cnt);
-        DdbVector<long long> col83(0, cnt);
-        DdbVector<long long> col84(0, cnt);
-        DdbVector<long long> col85(0, cnt);
-        DdbVector<long long> col86(0, cnt);
-        DdbVector<long long> col87(0, cnt);
-        DdbVector<int> col88(0, cnt);
-        DdbVector<int> col89(0, cnt);
-
-        DdbVector<int> col90(0, cnt);
-        DdbVector<int> col91(0, cnt);
-        DdbVector<long long> col92(0, cnt);
-        DdbVector<char> col93(0, cnt);
-        DdbVector<long long> col94(0, cnt);
-        DdbVector<int> col95(0, cnt);
-        DdbVector<long long> col96(0, cnt);
-
-
-        for (uint32_t i = 0; i < cnt; ++i) {
-            col0.add(snapshot[i].bondSnapshot.market_type);
-            col1.add(snapshot[i].bondSnapshot.security_code);
-            col2.add(convertTime(snapshot[i].bondSnapshot.orig_time));
-            col3.add(snapshot[i].bondSnapshot.trading_phase_code);
-            col4.add(snapshot[i].bondSnapshot.pre_close_price);
-            col5.add(snapshot[i].bondSnapshot.open_price);
-            col6.add(snapshot[i].bondSnapshot.high_price);
-            col7.add(snapshot[i].bondSnapshot.low_price);
-            col8.add(snapshot[i].bondSnapshot.last_price);
-            col9.add(snapshot[i].bondSnapshot.close_price);
-
-            int bidPriceIndex = 0;
-            col10.add(snapshot[i].bondSnapshot.bid_price[bidPriceIndex++]);
-            col11.add(snapshot[i].bondSnapshot.bid_price[bidPriceIndex++]);
-            col12.add(snapshot[i].bondSnapshot.bid_price[bidPriceIndex++]);
-            col13.add(snapshot[i].bondSnapshot.bid_price[bidPriceIndex++]);
-            col14.add(snapshot[i].bondSnapshot.bid_price[bidPriceIndex++]);
-            col15.add(snapshot[i].bondSnapshot.bid_price[bidPriceIndex++]);
-            col16.add(snapshot[i].bondSnapshot.bid_price[bidPriceIndex++]);
-            col17.add(snapshot[i].bondSnapshot.bid_price[bidPriceIndex++]);
-            col18.add(snapshot[i].bondSnapshot.bid_price[bidPriceIndex++]);
-            col19.add(snapshot[i].bondSnapshot.bid_price[bidPriceIndex++]);
-
-            int bidVolumeIndex = 0;
-            col20.add(snapshot[i].bondSnapshot.bid_volume[bidVolumeIndex++]);
-            col21.add(snapshot[i].bondSnapshot.bid_volume[bidVolumeIndex++]);
-            col22.add(snapshot[i].bondSnapshot.bid_volume[bidVolumeIndex++]);
-            col23.add(snapshot[i].bondSnapshot.bid_volume[bidVolumeIndex++]);
-            col24.add(snapshot[i].bondSnapshot.bid_volume[bidVolumeIndex++]);
-            col25.add(snapshot[i].bondSnapshot.bid_volume[bidVolumeIndex++]);
-            col26.add(snapshot[i].bondSnapshot.bid_volume[bidVolumeIndex++]);
-            col27.add(snapshot[i].bondSnapshot.bid_volume[bidVolumeIndex++]);
-            col28.add(snapshot[i].bondSnapshot.bid_volume[bidVolumeIndex++]);
-            col29.add(snapshot[i].bondSnapshot.bid_volume[bidVolumeIndex++]);
-
-            int offerPriceIndex = 0;
-            col30.add(snapshot[i].bondSnapshot.offer_price[offerPriceIndex++]);
-            col31.add(snapshot[i].bondSnapshot.offer_price[offerPriceIndex++]);
-            col32.add(snapshot[i].bondSnapshot.offer_price[offerPriceIndex++]);
-            col33.add(snapshot[i].bondSnapshot.offer_price[offerPriceIndex++]);
-            col34.add(snapshot[i].bondSnapshot.offer_price[offerPriceIndex++]);
-            col35.add(snapshot[i].bondSnapshot.offer_price[offerPriceIndex++]);
-            col36.add(snapshot[i].bondSnapshot.offer_price[offerPriceIndex++]);
-            col37.add(snapshot[i].bondSnapshot.offer_price[offerPriceIndex++]);
-            col38.add(snapshot[i].bondSnapshot.offer_price[offerPriceIndex++]);
-            col39.add(snapshot[i].bondSnapshot.offer_price[offerPriceIndex++]);
-
-            int offerVolumeIndex = 0;
-            col40.add(snapshot[i].bondSnapshot.offer_volume[offerVolumeIndex++]);
-            col41.add(snapshot[i].bondSnapshot.offer_volume[offerVolumeIndex++]);
-            col42.add(snapshot[i].bondSnapshot.offer_volume[offerVolumeIndex++]);
-            col43.add(snapshot[i].bondSnapshot.offer_volume[offerVolumeIndex++]);
-            col44.add(snapshot[i].bondSnapshot.offer_volume[offerVolumeIndex++]);
-            col45.add(snapshot[i].bondSnapshot.offer_volume[offerVolumeIndex++]);
-            col46.add(snapshot[i].bondSnapshot.offer_volume[offerVolumeIndex++]);
-            col47.add(snapshot[i].bondSnapshot.offer_volume[offerVolumeIndex++]);
-            col48.add(snapshot[i].bondSnapshot.offer_volume[offerVolumeIndex++]);
-            col49.add(snapshot[i].bondSnapshot.offer_volume[offerVolumeIndex++]);
-
-            col50.add(snapshot[i].bondSnapshot.num_trades);
-            col51.add(snapshot[i].bondSnapshot.total_volume_trade);
-            col52.add(snapshot[i].bondSnapshot.total_value_trade);
-            col53.add(snapshot[i].bondSnapshot.total_bid_volume);
-            col54.add(snapshot[i].bondSnapshot.total_offer_volume);
-            col55.add(snapshot[i].bondSnapshot.weighted_avg_bid_price);
-            col56.add(snapshot[i].bondSnapshot.weighted_avg_offer_price);
-            // col57.add(snapshot[i].bondSnapshot.IOPV);
-            col57.add(0);
-            // col58.add(snapshot[i].bondSnapshot.yield_to_maturity);
-            col58.add(LONG_LONG_MIN);
-            col59.add(snapshot[i].bondSnapshot.high_limited);
-            col60.add(snapshot[i].bondSnapshot.low_limited);
-            // col61.add(snapshot[i].bondSnapshot.price_earning_ratio1);
-            col61.add(LONG_LONG_MIN);
-            // col62.add(snapshot[i].bondSnapshot.price_earning_ratio2);
-            col62.add(LONG_LONG_MIN);
-            col63.add(snapshot[i].bondSnapshot.change1);
-            col64.add(snapshot[i].bondSnapshot.change2);
-            col65.add(snapshot[i].bondSnapshot.channel_no);
-            col66.add(snapshot[i].bondSnapshot.md_stream_id);
-            col67.add(snapshot[i].bondSnapshot.instrument_status);
-            // col68.add(snapshot[i].bondSnapshot.pre_close_iopv);
-            col68.add(LONG_LONG_MIN);
-            // col69.add(snapshot[i].bondSnapshot.alt_weighted_avg_bid_price);
-            col69.add(LONG_LONG_MIN);
-            // col70.add(snapshot[i].bondSnapshot.alt_weighted_avg_offer_price);
-            col70.add(LONG_LONG_MIN);
-            // col71.add(snapshot[i].bondSnapshot.etf_buy_number);
-            // col72.add(snapshot[i].bondSnapshot.etf_buy_amount);
-            // col73.add(snapshot[i].bondSnapshot.etf_buy_money);
-            // col74.add(snapshot[i].bondSnapshot.etf_sell_number);
-            // col75.add(snapshot[i].bondSnapshot.etf_sell_amount);
-            // col76.add(snapshot[i].bondSnapshot.etf_sell_money);
-            col71.add(LONG_LONG_MIN);
-            col72.add(LONG_LONG_MIN);
-            col73.add(LONG_LONG_MIN);
-            col74.add(LONG_LONG_MIN);
-            col75.add(LONG_LONG_MIN);
-            col76.add(LONG_LONG_MIN);
-            // col77.add(snapshot[i].bondSnapshot.total_warrant_exec_volume);
-            // col78.add(snapshot[i].bondSnapshot.war_lower_price);
-            // col79.add(snapshot[i].bondSnapshot.war_upper_price);
-            col77.add(LONG_LONG_MIN);
-            col78.add(LONG_LONG_MIN);
-            col79.add(LONG_LONG_MIN);
-            col80.add(snapshot[i].bondSnapshot.withdraw_buy_number);
-            col81.add(snapshot[i].bondSnapshot.withdraw_buy_amount);
-            col82.add(snapshot[i].bondSnapshot.withdraw_buy_money);
-            col83.add(snapshot[i].bondSnapshot.withdraw_sell_number);
-            col84.add(snapshot[i].bondSnapshot.withdraw_sell_amount);
-            col85.add(snapshot[i].bondSnapshot.withdraw_sell_money);
-            col86.add(snapshot[i].bondSnapshot.total_bid_number);
-            col87.add(snapshot[i].bondSnapshot.total_offer_number);
-            col88.add(snapshot[i].bondSnapshot.bid_trade_max_duration);
-            col89.add(snapshot[i].bondSnapshot.offer_trade_max_duration);
-            col90.add(snapshot[i].bondSnapshot.num_bid_orders);
-            col91.add(snapshot[i].bondSnapshot.num_offer_orders);
-            col92.add(snapshot[i].bondSnapshot.last_trade_time);
-            col93.add(snapshot[i].bondSnapshot.variety_category);
-
-            if(dailyIndexFlag_){
-                int dailyIndex = INT_MIN;
-                if(!getDailyIndex(dailyIndex, dailyIndex_, sizeof(dailyIndex_), snapshot[i].bondSnapshot.market_type, datatype, snapshot[i].bondSnapshot.channel_no, convertTime(snapshot[i].bondSnapshot.orig_time))){
-                    LOG_ERR("[PluginAmdQuote]: getDailyIndex failed. ");
-                    return;
-                }
-                col95.add(dailyIndex);
-            }
-            if (receivedTimeFlag_) {
-                col94.add(snapshot[i].reachTime);
-            }
-            reachTimeVec.push_back(snapshot[i].reachTime);
-        }
-
-        vector<ConstantSP> cols;
-        cols.push_back(col0.createVector(DT_INT));
-        cols.push_back(col1.createVector(DT_SYMBOL));
-        cols.push_back(col2.createVector(DT_TIMESTAMP));
-        cols.push_back(col3.createVector(DT_STRING));
-        cols.push_back(col4.createVector(DT_LONG));
-        cols.push_back(col5.createVector(DT_LONG));
-        cols.push_back(col6.createVector(DT_LONG));
-        cols.push_back(col7.createVector(DT_LONG));
-        cols.push_back(col8.createVector(DT_LONG));
-        cols.push_back(col9.createVector(DT_LONG));
-
-        cols.push_back(col10.createVector(DT_LONG));
-        cols.push_back(col11.createVector(DT_LONG));
-        cols.push_back(col12.createVector(DT_LONG));
-        cols.push_back(col13.createVector(DT_LONG));
-        cols.push_back(col14.createVector(DT_LONG));
-        cols.push_back(col15.createVector(DT_LONG));
-        cols.push_back(col16.createVector(DT_LONG));
-        cols.push_back(col17.createVector(DT_LONG));
-        cols.push_back(col18.createVector(DT_LONG));
-        cols.push_back(col19.createVector(DT_LONG));
-
-        cols.push_back(col20.createVector(DT_LONG));
-        cols.push_back(col21.createVector(DT_LONG));
-        cols.push_back(col22.createVector(DT_LONG));
-        cols.push_back(col23.createVector(DT_LONG));
-        cols.push_back(col24.createVector(DT_LONG));
-        cols.push_back(col25.createVector(DT_LONG));
-        cols.push_back(col26.createVector(DT_LONG));
-        cols.push_back(col27.createVector(DT_LONG));
-        cols.push_back(col28.createVector(DT_LONG));
-        cols.push_back(col29.createVector(DT_LONG));
-
-        cols.push_back(col30.createVector(DT_LONG));
-        cols.push_back(col31.createVector(DT_LONG));
-        cols.push_back(col32.createVector(DT_LONG));
-        cols.push_back(col33.createVector(DT_LONG));
-        cols.push_back(col34.createVector(DT_LONG));
-        cols.push_back(col35.createVector(DT_LONG));
-        cols.push_back(col36.createVector(DT_LONG));
-        cols.push_back(col37.createVector(DT_LONG));
-        cols.push_back(col38.createVector(DT_LONG));
-        cols.push_back(col39.createVector(DT_LONG));
-
-        cols.push_back(col40.createVector(DT_LONG));
-        cols.push_back(col41.createVector(DT_LONG));
-        cols.push_back(col42.createVector(DT_LONG));
-        cols.push_back(col43.createVector(DT_LONG));
-        cols.push_back(col44.createVector(DT_LONG));
-        cols.push_back(col45.createVector(DT_LONG));
-        cols.push_back(col46.createVector(DT_LONG));
-        cols.push_back(col47.createVector(DT_LONG));
-        cols.push_back(col48.createVector(DT_LONG));
-        cols.push_back(col49.createVector(DT_LONG));
-
-        cols.push_back(col50.createVector(DT_LONG));
-        cols.push_back(col51.createVector(DT_LONG));
-        cols.push_back(col52.createVector(DT_LONG));
-        cols.push_back(col53.createVector(DT_LONG));
-        cols.push_back(col54.createVector(DT_LONG));
-        cols.push_back(col55.createVector(DT_LONG));
-        cols.push_back(col56.createVector(DT_LONG));
-        cols.push_back(col57.createVector(DT_LONG));
-        cols.push_back(col58.createVector(DT_LONG));
-        cols.push_back(col59.createVector(DT_LONG));
-
-        cols.push_back(col60.createVector(DT_LONG));
-        cols.push_back(col61.createVector(DT_LONG));
-        cols.push_back(col62.createVector(DT_LONG));
-        cols.push_back(col63.createVector(DT_LONG));
-        cols.push_back(col64.createVector(DT_LONG));
-        cols.push_back(col65.createVector(DT_INT));
-        cols.push_back(col66.createVector(DT_STRING));
-        cols.push_back(col67.createVector(DT_STRING));
-        cols.push_back(col68.createVector(DT_LONG));
-        cols.push_back(col69.createVector(DT_LONG));
-
-        cols.push_back(col70.createVector(DT_LONG));
-        cols.push_back(col71.createVector(DT_LONG));
-        cols.push_back(col72.createVector(DT_LONG));
-        cols.push_back(col73.createVector(DT_LONG));
-        cols.push_back(col74.createVector(DT_LONG));
-        cols.push_back(col75.createVector(DT_LONG));
-        cols.push_back(col76.createVector(DT_LONG));
-        cols.push_back(col77.createVector(DT_LONG));
-        cols.push_back(col78.createVector(DT_LONG));
-        cols.push_back(col79.createVector(DT_LONG));
-
-        cols.push_back(col80.createVector(DT_LONG));
-        cols.push_back(col81.createVector(DT_LONG));
-        cols.push_back(col82.createVector(DT_LONG));
-        cols.push_back(col83.createVector(DT_LONG));
-        cols.push_back(col84.createVector(DT_LONG));
-        cols.push_back(col85.createVector(DT_LONG));
-        cols.push_back(col86.createVector(DT_LONG));
-        cols.push_back(col87.createVector(DT_LONG));
-        cols.push_back(col88.createVector(DT_INT));
-        cols.push_back(col89.createVector(DT_INT));
-
-        cols.push_back(col90.createVector(DT_INT));
-        cols.push_back(col91.createVector(DT_INT));
-        cols.push_back(col92.createVector(DT_LONG));
-        cols.push_back(col93.createVector(DT_CHAR));
-        
-        if(receivedTimeFlag_)
-            cols.push_back(col94.createVector(DT_NANOTIMESTAMP));
-        if(dailyIndexFlag_)
-            cols.push_back(col95.createVector(DT_INT));
-        if(outputElapsedFlag_) {
-            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-            for(int i = 0; i < col0.size(); ++i) {
-                col96.add(time - reachTimeVec[i]);
-            }
-            cols.push_back(col96.createVector(DT_NANOTIME));
-        }
-
-        vector<string> colNames = snapshotDataTableMeta_.colNames_;
-        if(receivedTimeFlag_)
-            colNames.push_back("receivedTime");
-        if(dailyIndexFlag_)
-            colNames.push_back("dailyIndex");
-        if(outputElapsedFlag_)
-            colNames.push_back("perPenetrationTime");
-        
-        TableSP data = Util::createTable(colNames, cols);
-        vector<ConstantSP> args = {data};
-        try{
-            if(!transform.isNull())
-                data = transform->call(session_->getHeap().get(), args);
-        }catch(exception &e){
-            throw RuntimeException("call transform error " + string(e.what()));
-        }
-
-        if(insertedTable.isNull())
-            throw RuntimeException("insertedTable is null");
-        if(insertedTable ->columns() != data->columns())
-            throw RuntimeException("The number of columns of the table to insert must be the same as that of the original table");
-
-        INDEX rows;
-        string errMsg;
-        vector<ConstantSP> colData(data->columns());
-        for(INDEX i = 0; i < data->columns(); ++i) {
-            colData[i] = data->getColumn(i);
-        }
-        insertedTable->append(colData, rows, errMsg);
-        if(errMsg != "") {
-            LOG_ERR("[PluginAmdQuote]: OnMDBondSnapshot append failed, ", errMsg);
-            return;
-        }
-
-        if (latencyFlag_) {
-            long long diff = Util::toLocalNanoTimestamp(Util::getNanoEpochTime() - startTime);
-            latencyLog(3, startTime, cnt, diff);
-        }
-    }
-    catch(exception &e){
-        LOG_ERR("[PluginAmdQuote]: OnMDBondSnapshot failed, ", e.what());
-    }
+    genericAMDHelper<timeMDBondSnapshot, AmdSnapshotTableMeta>(
+        snapshot,
+        cnt,
+        bondSnapshotData_,
+        bondSnapshotTransform_,
+        bondSnapshotFlag_,
+        bondSnapshotBuffer_,
+        snapshotDataTableMeta_,
+        "bondSnapshot",
+        AMD_BOND_SNAPSHOT);
 }
 
-// 接受并处理逐笔委托数据（包含基金和股票数据）
 void AMDSpiImp::OnMDTickOrderHelper(timeMDTickOrder* ticks, uint32_t cnt) {
-    try{
-        if(cnt == 0) return;
-        long long startTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        // std::lock_guard<std::mutex> amdLock_(amdMutex_);
+    genericAMDHelper<timeMDTickOrder, AmdOrderTableMeta>(
+        ticks,
+        cnt,
+        orderData_,
+        orderTransform_,
+        orderFlag_,
+        orderBuffer_,
+        orderTableMeta_,
+        "order",
+        AMD_ORDER);
+}
 
-        // 基金和股票数据插入到不同的表
-        TableSP insertedTable = orderData_;
-        FunctionDefSP transform = orderTransform_;
-        TableSP fundInsertedTable = fundOrderData_;
-        FunctionDefSP fundTransform = fundOrderTransform_;
-
-        uint8_t varietyCategory;
-        AMDDataType datatype;
-        int market_type;
-        
-        vector<long long> reachTimeVec;
-        if(outputElapsedFlag_) {
-            reachTimeVec.reserve(cnt);
-        }
-        vector<long long> fundReachTimeVec;
-        if(outputElapsedFlag_) {
-            fundReachTimeVec.reserve(cnt);
-        }
-
-        DdbVector<int> col0(0, cnt);
-        DdbVector<string> col1(0, cnt);
-        DdbVector<int> col2(0, cnt);
-        DdbVector<long long> col3(0, cnt);
-        DdbVector<long long> col4(0, cnt);
-        DdbVector<long long> col5(0, cnt);
-        DdbVector<long long> col6(0, cnt);
-        DdbVector<char> col7(0, cnt);
-        DdbVector<char> col8(0, cnt);
-        DdbVector<string> col9(0, cnt);
-        DdbVector<long long> col10(0, cnt);
-        DdbVector<long long> col11(0, cnt);
-        DdbVector<char> col12(0, cnt);
-        DdbVector<long long> col13(0, cnt);
-        DdbVector<int> col14(0, cnt);
-        DdbVector<long long> col15(0, cnt);        
-        
-        DdbVector<int> fcol0(0, cnt);
-        DdbVector<string> fcol1(0, cnt);
-        DdbVector<int> fcol2(0, cnt);
-        DdbVector<long long> fcol3(0, cnt);
-        DdbVector<long long> fcol4(0, cnt);
-        DdbVector<long long> fcol5(0, cnt);
-        DdbVector<long long> fcol6(0, cnt);
-        DdbVector<char> fcol7(0, cnt);
-        DdbVector<char> fcol8(0, cnt);
-        DdbVector<string> fcol9(0, cnt);
-        DdbVector<long long> fcol10(0, cnt);
-        DdbVector<long long> fcol11(0, cnt);
-        DdbVector<char> fcol12(0, cnt);
-        DdbVector<long long> fcol13(0, cnt);
-        DdbVector<int> fcol14(0, cnt);
-        DdbVector<long long> fcol15(0, cnt);
-
-        for (uint32_t i = 0; i < cnt; ++i) {
-            varietyCategory = ticks[i].order.variety_category;
-            if (varietyCategory == 1) {
-                datatype = AMD_ORDER;
-                if(!orderFlag_) {
-                    continue;
-                }
-            } else if(varietyCategory == 2){
-                datatype = AMD_FUND_ORDER;
-                if(!fundOrderFlag_) {
-                    continue;
-                }
-            } else {
-                continue;
-            }
-            market_type = ticks[i].order.market_type;
-            AMDTableType tableTyeTotal = getAmdTableType(datatype, market_type);
-
-            if(tableTyeTotal == AMD_ERROR_TABLE_TYPE){
-                LOG_ERR("[PluginAmdQuote]: error amd table type AMD_ERROR_TABLE_TYPE");
-                return;
-            }
-            if(varietyCategory == 1) {
-                col0.add(ticks[i].order.market_type);
-                col1.add(ticks[i].order.security_code);
-                col2.add(ticks[i].order.channel_no);
-                col3.add(ticks[i].order.appl_seq_num);
-                col4.add(convertTime(ticks[i].order.order_time));
-                col5.add(ticks[i].order.order_price);
-                col6.add(ticks[i].order.order_volume);
-                col7.add(ticks[i].order.side);
-                col8.add(ticks[i].order.order_type);
-                col9.add(ticks[i].order.md_stream_id);
-                col10.add(ticks[i].order.orig_order_no);
-                col11.add(ticks[i].order.biz_index);
-                col12.add(ticks[i].order.variety_category);
-                if (receivedTimeFlag_) {
-                    col13.add(ticks[i].reachTime);
-                }
-                reachTimeVec.push_back(ticks[i].reachTime);
-                if(dailyIndexFlag_){
-                    int dailyIndex = INT_MIN;
-                    if(!getDailyIndex(dailyIndex, dailyIndex_, sizeof(dailyIndex_), ticks[i].order.market_type, datatype, ticks[i].order.channel_no, convertTime(ticks[i].order.order_time))){
-                        LOG_ERR("[PluginAmdQuote]: getDailyIndex failed. ");
-                        return;
-                    }
-                    col14.add(dailyIndex);
-                }
-            } else if(varietyCategory == 2) {
-                fcol0.add(ticks[i].order.market_type);
-                fcol1.add(ticks[i].order.security_code);
-                fcol2.add(ticks[i].order.channel_no);
-                fcol3.add(ticks[i].order.appl_seq_num);
-                fcol4.add(convertTime(ticks[i].order.order_time));
-                fcol5.add(ticks[i].order.order_price);
-                fcol6.add(ticks[i].order.order_volume);
-                fcol7.add(ticks[i].order.side);
-                fcol8.add(ticks[i].order.order_type);
-                fcol9.add(ticks[i].order.md_stream_id);
-                fcol10.add(ticks[i].order.orig_order_no);
-                fcol11.add(ticks[i].order.biz_index);
-                fcol12.add(ticks[i].order.variety_category);
-                if (receivedTimeFlag_) {
-                    fcol13.add(ticks[i].reachTime);
-                }
-                fundReachTimeVec.push_back(ticks[i].reachTime);
-                if(dailyIndexFlag_){
-                    int dailyIndex = INT_MIN;
-                    if(!getDailyIndex(dailyIndex, dailyIndex_, sizeof(dailyIndex_), ticks[i].order.market_type, datatype, ticks[i].order.channel_no, convertTime(ticks[i].order.order_time))){
-                        LOG_ERR("[PluginAmdQuote]: getDailyIndex failed. ");
-                        return;
-                    }
-                    fcol14.add(dailyIndex);
-                }
-            }
-        }
-
-        if(orderFlag_) {
-            vector<ConstantSP> cols;
-            cols.push_back(col0.createVector(DT_INT));
-            cols.push_back(col1.createVector(DT_STRING));
-            cols.push_back(col2.createVector(DT_INT));
-            cols.push_back(col3.createVector(DT_LONG));
-            cols.push_back(col4.createVector(DT_TIMESTAMP));
-            cols.push_back(col5.createVector(DT_LONG));
-            cols.push_back(col6.createVector(DT_LONG));
-            cols.push_back(col7.createVector(DT_CHAR));
-            cols.push_back(col8.createVector(DT_CHAR));
-            cols.push_back(col9.createVector(DT_STRING));
-            cols.push_back(col10.createVector(DT_LONG));
-            cols.push_back(col11.createVector(DT_LONG));
-            cols.push_back(col12.createVector(DT_CHAR));
-
-            vector<string> colNames = orderTableMeta_.colNames_;
-            if (receivedTimeFlag_) {     // to avoid flag corner case
-                cols.push_back(col13.createVector(DT_NANOTIMESTAMP));
-                colNames.push_back("receivedTime");
-            }
-            if(dailyIndexFlag_){
-                cols.push_back(col14.createVector(DT_INT));
-                colNames.push_back("dailyIndex");
-            }
-            if(outputElapsedFlag_) {
-                colNames.push_back("perPenetrationTime");
-                long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-                for(int i = 0; i < col0.size(); ++i) {
-                    col15.add(time - reachTimeVec[i]);
-                }
-                cols.push_back(col15.createVector(DT_NANOTIME));
-            }
-
-            TableSP data = Util::createTable(colNames, cols);
-
-            vector<ConstantSP> args = {data};
-            try{
-                if(!transform.isNull())
-                    data = transform->call(session_->getHeap().get(), args);
-            }catch(exception &e){
-                throw RuntimeException("call transform error " + string(e.what()));
-            }
-
-            if(insertedTable.isNull())
-                throw RuntimeException("insertedTable is null");
-            if(insertedTable ->columns() != data->columns()) {
-                throw RuntimeException("The number of stock columns of the table to insert must be the same as that of the original table");
-            }
-
-            INDEX rows;
-            string errMsg;
-            vector<ConstantSP> colData(data->columns());
-            for(INDEX i = 0; i < data->columns(); ++i) {
-                colData[i] = data->getColumn(i);
-            }
-            insertedTable->append(colData, rows, errMsg);
-            if(errMsg != "") {
-                LOG_ERR("[PluginAmdQuote]: OnMDTickOrder append failed, ", errMsg);
-                return;
-            }
-
-            if (latencyFlag_) {
-                long long diff = Util::toLocalNanoTimestamp(Util::getNanoEpochTime() - startTime);
-                latencyLog(2, startTime, cnt, diff);
-            }
-        }
-        if (fundOrderFlag_) {
-            vector<ConstantSP> fcols;
-            fcols.push_back(fcol0.createVector(DT_INT));
-            fcols.push_back(fcol1.createVector(DT_STRING));
-            fcols.push_back(fcol2.createVector(DT_INT));
-            fcols.push_back(fcol3.createVector(DT_LONG));
-            fcols.push_back(fcol4.createVector(DT_TIMESTAMP));
-            fcols.push_back(fcol5.createVector(DT_LONG));
-            fcols.push_back(fcol6.createVector(DT_LONG));
-            fcols.push_back(fcol7.createVector(DT_CHAR));
-            fcols.push_back(fcol8.createVector(DT_CHAR));
-            fcols.push_back(fcol9.createVector(DT_STRING));
-            fcols.push_back(fcol10.createVector(DT_LONG));
-            fcols.push_back(fcol11.createVector(DT_LONG));
-            fcols.push_back(fcol12.createVector(DT_CHAR));
-            
-            vector<string> fcolNames = orderTableMeta_.colNames_;
-            if (receivedTimeFlag_) {
-                fcols.push_back(fcol13.createVector(DT_NANOTIMESTAMP));
-                fcolNames.push_back("receivedTime");
-            }
-            if(dailyIndexFlag_) {
-                fcols.push_back(fcol14.createVector(DT_INT));
-                fcolNames.push_back("dailyIndex");
-            }
-            if(outputElapsedFlag_) {
-                fcolNames.push_back("perPenetrationTime");
-                long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-                for(int i = 0; i < fcol0.size(); ++i) {
-                    fcol15.add(time - fundReachTimeVec[i]);
-                }
-                fcols.push_back(fcol15.createVector(DT_NANOTIME));
-            }
-
-            TableSP data = Util::createTable(fcolNames, fcols);
-
-            vector<ConstantSP> args = {data};
-            try{
-                if(!fundTransform.isNull())
-                    data = fundTransform->call(session_->getHeap().get(), args);
-            }catch(exception &e){
-                throw RuntimeException("call transform error " + string(e.what()));
-            }
-
-            if(fundInsertedTable.isNull())
-                throw RuntimeException("insertedTable is null");
-            if(fundInsertedTable ->columns() != data->columns())
-                throw RuntimeException("The number of fund columns of the table to insert must be the same as that of the original table");
-
-            INDEX rows;
-            string errMsg;
-            vector<ConstantSP> colData(data->columns());
-            for(INDEX i = 0; i < data->columns(); ++i) {
-                colData[i] = data->getColumn(i);
-            }
-            fundInsertedTable->append(colData, rows, errMsg);
-            if(errMsg != "") {
-                LOG_ERR("[PluginAmdQuote]: OnMDTickOrder append failed, ", errMsg);
-                return;
-            }
-
-            if (latencyFlag_) {
-                long long diff = Util::toLocalNanoTimestamp(Util::getNanoEpochTime() - startTime);
-                latencyLog(2, startTime, cnt, diff);
-            }
-        }
-
-    }
-    catch(exception &e){
-        LOG_ERR("[PluginAmdQuote]: OnMDTickOrder failed, ", e.what());
-    }
+void AMDSpiImp::OnMDTickFundOrderHelper(timeMDTickOrder* ticks, uint32_t cnt) {
+    genericAMDHelper<timeMDTickOrder, AmdOrderTableMeta>(
+        ticks,
+        cnt,
+        fundOrderData_,
+        fundOrderTransform_,
+        fundOrderFlag_,
+        fundOrderBuffer_,
+        orderTableMeta_,
+        "order",
+        AMD_FUND_ORDER);
 }
 
 // 接受并处理逐笔委托数据（债券）
 void AMDSpiImp::OnMDBondTickOrderHelper(timeMDBondTickOrder* ticks, uint32_t cnt) {
-    try{
-        if(cnt == 0)return;
-        long long startTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        // std::lock_guard<std::mutex> amdLock_(amdMutex_);
-
-        // 基金和股票数据插入到不同的表
-        TableSP insertedTable;
-        FunctionDefSP transform;
-        uint8_t varietyCategory = ticks[0].bondOrder.variety_category;
-        AMDDataType datatype;
-        if (varietyCategory == 3) { // 债券
-            insertedTable = bondOrderData_;
-            transform = bondOrderTransform_;
-            datatype = AMD_BOND_ORDER;
-            if(!bondOrderFlag_) {
-                return;
-            }
-        } else {
-            return ;
-        }
-
-        int market_type = ticks[0].bondOrder.market_type;
-        AMDTableType tableTyeTotal = getAmdTableType(datatype, market_type);
-        if(tableTyeTotal == AMD_ERROR_TABLE_TYPE){
-            LOG_ERR("[PluginAmdQuote]: error amd table type AMD_ERROR_TABLE_TYPE");
-            return;
-        }
-
-        vector<long long> reachTimeVec;
-        if(outputElapsedFlag_) {
-            reachTimeVec.reserve(cnt);
-        }
-
-        DdbVector<int> col0(0, cnt);
-        DdbVector<string> col1(0, cnt);
-        DdbVector<int> col2(0, cnt);
-        DdbVector<long long> col3(0, cnt);
-        DdbVector<long long> col4(0, cnt);
-        DdbVector<long long> col5(0, cnt);
-        DdbVector<long long> col6(0, cnt);
-        DdbVector<char> col7(0, cnt);
-        DdbVector<char> col8(0, cnt);
-        DdbVector<string> col9(0, cnt);
-        DdbVector<long long> col10(0, cnt);
-        DdbVector<long long> col11(0, cnt);
-        DdbVector<char> col12(0, cnt);
-        DdbVector<long long> col13(0, cnt);
-        DdbVector<int> col14(0, cnt);
-        DdbVector<long long> col15(0, cnt);
-
-        for (uint32_t i = 0; i < cnt; ++i) {
-            col0.add(ticks[i].bondOrder.market_type);
-            col1.add(ticks[i].bondOrder.security_code);
-            col2.add(ticks[i].bondOrder.channel_no);
-            col3.add(ticks[i].bondOrder.appl_seq_num);
-            col4.add(convertTime(ticks[i].bondOrder.order_time));
-            col5.add(ticks[i].bondOrder.order_price);
-            col6.add(ticks[i].bondOrder.order_volume);
-            col7.add(ticks[i].bondOrder.side);
-            col8.add(ticks[i].bondOrder.order_type);
-            col9.add(ticks[i].bondOrder.md_stream_id);
-            col10.add(ticks[i].bondOrder.orig_order_no);
-            col11.add(LONG_LONG_MIN);
-            col12.add(ticks[i].bondOrder.variety_category);
-            if (receivedTimeFlag_) {
-                col13.add(ticks[i].reachTime);
-            }
-            reachTimeVec.push_back(ticks[i].reachTime);
-            if(dailyIndexFlag_){
-                int dailyIndex = INT_MIN;
-                if(!getDailyIndex(dailyIndex, dailyIndex_, sizeof(dailyIndex_), ticks[i].bondOrder.market_type, datatype, ticks[i].bondOrder.channel_no, convertTime(ticks[i].bondOrder.order_time))){
-                    LOG_ERR("[PluginAmdQuote]: getDailyIndex failed. ");
-                    return;
-                }
-                col14.add(dailyIndex);
-            }
-        }
-
-        vector<ConstantSP> cols;
-        cols.push_back(col0.createVector(DT_INT));
-        cols.push_back(col1.createVector(DT_STRING));
-        cols.push_back(col2.createVector(DT_INT));
-        cols.push_back(col3.createVector(DT_LONG));
-        cols.push_back(col4.createVector(DT_TIMESTAMP));
-        cols.push_back(col5.createVector(DT_LONG));
-        cols.push_back(col6.createVector(DT_LONG));
-        cols.push_back(col7.createVector(DT_CHAR));
-        cols.push_back(col8.createVector(DT_CHAR));
-        cols.push_back(col9.createVector(DT_STRING));
-        cols.push_back(col10.createVector(DT_LONG));
-        cols.push_back(col11.createVector(DT_LONG));
-        cols.push_back(col12.createVector(DT_CHAR));
-
-        if (receivedTimeFlag_) {
-            cols.push_back(col13.createVector(DT_NANOTIMESTAMP));
-        }
-        if(dailyIndexFlag_)
-            cols.push_back(col14.createVector(DT_INT));
-        if(outputElapsedFlag_) {
-            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-            for(int i = 0; i < col0.size(); ++i) {
-                col15.add(time - reachTimeVec[i]);
-            }
-            cols.push_back(col15.createVector(DT_NANOTIME));
-        }
-
-        vector<string> colNames = orderTableMeta_.colNames_;
-        if(receivedTimeFlag_)
-            colNames.push_back("receivedTime");
-        if(dailyIndexFlag_)
-            colNames.push_back("dailyIndex");
-        if(outputElapsedFlag_)
-            colNames.push_back("perPenetrationTime");
-
-        TableSP data = Util::createTable(colNames, cols);
-
-        vector<ConstantSP> args = {data};
-        try{
-            if(!transform.isNull())
-                data = transform->call(session_->getHeap().get(), args);
-        }catch(exception &e){
-            throw RuntimeException("call transform error " + string(e.what()));
-        }
-
-        if(insertedTable.isNull())
-            throw RuntimeException("insertedTable is null");
-        if(insertedTable ->columns() != data->columns())
-            throw RuntimeException("The number of columns of the table to insert must be the same as that of the original table");
-
-        INDEX rows;
-        string errMsg;
-        vector<ConstantSP> colData(data->columns());
-        for(INDEX i = 0; i < data->columns(); ++i) {
-            colData[i] = data->getColumn(i);
-        }
-        insertedTable->append(colData, rows, errMsg);
-        if(errMsg != "") {
-            LOG_ERR("[PluginAmdQuote]: OnMDBondTickOrder append failed, ", errMsg);
-            return;
-        }
-
-        if (latencyFlag_) { 
-            long long diff = Util::toLocalNanoTimestamp(Util::getNanoEpochTime() - startTime);
-            latencyLog(5, startTime, cnt, diff);
-        }
-    }
-    catch(exception &e){
-        LOG_ERR("[PluginAmdQuote]: OnMDBondTickOrder failed, ", e.what());
-    }
+    genericAMDHelper<timeMDBondTickOrder, AmdOrderTableMeta>(
+        ticks,
+        cnt,
+        bondOrderData_,
+        bondOrderTransform_,
+        bondOrderFlag_,
+        bondOrderBuffer_,
+        orderTableMeta_,
+        "bondOrder",
+        AMD_BOND_ORDER);
 }
 
-// 接受并处理逐笔成交数据（包含基金和股票数据）
-void AMDSpiImp::OnMDTickExecutionHelper(timeMDTickExecution* tick, uint32_t cnt)  {
-    try{
-        if(cnt == 0) return;
-        long long startTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-
-        TableSP insertedTable = executionData_;
-        FunctionDefSP transform = executionTransform_;
-        TableSP fundInsertedTable = fundExecutionData_;
-        FunctionDefSP fundTransform = fundExecutionTransform_;
-
-        uint8_t varietyCategory;
-        AMDDataType datatype;
-        int market_type;
-
-        vector<long long> reachTimeVec;
-        if(outputElapsedFlag_) {
-            reachTimeVec.reserve(cnt);
-        }
-        vector<long long> fundReachTimeVec;
-        if(outputElapsedFlag_) {
-            fundReachTimeVec.reserve(cnt);
-        }
-
-        DdbVector<int> col0(0, cnt);
-        DdbVector<string> col1(0, cnt);
-        DdbVector<long long> col2(0, cnt);
-        DdbVector<int> col3(0, cnt);
-        DdbVector<long long> col4(0, cnt);
-        DdbVector<long long> col5(0, cnt);
-        DdbVector<long long> col6(0, cnt);
-        DdbVector<long long> col7(0, cnt);
-        DdbVector<long long> col8(0, cnt);
-        DdbVector<long long> col9(0, cnt);
-        DdbVector<char> col10(0, cnt);
-        DdbVector<char> col11(0, cnt);
-        DdbVector<string> col12(0, cnt);
-        DdbVector<long long> col13(0, cnt);
-        DdbVector<char> col14(0, cnt);
-        DdbVector<long long> col15(0, cnt);
-        DdbVector<int> col16(0, cnt);
-        DdbVector<long long> col17(0, cnt);
-
-        DdbVector<int> fcol0(0, cnt);
-        DdbVector<string> fcol1(0, cnt);
-        DdbVector<long long> fcol2(0, cnt);
-        DdbVector<int> fcol3(0, cnt);
-        DdbVector<long long> fcol4(0, cnt);
-        DdbVector<long long> fcol5(0, cnt);
-        DdbVector<long long> fcol6(0, cnt);
-        DdbVector<long long> fcol7(0, cnt);
-        DdbVector<long long> fcol8(0, cnt);
-        DdbVector<long long> fcol9(0, cnt);
-        DdbVector<char> fcol10(0, cnt);
-        DdbVector<char> fcol11(0, cnt);
-        DdbVector<string> fcol12(0, cnt);
-        DdbVector<long long> fcol13(0, cnt);
-        DdbVector<char> fcol14(0, cnt);
-        DdbVector<long long> fcol15(0, cnt);
-        DdbVector<int> fcol16(0, cnt);
-        DdbVector<long long> fcol17(0, cnt);
-
-        for (uint32_t i = 0; i < cnt; ++i) {
-            varietyCategory = tick[i].execution.variety_category;
-            if (varietyCategory == 1) {
-                datatype = AMD_EXECUTION;
-                if(!executionFlag_) {
-                    continue;
-                }
-            } else if(varietyCategory == 2){
-                datatype = AMD_FUND_EXECUTION;
-                if(!fundExecutionFlag_) {
-                    continue;
-                }
-            } else {
-                continue;
-            }
-            market_type = tick[i].execution.market_type;
-            AMDTableType tableTyeTotal = getAmdTableType(datatype, market_type);
-            
-            if(tableTyeTotal == AMD_ERROR_TABLE_TYPE){
-                LOG_ERR("[PluginAmdQuote]: error amd table type AMD_ERROR_TABLE_TYPE");
-                return;
-            }
-
-            if(varietyCategory == 1) {
-                col0.add(tick[i].execution.market_type);
-                col1.add(tick[i].execution.security_code);
-                col2.add(convertTime(tick[i].execution.exec_time));
-                col3.add(tick[i].execution.channel_no);
-                col4.add(tick[i].execution.appl_seq_num);
-                col5.add(tick[i].execution.exec_price);
-                col6.add(tick[i].execution.exec_volume);
-                col7.add(tick[i].execution.value_trade);
-                col8.add(tick[i].execution.bid_appl_seq_num);
-                col9.add(tick[i].execution.offer_appl_seq_num);
-                col10.add(tick[i].execution.side);
-                col11.add(tick[i].execution.exec_type);
-                col12.add(tick[i].execution.md_stream_id);
-                col13.add(tick[i].execution.biz_index);
-                col14.add(tick[i].execution.variety_category);
-
-                if (receivedTimeFlag_) {
-                    col15.add(tick[i].reachTime);
-                }
-                reachTimeVec.push_back(tick[i].reachTime);
-                if(dailyIndexFlag_){
-                    int dailyIndex = INT_MIN;
-                    if(!getDailyIndex(dailyIndex, dailyIndex_, sizeof(dailyIndex_), tick[i].execution.market_type, datatype, tick[i].execution.channel_no, convertTime(tick[i].execution.exec_time))){
-                        LOG_ERR("[PluginAmdQuote]: getDailyIndex failed. ");
-                        return;
-                    }
-                    col16.add(dailyIndex);
-                }
-            } else if(varietyCategory == 2) {
-                fcol0.add(tick[i].execution.market_type);
-                fcol1.add(tick[i].execution.security_code);
-                fcol2.add(convertTime(tick[i].execution.exec_time));
-                fcol3.add(tick[i].execution.channel_no);
-                fcol4.add(tick[i].execution.appl_seq_num);
-                fcol5.add(tick[i].execution.exec_price);
-                fcol6.add(tick[i].execution.exec_volume);
-                fcol7.add(tick[i].execution.value_trade);
-                fcol8.add(tick[i].execution.bid_appl_seq_num);
-                fcol9.add(tick[i].execution.offer_appl_seq_num);
-                fcol10.add(tick[i].execution.side);
-                fcol11.add(tick[i].execution.exec_type);
-                fcol12.add(tick[i].execution.md_stream_id);
-                fcol13.add(tick[i].execution.biz_index);
-                fcol14.add(tick[i].execution.variety_category);
-
-                if (receivedTimeFlag_) {
-                    fcol15.add(tick[i].reachTime);
-                }
-                fundReachTimeVec.push_back(tick[i].reachTime);
-                if(dailyIndexFlag_){
-                    int dailyIndex = INT_MIN;
-                    if(!getDailyIndex(dailyIndex, dailyIndex_, sizeof(dailyIndex_), tick[i].execution.market_type, datatype, tick[i].execution.channel_no, convertTime(tick[i].execution.exec_time))){
-                        LOG_ERR("[PluginAmdQuote]: getDailyIndex failed. ");
-                        return;
-                    }
-                    fcol16.add(dailyIndex);
-                }
-            }
-        }
-
-        if(executionFlag_) {
-            vector<ConstantSP> cols;
-            cols.push_back(col0.createVector(DT_INT));
-            cols.push_back(col1.createVector(DT_SYMBOL));
-            cols.push_back(col2.createVector(DT_TIMESTAMP));
-            cols.push_back(col3.createVector(DT_INT));
-            cols.push_back(col4.createVector(DT_LONG));
-            cols.push_back(col5.createVector(DT_LONG));
-            cols.push_back(col6.createVector(DT_LONG));
-            cols.push_back(col7.createVector(DT_LONG));
-            cols.push_back(col8.createVector(DT_LONG));
-            cols.push_back(col9.createVector(DT_LONG));
-            cols.push_back(col10.createVector(DT_CHAR));
-            cols.push_back(col11.createVector(DT_CHAR));
-            cols.push_back(col12.createVector(DT_STRING));
-            cols.push_back(col13.createVector(DT_LONG));
-            cols.push_back(col14.createVector(DT_CHAR));
-
-            vector<string> colNames = executionTableMeta_.colNames_;
-            if (receivedTimeFlag_) {
-                cols.push_back(col15.createVector(DT_NANOTIMESTAMP));
-                colNames.push_back("receivedTime");
-            }
-            if(dailyIndexFlag_) {
-                cols.push_back(col16.createVector(DT_INT)); 
-                colNames.push_back("dailyIndex");
-            }
-            if(outputElapsedFlag_) {
-                colNames.push_back("perPenetrationTime");
-                long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-                for(int i = 0; i < col0.size(); ++i) {
-                    col17.add(time - reachTimeVec[i]);
-                }
-                cols.push_back(col17.createVector(DT_NANOTIME));
-            }
-
-            TableSP data = Util::createTable(colNames, cols);
-
-            vector<ConstantSP> args = {data};
-            try{
-                if(!transform.isNull())
-                    data = transform->call(session_->getHeap().get(), args);
-            }catch(exception &e){
-                throw RuntimeException("call transform error " + string(e.what()));
-            }
-
-            if(insertedTable.isNull())
-                throw RuntimeException("insertedTable is null");
-            if(insertedTable ->columns() != data->columns())
-                throw RuntimeException("The number of columns of the table to insert must be the same as that of the original table");
-
-            INDEX rows;
-            string errMsg;
-            vector<ConstantSP> colData(data->columns());
-            for(INDEX i = 0; i < data->columns(); ++i) {
-                colData[i] = data->getColumn(i);
-            }
-            insertedTable->append(colData, rows, errMsg);
-            if(errMsg != "") {
-                LOG_ERR("[PluginAmdQuote]: OnMDTickExecution append failed, ", errMsg);
-                return;
-            }
-            
-            if (latencyFlag_) { 
-                long long latency = Util::toLocalNanoTimestamp(Util::getNanoEpochTime() - startTime);
-                latencyLog(1, startTime, cnt, latency);
-            }
-        }
-
-        if(fundExecutionFlag_) {
-            vector<ConstantSP> fcols;
-            fcols.push_back(fcol0.createVector(DT_INT));
-            fcols.push_back(fcol1.createVector(DT_SYMBOL));
-            fcols.push_back(fcol2.createVector(DT_TIMESTAMP));
-            fcols.push_back(fcol3.createVector(DT_INT));
-            fcols.push_back(fcol4.createVector(DT_LONG));
-            fcols.push_back(fcol5.createVector(DT_LONG));
-            fcols.push_back(fcol6.createVector(DT_LONG));
-            fcols.push_back(fcol7.createVector(DT_LONG));
-            fcols.push_back(fcol8.createVector(DT_LONG));
-            fcols.push_back(fcol9.createVector(DT_LONG));
-            fcols.push_back(fcol10.createVector(DT_CHAR));
-            fcols.push_back(fcol11.createVector(DT_CHAR));
-            fcols.push_back(fcol12.createVector(DT_STRING));
-            fcols.push_back(fcol13.createVector(DT_LONG));
-            fcols.push_back(fcol14.createVector(DT_CHAR));
-
-            vector<string> fcolNames = executionTableMeta_.colNames_;
-            if (receivedTimeFlag_) {
-                fcols.push_back(fcol15.createVector(DT_NANOTIMESTAMP));
-                fcolNames.push_back("receivedTime");
-            }
-            if(dailyIndexFlag_) {
-                fcols.push_back(fcol16.createVector(DT_INT)); 
-                fcolNames.push_back("dailyIndex");
-            }
-            if(outputElapsedFlag_) {
-                fcolNames.push_back("perPenetrationTime");
-                long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-                for(int i = 0; i < fcol0.size(); ++i) {
-                    fcol17.add(time - fundReachTimeVec[i]);
-                }
-                fcols.push_back(fcol17.createVector(DT_NANOTIME));
-            }
-
-            TableSP data = Util::createTable(fcolNames, fcols);
-
-            vector<ConstantSP> args = {data};
-            try{
-                if(!fundTransform.isNull())
-                    data = fundTransform->call(session_->getHeap().get(), args);
-            }catch(exception &e){
-                throw RuntimeException("call transform error " + string(e.what()));
-            }
-
-            if(fundInsertedTable.isNull())
-                throw RuntimeException("insertedTable is null");
-            if(fundInsertedTable ->columns() != data->columns())
-                throw RuntimeException("The number of columns of the table to insert must be the same as that of the original table");
-
-            INDEX rows;
-            string errMsg;
-            vector<ConstantSP> colData(data->columns());
-            for(INDEX i = 0; i < data->columns(); ++i) {
-                colData[i] = data->getColumn(i);
-            }
-            fundInsertedTable->append(colData, rows, errMsg);
-            if(errMsg != "") {
-                LOG_ERR("[PluginAmdQuote]: OnMDTickExecution append failed, ", errMsg);
-                return;
-            }
-            
-            if (latencyFlag_) {
-                long long latency = Util::toLocalNanoTimestamp(Util::getNanoEpochTime() - startTime);
-                latencyLog(1, startTime, cnt, latency);
-            }
-        }
-    }
-    catch(exception& e){
-        LOG_ERR("[PluginAmdQuote]: OnMDTickExecution failed, ", e.what());
-    }
+void AMDSpiImp::OnMDTickExecutionHelper(timeMDTickExecution* tick, uint32_t cnt) {
+    genericAMDHelper<timeMDTickExecution, AmdExecutionTableMeta>(
+        tick,
+        cnt,
+        executionData_,
+        executionTransform_,
+        executionFlag_,
+        executionBuffer_,
+        executionTableMeta_,
+        "execution",
+        AMD_EXECUTION);
 }
 
-// 接受并处理逐笔成交数据（债券）
-void AMDSpiImp::OnMDBondTickExecutionHelper(timeMDBondTickExecution* tick, uint32_t cnt)  {
-    try{
-        if(cnt == 0)return;
-        long long startTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        // std::lock_guard<std::mutex> amdLock_(amdMutex_);
+void AMDSpiImp::OnMDTickFundExecutionHelper(timeMDTickExecution* tick, uint32_t cnt)  {
+    genericAMDHelper<timeMDTickExecution, AmdExecutionTableMeta>(
+        tick,
+        cnt,
+        fundExecutionData_,
+        fundExecutionTransform_,
+        fundExecutionFlag_,
+        fundExecutionBuffer_,
+        executionTableMeta_,
+        "fundExecution",
+        AMD_FUND_EXECUTION);
 
-        TableSP insertedTable;
-        FunctionDefSP transform;
-        char varietyCategory = tick[0].bondExecution.variety_category;
-        AMDDataType datatype;
-        if (varietyCategory == 3) { // 债券逐笔成交
-            insertedTable = bondExecutionData_;
-            transform = bondExecutionTransform_;
-            datatype = AMD_BOND_EXECUTION;
-            if(!bondExecutionFlag_) {
-                return;
-            }
-        } else {
-            return ;
-        }
-
-        int market_type = tick[0].bondExecution.market_type;
-        AMDTableType tableTyeTotal = getAmdTableType(datatype, market_type);
-        if(tableTyeTotal == AMD_ERROR_TABLE_TYPE){
-            LOG_ERR("[PluginAmdQuote]: error amd table type AMD_ERROR_TABLE_TYPE");
-            return;
-        }
-
-        vector<long long> reachTimeVec;
-        if(outputElapsedFlag_) {
-            reachTimeVec.reserve(cnt);
-        }
-
-        DdbVector<int> col0(0, cnt);
-        DdbVector<string> col1(0, cnt);
-        DdbVector<long long> col2(0, cnt);
-        DdbVector<int> col3(0, cnt);
-        DdbVector<long long> col4(0, cnt);
-        DdbVector<long long> col5(0, cnt);
-        DdbVector<long long> col6(0, cnt);
-        DdbVector<long long> col7(0, cnt);
-        DdbVector<long long> col8(0, cnt);
-        DdbVector<long long> col9(0, cnt);
-        DdbVector<char> col10(0, cnt);
-        DdbVector<char> col11(0, cnt);
-        DdbVector<string> col12(0, cnt);
-        DdbVector<long long> col13(0, cnt);
-        DdbVector<char> col14(0, cnt);
-        DdbVector<long long> col15(0, cnt);
-        DdbVector<int> col16(0, cnt);
-        DdbVector<long long> col17(0, cnt);
-
-        for (uint32_t i = 0; i < cnt; ++i) {
-            col0.add(tick[i].bondExecution.market_type);
-            col1.add(tick[i].bondExecution.security_code);
-            col2.add(convertTime(tick[i].bondExecution.exec_time));
-            col3.add(tick[i].bondExecution.channel_no);
-            col4.add(tick[i].bondExecution.appl_seq_num);
-            col5.add(tick[i].bondExecution.exec_price);
-            col6.add(tick[i].bondExecution.exec_volume);
-            col7.add(tick[i].bondExecution.value_trade);
-            col8.add(tick[i].bondExecution.bid_appl_seq_num);
-            col9.add(tick[i].bondExecution.offer_appl_seq_num);
-            col10.add(tick[i].bondExecution.side);
-            col11.add(tick[i].bondExecution.exec_type);
-            col12.add(tick[i].bondExecution.md_stream_id);
-            // col13.add(tick[i].biz_index);
-            col13.add(LONG_LONG_MIN);
-            col14.add(tick[i].bondExecution.variety_category);
-
-            if (receivedTimeFlag_) {
-                col15.add(tick[i].reachTime);
-            }
-            reachTimeVec.push_back(tick[i].reachTime);
-            if(dailyIndexFlag_){
-                int dailyIndex = INT_MIN;
-                if(!getDailyIndex(dailyIndex, dailyIndex_, sizeof(dailyIndex_), tick[i].bondExecution.market_type, datatype, tick[i].bondExecution.channel_no, convertTime(tick[i].bondExecution.exec_time))){
-                    LOG_ERR("[PluginAmdQuote]: getDailyIndex failed. ");
-                    return;
-                }
-                col16.add(dailyIndex);
-            }
-        }
-
-        vector<ConstantSP> cols;
-        cols.push_back(col0.createVector(DT_INT));
-        cols.push_back(col1.createVector(DT_SYMBOL));
-        cols.push_back(col2.createVector(DT_TIMESTAMP));
-        cols.push_back(col3.createVector(DT_INT));
-        cols.push_back(col4.createVector(DT_LONG));
-        cols.push_back(col5.createVector(DT_LONG));
-        cols.push_back(col6.createVector(DT_LONG));
-        cols.push_back(col7.createVector(DT_LONG));
-        cols.push_back(col8.createVector(DT_LONG));
-        cols.push_back(col9.createVector(DT_LONG));
-        cols.push_back(col10.createVector(DT_CHAR));
-        cols.push_back(col11.createVector(DT_CHAR));
-        cols.push_back(col12.createVector(DT_STRING));
-        cols.push_back(col13.createVector(DT_LONG));
-        cols.push_back(col14.createVector(DT_CHAR));
-        if (receivedTimeFlag_) {
-            cols.push_back(col15.createVector(DT_NANOTIMESTAMP));
-        }
-        if(dailyIndexFlag_)
-            cols.push_back(col16.createVector(DT_INT)); 
-        if(outputElapsedFlag_) {
-            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-            for(int i = 0; i < col0.size(); ++i) {
-                col17.add(time - reachTimeVec[i]);
-            }
-            cols.push_back(col17.createVector(DT_NANOTIME));
-        }
-    
-
-        vector<string> colNames = executionTableMeta_.colNames_;
-        if(receivedTimeFlag_)
-            colNames.push_back("receivedTime");
-        if(dailyIndexFlag_)
-            colNames.push_back("dailyIndex");
-        if(outputElapsedFlag_)
-            colNames.push_back("perPenetrationTime");
-
-        TableSP data = Util::createTable(colNames, cols);
-
-        vector<ConstantSP> args = {data};
-        try{
-            if(!transform.isNull())
-                data = transform->call(session_->getHeap().get(), args);
-        }catch(exception &e){
-            throw RuntimeException("call transform error " + string(e.what()));
-        }
-
-        if(insertedTable.isNull())
-            throw RuntimeException("insertedTable is null");
-        if(insertedTable ->columns() != data->columns())
-            throw RuntimeException("The number of columns of the table to insert must be the same as that of the original table");
-
-        INDEX rows;
-        string errMsg;
-        vector<ConstantSP> colData(data->columns());
-        for(INDEX i = 0; i < data->columns(); ++i) {
-            colData[i] = data->getColumn(i);
-        }
-        insertedTable->append(colData, rows, errMsg);
-        if(errMsg != "") {
-            LOG_ERR("[PluginAmdQuote]: OnMDBondTickExecution append failed, ", errMsg);
-            return;
-        }
-        
-        if (latencyFlag_) {
-            long long latency = Util::toLocalNanoTimestamp(Util::getNanoEpochTime() - startTime);
-            latencyLog(4, startTime, cnt, latency);
-        }
-    }
-    catch(exception& e){
-        LOG_ERR("[PluginAmdQuote]: OnMDBondTickExecution failed, ", e.what());
-    }
 }
 
-// 接受并处理指数快照数据
+void AMDSpiImp::OnMDBondTickExecutionHelper(timeMDBondTickExecution* tick, uint32_t cnt) {
+    genericAMDHelper<timeMDBondTickExecution, AmdExecutionTableMeta>(
+        tick,
+        cnt,
+        bondExecutionData_,
+        bondExecutionTransform_,
+        bondExecutionFlag_,
+        bondExecutionBuffer_,
+        executionTableMeta_,
+        "bondExecution",
+        AMD_BOND_EXECUTION);
+}
+
 void AMDSpiImp::OnMDIndexSnapshotHelper(timeMDIndexSnapshot* index, uint32_t cnt)  {
-    try{
-        if(cnt == 0)return;
-
-        if(!indexFlag_) {
-            return;
-        }
-        AMDDataType datatype = AMD_INDEX;
-        int market_type = index[0].indexSnapshot.market_type;
-        AMDTableType tableTyeTotal = getAmdTableType(datatype, market_type);
-        if(tableTyeTotal == AMD_ERROR_TABLE_TYPE){
-            LOG_ERR("[PluginAmdQuote]: error amd table type AMD_ERROR_TABLE_TYPE");
-            return;
-        }
-
-        vector<long long> reachTimeVec;
-        if(outputElapsedFlag_) {
-            reachTimeVec.reserve(cnt);
-        }
-
-        DdbVector<int> col0(0, cnt);
-        DdbVector<string> col1(0, cnt);
-        DdbVector<long long> col2(0, cnt);
-        DdbVector<string> col3(0, cnt);
-        DdbVector<long long> col4(0, cnt);
-        DdbVector<long long> col5(0, cnt);
-        DdbVector<long long> col6(0, cnt);
-        DdbVector<long long> col7(0, cnt);
-        DdbVector<long long> col8(0, cnt);
-        DdbVector<long long> col9(0, cnt);
-        DdbVector<long long> col10(0, cnt);
-        DdbVector<long long> col11(0, cnt);
-        DdbVector<int> col12(0, cnt);
-        DdbVector<string> col13(0, cnt);
-        DdbVector<char> col14(0, cnt);
-        DdbVector<long long> col15(0, cnt);
-        DdbVector<int> col16(0, cnt);
-        DdbVector<long long> col17(0, cnt);
-        
-        for (uint32_t i = 0; i < cnt; i++) {
-            col0.add(index[i].indexSnapshot.market_type);
-            col1.add(index[i].indexSnapshot.security_code);
-            col2.add(convertTime(index[i].indexSnapshot.orig_time));
-            col3.add(index[i].indexSnapshot.trading_phase_code);
-            col4.add(index[i].indexSnapshot.pre_close_index);
-            col5.add(index[i].indexSnapshot.open_index);
-            col6.add(index[i].indexSnapshot.high_index);
-            col7.add(index[i].indexSnapshot.low_index);
-            col8.add(index[i].indexSnapshot.last_index);
-            col9.add(index[i].indexSnapshot.close_index);
-            col10.add(index[i].indexSnapshot.total_volume_trade);
-            col11.add(index[i].indexSnapshot.total_value_trade);
-            col12.add(index[i].indexSnapshot.channel_no);
-            col13.add(index[i].indexSnapshot.md_stream_id);
-            col14.add(index[i].indexSnapshot.variety_category);
-            if (receivedTimeFlag_) {
-                col15.add(index[i].reachTime);
-            }
-            if(dailyIndexFlag_){
-                int dailyIndex = INT_MIN;
-                if(!getDailyIndex(dailyIndex, dailyIndex_, sizeof(dailyIndex_), index[i].indexSnapshot.market_type, datatype, index[i].indexSnapshot.channel_no, convertTime(index[i].indexSnapshot.orig_time))){
-                    LOG_ERR("[PluginAmdQuote]: getDailyIndex failed. ");
-                    return;
-                }
-                col16.add(dailyIndex);
-            }
-            reachTimeVec.push_back(index[i].reachTime);
-        }
-
-        vector<ConstantSP> cols;
-        cols.push_back(col0.createVector(DT_INT));
-        cols.push_back(col1.createVector(DT_SYMBOL));
-        cols.push_back(col2.createVector(DT_TIMESTAMP));
-        cols.push_back(col3.createVector(DT_STRING));
-        cols.push_back(col4.createVector(DT_LONG));
-        cols.push_back(col5.createVector(DT_LONG));
-        cols.push_back(col6.createVector(DT_LONG));
-        cols.push_back(col7.createVector(DT_LONG));
-        cols.push_back(col8.createVector(DT_LONG));
-        cols.push_back(col9.createVector(DT_LONG));
-        cols.push_back(col10.createVector(DT_LONG));
-        cols.push_back(col11.createVector(DT_LONG));
-        cols.push_back(col12.createVector(DT_INT));
-        cols.push_back(col13.createVector(DT_STRING));
-        cols.push_back(col14.createVector(DT_CHAR));
-        if (receivedTimeFlag_) {
-            cols.push_back(col15.createVector(DT_NANOTIMESTAMP));
-        }
-        if(dailyIndexFlag_)
-            cols.push_back(col16.createVector(DT_INT));
-
-        if(outputElapsedFlag_) {
-            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-            for(int i = 0; i < col0.size(); ++i) {
-                col17.add(time - reachTimeVec[i]);
-            }
-            cols.push_back(col17.createVector(DT_NANOTIME));
-        }
-    
-        vector<string> colNames = indexTableMeta_.colNames_;
-        if(receivedTimeFlag_)
-            colNames.push_back("receivedTime");
-        if(dailyIndexFlag_)
-            colNames.push_back("dailyIndex");
-        if(outputElapsedFlag_)
-            colNames.push_back("perPenetrationTime");
-
-        TableSP data = Util::createTable(colNames, cols);
-
-        vector<ConstantSP> args = {data};
-        try{
-            if(!indexTransform_.isNull())
-                data = indexTransform_->call(session_->getHeap().get(), args);
-        }catch(exception &e){
-            throw RuntimeException("call transform error " + string(e.what()));
-        }
-
-        if(indexData_.isNull())
-            throw RuntimeException("insertedTable is null");
-        if(indexData_ ->columns() != data->columns())
-            throw RuntimeException("The number of columns of the table to insert must be the same as that of the original table");
-        INDEX rows;
-        string errMsg;
-        vector<ConstantSP> colData(data->columns());
-        for(INDEX i = 0; i < data->columns(); ++i) {
-            colData[i] = data->getColumn(i);
-        }
-        indexData_->append(colData, rows, errMsg);
-        if(errMsg != "") {
-            LOG_ERR("[PluginAmdQuote]: OnMDBondTickExecution append failed, ", errMsg);
-            return;
-        }
-    }
-    catch(exception& e){
-        LOG_ERR("[PluginAmdQuote]: OnMDIndexSnapshot failed, ", e.what());
-    }
+    genericAMDHelper<timeMDIndexSnapshot, AmdIndexTableMeta>(
+        index,
+        cnt,
+        indexData_,
+        indexTransform_,
+        indexFlag_,
+        indexBuffer_,
+        indexTableMeta_,
+        "index",
+        AMD_INDEX);
 }
 
 // 接受并处理委托队列数据
 void AMDSpiImp::OnMDOrderQueueHelper(timeMDOrderQueue* queue, uint32_t cnt) {
-    try{
-        if(cnt == 0)return;
-        if(!orderQueueFlag_) {
-            return;
-        }
-        AMDDataType datatype = AMD_ORDER_QUEUE;
-        int market_type = queue[0].orderQueue.market_type;
-        AMDTableType tableTyeTotal = getAmdTableType(datatype, market_type);
-        if(tableTyeTotal == AMD_ERROR_TABLE_TYPE){
-            LOG_ERR("[PluginAmdQuote]: error amd table type AMD_ERROR_TABLE_TYPE");
-            return;
-        }
-        vector<long long> reachTimeVec;
-        if(outputElapsedFlag_) {
-            reachTimeVec.reserve(cnt);
-        }
-
-        DdbVector<int> col0(0, cnt);
-        DdbVector<string> col1(0, cnt);
-        DdbVector<long long> col2(0, cnt);
-        DdbVector<char> col3(0, cnt);
-        DdbVector<long long> col4(0, cnt);
-        DdbVector<long long> col5(0, cnt);
-        DdbVector<int> col6(0, cnt);
-        DdbVector<int> col7(0, cnt);
-
-        DdbVector<long long> col8(0, cnt);
-        DdbVector<long long> col9(0, cnt);
-        DdbVector<long long> col10(0, cnt);
-        DdbVector<long long> col11(0, cnt);
-        DdbVector<long long> col12(0, cnt);
-        DdbVector<long long> col13(0, cnt);
-        DdbVector<long long> col14(0, cnt);
-        DdbVector<long long> col15(0, cnt);
-        DdbVector<long long> col16(0, cnt);
-        DdbVector<long long> col17(0, cnt);
-
-        DdbVector<long long> col18(0, cnt);
-        DdbVector<long long> col19(0, cnt);
-        DdbVector<long long> col20(0, cnt);
-        DdbVector<long long> col21(0, cnt);
-        DdbVector<long long> col22(0, cnt);
-        DdbVector<long long> col23(0, cnt);
-        DdbVector<long long> col24(0, cnt);
-        DdbVector<long long> col25(0, cnt);
-        DdbVector<long long> col26(0, cnt);
-        DdbVector<long long> col27(0, cnt);
-
-        DdbVector<long long> col28(0, cnt);
-        DdbVector<long long> col29(0, cnt);
-        DdbVector<long long> col30(0, cnt);
-        DdbVector<long long> col31(0, cnt);
-        DdbVector<long long> col32(0, cnt);
-        DdbVector<long long> col33(0, cnt);
-        DdbVector<long long> col34(0, cnt);
-        DdbVector<long long> col35(0, cnt);
-        DdbVector<long long> col36(0, cnt);
-        DdbVector<long long> col37(0, cnt);
-
-        DdbVector<long long> col38(0, cnt);
-        DdbVector<long long> col39(0, cnt);
-        DdbVector<long long> col40(0, cnt);
-        DdbVector<long long> col41(0, cnt);
-        DdbVector<long long> col42(0, cnt);
-        DdbVector<long long> col43(0, cnt);
-        DdbVector<long long> col44(0, cnt);
-        DdbVector<long long> col45(0, cnt);
-        DdbVector<long long> col46(0, cnt);
-        DdbVector<long long> col47(0, cnt);
-
-        DdbVector<long long> col48(0, cnt);
-        DdbVector<long long> col49(0, cnt);
-        DdbVector<long long> col50(0, cnt);
-        DdbVector<long long> col51(0, cnt);
-        DdbVector<long long> col52(0, cnt);
-        DdbVector<long long> col53(0, cnt);
-        DdbVector<long long> col54(0, cnt);
-        DdbVector<long long> col55(0, cnt);
-        DdbVector<long long> col56(0, cnt);
-        DdbVector<long long> col57(0, cnt);
-
-        DdbVector<int> col58(0, cnt);
-        DdbVector<string> col59(0, cnt);
-        DdbVector<char> col60(0, cnt);
-        DdbVector<long long> col61(0, cnt);
-        DdbVector<int> col62(0, cnt);
-        DdbVector<long long> col63(0, cnt);
-
-        for (uint32_t i = 0; i < cnt; ++i) {
-            col0.add(queue[i].orderQueue.market_type);
-            col1.add(queue[i].orderQueue.security_code);
-            col2.add(convertTime(queue[i].orderQueue.order_time));
-            col3.add(queue[i].orderQueue.side);
-            col4.add(queue[i].orderQueue.order_price);
-            col5.add(queue[i].orderQueue.order_volume);
-            col6.add(queue[i].orderQueue.num_of_orders);
-            col7.add(queue[i].orderQueue.items);
-
-            col8.add(queue[i].orderQueue.volume[0]);
-            col9.add(queue[i].orderQueue.volume[1]);
-            col10.add(queue[i].orderQueue.volume[2]);
-            col11.add(queue[i].orderQueue.volume[3]);
-            col12.add(queue[i].orderQueue.volume[4]);
-            col13.add(queue[i].orderQueue.volume[5]);
-            col14.add(queue[i].orderQueue.volume[6]);
-            col15.add(queue[i].orderQueue.volume[7]);
-            col16.add(queue[i].orderQueue.volume[8]);
-            col17.add(queue[i].orderQueue.volume[9]);
-
-            col18.add(queue[i].orderQueue.volume[10]);
-            col19.add(queue[i].orderQueue.volume[11]);
-            col20.add(queue[i].orderQueue.volume[12]);
-            col21.add(queue[i].orderQueue.volume[13]);
-            col22.add(queue[i].orderQueue.volume[14]);
-            col23.add(queue[i].orderQueue.volume[15]);
-            col24.add(queue[i].orderQueue.volume[16]);
-            col25.add(queue[i].orderQueue.volume[17]);
-            col26.add(queue[i].orderQueue.volume[18]);
-            col27.add(queue[i].orderQueue.volume[19]);
-
-            col28.add(queue[i].orderQueue.volume[20]);
-            col29.add(queue[i].orderQueue.volume[21]);
-            col30.add(queue[i].orderQueue.volume[22]);
-            col31.add(queue[i].orderQueue.volume[23]);
-            col32.add(queue[i].orderQueue.volume[24]);
-            col33.add(queue[i].orderQueue.volume[25]);
-            col34.add(queue[i].orderQueue.volume[26]);
-            col35.add(queue[i].orderQueue.volume[27]);
-            col36.add(queue[i].orderQueue.volume[28]);
-            col37.add(queue[i].orderQueue.volume[29]);
-
-            col38.add(queue[i].orderQueue.volume[30]);
-            col39.add(queue[i].orderQueue.volume[31]);
-            col40.add(queue[i].orderQueue.volume[32]);
-            col41.add(queue[i].orderQueue.volume[33]);
-            col42.add(queue[i].orderQueue.volume[34]);
-            col43.add(queue[i].orderQueue.volume[35]);
-            col44.add(queue[i].orderQueue.volume[36]);
-            col45.add(queue[i].orderQueue.volume[37]);
-            col46.add(queue[i].orderQueue.volume[38]);
-            col47.add(queue[i].orderQueue.volume[39]);
-
-            col48.add(queue[i].orderQueue.volume[40]);
-            col49.add(queue[i].orderQueue.volume[41]);
-            col50.add(queue[i].orderQueue.volume[42]);
-            col51.add(queue[i].orderQueue.volume[43]);
-            col52.add(queue[i].orderQueue.volume[44]);
-            col53.add(queue[i].orderQueue.volume[45]);
-            col54.add(queue[i].orderQueue.volume[46]);
-            col55.add(queue[i].orderQueue.volume[47]);
-            col56.add(queue[i].orderQueue.volume[48]);
-            col57.add(queue[i].orderQueue.volume[49]);
-
-            col58.add(queue[i].orderQueue.channel_no);
-            col59.add(queue[i].orderQueue.md_stream_id);
-            col60.add(queue[i].orderQueue.variety_category);
-            if (receivedTimeFlag_) {
-                col61.add(queue[i].reachTime);
-            }
-            reachTimeVec.push_back(queue[i].reachTime);
-            if(dailyIndexFlag_){
-                int dailyIndex = INT_MIN;
-                if(!getDailyIndex(dailyIndex, dailyIndex_, sizeof(dailyIndex_), queue[i].orderQueue.market_type, datatype, queue[i].orderQueue.channel_no, convertTime(queue[i].orderQueue.order_time))){
-                    LOG_ERR("[PluginAmdQuote]: getDailyIndex failed. ");
-                    return;
-                }
-                col62.add(dailyIndex);
-            }
-        }
-
-        vector<ConstantSP> cols;
-        cols.push_back(col0.createVector(DT_INT));
-        cols.push_back(col1.createVector(DT_SYMBOL));
-        cols.push_back(col2.createVector(DT_TIMESTAMP));
-        cols.push_back(col3.createVector(DT_CHAR));
-        cols.push_back(col4.createVector(DT_LONG));
-        cols.push_back(col5.createVector(DT_LONG));
-        cols.push_back(col6.createVector(DT_INT));
-        cols.push_back(col7.createVector(DT_INT));
-
-        cols.push_back(col8.createVector(DT_LONG));
-        cols.push_back(col9.createVector(DT_LONG));
-        cols.push_back(col10.createVector(DT_LONG));
-        cols.push_back(col11.createVector(DT_LONG));
-        cols.push_back(col12.createVector(DT_LONG));
-        cols.push_back(col13.createVector(DT_LONG));
-        cols.push_back(col14.createVector(DT_LONG));
-        cols.push_back(col15.createVector(DT_LONG));
-        cols.push_back(col16.createVector(DT_LONG));
-        cols.push_back(col17.createVector(DT_LONG));
-
-        cols.push_back(col18.createVector(DT_LONG));
-        cols.push_back(col19.createVector(DT_LONG));
-        cols.push_back(col20.createVector(DT_LONG));
-        cols.push_back(col21.createVector(DT_LONG));
-        cols.push_back(col22.createVector(DT_LONG));
-        cols.push_back(col23.createVector(DT_LONG));
-        cols.push_back(col24.createVector(DT_LONG));
-        cols.push_back(col25.createVector(DT_LONG));
-        cols.push_back(col26.createVector(DT_LONG));
-        cols.push_back(col27.createVector(DT_LONG));
-
-        cols.push_back(col28.createVector(DT_LONG));
-        cols.push_back(col29.createVector(DT_LONG));
-        cols.push_back(col30.createVector(DT_LONG));
-        cols.push_back(col31.createVector(DT_LONG));
-        cols.push_back(col32.createVector(DT_LONG));
-        cols.push_back(col33.createVector(DT_LONG));
-        cols.push_back(col34.createVector(DT_LONG));
-        cols.push_back(col35.createVector(DT_LONG));
-        cols.push_back(col36.createVector(DT_LONG));
-        cols.push_back(col37.createVector(DT_LONG));
-
-        cols.push_back(col38.createVector(DT_LONG));
-        cols.push_back(col39.createVector(DT_LONG));
-        cols.push_back(col40.createVector(DT_LONG));
-        cols.push_back(col41.createVector(DT_LONG));
-        cols.push_back(col42.createVector(DT_LONG));
-        cols.push_back(col43.createVector(DT_LONG));
-        cols.push_back(col44.createVector(DT_LONG));
-        cols.push_back(col45.createVector(DT_LONG));
-        cols.push_back(col46.createVector(DT_LONG));
-        cols.push_back(col47.createVector(DT_LONG));
-
-        cols.push_back(col48.createVector(DT_LONG));
-        cols.push_back(col49.createVector(DT_LONG));
-        cols.push_back(col50.createVector(DT_LONG));
-        cols.push_back(col51.createVector(DT_LONG));
-        cols.push_back(col52.createVector(DT_LONG));
-        cols.push_back(col53.createVector(DT_LONG));
-        cols.push_back(col54.createVector(DT_LONG));
-        cols.push_back(col55.createVector(DT_LONG));
-        cols.push_back(col56.createVector(DT_LONG));
-        cols.push_back(col57.createVector(DT_LONG));
-
-        cols.push_back(col58.createVector(DT_INT));
-        cols.push_back(col59.createVector(DT_STRING));
-        cols.push_back(col60.createVector(DT_CHAR));
-        if (receivedTimeFlag_) {
-            cols.push_back(col61.createVector(DT_NANOTIMESTAMP));
-        }
-        if(dailyIndexFlag_)
-            cols.push_back(col62.createVector(DT_INT)); 
-
-        if(outputElapsedFlag_) {
-            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-            for(int i = 0; i < col0.size(); ++i) {
-                col63.add(time - reachTimeVec[i]);
-            }
-            cols.push_back(col63.createVector(DT_NANOTIME));
-        }
-        
-        vector<string> colNames = orderQueueMeta_.colNames_;
-        if(receivedTimeFlag_)
-            colNames.push_back("receivedTime");
-        if(dailyIndexFlag_)
-            colNames.push_back("dailyIndex");
-        if(outputElapsedFlag_)
-            colNames.push_back("perPenetrationTime");
-        
-        TableSP data = Util::createTable(colNames, cols);
-
-        vector<ConstantSP> args = {data};
-        try{
-            if(!orderQueueTransform_.isNull())
-                data = orderQueueTransform_->call(session_->getHeap().get(), args);
-        }catch(exception &e){
-            throw RuntimeException("call transform error " + string(e.what()));
-        }
-
-        if(orderQueueData_.isNull())
-            throw RuntimeException("insertedTable is null");
-        if(orderQueueData_ ->columns() != data->columns())
-            throw RuntimeException("The number of columns of the table to insert must be the same as that of the original table");
-
-        INDEX rows;
-        string errMsg;
-        vector<ConstantSP> colData(data->columns());
-        for(INDEX i = 0; i < data->columns(); ++i) {
-            colData[i] = data->getColumn(i);
-        }
-        orderQueueData_->append(colData, rows, errMsg);
-        if(errMsg != "") {
-            LOG_ERR("[PluginAmdQuote]: OnMDBondTickExecution append failed, ", errMsg);
-            return;
-        }
-    }
-    catch(exception &e){
-        LOG_ERR("[PluginAmdQuote]: OnMDOrderQueue failed, ", e.what());
-    }
+    genericAMDHelper<timeMDOrderQueue, AmdOrderQueueTableMeta>(
+        queue,
+        cnt,
+        orderQueueData_,
+        orderQueueTransform_,
+        orderQueueFlag_,
+        orderQueueBuffer_,
+        orderQueueMeta_,
+        "orderQueue",
+        AMD_ORDER_QUEUE);
 }
 
 void AMDSpiImp::pushSnashotData(amd::ama::MDSnapshot* snapshot, uint32_t cnt, long long time){
     for(uint32_t i = 0; i < cnt; ++i){
         auto data = timeMDSnapshot{time, snapshot[i]};
-        snapshotBoundQueue_->blockingPush(data);
+        if(snapshot[i].variety_category == 1) {
+            snapshotBoundQueue_->blockingPush(data);
+        } else {
+            fundSnapshotBoundQueue_->blockingPush(data);
+        }
     }
 }
 
@@ -3278,12 +1828,16 @@ void AMDSpiImp::pushSnashotData(amd::ama::MDSnapshot* snapshot, uint32_t cnt, lo
 void AMDSpiImp::pushOrderData(amd::ama::MDTickOrder* ticks, uint32_t cnt, long long time){
     for(uint32_t i = 0; i < cnt; ++i){
         auto data = timeMDTickOrder{time, ticks[i]};
-        orderBoundQueue_->blockingPush(data);
+        if(ticks[i].variety_category == 1) {
+            orderBoundQueue_->blockingPush(data);
+        } else{
+            fundOrderBoundQueue_->blockingPush(data);
+        }
         int channel = ticks[i].channel_no;
         /**
             * orderExecution push data logic:
             * if the data's channel is unknown, ignore this data.
-            * 
+            *
             * the next pushExecutionData/pushBondOrderData/pushBondExecutionData
             * functions has same push logic
             */
@@ -3301,14 +1855,17 @@ void AMDSpiImp::pushOrderData(amd::ama::MDTickOrder* ticks, uint32_t cnt, long l
                 fundOrderExecutionBoundQueue_[channel]->blockingPush(data);
             }
         }
-
     }
 }
 
 void AMDSpiImp::pushExecutionData(amd::ama::MDTickExecution* ticks, uint32_t cnt, long long time){
     for(uint32_t i = 0; i < cnt; ++i){
         auto data = timeMDTickExecution{time, ticks[i]};
-        executionBoundQueue_->blockingPush(data);
+        if(ticks[i].variety_category == 1) {
+            executionBoundQueue_->blockingPush(data);
+        } else {
+            fundExecutionBoundQueue_->blockingPush(data);
+        }
         int channel = ticks[i].channel_no;
         if(orderExecutionFlag_) {
             if (orderExecutionBoundQueue_.find(channel) != orderExecutionBoundQueue_.end()) {
@@ -3407,7 +1964,7 @@ void AMDSpiImp::setOrderExecutionData(string type, std::unordered_map<int, Table
         else if(market == 102) {
             dailyIndex_[AMD_BOND_ORDER_EXECUTION_SZ] = dailyStartTimestamp;
         }
-    } 
+    }
 }
 
 void AMDSpiImp::setSnapshotData(TableSP snapshotData, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp, int market) {
@@ -3522,18 +2079,24 @@ void AMDSpiImp::setBondOrderData(TableSP orderData, FunctionDefSP transform, boo
 
 void AMDSpiImp::OnEvent(uint32_t level, uint32_t code, const char* event_msg, uint32_t len)
 {
-    static unordered_set<string> errorSet;
+    static LocklessHashmap<string, int> errorMap;
     string codeString = amd::ama::Tools::GetEventCodeString(code);
-    LockGuard<Mutex> amdLock_(&AmdQuote::amdMutex_);
+    // LockGuard<Mutex> amdLock_(&AmdQuote::amdMutex_);
     if(codeString.find("Failed") != string::npos){
-        if(errorSet.count(event_msg) == 0){
-            errorSet.insert(event_msg);
-            LOG_ERR("[PluginAmdQuote]: AMA event: " + codeString);
-            LOG_INFO("[PluginAmdQuote] AMA event: ", std::string(event_msg));
+        if(ERROR_LOG) {
+            LOG_ERR("[PLUGIN::AMDQUOTE]: AMA event: " + codeString);
+            LOG_INFO("[PLUGIN::AMDQUOTE] AMA event: ", std::string(event_msg));
+        } else {
+            int val = 1;
+            if(errorMap.find(event_msg, val) == 0){
+                errorMap.insert(event_msg, val);
+                LOG_ERR("[PLUGIN::AMDQUOTE]: AMA event: " + codeString);
+                LOG_INFO("[PLUGIN::AMDQUOTE] AMA event: ", std::string(event_msg));
+            }
         }
     }else{
         codeString.clear();
-        LOG_INFO("[PluginAmdQuote] AMA event: ", std::string(event_msg));    
+        LOG_INFO("[PLUGIN::AMDQUOTE] AMA event: ", std::string(event_msg));
     }
 
 }

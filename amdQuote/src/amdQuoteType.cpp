@@ -164,11 +164,11 @@ TableSP getOrderQueueSchema(bool receivedTimeFlag, bool dailyIndexFlag, bool out
 // TODO(ruibinhuang@dolphindb.com): check the real attributes of the table
 bool checkSchema(const string& type, TableSP table) {
     INDEX tableColumns = table->columns();
-    if(receivedTimeFlag)
+    if(RECEIVED_TIME_FLAG)
         tableColumns--;
-    if(dailyIndexFlag)
+    if(DAILY_INDEX_FLAG)
         tableColumns--;
-    if(outputElapsedFlag)
+    if(OUTPUT_ELAPSED_FLAG)
         tableColumns--;
     if (type == "snapshot") {
         if (tableColumns!= 94) {
@@ -215,7 +215,7 @@ bool checkSchema(const string& type, TableSP table) {
             return false;
         }
     } else if(type == "orderExecution" || type == "fundOrderExecution" || type == "bondOrderExecution") {
-        tableColumns += 2;   //because two flags always on, so plus 2 to pass check
+        tableColumns += 2;              //because two flags always on, so plus 2 to pass check
         if (tableColumns != 16) {       //FIXME columns number not depends on param
             return false;
         }
