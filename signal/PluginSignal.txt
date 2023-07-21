@@ -1,4 +1,4 @@
-signal,libPluginSignal.so,1.30.21.1.1
+signal,libPluginSignal.so,1.30.22
 dct,dct,operator,1,1,0
 dst,dst,operator,1,1,0
 dwt,dwt,operator,1,1,0

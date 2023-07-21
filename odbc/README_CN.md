@@ -80,7 +80,7 @@ yum install mysql-connector-odbc
 - MS SQL Server：https://www.microsoft.com/en-us/download/details.aspx?id=53339
 - PostgreSQL：https://www.postgresql.org/ftp/odbc/versions/msi/
 
-2. 配置 ODBC 数据源。例如，在 Windows 操作系统中配置 MySQL 的 ODBC 数据源的操作指导，可以参考： [MySQL Manual](https://dev.mysql.com/doc/connector-odbc/en/connector-odbc-configuration-dsn-windows-5-2.html).
+* 配置 ODBC 数据源。例如，在 Windows 操作系统中配置 MySQL 的 ODBC 数据源的操作指导，可以参考： [MySQL manual](https://dev.mysql.com/doc/connector-odbc/en/connector-odbc-configuration-dsn-windows-5-2.html).
 
 
 ### 1.4 Docker 容器环境 （Alpine Linux）
@@ -93,7 +93,7 @@ apk add unixodbc
 apk add unixodbc-dev
 ```
 
-## 2. Linux 环境下编译
+## 2. 编译
 
 ### 2.1 编译 unixODBC-2.3.11
 
@@ -133,14 +133,13 @@ make -j
 make install
 ```
 
-若插件运行机器与编译机器不是同一个，则需要将编译好的 *freetds* 拷贝至运行机器上，即：
+若插件运行机器与编译机器不是同一个，则需要将编译好的 freetds 拷贝至运行机器上，即：
 
-* 将 `/usr/local/freetds/lib`下的 *freetds.conf*, *locales.conf*, *pool.conf* 拷贝至到目标机器上的 `/usr/local/freetds/lib` 目录
+* 将 `/usr/local/freetds/lib`下的 freetds.conf, locales.conf, pool.conf 拷贝至到目标机器上的 `/usr/local/freetds/lib` 目录
 * 将 `/usr/local/freetds/lib/ibtdsodbc.so.0.0.0` 拷贝至目标机器的 `/usr/local/freetds/lib` 目录。
 
-:bulb:**注意**：
-
-> 若使用Docker容器（即使用Alpine Linux操作系统），直接使用 `apk add freetds` 安装的新版本 freetds odbc 可能会与DolphinDB ODBC插件产生冲突而无法正常使用，因此推荐用户按照本小节给出的步骤下载并手动编译 freetds odbc。
+> :bulb:**注意**：
+>>若使用Docker容器（即使用Alpine Linux操作系统），直接使用 `apk add freetds` 安装的新版本 freetds odbc 可能会与DolphinDB ODBC插件产生冲突而无法正常使用，因此推荐用户按照本小节给出的步骤下载并手动编译 freetds odbc。
 
 在 Alpine Linux 环境中编译 freetds odbc 前，需要先添加某些库以提供编译环境：
 
@@ -171,17 +170,17 @@ make install
 loadPlugin("./plugins/odbc/PluginODBC.txt")
 ```
 
-:bulb:**注意**：
-> - 若使用 Windows 插件，加载时必须指定绝对路径，且路径中使用 `\\\\` 或 `/` 代替 `\\`。
-> - 若在 Alpine Linux 环境中使用插件，加载时可能会出现无法找到依赖库的报错，需要在 DolphinDB 的 *server* 目录下添加软链接：
->>
->>  ```
->>  ln -s /usr/lib/libodbc.so.2 libodbc.so.1
->>  ```
+> :bulb:**注意**：
+>>- 若使用 Windows 插件，加载时必须指定绝对路径，且路径中使用 `\\\\` 或 `/` 代替 `\\`。
+>>- 若在 Alpine Linux 环境中使用插件，加载时可能会出现无法找到依赖库的报错，需要在 DolphinDB 的 server 目录下添加软链接：
+>>>>
+>>>>  ```
+>>>>  ln -s /usr/lib/libodbc.so.2 libodbc.so.1
+>>>>  ```
 
 ## 4. 使用插件
 
-您可以通过使用语句 `use odbc` 导入 ODBC 模块名称空间来省略前缀 `odbc ::`。但是，如果函数名称与其他模块中的函数名称冲突，则需要在函数名称中添加前缀 `odbc ::`。
+您可以通过使用语句 `use odbc` 导入 ODBC 模块名称空间来省略前缀 “odbc ::”。但是，如果函数名称与其他模块中的函数名称冲突，则需要在函数名称中添加前缀 `odbc ::`。
 
 ```
 use odbc;
@@ -189,24 +188,24 @@ use odbc;
 
 该插件提供以下5个功能：
 
-### 4.1 `odbc::connect`
+### 4.1 odbc::connect
 
 **语法**
 
-`odbc::connect(connStr, [dataBaseType])`
+* odbc::connect(connStr, [dataBaseType])
 
 **参数**
 
-* `connStr`: ODBC 连接字符串。有关连接字符串格式的更多信息，请参阅 [连接字符串参考](https://www.connectionstrings.com)。ODBC DSN 必须由系统管理员创建。
+* connStr: ODBC 连接字符串。有关连接字符串格式的更多信息，请参阅 [连接字符串参考](https://www.connectionstrings.com)。ODBC DSN 必须由系统管理员创建。
   有关 DSN 连接字符串的更多信息，请参阅 [DSN连接字符串](https://www.connectionstrings.com/dsn/)。我们还可以创建到数据库的 DSN-Less 连接。
   无需依赖存储在文件或系统注册表中的信息，而是在连接字符串中指定驱动程序名称和所有特定于驱动程序的信息。例如: [SQL server 的 DSN-less 连接字符串](https://www.connectionstrings.com/sql-server/) 和[MySQL 的 DSN-less 连接字符串](https://www.connectionstrings.com/mysql/)。
-* `dataBaseType`: 数据库类型。如"MySQL", "SQLServer", "PostgreSQL", "ClickHouse", "SQLite", "Oracle" 不区分大小写。建议连接时指定该参数，否则写入数据时可能出现报错。
+* dataBaseType: 数据库类型。如"MySQL", "SQLServer", "PostgreSQL", "ClickHouse", "SQLite", "Oracle" 不区分大小写。建议连接时指定该参数，否则写入数据时可能出现报错。
 
-:bulb:**注意**：
-> * 驱动程序名称可能会有所不同，具体取决于安装的 ODBC 版本。
-> * 若数据库连接的端口指定错误，则会出现 server crash。
-> * 必须通过 DSN 方式连接 Oracle 数据源，否则连接时用户名和密码可能校验失败；若修改 `/etc/odbc.ini` 中 DSN 配置的 `database` 和 `password`，则需要在 Oracle 命令行中 commit 后才能通过新配置进行连接（也可通过 isql 命令行工具验证配置是否生效）。
-> * 通过 freeTDS 访问数据库时，必须保证 *freetds.conf* 中的 DSN 配置信息正确，否则可能出现 freeTDS crash 的情况。
+> :bulb:**注意**：
+>>* 驱动程序名称可能会有所不同，具体取决于安装的 ODBC 版本。
+>>* 若数据库连接的端口指定错误，则会出现 server crash。
+>>* 必须通过 DSN 方式连接 Oracle 数据源，否则连接时用户名和密码可能校验失败；若修改 `/etc/odbc.ini` 中 DSN 配置的 database 和 password，则需要在 Oracle 命令行中 commit 后才能通过新配置进行连接（也可通过 isql 命令行工具验证配置是否生效）。
+>>* 通过 freeTDS 访问数据库时，必须保证 freetds.conf 中的 DSN 配置信息正确，否则可能出现 freeTDS crash 的情况。
 
 **描述**
 
@@ -220,18 +219,17 @@ conn2 = odbc::connect("Driver={MySQL ODBC 8.0 UNICODE Driver};Server=127.0.0.1;D
 conn3 = odbc::connect("Driver=SQL Server;Server=localhost;Database=zyb_test;User =sa;Password=DolphinDB123;")  
 ```
 
-### 4.2 `odbc::close`
+### 4.2 odbc::close
 
 **语法**
 
-`odbc::close(conn)`
+* odbc::close(conn)
 
 **参数**
 
-`conn`: 由 odbc::connect 创建的连接句柄。
+* conn: 由 odbc::connect 创建的连接句柄。
 
 **描述**
-
 关闭一个 ODBC 连接。
 
 **例子**
@@ -241,23 +239,23 @@ conn1 = odbc::connect("Dsn=mysqlOdbcDsn")
 odbc::close(conn1)
 ```
 
-### 4.3 `odbc::query`
+### 4.3 odbc::query
 
 **语法**
 
-`odbc::query(connHandle|connStr, querySql, [t], [batchSize], [transform])`
+* odbc::query(connHandle|connStr, querySql, [t], [batchSize], [transform])
 
 **参数**
 
-* `connHandle` 或 `connStr`: 连接句柄或连接字符串。
-* `querySql`: 表示查询的 SQL 语句。
-* `t`：表对象。若指定，查询结果将保存到该表中。请注意，`t` 的各字段类型必须与 ODBC 返回的结果兼容（见第5节类型支持），否则将引发异常。
-* `batchSize`: 从 ODBC 查询到的数据行数到达 `batchSize` 后，会将当前已经读到的数据 append 到表 `t` 中。默认值为 262,144。
-* `transform`: 一元函数，并且该函数接受的参数必须是一个表。如果指定了 `transform` 参数，需要先创建分区表，再加载数据。程序会对数据文件中的数据应用 `transform` 参数指定的函数后，将得到的结果保存到数据库中。
+* connHandle or connStr: 连接句柄或连接字符串。
+* querySql: 表示查询的 SQL 语句。
+* t：表对象。若指定，查询结果将保存到该表中。请注意，t 的各字段类型必须与 ODBC 返回的结果兼容（见第5节类型支持），否则将引发异常。
+* batchSize: 从 ODBC 查询到的数据行数到达 batchSize 后，会将当前已经读到的数据 append 到表 t 中。默认值为 262,144。
+* transform: 一元函数，并且该函数接受的参数必须是一个表。如果指定了 transform 参数，需要先创建分区表，再加载数据。程序会对数据文件中的数据应用 transform 参数指定的函数后，将得到的结果保存到数据库中。
 
 **描述**
 
-`odbc::query` 通过 `connHandle` 或 `connStr` 查询数据库并返回 DolphinDB 表。
+`odbc::query` 通过 connHandle 或 connStr 查询数据库并返回 DolphinDB 表。
 
 **例子**
 
@@ -265,19 +263,18 @@ odbc::close(conn1)
 t=odbc::query(conn1,"SELECT max(time),min(time) FROM ecimp_ver3.tbl_monitor;")
 ```
 
-### 4.4 `odbc::execute`
+### 4.4 odbc::execute
 
 **语法**
 
-`odbc::execute(connHandle or connStr, SQLstatements)`
+* odbc::execute(connHandle or connStr, SQLstatements)
 
 **参数**
 
-* `connHandle` 或 `connStr`: 连接句柄或连接字符串。
-* `SQLstatements`: SQL 语句。
+* connHandle or connStr: 连接句柄或连接字符串。
+* SQLstatements: SQL 语句。
 
 **描述**
-
 `odbc::execute` 执行 SQL 语句。无返回结果。
 
 **例子**
@@ -286,19 +283,19 @@ t=odbc::query(conn1,"SELECT max(time),min(time) FROM ecimp_ver3.tbl_monitor;")
 odbc::execute(conn1,"delete from ecimp_ver3.tbl_monitor where `timestamp` BETWEEN '2013-03-26 00:00:01' AND '2013-03-26 23:59:59'")
 ```
 
-### 4.5 `odbc::append`
+### 4.5 odbc::append
 
 **语法**
 
-`odbc::append(connHandle, tableData, tablename, [createTableIfNotExist], [insertIgnore])`
+* odbc::append(connHandle, tableData, tablename, [createTableIfNotExist], [insertIgnore])
 
 **参数**
 
-* `connHandle`: 连接句柄。
-* `tableData`: DolphinDB 表。
-* `tablename`: 连接的数据库中表的名称。
-* `createTableIfNotExist`: 布尔值。true 表示要创建一个新表。默认值是 true。
-* `insertIgnore`: 布尔值。true 表示不插入重复数据。默认值为 false。
+* connHandle: 连接句柄。
+* tableData: DolphinDB 表。
+* tablename: 连接的数据库中表的名称。
+* createTableIfNotExist: 布尔值。true 表示要创建一个新表。默认值是 true。
+* insertIgnore: 布尔值。true 表示不插入重复数据。默认值为 false。
 
 **描述**
 
@@ -316,7 +313,7 @@ odbc::query(conn1,"SELECT * FROM ecimp_ver3.ddbtale")
 
 ### 5.1 查询类型支持
 
-| **ODBC 中的类型**                                | **DolphinDB 中的类型**|
+| type in ODBC                                 | Type in DolphinDB |
 | -------------------------------------------- | ----------------- |
 | SQL_BIT                                      | BOOL              |
 | SQL_TINYINT / SQL_SMALLINT                   | SHORT             |
@@ -332,7 +329,7 @@ odbc::query(conn1,"SELECT * FROM ecimp_ver3.ddbtale")
 
 ### 5.2 转换类型支持
 
-|**DolphinDB**|**PostgreSQL**|**ClickHouse**|**Oracle**|**SQL Server**|**SQLite**|**MySQL**|
+| DolphinDB     | PostgreSQL       | ClickHouse   | Oracle        | SQL Server   | SQLite       | MySQL        |
 | ------------- | ---------------- | ------------ | ------------- | ------------ | ------------ | ------------ |
 | BOOL          | boolean          | Bool         | char(1)       | bit          | bit          | bit          |
 | CHAR          | char(1)          | char(1)      | char(1)       | char(1)      | char(1)      | char(1)      |
@@ -345,9 +342,9 @@ odbc::query(conn1,"SELECT * FROM ecimp_ver3.ddbtale")
 | MINUTE        | time             | time         | time          | time         | time         | time         |
 | SECOND        | time             | time         | time          | time         | time         | time         |
 | DATETIME      | timestamp        | datetime64   | date          | datetime     | datetime     | datetime     |
-| TIMESTAMP     | timestamp        | datetime64   | timestamp     | datetime     | datetime     | datetime     |
+| TIMESTAMP     | timestamp        | datetime64   | timestamp     | datetime2(3) | datetime     | datetime     |
 | NANOTIME      | time             | time         | time          | time         | time         | time         |
-| NANOTIMESTAMP | timestamp        | datetime64   | timestamp     | datetime     | datetime     | datetime     |
+| NANOTIMESTAMP | timestamp        | datetime64   | timestamp     | datetime2(7) | datetime     | datetime     |
 | FLOAT         | float            | float        | float         | float(24)    | float        | float        |
 | DOUBLE        | double precision | double       | binary_double | float(53)    | double       | double       |
 | SYMBOL        | varchar(255)     | varchar(255) | varchar(255)  | varchar(255) | varchar(255) | varchar(255) |
@@ -355,13 +352,13 @@ odbc::query(conn1,"SELECT * FROM ecimp_ver3.ddbtale")
 
 ## 6 问题分析与解决
 
-1. 连接 Windows 系统的 ClickHouse，查询得到的结果显示中文乱码。
+1. 连接 windows 系统的 ClickHouse，查询得到的结果显示中文乱码。
 
    **解决方法**： 请选择 ANSI 的 ClickHouse ODBC 驱动。
 
-2. 连接 ClickHouse 并读取数据时，`datetime` 类型数据返回空值或错误值。
+2. 连接 ClickHouse 并读取数据时，datetime 类型数据返回空值或错误值。
 
-   **原因**： 低于 1.1.10 版本的 ClickHouse 的 ODBC 驱动将 `datetime` 返回为字符串类型，且返回的数据长度错误（长度过短），导致 ODBC 插件无法读取正确的字符串。
+   **原因**： 低于 1.1.10 版本的 ClickHouse 的 ODBC 驱动将 datetime 返回为字符串类型，且返回的数据长度错误（长度过短），导致 ODBC 插件无法读取正确的字符串。
 
    **解决方法**： 更新驱动到不小于1.1.10的版本。
 
@@ -424,3 +421,16 @@ odbc::query(conn1,"SELECT * FROM ecimp_ver3.ddbtale")
     ```
     conn = odbc::connect("Driver=MySQL ODBC 8.0 Unicode Driver;Server=172.17.0.10;Port=3306;Database=testdb;User=root;Password=123456;", "MySQL");
     ```
+
+# ReleaseNotes:
+
+## 故障修复
+
+* 修复了关闭 ODBC 的连接时偶现 server 宕机的问题。（**1.30.22**）
+* 修复了读取 Oracle 的中文标点数据时出现乱码的问题。（**1.30.22**）
+* 修复了多个线程共用一个连接进行并发查询和写入时 server 宕机的问题。（**1.30.22**）
+
+## 功能优化
+
+* 优化了部分报错信息。（**1.30.22**）
+* 增加对接口 odbc::close 输入参数的校验。（**1.30.22**）

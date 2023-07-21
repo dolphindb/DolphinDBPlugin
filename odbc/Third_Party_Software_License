@@ -1,0 +1,96 @@
+DolphinDB Plugin odbc acknowledges that the following third-party proprietary and open source software are used in the provided programs covered by this documentation.
+
+// / \file nanodbc.h The entirety of nanodbc can be found within this file and nanodbc.cpp.
+
+// / \mainpage
+// /
+// / \section synopsis Synopsis
+// / This library provides a wrapper API for the native ODBC API. It aims to do everything ODBC does,
+// / but with a \b much nicer interface. Anything it doesn't (yet) do can be done by retrieving the
+// / native ODBC handles and dropping down to straight ODBC C API code.
+// / For more propaganda, please see the <a href="http://nanodbc.io/">project
+// / homepage</a>.
+// /
+// / \section toc Table of Contents
+// / - \ref license "License"
+// / - \ref credits "Credits"
+// / - Source level documentation:
+// /     - \ref nanodbc "nanodbc namespace"
+// /     - \ref exceptions
+// /     - \ref utility
+// /     - \ref mainc
+// /     - \ref mainf
+// /     - \ref binding
+// /     - \ref bind_multi
+// /     - \ref bind_strings
+// /
+// / \section license License
+// / <div class="license">
+// / Copyright (C) 2013 lexicalunit <lexicalunit@lexicalunit.com>
+// /
+// / The MIT License
+// /
+// / Permission is hereby granted, free of charge, to any person obtaining a copy
+// / of this software and associated documentation files (the "Software"), to deal
+// / in the Software without restriction, including without limitation the rights
+// / to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// / copies of the Software, and to permit persons to whom the Software is
+// / furnished to do so, subject to the following conditions:
+// /
+// / The above copyright notice and this permission notice shall be included in
+// / all copies or substantial portions of the Software.
+// /
+// / THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// / IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// / FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// / AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// / LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// / OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// / THE SOFTWARE.
+// / </div>
+// /
+// / \section credits Credits
+// / <div class="license">
+// / Much of the code in this file was originally derived from TinyODBC.
+// / TinyODBC is hosted at http://code.google.com/p/tiodbc/
+// / Copyright (C) 2008 SqUe squarious@gmail.com
+// / License: The MIT License
+// /
+// / The idea for using RAII for transactions was inspired by SimpleDB: C++ ODBC database API,
+// / however the code in nanodbc is original and not derived from SimpleDB. Therefore
+// / the LGPL license under which SimpleDB is distributed does NOT apply to nanodbc.
+// / SimpleDB is hosted at http://simpledb.sourceforge.net
+// / Copyright (C) 2006 Eminence Technology Pty Ltd
+// / Copyright (C) 2008-2010,2012 Russell Kliese russell@kliese.id.au
+// / License: GNU Lesser General Public version 2.1
+// /
+// / Some improvements and features are based on The Python ODBC Library.
+// / The Python ODBC Library is hosted at http://code.google.com/p/pyodbc/
+// / License: The MIT License
+// /
+// / Implementation of column binding inspired by Nick E. Geht's source code posted to on CodeGuru.
+// / GSODBC hosted at http://www.codeguru.com/mfc_database/gsodbc.html
+// / Copyright (C) 2002 Nick E. Geht
+// / License: Perpetual license to reproduce, distribute, adapt, perform, display, and sublicense.
+// / See http://www.codeguru.com/submission-guidelines.php for details.
+// / </div>
+
+The MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.

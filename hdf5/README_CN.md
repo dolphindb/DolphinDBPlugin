@@ -123,7 +123,7 @@ pacman -S make
     #ifndef H5_HAVE_WIN32_API
     #define H5_HAVE_WIN32_API 1
     #endif
-    
+
     #ifndef H5_HAVE_MINGW
     #define H5_HAVE_MINGW 1
     #endif
@@ -205,7 +205,7 @@ hdf5::ls("/named_type.h5")
 output:
         objName      objType
         ----------------------
-        /            Group      
+        /            Group
         /type_name   NamedDataType
 ```
 ### 2.2 hdf5::lsTable
@@ -494,7 +494,7 @@ hdf5::saveHDF5(tb, "example.h5", "dataset name in hdf5")
 ```
 
 > 注意：
-> 
+>
 > 1. HDF5文件中无法存入空值。若DolphinDB表中存在空值，会按照[数据类型](#3-支持的数据类型)中的默认值存入。
 > 2. 若需通过python读取由HDF5插件生成的h5文件，需要使用通过h5py库进行读取。例如：
 > ```python
@@ -668,24 +668,24 @@ hdf5::saveHDF5(tb, "example.h5", "dataset name in hdf5")
 
 ### 5.2 数据集导入性能
 
-* 单一类型(int)  
-    * 行数 1024 * 1024 * 16 
+* 单一类型(int)
+    * 行数 1024 * 1024 * 16
     * 列数 64
     * 文件大小 4G
     * 耗时 8秒
 * 单一类型(unsigned int)
-    * 行数 1024 * 1024 * 16 
+    * 行数 1024 * 1024 * 16
     * 列数 64
     * 文件大小 4G
     * 耗时 9秒
 * 单一类型(variable-length string)
-    * 行数 1024 * 1024 
+    * 行数 1024 * 1024
     * 列数 64
     * 文件大小 3.6G
     * 耗时 17秒
 * 复合类型
     * 子类型共9列：(str,str,double,int,long,float,int,short,char)
-    * 行数 1024 * 1024 * 62 
+    * 行数 1024 * 1024 * 62
     * 文件大小 3.9G
     * 耗时 10秒
 * 数组复合类型
@@ -693,3 +693,14 @@ hdf5::saveHDF5(tb, "example.h5", "dataset name in hdf5")
     * 行数 1024 * 128 * 62
     * 文件大小 3.9G
     * 耗时 15秒
+
+# ReleaseNotes:
+
+## 故障修复
+
+* 修复使用方法 hdf5::ls 执行特定类型的 hdf5文件后 server 宕机的问题。（**1.30.22**）
+* 修复并行导入多个文件时 server 宕机的问题。（**1.30.22**）
+
+# 功能优化
+
+* 优化接口 hdf5::saveHDF5 的报错信息。（**1.30.22**）

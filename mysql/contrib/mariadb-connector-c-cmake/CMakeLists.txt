@@ -46,7 +46,7 @@ ${MARIADB_CLIENT_SOURCE_DIR}/plugins/auth/sha256_pw.c
 #${MARIADB_CLIENT_SOURCE_DIR}/plugins/auth/sspi_client.c
 #${MARIADB_CLIENT_SOURCE_DIR}/plugins/auth/sspi_errmsg.c
 ${MARIADB_CLIENT_SOURCE_DIR}/plugins/connection/aurora.c
-${MARIADB_CLIENT_SOURCE_DIR}/plugins/connection/replication.c
+#${MARIADB_CLIENT_SOURCE_DIR}/plugins/connection/replication.c
 #${MARIADB_CLIENT_SOURCE_DIR}/plugins/io/remote_io.c
 #${MARIADB_CLIENT_SOURCE_DIR}/plugins/pvio/pvio_npipe.c
 #${MARIADB_CLIENT_SOURCE_DIR}/plugins/pvio/pvio_shmem.c

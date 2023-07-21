@@ -1,4 +1,4 @@
-amdQuote,libPluginAmdQuote.so,1.30.21.1.1
+amdQuote,libPluginAmdQuote.so,1.30.22
 amdConnect,connect,system,4,5,0
 subscribe,subscribe,system,4,6,0
 unsubscribe,unsubscribe,system,2,4,0
@@ -8,3 +8,4 @@ amdClose,close,system,1,1,0
 getCodeList,getCodeList,system,0,0,0
 getETFCodeList,getETFCodeList,system,0,0,0
 enableLatencyStatistics,enableLatencyStatistics,system,2,2,0
+setErrorLog,setErrorLog,system,1,1,0

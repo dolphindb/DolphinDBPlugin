@@ -12,6 +12,7 @@
 #include <open62541/plugin/pki_default.h>
 #include "CoreConcept.h"
 #include "ScalarImp.h"
+#include "Logger.h"
 #include <map>
 #include <vector>
 
@@ -35,7 +36,7 @@ UnixTimeStamp_To_UA_DateTime(UA_Int64 date) {
     return date * UA_DATETIME_MSEC + UA_DATETIME_UNIX_EPOCH - UA_DateTime_localTimeUtcOffset();
 }
 
-
+extern Mutex OPCUA_LATCH;
 class DummyOutput: public Output{
 public:
     virtual bool timeElapsed(long long nanoSeconds){return true;}
@@ -68,6 +69,7 @@ public:
     void subs();
     void unSub(){
         /* Delete the subscription */
+        LockGuard<Mutex> _(&OPCUA_LATCH);
         subFlag_ = false;
         Util::sleep(1000);
         UA_StatusCode retVal = UA_Client_Subscriptions_deleteSingle(client_, subId_);
@@ -76,20 +78,25 @@ public:
             throw RuntimeException("Could not call unsubscribe service. StatusCode " + string(UA_StatusCode_name(retVal)));
         }
 	    UA_Client_run_iterate(client_, 1000);
-	
+
     }
     void run() override {
-        while (running_) {
-            if(subFlag_){
-                UA_StatusCode retVal = UA_Client_run_iterate(client_, 100); 
-                if(retVal!=UA_STATUSCODE_GOOD){
-                    subFlag_ = false;
-                    running_ = false;
-                    //throw RuntimeException(string(UA_StatusCode_name(retVal)));
+        try {
 
+            while (running_) {
+                if(subFlag_){
+                    UA_StatusCode retVal = UA_Client_run_iterate(client_, 100);
+                    if(retVal!=UA_STATUSCODE_GOOD){
+                        subFlag_ = false;
+                        running_ = false;
+                        //throw RuntimeException(string(UA_StatusCode_name(retVal)));
+
+                    }
                 }
+
             }
-            
+        } catch(...) {
+            LOG_ERR("Error occurs in OPCUA sub.");
         }
     }
     bool getSubed(){return subFlag_;}
@@ -99,7 +106,9 @@ public:
     void setRunning(bool run){running_ = run; }
     string getClientUri(){return clientUri_;}
     void setUser(const string &u){user_ = u;}
-    string getUser(){return user_;}
+    string getUser(){
+        return user_;
+    }
     void addRecP(){recv_++;}
     long long getRecP(){return recv_;}
     string getSubID(){return std::to_string(subId_);};
@@ -132,7 +141,7 @@ private:
     long long createTime_ = 0;
     string errorMsg_ ="";
     long long recv_ = 0;
-    
+
 
 };
 
@@ -166,8 +175,8 @@ public:
         }
     }
     void subscribe(Heap *heap, vector<int> &nsIdx, vector<string> &nodeIdString, ConstantSP &handle){
-	    
-	    if(sub_ == nullptr){   
+
+	    if(sub_ == nullptr){
             sub_ = new OPCUASub(heap, client_, connEndPointUrl_, clientUri_, this);
  	        thread_ = new Thread(sub_);
 	        //thread->join();
@@ -189,7 +198,7 @@ public:
         if(getSubed()){
             try{
                 sub_->setRunning(false);
-                sub_->unSub();      
+                sub_->unSub();
             }
             catch(RuntimeException &e){
                 throw e;
@@ -215,5 +224,5 @@ private:
     string connEndPointUrl_ = "";
     bool sessionClosed_ = false;
     SessionSP session_;
-    string clientUri_;   
+    string clientUri_;
 };

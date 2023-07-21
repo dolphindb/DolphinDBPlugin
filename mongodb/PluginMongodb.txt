@@ -1,4 +1,4 @@
-mongodb,libPluginMongodb.so,1.30.21.1.1
+mongodb,libPluginMongodb.so,1.30.22
 mongodbConnect,connect,system,4,5,0
 mongodbLoad,load,system,4,5,0
 mongodbAggregate,aggregate,system,4,5,0

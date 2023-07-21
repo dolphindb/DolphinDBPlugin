@@ -12,10 +12,9 @@
 #include "HSNsqSpiImpl.h"
 #include "Logger.h"
 
-// 一个全局的表结构
 // extern TableSP tsp;
-extern std::vector<TableSP> tables;
-extern std::vector<bool> subscribe_status;
+extern std::vector<TableSP> TABLES;
+extern std::vector<bool> SUBSCRIBE_STATUS;
 
 struct Status {
     long processedMsgCount = 0;
@@ -23,27 +22,27 @@ struct Status {
     long failedMsgCount = 0;
     Timestamp lastFailedTimestamp = LLONG_MIN;
 };
-extern vector<Status> status;
-extern SmartPointer<Session> session;
-extern vector<string> tablenames;
+extern vector<Status> STATUS;
+extern SmartPointer<Session> SESSION;
+extern vector<string> TABLE_NAMES;
 
 // extern CHSNsqApi* lpNsqApi;
 // extern CHSNsqSpiImpl* lpNsqSpi;
 
-extern bool receivedTimeFlag;
-extern bool getAllFieldNamesFlag;
+extern bool RECEIVED_TIME_FLAG;
+extern bool GET_ALL_FIELD_NAMES_FLAG;
 
-extern vector<string> snapshotColumnNames;
-extern vector<string> tradeColumnNames;
-extern vector<string> ordersColumnNames;
-extern vector<string> addedSnapshotColumnNames;
-extern vector<string> tradeAndOrdersMergedColumnNames;
+extern vector<string> SNAPSHOT_COLUMN_NAMES;
+extern vector<string> TRADE_COLUMN_NAMES;
+extern vector<string> ORDER_COLUMN_NAMES;
+extern vector<string> ADDED_SNAPSHOT_COLUMN_NAMES;
+extern vector<string> TRADE_AND_ORDER_MERGED_COLUMN_NAMES;
 
-extern vector<DATA_TYPE> snapshotTypes;
-extern vector<DATA_TYPE> tradeTypes;
-extern vector<DATA_TYPE> ordersTypes;
-extern vector<DATA_TYPE> addedSnapshotTypes;
-extern vector<DATA_TYPE> tradeAndOrdersMergedTypes;
+extern vector<DATA_TYPE> SNAPSHOT_TYPES;
+extern vector<DATA_TYPE> TRADE_TYPES;
+extern vector<DATA_TYPE> ORDER_TYPES;
+extern vector<DATA_TYPE> ADDED_SNAPSHOT_TYPES;
+extern vector<DATA_TYPE> TRADE_AND_ORDER_MERGED_TYPES;
 
 class Defer {
 public:
@@ -52,6 +51,8 @@ public:
 private:
     std::function<void()> code;
 };
+
+static Mutex NSQ_MUTEX;
 
 extern "C"
 {

@@ -5,6 +5,7 @@
 #include "mdc_client_factory.h"
 #include "client_interface.h"
 #include "message_handle.h"
+#include "insight_plugin.h"
 
 #include "CoreConcept.h"
 #include "Concurrent.h"
@@ -18,17 +19,27 @@ using namespace com::htsc::mdc::gateway;
 using namespace com::htsc::mdc::model;
 using namespace com::htsc::mdc::insight::model;
 
+enum INSIGHT_DATA_TYPE{
+    INSIGHT_DT_VOID,
+    INSIGHT_DT_StockTick,
+    INSIGHT_DT_IndexTick,
+    INSIGHT_DT_FuturesTick,
+    INSIGHT_DT_StockTransaction,
+    INSIGHT_DT_StockOrder
+};
+
 class InsightHandle : public MessageHandle{
 public:
     InsightHandle(SessionSP session, DictionarySP handles);
     virtual ~InsightHandle();
-    void OnMarketData(const com::htsc::mdc::insight::model::MarketData &record);
-    void OnLoginSuccess();
-    void OnLoginFailed(int error_no, const std::string &message);
-    void OnNoConnections();
-    void OnGeneralError(const com::htsc::mdc::insight::model::InsightErrorContext &context);
+    void OnMarketData(const com::htsc::mdc::insight::model::MarketData &record)override;
+    void OnLoginSuccess() override;
+    void OnLoginFailed(int error_no, const std::string &message)override;
+    void OnNoConnections()override;
+    void OnGeneralError(const com::htsc::mdc::insight::model::InsightErrorContext &context)override;
 
     TableSP getReceiveNum(string type);
+    void checkColumnsSize(std::vector<ConstantSP> &columns, INSIGHT_DATA_TYPE type);
 
 protected:
     inline void setColumnsStock(std::vector<ConstantSP> &columns, long long receiveTime, const com::htsc::mdc::insight::model::MDStock &record, int index = 0);
@@ -46,7 +57,7 @@ protected:
     inline void setColumnsOrder(std::vector<ConstantSP> &columns, long long receiveTime, const com::htsc::mdc::insight::model::MDOrder &record, int index = 0);
     inline void handleOrderData(std::vector<ConstantSP> &columns);
 
-    int countDays(int day){
+    static int countDays(int day){
         int year = day / 10000;
         day %= 10000;
         int month = day / 100;
@@ -54,7 +65,7 @@ protected:
         return Util::countDays(year, month, day);
     }
 
-    int realTime(int fake){
+    static int realTime(int fake){
         int real = 0;
         real += 3600000 * (fake / 10000000);
         fake %= 10000000;
@@ -64,7 +75,7 @@ protected:
         return real;
     }
 
-    int realMinTime(int fake){
+    static int realMinTime(int fake){
         int real = 0;
         real += 3600000 * (fake / 10000000);
         fake %= 10000000;
@@ -97,7 +108,6 @@ protected:
         vector<ConstantSP> columns;
 
         ColumnsIndex(std::vector<std::string> &columnNames, std::size_t &columnSize){
-            columns.resize(columnSize);
             createColumnsIndex(columns);
         }
 
@@ -108,7 +118,6 @@ protected:
         vector<ConstantSP> columns;
 
         ColumnsFuture(std::vector<std::string> &columnNames, std::size_t &columnSize){
-            columns.resize(columnSize);
             createColumnsFuture(columns);
         }
 
@@ -119,7 +128,6 @@ protected:
         vector<ConstantSP> columns;
 
         ColumnsTransaction(std::vector<std::string> &columnNames, std::size_t &columnSize){
-            columns.resize(columnSize);
             createColumnsTransaction(columns);
         }
 
@@ -130,38 +138,38 @@ protected:
         vector<ConstantSP> columns;
 
         ColumnsOrder(std::vector<std::string> &columnNames, std::size_t &columnSize){
-            columns.resize(columnSize);
             createColumnsOrder(columns);
         }
 
         void createColumnsOrder(std::vector<ConstantSP> &columns, INDEX colNum = 1);
     };
 
+
 protected:
-    ConstantSP handleStock;
-    Mutex *lockStock;
-    std::vector<std::string> columnNamesStock;
-    std::size_t columnSizeStock;
+    ConstantSP handleStock_;
+    Mutex *lockStock_;
+    std::vector<std::string> columnNamesStock_;
+    std::size_t columnSizeStock_;
 
-    ConstantSP handleIndex;
-    Mutex *lockIndex;
-    std::vector<std::string> columnNamesIndex;
-    std::size_t columnSizeIndex;
+    ConstantSP handleIndex_;
+    Mutex *lockIndex_;
+    std::vector<std::string> columnNamesIndex_;
+    std::size_t columnSizeIndex_;
 
-    ConstantSP handleFuture;
-    Mutex *lockFuture;
-    std::vector<std::string> columnNamesFuture;
-    std::size_t columnSizeFuture;
+    ConstantSP handleFuture_;
+    Mutex *lockFuture_;
+    std::vector<std::string> columnNamesFuture_;
+    std::size_t columnSizeFuture_;
 
-    ConstantSP handleTransaction;
-    Mutex *lockTransaction;
-    std::vector<std::string> columnNamesTransaction;
-    std::size_t columnSizeTransaction;
+    ConstantSP handleTransaction_;
+    Mutex *lockTransaction_;
+    std::vector<std::string> columnNamesTransaction_;
+    std::size_t columnSizeTransaction_;
 
-    ConstantSP handleOrder;
-    Mutex *lockOrder;
-    std::vector<std::string> columnNamesOrder;
-    std::size_t columnSizeOrder;
+    ConstantSP handleOrder_;
+    Mutex *lockOrder_;
+    std::vector<std::string> columnNamesOrder_;
+    std::size_t columnSizeOrder_;
 
     SessionSP session_;
 };

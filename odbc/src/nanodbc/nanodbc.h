@@ -727,7 +727,7 @@ public:
     short columns() const;
 
     /// \brief Resets all currently bound parameters.
-    void reset_parameters() noexcept;
+    void reset_parameters();
 
     /// \brief Returns the number of parameters in the statement.
     /// \throws database_error
@@ -870,6 +870,12 @@ public:
     void bind_strings(
         short param_index,
         std::vector<T> const& values,
+        param_direction direction = PARAM_IN);
+
+    // Alert!!! It's an add-on function which original nanodbc don't have
+    void bind_oracle_time(
+        short param_index,
+        std::vector<std::basic_string<char>> const& values,
         param_direction direction = PARAM_IN);
 
     /// \brief Binds multiple string values.
@@ -1245,7 +1251,7 @@ public:
     bool has_affected_rows() const;
 
     /// \brief Rows in the current rowset or 0 if the number of rows is not available.
-    long rows() const noexcept;
+    long rows() const;
 
     /// \brief Returns the number of columns in a result set.
     /// \throws database_error
@@ -1298,7 +1304,7 @@ public:
     unsigned long position() const;
 
     /// \brief Returns true if there are no more results in the current result set.
-    bool at_end() const noexcept;
+    bool at_end() const;
 
     /// \brief Gets data from the given column of the current rowset.
     ///

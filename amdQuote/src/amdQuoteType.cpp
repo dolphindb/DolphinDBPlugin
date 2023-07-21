@@ -1,6 +1,27 @@
 #include "amdQuoteType.h"
+#include "Types.h"
 
- TableSP getSnapshotSchema(bool receivedTimeFlag, bool dailyIndexFlag) {
+TableSP getOrderExecutionSchema(bool receivedTimeFlag, bool dailyIndexFlag, bool outputElapsedFlag) {
+    AmdOrderExecutionTableMeta meta;
+    vector<ConstantSP> cols(2);
+    if (outputElapsedFlag) {
+        meta.colNames_.push_back("perPenetrationTime");
+        meta.colTypes_.push_back(DT_NANOTIME);
+    }
+    cols[0] = Util::createVector(DT_STRING, meta.colNames_.size());
+    cols[1] = Util::createVector(DT_STRING, meta.colTypes_.size());
+    for (unsigned int i = 0; i < meta.colNames_.size(); i++) {
+        cols[0]->setString(i, meta.colNames_[i]);
+        cols[1]->setString(i, Util::getDataTypeString(meta.colTypes_[i]));
+    }
+
+    std::vector<string> colNames = {"name", "type"};
+    TableSP table = Util::createTable(colNames, cols);
+
+    return table;
+}
+
+TableSP getSnapshotSchema(bool receivedTimeFlag, bool dailyIndexFlag, bool outputElapsedFlag) {
     AmdSnapshotTableMeta snapShotTableMeta;
     if (receivedTimeFlag) {
         snapShotTableMeta.colNames_.push_back("receivedTime");
@@ -9,6 +30,10 @@
     if (dailyIndexFlag) {
         snapShotTableMeta.colNames_.push_back("dailyIndex");
         snapShotTableMeta.colTypes_.push_back(DT_INT);
+    }
+    if (outputElapsedFlag) {
+        snapShotTableMeta.colNames_.push_back("perPenetrationTime");
+        snapShotTableMeta.colTypes_.push_back(DT_NANOTIME);
     }
     vector<ConstantSP> cols(2);
     cols[0] = Util::createVector(DT_STRING, snapShotTableMeta.colNames_.size());
@@ -24,7 +49,7 @@
     return table;
 }
 
-TableSP getExecutionSchema(bool receivedTimeFlag, bool dailyIndexFlag) {
+TableSP getExecutionSchema(bool receivedTimeFlag, bool dailyIndexFlag, bool outputElapsedFlag) {
     AmdExecutionTableMeta executionTableMeta;
     if (receivedTimeFlag) {
         executionTableMeta.colNames_.push_back("receivedTime");
@@ -33,6 +58,10 @@ TableSP getExecutionSchema(bool receivedTimeFlag, bool dailyIndexFlag) {
     if (dailyIndexFlag) {
         executionTableMeta.colNames_.push_back("dailyIndex");
         executionTableMeta.colTypes_.push_back(DT_INT);
+    }
+    if (outputElapsedFlag) {
+        executionTableMeta.colNames_.push_back("perPenetrationTime");
+        executionTableMeta.colTypes_.push_back(DT_NANOTIME);
     }
     vector<ConstantSP> cols(2);
     cols[0] = Util::createVector(DT_STRING, executionTableMeta.colNames_.size());
@@ -48,7 +77,7 @@ TableSP getExecutionSchema(bool receivedTimeFlag, bool dailyIndexFlag) {
     return table;
 }
 
-TableSP getOrderSchema(bool receivedTimeFlag, bool dailyIndexFlag ) {
+TableSP getOrderSchema(bool receivedTimeFlag, bool dailyIndexFlag, bool outputElapsedFlag) {
     AmdOrderTableMeta orderTableMeta;
     if (receivedTimeFlag) {
         orderTableMeta.colNames_.push_back("receivedTime");
@@ -57,6 +86,10 @@ TableSP getOrderSchema(bool receivedTimeFlag, bool dailyIndexFlag ) {
     if (dailyIndexFlag) {
         orderTableMeta.colNames_.push_back("dailyIndex");
         orderTableMeta.colTypes_.push_back(DT_INT);
+    }
+    if (outputElapsedFlag) {
+        orderTableMeta.colNames_.push_back("perPenetrationTime");
+        orderTableMeta.colTypes_.push_back(DT_NANOTIME);
     }
     vector<ConstantSP> cols(2);
     cols[0] = Util::createVector(DT_STRING, orderTableMeta.colNames_.size());
@@ -72,7 +105,7 @@ TableSP getOrderSchema(bool receivedTimeFlag, bool dailyIndexFlag ) {
     return table;
 }
 
-TableSP getIndexSchema(bool receivedTimeFlag, bool dailyIndexFlag) {
+TableSP getIndexSchema(bool receivedTimeFlag, bool dailyIndexFlag, bool outputElapsedFlag) {
     AmdIndexTableMeta indexTableMeta;
     if (receivedTimeFlag) {
         indexTableMeta.colNames_.push_back("receivedTime");
@@ -81,6 +114,10 @@ TableSP getIndexSchema(bool receivedTimeFlag, bool dailyIndexFlag) {
     if (dailyIndexFlag) {
         indexTableMeta.colNames_.push_back("dailyIndex");
         indexTableMeta.colTypes_.push_back(DT_INT);
+    }
+    if (outputElapsedFlag) {
+        indexTableMeta.colNames_.push_back("perPenetrationTime");
+        indexTableMeta.colTypes_.push_back(DT_NANOTIME);
     }
     vector<ConstantSP> cols(2);
     cols[0] = Util::createVector(DT_STRING, indexTableMeta.colNames_.size());
@@ -96,7 +133,7 @@ TableSP getIndexSchema(bool receivedTimeFlag, bool dailyIndexFlag) {
     return table;
 }
 
-TableSP getOrderQueueSchema(bool receivedTimeFlag, bool dailyIndexFlag) {
+TableSP getOrderQueueSchema(bool receivedTimeFlag, bool dailyIndexFlag, bool outputElapsedFlag) {
     AmdOrderQueueTableMeta orderQueueTableMeta;
     if (receivedTimeFlag) {
         orderQueueTableMeta.colNames_.push_back("receivedTime");
@@ -105,6 +142,10 @@ TableSP getOrderQueueSchema(bool receivedTimeFlag, bool dailyIndexFlag) {
     if (dailyIndexFlag) {
         orderQueueTableMeta.colNames_.push_back("dailyIndex");
         orderQueueTableMeta.colTypes_.push_back(DT_INT);
+    }
+    if (outputElapsedFlag) {
+        orderQueueTableMeta.colNames_.push_back("perPenetrationTime");
+        orderQueueTableMeta.colTypes_.push_back(DT_NANOTIME);
     }
     vector<ConstantSP> cols(2);
     cols[0] = Util::createVector(DT_STRING, orderQueueTableMeta.colNames_.size());
@@ -123,9 +164,11 @@ TableSP getOrderQueueSchema(bool receivedTimeFlag, bool dailyIndexFlag) {
 // TODO(ruibinhuang@dolphindb.com): check the real attributes of the table
 bool checkSchema(const string& type, TableSP table) {
     INDEX tableColumns = table->columns();
-    if(receivedTimeFlag)
+    if(RECEIVED_TIME_FLAG)
         tableColumns--;
-    if(dailyIndexFlag)
+    if(DAILY_INDEX_FLAG)
+        tableColumns--;
+    if(OUTPUT_ELAPSED_FLAG)
         tableColumns--;
     if (type == "snapshot") {
         if (tableColumns!= 94) {
@@ -169,6 +212,11 @@ bool checkSchema(const string& type, TableSP table) {
         }
     } else if (type == "bondOrder") {
         if (tableColumns != 13) {
+            return false;
+        }
+    } else if(type == "orderExecution" || type == "fundOrderExecution" || type == "bondOrderExecution") {
+        tableColumns += 2;              //because two flags always on, so plus 2 to pass check
+        if (tableColumns != 16) {       //FIXME columns number not depends on param
             return false;
         }
     } else{

@@ -80,14 +80,14 @@ uint32_t u8NextCodepoint(u8_iterator& it, u8_iterator end) {
 
 template <typename u16_iterator>
 uint32_t u16NextCodepoint(u16_iterator& it, u16_iterator end) {
-    if (*it < 0xd800) {
-        return *it++;
-    } else {
+    if (*it >= 0xd800 && *it <= 0xdfff) { // no valid 2-byte utf16 char between 0xd800 & 0xdfff
         uint32_t cp = (*it++) - LEAD_SURROGATE_MIN;
         cp <<= 10u;
         if (it == end) throw RangeError();
         cp += (*it++) - TRAIL_SURROGATE_MIN + 0x10000;
         return cp;
+    } else {
+        return *it++;
     }
 }
 

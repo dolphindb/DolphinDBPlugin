@@ -35,7 +35,7 @@ extern "C" void createS3Bucket(Heap* heap, vector<ConstantSP>& args);
 extern "C" ConstantSP headS3Object(Heap* heap, vector<ConstantSP>& args);
 extern "C" void copyS3Object(Heap* heap, vector<ConstantSP>& args);
 extern "C" ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args);
-
+static const std::string AWSS3_PLUGIN_PREFIX = "[PLUGIN AWS]:";
 #if 0
 extern "C" ConstantSP createS3InputStream(Heap* heap, vector<ConstantSP>& args);
 

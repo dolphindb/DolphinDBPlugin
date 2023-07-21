@@ -303,7 +303,7 @@ insert into trades values(2018.10.08T01:04:05.152,`B,23)
 ### 4.1 createCSVFormatter
 
 **语法**
-zmq::createCSVFormatter([format], [delimiter=','], [rowDelimiter=';'])
+zmq::createCSVFormatter(format, [delimiter=','], [rowDelimiter=';'])
 
 **参数**
 - 'format'：STRING类型的向量。
@@ -425,3 +425,13 @@ if __name__=='__main__':
         recvStr = socket.recv()
         print (recvStr)
 ```
+
+# ReleaseNotes:
+
+## 故障修复
+
+* 接口 zmq::cancelSubJob 增加传入参数限制，只接受标量。（**1.30.22**）
+
+## 功能优化
+
+* 优化了部分报错信息。（**1.30.22**）

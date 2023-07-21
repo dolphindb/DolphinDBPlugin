@@ -49,5 +49,9 @@ target_link_libraries(
     HSNsqApi
 )
 
+if(UNIX)
+set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-Wl,-rpath,$ORIGIN")
+endif()
+
 configure_file(${plugin_file} ${CMAKE_BINARY_DIR}/PluginNsq.txt COPYONLY)
 
