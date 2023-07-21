@@ -3,6 +3,7 @@
 #include <Util.h>
 #include <string>
 #include <unordered_map>
+#include <fstream>
 #include "mseed.h"
 #include "libmseed.h"
 
@@ -156,31 +157,30 @@ ConstantSP mseedRead(Heap *heap, vector<ConstantSP> &args) {
     vector<string> vecId;
     vector<long long> vecTime;
     vector<double> samprate;
+    /* Check if file exists */
+    std::ifstream infile(file.c_str());
+    if (!infile.good()) {
+        throw IllegalArgumentException(__FUNCTION__, "File doesn't exist");
+    }
     /* Loop over the input file */
     MS3FileParam dmsfp = {"", 0, 0, 0, 0, NULL, 0, 0, 0, {LMIO::LMIO_NULL, NULL, NULL, 0}};
-    try {
-        while ((retcode = ms3_readmsr(&msr, file.c_str(), NULL, NULL, flags, 0, NULL, &dmsfp)) == MS_NOERROR) {
-            if (first) {
-                processFirstBlock(msr, type, col, file.size());
-                first = false;
-            }
-
-            int len = msr->numsamples;
-            processOneBlock(msr, col, sBuffer, type, len);
-
-            num += len;
-
-            blockNum.push_back(len);
-            vecId.push_back(string(msr->sid));
-            vecTime.push_back(msr->starttime);
-            samprate.push_back(msr->samprate);
+    while ((retcode = ms3_readmsr(&msr, file.c_str(), NULL, NULL, flags, 0, NULL, &dmsfp)) == MS_NOERROR) {
+        if (first) {
+            processFirstBlock(msr, type, col, file.size());
+            first = false;
         }
 
+        int len = msr->numsamples;
+        processOneBlock(msr, col, sBuffer, type, len);
+
+        num += len;
+
+        blockNum.push_back(len);
+        vecId.push_back(string(msr->sid));
+        vecTime.push_back(msr->starttime);
+        samprate.push_back(msr->samprate);
     }
-    catch (RuntimeException &e) {
-        ms3_readmsr(&msr, NULL, NULL, NULL, flags, 0, NULL, &dmsfp);
-        throw e;
-    }
+
     /* Make sure everything is cleaned up */
     ms3_readmsr(&msr, NULL, NULL, NULL, flags, 0, NULL, &dmsfp);
 
@@ -276,7 +276,7 @@ ConstantSP mseedWrite(Heap *heap, vector<ConstantSP> &args) {
     if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException(__FUNCTION__, "Sid must be a string scalar");
     }
-    if (args[2]->getType() != DT_TIMESTAMP || args[2]->getForm() != DF_SCALAR) {
+    if (args[2]->getType() != DT_TIMESTAMP || args[2]->getForm() != DF_SCALAR || args[2]->isNull()) {
         throw IllegalArgumentException(__FUNCTION__, "StartTime must be a timestamp scalar");
     }
     ConstantSP sampleRateSP = args[3];

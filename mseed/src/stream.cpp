@@ -80,7 +80,7 @@ extern "C" ConstantSP mseedStreamize(Heap *heap, vector<ConstantSP> &args) {
             dataPtr = data->getFloatBuffer(offect, size, (float *) (dataBuffer.data()));
         else
             dataPtr = data->getDoubleConst(offect, size, dataBuffer.data());
-        if(tsPtr[offect - stepBegin] == LONG_MIN)
+        if(tsPtr[offect - stepBegin] == LONG_LONG_MIN)
             throw RuntimeException("The column ts can't be null");
         if (size == 1) {
             if (data->getType() == DT_INT) {
@@ -106,7 +106,7 @@ extern "C" ConstantSP mseedStreamize(Heap *heap, vector<ConstantSP> &args) {
             int sidBegin = sidPtr[offect - stepBegin];
             ++offect;
             while (offect < stepBegin + size) {
-                if(tsPtr[offect - stepBegin] == LONG_MIN)
+                if(tsPtr[offect - stepBegin] == LONG_LONG_MIN)
                     throw RuntimeException("The column ts can't be null");
                 if (tsPtr[offect - stepBegin] - tsPtr[offect - stepBegin - 1] != step)
                     break;
