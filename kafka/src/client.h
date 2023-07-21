@@ -41,7 +41,7 @@ public:
 class AppendTable : public Runnable {
 public:
     AppendTable(Heap *heap, const ConstantSP& parser, SubConnection* client, ConstantSP handle, ConstantSP consumer, int timeout)
-            : client_(client), parser_(parser), handle_(handle), consumer_(consumer), timeout_(timeout){
+            : client_(client), parser_(parser), handle_(handle), consumerWrapper_(consumer), timeout_(timeout){
         session_ = heap->currentSession()->copy();
         session_->setUser(heap->currentSession()->getUser());
         session_->setOutput(new DummyOutput);
@@ -56,7 +56,7 @@ private:
     SubConnection * client_;
     ConstantSP parser_;
     ConstantSP handle_;
-    ConstantSP consumer_;
+    ConstantSP consumerWrapper_;
     bool flag_ = true;
     int timeout_;
 };
@@ -67,14 +67,18 @@ private:
     bool connected_;
     long long createTime_{};
     Heap* heap_{};
+    ConstantSP consumerWrapper_;
     ThreadSP thread_;
     SessionSP session_;
     SmartPointer<AppendTable> append_;
 public:
-    SubConnection();
-    SubConnection(Heap *heap, std::string description, const ConstantSP& parser, const ConstantSP& handle, const ConstantSP& consumer, int timeout);
+    SubConnection()=default;
+    SubConnection(Heap *heap, const string& description, const ConstantSP& parser, const ConstantSP& handle, const ConstantSP& consumer, int timeout);
     ~SubConnection();
-    
+
+    long long getConsumer() {
+        return consumerWrapper_->getLong();
+    }
     string getDescription(){
         return description_;
     }
