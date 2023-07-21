@@ -1,18 +1,14 @@
-# DolphinDB Matching Engine 使用说明
+# DolphinDB Matching Engine
 
-## 简述
+## Build
 
-DolphinDB Matching Engine 用于为股票市场、商品市场或其他金融交易所匹配和执行买入和卖出订单。
-
-## 编译插件
-
-1. 执行以下命令完成插件编译：
+Build plugin
 ```
 cmake . -DCMAKE_BUILD_TYPE=Release -DDOLPHINDB_LIB_DIR=/path/to/the/libDolphinDB.so -DDOLPHINDB_INC_DIR=/path/to/the/include
 make && make install
 ```
 
-2. 测试验证（必须已安装 libgtest-dev）。
+Run test (gtest is required)
 
 ```
 sudo apt-get install libgtest-dev #install gtest if not installed
@@ -33,13 +29,12 @@ make
 ./MatchingEngine
 ```
 
-## 例子
+## Example
 
-使用该插件的例子脚本如下：
-
+DolphinDB script
 ```
 /*
- * load matching engine plugin 
+ * load matching engine plugin
  */
 loadPlugin("/path/to/the/PluginMatchingEngine.txt")
 
