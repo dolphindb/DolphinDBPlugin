@@ -170,7 +170,7 @@ cd orc-1.6.7/build/protobuf_ep-prefix/src/
 tar -xf v3.5.1.tar.gz
 cd protobuf-3.5.1
 ./autogen.sh
-cd cmake 
+cd cmake
 mkdir build
 cd build
 cmake .. -DCMAKE_POSITION_INDEPENDENT_CODE=ON
@@ -359,7 +359,7 @@ DataSource<loadORC("userdata1.orc", , 0, 1000) >
 
 #### 详情
 
-将 DolphinDB 内存表保存为 ORC 格式文件。  
+将 DolphinDB 内存表保存为 ORC 格式文件。
 请注意，若向一个已存在的 ORC 文件中保存表数据，这会覆盖 ORC 文件原有内容。
 
 #### 返回值
@@ -394,3 +394,12 @@ ORC 的数据类型转换为 DolphinDB 数据类型对照表：
 | map         | not support       |
 | union       | not support       |
 
+# ReleaseNotes:
+
+## 故障修复
+
+* 修复了读取时间类型空值数据时输出结果不正确的问题。（**2.00.10**）
+
+# 功能优化
+
+* 优化了时间类型和字符串类型数据导入为数值类型的处理方法。（**2.00.10**）
