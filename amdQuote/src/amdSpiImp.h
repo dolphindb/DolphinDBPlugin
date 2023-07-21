@@ -9,6 +9,7 @@
 
 #include "Exceptions.h"
 #include "FlatHashmap.h"
+#include "Types.h"
 #include "ama.h"
 #include "ama_tools.h"
 
@@ -21,9 +22,9 @@
 #include "Plugin.h"
 
 using dolphindb::Executor;
-const int CAPACITY = 100000;
+const static int CAPACITY = 100000;
+static std::atomic<bool> ERROR_LOG(false);
 
-// 该类主要实现回调函数，回调函数用于接受并处理数据
 class AMDSpiImp : public amd::ama::IAMDSpi {
 public:
     AMDSpiImp(SessionSP session) :
@@ -41,6 +42,9 @@ public:
     snapshotBoundQueue_(new SnapshotQueue(CAPACITY, ObjectSizer<timeMDSnapshot>(), ObjectUrgency<timeMDSnapshot>())),
     orderBoundQueue_(new OrderQueue(CAPACITY, ObjectSizer<timeMDTickOrder>(), ObjectUrgency<timeMDTickOrder>())),
     executionBoundQueue_(new ExecutionQueue(CAPACITY, ObjectSizer<timeMDTickExecution>(), ObjectUrgency<timeMDTickExecution>())),
+    fundSnapshotBoundQueue_(new SnapshotQueue(CAPACITY, ObjectSizer<timeMDSnapshot>(), ObjectUrgency<timeMDSnapshot>())),
+    fundOrderBoundQueue_(new OrderQueue(CAPACITY, ObjectSizer<timeMDTickOrder>(), ObjectUrgency<timeMDTickOrder>())),
+    fundExecutionBoundQueue_(new ExecutionQueue(CAPACITY, ObjectSizer<timeMDTickExecution>(), ObjectUrgency<timeMDTickExecution>())),
     bondSnapshotBoundQueue_(new BondSnapshotQueue(CAPACITY, ObjectSizer<timeMDBondSnapshot>(), ObjectUrgency<timeMDBondSnapshot>())),
     bondOrderBoundQueue_(new BondOrderQueue(CAPACITY, ObjectSizer<timeMDBondTickOrder>(), ObjectUrgency<timeMDBondTickOrder>())),
     bondExecutionBoundQueue_(new BondExecutionQueue(CAPACITY, ObjectSizer<timeMDBondTickExecution>(), ObjectUrgency<timeMDBondTickExecution>())),
@@ -54,8 +58,7 @@ public:
     orderExecutionFlag_(false),
     fundOrderExecutionFlag_(false),
     bondOrderExecutionFlag_(false),
-    // init three map
-    // avoid crashing after use uninitialized data
+
     orderExecutionData_({}),
     fundOrderExecutionData_({}),
     bondOrderExecutionData_({}),
@@ -67,83 +70,98 @@ public:
     orderExecutionThread_({}),
     fundOrderExecutionThread_({}),
     bondOrderExecutionThread_({}),
-    
-    stopFlag_(new bool()),    
+
+    stopFlag_(new bool()),
 
     session_(session),
 
-    dailyIndexFlag_(dailyIndexFlag),
-    receivedTimeFlag_(receivedTimeFlag),
-    outputElapsedFlag_(outputElapsedFlag)
+    dailyIndexFlag_(DAILY_INDEX_FLAG),
+    receivedTimeFlag_(RECEIVED_TIME_FLAG),
+    outputElapsedFlag_(OUTPUT_ELAPSED_FLAG)
         {
         *stopFlag_ = false;
-        SmartPointer<Executor> snapshotExecutor = new Executor(std::bind(&blockHandling<timeMDSnapshot>, snapshotBoundQueue_, 
-        [this](vector<timeMDSnapshot>& data){
-            OnMDSnapshotHelper(data.data(), data.size());
-        }, stopFlag_, "[PluginAmdQuote]:", "snapshot"
-        ));
-        snapshotThread_ = new Thread(snapshotExecutor);
-        snapshotThread_->start();
 
-        SmartPointer<Executor> orderExecutor = new Executor(std::bind(&blockHandling<timeMDTickOrder>, orderBoundQueue_, 
-        [this](vector<timeMDTickOrder>& data){
-            OnMDTickOrderHelper(data.data(), data.size());
-        }, stopFlag_, "[PluginAmdQuote]:", "order"
-        ));
-        orderThread_ = new Thread(orderExecutor);
-        orderThread_->start();
+        initQueueBuffer<AmdOrderTableMeta>(orderBuffer_, orderTableMeta_);
+        initQueueBuffer<AmdOrderTableMeta>(fundOrderBuffer_, orderTableMeta_);
+        initQueueBuffer<AmdOrderTableMeta>(bondOrderBuffer_, orderTableMeta_);
 
-        SmartPointer<Executor> executionExecutor = new Executor(std::bind(&blockHandling<timeMDTickExecution>, executionBoundQueue_, 
-        [this](vector<timeMDTickExecution>& data){
-            OnMDTickExecutionHelper(data.data(), data.size());
-        }, stopFlag_, "[PluginAmdQuote]:", "execution"
-        ));
-        executionThread_ = new Thread(executionExecutor);
-        executionThread_->start();
+        initQueueBuffer<AmdIndexTableMeta>(indexBuffer_, indexTableMeta_);
+        initQueueBuffer<AmdOrderQueueTableMeta>(orderQueueBuffer_, orderQueueMeta_);
 
-        SmartPointer<Executor> bondSnapshotExecutor = new Executor(std::bind(&blockHandling<timeMDBondSnapshot>, bondSnapshotBoundQueue_, 
-        [this](vector<timeMDBondSnapshot>& data){
-            OnMDBondSnapshotHelper(data.data(), data.size());
-        }, stopFlag_, "[PluginAmdQuote]:", "bondSnapshot"
-        ));
-        bondSnapshotThread_ = new Thread(bondSnapshotExecutor);
-        bondSnapshotThread_->start();
+        initQueueBuffer<AmdExecutionTableMeta>(executionBuffer_, executionTableMeta_);
+        initQueueBuffer<AmdExecutionTableMeta>(fundExecutionBuffer_, executionTableMeta_);
+        initQueueBuffer<AmdExecutionTableMeta>(bondExecutionBuffer_, executionTableMeta_);
 
-        SmartPointer<Executor> bondOrderExecutor = new Executor(std::bind(&blockHandling<timeMDBondTickOrder>, bondOrderBoundQueue_, 
-        [this](vector<timeMDBondTickOrder>& data){
-            OnMDBondTickOrderHelper(data.data(), data.size());
-        }, stopFlag_, "[PluginAmdQuote]:", "bondOrder"
-        ));
-        bondOrderThread_ = new Thread(bondOrderExecutor);
-        bondOrderThread_->start();
+        initQueueBuffer<AmdSnapshotTableMeta>(snapshotBuffer_, snapshotDataTableMeta_);
+        initQueueBuffer<AmdSnapshotTableMeta>(fundSnapshotBuffer_, snapshotDataTableMeta_);
+        initQueueBuffer<AmdSnapshotTableMeta>(bondSnapshotBuffer_, snapshotDataTableMeta_);
 
-        SmartPointer<Executor> bondExecutionExecutor = new Executor(std::bind(&blockHandling<timeMDBondTickExecution>, bondExecutionBoundQueue_, 
-        [this](vector<timeMDBondTickExecution>& data){
-            OnMDBondTickExecutionHelper(data.data(), data.size());
-        }, stopFlag_, "[PluginAmdQuote]:", "bondExecution"
-        ));
-        bondExecutionThread_ = new Thread(bondExecutionExecutor);
-        bondExecutionThread_->start();
+        startThread<timeMDSnapshot, SnapshotQueue>(snapshotBoundQueue_,
+            &AMDSpiImp::OnMDSnapshotHelper, "snapshot", snapshotThread_);
+        startThread<timeMDTickOrder, OrderQueue>(orderBoundQueue_,
+            &AMDSpiImp::OnMDTickOrderHelper, "order", orderThread_);
+        startThread<timeMDTickExecution, ExecutionQueue>(executionBoundQueue_,
+            &AMDSpiImp::OnMDTickExecutionHelper, "execution", executionThread_);
 
-        SmartPointer<Executor> indexExecutor = new Executor(std::bind(&blockHandling<timeMDIndexSnapshot>, indexBoundQueue_, 
-        [this](vector<timeMDIndexSnapshot>& data){
-            OnMDIndexSnapshotHelper(data.data(), data.size());
-        }, stopFlag_, "[PluginAmdQuote]:", "index"
-        ));
-        indexThread_ = new Thread(indexExecutor);
-        indexThread_->start();
+        startThread<timeMDSnapshot, SnapshotQueue>(fundSnapshotBoundQueue_,
+            &AMDSpiImp::OnMDFundSnapshotHelper, "fundSnapshot", fundSnapshotThread_);
+        startThread<timeMDTickOrder, OrderQueue>(fundOrderBoundQueue_,
+            &AMDSpiImp::OnMDTickFundOrderHelper, "fundOrder", fundOrderThread_);
+        startThread<timeMDTickExecution, ExecutionQueue>(fundExecutionBoundQueue_,
+            &AMDSpiImp::OnMDTickFundExecutionHelper, "fundExecution", fundExecutionThread_);
 
-        SmartPointer<Executor> orderQueueExecutor = new Executor(std::bind(&blockHandling<timeMDOrderQueue>, orderQueueBoundQueue_, 
-        [this](vector<timeMDOrderQueue>& data){
-            OnMDOrderQueueHelper(data.data(), data.size());
-        }, stopFlag_, "[PluginAmdQuote]:", "orderQueue"
+        startThread<timeMDBondSnapshot, BondSnapshotQueue>(bondSnapshotBoundQueue_,
+            &AMDSpiImp::OnMDBondSnapshotHelper, "bondSnapshot", bondSnapshotThread_);
+        startThread<timeMDBondTickOrder, BondOrderQueue>(bondOrderBoundQueue_,
+            &AMDSpiImp::OnMDBondTickOrderHelper, "bondOrder", bondOrderThread_);
+        startThread<timeMDBondTickExecution, BondExecutionQueue>(bondExecutionBoundQueue_,
+            &AMDSpiImp::OnMDBondTickExecutionHelper, "bondExecution", bondExecutionThread_);
+
+        startThread<timeMDIndexSnapshot, IndexQueue>(indexBoundQueue_,
+            &AMDSpiImp::OnMDIndexSnapshotHelper, "index", indexThread_);
+        startThread<timeMDOrderQueue, OrderQueueQueue>(orderQueueBoundQueue_,
+            &AMDSpiImp::OnMDOrderQueueHelper, "orderQueue", orderQueueThread_);
+    }
+
+    template <typename DataStruct, typename Queue>
+    Executor* initExecutor(
+        SmartPointer<Queue>& queue,
+        void (AMDSpiImp::* helperFunc)(DataStruct*, uint32_t),
+        const string& typeStr)
+    {
+        return new Executor(std::bind(&blockHandling<DataStruct>, queue,
+            [this, helperFunc](vector<DataStruct>& data){
+                (this->*helperFunc)(data.data(), data.size());
+            }, stopFlag_, "[PLUGIN::AMDQUOTE]:", typeStr
         ));
-        orderQueueThread_ = new Thread(orderQueueExecutor);
-        orderQueueThread_->start();
+    }
+
+    template <typename DataStruct, typename Queue>
+    void startThread(
+        SmartPointer<Queue>& queue,
+        void (AMDSpiImp::* helperFunc)(DataStruct*, uint32_t),
+        const string& typeStr, ThreadSP& thread)
+    {
+        SmartPointer<Executor> executor = initExecutor<DataStruct, Queue>(queue, helperFunc, typeStr);
+        thread = new Thread(executor);
+        thread->start();
+    }
+
+
+    template <typename T>
+    void initQueueBuffer(vector<ConstantSP>& buffer, const T& meta) {
+        buffer = vector<ConstantSP>(meta.colNames_.size());
+        for(unsigned int i = 0; i < meta.colNames_.size(); ++i) {
+            buffer[i] = Util::createVector(meta.colTypes_[i], 0, BUFFER_SIZE);
+            ((VectorSP)buffer[i])->initialize();
+        }
+        buffer.push_back(Util::createVector(DT_NANOTIMESTAMP, 0, BUFFER_SIZE));
+        buffer.push_back(Util::createVector(DT_INT, 0, BUFFER_SIZE));
+        buffer.push_back(Util::createVector(DT_NANOTIME, 0, BUFFER_SIZE));
     }
 
     ~AMDSpiImp(){
-        LOG_INFO("[pluginAmdQuote]: release AMDSpiImp");
+        LOG_INFO("[PLUGIN::AMDQUOTE]: release AMDSpiImp");
         *stopFlag_ = true;
         snapshotThread_->join();
         orderThread_->join();
@@ -161,49 +179,35 @@ public:
 
     string transMarket(int type);
 
-    // use stockOrFund to distinguish stock or fund 
-    void OnMDorderExecutionHelper(int channel, MDOrderExecution* ticks, uint32_t cnt, bool stockOrFund);
+    template <typename DataStruct, typename Meta>
+    void genericAMDHelper(DataStruct* data, uint32_t cnt, TableSP& insertedTable, FunctionDefSP transform, bool& flag,
+        vector<ConstantSP>& buffer, const Meta& meta, const string& typeStr, AMDDataType datatype) noexcept;
 
+    void OnMDorderExecutionHelper(int channel, MDOrderExecution* ticks, uint32_t cnt, bool stockOrFund);
     void OnMDBondOrderExecutionHelper(int channel, MDBondOrderExecution* ticks, uint32_t cnt);
 
-    // 接受并处理快照数据（包含基金和股票数据）
     void OnMDSnapshotHelper(timeMDSnapshot* snapshot, uint32_t cnt);
-    
-    // 接受并处理快照数据(债券）
+    void OnMDFundSnapshotHelper(timeMDSnapshot* snapshot, uint32_t cnt);
     void OnMDBondSnapshotHelper(timeMDBondSnapshot* snapshot, uint32_t cnt);
 
-    // 接受并处理逐笔委托数据（包含基金和股票数据）
     void OnMDTickOrderHelper(timeMDTickOrder* ticks, uint32_t cnt);
-
-    // 接受并处理逐笔委托数据（债券）
+    void OnMDTickFundOrderHelper(timeMDTickOrder* ticks, uint32_t cnt);
     void OnMDBondTickOrderHelper(timeMDBondTickOrder* ticks, uint32_t cnt);
 
-    // 接受并处理逐笔成交数据（包含基金和股票数据）
     void OnMDTickExecutionHelper(timeMDTickExecution* tick, uint32_t cnt);
-
-    // 接受并处理逐笔成交数据（债券）
+    void OnMDTickFundExecutionHelper(timeMDTickExecution* tick, uint32_t cnt);
     void OnMDBondTickExecutionHelper(timeMDBondTickExecution* tick, uint32_t cnt);
 
-    // 接受并处理指数快照数据
     void OnMDIndexSnapshotHelper(timeMDIndexSnapshot* index, uint32_t cnt);
-    
-    // 接受并处理委托队列数据
     void OnMDOrderQueueHelper(timeMDOrderQueue* queue, uint32_t cnt);
 
     void pushSnashotData(amd::ama::MDSnapshot* snapshot, uint32_t cnt, long long time);
-    
     void pushOrderData(amd::ama::MDTickOrder* ticks, uint32_t cnt, long long time);
-
     void pushExecutionData(amd::ama::MDTickExecution* ticks, uint32_t cnt, long long time);
-
     void pushIndexData(amd::ama::MDIndexSnapshot* index, uint32_t cnt, long long time);
-
     void pushOrderQueueData(amd::ama::MDOrderQueue* queue, uint32_t cnt, long long time);
-
     void pushBondSnapshotData(amd::ama::MDBondSnapshot* snapshots, uint32_t cnt, long long time);
-
     void pushBondOrderData(amd::ama::MDBondTickOrder* ticks, uint32_t cnt, long long time);
-
     void pushBondExecutionData(amd::ama::MDBondTickExecution* ticks, uint32_t cnt, long long time);
 
     // 接受并处理快照数据（包含基金和股票数据）
@@ -241,12 +245,12 @@ public:
         Defer df([=](){amd::ama::IAMDApi::FreeMemory(snapshots);});
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushBondSnapshotData(snapshots, cnt, time);
-    } 
+    }
     virtual void OnMDBondTickOrder(amd::ama::MDBondTickOrder* ticks, uint32_t cnt) override {
         Defer df([=](){amd::ama::IAMDApi::FreeMemory(ticks);});
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushBondOrderData(ticks, cnt, time);
-    } 
+    }
     virtual void OnMDBondTickExecution(amd::ama::MDBondTickExecution* ticks, uint32_t cnt) override {
         Defer df([=](){amd::ama::IAMDApi::FreeMemory(ticks);});
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
@@ -255,9 +259,12 @@ public:
 
     virtual void OnEvent(uint32_t level, uint32_t code, const char* event_msg, uint32_t len) override;
 
-    void latencyLog(int type, long long startTime, uint32_t cnt, long long latency) { // 0: snapshot, 1: execution, 2: order
+    void latencyLog(AMDDataType type, long long startTime, uint32_t cnt, long long latency) {
+        if(type < 0 || type >= 14) {
+            return;
+        }
         Statistic& stat = statistics_[type];
-        if (stat.startTime != 0 && startTime > stat.endTime) { // 大于30s，打日志
+        if (stat.startTime != 0 && startTime > stat.endTime) { // more than 30s，print log
             if(stat.totalHandleCount > 0){
                     LOG_INFO(       "type ", type,
                                     ", statistics: total message count ", stat.totalMessageCount,
@@ -327,7 +334,7 @@ public:
 
     // set data
     void setOrderExecutionData(string type, std::unordered_map<int, TableSP> orderExecutionData, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp, int market);
-    
+
     void setSnapshotData(TableSP snapshotData, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp, int market);
 
     void setExecutionData(TableSP executionData, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp, int market);
@@ -350,15 +357,6 @@ public:
 
     void setBondOrderData(TableSP orderData, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp, int market);
 
-    // TableSP getData(int type) {
-    //     if (type == 0) {
-    //         return snapshotData_;
-    //     } else if (type == 1) {
-    //         return executionData_;
-    //     } else {
-    //         return orderData_;
-    //     }
-    // }
 
     void setLatencyFlag(bool flag) {
         latencyFlag_ = flag;
@@ -366,8 +364,8 @@ public:
 
     long long getDailyIndexStarTime(const string& dataType, int market){
         AMDDataType amdDataType;
-        if(nameType.count(dataType) != 0){
-            amdDataType = nameType[dataType];
+        if(NAME_TYPE.count(dataType) != 0){
+            amdDataType = NAME_TYPE[dataType];
         }
         else
             throw IllegalArgumentException(__FUNCTION__, "error dataType: " + dataType);
@@ -375,14 +373,14 @@ public:
         if((int)tableType == (int)AMD_ERROR_TABLE_TYPE){
             throw RuntimeException("getAmdTableType failed");
         }
-        if(tableType >= sizeof(dailyIndex_)){
+        if(tableType >= sizeof(dailyIndex_) / sizeof(DailyIndex)){
             throw RuntimeException("tableType exceeds the size of DailyIndex_");
         }
         return dailyIndex_[tableType].getStartTimestamp();
     }
 
 private:
-    /* 
+    /*
         * alert!!!
         * structure with name 'order' used to deal with stock order data
         * structure with name 'fund' order is with fund order data
@@ -395,45 +393,48 @@ private:
     AmdIndexTableMeta indexTableMeta_;
     AmdOrderQueueTableMeta orderQueueMeta_;
 
-    TableSP snapshotData_; // 保存股票快照数据, 建议定义成流表
-    TableSP executionData_; // 保存股票逐笔委托, 建议定义成流表
-    TableSP orderData_; // 保存股票逐笔成交, 建议定义成流表
-    TableSP indexData_; // 保存指数快照数据, 建议定义成流表
-    TableSP orderQueueData_; // 保存委托队列数据, 建议定义成流表
-    TableSP fundSnapshotData_; // 保存基金快照数据, 建议定义成流表
-    TableSP fundExecutionData_; // 保存基金逐笔委托, 建议定义成流表
-    TableSP fundOrderData_; // 保存基金逐笔成交, 建议定义成流表
+    TableSP snapshotData_;
+    TableSP executionData_;
+    TableSP orderData_;
+    TableSP indexData_;
+    TableSP orderQueueData_;
+    TableSP fundSnapshotData_;
+    TableSP fundExecutionData_;
+    TableSP fundOrderData_;
     TableSP bondSnapshotData_;
     TableSP bondExecutionData_;
     TableSP bondOrderData_;
 
-    bool snapshotFlag_; 
-    bool executionFlag_; 
-    bool orderFlag_; 
-    bool indexFlag_; 
-    bool orderQueueFlag_; 
-    bool fundSnapshotFlag_; 
-    bool fundExecutionFlag_; 
-    bool fundOrderFlag_; 
+    bool snapshotFlag_;
+    bool executionFlag_;
+    bool orderFlag_;
+    bool indexFlag_;
+    bool orderQueueFlag_;
+    bool fundSnapshotFlag_;
+    bool fundExecutionFlag_;
+    bool fundOrderFlag_;
     bool bondSnapshotFlag_;
     bool bondExecutionFlag_;
     bool bondOrderFlag_;
 
-    FunctionDefSP snapshotTransform_; 
-    FunctionDefSP executionTransform_; 
-    FunctionDefSP orderTransform_; 
-    FunctionDefSP indexTransform_; 
-    FunctionDefSP orderQueueTransform_; 
-    FunctionDefSP fundSnapshotTransform_; 
+    FunctionDefSP snapshotTransform_;
+    FunctionDefSP executionTransform_;
+    FunctionDefSP orderTransform_;
+    FunctionDefSP indexTransform_;
+    FunctionDefSP orderQueueTransform_;
+    FunctionDefSP fundSnapshotTransform_;
     FunctionDefSP fundExecutionTransform_;
-    FunctionDefSP fundOrderTransform_; 
+    FunctionDefSP fundOrderTransform_;
     FunctionDefSP bondSnapshotTransform_;
     FunctionDefSP bondExecutionTransform_;
     FunctionDefSP bondOrderTransform_;
 
     ThreadSP snapshotThread_;
     ThreadSP executionThread_;
-    ThreadSP orderThread_;          // FIXME add comment of fund
+    ThreadSP orderThread_;
+    ThreadSP fundSnapshotThread_;
+    ThreadSP fundExecutionThread_;
+    ThreadSP fundOrderThread_;
     ThreadSP indexThread_;
     ThreadSP orderQueueThread_;
     ThreadSP bondSnapshotThread_;
@@ -443,15 +444,18 @@ private:
     SmartPointer<SnapshotQueue> snapshotBoundQueue_;
     SmartPointer<OrderQueue> orderBoundQueue_;
     SmartPointer<ExecutionQueue> executionBoundQueue_;
+    SmartPointer<SnapshotQueue> fundSnapshotBoundQueue_;
+    SmartPointer<OrderQueue> fundOrderBoundQueue_;
+    SmartPointer<ExecutionQueue> fundExecutionBoundQueue_;
     SmartPointer<BondSnapshotQueue> bondSnapshotBoundQueue_;
     SmartPointer<BondOrderQueue> bondOrderBoundQueue_;
     SmartPointer<BondExecutionQueue> bondExecutionBoundQueue_;
     SmartPointer<IndexQueue> indexBoundQueue_;
     SmartPointer<OrderQueueQueue> orderQueueBoundQueue_;
-    
-    // order execution data structure
+
+
     AmdOrderExecutionTableMeta  orderExecutionTableMeta_;
-    
+
     SmartPointer<bool> orderExecutionStopFlag_;
     SmartPointer<bool> fundOrderExecutionStopFlag_;
     SmartPointer<bool> bondOrderExecutionStopFlag_;
@@ -467,7 +471,7 @@ private:
     FunctionDefSP orderExecutionTransform_;
     FunctionDefSP fundOrderExecutionTransform_;
     FunctionDefSP bondOrderExecutionTransform_;
-    
+
     std::unordered_map<int, SmartPointer<OrderExecutionQueue>> orderExecutionBoundQueue_;
     std::unordered_map<int, SmartPointer<OrderExecutionQueue>> fundOrderExecutionBoundQueue_;
     std::unordered_map<int, SmartPointer<BondOrderExecutionQueue>> bondOrderExecutionBoundQueue_;
@@ -475,24 +479,39 @@ private:
     std::unordered_map<int, ThreadSP> orderExecutionThread_;
     std::unordered_map<int, ThreadSP> fundOrderExecutionThread_;
     std::unordered_map<int, ThreadSP> bondOrderExecutionThread_;
-    
+
+    vector<ConstantSP> snapshotBuffer_;
+    vector<ConstantSP> executionBuffer_;
+    vector<ConstantSP> orderBuffer_;
+    vector<ConstantSP> indexBuffer_;
+    vector<ConstantSP> orderQueueBuffer_;
+    vector<ConstantSP> fundSnapshotBuffer_;
+    vector<ConstantSP> fundExecutionBuffer_;
+    vector<ConstantSP> fundOrderBuffer_;
+    vector<ConstantSP> bondSnapshotBuffer_;
+    vector<ConstantSP> bondExecutionBuffer_;
+    vector<ConstantSP> bondOrderBuffer_;
+    std::unordered_map<int, vector<ConstantSP>> orderExecutionBuffer_;
+    std::unordered_map<int, vector<ConstantSP>> fundOrderExecutionBuffer_;
+    std::unordered_map<int, vector<ConstantSP>> bondOrderExecutionBuffer_;
+
     SmartPointer<bool> stopFlag_;
     DailyIndex dailyIndex_[28];
 
     struct Statistic {
-        long long startTime = 0; // 起始时间（读到第一条数据的时间）
-        long long endTime = 0; // 统计结束时间
-        long long totalLatency = 0; // 总时间。单位纳秒
-        long long maxLatency = 0; // 单条最大延迟
-        long long minLatency = 0; // 单条最大延迟
-        long totalMessageCount = 0; // 总消息量
-        long totalHandleCount = 0; // 处理数据次数，即调用了多少次回调函数
+        long long startTime = 0;        // Time to read first data
+        long long endTime = 0;          // Statistical end time
+        long long totalLatency = 0;     // Total time(ns)
+        long long maxLatency = 0;       // Maximum latency of a single piece of data
+        long long minLatency = 0;       // Minimum latency of a single piece of data
+        long totalMessageCount = 0;     // Total message count
+        long totalHandleCount = 0;      // The number of times the data was processed, aka. the number of callback function calls
     };
-    Statistic statistics_[9]; // 分别对应snapshot, execution, order, 的股票基金/债券 和 orderExecution的股票/基金/债券 共9个
+    Statistic statistics_[14];
     const long long duration_ = 30 * (long long)1000000000;
     SessionSP session_;
 
-    bool latencyFlag_ = false; // 分别对应snapshot, execution, order, orderExecution 的股票基金/债券
+    bool latencyFlag_ = false;
     bool dailyIndexFlag_ = false;
     bool receivedTimeFlag_ = false;
     bool outputElapsedFlag_ = false;

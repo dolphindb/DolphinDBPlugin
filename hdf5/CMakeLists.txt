@@ -12,14 +12,37 @@ elseif(UNIX)
     add_compile_options("-D_GLIBCXX_USE_CXX11_ABI=0")
 endif()
 
-add_compile_options( "-std=c++11" "-fPIC" ${platform_macro} "-Wall" "-Werror" "-O3" "-fno-strict-aliasing")
+add_compile_options( "-std=c++11" "-fPIC" ${platform_macro} "-Wall" "-Werror" "-fno-strict-aliasing")
 
 macro(replace_cxx_release_flag src_flag dest_flag)
     string(REPLACE "${src_flag}" "${dest_flag}" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 endmacro(replace_cxx_release_flag flag)
 
-#replace_cxx_release_flag("-O3" "-O2") 
-#replace -O3 with -O2
+if("${CMAKE_BUILD_TYPE}" STREQUAL "")
+    set(CMAKE_BUILD_TYPE "RELEASE")
+endif ()
+
+string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
+message("CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
+
+if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
+elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "RELWITHDEBINFO")  # release with debug info
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O2")
+else ()
+    message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")
+endif ()
+
+if (${DDB_USE_ASAN})
+    add_compile_options(
+        "-fsanitize=address"                # Enable ASAN.
+        "-fno-omit-frame-pointer"           # Nicer stack traces in error messages.
+        "-fno-optimize-sibling-calls"       # Disable tail call elimination (perfect stack traces if inlining off).
+        )
+    set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS} "-fsanitize=address")
+endif ()
 
 if(WIN32)
 include_directories(${CMAKE_SOURCE_DIR}/../include ${CMAKE_SOURCE_DIR}/include_win/hdf5

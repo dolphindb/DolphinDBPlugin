@@ -5,6 +5,7 @@
 #include <math.h>
 #include <mat.h>
 #include <string>
+#include <map>
 
 std::string wstringToString(const std::wstring &wstrInput, unsigned int uCodePage)
 {
@@ -37,6 +38,11 @@ std::string wstringToString(const std::wstring &wstrInput, unsigned int uCodePag
 }
 
 int mIndex = 1024;
+
+/*std::unordered_map<std::string, Mutex> mutexMap;
+Mutex mapMutex;*/
+
+Mutex mutexLock;
 
 bool convertToDTBool(mxArray *var, ConstantSP &sp)
 {
@@ -2268,6 +2274,15 @@ ConstantSP extractMatSchema(Heap *heap, vector<ConstantSP> &args)
 {
     if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR)
         throw IllegalArgumentException(__FUNCTION__, "File must be a string scalar");
+
+    auto file = args[0]->getString();
+
+    /*mapMutex.lock();
+    auto mutexLock = mutexMap[file];
+    mapMutex.unlock();*/
+
+    LockGuard<Mutex> lk(&mutexLock);
+
     MATFile *pMF = matOpen(args[0]->getString().c_str(), "r");
     if (pMF == NULL)
         throw RuntimeException("File does not exist");
@@ -2335,6 +2350,15 @@ ConstantSP loadMat(Heap *heap, vector<ConstantSP> &args)
         throw IllegalArgumentException(__FUNCTION__, "File must be a string scalar");
     std::vector<std::string> dataName;
     DictionarySP ret;
+
+    auto file = args[0]->getString();
+
+    /*mapMutex.lock();
+    auto mutexLock = mutexMap[file];
+    mapMutex.unlock();*/
+
+    LockGuard<Mutex> lk(&mutexLock);
+
     if (args.size() == 2)
     {
         ret = load(args[0]->getString(), args[1]);
@@ -2416,12 +2440,23 @@ ConstantSP writeMat(Heap *heap, vector<ConstantSP> &args){
         throw IllegalArgumentException(__FUNCTION__, "File must be a string scalar");
     if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR)
         throw IllegalArgumentException(__FUNCTION__, "VarName must be a string scalar");
+    if (args[1]->isNull())
+        throw IllegalArgumentException(__FUNCTION__, "VarName is empty");
+    if (!std::isalpha(args[1]->getString()[0]))
+        throw IllegalArgumentException(__FUNCTION__, "VarName in MATLAB (and thus also in MAT-files) must start with a letter");
     if(args[2]->getForm() != DF_MATRIX){
         throw IllegalArgumentException(__FUNCTION__, "Data must be a matrix");
     }
     string file = args[0]->getString();
     string varName = args[1]->getString();
     VectorSP data = args[2];
+
+    /*mapMutex.lock();
+    auto mutexLock = mutexMap[file];
+    mapMutex.unlock();*/
+
+    LockGuard<Mutex> lk(&mutexLock);
+
     MATFile *pMF = matOpen(file.c_str(), "w");
     if (pMF == NULL)
         throw RuntimeException("Can't write to " + file);

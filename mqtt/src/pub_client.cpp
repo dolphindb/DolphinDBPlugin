@@ -11,11 +11,8 @@
 #include "ScalarImp.h"
 #include "Util.h"
 #include "client.h"
-
-using mqtt::Connection;
-
 #include "templates/posix_sockets.h"
-
+using mqtt::Connection;
 using namespace std;
 
 /**
@@ -26,53 +23,6 @@ using namespace std;
 static void publishCallback(void **unused, struct mqtt_response_publish *published) {
     /* not used in this example */
     std::cout << "publish callback" << std::endl;
-}
-
-/**
- * @brief The client's refresher. This function triggers back-end routines to
- *        handle ingress/egress traffic to the broker.
- *
- * @note All this function needs to do is call \ref __mqtt_recv and
- *       \ref __mqtt_send every so often. I've picked 100 ms meaning that
- *       client ingress/egress traffic will be handled every 100 ms.
- */
-
-namespace mqtt{
-void SyncData::run(){
-    LOG_INFO("[PluginMQTT]: SyncData::run thread start");
-    while (!connection_->isClosed()) {
-    // #ifdef WIN32
-    //         pthread_testcancel();
-    // #endif
-            {
-                connection_->setReceived();
-                mqtt_client* client = connection_->getClient();
-                while(connection_->received()){
-                    connection_->resetReceived();
-                    try{
-                        LockGuard<Mutex> lockGurad(lockClient_.get());
-                        MQTTErrors ret = mqtt_sync(client);
-                        
-                        while (ret < 0){
-                            LOG_INFO(string("[PluginMQTT]: ") + mqtt_error_str(client->error));
-                            LOG_INFO("[PluginMQTT]: reconnect");
-                            connection_->reconnect();
-                            Util::sleep(1000);
-                            ret = mqtt_sync(client);
-                        }
-                        
-                        freeNotifier_->notify();
-                    }catch(exception& e){
-                        LOG_ERR("[PluginMQTT]: SyncData receive exception: ");
-                        LOG_ERR(e.what());
-                    }
-                }
-            }
-            usleep(100000U);
-        }
-        
-    LOG_INFO("[PluginMQTT]: SyncData:run thread exit");
-}
 }
 
 /**
@@ -92,7 +42,7 @@ static void mqttConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
  * @brief connect a mqtt broke or server.
  */
 ConstantSP mqttClientConnect(Heap *heap, vector<ConstantSP> &args) {
-    std::string usage = "Usage: connect(host, port,[qos=0],[formatter],[batchsize=0],[username],[password]).";
+    std::string usage = "Usage: connect(host, port,[qos=0],[formatter],[batchsize=1],[username],[password]).";
 
     uint8_t publishFlags = MQTT_PUBLISH_QOS_0;
     FunctionDefSP formatter;
@@ -128,9 +78,12 @@ ConstantSP mqttClientConnect(Heap *heap, vector<ConstantSP> &args) {
     if (args.size() >= 4 && !args[3]->isNull()) {
         if (args[3]->getType() != DT_FUNCTIONDEF) {
             throw IllegalArgumentException(__FUNCTION__, usage + "formatter must be an function.");
-        } else {
-            formatter =  FunctionDefSP(args[3]);
         }
+        formatter =  FunctionDefSP(args[3]);
+        // string functionName = formatter->getName();
+        // if (functionName != "formatCsv" && functionName != "formatJson" && functionName != "toStdJson") {
+        //     throw IllegalArgumentException(__FUNCTION__, usage + "formatter must be formatCsv or formatJson or toStdJson, paramFunction:" + functionName);
+        // }
     }
     if (args.size() >= 5 && !args[4]->isNull()) {
         if (args[4]->getType() != DT_INT || args[4]->getForm() != DF_SCALAR) {
@@ -163,7 +116,6 @@ ConstantSP mqttClientConnect(Heap *heap, vector<ConstantSP> &args) {
 /**
  * @brief publish a message to broke/server.
  */
-
 ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
     std::string usage = "Usage: publish(conn,topic,obj). ";
     uint16_t msgLen;
@@ -172,23 +124,20 @@ ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
     string  messageStr;
 
     // parse args first
-    if (args[0]->getType() == DT_RESOURCE) {
-        if(args[0]->getString() != "mqtt publish connection"){
-            throw IllegalArgumentException(__FUNCTION__, "connection must be a mqtt publish connection.");
-        }
-        conn = (Connection *)(args[0]->getLong());
-        if (conn==nullptr || conn->isClosed()) {
-            throw IllegalArgumentException(__FUNCTION__, "connection is closed.");
-        }
-
-    } else {
-        throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
+    if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != "mqtt publish connection") {
+        throw IllegalArgumentException(__FUNCTION__, "connection must be a mqtt publish connection.");
+    }
+    conn = (Connection *)(args[0]->getLong());
+    if (conn==nullptr || conn->isClosed()) {
+        throw IllegalArgumentException(__FUNCTION__, "connection is closed.");
     }
 
     if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException(__FUNCTION__, usage + "topic must be a string");
-    } else {
-        topicStr = args[1]->getString();
+    } 
+    topicStr = args[1]->getString();
+    if (topicStr.length() == 0) {
+        throw RuntimeException(LOG_PRE_STR + " the length of topic should more than 0");
     }
     if (args[2]->isTable()) {
         if (conn->getFormatter().isNull()== true) {
@@ -204,15 +153,12 @@ ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
                 int end = min(t->rows() - 1, r + batchSize - 1);
                 vector<ConstantSP> args0 = {new Int(r), new Int(end)};
                 ConstantSP result = seq->call(heap, args0);
-
                 TableSP subTable = t->get(result);
-
                 vector<ConstantSP> args1 = {subTable};
                 ConstantSP s = conn->getFormatter()->call(heap, args1);
 
                 messageStr = s->getString();
                 msgLen = messageStr.length();
-
                 MQTTErrors err = conn->publishMsg(topicStr.c_str(), (void *)messageStr.c_str(), msgLen);
                 // check for errors
                 if (err != MQTT_OK) {
@@ -227,7 +173,6 @@ ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
 
             FunctionDefSP formatter = conn->getFormatter();
             ConstantSP s = formatter->call(heap, args1);
-
             messageStr = s->getString();
             msgLen = messageStr.length();
         }
@@ -238,7 +183,6 @@ ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
             msgLen = args[2]->get(i)->getString().length();
 
             MQTTErrors err = conn->publishMsg(topicStr.c_str(), (void *)messageStr.c_str(), msgLen);
-            // check for errors
             if (err != MQTT_OK) {
                 throw RuntimeException(mqtt_error_str(err));
             }
@@ -254,11 +198,9 @@ ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
     }
 
     MQTTErrors err = conn->publishMsg(topicStr.c_str(), (void *)messageStr.c_str(), msgLen);
-    // check for errors
     if (err != MQTT_OK) {
         throw RuntimeException(mqtt_error_str(err));
     }
-
     return new Int(MQTT_OK);
 }
 
@@ -287,6 +229,40 @@ ConstantSP mqttClientClose(const ConstantSP &handle, const ConstantSP &b) {
 
 /// Connection
 namespace mqtt {
+class RefeshPubConn : public Runnable {
+public:
+    RefeshPubConn(Connection * connection)
+            : connection_(connection){};
+    ~RefeshPubConn() override = default;
+    void run() override;
+private:
+    Connection * connection_;
+    SmartPointer<Mutex> lockClient_;
+    SmartPointer<ConditionalNotifier> freeNotifier_;
+};
+
+void RefeshPubConn::run() {
+    struct mqtt_client* client = connection_->getClient();
+    while(!connection_->isClosed())
+    {
+        try {
+            MQTTErrors ret = mqtt_sync(client);
+            int currentRetryCount = 0;                       
+            while (ret == MQTT_ERROR_SOCKET_ERROR && currentRetryCount < MAX_RETRY_COUNT){
+                connection_->reconnect();
+                Util::sleep(100);
+                ret = mqtt_sync(client);
+                currentRetryCount++;
+            }
+        } catch (exception& e) {
+            LOG_ERR(LOG_PRE_STR, " refresh publish connection failed, err message is <", string(e.what()), ">");
+        }catch (...) {
+            LOG_ERR(LOG_PRE_STR, " refresh publish connection failed.");
+        }
+        usleep(100000U);
+    }
+}
+
 Connection::~Connection(){
     isClosed_ = true;
     clientDaemon_->join();
@@ -298,65 +274,67 @@ Connection::Connection(const std::string& hostname, int port, uint8_t qos, const
 		const std::string& userName, const std::string& password)
     : ConnctionBase(new ConditionalNotifier()),
     host_(hostname), port_(port), publishFlags_(qos), formatter_(formatter), batchSize_(batchSize),
-    userName_(userName), password_(password)
-     {
+    userName_(userName), password_(password){
     sockfd_ = new Socket(hostname, port, false);
     IO_ERR ret = sockfd_->connect();
     if (ret != OK && ret != INPROGRESS) {
-        throw RuntimeException("Failed to connect. ");
+        throw RuntimeException(LOG_PRE_STR + " Failed to connect.");
     }
+    try {
+        mqtt_init(&client_, sockfd_->getHandle(), sendbuf_, sizeof(sendbuf_), recvbuf_, sizeof(recvbuf_), publishCallback);
+        std::string client_id = "ddb_mqtt_plugin_pub" + std::to_string(sockfd_->getHandle());
+        uint8_t connect_flags = MQTT_CONNECT_CLEAN_SESSION;
+        if(userName == "") {
+            mqtt_connect(&client_, client_id.c_str(), NULL, NULL, 0, NULL, NULL, connect_flags, 400);
+        }
+        else{
+            mqtt_connect(&client_, client_id.c_str(), NULL, NULL, 0, userName.c_str(), password.c_str(), connect_flags, 400);
+        }
 
-    mqtt_init(&client_, sockfd_->getHandle(), sendbuf_, sizeof(sendbuf_), recvbuf_, sizeof(recvbuf_), publishCallback);
-
-    /* Create an anonymous session */
-    const char* client_id = NULL;
-    /* Ensure we have a clean session */
-    uint8_t connect_flags = MQTT_CONNECT_CLEAN_SESSION;
-    /* Send connection request to the broker. */
-    if(userName=="") {
-        mqtt_connect(&client_, client_id, NULL, NULL, 0, NULL, NULL, connect_flags, 400);
+        if (client_.error != MQTT_OK) {
+            throw RuntimeException(mqtt_error_str(client_.error));
+        }
+        lockClient_ = new Mutex();
+        SmartPointer<RefeshPubConn> PubConn = new RefeshPubConn(this);
+        clientDaemon_ = new Thread(PubConn);
+        if (!clientDaemon_->isStarted()) {
+            clientDaemon_->start();
+        }
+        sendtimes_ = 0;
+        failed_ = 0;
+    } catch (exception& e){
+        std::string errMsg(e.what());
+        LOG_ERR(LOG_PRE_STR + " mqtt publish connection init failed, error message is <", errMsg, ">");
+        throw RuntimeException(LOG_PRE_STR + " mqtt publish connection init failed, error message is <" + errMsg + ">");
     }
-    else{
-        mqtt_connect(&client_, client_id, NULL, NULL, 0, userName.c_str(), password.c_str(), connect_flags, 400);
-    }
-
-    /* check that we don't have any errors */
-    if (client_.error != MQTT_OK) {
-        throw RuntimeException(mqtt_error_str(client_.error));
-    }
-    lockClient_ = new Mutex();
-    /* start a thread to refresh the client (handle egress and ingree clien traffic) */
-    SmartPointer<SyncData> syncData= new SyncData(this, lockClient_, freeNotifier_);
-    clientDaemon_ = new Thread(syncData);
-    if (!clientDaemon_->isStarted()) {
-        clientDaemon_->start();
-    }
-    sendtimes = 0;
-    failed = 0;
 }
 
 MQTTErrors Connection::publishMsg(const char *topic, void *message, size_t size) {
-    sendtimes++;
+    sendtimes_++;
     MQTTErrors err = MQTT_OK;
     do {
-        {
-            LockGuard<Mutex> lockGurad(lockClient_.get());
+        try {
             err = mqtt_publish(&client_, topic, message, size, publishFlags_);
             if(err == MQTT_ERROR_SEND_BUFFER_IS_FULL)
                 client_.error = MQTT_OK;
             if (err != MQTT_OK) {
-                LOG_INFO(string("[PluginMQTT]: publishMsg ") + mqtt_error_str(err));
-                failed++;
+                LOG_INFO(string("[PluginMQTT]: publishMsg error:") + mqtt_error_str(err));
+                failed_++;
             }
+        } catch (exception& e) {
+            std::string errMsg(e.what());
+            LOG_ERR(LOG_PRE_STR + " mqtt publish msg failed, error message is <", errMsg, ">");
+            throw RuntimeException(LOG_PRE_STR + " mqtt publish msg failed, error message is <" + errMsg + ">");
         }
-        //Now only according to the repair methods of https://github.com/LiamBindle/MQTT-C/issues/124
+        
         if (err == MQTT_ERROR_SEND_BUFFER_IS_FULL) {
-            freeNotifier_->wait();
+            Util::sleep(500);
+            LOG_INFO("[PluginMQTT]: publishMsg get MQTT_ERROR_SEND_BUFFER_IS_FULL err.");
         }
         if(isClosed_)
-            throw RuntimeException("connection is closed");
-    } while (MQTT_OK != err);
-
+            throw RuntimeException(LOG_PRE_STR + "connection is closed");
+    } while (MQTT_OK != err && failed_ < MAX_RETRY_COUNT);
+    failed_ = 0;
     return err;
 }
 

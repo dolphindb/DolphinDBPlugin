@@ -73,9 +73,34 @@ loadPlugin("path/to/DolphinDBPlugin/zlib/PluginZlib.txt");
       //注意若输出文件有同名文件，则会被覆盖
       ```
 
+- `createZlibInputStream`内部调用，不开放给客户
+
+    - args
+
+        - `inputFileName`, string, should end up with `.gz`
+
+    - return
+
+        - DataInputStreamSP
+
+            - `internalStreamRead`
+            - `internalClose`
+            - `internalMoveToPosition` is not supported
+        
+    - e.g.
 
 # Exceptions
 
 If arguments are wrong, throw `IllegalArgumentException`.
 
 If any other errors occur, throw `IOException`.
+
+# ReleaseNotes:
+
+## 新功能
+
+* 新增支持压缩同一个文件下的所有文件。（**2.00.10**）
+
+# 功能优化
+
+* 优化了部分报错信息。（**2.00.10**）

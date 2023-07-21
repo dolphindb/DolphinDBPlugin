@@ -44,20 +44,26 @@ CSendMail::CSendMail(
     m_RecipientList_.clear();
     m_MailContent_.clear();
     m_iMailContentPos_ = 0;
+    m_offset_ = 0;
 }
 
 size_t CSendMail::read_callback(void *ptr, size_t size, size_t nmemb, void *userp) {
     CSendMail *pSm = (CSendMail *) userp;
-
-    if (size * nmemb < 1)
+    size_t maxSize = size * nmemb;
+    if (maxSize < 1)
         return 0;
     if (pSm->m_iMailContentPos_ < (int) pSm->m_MailContent_.size()) {
-        size_t len;
-        len = pSm->m_MailContent_[pSm->m_iMailContentPos_].length();
-
-        memcpy(ptr, pSm->m_MailContent_[pSm->m_iMailContentPos_].c_str(), len);
-        pSm->m_iMailContentPos_++;
-        return len;
+        size_t remainLen = pSm->m_MailContent_[pSm->m_iMailContentPos_].length() - pSm->m_offset_;
+        size_t writeLen = std::min(remainLen, maxSize);
+        memcpy(ptr, pSm->m_MailContent_[pSm->m_iMailContentPos_].data() + pSm->m_offset_, writeLen);
+        if(writeLen == remainLen){
+            pSm->m_iMailContentPos_++;
+            pSm->m_offset_ = 0;
+        }
+        else{
+            pSm->m_offset_ += writeLen;
+        }
+        return writeLen;
     }
     return 0;
 }
@@ -80,7 +86,7 @@ bool CSendMail::ConstructHead(const string &strSubject, const string &strContent
     }
     // m_MailContent_.push_back("Content-Transfer-Encoding: 8bit\n");
     m_MailContent_.push_back("Content-Type: text/html; \n Charset=\"UTF-8\"\n\n");
-    if (!strSubject.empty()) {
+    if (!strContent.empty()) {
         m_MailContent_.push_back(strContent);
     }
 
@@ -92,6 +98,7 @@ ConstantSP CSendMail::SendMail(const string &strSubject, const string &strMailBo
     char errorBuf[CURL_ERROR_SIZE];
     m_MailContent_.clear();
     m_iMailContentPos_ = 0;
+    m_offset_ = 0;
     ConstructHead(strSubject, strMailBody);
     CURL *curl;
     struct curl_slist *rcpt_list = NULL;
@@ -104,7 +111,7 @@ ConstantSP CSendMail::SendMail(const string &strSubject, const string &strMailBo
         throw IllegalArgumentException(__FUNCTION__, "Init curl failed");
     }
     string strListMailTo;
-    list<string>::iterator lastIter = m_RecipientList_.end()--;
+    list<string>::iterator lastIter = --m_RecipientList_.end();
     for (list<string>::iterator it = m_RecipientList_.begin(); it != m_RecipientList_.end(); it++) {
         strListMailTo += it->c_str();
         if(lastIter != it)
@@ -144,7 +151,7 @@ ConstantSP CSendMail::SendMail(const string &strSubject, const string &strMailBo
     curl_easy_setopt(curl, CURLOPT_MAIL_RCPT, rcpt_list);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
-    curl_easy_setopt(curl, CURLOPT_USE_SSL, CURLUSESSL_ALL);
+    curl_easy_setopt(curl, CURLOPT_USE_SSL, CURLUSESSL_TRY);
     curl_easy_setopt(curl, CURLOPT_READDATA, this);
     curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
     curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
@@ -164,13 +171,14 @@ ConstantSP CSendMail::SendMail(const string &strSubject, const string &strMailBo
     curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &elapsed);
 
     if (ret != 0) {
+        string errorMsg(errorBuf);
         curl_slist_free_all(rcpt_list);
         curl_easy_cleanup(curl);
         curl_global_cleanup();
         if (responseCode == 535)
             throw RuntimeException("UserId or password is incorrect");
         else
-            throw RuntimeException("Failed to send the email");
+            throw RuntimeException("Failed to send the email code " + std::to_string(ret) + " msg " + errorMsg);
     }
 
     res->set(new String("responseCode"), new Int(responseCode));
@@ -195,8 +203,7 @@ ConstantSP sendEmail(Heap *heap, vector<ConstantSP> &args) {
     if (pwd->getType() != DT_STRING || pwd->getForm() != DF_SCALAR)
         throw IllegalArgumentException(__FUNCTION__, "Pwd must be a string scalar");
     recipient = args[2];
-    if ((recipient->getType() != DT_STRING || recipient->getForm() != DF_SCALAR) &&
-        (recipient->getType() != DT_STRING || recipient->getForm() != DF_VECTOR))
+    if (recipient->getType() != DT_STRING || (recipient->getForm() != DF_SCALAR && recipient->getForm() != DF_VECTOR))
         throw IllegalArgumentException(__FUNCTION__, "recipient must be a string scalar or a string vector");
     subject = args[3];
     if (subject->getType() != DT_STRING || subject->getForm() != DF_SCALAR)

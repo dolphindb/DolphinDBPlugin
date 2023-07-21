@@ -1,4 +1,5 @@
 #include "CoreConcept.h"
+#include "client.h"
 
 extern "C" {
 ConstantSP createJsonParser(Heap* heap, vector<ConstantSP>& arguments);

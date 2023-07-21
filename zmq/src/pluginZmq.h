@@ -5,13 +5,12 @@
 #include "ScalarImp.h"
 #include "zmq.h"
 #include "zmq.hpp"
-#include "ConstantMarshall.h"
 #include "json.hpp"
 #include "Logger.h"
 
 using namespace std;
 using json = nlohmann::json;
-
+static const std::string PLUGIN_ZMQ_PREFIX = "[PLUGIN::ZMQ]: ";
 extern "C" ConstantSP zmqSocket(Heap *heap, vector<ConstantSP> &args);
 
 extern "C" ConstantSP zmqSend(Heap *heap, vector<ConstantSP> &args);
@@ -30,19 +29,7 @@ extern "C" ConstantSP zmqGetSubJobStat(Heap *heap, vector<ConstantSP> &args);
 
 extern "C" ConstantSP zmqCreatepusher(Heap *heap, vector<ConstantSP> &args);
 
-static shared_ptr<zmq::socket_t> createZmqSocket(zmq::context_t &context, const string &socketType) {
-    if (socketType == "ZMQ_PUB") {
-        return shared_ptr<zmq::socket_t>(new zmq::socket_t(context, ZMQ_PUB));
-    } else if (socketType == "ZMQ_SUB") {
-        return shared_ptr<zmq::socket_t>(new zmq::socket_t(context, ZMQ_SUB));
-    } else if (socketType == "ZMQ_PUSH") {
-        return shared_ptr<zmq::socket_t>(new zmq::socket_t(context, ZMQ_PUSH));
-    } else if (socketType == "ZMQ_PULL") {
-        return shared_ptr<zmq::socket_t>(new zmq::socket_t(context, ZMQ_PULL));
-    } else {
-        throw RuntimeException("the zmq socket type is not supported");
-    }
-}
+static shared_ptr<zmq::socket_t> createZmqSocket(zmq::context_t &context, const string &socketType);
 
 class ZmqSocket {
 public:
@@ -50,6 +37,7 @@ public:
         : context(), zmq_Socket_(createZmqSocket(context, type)) {}
 
     void connect(const string &addr, const string &prefix) {
+        ZmqSocket::checkFileNum();
         zmq_Socket_->set(zmq::sockopt::tcp_keepalive, 1);
         zmq_Socket_->set(zmq::sockopt::tcp_keepalive_idle, 30);
         zmq_Socket_->set(zmq::sockopt::tcp_keepalive_cnt, 5);
@@ -61,6 +49,7 @@ public:
     }
 
     void bind(const string addr, const string &prefix) {
+        ZmqSocket::checkFileNum();
         addr_ = addr;
         zmq_Socket_->bind(addr);
         prefix_ = prefix;
@@ -88,6 +77,43 @@ public:
 
     string getType() {
         return type_;
+    }
+
+    static void runCmd(const std::string& cmd, std::string& output) {
+        FILE* fp = NULL;
+        char data[1024] = {0};
+        fp = popen(cmd.c_str(), "r");
+        if (fp == nullptr) { throw RuntimeException(PLUGIN_ZMQ_PREFIX + "Failed to popen: " + std::strerror(errno)); }
+        int ret = fread(data, 1, sizeof(data) - 1, fp);
+        if (ret < 0) {
+            pclose(fp);
+            throw RuntimeException(PLUGIN_ZMQ_PREFIX + "Failed to fread: " + std::strerror(errno));
+        }
+        output.assign(data);
+        if (0 != pclose(fp)) { throw RuntimeException(PLUGIN_ZMQ_PREFIX  + "Failed to pclose: " + std::strerror(errno)); }
+    }
+
+    static void checkFileNum() {
+        std::string cmd("ls /proc/self/fd | wc -l");
+        std::string currentOpenFileNumStr, maxOpenFileNumStr;
+        runCmd(cmd, currentOpenFileNumStr);
+        cmd = "ulimit -n";
+        runCmd(cmd, maxOpenFileNumStr);
+        long currentOpenFileNum;
+        long maxOpenFileNum;
+        try{
+            currentOpenFileNum = std::strtol(currentOpenFileNumStr.c_str(), NULL, 10);
+        }catch(exception &e){
+            throw RuntimeException(PLUGIN_ZMQ_PREFIX + "Failed to parse long: " + e.what());
+        }
+        try{
+            maxOpenFileNum = std::strtol(maxOpenFileNumStr.c_str(), NULL, 10);
+        }catch(exception &e){
+            throw RuntimeException(PLUGIN_ZMQ_PREFIX + "Failed to parse long: " + e.what());
+        }
+        if ((maxOpenFileNum - currentOpenFileNum) < 50) {
+            throw RuntimeException(PLUGIN_ZMQ_PREFIX + "Can not connect, For already open too many files!");
+        }
     }
 
 protected:
@@ -337,7 +363,7 @@ public:
     virtual void setColumnName(int index, const string& name) {return dummytable_->setColumnName(index, name);};
     virtual int getColumnIndex(const string& name) const {return dummytable_->getColumnIndex(name);};
     virtual bool contain(const string& qualifier, const string& name) const {return dummytable_->contain(qualifier, name);};
-    virtual bool contain(ColumnRef* col) const {return dummytable_->contain(col);};
+    virtual bool contain(const ColumnRef* col) const {return dummytable_->contain(col);};
     virtual bool contain(const ColumnRefSP& col) const {return dummytable_->contain(col);};
     virtual bool contain(const string& name) const {return dummytable_->contain(name);};
     virtual bool containAll(const vector<ColumnRefSP>& cols) const {return dummytable_->containAll(cols);};
@@ -350,6 +376,22 @@ public:
     virtual const string& getName() const {return dummytable_->getName();};
     virtual bool update(vector<ConstantSP>& values, const ConstantSP& indexSP, vector<string>& colNames, string& errMsg) {return dummytable_->update(values, indexSP, colNames, errMsg);};
     virtual ConstantSP getInstance() const {return ((ConstantSP)dummytable_)->getInstance();};
+    int getColumnExtraParam(int index) const override { return dummytable_->getColumnExtraParam(index);}
 };
+
+static shared_ptr<zmq::socket_t> createZmqSocket(zmq::context_t &context, const string &socketType) {
+    ZmqSocket::checkFileNum();
+    if (socketType == "ZMQ_PUB") {
+        return shared_ptr<zmq::socket_t>(new zmq::socket_t(context, ZMQ_PUB));
+    } else if (socketType == "ZMQ_SUB") {
+        return shared_ptr<zmq::socket_t>(new zmq::socket_t(context, ZMQ_SUB));
+    } else if (socketType == "ZMQ_PUSH") {
+        return shared_ptr<zmq::socket_t>(new zmq::socket_t(context, ZMQ_PUSH));
+    } else if (socketType == "ZMQ_PULL") {
+        return shared_ptr<zmq::socket_t>(new zmq::socket_t(context, ZMQ_PULL));
+    } else {
+        throw RuntimeException(PLUGIN_ZMQ_PREFIX+"the zmq socket type is not supported");
+    }
+}
 
 #endif //PLUGINZMQ_PLUGINZMQ_H

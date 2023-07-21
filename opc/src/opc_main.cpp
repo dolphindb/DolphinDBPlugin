@@ -67,7 +67,7 @@ public:
     }
 };
 
-ConstantSP toConstant(OPCItemData data, string itemName) {
+ConstantSP toConstant(OPCItemData& data, string itemName) {
     unsigned long long ms;
     vector<ConstantSP> cols;
     ConstantSP name = Util::createConstant(DT_STRING);
@@ -233,6 +233,9 @@ public:
             }
             catch(bad_alloc &e){
                 LOG_ERR("Plugin OPC: Out of Memory. ");
+            }
+            catch (exception &e){
+                LOG_ERR("Plugin OPC: Fail to work: ", e.what());
             }
             catch(...){
                 LOG_ERR("Plugin OPC: Fail to work. ");
@@ -413,7 +416,6 @@ vector<string> CLSIDToStringVector(vector<CLSID> v) {
 }
 
 ConstantSP getOpcServerList(Heap *heap, vector<ConstantSP> &arguments) {
-    LockGuard<Mutex> lk(&opcPluginImp::mutex);
     if ((arguments[0]->getType() != DT_STRING) || !arguments[0]->isScalar()) {
         throw IllegalArgumentException(__FUNCTION__, "the host must be string scalar");
     }
@@ -433,17 +435,19 @@ ConstantSP getOpcServerList(Heap *heap, vector<ConstantSP> &arguments) {
     return retTable;
 }
 static void opcConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
+    LockGuard<Mutex> lk(&opcPluginImp::mutex);
     OPCClient *cp = (OPCClient *)(args[0]->getLong());
-    {
+    if (opcPluginImp::dict->getMember(std::to_string(reinterpret_cast<long long>(cp)))->isNothing()) {
         if (cp != nullptr) {
             delete cp;
             args[0]->setLong(0);
         }
+    } else {
+        cp->sessionClosed = true;
     }
 }
 
 ConstantSP connectOpcServer(Heap *heap, vector<ConstantSP> &arguments) {
-    LockGuard<Mutex> lk(&opcPluginImp::mutex);
     std::string usage = "Usage: connect(host,server,[reqUpdateRate_ms=100]). ";
 
     if ((arguments[0]->getType() != DT_STRING) || !arguments[0]->isScalar()) {
@@ -474,7 +478,6 @@ ConstantSP connectOpcServer(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP disconnect(const ConstantSP &handle, const ConstantSP &b) {
-    LockGuard<Mutex> lk(&opcPluginImp::mutex);
     std::string usage = "Usage: close(conn). ";
     OPCClient *conn;
     if (handle->getType() == DT_RESOURCE && handle->getLong()>0) {
@@ -495,19 +498,20 @@ ConstantSP disconnect(const ConstantSP &handle, const ConstantSP &b) {
 }
 
 ConstantSP endSub(const ConstantSP &handle, const ConstantSP &b) {
-    LockGuard<Mutex> lk(&opcPluginImp::mutex);
     std::string usage = "Usage: unsubscribe(subscription). ";
     OPCClient *conn;
     if (handle->getType() == DT_RESOURCE) {
         conn = (OPCClient *)(handle->getLong());
 
     } else if (handle->getType() == DT_STRING) {
+        LockGuard<Mutex> lk(&opcPluginImp::mutex);
         ConstantSP c = opcPluginImp::dict->getMember(handle->getString());
         if (c->isNothing()) {
             throw IllegalArgumentException(__FUNCTION__, "Invalid connection string.");
         }
         conn = (OPCClient *)(c->getLong());
-    } else if (handle->getType() == DT_LONG || handle->getType() == DT_INT ) {
+    } else if (handle->getType() == DT_LONG) {
+        LockGuard<Mutex> lk(&opcPluginImp::mutex);
         ConstantSP c = opcPluginImp::dict->getMember(handle->getString());
         if (c->isNothing()) {
             throw IllegalArgumentException(__FUNCTION__, "Invalid connection string.");
@@ -520,7 +524,8 @@ ConstantSP endSub(const ConstantSP &handle, const ConstantSP &b) {
     if (conn != nullptr) {
         conn->setSubFlag(true);
         pool.unsub(conn);
-        opcPluginImp::dict->remove(new String(std::to_string(conn->id())));
+        LockGuard<Mutex> lk(&opcPluginImp::mutex);
+        opcPluginImp::dict->remove(new String(std::to_string((long long)conn)));
         if(conn->sessionClosed) delete conn;
     }
     return new Void();
@@ -539,8 +544,8 @@ ConstantSP getSubscriberStat(const ConstantSP &handle, const ConstantSP &b) {
     VectorSP keys = opcPluginImp::dict->keys();
     for (int i = 0; i < keys->size(); i++) {
         string key = keys->getString(i);
-        connectionIdVec->setString(i, key);
         OPCClient *conn = (OPCClient *)opcPluginImp::dict->getMember(key)->getLong();
+        connectionIdVec->setString(i, to_string(reinterpret_cast<long long>(conn)));
         hostVec->setString(i,conn->getHost());
         serverNameVec->setString(i,conn->getServerName());
         tagVec->setString(i,conn->getTagName());
@@ -786,7 +791,6 @@ Table *readTagInternal(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP readTag(Heap *heap, vector<ConstantSP> &arguments) {
-    LockGuard<Mutex> lk(&opcPluginImp::mutex);
     std::string usage = "Usage: readTag(conn,tag).";
 
     OPCClient *conn;
@@ -982,7 +986,6 @@ Table *writeTagInternal(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP writeTag(Heap *heap, vector<ConstantSP> &arguments) {
-    LockGuard<Mutex> lk(&opcPluginImp::mutex);
     std::string usage = "Usage: writeTag(conn,tag,value).";
 
     OPCClient *conn;
@@ -1024,7 +1027,6 @@ ConstantSP writeTag(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP subscribeTag(Heap *heap, vector<ConstantSP> &arguments) {
-    LockGuard<Mutex> lk(&opcPluginImp::mutex);
     std::string usage = "Usage: subscribe(conn,Tag,handler). ";
 
     OPCClient *conn;
@@ -1070,7 +1072,8 @@ ConstantSP subscribeTag(Heap *heap, vector<ConstantSP> &arguments) {
     conn->setErrorMsg("");
     conn->resetRecv();
     conn->setTagName(arguments[1]->getString());
-    opcPluginImp::dict->set(std::to_string(conn->id()), new Long((long long)conn));
+    LockGuard<Mutex> lk(&opcPluginImp::mutex);
+    opcPluginImp::dict->set(std::to_string(reinterpret_cast<long long>(conn)), new Long((long long)conn));
 
     return new Void();
 }

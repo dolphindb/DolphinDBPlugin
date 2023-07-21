@@ -14,7 +14,7 @@ kdb+ 插件目前支持版本：[relsease200](https://github.com/dolphindb/Dolph
 
 如果通过第一种方式从 kdb+ 中导入数据，则需要先安装 kdb+ 数据库。
 
-官网申请64位社区版 license：https://kx.com/developers/download-licenses/ 
+官网申请64位社区版 license：https://kx.com/developers/download-licenses/
 
 #### 安装 zlib 包
 
@@ -103,8 +103,8 @@ connect(host, port, usernamePassword)
 2. 连接端口异常，对应主机的端口不存在
 3. 超时异常，建立连接超时
 
-**示例：**  
-假设登录 kdb+ 数据库的用户名和密码（admin:123456）存储在 ../passwordfiles/usrs 中，且 kdb+ 服务器和 DolphinDB server 都位于同一个主机上。 
+**示例：**
+假设登录 kdb+ 数据库的用户名和密码（admin:123456）存储在 ../passwordfiles/usrs 中，且 kdb+ 服务器和 DolphinDB server 都位于同一个主机上。
 
 kdb+ 终端执行：
 ```
@@ -135,7 +135,7 @@ loadTable(handle, tablePath, symPath)
 - 'tablePath' 是一个字符串，表示需要读取的表文件路径。如果是 splayed table, partitioned table 或 segmented table，则指定为表文件目录；如果是 single object，则指定为表文件
 
 - 'symPath' 是一个字符串，表示表文件对应的 sym 文件路径
-  
+
   该参数可以为空，此时必须保证表内不包含被枚举的 symbol 列。
 
 注意：路径中建议使用'/'分隔。
@@ -171,7 +171,7 @@ loadFile(tablePath, symPath)
 - 'tablePath' 是一个字符串，表示需要读取的表文件路径。只能是 splayed table, partitioned table 或 segmented table 的表文件目录
 
 - 'symPath' 是表文件对应的 sym 文件路径
-  
+
   该参数可以为空，此时必须保证表内不包含被枚举的 symbol 列。
 
 注意：路径中建议使用'/'分隔。
@@ -195,7 +195,7 @@ DATA_DIR="/path/to/data/kdb_sample"
 Txns = kdb::loadFile(handle, DATA_DIR + "/2022.06.17/Txns", DATA_DIR)
 ```
 
-### 3.4 close 
+### 3.4 close
 
 **语法**
 
@@ -253,7 +253,7 @@ Txns2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Txns/", DATA_DIR + "/sym")
 
 注意事项：
 
-1. 待导入的表中不应包含 nested column。
+1. 待导入的表中不应包含除 char 类型以外的 nested column。
 2. loadTable 指定的加载路径应为单个表文件，或表路径（表为拓展表、分区表或分段表时）。
 
 ### 4.2 通过 loadFile 导入
@@ -264,30 +264,31 @@ Txns2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Txns/", DATA_DIR + "/sym")
 
 1. 无法读取单个表（single object）。
 2. 只能读取采用 gzip 压缩方法持久化的数据。
-3. 待导入的表中不应包含 nested column。
+3. 待导入的表中不应包含除 char 类型以外的 nested column。
 4. loadFile 指定的加载路径分区下的表路径。
+5. 如果导入的表中存在 sorted、unique 、partitioned 、true index 等列属性，建议使用loadTable，减少出错的可能
 
 ## 5 kdb+ 各类表文件加载方式说明
 
 分别说明 kdb+ 四种表文件的导入方式：
 
 - 单张表（single object）
-  
+
   只能使用 `loadTable()` 导入。
 
   举例：
-  ``` 
+  ```
   目录结构：
   path/to/data
   ├── sym
   └── table_name
   ```
-  
+
   ```
   handle = kdb::connect("127.0.0.1", 5000, "username:password");
   table = kdb::loadTable(handle, "path/to/data/table_name", "path/to/data/sym");
   ```
-  
+
 - 拓展表（splayed table）
 
   `loadTable()` 或 `loadFile()`
@@ -295,7 +296,7 @@ Txns2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Txns/", DATA_DIR + "/sym")
   如果未压缩或使用 gzip 压缩，则推荐使用第二种方法，导入效率会更高。
 
   举例：
-  ``` 
+  ```
   目录结构：
   path/to/data
   ├── sym
@@ -303,7 +304,7 @@ Txns2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Txns/", DATA_DIR + "/sym")
       ├── date
       ├── p
       └── ti
-  ``` 
+  ```
 
   ```
   handle = kdb::connect("127.0.0.1", 5000, "username:password");
@@ -320,7 +321,7 @@ Txns2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Txns/", DATA_DIR + "/sym")
 
   举例：
 
-  ``` 
+  ```
   目录结构：
   path/to/data
   ├── sym
@@ -336,7 +337,7 @@ Txns2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Txns/", DATA_DIR + "/sym")
       └── table_name
           ├── p
           └── ti
-  ``` 
+  ```
 
 ```
 // 获取文件夹下的所有文件信息
@@ -371,6 +372,8 @@ for (file in files) {
 
 ## 6 kdb+ 与 DolphinDB 数据类型转换表
 
+**kdb+ 基本类型**
+
 | kdb+      | DolphinDB     | 字节长度 | 备注                                                                             |
 | --------- | ------------- | -------- | -------------------------------------------------------------------------------- |
 | boolean   | BOOL          | 1        |                                                                                  |
@@ -391,3 +394,27 @@ for (file in files) {
 | minute    | MINUTE        | 4        |                                                                                  |
 | second    | SECOND        | 4        |                                                                                  |
 | time      | TIME          | 4        |                                                                                  |
+
+**kdb+ 其他类型**
+
+由于 kdb+ 中常常使用 char nested list 存储字符串类型数据，因此 dolphindb kdb+ 插件支持了 char nested list 到 dolphindb string 类型的转换。
+
+其他复杂类型如 anymap、dictionary 以及其他基本类型的 nested list 无法支持到 dolphindb 内置类型的转换。
+
+| kdb+               | DolphinDB     | 字节长度 | 备注                                                                              |
+| ------------------ | ------------- | -------- | -------------------------------------------------------------------------------- |
+| char nested list   | STRING        | 不超过65535 |                                                                                  |
+
+
+
+# ReleaseNotes:
+
+## 新功能
+
+* 新增支持读取 kdb+ char 型 nested list。（**2.00.10**）
+
+# 故障修复
+
+* 修复调用 loadTable 时不指定参数 *symPath* 导致 server 宕机的问题。（**2.00.10**）
+* 修复 loadTable 无法正确解析用户自定义 sym 文件名的问题。（**2.00.10**）
+* 修复在关闭插件 kdb+的进程后，再次执行 loadTable 导致 server 宕机的问题。（**2.00.10**）

@@ -23,7 +23,7 @@ loadPlugin("/path/to/plugins/hdfs/PluginHdfs.txt");
 
 ### 2.1 编译环境搭建
 
-``` shell 
+``` shell
 #从Hadoop的官网下载Hadoop软件
 https://hadoop.apache.org
 # 对于ubuntu用户来说
@@ -49,15 +49,26 @@ make
 #### 语法
 
 ``` shell
-conn=hdfs::connect(nameMode, port, [userName], [kerbTicketCachePath] )
+conn=hdfs::connect(nameNode, [port], [userName], [kerbTicketCachePath], [keytabPath], [principal], [lifeTime])
 ```
 
 #### 参数
 
-- 'nameMode'是hdfs所在的IP地址，如果是本地的也可以使用“localhost”
-- ‘port’是hdfs开放的端口号，如果是本地一般为9000
-- 'userName'是可以选择的登录的用户名
-- 'kerbTicketCachePath'可选，连接到hdfs时要使用的Kerberos路径
+- 字符串标量，'nameNode'是hdfs所在的IP地址，如果是本地的也可以使用“localhost”, 也可以填完整的集群地址。如果这个参数中填了完整的集群地址，则不需要再填port，为hadoop的集群配置项fs.defaultFS的值。
+
+- 整型标量，可选，‘port’是hdfs开放的端口号，如果是本地，一般为9000. 如果nameNode填写的是完整的server地址，则不需要填port这个参数.
+
+- 字符串标量，可选, 'userName'是可以选择的登录的用户名
+
+- 字符串标量，可选, 'kerbTicketCachePath'，连接到hdfs时要使用的Kerberos路径。为hdfs集群配置项的 hadoop.security.kerberos.ticket.cache.path 的值。
+    如果没有指定后三项，则该位置是已经生成的 ticket 的路径
+    如果指定了后面的三项，则该路径是需要生成的 ticket 存储的路径
+
+- 字符串标量，可选, 'keytabPath'是 kerberos 认证中，用于验证获得票据的 keytab 文件所在路径
+
+- 字符串标量，可选, 'principal'是 kerberos 认证中指定的需要验证的 principal。
+
+- 字符串标量，可选, 'lifeTime' 是生成的票据的生存期，D 代表天，H 代表小时，M 代表分钟，S 代表秒。"4h5m" 代表 4 小时 5 分钟，"1d2s" 表示 1 天 2 秒。默认生存期为 1 天
 
 #### 详情
 
@@ -220,7 +231,7 @@ fileInfo=getListDirectory(hdfsFS, path)
 
 #### 详情
 
-返回一个包含目标目录所有信息的句柄，如果未成功则报错，如果成功则没有返回值
+返回一个包含目标目录所有信息的句柄，如果未成功则会抛出异常
 
 ### 3.11 listDirectory
 
@@ -271,13 +282,16 @@ readFile(hdfsFS, path, handler)
 #### 详情
 
 从hdfs的服务器中读取数据，调用handler函数将数据处理后存放在内存表中，返回值为该内存表。
+handler可以理解为反序列化接口，将hdfs中的文件反序列化为dolphindb的table。参数有两个，一个是文件字节流的buf地址，一个是文件的长度。readFile函数从hdfs中读取文件之后将文件的内容保存到buf指向的buffer中，并且缓存内容的长度。
+handler内部根据长度从buffer读取内容，进行反序列化，并保存到dolphidb table中。
+目前已支持的函数有orc插件中的orc::loadORCHdfs, parquet插件中的parquet::loadParquetHdfs。如果在hdfs中保存了其他格式，则需要根据具体的格式再开发反序列化的接口。
 
 ### 3.14 writeFile
 
 #### 语法
 
 ``` shell
-readFile(hdfsFS, path, tb, handler)
+writeFile(hdfsFS, path, tb, handler)
 ```
 
 #### 参数
@@ -290,6 +304,8 @@ readFile(hdfsFS, path, tb, handler)
 #### 详情
 
 将内存表以特定格式存放在hdfs中。
+这里的handler和readFile中的handle是对应的关系，是序列化的接口，将dolphindb的table序列化成字节流，并保存到文件中。'tb'是要保存的对象，handler是序列化的接口，将'tb'对象序列化到一个buffer中。handler的参数只有一个, 被序列化的table对象，返回值是一个vector，第一个元素是序列化后的buffer地址，第二个元素是buffer中内容的长度。在writeFile函数内部，会先调用handler，将tb进行序列化，并获取buffer地址和长度，将buffer中的内容写入hdfs中的buffer里。
+目前支持的handler只有parquet插件中的parquet::saveParquetHdfs函数，如果需要新增其他格式的序列化接口，则需要定制开发。
 
 ## Appendix
 
@@ -319,3 +335,14 @@ loadPlugin("/path/to/PluginParquet.txt")
 hdfs::writeFile(conn,'/tmp/testfile.parquet',re,parquet::saveParquetHdfs)
 ```
 
+
+# ReleaseNotes
+
+## 故障修复
+
+* 修复使用方法 hdf5::ls 执行特定类型的 hdf5文件后 server 宕机的问题。（**2.00.10**）
+* 修复并行导入多个文件时 server 宕机的问题。（**2.00.10**）
+
+# 功能优化
+
+* 优化接口 hdf5::saveHDF5 的报错信息。（**2.00.10**）

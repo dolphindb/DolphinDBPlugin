@@ -406,15 +406,14 @@ static ConstantSP fft1D(VectorSP vec, int n, double scale, bool overwrite, bool 
     }
 
     fftw_execute(p);
-
     a[0][0] *= scale;
     a[0][1] *= scale;
     if (vec->isNumber()) {
         for (int i = 1; i <= n / 2; i++) {
             a[i][0] *= scale;
             a[i][1] *= scale;
-            a[n - i][0] = a[i][0];
-            a[n - i][1] = (-a[i][1]);
+			a[n - i][0] = a[i][0];
+			a[n - i][1] = (-a[i][1]);
             if (inverse) {
                 std::swap(a[i][0], a[n - i][0]);
                 std::swap(a[i][1], a[n - i][1]);
@@ -422,7 +421,7 @@ static ConstantSP fft1D(VectorSP vec, int n, double scale, bool overwrite, bool 
         }
         if (n % 2 == 0) {
             a[n / 2][1] = (-a[n / 2][1]);
-        } 
+        }
     }
     else {
         for (int i = 1; i <= n / 2; i++) {

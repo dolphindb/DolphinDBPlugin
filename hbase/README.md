@@ -1,4 +1,4 @@
-# DolphinDB HBase Plugin
+DolphinDB HBase Plugin
 
 本插件通过 Thrift 接口连接到 HBase，并读取数据。推荐版本：HBase 版本为 1.2.0，Thrift 版本为 0.14.0。
 
@@ -73,13 +73,14 @@ $HBASE_HOME/bin/hbase-daemon.sh stop thrift
 
 #### 语法
 
-hbase::connect(host, port, [isFramed])
+hbase::connect(host, port, [isFramed], [timeout])
 
 #### 参数
 
 - host: 要连接的 Thrift server 的 IP 地址，类型为 STRING。
 - port: 要连接 Thrift server 的端口号，类型为 INT。
 - isFramed: 布尔值，默认为 false，表示通过 TBufferedTransport 进行传输。若设置为 true，则表示通过 TFramedTransport 进行传输。
+- timeout: 建立连接（ConnTimeout）与接收回复（RecvTimeout）的最长等待时间，单位为毫秒，默认为5000ms，类型为 INT。
 
 #### 详情
 
@@ -91,7 +92,7 @@ hbase::connect(host, port, [isFramed])
 conn = hbase::connect("192.168.1.114", 9090)
 ```
 
-**注意**：如果该连接长时间（默认为 1min）没有操作，HBase 会自动关闭这个连接。此时再通过该连接进行后续操作时，会报 `No more data to read` 的错误，需要执行 `hbase::connect` 重新进行连接。通过 HBase 的配置文件（*conf/hbase-site.xml*）可修改超时时间。若添加如下配置，则表示一天没有操作时将自动关闭连接：
+**注意**：如果该连接长时间（默认为 1min）没有操作，HBase 会自动关闭这个连接。此时再通过该连接进行后续操作时，会报 `No more data to read` 的错误，需要执行 `hbase::connect` 重新进行连接。通过 HBase 的配置文件（conf/hbase-site.xml）可修改超时时间。若添加如下配置，则表示一天没有操作时将自动关闭连接：
 
 修改 `hbase.thrift.server.socket.read.timeout` 和 `hbase.thrift.connection.max-idletime`
 
@@ -226,3 +227,18 @@ schema 中支持的数据类型如下表所示。HBase 中存储的数据格式�
 | NANOTIME      | 133010008007006, 13:30:10.008007006                          | 13:30:10.008007006, 13:30:10.008007006                       |
 | NANOTIMESTAMP | 20120613133010008007006,  2012.06.13 13:30:10.008007006, 2012.06.13T13:30:10.008007006 | 2012.06.13T13:30:10.008007006, 2012.06.13T13:30:10.008007006, 2012.06.13T13:30:10.008007006 |
 
+
+# ReleaseNotes:
+
+## 故障修复
+
+* 避免下载数据时对非法格式的 minute 类型数据进行解析。（**2.00.10**）
+* 修复在使用 hbase::load 导入 disable table 捕获到异常后未中止运行，导致后续 server 宕机的问题。（**2.00.10**）
+* 增加下载数据时对 CHAR 类型数据的转换限制，若输入 string 值的长度超过1，则将返回空值。（**2.00.10**）
+* 增加下载数据时对 SECOND 类型转换的检查。（**2.00.10**）
+* 增加对连接有效性的检查。（**2.00.10**）
+* connect 函数增加对参数 isFramed 非法输入值的检查。（**2.00.10**）
+
+# 功能优化
+
+* 增强了多线程并行时的稳定性。（**2.00.10**）

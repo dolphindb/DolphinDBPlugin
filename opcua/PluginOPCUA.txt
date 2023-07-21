@@ -1,4 +1,4 @@
-opcua,libPluginOPCUA.so,2.00.9.3.1
+opcua,libPluginOPCUA.so,2.00.10
 getOpcUaServerList,getOpcServerList,system,1,1,0
 getOpcUaEndPointList,getOpcEndPointList,system,1,1,0
 connectOpcUaServer,connect,system,2,8,0

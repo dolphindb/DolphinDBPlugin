@@ -23,10 +23,10 @@
 using namespace dolphindb;
 
 class AMDSpiImp;
-extern bool receivedTimeFlag;
-extern bool dailyIndexFlag;
-extern bool stopTest;
-extern unordered_map<string, AMDDataType> nameType;
+extern bool RECEIVED_TIME_FLAG;
+extern bool DAILY_INDEX_FLAG;
+extern bool STOP_TEST;
+extern unordered_map<string, AMDDataType> NAME_TYPE;
 
 inline long long countTemporalUnit(int days, long long multiplier, long long remainder){
 	return days == INT_MIN ? LLONG_MIN : days * multiplier + remainder;
@@ -36,6 +36,45 @@ inline long long countTemporalUnit(int days, long long multiplier, long long rem
 inline int countDays(int amdDays){
     return Util::countDays(amdDays / 10000, (amdDays / 100) % 100, amdDays % 100);
 }
+
+// to cooperate with insight based orderbookSnapshot.
+// use convertBSFlag() & convertType() to change amd flag & type to insight flag & type.
+// if a flag & type not exist in insight, return origin value.
+// details see https://dolphindb1.atlassian.net/browse/DPLG-837
+inline int convertBSFlag(int flag) {
+    switch(flag){
+        case 49:
+        case 66:
+            return 1;
+        case 50:
+        case 83:
+            return 2;
+        default:
+            return flag;
+    }
+}
+inline int convertType(int type) {
+    switch(type){
+        case 50:
+        case 65:
+            return 2;
+        case 68:
+            return 10;
+        case 83:
+            return 11;
+        case 85:
+            return 3;
+        case 70:
+            return 0;
+        case 4:
+        case 49:
+        case 52:
+            return 1;
+        default:
+            return type;
+    }
+}
+
 inline int convertToDate(long long time) {
     long long  year, month, day;
     day = time / 1000 / 100 / 100 / 100 % 100;
@@ -74,27 +113,27 @@ AMDTableType getAmdTableType(AMDDataType dataType, int market);
 
 
 inline bool getDailyIndex(int& ret, DailyIndex* dailyIndexArray, int dailyIndexArraySize, int market, AMDDataType datatype, int32_t channel_no, long long timestamp){
-    AMDTableType dataType = getAmdTableType(datatype, market);
+    AMDTableType dataTableType = getAmdTableType(datatype, market);
     if((int)datatype == (int)AMD_ERROR_TABLE_TYPE){
-        LOG_ERR("[PluginAmdQuote]: getAmdTableType failed");
+        LOG_ERR("[PLUGIN::AMDQUOTE]: getAmdTableType failed");
         return false;
     }
-    if(datatype >= dailyIndexArraySize){
-        LOG_ERR("[PluginAmdQuote]: tableType exceeds the size of DailyIndex_");
+    if(dataTableType >= dailyIndexArraySize){
+        LOG_ERR("[PLUGIN::AMDQUOTE]: tableType exceeds the size of DailyIndex_");
         return false;
     }
 
-    if(dailyIndexArray[dataType].getFlag())
-        ret = dailyIndexArray[dataType].getIndex(channel_no, timestamp);
+    if(dailyIndexArray[dataTableType].getFlag())
+        ret = dailyIndexArray[dataTableType].getIndex(channel_no, timestamp);
     else
         ret = INT_MIN;
     return true;
 }
 class AmdQuote {
-private: 
-    AmdQuote(std::string username, std::string password, std::vector<std::string> ips, std::vector<int> ports, SessionSP session);
+private:
+    AmdQuote(const string& username, const string& password, vector<string> ips, vector<int> ports, SessionSP session);
 public:
-    static AmdQuote* getInstance(std::string username, std::string password, std::vector<std::string> ips, std::vector<int> ports, SessionSP session) {
+    static AmdQuote* getInstance(const string& username, const string& password, vector<string> ips, vector<int> ports, SessionSP session) {
         if (instance_ == nullptr) {
             instance_ = new AmdQuote(username, password, ips, ports, session);
         }
@@ -128,11 +167,11 @@ public:
 
         vector<DATA_TYPE> types{DT_STRING, DT_INT};
         vector<string> names{"dataType", "marketType"};
-        std::vector<ConstantSP> cols;
+        vector<ConstantSP> cols;
         for (size_t i = 0; i < types.size(); i++) {
             cols.push_back(Util::createVector(types[i], size, size));
         }
-        
+
         int i = 0;
         for (auto& info : infoSet_) {
             cols[0]->set(i, new String(info.datatype_));
@@ -154,60 +193,38 @@ public:
         return Util::createTable(names, cols);
     }
 
-    /*
-    按品种类型订阅信息设置:
-    1. 订阅信息分三个维度 market:市场, data_type:证券数据类型, category_type:品种类型, security_code:证券代码
-    2. 订阅操作有三种:
-        kSet 设置订阅, 以市场为单位覆盖订阅信息
-        kAdd 增加订阅, 在前一个基础上增加订阅信息
-        kDel 删除订阅, 在前一个基础上删除订阅信息
-        kCancelAll 取消所有订阅信息
-    */
-
-
     // subscribe
     void subscribeOrderExecution(string                     orderExecutionType,
                                  int                        market,
                                  DictionarySP               dict,
-                                 std::vector<string>        codeList,
+                                 vector<string>             codeList,
                                  FunctionDefSP              transform,
                                  bool                       receivedTimeFlag,
                                  long long                  dailyStartTimestamp);
 
-    // 订阅快照数据
-    void subscribeSnapshot(int market, TableSP table, std::vector<std::string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
+    void subscribeSnapshot(int market, TableSP table, vector<string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
 
-    // 订阅逐笔成交
-    void subscribeExecution(int market, TableSP table, std::vector<std::string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
+    void subscribeExecution(int market, TableSP table, vector<string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
 
-    // 订阅逐笔委托
-    void subscribeOrder(int market, TableSP table, std::vector<std::string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
+    void subscribeOrder(int market, TableSP table, vector<string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
 
-    // 订阅基金快照数据
-    void subscribeFundSnapshot(int market, TableSP table, std::vector<std::string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
+    void subscribeFundSnapshot(int market, TableSP table, vector<string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
 
-    // 订阅基金逐笔成交
-    void subscribeFundExecution(int market, TableSP table, std::vector<std::string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
+    void subscribeFundExecution(int market, TableSP table, vector<string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
 
-    // 订阅基金逐笔委托
-    void subscribeFundOrder(int market, TableSP table, std::vector<std::string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
+    void subscribeFundOrder(int market, TableSP table, vector<string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
 
-    // 订阅债券快照数据
-    void subscribeBondSnapshot(int market, TableSP table, std::vector<std::string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
+    void subscribeBondSnapshot(int market, TableSP table, vector<string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
 
-    // 订阅债券逐笔成交
-    void subscribeBondExecution(int market, TableSP table, std::vector<std::string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
+    void subscribeBondExecution(int market, TableSP table, vector<string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
 
-    // 订阅债券逐笔委托
-    void subscribeBondOrder(int market, TableSP table, std::vector<std::string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
+    void subscribeBondOrder(int market, TableSP table, vector<string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
 
-    // 订阅指数快照数据
-    void subscribeIndex(int market, TableSP table, std::vector<std::string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
+    void subscribeIndex(int market, TableSP table, vector<string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
 
-    // 订阅委托队列所有类型数据
-    void subscribeOrderQueue(int market, TableSP table, std::vector<std::string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
+    void subscribeOrderQueue(int market, TableSP table, vector<string> codeList, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp);
 
-    void unsubscribe(std::string dataType, int market, std::vector<std::string> codeList);
+    void unsubscribe(string dataType, int market, vector<string> codeList);
 
     ~AmdQuote();
 
@@ -216,17 +233,15 @@ public:
         return amdSpi_;
     }
     static Mutex amdMutex_;
-    unordered_set<Info, InfoHash, InfoEqual> infoSet_;// 0: snapshot, 1: execution, 2: order
+    unordered_set<Info, InfoHash, InfoEqual> infoSet_;
 private:
     amd::ama::Cfg cfg_;
     AMDSpiImp* amdSpi_;
-    std::string username_;
-    std::string password_;
-    std::vector<std::string> ips_;
-    std::vector<int> ports_;
-
+    const string& username_;
+    const string& password_;
+    vector<string> ips_;
+    vector<int> ports_;
     static AmdQuote* instance_;
-
 };
 
 #endif
