@@ -21,6 +21,7 @@ private:
     std::string m_strMailFrom_;
     std::vector<std::string> m_MailContent_;
     int m_iMailContentPos_;
+    size_t m_offset_;
 
 private:
     static size_t read_callback(void *ptr, size_t size, size_t nmemb, void *userp);

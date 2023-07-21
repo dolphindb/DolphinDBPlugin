@@ -12,7 +12,7 @@ namespace httpClient {
 
     size_t curlWriteData(void *ptr, size_t size, size_t nmemb, string *data);
 
-    const string getParamString(const DictionarySP &params);
+    void getParamString(const DictionarySP &params, string& output);
 
     curl_slist *setHeaders(const DictionarySP &headers, curl_slist *slist);
 

@@ -4,7 +4,6 @@ add_definitions(-DLOCKFREE_SYMBASE)
 
 set(CMAKE_CXX_STANDARD 11)
 
-
 if (WIN32)
     add_definitions("-DWINDOWS")
     set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginHttpClient_win.txt")
@@ -16,10 +15,35 @@ endif()
 
 include_directories(${PROJECT_SOURCE_DIR}/liburlencode/include)
 
+if("${CMAKE_BUILD_TYPE}" STREQUAL "")
+    set(CMAKE_BUILD_TYPE "RELEASE")
+endif ()
+
+string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
+message("CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
+
+if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0 -fPIC -std=c++11 -Wall")
+elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -fPIC -std=c++11 -Wall")
+elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "RELWITHDEBINFO")  # release with debug info
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=c++11 -fPIC -O2 -Wall")
+else ()
+    message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")
+endif ()
+
+if (${DDB_USE_ASAN})
+    add_compile_options(
+        "-fsanitize=address"                # Enable ASAN.
+        "-fno-omit-frame-pointer"           # Nicer stack traces in error messages.
+        "-fno-optimize-sibling-calls"       # Disable tail call elimination (perfect stack traces if inlining off).
+        )
+    set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS} "-fsanitize=address")
+endif ()
 
 if(DEFINED BUILD_ARM)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fPIC -O3 -Wall")
-        # add_compile_options("-O3")
+    # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fPIC -O3 -Wall")
+    # add_compile_options("-O3")
 	message("build arm")
 	include_directories(${PROJECT_SOURCE_DIR}/tmp/curl/include)
 	include_directories(${PROJECT_SOURCE_DIR}/tmp/ssl/include)
@@ -28,7 +52,7 @@ if(DEFINED BUILD_ARM)
     link_directories(${CMAKE_BINARY_DIR})
 
 else ()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fPIC -O3 -Wall")
+    # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fPIC -O3 -Wall")
 	message(STATUS ${CURL_DIR}/include)
 	message(STATUS ${SSL_DIR}/include)
 	message(STATUS ${Z_DIR}/include)
