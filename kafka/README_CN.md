@@ -19,7 +19,7 @@ DolphinDB 提供了 Kafka 插件用于发布或订阅 Kafka 流服务。该插�
 - DolphinDB 标量
 - Kafka Java API 的内置类型：String[UTF-8], Short, Integer, Long, Float, Double, Bytes, byte[] 以及 ByteBuffer
 - 以上数据类型所组成的向量
-  
+
 Kafka 插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/kafka/README_CN.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/kafka/README_CN.md), [relsease120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/kafka/README.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/kafka/README.md)。您当前查看的插件版本为 release200，请使用 DolphinDB 2.00.X 版本 server。若使用其它版本 server，请切换至相应插件分支。
 
 ## 1. 预编译安装
@@ -319,6 +319,7 @@ kafka::createSubJob(consumer, table, parser, description, [timeout])
 - 'consumer'：Kafka 消费者的句柄
 - 'table'：表示存储消息的表
 - 'parser'：处理输入数据的函数，返回一个表。可以使用 mseed::parser 或自定义函数
+  输入参数均为string类型，数目可以为 1-3 个，第一个参数为 msg 的 value，第二个参数为 msg 的 key，第三个参数为 msg 的 topic。
 - 'description'：对线程进行描述的字符串
 - 'timeout'：表示请求获取消息的最大等待时间
 
@@ -367,6 +368,7 @@ kafka::pollDict(consumer, batch_size, [timeout])
 **详情**
 
 将订阅数据保存到 DolphinDB。返回一个包含消息键值对的字典。
+batch_size内的重复消息只会保留一个
 
 #### 3.3.10 提交 <!-- omit in toc -->
 
@@ -539,6 +541,7 @@ kafka::getOffsetCommitted(consumer, topics, partitions, offsets, [timeout])
 **详情**
 
 获取指定主题或分区列表提交的偏移量。
+返回一个table，由 STRING 类型的 topic，INT 类型的partition， INT 类型的 offset 三列组成。
 
 #### 3.3.21 获取偏移量位置 <!-- omit in toc -->
 
@@ -557,6 +560,7 @@ kafka::getOffsetPosition(consumer, topics, partitions)
 **详情**
 
 获取指定主题或分区列表提交的偏移量位置。
+返回一个table，由 STRING 类型的 topic，INT 类型的partition， INT 类型的 offset 三列组成。
 
 #### 3.3.22 存储消费者偏移量 <!-- omit in toc -->
 
@@ -572,7 +576,7 @@ kafka::storeConsumedOffset(consumer)
 
 **详情**
 
-存储当前消费者指定的主题或分区上的偏移量。  
+存储当前消费者指定的主题或分区上的偏移量。
 调用本函数时，consumer 中需要设置 “enable.auto.offset.store=false”，”enable.auto.commit=true”，否则可能出现报错。
 
 #### 3.3.23 存储偏移量 <!-- omit in toc -->
@@ -592,7 +596,7 @@ kafka::storeOffset(consumer, topics, partitions, offsets)
 
 **详情**
 
-存储当前给定的主题或分区上的偏移量。  
+存储当前给定的主题或分区上的偏移量。
 调用本函数时，consumer 中需要设置 “enable.auto.offset.store=false”，”enable.auto.commit=true”，否则可能出现报错。
 
 #### 3.3.24 获取消费者成员 ID <!-- omit in toc -->
@@ -610,6 +614,23 @@ kafka::getMemId(consumer)
 **详情**
 
 获取消费者成员 ID。
+#### 3.3.25 轮询获取二进制消息 <!-- omit in toc -->
+
+**语法**
+
+```
+kafka::pollByteStream(consumer, [timeout])
+```
+
+**参数**
+
+- 'consumer'：Kafka 消费者的句柄
+- 'timeout'：表示请求获取消息的最大等待时间
+
+**详情**
+
+将订阅数据保存到 DolphinDB。返回一个STRING类型的标量。该标量为获取到的 kafka 消息中的 value，不包含 key 和 topic。
+
 
 ### 3.4 队列
 
@@ -870,9 +891,16 @@ kafka::eventGetPart(event)
 kafka::eventGetParts(event)
 ```
 
+**详情**
+
+获取指定事件的所有分区。
+返回一个table，由 STRING 类型的 topic，INT 类型的partition， INT 类型的 offset 三列组成。
+
 **参数**
 
 - 'event'：Kafka 事件的句柄
+
+
 
 #### 3.5.8 判断是否为事件 <!-- omit in toc -->
 
@@ -1071,3 +1099,13 @@ conn = kafka::createSubJob(consumer,tab,mseed::parse,"test:0:get mseed data");
 kafka::getJobStat();
 kafka::cancelSubJob(conn);
 ```
+# ReleaseNotes:
+
+## 故障修复
+
+* 修复了接口 kafka::pollByteStream 不能接收非 JSON 格式数据的问题。（**2.00.10**）
+* 修复了多线程操作导致的 server 宕机问题。（**2.00.10**）
+
+# 功能优化
+
+* 函数 eventGetParts , getOffsetPosition , getOffsetCommitted 增加了返回值。（**2.00.10**）

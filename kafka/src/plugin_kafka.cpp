@@ -1,11 +1,141 @@
 #include "plugin_kafka.h"
 #include "Concurrent.h"
+#include "Exceptions.h"
+#include "Types.h"
+#include "Util.h"
+#include <cppkafka/producer.h>
+#include <exception>
+#include <memory>
 #include <mutex>
+#include <string>
 
 using namespace cppkafka;
 using namespace std;
 
+static long long int BUFFER_SIZE = 900000;
+static long long int MESSAGE_SIZE = 10000;
+const static double FACTOR = 0.95;
 
+Mutex HANDLE_MUTEX;
+set<long long> HANDLE_SET;
+// use atomic timestamp to indicate the last assign time.
+// ddb would crash if the internal between assign() & unassign() is too short
+static atomic<int64_t> ASSIGN_TIMEOUT;
+// concurrently using assign related function would cause crash, use a mutex to avoid crash
+// alert! It's a little inefficient, but assign operation would not be called frequently
+static Mutex ASSIGN_LATCH;
+static Mutex DICT_LATCH;
+const static int TYPE_SIZE[17] = {0,1,1,2,4,8,4,4,4,4,4,8,8,8,8,4,8};
+static DictionarySP STATUS_DICT = Util::createDictionary(DT_STRING,nullptr,DT_ANY,nullptr);
+
+const static string PRODUCER_DESC = "kafka producer connection";
+const static string CONSUMER_DESC = "kafka consumer connection";
+const static string QUEUE_DESC = "kafka queue connection";
+const static string EVENT_DESC = "kafka event connection";
+
+static void kafkaProducerOnClose(Heap *heap, vector<ConstantSP> &args) {
+    try {
+        LockGuard<Mutex> _(&HANDLE_MUTEX);
+        if(HANDLE_SET.find(args[0]->getLong()) == HANDLE_SET.end()) {
+            throw IllegalArgumentException(__FUNCTION__, "Invalid producer connection object.");
+        }
+        KafkaWrapper<Producer> * wrapper = (KafkaWrapper<Producer>*)(args[0]->getLong());
+        Producer* producer;
+        if(wrapper!= nullptr) {
+            producer = wrapper->getDataPtr();
+            if(producer != nullptr) {
+                producer->flush();
+            }
+            if(wrapper != nullptr) {
+                long long handleLong = args[0]->getLong();
+                args[0]->setLong(0);
+                delete wrapper;
+                HANDLE_SET.erase(handleLong);
+            }
+        } else {
+            throw IllegalArgumentException(__FUNCTION__, "Invalid producer object.");
+        }
+        // auto producer = (Producer *) args[0]->getLong();
+    } catch(std::exception& exception) {
+        LOG_ERR(string("[PLUGIN::KAFKA] Producer destruction failed: ") + exception.what());
+    }
+}
+
+void drain(Consumer * consumer) {
+    auto start_time = Util::getEpochTime();
+    cppkafka::Error last_error(RD_KAFKA_RESP_ERR_NO_ERROR);
+
+    while (true) {
+        auto msg = consumer->poll(std::chrono:: milliseconds(100));
+        if (!msg)
+            break;
+
+        auto error = msg.get_error();
+
+        if (error) {
+            if (msg.is_eof() || error == last_error){
+                break;
+            } else {
+                LOG_ERR("[PLUGIN::KAFKA] Timeout during draining.");
+            }
+        }
+
+        // i don't stop draining on first error,
+        // only if it repeats once again sequentially
+        last_error = error;
+
+        auto ts = Util::getEpochTime();
+        if (ts-start_time > 5000) {
+            LOG_ERR("[PLUGIN::KAFKA] Timeout during draining.");
+            break;
+        }
+    }
+}
+
+static void kafkaConsumerOnClose(Heap *heap, vector<ConstantSP> &args) {
+    try {
+        LockGuard<Mutex> _(&HANDLE_MUTEX);
+        if(HANDLE_SET.find(args[0]->getLong()) == HANDLE_SET.end()) {
+            throw IllegalArgumentException(__FUNCTION__, "Invalid consumer connection object.");
+        }
+        KafkaWrapper<Consumer> * wrapper = (KafkaWrapper<Consumer>*)(args[0]->getLong());
+        Consumer* consumer;
+        if(wrapper!= nullptr) {
+            consumer = wrapper->getDataPtr();
+
+            LockGuard<Mutex> _(&DICT_LATCH);
+            long long consumerValue = args[0]->getLong();
+            ConstantSP keys = STATUS_DICT->keys();
+            for(int i = 0; i < keys->size(); i++){
+                string key = keys->getString(i);
+                ConstantSP conn = STATUS_DICT->getMember(key);
+                if(conn->getLong() != 0) {
+                    auto *sc = (SubConnection *)(conn->getLong());
+                    if (sc->getConsumer() == consumerValue) {
+                        throw RuntimeException("The consumer [" + std::to_string(consumerValue) +
+                            "] is still used in subJob [" + std::to_string(conn->getLong()) + "].");
+                    }
+                }
+            }
+            if(consumer!= nullptr) {
+                consumer->pause();
+                consumer->set_destroy_flags(RD_KAFKA_DESTROY_F_NO_CONSUMER_CLOSE);
+                consumer->unsubscribe();
+                consumer->unassign();
+                drain(consumer);
+            }
+            long long handleLong = args[0]->getLong();
+            args[0]->setLong(0);
+            delete wrapper;
+            HANDLE_SET.erase(handleLong);
+        } else {
+            throw IllegalArgumentException(__FUNCTION__, "Invalid consumer object.");
+        }
+
+    } catch(std::exception& exception) {
+        LOG_ERR(string("[PLUGIN::KAFKA] Consumer destruction failed: ") + exception.what());
+    }
+}
 
 ConstantSP kafkaProducer(Heap *heap, vector<ConstantSP> &args) {
     auto &dict = args[0];
@@ -15,14 +145,20 @@ ConstantSP kafkaProducer(Heap *heap, vector<ConstantSP> &args) {
     }
     auto conf = createConf(dict);
 
-    unique_ptr<Producer> producer(new Producer(conf));
-    FunctionDefSP onClose(Util::createSystemProcedure("kafka producer onClose()", kafkaOnClose<Producer>, 1, 1));
-    return Util::createResource(
-            (long long) producer.release(),
-            PRODUCER_DESC,
-            onClose,
-            heap->currentSession()
-    );
+    try {
+        auto producer = new KafkaWrapper<Producer>(new Producer(conf));
+        FunctionDefSP onClose(Util::createSystemProcedure("kafka producer onClose()", kafkaProducerOnClose, 1, 1));
+        LockGuard<Mutex> _(&HANDLE_MUTEX);
+        HANDLE_SET.insert((long long) producer);
+        return Util::createResource(
+                (long long) producer,
+                PRODUCER_DESC,
+                onClose,
+                heap->currentSession()
+        );
+    } catch(std::exception &exception) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + exception.what());
+    }
 }
 
 ConstantSP kafkaProducerFlush(Heap *heap, vector<ConstantSP> &args) {
@@ -30,11 +166,13 @@ ConstantSP kafkaProducerFlush(Heap *heap, vector<ConstantSP> &args) {
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != PRODUCER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "producer should be a producer handle.");
     try {
+        RWLockGuard<RWLock> lockGuard(NULL, false);
+        getWrapperLockGuard<Producer>(args[0], lockGuard);
         getConnection<Producer>(args[0])->flush();
     } catch(std::exception &exception) {
-        throw RuntimeException(exception.what());
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + exception.what());
     }
-    
+
     return new Void();
 }
 
@@ -44,10 +182,11 @@ ConstantSP kafkaProduce(Heap *heap, vector<ConstantSP> &args) {
             ConstantSP temp = Util::createNullConstant(DT_ANY);
             produceMessage(args[0], args[1], args[2], args[3], args[4], temp);
         }
-        else
+        else if(args.size() == 6) {
             produceMessage(args[0], args[1], args[2], args[3], args[4], args[5]);
+        }
     } catch(std::exception &exception) {
-        throw RuntimeException(exception.what());
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + exception.what());
     }
 
     return new Void();
@@ -62,22 +201,29 @@ ConstantSP kafkaConsumer(Heap *heap, vector<ConstantSP> &args) {
     }
 
     auto conf = createConf(args[0], true);
-    auto consumer = new Consumer(conf);
-
-    FunctionDefSP onClose(Util::createSystemProcedure("kafka consumer onClose()", kafkaConsumerOnClose, 1, 1));
-
-    return Util::createResource(
-            (long long) consumer,
-            CONSUMER_DESC,
-            onClose,
-            heap->currentSession()
-    );
+    try {
+        auto consumer = new KafkaWrapper<Consumer>(new Consumer(conf));
+        FunctionDefSP onClose(Util::createSystemProcedure("kafka consumer onClose()", kafkaConsumerOnClose, 1, 1));
+        LockGuard<Mutex> _(&HANDLE_MUTEX);
+        HANDLE_SET.insert((long long) consumer);
+        return Util::createResource(
+                (long long) consumer,
+                CONSUMER_DESC,
+                onClose,
+                heap->currentSession()
+        );
+    } catch(std::exception &exception) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + exception.what());
+    }
 }
 
 ConstantSP kafkaSubscribe(Heap *heap, vector<ConstantSP> &args) {
     const auto usage = string("Usage: subscribe(consumer, topics).\n");
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
+
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto conn = getConnection<Consumer>(args[0]);
     if (args[1]->getForm() != DF_VECTOR || args[1]->getType() != DT_STRING) {
         throw IllegalArgumentException(__FUNCTION__, usage + "Not a topic vector.");
@@ -87,17 +233,26 @@ ConstantSP kafkaSubscribe(Heap *heap, vector<ConstantSP> &args) {
     for (auto i = 0; i < vec->size(); i++) {
         topics.push_back(vec->get(i)->getString());
     }
-
-    conn->subscribe(topics);
+    try  {
+        conn->subscribe(topics);
+    } catch(std::exception &exception) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + exception.what());
+    }
     return new Void();
 }
 
 
-static ConstantSP extractMessage(Message &msg) {
+ConstantSP extractMessage(Message &msg) {
     auto topic = Util::createConstant(DT_STRING);
     auto partition = Util::createConstant(DT_INT);
-    auto key = kafkaDeserialize(msg.get_key());
-    auto value = kafkaDeserialize(msg.get_payload());
+    ConstantSP key, value;
+    try {
+        // key = kafkaDeserialize(msg.get_key());
+        key = new String(string(msg.get_key()));
+        value = kafkaDeserialize(msg.get_payload());
+    } catch(std::exception& exception) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + exception.what());
+    }
     auto ts = Util::createConstant(DT_TIMESTAMP);
 
     topic->setString(msg.get_topic());
@@ -125,25 +280,42 @@ ConstantSP kafkaConsumerPoll(Heap *heap, vector<ConstantSP> &args) {
 
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
 
-    // Try to consume a message
-    if(args.size() == 2){
-        if (args[1]->getType() < DT_SHORT || args[1]->getType() > DT_LONG || args[1]->getInt() < 0) {
-            throw IllegalArgumentException(__FUNCTION__, + "time need positive integer");
+    try{
+        // Try to consume a message
+        if(args.size() == 2){
+            if (args[1]->getType() < DT_SHORT || args[1]->getType() > DT_LONG || args[1]->getInt() < 0) {
+                throw IllegalArgumentException(__FUNCTION__, + "time need positive integer");
+            }
+            auto time = args[1]->getInt();
+            auto msg = consumer->poll(std::chrono:: milliseconds(time));
+
+            // DPLG-275
+            for(int i = 0; i < 10; ++i) {
+                if(msg && msg.get_error() && msg.is_eof()) {
+                    msg = consumer->poll(std::chrono:: milliseconds(time));
+                } else {
+                    break;
+                }
+            }
+            return getMsg(msg);
+        }else{
+            auto msg = consumer->poll();
+            // DPLG-275
+            for(int i = 0; i < 10; ++i) {
+                if(msg && msg.get_error() && msg.is_eof()) {
+                    msg = consumer->poll();
+                } else {
+                    break;
+                }
+            }
+            return getMsg(msg);
         }
-        auto time = args[1]->getInt();
-        auto msg = consumer->poll(std::chrono:: milliseconds(time));
-        while (msg && msg.get_error() && msg.is_eof()) {
-            msg = consumer->poll(std::chrono:: milliseconds(time));
-        }
-        return getMsg(msg);
-    }else{
-        auto msg = consumer->poll();
-        while (msg && msg.get_error() && msg.is_eof()) {
-            msg = consumer->poll();
-        }
-        return getMsg(msg);
+    } catch(std::exception &exception) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + exception.what());
     }
 }
 
@@ -155,6 +327,8 @@ ConstantSP kafkaPollByteStream(Heap *heap, vector<ConstantSP> &args){
 
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
     Message msg;
 
@@ -165,13 +339,23 @@ ConstantSP kafkaPollByteStream(Heap *heap, vector<ConstantSP> &args){
         }
         auto time = args[1]->getInt();
         msg = consumer->poll(std::chrono:: milliseconds(time));
-        while (msg && msg.get_error() && msg.is_eof()) {
-            msg = consumer->poll(std::chrono:: milliseconds(time));
+        // DPLG-275
+        for(int i = 0; i < 10; ++i) {
+            if(msg && msg.get_error() && msg.is_eof()) {
+                msg = consumer->poll(std::chrono:: milliseconds(time));
+            } else {
+                break;
+            }
         }
     }else{
         msg = consumer->poll();
-        while (msg && msg.get_error() && msg.is_eof()) {
-            msg = consumer->poll();
+        // DPLG-275
+        for(int i = 0; i < 10; ++i) {
+            if(msg && msg.get_error() && msg.is_eof()) {
+                msg = consumer->poll();
+            } else {
+                break;
+            }
         }
     }
 
@@ -184,17 +368,17 @@ ConstantSP kafkaPollByteStream(Heap *heap, vector<ConstantSP> &args){
                 result->setString(msg.get_error().to_string());
         }
         else {
-            string data_init = string(msg.get_payload());
+            string dataInit = string(msg.get_payload());
             try {
-                if(data_init.size() == 0) {
-                    result->setString(data_init);
+                if(dataInit.size() == 0) {
+                    result->setString(dataInit);
                     return result;
                 }
                 short flag;
                 IO_ERR ret;
-                auto str = data_init.c_str();
+                auto str = dataInit.c_str();
                 if(!(str[0] == '{' || str[0] == '[')){
-                    DataInputStreamSP in = new DataInputStream(str, data_init.length());
+                    DataInputStreamSP in = new DataInputStream(str, dataInit.length());
                     ret = in->readShort(flag);
                     auto data_form = static_cast<DATA_FORM>(flag >> 8);
                     ConstantUnmarshalFactory factory(in, nullptr);
@@ -206,16 +390,18 @@ ConstantSP kafkaPollByteStream(Heap *heap, vector<ConstantSP> &args){
                         unmarshall->reset();
                         throw IOException("Failed to parse the incoming object with IO error type " + std::to_string(ret));
                     }
+                    ConstantSP result = unmarshall->getConstant();
+                    return result;
                 } else {
                     throw RuntimeException("");
                 }
             } catch (RuntimeException &exception) {
-                result->setString(data_init);
+                result->setString(dataInit);
                 return result;
             } catch (IOException &exception) {
-                throw IOException(exception.what());
+                throw IOException(string("[PLUGIN::KAFKA] ") + exception.what());
             }
-            throw IOException("Failed to parse marshalled object. Please poll the stream by kafka::consumerPoll.");
+            throw IOException(string("[PLUGIN::KAFKA] ") + "Failed to parse marshalled object. Please poll the stream by kafka::consumerPoll.");
         }
     }
     else {
@@ -234,56 +420,61 @@ ConstantSP kafkaConsumerPollBatch(Heap *heap, vector<ConstantSP> &args) {
 
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
     if (args[1]->getType() < DT_SHORT || args[1]->getType() > DT_LONG || args[1]->getInt() < 0) {
         throw IllegalArgumentException(__FUNCTION__, usage + "batch size need positive integer");
     }
     auto batch_size = args[1]->getInt();
-    auto result = Util::createVector(DT_ANY, 0);
+    VectorSP result = Util::createVector(DT_ANY, 0);
 
     vector<Message> msgs;
-    if(args.size() == 3){
-        if (args[2]->getType() < DT_SHORT || args[2]->getType() > DT_LONG || args[2]->getInt() < 0) {
-            throw IllegalArgumentException(__FUNCTION__, + "time need positive integer");
-        }
-        auto time = args[2]->getInt();
-        msgs = consumer->poll_batch(batch_size, std::chrono:: milliseconds(time));
+    try {
+        if(args.size() == 3){
+            if (args[2]->getType() < DT_SHORT || args[2]->getType() > DT_LONG || args[2]->getInt() < 0) {
+                throw IllegalArgumentException(__FUNCTION__, + "time need positive integer");
+            }
+            auto time = args[2]->getInt();
 
-        // remove RD_KAFKA_RESP_ERR__PARTITION_EOF case manually
-        int length = 0;
-        while(length < batch_size) {
-            if(msgs.size() == 0) {
-                break;
-            }
-            for (auto &msg: msgs){
-                if(msg && msg.get_error() && msg.is_eof()) {
-                    continue;
-                }
-                result->append(getMsg(msg));
-            }
-            length = result->size();
-            msgs = consumer->poll_batch(batch_size-length, std::chrono:: milliseconds(time));
-        }
+            msgs = consumer->poll_batch(batch_size, std::chrono:: milliseconds(time));
 
-    }else{
-        // remove RD_KAFKA_RESP_ERR__PARTITION_EOF case manually
-        msgs = consumer->poll_batch(batch_size);
-        int length = 0;
-        while(length < batch_size) {
-            if(msgs.size() == 0) {
-                break;
-            }
-            for (auto &msg: msgs){
-                if(msg && msg.get_error() && msg.is_eof()) {
-                    continue;
+            // remove RD_KAFKA_RESP_ERR__PARTITION_EOF case manually
+            int length = 0;
+            while(length < batch_size) {
+                if(msgs.size() == 0) {
+                    break;
                 }
-                result->append(getMsg(msg));
+                for (auto &msg: msgs){
+                    if(msg && msg.get_error() && msg.is_eof()) {
+                        continue;
+                    }
+                    result->append(getMsg(msg));
+                }
+                length = result->size();
+                msgs = consumer->poll_batch(batch_size-length, std::chrono:: milliseconds(time));
             }
-            length = result->size();
-            msgs = consumer->poll_batch(batch_size-length);
+        }else{
+            // remove RD_KAFKA_RESP_ERR__PARTITION_EOF case manually
+            msgs = consumer->poll_batch(batch_size);
+            int length = 0;
+            while(length < batch_size) {
+                if(msgs.size() == 0) {
+                    break;
+                }
+                for (auto &msg: msgs){
+                    if(msg && msg.get_error() && msg.is_eof()) {
+                        continue;
+                    }
+                    result->append(getMsg(msg));
+                }
+                length = result->size();
+                msgs = consumer->poll_batch(batch_size-length);
+            }
         }
+    } catch(std::exception &exception) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + exception.what());
     }
-
 
     if(result->size() == 0){
         auto err_arg = Util::createConstant(DT_STRING);
@@ -292,44 +483,59 @@ ConstantSP kafkaConsumerPollBatch(Heap *heap, vector<ConstantSP> &args) {
         auto res = Util::createVector(DT_ANY, 2);
         res->set(0, err_arg);
         res->set(1, msg_arg);
-        free(result);
         return res;
     }
 
     return result;
 }
+static void kafkaSubConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
+    SubConnection* pObject = (SubConnection*)(args[0]->getLong());
+    if(pObject!= nullptr) {
+        delete (SubConnection *) (args[0]->getLong());
+        args[0]->setLong(0);
+    }
+}
+
 
 ConstantSP kafkaCreateSubJob(Heap *heap, vector<ConstantSP> args){
     const auto usage = string(
-            "Usage: createSubJob(consumer, table, parser, description, [timeout]).\n"
+            "Usage: createSubJob(consumer, handler, parser, description, [timeout]).\n"
     );
 
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
     auto timeout = static_cast<int>(consumer->get_timeout().count());
 
     if (!(args[1]->isTable() || args[1]->getType()==DT_FUNCTIONDEF || args[1]->isNothing())) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "the second argument must be a table or a function or null if the third argument is coder instance.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "handler should be a table or a function. If the third argument is a coder instance, handler must be null.");
     }
     if(args[1]->getType() == DT_FUNCTIONDEF){
         FunctionDefSP handle = args[1];
         if(handle->getParamCount() != 1){
-            throw IllegalArgumentException(__FUNCTION__, usage + "handle function must accept only one param.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "handler function must accept only one param.");
         }
     }
 
-    if (args[2]->getType() != DT_FUNCTIONDEF && !(args[2]->getType() == DT_RESOURCE && args[2]->getString() == "coder instance")) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "parser must be an function or a decoder.");
-        if(args[2]->getType() == DT_RESOURCE && args[2]->getString() == "coder instance" && !args[1]->isNothing()) {
-            throw IllegalArgumentException(__FUNCTION__, usage + "If you pass a decoder as parser, the second argument must be empty.");
-        } else if (args[1]->isNothing()) {
-            throw IllegalArgumentException(__FUNCTION__, usage + "the second argument must be a table or a function or null if the third argument is coder instance.");
+    ConstantSP parser;
+    if (args[2]->getType() == DT_FUNCTIONDEF) {
+        if (args[1]->isNothing()) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "If parser is a function, the second argument must not be empty.");
         }
+        parser = args[2];
+    } else if(args[2]->getForm() == DF_TABLE && args[2]->getString() == "coder instance") {
+        if(!args[1]->isNothing()) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "If parser is a decoder, the second argument must be empty.");
+        }
+        parser = args[2];
+    } else {
+        throw IllegalArgumentException(__FUNCTION__, usage + "parser must be an function or a decoder.");
     }
-    ConstantSP parser = args[2];
-    if(parser->getType() == DT_FUNCTIONDEF && ((FunctionDefSP)parser)->getParamCount() != 1){
-        throw IllegalArgumentException(__FUNCTION__, usage + "parser function must accept only one param.");
+
+    if(parser->getType() == DT_FUNCTIONDEF && (((FunctionDefSP)parser)->getParamCount() < 1 || ((FunctionDefSP)parser)->getParamCount() > 3)){
+        throw IllegalArgumentException(__FUNCTION__, usage + "parser function must accept only 1 to 3 param.");
     };
 
     if (args[3]->getType() != DT_STRING) {
@@ -342,32 +548,32 @@ ConstantSP kafkaCreateSubJob(Heap *heap, vector<ConstantSP> args){
         timeout = args[4]->getInt();
     }
 
-    std::unique_ptr<SubConnection> cup(new SubConnection(heap, args[3]->getString(), args[2], args[1], args[0], timeout));
-    FunctionDefSP onClose(Util::createSystemProcedure("kafka sub connection onClose()", kafkaOnClose<SubConnection>, 1, 1));
+    unique_ptr<SubConnection> cup(new SubConnection(heap, args[3]->getString(), args[2], args[1], args[0], timeout));
+    FunctionDefSP onClose(Util::createSystemProcedure("kafka sub connection onClose()", kafkaSubConnectionOnClose, 1, 1));
     ConstantSP conn = Util::createResource(
-            (long long)cup.release(),
+            (long long)(cup.release()),
             "kafka subscribe connection",
             onClose,
             heap->currentSession()
     );
-    LockGuard<Mutex> _(dictLatch.get());
-    status_dict->set(std::to_string(conn->getLong()),conn);
+    LockGuard<Mutex> _(&DICT_LATCH);
+    STATUS_DICT->set(std::to_string(conn->getLong()),conn);
 
     return conn;
 }
 
 ConstantSP kafkaGetJobStat(Heap *heap, vector<ConstantSP> &args){
-    LockGuard<Mutex> _(dictLatch.get());
-    int size = status_dict->size();
+    LockGuard<Mutex> _(&DICT_LATCH);
+    int size = STATUS_DICT->size();
     ConstantSP connectionIdVec = Util::createVector(DT_STRING, size);
     ConstantSP userVec = Util::createVector(DT_STRING, size);
     ConstantSP desVec = Util::createVector(DT_STRING, size);
     ConstantSP timestampVec = Util::createVector(DT_TIMESTAMP, size);
-    VectorSP keys = status_dict->keys();
+    VectorSP keys = STATUS_DICT->keys();
     for(int i = 0; i < keys->size();i++){
         string key = keys->getString(i);
         connectionIdVec->setString(i,key);
-        ConstantSP conn = status_dict->getMember(key);
+        ConstantSP conn = STATUS_DICT->getMember(key);
         auto *sc = (SubConnection *)(conn->getLong());
         desVec->setString(i,sc->getDescription());
         timestampVec->setLong(i,sc->getCreateTime());
@@ -386,18 +592,18 @@ ConstantSP kafkaCancelSubJob(Heap *heap, vector<ConstantSP> args){
     string key;
     ConstantSP conn = nullptr;
     auto handle = args[0];
-    LockGuard<Mutex> _(dictLatch.get());
+    LockGuard<Mutex> _(&DICT_LATCH);
     switch (handle->getType()){
         case DT_RESOURCE:
             sc = (SubConnection *)(handle->getLong());
             key = std::to_string(handle->getLong());
-            conn = status_dict->getMember(key);
+            conn = STATUS_DICT->getMember(key);
             if(conn->isNothing())
                 throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
             break;
         case DT_STRING:
             key = handle->getString();
-            conn = status_dict->getMember(key);
+            conn = STATUS_DICT->getMember(key);
             if(conn->isNothing())
                 throw IllegalArgumentException(__FUNCTION__, "Invalid connection string.");
             else
@@ -405,7 +611,7 @@ ConstantSP kafkaCancelSubJob(Heap *heap, vector<ConstantSP> args){
             break;
         case DT_LONG:
             key = std::to_string(handle->getLong());
-            conn = status_dict->getMember(key);
+            conn = STATUS_DICT->getMember(key);
             if(conn->isNothing())
                 throw IllegalArgumentException(__FUNCTION__, "Invalid connection long.");
             else
@@ -413,7 +619,7 @@ ConstantSP kafkaCancelSubJob(Heap *heap, vector<ConstantSP> args){
             break;
         case DT_INT:
             key = std::to_string(handle->getInt());
-            conn = status_dict->getMember(key);
+            conn = STATUS_DICT->getMember(key);
             if(conn->isNothing())
                 throw IllegalArgumentException(__FUNCTION__, "Invalid connection integer.");
             else
@@ -423,13 +629,17 @@ ConstantSP kafkaCancelSubJob(Heap *heap, vector<ConstantSP> args){
             throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
     }
 
-    bool bRemoved=status_dict->remove(new String(key));
-    if (bRemoved && sc != nullptr) {
+    string ret;
+    if (sc != nullptr) {
         sc->cancelThread();
-        cout << "subscription: " << conn->getLong() << " : " << sc->getDescription() << " is stopped" << endl;
+        ret = "subscription: " + to_string(conn->getLong()) + " : " + sc->getDescription() + " is stopped.";
+    }
+    bool bRemoved=STATUS_DICT->remove(new String(key));
+    if(!bRemoved) {
+        throw RuntimeException("[PLUGIN::KAFKA] remove subJob status failed.");
     }
 
-    return new Void();
+    return new String(ret);
 }
 
 ConstantSP kafkaPollDict(Heap *heap, vector<ConstantSP> &args){
@@ -441,6 +651,8 @@ ConstantSP kafkaPollDict(Heap *heap, vector<ConstantSP> &args){
 
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
     if (args[1]->getType() < DT_SHORT || args[1]->getType() > DT_LONG || args[1]->getInt() < 0) {
         throw IllegalArgumentException(__FUNCTION__, usage + "batch size need positive integer");
@@ -448,53 +660,59 @@ ConstantSP kafkaPollDict(Heap *heap, vector<ConstantSP> &args){
     auto batch_size = args[1]->getInt();
     auto result = Util::createDictionary(DT_STRING, nullptr, DT_ANY, nullptr);
 
-    
-    vector<Message> msgs;
-    if(args.size() == 3){
-        if (args[2]->getType() < DT_SHORT || args[2]->getType() > DT_LONG || args[2]->getInt() < 0) {
-            throw IllegalArgumentException(__FUNCTION__, + "time need positive integer");
-        }
-        auto time = args[2]->getInt();
-        msgs = consumer->poll_batch(batch_size, std::chrono:: milliseconds(time));
 
-        int length = 0;
-        while(length < batch_size)  {
-            if(msgs.size() == 0){
-                break;
+    vector<Message> msgs;
+    try {
+        if(args.size() == 3){
+            if (args[2]->getType() < DT_SHORT || args[2]->getType() > DT_LONG || args[2]->getInt() < 0) {
+                throw IllegalArgumentException(__FUNCTION__, + "time need positive integer");
             }
-            for (auto &msg: msgs){
-                if(msg && msg.get_error() && msg.is_eof()) {
-                    continue;
+            auto time = args[2]->getInt();
+            msgs = consumer->poll_batch(batch_size, std::chrono:: milliseconds(time));
+
+            int length = 0;
+            while(length < batch_size)  {
+                if(msgs.size() == 0){
+                    break;
                 }
-                auto message = getMsg(msg);
-                if(message->get(1)->get(1)->getType()!=DT_STRING){
-                    throw RuntimeException("can only get string as key");
+                for (auto &msg: msgs){
+                    if(msg && msg.get_error() && msg.is_eof()) {
+                        continue;
+                    }
+                    auto message = getMsg(msg);
+                    if(message->get(1)->get(1)->getType()!=DT_STRING){
+                        throw RuntimeException("can only get string as key");
+                    }
+                    result->set(message->get(1)->get(1), message->get(1)->get(2));
                 }
-                result->set(message->get(1)->get(1), message->get(1)->get(2));
+                length = result->size();
+                msgs = consumer->poll_batch(batch_size-length, std::chrono:: milliseconds(time));
             }
-            length = result->size();
-            msgs = consumer->poll_batch(batch_size-length, std::chrono:: milliseconds(time));
+        }else{
+            msgs = consumer->poll_batch(batch_size);
+            int length = 0;
+            while(length < batch_size)  {
+                if(msgs.size() == 0){
+                    break;
+                }
+                for (auto &msg: msgs){
+                    if(msg && msg.get_error() && msg.is_eof()) {
+                        continue;
+                    }
+                    auto message = getMsg(msg);
+                    if(message->get(1)->get(1)->getType()!=DT_STRING){
+                        throw RuntimeException("can only get string as key");
+                    }
+                    result->set(message->get(1)->get(1), message->get(1)->get(2));
+                }
+                length = result->size();
+                msgs = consumer->poll_batch(batch_size-length);
+            }
         }
-    }else{
-        msgs = consumer->poll_batch(batch_size);
-        int length = 0;
-        while(length < batch_size)  {
-            if(msgs.size() == 0){
-                break;
-            }
-            for (auto &msg: msgs){
-                if(msg && msg.get_error() && msg.is_eof()) {
-                    continue;
-                }
-                auto message = getMsg(msg);
-                if(message->get(1)->get(1)->getType()!=DT_STRING){
-                    throw RuntimeException("can only get string as key");
-                }
-                result->set(message->get(1)->get(1), message->get(1)->get(2));
-            }
-            length = result->size();
-            msgs = consumer->poll_batch(batch_size-length);
-        }
+    } catch(IllegalArgumentException& e) {
+        throw e;
+    } catch(std::exception &exception) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + exception.what());
     }
 
     if(result->size() == 0){
@@ -510,8 +728,14 @@ ConstantSP kafkaCommit(Heap *heap, vector<ConstantSP> &args) {
     );
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto conn = getConnection<Consumer>(args[0]);
-    conn->commit();
+    try{
+        conn->commit();
+    } catch(std::exception &exception) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + exception.what());
+    }
     return new Void();
 }
 
@@ -522,10 +746,15 @@ ConstantSP kafkaCommitTopic(Heap *heap, vector<ConstantSP> &args){
 
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
-    Convertion convert(usage,args);
-    consumer->commit(convert.topic_partitions);
-
+    Conversion convert(usage,args);
+    try{
+        consumer->commit(convert.topic_partitions);
+    } catch(std::exception &exception) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + exception.what());
+    }
     return new Void();
 }
 
@@ -535,8 +764,14 @@ ConstantSP kafkaAsyncCommit(Heap *heap, vector<ConstantSP> &args) {
     );
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto conn = getConnection<Consumer>(args[0]);
-    conn->async_commit();
+    try{
+        conn->async_commit();
+    } catch(std::exception &exception) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + exception.what());
+    }
     return new Void();
 }
 
@@ -547,9 +782,15 @@ ConstantSP kafkaAsyncCommitTopic(Heap *heap, vector<ConstantSP> &args){
 
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
-    Convertion convert(usage,args);
-    consumer->async_commit(convert.topic_partitions);
+    Conversion convert(usage,args);
+    try{
+        consumer->async_commit(convert.topic_partitions);
+    } catch(std::exception &exception) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + exception.what());
+    }
 
     return new Void();
 }
@@ -557,16 +798,21 @@ ConstantSP kafkaAsyncCommitTopic(Heap *heap, vector<ConstantSP> &args){
 ConstantSP kafkaUnsubscribe(Heap *heap, vector<ConstantSP> &args) {
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__,"consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto conn = getConnection<Consumer>(args[0]);
-    conn->unsubscribe();
+    try{
+        conn->unsubscribe();
+    } catch(std::exception &exception) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + exception.what());
+    }
     return new Void();
 }
 
 Configuration createConf(ConstantSP & dict, bool consumer) {
-    Configuration configuration = {
-            {"metadata.broker.list", "115.239.209.234:9092"},
-    };
+    Configuration configuration;
     bool group_id = false;
+    bool server = false;
 
     auto keys = dict->keys();
     for (auto i = 0; i < keys->size(); i++) {
@@ -579,11 +825,18 @@ Configuration createConf(ConstantSP & dict, bool consumer) {
         } else {
             throw IllegalArgumentException(__FUNCTION__, "some configurations are illegal");
         }
-        if(key->getString() == "group.id")
+        if (key->getString() == "group.id") {
             group_id = true;
+        } else if (key->getString() == "metadata.broker.list" || key->getString() == "bootstrap.servers") {
+            server = true;
+        }
     }
-    if(consumer && !group_id)
+    if(consumer && !group_id) {
         throw IllegalArgumentException(__FUNCTION__, "consumer need setting group.id");
+    }
+    if(!server) {
+        throw IllegalArgumentException(__FUNCTION__, "must setting metadata.broker.list or bootstrap.servers");
+    }
 
     return configuration;
 }
@@ -594,6 +847,8 @@ ConstantSP kafkaSetConsumerTimeout(Heap *heap, vector<ConstantSP> &args){
     );
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
     if (args[1]->getType() < DT_SHORT || args[1]->getType() > DT_LONG || args[1]->getInt() < 0) {
         throw IllegalArgumentException(__FUNCTION__, usage + "time need positive integer");
@@ -610,6 +865,8 @@ ConstantSP kafkaSetProducerTimeout(Heap *heap, vector<ConstantSP> &args){
     );
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != PRODUCER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "producer should be a producer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Producer>(args[0], lockGuard);
     auto producer = getConnection<Producer>(args[0]);
     if (args[1]->getType() < DT_SHORT || args[1]->getType() > DT_LONG || args[1]->getInt() < 0) {
         throw IllegalArgumentException(__FUNCTION__, usage + "time need positive integer");
@@ -626,6 +883,8 @@ ConstantSP kafkaGetConsumerTimeout(Heap *heap, vector<ConstantSP> &args){
     );
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
     auto res = Util::createConstant(DT_INT);
     res->setInt(static_cast<int>(consumer->get_timeout().count()));
@@ -638,52 +897,61 @@ ConstantSP kafkaGetProducerTimeout(Heap *heap, vector<ConstantSP> &args){
     );
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != PRODUCER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "producer should be a producer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Producer>(args[0], lockGuard);
     auto producer = getConnection<Producer>(args[0]);
     auto res = Util::createConstant(DT_INT);
     res->setInt(static_cast<int>(producer->get_timeout().count()));
     return res;
 }
 
-// use atomic timestamp to indicate the last assign time.
-// ddb would crash if the internal between assign() & unassign() is too short
-atomic<int64_t> assignTimeout;
-
-// concurrently using assign related function would cause crash, use a mutex to avoid crash
-// alert! It's a little inefficient, but assign operation would not be called frequently
-SmartPointer<Mutex> assignLatch = new Mutex();
 ConstantSP kafkaConsumerAssign(Heap *heap, vector<ConstantSP> &args){
-    LockGuard<Mutex> _(assignLatch.get());
+    LockGuard<Mutex> _(&ASSIGN_LATCH);
     const auto usage = string(
             "Usage: assign(consumer, topic, partition, offset).\n"
     );
 
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
-    Convertion convert(usage,args);
-    consumer->assign(convert.topic_partitions);
-    assignTimeout.store(Util::getEpochTime());
+    Conversion convert(usage,args);
+    try {
+        consumer->assign(convert.topic_partitions);
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
+    }
+    ASSIGN_TIMEOUT.store(Util::getEpochTime());
     return new Void();
 }
 
 ConstantSP kafkaConsumerUnassign(Heap *heap, vector<ConstantSP> &args){
-    LockGuard<Mutex> _(assignLatch.get());
+    LockGuard<Mutex> _(&ASSIGN_LATCH);
     atomic<int64_t> current;
     current.store(Util::getEpochTime());
-    if(current - assignTimeout < 2) {
+    if(current - ASSIGN_TIMEOUT < 2) {
         Util::sleep(1);
     }
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
-    consumer->unassign();
+    try {
+        consumer->unassign();
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
+    }
     return new Void();
 }
 
 ConstantSP kafkaConsumerGetAssignment(Heap *heap, vector<ConstantSP> &args){
-    LockGuard<Mutex> _(assignLatch.get());
+    LockGuard<Mutex> _(&ASSIGN_LATCH);
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
     auto result = consumer->get_assignment();
 
@@ -705,16 +973,28 @@ ConstantSP kafkaConsumerGetAssignment(Heap *heap, vector<ConstantSP> &args){
 ConstantSP kafkaConsumerPause(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
-    consumer->pause();
+    try {
+        consumer->pause();
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
+    }
     return new Void();
 }
 
 ConstantSP kafkaConsumerResume(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
-    consumer->resume();
+    try {
+        consumer->resume();
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
+    }
     return new Void();
 }
 
@@ -724,13 +1004,18 @@ ConstantSP kafkaGetOffset(Heap *heap, vector<ConstantSP> &args){
     );
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
-    if (args[1]->getType() != DT_STRING) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "Topic must be string.");
+    if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR) {
+        throw IllegalArgumentException(__FUNCTION__, usage + "Topic must be string scalar.");
     }
     auto topic = args[1]->getString();
     if (args[2]->getType() != DT_INT || args[2]->getForm() != DF_SCALAR) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "partition must be a integer");
+        throw IllegalArgumentException(__FUNCTION__, usage + "partition must be a integer scalar");
+    }
+    if(args[2]->getInt() < 0) {
+        throw IllegalArgumentException(__FUNCTION__, usage + "partition must be a positive integer scalar");
     }
     auto partition = args[2]->getInt();
     auto back = consumer->get_offsets(TopicPartition(topic, partition));
@@ -752,26 +1037,51 @@ ConstantSP kafkaGetOffsetsCommitted(Heap *heap, vector<ConstantSP> &args){
 
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
-    Convertion convert(usage,args);
+    Conversion convert(usage,args);
 
     vector<TopicPartition> result;
-    if(args.size() == 5){
-        if (args[4]->getType() < DT_SHORT || args[4]->getType() > DT_LONG || args[4]->getInt() < 0) {
-            throw IllegalArgumentException(__FUNCTION__, + "time need positive integer");
+    try {
+        if(args.size() == 5){
+            if (args[4]->getType() < DT_SHORT || args[4]->getType() > DT_LONG || args[4]->getInt() < 0) {
+                throw IllegalArgumentException(__FUNCTION__, + "time need positive integer");
+            }
+            auto time = args[4]->getInt();
+            result = consumer->get_offsets_committed(convert.topic_partitions, std::chrono::milliseconds(time));
+        }else{
+            result = consumer->get_offsets_committed(convert.topic_partitions);
         }
-        auto time = args[4]->getInt();
-        result = consumer->get_offsets_committed(convert.topic_partitions, std::chrono::milliseconds(time));
-    }else{
-        result = consumer->get_offsets_committed(convert.topic_partitions);
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
     }
 
-	size_t sz = result.size();
-    for (size_t i = 0; i < sz; i++) {
-        cout << result[i] << endl;
-    }
+    vector<string> colNames{"topic", "partition", "offset"};
+    vector<ConstantSP> cols;
+    vector<string> topics;
+    vector<int> partitions;
+    vector<int> offsets;
 
-    return new Void();
+    for(auto & r : result) {
+        topics.emplace_back(r.get_topic());
+        partitions.emplace_back(r.get_partition());
+        offsets.emplace_back(r.get_offset());
+    }
+    VectorSP topic = Util::createVector(DT_STRING, 0, topics.size());
+    VectorSP partition = Util::createVector(DT_INT, 0, partitions.size());
+    VectorSP offset = Util::createVector(DT_INT, 0, offsets.size());
+
+    topic->appendString(topics.data(), topics.size());
+    partition->appendInt(partitions.data(), partitions.size());
+    offset->appendInt(offsets.data(), offsets.size());
+    cols.push_back(topic);
+    cols.push_back(partition);
+    cols.push_back(offset);
+
+    ConstantSP ret = Util::createTable(colNames, cols);
+
+    return ret;
 }
 
 ConstantSP kafkaGetOffsetPosition(Heap *heap, vector<ConstantSP> &args){
@@ -780,22 +1090,56 @@ ConstantSP kafkaGetOffsetPosition(Heap *heap, vector<ConstantSP> &args){
     );
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
-    Convertion convert(usage,args);
-    auto result = consumer->get_offsets_position(convert.topic_partitions);
-    for(auto & i : result){
-        cout << i << endl;
-    }
+    Conversion convert(usage,args);
 
-    return new Void();
+    vector<TopicPartition> result;
+    try {
+        result = consumer->get_offsets_position(convert.topic_partitions);
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
+    }
+    vector<string> colNames{"topic", "partition", "offset"};
+    vector<ConstantSP> cols;
+    vector<string> topics;
+    vector<int> partitions;
+    vector<int> offsets;
+
+    for(auto & r : result) {
+        topics.emplace_back(r.get_topic());
+        partitions.emplace_back(r.get_partition());
+        offsets.emplace_back(r.get_offset());
+    }
+    VectorSP topic = Util::createVector(DT_STRING, 0, topics.size());
+    VectorSP partition = Util::createVector(DT_INT, 0, partitions.size());
+    VectorSP offset = Util::createVector(DT_INT, 0, offsets.size());
+
+    topic->appendString(topics.data(), topics.size());
+    partition->appendInt(partitions.data(), partitions.size());
+    offset->appendInt(offsets.data(), offsets.size());
+    cols.push_back(topic);
+    cols.push_back(partition);
+    cols.push_back(offset);
+
+    ConstantSP ret = Util::createTable(colNames, cols);
+
+    return ret;
 }
 
 #if (RD_KAFKA_VERSION >= RD_KAFKA_STORE_OFFSETS_SUPPORT_VERSION)
 ConstantSP kafkaStoreConsumedOffsets(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
-    consumer->store_consumed_offsets();
+    try {
+        consumer->store_consumed_offsets();
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
+    }
     return new Void();
 }
 
@@ -805,9 +1149,15 @@ ConstantSP kafkaStoreOffsets(Heap *heap, vector<ConstantSP> &args){
     );
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
-    Convertion convert(usage,args);
-    consumer->store_offsets(convert.topic_partitions);
+    Conversion convert(usage,args);
+    try {
+        consumer->store_offsets(convert.topic_partitions);
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
+    }
 
     return new Void();
 }
@@ -816,21 +1166,32 @@ ConstantSP kafkaStoreOffsets(Heap *heap, vector<ConstantSP> &args){
 ConstantSP kafkaGetMemberId(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
     auto result = Util::createConstant(DT_STRING);
-    auto str = consumer->get_member_id();
-    result->setString(0,str);
-
-    return result;
+    try {
+        auto str = consumer->get_member_id();
+        result->setString(0,str);
+        return result;
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
+    }
 }
 
 ConstantSP kafkaQueueLength(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != QUEUE_DESC)
         throw IllegalArgumentException(__FUNCTION__, "queue should be a queue handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Queue>(args[0], lockGuard);
     auto queue = getConnection<Queue>(args[0]);
     auto result = Util::createConstant(DT_INT);
-    result->setInt(queue->get_length());
-    return result;
+    try {
+        result->setInt(queue->get_length());
+        return result;
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
+    }
 }
 
 ConstantSP  kafkaForToQueue(Heap *heap, vector<ConstantSP> &args){
@@ -838,23 +1199,42 @@ ConstantSP  kafkaForToQueue(Heap *heap, vector<ConstantSP> &args){
         throw IllegalArgumentException(__FUNCTION__, "the first queue should be a queue handle.");
     if(args[1]->getType()!=DT_RESOURCE || args[1]->getString() != QUEUE_DESC)
         throw IllegalArgumentException(__FUNCTION__, "the second queue should be a queue handle.");
+    if(args[0]->getLong() == args[1]->getLong()) {
+        throw RuntimeException("[PLUGIN::KAFKA] Messages cannot be forwarded to the same queue.");
+    }
+    RWLockGuard<RWLock> lockGuard0(NULL, false);
+    getWrapperLockGuard<Queue>(args[0], lockGuard0);
     auto queue = getConnection<Queue>(args[0]);
+    RWLockGuard<RWLock> lockGuard1(NULL, false);
+    getWrapperLockGuard<Queue>(args[1], lockGuard1);
     auto forward_queue = getConnection<Queue>(args[1]);
-    queue->forward_to_queue(*forward_queue);
+    try {
+        queue->forward_to_queue(*forward_queue);
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
+    }
     return new Void();
 }
 
 ConstantSP kafkaDisForToQueue(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != QUEUE_DESC)
         throw IllegalArgumentException(__FUNCTION__, "queue should be a queue handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Queue>(args[0], lockGuard);
     auto queue = getConnection<Queue>(args[0]);
-    queue->disable_queue_forwarding();
+    try {
+        queue->disable_queue_forwarding();
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
+    }
     return new Void();
 }
 
 ConstantSP kafkaSetQueueTime(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != QUEUE_DESC)
         throw IllegalArgumentException(__FUNCTION__, "queue should be a queue handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Queue>(args[0], lockGuard);
     auto queue = getConnection<Queue>(args[0]);
     if (args[1]->getType() < DT_SHORT || args[1]->getType() > DT_LONG || args[1]->getInt() < 0) {
         throw IllegalArgumentException(__FUNCTION__, + "time need positive integer");
@@ -867,6 +1247,8 @@ ConstantSP kafkaSetQueueTime(Heap *heap, vector<ConstantSP> &args){
 ConstantSP kafkaGetQueueTime(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != QUEUE_DESC)
         throw IllegalArgumentException(__FUNCTION__, "queue should be a queue handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Queue>(args[0], lockGuard);
     auto queue = getConnection<Queue>(args[0]);
     auto result = Util::createConstant(DT_INT);
     result->setInt(static_cast<int>(queue->get_timeout().count()));
@@ -883,23 +1265,30 @@ ConstantSP kafkaQueueConsume(Heap *heap, vector<ConstantSP> &args){
 
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != QUEUE_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "queue should be a queue handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Queue>(args[0], lockGuard);
     auto queue = getConnection<Queue>(args[0]);
-    if(args.size() == 2){
-        if (args[1]->getType() < DT_SHORT || args[1]->getType() > DT_LONG || args[1]->getInt() < 0) {
-            throw IllegalArgumentException(__FUNCTION__, + "time need positive integer");
+
+    try {
+        if(args.size() == 2){
+            if (args[1]->getType() < DT_SHORT || args[1]->getType() > DT_LONG || args[1]->getInt() < 0) {
+                throw IllegalArgumentException(__FUNCTION__, + "time need positive integer");
+            }
+            auto time = args[1]->getInt();
+            auto msg = queue->consume(std::chrono:: milliseconds(time));
+            if (msg && msg.get_error() && msg.is_eof()) {
+                msg = queue->consume(std::chrono:: milliseconds(time));
+            }
+            return getMsg(msg);
+        }else{
+            auto msg = queue->consume(std::chrono:: milliseconds(1000));
+            if (msg && msg.get_error() && msg.is_eof()) {
+                msg = queue->consume(std::chrono:: milliseconds(1000));
+            }
+            return getMsg(msg);
         }
-        auto time = args[1]->getInt();
-        auto msg = queue->consume(std::chrono:: milliseconds(time));
-        if (msg && msg.get_error() && msg.is_eof()) {
-            msg = queue->consume(std::chrono:: milliseconds(time));
-        }
-        return getMsg(msg);
-    }else{
-        auto msg = queue->consume(std::chrono:: milliseconds(1000));
-        if (msg && msg.get_error() && msg.is_eof()) {
-            msg = queue->consume(std::chrono:: milliseconds(1000));
-        }
-        return getMsg(msg);
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
     }
 }
 
@@ -912,6 +1301,8 @@ ConstantSP kafkaQueueConsumeBatch(Heap *heap, vector<ConstantSP> &args){
 
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != QUEUE_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "queue should be a queue handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Queue>(args[0], lockGuard);
     auto queue = getConnection<Queue>(args[0]);
     if (args[1]->getType() < DT_SHORT || args[1]->getType() > DT_LONG || args[1]->getInt() < 0) {
         throw IllegalArgumentException(__FUNCTION__, usage + "batch size need positive integer");
@@ -920,43 +1311,47 @@ ConstantSP kafkaQueueConsumeBatch(Heap *heap, vector<ConstantSP> &args){
     auto result = Util::createVector(DT_ANY, 0);
 
     vector<Message> msgs;
-    if(args.size() == 3){
-        if (args[2]->getType() < DT_SHORT || args[2]->getType() > DT_LONG || args[2]->getInt() < 0) {
-            throw IllegalArgumentException(__FUNCTION__, + "time need positive integer");
-        }
-        auto time = args[2]->getInt();
-        msgs = queue->consume_batch(batch_size, std::chrono:: milliseconds(time));
+    try {
+        if(args.size() == 3){
+            if (args[2]->getType() < DT_SHORT || args[2]->getType() > DT_LONG || args[2]->getInt() < 0) {
+                throw IllegalArgumentException(__FUNCTION__, + "time need positive integer");
+            }
+            auto time = args[2]->getInt();
+            msgs = queue->consume_batch(batch_size, std::chrono:: milliseconds(time));
 
-        int length = 0;
-        while(length < batch_size) {
-            if(msgs.size() == 0) {
-                break;
-            }
-            for (auto &msg: msgs){
-                if(msg && msg.get_error() && msg.is_eof()) {
-                    continue;
+            int length = 0;
+            while(length < batch_size) {
+                if(msgs.size() == 0) {
+                    break;
                 }
-                result->append(getMsg(msg));
-            }
-            length = result->size();
-            msgs = queue->consume_batch(batch_size-length, std::chrono:: milliseconds(time));
-        }
-    }else{
-        msgs = queue->consume_batch(batch_size, std::chrono:: milliseconds(1000));
-        int length = 0;
-        while(length < batch_size) {
-            if(msgs.size() == 0) {
-                break;
-            }
-            for (auto &msg: msgs){
-                if(msg && msg.get_error() && msg.is_eof()) {
-                    continue;
+                for (auto &msg: msgs){
+                    if(msg && msg.get_error() && msg.is_eof()) {
+                        continue;
+                    }
+                    result->append(getMsg(msg));
                 }
-                result->append(getMsg(msg));
+                length = result->size();
+                msgs = queue->consume_batch(batch_size-length, std::chrono:: milliseconds(time));
             }
-            length = result->size();
-            msgs = queue->consume_batch(batch_size-length, std::chrono:: milliseconds(1000));
+        }else{
+            msgs = queue->consume_batch(batch_size, std::chrono:: milliseconds(1000));
+            int length = 0;
+            while(length < batch_size) {
+                if(msgs.size() == 0) {
+                    break;
+                }
+                for (auto &msg: msgs){
+                    if(msg && msg.get_error() && msg.is_eof()) {
+                        continue;
+                    }
+                    result->append(getMsg(msg));
+                }
+                length = result->size();
+                msgs = queue->consume_batch(batch_size-length, std::chrono:: milliseconds(1000));
+            }
         }
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
     }
 
     if(result->size() == 0){
@@ -976,67 +1371,101 @@ ConstantSP kafkaQueueConsumeBatch(Heap *heap, vector<ConstantSP> &args){
 ConstantSP kafkaGetMainQueue(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
-    auto queue = new Queue(consumer->get_main_queue());
+    try {
+        auto queue = new KafkaWrapper<Queue>(new Queue(consumer->get_main_queue()));
+        FunctionDefSP onClose(Util::createSystemProcedure("kafka queue onClose()", kafkaOnClose<Queue>, 1, 1));
+        LockGuard<Mutex> _(&HANDLE_MUTEX);
+        HANDLE_SET.insert((long long) queue);
+        return Util::createResource(
+                (long long) queue,
+                QUEUE_DESC,
+                onClose,
+                heap->currentSession()
+        );
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
+    }
 
-    FunctionDefSP onClose(Util::createSystemProcedure("kafka queue onClose()", kafkaOnClose<Queue>, 1, 1));
-    return Util::createResource(
-            (long long) queue,
-            QUEUE_DESC,
-            onClose,
-            heap->currentSession()
-    );
 }
 
 ConstantSP kafkaGetConsumerQueue(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
-    auto queue = new Queue(consumer->get_consumer_queue());
 
-    FunctionDefSP onClose(Util::createSystemProcedure("kafka queue onClose()", kafkaOnClose<Queue>, 1, 1));
-    return Util::createResource(
-            (long long) queue,
-            QUEUE_DESC,
-            onClose,
-            heap->currentSession()
-    );
+    try {
+        auto queue = new KafkaWrapper<Queue>(new Queue(consumer->get_consumer_queue()));
+
+        FunctionDefSP onClose(Util::createSystemProcedure("kafka queue onClose()", kafkaOnClose<Queue>, 1, 1));
+        LockGuard<Mutex> _(&HANDLE_MUTEX);
+        HANDLE_SET.insert((long long) queue);
+        return Util::createResource(
+                (long long) queue,
+                QUEUE_DESC,
+                onClose,
+                heap->currentSession()
+        );
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
+    }
 }
 
 ConstantSP kafkaGetPartitionQueue(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
         throw IllegalArgumentException(__FUNCTION__, "consumer should be a consumer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Consumer>(args[0], lockGuard);
     auto consumer = getConnection<Consumer>(args[0]);
-    Convertion convert("",args);
-    auto queue = new Queue(consumer->get_partition_queue(convert.topic_partitions[0]));
+    Conversion convert("",args);
+    try {
+        auto queue = new KafkaWrapper<Queue>(new Queue(consumer->get_partition_queue(convert.topic_partitions[0])));
 
-    FunctionDefSP onClose(Util::createSystemProcedure("kafka queue onClose()", kafkaOnClose<Queue>, 1, 1));
-    return Util::createResource(
-            (long long) queue,
-            QUEUE_DESC,
-            onClose,
-            heap->currentSession()
-    );
+        FunctionDefSP onClose(Util::createSystemProcedure("kafka queue onClose()", kafkaOnClose<Queue>, 1, 1));
+        LockGuard<Mutex> _(&HANDLE_MUTEX);
+        HANDLE_SET.insert((long long) queue);
+        return Util::createResource(
+                (long long) queue,
+                QUEUE_DESC,
+                onClose,
+                heap->currentSession()
+        );
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
+    }
 }
 
 ConstantSP kafkaQueueEvent(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != QUEUE_DESC)
         throw IllegalArgumentException(__FUNCTION__, "queue should be a queue handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Queue>(args[0], lockGuard);
     auto queue = getConnection<Queue>(args[0]);
-    auto event = new Event(queue->next_event());
-
-    FunctionDefSP onClose(Util::createSystemProcedure("kafka event onClose()", kafkaOnClose<Event>, 1, 1));
-    return Util::createResource(
-            (long long) event,
-            EVENT_DESC,
-            onClose,
-            heap->currentSession()
-    );
+    try {
+        auto event = new KafkaWrapper<Event>(new Event(queue->next_event()));
+        FunctionDefSP onClose(Util::createSystemProcedure("kafka event onClose()", kafkaOnClose<Event>, 1, 1));
+        LockGuard<Mutex> _(&HANDLE_MUTEX);
+        HANDLE_SET.insert((long long) event);
+        return Util::createResource(
+                (long long) event,
+                EVENT_DESC,
+                onClose,
+                heap->currentSession()
+        );
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
+    }
 }
 
 ConstantSP kafkaGetEventName(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != EVENT_DESC)
         throw IllegalArgumentException(__FUNCTION__, "event should be a event handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Event>(args[0], lockGuard);
     auto event = getConnection<Event>(args[0]);
     auto name = Util::createConstant(DT_STRING);
     name->setString(event->get_name());
@@ -1052,13 +1481,19 @@ ConstantSP kafkaEventGetMessages(Heap *heap, vector<ConstantSP> &args){
 
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != EVENT_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "event should be a event handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Event>(args[0], lockGuard);
     auto event = getConnection<Event>(args[0]);
     if(!event->operator bool()){
-        throw Exception("The event is empty!");
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + "The event is empty!");
     }
     auto result = Util::createVector(DT_ANY, 0);
-    auto msgs = event->get_messages();
-
+    vector<Message> msgs;
+    try {
+        msgs = event->get_messages();
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
+    }
     for (auto &msg: msgs){
         result->append(getMsg(msg));
     }
@@ -1072,17 +1507,17 @@ ConstantSP kafkaEventGetMessages(Heap *heap, vector<ConstantSP> &args){
         free(result);
         return res;
     }
-
     return result;
-
 }
 
 ConstantSP kafkaGetEventMessageCount(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != EVENT_DESC)
         throw IllegalArgumentException(__FUNCTION__, "event should be a event handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Event>(args[0], lockGuard);
     auto event = getConnection<Event>(args[0]);
     if(!event->operator bool()){
-        throw Exception("The event is empty!");
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + "The event is empty!");
     }
     auto count = Util::createConstant(DT_INT);
     count->setInt(event->get_message_count());
@@ -1092,9 +1527,11 @@ ConstantSP kafkaGetEventMessageCount(Heap *heap, vector<ConstantSP> &args){
 ConstantSP kafkaEventGetError(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != EVENT_DESC)
         throw IllegalArgumentException(__FUNCTION__, "event should be a event handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Event>(args[0], lockGuard);
     auto event = getConnection<Event>(args[0]);
     if(!event->operator bool()){
-        throw Exception("The event is empty!");
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + "The event is empty!");
     }
     auto error = event->get_error();
     auto string = Util::createConstant(DT_STRING);
@@ -1105,13 +1542,19 @@ ConstantSP kafkaEventGetError(Heap *heap, vector<ConstantSP> &args){
 ConstantSP kafkaEventGetPartition(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != EVENT_DESC)
         throw IllegalArgumentException(__FUNCTION__, "event should be a event handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Event>(args[0], lockGuard);
     auto event = getConnection<Event>(args[0]);
     if(!event->operator bool()){
-        throw Exception("The event is empty!");
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + "The event is empty!");
     }
 
     stringstream ss;
-    ss << event->get_topic_partition() << endl;
+    try {
+        ss << event->get_topic_partition() << endl;
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
+    }
     auto result = Util::createConstant(DT_STRING);
     result->setString(ss.str());
 
@@ -1121,20 +1564,55 @@ ConstantSP kafkaEventGetPartition(Heap *heap, vector<ConstantSP> &args){
 ConstantSP kafkaEventGetPartitionList(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != EVENT_DESC)
         throw IllegalArgumentException(__FUNCTION__, "event should be a event handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Event>(args[0], lockGuard);
     auto event = getConnection<Event>(args[0]);
+    if(!event->operator bool()){
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + "The event is empty!");
+    }
+
     if(event->get_type() != RD_KAFKA_EVENT_OFFSET_COMMIT && event->get_type() != RD_KAFKA_EVENT_REBALANCE ) {
-        throw RuntimeException("wrong event type.");
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + "wrong event type.");
     }
-    auto parts = event->get_topic_partition_list();
-    for(auto &part:parts){
-        cout << part << endl;
+    vector<TopicPartition> result;
+    try {
+        result = event->get_topic_partition_list();
+    } catch(std::exception& e) {
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
     }
-    return new Void();
+
+    vector<string> colNames{"topic", "partition", "offset"};
+    vector<ConstantSP> cols;
+    vector<string> topics;
+    vector<int> partitions;
+    vector<int> offsets;
+
+    for(auto & r : result) {
+        topics.emplace_back(r.get_topic());
+        partitions.emplace_back(r.get_partition());
+        offsets.emplace_back(r.get_offset());
+    }
+    VectorSP topic = Util::createVector(DT_STRING, 0, topics.size());
+    VectorSP partition = Util::createVector(DT_INT, 0, partitions.size());
+    VectorSP offset = Util::createVector(DT_INT, 0, offsets.size());
+
+    topic->appendString(topics.data(), topics.size());
+    partition->appendInt(partitions.data(), partitions.size());
+    offset->appendInt(offsets.data(), offsets.size());
+    cols.push_back(topic);
+    cols.push_back(partition);
+    cols.push_back(offset);
+
+    ConstantSP ret = Util::createTable(colNames, cols);
+
+    return ret;
 }
 
 ConstantSP kafkaEventBool(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != EVENT_DESC)
         throw IllegalArgumentException(__FUNCTION__, "event should be a event handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Event>(args[0], lockGuard);
     auto event = getConnection<Event>(args[0]);
     auto result = Util::createConstant(DT_BOOL);
     result->setBool(1,event->operator bool());
@@ -1143,35 +1621,34 @@ ConstantSP kafkaEventBool(Heap *heap, vector<ConstantSP> &args){
 
 ConstantSP kafkaGetBufferSize(Heap *heap, vector<ConstantSP> &args){
     auto result = Util::createConstant(DT_LONG);
-    result->setLong(buffer_size);
+    result->setLong(BUFFER_SIZE);
     return result;
 }
 
 ConstantSP kafkaSetBufferSize(Heap *heap, vector<ConstantSP> &args){
     long long size = args[0]->getLong();
-    if(size>=message_size)
-        buffer_size = size;
+    if(size>=MESSAGE_SIZE)
+        BUFFER_SIZE = size;
     else{
-        buffer_size = size;
-        message_size = size;
-		throw Exception("The buffer_size is smaller than message_size. The message_size is set the same as buffer_size.");
+        BUFFER_SIZE = size;
+        MESSAGE_SIZE = size;
+		throw RuntimeException(string("[PLUGIN::KAFKA] ") + "The buffer_size is smaller than message_size. The message_size is set the same as buffer_size.");
     }
-    cout << "The buffer size has been successfully set, please make sure the buffer size is no larger than broker size." << endl;
-    return new Void();
+    return new String("The buffer size has been successfully set, please make sure the buffer size is no larger than broker size.");
 }
 
 ConstantSP kafkaGetMessageSize(Heap *heap, vector<ConstantSP> &args){
     auto result = Util::createConstant(DT_LONG);
-    result->setLong(message_size);
+    result->setLong(MESSAGE_SIZE);
     return result;
 }
 
 ConstantSP kafkaSetMessageSize(Heap *heap, vector<ConstantSP> &args){
     long long size = args[0]->getLong();
-    if(size<=buffer_size)
-        message_size = size;
+    if(size<=BUFFER_SIZE)
+        MESSAGE_SIZE = size;
     else{
-        throw IllegalArgumentException(__FUNCTION__, + "message_size should be larger than buffer_size");
+        throw IllegalArgumentException(__FUNCTION__, + "message_size should not be larger than buffer_size");
     }
 
     return new Void();
@@ -1180,7 +1657,7 @@ ConstantSP kafkaSetMessageSize(Heap *heap, vector<ConstantSP> &args){
 inline static int getLength(ConstantSP &data){
 	DATA_TYPE type = data->getType();
     if(type<=DT_DOUBLE)
-        return type_size[type];
+        return TYPE_SIZE[type];
     else if(type == DT_SYMBOL || type == DT_STRING || type == DT_BLOB)
         return data->getString().length();
     else if(type == DT_IP || type == DT_INT128)
@@ -1188,93 +1665,115 @@ inline static int getLength(ConstantSP &data){
     else if(type == DT_FUNCTIONDEF)
         return 128;
     else
-        throw Exception("Unsolved type.");
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + "Unsolved type.");
 }
 
-static void produceMessage(ConstantSP &produce, ConstantSP &pTopic, ConstantSP &key, ConstantSP &value, ConstantSP &json, ConstantSP &pPartition){
+void produceMessage(ConstantSP &produce, ConstantSP &pTopic, ConstantSP &key, ConstantSP &value, ConstantSP &json, ConstantSP &pPartition){
     const auto usage = string("Usage: produce(producer, topic: string, key, value, json, [partition]).\n");
     if(produce->getType()!=DT_RESOURCE || produce->getString() != PRODUCER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "producer should be a producer handle.");
+    RWLockGuard<RWLock> lockGuard(NULL, false);
+    getWrapperLockGuard<Producer>(produce, lockGuard);
     auto producer = getConnection<Producer>(produce);
-    if (pTopic->getType() != DT_STRING) {
+    if (pTopic.isNull() || pTopic->getType() != DT_STRING) {
         throw IllegalArgumentException(__FUNCTION__, usage + "Topic must be string.");
     }
     auto topic = pTopic->getString();
-    ConstantSP judge = Util::createConstant(DT_BOOL);
-    judge->setBool(1, false);
-    auto key_str = kafkaSerialize(key, judge);
-    auto value_str = kafkaSerialize(value, json);
+    // ConstantSP judge = Util::createConstant(DT_BOOL);
+    // judge->setBool(1, false);
+    // auto keyStr = kafkaSerialize(key, judge);
+    string keyStr = key->getString();
+    auto valueStr = kafkaSerialize(value, json);
 
-    if(key_str.length() + value_str.length() <= buffer_size*(2-factor)){
-        auto &&msg = MessageBuilder(topic).key(key_str).payload(value_str);
-        if (!pPartition->isNull()) {
-            if (pPartition->getType() != DT_INT || pPartition->getForm() != DF_SCALAR) {
-                throw IllegalArgumentException(__FUNCTION__, usage + "partition must be a integer");
+    if(keyStr.length() + valueStr.length() <= BUFFER_SIZE*(2-FACTOR)){
+        try {
+            auto &&msg = MessageBuilder(topic).key(keyStr).payload(valueStr);
+            if (!pPartition->isNull()) {
+                if (pPartition->getType() != DT_INT || pPartition->getForm() != DF_SCALAR) {
+                    throw IllegalArgumentException(__FUNCTION__, usage + "partition must be a integer");
+                }
+                auto partition = pPartition->getInt();
+                msg.partition(partition);
             }
-            auto partition = pPartition->getInt();
-            msg.partition(partition);
+            producer->produce(msg);
+        } catch(IllegalArgumentException& e){
+            throw e;
+        } catch(std::exception& e) {
+            throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
         }
-        producer->produce(msg);
     }
     else{
-        long long start = 0, end;
+        long long start = 0;
         long long size = 0;
         long long len;
         long long length;
-        vector<int> str_vec;
-        int head_len = 0;
-        int row_len = 0;
+        vector<int> strVec;
+        int headLen = 0;
+        int rowLen = 0;
 
         if(value->getForm() == DF_TABLE){
             length = value->columns();
+            auto keys = value->keys();
+            auto values = value->values();
+            auto valueSize = value->size();
+            if(valueSize == 1) {
+                throw IllegalArgumentException(__FUNCTION__, usage + "size of data is too big");
+            }
             for(int i = 0;i<value->columns();i++){
-                head_len+=value->keys()->get(i)->getString().length();
-                if(value->values()->get(i)->getType() == DT_STRING || value->values()->get(i)->getType() == DT_SYMBOL)
-                    str_vec.push_back(i);
+                headLen += keys->get(i)->getString().length();
+                if(values->get(i)->getType() == DT_STRING || values->get(i)->getType() == DT_SYMBOL)
+                    strVec.push_back(i);
                 else{
                     ConstantSP temp = value->values()->get(i);
-                    row_len+=getLength(temp);
+                    rowLen+=getLength(temp);
+                    rowLen += 2;    // simulate ", "
                 }
             }
-            if(str_vec.empty()){
-                long long step = (message_size-head_len)/row_len;
-                if(step == 0){
-                    if(row_len+head_len>buffer_size*factor)
-                        throw Exception("The data is too large.");
+
+            if(strVec.empty()){
+                long long step = (MESSAGE_SIZE-headLen)/rowLen * 2 / 3; // To prevent corner cases where MESSAGE_SIZE and BUFFER_SIZE are equal
+                if(step < 1){
+                    if(rowLen+headLen>BUFFER_SIZE*FACTOR)
+                        throw RuntimeException("[PLUGIN::KAFKA] The data is too large.");
                     else
                         step = 1;
                 }
-                for(long long i = 0;i<value->size();i+=step){
-                    auto pass = value->getWindow(0,length,i,(i+step>=value->size())?(value->size()-i):step);
+                for(long long i = 0;i<valueSize;i+=step){
+                    auto pass = value->getWindow(0,length,i,(i+step>=valueSize)?(valueSize-i):step);
                     produceMessage(produce,pTopic,key,pass,json,pPartition);
                 }
             }
             else {
-                size = head_len;
-                for (long long i = 0; i < value->size(); i++) {
-                    len = row_len;
-                    for(int j : str_vec)
-                        len += value->values()->get(j)->get(i)->getString().length();
+                size = headLen;
+                vector<ConstantSP> strCol;
+                for(int j : strVec) {
+                    strCol.push_back(values->get(j));
+                }
+                for (long long i = 0; i < valueSize; i++) {
+                    len = rowLen;
+                    for(ConstantSP col: strCol)
+                        len += col->get(i)->getString().length();
                     size+=len;
-                    if (size > buffer_size*factor){
-                        if(size>head_len){
+                    if (size > BUFFER_SIZE*FACTOR){
+                        if(size - len <= BUFFER_SIZE*FACTOR && size - len > headLen){
                             auto pass = value->getWindow(0,length,start,i-start);
                             produceMessage(produce, pTopic, key, pass, json, pPartition);
                             start = i;
-                            size = head_len+len;
+                            size = headLen+len;
                         }
-                        else
+                        else {
                             throw IllegalArgumentException(__FUNCTION__, usage + "size of data is too big");
+                        }
                     }
-                    else if (size > message_size*factor) {
+                    else if (size > MESSAGE_SIZE*FACTOR) {
                         auto pass = value->getWindow(0,length,start,i-start+1);
                         produceMessage(produce, pTopic, key, pass, json, pPartition);
                         start = i + 1;
-                        size = head_len;
+                        size = headLen;
                     }
                 }
-                if(size>head_len){
-                    auto pass = value->getWindow(0,length,start,value->size()-start);
+                if(size>headLen){
+                    auto pass = value->getWindow(0,length,start,valueSize-start);
                     produceMessage(produce,pTopic,key,pass,json,pPartition);
                 }
             }
@@ -1286,11 +1785,17 @@ static void produceMessage(ConstantSP &produce, ConstantSP &pTopic, ConstantSP &
             for(long long i = 0;i<length;i++){
                 ConstantSP temp = vector->get(i);
                 len = getLength(temp);
-                if(len>buffer_size*factor)
+                if(len>BUFFER_SIZE*FACTOR)
                     throw IllegalArgumentException(__FUNCTION__, usage + "size of data is too big");
-                else if(len>message_size*factor){
+                else if(len+size>=BUFFER_SIZE*FACTOR){
+                    auto pass = vector->getSubVector(start,i-start);
+                    produceMessage(produce,pTopic,key,pass,json,pPartition);
+                    size = len;
+                    start = i;
+                }
+                else if(len>MESSAGE_SIZE*FACTOR){
                     if(size!=0){
-                        auto pass = vector->getSubVector(start, end-start+1);
+                        auto pass = vector->getSubVector(start, i-start+1);
                         produceMessage(produce,pTopic,key,pass,json,pPartition);
                         size = 0;
                     }
@@ -1298,28 +1803,18 @@ static void produceMessage(ConstantSP &produce, ConstantSP &pTopic, ConstantSP &
                     produceMessage(produce,pTopic,key,pass_temp,json,pPartition);
                     start=i+1;
                 }
-                else if(len+size<message_size*factor){
-                    size+=len;
-                    end = i;
-                }
-                else if(len+size>=buffer_size*factor){
-                    end = i-1;
-                    auto pass = vector->getSubVector(start,end-start+1);
-                    produceMessage(produce,pTopic,key,pass,json,pPartition);
-                    size = len;
-                    start = i;
-                }
-                else if(len+size>=message_size*factor){
-                    end = i;
-                    auto pass = vector->getSubVector(start,end-start+1);
+                else if(len+size>=MESSAGE_SIZE*FACTOR){
+                    auto pass = vector->getSubVector(start,i-start+1);
                     produceMessage(produce,pTopic,key,pass,json,pPartition);
                     size = 0;
                     start = i+1;
                 }
+                else if(len+size<MESSAGE_SIZE*FACTOR){
+                    size+=len;
+                }
             }
             if(size!=0){
-                end = length-1;
-                auto pass = vector->getSubVector(start,end-start+1);
+                auto pass = vector->getSubVector(start,length-start);
                 produceMessage(produce,pTopic,key,pass,json,pPartition);
             }
         }
@@ -1329,20 +1824,28 @@ static void produceMessage(ConstantSP &produce, ConstantSP &pTopic, ConstantSP &
     }
 }
 
-static Vector* getMsg(Message &msg){
+Vector* getMsg(Message &msg){
     auto err_arg = Util::createConstant(DT_STRING);
 
     if (msg) {
         ConstantSP msg_arg;
-        if (msg.get_error()) {
-            if (msg.is_eof())
-                err_arg->setString("Broker: No more messages");
-            else
-                err_arg->setString(msg.get_error().to_string());
+        try {
+            if (msg.get_error()) {
+                if (msg.is_eof())
+                    err_arg->setString("Broker: No more messages");
+                else
+                    err_arg->setString(msg.get_error().to_string());
+                msg_arg = Util::createConstant(DT_VOID);
+            } else {
+                err_arg->setString("");
+                msg_arg = extractMessage(msg);
+            }
+        } catch(std::exception& ex) {
             msg_arg = Util::createConstant(DT_VOID);
-        } else {
-            err_arg->setString("");
-            msg_arg = extractMessage(msg);
+            err_arg->setString("Parse message failed, " + string(ex.what()));
+        } catch(...) {
+            msg_arg = Util::createConstant(DT_VOID);
+            err_arg->setString("Parse message failed.");
         }
 
         auto res = Util::createVector(DT_ANY, 2);
@@ -1359,10 +1862,9 @@ static Vector* getMsg(Message &msg){
     }
 }
 
-static string kafkaGetString(const ConstantSP &data, bool key){
+string kafkaGetString(const ConstantSP &data, bool key){
     if(data->getForm() == DF_SCALAR) {
         if(key && data->getType()!=DT_STRING && data->getType()!=DT_CHAR && data->getType() != DT_BOOL){
-            //cout << "The key of json will be cast to string." << endl;
             return "\"" + data->getString() + "\"";
         }
         else if (data->getType() == DT_BOOL)
@@ -1377,7 +1879,6 @@ static string kafkaGetString(const ConstantSP &data, bool key){
         else if(data->getType() == DT_INT || data->getType() == DT_DOUBLE || data->getType() == DT_FLOAT || data->getType() == DT_SHORT || data->getType() == DT_LONG)
             return data->getString();
         else{
-            //cout << "The data type will be cast to string." << endl;
             return "\"" + data->getString() + "\"";
         }
     }
@@ -1385,11 +1886,11 @@ static string kafkaGetString(const ConstantSP &data, bool key){
         return kafkaJsonSerialize(data);
 }
 
-static string kafkaJsonSerialize(const ConstantSP &data){
+string kafkaJsonSerialize(const ConstantSP &data){
 	string result;
     if(data->getForm() == DF_VECTOR){
         if(data->size() == 0){
-            return string("");
+            return string("[]");
         }
         result+="[";
         result+=kafkaGetString(data->get(0));
@@ -1405,18 +1906,17 @@ static string kafkaJsonSerialize(const ConstantSP &data){
         int length = data->size();
 
         ConstantSP dictKeys = data->keys();
+        ConstantSP dictValues = data->values();
 
         result+="{";
-        ConstantSP last = dictKeys->get(length-1);
-        result+=kafkaGetString(last, true);
+        result+=kafkaGetString(dictKeys->get(length-1), true);
         result+=":";
-        result+=kafkaGetString(data->getMember(last));
+        result+=kafkaGetString(dictValues->get(length-1));
         for(int i = length-2;i>=0;i--){
             result+=",";
-            ConstantSP key = dictKeys->get(i);
-            result+=kafkaGetString(key, true);
+            result+=kafkaGetString(dictKeys->get(i), true);
             result+=":";
-            result+=kafkaGetString(data->getMember(key));
+            result+=kafkaGetString(dictValues->get(i));
         }
         result+="}";
     }
@@ -1424,15 +1924,16 @@ static string kafkaJsonSerialize(const ConstantSP &data){
         if(data->size() == 0 || data->columns() == 0)
             return string("{}");
         ConstantSP dictKeys = data->keys();
+        ConstantSP dictValues = data->values();
         result+="{";
         result+=kafkaGetString(dictKeys->get(0), true);
         result+=":";
-        result+=kafkaJsonSerialize(data->getMember(dictKeys->get(0)));
+        result+=kafkaJsonSerialize(dictValues->get(0));
         for(int i = 1;i<data->columns();i++){
             result+=",";
             result+=kafkaGetString(dictKeys->get(i), true);
             result+=":";
-            result+=kafkaJsonSerialize(data->getMember(dictKeys->get(i)));
+            result+=kafkaJsonSerialize(dictValues->get(i));
         }
         result+="}";
     }
@@ -1447,7 +1948,7 @@ static string kafkaJsonSerialize(const ConstantSP &data){
     return result;
 }
 
-static string kafkaSerialize(ConstantSP &data, ConstantSP &json){
+string kafkaSerialize(ConstantSP &data, ConstantSP &json){
     if(data->getType() == DT_FUNCTIONDEF){
         throw IllegalArgumentException(__FUNCTION__, "Can't pass function type.");
     }
@@ -1463,17 +1964,21 @@ static string kafkaSerialize(ConstantSP &data, ConstantSP &json){
     result+=string(outStream->getBuffer(), outStream->size());
 
     ret = outStream->flush();
+    if(ret != IO_ERR::OK) {
+        throw IOException(ret);
+    }
     return result;
 }
 
-static ConstantSP kafkaDeserialize(const string &data_init){
-    if(data_init == ""){
+ConstantSP kafkaDeserialize(const string &dataInit){
+    if(dataInit == ""){
         auto empty = Util::createNullConstant(DT_ANY);
         return empty;
     }
     short flag;
     IO_ERR ret;
-    auto str = data_init.c_str();
+    auto str = dataInit.c_str();
+    try {
     if(str[0] == '{' || str[0] == '['){
         json data = json::parse(str);
         if(data.is_object()){
@@ -1492,7 +1997,7 @@ static ConstantSP kafkaDeserialize(const string &data_init){
                 }
                 else if(it.value().is_number_integer() || it.value().is_number_unsigned()) {
                     if(*it>0x7fffffffffffffffL){
-                        cout << "The integer is too large and it will be cast to string." << endl;
+                        LOG_INFO(string("[PLUGIN::KAFKA] ") + "The integer is too large and it will be cast to string.");
                         value = Util::createConstant(DT_STRING);
                         string temp = it.value().dump();
                         value->setString(temp.substr(0,temp.length()));
@@ -1516,7 +2021,7 @@ static ConstantSP kafkaDeserialize(const string &data_init){
                     value->setString(temp.substr(1,temp.length()-2));
                 }
                 else{
-                    cout << *it << ":un defined data type." << endl;
+                    LOG_INFO(string("[PLUGIN::KAFKA] ") + string(*it) + ":un defined data type.");
                     value = Util::createNullConstant(DT_ANY);
                 }
                 auto key = Util::createConstant(DT_STRING);
@@ -1531,7 +2036,7 @@ static ConstantSP kafkaDeserialize(const string &data_init){
                 ConstantSP value;
                 if(it->is_number_integer() || it->is_number_unsigned()) {
                     if(*it>0x7fffffffffffffffL){
-                        cout << "The integer is too large and it will be cast to string." << endl;
+                        LOG_INFO(string("[PLUGIN::KAFKA] ") + "The integer is too large and it will be cast to string.");
                         value = Util::createConstant(DT_STRING);
                         string temp = it.value().dump();
                         value->setString(temp.substr(0,temp.length()));
@@ -1565,7 +2070,7 @@ static ConstantSP kafkaDeserialize(const string &data_init){
                     value->setString(temp.substr(1,temp.length()-2));
                 }
                 else{
-                    cout << *it << ":un defined data type." << endl;
+                    LOG_INFO(string("[PLUGIN::KAFKA] ") + string(*it) + ":un defined data type.");
                     value = Util::createNullConstant(DT_ANY);
                 }
                 result->append(value);
@@ -1573,17 +2078,25 @@ static ConstantSP kafkaDeserialize(const string &data_init){
             return result;
         }
     }
-    DataInputStreamSP in = new DataInputStream(str, data_init.length());
+    } catch(std::exception& e) {
+        string errMsg = e.what();
+        if(errMsg.find("[PLUGIN::KAFKA]") == errMsg.npos) {
+            throw RuntimeException(string("[PLUGIN::KAFKA] ") + e.what());
+        } else {
+            throw RuntimeException(e.what());
+        }
+    }
+    DataInputStreamSP in = new DataInputStream(str, dataInit.length());
     ret = in->readShort(flag);
     auto data_form = static_cast<DATA_FORM>(flag >> 8);
     ConstantUnmarshalFactory factory(in, nullptr);
     ConstantUnmarshal* unmarshall = factory.getConstantUnmarshal(data_form);
     if(unmarshall == nullptr){
-        throw Exception("Failed to parse the incoming object: " + data_init + ". Please poll the stream by kafka::pollByteStream.");
+        throw RuntimeException(string("[PLUGIN::KAFKA] ") + "Failed to parse the incoming object: " + dataInit + ". Please poll the stream by kafka::pollByteStream.");
     }
     if (!unmarshall->start(flag, true, ret)) {
         unmarshall->reset();
-        throw IOException("Failed to parse the incoming object with IO error type " + std::to_string(ret));
+        throw IOException(string("[PLUGIN::KAFKA] ") + "Failed to parse the incoming object with IO error type " + std::to_string(ret));
     }
 
     ConstantSP result = unmarshall->getConstant();
