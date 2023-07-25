@@ -12,9 +12,10 @@
 #include "HSNsqSpiImpl.h"
 #include "Logger.h"
 
+// 一个全局的表结构
 // extern TableSP tsp;
-extern std::vector<TableSP> TABLES;
-extern std::vector<bool> SUBSCRIBE_STATUS;
+extern std::vector<TableSP> tables;
+extern std::vector<bool> subscribe_status;
 
 struct Status {
     long processedMsgCount = 0;
@@ -22,27 +23,27 @@ struct Status {
     long failedMsgCount = 0;
     Timestamp lastFailedTimestamp = LLONG_MIN;
 };
-extern vector<Status> STATUS;
-extern SmartPointer<Session> SESSION;
-extern vector<string> TABLE_NAMES;
+extern vector<Status> status;
+extern SmartPointer<Session> session;
+extern vector<string> tablenames;
 
 // extern CHSNsqApi* lpNsqApi;
 // extern CHSNsqSpiImpl* lpNsqSpi;
 
-extern bool RECEIVED_TIME_FLAG;
-extern bool GET_ALL_FIELD_NAMES_FLAG;
+extern bool receivedTimeFlag;
+extern bool getAllFieldNamesFlag;
 
-extern vector<string> SNAPSHOT_COLUMN_NAMES;
-extern vector<string> TRADE_COLUMN_NAMES;
-extern vector<string> ORDER_COLUMN_NAMES;
-extern vector<string> ADDED_SNAPSHOT_COLUMN_NAMES;
-extern vector<string> TRADE_AND_ORDER_MERGED_COLUMN_NAMES;
+extern vector<string> snapshotColumnNames;
+extern vector<string> tradeColumnNames;
+extern vector<string> ordersColumnNames;
+extern vector<string> addedSnapshotColumnNames;
+extern vector<string> tradeAndOrdersMergedColumnNames;
 
-extern vector<DATA_TYPE> SNAPSHOT_TYPES;
-extern vector<DATA_TYPE> TRADE_TYPES;
-extern vector<DATA_TYPE> ORDER_TYPES;
-extern vector<DATA_TYPE> ADDED_SNAPSHOT_TYPES;
-extern vector<DATA_TYPE> TRADE_AND_ORDER_MERGED_TYPES;
+extern vector<DATA_TYPE> snapshotTypes;
+extern vector<DATA_TYPE> tradeTypes;
+extern vector<DATA_TYPE> ordersTypes;
+extern vector<DATA_TYPE> addedSnapshotTypes;
+extern vector<DATA_TYPE> tradeAndOrdersMergedTypes;
 
 class Defer {
 public:
@@ -52,11 +53,11 @@ private:
     std::function<void()> code;
 };
 
-static Mutex NSQ_MUTEX;
+static Mutex nsqLock;
 
 extern "C"
 {
-	ConstantSP nsqConnect(Heap* heap, vector<ConstantSP>& arguments);
+	ConstantSP nsqConnect(Heap* heap, vector<ConstantSP>& arguments) ;
 	ConstantSP subscribe(Heap* heap, vector<ConstantSP>& arguments);
 	ConstantSP unsubscribe(Heap* heap, vector<ConstantSP>& arguments);
 	ConstantSP getSchema(Heap *heap, vector<ConstantSP>& arguments);
