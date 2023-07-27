@@ -1,8 +1,8 @@
 # DolphinDB HTTP Client Plugin
 
-使用该插件可以便捷地进行HTTP请求或发送邮件。
+使用插件httpClient可以便捷地进行HTTP请求或发送邮件。
 
-HTTP Client插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/httpClient/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/httpClient/README.md), [release120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/httpClient/README.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/httpClient/README.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
+httpClient插件支持release200、release130、release120、release110等不同分支，在使用某分支插件的同时须使用相应版本的DolphinDB。此外，下载插件及查阅插件文档时，请切换至对应的分支。
 
 ## 1. 安装构建
 
@@ -13,10 +13,13 @@ HTTP Client插件目前支持版本：[relsease200](https://github.com/dolphindb
 ```
 loadPlugin("<PluginDir>/httpClient/bin/linux64/PluginHttpClient.txt");
 ```
+
 > 本插件使用了libcurl。如果访问https网站时出现"curl return: error setting certificate verify locations:   CAfile: /etc/ssl/certs/ca-certificates.crt   CApath: none"，这是curl默认寻找https根证书的位置，此时需要下载curl的https根证书：
+
 ```
 wget https://curl.haxx.se/ca/cacert.pem
 ```
+
 > 然后复制到上面的目录下的相应文件。
 
 ### 1.2 自行编译
@@ -82,9 +85,7 @@ make -j
 
 会在当前目录下编译出插件库 libPluginHttpClient.so。
 
-
-
-## 2 使用
+## 2. 使用
 
 ### 2.1 httpGet
 
@@ -95,6 +96,7 @@ make -j
 httpClient::httpGet(url, [params], [timeout], [headers])
 
 参数：
+
 * url: 请求的URL字符串。
 * params: 一个字符串或一个键和值都是string的字典。http协议Get方法请求的会把参数放在url的后面。
   假如url为 www.dolphindb.cn，
@@ -105,6 +107,7 @@ httpClient::httpGet(url, [params], [timeout], [headers])
 则发出的完整http报文添加请求头"groupId:11"和"groupName:dolphindb"。如果只是一个字符串，则必须是"xx:xx"格式，会添加一个http请求头。
 
 返回一个dictionary，包括以下键：
+
 - responseCode: 请求返回的响应码
 - headers: 请求返回的头部
 - text: 请求返回的内容文本
@@ -119,7 +122,7 @@ param['name']='zmx';
 param['id']='111';
 header['groupName']='dolphindb';
 header['groupId']='11';
-//Please set up your own httpServer ex.(python -m SimpleHTTPServer 8900)
+//Please set up your own httpServer e.g.(python -m SimpleHTTPServer 8900)
 url = "localhost:8900";
 res = httpClient::httpGet(url,param,1000,header);
 ```
@@ -133,6 +136,7 @@ res = httpClient::httpGet(url,param,1000,header);
 httpClient::httpPost(url, [params], [timeout], [headers])
 
 参数：
+
 * url: 请求的URL字符串。
 * params: 一个字符串或一个key是string的字典。http协议Post方法请求的会把参数放在http请求正文中。
     * 如果params为一个字符串（例如，"example"），则发出的完整http报文的请求正文l为"example"。
@@ -142,6 +146,7 @@ httpClient::httpPost(url, [params], [timeout], [headers])
 则发出的完整http报文添加请求头"groupId:11"和"groupName:dolphindb"。如果只是一个字符串，则必须是"xx:xx"格式，会添加一个http请求头。
 
 返回一个dictionary，键包括：
+
 - responseCode: 请求返回的响应码
 - headers: 请求返回的头部
 - text: 请求返回的内容文本
@@ -156,148 +161,11 @@ param['name']='zmx';
 param['id']='111';
 header['groupName']='dolphindb';
 header['groupId']='11';
-//Please set up your own httpServer ex.(python -m SimpleHTTPServer 8900)
+//Please set up your own httpServer e.g.(python -m SimpleHTTPServer 8900)
 url = "localhost:8900";
 res = httpClient::httpPost(url,param,1000,header);
 ```
-
-### 2.2 httpCreateSubJob
-
-创建一个循环请求httpGet的请求后台任务。
-
-语法：
-
-httpClient::httpCreateSubJob(url, handle, parser, [paserInterval], [cycles], [cookieFile], [param], [timeout], [headers])
-
-参数：
-* url: 请求的URL字符串。类型是STRING类型的向量或者是常量。
-* handler: 一个函数或表，用于处理从http请求正文中接收的消息。
-* parser: 一个函数，用于对http请求正文解析。
-* parserInterval: parser函数每次解析http正文的字节数。若不指定则默认为每10240字节用parser解析收到的请求报文。
-* cycles: 循环次数。若不指定则为无限循环。
-* cookieFile: 保存http协议Session连接中的cookie的文件名。类型为string类型。使用这个文件中的字符串初始化一个http Session的cookie，在发送的httpGet请求添加一个请求头"Cookie"。如果收到的http响应中有响应头"Set-Cookie"，会把cookie的值写入到这个文件中。如果为空，默认在当前DolphinDB server的home目录下httpClientCookie文件夹下。
-* params: 一个字符串或一个key是string的字典。http协议Post方法请求的会把参数放在http请求正文中。
-    * 如果params为一个字符串（例如，"example"），则发出的完整http报文的请求正文l为"example"。
-    * 如果params为一个字典（例如，两个键值对"name"->"zmx"和"id"->"111"），则发出的完整http报文的请求正文为 "id=111&name=zmx"。
-* timeout: 超时时间，单位为毫秒。
-* headers: 一个字符串或一个键和值都是string的字典，填写http请求头部。如果headers为一个字典（两个键值对"groupName"->"dolphindb"和"groupId"->"11"），
-则发出的完整http报文添加请求头"groupId:11"和"groupName:dolphindb"。如果只是一个字符串，则必须是"xx:xx"格式，会添加一个http请求头。
-
-例子：
-```
-url="127.0.0.1:8900/chunk_file"
-st = streamTable(1000000:0,`tag`ts`data,[SYMBOL,TIMESTAMP,INT])
-enableTableShareAndPersistence(table=st, tableName=`sc, asynWrite=true, compress=true, cacheSize=100000)
-job=httpClient::httpCreateSubJob(url, st, <parser>, 2560,  , "/home/zmx/httpJobCookie", )
-```
-
-### 2.2 httpCreateMultiParserSubJob
-
-创建一个循环请求httpGet的请求后台任务。
-
-语法：
-/
-httpClient::httpCreateMultiParserSubJob(url, handle, parseStreamInfo, parser, threadCount, paserInterval, MinBlockSize, [cycles], [cookieFile], [param], [timeout], [headers])
-
-参数：
-* url: 请求的URL字符串。类型是STRING类型的向量或者是常量。
-* handler: 一个函数或表，用于处理从http请求正文中接收的消息。
-* infoParser: 一个函数，用于对http请求正文字节流信息进行解析，用于切分字节流分发给parser。
-* parser: 一个函数，用于对http请求字节流信息进行解析。
-* threadCount: parser线程数。
-* parserInfoInterval: parser函数每次解析http正文的字节数。若不指定则默认为每10240字节用parser解析收到的请求报文。
-* parserInterval: parser函数每次解析http正文的字节数。若不指定则默认为每1024字节用parser解析收到的请求报文。
-* cycles: 循环次数。若不指定则为无限循环。
-* cookieFile: 保存http协议Session连接中的cookie的文件名。类型为string类型。使用这个文件中的字符串初始化一个http Session的cookie，在发送的httpGet请求添加一个请求头"Cookie"。如果收到的http响应中有响应头"Set-Cookie"，会把cookie的值写入到这个文件中。如果为空，默认在当前DolphinDB server的home目录下httpClientCookie文件夹下。
-* params: 一个字符串或一个key是string的字典。http协议Post方法请求的会把参数放在http请求正文中。
-    * 如果params为一个字符串（例如，"example"），则发出的完整http报文的请求正文l为"example"。
-    * 如果params为一个字典（例如，两个键值对"name"->"zmx"和"id"->"111"），则发出的完整http报文的请求正文为 "id=111&name=zmx"。
-* timeout: 超时时间，单位为毫秒。
-* headers: 一个字符串或一个键和值都是string的字典，填写http请求头部。如果headers为一个字典（两个键值对"groupName"->"dolphindb"和"groupId"->"11"），
-则发出的完整http报文添加请求头"groupId:11"和"groupName:dolphindb"。如果只是一个字符串，则必须是"xx:xx"格式，会添加一个http请求头。
-
-例子：
-```
-url="127.0.0.1:8900/chunk_file"
-st = streamTable(1000000:0,`tag`ts`data,[SYMBOL,TIMESTAMP,INT])
-enableTableShareAndPersistence(table=st, tableName=`sc, asynWrite=true, compress=true, cacheSize=100000)
-job=httpClient::httpCreateMultiParserSubJob(url, st,mseed::parseStream, mseed::parseStreamInfo,10 ,10000000, 512, 512, 3 , "/home/zmx/httpJobCookie")
-```
-
-### 2.4 httpGetJobStat
-
-查询所有订阅信息。
-
-语法：
-
-httpClient::httpGetJobStat()
-
-返回一个表，包含如下字段：
-* subscriptionId：订阅标志符。
-* user：建立订阅的的会话用户。
-* url：请求的url。
-* cookie：http session会话的cookie信息。
-* cycles_completed：已完成的循环次数。
-* createTimestamp： 订阅建立时间。
-* readByte: 读取到的http正文的字节数。
-* dataNumber：成功使用parser解析出来的数据行数。
-
-例子：
-```
-httpClient::httpGetJobStat()
-```
-
-### 2.5 httpCancelSubJob
-
-取消一个http后台任务。
-
-语法：
-
-httpClient::httpCancelSubJob(subscription)
-
-参数：
-* subscription: - 'subscription'是`httpCreateSubJob`函数返回的值或`httpGetJobStat`返回的订阅标识符。
-
-例子：
-```
-httpClient::httpCancelSubJob(subscription)
-```
-
-### 2.5 sendEmail
-
-发送邮件。
-- 本插件使用smtp邮件传输协议，所以邮件服务器必须支持smtp协议和开启smtp端口，如果邮件服务商没有默认开启smtp端口，则需要开启该账号邮箱的smtp服务。还需要注意该邮件服务商是否提供邮箱授权码的功能，如果有，此时的参数pwd为邮箱授权码而非邮箱密码。
-- 如果成功发送邮件，返回字典res，res['responseCode']==250。
-
-语法：
-
-httpClient::sendEmail(userId,pwd,recipient,subject,body)
-
-参数：
-* userId: 发送者邮箱账号。
-* pwd: 发送者邮箱密码。
-* recipient: 目标邮箱账号的一个字符串或一个字符串集合。
-* subject: 邮件主题的字符串。
-* body: 邮件正文的字符串。
-
-返回一个dictionary，键包括：
-- userId: 发送者邮箱账号
-- recipient: 接受者邮箱的集合的字符串
-- responseCode: 请求返回的响应码
-- headers: 请求返回的头部
-- text: 请求返回的内容文本
-- elapsed: 请求经过的时间
-
-例子：
-```
-res=httpClient::sendEmail('MailFrom@xxx.com','xxxxx','Maildestination@xxx.com','This is a subject','It is a text');
-```
-```
-recipient='Maildestination@xxx.com''Maildestination2@xxx.com''Maildestination3@xxx.com';
-res=httpClient::sendEmail('MailFrom@xxx.com','xxxxx',recipient,'This is a subject','It is a text');
-```
-
-### 2.6 emailSmtpConfig
+### 2.3 emailSmtpConfig
 
 配置邮件服务器。
 
@@ -306,14 +174,55 @@ res=httpClient::sendEmail('MailFrom@xxx.com','xxxxx',recipient,'This is a subjec
 httpClient::emailSmtpConfig(emailName,host,post)
 
 参数：
+
 * emailName: 邮箱名称，格式为邮箱'@'字符后的字符串。类型为字符串。如果是qq邮箱，则是"qq.com"。如果是yeah邮箱，则是"yeah.net"。
-* host: 邮箱stmp服务器的地址。类型为字符串。
+* host: 邮箱SMTP服务器的地址。类型为字符串。
 * port: 邮箱服务器端口。类型为INT。如果为空，默认为25。
 
 例子：
+
 ```
 emailName="qq.com";
 host="smtp.qq.com";
 port=25;
 httpClient::emailSmtpConfig(emailName,host,port);
+```
+
+### 2.4 sendEmail
+
+发送邮件。
+
+- 本插件使用smtp邮件传输协议，所以邮件服务器必须支持smtp协议和开启smtp端口，如果邮件服务商没有默认开启smtp端口，则需要开启该账号邮箱的smtp服务。还需要注意该邮件服务商是否提供邮箱授权码的功能，如果有，此时的参数pwd为邮箱授权码而非邮箱密码。
+- 如果成功发送邮件，返回字典res，res['responseCode']==250。
+
+语法：
+
+httpClient::sendEmail(userId,pwd,recipient,subject,body)
+
+参数：
+
+* userId: 发送者邮箱账号。
+* pwd: 发送者邮箱密码。
+* recipient: 目标邮箱账号的一个字符串或一个字符串集合。
+* subject: 邮件主题的字符串。
+* body: 邮件正文的字符串。
+
+返回一个dictionary，键包括：
+
+- userId: 发送者邮箱账号
+- recipient: 接受者邮箱的集合的字符串
+- responseCode: 请求返回的响应码
+- headers: 请求返回的头部
+- text: 请求返回的内容文本
+- elapsed: 请求经过的时间
+
+例子：
+
+```
+res=httpClient::sendEmail('MailFrom@xxx.com','xxxxx','Maildestination@xxx.com','This is a subject','It is a text');
+```
+
+```
+recipient='Maildestination@xxx.com''Maildestination2@xxx.com''Maildestination3@xxx.com';
+res=httpClient::sendEmail('MailFrom@xxx.com','xxxxx',recipient,'This is a subject','It is a text');
 ```

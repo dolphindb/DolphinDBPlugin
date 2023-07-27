@@ -1,87 +1,212 @@
 # DolphinDB HTTP Client Plugin
 
-DolphinDB's httpClient plugin enables you to send HTTP requests conveniently.
+DolphinDB's httpClient plugin enables you to send HTTP requests and emails conveniently.
 
-The DolphinDB HTTPClient plugin has the branches [release 200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/httpClient/README_EN.md) and [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/httpClient/README_EN.md). Each plugin version corresponds to a DolphinDB server version. You're looking at the plugin documentation for release200. If you use a different DolphinDB server version, please refer to the corresponding branch of the plugin documentation.
+The DolphinDB httpClient plugin has different branches, such as release200 and release130. Each branch corresponds to a DolphinDB server version. Please make sure you are in the correct branch of the plugin documentation.
+
+- [DolphinDB HTTP Client Plugin](#dolphindb-http-client-plugin)
+  - [1. Build](#1-build)
+    - [1.1 Load Plugin](#11-load-plugin)
+    - [1.2 (Optional) Manually Build Plugin](#12-optional-manually-build-plugin)
+  - [Methods](#methods)
+    - [2.1 httpGet](#21-httpget)
+    - [2.2 httpPost](#22-httppost)
+    - [2.3 emailSmtpConfig](#23-emailsmtpconfig)
 
 
-## Build
+## 1. Build
 
-**Prerequisities**: The static library of libcurl, libssl(version 1.0.2), libcrypto(version 1.0.2) and libz are available.
+### 1.1 Load Plugin
 
-In the make build command, we need to specify the path of CURL_DIR, SSL_DIR and Z_DIR like following command:
-
-```
-CURL_DIR=/path/to/curl-7.47.0 SSL_DIR=/path/to/openssl-1.0.2i Z_DIR=/path/to/zlib-1.2.11 make
-```
-
-**Note:** If your g++ version is higher than 5.0, you need to add -D_GLIBCXX_USE_CXX11_ABI=0 in makefile's CFLAGS option.
-
-## Load Plugin
-
-If the file libPluginHttpClient.so is built, you can load httpClient Plugin with the following command：
+Download the precompiled plugin file under *DolphinDBPlugin/httpClient/bin/linux64*. Load the plugin with the following command in DolphinDB：
 
 ```
 loadPlugin("/path/to/PluginHttpClient.txt");
 ```
 
-# API
-HttpClient provides two kinds of method to send HTTP requests. They all return an instance of dictionary.This dictionary contains following keys:
-- responseCode: HTTP Status Code
-- headers: HTTP Response Header
-- text: HTTP Response body
-- elapsed: HTTP request elapsed time
-
-## 1. httpClient::get
-
-### Syntax
+> This plugin uses the libcurl library. If the message “*curl return: error setting certificate verify locations: CAfile: /etc/ssl/certs/ca-certificates.crt CApath: none*“ is displayed when visiting an HTTPS website, it’s because cURL expects the certificate to be at the default path. Please download the root certificate for cURL using this command:
 
 ```
-httpClient::get(url, [params = None], [timeout = 0], [nobody = false])
+wget https://curl.haxx.se/ca/cacert.pem
 ```
 
-### Arguments
+> Then place the downloaded file under the default directory as mentioned in the error message.
 
-- url: a string indicating the url of HTTP request.
-- params: a string or dict to send in the query string of HTTP request.
-- timeout: a non-negative integer indicating the the maximum time in milliseconds that you allow the HTTP request to take.Default timeout is 0 which means it never times out during transfer.
-- nobody: a Boolean value indicating whether the return value will contain the body of HTTP reponse.
+### 1.2 (Optional) Manually Build Plugin
 
-### Return Value
+**Prerequisites**: The static libraries of libcurl, libssl(version 1.0.1 on ARM; version 1.0.2 on x86), libcrypto(version 1.0.1 on ARM; version 1.0.2 on x86) and libz are available.
 
-A dictionary object.
+#### OpenSSL
 
-### Example
+version 1.0.1 for ARM architecture:
 
 ```
-dic = dict(['theStockCode'], ['sh000001']);
-res = httpClient::get("http://www.example.com/getStockImageByCode", dic, 1000, true);
-```
-This example uses the `get` method to request <http://www.example.com/getStockImageByCode?theStockCode=sh000001>. The timeout is 1 second, and the body of http response will not be returned.
-
-## 2. httpClient::post
-
-### Syntax
-
-```
-httpClient::post(url, [data = None], [timeout = 0], [nobody = false])
+wget https://www.openssl.org/source/old/1.0.1/openssl-1.0.1u.tar.gz
+tar -xzf openssl-1.0.2u.tar.gz
+cd openssl-1.0.1u
+./config shared --prefix=/tmp/ssl -fPIC
+make
+make install
 ```
 
-### Arguments
-
-- url: a string indicating the url of HTTP request.
-- data: a string or dict to send in the body of HTTP request.
-- timeout: a non-negative integer indicating the the maximum time in milliseconds that you allow the HTTP request to take.Default timeout is 0 which means it never times out during transfer.
-- nobody: a bool value indicating whether the return value will contain the body of HTTP reponse.
-
-### Return Value
-
-A dictionary object.
-
-### Example
+version 1.0.2 for x86 architecture:
 
 ```
-dic = dict(['theStockCode'], ['sh000001']);
-res = httpClient::post("http://www.examle.com/getStockImageByCode", dic, 1000, false);
+wget https://www.openssl.org/source/old/1.0.2/openssl-1.0.2u.tar.gz
+tar -xzf openssl-1.0.2u.tar.gz
+cd openssl-1.0.2u
+./config shared --prefix=/tmp/ssl -fPIC
+make
+make install
 ```
-This example uses post method to request <http://www.example.com/getStockImageByCode>. The timeout is 1 second, and the body of http response will be returned. 
+
+#### cURL 7.47.0
+
+```
+wget https://github.com/curl/curl/releases/download/curl-7_47_0/curl-7.47.0.tar.gz
+tar -zxf curl-7.47.0.tar.gz
+cd curl-7.47.0
+CFLAGS="-fPIC" ./configure --prefix=/tmp/curl --without-nss --with-ssl=/tmp/ssl --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt //specify the openssl path for https support. also specify the path to the default https certificate
+make
+make install
+```
+
+#### zlib 1.2.11
+
+```
+wget http://www.zlib.net/zlib-1.2.11.tar.gz
+tar -zxf zlib-1.2.11.tar.gz
+cd zlib-1.2.11
+CFLAGS="-fPIC" ./configure  --prefix=/tmp/zlib 
+make 
+make install
+```
+
+#### Build the Plugin
+
+In the make build script, we need to specify the path of CURL_DIR and SSL_DIR and Z_DIR. For example:
+
+```
+mkdir build
+cd build
+cmake -DCURL_DIR=/tmp/curl -DSSL_DIR=/tmp/ssl -DZ_DIR=/tmp/zlib  ..
+make -j
+```
+
+The plugin library *libPluginHttpClient.so* will be generated under the current directory.
+
+## Methods
+
+### 2.1 httpGet
+
+Send HTTP GET request.
+
+**Syntax**
+
+```
+httpClient::httpGet(url, [params], [timeout], [headers])
+```
+
+**Arguments**
+
+- *url*: a string indicating the URL of HTTP request.
+- *params*: a string or dict (whose keys and values are strings) to send in the HTTP request. For example, suppose *url* is specified as “www.dolphindb.com“:
+  - if *params* is a string (e.g., “example“), the URL of the HTTP request would be “www.dolphindb.com?example“;
+  -  if  *params*  is a dictionary (e.g., with 2 key-value pairs “name“->”ddb” and “id“->”111”), the URL of the HTTP request would be “www.dolphindb.com?id=111&name=ddb“.
+- *timeout*: a non-negative integer indicating the the maximum time in milliseconds that an HTTP request can take. Default timeout is 0 which means it never times out during transfer.
+- *headers*: a string or dict (whose keys and values are strings) indicating the headers of the HTTP request. 
+  - If it’s a dictionary (e.g., with 2 key-value pairs “groupName“->”dolphindb” and “groupId“->”11”), two headers “groupId:11“ and “groupName:dolphindb“ will be added to the HTTP request ;
+  - If it’s a string, it must have the pattern `<key>:<value>` and it will be added as a header to the request. 
+
+**Return** 
+
+A dictionary object containing following keys:
+
+- *responseCode*: HTTP status code
+- *headers*: HTTP response header
+- *text*: HTTP response body
+- *elapsed*: HTTP request elapsed time
+
+**Example**
+
+```
+loadPlugin('/home/zmx/worker/DolphinDBPlugin/httpClient/PluginHttpClient.txt');
+param=dict(string,string);
+header=dict(string,string);
+param['name']='zmx';
+param['id']='111';
+header['groupName']='dolphindb';
+header['groupId']='11';
+//Please set up your own httpServer ex.(python -m SimpleHTTPServer 8900)
+url = "localhost:8900";
+res = httpClient::httpGet(url,param,1000,header);
+```
+
+### 2.2 httpPost
+
+Send HTTP POST request.
+
+**Syntax**
+
+httpClient::httpPost(url, [params], [timeout], [headers])
+
+**Arguments**
+
+- *url*: a string indicating the URL of HTTP request.
+- *params*: a string or dict (whose keys and values are strings) to send in the HTTP request. For example, suppose *url* is specified as “DolphinDB - High Performance Time-series Database “:
+  - if *params* is a string (e.g., “example“), the URL of the HTTP request would be “www.dolphindb.com?example“;
+  -  if  *params*  is a dictionary (e.g., with 2 key-value pairs “name“->”ddb” and “id“->”111”), the URL of the HTTP request would be “www.dolphindb.com?id=111&name=ddb“.
+- *timeout*: a non-negative integer indicating the the maximum time in milliseconds that you allow the HTTP request to take. Default timeout is 0 which means it never times out during transfer.
+- *headers*: a string or dict (whose keys and values are strings) indicating the headers of the HTTP request. 
+  - If it’s a dictionary (e.g., with 2 key-value pairs “groupName“->”dolphindb” and “groupId“->”11”), two headers “groupId:11“ and “groupName:dolphindb“ will be added to the HTTP request ;
+  - If it’s a string, it must have the pattern `<key>:<value>` and it will be added as a header to the request. 
+
+**Return** 
+
+A dictionary object containing following keys:
+
+- *responseCode*: HTTP status code
+- *headers*: HTTP response header
+- *text*: HTTP response body
+- *elapsed*: HTTP request elapsed time
+
+**Example**
+
+```
+loadPlugin('/home/zmx/worker/DolphinDBPlugin/httpClient/PluginHttpClient.txt');
+param=dict(string,string);
+header=dict(string,string);
+param['name']='zmx';
+param['id']='111';
+header['groupName']='dolphindb';
+header['groupId']='11';
+//Please set up your own httpServer e.g. (python -m SimpleHTTPServer 8900)
+url = "localhost:8900";
+res = httpClient::httpPost(url,param,1000,header);
+```
+
+### 2.3 emailSmtpConfig
+
+Configure the email server. 
+
+Note: To send email using the httpClient plugin, the SMTP service on your mail account must be enabled.
+
+**Syntax**
+
+httpClient::emailSmtpConfig(emailName,host,post)
+
+**Arguments**
+
+- *emailName*: a string indicating the domain name in your email address. For example, `"gmail.com"` or `"yahoo.com"`.
+- *host*: a string indicating your SMTP server address.
+- *port*: an integer (INT) indicating the port number of your email server. If this parameter is unspecified, it takes the default value of 25.
+
+**Examples**
+
+```
+emailName="example.com";
+host="smtp.example.com";
+port=25;
+httpClient::emailSmtpConfig(emailName,host,port);
+```
+
