@@ -3,6 +3,7 @@
 
 #include "CoreConcept.h"
 #include "Exceptions.h"
+#include "LocklessContainer.h"
 #include "Util.h"
 #include "Types.h"
 #include "Concurrent.h"
@@ -12,21 +13,15 @@
 #include "json.hpp"
 #include "client.h"
 
+#include <cstring>
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <unordered_set>
 
 using namespace cppkafka;
 using namespace std;
 using json = nlohmann::json;
-
-const string PRODUCER_DESC = "kafka producer connection";
-const string CONSUMER_DESC = "kafka consumer connection";
-const string QUEUE_DESC = "kafka queue connection";
-const string EVENT_DESC = "kafka event connection";
-
-SmartPointer<Mutex> dictLatch = new Mutex();
-DictionarySP status_dict = Util::createDictionary(DT_STRING,nullptr,DT_ANY,nullptr);
 
 /// See Config https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md
 extern "C" ConstantSP kafkaProducer(Heap *heap, vector<ConstantSP> &dicts);
@@ -140,48 +135,24 @@ extern "C" ConstantSP kafkaGetMessageSize(Heap *heap, vector<ConstantSP> &args);
 
 extern "C" ConstantSP kafkaSetMessageSize(Heap *heap, vector<ConstantSP> &args);
 
-static void produceMessage(ConstantSP &produce, ConstantSP &pTopic, ConstantSP &key, ConstantSP &value, ConstantSP &json, ConstantSP &pPartition);
+void produceMessage(ConstantSP &produce, ConstantSP &pTopic, ConstantSP &key, ConstantSP &value, ConstantSP &json, ConstantSP &pPartition);
 
-static Vector *getMsg(Message &msg);
+Vector *getMsg(Message &msg);
 
-static string kafkaGetString(const ConstantSP &data, bool key = false);
+string kafkaGetString(const ConstantSP &data, bool key = false);
 
-static string kafkaJsonSerialize(const ConstantSP &data);
+string kafkaJsonSerialize(const ConstantSP &data);
 
-static string kafkaSerialize(ConstantSP &data, ConstantSP &json);
+string kafkaSerialize(ConstantSP &data, ConstantSP &json);
 
-static ConstantSP kafkaDeserialize(const string &data_init);
+ConstantSP kafkaDeserialize(const string &data_init);
 
-static Configuration createConf(ConstantSP &dict, bool consumer = false);
+Configuration createConf(ConstantSP &dict, bool consumer = false);
 
-long long int buffer_size = 900000;
-
-long long int message_size = 10000;
-
-double factor = 0.95;
-
-int type_size[17] = {0,1,1,2,4,8,4,4,4,4,4,8,8,8,8,4,8};
-
-class SerializationException : public exception {
-public:
-    SerializationException(size_t expected, size_t actual) : expected_(expected), actual_(actual) {};
-
-    virtual ~SerializationException() {}
-
-    virtual const char *what() const throw() {
-        return ("Serialization Exception: expected " + to_string(expected_) + " bytes," + " actual " +
-                to_string(actual_) + " bytes.").c_str();
-    }
-
-private:
-    size_t expected_;
-    size_t actual_;
-};
-
-class Convertion{
+class Conversion{
 public:
     TopicPartitionList topic_partitions;
-    Convertion(string usage, vector<ConstantSP> &args){
+    Conversion(string usage, vector<ConstantSP> &args){
         if (args[1]->getForm() != DF_VECTOR || args[1]->getType() != DT_STRING) {
             throw IllegalArgumentException(__FUNCTION__, usage + "Not a topic vector.");
         }
@@ -215,44 +186,110 @@ public:
     }
 };
 
+class Defer {
+public:
+    Defer(std::function<void()> code): code(code) {}
+    ~Defer() {code(); }
+private:
+    std::function<void()> code;
+};
+
+extern Mutex HANDLE_MUTEX;
+extern set<long long> HANDLE_SET;
+
+template<typename T>
+class KafkaWrapper{
+public:
+    explicit KafkaWrapper(T * ptr): dataPtr(ptr){
+    }
+    ~KafkaWrapper() {
+        auto start = Util::getEpochTime();
+        while(!rwLock.tryAcqurieWrite()) {
+            auto current = Util::getEpochTime();
+            if(current - start > 5000) {
+                LOG_ERR(string("[PLUGIN::KAFKA] ") + typeid(T).name() + string("destruction failed"));
+                return;
+            }
+        }
+        Defer([this]{
+            rwLock.releaseWrite();
+        });
+        if(!dataPtr) {
+            delete dataPtr;
+            dataPtr = NULL;
+        }
+    }
+    RWLock* getLock() {
+        return &rwLock;
+    }
+    T* getDataPtr() {
+        return dataPtr;
+    }
+private:
+    T * dataPtr;
+    RWLock rwLock;
+};
+
 template<typename T>
 static void kafkaOnClose(Heap *heap, vector<ConstantSP> &args) {
-    T* pObject = (T*)(args[0]->getLong());
-    if(pObject!= nullptr) {
-        delete (T *) (args[0]->getLong());
-        args[0]->setLong(0);
+    try {
+        LockGuard<Mutex> _(&HANDLE_MUTEX);
+        if(HANDLE_SET.find(args[0]->getLong()) == HANDLE_SET.end()) {
+            throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
+        }
+        KafkaWrapper<T> * wrapper = (KafkaWrapper<T>*)(args[0]->getLong());
+        if(wrapper!= nullptr) {
+            long long handleLong = args[0]->getLong();
+            args[0]->setLong(0);
+            delete wrapper;
+            HANDLE_SET.erase(handleLong);
+        }
+    } catch(std::exception& exception) {
+        LOG_ERR(string("[PLUGIN:KAFKA] Destruction failed: ") + exception.what());
     }
 }
 
+// must be used before getConnection !
 template<typename T>
-static T *getConnection(ConstantSP &handler) {
-    if (handler->getType() != DT_RESOURCE) {
+static void getWrapperLockGuard(ConstantSP &handler, RWLockGuard<RWLock>& lock) {
+    LockGuard<Mutex> _(&HANDLE_MUTEX);
+    if(HANDLE_SET.find(handler->getLong()) == HANDLE_SET.end()) {
+        throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
+    }
+    if (handler->getType() != DT_RESOURCE || handler->getLong() == 0) {
         throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
     } else {
-        return (T *) (handler->getLong());
+        KafkaWrapper<T> * wrapper = (KafkaWrapper<T>*)(handler->getLong());
+        if(wrapper!= nullptr) {
+            lock = RWLockGuard<RWLock>(wrapper->getLock(), false);
+        } else {
+            throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
+        }
     }
 }
 
-static void kafkaConsumerOnClose(Heap *heap, vector<ConstantSP> &args) {
-    auto consumer = (Consumer *) args[0]->getLong();
-    consumer->unsubscribe();
-    if(consumer!= nullptr) {
-        delete consumer;
-        args[0]->setLong(0);
+// must be used after getWrapperLock !
+template<typename T>
+static T* getConnection(ConstantSP &handler) {
+    LockGuard<Mutex> _(&HANDLE_MUTEX);
+    if(HANDLE_SET.find(handler->getLong()) == HANDLE_SET.end()) {
+        throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
+    }
+    if (handler->getType() != DT_RESOURCE || handler->getLong() == 0) {
+        throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
+    } else {
+        KafkaWrapper<T> * wrapper = (KafkaWrapper<T>*)(handler->getLong());
+        if(wrapper!= nullptr) {
+            auto conn =  wrapper->getDataPtr();
+            if(!conn) {
+                throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
+            }
+            return conn;
+        } else {
+            throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
+        }
     }
 }
 
-template<typename T, size_t N>
-static T check_decode(const string &data, DATA_TYPE dataType) {
-    if (data.length() != N) {
-        throw SerializationException(N, data.length());
-    }
-    T val = 0;
-    for (auto c: data) {
-        val <<= 8;
-        val |= c & 0xFF;
-    }
-    return val;
-}
 
 #endif //KAFKA_PLUGIN_KAFKA_H
