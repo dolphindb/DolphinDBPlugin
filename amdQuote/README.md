@@ -159,6 +159,8 @@ libPluginAmdQuote.so 文件会在编译后生成。编译后 build 目录下会�
 
 获取当前连接下的代码表结构。
 
+Amd sdk 版本为 3.9.6 的插件不支持该函数
+
 ### 2.8. **amdQuote::getETFCodeList()**
 
 **参数**
@@ -169,6 +171,7 @@ libPluginAmdQuote.so 文件会在编译后生成。编译后 build 目录下会�
 
 获取当前连接下的 ETF 代码表结构。
 
+Amd sdk 版本为 3.9.6 的插件不支持该函数
 
 ### 2.9. **amdQuote::enableLatencyStatistics(handle, flag)**
 
