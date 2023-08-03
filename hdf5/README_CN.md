@@ -701,6 +701,6 @@ hdf5::saveHDF5(tb, "example.h5", "dataset name in hdf5")
 * 修复使用方法 hdf5::ls 执行特定类型的 hdf5文件后 server 宕机的问题。（**1.30.22**）
 * 修复并行导入多个文件时 server 宕机的问题。（**1.30.22**）
 
-# 功能优化
+## 功能优化
 
 * 优化接口 hdf5::saveHDF5 的报错信息。（**1.30.22**）
