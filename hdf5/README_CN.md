@@ -509,19 +509,19 @@ hdf5::saveHDF5(tb, "example.h5", "dataset name in hdf5")
 浮点和整数类型会被先转换为H5T_NATIVE_*类型。
 
 ### 3.1 integer
-| Type in HDF5      | Default Value in HDF5 | Type in C        | Type in DolphinDB |
-| ----------------- | :-------------------------- | :--------------------------- | :--------------------------- |
-| H5T_NATIVE_CHAR   | ‘\0’ | signed char / unsigned char | char/short                   |
-| H5T_NATIVE_SCHAR  | ‘\0’ | signed char                 | char                         |
-| H5T_NATIVE_UCHAR  | ‘\0’ | unsigned char               | short                        |
-| H5T_NATIVE_SHORT  | 0 | short                       | short                        |
-| H5T_NATIVE_USHORT | 0 | unsigned short              | int                          |
-| H5T_NATIVE_INT    | 0   | int                         | int                          |
-| H5T_NATIVE_UINT   | 0  | unsigned int                | long                         |
-| H5T_NATIVE_LONG   | 0  | long                        | int/long                     |
-| H5T_NATIVE_ULONG  | 0 | unsigned long               | unsupported/long             |
-| H5T_NATIVE_LLONG  | 0 | long long                   | long                         |
-| H5T_NATIVE_ULLONG | 0 | unsigned long long          | unsupported/long                  |
+| Type in HDF5      | Default Value in HDF5 | Type in C        | Type in DolphinDB | 备注              |
+| ----------------- | :-------------------- | :--------------- | :---------------- | :---------------- |
+| H5T_NATIVE_CHAR   | ‘\0’ | signed char / unsigned char | char/short              |                   |
+| H5T_NATIVE_SCHAR  | ‘\0’ | signed char                 | char                    |                   |
+| H5T_NATIVE_UCHAR  | ‘\0’ | unsigned char               | short                   |                   |
+| H5T_NATIVE_SHORT  | 0 | short                       | short                      |                   |
+| H5T_NATIVE_USHORT | 0 | unsigned short              | int                        |                   |
+| H5T_NATIVE_INT    | 0   | int                         | int                      |                   |
+| H5T_NATIVE_UINT   | 0  | unsigned int                | long                      |                   |
+| H5T_NATIVE_LONG   | 0  | long                        | int/long                  |                   |
+| H5T_NATIVE_ULONG  | 0 | unsigned long               | long                       |  可能溢出         |
+| H5T_NATIVE_LLONG  | 0 | long long                   | long                       |                   |
+| H5T_NATIVE_ULLONG | 0 | unsigned long long          | long                       |  可能溢出         |
 
 
 * DolphinDB中数值类型都为有符号类型。为了防止溢出，除64位无符号类型外，所有无符号类型会被转化为高一阶的有符号类型。特别的，64位无符号类型转化为64位有符号类型，若发生溢出则返回64位有符号类型的最大值。
