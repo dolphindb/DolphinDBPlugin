@@ -12,7 +12,9 @@
 namespace wide_integer {
 
 #ifndef __SIZEOF_INT128__
-    #error "Current compiler does not support __int128"
+#   error "Current compiler does not support __int128"
+#else
+#   define _GLIBCXX_USE_INT128  // This macro was removed since r12-435
 #endif
 
 using int128 = __int128;
