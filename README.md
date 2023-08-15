@@ -1,6 +1,6 @@
 # DolphinDB Plugin
 
-DolphinDB plugins currently have release200, release130, release120 and release110. Each plugin version corresponds to a DolphinDB server version. Please refer to the corresponding branch according to the server version you are using.
+DolphinDB plugins currently have release200, release130, release120 and release110. Each plugin version corresponds to a DolphinDB server version. Please refer to the corresponding branch according to the server version you are using.If you want to make contributions to this project, please use branch rlease200. 
 
 DolphinDB database supports dynamic loading of external plugins to extend system functionality. The plug-in can be written in C++, and it needs to be compiled into ".so" shared libraries or ".dll" shared library files.
 
