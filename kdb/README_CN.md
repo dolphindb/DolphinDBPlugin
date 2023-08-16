@@ -21,12 +21,12 @@ kdb+ 插件目前支持版本：[relsease200](https://github.com/dolphindb/Dolph
 插件中解压缩功能依赖 zlib
 
 Ubuntu 系统：
-```linux shell
+```bash
 sudo apt install zlib1g
 ```
 
 CentOS 系统：
-```linux shell
+```bash
 yum install -y zlib zlib-devel
 ```
 
@@ -43,7 +43,7 @@ yum install -y zlib zlib-devel
 用户也可以自行编译，方法如下：
 #### Linux 系统编译
 
-```linux shell
+```bash
 cd /path/to/plugins/kdb
 mkdir build
 cd build
@@ -59,7 +59,7 @@ make
 
 编译开始之前，需要将 libDolphinDB.dll 拷贝至 build 文件夹。
 
-```
+```batch
 mkdir build                                           # 新建 build 目录
 cp <ServerDir>/libDolphinDB.dll build                 # 拷贝 libDolphinDB.dll 到 build 目录下
 cd build
@@ -70,7 +70,7 @@ mingw32-make -j4
 ### 2.3 加载插件
 在 DolphinDB 客户端运行以下命令加载插件，需要将目录替换为 PluginKDB 文本文件所在的位置：
 
-```DolphinDB shell
+```DolphinDB
 loadPlugin("/path/to/plugin/PluginKDB.txt")
 ```
 
@@ -80,7 +80,7 @@ loadPlugin("/path/to/plugin/PluginKDB.txt")
 
 **语法**
 
-``` shell
+```DolphinDB
 connect(host, port, usernamePassword)
 ```
 
@@ -107,12 +107,12 @@ connect(host, port, usernamePassword)
 假设登录 kdb+ 数据库的用户名和密码（admin:123456）存储在 ../passwordfiles/usrs 中，且 kdb+ 服务器和 DolphinDB server 都位于同一个主机上。
 
 kdb+ 终端执行：
+```bash
+q -p 5000 -U ../passwordfiles/usrs   # 注意 -U 一定需要大写
 ```
-kdb shell：         q -p 5000 -U ../passwordfiles/usrs   // 注意 -U 一定需要大写
-```
-DolphinDB 客户端执行：
 
-```
+DolphinDB 客户端执行：
+```DolphinDB
 // 若开启 kdb+ 时指定了用户名和密码
 handle = kdb::connect("127.0.0.1", 5000, "admin:123456")
 
@@ -124,7 +124,7 @@ handle = kdb::connect("127.0.0.1", 5000)
 
 **语法**
 
-``` shell
+```DolphinDB
 loadTable(handle, tablePath, symPath)
 ```
 
@@ -148,7 +148,7 @@ loadTable(handle, tablePath, symPath)
 
 **例子**
 
-```
+```DolphinDB
 // 表中存在被枚举的 symbol 列
 DATA_DIR="/path/to/data/kdb_sample"
 Txns = kdb::loadTable(handle, DATA_DIR + "/2022.06.17/Txns", DATA_DIR + "/sym")
@@ -162,7 +162,7 @@ Txns = kdb::loadTable(handle, DATA_DIR + "/2022.06.17/Txns", DATA_DIR)
 
 **语法**
 
-``` shell
+```DolphinDB
 loadFile(tablePath, symPath)
 ```
 
@@ -184,7 +184,7 @@ loadFile(tablePath, symPath)
 
 **例子**
 
-```
+```DolphinDB
 //表中存在 symbol 类型，并进行了枚举
 DATA_DIR="/path/to/data/kdb_sample"
 Txns = kdb::loadFile(handle, DATA_DIR + "/2022.06.17/Txns", DATA_DIR + "/sym")
@@ -199,7 +199,7 @@ Txns = kdb::loadFile(handle, DATA_DIR + "/2022.06.17/Txns", DATA_DIR)
 
 **语法**
 
-``` shell
+```DolphinDB
 close(handle)
 ```
 
@@ -213,13 +213,13 @@ close(handle)
 
 **例子**
 
-```
+```DolphinDB
 kdb::close(handle)
 ```
 
 ### 3.5 完整示例
 
-``` DolphinDB shell
+```DolphinDB
 loadPlugin("/home/DolphinDBPlugin/kdb/build/PluginKDB.txt")
 go
 // 连接 kdb+ 数据库
@@ -284,7 +284,7 @@ Txns2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Txns/", DATA_DIR + "/sym")
   └── table_name
   ```
 
-  ```
+  ```DolphinDB
   handle = kdb::connect("127.0.0.1", 5000, "username:password");
   table = kdb::loadTable(handle, "path/to/data/table_name", "path/to/data/sym");
   ```
@@ -306,7 +306,7 @@ Txns2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Txns/", DATA_DIR + "/sym")
       └── ti
   ```
 
-  ```
+  ```DolphinDB
   handle = kdb::connect("127.0.0.1", 5000, "username:password");
   table1 = kdb::loadTable(handle, "path/to/data/table_name/", "path/to/data/sym");
 
@@ -339,7 +339,7 @@ Txns2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Txns/", DATA_DIR + "/sym")
           └── ti
   ```
 
-```
+```DolphinDB
 // 获取文件夹下的所有文件信息
 fileRes=files("path/to/data");
 
