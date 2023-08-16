@@ -1,398 +1,509 @@
-#include <cstddef>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
+#include <cerrno>
 #include <string>
-#include <zlib.h>
 #include <exception>
 #include <vector>
 #include <iostream>
 #include <map>
 #include <ctime>
+#include <zlib.h>
 
 #include "Logger.h"
-#include "kdb.h"
 #include "Concurrent.h"
 #include "Exceptions.h"
 #include "ScalarImp.h"
 #include "Util.h"
+#include "kdb.h"
 
 using namespace std;
 
+#define PLUGIN_NAME "[PLUGIN::KDB]"
+const char PATH_SEP = '/';
+
 // parameters for gzip process
-#define WINDOWS_BITS 15
-#define ENABLE_ZLIB_GZIP 32
-#define GZIP_ENCODING 16
+const int WINDOWS_BITS     = 15;
+const int ENABLE_ZLIB_GZIP = 32;
+const int GZIP_ENCODING    = 16;
+
+// kdb+ IPC parameters
+const int KDB_TIMEOUT = 1 * 1000;   // 1 sec
+const int KDB_CAPABILITY = 1;       // 1 TB limit
+enum KDB_IPC_error: int {
+    KDB_IPC_AUTH_ERROR     =  0,
+    KDB_IPC_CONN_ERROR     = -1,
+    KDB_IPC_TIMEOUT_ERROR  = -2,
+    KDB_IPC_SSL_INIT_ERROR = -3,
+};
 
 // for kdb+ parse use
 #define KDB_SYM_DATA_START 4080
-#define KDB_DOUBLE_NULL 18444492273895866368ULL
-#define KDB_FLOAT_NULL 4290772992
-#define KDB_NANOTIMESTAMP_GAP 946684800000000000
-#define KDB_DATETIME_GAP 946684800000
-#define KDB_MONTH_GAP 24000
-#define KDB_DATE_GAP 10957
+const unsigned long long KDB_DOUBLE_NULL = 0xfff8000000000000ULL;
+const unsigned int       KDB_FLOAT_NULL  = 0xffc00000U;
+
+// kdb+ time starts at 2000.01.01
+// while dolphinDB start at 1970.01.01
+const int SEC_PER_DAY  = 24 * 60 * 60;
+const int KDB_MONTH_GAP = (2000 - 0) * 12;
+const int KDB_DATE_GAP  = 10957;
+const long long KDB_DATETIME_GAP      = KDB_DATE_GAP * SEC_PER_DAY * 1000LL;
+const long long KDB_NANOTIMESTAMP_GAP = KDB_DATETIME_GAP * 1000000LL;
 
 static Mutex LOCK_KDB;
 
 ConstantSP safeOp(const ConstantSP &arg, std::function<ConstantSP(Connection *)> &&f) {
-    if (arg->getType() == DT_RESOURCE && ((Connection *)(arg->getLong()) != nullptr)) {
-        string desc = arg->getString();
+    if(arg->getType() == DT_RESOURCE) {
+        const string desc = arg->getString();
         if(desc.find("kdb+ connection") == desc.npos) {
-            throw IllegalArgumentException(__FUNCTION__, "[PLUGIN::KDB]: Invalid kdb+ connection object.");
+            throw IllegalArgumentException(__FUNCTION__, PLUGIN_NAME ": Invalid kdb+ connection object.");
         }
-        auto conn = (Connection *)(arg->getLong());
-        return f(conn);
-    } else {
-        throw IllegalArgumentException(__FUNCTION__, "[PLUGIN::KDB]: Invalid connection object.");
+        const auto conn = reinterpret_cast<Connection *>(arg->getLong());
+        if(conn != nullptr) {
+            return f(conn);
+        }
     }
+    throw IllegalArgumentException(__FUNCTION__, PLUGIN_NAME ": Invalid connection object.");
 }
 
+void KDeleter::operator()(K k) const {
+    if(k) r0(k);
+}
+
+namespace /*anonymous*/ {
+
+    bool KDB_validList(const K k) {
+        return k && k->n >= 0 && k->t >= KDB_LIST && kG(k);
+    }
+
+    bool KDB_validListOf(const K k, const kdbType type) {
+        return KDB_validList(k) && k->t == type;
+    }
+
+    bool bitEqual(const float& e, const unsigned int& ui) {
+        using compare_t = unsigned int;
+        static_assert(sizeof(compare_t) == sizeof(e), "compare float by bits");
+        return *reinterpret_cast<const compare_t*>(&e) == ui;
+    }
+
+    bool bitEqual(const double& f, const unsigned long long& ull) {
+        using compare_t = unsigned long long;
+        static_assert(sizeof(compare_t) == sizeof(f), "compare double by bits");
+        return *reinterpret_cast<const compare_t*>(&f) == ull;
+    }
+
+    class KDB_parser {
+    public:
+        static bool isNull(const int& i) {
+            return i == ni;
+        }
+
+        static bool isNull(const long long& j) {
+            return j == nj;
+        }
+
+        static bool isNull(const float& e) {
+            return bitEqual(e, KDB_FLOAT_NULL);
+        }
+
+        static bool isNull(const double& f) {
+            return bitEqual(f, KDB_DOUBLE_NULL);
+        }
+
+    public:
+        static void parseList(const K list, const string& name, ConstantSP& val) {
+            assert(list->t == KDB_LIST && list->n >= 0);
+            const INDEX length = list->n;
+
+            vector<string> charArray;
+            charArray.reserve(length);
+            for(INDEX i = 0; i < length; ++i) {
+                const K item = kK(list)[i];
+                if(!item) {
+                    throw RuntimeException(PLUGIN_NAME
+                        ": invalid kdb+ list item at " + listItemName(name, i));
+                }
+                const auto constantType = item->t;
+                string str{};
+                switch(constantType) {
+                    case KDB_CHAR:
+                        if(!(item->n >= 0 && kC(item))) {
+                            throw RuntimeException(PLUGIN_NAME
+                                ": invalid kdb+ string at " + listItemName(name, i));
+                        }
+                        charArray.emplace_back(string(kC(item), kC(item) + item->n));
+                        break;
+                    case -(KDB_CHAR):
+                        charArray.emplace_back(string(1, item->i));
+                        break;
+                    default:
+                        throw RuntimeException(PLUGIN_NAME
+                            ": not a kdb+ char nested array at " + listItemName(name, i));
+                }
+            }
+
+            val = Util::createVector(DT_STRING, 0, length);
+            auto vec = dynamic_cast<Vector*>(val.get());
+            assert(vec);
+            vec->appendString(charArray.data(), length);
+        }
+
+        template<kdbType kType, class kValue, DATA_TYPE ddbType, class ddbPtr>
+        static void parseSimpleList(const K list, ConstantSP& val,
+            function<ddbPtr(const K)> convert, bool (Vector::*append)(ddbPtr, int)
+        ) {
+            static_assert(sizeof(typename remove_pointer<ddbPtr>::type) == sizeof(kValue),
+                "DolphinDB vs kdb+ type equivalence");
+            assert(list->t == kType && list->n >= 0);
+            const INDEX length = list->n;
+            val = Util::createVector(ddbType, 0, length, true);
+            auto vec = dynamic_cast<Vector*>(val.get());
+            (vec->*append)(convert(list), length);
+        }
+
+        static void parseBools(const K list, const string& name, ConstantSP& val) {
+            parseSimpleList<KDB_BOOL, G, DT_BOOL, const char*>(
+                list, val,
+                [](const K list){ return reinterpret_cast<const char*>(kG(list)); },
+                &Vector::appendBool
+            );
+        }
+
+        static void parseGUIDs(const K list, const string& name, ConstantSP& val) {
+            parseSimpleList<KDB_GUID, U, DT_UUID, const Guid*>(
+                list, val,
+                [](const K list) {
+                    U* pguid = kU(list);
+                    assert(pguid);
+                    // flip each GUID
+                    for_each(pguid, pguid + list->n, [](U& guid) {
+                        reverse(begin(guid.g), end(guid.g));
+                    });
+                    return reinterpret_cast<const Guid*>(begin(pguid->g));
+                },
+                &Vector::appendGuid
+            );
+        }
+
+        static void parseBytes(const K list, const string& name, ConstantSP& val) {
+            // DolphinDB don't have type of byte, so convert byte to char
+            parseSimpleList<KDB_BYTE, G, DT_CHAR, const char*>(
+                list, val,
+                [](const K list){ return reinterpret_cast<const char*>(kG(list)); },
+                &Vector::appendChar
+            );
+        }
+
+        static void parseShorts(const K list, const string& name, ConstantSP& val) {
+            parseSimpleList<KDB_SHORT, H, DT_SHORT, const short*>(
+                list, val,
+                [](const K list){ return kH(list); },
+                &Vector::appendShort
+            );
+        }
+
+        template<kdbType kType = KDB_INT, DATA_TYPE ddbType = DT_INT>
+        static void parseInts(const K list, const string& name, ConstantSP& val) {
+            parseSimpleList<kType, I, ddbType, const int*>(
+                list, val,
+                [](const K list){ return kI(list); },
+                &Vector::appendInt
+            );
+        }
+
+        template<kdbType kType = KDB_LONG, DATA_TYPE ddbType = DT_LONG>
+        static void parseLongs(const K list, const string& name, ConstantSP& val) {
+            parseSimpleList<kType, J, ddbType, const long long*>(
+                list, val,
+                [](const K list){ return kJ(list); },
+                &Vector::appendLong
+            );
+        }
+
+        static void parseFloats(const K list, const string& name, ConstantSP& val) {
+            parseSimpleList<KDB_FLOAT, E, DT_FLOAT, const float*>(
+                list, val,
+                [](const K list){
+                    for_each(kE(list), kE(list) + list->n, [](E& e) {
+                        if(KDB_parser::isNull(e)) e = FLT_NMIN;
+                    });
+                    return kE(list);
+                },
+                &Vector::appendFloat
+            );
+        }
+
+        static void parseDoubles(const K list, const string& name, ConstantSP& val) {
+            parseSimpleList<KDB_DOUBLE, F, DT_DOUBLE, const double*>(
+                list, val,
+                [](const K list){
+                    for_each(kF(list), kF(list) + list->n, [](F& f) {
+                        if(KDB_parser::isNull(f)) f = DBL_NMIN;
+                    });
+                    return kF(list);
+                },
+                &Vector::appendDouble
+            );
+        }
+
+        static void parseChars(const K list, const string& name, ConstantSP& val) {
+            parseSimpleList<KDB_CHAR, G, DT_CHAR, const char*>(
+                list, val,
+                [](const K list){ return reinterpret_cast<const char*>(kC(list)); },
+                &Vector::appendChar
+            );
+        }
+
+        static void parseStrings(const K list, const string& name, ConstantSP& val) {
+            parseSimpleList<KDB_STRING, S, DT_SYMBOL, const char**>(
+                list, val,
+                [](const K list){ return const_cast<const char**>(kS(list)); },
+                &Vector::appendString
+            );
+        }
+
+        static void parseTimestamps(const K list, const string& name, ConstantSP& val) {
+            parseSimpleList<KDB_TIMESTAMP, J, DT_NANOTIMESTAMP, const long long*>(
+                list, val,
+                [](const K list){
+                    for_each(kJ(list), kJ(list) + list->n, [](J& p) {
+                        if(!KDB_parser::isNull(p)) p += KDB_NANOTIMESTAMP_GAP;
+                    });
+                    return kJ(list);
+                },
+                &Vector::appendLong
+            );
+        }
+
+        static void parseMonths(const K list, const string& name, ConstantSP& val) {
+            parseSimpleList<KDB_MONTH, I, DT_MONTH, const int*>(
+                list, val,
+                [](const K list){
+                    for_each(kI(list), kI(list) + list->n, [](I& m) {
+                        if(!KDB_parser::isNull(m)) m += KDB_MONTH_GAP;
+                    });
+                    return kI(list);
+                },
+                &Vector::appendInt
+            );
+        }
+
+        static void parseDates(const K list, const string& name, ConstantSP& val) {
+            parseSimpleList<KDB_DATE, I, DT_DATE, const int*>(
+                list, val,
+                [](const K list){
+                    for_each(kI(list), kI(list) + list->n, [](I& d) {
+                        if(!KDB_parser::isNull(d)) d += KDB_DATE_GAP;
+                    });
+                    return kI(list);
+                },
+                &Vector::appendInt
+            );
+        }
+
+        static void parseDatetimes(const K list, const string& name, ConstantSP& val) {
+            assert(list->t == KDB_DATETIME && list->n >= 0);
+            const INDEX length = list->n;
+
+            vector<long long> timestamps(length);
+            transform(kF(list), kF(list) + length, begin(timestamps), [](const F& z) {
+                return z * (SEC_PER_DAY * 1000LL) + KDB_DATETIME_GAP;
+            });
+
+            val = Util::createVector(DT_TIMESTAMP, 0, length, true);
+            auto vec = dynamic_cast<Vector*>(val.get());
+            vec->appendLong(timestamps.data(), length);
+        }
+
+        static void parseTimespans(const K list, const string& name, ConstantSP& val) {
+            parseLongs<KDB_TIMESTAMP, DT_NANOTIME>(list, name, val);
+        }
+
+        static void parseMinutes(const K list, const string& name, ConstantSP& val) {
+            parseInts<KDB_MINUTE, DT_MINUTE>(list, name, val);
+        }
+
+        static void parseSeconds(const K list, const string& name, ConstantSP& val) {
+            parseInts<KDB_SECOND, DT_SECOND>(list, name, val);
+        }
+
+        static void parseTimes(const K list, const string& name, ConstantSP& val) {
+            parseInts<KDB_TIME, DT_TIME>(list, name, val);
+        }
+
+    private:
+        static string listItemName(const string& varName, const INDEX index) {
+            return varName + '[' + to_string(index) + ']';
+        }
+
+    };//class KDB_parser
+
+}//namespace /*anonymous*/
+
 static void kdbConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
-    Connection* conn = (Connection*)(args[0]->getLong());
-    if(conn!= nullptr) {
+    const auto conn = reinterpret_cast<Connection*>(args[0]->getLong());
+    if(conn != nullptr) {
         delete conn;
         args[0]->setLong(0);
     }
 }
 
-Connection::Connection(const string& hostStr, const int& port, const string& usernamePassword): host_(hostStr), port_(port) {
-    char* host = const_cast<char*>(hostStr.c_str());
-    char* usr = const_cast<char*>(usernamePassword.c_str());
-    I handle = khpunc(host, port, usr, 1000, 1);
+Connection::Connection(const string& hostStr, const int port, const string& usernamePassword): host_(hostStr), port_(port) {
+    const auto handle = khpunc(KDB_S(hostStr), port, KDB_S(usernamePassword), KDB_TIMEOUT, KDB_CAPABILITY);
 
-    if(handle == 0) {
-        throw RuntimeException("[PLUGIN::KDB]: Authentication error.");
-    } else if(handle == -1) {
-        throw RuntimeException("[PLUGIN::KDB]: Connection error.");
-    } else if (handle == -2) {
-        throw RuntimeException("[PLUGIN::KDB]: Connection time out.");
+    switch(handle) {
+        case KDB_IPC_AUTH_ERROR:
+            throw RuntimeException(PLUGIN_NAME ": Authentication error.");
+        case KDB_IPC_CONN_ERROR:
+            throw RuntimeException(PLUGIN_NAME ": Connection error.");
+        case KDB_IPC_TIMEOUT_ERROR:
+            throw RuntimeException(PLUGIN_NAME ": Connection time out.");
+        default:
+            if(handle < 0) {
+                throw RuntimeException(PLUGIN_NAME ": qIPC error.");
+            } else {
+                handle_ = handle;
+            }
     }
-    handle_ = handle;
 }
 
 Connection::~Connection() {
     kclose(handle_);
 }
 
-TableSP Connection::getTable(const string& tablePath, const string& symFilePath) {
-    LockGuard<Mutex> guard(&LOCK_KDB);
-    // load symbol
-    // must use the file name to load sym in kdb+
-    // otherwise the serialized data could not find its sym list
-    string symName = "";
-    if(symFilePath.size() > 0) {
-        vector<string> fields;
-        Util::split(symFilePath, '/', fields);
-        if(fields.size() == 0) {
-            throw RuntimeException("[PLUGIN::KDB]: Invalid symFilePath");
-        }
-        symName = fields.back();
-        // load sym to kdb
-        string command = symName + ":get`:" + symFilePath;
-        char * arg = const_cast<char*>(command.c_str());
-        K res = k(handle_, arg,(K)0);
-        if(!res) {
-            throw RuntimeException("[PLUGIN::KDB]: kdb+ execution error. fail to execute " + command + ".");
-        }
-        if(res->t == -128) {
-            string errMsg = res->s;
-            throw RuntimeException("[PLUGIN::KDB]: kdb+ execution error " + errMsg + ".");
-        }
+KPtr Connection::kExec(const string& command) const {
+    KPtr res{k(handle_, KDB_S(command), nullptr)};
+    if(!res) {
+        throw RuntimeException(PLUGIN_NAME
+             ": kdb+ fail to execute: " + command + '(' + strerror(errno) + ')');
     }
+    else if(res->t == KDB_ERROR) {
+        const string errMsg = res->s;
+        throw RuntimeException(PLUGIN_NAME
+             ": kdb+ execution error: " + command + "('" + errMsg + ')');
+    }
+    return res;
+}
+
+// must use the file name to load sym in kdb+
+// otherwise the enumerated data could not find its sym list
+string Connection::loadSymFile(const string& symFilePath) const {
+    if(symFilePath.empty()) {
+        return "";
+    }
+
+    const auto fields = Util::split(symFilePath, PATH_SEP);
+    if(fields.empty()) {
+        throw RuntimeException(PLUGIN_NAME ": Invalid symFilePath");
+    }
+    const string symName = fields.back();
+
+    // load sym to kdb
+    const string command = symName + R"(:get hsym`$")" + symFilePath + '"';
+    kExec(command);
+
+    return symName;
+}
+
+ConstantSP Connection::loadColumn(const string& tableName, const string& colName) const {
+    assert(!tableName.empty());
+    if(colName.empty()) {
+        throw RuntimeException(PLUGIN_NAME ": invalid column name");
+    }
+
+    const string queryCommand = "first flip select " + colName + " from " + tableName;
+    KPtr colRes{kExec(queryCommand)};
+    if(!KDB_validList(colRes.get())) {
+        throw RuntimeException(PLUGIN_NAME ": failed to load table column " + colName);
+    }
+
+    const auto type = colRes->t;
+    ConstantSP colVal;
+    switch(type) {
+#       define PARSE_LIST__(type, parse)\
+            case (type): (parse)(colRes.get(), colName, colVal); break
+        PARSE_LIST__(KDB_LIST,      KDB_parser::parseList      );
+        PARSE_LIST__(KDB_BOOL,      KDB_parser::parseBools     );
+        PARSE_LIST__(KDB_GUID,      KDB_parser::parseGUIDs     );
+        PARSE_LIST__(KDB_BYTE,      KDB_parser::parseBytes     );
+        PARSE_LIST__(KDB_SHORT,     KDB_parser::parseShorts    );
+        PARSE_LIST__(KDB_INT,       KDB_parser::parseInts      );
+        PARSE_LIST__(KDB_LONG,      KDB_parser::parseLongs     );
+        PARSE_LIST__(KDB_FLOAT,     KDB_parser::parseFloats    );
+        PARSE_LIST__(KDB_DOUBLE,    KDB_parser::parseDoubles   );
+        PARSE_LIST__(KDB_CHAR,      KDB_parser::parseChars     );
+        PARSE_LIST__(KDB_STRING,    KDB_parser::parseStrings   );
+        PARSE_LIST__(KDB_TIMESTAMP, KDB_parser::parseTimestamps);
+        PARSE_LIST__(KDB_MONTH,     KDB_parser::parseMonths    );
+        PARSE_LIST__(KDB_DATE,      KDB_parser::parseDates     );
+        PARSE_LIST__(KDB_DATETIME,  KDB_parser::parseDatetimes );
+        PARSE_LIST__(KDB_TIMESPAN,  KDB_parser::parseTimespans );
+        PARSE_LIST__(KDB_MINUTE,    KDB_parser::parseMinutes   );
+        PARSE_LIST__(KDB_SECOND,    KDB_parser::parseSeconds   );
+        PARSE_LIST__(KDB_TIME,      KDB_parser::parseTimes     );
+#       undef PARSE_LIST__
+        default:
+            throw RuntimeException(PLUGIN_NAME
+                ": column " + colName + " of type " + to_string(type) + " not yet supported");
+    }
+
+    auto col = dynamic_cast<Vector*>(colVal.get());
+    assert(col);
+    col->setNullFlag(col->hasNull());
+
+    LOG(PLUGIN_NAME ": loaded col " + colName + " size=" + to_string(col->size()));
+    return colVal;
+}
+
+TableSP Connection::getTable(const string& tablePath, const string& symFilePath) const {
+    LockGuard<Mutex> guard(&LOCK_KDB);
+
+    // load symbol
+    const string symName = loadSymFile(symFilePath);
 
     // load table
-    string loadCommand = "\\l " + tablePath;
-    char * loadArg = const_cast<char*>(loadCommand.c_str());
-    K loadRes = k(handle_, loadArg,(K)0);
-    if(!loadRes) {
-        throw RuntimeException("[PLUGIN::KDB]: kdb+ execution error. fail to execute " + loadCommand + ".");
-    }
-    if(loadRes->t == -128) {
-        string errMsg = loadRes->s;
-        throw RuntimeException("[PLUGIN::KDB]: load table failed: " + errMsg + ".");
-    }
+    const string loadCommand = R"(\l )" + tablePath;
+    kExec(loadCommand);
 
     // split table path, get table name, get cols
-    vector<string> pathVec = Util::split(tablePath, '/');
-    if(pathVec.size() == 0) {
-        throw RuntimeException("[PLUGIN::KDB]: invalid file path " + tablePath + ".");
+    const auto pathVec = Util::split(tablePath, PATH_SEP);
+    if(pathVec.empty()) {
+        throw RuntimeException(PLUGIN_NAME ": invalid file path " + tablePath + ".");
     }
-    string tableName = pathVec[pathVec.size()-1];
-    string colsCommand = "cols " + tableName;
-    char * colsArg = const_cast<char*>(colsCommand.c_str());
-    K colsRes = k(handle_, colsArg,(K)0);
-    if(!colsRes) {
-        throw RuntimeException("[PLUGIN::KDB]: kdb+ execution error. fail to execute " + colsCommand + ".");
-    }
-    if(colsRes->t == -128) {
-        string errMsg = colsRes->s;
-        throw RuntimeException("[PLUGIN::KDB]: get table failed: " + errMsg + ".");
+    const string tableName = pathVec.back();
+    const string colsCommand = "cols " + tableName;
+    KPtr colsRes = kExec(colsCommand);
+    if(!KDB_validListOf(colsRes.get(), KDB_STRING)) {
+        throw RuntimeException(PLUGIN_NAME ": failed to get table cols");
     }
 
-    int colNum = colsRes->n;
-    vector<string> colNames(colNum);
-    vector<ConstantSP> cols(colNum);
-    if(kS(colsRes) == nullptr) {
-        throw RuntimeException("[PLUGIN::KDB]: failed to get table cols");
-    }
-    for(int i = 0; i < colNum; i++) {
-        colNames[i] = kS(colsRes)[i];
+    // load each column
+    const size_t colNum = static_cast<size_t>(colsRes->n);
+    vector<string> colNames{colNum};
+    transform(kS(colsRes.get()), kS(colsRes.get()) + colNum, begin(colNames),
+        KDB_S
+    );
+    vector<ConstantSP> cols{colNum};
+    transform(begin(colNames), end(colNames), begin(cols),
+        [&](const string& colName) { return loadColumn(tableName, colName); }
+    );
+
+    // drop table, release memory in kdb+
+    const string dropCommand = "delete " + tableName + " from `.";
+    KPtr dropRes{kExec(dropCommand)};
+
+    // drop sym
+    if(!symName.empty()) {
+        const string dropCommand = "delete " + symName + " from `.";
+        KPtr dropRes{kExec(dropCommand)};
     }
 
-    for(int i = 0; i < colNum; i++) {
-        string queryCommand = "select " +  colNames[i] + " from " + tableName;
-        char * queryArg = const_cast<char*>(queryCommand.c_str());
-        K colRes = k(handle_, queryArg,(K)0);
-        if(!colsRes) {
-            throw RuntimeException("[PLUGIN::KDB]: kdb+ execution error. fail to execute " + colsCommand + ".");
-        }
-        if(colRes->t == -128) {
-            string errMsg = colRes->s;
-            throw RuntimeException("[PLUGIN::KDB]: kdb+ execution error " + errMsg + ".");
-        }
-
-        /**
-         * colRes:                                          result content
-         * colRes->t:                                       result type
-         * colRes->k:                                       table content
-         * kK(colRes->k)                                    table content list
-         * kK(colRes->k)[1]:                                second table content, is colValue content
-         * kK(kK(colRes->k)[1]):                            colValue list of table content
-         * kK(kK(colRes->k)[1])[0]:                         first colValue
-         * kK(kK(colRes->k)[1])[0]->t                       colValue type
-         * kK(kK(kK(colRes->k)[1])[0]):                     nested list value list of colValue
-         * kK(kK(kK(colRes->k)[1])[0])[index]:              nested list value at index position
-         * kC(kK(kK(kK(colRes->k)[1])[0])[index]):          char list of nested list value
-         * kK(kK(kK(colRes->k)[1])[0])[index]->n:           char list length
-         * kC(kK(kK(kK(colRes->k)[1])[0])[index])[i]:       ith char value of char list
-         */
-
-        // checkout kK, kKkK, kKkKkG
-        if(colRes->k == nullptr || kK(colRes->k) == nullptr || colRes->k->n < 2 || kK(colRes->k)[1] == nullptr ||
-           kK(colRes->k)[1]->n < 1 || kK(kK(colRes->k)[1])[0] == nullptr || kG(kK(kK(colRes->k)[1])[0]) == nullptr) {
-            throw RuntimeException("[PLUGIN::KDB]: failed to parse kdb+ query result");
-        }
-        int type = kK(kK(colRes->k)[1])[0]->t;
-        long long length = (long long)(kK(kK(colRes->k)[1])[0]->n);
-        void* ptr;
-        switch(type) {
-            case KDB_LIST:
-            {
-                vector<string> charArray;
-                for(int index = 0; index < length; ++index) {
-                    if(kK(kK(kK(colRes->k)[1])[0])[index] == 0 || kC(kK(kK(kK(colRes->k)[1])[0])[index]) == 0) {
-                        throw RuntimeException("[PLUGIN::KDB]: failed to parse kdb+ query result");
-                    }
-                    int constantType = int(kK(kK(kK(colRes->k)[1])[0])[index]->t);
-                    string str = "";
-                    // check type of nested list
-                    if(constantType == 10) {
-                        for(int i = 0; i < kK(kK(kK(colRes->k)[1])[0])[index]->n; ++i) {
-                            str.push_back(kC(kK(kK(kK(colRes->k)[1])[0])[index])[i]);
-                        }
-                    } else if (constantType == -10) {
-                        str.push_back(kK(kK(kK(colRes->k)[1])[0])[index]->g);
-                    } else {
-                        throw RuntimeException("[PLUGIN::KDB]: loadTable() only support char nested array");
-                    }
-                    charArray.emplace_back(str);
-                }
-                cols[i] = Util::createVector(DT_STRING,0,length);
-                ((Vector*)(cols[i].get()))->appendString(charArray.data(), length);
-                break;
-            }
-            case KDB_BOOL:
-                ptr = kG(kK(kK(colRes->k)[1])[0]);
-                cols[i] = Util::createVector(DT_BOOL,0,length);
-                ((Vector*)(cols[i].get()))->appendBool((char *)ptr, length);
-                break;
-            case KDB_GUID:
-                ptr = kG(kK(kK(colRes->k)[1])[0]);
-                cols[i] = Util::createVector(DT_UUID,0,length);
-                for(int j = 0; j < length; j++) {
-                    int pos = j*16;
-                    // flip guid
-                    for(int h = 0; h < 8; h++) {
-                        char tmp = ((char* )ptr)[pos+15-h];
-                        ((char* )ptr)[pos+15-h] = ((char* )ptr)[pos+h];
-                        ((char* )ptr)[pos+h] = tmp;
-                    }
-                }
-                ((Vector*)(cols[i].get()))->appendGuid((Guid *)ptr, length);
-                break;
-            case KDB_BYTE:
-                // DolphinDB don't have type of byte, so convert byte to char
-                ptr = kG(kK(kK(colRes->k)[1])[0]);
-                cols[i] = Util::createVector(DT_CHAR,0,length);
-                ((Vector*)(cols[i].get()))->appendChar((char *)ptr, length);
-                break;
-            case KDB_SHORT:
-                ptr = kH(kK(kK(colRes->k)[1])[0]);
-                cols[i] = Util::createVector(DT_SHORT,0,length);
-                ((Vector*)(cols[i].get()))->appendShort((short *)ptr, length);
-                break;
-            case KDB_INT:
-                ptr = kI(kK(kK(colRes->k)[1])[0]);
-                cols[i] = Util::createVector(DT_INT, 0, length);
-                ((Vector*)(cols[i].get()))->appendInt((int *)ptr, length);
-                break;
-            case KDB_LONG:
-                ptr = kJ(kK(kK(colRes->k)[1])[0]);
-                cols[i] = Util::createVector(DT_LONG,0,length);
-                ((Vector*)(cols[i].get()))->appendLong((long long *)ptr, length);
-                break;
-            case KDB_FLOAT:
-            {
-                ptr = kE(kK(kK(colRes->k)[1])[0]);
-                cols[i] = Util::createVector(DT_FLOAT, 0, length);
-
-                for(int j = 0; j < length; j++) {
-                    if(((unsigned int *)ptr)[j] == KDB_FLOAT_NULL) {
-                        ((float *)ptr)[j] = FLT_NMIN;
-                    }
-                }
-
-                ((Vector*)(cols[i].get()))->appendFloat((float *)ptr, length);
-                break;
-            }
-            case KDB_DOUBLE:
-            {
-                ptr = kF(kK(kK(colRes->k)[1])[0]);
-                cols[i] = Util::createVector(DT_DOUBLE,0,length,true);
-                for(int j = 0; j < length; j++) {
-                    if(((unsigned long long *)ptr)[j] == KDB_DOUBLE_NULL) {
-                        ((double *)ptr)[j] = DBL_NMIN;
-                    }
-                }
-                ((Vector*)(cols[i].get()))->appendDouble((double *)ptr, length);
-                break;
-            }
-            case KDB_CHAR:
-                ptr = kG(kK(kK(colRes->k)[1])[0]);
-                cols[i] = Util::createVector(DT_CHAR,0,length,true);
-                ((Vector*)(cols[i].get()))->appendChar((char *)ptr, length);
-                break;
-            case KDB_STRING:
-                ptr = kS(kK(kK(colRes->k)[1])[0]);
-                cols[i] = Util::createVector(DT_SYMBOL,0,length);
-                ((Vector*)(cols[i].get()))->appendString((const char**)ptr, length);
-                break;
-            case KDB_TIMESTAMP:
-            {
-                ptr = kJ(kK(kK(colRes->k)[1])[0]);
-                cols[i] = Util::createVector(DT_NANOTIMESTAMP,0,length);
-                unsigned long long nan = 1;
-                nan = nan << 63;
-                for(int j = 0; j < length; j++) {
-                    // kdb+ time starts at 2000.01.01
-                    // while dolphinDB start at 1970.01.01
-                    // their nano time stamp gap 946684800000000000
-                    // following time types as same
-                    if(((unsigned long long *)ptr)[j] == nan) {
-                        continue;
-                    }
-                    ((long long *)ptr)[j] += KDB_NANOTIMESTAMP_GAP;
-                }
-                ((Vector*)(cols[i].get()))->appendLong((long long *)ptr, length);
-                break;
-            }
-            case KDB_MONTH:
-            {
-                ptr = kI(kK(kK(colRes->k)[1])[0]);
-                cols[i] = Util::createVector(DT_MONTH, 0, length);
-                unsigned int nan = 1<<31;
-                for(int j = 0; j < length; j++) {
-                    if(((unsigned int *)ptr)[j] == nan) {
-                        continue;
-                    }
-                    ((int *)ptr)[j] += KDB_MONTH_GAP;
-                }
-                ((Vector*)(cols[i].get()))->appendInt((int *)ptr, length);
-                break;
-            }
-            case KDB_DATE:
-            {
-                ptr = kI(kK(kK(colRes->k)[1])[0]);
-                cols[i] = Util::createVector(DT_DATE, 0, length);
-                unsigned int nan = 1<<31;
-                for(int j = 0; j < length; j++) {
-                    if(((unsigned int *)ptr)[j] == nan) {
-                        continue;
-                    }
-                    ((int *)ptr)[j] += KDB_DATE_GAP;
-                }
-                ((Vector*)(cols[i].get()))->appendInt((int *)ptr, length);
-                break;
-            }
-            case KDB_DATETIME:
-            {
-                // kdb+'s datetime is double, start from 2000.01.01T00:00:00.000
-                ptr = kF(kK(kK(colRes->k)[1])[0]);
-                cols[i] = Util::createVector(DT_TIMESTAMP, 0, length);
-                vector<long long> longVec(length);
-                for(int j = 0; j < length; j++) {
-                    longVec[j] = ((double *)ptr)[j]*86400000 + KDB_DATETIME_GAP;
-                }
-                ((Vector*)(cols[i].get()))->appendLong((long long *)(longVec.data()), length);
-            }
-                break;
-            case KDB_TIMESPAN:
-                ptr = kJ(kK(kK(colRes->k)[1])[0]);
-                cols[i] = Util::createVector(DT_NANOTIME,0,length);
-                ((Vector*)(cols[i].get()))->appendLong((long long *)ptr, length);
-                break;
-            case KDB_MINUTE:
-                ptr = kI(kK(kK(colRes->k)[1])[0]);
-                cols[i] = Util::createVector(DT_MINUTE, 0, length);
-                ((Vector*)(cols[i].get()))->appendInt((int *)ptr, length);
-                break;
-            case KDB_SECOND:
-                ptr = kI(kK(kK(colRes->k)[1])[0]);
-                cols[i] = Util::createVector(DT_SECOND, 0, length);
-                ((Vector*)(cols[i].get()))->appendInt((int *)ptr, length);
-                break;
-            case KDB_TIME:
-                ptr = kI(kK(kK(colRes->k)[1])[0]);
-                cols[i] = Util::createVector(DT_TIME, 0, length);
-                ((Vector*)(cols[i].get()))->appendInt((int *)ptr, length);
-                break;
-            default:
-                throw RuntimeException("[PLUGIN::KDB]: Can't parse column " + colNames[i] + " .");
-        }
-        ((Vector*)(cols[i].get()))->setNullFlag(((Vector*)(cols[i].get()))->hasNull());
-        r0(colRes);
-        LOG("[PLUGIN::KDB] load col" + colNames[i] + " size: " + to_string(((Vector*)(cols[i].get()))->size()) + ".");
-    }
-    r0(colsRes);
-    //drop table, release memory in kdb+
-    string dropCommand = tableName + ":0";
-    char* dropArg = const_cast<char*>(dropCommand.c_str());
-    K dropRes = k(handle_, dropArg,(K)0);
-    if(!dropRes) {
-        LOG_INFO("[PLUGIN::KDB]: kdb+ execution error. fail to execute " + dropCommand + ".");
-    }
-    if(dropRes->t == -128) {
-        string errMsg = dropRes->s;
-        LOG_INFO("[PLUGIN::KDB]: drop table failed: " + errMsg + ".");
-    }
-
-    // drop sym table
-    dropCommand = symName + ":0";
-    dropArg = const_cast<char*>(dropCommand.c_str());
-    dropRes = k(handle_, dropArg,(K)0);
-    if(!dropRes) {
-        LOG_INFO("[PLUGIN::KDB]: kdb+ execution error. fail to execute " + dropCommand + ".");
-    }
-    if(dropRes->t == -128) {
-        string errMsg = dropRes->s;
-        LOG_INFO("[PLUGIN::KDB]: drop sym failed: " + errMsg + ".");
-    }
-    for(ConstantSP col: cols) {
-        col->setTemporary(true);
-    }
+    // create table in DolphinDB
     return Util::createTable(colNames, cols);
+}
+
+string Connection::str() const {
+    return host_ + ":" + to_string(port_);
 }
 
 /*
@@ -940,9 +1051,9 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
             VectorSP vec = Util::createVector(DT_FLOAT, 0, length, true);
 
             for(long long i = 0; i < length; i++) {
-                if(((unsigned int *)floatSrc)[i] == KDB_FLOAT_NULL) {
+//                if(((unsigned int *)floatSrc)[i] == KDB_FLOAT_NULL) {
                     floatSrc[i] = FLT_NMIN;
-                }
+//                }
             }
 
             vec->appendFloat((float *)floatSrc, length);
@@ -963,9 +1074,9 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
             VectorSP vec = Util::createVector(DT_DOUBLE, 0, length, true);
 
             for(long long i = 0; i < length; i++) {
-                if(((unsigned long long *)doubleSrc)[i] == KDB_DOUBLE_NULL) {
+//                if(((unsigned long long *)doubleSrc)[i] == KDB_DOUBLE_NULL) {
                     doubleSrc[i] = DBL_NMIN;
-                }
+//                }
             }
 
             vec->appendDouble((double *)doubleSrc, length);

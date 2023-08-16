@@ -1,4 +1,8 @@
+#include <type_traits>
+#include <memory>
+
 #include "CoreConcept.h"
+
 #include "k.h"
 
 extern "C" ConstantSP kdbConnect(Heap *heap, vector<ConstantSP> &arguments);
@@ -6,53 +10,75 @@ extern "C" ConstantSP kdbLoadTable(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP kdbLoadFile(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP kdbClose(Heap *heap, vector<ConstantSP> &arguments);
 
-enum kdbType {
+enum kdbType: short {
     KDB_LIST = 0,
-    KDB_BOOL = 1,
-    KDB_GUID = 2,
-    KDB_BYTE = 4,
-    KDB_SHORT = 5,
-    KDB_INT = 6,
-    KDB_LONG = 7,
-    KDB_FLOAT = 8,
-    KDB_DOUBLE = 9,
-    KDB_CHAR = 10,
-    KDB_STRING = 11,
-    KDB_TIMESTAMP = 12,
-    KDB_MONTH = 13,
-    KDB_DATE = 14,
-    KDB_DATETIME = 15,
-    KDB_TIMESPAN = 16,
-    KDB_MINUTE = 17,
-    KDB_SECOND = 18,
-    KDB_TIME = 19,
-    KDB_TABLE = 98,
-    KDB_DICT = 99,
+    KDB_BOOL = (KB),
+    KDB_GUID = (UU),
+    KDB_BYTE = (KG),
+    KDB_SHORT = (KH),
+    KDB_INT = (KI),
+    KDB_LONG = (KJ),
+    KDB_FLOAT = (KE),
+    KDB_DOUBLE = (KF),
+    KDB_CHAR = (KC),
+    KDB_STRING = (KS),
+    KDB_TIMESTAMP = (KP),
+    KDB_MONTH = (KM),
+    KDB_DATE = (KD),
+    KDB_DATETIME = (KZ),
+    KDB_TIMESPAN = (KN),
+    KDB_MINUTE = (KU),
+    KDB_SECOND = (KV),
+    KDB_TIME = (KT),
+    KDB_ENUM_MIN = 20,
+    KDB_ENUM_MAX = 76,
+    KDB_NESTED_MIN = 77,
+    KDB_NESTED_MAX = 97,
+    KDB_TABLE = (XT),
+    KDB_DICT = (XD),
+    KDB_FUNCTION_MIN = 100,
+    KDB_FUNCTION_MAX = 112,
+    KDB_ERROR = -128,
 };
+
+S KDB_S(const std::string &str) {
+    return const_cast<S>(str.c_str());
+}
 
 class Defer {
 public:
-    Defer(std::function<void()> code)
-        : code(code)
-    {
-    }
-    ~Defer() { code(); }
+    using action_t = std::function<void()>;
+
+public:
+    Defer(action_t code) : code_{code} {}
+    ~Defer() { code_(); }
 
 private:
-    std::function<void()> code;
+    const action_t code_;
 };
+
+struct KDeleter {
+    void operator()(K k) const;
+};
+using KPtr = std::unique_ptr<typename std::remove_pointer<K>::type, KDeleter>;
 
 class Connection {
 public:
-    Connection(const string& host, const int& port, const string& usernamePassword);
+    Connection(const std::string& host, const int port, const std::string& usernamePassword);
     ~Connection();
 
-    TableSP getTable(const string& tablePath, const string& symFilePath);
-    string str() {
-        return host_ + ":" + std::to_string(port_);
-    }
+    std::string str() const;
+
+    TableSP getTable(const std::string& tablePath, const std::string& symFilePath) const;
+
 private:
-    string host_;
+    KPtr kExec(const string& command) const;
+
+    std::string loadSymFile(const std::string& symFilePath) const;
+    ConstantSP loadColumn(const std::string& tableName, const std::string& colName) const;
+
+private:
+    std::string host_;
     int port_;
     int handle_;
     // Mutex kdbMutex_;
