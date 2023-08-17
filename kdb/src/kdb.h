@@ -5,10 +5,47 @@
 
 #include "k.h"
 
-extern "C" ConstantSP kdbConnect(Heap *heap, vector<ConstantSP> &arguments);
-extern "C" ConstantSP kdbLoadTable(Heap *heap, vector<ConstantSP> &arguments);
-extern "C" ConstantSP kdbLoadFile(Heap *heap, vector<ConstantSP> &arguments);
-extern "C" ConstantSP kdbClose(Heap *heap, vector<ConstantSP> &arguments);
+extern "C" {
+
+    ConstantSP kdbConnect(Heap *heap, vector<ConstantSP> &arguments);
+    ConstantSP kdbLoadTable(Heap *heap, vector<ConstantSP> &arguments);
+    ConstantSP kdbLoadFile(Heap *heap, vector<ConstantSP> &arguments);
+    ConstantSP kdbClose(Heap *heap, vector<ConstantSP> &arguments);
+
+}//extern "C"
+
+////////////////////////////////////////////////////////////////////////////////
+
+struct KDeleter {
+    void operator()(K k) const;
+};
+using KPtr = std::unique_ptr<typename std::remove_pointer<K>::type, KDeleter>;
+
+class Connection {
+public:
+    static const char* const marker;
+
+public:
+    Connection(const std::string& host, const int port, const std::string& usernamePassword);
+    ~Connection();
+
+    std::string str() const;
+
+    TableSP getTable(const std::string& tablePath, const std::string& symFilePath) const;
+
+private:
+    KPtr kExec(const string& command) const;
+
+    std::string loadSymFile(const std::string& symFilePath) const;
+    ConstantSP loadColumn(const std::string& tableName, const std::string& colName) const;
+
+private:
+    std::string host_;
+    int port_;
+    int handle_;
+    // Mutex kdbMutex_;
+
+};//class Connection
 
 enum kdbType: short {
     KDB_LIST = 0,
@@ -41,10 +78,6 @@ enum kdbType: short {
     KDB_ERROR = -128,
 };
 
-S KDB_S(const std::string &str) {
-    return const_cast<S>(str.c_str());
-}
-
 class Defer {
 public:
     using action_t = std::function<void()>;
@@ -55,31 +88,4 @@ public:
 
 private:
     const action_t code_;
-};
-
-struct KDeleter {
-    void operator()(K k) const;
-};
-using KPtr = std::unique_ptr<typename std::remove_pointer<K>::type, KDeleter>;
-
-class Connection {
-public:
-    Connection(const std::string& host, const int port, const std::string& usernamePassword);
-    ~Connection();
-
-    std::string str() const;
-
-    TableSP getTable(const std::string& tablePath, const std::string& symFilePath) const;
-
-private:
-    KPtr kExec(const string& command) const;
-
-    std::string loadSymFile(const std::string& symFilePath) const;
-    ConstantSP loadColumn(const std::string& tableName, const std::string& colName) const;
-
-private:
-    std::string host_;
-    int port_;
-    int handle_;
-    // Mutex kdbMutex_;
 };
