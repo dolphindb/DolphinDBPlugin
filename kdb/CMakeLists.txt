@@ -30,36 +30,47 @@ target_sources(PluginKDB PUBLIC ${PluginKDB_HEADER} PRIVATE ${PluginKDB_SOURCE})
 target_compile_options(PluginKDB PRIVATE -Wall)
 
 #=== Build Types
+if    ("${CMAKE_BUILD_TYPE}" MATCHES Debug)
+    set(optimize_opts -g -O0)
+    set(dep_debug_tag "d")
+elseif("${CMAKE_BUILD_TYPE}" MATCHES Release)
+    set(optimize_opts -O3   )
+    set(dep_debug_tag "")
+elseif("${CMAKE_BUILD_TYPE}" MATCHES RelWithDebInfo)
+    set(optimize_opts -g -O2)
+    set(dep_debug_tag "")
+else()
+    message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")
+endif()
+
+target_compile_options(PluginKDB PRIVATE ${optimize_opts})
 if(WIN32)
     set(platform_macro WINDOWS)
     set(install_type   win)
     set(kdb_lib "${PROJECT_SOURCE_DIR}/lib/w64/c.lib")
+    configure_file(
+        "${PROJECT_SOURCE_DIR}/PluginKDB_WIN32.txt"
+        "${PROJECT_BINARY_DIR}/PluginKDB.txt" COPYONLY)
+    #FIXME: CMake 3.21 offers better way to do this: install(IMPORTED_RUNTIME_ARTIFACTS ...)
+    configure_file(
+        "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin/zlib1.dll"
+        "${PROJECT_BINARY_DIR}/zlib${dep_debug_tag}1.dll" COPYONLY)
     set(extra_bin
         "${PROJECT_SOURCE_DIR}/lib/w64/c.dll"
-        "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin/zlib1.dll"
-    )   #FIXME: CMake 3.21 offers better way to do this!
-    configure_file("${PROJECT_SOURCE_DIR}/PluginKDB_WIN32.txt" "${PROJECT_BINARY_DIR}/PluginKDB.txt" COPYONLY)
+        "${PROJECT_BINARY_DIR}/zlib${dep_debug_tag}1.dll"
+    )
 elseif(UNIX)
     set(platform_macro LINUX)
     set(install_type   linux)
     set(kdb_lib "${PROJECT_SOURCE_DIR}/lib/c.o")
+    configure_file(
+        "${PROJECT_SOURCE_DIR}/PluginKDB.txt"
+        "${PROJECT_BINARY_DIR}/PluginKDB.txt" COPYONLY)
     set(extra_bin )
-    configure_file("${PROJECT_SOURCE_DIR}/PluginKDB.txt" "${PROJECT_BINARY_DIR}/PluginKDB.txt" COPYONLY)
 else()
     message(FATAL_ERROR "FIXME: Add build support for this platform!")
 endif()
 target_compile_definitions(PluginKDB PUBLIC ${platform_macro})
-
-if    ("${CMAKE_BUILD_TYPE}" MATCHES Debug)
-    set(optimize_opts -g -O0)
-elseif("${CMAKE_BUILD_TYPE}" MATCHES Release)
-    set(optimize_opts -O3   )
-elseif("${CMAKE_BUILD_TYPE}" MATCHES RelWithDebInfo)
-    set(optimize_opts -g -O2)
-else()
-    message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")
-endif()
-target_compile_options(PluginKDB PRIVATE ${optimize_opts})
 
 #=== ASAN or not?
 if (${DDB_USE_ASAN})
@@ -88,7 +99,7 @@ target_link_libraries     (PluginKDB PRIVATE DolphinDB)
 
 #== zlib
 find_package(ZLIB REQUIRED)
-target_link_libraries     (PluginKDB PRIVATE ZLIB::ZLIB)
+target_link_libraries(PluginKDB PRIVATE ZLIB::ZLIB)
 
 #== kdb+
 target_compile_definitions(PluginKDB PUBLIC  KXVER=3)

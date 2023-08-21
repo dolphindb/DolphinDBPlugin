@@ -49,7 +49,14 @@ SET DOLPHINDB_ROOT=<path_to_DolphinDB>
 
 ```batch
 del /S /Q build
+
+:: Release mode
 cmake -S . -B build -G Ninja
-cmake --build build
+:: Debug mode
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+:: RelWithDebInfo mode
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+cmake --build build -j 4
 cmake --install build
 ```
