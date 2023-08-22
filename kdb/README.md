@@ -38,13 +38,13 @@ The plugin requires zlib for data decompression.
 
 - Ubuntu
 
-```
+```bash
 sudo apt install zlib1g
 ```
 
 - CentOS
 
-```
+```bash
 yum install -y zlib zlib-devel
 ```
 
@@ -52,7 +52,7 @@ yum install -y zlib zlib-devel
 
 Download the precompiled plugin and library files at [DolphinDBPlugin/kdb/](https://github.com/dolphindb/DolphinDBPlugin/tree/release200/kdb). Enter the following command in DolphinDB to load the plugin:
 
-```
+```DolphinDＢ
 loadPlugin("/path/to/plugin/PluginKDB.txt")
 ```
 
@@ -60,7 +60,7 @@ loadPlugin("/path/to/plugin/PluginKDB.txt")
 
 ### Linux
 
-```
+```bash
 cd /path/to/plugins/kdb
 mkdir build
 cd build
@@ -76,7 +76,9 @@ After compilation, refer to the description in [1.2 Load Plugin](#12-load-plugin
 
 **Syntax**
 
+```DolphinDB
 connect(host, port, usernamePassword)
+```
 
 **Arguments**
 
@@ -98,24 +100,27 @@ If the connection fails, an exception is thrown. Possible causes are:
 
 Suppose the username and password ("admin:123456") are stored in *../passwordfiles/usrs*, and the kdb+ server and DolphinDB server are both on the same machine:
 
+kdb+ shell:
+```bash
+q -p 5000 -U ../passwordfiles/usrs   # note that "-U" must be capitalized
 ```
-kdb shell:         q -p 5000 -U ../passwordfiles/usrs   // note that "-U" must be capitalized
-DolphinDB shell:   handle = kdb::connect("127.0.0.1", 5000, "admin:123456")
+
+DolphinDB shell:
+```DolphinDB
+handle = kdb::connect("127.0.0.1", 5000, "admin:123456")
 ```
 
 If the kdb+ database you're connecting to does not require authentication:
 
-```
+```DolphinDB
 handle = kdb::connect("127.0.0.1", 5000)
 ```
-
- 
 
 ### 3.2 kdb::loadTable
 
 **Syntax**
 
-```
+```DolphinDB
 loadTable(handle, tablePath, symPath)
 ```
 
@@ -135,7 +140,7 @@ Load data from a connected kdb+ database as an in-memory table in DolphinDB.
 
 **Examples**
 
-```
+```DolphinDB
 // the table contains an enumerated symbol column
 DATA_DIR="/path/to/data/kdb_sample"
 Txns = kdb::loadTable(handle, DATA_DIR + "/2022.06.17/Txns", DATA_DIR + "/sym")
@@ -149,7 +154,7 @@ Txns = kdb::loadTable(handle, DATA_DIR + "/2022.06.17/Txns", DATA_DIR)
 
 **Syntax**
 
-```
+```DolphinDB
 loadFile(tablePath, symPath)
 ```
 
@@ -168,7 +173,7 @@ Directly read the specified kdb+ data files on disk and load the file data to Do
 
 **Examples**
 
-```
+```DolphinDB
 //the table contains an enumerated symbol column
 DATA_DIR="/path/to/data/kdb_sample"
 Txns = kdb::loadFile(handle, DATA_DIR + "/2022.06.17/Txns", DATA_DIR + "/sym")
@@ -183,7 +188,7 @@ Txns = kdb::loadFile(handle, DATA_DIR + "/2022.06.17/Txns", DATA_DIR)
 
 **Syntax**
 
-```
+```DolphinDB
 close(handle)
 ```
 
@@ -197,13 +202,13 @@ Close the connection to the kdb+ server.
 
 **Examples**
 
-```
+```DolphinDB
 kdb::close(handle)
 ```
 
 ### 3.5 A Complete Example
 
-```
+```DolphinDB
 loadPlugin("/home/DolphinDBPlugin/kdb/build/PluginKDB.txt")
 go
 // connect to the kdb+ database
@@ -267,7 +272,7 @@ path/to/data
 └── table_name
 ```
 
-```
+```DolphinDB
 handle = kdb::connect("127.0.0.1", 5000, "username:password");
 table = kdb::loadTable(handle, "path/to/data/table_name", "path/to/data/sym");
 ```
@@ -290,7 +295,7 @@ path/to/data
     └── ti
 ```
 
-```
+```DolphinDB
 handle = kdb::connect("127.0.0.1", 5000, "username:password");
 table1 = kdb::loadTable(handle, "path/to/data/table_name/", "path/to/data/sym");
 table2 = kdb::loadTable("path/to/data/table_name/", "path/to/data/sym");
@@ -320,7 +325,7 @@ path/to/data
         └── ti
 ```
 
-```
+```DolphinDB
 // get the information on all files under the directory
 fileRes=files("path/to/data");
 
