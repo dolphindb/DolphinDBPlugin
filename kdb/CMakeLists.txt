@@ -1,20 +1,24 @@
 cmake_minimum_required(VERSION 3.1)
 
 #========================================
-if("${CMAKE_BUILD_TYPE}" MATCHES "")
-    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "")
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Debug|Release|RelWithDebInfo|MinSizeRel")
 endif ()
-message(STATUS "CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
+message(STATUS "CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
 
 #=== vcpkg
-if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
+if(ENV{VCPKG_ROOT})
+    set(VCPKG_ROOT "$ENV{VCPKG_ROOT}" CACHE PATH "vcpkg installation directory" FORCE)
 endif()
+if(VCPKG_ROOT AND NOT CMAKE_TOOLCHAIN_FILE)
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE FILEPATH "vcpkg toolchain for CMake" FORCE)
+endif()
+message(STATUS "VCPKG_ROOT = ${VCPKG_ROOT}")
 
-if(NOT DEFINED VCPKG_TARGET_TRIPLET)
-    set(VCPKG_TARGET_TRIPLET x64-windows)   # Use x64-windows by default
+if(NOT VCPKG_TARGET_TRIPLET)
+    set(VCPKG_TARGET_TRIPLET "x64-windows" CACHE STRING "vcpkg target triplet" FORCE)
 endif()
-message(STATUS "VCPKG_TARGET_TRIPLET: " ${VCPKG_TARGET_TRIPLET})
+message(STATUS "VCPKG_TARGET_TRIPLET = ${VCPKG_TARGET_TRIPLET}")
 
 #========================================
 project(PluginKDB LANGUAGES CXX)
@@ -31,13 +35,12 @@ target_compile_options(PluginKDB PRIVATE -Wall)
 
 #=== Build Types
 if    ("${CMAKE_BUILD_TYPE}" MATCHES Debug)
-    set(optimize_opts -g -O0)
     set(dep_debug_tag "d")
 elseif("${CMAKE_BUILD_TYPE}" MATCHES Release)
-    set(optimize_opts -O3   )
     set(dep_debug_tag "")
 elseif("${CMAKE_BUILD_TYPE}" MATCHES RelWithDebInfo)
-    set(optimize_opts -g -O2)
+    set(dep_debug_tag "")
+elseif("${CMAKE_BUILD_TYPE}" MATCHES MinSizeRel)
     set(dep_debug_tag "")
 else()
     message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")
@@ -71,6 +74,7 @@ else()
     message(FATAL_ERROR "FIXME: Add build support for this platform!")
 endif()
 target_compile_definitions(PluginKDB PUBLIC ${platform_macro})
+message(STATUS "Extra binaries to install: " ${extra_bin})
 
 #=== ASAN or not?
 if (${DDB_USE_ASAN})
@@ -85,13 +89,14 @@ if (${DDB_USE_ASAN})
 endif()
 
 #=== Dependencies
-if(NOT DEFINED DOLPHINDB_ROOT)
-    if(NOT DEFINED ENV{DOLPHINDB_ROOT})
+if(NOT DOLPHINDB_ROOT)
+    if(NOT ENV{DOLPHINDB_ROOT})
         message(FATAL_ERROR "DOLPHINDB_ROOT should be defined to provide path to DolphinDB installation!")
     else()
         set(DOLPHINDB_ROOT "$ENV{DOLPHINDB_ROOT}")
     endif()
 endif()
+message(STATUS "DOLPIHNDB_ROOT = ${DOLPHINDB_ROOT}")
 target_compile_definitions(PluginKDB PUBLIC  LOCKFREE_SYMBASE)
 target_include_directories(PluginKDB PUBLIC  "${PROJECT_SOURCE_DIR}/../include")
 target_link_directories   (PluginKDB PRIVATE "${DOLPHINDB_ROOT}")
