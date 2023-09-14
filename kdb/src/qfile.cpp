@@ -82,10 +82,10 @@ size_t kdb::BinFile::getBodyLen() const {
     return fileLen - MAGIC_BYTES;
 }
 
-size_t kdb::BinFile::readAll(vector<byte>& buffer, size_t offset) {
+size_t kdb::BinFile::readAll(vector<byte>& buffer, ptrdiff_t offset) {
     assert(fp_);
     const size_t len = getFileLen();
-    if(UNLIKELY(len < offset)) {
+    if(UNLIKELY(static_cast<ptrdiff_t>(len) < offset)) {
         throw RuntimeException(PLUGIN_NAME ": "
             "Load " + filename_ + " too little data.");
     }
@@ -131,7 +131,7 @@ size_t kdb::BinFile::inflateBody(vector<byte>& buffer) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-kdb::ZLibStream::ZLibStream(FILE* fp, size_t offset)
+kdb::ZLibStream::ZLibStream(FILE* fp, ptrdiff_t offset)
   : fp_{fp}, offset_{offset}, inflatedLen_{0}
 {}
 

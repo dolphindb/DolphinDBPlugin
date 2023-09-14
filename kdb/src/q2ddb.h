@@ -11,7 +11,7 @@
 
 namespace kdb {
 
-    enum Type: H {
+    enum Type: std::int8_t {
         K_LIST      =    0,
         K_BOOL      = (KB),
         K_GUID      = (UU),
@@ -39,13 +39,16 @@ namespace kdb {
         K_ERROR     = -128,
     };
 
-    enum Attribute: G {
+    enum Attribute: std::uint8_t {
         K_ATTR_NONE    = 0u,
         K_ATTR_SORTED  = 1u,
         K_ATTR_UNIQUE  = 2u,
         K_ATTR_PARTED  = 3u,
         K_ATTR_GROUPED = 4u,
     };
+
+    constexpr auto UNKNOWN_SIZE = static_cast<std::size_t>(-1);
+    std::size_t getSize(Type type) noexcept;
 
     bool isNull(const H& h) noexcept;
     bool isNull(const I& i) noexcept;
@@ -141,160 +144,158 @@ namespace kdb {
     //@see https://code.kx.com/q/kb/serialization/
     class Parser {
     public:
-        static constexpr auto UNKNOWN_COUNT = static_cast<std::size_t>(-1);
+        template<byte Tag0, byte Tag1, typename HeaderT>
+        struct HeaderTag;
 
-        // kdb+ new data format - data segment offset
-        static constexpr std::ptrdiff_t NEW_DATA_OFFSET = 0x1000;
+        template<typename HeaderT,
+            typename DataT = byte, std::size_t MinCount = 0>
+        struct DataBlock;
 
-#       pragma pack(push, 1)
+        struct BaseHeader;
+        struct SymsList;
 
-        struct Header {
-            union {
-                char magic[8];
-                struct {
-                    byte format[2];
-                    byte type;  //--> kdb::Type
-                    Attribute attr;
-                    int pad_or_count;  // padding/map-level? or count
-                };
-            };
-        };
-        static_assert(sizeof(Header) == 8,
-            "kdb+ binary file header");
+        struct EnumSymsHeader36;
+        struct EnumSymsList36;
 
-        struct HeaderEx : Header {
-            std::size_t count;
-        };
-        static_assert(sizeof(HeaderEx) == 8+8,
-            "kdb+ binary file extended header");
+        struct BaseListHeader;
+        struct BaseList;
 
-        struct Trailer {
-            int pad_03;
-            int pad_02;
-            std::ptrdiff_t last_addr;
-            std::ptrdiff_t trailer_addr;
+        struct ExtListHeader;
+        struct ExtList;
 
-            bool valid(std::ptrdiff_t tail, std::size_t itemSize) const;
-        };
-        static_assert(sizeof(Trailer) == 4*2+8*2,
-            "kdb+ binary file padding trailer");
+        struct EnumSymsHeader;
+        struct EnumSymsList;
 
-        struct ItemIndex {
-            int offset;
-            byte pad_xxx[3];
-            byte format;
-        };
-        static_assert(sizeof(ItemIndex) == 4+3+1,
-            "kdb+ binary file nested item index");
+        template<byte Tag0, byte Tag1, std::int32_t Level = 0>
+        struct NestedListHeader;
+        template<byte Tag0, byte Tag1, std::int32_t Level = 0>
+        struct NestedList;
 
-        struct ItemHeader {
-            byte type;
-            byte count;
+        struct ItemIndex;
 
-            static constexpr byte TYPE_OFFSET = 0x7F;
-            static constexpr byte MAX_COUNT   = 0x5F;
-        };
-        static_assert(sizeof(ItemHeader) == 1+1,
-            "kdb+ binary file# nested item header");
+        struct NestedMapHeader;
+        struct NestedMap;
 
-        using ItemHeaderEx = HeaderEx;
-        static_assert(sizeof(ItemHeaderEx) == 16,
-            "kdb+ binary file# nested item extended header");
+        struct NestedItemHeader;
+        struct NestedItem;
 
-        struct SymItemHeader {
-            byte type;
-            byte pad_xxx[4];
-            byte count;
+        struct NestedItemExHeader;
+        struct NestedItemEx;
 
-            static constexpr byte TYPE_OFFSET = ItemHeader::TYPE_OFFSET;
-            static constexpr byte MAX_COUNT   = ItemHeader::MAX_COUNT;
-        };
-        static_assert(sizeof(SymItemHeader) == 1+4+1,
-            "kdb+ binary file# nested symbol header");
+        struct NestedEnumSymsHeader;
+        struct NestedEnumSyms;
 
-        using SymItemHeaderEx = ItemHeaderEx;
-        static_assert(sizeof(ItemHeaderEx) == 16,
-            "kdb+ binary file# nested symbol extended header");
+        struct NestedEnumSymsExHeader;
+        struct NestedEnumSymsEx;
 
-#       pragma pack(pop)
+        struct Trailer;
 
     public:
         std::vector<byte>& getBuffer() noexcept;
 
-        const Header* getHeader() const;
-        const HeaderEx* getHeaderEx() const;
+        std::vector<std::string> getStrings(const std::string& file) const;
 
+        VectorSP getVector(const std::string& file,
+            const std::vector<std::string>& symList,
+            const std::string& symName) const;
+
+    protected:
+        const byte* begin() const noexcept;
+        const byte* end() const noexcept;
+
+        const byte* findEnd( const byte* start = nullptr) const noexcept;
+
+        // Allow for "end" iterator semantics
         template<typename T>
-        const T* get(std::ptrdiff_t offset = 0, bool end = false) const {
-            return const_cast<Parser*>(this)->get<T>(offset, end);
-        }
-        template<typename T>
-        T* get(std::ptrdiff_t offset = 0, bool end = false) {
-            return static_cast<T*>(get(offset, sizeof(T), end));
-        }
+        const T* parse(std::ptrdiff_t offset = 0,
+            bool allowEnd = false) const;
+        const void* parse(std::size_t offset, std::ptrdiff_t index,
+            bool allowEnd = false) const;
 
-        void initialize(bool force = false);
+    private:
+        VectorSP getFastVector(const BaseList* data,
+            const std::string& file,
+            const std::vector<std::string>& symList,
+            const std::string& symName) const;
 
-        std::vector<std::string> strings(const std::string& file);
+        VectorSP getGeneralList(const ExtList* data,
+            const std::string& file,
+            const std::vector<std::string>& symList,
+            const std::string& symName) const;
 
-        VectorSP strings(const std::string& file,
+        VectorSP getEnumStrings(const EnumSymsList* data,
+            const std::string& file,
+            const std::vector<std::string>& symList,
+            const std::string& symName) const;
+
+        VectorSP getNestedLists(const NestedList<0xFD, 0x01>* data,
+            const std::string& file,
+            const std::vector<std::string>& symList,
+            const std::string& symName) const;
+
+        VectorSP mapNestedLists(const ItemIndex* begin, const ItemIndex* end,
+            const NestedMap* mapData, const byte* mapEnd,
+            const std::string& mapFile,
+            const std::vector<std::string>& symList,
+            const std::string& symName) const;
+
+        static VectorSP mapEnumSyms(const VectorSP& indices,
+            const std::string& mapFile,
             const std::vector<std::string>& symList,
             const std::string& symName);
 
-        VectorSP vector(const std::string& file);
-
-        VectorSP nestedList(Parser& mapParser,
-            const std::vector<std::string>& symList, const std::string& symName,
-            const std::string& file,const std::string& mapFile);
-
-    private:
-        using k_type = std::remove_pointer<K>::type;
-
-        struct State {
-            Type type;
-            Attribute attr;
-            std::size_t count;
-            std::ptrdiff_t header, data, end, enumName;
-
-            State();
-        };
-
-    private:
-        void* get(std::ptrdiff_t offset, std::size_t size, bool end = false);
-
-        bool initialized() const;
-
-        template<typename HeaderT, typename CountT>
-        void initialize(std::ptrdiff_t header, CountT(HeaderT::*count));
-
-        static std::size_t itemSize(Type type);
-
-        std::size_t guessItemCount(std::size_t itemSize) const;
-        void verifyItemCount(std::size_t itemSize) const;
-
-        VectorSP mapNestedList(Parser& mapParser,
-            const std::vector<std::string>& symList, const std::string& symName,
-            const std::string& file, const std::string& mapFile);
-
-        ConstantSP mapNestedItem(const ItemIndex* idx, Parser& mapParser,
-            const std::vector<std::string>& symList, const std::string& symName,
-            const std::string& file, const std::string& mapFile);
-
-        template<byte ItemFormat>
-        ConstantSP mapNestedItem(std::ptrdiff_t offset, Parser& mapParser,
-            const std::vector<std::string>& symList, const std::string& symName,
-            const std::string& mapFile);
-
-        template<byte ItemFormat>
-        VectorSP mapNestedStrings(std::ptrdiff_t offset, Parser& mapParser,
-            const std::vector<std::string>& symList, const std::string& symName,
-            const std::string& mapFile);
-
     private:
         std::vector<byte> buffer_;
-        State state_;
 
     };//class Parser
+
+    //////////////////////////////////////////////////////////////////////////
+
+#   pragma pack(push, 1)
+
+    template<byte Tag0, byte Tag1, typename HeaderT>
+    struct Parser::HeaderTag {
+    protected:
+        constexpr bool isValid() const noexcept {
+            return static_cast<const HeaderT*>(this)->tag[0] == Tag0
+                && static_cast<const HeaderT*>(this)->tag[1] == Tag1;
+        }
+    };
+
+    template<typename HeaderT, typename DataT, std::size_t MinCount>
+    struct Parser::DataBlock {
+        using header_t = HeaderT;
+        using data_t   = DataT;
+
+        struct {
+            header_t header;
+            data_t   data[MinCount];
+        };
+
+        constexpr DataT* get(std::ptrdiff_t index = 0) const noexcept {
+            return const_cast<DataT*>(data + index);
+        }
+
+        template<typename T>
+        constexpr T* getAt(std::ptrdiff_t offset = 0) const noexcept {
+            return const_cast<T*>(reinterpret_cast<const T*>(data + offset));
+        }
+
+    protected:
+        constexpr bool isComplete(std::size_t count, const byte* end
+        ) const noexcept {
+            return isComplete(sizeof(data_t), count, end);
+        }
+
+        constexpr bool isComplete(
+            std::size_t itemSize, std::size_t count, const byte* end
+        ) const noexcept {
+            return reinterpret_cast<const byte*>(data) + itemSize * count
+                    <= end;
+        }
+    };
+
+#   pragma pack(pop)
 
 }//namespace kdb
 

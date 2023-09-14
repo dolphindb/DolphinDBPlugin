@@ -12,7 +12,7 @@
 
 namespace kdb {
 
-    using byte = unsigned char;
+    using byte = std::uint8_t;
     static_assert(sizeof(byte) == 1, "basic encode/decode unit");
 
     //////////////////////////////////////////////////////////////////////////
@@ -38,8 +38,10 @@ namespace kdb {
         std::size_t getFileLen() const;
         std::size_t getBodyLen() const;
 
-        std::size_t readAll(std::vector<byte>& buffer, std::size_t offset = 0);
-        std::size_t inflateBody(std::vector<byte>& buffer);
+        std::size_t readAll(
+            std::vector<byte>& buffer, std::ptrdiff_t offset = 0);
+        std::size_t inflateBody(
+            std::vector<byte>& buffer);
 
     private:
         std::string filename_;
@@ -81,7 +83,7 @@ namespace kdb {
         };
 
     public:
-        ZLibStream(FILE* fp, std::size_t offset);
+        ZLibStream(FILE* fp, std::ptrdiff_t offset);
 
         bool isDeflated(Header* ph = nullptr) const;
 
@@ -92,7 +94,7 @@ namespace kdb {
 
     private:
         FILE* const fp_;
-        const std::size_t offset_;
+        const std::ptrdiff_t offset_;
         std::size_t inflatedLen_;
 
     };//class ZLibStream

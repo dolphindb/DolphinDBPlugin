@@ -473,13 +473,13 @@ long long decompress(FILE * fp, vector<unsigned char>& dest) {
 vector<string> loadSymList(const string& symPath) {
     kdb::BinFile symFile{symPath, symPath};
     if(UNLIKELY(!symFile)) {
-        throw RuntimeException(PLUGIN_NAME ": Open sym file failed.");
+        throw RuntimeException(PLUGIN_NAME ": "
+            "Open sym file " + symPath + " failed.");
     }
 
     kdb::Parser parser;
     symFile.readInto(parser.getBuffer());
-    parser.initialize();
-    const auto symList = parser.strings(symPath);
+    const auto symList = parser.getStrings(symPath);
 
     LOG(PLUGIN_NAME ": Loaded enum sym from " + symPath + " "
         "size=" + to_string(symList.size()));
@@ -489,6 +489,7 @@ vector<string> loadSymList(const string& symPath) {
 ConstantSP loadSplayedNestedColumn(const string& colPath,
     const vector<string>& symList, const string& symName, kdb::Parser& parser
 ) {
+#if 0
     const auto colMapPath = colPath + '#';
     kdb::BinFile colMapFile{colMapPath, colMapPath};
     if(UNLIKELY(!colMapFile)) {
@@ -500,6 +501,8 @@ ConstantSP loadSplayedNestedColumn(const string& colPath,
     colMapFile.readInto(mapParser.getBuffer());
     mapParser.initialize();
     return parser.nestedList(mapParser, symList, symName, colPath, colMapPath);
+#endif
+throw RuntimeException(to_string(__LINE__));
 }
 
 VectorSP loadSplayedColumn(const string& colPath,
@@ -513,26 +516,11 @@ VectorSP loadSplayedColumn(const string& colPath,
 
     kdb::Parser parser;
     colFile.readInto(parser.getBuffer());
-    parser.initialize();
-    const auto header = parser.getHeader();
-    VectorSP col;
-cerr << colPath << "\t" << (kdb::Type)header->type << endl;
-    if(UNLIKELY(header->type == kdb::K_STRING)) {
-        throw RuntimeException(PLUGIN_NAME ": Unenumerated symbol column"
-            + colPath + " (" + to_string(header->type) + ").");
-    } else
-    if(kdb::K_ENUM_MIN <= header->type && header->type <= kdb::K_ENUM_MAX) {
-        col = parser.strings(colPath, symList, symName);
-    } else
-    if(kdb::K_NESTED_MIN <= header->type && header->type <= kdb::K_NESTED_MAX) {
-        col = loadSplayedNestedColumn(colPath, symList, symName, parser);
-    } else {
-        col = parser.vector(colPath);
-    }
+    VectorSP col = parser.getVector(colPath, symList, symName);
+    assert(!col.isNull());
 
-    LOG(PLUGIN_NAME ": Loaded splayed column from " + colPath
-        + " (" + to_string(static_cast<kdb::Type>(header->type))
-        + "->" + to_string(col->getType()) + ") "
+    LOG(PLUGIN_NAME ": Loaded splayed column from " + colPath + " "
+        + "type=" + to_string(col->getType()) + " "
           "size=" + to_string(col->size()));
     return col;
 }
@@ -1156,12 +1144,16 @@ TableSP loadSplayedTable(string tablePath,
     // Read .d file, get column names
     const string dotD = tablePath + ".d";
     vector<string> colNames = loadSymList(dotD);
+cerr << tablePath << '\t' << colNames.size() << '\n';
+for(const auto c : colNames) cerr << '\t' << c;
+cerr << endl;
 
     const size_t colNum = colNames.size();
-    vector<ConstantSP> cols(colNum);
+    vector<ConstantSP> cols;
+    cols.reserve(colNum);
 
 #if KDB_READ_SEQUENTIAL
-    transform(colNames.cbegin(), colNames.cend(), cols.begin(),
+    transform(colNames.cbegin(), colNames.cend(), back_inserter(cols),
         [&tablePath, &symList, &symName](const string& colName) {
             return loadSplayedColumn(tablePath + colName, symList, symName);
         }

@@ -46,7 +46,7 @@ namespace endian {
     enum Endianness { LITTLE, BIG };
 
     constexpr Endianness native() {
-        return *static_cast<const char*>(
+        return *static_cast<const byte*>(
             static_cast<const void*>(&lsb_detector)
         ) == 0x01 ? LITTLE : BIG;
     }
