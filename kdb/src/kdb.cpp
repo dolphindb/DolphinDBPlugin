@@ -213,26 +213,6 @@ string Connection::loadSymFile(const string& symFilePath) const {
     return symName;
 }
 
-namespace /*anonymous*/ {
-
-    //FIXME: DolphinDB does not allow [].setColumnarTuple!()
-    //  However, we can try to fake it here...
-    void fakeEmptyAnyColumn(ConstantSP& colVal,
-        const string& tableName, const string& colName
-    ) {
-        LOG(PLUGIN_NAME ": "
-              "DolphinDB does not support empty ANY VECTOR in "
-            + tableName + "." + colName + " as a table column! "
-              "We'll try to fake one instead...");
-        const auto any = dynamic_cast<AnyVector*>(colVal.get());
-        assert(any);
-        any->setTableColumn(true);
-        // Just a dummy type, will accept any type as of v2.00.10.
-        any->setExtraParamForType(DT_INT);
-    }
-
-}//namespace /*anonymous*/
-
 ConstantSP Connection::loadColumn(
     const string& tableName, const string& colName
 ) const {
@@ -248,13 +228,12 @@ ConstantSP Connection::loadColumn(
             "Failed to load column " + tableName + "." + colName + ".");
     }
 
-cerr << tableName << "." << colName << "\t" << (kdb::Type)colRes->t << " : " << colRes->n << endl;
     auto colVal = kdb::toDDB::fromK(colRes.get(), colName);
     auto col = dynamic_cast<Vector*>(colVal.get());
     assert(col);
     col->setNullFlag(col->hasNull());
     if(!col->size() && col->getType() == DT_ANY) {
-        fakeEmptyAnyColumn(colVal, tableName, colName);
+        kdb::fakeEmptyAnyColumn(col, tableName, colName);
     }
 
     LOG(PLUGIN_NAME ": Loaded column " + tableName + "." + colName
@@ -271,7 +250,6 @@ TableSP Connection::getTable(
 
     // load symbol
     const string symName = loadSymFile(symFilePath);
-cerr << tablePath << "\t" << symFilePath << "\t" << symName << endl;
 
     // load table
     const string loadCommand = R"(\l )" + tablePath;
@@ -296,9 +274,7 @@ cerr << tablePath << "\t" << symFilePath << "\t" << symName << endl;
     transform(kS(colsRes.get()), kS(colsRes.get()) + colNum, colNames.begin(),
         static_cast<S(*)(const string&)>(&kdb::sym)
     );
-cerr << tablePath << "\t" << colNames.size() << "\n";
-for(const auto c : colNames) cerr << '\t' << c;
-cerr << endl;
+
     vector<ConstantSP> cols(colNum);
     transform(colNames.cbegin(), colNames.cend(), cols.begin(),
         [&](const string& colName) { return loadColumn(tableName, colName); }

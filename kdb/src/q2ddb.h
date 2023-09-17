@@ -68,6 +68,10 @@ namespace kdb {
     S sym(const char* str) noexcept;
     S sym(const std::string& str) noexcept;
 
+    void fakeEmptyAnyColumn(Vector* colVal,
+        const std::string& tableName, const std::string& colName,
+        DATA_TYPE dummyTYpe = DT_INT);
+
     struct toDDB {
         static ConstantSP fromK(K pk, const std::string& var);
 
@@ -146,48 +150,63 @@ namespace kdb {
     public:
         template<byte Tag0, byte Tag1, typename HeaderT>
         struct HeaderTag;
-
         template<typename HeaderT,
             typename DataT = byte, std::size_t MinCount = 0>
         struct DataBlock;
 
+        // 0xFF01
         struct BaseHeader;
         struct SymsList;
 
-        struct EnumSymsHeader36;
-        struct EnumSymsList36;
-
+        // 0xFE20
         struct BaseListHeader;
         struct BaseList;
 
+        // 0xFD20
         struct ExtListHeader;
         struct ExtList;
 
+        // 0xFD0000~~0xFD0013
+        struct SimpleListHeader;
+        struct SimpleList;
+
+        // 0xFD0014~~0xFD004C
         struct EnumSymsHeader;
         struct EnumSymsList;
 
-        template<byte Tag0, byte Tag1, std::int32_t Level = 0>
+        // 0xFD014D00000000~~0xFD016100000000
+        // 0xFB004Dnnnnnnnn~~0xFB0061nnnnnnnn
+        template<byte Tag0, byte Tag1, std::int32_t MinRef = 0>
         struct NestedListHeader;
-        template<byte Tag0, byte Tag1, std::int32_t Level = 0>
+        template<byte Tag0, byte Tag1, std::int32_t MinRef = 0>
         struct NestedList;
 
+        // 0xHHHHHHHHnnnnnn00
+        // 0xHHHHHHHHnnnnnn01
+        // 0xHHHHHHHHHHHHHHHH
         struct ItemIndex;
 
+        // 0xFD0004
         struct NestedMapHeader;
         struct NestedMap;
 
+        // 0x7F+type
         struct NestedItemHeader;
         struct NestedItem;
 
+        // 0xFB0000~~0xFB0013
         struct NestedItemExHeader;
         struct NestedItemEx;
 
+        // 0x93~~0xCB
         struct NestedEnumSymsHeader;
         struct NestedEnumSyms;
 
+        // 0xFB0014~~0xFB004C
         struct NestedEnumSymsExHeader;
         struct NestedEnumSymsEx;
 
+        // 0x030000000200000000+addr0+addr1
         struct Trailer;
 
     public:

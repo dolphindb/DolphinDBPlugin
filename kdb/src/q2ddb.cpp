@@ -7,6 +7,7 @@
 
 #include "Util.h"
 #include "ScalarImp.h"
+#include "SpecialConstant.h"
 #include "Logger.h"
 
 #include "endian.h"
@@ -98,8 +99,30 @@ bool kdb::isValidListOf(const K k, Type type) noexcept {
     return k && (k->n >= 0) && (k->t == type);
 }
 
-S kdb::sym(const char* str) noexcept { return const_cast<S>(str); }
-S kdb::sym(const string& str) noexcept { return kdb::sym(str.c_str()); }
+S kdb::sym(const char* str) noexcept {
+    static const char NULL_SYM[] = { '\0' };
+    return const_cast<S>((str && *str != '\0') ? str : NULL_SYM);
+}
+S kdb::sym(const string& str) noexcept {
+    return kdb::sym(str.c_str());
+}
+
+//FIXME: DolphinDB does not allow [].setColumnarTuple!()
+//  However, we can try to fake it here...
+void kdb::fakeEmptyAnyColumn(Vector* colVal,
+    const string& tableName, const string& colName, DATA_TYPE dummyType
+) {
+    assert(colVal);
+    LOG(PLUGIN_NAME ": "
+            "DolphinDB does not support empty ANY VECTOR in "
+        + tableName + "." + colName + " as a table column! "
+            "We'll try to fake one instead...");
+    const auto any = dynamic_cast<AnyVector*>(colVal);
+    assert(any);
+    any->setTableColumn(true);
+    // Just a dummy type, will accept any type as of v2.00.10.
+    any->setExtraParamForType(dummyType);
+}
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -442,7 +465,7 @@ VectorSP kdb::toDDB::seconds(I* begin, I* end, const string& var) {
 
     // DolphinDB doesn't have +/-inf seconds, treat them as nulls.
     using ddbPtr = const int*;
-    return buildVector<I, DT_MINUTE, ddbPtr>(
+    return buildVector<I, DT_SECOND, ddbPtr>(
         [begin, end](ddbPtr& from, ddbPtr& to) {
             transform(begin, end, begin, [](I& v){
                 return isNull(v) || isInf(v) ? DDB_INT_NULL : v;
@@ -482,7 +505,7 @@ VectorSP kdb::toDDB::makeVector(
             == sizeof(typename remove_pointer<ddbPtr>::type),
         "kdb+ vs DolphinDB type equivalence");
 
-    if(UNLIKELY(!(begin && begin <= end))) {
+    if(UNLIKELY(!((begin && begin <= end) || (!begin && begin == end)))) {
         throw RuntimeException(PLUGIN_NAME ": "
             "Invalid kdb+ vector for " + var + ".");
     }
@@ -544,14 +567,14 @@ VectorSP kdb::toDDB::mapStrings(J* begin, J* end,
     for(auto idx = begin; idx < end; ++idx) {
         S s = nullptr;
         if(UNLIKELY(isNull(*idx))) {
-            s = sym("");
+            s = sym(nullptr);
         } else
         if(LIKELY(0 <= *idx && static_cast<size_t>(*idx) < symList.size())) {
-            s = sym(symList[*idx].c_str());
+            s = sym(symList[*idx]);
         } else {
             LOG(PLUGIN_NAME ": " + var + " - "
                 "sym[" + to_string(*idx) + "] not in " + symName + ".");
-            s = sym("");
+            s = sym(nullptr);
         }
         assert(s);
         syms[idx - begin] = s;
@@ -570,50 +593,76 @@ VectorSP kdb::toDDB::nestedList(Type type,
             "Cannot convert empty nested list " + var + ".");
     }
 
-    auto item = begin;
-    VectorSP val = fromK(*item, "first(" + var + ")");
-    assert(!val.isNull());
-    bool isArrayVector;
-    switch(val->getType()) {
-        case DT_SYMBOL:
-        case DT_STRING:
-            isArrayVector = false;
-            break;
-        default:
-            isArrayVector = true;
-    }
+    // Convert each nested list
+    vector<VectorSP> list;
+    list.reserve(count);
+    transform(begin, end, back_inserter(list), [&var, begin](const K item) {
+        return fromK(item, var + '[' + to_string(&item - begin) + ']');
+    });
+    assert(list.size() == static_cast<size_t>(count));
 
-    VectorSP vec, tuple;
-    if(isArrayVector) {
-        vec = InternalUtil::createArrayVector(
-                bit_cast<DATA_TYPE>(ARRAY_TYPE_BASE + val->getType()),
-                0, 0, count, 0);
-        tuple = Util::createVector(DT_ANY, 1);
-        tuple->set(0, val);
-        vec->append(tuple);
-    } else {
-        vec = Util::createVector(DT_ANY, 0, count);
-        vec->append(val);
-    }
-
-    for(++item; item < end; ++item) {
-        const string itemName = var + "[" + to_string(item - begin) + "]";
-        if(LIKELY(isValidListOf(*item, type))) {
-            val = fromK(*item, itemName);
-            assert(!val.isNull());
-            if(isArrayVector) {
-                tuple->set(0, val);
-                vec->append(tuple);
-            } else {
-                vec->append(val);
+    // Detect and check if they are all of homogeneous type
+    DATA_TYPE dbType = DT_ANY;
+    for(auto i = 0u; i < list.size(); ++i) {
+        auto const& item = list[i];
+        assert(!item.isNull());
+        const auto itemType = item->getType();
+        if(dbType == DT_ANY) {
+            if(itemType != DT_ANY) {
+                dbType = itemType;
             }
-        } else {
-            throw RuntimeException(PLUGIN_NAME ": Not a valid kdb+ list "
-                "of type " + to_string(type) + " at " + itemName + ".");
+        } else
+        if(itemType == DT_ANY) {
+            if(item->size()) {
+                throw RuntimeException(PLUGIN_NAME ": "
+                    "Unknown data type in a kdb+ list of type"
+                    " " + to_string(type) + " "
+                    "at " + var + "[" + to_string(i) + "].");
+            }
+        } else
+        if(itemType != dbType) {
+            throw RuntimeException(PLUGIN_NAME ": "
+                "Mixed data in a kdb+ list of type " + to_string(type) + " "
+                "at " + var + "[" + to_string(i) + "] ("
+                "expected=" + to_string(dbType) + " "
+                "actual=" + to_string(itemType) + ").");
         }
     }
 
-    assert(vec->size() == count);
+    // Construct nested list for DolphinDB
+    VectorSP vec;
+    switch(dbType) {
+        case DT_ANY:
+            vec = Util::createVector(DT_ANY, count);
+            fakeEmptyAnyColumn(vec.get(), "*", var);
+            for(auto i = 1u; i < list.size(); ++i) {
+                auto item = list[i];
+                assert(item->getType() == DT_ANY && !item->size());
+                vec->set(i, item);
+            }
+            break;
+        case DT_SYMBOL:
+        case DT_STRING:
+            vec = Util::createVector(DT_ANY, 0, count);
+            for_each(list.begin(), list.end(), [&vec, dbType](VectorSP& item) {
+                if(item->getType() == DT_ANY) {
+                    item = Util::createVector(dbType, 0, 0);
+                }
+                vec->append(item);
+            });
+            break;
+        default:
+            vec = InternalUtil::createArrayVector(
+                bit_cast<DATA_TYPE>(ARRAY_TYPE_BASE + dbType),
+                0, 0, count, 0);
+            for_each(list.begin(), list.end(), [&vec](VectorSP& item) {
+                VectorSP tuple = Util::createVector(DT_ANY, 1);
+                tuple->set(0, item);
+                vec->append(tuple);
+            });
+    }
+    assert(!vec.isNull() && vec->size() == count);
+
     return vec;
 }
 
@@ -640,7 +689,7 @@ struct kdb::Parser::BaseHeader : HeaderTag<0xFF, 0x01, BaseHeader> {
         byte      tag[2];
         Type      type;
         Attribute attr;
-        int32_t   pad_or_count;  // padding/map-level? or count
+        int32_t   ref_count;
     };
 
     using HeaderTag::isValid;
@@ -654,7 +703,8 @@ static_assert(sizeof(kdb::Parser::BaseHeader) == 2+1+1+4,
 
 struct kdb::Parser::SymsList : DataBlock<BaseHeader, char> {
     constexpr size_t getCount() const noexcept {
-        return static_cast<size_t>((assert(header.pad_or_count >= 0), header.pad_or_count));
+        return static_cast<size_t>(
+            (assert(header.ref_count >= 0), header.ref_count));
     }
 
     vector<string> getSyms(const byte* end) const {
@@ -668,8 +718,11 @@ struct kdb::Parser::SymsList : DataBlock<BaseHeader, char> {
         if(count != UNKNOWN_SIZE) {
             syms.reserve(count);
         }
+
+
         const auto eod = reinterpret_cast<const char*>(end);
-        for(const char* next = get(); next < eod && syms.size() < count; ) {
+        const char* next = get();
+        while(next < eod && syms.size() < count) {
             const auto eos = find(next, eod, '\0');
             if(UNLIKELY(eos >= eod)) {
                 throw RuntimeException(PLUGIN_NAME ": "
@@ -678,8 +731,21 @@ struct kdb::Parser::SymsList : DataBlock<BaseHeader, char> {
             syms.emplace_back(string{next, eos});
             next = eos + 1;
         }
+        if(next < eod) {
+            LOG(PLUGIN_NAME ": "
+                "Found syms beyond designated count=" + to_string(count) + ".");
+            while(next < eod) {
+                const auto eos = find(next, eod, '\0');
+                syms.emplace_back(string{next, eos});
+                next = eos + 1;
+            }
+        }
 
-        assert(syms.size() == count || count == UNKNOWN_SIZE);
+        assert(syms.size() >= count || count == UNKNOWN_SIZE);
+        if(syms.size() > count) {
+            LOG(PLUGIN_NAME ": "
+                "Actual syms extracted=" + to_string(syms.size()) + ".");
+        }
         return syms;
     }
 };
@@ -741,6 +807,40 @@ static_assert(sizeof(kdb::Parser::ExtList)
     "kdb+ file 0xFD20 data block - extendded list & secondary header");
 
 //============================================================================
+struct kdb::Parser::SimpleListHeader
+    :  BaseListHeader, HeaderTag<0xFD, 0x00, SimpleListHeader>
+{
+    constexpr bool isValid() const noexcept {
+        return HeaderTag<0xFD, 0x00, SimpleListHeader>::isValid()
+            && K_LIST <= type && type < K_ENUM_MIN;
+    }
+};
+static_assert(sizeof(kdb::Parser::SimpleListHeader) == 8+8,
+    "kdb+ file 0xFD00 secondary header - simple list");
+
+struct kdb::Parser::SimpleList : DataBlock<SimpleListHeader, byte> {
+    bool isComplete(const byte* end) const noexcept {
+        return DataBlock::isComplete(getSize(header.type), getCount(), end);
+    }
+
+    constexpr size_t getCount() const noexcept {
+        return static_cast<size_t>((assert(header.count >= 0), header.count));
+    }
+
+    VectorSP getVector() const {
+        if(UNLIKELY(!header.isValid())) {
+            throw RuntimeException(PLUGIN_NAME ": "
+                "kdb+ extended file - not a valid simple list.");
+        }
+
+        ostringstream msg;
+        msg << hex << uppercase << setfill('0') << setw(2) << header.type;
+        return toDDB::fromArray(header.type, get(), getCount(),
+            "0xFD00" + msg.str());
+    }
+};
+
+//============================================================================
 struct kdb::Parser::EnumSymsHeader
     :  BaseListHeader, HeaderTag<0xFD, 0x00, EnumSymsHeader>
 {
@@ -773,18 +873,19 @@ struct kdb::Parser::EnumSymsList : DataBlock<EnumSymsHeader, ItemIndex> {
         syms.reserve(getCount());
         const auto begin = get();
         transform(begin, begin + getCount(), back_inserter(syms),
-            [&symList, &symName](const ItemIndex& idx) {
+            [begin,
+            &symList, &symName](const ItemIndex& idx) {
                 if(isNull(idx.index)) {
-                    return sym("");
+                    return sym(nullptr);
                 } else
                 if(0 <= idx.index
                     && static_cast<size_t>(idx.index) <= symList.size()
                 ) {
-                    return sym(symList[idx.index].c_str());
+                    return sym(symList[idx.index]);
                 } else {
                     LOG(PLUGIN_NAME ": Enumerated sym out of bounds "
                         + symName + "[" + to_string(idx.index) + "].");
-                    return sym("");
+                    return sym(nullptr);
                 }
             }
         );
@@ -793,24 +894,25 @@ struct kdb::Parser::EnumSymsList : DataBlock<EnumSymsHeader, ItemIndex> {
 };
 
 //============================================================================
-template<byte Tag0, byte Tag1, int32_t Level>
+template<byte Tag0, byte Tag1, int32_t MinRef>
 struct kdb::Parser::NestedListHeader
-    : BaseListHeader, HeaderTag<Tag0, Tag1, NestedListHeader<Tag0, Tag1, Level>>
+    : BaseListHeader, HeaderTag<Tag0, Tag1, NestedListHeader<Tag0, Tag1, MinRef>>
 {
     constexpr bool isValid() const noexcept {
         return HeaderTag<Tag0, Tag1, NestedListHeader>::isValid()
             && K_NESTED_MIN <= type && type <= K_NESTED_MAX
-            && pad_or_count == Level;
+            && ref_count >= MinRef;
     }
 };
 static_assert(sizeof(kdb::Parser::NestedListHeader<0xFD, 0x01>) == 8+8,
-    "kdb+ file 0xF?0? secondary/ternary header - nested list");
+    "kdb+ file 0xFD01/0xFB00 secondary/ternary header - nested list");
 
-template<byte Tag0, byte Tag1, int32_t Level>
+template<byte Tag0, byte Tag1, int32_t MinRef>
 struct kdb::Parser::NestedList
-    : DataBlock<NestedListHeader<Tag0, Tag1, Level>, ItemIndex>
+    : DataBlock<NestedListHeader<Tag0, Tag1, MinRef>, ItemIndex>
 {
-    using base_type = DataBlock<NestedListHeader<Tag0, Tag1, Level>, ItemIndex>;
+    using base_type =
+        DataBlock<NestedListHeader<Tag0, Tag1, MinRef>, ItemIndex>;
 
     constexpr bool isComplete(const byte* end) const noexcept {
         return base_type::isComplete(getCount(), end);
@@ -904,7 +1006,7 @@ struct kdb::Parser::NestedItemExHeader
     constexpr bool isValid() const noexcept {
         return HeaderTag<0xFB, 0x00, NestedItemExHeader>::isValid()
             && K_LIST <= getType() && getType() < K_ENUM_MIN
-            && pad_or_count == 0x01;
+            && ref_count >= 1;
     }
 };
 static_assert(sizeof(kdb::Parser::NestedItemExHeader) == 8+8,
@@ -984,7 +1086,7 @@ struct kdb::Parser::NestedEnumSymsExHeader
     constexpr bool isValid() const noexcept {
         return HeaderTag<0xFB, 0x00, NestedEnumSymsExHeader>::isValid()
             && K_ENUM_MIN <= getType() && getType() <= K_ENUM_MAX
-            && pad_or_count == 0x01;
+            && ref_count >= 1;
     }
 };
 static_assert(sizeof(kdb::Parser::NestedItemExHeader) == 8+8,
@@ -1030,8 +1132,7 @@ struct kdb::Parser::NestedMap : DataBlock<NestedMapHeader, byte> {
         ostringstream msg;
         msg << '<' <<"0x"
             << hex << uppercase << setfill('0') << setw(8) << idx.offset
-            << '|' << dec << unsigned{idx.format}
-            << '>';
+            << '|' << setw(2) << unsigned{idx.format} << '>';
         return msg.str();
     }
 
@@ -1272,7 +1373,15 @@ VectorSP kdb::Parser::getVector(
     const string& file, const vector<string>& symList, const string& symName
 ) const {
     if(parse<BaseHeader>()->isValid()) {
-throw RuntimeException(__FILE__ ":" + to_string(__LINE__));
+        const auto data = parse<SymsList>();
+        if(UNLIKELY(data->getCount())) {
+            throw RuntimeException(PLUGIN_NAME ": "
+                "Unexpected non-empty kdb+ file with magic 0xFF01.");
+        } else {
+            VectorSP any = Util::createVector(DT_ANY, 0);
+            fakeEmptyAnyColumn(any.get(), file, "");
+            return any;
+        }
     } else
     if(parse<BaseListHeader>()->isValid()) {
         return getFastVector(parse<BaseList>(), file, symList, symName);
@@ -1337,6 +1446,9 @@ VectorSP kdb::Parser::getGeneralList(const ExtList* data,
             "Truncated or incomplete kdb+ extended file " + file + ".");
     }
 
+    if(data->get<SimpleListHeader>()->isValid()) {
+        return data->get<SimpleList>()->getVector();
+    } else
     if(data->get<EnumSymsHeader>()->isValid()) {
         if(UNLIKELY(symName.empty())) {
             throw RuntimeException(PLUGIN_NAME ": "
@@ -1347,10 +1459,9 @@ VectorSP kdb::Parser::getGeneralList(const ExtList* data,
             throw RuntimeException(PLUGIN_NAME ": "
                 "kdb+ extended file " + file + " "
                 "was not enumerated on " + symName + ".");
-        } else {
-            return getEnumStrings(data->get<EnumSymsList>(),
-                file, symList, symName);
         }
+        return getEnumStrings(data->get<EnumSymsList>(),
+            file, symList, symName);
     } else
     if(data->get<NestedListHeader<0xFD, 0x01>>()->isValid()) {
         return getNestedLists(
