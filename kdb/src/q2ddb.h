@@ -206,7 +206,7 @@ namespace kdb {
         struct NestedEnumSymsExHeader;
         struct NestedEnumSymsEx;
 
-        // 0x0300000002000000+addr0+addr1
+        // 0x0300000002HHHHHH+addr0+addr1
         struct Trailer;
 
     public:

@@ -16,9 +16,8 @@ using namespace std;
 //////////////////////////////////////////////////////////////////////////////
 
 // zlib inflation parameters
-const int ZLib_WINDOW_BITS   = 15;
 const int ZLib_FORMAT_DETECT = 32;
-const size_t ZLib_CHUNK_SIZE = 1 << ZLib_WINDOW_BITS;
+const size_t ZLib_CHUNK_SIZE = 1 << 14;
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -191,7 +190,7 @@ int kdb::ZLibStream::inflateChunks(vector<byte>& buffer) {
     stream.avail_in = 0;
     stream.next_in  = Z_NULL;
 
-    int status = ::inflateInit2(&stream, ZLib_WINDOW_BITS + ZLib_FORMAT_DETECT);
+    int status = ::inflateInit(&stream);
     if(UNLIKELY(status != Z_OK)) {
         return status;
     }

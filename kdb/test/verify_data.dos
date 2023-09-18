@@ -14,7 +14,7 @@ loadPlugin(BASE_DIR + "/bin/win/PluginKDB.txt")
 // 测试从kdb+远程加载数据表
 kh = kdb::connect("localhost", 5000, "admin:123456")
      kdb::connect("localhost", 5555, "admin:123456")		//> 错误端口
-     kdb::connect("127.127.127.127", 5000, "admin:123456")		//> 错误IP
+     kdb::connect("128.0.0.0", 5000, "admin:123456")		//> 错误IP
      kdb::connect("localhost", 5000, "admin:wrong")		//> 错误密码
      kdb::connect("localhost", 5000, "dolphindb:123456")	//> 错误用户
 

@@ -1259,8 +1259,8 @@ ConstantSP kdb::Parser::NestedMap::getItem(
     const auto type = item->header.getType();
     if(UNLIKELY(!item->isComplete(end))) {
         throw RuntimeException(PLUGIN_NAME ": "
-                "Truncated nested item "
-            + stringize(idx) + " (type=" + to_string(type) + ").");
+            "Truncated nested item " + stringize(idx) + " "
+            "(type=" + to_string(type) + ").");
     }
 
     switch(type) {
@@ -1403,25 +1403,30 @@ tuple<ConstantSP, bool> kdb::Parser::NestedMap::getItem(
 /**
 End of Data  00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14 15 16 17
 ~~~~~~~~~~--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- data items |03|00|00|00|02|00|00|00|         offset        |     offset + 0x08     |
+ data items |03|00|00|00|02|??|??|??|         offset        |     offset + 0x08     |
 ~~~~~~~~~~--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
  *> "offset" = offset of kdb::Parser::Trailer from beginning of data contents
  */
 struct kdb::Parser::Trailer {
-    int32_t  tag[2];
+    int8_t  tag[5];
+    int8_t  pad_xxx[3];
     int64_t end_offset[2];
 
-    static constexpr int32_t TAG[] = { 0x03, 0x02 };
+    static const int8_t TAG[sizeof(tag)];
 
-    constexpr bool isValid(const byte* begin) const {
-        return tag[0] == TAG[0] && tag[1] == TAG[1]
-            && end_offset[0] == reinterpret_cast<const byte*>(this) - begin
-            && end_offset[1] == static_cast<int64_t>(
-                    end_offset[0] + sizeof(end_offset[0]));
+    bool isValid(const byte* begin) const {
+        const ptrdiff_t offset0 = reinterpret_cast<const byte*>(this) - begin;
+        const ptrdiff_t offset1 = offset0 + sizeof(end_offset[0]);
+        return memcmp(tag, TAG, sizeof(TAG)) == 0
+            && end_offset[0] == offset0 && end_offset[1] == offset1;
     }
 };
 static_assert(sizeof(kdb::Parser::Trailer) == 4*2+8+8,
     "kdb+ file trailer (optional)");
+
+const int8_t kdb::Parser::Trailer::TAG[] = {
+    0x03, 0x00, 0x00, 0x00, 0x02
+};
 
 #pragma pack(pop)
 //////////////////////////////////////////////////////////////////////////////

@@ -115,19 +115,17 @@ namespace /*anonymous*/ {
 
     void kdbConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
         assert(args.size() >= 1);
-
-        // Use unique_ptr<> to manage conn until it is reset.
-        unique_ptr<Connection> conn;
         try {
-            conn.reset(arg2Connection(args[0], __FUNCTION__));
+            // Use unique_ptr<> to manage conn until it is reset.
+            unique_ptr<Connection> conn{arg2Connection(args[0], __FUNCTION__)};
+            if(conn) {
+                conn.reset();
+                args[0]->setLong(0);
+            }
         }
-        catch(IllegalArgumentException& iae) {
-            throw RuntimeException(iae.what());
-        }
-
-        if(conn) {
-            conn.reset();
-            args[0]->setLong(0);
+        catch(const TraceableException& te) {
+            LOG_ERR(PLUGIN_NAME ": "
+                + string{__FUNCTION__} + " error: " + te.what());
         }
     }
 
