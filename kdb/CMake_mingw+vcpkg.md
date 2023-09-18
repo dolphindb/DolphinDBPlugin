@@ -60,3 +60,13 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build -j 4
 cmake --install build
 ```
+
+## Test Scripts
+
+### 1. Generate test data
+
+Test data can be generated via kdb+/q script [`test/generate_data.q`](test/generate_data.q).
+
+### 2. Verify test data
+
+Test data can be verified via DolphinDB script [`test/verify_data.dos`](test/verify_data.dos).

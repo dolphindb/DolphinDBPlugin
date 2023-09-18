@@ -8,20 +8,24 @@ message(STATUS "CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
 
 #=== vcpkg
 if(ENV{VCPKG_ROOT})
-    set(VCPKG_ROOT "$ENV{VCPKG_ROOT}" CACHE PATH "vcpkg installation directory" FORCE)
+    set(VCPKG_ROOT "$ENV{VCPKG_ROOT}" CACHE PATH "vcpkg installation directory")
 endif()
 if(VCPKG_ROOT AND NOT CMAKE_TOOLCHAIN_FILE)
-    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE FILEPATH "vcpkg toolchain for CMake" FORCE)
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE FILEPATH "vcpkg toolchain for CMake")
 endif()
 message(STATUS "VCPKG_ROOT = ${VCPKG_ROOT}")
 
 if(NOT VCPKG_TARGET_TRIPLET)
+    # We support only x64 builds on Windows for now.
     set(VCPKG_TARGET_TRIPLET "x64-windows" CACHE STRING "vcpkg target triplet" FORCE)
 endif()
 message(STATUS "VCPKG_TARGET_TRIPLET = ${VCPKG_TARGET_TRIPLET}")
 
 #========================================
 project(PluginKDB LANGUAGES CXX)
+
+set(KDB_READ_PARALLEL ON CACHE BOOL "read kdb+ data files in parallel")
+message(STATUS "KDB_READ_PARALLEL = ${KDB_READ_PARALLEL}")
 
 #=== Source Code
 file(GLOB PluginKDB_HEADER CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.h  )
@@ -107,9 +111,12 @@ find_package(ZLIB REQUIRED)
 target_link_libraries(PluginKDB PRIVATE ZLIB::ZLIB)
 
 #== kdb+
-target_compile_definitions(PluginKDB PUBLIC  KXVER=3)
-target_link_directories   (PluginKDB PUBLIC  "${CMAKE_BINARY_DIR}")
-target_link_libraries     (PluginKDB PRIVATE ${kdb_lib})
+target_compile_definitions(PluginKDB PUBLIC
+    KXVER=3
+    KDB_READ_PARALLEL=$<BOOL:KDB_READ_PARALLEL>
+)
+target_link_directories(PluginKDB PUBLIC  "${CMAKE_BINARY_DIR}")
+target_link_libraries  (PluginKDB PRIVATE ${kdb_lib})
 
 #=== Post-build Actions
 install(TARGETS PluginKDB
