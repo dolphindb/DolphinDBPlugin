@@ -1316,6 +1316,9 @@ static_assert(sizeof(kdb::Parser::Trailer) == 4*2+8+8,
 #pragma pack(pop)
 //////////////////////////////////////////////////////////////////////////////
 
+kdb::Parser::Parser() : buffer_{}, end_{nullptr}
+{}
+
 vector<kdb::byte>& kdb::Parser::getBuffer() noexcept {
     return buffer_;
 }
@@ -1325,20 +1328,24 @@ const byte* kdb::Parser::begin() const noexcept {
 }
 
 const byte* kdb::Parser::end() const noexcept {
-    return begin() + buffer_.size();
+    return end_ ? end_ : findEnd();
 }
 
 const byte* kdb::Parser::findEnd(const byte* start) const noexcept {
-    assert(begin() <= start && start < end());
-    const auto from = start ? start : begin();
-    const auto to   = end() - sizeof(Trailer);
+    assert(!end_);
+    const ptrdiff_t end = buffer_.size();
+
+    const ptrdiff_t from = start ? start - begin() : 0;
+    const ptrdiff_t to   = end - sizeof(Trailer);
+    assert(0 <= from && from < end);
+
     for(auto p = from; p <= to; ++p) {
-        const auto trailer = reinterpret_cast<const Trailer*>(p);
+        const auto trailer = parse<Trailer>(p);
         if(trailer->isValid(begin())) {
-            return p;
+            return end_ = begin() + p;
         }
     }
-    return end();
+    return end_ = begin() + buffer_.size();
 }
 
 template<typename T>
@@ -1425,16 +1432,15 @@ VectorSP kdb::Parser::getFastVector(const BaseList* data,
         throw RuntimeException(PLUGIN_NAME ": "
             "Unexpected unenumerated syms list in " + file + ".");
     } else
-    if(K_ENUM_MIN <= type && type <= K_ENUM_MAX) {
-//        return getEnumStrings(data, file, symList, symName);
-throw RuntimeException(__FILE__ ":" + to_string(__LINE__));
+    if(UNLIKELY(K_ENUM_MIN <= type && type <= K_ENUM_MAX)) {
+        throw RuntimeException(PLUGIN_NAME ": "
+            "Unexpected enumerated syms list in " + file + ".");
     } else
-    if(K_NESTED_MIN <= type && type <= K_NESTED_MAX) {
-//        return getNestedVector(data, file, symList, symName);
-throw RuntimeException(__FILE__ ":" + to_string(__LINE__));
-    } else {
-        return toDDB::fromArray(type, data->get(), count, file);
+    if(UNLIKELY(K_NESTED_MIN <= type && type <= K_NESTED_MAX)) {
+        throw RuntimeException(PLUGIN_NAME ": "
+            "Unexpected nested data list in " + file + ".");
     }
+    return toDDB::fromArray(type, data->get(), count, file);
 }
 
 VectorSP kdb::Parser::getGeneralList(const ExtList* data,

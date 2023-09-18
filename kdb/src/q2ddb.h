@@ -210,6 +210,8 @@ namespace kdb {
         struct Trailer;
 
     public:
+        Parser();
+
         std::vector<byte>& getBuffer() noexcept;
 
         std::vector<std::string> getStrings(const std::string& file) const;
@@ -222,8 +224,6 @@ namespace kdb {
         const byte* begin() const noexcept;
         const byte* end() const noexcept;
 
-        const byte* findEnd( const byte* start = nullptr) const noexcept;
-
         // Allow for "end" iterator semantics
         template<typename T>
         const T* parse(std::ptrdiff_t offset = 0,
@@ -232,6 +232,8 @@ namespace kdb {
             bool allowEnd = false) const;
 
     private:
+        const byte* findEnd( const byte* start = nullptr) const noexcept;
+
         VectorSP getFastVector(const BaseList* data,
             const std::string& file,
             const std::vector<std::string>& symList,
@@ -265,6 +267,7 @@ namespace kdb {
 
     private:
         std::vector<byte> buffer_;
+        mutable const byte* end_;
 
     };//class Parser
 
