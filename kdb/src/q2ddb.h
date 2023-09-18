@@ -174,8 +174,8 @@ namespace kdb {
         struct EnumSymsHeader;
         struct EnumSymsList;
 
-        // 0xFD014D00000000~~0xFD016100000000
-        // 0xFB004Dnnnnnnnn~~0xFB0061nnnnnnnn
+        // 0xFD014D0000000000~~0xFD01610000000000
+        // 0xFB004DHHnnnnnnnn~~0xFB0061HHnnnnnnnn
         template<byte Tag0, byte Tag1, std::int32_t MinRef = 0>
         struct NestedListHeader;
         template<byte Tag0, byte Tag1, std::int32_t MinRef = 0>
@@ -206,7 +206,7 @@ namespace kdb {
         struct NestedEnumSymsExHeader;
         struct NestedEnumSymsEx;
 
-        // 0x030000000200000000+addr0+addr1
+        // 0x0300000002000000+addr0+addr1
         struct Trailer;
 
     public:

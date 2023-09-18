@@ -670,6 +670,16 @@ VectorSP kdb::toDDB::nestedList(Type type,
 #pragma pack(push, 1)
 
 //============================================================================
+/**
+   00   01   02  03   04   05   06   07
++----+----+----+----+----+----+----+----+
+|    item offset    | ?? | ?? | ?? |form|
++----+----+----+----+----+----+----+----+
+|               enum index              |
++----+----+----+----+----+----+----+----+
+ *> FIXME: only "format" of value 0x00 or 0x01 is recongized for now.
+ *> A null symbol will have "index" value equal to 0Wj in q.
+ */
 struct kdb::Parser::ItemIndex {
     union {
         struct {        // For nested data map
@@ -684,6 +694,13 @@ static_assert(sizeof(kdb::Parser::ItemIndex) == 4+3+1,
     "kdb+ file - mapped list item index");
 
 //============================================================================
+/**
+  00   01   02   03   04  05  06  07  08~~
++----+----+----+----+---+---+---+---+--~~~~~~~~~~~~~~~~~~~
+| FF | 01 |type|attr|   item count  | 0-teminated symbols
++----+----+----+----+---+---+---+---+--~~~~~~~~~~~~~~~~~~~
+ *> FIXME: In enum sym file, "item count" may be inaccurate sometimes!
+ */
 struct kdb::Parser::BaseHeader : HeaderTag<0xFF, 0x01, BaseHeader> {
     struct {
         byte      tag[2];
@@ -751,6 +768,12 @@ struct kdb::Parser::SymsList : DataBlock<BaseHeader, char> {
 };
 
 //============================================================================
+/**
+  00   01   02   03  04 05 06 07 08 09 0A 0B 0C 0D 0D 0F  10~~
++----+----+----+----+--+--+--+--+--+--+--+--+--+--+--+--+--~~~~~~~~~~
+| FE | 20 |type|attr| ref. count|       item count      | data items
++----+----+----+----+--+--+--+--+--+--+--+--+--+--+--+--+--~~~~~~~~~~
+ */
 struct kdb::Parser::BaseListHeader
     :  BaseHeader, HeaderTag<0xFE, 0x20, BaseListHeader>
 {
@@ -775,6 +798,12 @@ struct kdb::Parser::BaseList : DataBlock<BaseListHeader, byte> {
 };
 
 //============================================================================
+/**
+  00   01   02   03  04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  0010~~0FEF           0FF0~~ 
++----+----+----+----+--+--+--+--+--+--+--+--+--+--+--+--+--~~~~~~~~~~~~~~~~--+--~~~~~~~~~~~
+| FD | 20 |type|attr| ref. count|00|00|00|00|00|00|00|00| 00..00 / enum name | ext. header
++----+----+----+----+--+--+--+--+--+--+--+--+--+--+--+--+--~~~~~~~~~~~~~~~~--+--~~~~~~~~~~~
+ */
 struct kdb::Parser::ExtListHeader
     :  BaseListHeader, HeaderTag<0xFD, 0x20, ExtListHeader>
 {
@@ -807,6 +836,14 @@ static_assert(sizeof(kdb::Parser::ExtList)
     "kdb+ file 0xFD20 data block - extendded list & secondary header");
 
 //============================================================================
+/**
+  00   01   02   03  04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  10~~
++----+----+----+----+--+--+--+--+--+--+--+--+--+--+--+--+--~~~~~~~~~~
+| FD | 00 |type|attr| ref. count|       item count      | data items
++----+----+----+----+--+--+--+--+--+--+--+--+--+--+--+--+--~~~~~~~~~~
+ *> This is an extension header following kdb::Parser::ExtListHeader.
+ *> kdb::K_LIST  <= "type" < kdb::K_ENUM_MIN
+ */
 struct kdb::Parser::SimpleListHeader
     :  BaseListHeader, HeaderTag<0xFD, 0x00, SimpleListHeader>
 {
@@ -841,6 +878,15 @@ struct kdb::Parser::SimpleList : DataBlock<SimpleListHeader, byte> {
 };
 
 //============================================================================
+/**
+  00   01   02   03  04 05 06 07 08 09 0A 0B 0C 0C 0D 0E  0F~~
++----+----+----+----+--+--+--+--+--+--+--+--+--+--+--+--+--~~~~~~~~~~~~
+| FD | 00 |type|attr| ref. count|       item count      | item indices
++----+----+----+----+--+--+--+--+--+--+--+--+--+--+--+--+--~~~~~~~~~~~~
+ *> This is an extension header following kdb::Parser::ExtListHeader.
+ *> The "item indices" are of type kdb::Parser::ItemIndex.
+ *> kdb::K_ENUM_MIN  <= "type" <= kdb::K_ENUM_MAX
+ */
 struct kdb::Parser::EnumSymsHeader
     :  BaseListHeader, HeaderTag<0xFD, 0x00, EnumSymsHeader>
 {
@@ -894,6 +940,17 @@ struct kdb::Parser::EnumSymsList : DataBlock<EnumSymsHeader, ItemIndex> {
 };
 
 //============================================================================
+/**
+  00   01   02   03  04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  10~~
++----+----+----+----+--+--+--+--+--+--+--+--+--+--+--+--+--~~~~~~~~~~~~
+| FD | 01 |type| 00 |   00..00  |       item count      | item indices
++----+----+----+----+--+--+--+--+--+--+--+--+--+--+--+--+--~~~~~~~~~~~~
+| FB | 00 |type|attr| ref. count|       item count      | item indices
++----+----+----+----+--+--+--+--+--+--+--+--+--+--+--+--+--~~~~~~~~~~~~
+ *> This is an extension header following kdb::Parser::ExtListHeader.
+ *> kdb::K_NESTED_MIN <= "type" <= kdb::K_NESTED_MAX.
+ *> The "item indices" are of type kdb::Parser::ItemIndex.
+ */
 template<byte Tag0, byte Tag1, int32_t MinRef>
 struct kdb::Parser::NestedListHeader
     : BaseListHeader, HeaderTag<Tag0, Tag1, NestedListHeader<Tag0, Tag1, MinRef>>
@@ -948,6 +1005,14 @@ struct kdb::Parser::NestedList
 };
 
 //============================================================================
+/**
+   00    01   02~~
++-----+-----+--~~~~~~~~~~
+|type0|count| data items
++-----+-----+--~~~~~~~~~~
+ *> kdb::K_LIST + 0x7F <= "type0" < kdb::K_ENUM_MIN + 0x7F.
+ *> Total size of "data items" must be <= 0x5F bytes.
+ */
 struct kdb::Parser::NestedItemHeader {
     struct {
         Type   type_o;
@@ -994,6 +1059,15 @@ struct kdb::Parser::NestedItem : DataBlock<NestedItemHeader, byte> {
 };
 
 //============================================================================
+/**
+  00   01   02   03  04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  10~~
++----+----+----+----+--+--+--+--+--+--+--+--+--+--+--+--+--~~~~~~~~~~~~
+| FB | 00 |type|attr| ref. count|       item count      | data items
++----+----+----+----+--+--+--+--+--+--+--+--+--+--+--+--+--~~~~~~~~~~~~
+ *> kdb::K_LIST <= "type" < kdb::K_ENUM_MIN.
+ *> "ref. count" >= 1.
+ *> Total size of data time >= 0x60 bytes.
+ */
 struct kdb::Parser::NestedItemExHeader
     : BaseListHeader, HeaderTag<0xFB, 0x00, NestedItemExHeader>
 {
@@ -1036,6 +1110,15 @@ struct kdb::Parser::NestedItemEx : DataBlock<NestedItemExHeader, byte> {
 };
 
 //============================================================================
+/**
+   00    01   02~~
++-----+-----+--~~~~~~~~~~~~
+|type0|count| item indices
++-----+-----+--~~~~~~~~~~~~
+ *> kdb::ENUM_MIN + 0x7F <= "type0" <= kdb::ENUM_MAX + 0x7F.
+ *> The "item indices" are of type kdb::Parser::ItemIndex.
+ *> Total size of "item indices" must be <= 0x5F bytes ("count" <= 11).
+ */
 struct kdb::Parser::NestedEnumSymsHeader : kdb::Parser::NestedItemHeader {
     struct {
         byte   pad_xxx[3];
@@ -1054,7 +1137,7 @@ struct kdb::Parser::NestedEnumSymsHeader : kdb::Parser::NestedItemHeader {
 static_assert(sizeof(kdb::Parser::NestedEnumSymsHeader) == 1+4+1,
     "kdb+ file 0x93?? ternary header - simple nested enum syms");
 
-struct kdb::Parser::NestedEnumSyms : DataBlock<NestedEnumSymsHeader, int64_t> {
+struct kdb::Parser::NestedEnumSyms : DataBlock<NestedEnumSymsHeader, ItemIndex> {
     bool isComplete(const byte* end) const noexcept {
         if(UNLIKELY(sizeof(data_t) * getCount() > header_t::MAX_LENGTH)) {
             throw RuntimeException(PLUGIN_NAME ": "
@@ -1074,6 +1157,16 @@ struct kdb::Parser::NestedEnumSyms : DataBlock<NestedEnumSymsHeader, int64_t> {
 };
 
 //============================================================================
+/**
+  00   01   02   03  04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  10~~
++----+----+----+----+--+--+--+--+--+--+--+--+--+--+--+--+--~~~~~~~~~~~~
+| FB | 00 |type|attr| ref. count|       item count      | item indices
++----+----+----+----+--+--+--+--+--+--+--+--+--+--+--+--+--~~~~~~~~~~~~
+ *> kdb::ENUM_MIN <= "type" <= kdb::ENUM_MAX.
+ *> "ref. count" >= 1.
+ *> The "item indices" are of type kdb::Parser::ItemIndex.
+ *> Total size of "item indices" must be > 0x60 bytes ("item count" >= 12).
+ */
 struct kdb::Parser::NestedEnumSymsExHeader
     : BaseListHeader, HeaderTag<0xFB, 0x00, NestedEnumSymsExHeader>
 {
@@ -1093,7 +1186,7 @@ static_assert(sizeof(kdb::Parser::NestedItemExHeader) == 8+8,
     "kdb+ file 0xFB00 ternary header - extended nested enum syms");
 
 struct kdb::Parser::NestedEnumSymsEx
-    : DataBlock<NestedEnumSymsExHeader, int64_t>
+    : DataBlock<NestedEnumSymsExHeader, ItemIndex>
 {
     bool isComplete(const byte* end) const noexcept {
         if(UNLIKELY(sizeof(data_t) * getCount() < header_t::MIN_LENGTH)) {
@@ -1112,6 +1205,12 @@ struct kdb::Parser::NestedEnumSymsEx
 };
 
 //============================================================================
+/**
+  00   01   02   03  04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  10~~
++----+----+----+----+--+--+--+--+--+--+--+--+--+--+--+--+--~~~~~~~~~~
+| FD | 00 | 04 | 00 | ref. count|         00..00        | data items
++----+----+----+----+--+--+--+--+--+--+--+--+--+--+--+--+--~~~~~~~~~~
+ */
 struct kdb::Parser::NestedMapHeader
     :  BaseListHeader, HeaderTag<0xFD, 0x00, NestedMapHeader>
 {
@@ -1188,8 +1287,10 @@ ConstantSP kdb::Parser::NestedMap::getItem(
             "(type=" + to_string(item->header.getType()) + ").");
     }
 
-    return toDDB::longs(item->get(), item->get() + item->getCount(),
-        stringize(idx));
+    static_assert(sizeof(J) == sizeof(NestedEnumSyms::data_t),
+        "item index mapping to enum sym index");
+    const auto begin = reinterpret_cast<J*>(item->get());
+    return toDDB::longs(begin, begin + item->getCount(), stringize(idx));
 }
 
 ConstantSP kdb::Parser::NestedMap::getItem(
@@ -1202,8 +1303,10 @@ ConstantSP kdb::Parser::NestedMap::getItem(
             "(type=" + to_string(item->header.getType()) + ").");
     }
 
-    return toDDB::longs(item->get(), item->get() + item->getCount(),
-        stringize(idx));
+    static_assert(sizeof(J) == sizeof(NestedEnumSyms::data_t),
+        "item index mapping to enum sym index");
+    const auto begin = reinterpret_cast<J*>(item->get());
+    return toDDB::longs(begin, begin + item->getCount(), stringize(idx));
 }
 
 ConstantSP kdb::Parser::NestedMap::getItem(
@@ -1297,6 +1400,13 @@ tuple<ConstantSP, bool> kdb::Parser::NestedMap::getItem(
 }
 
 //============================================================================
+/**
+End of Data  00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F 10 11 12 13 14 15 16 17
+~~~~~~~~~~--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ data items |03|00|00|00|02|00|00|00|         offset        |     offset + 0x08     |
+~~~~~~~~~~--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ *> "offset" = offset of kdb::Parser::Trailer from beginning of data contents
+ */
 struct kdb::Parser::Trailer {
     int32_t  tag[2];
     int64_t end_offset[2];
