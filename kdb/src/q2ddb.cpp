@@ -1536,11 +1536,24 @@ VectorSP kdb::Parser::getFastVector(const BaseList* data,
             "(" + to_string(type) + ").");
     }
 
-    const auto count = data->getCount();
+    auto count = data->getCount();
     if(UNLIKELY(!data->isComplete(itemSize, count, end()))) {
         throw RuntimeException(PLUGIN_NAME ": "
             "Truncated or incomplete kdb+ file " + file + " "
             "(" + to_string(type) + ").");
+    }
+
+    //FIXME: Deal with some compressed fast vector data that has wrong count...
+    const auto length = end() - data->data;
+    if(length % itemSize == 0) {
+        const auto real_count = length / itemSize;
+        if(real_count > count) {
+            LOG(PLUGIN_NAME ": "
+                "Incorrect item count found in " + file + " "
+                "(count=" + to_string(count) + ","
+                " expected=" + to_string(real_count) + ").");
+            count = real_count;
+        }
     }
 
     if(UNLIKELY(type == K_STRING)) {

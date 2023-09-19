@@ -404,6 +404,7 @@ TableSP loadSplayedTable(string tablePath,
     for(auto thread : colThreads) {
         thread->join();
     }
+#endif//!KDB_READ_PARALLEL
 
     for(auto i = 0u; i < colNum; ++i) {
         if(cols[i].isNull()) {
@@ -424,8 +425,6 @@ TableSP loadSplayedTable(string tablePath,
             }
         }
     }
-#endif//!KDB_READ_PARALLEL
-
     return Util::createTable(colNames, cols);
 }
 

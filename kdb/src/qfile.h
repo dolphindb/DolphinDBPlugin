@@ -83,6 +83,9 @@ namespace kdb {
         };
 
     public:
+        struct Trailer;
+
+    public:
         ZLibStream(FILE* fp, std::ptrdiff_t offset);
 
         bool isDeflated(Header* ph = nullptr) const;

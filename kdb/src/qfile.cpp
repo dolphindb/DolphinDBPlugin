@@ -179,11 +179,28 @@ size_t kdb::ZLibStream::inflate(vector<byte>& buffer) {
     return buffer.size() - prev;
 }
 
+#pragma pack(push, 1)
+struct kdb::ZLibStream::Trailer {
+    struct {
+        byte   tag[5];
+        byte   pad_xxx[3];
+        size_t length;
+    };
+
+    static const byte TAG[5];
+
+    bool isValid() const noexcept {
+        return memcmp(tag, TAG, sizeof(TAG)) == 0;
+    }
+};
+static_assert(sizeof(kdb::ZLibStream::Trailer) == 8+8, "kxzipped file trailer");
+
+const byte kdb::ZLibStream::Trailer::TAG[] = { 0x03, 0x00, 0x00, 0x00, 0x02 };
+#pragma pack(pop)
+
 //@see https://www.zlib.net/zlib_how.html
 int kdb::ZLibStream::inflateChunks(vector<byte>& buffer) {
     assert(fp_);
-
-    const auto prev = buffer.size();
     fseek(fp_, offset_, SEEK_SET);
 
     // There could be multiple consecutive zlib streams in a single kdb+ file!
@@ -213,12 +230,12 @@ int kdb::ZLibStream::inflateChunks(vector<byte>& buffer) {
             }
 
             // Deal with padded trailer at the end of compressed kdb+ files
-            static const byte TRAILER[] = { 0x03, 0x00, 0x00, 0x00, 0x02 };
-            if(LIKELY(read >= sizeof(TRAILER))) {
-                if(UNLIKELY(
-                    memcmp(deflated.data(), TRAILER, sizeof(TRAILER)) == 0
-                )) {
-                    return Z_OK;
+            if(LIKELY(read >= sizeof(Trailer))) {
+                const auto trailer =
+                        reinterpret_cast<const Trailer*>(deflated.data());
+                if(UNLIKELY(trailer->isValid())) {
+                    return buffer.size() == trailer->length
+                        ? Z_OK : Z_DATA_ERROR;
                 }
             }
 
@@ -252,12 +269,8 @@ int kdb::ZLibStream::inflateChunks(vector<byte>& buffer) {
         }
         while(LIKELY(status != Z_STREAM_END));
 
-        // At the end of the zlib stream, there is still data remaining...
+        // At the end of the zlib stream, there may still be data remaining...
         if(stream.avail_in || !feof(fp_)) {
-            LOG(PLUGIN_NAME ": "
-                "Additioal zlib stream found in kdb+ data file "
-                "(last stream = " + to_string(stream.total_in) + ","
-                " data so far = " + to_string(buffer.size() - prev) + ").");
             fseek(fp_, -stream.avail_in, SEEK_CUR);
         }
     }
