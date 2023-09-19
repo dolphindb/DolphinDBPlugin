@@ -131,7 +131,7 @@ size_t kdb::BinFile::inflateBody(vector<byte>& buffer) {
 //////////////////////////////////////////////////////////////////////////////
 
 kdb::ZLibStream::ZLibStream(FILE* fp, ptrdiff_t offset)
-  : fp_{fp}, offset_{offset}, inflatedLen_{0}
+  : fp_{fp}, offset_{offset}
 {}
 
 bool kdb::ZLibStream::isDeflated(Header* ph) const {
@@ -143,7 +143,7 @@ bool kdb::ZLibStream::isDeflated(Header* ph) const {
     fseek(fp_, offset_, SEEK_SET);
     const auto read = fread(&header, sizeof(header), 1, fp_);
     if(UNLIKELY(read < 1)) {
-        throw string("error reading stream haeder");
+        throw string("error reading stream header");
     }
 
     if(ph) {
@@ -156,10 +156,8 @@ bool kdb::ZLibStream::isDeflated(Header* ph) const {
 size_t kdb::ZLibStream::inflate(vector<byte>& buffer) {
     assert(fp_);
 
-    inflatedLen_ = 0;
-    fseek(fp_, offset_, SEEK_SET);
+    const auto prev = buffer.size();
     const auto status = inflateChunks(buffer);
-
     switch(status) {
         case Z_ERRNO:
             throw string("error reading from file");
@@ -176,62 +174,93 @@ size_t kdb::ZLibStream::inflate(vector<byte>& buffer) {
                 throw "unknown error (" + to_string(status) + ")";
             }
     }
-    return inflatedLen_;
+
+    assert(buffer.size() >= prev);
+    return buffer.size() - prev;
 }
 
 //@see https://www.zlib.net/zlib_how.html
 int kdb::ZLibStream::inflateChunks(vector<byte>& buffer) {
     assert(fp_);
 
-    z_stream stream;
-    stream.zalloc = Z_NULL;
-    stream.zfree  = Z_NULL;
-    stream.opaque = Z_NULL;
-    stream.avail_in = 0;
-    stream.next_in  = Z_NULL;
+    const auto prev = buffer.size();
+    fseek(fp_, offset_, SEEK_SET);
 
-    int status = ::inflateInit(&stream);
-    if(UNLIKELY(status != Z_OK)) {
-        return status;
-    }
-    Defer cleanup{[&stream](){ ::inflateEnd(&stream); }};
+    // There could be multiple consecutive zlib streams in a single kdb+ file!
+    int status = Z_DATA_ERROR;
+    while(!feof(fp_)) {
+        // Initialize for a new zlib stream
+        z_stream stream;
+        stream.zalloc = Z_NULL;
+        stream.zfree  = Z_NULL;
+        stream.opaque = Z_NULL;
+        stream.avail_in = 0;
+        stream.next_in  = Z_NULL;
 
-    array<byte, ZLib_CHUNK_SIZE> readBuf, writeBuf;
-    do {
-        const auto read = fread(readBuf.data(), 1, ZLib_CHUNK_SIZE, fp_);
-        if(UNLIKELY(ferror(fp_))) {
-            return Z_ERRNO;
+        status = ::inflateInit(&stream);
+        if(UNLIKELY(status != Z_OK)) {
+            return status;
         }
+        assert(stream.total_out == 0);
+        Defer cleanup{[&stream](){ ::inflateEnd(&stream); }};
 
-        stream.avail_in = read;
-        stream.next_in  = readBuf.data();
-        if(UNLIKELY(stream.avail_in == 0)) {
-            break;
-        }
-
+        // Read in the zlib stream chunk by chunk
+        array<byte, ZLib_CHUNK_SIZE> deflated;
         do {
-            stream.avail_out = writeBuf.size();
-            stream.next_out  = writeBuf.data();
-            status = ::inflate(&stream, Z_NO_FLUSH);
-            assert(status != Z_STREAM_ERROR);   //state not clobbered
-            switch(status) {
-                case Z_NEED_DICT:  return Z_DATA_ERROR;
-                case Z_DATA_ERROR: ;//fall through
-                case Z_MEM_ERROR:  return status;
-                default:           ;//no-op
+            const auto read = fread(deflated.data(), 1, ZLib_CHUNK_SIZE, fp_);
+            if(UNLIKELY(ferror(fp_))) {
+                return Z_ERRNO;
             }
 
-            const auto have = writeBuf.size() - stream.avail_out;
-            assert(have >= 0);
-            inflatedLen_ += have;
-            const auto offset = buffer.size();
-            buffer.resize(buffer.size() + have);
-            copy_n(writeBuf.cbegin(), have, buffer.begin() + offset);
-        }
-        while(LIKELY(stream.avail_out == 0));
-    }
-    while(LIKELY(status != Z_STREAM_END));
+            // Deal with padded trailer at the end of compressed kdb+ files
+            static const byte TRAILER[] = { 0x03, 0x00, 0x00, 0x00, 0x02 };
+            if(LIKELY(read >= sizeof(TRAILER))) {
+                if(UNLIKELY(
+                    memcmp(deflated.data(), TRAILER, sizeof(TRAILER)) == 0
+                )) {
+                    return Z_OK;
+                }
+            }
 
+            stream.avail_in = read;
+            stream.next_in  = deflated.data();
+            if(UNLIKELY(stream.avail_in == 0)) {
+                break;
+            }
+
+            // Inflate the zlib stream chunk by chunk
+            do {
+                const auto offset = buffer.size();
+                buffer.resize(offset + ZLib_CHUNK_SIZE);
+                stream.avail_out = ZLib_CHUNK_SIZE;
+                stream.next_out  = buffer.data() + offset;
+
+                status = ::inflate(&stream, Z_NO_FLUSH);
+                assert(status != Z_STREAM_ERROR);   //state not clobbered
+                switch(status) {
+                    case Z_NEED_DICT:  return Z_DATA_ERROR;
+                    case Z_DATA_ERROR: ;//fall through
+                    case Z_MEM_ERROR:  return status;
+                    default:  assert(status >= Z_OK);
+                }
+
+                const auto have = ZLib_CHUNK_SIZE - stream.avail_out;
+                assert(have >= 0);
+                buffer.resize(offset + have);
+            }
+            while(LIKELY(stream.avail_out == 0));
+        }
+        while(LIKELY(status != Z_STREAM_END));
+
+        // At the end of the zlib stream, there is still data remaining...
+        if(stream.avail_in || !feof(fp_)) {
+            LOG(PLUGIN_NAME ": "
+                "Additioal zlib stream found in kdb+ data file "
+                "(last stream = " + to_string(stream.total_in) + ","
+                " data so far = " + to_string(buffer.size() - prev) + ").");
+            fseek(fp_, -stream.avail_in, SEEK_CUR);
+        }
+    }
     return status == Z_STREAM_END ? Z_OK : Z_DATA_ERROR;
 }
 

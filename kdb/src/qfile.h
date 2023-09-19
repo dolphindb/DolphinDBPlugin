@@ -95,7 +95,6 @@ namespace kdb {
     private:
         FILE* const fp_;
         const std::ptrdiff_t offset_;
-        std::size_t inflatedLen_;
 
     };//class ZLibStream
 
