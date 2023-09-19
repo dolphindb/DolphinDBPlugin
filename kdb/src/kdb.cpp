@@ -424,7 +424,7 @@ TableSP loadSplayedTable(string tablePath,
             }
         }
     }
-#endif
+#endif//!KDB_READ_PARALLEL
 
     return Util::createTable(colNames, cols);
 }

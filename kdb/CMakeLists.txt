@@ -24,7 +24,7 @@ message(STATUS "VCPKG_TARGET_TRIPLET = ${VCPKG_TARGET_TRIPLET}")
 #========================================
 project(PluginKDB LANGUAGES CXX)
 
-set(KDB_READ_PARALLEL ON CACHE BOOL "read kdb+ data files in parallel")
+option(KDB_READ_PARALLEL "Read local kdb+ data files in parallel?" ON)
 message(STATUS "KDB_READ_PARALLEL = ${KDB_READ_PARALLEL}")
 
 #=== Source Code
@@ -111,12 +111,12 @@ find_package(ZLIB REQUIRED)
 target_link_libraries(PluginKDB PRIVATE ZLIB::ZLIB)
 
 #== kdb+
-target_compile_definitions(PluginKDB PUBLIC
-    KXVER=3
-    KDB_READ_PARALLEL=$<BOOL:KDB_READ_PARALLEL>
-)
-target_link_directories(PluginKDB PUBLIC  "${CMAKE_BINARY_DIR}")
-target_link_libraries  (PluginKDB PRIVATE ${kdb_lib})
+target_compile_definitions(PluginKDB PUBLIC  KXVER=3)
+target_link_directories   (PluginKDB PUBLIC  "${CMAKE_BINARY_DIR}")
+target_link_libraries     (PluginKDB PRIVATE ${kdb_lib})
+if(KDB_READ_PARALLEL)
+    target_compile_definitions(PluginKDB PRIVATE KDB_READ_PARALLEL=1)
+endif()
 
 #=== Post-build Actions
 install(TARGETS PluginKDB
