@@ -54,7 +54,7 @@
     loadPlugin("<path_to_MatchingEngineSimulator_plugin>/PluginMatchingEngineSimulator.txt")
     ```
     
-**注意**：使用2.00.9版本server的用户，可从[二进制插件包](https://gitee.com/dolphindb/DolphinDBPlugin/tree/release200.10/MatchingEngineSimulator/bin) 中获取二进制插件包，并用 `loadPlugin` 命令加载后使用。
+**注意**：使用2.00.9版本server的用户，可从[二进制插件包](https://gitee.com/dolphindb/DolphinDBPlugin/tree/release200.9/MatchingEngineSimulator/bin/linux) 中获取二进制插件包，并用 `loadPlugin` 命令加载后使用。
 
 ## 接口说明
 
