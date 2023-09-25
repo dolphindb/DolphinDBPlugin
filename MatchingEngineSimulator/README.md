@@ -585,6 +585,8 @@ res = select orderSysID, symbol, Direction, sendingTime,  LimitPrice, VolumeTota
 
 其中，函数`dropStreamEngine`用于释放已创建的流数据引擎的定义，例如上述例子中的 `name = "engine_snapshot"`。
 
+## 参考
 
+[模拟撮合引擎应用教程](https://gitee.com/dolphindb/Tutorials_CN/blob/master/matching_engine_simulator.md)
 
 
