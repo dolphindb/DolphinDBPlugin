@@ -1,0 +1,11 @@
+MatchingEngineSimulator,libPluginMatchingEngineSimulator.so,2.00.10.1
+createMatchEngine,createMatchEngine,system,8,10,0
+getOpenOrders,getOpenOrders,system,1,2,0
+resetMatchEngine,resetMatchEngine,system,1,1,0
+getEngineList,getEngineList,system,0,0,0
+getSymbolList,getSymbolList,system,1,1,0
+stopMatchEngine,stopMatchEngine,system,1,2,0
+extractInfo,extractInfo,system,2,3,0
+insertMsg,insertMsg,system,3,3,0
+setLimitPrice,setLimitPrice,system,2,2,0
+getSnapshotTable,getSnapshot,system,1,2,0
