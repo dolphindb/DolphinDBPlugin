@@ -54,7 +54,7 @@
     loadPlugin("<path_to_MatchingEngineSimulator_plugin>/PluginMatchingEngineSimulator.txt")
     ```
     
-**注意**：使用2.00.9版本server的用户，可从[二进制插件包](https://gitee.com/dolphindb/DolphinDBPlugin/tree/release200.10/MatchingEngineSimulator/bin) 中获取二进制插件包，并用 `loadPlugin` 命令加载后使用。
+**注意**：使用2.00.9版本server的用户，可从[二进制插件包](https://gitee.com/dolphindb/DolphinDBPlugin/tree/release200.9/MatchingEngineSimulator/bin/linux) 中获取二进制插件包，并用 `loadPlugin` 命令加载后使用。
 
 ## 接口说明
 
@@ -586,5 +586,7 @@ res = select orderSysID, symbol, Direction, sendingTime,  LimitPrice, VolumeTota
 其中，函数`dropStreamEngine`用于释放已创建的流数据引擎的定义，例如上述例子中的 `name = "engine_snapshot"`。
 
 
+## 参考
 
+[模拟撮合引擎应用教程](https://gitee.com/dolphindb/Tutorials_CN/blob/master/matching_engine_simulator.md)
 
