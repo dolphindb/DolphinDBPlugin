@@ -10,11 +10,17 @@
 
 #include "Concurrent.h"
 #include "CoreConcept.h"
+#include "Types.h"
+#include "Util.h"
 #include "Exceptions.h"
 #include "Logger.h"
+#include <exception>
 #include <functional>
 #include <cassert>
 #include <iostream>
+#include <map>
+#include <string>
+#include <utility>
 
 namespace dolphindb {
 
@@ -587,6 +593,478 @@ private:
 	ColumnPointer *column_;
 };
 
-}//dolphindb namespace
+template <typename Key, typename Value>
+class BiMap {
+  public:
+    bool insert(const Key& key, const Value& value, string& errMsg) {
+        if(dataMap_.find(key)!=dataMap_.end()) {
+            errMsg = "Duplicated key";
+            return false;
+        }
+        if(reverseDataMap_.find(value)!=reverseDataMap_.end()) {
+            errMsg = "Duplicated value";
+            return false;
+        }
+        dataMap_[key] = value;
+        reverseDataMap_[value] = key;
+        return true;
+    }
 
-#endif //DDBPLUGIN_H_
+    bool removeKey(const Key& key) {
+        if(dataMap_.find(key)==dataMap_.end()) {
+            return false;
+        }
+        Value value = dataMap_[key];
+        dataMap_.erase(key);
+        reverseDataMap_.erase(value);
+        return true;
+    }
+
+    bool removeValue(const Value& value) {
+        if(reverseDataMap_.find(value)==reverseDataMap_.end()) {
+            return false;
+        }
+        Key key = reverseDataMap_[value];
+        dataMap_.erase(key);
+        reverseDataMap_.erase(value);
+        return true;
+    }
+
+    bool findKey(const Key& key, Value& value) const {
+        if(dataMap_.find(key)==dataMap_.end()) {
+            return false;
+        }
+        value = dataMap_.at(key);
+        return true;
+    }
+
+    bool findValue(const Value& value, Key& key) const {
+        if(reverseDataMap_.find(value)==reverseDataMap_.end()) {
+            return false;
+        }
+        key = reverseDataMap_.at(value);
+        return true;
+    }
+
+    vector<Key> getKeys() const {
+        vector<Key> ret;
+        ret.resize(dataMap_.size());
+        for(auto it = dataMap_.begin(); it != dataMap_.end(); ++it) {
+            ret.push_back(it->first);
+        }
+        return ret;
+    }
+
+    vector<Value> getValues() const {
+        vector<Value> ret;
+        ret.resize(dataMap_.size());
+        for(auto it = dataMap_.begin(); it != dataMap_.end(); ++it) {
+            ret.push_back(it->second);
+        }
+        return ret;
+    }
+
+    void clear() {
+        dataMap_.clear();
+        reverseDataMap_.clear();
+    }
+  private:
+    std::map<Key, Value> dataMap_;
+    std::map<Value, Key> reverseDataMap_;
+};
+
+/**
+ * @brief Background resource map class
+ * This class is used to manage handles that need to run in the background,
+ * ensuring they shouldn't be destructed when the session ends.
+ *
+ * ATTENTION!!!
+ * If you intend to utilize this class, all functionalities involving onClose(),
+ * resource creation, retrieval and closure should exclusively use functions
+ * within the class. Avoid direct manipulation of the ResourceSP handle pointer.
+ *
+ * @tparam T The data types that can be added to the map.
+ */
+template <typename T>
+class BackgroundResourceMap {
+  public:
+    /**
+     * @brief Construct a new background Resource Map object.
+     *
+     * @param prefix    The prefix used int exception.
+     * @param keyWord   The keyWord used to verify if it's an expected handle.
+     * user should make sure handle desc contains the keyWord. If need to ignore
+     * the verification, just pass in en empty string.
+     */
+    explicit BackgroundResourceMap(const string &prefix, const string &keyWord = "")
+        : prefix_(prefix), keyword_(keyWord) {}
+    ~BackgroundResourceMap(){
+        clear();
+    }
+    BackgroundResourceMap(const BackgroundResourceMap &) = delete;
+    BackgroundResourceMap(BackgroundResourceMap &&) = delete;
+    BackgroundResourceMap &operator=(const BackgroundResourceMap &) = delete;
+    BackgroundResourceMap &operator=(BackgroundResourceMap &&) = delete;
+
+    /**
+     * @brief Add resource handle to the map
+     *
+     * @param handle    The handle need to be added in the map
+     * @param handlePtr Data pointer need to be added in the map.
+     * HandlePtr must be the same as the pointer stored in the handle.
+     */
+    void safeAdd(ConstantSP &handle, SmartPointer<T> handlePtr) {
+        LockGuard<Mutex> guard(&resourceLock_);
+        handleValidCheck(handle);
+        long long ptrValue = handle->getLong();
+        if (ptrValue == 0) {
+            throw RuntimeException(prefix_ + "Handle has already been destructed.");
+        }
+        if (handlePtr.get() == nullptr) {
+            throw RuntimeException(prefix_ + "HandlePtr should not be nullptr.");
+        }
+        if (ptrValue != (long long)(handlePtr.get())) {
+            throw RuntimeException(prefix_ + "Handle and handlePtr does not match.");
+        }
+        string name;
+        if (resourceMap_.find(ptrValue) != resourceMap_.end() ||
+            nameMap_.findValue(ptrValue, name)){
+            throw RuntimeException(prefix_ + "Handle already exists in the map.");
+        }
+        resourceMap_[ptrValue] = std::make_pair(handle, handlePtr);
+    }
+
+    /**
+     * @brief Safely add a handle into map with a name
+     *
+     * @param handle The handle need to be added in the map
+     * @param handlePtr Data pointer need to be added in the map.
+     * HandlePtr must be the same as the pointer stored in the handle.
+     * @param name   The name assigned to this handle.
+     */
+    void safeAdd(ConstantSP handle, SmartPointer<T> handlePtr, const string &name) {
+        LockGuard<Mutex> guard(&resourceLock_);
+        handleValidCheck(handle);
+        long long ptrValue = handle->getLong();
+        if (ptrValue == 0) {
+            throw RuntimeException(prefix_ + "Handle has already been destructed.");
+        }
+        if (handlePtr.get() == nullptr) {
+            throw RuntimeException(prefix_ + "HandlePtr should not be nullptr.");
+        }
+        if (ptrValue != (long long)(handlePtr.get())) {
+            throw RuntimeException(prefix_ + "Handle and handlePtr does not match.");
+        }
+        string nameResult;
+        long long ptrResult;
+        if (resourceMap_.find(ptrValue) != resourceMap_.end() ||
+            nameMap_.findValue(ptrValue, nameResult)) {
+            throw RuntimeException(prefix_ + "Handle already exists in the map.");
+        }
+        if (nameMap_.findKey(name, ptrResult)) {
+            throw RuntimeException(prefix_ + "name [" + name + "] already exists.");
+        }
+        resourceMap_[ptrValue] = std::make_pair(handle, handlePtr);
+        string errMsg;
+        if(!nameMap_.insert(name, ptrValue, errMsg)) {
+            throw RuntimeException(prefix_ + errMsg);
+        }
+    }
+
+    /**
+     * @brief Safely retrieve the data pointer stored in the passed-in handle.
+     * This function performs type and availability validation, ensuring that
+     * the data pointer is not destructed.
+     *
+     * @param handle  A handle that requires extracting the internal data pointer.
+     * @return SmartPointer<T> Retrieved data pointer of the handle.
+     */
+    SmartPointer<T> safeGet(ConstantSP handle) {
+        LockGuard<Mutex> guard(&resourceLock_);
+        handleValidCheck(handle);
+        long long ptrValue = handle->getLong();
+        if (resourceMap_.find(ptrValue) == resourceMap_.end()) {
+            throw RuntimeException(prefix_ + "Handle is unregistered.");
+        }
+        return resourceMap_[ptrValue].second;
+    }
+
+    /**
+     * @brief Safely retrieve the data pointer stored in the handle corresponding to the name.
+     *
+     * @param name A name corresponding to a handle from which the data pointer
+     * needs to be extracted.
+     * @return SmartPointer<T> Retrieved data pointer of the handle.
+     */
+    SmartPointer<T> safeGetByName(const string &name) {
+        return safeGet(getHandleByName(name));
+    }
+
+    /**
+     * @brief Get the Handle By Name.
+     *
+     * @param name A name corresponding to the wanted handle.
+     * @return ConstantSP The handle corresponding to the name.
+     */
+    ConstantSP getHandleByName(const string &name) {
+        LockGuard<Mutex> guard(&resourceLock_);
+        long long ptrValue;
+        if (!nameMap_.findKey(name, ptrValue)) {
+            throw RuntimeException(prefix_ + "Unknown handle name [" + name + "].");
+        }
+        if (resourceMap_.find(ptrValue) == resourceMap_.end()) {
+            throw RuntimeException(prefix_ + "Unable to find handle corresponding to name [" + name + "].");
+        }
+        return resourceMap_[ptrValue].first;
+    }
+
+    /**
+     * @brief Safely remove a handle in the map after destructing it
+     *
+     * @param handle The handle to be removed.
+     */
+    void safeRemove(ConstantSP handle) {
+        LockGuard<Mutex> guard(&resourceLock_);
+        handleValidCheck(handle);
+        long long ptrValue = handle->getLong();
+        if (resourceMap_.find(ptrValue) == resourceMap_.end()) {
+            throw RuntimeException(prefix_ + "Handle is unregistered.");
+        }
+        handle->setLong(0);
+        nameMap_.removeValue(ptrValue);
+        resourceMap_.erase(ptrValue);
+    }
+
+    /**
+     * @brief Get the Handle Names list
+     *
+     * @return vector<string> a vector of all names stored in map
+     */
+    vector<string> getHandleNames() {
+        LockGuard<Mutex> guard(&resourceLock_);
+        return nameMap_.getKeys();
+    }
+
+    /**
+     * @brief Safely remove a handle in the map after destructing it
+     * This function would not throw exception, suitable for use in onClose().
+     *
+     * @param handle The handle to be removed.
+     * @return true If removal successfully.
+     * @return false If removal failed.
+     */
+    bool safeRemoveWithoutException(ConstantSP &handle) noexcept {
+        try {
+            safeRemove(handle);
+            return true;
+        } catch (RuntimeException &ex) {
+            LOG_ERR(ex.what());
+        } catch (std::exception &ex) {
+            LOG_ERR(prefix_ + ex.what());
+        } catch (...) {
+            LOG_ERR(prefix_ + "Remove handle failed");
+        }
+        return false;
+    }
+
+    void clear() {
+        LockGuard<Mutex> guard(&resourceLock_);
+        nameMap_.clear();
+        resourceMap_.clear();
+    }
+
+    /**
+     * @brief Get the count of handles in the map.
+     *
+     * @return int Count of handles in the map
+     */
+    int size() {
+        LockGuard<Mutex> guard(&resourceLock_);
+        return resourceMap_.size();
+    }
+
+  private:
+    void handleValidCheck(ConstantSP handle) const {
+        if (handle->getType() != DT_RESOURCE || handle->getForm() != DF_SCALAR) {
+            throw RuntimeException(prefix_ + "Invalid object, expect RESOURCE here.");
+        }
+        long long ptrValue = handle->getLong();
+        string desc = handle->getString();
+        if (ptrValue == 0) {
+            throw RuntimeException(prefix_ + "Resource object already be destructed.");
+        }
+        if (keyword_ != "" && desc.find(keyword_) == desc.npos) {
+            throw RuntimeException(prefix_ + "Type verification failed due to mismatched resource desc, expect \"" +
+                keyword_ + "\" in resource desc.");
+        }
+    }
+
+    string prefix_;   // prefix of exception sentence
+    string keyword_;  // keyword need to be found in resource desc
+    Mutex resourceLock_;
+    BiMap<string, long long> nameMap_;
+    unordered_map<long long, std::pair<ConstantSP, SmartPointer<T>>> resourceMap_;
+};
+
+/**
+ * @brief Resource map class
+ * This class is used to manage handles that need to be destructed when the session ends.
+ *
+ * ATTENTION!!!
+ * If you intend to utilize this class, all functionalities involving onClose(),
+ * resource creation, retrieval and closure should exclusively use functions
+ * within the class. Avoid direct manipulation of the ResourceSP handle pointer.
+ *
+ * @tparam T The data types that can be added to the map.
+ */
+template <typename T>
+class ResourceMap {
+  public:
+    /**
+     * @brief Construct a new background Resource Map object.
+     *
+     * @param prefix    The prefix used int exception.
+     * @param keyWord   The keyWord used to verify if it's an expected handle.
+     * user should make sure handle desc contains the keyWord. If need to ignore
+     * the verification, just pass in en empty string.
+     */
+    explicit ResourceMap(const string &prefix, const string &keyWord = "") : prefix_(prefix), keyword_(keyWord) {}
+    ~ResourceMap(){
+        clear();
+    }
+    ResourceMap(const ResourceMap &) = delete;
+    ResourceMap(ResourceMap &&) = delete;
+    ResourceMap &operator=(const ResourceMap &) = delete;
+    ResourceMap &operator=(ResourceMap &&) = delete;
+
+    /**
+     * @brief Add resource handle to the map
+     *
+     * @param handle    The handle need to be added in the map
+     * @param handlePtr Data pointer need to be added in the map.
+     * HandlePtr must be the same as the pointer stored in the handle.
+     */
+    void safeAdd(ConstantSP &handle, SmartPointer<T> handlePtr) {
+        LockGuard<Mutex> guard(&resourceLock_);
+        handleValidCheck(handle);
+        long long ptrValue = handle->getLong();
+        if (ptrValue == 0) {
+            throw RuntimeException(prefix_ + "Handle has already been destructed.");
+        }
+        if (handlePtr.get() == nullptr) {
+            throw RuntimeException(prefix_ + "HandlePtr should not be nullptr.");
+        }
+        if (ptrValue != (long long)(handlePtr.get())) {
+            throw RuntimeException(prefix_ + "Handle and handlePtr does not match.");
+        }
+        if (resourceMap_.find(ptrValue) != resourceMap_.end()) {
+            throw RuntimeException(prefix_ + "Handle already exists in the map.");
+        }
+        resourceMap_[ptrValue] = handlePtr;
+    }
+
+    /**
+     * @brief Safely retrieve the data pointer stored in the passed-in handle.
+     *
+     * @param handle  A handle that requires extracting the internal data pointer.
+     * @return SmartPointer<T> Retrieved data pointer of the handle.
+     */
+    SmartPointer<T> safeGet(ConstantSP &handle) {
+        LockGuard<Mutex> guard(&resourceLock_);
+        handleValidCheck(handle);
+        long long cp = handle->getLong();
+        if (resourceMap_.find(cp) == resourceMap_.end()) {
+            throw RuntimeException(prefix_ + "Handle is unregistered.");
+        }
+        auto ret = resourceMap_[cp];
+        if (ret.isNull()) {
+            throw RuntimeException(prefix_ + "Data pointer of handle has already been destructed.");
+        }
+        return ret;
+    }
+
+    /**
+     * @brief Safely remove a handle in the map.
+     * After performing the safeRemove() operation to remove a handle, the inner
+     * data pointer will not be immediately destructed due to the returned SmartPointer.
+     * Instead, it will be destructed after the SmartPointer loses all its references.
+     * Exceptions need to be manually caught when this function is called externally.
+     *
+     * @param handle The handle to be removed.
+     */
+    void safeRemove(ConstantSP &handle) {
+        LockGuard<Mutex> guard(&resourceLock_);
+        handleValidCheck(handle);
+        long long cp = handle->getLong();
+        if (resourceMap_.find(cp) == resourceMap_.end()) {
+            throw RuntimeException(prefix_ + "Handle is unregistered.");
+        }
+        resourceMap_.erase(cp);
+        handle->setLong(0);
+    }
+
+    /**
+     * @brief Safely remove a handle in the map.
+     * After performing the safeRemove() operation to remove a handle, the inner
+     * data pointer will not be immediately destructed due to the returned SmartPointer.
+     * Instead, it will be destructed after the SmartPointer loses all its references.
+     * Exceptions need to be manually caught when this function is called externally.
+     *
+     * @param handle The handle to be removed.
+     * @return true If removal successfully.
+     * @return false If removal failed.
+     */
+    bool safeRemoveWithoutException(ConstantSP &handle) noexcept {
+        try {
+            safeRemove(handle);
+            return true;
+        } catch (RuntimeException &ex) {
+            LOG_ERR(ex.what());
+        } catch (std::exception &ex) {
+            LOG_ERR(prefix_ + ex.what());
+        } catch (...) {
+            LOG_ERR(prefix_ + "remove handle failed");
+        }
+        return false;
+    }
+
+    void clear() {
+        LockGuard<Mutex> guard(&resourceLock_);
+        resourceMap_.clear();
+    }
+
+  private:
+    void handleValidCheck(ConstantSP handle) const {
+        if (handle->getType() != DT_RESOURCE || handle->getForm() != DF_SCALAR) {
+            throw RuntimeException(prefix_ + "Invalid object, expect RESOURCE here.");
+        }
+        long long ptrValue = handle->getLong();
+        string desc = handle->getString();
+        if (ptrValue == 0) {
+            throw RuntimeException(prefix_ + "Resource object already be destructed.");
+        }
+        if (keyword_ != "" && desc.find(keyword_) == desc.npos) {
+            throw RuntimeException(prefix_ + "Type verification failed due to mismatched resource desc, expect \"" +
+                keyword_ + "\" in resource desc.");
+        }
+    }
+
+    string prefix_;   // prefix of exception sentence
+    string keyword_;  // keyword need to be found in resource desc
+    Mutex resourceLock_;
+
+    // use SmartPointer to control the lifecycle of T*
+    unordered_map<long long, SmartPointer<T>> resourceMap_;
+};
+
+class PluginDefer {
+  public:
+    PluginDefer(std::function<void()> code): code_(code) {}
+    ~PluginDefer() {code_(); }
+  private:
+    std::function<void()> code_;
+};
+
+}  // dolphindb namespace
+
+#endif  // DDBPLUGIN_H_
