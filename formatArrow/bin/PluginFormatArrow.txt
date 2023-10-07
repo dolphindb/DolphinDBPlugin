@@ -1,0 +1,4 @@
+arrow,libPluginFormatArrow.so,2.00.10
+getSupportedFormats,getSupportedFormats,system,0,0,0
+getConstantMarshal,getConstantMarshal,system,1,1,0
+getConstantUnmarshal,getConstantUnmarshal,system,1,1,0

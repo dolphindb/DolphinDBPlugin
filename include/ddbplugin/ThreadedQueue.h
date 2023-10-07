@@ -249,7 +249,7 @@ class ThreadedQueue {
 
     ~ThreadedQueue() { stop(); }
     bool isStarted() { return !stopFlag_; }
-    MarketStatus getStatus() { return status_; }
+    DictionarySP getStatus() { return status_.getStatus(); }
     string getInfo() { return info_; };
 
     // start a ThreadedQueue
@@ -287,7 +287,6 @@ class ThreadedQueue {
     // use push function to input the struct data.
     void push(DataStruct &&data) { queue_.blockingPush(data); }
     void push(DataStruct &data) { queue_.blockingPush(data); }
-    const MarketStatus &getStatus() const { return status_; }
 
   private:
     void extractHelper(DataStruct *data, uint32_t cnt) {
