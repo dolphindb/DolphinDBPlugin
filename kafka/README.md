@@ -90,6 +90,8 @@ make
 sudo make install
 cd ../..
 mkdir build
+# copy the libDolphinDB.so to ./build
+cp /path/to/dolphindb/server/libDolphinDB.so ./build
 cd build
 cmake ..
 make
@@ -1073,4 +1075,3 @@ conn = kafka::createSubJob(consumer,tab,mseed::parse,"test:0:get mseed data");
 kafka::getJobStat();
 kafka::cancelSubJob(conn);
 ```
-

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0)
-project(PluginMongodb)
+project(PluginMseed)
 add_definitions(-DLOCKFREE_SYMBASE)
 
 set(CMAKE_CXX_STANDARD 11)
@@ -14,7 +14,7 @@ elseif(UNIX)
     set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginMseed.txt")
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -fPIC -o3  -Wall ")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -fPIC -O3  -Wall ")
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_SOURCE_DIR}/../include)

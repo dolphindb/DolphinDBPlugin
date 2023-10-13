@@ -19,9 +19,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -fPIC  -O3 -std=c++11 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -fPIC -std=c++11 -Wall -rdynamic ")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fPIC -O3 -std=c++11 -Wall -rdynamic ")
 
-if(NOT DEFINED HADOOP_DIR)
-    set(HADOOP_DIR "/home/mnwu/hadoop-3.2.2")
-endif()
 if(NOT DEFINED HADOOP_INCLUDE)
     set(HADOOP_INCLUDE "${HADOOP_DIR}/include")
 endif()
@@ -30,9 +27,20 @@ if(NOT DEFINED HADOOP)
 endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include ${HADOOP_INCLUDE})
+link_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib)
+
 link_directories(${CMAKE_BINARY_DIR} ${HADOOP_SO})
 
 aux_source_directory("./src" plugin_hadoop_src)
 
 add_library(PluginHdfs SHARED ${plugin_hadoop_src})
-target_link_libraries(PluginHdfs hdfs)
+target_link_libraries(
+    PluginHdfs
+    hdfs
+    libkrb5.a
+    libcom_err.a
+    libk5crypto.a
+    libkrb5support.a
+    resolv
+    keyutils
+)

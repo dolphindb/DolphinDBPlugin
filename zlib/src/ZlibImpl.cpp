@@ -15,6 +15,11 @@
 #include <zlib.h>
 #include "ZlibImpl.h"
 
+#include <dirent.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <ScalarImp.h>
+
 #define windowBits 15
 
 int def(std::iostream &srcFile, std::iostream &dstFile, int level);
@@ -25,21 +30,58 @@ ConstantSP compressFile(Heap* heap, vector<ConstantSP>& args) {
     std::fstream srcFile;
     std::fstream dstFile;
     int zLevel = -1;
+
+    if(args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR) {
+        throw IllegalArgumentException("compressFile/decompressFile",
+                                       "Invalid argument type, input filename should be a string scalar.");
+    }
     if(args.size() == 2) {
-        if(args[1]->getType() != DT_INT && args[1]->getType() != DT_LONG) {
+        if((args[1]->getType() != DT_INT && args[1]->getType() != DT_LONG) || args[1]->getForm() != DF_SCALAR) {
             throw IllegalArgumentException("compressFile",
-                "Invalid argument type, zlib compression level should be a integer.");
+                                           "Invalid argument type, zlib compression level should be an integer scalar.");
         }
         zLevel = args[1]->getType() == DT_INT ? args[1]->getInt() : args[1]->getLong();
         if(zLevel < -1 || zLevel > 9)
             throw IllegalArgumentException("compressFile",
-                "Invalid argument type, zlib compression level should be a integer within a range of [-1, 9].");
+                                           "Invalid argument type, zlib compression level should be a integer within a range of [-1, 9].");
     }
-    fileParse(srcFile, dstFile, args, 0);
-    def(srcFile, dstFile, zLevel);
-    ConstantSP ret = Util::createConstant(DT_STRING);
-    ret->setString(args[0]->getString() + ".gz");
-    return ret;
+
+    std::string src = args[0]->getString();
+    if(src[src.size() - 1] == '/') {
+        src = src.substr(0, src.size() - 1);
+    }
+
+    struct stat info;
+    if(lstat(src.c_str(), &info) != 0) {
+        throw IOException(src + " not found.");
+    } else if(S_ISDIR(info.st_mode)) { // S_ISDIR means it's a directory
+        DIR *dir;
+        struct dirent *ent;
+        if((dir = opendir(src.c_str())) != NULL) {
+            while((ent = readdir(dir)) != NULL) {
+                std::string fileName = ent->d_name;
+                // Skip ., .., hidden entries, and .gz
+                if (fileName == "." || fileName == ".." || fileName[0] == '.' ||
+                    fileName.substr(fileName.find_last_of('.') + 1) == "gz") continue;
+
+                vector<ConstantSP> fileArgs = args;
+                fileArgs[0] = new String(src + "/" + fileName);
+                compressFile(heap, fileArgs);
+            }
+            closedir(dir);
+        } else {
+            throw IOException("Could not open directory: " + src);
+        }
+        return Util::createConstant(DT_VOID);
+    } else if(S_ISREG(info.st_mode)) { // S_ISREG means it's a regular file
+        fileParse(srcFile, dstFile, args, 0);
+        def(srcFile, dstFile, zLevel);
+        ConstantSP ret = Util::createConstant(DT_STRING);
+        ret->setString(args[0]->getString() + ".gz");
+        return ret;
+    } else {
+        throw IOException(src + " is not a regular file or directory.");
+    }
 }
 
 ConstantSP decompressFile(Heap* heap, vector<ConstantSP>& args) {
@@ -55,14 +97,14 @@ ConstantSP decompressFile(Heap* heap, vector<ConstantSP>& args) {
 
 void fileParse(std::fstream &srcFile, std::fstream &dstFile, vector<ConstantSP>& args, int flag) {
     std::string src, dst;
-    if(args[0]->getType() != DT_STRING) {
+    if(args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException("compressFile/decompressFile",
-            "Invalid argument type, input filename should be a string.");
+            "Invalid argument type, input filename should be a string scalar.");
     }
     src = args[0]->getString();
     if(flag == 1 && (src.size() < 4 || src.substr(src.size()-3, src.size()) != ".gz")) {
         throw IllegalArgumentException("decompressFile",
-            "Invalid argument type, input filename should be \"*.gz\".");
+                                       "Invalid argument type, input filename should be \"*.gz\".");
     }
     if(flag == 0)
         dst = src + ".gz";
@@ -161,12 +203,12 @@ int inf(std::iostream &srcFile, std::iostream &dstFile)
             if(ret == Z_STREAM_ERROR)
                 throw IOException("zlib: Z_STREAM_ERROR, state clobbered.");
             switch (ret) {
-            case Z_NEED_DICT:
-                ret = Z_DATA_ERROR;    
-            case Z_DATA_ERROR:
-            case Z_MEM_ERROR:
-                (void)inflateEnd(&strm);
-                throw IOException("zlib: Z_NEED_DICT/Z_DATA_ERROR/Z_MEM_ERROR, decompress error.");
+                case Z_NEED_DICT:
+                    ret = Z_DATA_ERROR;
+                case Z_DATA_ERROR:
+                case Z_MEM_ERROR:
+                    (void)inflateEnd(&strm);
+                    throw IOException("zlib: Z_NEED_DICT/Z_DATA_ERROR/Z_MEM_ERROR, decompress error.");
             }
             have = CHUNK - strm.avail_out;
             dstFile.write(reinterpret_cast<const char*>(out), have);

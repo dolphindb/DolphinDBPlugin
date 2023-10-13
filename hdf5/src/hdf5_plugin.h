@@ -19,29 +19,44 @@
 #include <hdf5_hl.h>
 #include <blosc_filter.h>
 
+
+/* INTERFACES */
+
 extern "C" ConstantSP h5ls(const ConstantSP &h5_path);
 extern "C" ConstantSP h5lsTable(const ConstantSP &filename);
 extern "C" ConstantSP extractHDF5Schema(const ConstantSP &filename, const ConstantSP &datasetName);
 extern "C" ConstantSP loadHDF5(Heap *heap, vector<ConstantSP> &arguments);
+extern "C" ConstantSP loadPandasHDF5(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP loadHDF5Ex(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP HDF5DS(Heap *heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP saveHDF5(Heap *heap, vector<ConstantSP> &arguments);
 
+
+/* HELPERS */
+
+void checkHDF5Parameter(Heap* heap, vector<ConstantSP> &arguments, ConstantSP &filename, ConstantSP& destOrGroupName, ConstantSP &schema, size_t& startRow, size_t& rowNum);
+
+
+/* H5_PLUGIN_IMP */
+
 namespace H5PluginImp
 {
+Mutex hdf5Mutex;
 ConstantSP nullSP = Util::createNullConstant(DT_VOID);
-void h5ls(const string &h5_path, vector<string> &objs_name, vector<string> &objs_type);
+void h5ls(const string &h5_path, vector<string> &objNames, vector<string> &objTypes);
 TableSP h5read(const string &h5_path, const string &dataset_name, TableSP tb);
 void h5lsTable(const string &filename, vector<string> &datasetName, vector<string> &datasetDims,
                vector<string> &dataType);
 TableSP extractHDF5Schema(const string &filename, const string &datasetName);
 ConstantSP loadHDF5(const string &filename, const string &datasetName,
-                    const ConstantSP &schema, const size_t startRow, const size_t rowNum);
+                    const ConstantSP &schema, size_t startRow, size_t rowNum);
 ConstantSP loadHDF5Ex(Heap* heap, const SystemHandleSP &db, const string &tableName, const ConstantSP &partitionColumnNames,
                       const string &filename, const string &datasetName, const TableSP &schema,
-                      const size_t startRow, const size_t rowNum, const FunctionDefSP &transform=nullSP);
+                      size_t startRow, size_t rowNum, const FunctionDefSP &transform=nullSP);
+ConstantSP loadPandasHDF5(const string &filename, const string &groupName,
+                    const ConstantSP &schema, size_t startRow, size_t rowNum);
 ConstantSP HDF5DS(const ConstantSP &filename, const ConstantSP &datasetName,
-                  const ConstantSP &schema, const size_t dsNum);
+                  const ConstantSP &schema, size_t dsNum);
 ConstantSP saveHDF5(const TableSP &table, const string &fileName, const string &datasetName, bool append, unsigned stringMaxLength);
 void appendHDF5(const TableSP &table, const string &fileName, const string &datasetName, unsigned stringMaxLength);
 void writeHDF5(const TableSP &table, const string &fileName, const string &datasetName, unsigned stringMaxLength);
@@ -51,33 +66,33 @@ void extractDolphinDBData(const TableSP &table, const size_t &type_size, const s
 
 extern const size_t insertThreshold;
 
-class SegmentedInMemoryTableBuiler : public String {
-public:
-	SegmentedInMemoryTableBuiler(Heap *heap, const SystemHandleSP& db,
-        vector<int>& partitionColumnIndices, const ConstantSP &partitionColumnNames,
-        const TableSP &schema)
-        : String("SegmentedInMemoryTableBuiler"),
-        heap_(heap),
-        db_(db),
-        partitionColumnIndices_(partitionColumnIndices),
-        partitionColumnNames_(partitionColumnNames),
-        schema_(schema) {};
-	virtual ~SegmentedInMemoryTableBuiler(){}
-	void insert(TableSP& table);
-	ConstantSP getSegmentedTable();
+// class SegmentedInMemoryTableBuiler : public String {
+// public:
+// 	SegmentedInMemoryTableBuiler(Heap *heap, const SystemHandleSP& db,
+//         vector<int>& partitionColumnIndices, const ConstantSP &partitionColumnNames,
+//         const TableSP &schema)
+//         : String("SegmentedInMemoryTableBuiler"),
+//         heap_(heap),
+//         db_(db),
+//         partitionColumnIndices_(partitionColumnIndices),
+//         partitionColumnNames_(partitionColumnNames),
+//         schema_(schema) {};
+// 	virtual ~SegmentedInMemoryTableBuiler(){}
+// 	// void insert(TableSP& table);
+// 	ConstantSP getSegmentedTable();
 
-private:
-    Heap *heap_;
-	SystemHandleSP db_;
-	vector<int> partitionColumnIndices_;
-    ConstantSP partitionColumnNames_;
-    TableSP schema_;
-	vector<TableSP> partitions_;
-	vector<string> segmentPaths_;
-	vector<int> segmentKeys_;
-	unordered_map<string, int> pathMap_;
-	unordered_map<int, int> keyMap_;
-};
+// private:
+//     Heap *heap_;
+// 	SystemHandleSP db_;
+// 	vector<int> partitionColumnIndices_;
+//     ConstantSP partitionColumnNames_;
+//     TableSP schema_;
+// 	vector<TableSP> partitions_;
+// 	vector<string> segmentPaths_;
+// 	vector<int> segmentKeys_;
+// 	unordered_map<string, int> pathMap_;
+// 	unordered_map<int, int> keyMap_;
+// };
 
 // class H5InputStream : public BlockFileInputStream {
 //   public:
@@ -96,7 +111,7 @@ class H5Object
 {
   public:
     inline hid_t id() const { return id_; }
-    static char *getName(hid_t id);
+    // static char *getName(hid_t id);
     virtual void close(){};
     virtual ~H5Object() { close(); };
 
@@ -125,8 +140,8 @@ class H5Object
 class H5ReadOnlyFile : public H5Object
 {
   public:
-    H5ReadOnlyFile() {};
-    H5ReadOnlyFile(const std::string &filename) { open(filename); }
+    H5ReadOnlyFile() = default;;
+    explicit H5ReadOnlyFile(const std::string &filename) { open(filename); }
     H5ReadOnlyFile(const H5ReadOnlyFile &rhs) = delete;
     H5ReadOnlyFile &operator=(const H5ReadOnlyFile &rhs) = delete;
     hid_t open(const std::string &filename);
@@ -137,7 +152,7 @@ class H5ReadOnlyFile : public H5Object
 class H5DataSet : public H5Object
 {
   public:
-    H5DataSet() {}
+    H5DataSet() = default;
     H5DataSet(const std::string &dset_name, hid_t loc_id) { open(dset_name, loc_id); }
     H5DataSet(const H5DataSet &rhs) = delete;
     H5DataSet &operator=(const H5DataSet &rhs) = delete;
@@ -149,8 +164,8 @@ class H5DataSet : public H5Object
 class H5DataSpace : public H5Object
 {
   public:
-    H5DataSpace() {}
-    H5DataSpace(hid_t dset_id) { openFromDataset(dset_id); }
+    H5DataSpace() = default;
+    explicit H5DataSpace(hid_t dset_id) { openFromDataset(dset_id); }
     H5DataSpace(int rank, const hsize_t *current_dims, const hsize_t *maximum_dims)
     {
         create(rank, current_dims, maximum_dims);
@@ -169,8 +184,8 @@ class H5DataSpace : public H5Object
 class H5DataType : public H5Object
 {
   public:
-    H5DataType() {}
-    H5DataType(hid_t id) { id_ = id; }
+    H5DataType() = default;
+    H5DataType(hid_t id) { id_ = id; } // memo: used in implicit conversion
     H5DataType(const H5DataType &rhs) = delete;
     H5DataType(H5DataType &&rhs)
     {
@@ -188,8 +203,8 @@ class H5DataType : public H5Object
 class H5Property : public H5Object
 {
   public:
-    H5Property() {}
-    H5Property(hid_t id) { id_ = id; }
+    H5Property() = default;
+    explicit H5Property(hid_t id) { id_ = id; }
     H5Property(const H5Property &rhs) = delete;
     H5Property &operator=(const H5Property &rhs) = delete;
     void close() override;
@@ -274,7 +289,7 @@ class TypeColumn
                                       H5DataType &convertedType);
 
     VectorSP createDolphinDBColumnVector(DATA_TYPE dt, int size, int cap);
-    VectorSP createDolphinDBColumnVector(VectorSP destVec, int size, int cap);
+    VectorSP createDolphinDBColumnVector(const VectorSP& destVec, int size, int cap);
     VectorSP createDolphinDBColumnVector(int size, int cap);
 
     DATA_TYPE srcType() const { return srcType_; }
@@ -289,7 +304,7 @@ class TypeColumn
     virtual VectorSP createCompatiableVector(VectorSP destVec, DATA_TYPE destType, int size, int cap);
     int doAppend(void *data, int len, DATA_TYPE basicType);
 
-    TypeColumn(DATA_TYPE srcType)
+    explicit TypeColumn(DATA_TYPE srcType)
         : srcType_(srcType)
     {
     }
@@ -461,7 +476,13 @@ class DatasetAppender : public Runnable
         eleNum_ = eleNum;
     }
 
-    virtual void run() override { append(); }
+    virtual void run() override {
+      try {
+        append();
+      } catch (...) {
+        LOG_ERR("Error occurred when append data.");
+      }
+    }
     virtual void append(){};
 
   protected:
@@ -534,38 +555,39 @@ class H5GeneralDataReader
     virtual size_t read();
     void swap_buffer(std::vector<char> &buf, vlen_mem &vm);
     size_t readbyRow(size_t offsetRow, size_t offsetCol);
-    size_t testRead(size_t offsetRow, size_t offsetCol, size_t &row_offset_after, size_t &col_offset_after);
-    size_t readbyCol();
+    // size_t testRead(size_t offsetRow, size_t offsetCol, size_t &row_offset_after, size_t &col_offset_after);
+    // size_t readbyCol();
 
-    template <typename T = void *>
-    inline T rawData() { return (T)buffer_.data(); };
+    // template <typename T = void *>
+    // inline T rawData() { return (T)buffer_.data(); };
 
-    inline bool reachColumnEnd() const
-    {
-        return offsetRow_ == rowNum_ && offsetCol_ < colNum_;
-    }
+    // inline bool reachColumnEnd() const
+    // {
+    //     return offsetRow_ == rowNum_ && offsetCol_ < colNum_;
+    // }
 
-    inline bool reachRowEnd() const
-    {
-        return offsetCol_ == colNum_ && offsetRow_ < rowNum_;
-    }
+    // inline bool reachRowEnd() const
+    // {
+    //     return offsetCol_ == colNum_ && offsetRow_ < rowNum_;
+    // }
 
     virtual bool reachEnd() const {
-        return reachColumnEnd() || reachRowEnd();
+      //  return reachColumnEnd() || reachRowEnd();
+      return false;
     }
 
-    inline bool reachColumnEnd(size_t ro, size_t co) const
-    {
-        return ro == rowNum_ && co < colNum_;
-    }
+    // inline bool reachColumnEnd(size_t ro, size_t co) const
+    // {
+    //     return ro == rowNum_ && co < colNum_;
+    // }
 
-    inline bool reachRowEnd(size_t ro, size_t co) const
-    {
-        return co == colNum_ && ro < rowNum_;
-    }
+    // inline bool reachRowEnd(size_t ro, size_t co) const
+    // {
+    //     return co == colNum_ && ro < rowNum_;
+    // }
 
-    size_t switchColumn(size_t col_idx);
-    size_t switchRow(size_t row_idx);
+    // size_t switchColumn(size_t col_idx);
+    // size_t switchRow(size_t row_idx);
     inline size_t totalSize() const { return colNum_ * rowNum_ * elementByteLength_; }
     inline size_t columnNum() const { return colNum_; }
     inline size_t rowNum() const { return rowNum_; }
@@ -584,7 +606,7 @@ class H5GeneralDataReader
     ~H5GeneralDataReader() { freeVlenMemory(vlenMem_); }
 
   protected:
-    virtual size_t prepareToRead(H5DataSpace &mem_space, H5DataSpace &file_space, size_t offsetRow, size_t offsetCol, bool test) const;
+    virtual size_t prepareToRead(H5DataSpace &mem_space, H5DataSpace &file_space, size_t offsetRow, size_t offsetCol) const;
     void doRead(hid_t mem_space_id, hid_t file_space_id);
     bool discoveVlenString(hid_t type) const;
     void setXferProperty(bool has_vlen_str);
@@ -620,8 +642,10 @@ class H5BlockDataReader : public H5GeneralDataReader
   private:
     virtual bool reachEnd() const
     {
-        return (offsetRow_ == endRow_ && offsetCol_ >= endCol_)
-            || (offsetRow_ >= endRow_ && offsetCol_ == endCol_);
+        return (offsetRow_ == endRow_ )
+        // && offsetCol_ >= endCol_)
+            || (offsetRow_ >= endRow_ );
+            // && offsetCol_ == endCol_);
     }
 
     virtual size_t elementNumReadOnceMax() const

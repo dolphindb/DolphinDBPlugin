@@ -1,4 +1,4 @@
-py,libPluginPy.dll
+py,libPluginPy.dll,1.30.22
 runCommand,cmd,system,1,1,0
 importModule,importModule,system,1,1,0
 getObject,getObj,system,2,2,0

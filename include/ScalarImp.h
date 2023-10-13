@@ -26,12 +26,10 @@ void initFormatters();
 
 class Void: public Constant{
 public:
-	Void(bool explicitNull = false){setNothing(!explicitNull);}
+	Void(bool explicitNull = false) : Constant(DF_SCALAR, DT_VOID, NOTHING){setNothing(!explicitNull);}
 	virtual ConstantSP getInstance() const {return ConstantSP(new Void(!isNothing()));}
 	virtual ConstantSP getValue() const {return ConstantSP(new Void(!isNothing()));}
-	virtual DATA_TYPE getType() const {return DT_VOID;}
 	virtual DATA_TYPE getRawType() const { return DT_VOID;}
-	virtual DATA_CATEGORY getCategory() const {return NOTHING;}
 	virtual string getString() const {return Constant::EMPTY;}
 	virtual string getScript() const {return isNothing() ? Constant::EMPTY : Constant::NULL_STR;}
 	virtual const DolphinString& getStringRef() const {return Constant::DEMPTY;}
@@ -39,6 +37,7 @@ public:
 	virtual char getChar() const {return CHAR_MIN;}
 	virtual short getShort() const {return SHRT_MIN;}
 	virtual int getInt() const {return INT_MIN;}
+	virtual INDEX getIndex() const {return INDEX_MIN;}
 	virtual long long  getLong() const {return LLONG_MIN;}
 	virtual float getFloat() const {return FLT_NMIN;}
 	virtual double getDouble() const {return DBL_NMIN;}
@@ -135,9 +134,7 @@ public:
 	virtual const unsigned char* getBinaryConst(INDEX start, int len, int unitLength, unsigned char* buf) const;
 	virtual ConstantSP getInstance() const {return new Int128();}
 	virtual ConstantSP getValue() const {return new Int128(uuid_);}
-	virtual DATA_TYPE getType() const {return DT_INT128;}
 	virtual DATA_TYPE getRawType() const { return DT_INT128;}
-	virtual DATA_CATEGORY getCategory() const {return BINARY;}
 	virtual long long getAllocatedMemory() const {return sizeof(Int128);}
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const {
 		short flag = (DF_SCALAR <<8) + getType();
@@ -147,9 +144,14 @@ public:
 	}
 	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
 	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
+	virtual bool assign(const ConstantSP& value);
 	static string toString(const unsigned char* data);
 	static Int128* parseInt128(const char* str, int len);
 	static bool parseInt128(const char* str, size_t len, unsigned char* buf);
+	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){
+		memcpy(uuid_, value->getInt128(valueIndex).bytes(), 16);
+		return true;
+	}
 
 protected:
 	mutable unsigned char uuid_[16];
@@ -164,13 +166,13 @@ public:
 	virtual ~Uuid(){}
 	virtual ConstantSP getInstance() const {return new Uuid(false);}
 	virtual ConstantSP getValue() const {return new Uuid(uuid_);}
-	virtual DATA_TYPE getType() const {return DT_UUID;}
 	virtual DATA_TYPE getRawType() const { return DT_INT128;}
 	virtual string getString() const { return Guid::getString(uuid_);}
 	static Uuid* parseUuid(const char* str, int len);
 	static bool parseUuid(const char* str, size_t len, unsigned char* buf);
 };
 
+# ifndef OPCUA
 class IPAddr : public Int128 {
 public:
 	IPAddr();
@@ -179,7 +181,6 @@ public:
 	virtual ~IPAddr(){}
 	virtual ConstantSP getInstance() const {return new IPAddr();}
 	virtual ConstantSP getValue() const {return new IPAddr(uuid_);}
-	virtual DATA_TYPE getType() const {return DT_IP;}
 	virtual DATA_TYPE getRawType() const { return DT_INT128;}
 	virtual string getString() const { return toString(uuid_);}
 	static string toString(const unsigned char* data);
@@ -190,6 +191,7 @@ private:
 	static bool parseIP4(const char* str, size_t len, unsigned char* buf);
 	static bool parseIP6(const char* str, size_t len, unsigned char* buf);
 };
+# endif
 
 class DoublePair {
 public:
@@ -253,13 +255,12 @@ protected:
 
 class Complex : public Double2 {
 public:
-	Complex() : Double2(){}
-	Complex(double real, double image) : Double2(real, image){}
-	Complex(const unsigned char* data) : Double2(data){}
+	Complex() : Double2(){setType(DT_COMPLEX);}
+	Complex(double real, double image) : Double2(real, image){setType(DT_COMPLEX);}
+	Complex(const unsigned char* data) : Double2(data){setType(DT_COMPLEX);}
 	virtual ~Complex(){}
 	virtual ConstantSP getInstance() const {return new Complex();}
 	virtual ConstantSP getValue() const {return new Complex(uuid_);}
-	virtual DATA_TYPE getType() const {return DT_COMPLEX;}
 	virtual DATA_TYPE getRawType() const { return DT_INT128;}
 	virtual string getString() const { return toString(uuid_);}
 	double getReal() const;
@@ -269,13 +270,12 @@ public:
 
 class Point : public Double2 {
 public:
-	Point() : Double2(){}
-	Point(double x, double y) : Double2(x, y){}
-	Point(const unsigned char* data) : Double2(data){}
+	Point() : Double2(){setType(DT_POINT);}
+	Point(double x, double y) : Double2(x, y){setType(DT_POINT);}
+	Point(const unsigned char* data) : Double2(data){setType(DT_POINT);}
 	virtual ~Point(){}
 	virtual ConstantSP getInstance() const {return new Point();}
 	virtual ConstantSP getValue() const {return new Point(uuid_);}
-	virtual DATA_TYPE getType() const {return DT_POINT;}
 	virtual DATA_TYPE getRawType() const { return DT_INT128;}
 	virtual string getString() const { return toString(uuid_);}
 	double getX() const;
@@ -285,8 +285,8 @@ public:
 
 class String: public Constant{
 public:
-	String(DolphinString val=""):blob_(false), val_(val){}
-	String(DolphinString val, bool blob):blob_(blob), val_(val){}
+	String(DolphinString val=""): Constant(DF_SCALAR, DT_STRING, LITERAL), blob_(false), val_(val){}
+	String(DolphinString val, bool blob): Constant(DF_SCALAR, blob ? DT_BLOB : DT_STRING, LITERAL), blob_(blob), val_(val){}
 	virtual ~String(){}
     virtual bool isLargeConstant() const { return val_.size()>1024;}
 	virtual char getBool() const {throw IncompatibleTypeException(DT_BOOL, internalType());}
@@ -351,9 +351,7 @@ public:
 	}
 	virtual ConstantSP getInstance() const {return ConstantSP(new String());}
 	virtual ConstantSP getValue() const {return ConstantSP(new String(val_));}
-	virtual DATA_TYPE getType() const {return internalType();}
 	virtual DATA_TYPE getRawType() const { return internalType();}
-	virtual DATA_CATEGORY getCategory() const {return LITERAL;}
 	virtual long long getAllocatedMemory() const {return sizeof(DolphinString);}
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
 	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
@@ -361,6 +359,8 @@ public:
 	virtual int compare(INDEX index, const ConstantSP& target) const {
 		return val_.compare(target->getString());
 	}
+	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getStringRef(valueIndex);return true;}
+	virtual bool assign(const ConstantSP& value);
 
 protected:
 	inline DATA_TYPE internalType() const { return blob_ ? DT_BLOB : DT_STRING;}
@@ -372,16 +372,15 @@ private:
 
 class MetaCode : public String {
 public:
-	MetaCode(const ObjectSP& code) : String("< " + code->getScript() +" >"), code_(code){}
-	virtual DATA_TYPE getType() const {return DT_CODE;}
+	MetaCode(const ObjectSP& code) : String("< " + code->getScript() +" >"), code_(code){setTypeAndCategory(DT_CODE, SYSTEM);}
 	virtual DATA_TYPE getRawType() const { return DT_CODE;}
-	virtual DATA_CATEGORY getCategory() const {return SYSTEM;}
 	virtual string getScript() const;
 	virtual bool copyable() const {return false;}
 	virtual bool containNotMarshallableObject() const {return true;}
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
 	ObjectSP getCode() const { return code_;}
 	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
+	virtual bool isLargeConstant() const { return false;}
 
 private:
 	ObjectSP code_;
@@ -390,12 +389,10 @@ private:
 class DataSource : public String {
 public:
 	DataSource(const ObjectSP& code, long long cacheId = -1, bool isTable = true, bool localMode = false) : String("DataSource< " + code->getScript() +" >"), code_(1, code),
-		parentId_(-1), id_(cacheId), action_(-1), isTable_(isTable), localMode_(localMode){}
+		parentId_(-1), id_(cacheId), action_(-1), isTable_(isTable), localMode_(localMode){setTypeAndCategory(DT_DATASOURCE, SYSTEM);}
 	DataSource(const vector<ObjectSP>& code, long long cacheId = -1, bool isTable = true, bool localMode = false);
 	DataSource(Session* session, const DataInputStreamSP& in);
-	virtual DATA_TYPE getType() const {return DT_DATASOURCE;}
 	virtual DATA_TYPE getRawType() const { return DT_DATASOURCE;}
-	virtual DATA_CATEGORY getCategory() const {return SYSTEM;}
 	virtual string getScript() const;
 	virtual bool copyable() const {return false;}
 	virtual bool containNotMarshallableObject() const {return true;}
@@ -436,13 +433,13 @@ private:
 class SystemHandle : public String{
 public:
 	SystemHandle(SOCKET handle, bool isLittleEndian, const string& sessionID, const string& host, int port, const string& userId, const string& pwd) : String("Conn[" + host + ":" +Util::convert(port) + ":" +sessionID + "]"),
-		type_(REMOTE_HANDLE), socket_(handle), flag_(isLittleEndian ? 1 : 0), sessionID_(sessionID), userId_(userId), pwd_(pwd), tables_(0){}
+		type_(REMOTE_HANDLE), socket_(handle), flag_(isLittleEndian ? 1 : 0), sessionID_(sessionID), userId_(userId), pwd_(pwd), tables_(0){setTypeAndCategory(DT_HANDLE, SYSTEM);}
 	SystemHandle(const DataStreamSP& handle, bool isLittleEndian) : String(handle->getDescription()),
-		type_(handle->isFileStream() ? FILE_HANDLE : SOCKET_HANDLE), socket_(-1), flag_(isLittleEndian ? 1 : 0), stream_(handle), tables_(0){}
+		type_(handle->isFileStream() ? FILE_HANDLE : SOCKET_HANDLE), socket_(-1), flag_(isLittleEndian ? 1 : 0), stream_(handle), tables_(0){setTypeAndCategory(DT_HANDLE, SYSTEM);}
 	SystemHandle(const string& dbDir, const DomainSP& domain): String("DB[" + dbDir + "]"),
-		type_(DB_HANDLE), socket_(-1), flag_(Util::LITTLE_ENDIAN_ORDER ? 1 : 0), dbDir_(dbDir), domain_(domain), symbaseManager_(new SymbolBaseManager(dbDir)), tables_(new unordered_map<string, TableSP>()){}
+		type_(DB_HANDLE), socket_(-1), flag_(Util::LITTLE_ENDIAN_ORDER ? 1 : 0), dbDir_(dbDir), domain_(domain), symbaseManager_(new SymbolBaseManager(dbDir)), tables_(new unordered_map<string, TableSP>()){setTypeAndCategory(DT_HANDLE, SYSTEM);}
 	SystemHandle(const string& dbDir, const DomainSP& domain, const SymbolBaseManagerSP& symManager): String("DB[" + dbDir + "]"),
-		type_(DB_HANDLE), socket_(-1), flag_(Util::LITTLE_ENDIAN_ORDER ? 1 : 0), dbDir_(dbDir), domain_(domain), symbaseManager_(symManager), tables_(new unordered_map<string, TableSP>()){}
+		type_(DB_HANDLE), socket_(-1), flag_(Util::LITTLE_ENDIAN_ORDER ? 1 : 0), dbDir_(dbDir), domain_(domain), symbaseManager_(symManager), tables_(new unordered_map<string, TableSP>()){setTypeAndCategory(DT_HANDLE, SYSTEM);}
 	virtual ~SystemHandle();
 	virtual bool isDatabase() const {return type_ == DB_HANDLE;}
 	virtual ConstantSP getMember(const ConstantSP& key) const;
@@ -465,8 +462,6 @@ public:
     DomainSP getDomain() const;
     void setDomain(const DomainSP& domain);
     SymbolBaseManagerSP getSymbolBaseManager() const { return symbaseManager_;}
-	virtual DATA_TYPE getType() const {return DT_HANDLE;}
-	virtual DATA_CATEGORY getCategory() const {return SYSTEM;}
 	virtual bool copyable() const {return false;}
 	virtual ConstantSP getValue() const { throw RuntimeException("System handle is not copyable.");}
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const { throw RuntimeException("System handle is not able to serialize.");}
@@ -490,10 +485,8 @@ private:
 
 class Resource : public String{
 public:
-	Resource(long long handle, const string& desc, const FunctionDefSP& onClose, Session* session) : String(desc), handle_(handle), onClose_(onClose), session_(session){}
+	Resource(long long handle, const string& desc, const FunctionDefSP& onClose, Session* session) : String(desc), handle_(handle), onClose_(onClose), session_(session){setTypeAndCategory(DT_RESOURCE, SYSTEM);}
 	virtual ~Resource();
-	virtual DATA_TYPE getType() const {return DT_RESOURCE;}
-	virtual DATA_CATEGORY getCategory() const {return SYSTEM;}
 	virtual bool copyable() const {return false;}
 	virtual ConstantSP getValue() const { throw RuntimeException("Resource is not copyable.");}
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const { throw RuntimeException("Resource is not able to serialize.");}
@@ -511,7 +504,7 @@ private:
 template <class T>
 class AbstractScalar: public Constant{
 public:
-	AbstractScalar(T val=0):val_(val){}
+	AbstractScalar(DATA_TYPE dt, DATA_CATEGORY dc, T val=0): Constant(DF_SCALAR, dt, dc), val_(val){}
 	virtual ~AbstractScalar(){}
 	virtual char getBool() const {return isNull()?CHAR_MIN:(bool)val_;}
 	virtual char getChar() const {return isNull()?CHAR_MIN:val_;}
@@ -533,6 +526,48 @@ public:
 	virtual void setString(const string& val){}
 	virtual void setString(const DolphinString& val){}
 	virtual bool isNull() const = 0;
+
+	virtual ConstantSP get(const ConstantSP& index) const override {
+		if (index->isScalar()) {
+			return getValue();
+		}
+		else if (!index->isVector()) {
+			throw RuntimeException("Scalar get only support index scalar and index vector yet.");
+		}
+		ConstantSP vec = Util::createVector(getType(), index->size());
+		((Vector*)vec.get())->fill(0, vec->size(), getValue());
+		
+		if (((Vector*)index.get())->min()->getInt() >= 0) {
+			return vec;
+		}
+		INDEX len = index->size();
+		if(index->isIndexArray()){
+			UINDEX* bufIndex=(UINDEX*)index->getIndexArray();
+			for(INDEX i=0;i<len;++i)
+				if (bufIndex[i]<0) {
+					vec->setNull(i);
+				}
+		}
+		else{
+			UINDEX bufIndex[Util::BUF_SIZE];
+			const UINDEX* pbufIndex;
+			INDEX start=0;
+			int count=0;
+			int i;
+			while(start<len){
+				count=std::min(len-start,Util::BUF_SIZE);
+				pbufIndex = (const UINDEX*)index->getIndexConst(start,count,(INDEX*)bufIndex);
+				for(i=0;i<count;++i) {
+					if (pbufIndex[i]<0) {
+						vec->setNull(i);
+					}
+				}
+				start+=count;
+			}
+		}
+		return vec;
+	}
+
 	virtual string getScript() const {
 		if(isNull()){
 			string str("00");
@@ -702,6 +737,12 @@ public:
 		return buffer->write(buf, length);
 	}
 	virtual int compare(INDEX index, const ConstantSP& target) const {
+		if(isNull()){
+			return target->isNull() ? 0 : -1;
+		}
+		else if (target->isNull()) {
+			return 1;
+		}
 		if(getCategory() == FLOATING){
 			T val= (T)target->getDouble();
 			return val_==val?0:(val_<val?-1:1);
@@ -712,22 +753,39 @@ public:
 		}
 	}
 
+    virtual bool assign(const ConstantSP &value) {
+        if (value->isNull(0)) {
+            setNull();
+            return true;
+        } else if (getCategory() == FLOATING) {
+            val_ = (T)value->getDouble();
+            return true;
+        } else {
+            val_ = (T)value->getLong();
+            return true;
+        }
+    }
+
 protected:
 	T val_;
 };
 
 class Bool: public AbstractScalar<char>{
 public:
-	Bool(char val=0):AbstractScalar(val){}
+	Bool(char val=0):AbstractScalar(DT_BOOL, LOGICAL, val){}
 	virtual ~Bool(){}
 	virtual bool isNull() const {return val_==CHAR_MIN;}
 	virtual void setNull(){val_= CHAR_MIN;}
 	virtual void setBool(char val){ val_ = val;}
-	virtual DATA_TYPE getType() const {return DT_BOOL;}
 	virtual DATA_TYPE getRawType() const { return DT_BOOL;}
+	virtual char getBool() const override {
+		if (val_ == CHAR_MIN) {
+			return CHAR_MIN;
+		}
+		return static_cast<bool>(val_);
+	}
 	virtual ConstantSP getInstance() const {return ConstantSP(new Bool());}
 	virtual ConstantSP getValue() const {return ConstantSP(new Bool(val_));}
-	virtual DATA_CATEGORY getCategory() const {return LOGICAL;}
 	virtual string getString() const { return toString(val_);}
 	virtual bool add(INDEX start, INDEX length, long long inc) { return false;}
 	virtual bool add(INDEX start, INDEX length, double inc) { return false;}
@@ -741,61 +799,63 @@ public:
 		else
 			return "0";
 	}
+	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getBool(valueIndex);return true;}
+	virtual bool assign(const ConstantSP& value);
 };
 
 class Char: public AbstractScalar<char>{
 public:
-	Char(char val=0):AbstractScalar(val){}
+	Char(char val=0):AbstractScalar(DT_CHAR, INTEGRAL, val){}
 	virtual ~Char(){}
 	virtual bool isNull() const {return val_==CHAR_MIN;}
 	virtual void setNull(){val_=CHAR_MIN;}
 	virtual void setChar(char val){ val_ = val;}
-	virtual DATA_TYPE getType() const {return DT_CHAR;}
 	virtual DATA_TYPE getRawType() const { return DT_CHAR;}
+	virtual char getChar() const override { return val_; }
 	virtual ConstantSP getInstance() const {return ConstantSP(new Char());}
 	virtual ConstantSP getValue() const {return ConstantSP(new Char(val_));}
-	virtual DATA_CATEGORY getCategory() const {return INTEGRAL;}
 	virtual string getString() const { return toString(val_);}
 	virtual string getScript() const;
 	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
 	static Char* parseChar(const string& str);
 	static string toString(char val);
+	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getChar(valueIndex);return true;}
 };
 
 class Short: public AbstractScalar<short>{
 public:
-	Short(short val=0):AbstractScalar(val){}
+	Short(short val=0):AbstractScalar(DT_SHORT, INTEGRAL, val){}
 	virtual ~Short(){}
 	virtual bool isNull() const {return val_==SHRT_MIN;}
 	virtual void setNull(){val_=SHRT_MIN;}
 	virtual void setShort(short val){ val_ = val;}
-	virtual DATA_TYPE getType() const {return DT_SHORT;}
 	virtual DATA_TYPE getRawType() const { return DT_SHORT;}
+	virtual short getShort() const override { return val_; }
 	virtual ConstantSP getInstance() const {return ConstantSP(new Short());}
 	virtual ConstantSP getValue() const {return ConstantSP(new Short(val_));}
-	virtual DATA_CATEGORY getCategory() const {return INTEGRAL;}
 	virtual string getString() const { return toString(val_);}
 	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
 	static Short* parseShort(const string& str);
 	static string toString(short val);
+	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getShort(valueIndex);return true;}
 };
 
 class Int: public AbstractScalar<int>{
 public:
-	Int(int val=0):AbstractScalar(val){}
+	Int(int val=0):AbstractScalar(DT_INT, INTEGRAL, val){}
 	virtual ~Int(){}
 	virtual bool isNull() const {return val_==INT_MIN;}
 	virtual void setNull(){val_=INT_MIN;}
 	virtual void setInt(int val){ val_ = val;}
-	virtual DATA_TYPE getType() const {return DT_INT;}
 	virtual DATA_TYPE getRawType() const { return DT_INT;}
+	virtual int getInt() const override { return val_; }
 	virtual ConstantSP getInstance() const {return ConstantSP(new Int());}
 	virtual ConstantSP getValue() const {return ConstantSP(new Int(val_));}
-	virtual DATA_CATEGORY getCategory() const {return INTEGRAL;}
 	virtual string getString() const { return toString(val_);}
 	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
 	static Int* parseInt(const string& str);
 	static string toString(int val);
+	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getInt(valueIndex);return true;}
 };
 
 class EnumInt : public Int {
@@ -815,9 +875,7 @@ class Duration : public Int {
 public:
 	Duration(DURATION unit, int val);
 	virtual ~Duration(){}
-	virtual DATA_TYPE getType() const { return DT_DURATION;}
 	virtual DATA_TYPE getRawType() const { return DT_DURATION;}
-	virtual DATA_CATEGORY getCategory() const { return SYSTEM;}
 	virtual long long getLong() const;
 	virtual string getScript() const {return getString();}
 	virtual ConstantSP getValue() const {return ConstantSP(new Duration(unit_, val_));}
@@ -844,34 +902,33 @@ private:
 
 class Long: public AbstractScalar<long long>{
 public:
-	Long(long long val=0):AbstractScalar(val){}
+	Long(long long val=0):AbstractScalar(DT_LONG, INTEGRAL, val){}
 	virtual ~Long(){}
 	virtual bool isNull() const {return val_==LLONG_MIN;}
 	virtual void setNull(){val_=LLONG_MIN;}
 	virtual void setLong(long long val){ val_ = val;}
-	virtual DATA_TYPE getType() const {return DT_LONG;}
 	virtual DATA_TYPE getRawType() const { return DT_LONG;}
+	virtual long long getLong() const override { return val_; }
 	virtual ConstantSP getInstance() const {return ConstantSP(new Long());}
 	virtual ConstantSP getValue() const {return ConstantSP(new Long(val_));}
 	virtual string getString() const { return toString(val_);}
-	virtual DATA_CATEGORY getCategory() const {return INTEGRAL;}
 	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
 	static Long* parseLong(const string& str);
 	static string toString(long long val);
+	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getLong(valueIndex);return true;}
 };
 
 class Float: public AbstractScalar<float>{
 public:
-	Float(float val=0):AbstractScalar(val){}
+	Float(float val=0):AbstractScalar(DT_FLOAT, FLOATING, val){}
 	virtual ~Float(){}
 	virtual bool isNull() const {return val_==FLT_NMIN;}
 	virtual void setNull(){val_=FLT_NMIN;}
 	virtual void setFloat(float val){ val_ = val;}
-	virtual DATA_TYPE getType() const {return DT_FLOAT;}
 	virtual DATA_TYPE getRawType() const { return DT_FLOAT;}
+	virtual float getFloat() const override { return val_; }
 	virtual ConstantSP getInstance() const {return ConstantSP(new Float());}
 	virtual ConstantSP getValue() const {return ConstantSP(new Float(val_));}
-	virtual DATA_CATEGORY getCategory() const {return FLOATING;}
 	virtual char getChar() const {return isNull()?CHAR_MIN:(val_<0?val_-0.5:val_+0.5);}
 	virtual short getShort() const {return isNull()?SHRT_MIN:(val_<0?val_-0.5:val_+0.5);}
 	virtual int getInt() const {return isNull()?INT_MIN:(val_<0?val_-0.5:val_+0.5);}
@@ -888,20 +945,20 @@ public:
 	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
 	static Float* parseFloat(const string& str);
 	static string toString(float val);
+	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getFloat(valueIndex);return true;}
 };
 
 class Double: public AbstractScalar<double>{
 public:
-	Double(double val=0):AbstractScalar((std::isnan(val)|| std::isinf(val)) ? DBL_NMIN : val){}
+	Double(double val=0):AbstractScalar(DT_DOUBLE, FLOATING, (std::isnan(val)|| std::isinf(val)) ? DBL_NMIN : val){}
 	virtual ~Double(){}
 	virtual bool isNull() const {return val_==DBL_NMIN;}
 	virtual void setNull(){val_=DBL_NMIN;}
-	virtual void setDouble(double val){ val_ = val;}
-	virtual DATA_TYPE getType() const {return DT_DOUBLE;}
+	virtual void setDouble(double val){ val_ = (std::isnan(val)|| std::isinf(val)) ? DBL_NMIN : val; }
 	virtual DATA_TYPE getRawType() const { return DT_DOUBLE;}
+	virtual double getDouble() const override { return val_; }
 	virtual ConstantSP getInstance() const {return ConstantSP(new Double());}
 	virtual ConstantSP getValue() const {return ConstantSP(new Double(val_));}
-	virtual DATA_CATEGORY getCategory() const {return FLOATING;}
 	virtual char getChar() const {return isNull()?CHAR_MIN:(val_<0?val_-0.5:val_+0.5);}
 	virtual short getShort() const {return isNull()?SHRT_MIN:(val_<0?val_-0.5:val_+0.5);}
 	virtual int getInt() const {return isNull()?INT_MIN:(val_<0?val_-0.5:val_+0.5);}
@@ -918,6 +975,7 @@ public:
 	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
 	static Double* parseDouble(const string& str);
 	static string toString(double val);
+	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getDouble(valueIndex);return true;}
 };
 
 class EnumDouble : public Double {
@@ -935,17 +993,15 @@ private:
 
 class TemporalScalar:public Int{
 public:
-	TemporalScalar(int val=0):Int(val){}
+	TemporalScalar(DATA_TYPE type, int val=0):Int(val){setTypeAndCategory(type, TEMPORAL);}
 	virtual ~TemporalScalar(){}
-	virtual DATA_CATEGORY getCategory() const {return TEMPORAL;}
 };
 
 class Date:public TemporalScalar{
 public:
-	Date(int val=0):TemporalScalar(val){}
+	Date(int val=0):TemporalScalar(DT_DATE, val){}
+	Date(int year, int month, int day):TemporalScalar(DT_DATE, Util::countDays(year,month,day)){}
 	virtual ~Date(){}
-	Date(int year, int month, int day):TemporalScalar(Util::countDays(year,month,day)){}
-	virtual DATA_TYPE getType() const {return DT_DATE;}
 	virtual ConstantSP getInstance() const {return ConstantSP(new Date());}
 	virtual ConstantSP getValue() const {return ConstantSP(new Date(val_));}
 	virtual string getString() const { return toString(val_);}
@@ -955,11 +1011,10 @@ public:
 
 class Month:public TemporalScalar{
 public:
-	Month():TemporalScalar(1999*12+11){}
-	Month(int val):TemporalScalar(val){}
-	Month(int year, int month):TemporalScalar(year*12+month-1){}
+	Month():TemporalScalar(DT_MONTH, 1999*12+11){}
+	Month(int val):TemporalScalar(DT_MONTH, val){}
+	Month(int year, int month):TemporalScalar(DT_MONTH, year*12+month-1){}
 	virtual ~Month(){}
-	virtual DATA_TYPE getType() const {return DT_MONTH;}
 	virtual ConstantSP getInstance() const {return ConstantSP(new Month());}
 	virtual ConstantSP getValue() const {return ConstantSP(new Month(val_));}
 	virtual string getString() const { return toString(val_);}
@@ -969,10 +1024,9 @@ public:
 
 class Time:public TemporalScalar{
 public:
-	Time(int val=0):TemporalScalar(val){}
-	Time(int hour, int minute, int second, int milliSecond):TemporalScalar(((hour*60+minute)*60+second)*1000+milliSecond){}
+	Time(int val=0):TemporalScalar(DT_TIME, val){}
+	Time(int hour, int minute, int second, int milliSecond):TemporalScalar(DT_TIME, ((hour*60+minute)*60+second)*1000+milliSecond){}
 	virtual ~Time(){}
-	virtual DATA_TYPE getType() const {return DT_TIME;}
 	virtual ConstantSP getInstance() const {return ConstantSP(new Time());}
 	virtual ConstantSP getValue() const {return ConstantSP(new Time(val_));}
 	virtual string getString() const { return toString(val_);}
@@ -983,11 +1037,9 @@ public:
 
 class NanoTime:public Long{
 public:
-	NanoTime(long long val=0):Long(val){}
-	NanoTime(int hour, int minute, int second, int nanoSecond):Long(((hour*60+minute)*60+second)*1000000000ll+ nanoSecond){}
+	NanoTime(long long val=0):Long(val){setTypeAndCategory(DT_NANOTIME, TEMPORAL);}
+	NanoTime(int hour, int minute, int second, int nanoSecond):Long(((hour*60+minute)*60+second)*1000000000ll+ nanoSecond){setTypeAndCategory(DT_NANOTIME, TEMPORAL);}
 	virtual ~NanoTime(){}
-	virtual DATA_TYPE getType() const {return DT_NANOTIME;}
-	virtual DATA_CATEGORY getCategory() const {return TEMPORAL;}
 	virtual ConstantSP getInstance() const {return ConstantSP(new NanoTime());}
 	virtual ConstantSP getValue() const {return ConstantSP(new NanoTime(val_));}
 	virtual string getString() const { return toString(val_);}
@@ -998,11 +1050,9 @@ public:
 
 class Timestamp:public Long{
 public:
-	Timestamp(long long val=0):Long(val){}
+	Timestamp(long long val=0):Long(val){setTypeAndCategory(DT_TIMESTAMP, TEMPORAL);}
 	Timestamp(int year, int month, int day,int hour, int minute, int second, int milliSecond);
 	virtual ~Timestamp(){}
-	virtual DATA_TYPE getType() const {return DT_TIMESTAMP;}
-	virtual DATA_CATEGORY getCategory() const {return TEMPORAL;}
 	virtual ConstantSP getInstance() const {return ConstantSP(new Timestamp());}
 	virtual ConstantSP getValue() const {return ConstantSP(new Timestamp(val_));}
 	virtual string getString() const { return toString(val_);}
@@ -1012,11 +1062,9 @@ public:
 
 class NanoTimestamp:public Long{
 public:
-	NanoTimestamp(long long val=0):Long(val){}
+	NanoTimestamp(long long val=0):Long(val){setTypeAndCategory(DT_NANOTIMESTAMP, TEMPORAL);}
 	NanoTimestamp(int year, int month, int day,int hour, int minute, int second, int nanoSecond);
 	virtual ~NanoTimestamp(){}
-	virtual DATA_TYPE getType() const {return DT_NANOTIMESTAMP;}
-	virtual DATA_CATEGORY getCategory() const {return TEMPORAL;}
 	virtual ConstantSP getInstance() const {return ConstantSP(new NanoTimestamp());}
 	virtual ConstantSP getValue() const {return ConstantSP(new NanoTimestamp(val_));}
 	virtual string getString() const { return toString(val_);}
@@ -1026,10 +1074,9 @@ public:
 
 class Minute:public TemporalScalar{
 public:
-	Minute(int val=0):TemporalScalar(val){}
-	Minute(int hour, int minute):TemporalScalar(hour*60+minute){}
+	Minute(int val=0):TemporalScalar(DT_MINUTE, val){}
+	Minute(int hour, int minute):TemporalScalar(DT_MINUTE, hour*60+minute){}
 	virtual ~Minute(){}
-	virtual DATA_TYPE getType() const {return DT_MINUTE;}
 	virtual ConstantSP getInstance() const {return ConstantSP(new Minute());}
 	virtual ConstantSP getValue() const {return ConstantSP(new Minute(val_));}
 	virtual string getString() const { return toString(val_);}
@@ -1040,10 +1087,9 @@ public:
 
 class Second:public TemporalScalar{
 public:
-	Second(int val=0):TemporalScalar(val){}
-	Second(int hour, int minute,int second):TemporalScalar((hour*60+minute)*60+second){}
+	Second(int val=0):TemporalScalar(DT_SECOND, val){}
+	Second(int hour, int minute,int second):TemporalScalar(DT_SECOND, (hour*60+minute)*60+second){}
 	virtual ~Second(){}
-	virtual DATA_TYPE getType() const {return DT_SECOND;}
 	virtual ConstantSP getInstance() const {return ConstantSP(new Second());}
 	virtual ConstantSP getValue() const {return ConstantSP(new Second(val_));}
 	virtual string getString() const { return toString(val_);}
@@ -1054,10 +1100,9 @@ public:
 
 class DateTime:public TemporalScalar{
 public:
-	DateTime(int val=0):TemporalScalar(val){}
+	DateTime(int val=0):TemporalScalar(DT_DATETIME, val){}
 	DateTime(int year, int month, int day, int hour, int minute,int second);
 	virtual ~DateTime(){}
-	virtual DATA_TYPE getType() const {return DT_DATETIME;}
 	virtual ConstantSP getInstance() const {return ConstantSP(new DateTime());}
 	virtual ConstantSP getValue() const {return ConstantSP(new DateTime(val_));}
 	virtual string getString() const { return toString(val_);}
@@ -1067,16 +1112,14 @@ public:
 
 class DateHour:public TemporalScalar{
 public:
-	DateHour(int val=0):TemporalScalar(val){}
+	DateHour(int val=0):TemporalScalar(DT_DATEHOUR, val){}
 	DateHour(int year, int month, int day, int hour);
 	virtual ~DateHour(){}
-	virtual DATA_TYPE getType() const {return DT_DATEHOUR;}
 	virtual ConstantSP getInstance() const {return ConstantSP(new DateHour());}
 	virtual ConstantSP getValue() const {return ConstantSP(new DateHour(val_));}
 	virtual string getString() const { return toString(val_);}
 	static DateHour* parseDateHour(const string& str);
 	static string toString(int val);
 };
-
 
 #endif /* SCALARIMP_H_ */

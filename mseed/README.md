@@ -10,6 +10,7 @@ DolphinDB的mseed插件可以读取miniSEED文件的数据到DolphinDB的内存�
 ```
  loadPlugin("<PluginDir>/mseed/build/PluginMseed.txt");
 ```
+请注意，若使用 Windows 插件，加载时必须指定绝对路径，且路径中使用"\\\\"或"/"代替"\\"。
 
 ### 1.2 自行编译安装
 
@@ -255,3 +256,12 @@ dataVec = 1..1000
 data = table(sidVec as sid, tsVec as ts, dataVec as data)
 ret = mseed::streamize(data, 1000)
 ```
+
+# ReleaseNotes:
+
+## 故障修复
+
+* 接口 mseed::write 新增对参数 *startTime* 非法输入值的报错。（**1.30.22**）
+* 接口 mseed::parseStreamInfo 新增对非法数据或非法 SID（Station Identifier）的报错。（**1.30.22**）
+* 接口 mseed::parse 新增对空字符串数据的检查。（**1.30.22**）
+* 接口 mseed::read 新增对非法参数输入值的检查。（**1.30.22**）

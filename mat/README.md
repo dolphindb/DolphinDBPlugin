@@ -180,3 +180,14 @@ mat::writeMat("var.mat", "var1", data)
 | matlab 类型         | 对应的 DolphinDB 类型 |
 | ------------------- | :------------------ |
 | character array   | STRING              |
+
+
+# ReleaseNotes:
+
+## 新功能
+
+* 新增支持多线程读写 mat 文件。（**1.30.22**）
+
+# 故障修复
+
+* 接口 mat::writeMat 新增对参数 *varName* 非法输入值的报错。（**1.30.22**）

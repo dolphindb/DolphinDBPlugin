@@ -28,4 +28,7 @@ extern "C" ConstantSP fft21(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP ifft2(Heap *heap, vector<ConstantSP> &args); //2-D inverse fast discrete Fourier Transform.
 extern "C" ConstantSP ifft21(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP secc(Heap *heap, vector<ConstantSP> &args); //Super-Efficient Cross-Correlation of seismic waveforms
+extern "C" ConstantSP absFuc(Heap *heap, vector<ConstantSP> &args);
+extern "C" ConstantSP mul(Heap *heap, vector<ConstantSP> &args);
+
 #endif /* SIGNAL_H_ */

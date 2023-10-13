@@ -2,7 +2,7 @@
 #include "ScalarImp.h"
 #include "Util.h"
 #include "json.hpp"
-
+#include "Logger.h"
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define LIKELY(x) (__builtin_expect((x), 1))
 #define UNLIKELY(x) (__builtin_expect((x), 0))
@@ -25,25 +25,33 @@ ConstantSP parseJSON(Heap* heap, vector<ConstantSP>& args) {
     auto parsedObj = json::parse(original);
 
     if(parsedObj.type_name() != string("array")){
-        throw RuntimeException("The given JSON data must be a array. ");
+        throw RuntimeException(PLUGIN_ZMQ_PARSERS_PREFIX+"The given JSON data must be a array. ");
     }
-    int nCols = parsedObj[0].size();
-    int nRows = parsedObj.size();
+    size_t nRows = parsedObj.size();
+    if (nRows < 1){
+        throw RuntimeException(PLUGIN_ZMQ_PARSERS_PREFIX+"The JSON array must have at least one element");
+    }
+    size_t nCols = parsedObj.at(0).size();
 
     vector<DATA_TYPE> dt(nCols);
     vector<ConstantSP> cols(nCols);
 
-    for (int i = 0; i < nCols; ++i) {
+    for (size_t i = 0; i < nCols; ++i) {
         dt[i] = (DATA_TYPE)schema->getInt(i);
         if (dt[i] == DT_SYMBOL)
             dt[i] = DT_STRING;
         cols[i] = Util::createVector((DATA_TYPE)schema->getInt(i), nRows, nRows);
     }
 
-    for (int i = 0; i < nRows; ++i) {
+    for (size_t i = 0; i < nRows; ++i) {
         auto& row = parsedObj[i];
         for (auto it = row.begin(); it != row.end(); ++it) {
-            int curCol = colIdx[it.key()];
+            auto colIdxIter = colIdx.find(it.key());
+            if (colIdxIter == colIdx.end()){
+                LOG_ERR(PLUGIN_ZMQ_PARSERS_PREFIX+": The json key["+it.key()+"] does not exist in the table schema");
+                continue;
+            }
+            int curCol = colIdxIter->second;
             //std::cout << curCol << " " << dt[curCol] << " " << it.key() << " " << it.value() << std::endl;
             if(it->is_null()){
                 cols[curCol]->setNull(i);
@@ -181,13 +189,19 @@ ConstantSP parseCSV(Heap* heap, vector<ConstantSP>& args) {
     for (int i = 0; i < nRows; ++i) {
         vector<string> raw = Util::split(data[i], delimiter);
         if(raw.size() < nCols)
-            throw RuntimeException("The number of elements in row " + std::to_string(i + 1) + " of the original data is less than the number of schemas. ");
+            throw RuntimeException(PLUGIN_ZMQ_PARSERS_PREFIX+"The number of elements in row " + std::to_string(i + 1) + " of the original data is less than the number of schemas. ");
         for (size_t j = 0; j < nCols; ++j) {
             switch (dt[j]) {
                 case DT_BOOL:                                 // true, false, True, False
+                    if(raw[j].size() < 1){
+                        throw RuntimeException(PLUGIN_ZMQ_PARSERS_PREFIX+"empty string at row [" + std::to_string(i + 1) + "] column"+std::to_string(j + 1)+"]");
+                    }
                     cols[j]->setBool(i, raw[j][0] == '1');    // todo: should be 0 or 1
                     break;
                 case DT_CHAR:
+                    if(raw[j].size() < 1){
+                        throw RuntimeException(PLUGIN_ZMQ_PARSERS_PREFIX+"empty string at row [" + std::to_string(i + 1) + "] column ["+std::to_string(j + 1)+"]");
+                    }
                     cols[j]->setChar(i, raw[j][0]);
                     break;
                 case DT_SHORT:
@@ -355,6 +369,9 @@ namespace {
 ConstantSP createJSONParser(Heap* heap, vector<ConstantSP>& args) {
     static FunctionDefSP const def = Util::createSystemFunction("parseJSON", parseJSON, 3, 3, 0);
     string usage = "createJSONParser(schema, colNames)";
+    if (args[0]->getType() != DT_INT || args[0]->getForm() != DF_VECTOR) {
+        throw IllegalArgumentException(__FUNCTION__, usage + "schema must be a vector of types!");
+    }
     if (args[1]->getType() != DT_STRING || !args[1]->isVector()) {
         throw IllegalArgumentException(usage, "colNames must be a string vector");
     }
@@ -375,15 +392,18 @@ ConstantSP createCSVParser(Heap* heap, vector<ConstantSP>& args) {
     string usage = "createCSVParser(schema, [delimiter=','], [rowDelimiter=';']). ";
     char delimiter = ',';
     char rowDelimiter = ';';
+    if (args[0]->getType() != DT_INT || args[0]->getForm() != DF_VECTOR) {
+        throw IllegalArgumentException(__FUNCTION__, usage + "schema must be a vector of types!");
+    }
     if (args.size() > 1) {
         if (args[1]->getType() != DT_CHAR || args[1]->getForm() != DF_SCALAR) {
-            throw IllegalArgumentException(usage, "the second argument must be a char");
+            throw IllegalArgumentException(usage, "delimiter must be a char");
         }
         delimiter = args[1]->getChar();
     }
     if (args.size() > 2) {
         if (args[2]->getType() != DT_CHAR || args[2]->getForm() != DF_SCALAR) {
-            throw IllegalArgumentException(usage, "the second argument must be a char");
+            throw IllegalArgumentException(usage, "rowDelimiter must be a char");
         }
         rowDelimiter = args[2]->getChar();
     }
@@ -398,21 +418,21 @@ ConstantSP createCSVFormatter(Heap* heap, vector<ConstantSP>& args) {
     char rowDelimiter = ';';
     if (!args.empty()) {
         if (args[0]->getType() != DT_VOID && (args[0]->getType() != DT_STRING || !args[0]->isVector())) {
-            throw IllegalArgumentException(usage, "the first argument must be a tuple of string ");
+            throw IllegalArgumentException(usage, "format must be a tuple of string ");
         }
     } else{
-        throw IllegalArgumentException(usage, "the first argument must be a tuple of string ");
+        throw IllegalArgumentException(usage, "format must be a tuple of string ");
     };
 
     if (args.size() > 1) {
         if (args[1]->getType() != DT_CHAR || args[1]->getForm() != DF_SCALAR) {
-            throw IllegalArgumentException(usage, "the second argument must be a char"  );
+            throw IllegalArgumentException(usage, "delimiter must be a char"  );
         }
         delimiter = args[1]->getChar();
     }
     if (args.size() > 2) {
         if (args[2]->getType() != DT_CHAR || args[2]->getForm() != DF_SCALAR) {
-            throw IllegalArgumentException(usage, "the second argument must be a char");
+            throw IllegalArgumentException(usage, "rowDelimiter must be a char");
         }
         rowDelimiter = args[2]->getChar();
     }

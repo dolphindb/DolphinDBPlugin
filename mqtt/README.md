@@ -1,16 +1,61 @@
 # MQTT Client Plugin
 
+The DolphinDB MQTT Client plugin has different branches, such as release200 and release130. Each branch corresponds to a DolphinDB server version. Please make sure you are in the correct branch of the plugin documentation.
+
+- [MQTT Client Plugin](#mqtt-client-plugin)
+  - [1. Load Precompiled Plugin](#1-load-precompiled-plugin)
+    - [1.1 Function `loadPlugin`](#11-function-loadplugin)
+    - [1.2 Configuration Parameter *preloadModules*](#12-configuration-parameter-preloadmodules)
+  - [2. (Optional) Manually Compile Plugin](#2-optional-manually-compile-plugin)
+    - [2.1 Linux](#21-linux)
+    - [2.2 Windows](#22-windows)
+  - [3. Publish](#3-publish)
+    - [3.1 Connect to a MQTT server/broker](#31-connect-to-a-mqtt-serverbroker)
+    - [3.2 Publish](#32-publish)
+    - [3.3 Close the connection](#33-close-the-connection)
+  - [4. Subscribe/Unsubscribe](#4-subscribeunsubscribe)
+    - [4.1 Subscribe](#41-subscribe)
+    - [4.2 Check Subscription](#42-check-subscription)
+    - [4.3 Unsubscribe](#43-unsubscribe)
+  - [5. Formatter/Parser](#5-formatterparser)
+    - [5.1 createCsvFormatter](#51-createcsvformatter)
+    - [5.2 createCsvParser](#52-createcsvparser)
+    - [5.3 createJsonFormatter](#53-createjsonformatter)
+    - [5.4 createJsonParser](#54-createjsonparser)
+  - [6. An example](#6-an-example)
+
+
 ## 1. Load Precompiled Plugin
 
-Use function `loadPlugin` to load MQTT client plugin.
+There are two options to load the MQTT client plugin in DolphinDB:
+
+* Using the function `loadPlugin`
+* Specifying the configuration parameter *preloadModules*
+
+### 1.1 Function `loadPlugin` 
 
 ```
 loadPlugin("/YOUR_PATH/mqtt/PluginMQTTClient.txt"); 
 ```
 
-Note: You can modify the path as appropriate.
+Note: You can modify the path as appropriate. With a Windows OS, make sure to specify an absolute path and replace "\\" with "\\\\" or "/".
 
-## 2. Manually Compile Plugin
+### 1.2 Configuration Parameter *preloadModules*
+
+Alternatively, you can preload the plugin during server startup by specifying the configuration parameter *preloadModules*, so you don't have to call `loadPlugin` afterwards. For single-machine deployment, configure the parameter in *dolphindb.cfg*. For cluster deployment, the plugin must be loaded on both the controller and the associated data node(s), and the simplest way is to configure the parameter in both *controller.cfg* and *cluster.cfg*.
+
+```
+preloadModules=plugins::mqtt,plugins::odbc
+```
+
+Separate plugins with a comma.
+
+Note:
+
+* The configuration parameter *preloadModules* is only supported on server version 1.20.x and higher.
+* *preloadModules* is used to preload plugins and modules in DolphinDB. The directory for the plugin files are specified by the configuration parameter *pluginDir*. For more information, see [documentation](https://dolphindb.com/help200/DatabaseandDistributedComputing/Configuration/StandaloneMode.html).
+
+## 2. (Optional) Manually Compile Plugin
 ### 2.1 Linux
 
 * This plugin has been successfully compiled with GCC (version 5.4.0) on 64-bits Linux operating system.
@@ -229,7 +274,10 @@ def createT(n) {
     return table(take([false, true], n) as bool, take('a'..'z', n) as char, take(short(-5..5), n) as short, take(-5..5, n) as int, take(-5..5, n) as long, take(2001.01.01..2010.01.01, n) as date, take(2001.01M..2010.01M, n) as month, take(time(now()), n) as time, take(minute(now()), n) as minute, take(second(now()), n) as second, take(datetime(now()), n) as datetime, take(now(), n) as timestamp, take(nanotime(now()), n) as nanotime, take(nanotimestamp(now()), n) as nanotimestamp, take(3.1415, n) as float, take(3.1415, n) as double, take(`AAPL`IBM, n) as string, take(`AAPL`IBM, n) as symbol)
 }
 t = createT(100)
-f = mqtt::createCsvFormatter([BOOL,CHAR,SHORT,INT,LONG,DATE,MONTH,TIME,MINUTE,SECOND,DATETIME,TIMESTAMP,NANOTIME,NANOTIMESTAMP,FLOAT,DOUBLE,STRING,SYMBOL])
+MyFormat = take("", 18)
+MyFormat[2] = "0.000"
+MyFormat[5] = "yyyy.MM.dd"
+f = mqtt::createCsvFormatter(MyFormat)
 f(t)
 ```
 
@@ -307,7 +355,7 @@ x=p(s)
 
 ```
 
-### An example
+## 6. An example
 ```
 loadPlugin("./plugins/mqtt/bin/PluginMQTTClient.txt"); 
 use mqtt; 

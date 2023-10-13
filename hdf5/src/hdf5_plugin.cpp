@@ -1,50 +1,82 @@
 #include "hdf5_plugin.h"
+#include "Exceptions.h"
+
+
+/* AUX */
+
+typedef struct GroupInfoTag
+{
+    string dataType;
+    vector<string> *colsName{};
+    vector<string> *kindColsName{};
+
+    GroupInfoTag(string &type, vector<string> *name, size_t indexCount) : dataType(type), colsName(name) {}
+
+    GroupInfoTag() = default;
+} GroupInfo;
 
 class InitHdf5Filter{
-public: 
+public:
     InitHdf5Filter(){
         try{
-            char *version, *date;
-            int r = register_blosc(&version, &date);
+            int r = register_blosc(&version_, &date_);
             if(r < 0)
                 LOG_ERR("PluginHDF5: Failed to registe blosc filter. ");
             else
-                LOG_INFO("PluginHDF5: Sucess to registe blosc filter. Blosc version info : " + string(version) + " " + string(date));
+                LOG_INFO("PluginHDF5: Sucess to registe blosc filter. Blosc version info : " + string(version_) + " " + string(date_));
         }catch(exception &e){
             LOG_ERR(e.what());
         }
     }
+    ~InitHdf5Filter() {
+        // TODO unregister blosc
+        free(version_);
+        free(date_);
+    }
+private:
+    char* version_;
+    char* date_;
 };
 
 static InitHdf5Filter initHdf5Filter;
 
+
+/* INTERFACES */
+
 ConstantSP h5ls(const ConstantSP &h5_path)
 {
-    if (h5_path->getType() != DT_STRING)
+    LockGuard<Mutex> guard{&H5PluginImp::hdf5Mutex};
+    if (h5_path->getType() != DT_STRING || h5_path->getForm() != DF_SCALAR)
         throw IllegalArgumentException(__FUNCTION__, "The argument for h5ls must be a string.");
 
-    vector<string> objsName, objsType;
-    H5PluginImp::h5ls(h5_path->getString(), objsName, objsType);
+    vector<string> objNames, objTypes;
+    H5::Exception::dontPrint();
 
-    size_t objsNum = objsName.size();
+    H5PluginImp::h5ls(h5_path->getString(), objNames, objTypes);
 
-    TableSP lsResult = Util::createTable({"objName", "objType"}, {DT_STRING, DT_STRING}, objsNum, objsNum);
+    size_t objNum = objNames.size();
+
+    TableSP lsResult = Util::createTable({"objName", "objType"}, {DT_STRING, DT_STRING}, (INDEX) objNum,
+                                         (INDEX) objNum);
 
     VectorSP h5ObjectName = lsResult->getColumn(0);
     VectorSP h5ObjectType = lsResult->getColumn(1);
 
-    h5ObjectName->setString(0, objsNum, objsName.data());
-    h5ObjectType->setString(0, objsNum, objsType.data());
+    h5ObjectName->setString(0, (int) objNum, objNames.data());
+    h5ObjectType->setString(0, (int) objNum, objTypes.data());
 
     return lsResult;
 }
 
 ConstantSP h5lsTable(const ConstantSP &filename)
 {
+    LockGuard<Mutex> guard{&H5PluginImp::hdf5Mutex};
     if (filename->getType() != DT_STRING)
         throw IllegalArgumentException(__FUNCTION__, "The argument for h5ls must be a string.");
 
     vector<string> datasetName, datasetDims, dataType;
+    H5::Exception::dontPrint();
+
     H5PluginImp::h5lsTable(filename->getString(), datasetName, datasetDims, dataType);
 
     size_t tableNum = datasetName.size();
@@ -56,69 +88,55 @@ ConstantSP h5lsTable(const ConstantSP &filename)
     VectorSP tableDims = Util::createVector(DT_STRING, 0);
     VectorSP tableType = Util::createVector(DT_STRING, 0);
 
-    tableName->appendString(datasetName.data(), tableNum);
-    tableDims->appendString(datasetDims.data(), tableNum);
-    tableType->appendString(dataType.data(), tableNum);
+    tableName->appendString(datasetName.data(), (int)tableNum);
+    tableDims->appendString(datasetDims.data(), (int)tableNum);
+    tableType->appendString(dataType.data(), (int)tableNum);
 
     return Util::createTable(resultColName, {tableName, tableDims, tableType});
 }
 
 ConstantSP extractHDF5Schema(const ConstantSP& filename, const ConstantSP& datasetName) {
-    if (filename->getType() != DT_STRING || datasetName->getType() != DT_STRING)
+    LockGuard<Mutex> guard{&H5PluginImp::hdf5Mutex};
+    if (filename->getType() != DT_STRING || datasetName->getForm() != DF_SCALAR ||
+        datasetName->getType() != DT_STRING || filename->getForm() != DF_SCALAR) {
+
         throw IllegalArgumentException(__FUNCTION__, "The filename and dataset must be a string.");
+    }
+
+    H5::Exception::dontPrint();
 
     ConstantSP schema = H5PluginImp::extractHDF5Schema(filename->getString(), datasetName->getString());
 
     return schema;
 }
 
-ConstantSP loadHDF5(Heap *heap, vector<ConstantSP>& arguments)
-{
-    ConstantSP filename = arguments[0];
-    ConstantSP datasetName = arguments[1];
-
-    size_t startRow = 0;
-    size_t rowNum = 0;
-    ConstantSP schema = H5PluginImp::nullSP;
-
-    if (filename->getType() != DT_STRING || datasetName->getType() != DT_STRING)
-        throw IllegalArgumentException(__FUNCTION__, "The filename and dataset must be a string.");
-    if (arguments.size() >= 3) {
-        if (arguments[2]->isNull())
-            schema = H5PluginImp::nullSP;
-        else if (!arguments[2]->isTable())
-            throw IllegalArgumentException(__FUNCTION__, "schema must be a table containing column names and types.");
-        else
-            schema = arguments[2];
-    }
-    if (arguments.size() >= 4) {
-        if (arguments[3]->isScalar() && arguments[3]->isNumber())
-            startRow = arguments[3]->getLong();
-        else if (arguments[3]->isNull())
-            startRow = 0;
-        else
-            throw IllegalArgumentException(__FUNCTION__, "startRow must be an integer.");
-
-        if (startRow < 0)
-            throw IllegalArgumentException(__FUNCTION__, "startRow must be positive.");
-    }
-    if (arguments.size() >= 5) {
-        if (arguments[4]->isScalar() && arguments[4]->isNumber())
-            rowNum = arguments[4]->getLong();
-        else if (arguments[4]->isNull())
-            rowNum = 0;
-        else
-            throw IllegalArgumentException(__FUNCTION__, "rowNum must be an integer.");
-
-        if (rowNum < 0)
-            throw IllegalArgumentException(__FUNCTION__, "rowNum must be positive.");
-    }
-
+ConstantSP loadHDF5(Heap *heap, vector<ConstantSP> &arguments) {
+    LockGuard<Mutex> guard{&H5PluginImp::hdf5Mutex};
+    ConstantSP filename;
+    ConstantSP datasetName;
+    ConstantSP schema;
+    size_t startRow;
+    size_t rowNum;
+    checkHDF5Parameter(heap, arguments, filename, datasetName, schema, startRow, rowNum);
+    H5::Exception::dontPrint();
     return H5PluginImp::loadHDF5(filename->getString(), datasetName->getString(), schema, startRow, rowNum);
+}
+
+ConstantSP loadPandasHDF5(Heap *heap, vector<ConstantSP>& arguments){
+    LockGuard<Mutex> guard{&H5PluginImp::hdf5Mutex};
+    ConstantSP filename;
+    ConstantSP groupname;
+    ConstantSP schema;
+    size_t startRow;
+    size_t rowNum;
+    checkHDF5Parameter(heap, arguments, filename, groupname, schema, startRow, rowNum);
+    H5::Exception::dontPrint();
+    return H5PluginImp::loadPandasHDF5(filename->getString(), groupname->getString(), schema, startRow, rowNum);
 }
 
 ConstantSP loadHDF5Ex(Heap *heap, vector<ConstantSP>& arguments)
 {
+    LockGuard<Mutex> guard{&H5PluginImp::hdf5Mutex};
     ConstantSP db = arguments[0];
     ConstantSP tableName = arguments[1];
     ConstantSP partitionColumnNames = arguments[2];
@@ -128,6 +146,7 @@ ConstantSP loadHDF5Ex(Heap *heap, vector<ConstantSP>& arguments)
     size_t startRow = 0;
     size_t rowNum = 0;
     ConstantSP schema = H5PluginImp::nullSP;
+    H5::Exception::dontPrint();
 
     if (!db->isDatabase())
         throw IllegalArgumentException(__FUNCTION__, "dbHandle must be a database handle.");
@@ -181,15 +200,16 @@ ConstantSP loadHDF5Ex(Heap *heap, vector<ConstantSP>& arguments)
                                    schema, startRow, rowNum);
     }
 
-    
+
 }
 
 ConstantSP HDF5DS(Heap *heap, vector<ConstantSP>& arguments)
 {
+    LockGuard<Mutex> guard{&H5PluginImp::hdf5Mutex};
     ConstantSP filename = arguments[0];
     ConstantSP datasetName = arguments[1];
 
-    size_t dsNum = 1;
+    int dsNum = 1;
     ConstantSP schema = H5PluginImp::nullSP;
 
     if (filename->getType() != DT_STRING || datasetName->getType() != DT_STRING)
@@ -203,21 +223,22 @@ ConstantSP HDF5DS(Heap *heap, vector<ConstantSP>& arguments)
             schema = arguments[2];
     }
     if (arguments.size() >= 4) {
-        if (arguments[3]->isScalar() && arguments[3]->isNumber())
-            dsNum = arguments[3]->getLong();
+        if (arguments[3]->isScalar() && arguments[3]->getType() == DT_INT) {
+            dsNum = arguments[3]->getInt();
+        }
         else if (arguments[3]->isNull())
             dsNum = 1;
         else
             throw IllegalArgumentException(__FUNCTION__, "dsNum must be an integer.");
-        
         if (dsNum < 1)
             throw IllegalArgumentException(__FUNCTION__, "dsNum must be positive.");
     }
-
-    return H5PluginImp::HDF5DS(filename, datasetName, schema, dsNum);
+    H5::Exception::dontPrint();
+    return H5PluginImp::HDF5DS(filename, datasetName, schema, (size_t)dsNum);
 }
 
 ConstantSP saveHDF5(Heap *heap, vector<ConstantSP> &arguments){
+    LockGuard<Mutex> guard{&H5PluginImp::hdf5Mutex};
     TableSP table = arguments[0];
     ConstantSP fileName = arguments[1];
     ConstantSP datasetName = arguments[2];
@@ -247,11 +268,60 @@ ConstantSP saveHDF5(Heap *heap, vector<ConstantSP> &arguments){
             throw IllegalArgumentException(__FUNCTION__, "stringMaxLength must be positive.");
         }
     }
+    H5::Exception::dontPrint();
     return H5PluginImp::saveHDF5(table, fileName->getString(), datasetName->getString(), append, stringMaxLength);
 }
 
-namespace H5PluginImp
-{
+
+/* HELPERS */
+
+void checkHDF5Parameter(Heap *heap, vector<ConstantSP> &arguments, ConstantSP &filename, ConstantSP &destOrGroupName,
+                        ConstantSP &schema, size_t &startRow, size_t &rowNum) {
+    filename = arguments[0];
+    destOrGroupName = arguments[1];
+
+    startRow = 0;
+    rowNum = 0;
+    schema = H5PluginImp::nullSP;
+
+    if (filename->getType() != DT_STRING || destOrGroupName->getType() != DT_STRING)
+        throw IllegalArgumentException(__FUNCTION__, "The filename and dataset(or group) must be a string.");
+    if (arguments.size() >= 3) {
+        if (arguments[2]->isNull())
+            schema = H5PluginImp::nullSP;
+        else if (!arguments[2]->isTable())
+            throw IllegalArgumentException(__FUNCTION__, "schema must be a table containing column names and types.");
+        else
+            schema = arguments[2];
+    }
+    if (arguments.size() >= 4) {
+        if (arguments[3]->isScalar() && arguments[3]->isNumber())
+            startRow = arguments[3]->getLong();
+        else if (arguments[3]->isNull())
+            startRow = 0;
+        else
+            throw IllegalArgumentException(__FUNCTION__, "startRow must be an integer.");
+
+        if (startRow < 0)
+            throw IllegalArgumentException(__FUNCTION__, "startRow must be positive.");
+    }
+    if (arguments.size() >= 5) {
+        if (arguments[4]->isScalar() && arguments[4]->isNumber())
+            rowNum = arguments[4]->getLong();
+        else if (arguments[4]->isNull())
+            rowNum = 0;
+        else
+            throw IllegalArgumentException(__FUNCTION__, "rowNum must be an integer.");
+
+        if (rowNum < 0)
+            throw IllegalArgumentException(__FUNCTION__, "rowNum must be positive.");
+    }
+}
+
+
+/* H5_PLUGIN_IMP */
+
+namespace H5PluginImp {
 
 std::string getDatasetDimsStr(hid_t loc_id, const char *name)
 {
@@ -276,7 +346,6 @@ std::string getDatasetDimsStr(hid_t loc_id, const char *name)
     auto combineDimsOp = [](std::string &a, hsize_t b) -> std::string & {
         return a.append(1, ',').append(std::to_string(b));
     };
-
     std::string dimsInfo = std::to_string(dims.back());
     return std::accumulate(dims.rbegin() + 1, dims.rend(), dimsInfo, combineDimsOp);
 }
@@ -316,49 +385,61 @@ void h5lsTable(const string &filename, vector<string> &datasetName, vector<strin
     } datasetTableInfo;
 
     H5O_iterate_t callback = [](hid_t obj, const char *name, const H5O_info_t *info, void *op_data) -> herr_t {
-        if (info->type != H5O_TYPE_DATASET)
+        try {
+
+            if (info->type != H5O_TYPE_DATASET)
+                return 0;
+
+            h5_dataset_table_info &dataset_info = *(static_cast<h5_dataset_table_info *>(op_data));
+
+            dataset_info.nameVal.push_back(name[0] == '.' ? "/" : std::string("/") + name);
+            dataset_info.dimsVal.push_back(getDatasetDimsStr(obj, name));
+            dataset_info.typeVal.push_back(getDatasetNativeTypeStr(obj, name));
             return 0;
-
-        h5_dataset_table_info &dataset_info = *(static_cast<h5_dataset_table_info *>(op_data));
-
-        dataset_info.nameVal.push_back(name[0] == '.' ? "/" : std::string("/") + name);
-        dataset_info.dimsVal.push_back(getDatasetDimsStr(obj, name));
-        dataset_info.typeVal.push_back(getDatasetNativeTypeStr(obj, name));
-
-        return 0;
+        } catch(...) {
+            return -1;
+        }
     };
 
-    H5Ovisit(file.id(), H5_INDEX_CRT_ORDER, H5_ITER_NATIVE, callback, &datasetTableInfo, H5O_INFO_BASIC);
+    int ret = H5Ovisit(file.id(), H5_INDEX_CRT_ORDER, H5_ITER_NATIVE, callback, &datasetTableInfo, H5O_INFO_BASIC);
+    if(ret < 0) {
+        throw RuntimeException("Failed to list the tables in file.");
+    }
 
     datasetName = std::move(datasetTableInfo.nameVal);
     datasetDims = std::move(datasetTableInfo.dimsVal);
     dataType = std::move(datasetTableInfo.typeVal);
 }
 
-void h5ls(const string &filename, vector<string> &objsName, vector<string> &objsType)
-{
-    H5ReadOnlyFile file(filename);
+void h5ls(const string &filename, vector<string> &objNames, vector<string> &objTypes) {
 
-    struct h5_objects_name_and_type
-    {
-        std::vector<string> nameVal;
-        std::vector<string> typeVal;
-    } nameAndType;
+    struct h5_objects_names_and_types {
+        std::vector<string> names;
+        std::vector<string> types;
+    } namesAndTypes;
 
     H5O_iterate_t callback = [](hid_t obj, const char *name, const H5O_info_t *info, void *op_data) -> herr_t {
         using std::vector;
-        h5_objects_name_and_type &name_and_type = *(static_cast<h5_objects_name_and_type *>(op_data));
+        h5_objects_names_and_types &names_and_types = *(static_cast<h5_objects_names_and_types *>(op_data));
 
-        name_and_type.nameVal.push_back(name[0] == '.' ? "/" : std::string("/") + name);
-        name_and_type.typeVal.push_back(getHdf5ObjectTypeInfoStr(obj, name, info->type));
+        names_and_types.names.push_back(name[0] == '.' ? "/" : std::string("/") + name);
+        names_and_types.types.push_back(getHdf5ObjectTypeInfoStr(obj, name, info->type));
 
         return 0;
     };
 
-    H5Ovisit(file.id(), H5_INDEX_CRT_ORDER, H5_ITER_NATIVE, callback, &nameAndType, H5O_INFO_BASIC);
+    try {
+        H5ReadOnlyFile file(filename);
+        int ret = H5Ovisit(file.id(), H5_INDEX_CRT_ORDER, H5_ITER_NATIVE, callback, &namesAndTypes, H5O_INFO_BASIC);
+        if(ret < 0) {
+            throw RuntimeException("Failed to list the file content.");
+        }
+    } catch (H5::Exception &error) {
+        throw RuntimeException("Error listing the file content: " + error.getDetailMsg());
+    }
 
-    objsName = std::move(nameAndType.nameVal);
-    objsType = std::move(nameAndType.typeVal);
+    objNames = std::move(namesAndTypes.names);
+    objTypes = std::move(namesAndTypes.types);
 }
 
 std::string getLayoutColumnType(hdf5_type_layout &layout)
@@ -439,7 +520,6 @@ void generateComplexTypeBasedColsNameAndColsType(vector<string> &colsName, vecto
 TableSP generateCompoundDatasetSchema(H5DataType &type) {
     std::vector<H5ColumnSP> h5Cols;
     H5DataType convertedType;
-
     if (!TypeColumn::createComplexColumns(type, h5Cols, convertedType))
         throw RuntimeException("unsupported data type");
 
@@ -454,10 +534,10 @@ TableSP generateCompoundDatasetSchema(H5DataType &type) {
     for (int i = 0; i < colNum; i++)
     {
         ConstantSP name = new String(names[i]);
-        ConstantSP type = new String(types[i]);
-        type->setString(types[i]);
+        ConstantSP t = new String(types[i]);
+        t->setString(types[i]);
         cols[0]->set(i, name);
-        cols[1]->set(i, type);
+        cols[1]->set(i, t);
     }
 
     vector<string> colNames(2);
@@ -478,6 +558,9 @@ TableSP extractHDF5Schema(const string &filename, const string &datasetName)
 
     if (rank > 2)
         throw RuntimeException("rank of dataspace > 2");
+    else if(rank < 0) {
+        throw RuntimeException("Failed to get the rank of dataspace");
+    }
 
     vector<hsize_t> dims;
     dspace.currentDims(dims);
@@ -643,7 +726,7 @@ void generateComplexTypeBasedColsNameAndColsType(vector<string> &colsName, vecto
         return generateColNameFromArrayMember(colsName, colsType, type);
 }
 
-bool colsNumEqual(TableSP t, int ncols)
+bool colsNumEqual(const TableSP& t, int ncols)
 {
     return t->columns() == ncols;
 }
@@ -655,7 +738,7 @@ void generateIncrementedColsName(std::vector<string> &cols, int size)
         cols[i].append(std::to_string(i));
 }
 
-inline std::string typeIncompatibleErrorMsg(int idx, DATA_TYPE src, VectorSP destVec)
+inline std::string typeIncompatibleErrorMsg(int idx, DATA_TYPE src, const VectorSP& destVec)
 {
     DATA_TYPE dest = (destVec == nullptr) ? src : destVec->getType();
 
@@ -663,10 +746,10 @@ inline std::string typeIncompatibleErrorMsg(int idx, DATA_TYPE src, VectorSP des
            Util::getDataTypeString(src) + "->" + Util::getDataTypeString(dest);
 }
 
-bool createColumnVec(vector<H5ColumnSP> &cols, size_t num, size_t cap, H5DataType &src, TableSP dest)
+bool createColumnVec(vector<H5ColumnSP> &cols, size_t num, size_t cap, H5DataType &src, const TableSP& dest)
 {
     cols.resize(num);
-    for (size_t i = 0; i != num; i++)
+    for (size_t i = 0; i < num; i++)
     {
         cols[i] = TypeColumn::createNewColumn(src);
         if (cols[i] == nullptr)
@@ -674,19 +757,18 @@ bool createColumnVec(vector<H5ColumnSP> &cols, size_t num, size_t cap, H5DataTyp
 
         VectorSP destVec = dest->isNull() ? nullSP : dest->getColumn(i);
         VectorSP v = cols[i]->createDolphinDBColumnVector(destVec, 0, cap);
-
         if (v->isNull())
             throw RuntimeException(typeIncompatibleErrorMsg(i, cols[i]->srcType(), destVec));
     }
     return true;
 }
 
-bool createColumnVec(vector<H5ColumnSP> &cols, size_t cap, TableSP dest)
+bool createColumnVec(vector<H5ColumnSP> &cols, size_t cap, const TableSP& dest)
 {
     for (size_t i = 0; i != cols.size(); i++)
     {
-        if (cols[i] == nullptr)
-            throw RuntimeException("unknown error:col can't be null"); //it should't be executed....just check
+        // if (cols[i] == nullptr)
+        //     throw RuntimeException("unknown error:col can't be null"); //it should't be executed....just check
 
         VectorSP destVec = dest->isNull() ? nullSP : dest->getColumn(i);
         VectorSP v = cols[i]->createDolphinDBColumnVector(destVec, 0, cap);
@@ -699,38 +781,38 @@ bool createColumnVec(vector<H5ColumnSP> &cols, size_t cap, TableSP dest)
 
 typedef SmartPointer<DatasetAppender> DatasetAppenderSP;
 
-TableSP appendColumnVecToTable(TableSP tb, vector<ConstantSP> &colVec)
+TableSP appendColumnVecToTable(const TableSP& tb, vector<ConstantSP> &colVec)
 {
     if (tb->isNull())
         return tb;
 
     string errMsg;
     INDEX insertedRows = 0;
-    if (!tb->append(colVec, insertedRows, errMsg))
-        throw TableRuntimeException(errMsg);
+    tb->append(colVec, insertedRows, errMsg);
+        // throw TableRuntimeException(errMsg);
     return tb;
 }
 
-void doReadDataset(H5GeneralDataReader &reader, DatasetAppenderSP appender,
-                   vector<H5ColumnSP> &cols, vector<ConstantSP> &colVec)
-{
-    size_t eleNum = 0;
-    size_t eleByteLength = reader.elementByteLength();
+// void doReadDataset(H5GeneralDataReader &reader, DatasetAppenderSP appender,
+//                    vector<H5ColumnSP> &cols, vector<ConstantSP> &colVec)
+// {
+//     size_t eleNum = 0;
+//     size_t eleByteLength = reader.elementByteLength();
 
-    appender->setColumns(cols.data(), cols.size(), eleByteLength);
+//     appender->setColumns(cols.data(), cols.size(), eleByteLength);
 
-    while ((eleNum = reader.read()) != 0)
-    {
-        appender->updateRawData(reader.rawData<char *>(), eleNum);
-        appender->append();
-    }
+//     while ((eleNum = reader.read()) != 0)
+//     {
+//         appender->updateRawData(reader.rawData<char *>(), eleNum);
+//         appender->append();
+//     }
 
-    colVec.resize(cols.size());
-    for (size_t i = 0; i != colVec.size(); i++)
-        colVec[i] = cols[i]->colVec();
-}
+//     colVec.resize(cols.size());
+//     for (size_t i = 0; i != colVec.size(); i++)
+//         colVec[i] = cols[i]->colVec();
+// }
 
-void doReadDataset_concurrent(H5GeneralDataReader &reader, DatasetAppenderSP appender,
+void doReadDataset_concurrent(H5GeneralDataReader &reader, const DatasetAppenderSP& appender,
                               vector<H5ColumnSP> &cols, vector<ConstantSP> &colVec)
 {
     size_t eleNum = 0;
@@ -757,20 +839,42 @@ void doReadDataset_concurrent(H5GeneralDataReader &reader, DatasetAppenderSP app
     t.join();
     freeVlenMemory(backMem);
 
+    // handle null conditions
     colVec.resize(cols.size());
-    for (size_t i = 0; i != colVec.size(); i++)
+    for (size_t i = 0; i != colVec.size(); i++) {
         colVec[i] = cols[i]->colVec();
+        if (colVec[i]->getType() == DT_DOUBLE) {
+            for (INDEX j = 0; j != colVec[i]->size(); j++) {
+                double val = colVec[i]->get(j)->getDouble();
+                if (val == DBL_NMIN) {
+                    colVec[i]->set(j, new Double(DBL_NMIN));
+                }
+            }
+        } else if (colVec[i]->getType() == DT_FLOAT) {
+            for (INDEX j = 0; j != colVec[i]->size(); j++) {
+                float val = colVec[i]->get(j)->getFloat();
+                if ((*((uint32_t *)&val)) == 0x7fc00000) {
+                    colVec[i]->set(j, new Float(FLT_NMIN));
+                }
+            }
+        }
+
+    }
 }
 
 void getRowAndColNum(const hid_t set, vector<size_t> &rowAndColNum) {
     H5DataSpace dspace(set);
     std::vector<hsize_t> dims;
     dspace.currentDims(dims);
-    if (dspace.rank() == 0) {
+    int rank = dspace.rank();
+    if(rank < 0) {
+        throw RuntimeException("Failed to get the rank of dataspace.");
+    }
+    if (rank == 0) {
         dims.push_back(1);
         dims.push_back(1);
     }
-    if (dspace.rank() == 1)
+    if (rank == 1)
         dims.push_back(1);
     rowAndColNum.push_back(dims[0]);
     rowAndColNum.push_back(dims[1]);
@@ -810,8 +914,8 @@ size_t getDatasetSize(const hid_t set) {
         std::vector<H5ColumnSP> cols;
         H5DataType convertedType;
 
-        if (!TypeColumn::createComplexColumns(t, cols, convertedType))
-            throw RuntimeException("unsupported data type");
+        TypeColumn::createComplexColumns(t, cols, convertedType);
+            // throw RuntimeException("unsupported data type");
 
         H5GeneralDataReader reader(set, 1024 * 1024 * 32, 1024 * 1024 * 32, convertedType.id());
         return reader.totalSize();
@@ -821,64 +925,75 @@ size_t getDatasetSize(const hid_t set) {
     }
 }
 
-size_t getDatasetSize(const string &filename, const string &datasetName) {
-    H5ReadOnlyFile f(filename);
-    H5DataSet set(datasetName, f.id());
+// size_t getDatasetSize(const string &filename, const string &datasetName) {
+//     H5ReadOnlyFile f(filename);
+//     H5DataSet set(datasetName, f.id());
 
-    return getDatasetSize(set.id());
-}
+//     return getDatasetSize(set.id());
+// }
 
-TableSP readSimpleDataset(const hid_t set, H5DataType &type, TableSP tb, size_t startRow, size_t readRowNum)
+TableSP readSimpleDataset(const hid_t set, H5DataType &type, const TableSP& tb, size_t startRow, size_t readRowNum, GroupInfo &groupInfo)
 {
     H5DataType convertedType;
 
-    if (!TypeColumn::convertHdf5SimpleType(type, convertedType))
-        throw RuntimeException("unsupported data type");
-
+    TypeColumn::convertHdf5SimpleType(type, convertedType);
+        // throw RuntimeException("unsupported data type");
     vector<size_t> rowAndColNum;
     getRowAndColNum(set, rowAndColNum);
     size_t rowNum = rowAndColNum[0];
     size_t colNum = rowAndColNum[1];
     size_t startElement = startRow * colNum;
     size_t endElement;
-    if (readRowNum == 0 || readRowNum > rowNum)
+    if (readRowNum == 0 || readRowNum > rowNum) {
         endElement = rowNum * colNum;
-    else
+    } else {
         endElement = (startRow + readRowNum) * colNum;
+    }
 
     H5BlockDataReader reader(set, startElement, endElement,
                              1024 * 1024 * 32, 1024 * 1024 * 32, convertedType.id());
 
-    if (!reader.columnNum() || !reader.rowNum())
-        throw RuntimeException("empty dataset!");
+    // if (!reader.columnNum() || !reader.rowNum())
+    //     throw RuntimeException("empty dataset!");
 
     if (!tb->isNull() && !colsNumEqual(tb, reader.columnNum()))
         throw RuntimeException("the columns of the table don't match the dataset");
 
     vector<H5ColumnSP> cols;
     createColumnVec(cols, reader.columnNum(), std::min(readRowNum,rowNum), type, tb);
-
     vector<ConstantSP> colVec;
     DatasetAppenderSP appender = new SimpleDatasetAppender();
     doReadDataset_concurrent(reader, appender, cols, colVec);
 
     if (tb->isNull())
     {
-        vector<string> colsName;
-        generateIncrementedColsName(colsName, colVec.size());
-        return Util::createTable(colsName, colVec);
+        vector<string> realColsName;
+        if(!strcmp(groupInfo.dataType.c_str(), "normal")){
+            generateIncrementedColsName(realColsName, colVec.size());
+            return Util::createTable(realColsName, colVec);
+        }
+        else{
+            realColsName = *(groupInfo.colsName);
+            vector<ConstantSP> realColVec;
+            //match the col name with the col data. jump index col.
+            realColVec.push_back(colVec[0]);
+            for(size_t i = 1; i < realColsName.size(); i++){
+                size_t index = find(groupInfo.kindColsName->begin(), groupInfo.kindColsName->end(), realColsName[i]) - groupInfo.kindColsName->begin();
+                realColVec.push_back(colVec[index + 1]);
+            }
+        }
+        return Util::createTable(realColsName, colVec);
     }
 
     return appendColumnVecToTable(tb, colVec);
 }
-
-TableSP readComplexDataset(const hid_t set, H5DataType &type, TableSP tb, size_t startRow, size_t readRowNum)
+TableSP readComplexDataset(const hid_t set, H5DataType &type, const TableSP& tb, size_t startRow, size_t readRowNum, GroupInfo &groupInfo)
 {
     std::vector<H5ColumnSP> cols;
     H5DataType convertedType;
 
-    if (!TypeColumn::createComplexColumns(type, cols, convertedType))
-        throw RuntimeException("unsupported data type");
+    TypeColumn::createComplexColumns(type, cols, convertedType);
+        // throw RuntimeException("unsupported data type");
 
     vector<size_t> rowAndColNum;
     getRowAndColNum(set, rowAndColNum);
@@ -886,7 +1001,7 @@ TableSP readComplexDataset(const hid_t set, H5DataType &type, TableSP tb, size_t
     size_t colNum = rowAndColNum[1];
     size_t startElement = startRow * colNum;
     size_t endElement;
-    if (readRowNum == 0 || readRowNum > rowNum)
+    if (readRowNum == 0/* || readRowNum > rowNum*/)
         endElement = rowNum * colNum;
     else
         endElement = (startRow + readRowNum) * colNum;
@@ -894,11 +1009,11 @@ TableSP readComplexDataset(const hid_t set, H5DataType &type, TableSP tb, size_t
     H5BlockDataReader reader(set, startElement, endElement,
                              1024 * 1024 * 32, 1024 * 1024 * 32, convertedType.id());
 
-    if (!reader.columnNum() || !reader.rowNum())
-        throw RuntimeException("empty dataset!");
+    // if (!reader.columnNum() || !reader.rowNum())
+    //     throw RuntimeException("empty dataset!");
 
-    if (!tb->isNull() && !colsNumEqual(tb, cols.size()))
-        throw RuntimeException("the columns of the table don't match the dataset");
+    // if (!tb->isNull() && !colsNumEqual(tb, cols.size()))
+    //     throw RuntimeException("the columns of the table don't match the dataset");
 
     createColumnVec(cols, std::min(endElement,colNum * rowNum)-startElement, tb);
 
@@ -908,18 +1023,67 @@ TableSP readComplexDataset(const hid_t set, H5DataType &type, TableSP tb, size_t
 
     if (tb->isNull())
     {
-        vector<string> colsName;
-        generateComplexTypeBasedColsName(colsName, convertedType.id());
-        return Util::createTable(colsName, colVec);
+        vector<string> realColsName;
+        if(!strcmp(groupInfo.dataType.c_str(),"normal")){
+            generateComplexTypeBasedColsName(realColsName, convertedType.id());
+            return Util::createTable(realColsName, colVec);
+        }else{
+            realColsName = *(groupInfo.colsName);
+            vector<ConstantSP> realColVec;
+            //match the col name with the col data. jump index col.
+
+            vector<string> res = *(groupInfo.kindColsName);
+            realColVec.push_back(colVec[0]);
+            for(size_t i = 1; i < realColsName.size(); i++){
+                size_t index = find(groupInfo.kindColsName->begin(), groupInfo.kindColsName->end(), realColsName[i]) - groupInfo.kindColsName->begin();
+                realColVec.push_back(colVec[index + 1]);
+            }
+            return Util::createTable(realColsName, realColVec);
+        }
     }
 
     return appendColumnVecToTable(tb, colVec);
 }
-
 ConstantSP loadHDF5(const hid_t set, const ConstantSP &schema, const size_t startRow, const size_t rowNum) {
     H5DataType t;
     t.openFromDataset(set);
 
+    registerUnixTimeConvert();
+
+    TableSP tableWithSchema = schema->isNull() ?
+        static_cast<TableSP>(nullSP) : DBFileIO::createEmptyTableFromSchema(schema);
+
+    string dtype = "normal";
+    GroupInfo info(dtype, nullptr, 0);
+    switch (H5Tget_class(t.id()))
+    {
+    case H5T_INTEGER:
+    case H5T_FLOAT:
+    case H5T_TIME:
+    case H5T_STRING:
+    case H5T_ENUM:
+    case H5T_BITFIELD:
+        return readSimpleDataset(set, t, tableWithSchema, startRow, rowNum, info);
+    case H5T_COMPOUND:
+    case H5T_ARRAY:
+        return readComplexDataset(set, t, tableWithSchema, startRow, rowNum, info);
+    default:
+        throw RuntimeException("unsupported type");
+    }
+}
+
+ConstantSP loadHDF5(const string &filename, const string &datasetName,
+                    const ConstantSP &schema, const size_t startRow, const size_t rowNum)
+{
+    H5ReadOnlyFile f(filename);
+    H5DataSet set(datasetName, f.id());
+    return loadHDF5(set.id(), schema, startRow, rowNum);
+}
+
+ConstantSP loadPandasHDF5(const hid_t set, const ConstantSP &schema, const size_t startRow, const size_t rowNum, GroupInfo &info){
+
+    H5DataType t;
+    t.openFromDataset(set);
     registerUnixTimeConvert();
 
     TableSP tableWithSchema = schema->isNull() ?
@@ -933,22 +1097,295 @@ ConstantSP loadHDF5(const hid_t set, const ConstantSP &schema, const size_t star
     case H5T_STRING:
     case H5T_ENUM:
     case H5T_BITFIELD:
-        return readSimpleDataset(set, t, tableWithSchema, startRow, rowNum);
+        return readSimpleDataset(set, t, tableWithSchema, startRow, rowNum, info);
     case H5T_COMPOUND:
     case H5T_ARRAY:
-        return readComplexDataset(set, t, tableWithSchema, startRow, rowNum);
+        return readComplexDataset(set, t, tableWithSchema, startRow, rowNum,info);
 
     default:
         throw RuntimeException("unsupported type");
     }
 }
 
-ConstantSP loadHDF5(const string &filename, const string &datasetName,
-                    const ConstantSP &schema, const size_t startRow, const size_t rowNum)
-{
-    H5ReadOnlyFile f(filename);
-    H5DataSet set(datasetName, f.id());
-    return loadHDF5(set.id(), schema, startRow, rowNum);
+vector<ConstantSP> readSimpleDataFromDataSet(hid_t set, H5DataType &type, const TableSP& schema, const size_t startRow, const size_t readRowNum){
+
+    H5DataType convertedType;
+    TypeColumn::convertHdf5SimpleType(type, convertedType);
+        // throw RuntimeException("unsupported data type");
+
+    vector<size_t> rowAndColNum;
+    getRowAndColNum(set, rowAndColNum);
+    size_t rowNum = rowAndColNum[0];
+    size_t colNum = rowAndColNum[1];
+    // size_t startElement = 0;
+    // size_t endElement = rowNum * colNum;
+    // H5BlockDataReader reader(set, startElement, endElement,
+    //                          1024 * 1024 * 32, 1024 * 1024 * 32, convertedType.id());
+
+    size_t startElement = startRow * colNum;
+    size_t endElement;
+    if (readRowNum == 0 || readRowNum > rowNum) {
+        endElement = rowNum * colNum;
+    } else {
+        endElement = (startRow + readRowNum) * colNum;
+    }
+    H5BlockDataReader reader(set, startElement, endElement,
+                             1024 * 1024 * 32, 1024 * 1024 * 32, convertedType.id());
+
+    // if (!reader.columnNum() || !reader.rowNum())
+    //     throw RuntimeException("empty dataset!");
+
+    vector<H5ColumnSP> cols;
+    createColumnVec(cols, reader.columnNum(), std::min(readRowNum, rowNum), convertedType, schema);
+
+    vector<ConstantSP> colVec;
+    DatasetAppenderSP appender = new SimpleDatasetAppender();
+    doReadDataset_concurrent(reader, appender, cols, colVec);
+    return colVec;
+}
+
+vector<ConstantSP> loadDataSet(const hid_t set, const TableSP& schema, size_t startRow, size_t readRowNum){
+    H5DataType t;
+    t.openFromDataset(set);
+    registerUnixTimeConvert();
+    return readSimpleDataFromDataSet(set, t, schema, startRow, readRowNum);
+}
+
+void getColName(const std::string& str, char delim, std::vector<std::string>& colsName) {
+    std::stringstream ss(str);
+    std::string item;
+    int lineIndex = 0;
+    while (std::getline(ss, item, delim)) {
+        if (!item.empty()) {
+            if(lineIndex == 0 || lineIndex == 1 || lineIndex == 2){
+                lineIndex++;
+                continue;
+            }
+            if(lineIndex == 3){
+                colsName.push_back(item.substr(1, item.length() - 1));
+                lineIndex++;
+                continue;
+            }
+            if(item[0] == 'a'&& item[1] != '.')
+                colsName.push_back(item.substr(2, item.length() - 2));
+            //if(lineIndex % 2 == 1){
+            //    colsName.push_back(item.substr(2, item.length() - 2));
+            //}
+        }
+        lineIndex++;
+    }
+    colsName.insert(colsName.begin(), "index");
+    colsName.pop_back();
+}
+
+void getKindColName(const std::string& str, char delim, std::vector<std::string>& colsName){
+    std::stringstream ss(str);
+    std::string item;
+    int lineIndex = 0;
+    while (std::getline(ss, item, delim)) {
+        if (!item.empty()) {
+            if(lineIndex == 0){
+                lineIndex++;
+                continue;
+            }
+
+            if(lineIndex == 1){
+                 colsName.push_back(item.substr(1, item.length() - 1));
+                lineIndex++;
+                continue;
+            }
+            if(item[0] == 'a' && item[1] != '.'){
+                colsName.push_back(item.substr(2, item.length() - 2));
+            }
+        }
+        lineIndex++;
+    }
+}
+
+// void getDataColName(const std::string& str, char delim, std::vector<std::string>& colsName){
+//     std::stringstream ss(str);
+//     std::string item;
+//     int lineIndex = 0;
+//     while (std::getline(ss, item, delim)) {
+//         if (!item.empty()) {
+//             if(lineIndex == 0){
+//                 lineIndex++;
+//                 continue;
+//             }
+
+//             if(lineIndex == 1){
+//                  colsName.push_back(item.substr(1, item.length() - 1));
+//                 lineIndex++;
+//                 continue;
+//             }
+//             if(item[0] == 'a' && item[1] != '.'){
+//                 colsName.push_back(item.substr(2, item.length() - 2));
+//             }
+//         }
+//         lineIndex++;
+//     }
+//     colsName.pop_back();
+// }
+
+void getGroupAttribute(const H5::Group& group, const string& attribute, string& value){
+    H5::Attribute attr1 = group.openAttribute(attribute);
+    H5::DataType type1 = attr1.getDataType();
+    attr1.read(type1, value);
+}
+
+void getDataSetAttribute(const H5::DataSet& dataset, const string& attribute, string& value){
+    H5::Attribute attr1 = dataset.openAttribute(attribute);
+    H5::DataType type1 = attr1.getDataType();
+    attr1.read(type1, value);
+}
+
+TableSP loadFrameTypeHDF5(const H5::Group& group, const ConstantSP& schema, size_t startRow, size_t readRowNum){
+
+    TableSP tableWithSchema = schema->isNull() ?
+    static_cast<TableSP>(nullSP) : DBFileIO::createEmptyTableFromSchema(schema);
+
+    H5::DataSet colNameDataSet = group.openDataSet("axis0");
+    //parse cols name dataset.
+    ConstantSP colNameSP = loadDataSet(colNameDataSet.getId(), nullSP, 0, 0)[0];
+    vector<size_t> rowAndColNum;
+    getRowAndColNum(colNameDataSet.getId(), rowAndColNum);
+    vector<string> nameArray;
+    nameArray.push_back("index");
+    size_t colsNameNum = rowAndColNum[0];
+    for(size_t  i = 0 ; i < colsNameNum; i++){
+        nameArray.push_back(colNameSP->getString(i));
+    }
+
+    //parse row index.
+    H5::DataSet rowIndexDataSet = group.openDataSet("axis1");
+    ConstantSP rowIndex = loadDataSet(rowIndexDataSet.getId(), nullSP, startRow, readRowNum)[0];
+    vector<ConstantSP> dataCols;
+    dataCols.push_back(rowIndex);
+    vector<string> dataColsName;
+    for(size_t i = 0; ; i++){
+
+        //get data col name order.
+        string dsKey = "block" + std::to_string(i) + "_items";
+        ConstantSP colsName = loadDataSet(group.openDataSet(dsKey).getId(), nullSP, 0, 0)[0];
+        rowAndColNum.clear();
+        getRowAndColNum(group.openDataSet(dsKey).getId(), rowAndColNum);
+        for(size_t index = 0; index < rowAndColNum[0]; index++){
+            dataColsName.push_back(colsName->getString(index));
+        }
+
+        //get data.
+        string dsKey1 = "block"+ std::to_string(i) + "_values";
+        vector<ConstantSP> data = loadDataSet(group.openDataSet(dsKey1).getId(), schema, startRow, readRowNum);
+        dataCols.insert(dataCols.end(), data.begin(), data.end());
+
+        if(dataColsName.size() == colsNameNum)
+            break;
+    }
+
+    vector<ConstantSP> finalDataCols;
+    //push back index cols.
+    finalDataCols.push_back(dataCols[0]);
+    for(size_t i = 1; i < nameArray.size(); i++){
+        size_t index = find(dataColsName.begin(), dataColsName.end(), nameArray[i]) - dataColsName.begin();
+        finalDataCols.push_back(dataCols[index + 1]);
+    }
+    if (tableWithSchema->isNull()){
+        return Util::createTable(nameArray, finalDataCols);
+    }
+    return appendColumnVecToTable(tableWithSchema, finalDataCols);
+}
+
+TableSP loadSeriesTypeHDF5(const H5::Group& group, const ConstantSP &schema, size_t startRow, size_t readRowNum){
+    TableSP tableWithSchema = schema->isNull() ?
+    static_cast<TableSP>(nullSP) : DBFileIO::createEmptyTableFromSchema(schema);
+
+    vector<string> nameArray = {"index", "value"};
+    ConstantSP indexColSP = loadDataSet(group.openDataSet("index").getId(), nullSP, startRow, readRowNum)[0];
+    ConstantSP valueColSP = loadDataSet(group.openDataSet("values").getId(), nullSP, startRow, readRowNum)[0];
+    vector<ConstantSP> cols;
+    cols.push_back(indexColSP);
+    cols.push_back(valueColSP);
+
+    if (tableWithSchema->isNull()){
+        return Util::createTable(nameArray, cols);
+    }
+    return appendColumnVecToTable(tableWithSchema, cols);
+}
+
+ConstantSP loadPandasHDF5(const string &fileName, const string &groupName, const ConstantSP &schema,const size_t startRow, const size_t rowNum){
+    H5::Exception::dontPrint();
+    H5::H5File f(fileName, H5F_ACC_RDONLY);
+    if(!f.nameExists(groupName))
+        throw RuntimeException("The group name: " + groupName + " is not exist.");
+
+    H5::Group group;
+    try {
+        group = f.openGroup(groupName);
+    } catch (...) {
+        throw RuntimeException("The group name: " + groupName + " is not exist.");
+    }
+
+    //check pandas_type.
+    if(!group.attrExists("pandas_type"))
+        throw RuntimeException("The file name: " + fileName + " is not pandas hdf5 file. Try loadHDF5 function.");
+
+    //check table type.
+    string tableTypeInfo;
+    if(group.attrExists("table_type")) {
+        getGroupAttribute(group, "table_type", tableTypeInfo);
+        if(strcmp(tableTypeInfo.c_str(), "appendable_frame") && (strcmp(tableTypeInfo.c_str(), "appendable_series"))
+        && (strcmp(tableTypeInfo.c_str(), "appendable_multiframe")) && (strcmp(tableTypeInfo.c_str(), "appendable_multiseries")))
+        throw RuntimeException("The type: " + tableTypeInfo + " is not support now. Try loadHDF5 function.");
+
+        GroupInfo info;
+        string colValueInfo;
+        getGroupAttribute(group, "values_cols", colValueInfo);
+
+        vector<string> colValueArray;
+        getKindColName(colValueInfo, '\n', colValueArray);
+        vector<string> dataKindArray;
+
+        H5::DataSet dset = group.openDataSet("table");
+        for(size_t i = 0; i < colValueArray.size(); i++)
+        {
+            string attributeName = colValueArray[i] + "_kind";
+            if(dset.attrExists(attributeName)){
+                string kindValue;
+                getDataSetAttribute(dset, attributeName, kindValue);
+                vector<string> kindArray;
+                getKindColName(kindValue, '\n',kindArray);
+                dataKindArray.insert(dataKindArray.end(), kindArray.begin(), kindArray.end());
+            }else
+                break;
+        }
+        info.kindColsName = &dataKindArray;
+
+        info.dataType = tableTypeInfo;
+        //get col line.
+        string colsInfo;
+        getGroupAttribute(group, "non_index_axes", colsInfo);
+        std::vector<std::string> col_name;
+        getColName(colsInfo, '\n', col_name);
+
+        info.colsName = &col_name;
+
+        //pandas hdf5 file dataset name is table.
+        return loadPandasHDF5(group.openDataSet("table").getId(), schema, startRow, rowNum, info);
+
+    }else {
+
+        string pandasTypeInfo;
+        getGroupAttribute(group, "pandas_type", pandasTypeInfo);
+        //handle framefixed h5 file.
+        if(!strcmp(pandasTypeInfo.c_str(),"frame")){
+            return loadFrameTypeHDF5(group, schema, startRow, rowNum);
+
+        }else if(!strcmp(pandasTypeInfo.c_str(),"series")){
+            return loadSeriesTypeHDF5(group, schema, startRow, rowNum);
+        }else{
+            throw RuntimeException("The type: " + pandasTypeInfo + " is not support now. Try loadHDF5 function.");
+        }
+    }
 }
 
 ConstantSP loadFromH5ToDatabase(Heap *heap, vector<ConstantSP> &arguments)
@@ -969,7 +1406,7 @@ ConstantSP loadFromH5ToDatabase(Heap *heap, vector<ConstantSP> &arguments)
         loadedTable = transform->call(heap, args);
     }else{
         loadedTable = tempTable;
-    }                 
+    }
 
     if (diskSeqMode) {
         string id = db->getDomain()->getPartition(arguments[7]->getInt())->getPath();
@@ -991,8 +1428,8 @@ void getColNamesAndTypesFromSchema(const TableSP &schema, vector<string> &colNam
     for (int i = 0; i < rows; ++i) {
         colNames.push_back(vecName->getString(i));
         types.push_back(Util::getDataType(vecType->getString(i)));
-        if (types.back() <= DT_VOID || types.back() > DT_STRING)
-            throw RuntimeException("Invalid data type '" + vecType->getString(i) + "'");
+        // if (types.back() <= DT_VOID || types.back() > DT_STRING)
+        //     throw RuntimeException("Invalid data type '" + vecType->getString(i) + "'");
     }
 }
 
@@ -1139,10 +1576,10 @@ ConstantSP loadHDF5Ex(Heap *heap, const SystemHandleSP &db, const string &tableN
 			}
 
             string physicalIndex = tableName;
-            if (!DBFileIO::saveTableHeader(owner, physicalIndex, cols, partitionColumnIndices, 0, tableFile, NULL))
-                throw IOException("Failed to save table header " + tableFile);
-            if (!DBFileIO::saveDatabase(db.get()))
-                throw IOException("Failed to save database " + db->getDatabaseDir());
+            DBFileIO::saveTableHeader(owner, physicalIndex, cols, partitionColumnIndices, 0, tableFile, NULL);
+            //     throw IOException("Failed to save table header " + tableFile);
+            DBFileIO::saveDatabase(db.get());
+            //     throw IOException("Failed to save database " + db->getDatabaseDir());
             db->getDomain()->addTable(tableName, owner, physicalIndex, cols, partitionColumnIndices);
             vector<ConstantSP> loadTableArgs = {db, tableName_};
             return heap->currentSession()->getFunctionDef("loadTable")->call(heap, loadTableArgs);
@@ -1218,156 +1655,156 @@ ConstantSP HDF5DS(const ConstantSP &filename, const ConstantSP &datasetName,
     return dataSources;
 }
 
-void groupBySorting(vector<ConstantSP> &vecs, VectorSP &indices, vector<INDEX> &groups) {
-    VectorSP vec = vecs[0];
-    vec->sort(true, indices.get());
-    vector<pair<INDEX, INDEX>> duplicates;
-    vector<pair<INDEX, INDEX>> uniques;
-    vec->findDuplicatedElements(0, vec->size(), duplicates);
-    vec->findUniqueElements(0, vec->size(), uniques);
-    auto duplicateIt = duplicates.begin();
-    auto uniqueIt = uniques.begin();
-    while (duplicateIt != duplicates.end() || uniqueIt != uniques.end()) {
-        if (duplicateIt == duplicates.end())
-            for (; uniqueIt != uniques.end(); uniqueIt++)
-                groups.push_back((*uniqueIt).first + 1);
-        else if (uniqueIt == uniques.end())
-            for (; duplicateIt != duplicates.end(); duplicateIt++)
-                groups.push_back((*duplicateIt).first + (*duplicateIt).second);
-        else {
-            INDEX duplicateStart = (*duplicateIt).first;
-            INDEX uniqueStart = (*uniqueIt).first;
-            if (duplicateStart < uniqueStart) {
-                groups.push_back((*duplicateIt).first + (*duplicateIt).second);
-                duplicateIt++;
-            }
-            else {
-                groups.push_back((*uniqueIt).first + 1);
-                uniqueIt++;
-            }
-        }
-    }
-}
+// void groupBySorting(vector<ConstantSP> &vecs, VectorSP &indices, vector<INDEX> &groups) {
+//     VectorSP vec = vecs[0];
+//     vec->sort(true, indices.get());
+//     vector<pair<INDEX, INDEX>> duplicates;
+//     vector<pair<INDEX, INDEX>> uniques;
+//     vec->findDuplicatedElements(0, vec->size(), duplicates);
+//     vec->findUniqueElements(0, vec->size(), uniques);
+//     auto duplicateIt = duplicates.begin();
+//     auto uniqueIt = uniques.begin();
+//     while (duplicateIt != duplicates.end() || uniqueIt != uniques.end()) {
+//         if (duplicateIt == duplicates.end())
+//             for (; uniqueIt != uniques.end(); uniqueIt++)
+//                 groups.push_back((*uniqueIt).first + 1);
+//         else if (uniqueIt == uniques.end())
+//             for (; duplicateIt != duplicates.end(); duplicateIt++)
+//                 groups.push_back((*duplicateIt).first + (*duplicateIt).second);
+//         else {
+//             INDEX duplicateStart = (*duplicateIt).first;
+//             INDEX uniqueStart = (*uniqueIt).first;
+//             if (duplicateStart < uniqueStart) {
+//                 groups.push_back((*duplicateIt).first + (*duplicateIt).second);
+//                 duplicateIt++;
+//             }
+//             else {
+//                 groups.push_back((*uniqueIt).first + 1);
+//                 uniqueIt++;
+//             }
+//         }
+//     }
+// }
 
-void SegmentedInMemoryTableBuiler::insert(TableSP& curTable){
-	DomainSP domain = db_->getDomain();
-	vector<DomainSP> targetDomains;
-	PARTITION_TYPE dbPartitionType = domain->getPartitionType();
-	int dimCount = domain->getPartitionDimensions();
-	if(dbPartitionType == HIER){
-		// HierarchicalDomain* hier = (HierarchicalDomain*)domain.get();
-		// for(int i=0; i<dimCount; ++i)
-		// 	targetDomains.push_back(hier->getDimensionalDomain(i));
-        throw RuntimeException("HIER domain not supported.");
-	}
-	else
-		targetDomains.push_back(domain);
+// void SegmentedInMemoryTableBuiler::insert(TableSP& curTable){
+// 	DomainSP domain = db_->getDomain();
+// 	vector<DomainSP> targetDomains;
+// 	PARTITION_TYPE dbPartitionType = domain->getPartitionType();
+// 	int dimCount = domain->getPartitionDimensions();
+// 	if(dbPartitionType == HIER){
+// 		// HierarchicalDomain* hier = (HierarchicalDomain*)domain.get();
+// 		// for(int i=0; i<dimCount; ++i)
+// 		// 	targetDomains.push_back(hier->getDimensionalDomain(i));
+//         throw RuntimeException("HIER domain not supported.");
+// 	}
+// 	else
+// 		targetDomains.push_back(domain);
 
-	vector<ConstantSP> vecs;
-	for(int j=0; j<dimCount; ++j) {
-		vecs.push_back(targetDomains[j]->getPartitionKey(curTable->getColumn(partitionColumnIndices_[j])));
-	}
-    VectorSP indices(Util::createIndexVector(0, curTable->size()));
-	vector<INDEX> groups;
-    // SQLAlgo::groupBySorting(vecs, indices, true, groups);
-    groupBySorting(vecs, indices, groups);
-	int groupNum = groups.size();
-	vector<DomainPartitionSP> partitions;
+// 	vector<ConstantSP> vecs;
+// 	for(int j=0; j<dimCount; ++j) {
+// 		vecs.push_back(targetDomains[j]->getPartitionKey(curTable->getColumn(partitionColumnIndices_[j])));
+// 	}
+//     VectorSP indices(Util::createIndexVector(0, curTable->size()));
+// 	vector<INDEX> groups;
+//     // SQLAlgo::groupBySorting(vecs, indices, true, groups);
+//     groupBySorting(vecs, indices, groups);
+// 	int groupNum = groups.size();
+// 	vector<DomainPartitionSP> partitions;
 
-    INDEX start = 0;
-	for(int k=0; k<groupNum; ++k){
-		bool skip = false;
-		if(dbPartitionType == HIER){
-            // for(int j=0; j<dimCount; ++j){
-            // 	PARTITION_TYPE curType = targetDomains[j]->getPartitionType();
-            // 	INDEX index = (j == 0 ? start : indices->getIndex(start));
-            // 	if((curType != VALUE && vecs[j]->getInt(index) < 0) || (curType == VALUE && vecs[j]->get(index)->isNull())){
-            // 		skip = true;
-            // 		break;
-            // 	}
-            // }
-            throw RuntimeException("HIER domain not supported.");
-        }
-		else if((dbPartitionType != VALUE && vecs[0]->getInt(start) < 0) || (dbPartitionType == VALUE && vecs[0]->get(start)->isNull())){
-			skip = true;
-		}
-		if(skip){
-			start = groups[k];
-			continue;
-		}
+//     INDEX start = 0;
+// 	for(int k=0; k<groupNum; ++k){
+// 		bool skip = false;
+// 		if(dbPartitionType == HIER){
+//             // for(int j=0; j<dimCount; ++j){
+//             // 	PARTITION_TYPE curType = targetDomains[j]->getPartitionType();
+//             // 	INDEX index = (j == 0 ? start : indices->getIndex(start));
+//             // 	if((curType != VALUE && vecs[j]->getInt(index) < 0) || (curType == VALUE && vecs[j]->get(index)->isNull())){
+//             // 		skip = true;
+//             // 		break;
+//             // 	}
+//             // }
+//             throw RuntimeException("HIER domain not supported.");
+//         }
+// 		else if((dbPartitionType != VALUE && vecs[0]->getInt(start) < 0) || (dbPartitionType == VALUE && vecs[0]->get(start)->isNull())){
+// 			skip = true;
+// 		}
+// 		if(skip){
+// 			start = groups[k];
+// 			continue;
+// 		}
 
-		TableSP curPartition;
-		if(groupNum == 1)
-			curPartition = curTable;
-		else
-			curPartition = curTable->get(indices->getSubVector(start, groups[k] - start));
-		string path;
-		int key;
-		for(int j=0; j<dimCount; ++j){
-			partitions.clear();
-			targetDomains[j]->retrievePartitionAt(curPartition->getColumn(partitionColumnIndices_[j])->get(0), partitions, false);
-			if(partitions.empty()){
-				break;
-			}
-			if(j > 0)
-				path.append(1,'/');
-			path.append(partitions[0]->getPath());
-			key = partitions[0]->getKey();
-		}
-		if(partitions.empty())
-			continue;
+// 		TableSP curPartition;
+// 		if(groupNum == 1)
+// 			curPartition = curTable;
+// 		else
+// 			curPartition = curTable->get(indices->getSubVector(start, groups[k] - start));
+// 		string path;
+// 		int key;
+// 		for(int j=0; j<dimCount; ++j){
+// 			partitions.clear();
+// 			targetDomains[j]->retrievePartitionAt(curPartition->getColumn(partitionColumnIndices_[j])->get(0), partitions, false);
+// 			if(partitions.empty()){
+// 				break;
+// 			}
+// 			if(j > 0)
+// 				path.append(1,'/');
+// 			path.append(partitions[0]->getPath());
+// 			key = partitions[0]->getKey();
+// 		}
+// 		if(partitions.empty())
+// 			continue;
 
-		string errMsg;
-		int inserted;
-		if(dimCount == 1){
-            unordered_map<int, int>::const_iterator it = keyMap_.find(key);
-            if(it == keyMap_.end()){
-				int index = partitions_.size();
-				partitions_.push_back(curPartition);
-				segmentKeys_.push_back(key);
-				keyMap_[key] = index;
-			}
-			else{
-				vector<ConstantSP> args(1, curPartition);
-				if(!partitions_[it->second]->append(args, inserted, errMsg))
-					throw RuntimeException(errMsg);
-			}
-		}
-		else {
-            throw RuntimeException("HIER domain not supported.");
-            // unordered_map<string, int>::const_iterator it = pathMap_.find(path);
-			// if(it == pathMap_.end()){
-			// 	int index = partitions_.size();
-			// 	partitions_.push_back(curPartition);
-			// 	segmentPaths_.push_back(path);
-			// 	pathMap_[path] = index;
-			// }
-			// else{
-			// 	vector<ConstantSP> args(1, curPartition);
-			// 	if(!partitions_[it->second]->append(args, inserted, errMsg))
-			// 		throw RuntimeException(errMsg);
-			// }
-		}
-		start = groups[k];
-	}
-}
+// 		string errMsg;
+// 		int inserted;
+// 		if(dimCount == 1){
+//             unordered_map<int, int>::const_iterator it = keyMap_.find(key);
+//             if(it == keyMap_.end()){
+// 				int index = partitions_.size();
+// 				partitions_.push_back(curPartition);
+// 				segmentKeys_.push_back(key);
+// 				keyMap_[key] = index;
+// 			}
+// 			else{
+// 				vector<ConstantSP> args(1, curPartition);
+// 				if(!partitions_[it->second]->append(args, inserted, errMsg))
+// 					throw RuntimeException(errMsg);
+// 			}
+// 		}
+// 		else {
+//             throw RuntimeException("HIER domain not supported.");
+//             // unordered_map<string, int>::const_iterator it = pathMap_.find(path);
+// 			// if(it == pathMap_.end()){
+// 			// 	int index = partitions_.size();
+// 			// 	partitions_.push_back(curPartition);
+// 			// 	segmentPaths_.push_back(path);
+// 			// 	pathMap_[path] = index;
+// 			// }
+// 			// else{
+// 			// 	vector<ConstantSP> args(1, curPartition);
+// 			// 	if(!partitions_[it->second]->append(args, inserted, errMsg))
+// 			// 		throw RuntimeException(errMsg);
+// 			// }
+// 		}
+// 		start = groups[k];
+// 	}
+// }
 
-ConstantSP SegmentedInMemoryTableBuiler::getSegmentedTable() {
-    int partitionCount = db_->getDomain()->getPartitionCount();
-    ConstantSP tables = Util::createVector(DT_ANY, partitionCount);
-    for (int i = 0; i < partitionCount; i++) {
-        int key = db_->getDomain()->getPartition(i)->getKey();
-        auto it = keyMap_.find(key);
-        if (it == keyMap_.end()) {
-            TableSP emptyTable = DBFileIO::createEmptyTableFromSchema(schema_);
-            tables->set(i, emptyTable);
-        }
-        else {
-            tables->set(i, partitions_[it->second]);
-        }
-    }
-    return generateInMemoryParitionedTable(heap_, db_, tables, partitionColumnNames_);
-}
+// ConstantSP SegmentedInMemoryTableBuiler::getSegmentedTable() {
+//     int partitionCount = db_->getDomain()->getPartitionCount();
+//     ConstantSP tables = Util::createVector(DT_ANY, partitionCount);
+//     for (int i = 0; i < partitionCount; i++) {
+//         int key = db_->getDomain()->getPartition(i)->getKey();
+//         auto it = keyMap_.find(key);
+//         if (it == keyMap_.end()) {
+//             TableSP emptyTable = DBFileIO::createEmptyTableFromSchema(schema_);
+//             tables->set(i, emptyTable);
+//         }
+//         else {
+//             tables->set(i, partitions_[it->second]);
+//         }
+//     }
+//     return generateInMemoryParitionedTable(heap_, db_, tables, partitionColumnNames_);
+// }
 
 #define TO_STRING(s) #s
 
@@ -1470,8 +1907,8 @@ H5ColumnSP TypeColumn::createNewColumn(H5DataType &srcType)
     else
         t = srcType.id();
 
-    if (!getHdf5SimpleLayout(t, srcNativeTypeLayout))
-        return nullptr;
+    getHdf5SimpleLayout(t, srcNativeTypeLayout);
+        // return nullptr;
 
     switch (srcNativeTypeLayout.flag)
     {
@@ -1544,8 +1981,8 @@ bool TypeColumn::convertHdf5SimpleType(H5DataType &srcType,
     else
         t = srcType.id();
 
-    if (!getHdf5SimpleLayout(t, srcNativeTypeLayout))
-        return false;
+    getHdf5SimpleLayout(t, srcNativeTypeLayout);
+        // return false;
 
     switch (srcNativeTypeLayout.flag)
     {
@@ -1582,7 +2019,7 @@ bool TypeColumn::convertHdf5SimpleType(H5DataType &srcType,
         cid = H5T_NATIVE_LLONG;
         break;
     case IS_U_LLONG_INTEGER:
-        cid = H5T_NATIVE_LLONG;
+        cid = H5T_NATIVE_LLONG; //unsupported
         break;
     case IS_FLOAT_FLOAT:
         cid = H5T_NATIVE_FLOAT;
@@ -1610,8 +2047,8 @@ bool TypeColumn::createHdf5TypeColumns(H5DataType &srcType, vector<H5ColumnSP> &
     H5T_class_t srcClass = H5Tget_class(srcType.id());
     if (srcClass == H5T_COMPOUND || srcClass == H5T_ARRAY)
     {
-        if (!createComplexColumns(srcType, cols, convertedType))
-            return false;
+        createComplexColumns(srcType, cols, convertedType);
+            // return false;
     }
     else
     {
@@ -1629,8 +2066,8 @@ bool TypeColumn::createHdf5TypeColumns(H5DataType &srcType, vector<H5ColumnSP> &
 bool TypeColumn::createCompoundColumns(H5DataType &srcType, vector<H5ColumnSP> &cols,
                                        H5DataType &convertedType)
 {
-    if (!isClassEqual(srcType.id(), H5T_COMPOUND))
-        return false;
+    isClassEqual(srcType.id(), H5T_COMPOUND);
+        // return false;
 
     size_t memNum = H5Tget_nmembers(srcType.id());
     H5DataType memType;
@@ -1638,7 +2075,7 @@ bool TypeColumn::createCompoundColumns(H5DataType &srcType, vector<H5ColumnSP> &
     convertedType.accept(H5Tcreate(H5T_COMPOUND, 2 * H5Tget_size(srcType.id())));
     size_t offset = 0;
 
-    for (size_t i = 0; i != memNum; i++)
+    for (size_t i = 0; i < memNum; i++)
     {
         memType.accept(H5Tget_member_type(srcType.id(), i));
 
@@ -1666,6 +2103,9 @@ bool TypeColumn::createArrayColumns(H5DataType &srcType, vector<H5ColumnSP> &col
 
     H5DataType baseConverted;
     size_t dimsNum = H5Tget_array_ndims(srcType.id());
+    if(dimsNum < 0) {
+        return false;
+    }
 
     std::vector<hsize_t> dims(dimsNum);
     H5Tget_array_dims(srcType.id(), dims.data());
@@ -1675,8 +2115,8 @@ bool TypeColumn::createArrayColumns(H5DataType &srcType, vector<H5ColumnSP> &col
         eleNum *= dims[i];
 
     for (size_t i = 0; i != eleNum; i++)
-        if (!createHdf5TypeColumns(base, cols, baseConverted))
-            return false;
+        createHdf5TypeColumns(base, cols, baseConverted);
+            // return false;
 
     convertedType.accept(H5Tarray_create(baseConverted.id(), dims.size(), dims.data()));
     return convertedType.id() > 0;
@@ -1693,13 +2133,12 @@ bool TypeColumn::createComplexColumns(H5DataType &srcType, vector<H5ColumnSP> &c
     return false;
 }
 
-VectorSP TypeColumn::createDolphinDBColumnVector(VectorSP destVec, int size, int cap)
+VectorSP TypeColumn::createDolphinDBColumnVector(const VectorSP& destVec, int size, int cap)
 {
     DATA_TYPE destType = (destVec->isNull()) ? srcType() : destVec->getType();
 
     if (!compatible(destType))
         return nullSP;
-
     colVec_ = createCompatiableVector(destVec, destType, size, cap);
     destType_ = destType;
     destTypeSize_ = (destType == DT_STRING) ? sizeof(char *) : Util::getDataTypeSize(destType);
@@ -1759,6 +2198,9 @@ int TypeColumn::doAppend(void *data, int len, DATA_TYPE basicType)
         break;
     case DT_STRING:
         r = v->appendString((char **)data, len);
+        break;
+    case DT_TIMESTAMP:
+        r = v->appendInt((int *)data, len);
         break;
     default:
         r = false;
@@ -1971,6 +2413,33 @@ DATA_TYPE CharColumn::packData(pack_info_t t)
     case DT_DOUBLE:
         packCharTo<double>(t);
         return DT_DOUBLE;
+    case DT_MONTH:
+        packCharTo<int>(t);
+        return DT_INT;
+    case DT_TIME:
+        packCharTo<int>(t);
+        return DT_INT;
+    case DT_MINUTE:
+        packCharTo<int>(t);
+        return DT_INT;
+    case DT_SECOND:
+        packCharTo<int>(t);
+        return DT_INT;
+    case DT_NANOTIME:
+        packCharTo<int>(t);
+        return DT_INT;
+    case DT_DATE:
+        packCharTo<int>(t);
+        return DT_INT;
+    case DT_DATETIME:
+        packCharTo<int>(t);
+        return DT_INT;
+    case DT_TIMESTAMP:
+        packCharTo<int>(t);
+        return DT_INT;
+    case DT_NANOTIMESTAMP:
+        packCharTo<int>(t);
+        return DT_INT;
     default:
         return DT_VOID;
     }
@@ -2011,6 +2480,33 @@ DATA_TYPE ShortColumn::packData(pack_info_t t)
     case DT_DOUBLE:
         packShortTo<double>(t);
         return DT_DOUBLE;
+    case DT_MONTH:
+        packShortTo<int>(t);
+        return DT_INT;
+    case DT_TIME:
+        packShortTo<int>(t);
+        return DT_INT;
+    case DT_MINUTE:
+        packShortTo<int>(t);
+        return DT_INT;
+    case DT_SECOND:
+        packShortTo<int>(t);
+        return DT_INT;
+    case DT_NANOTIME:
+        packShortTo<int>(t);
+        return DT_INT;
+    case DT_DATE:
+        packShortTo<int>(t);
+        return DT_INT;
+    case DT_DATETIME:
+        packShortTo<int>(t);
+        return DT_INT;
+    case DT_TIMESTAMP:
+        packShortTo<int>(t);
+        return DT_INT;
+    case DT_NANOTIMESTAMP:
+        packShortTo<int>(t);
+        return DT_INT;
     default:
         return DT_VOID;
     }
@@ -2065,6 +2561,15 @@ DATA_TYPE IntColumn::packData(pack_info_t t)
     case DT_DATETIME:
         packIntTo<int>(t);
         return DT_INT;
+    case DT_TIMESTAMP:
+        packIntTo<int>(t);
+        return DT_INT;
+    case DT_NANOTIMESTAMP:
+        packIntTo<int>(t);
+        return DT_INT;
+    case DT_NANOTIME:
+        packIntTo<int>(t);
+        return DT_INT;
     default:
         return DT_VOID;
     }
@@ -2101,6 +2606,24 @@ DATA_TYPE LLongColumn::packData(pack_info_t t)
     case DT_DOUBLE:
         packLLongTo<double>(t);
         return DT_DOUBLE;
+    case DT_DATE:
+        packLLongTo<int>(t);
+        return DT_INT;
+    case DT_DATETIME:
+        packLLongTo<int>(t);
+        return DT_INT;
+    case DT_MONTH:
+        packLLongTo<int>(t);
+        return DT_INT;
+    case DT_TIME:
+        packLLongTo<int>(t);
+        return DT_INT;
+    case DT_MINUTE:
+        packLLongTo<int>(t);
+        return DT_INT;
+    case DT_SECOND:
+        packLLongTo<int>(t);
+        return DT_INT;
     case DT_TIMESTAMP:
         packLLongTo<long long>(t);
         return DT_LONG;
@@ -2325,7 +2848,7 @@ void SymbolColumn::createEnumMap(hid_t nativeEnumId)
         throw RuntimeException("invalid member num:" + std::to_string(memNum));
 
     enumMap_.clear();
-    for (int i = 0; i != memNum; i++)
+    for (int i = 0; i < memNum; i++)
     {
         long long value = 0;
         H5Tget_member_value(nativeEnumId, i, &value);
@@ -2558,12 +3081,12 @@ bool BoolColumn::compatible(DATA_TYPE destType) const
     switch (destType)
     {
     case DT_BOOL:
-    case DT_CHAR:
-    case DT_SHORT:
-    case DT_INT:
-    case DT_LONG:
-    case DT_FLOAT:
-    case DT_DOUBLE:
+    // case DT_CHAR:
+    // case DT_SHORT:
+    // case DT_INT:
+    // case DT_LONG:
+    // case DT_FLOAT:
+    // case DT_DOUBLE:
         return true;
     default:
         return false;
@@ -2583,44 +3106,59 @@ DATA_TYPE BoolColumn::packData(pack_info_t t)
     case DT_BOOL:
         packBoolTo<bool>(t);
         return DT_CHAR;
-    case DT_CHAR:
-        packBoolTo<char>(t);
-        return DT_CHAR;
-    case DT_SHORT:
-        packBoolTo<short>(t);
-        return DT_SHORT;
-    case DT_INT:
-        packBoolTo<int>(t);
-        return DT_INT;
-    case DT_LONG:
-        packBoolTo<long long>(t);
-        return DT_LONG;
-    case DT_FLOAT:
-        packBoolTo<float>(t);
-        return DT_FLOAT;
-    case DT_DOUBLE:
-        packBoolTo<double>(t);
-        return DT_DOUBLE;
-    case DT_TIMESTAMP:
-        packBoolTo<long long>(t);
-        return DT_LONG;
-    case DT_NANOTIME:
-        packBoolTo<long long>(t);
-        return DT_LONG;
-    case DT_NANOTIMESTAMP:
-        packBoolTo<long long>(t);
-        return DT_LONG;
+    // case DT_CHAR:
+    //     packBoolTo<char>(t);
+    //     return DT_CHAR;
+    // case DT_SHORT:
+    //     packBoolTo<short>(t);
+    //     return DT_SHORT;
+    // case DT_INT:
+    //     packBoolTo<int>(t);
+    //     return DT_INT;
+    // case DT_LONG:
+    //     packBoolTo<long long>(t);
+    //     return DT_LONG;
+    // case DT_FLOAT:
+    //     packBoolTo<float>(t);
+    //     return DT_FLOAT;
+    // case DT_DOUBLE:
+    //     packBoolTo<double>(t);
+    //     return DT_DOUBLE;
+    // case DT_MONTH:
+    //     packBoolTo<int>(t);
+    //     return DT_INT;
+    // case DT_TIME:
+    //     packBoolTo<int>(t);
+    //     return DT_INT;
+    // case DT_MINUTE:
+    //     packBoolTo<int>(t);
+    //     return DT_INT;
+    // case DT_SECOND:
+    //     packBoolTo<int>(t);
+    //     return DT_INT;
+    // case DT_NANOTIME:
+    //     packBoolTo<int>(t);
+    //     return DT_INT;
+    // case DT_DATE:
+    //     packBoolTo<int>(t);
+    //     return DT_INT;
+    // case DT_TIMESTAMP:
+    //     packBoolTo<int>(t);
+    //     return DT_INT;
+    // case DT_NANOTIMESTAMP:
+    //     packBoolTo<int>(t);
+    //     return DT_INT;
     default:
         return DT_VOID;
     }
 }
 
-char *H5Object::getName(hid_t id)
-{
-    static char n[30];
-    int ret = H5Iget_name(id, n, 29);
-    return ret > 0 ? n : nullptr;
-}
+// char *H5Object::getName(hid_t id)
+// {
+//     static char n[30];
+//     int ret = H5Iget_name(id, n, 29);
+//     return ret > 0 ? n : nullptr;
+// }
 
 hid_t H5ReadOnlyFile::open(const std::string &filename)
 {
@@ -2629,10 +3167,10 @@ hid_t H5ReadOnlyFile::open(const std::string &filename)
     htri_t r = H5Fis_hdf5(filename.c_str());
     if (r == 0)
         throw IOException(filename + " is not an HDF5 file", INVALIDDATA);
-    if (r == -1)
+    if (r < 0)
         throw IOException("check " + filename + " failed,it may not exist");
 
-    if ((id_ = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT)) <= 0)
+    if ((id_ = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT)) < 0)
         throw IOException("can't open file" + filename);
 
     return id_;
@@ -2699,8 +3237,15 @@ int H5DataSpace::rank() const
 int H5DataSpace::currentDims(std::vector<hsize_t> &dims) const
 {
     int rank = this->rank();
+    if(rank < 0) {
+        throw RuntimeException("Failed to get the rank in the dataspace.");
+    }
     dims.resize(rank);
-    return H5Sget_simple_extent_dims(id_, dims.data(), nullptr);
+    int ret = H5Sget_simple_extent_dims(id_, dims.data(), nullptr);
+    if(ret < 0) {
+        throw RuntimeException("Failed to get the dimensions in the dataspace.");
+    }
+    return ret;
 }
 
 //H5DataType imp
@@ -2714,7 +3259,6 @@ hid_t H5DataType::openFromDataset(hid_t dset_id)
 {
     if ((id_ = H5Dget_type(dset_id)) <= 0)
         throw IOException("can't open dataspace", INVALIDDATA);
-
     return id_;
 }
 
@@ -2758,6 +3302,8 @@ void H5GeneralDataReader::open(hid_t locId, int bufferByteLength, int vlenStrBuf
     int rank = dspace.rank();
     if (rank > 2)
         throw RuntimeException("rank of dataspace > 2");
+    else if(rank < 0)
+        throw RuntimeException("Failed to get the rank of dataspace");
 
     elementByteLength_ = H5Tget_size(memTypeId);
     memTypeId_ = memTypeId;
@@ -2838,25 +3384,25 @@ void H5GeneralDataReader::swap_buffer(std::vector<char> &buf, vlen_mem &vm)
     vlenMem_.nature_alloc_ptr.swap(vm.nature_alloc_ptr);
 }
 
-size_t H5GeneralDataReader::testRead(size_t offsetRow, size_t offsetCol, size_t &row_offset_after, size_t &col_offset_after)
-{
-    row_offset_after = offsetRow;
-    col_offset_after = offsetCol;
+// size_t H5GeneralDataReader::testRead(size_t offsetRow, size_t offsetCol, size_t &row_offset_after, size_t &col_offset_after)
+// {
+//     row_offset_after = offsetRow;
+//     col_offset_after = offsetCol;
 
-    if (reachRowEnd(offsetRow, offsetCol) || reachColumnEnd(offsetRow, offsetCol))
-        return 0;
+//     if (reachRowEnd(offsetRow, offsetCol) || reachColumnEnd(offsetRow, offsetCol))
+//         return 0;
 
-    H5DataSpace file_space;
-    H5DataSpace mem_space;
-    size_t elementNum;
+//     H5DataSpace file_space;
+//     H5DataSpace mem_space;
+//     size_t elementNum;
 
-    elementNum = prepareToRead(mem_space, file_space, offsetRow, offsetCol, true);
+//     elementNum = prepareToRead(mem_space, file_space, offsetRow, offsetCol, true);
 
-    row_offset_after = offsetRow + (offsetCol + elementNum) / colNum_;
-    col_offset_after = (offsetCol + elementNum) % colNum_;
+//     row_offset_after = offsetRow + (offsetCol + elementNum) / colNum_;
+//     col_offset_after = (offsetCol + elementNum) % colNum_;
 
-    return elementNum;
-}
+//     return elementNum;
+// }
 
 size_t H5GeneralDataReader::readbyRow(size_t offsetRow, size_t offsetCol)
 {
@@ -2873,7 +3419,7 @@ size_t H5GeneralDataReader::readbyRow(size_t offsetRow, size_t offsetCol)
     if (hasVlenString_)
         freeVlenMemory(vlenMem_);
 
-    elementNum = prepareToRead(mem_space, file_space, offsetRow_, offsetCol_, false);
+    elementNum = prepareToRead(mem_space, file_space, offsetRow_, offsetCol_);
 
     if (elementNum != 0)
         doRead(mem_space.id(), file_space.id());
@@ -2884,7 +3430,7 @@ size_t H5GeneralDataReader::readbyRow(size_t offsetRow, size_t offsetCol)
 }
 
 size_t H5GeneralDataReader::prepareToRead(H5DataSpace &mem_space, H5DataSpace &file_space,
-                                              size_t offsetRow, size_t offsetCol, bool test) const
+                                              size_t offsetRow, size_t offsetCol) const
 {
     if (spaceClass_ == H5S_NULL)
         return 0;
@@ -2924,8 +3470,7 @@ size_t H5GeneralDataReader::prepareToRead(H5DataSpace &mem_space, H5DataSpace &f
 
     assert(iCol == 0 || (iCol != 0 && elementNum == elementNumReadMax));
 
-    if (!test)
-        H5Sselect_hyperslab(file_space.id(), H5S_SELECT_OR, offset, nullptr, count, nullptr);
+    H5Sselect_hyperslab(file_space.id(), H5S_SELECT_OR, offset, nullptr, count, nullptr);
 
     //select the middle lines
     if (elementNumReadMax - elementNum >= colNum_ && iRow < rowNum_)
@@ -2941,8 +3486,7 @@ size_t H5GeneralDataReader::prepareToRead(H5DataSpace &mem_space, H5DataSpace &f
 
         iRow += numOfEntireRowCanBeRead;
         iCol = 0;
-        if (!test)
-            H5Sselect_hyperslab(file_space.id(), H5S_SELECT_OR, offset, nullptr, count, nullptr);
+        H5Sselect_hyperslab(file_space.id(), H5S_SELECT_OR, offset, nullptr, count, nullptr);
     }
 
     //select the last line
@@ -2954,8 +3498,7 @@ size_t H5GeneralDataReader::prepareToRead(H5DataSpace &mem_space, H5DataSpace &f
         count[0] = 1;
         count[1] = elementNumReadMax - elementNum;
         elementNum += count[1];
-        if (!test)
-            H5Sselect_hyperslab(file_space.id(), H5S_SELECT_OR, offset, nullptr, count, nullptr);
+        H5Sselect_hyperslab(file_space.id(), H5S_SELECT_OR, offset, nullptr, count, nullptr);
     }
 
     hsize_t dims[2];
@@ -2963,90 +3506,89 @@ size_t H5GeneralDataReader::prepareToRead(H5DataSpace &mem_space, H5DataSpace &f
     dims[1] = elementNum;
 
     mem_space.create(2, dims, nullptr);
-    if (!test)
-        H5Sselect_all(mem_space.id());
+    H5Sselect_all(mem_space.id());
 
     return elementNum;
 }
 
-size_t H5GeneralDataReader::readbyCol()
-{
-    if (reachRowEnd() || reachColumnEnd())
-        return 0;
+// size_t H5GeneralDataReader::readbyCol()
+// {
+//     if (reachRowEnd() || reachColumnEnd())
+//         return 0;
 
-    hsize_t offset[2];
-    hsize_t count[2];
+//     hsize_t offset[2];
+//     hsize_t count[2];
 
-    H5DataSpace file_space(locId_);
-    H5Sselect_none(file_space.id());
+//     H5DataSpace file_space(locId_);
+//     H5Sselect_none(file_space.id());
 
-    size_t elementNum = 0;
-    size_t elementNumReadMax = elementNumReadOnceMax();
-    assert(elementNumReadMax > 0);
+//     size_t elementNum = 0;
+//     size_t elementNumReadMax = elementNumReadOnceMax();
+//     assert(elementNumReadMax > 0);
 
-    size_t iRow = offsetRow_;
-    size_t iCol = offsetCol_;
+//     size_t iRow = offsetRow_;
+//     size_t iCol = offsetCol_;
 
-    //select the first line
-    offset[0] = iRow;
-    offset[1] = iCol;
-    count[0] = std::min(elementNumReadMax, rowNum_ - iRow);
-    count[1] = 1;
-    elementNum += count[0];
+//     //select the first line
+//     offset[0] = iRow;
+//     offset[1] = iCol;
+//     count[0] = std::min(elementNumReadMax, rowNum_ - iRow);
+//     count[1] = 1;
+//     elementNum += count[0];
 
-    if (elementNumReadMax > elementNum)
-    {
-        iRow = 0;
-        iCol++;
-    }
+//     if (elementNumReadMax > elementNum)
+//     {
+//         iRow = 0;
+//         iCol++;
+//     }
 
-    assert(iRow == 0 || (iRow != 0 && elementNum == elementNumReadMax));
-    H5Sselect_hyperslab(file_space.id(), H5S_SELECT_OR, offset, nullptr, count, nullptr);
+//     assert(iRow == 0 || (iRow != 0 && elementNum == elementNumReadMax));
+//     H5Sselect_hyperslab(file_space.id(), H5S_SELECT_OR, offset, nullptr, count, nullptr);
 
-    //select the middle lines
-    if (elementNumReadMax - elementNum >= rowNum_ && iCol < colNum_)
-    {
-        size_t numOfEntireColCanBeRead = (elementNumReadMax - elementNum) / rowNum_;
-        numOfEntireColCanBeRead = std::min(numOfEntireColCanBeRead, colNum_ - iCol);
+//     //select the middle lines
+//     if (elementNumReadMax - elementNum >= rowNum_ && iCol < colNum_)
+//     {
+//         size_t numOfEntireColCanBeRead = (elementNumReadMax - elementNum) / rowNum_;
+//         numOfEntireColCanBeRead = std::min(numOfEntireColCanBeRead, colNum_ - iCol);
 
-        offset[0] = iRow;
-        offset[1] = iCol;
-        count[0] = rowNum_;
-        count[1] = numOfEntireColCanBeRead;
-        elementNum += count[0] * count[1];
+//         offset[0] = iRow;
+//         offset[1] = iCol;
+//         count[0] = rowNum_;
+//         count[1] = numOfEntireColCanBeRead;
+//         elementNum += count[0] * count[1];
 
-        iRow = 0;
-        iCol += numOfEntireColCanBeRead;
+//         iRow = 0;
+//         iCol += numOfEntireColCanBeRead;
 
-        H5Sselect_hyperslab(file_space.id(), H5S_SELECT_OR, offset, nullptr, count, nullptr);
-    }
+//         H5Sselect_hyperslab(file_space.id(), H5S_SELECT_OR, offset, nullptr, count, nullptr);
+//     }
 
-    //select the last line
-    if (elementNumReadMax > elementNum && iCol < colNum_)
-    {
-        assert(elementNumReadMax - elementNum < rowNum_);
-        offset[0] = iRow;
-        offset[1] = iCol;
-        count[0] = elementNumReadMax - elementNum;
-        count[1] = 1;
-        elementNum += count[0];
+//     //select the last line
+//     if (elementNumReadMax > elementNum && iCol < colNum_)
+//     {
+//         assert(elementNumReadMax - elementNum < rowNum_);
+//         offset[0] = iRow;
+//         offset[1] = iCol;
+//         count[0] = elementNumReadMax - elementNum;
+//         count[1] = 1;
+//         elementNum += count[0];
 
-        H5Sselect_hyperslab(file_space.id(), H5S_SELECT_OR, offset, nullptr, count, nullptr);
-    }
+//         H5Sselect_hyperslab(file_space.id(), H5S_SELECT_OR, offset, nullptr, count, nullptr);
+//     }
 
-    hsize_t dims[2];
-    dims[0] = 1;
-    dims[1] = elementNum;
+//     hsize_t dims[2];
+//     dims[0] = 1;
+//     dims[1] = elementNum;
 
-    H5DataSpace mem_space(2, dims, dims);
-    H5Sselect_all(mem_space.id());
+//     H5DataSpace mem_space(2, dims, dims);
+//     H5Sselect_all(mem_space.id());
 
-    doRead(mem_space.id(), file_space.id());
+//     doRead(mem_space.id(), file_space.id());
 
-    offsetRow_ = (offsetRow_ + elementNum) % rowNum_;
-    offsetCol_ += (offsetRow_ + elementNum) / rowNum_;
-    return elementNumReadLast_ = elementNum;
-}
+//     offsetRow_ = (offsetRow_ + elementNum) % rowNum_;
+//     offsetCol_ += (offsetRow_ + elementNum) / rowNum_;
+//     return elementNumReadLast_ = elementNum;
+// }
 
 void H5GeneralDataReader::doRead(hid_t mem_space_id, hid_t file_space_id)
 {
@@ -3056,23 +3598,23 @@ void H5GeneralDataReader::doRead(hid_t mem_space_id, hid_t file_space_id)
         throw RuntimeException("H5Dread return " + std::to_string(state));
 }
 
-size_t H5GeneralDataReader::switchColumn(size_t col_idx)
-{
-    assert(col_idx < colNum_);
-    size_t old_idx = offsetCol_;
-    offsetCol_ = col_idx;
-    offsetRow_ = 0;
-    return old_idx;
-}
+// size_t H5GeneralDataReader::switchColumn(size_t col_idx)
+// {
+//     assert(col_idx < colNum_);
+//     size_t old_idx = offsetCol_;
+//     offsetCol_ = col_idx;
+//     offsetRow_ = 0;
+//     return old_idx;
+// }
 
-size_t H5GeneralDataReader::switchRow(size_t row_idx)
-{
-    assert(row_idx < rowNum_);
-    size_t old_idx = offsetRow_;
-    offsetRow_ = row_idx;
-    offsetCol_ = 0;
-    return old_idx;
-}
+// size_t H5GeneralDataReader::switchRow(size_t row_idx)
+// {
+//     assert(row_idx < rowNum_);
+//     size_t old_idx = offsetRow_;
+//     offsetRow_ = row_idx;
+//     offsetCol_ = 0;
+//     return old_idx;
+// }
 
 bool H5GeneralDataReader::discoveVlenString(hid_t type) const
 {
@@ -3208,7 +3750,7 @@ void _getMemoryLayoutInCompoundType(hid_t type, std::vector<hdf5_type_layout> &l
 {
     int num_of_members = H5Tget_nmembers(type);
     int upper_offset = belong_to == -1 ? 0 : layout[belong_to].offset;
-    for (int i = 0; i != num_of_members; i++)
+    for (int i = 0; i < num_of_members; i++)
     {
         H5T_class_t type_class = H5Tget_member_class(type, i);
         hdf5_type_layout cml;
@@ -3357,25 +3899,25 @@ void registerUnixTimeConvert()
                       void *buf,
                       void *bkg,
                       hid_t dset_xfer_plist) -> herr_t {
-        if (cdata->command == H5T_CONV_INIT)
-        {
-            cdata->need_bkg = H5T_BKG_NO;
-            if (H5Tequal(src_id, H5T_UNIX_D32BE) && H5Tequal(dst_id, H5T_UNIX_D32LE))
-                return 0;
-            if (H5Tequal(src_id, H5T_UNIX_D32LE) && H5Tequal(dst_id, H5T_UNIX_D32BE))
-                return 0;
-            return -1;
-        }
-        else if (cdata->command == H5T_CONV_CONV)
-        {
-            buf_stride = buf_stride ? buf_stride : H5Tget_size(dst_id);
-            for (size_t i = 0; i != nelmts; i++)
-            {
-                char *b = (char *)buf + buf_stride * i;
-                uint32_t *n = (uint32_t *)b;
-                *n = swapEndian32(*n);
-            }
-        }
+        // if (cdata->command == H5T_CONV_INIT)
+        // {
+        //     cdata->need_bkg = H5T_BKG_NO;
+        //     if (H5Tequal(src_id, H5T_UNIX_D32BE) && H5Tequal(dst_id, H5T_UNIX_D32LE))
+        //         return 0;
+        //     if (H5Tequal(src_id, H5T_UNIX_D32LE) && H5Tequal(dst_id, H5T_UNIX_D32BE))
+        //         return 0;
+        //     return -1;
+        // }
+        // else if (cdata->command == H5T_CONV_CONV)
+        // {
+        //     buf_stride = buf_stride ? buf_stride : H5Tget_size(dst_id);
+        //     for (size_t i = 0; i != nelmts; i++)
+        //     {
+        //         char *b = (char *)buf + buf_stride * i;
+        //         uint32_t *n = (uint32_t *)b;
+        //         *n = swapEndian32(*n);
+        //     }
+        // }
 
         return 0;
     };
@@ -3392,25 +3934,25 @@ void registerUnixTimeConvert()
                       void *buf,
                       void *bkg,
                       hid_t dset_xfer_plist) -> herr_t {
-        if (cdata->command == H5T_CONV_INIT)
-        {
-            cdata->need_bkg = H5T_BKG_NO;
-            if (H5Tequal(src_id, H5T_UNIX_D64BE) && H5Tequal(dst_id, H5T_UNIX_D64LE))
-                return 0;
-            if (H5Tequal(src_id, H5T_UNIX_D64LE) && H5Tequal(dst_id, H5T_UNIX_D64BE))
-                return 0;
-            return -1;
-        }
-        else if (cdata->command == H5T_CONV_CONV)
-        {
-            buf_stride = buf_stride ? buf_stride : H5Tget_size(dst_id);
-            for (size_t i = 0; i != nelmts; i++)
-            {
-                char *b = (char *)buf + buf_stride * i;
-                uint64_t *n = (uint64_t *)b;
-                *n = swapEndian64(*n);
-            }
-        }
+        // if (cdata->command == H5T_CONV_INIT)
+        // {
+        //     cdata->need_bkg = H5T_BKG_NO;
+        //     if (H5Tequal(src_id, H5T_UNIX_D64BE) && H5Tequal(dst_id, H5T_UNIX_D64LE))
+        //         return 0;
+        //     if (H5Tequal(src_id, H5T_UNIX_D64LE) && H5Tequal(dst_id, H5T_UNIX_D64BE))
+        //         return 0;
+        //     return -1;
+        // }
+        // else if (cdata->command == H5T_CONV_CONV)
+        // {
+        //     buf_stride = buf_stride ? buf_stride : H5Tget_size(dst_id);
+        //     for (size_t i = 0; i != nelmts; i++)
+        //     {
+        //         char *b = (char *)buf + buf_stride * i;
+        //         uint64_t *n = (uint64_t *)b;
+        //         *n = swapEndian64(*n);
+        //     }
+        // }
 
         return 0;
     };
@@ -3489,7 +4031,11 @@ ConstantSP saveHDF5(const TableSP &table, const string &fileName, const string &
 
 void appendHDF5(const TableSP &table, const string &fileName, const string &datasetName, unsigned stringMaxLength){
     H5::H5File file;
-    file.openFile(fileName.c_str(), H5F_ACC_RDWR, H5P_DEFAULT);
+    try {
+        file.openFile(fileName.c_str(), H5F_ACC_RDWR, H5P_DEFAULT);
+    } catch (const H5::FileIException &e) {
+        throw RuntimeException("Error opening file: " + e.getDetailMsg());
+    }
 
     hsize_t nrecords = table->getColumn(0)->size();
     size_t type_size;
@@ -3534,7 +4080,7 @@ void writeHDF5(const TableSP &table, const string &fileName, const string &datas
     extractDolphinDBData(table, type_size, field_offset, buf, stringMaxLength);
 
     H5TBmake_table(datasetName.c_str(), file.getId(), datasetName.c_str(), nfields, nrecords, type_size, const_cast<const char**>(field_names), field_offset, field_types, 10, nullptr, 0, buf);
-    
+
     for(hsize_t i = 0; i < nfields; ++i){
         delete[] field_names[i];
     }
@@ -3711,14 +4257,16 @@ void extractDolphinDBData(const TableSP &table, const size_t &type_size, const s
             for(int j = 0; j < dolphindbCol->size(); ++j){
                 float *ptr = (float*)(buf + type_size * j + field_offset[i]);
                 ConstantSP value = dolphindbCol->get(j);
-                *ptr = value->isNull() ? +0.0f : value->getFloat();
+                uint32_t nan = 0x7fc00000;
+                *ptr = value->isNull() ? (*((float *)&nan)) : value->getFloat();
             }
             break;
         case DT_DOUBLE:
             for(int j = 0; j < dolphindbCol->size(); ++j){
                 double *ptr = (double*)(buf + type_size * j + field_offset[i]);
                 ConstantSP value = dolphindbCol->get(j);
-                *ptr = value->isNull() ? +0.0 : value->getDouble();
+                uint64_t nan = 0xffffffff0000ffff;
+                *ptr = value->isNull() ? (*((double *)&nan)) : value->getDouble();
             }
             break;
         case DT_STRING:
@@ -3727,7 +4275,7 @@ void extractDolphinDBData(const TableSP &table, const size_t &type_size, const s
                 char *ptr = buf + type_size * j + field_offset[i];
                 ConstantSP value = dolphindbCol->get(j);
                 string str = value->isNull() ? "" : value->getString();
-                if(str.length() + 1 > stringMaxLength){
+                if(str.length() + 1 > stringMaxLength) {
                     throw RuntimeException("string length out of stringMaxLength.");
                 }
                 strcpy(ptr, str.c_str());

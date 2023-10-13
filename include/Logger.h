@@ -25,7 +25,7 @@ using std::string;
 using std::ofstream;
 using std::stringstream;
 
-enum severity_type{DEBUG, INFO, WARNING, ERR};
+enum class severity_type{DEBUG, INFO, WARNING, ERR};
 
 class LogWriter : public Runnable {
 public:
@@ -49,7 +49,7 @@ private:
 
 class Logger {
 public:
-	Logger() :  level_(INFO){}
+	Logger() :  level_(severity_type::INFO){}
 	~Logger(){}
 	bool start(const string& fileName, long long sizeLimit);
 	void stop();
@@ -61,17 +61,17 @@ public:
 			stringstream stream;
 			switch( severity ){
 				case severity_type::DEBUG:
-					if(level_ > DEBUG)
+					if(level_ > severity_type::DEBUG)
 						return;
 					stream<<"<DEBUG> :";
 					break;
 				case severity_type::INFO:
-					if(level_ > INFO)
+					if(level_ > severity_type::INFO)
 						return;
 					stream<<"<INFO> :";
 					break;
 				case severity_type::WARNING:
-					if(level_ > WARNING)
+					if(level_ > severity_type::WARNING)
 						return;
 					stream<<"<WARNING> :";
 					break;

@@ -92,3 +92,13 @@ loadPlugin("path/to/DolphinDBPlugin/zlib/PluginZlib.txt");
 If arguments are wrong, throw `IllegalArgumentException`.
 
 If any other errors occur, throw `IOException`.
+
+# ReleaseNotes:
+
+## 新功能
+
+* 新增支持压缩同一个文件下的所有文件。（**1.30.22**）
+
+## 功能优化
+
+* 优化了部分报错信息。（**1.30.22**）

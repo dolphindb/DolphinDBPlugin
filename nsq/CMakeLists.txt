@@ -15,7 +15,7 @@ include_directories(
 )
 
 set(BASE_DIR ${PROJECT_SOURCE_DIR})
-link_directories(${BASE_DIR}/lib)
+link_directories(${BASE_DIR}/lib/linux.x64)
 link_directories("${CMAKE_BINARY_DIR}")
 
 if(WIN32)
@@ -31,7 +31,7 @@ if(${CMAKE_BUILD_TYPE} MATCHES "Debug")
     message(STATUS "Build: Debug with -O0 -Wall -g -ggdb")
 else()
     set(CMAKE_BUILD_TYPE Release)
-    add_compile_options(${platform_macro} -O3)
+    add_compile_options(${platform_macro} -O3 -g)
     message(STATUS "Build: Release with -O3")
 endif()
 
@@ -48,6 +48,9 @@ target_link_libraries(
     DolphinDB
     HSNsqApi
 )
+if(UNIX)
+    set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-Wl,-rpath,$ORIGIN")
+endif()
 
 configure_file(${plugin_file} ${CMAKE_BINARY_DIR}/PluginNsq.txt COPYONLY)
 

@@ -41,7 +41,21 @@
 #include <curl/curl.h>
 #include <openssl/ssl.h>
 #include <string>
+#include<urlencode.h>
 using namespace std;
+
+void checkDictionaryContent(DictionarySP params){
+    if(params->getForm() != DF_DICTIONARY){
+        return;
+    }
+    ConstantSP keys = params->keys();
+    for (int i = 0; i < keys->size(); i++) {
+        ConstantSP key = keys->get(i);
+        if(key->getString().empty() || params->getMember(key)->getString().empty()){
+            throw RuntimeException("the key or value in dictionary can not be emtpy");
+        }
+    }
+}
 
 ConstantSP httpGet(Heap *heap, vector<ConstantSP> &args) {
     ConstantSP url = args[0];
@@ -52,17 +66,17 @@ ConstantSP httpGet(Heap *heap, vector<ConstantSP> &args) {
     if (args.size() >= 2 && !args[1]->isNull()) {
         params = args[1];
         if ((params->getType() != DT_STRING || params->getForm() != DF_SCALAR) &&
-            (params->getForm() != DF_DICTIONARY ||
-             ((DictionarySP) params)->getKeyType() != DT_STRING ||
-             ((DictionarySP) params)->getType() != DT_STRING))
-            throw IllegalArgumentException(__FUNCTION__,
-                                           "Params must be a string or a dictionary with STRING-STRING key-value type");
+            (params->getForm() != DF_DICTIONARY || ((DictionarySP) params)->getKeyType() != DT_STRING))
+            throw IllegalArgumentException(__FUNCTION__, "Params must be a string scalar or a dictionary with STRING key");
+        if(params->getForm() == DF_DICTIONARY){
+            checkDictionaryContent(params);
+        }
     } else
         params = new String("");
     if (args.size() >= 3) {
         timeout = args[2];
-        if (!timeout->isNumber() || timeout->getForm() != DF_SCALAR)
-            throw IllegalArgumentException(__FUNCTION__, "Timeout must be an integer scalar");
+        if (timeout.isNull() || !timeout->isNumber() || timeout->getForm() != DF_SCALAR || timeout->getLong() < 0)
+            throw IllegalArgumentException(__FUNCTION__, "Timeout must be an nonnegative integer scalar");
     } else
         timeout = new Int(0);
     if (args.size() >= 4 && !args[3]->isNull()) {
@@ -71,8 +85,11 @@ ConstantSP httpGet(Heap *heap, vector<ConstantSP> &args) {
             (headers->getForm() != DF_DICTIONARY ||
              ((DictionarySP) headers)->getKeyType() != DT_STRING ||
              ((DictionarySP) headers)->getType() != DT_STRING))
-            throw IllegalArgumentException(__FUNCTION__,
-                                           "Headers must be a string or a dictionary with STRING-STRING key-value type");
+            throw IllegalArgumentException(__FUNCTION__, "Headers must be a string or a dictionary with STRING-STRING key-value type");
+        if(headers->getForm() == DF_DICTIONARY){
+            checkDictionaryContent(headers);
+        }
+
     } else
         headers = new String("");
     return httpClient::httpRequest(httpClient::GET, url, params, timeout, headers);
@@ -86,18 +103,18 @@ ConstantSP httpPost(Heap *heap, vector<ConstantSP> &args) {
         throw IllegalArgumentException(__FUNCTION__, "Url must be a string scalar");
     if (args.size() >= 2 && !args[1]->isNull()) {
         params = args[1];
-        if (
-                ((params->getForm() != DF_DICTIONARY) && (params->getType() != DT_STRING)) ||
-                ((params->getForm() == DF_DICTIONARY) && (((DictionarySP) params)->getKeyType() != DT_STRING))
-                )
-            throw IllegalArgumentException(__FUNCTION__,
-                                           "Params must be a string or a dictionary with keys of type string");
+        if ((params->getType() != DT_STRING || params->getForm() != DF_SCALAR) &&
+            (params->getForm() != DF_DICTIONARY || ((DictionarySP) params)->getKeyType() != DT_STRING))
+            throw IllegalArgumentException(__FUNCTION__, "Params must be a string scalar or a dictionary with STRING key");
+        if(params->getForm() == DF_DICTIONARY){
+            checkDictionaryContent(params);
+        }
     } else
         params = new String("");
     if (args.size() >= 3) {
         timeout = args[2];
-        if (!timeout->isNumber() || timeout->getForm() != DF_SCALAR)
-            throw IllegalArgumentException(__FUNCTION__, "Timeout must be an integer scalar");
+        if (!timeout->isNumber() || timeout->getForm() != DF_SCALAR || timeout->getLong() < 0)
+            throw IllegalArgumentException(__FUNCTION__, "Timeout must be an nonnegative integer scalar");
     } else
         timeout = new Long(0);
     if (args.size() >= 4 && !args[3]->isNull()) {
@@ -106,21 +123,16 @@ ConstantSP httpPost(Heap *heap, vector<ConstantSP> &args) {
             (headers->getForm() != DF_DICTIONARY ||
              ((DictionarySP) headers)->getKeyType() != DT_STRING ||
              ((DictionarySP) headers)->getType() != DT_STRING))
-            throw IllegalArgumentException(__FUNCTION__,
-                                           "Headers must be a string or a dictionary with STRING-STRING key-value type");
+            throw IllegalArgumentException(__FUNCTION__, "Headers must be a string or a dictionary with STRING-STRING key-value type");
+        if(headers->getForm() == DF_DICTIONARY){
+            checkDictionaryContent(headers);
+        }
     } else
         headers = new String("");
     return httpClient::httpRequest(httpClient::POST, url, params, timeout, headers);
 }
 
 namespace httpClient {
-
-    void handle_error(const char *file, int lineno, const char *msg)
-    {
-        fprintf(stderr, "** %s:%d %s\n", file, lineno, msg);
-        ERR_print_errors_fp(stderr);
-        /* exit(-1); */
-    }
 
     /* This array will store all of the mutexes available to OpenSSL. */
     vector<Mutex> mutex_buf;
@@ -167,19 +179,18 @@ namespace httpClient {
         return size * nmemb;
     }
 
-    const string getParamString(const DictionarySP &params) {
-        string paramString;
+    void getParamString(const DictionarySP &params, string& output) {
+        output.clear();
         ConstantSP keys = params->keys();
         for (int i = 0; i < keys->size(); i++) {
             if (i != 0)
-                paramString += "&";
+                output += "&";
             ConstantSP key = keys->get(i);
             ConstantSP value = params->getMember(key);
-            paramString += key->getString();
-            paramString += "=";
-            paramString += value->getString();
+            output += key->getString();
+            output += "=";
+            output += (urlencode::EncodeString(value->getString()));
         }
-        return paramString;
     }
 
     curl_slist *setHeaders(const DictionarySP &headers, curl_slist *slist) {
@@ -207,7 +218,7 @@ namespace httpClient {
             string paramString;
 
             if (params->getForm() == DF_DICTIONARY)
-                paramString = getParamString(params);
+                getParamString(params, paramString);
             else
                 paramString = params->getString();
 
@@ -244,6 +255,7 @@ namespace httpClient {
             }
             curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerList);
 
+            curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
             curl_easy_setopt(curl, CURLOPT_URL, urlString.c_str());
             curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
             curl_easy_setopt(curl, CURLOPT_USERAGENT, "curl/7.47.0");

@@ -59,6 +59,9 @@ ConstantSP mseedParse(Heap *heap, vector<ConstantSP> &args) {
 #ifdef LINUX
     if (args[0]->getType() == DT_STRING) {
         data = args[0]->getString();
+        if (data.size() == 0) {
+            throw IllegalArgumentException(__FUNCTION__, "Length of data string scalar must be larger than 0.");
+        }
         fp = fmemopen((void *)(data.c_str()), data.size(), "rw");
         if (fp == NULL)
         {
@@ -85,7 +88,7 @@ ConstantSP mseedParse(Heap *heap, vector<ConstantSP> &args) {
     {
         data = args[0]->getString();
         mutexLock.lock();
-        fp = SCFmemopen(data.c_str(), data.size(), "rb");
+        fp = SCFmemopen((void*)data.c_str(), data.size(), "rb");
         if (fp == NULL)
         {
             mutexLock.unlock();
@@ -250,7 +253,7 @@ ConstantSP mseedParseStream(Heap *heap, vector<ConstantSP> &args) {
     {
         data = args[0]->getString();
         mutexLock.lock();
-        fp = SCFmemopen(data.c_str(), data.size(), "rb");
+        fp = SCFmemopen((void*)data.c_str(), data.size(), "rb");
         if (fp == NULL)
         {
             mutexLock.unlock();
@@ -454,12 +457,17 @@ ConstantSP mseedParseStreamInfo(Heap *heap, vector<ConstantSP> &args){
     while(index < size){
         len = ms3_detect(buffer + index, size - index, &formatversion);
         if(len <= 0){
+            if (index == 0)
+                throw IllegalArgumentException(__FUNCTION__ , "invalid data.");
             break;
         }
         char sid[50];
         char * flag = ms2_recordsid(buffer + index, sid, 50);
-        if(flag == nullptr)
+        if(flag == nullptr) {
+            if (index == 0)
+                throw IllegalArgumentException(__FUNCTION__, "invalid sid.");
             break;
+        }
         blockVec.push_back(len);
         sidVec.push_back(sid);
         ++complete;

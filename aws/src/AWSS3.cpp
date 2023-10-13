@@ -8,6 +8,7 @@
 #include "AWSS3.h"
 #include "Concurrent.h"
 #include "CoreConcept.h"
+#include "ddbplugin/Plugin.h"
 #include <aws/core/Aws.h>
 #include <aws/core/auth/AWSCredentialsProvider.h>
 #include <aws/s3/S3Client.h>
@@ -38,6 +39,14 @@
 #include <cstdint>
 #include <future>
 #include <thread>
+
+#include <iostream>
+#ifdef _WIN32
+#include <direct.h>
+#else
+#include <sys/types.h>
+#include <sys/stat.h>
+#endif
 
 void setS3account(DictionarySP& account, Aws::Auth::AWSCredentials& credential, Aws::Client::ClientConfiguration& config) {
     Aws::String keyId;
@@ -94,7 +103,11 @@ public:
             Aws::Auth::AWSCredentials credential;
             Aws::Client::ClientConfiguration config;
             setS3account(account, credential, config);
-            client_=new Aws::S3::S3Client(credential, config);
+
+            {
+//                std::lock_guard<std::mutex> _(a2cMutex_);
+                client_ = new Aws::S3::S3Client(credential, config);
+            }
         }
     }
     ~S3ClientGuard(){
@@ -212,12 +225,34 @@ ConstantSP getS3Object(Heap* heap, vector<ConstantSP>& args) {
             }
             outputFileName = Aws::String(args[3]->getString().c_str());
         }
+
+        // Create directories if they don't exist
+        auto pos = outputFileName.find_last_of(R"(/\)");
+        if (pos != string::npos && pos != 0) {
+            auto dirName = outputFileName.substr(0, pos);
+            string errMsg;
+            if (!Util::createDirectoryRecursive(dirName.c_str(), errMsg)) {
+                throw IOException(errMsg);
+            }
+        }
+
+        if(Util::existsDir(outputFileName.c_str())){
+            throw RuntimeException(std::string("already exist a dir with the same name ") + outputFileName.c_str());
+        }
+
         DictionarySP s3account = (DictionarySP)args[0];
         S3ClientGuard g{s3account};
         Aws::S3::Model::GetObjectRequest objectRequest;
         objectRequest.WithBucket(bucketName).WithKey(keyName)
                 .SetResponseStreamFactory([&outputFileName](){
-                    return Aws::New<Aws::FStream>("FStream to download file", outputFileName.c_str(), std::ios_base::out); });
+                    Aws::FStream * fptr = Aws::New<Aws::FStream>("FStream to download file", outputFileName.c_str(), std::ios_base::out);
+                    //Aws::FStream is typedef basic_fstream
+                    if(!fptr->good()){
+                        Aws::Delete<Aws::FStream>(fptr);
+                        throw IOException(AWSS3_PLUGIN_PREFIX + ": open output file ["+outputFileName.c_str()+"] failed");
+                    }
+                    return fptr;
+                });
         auto getObjectOutcome = g.get()->GetObject(objectRequest);
         if (!getObjectOutcome.IsSuccess()) {
             Aws::String error = "getS3Object cannot get object:\n" +
@@ -441,7 +476,12 @@ void deleteS3Object(Heap* heap, vector<ConstantSP>& args) {
     }
 }
 
+Mutex mutex;
+
 void uploadS3Object(Heap* heap, vector<ConstantSP>& args) {
+
+    LockGuard<Mutex> lk(&mutex);
+
     if(!args[0]->isDictionary()) {
         throw IllegalArgumentException("uploadS3Object",
             "Invalid argument type, s3account should be a dictionary.");
@@ -653,17 +693,6 @@ void copyS3Object(Heap* heap, vector<ConstantSP>& args) {
     }
 }
 
-class Executor : public Runnable {
-    using Func = std::function<void()>;
-
-public:
-    explicit Executor(Func f) : func_(std::move(f)){};
-    void run() override { func_(); };
-
-private:
-    Func func_;
-};
-
 ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
     //4+3+4 = 7-11 parameters
     assertArg(args[0]->isDictionary(), __func__, "s3account", "Dictionary");
@@ -684,6 +713,10 @@ ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
     if(threadCount < 1){
         throw RuntimeException("Thread count "+std::to_string(threadCount)+" must be equal or greater than 1.");
     }
+    if(threadCount > 10){
+        throw RuntimeException("Thread count "+std::to_string(threadCount)+" must be equal or less than 10.");
+    }
+
     //prepare loadTextEx
     auto loadTextExFunc=heap->currentSession()->getFunctionDef("loadTextEx");
     if(loadTextExFunc.isNull()){
@@ -713,11 +746,11 @@ ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
         ObjectFile(){}
         ObjectFile(const string &path,const string &info) : filePath(path), objectInfo(info){}
     };
-    std::thread threads[threadCount];
+    std::vector<std::thread> threads(threadCount);
     //load text thread
     SynchronizedQueue<ObjectFile> fileQueue;
     std::mutex objectMutex;
-    Thread loadTextThread(new Executor([&]() {
+    Thread loadTextThread(new dolphindb::Executor([&]() {
         ObjectFile objectFile;
         vector<ConstantSP> loadTextExArgs(loadTextExInputArgs);
         loadTextExArgs[3] = new String;
@@ -746,12 +779,11 @@ ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
                 colError.push_back(errCode);
                 colMsg.push_back(msg);
             }
-            Util::removeFile(objectFile.filePath, msg);
         }
     }));
     loadTextThread.start();
     /*std::thread loadTextThread = std::thread(;*/
-    {//start download thread
+    try{//start download thread
         int objectIndex=0;
         for(auto &thread : threads){
             thread = std::thread([&]() {
@@ -776,6 +808,9 @@ ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
                     }
                     outputFilePath = tempFolder + "/" + objectFileName;
                     try{
+                        if(Util::existsDir(outputFilePath.c_str())){
+                            throw RuntimeException(std::string("already exist a dir with the same name ") + outputFilePath.c_str());
+                        }
                         Aws::S3::Model::GetObjectRequest objectRequest;
                         objectRequest.WithBucket(bucketName.c_str()).WithKey(object.c_str())
                                 .SetResponseStreamFactory([&outputFilePath, &errCode](){
@@ -836,8 +871,10 @@ ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
                 }
             });
         }
+    } catch(std::exception &e){
+        throw RuntimeException(AWSS3_PLUGIN_PREFIX+": creating thread error:"+e.what());
     }
-    {//do some clean job
+    try{//do some clean job
         for(auto &one : threads){
             one.join();
         }
@@ -847,6 +884,8 @@ ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
         if(!Util::removeDirectoryRecursive(tempFolder, msg)){
             LOG_ERR("remove dir content failed ",msg);
         }
+    } catch(std::exception &e){
+        throw RuntimeException(AWSS3_PLUGIN_PREFIX+": join thread error:"+e.what());
     }
     TableSP resultTable = Util::createTable({"object","errorCode","errorInfo"},{DT_STRING,DT_INT,DT_STRING}, colObject.size(), 0);
     ((Vector*)resultTable->getColumn(0).get())->setString(0, colObject.size(), colObject.data());

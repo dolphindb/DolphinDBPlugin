@@ -61,6 +61,7 @@ void SplitString(string &s, std::vector<std::string> &v, const string &c) {
 std::vector<string> sh_codes, sz_codes;
 
 bool receivedTimeFlag = false;
+bool getAllFieldNamesFlag = false;
 bool isConnected = false;
 
 vector<string> snapshotColumnNames{"ExchangeID",
@@ -159,9 +160,38 @@ vector<string> ordersColumnNames{"ExchangeID", "InstrumentID", "TransFlag", "Seq
                                 "TradeDate",  "TransactTime", "OrdPrice",  "OrdVolume", "OrdSide",
                                 "OrdType",    "OrdNo",        "BizIndex",};
 
+vector<string> addedSnapshotColumnNames{"Bid1Count", "MaxBid1Count", "Ask1Count", "MaxAsk1Count", 
+                                        "Bid1Qty0", "Bid1Qty1", "Bid1Qty2", "Bid1Qty3", "Bid1Qty4", 
+                                        "Bid1Qty5", "Bid1Qty6", "Bid1Qty7", "Bid1Qty8", "Bid1Qty9", 
+                                        "Bid1Qty10", "Bid1Qty11", "Bid1Qty12", "Bid1Qty13", "Bid1Qty14", 
+                                        "Bid1Qty15", "Bid1Qty16", "Bid1Qty17", "Bid1Qty18", "Bid1Qty19", 
+                                        "Bid1Qty20", "Bid1Qty21", "Bid1Qty22", "Bid1Qty23", "Bid1Qty24", 
+                                        "Bid1Qty25", "Bid1Qty26", "Bid1Qty27", "Bid1Qty28", "Bid1Qty29", 
+                                        "Bid1Qty30", "Bid1Qty31", "Bid1Qty32", "Bid1Qty33", "Bid1Qty34", 
+                                        "Bid1Qty35", "Bid1Qty36", "Bid1Qty37", "Bid1Qty38", "Bid1Qty39", 
+                                        "Bid1Qty40", "Bid1Qty41", "Bid1Qty42", "Bid1Qty43", "Bid1Qty44", 
+                                        "Bid1Qty45", "Bid1Qty46", "Bid1Qty47", "Bid1Qty48", "Bid1Qty49", 
+                                        "Ask1Qty0", "Ask1Qty1", "Ask1Qty2", "Ask1Qty3", "Ask1Qty4", 
+                                        "Ask1Qty5", "Ask1Qty6", "Ask1Qty7", "Ask1Qty8", "Ask1Qty9", 
+                                        "Ask1Qty10", "Ask1Qty11", "Ask1Qty12", "Ask1Qty13", "Ask1Qty14", 
+                                        "Ask1Qty15", "Ask1Qty16", "Ask1Qty17", "Ask1Qty18", "Ask1Qty19", 
+                                        "Ask1Qty20", "Ask1Qty21", "Ask1Qty22", "Ask1Qty23", "Ask1Qty24", 
+                                        "Ask1Qty25", "Ask1Qty26", "Ask1Qty27", "Ask1Qty28", "Ask1Qty29", 
+                                        "Ask1Qty30", "Ask1Qty31", "Ask1Qty32", "Ask1Qty33", "Ask1Qty34", 
+                                        "Ask1Qty35", "Ask1Qty36", "Ask1Qty37", "Ask1Qty38", "Ask1Qty39", 
+                                        "Ask1Qty40", "Ask1Qty41", "Ask1Qty42", "Ask1Qty43", "Ask1Qty44", 
+                                        "Ask1Qty45", "Ask1Qty46", "Ask1Qty47", "Ask1Qty48", "Ask1Qty49",};
+
+vector<string> tradeAndOrdersMergedColumnNames{
+    "ExchangeID", "InstrumentID", "TransFlag",     "SeqNo",     "ChannelNo",
+    "TradeDate",  "TransactTime", "Trade2_Order1", "Price",     "Volume", 
+    "TrdMoney",   "TrdBuyNo",     "TrdSellNo",     "TrdBSFlag", "BizIndex",
+    "OrdSide",    "OrdType",      "OrdNo",         "TrdVolume",
+};
+
 // 原始的类型，用来创建columns和进行验证
 vector<DATA_TYPE> snapshotTypes{
-    DT_STRING, DT_STRING, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE,
+    DT_SYMBOL, DT_SYMBOL, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE,
     DT_DATE,   DT_TIME,   DT_LONG,   DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE,
     DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE,
     DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_DOUBLE, DT_LONG,   DT_LONG,   DT_LONG,   DT_LONG,   DT_LONG,
@@ -171,11 +201,32 @@ vector<DATA_TYPE> snapshotTypes{
     DT_DOUBLE, DT_LONG,   DT_DOUBLE, DT_DOUBLE, DT_INT,    DT_INT,    DT_LONG,   DT_LONG,   DT_DOUBLE, DT_DOUBLE,
     DT_INT,    DT_INT,    DT_INT,    DT_INT,    DT_INT,    DT_INT,    DT_DOUBLE};
 
-vector<DATA_TYPE> tradeTypes{DT_STRING, DT_STRING, DT_INT,    DT_LONG, DT_INT,  DT_DATE, DT_TIME,
+vector<DATA_TYPE> tradeTypes{DT_SYMBOL, DT_SYMBOL, DT_INT,    DT_LONG, DT_INT,  DT_DATE, DT_TIME,
                              DT_DOUBLE, DT_LONG,   DT_DOUBLE, DT_LONG, DT_LONG, DT_CHAR, DT_LONG};
 
-vector<DATA_TYPE> ordersTypes{DT_STRING, DT_STRING, DT_INT,  DT_LONG, DT_INT,  DT_DATE, DT_TIME,
+vector<DATA_TYPE> ordersTypes{DT_SYMBOL, DT_SYMBOL, DT_INT,  DT_LONG, DT_INT,  DT_DATE, DT_TIME,
                              DT_DOUBLE,  DT_LONG,   DT_CHAR, DT_CHAR, DT_LONG, DT_LONG};
+
+vector<DATA_TYPE> addedSnapshotTypes{
+    DT_INT, DT_INT, DT_INT, DT_INT,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+};
+
+vector<DATA_TYPE> tradeAndOrdersMergedTypes{
+    DT_SYMBOL, DT_SYMBOL, DT_INT,  DT_LONG,   DT_INT,  
+    DT_DATE,   DT_TIME,   DT_INT,  DT_DOUBLE, DT_LONG, 
+    DT_DOUBLE, DT_LONG,   DT_LONG, DT_CHAR,   DT_LONG,
+    DT_CHAR,   DT_CHAR,   DT_LONG, DT_LONG
+};
 
 TableSP getSnapshotSchema() {
     if (receivedTimeFlag == true && snapshotColumnNames[snapshotColumnNames.size() - 1] != "ReceivedTime") {
@@ -189,65 +240,107 @@ TableSP getSnapshotSchema() {
     }
 
     vector<ConstantSP> cols(2);
-    cols[0] = Util::createVector(DT_STRING, snapshotColumnNames.size());
-    cols[1] = Util::createVector(DT_STRING, snapshotTypes.size());
-    for (unsigned int i = 0; i < snapshotColumnNames.size(); i++) {
-        cols[0]->setString(i, snapshotColumnNames[i]);
-        cols[1]->setString(i, Util::getDataTypeString(snapshotTypes[i]));
+    vector<string> colNames = snapshotColumnNames;
+    vector<DATA_TYPE> colTypes = snapshotTypes;
+    if (getAllFieldNamesFlag) {
+        colNames.insert(colNames.end(), addedSnapshotColumnNames.begin(), addedSnapshotColumnNames.end());
+        colTypes.insert(colTypes.end(), addedSnapshotTypes.begin(), addedSnapshotTypes.end());
+    }
+    cols[0] = Util::createVector(DT_STRING, colNames.size());
+    cols[1] = Util::createVector(DT_STRING, colTypes.size());
+    for (unsigned int i = 0; i < colNames.size(); i++) {
+        cols[0]->setString(i, colNames[i]);
+        cols[1]->setString(i, Util::getDataTypeString(colTypes[i]));
     }
 
-    std::vector<string> colNames = {"name", "type"};
-    TableSP table = Util::createTable(colNames, cols);
-
-    return table;
+    std::vector<string> schemaColNames = {"name", "type"};
+    return Util::createTable(schemaColNames, cols);
 }
 
 TableSP getTradeSchema() {
-    if (receivedTimeFlag == true && tradeColumnNames[tradeColumnNames.size() - 1] != "ReceivedTime") {
+    if (receivedTimeFlag == true && tradeColumnNames.back() != "ReceivedTime") {
         tradeColumnNames.push_back("ReceivedTime");
         tradeTypes.push_back(DT_NANOTIMESTAMP);
     }
 
-    if (receivedTimeFlag == false && tradeColumnNames[tradeColumnNames.size() - 1] == "ReceivedTime") {
+    if (receivedTimeFlag == false && tradeColumnNames.back() == "ReceivedTime") {
         tradeColumnNames.pop_back();
         tradeTypes.pop_back();
     }
 
-    vector<ConstantSP> cols(2);
-    cols[0] = Util::createVector(DT_STRING, tradeColumnNames.size());
-    cols[1] = Util::createVector(DT_STRING, tradeTypes.size());
-    for (unsigned int i = 0; i < tradeColumnNames.size(); i++) {
-        cols[0]->setString(i, tradeColumnNames[i]);
-        cols[1]->setString(i, Util::getDataTypeString(tradeTypes[i]));
+    if (receivedTimeFlag == true && tradeAndOrdersMergedColumnNames.back() != "ReceivedTime") {
+        tradeAndOrdersMergedColumnNames.push_back("ReceivedTime");
+        tradeAndOrdersMergedTypes.push_back(DT_NANOTIMESTAMP);
     }
 
-    std::vector<string> colNames = {"name", "type"};
-    TableSP table = Util::createTable(colNames, cols);
+    if (receivedTimeFlag == false && tradeAndOrdersMergedColumnNames.back() == "ReceivedTime") {
+        tradeAndOrdersMergedColumnNames.pop_back();
+        tradeAndOrdersMergedTypes.pop_back();
+    }
+
+    vector<string> colNames;
+    vector<DATA_TYPE> colTypes;
+    if (getAllFieldNamesFlag) {
+        colNames = tradeAndOrdersMergedColumnNames;
+        colTypes = tradeAndOrdersMergedTypes;
+    } else {
+        colNames = tradeColumnNames;
+        colTypes = tradeTypes;
+    }
+    
+    vector<ConstantSP> cols(2);
+    cols[0] = Util::createVector(DT_STRING, colNames.size());
+    cols[1] = Util::createVector(DT_STRING, colTypes.size());
+    for (unsigned int i = 0; i < colNames.size(); i++) {
+        cols[0]->setString(i, colNames[i]);
+        cols[1]->setString(i, Util::getDataTypeString(colTypes[i]));
+    }
+    std::vector<string> schemaColNames = {"name", "type"};
+    TableSP table = Util::createTable(schemaColNames, cols);
 
     return table;
 }
 
 TableSP getOrdersSchema() {
-    if (receivedTimeFlag == true && ordersColumnNames[ordersColumnNames.size() - 1] != "ReceivedTime") {
+    if (receivedTimeFlag == true && ordersColumnNames.back() != "ReceivedTime") {
         ordersColumnNames.push_back("ReceivedTime");
         ordersTypes.push_back(DT_NANOTIMESTAMP);
     }
 
-    if (receivedTimeFlag == false && ordersColumnNames[ordersColumnNames.size() - 1] == "ReceivedTime") {
+    if (receivedTimeFlag == false && ordersColumnNames.back() == "ReceivedTime") {
         ordersColumnNames.pop_back();
         ordersTypes.pop_back();
     }
 
-    vector<ConstantSP> cols(2);
-    cols[0] = Util::createVector(DT_STRING, ordersColumnNames.size());
-    cols[1] = Util::createVector(DT_STRING, ordersTypes.size());
-    for (unsigned int i = 0; i < ordersColumnNames.size(); i++) {
-        cols[0]->setString(i, ordersColumnNames[i]);
-        cols[1]->setString(i, Util::getDataTypeString(ordersTypes[i]));
+    if (receivedTimeFlag == true && tradeAndOrdersMergedColumnNames.back() != "ReceivedTime") {
+        tradeAndOrdersMergedColumnNames.push_back("ReceivedTime");
+        tradeAndOrdersMergedTypes.push_back(DT_NANOTIMESTAMP);
     }
 
-    std::vector<string> colNames = {"name", "type"};
-    TableSP table = Util::createTable(colNames, cols);
+    if (receivedTimeFlag == false && tradeAndOrdersMergedColumnNames.back() == "ReceivedTime") {
+        tradeAndOrdersMergedColumnNames.pop_back();
+        tradeAndOrdersMergedTypes.pop_back();
+    }
+
+    vector<string> colNames;
+    vector<DATA_TYPE> colTypes;
+    if (getAllFieldNamesFlag) {
+        colNames = tradeAndOrdersMergedColumnNames;
+        colTypes = tradeAndOrdersMergedTypes;
+    } else {
+        colNames = ordersColumnNames;
+        colTypes = ordersTypes;
+    }
+
+    vector<ConstantSP> cols(2);
+    cols[0] = Util::createVector(DT_STRING, colNames.size());
+    cols[1] = Util::createVector(DT_STRING, colTypes.size());
+    for (unsigned int i = 0; i < colNames.size(); i++) {
+        cols[0]->setString(i, colNames[i]);
+        cols[1]->setString(i, Util::getDataTypeString(colTypes[i]));
+    }
+    std::vector<string> schemaColNames = {"name", "type"};
+    TableSP table = Util::createTable(schemaColNames, cols);
 
     return table;
 }
@@ -276,6 +369,7 @@ Mutex apiMutex;
 
 
 ConstantSP nsqClose(Heap *heap, vector<ConstantSP> &arguments) {
+    LockGuard<Mutex> lockGuard(&nsqLock);
     session = heap->currentSession()->copy();
     LockGuard<Mutex> guard{&apiMutex};
     if (lpNsqApi == NULL) {
@@ -307,17 +401,19 @@ ConstantSP nsqClose(Heap *heap, vector<ConstantSP> &arguments) {
     
     isConnected = false;
     receivedTimeFlag = false;
+    getAllFieldNamesFlag = false;
     return new Void();
 }
 
 ConstantSP nsqConnect(Heap *heap, vector<ConstantSP> &arguments) {
-    session = heap->currentSession()->copy();
-    if (lpNsqSpi != NULL) {
-        if (lpNsqSpi->GetConnectStatus()) {
-            // 已连接的状态
-            std::string errMsg = "You are already connected. To reconnect, please execute close() and try again.";
-            throw RuntimeException(errMsg);
-        } else { // 初始化了，但是没有连接成功，则直接清理
+    LockGuard<Mutex> lockGuard(&nsqLock);
+    bool success = false;
+    if (lpNsqSpi != NULL){
+        std::string errMsg = "You are already connected. To reconnect, please execute close() and try again.";
+        throw RuntimeException(errMsg);
+    }
+    Defer df1([&](){
+        if(!success && lpNsqSpi != NULL){
             for (int i = 0; i < 6; i++) {
                 subscribe_status[i] = 0;
 
@@ -335,7 +431,8 @@ ConstantSP nsqConnect(Heap *heap, vector<ConstantSP> &arguments) {
             delete lpNsqSpi;
             lpNsqSpi = NULL;
         }
-    }
+    });
+    session = heap->currentSession()->copy();
     LockGuard<Mutex> guard{&apiMutex};
 
     if (arguments.size() > 1) {
@@ -345,23 +442,33 @@ ConstantSP nsqConnect(Heap *heap, vector<ConstantSP> &arguments) {
 
         DictionarySP options = arguments[1];
         VectorSP keys = options->keys();
-        VectorSP values = options->values();
         for(int i = 0; i < options->size(); ++i) {
             ConstantSP key = keys->get(i);
             if(key->getType() != DT_STRING)
                 throw IllegalArgumentException(__FUNCTION__, "key of options must be string");
             std::string str = key->getString();
-            if(str != "receivedTime")
-                throw IllegalArgumentException(__FUNCTION__, "key of options must be 'receivedTime'");
-        }
+            if(str != "receivedTime" && str != "getAllFieldNames")
+                throw IllegalArgumentException(__FUNCTION__, "key of options must be 'receivedTime' or 'getAllFieldNames'");
+            
+            if (str == "receivedTime") {
+                ConstantSP value = options->getMember("receivedTime");
+                if (value->getType() != DT_BOOL) {
+                    throw IllegalArgumentException(__FUNCTION__, "value of 'receivedTime' must be boolean");
+                }
+                receivedTimeFlag = value->getBool();
+            }
 
-        ConstantSP value = options->getMember("receivedTime");
-        if (value->getType() != DT_BOOL) {
-            throw IllegalArgumentException(__FUNCTION__, "value of 'receivedTime' must be boolean");
+            if (str == "getAllFieldNames") {
+                ConstantSP value = options->getMember("getAllFieldNames");
+                if (value->getType() != DT_BOOL) {
+                    throw IllegalArgumentException(__FUNCTION__, "value of 'getAllFieldNames' must be boolean");
+                }
+                getAllFieldNamesFlag = value->getBool();
+            }
         }
-        receivedTimeFlag = value->getBool();
     } else {
         receivedTimeFlag = false;
+        getAllFieldNamesFlag = false;
     }
 
     //初始化行情api
@@ -430,36 +537,50 @@ ConstantSP nsqConnect(Heap *heap, vector<ConstantSP> &arguments) {
     }
 
     isConnected = true;
+    success = true;
 
     return new Void();
 }
 
-bool checkColumns(TableSP tbl, int type) {
+bool checkColumns(const TableSP& tbl, int type) {
     vector<DATA_TYPE> col_types;
     if (type == 0) { // snapshot
         col_types = snapshotTypes;
+        if (getAllFieldNamesFlag) {
+            col_types.insert(col_types.end(), addedSnapshotTypes.begin(), addedSnapshotTypes.end());
+        }
     } else if (type == 1) {
-        col_types = tradeTypes;
+        if (getAllFieldNamesFlag) {
+            col_types = tradeAndOrdersMergedTypes;
+        } else {
+            col_types = tradeTypes;
+        }
     } else if (type == 2) {
-        col_types = ordersTypes;
+        if (getAllFieldNamesFlag) {
+            col_types = tradeAndOrdersMergedTypes;
+        } else {
+            col_types = ordersTypes;
+        }
     } else {
         return false;
     }
     if (tbl->columns() != col_types.size()) {
         return false;
     }
-    for (size_t i = 0; i < tbl->columns(); i++) {
-        if (tbl->getColumnType(i) != col_types[i]) {
+	int numColumns = tbl->columns();
+    for (size_t i = 0; i < numColumns; i++) {
+		DATA_TYPE dt = tbl->getColumnType(i);
+        if (dt != col_types[i]) {
             // 类型兼容
             // STRING：SYMBOL
             // DOUBlE：FLOAT
             // LONG：INT
             bool f = false;
-            if (tbl->getColumnType(i) == DT_SYMBOL && col_types[i] == DT_STRING) {
+            if (dt == DT_SYMBOL && col_types[i] == DT_STRING) {
                 f = true;
-            } else if (tbl->getColumnType(i) == DT_FLOAT && col_types[i] == DT_DOUBLE) {
+            } else if (dt == DT_FLOAT && col_types[i] == DT_DOUBLE) {
                 f = true;
-            } else if (tbl->getColumnType(i) == DT_INT && col_types[i] == DT_LONG) {
+            } else if (dt == DT_INT && col_types[i] == DT_LONG) {
                 f = true;
             }
             if (f)
@@ -497,6 +618,7 @@ int setReqFieldSub(int flag) {
 
 // 订阅，并且进行列类型检查，设置传递的表
 ConstantSP subscribe(Heap *heap, vector<ConstantSP> &arguments) {
+    LockGuard<Mutex> lockGuard(&nsqLock);
     session = heap->currentSession()->copy();
     if (lpNsqApi == NULL || !lpNsqSpi->GetConnectStatus()) {
         std::string errMsg = "API is not initialized. Please check whether the connection is set up via connect().";
@@ -600,6 +722,7 @@ ConstantSP subscribe(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP unsubscribe(Heap *heap, vector<ConstantSP> &arguments) {
+    LockGuard<Mutex> lockGuard(&nsqLock);
     session = heap->currentSession()->copy();
     if (lpNsqApi == NULL || !lpNsqSpi->GetConnectStatus()) {
         std::string errMsg = "API is not initialized. Please check whether the connection is set up via connect().";
@@ -660,6 +783,7 @@ ConstantSP unsubscribe(Heap *heap, vector<ConstantSP> &arguments) {
  *          (orders, sz): false
  */
 ConstantSP getSubscriptionStatus(Heap *heap, vector<Constant> &arguments) {
+    LockGuard<Mutex> lockGuard(&nsqLock);
     session = heap->currentSession()->copy();
     // 创建一个表
     vector<DATA_TYPE> types{DT_STRING, DT_BOOL, DT_BOOL, DT_LONG, DT_STRING, DT_LONG, DT_TIMESTAMP};
@@ -672,8 +796,7 @@ ConstantSP getSubscriptionStatus(Heap *heap, vector<Constant> &arguments) {
 
     // 对每一行都设置数据
     for (int i = 0; i < 6; i++) {
-        vector<ConstantSP> columns;
-        columns.resize(7);
+        vector<ConstantSP> columns(7);
         for (int j = 0; j < 7; j++) {
             columns[j] = Util::createVector(types[j], 1, 1);
         }
@@ -697,6 +820,7 @@ ConstantSP getSubscriptionStatus(Heap *heap, vector<Constant> &arguments) {
 }
 
 ConstantSP getSchema(Heap *heap, vector<ConstantSP> &arguments) { // type 
+    LockGuard<Mutex> lockGuard(&nsqLock);
     if (isConnected == false) {
         throw RuntimeException("call the connect function first");
     }

@@ -30,19 +30,39 @@ extern vector<string> tablenames;
 // extern CHSNsqApi* lpNsqApi;
 // extern CHSNsqSpiImpl* lpNsqSpi;
 
+extern bool receivedTimeFlag;
+extern bool getAllFieldNamesFlag;
+
 extern vector<string> snapshotColumnNames;
 extern vector<string> tradeColumnNames;
 extern vector<string> ordersColumnNames;
+extern vector<string> addedSnapshotColumnNames;
+extern vector<string> tradeAndOrdersMergedColumnNames;
 
 extern vector<DATA_TYPE> snapshotTypes;
 extern vector<DATA_TYPE> tradeTypes;
 extern vector<DATA_TYPE> ordersTypes;
+extern vector<DATA_TYPE> addedSnapshotTypes;
+extern vector<DATA_TYPE> tradeAndOrdersMergedTypes;
 
-extern "C" ConstantSP nsqConnect(Heap* heap, vector<ConstantSP>& arguments);
-extern "C" ConstantSP subscribe(Heap* heap, vector<ConstantSP>& arguments);
-extern "C" ConstantSP unsubscribe(Heap* heap, vector<ConstantSP>& arguments);
-extern "C" ConstantSP getSchema(Heap *heap, vector<ConstantSP> &arguments);
-extern "C" ConstantSP nsqClose(Heap *heap, vector<ConstantSP> &arguments);
-extern "C" ConstantSP getSubscriptionStatus(Heap *heap, vector<Constant> &arguments);
+class Defer {
+public:
+    Defer(std::function<void()> code): code(code) {}
+    ~Defer() { code(); }
+private:
+    std::function<void()> code;
+};
+
+static Mutex nsqLock;
+
+extern "C"
+{
+	ConstantSP nsqConnect(Heap* heap, vector<ConstantSP>& arguments) ;
+	ConstantSP subscribe(Heap* heap, vector<ConstantSP>& arguments);
+	ConstantSP unsubscribe(Heap* heap, vector<ConstantSP>& arguments);
+	ConstantSP getSchema(Heap *heap, vector<ConstantSP>& arguments);
+	ConstantSP nsqClose(Heap *heap, vector<ConstantSP>& arguments);
+	ConstantSP getSubscriptionStatus(Heap *heap, vector<Constant>& arguments);
+}
 
 #endif /* PLUGIN_NSQ_H_ */

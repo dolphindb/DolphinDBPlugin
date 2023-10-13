@@ -11,9 +11,10 @@ DolphinDB's HDF5 plugin imports HDF5 datasets into DolphinDB and supports data t
   - [2.2 hdf5::lsTable](#22-hdf5lstable)
   - [2.3 hdf5::extractHDF5Schema](#23-hdf5extracthdf5schema)
   - [2.4 hdf5::loadHDF5](#24-hdf5loadhdf5)
-  - [2.5 hdf5::loadHDF5Ex](#25-hdf5loadhdf5ex)
-  - [2.6 hdf5::HDF5DS](#26-hdf5hdf5ds)
-  - [2.7 hdf5::saveHDF5](#27-hdf5savehdf5)
+  - [2.5 hdf5::loadPandasHDF5](#25-hdf5loadpandashdf5)
+  - [2.6 hdf5::loadHDF5Ex](#26-hdf5loadhdf5ex)
+  - [2.7 hdf5::HDF5DS](#27-hdf5hdf5ds)
+  - [2.8 hdf5::saveHDF5](#28-hdf5savehdf5)
 - [3. Data Types](#3-data-types)
   - [3.1 integer](#31-integer)
   - [3.2 float](#32-float)
@@ -27,6 +28,7 @@ DolphinDB's HDF5 plugin imports HDF5 datasets into DolphinDB and supports data t
 - [5. Performance](#5-performance)
   - [5.1 Environment](#51-environment)
   - [5.2 Data import performance](#52-data-import-performance)
+
 
 # 1. Install the Plugin
 
@@ -49,6 +51,8 @@ loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
 ```
 
 **Windows**
+
+Load plugin with an absolute path and replace "\\" with "\\\\" or "/".
 
 ```
 loadPlugin("/path_to_hdf5_plugin/PluginHdf5.txt")
@@ -189,11 +193,11 @@ mingw32-make -j
 
 **Syntax**
 
-* `hdf5::ls(fileName)`
+hdf5::ls(fileName)
 
 **Parameters**  
 
-* `fileName`: a HDF5 file name of type `string`.
+* fileName: a string indicating the HDF5 file name.
 
 **Details**
 
@@ -234,11 +238,11 @@ output
 
 **Syntax**
 
-* `hdf5::lsTable(fileName)`
+hdf5::lsTable(fileName)
 
 **Parameters**   
 
-* `fileName`: a HDF5 file name of type `string`.
+* fileName: a string indicating the HDF5 file name.
 
 **Details**
 
@@ -267,13 +271,13 @@ output:
 
 **Syntax**
 
-* `hdf5::extractHDF5Schema(fileName, datasetName)`
+hdf5::extractHDF5Schema(fileName, datasetName)
 
 **Parameters** 
 
-* `fileName`: a HDF5 file name of type string.
+* fileName: a string indicating the HDF5 file name.
 
-* `datasetName`: the dataset name, i.e., the table name of type string. It can be obtained by using `ls` or `lsTable`.
+* datasetName: the dataset name, i.e., the table name of type string. It can be obtained by using `ls` or `lsTable`.
 
 **Details**
 
@@ -314,15 +318,15 @@ output:
 
 **Syntax**
 
-* `hdf5::loadHDF5(fileName,datasetName,[schema],[startRow],[rowNum])`
+hdf5::loadHDF5(fileName,datasetName,[schema],[startRow],[rowNum])
 
 **Parameters** 
 
-* `fileName`: a HDF5 file name of type `string`.
-* `datasetName`: the dataset name, i.e., the table name of type `string`. It can be obtained by using `ls` or `lsTable`.
-* `schema`: a table with column names and data types of columns. If there is a need to change the data type of a column that is automatically determined by the system,  the schema table needs to be modified and used as an argument in `loadHdf5`.
-* `startRow`: an integer indicating the start row to read. If not specified, the dataset will be read from the beginning.
-* `rowNum`: an integer indicating the number of rows to read. If not specified, `loadHdf5` will read until the end of data.
+* fileName: a string indicating the HDF5 file name.
+* datasetName: the dataset name, i.e., the table name of type string. It can be obtained by using `ls` or `lsTable`.
+* schema: a table with column names and data types of columns. If there is a need to change the data type of a column that is automatically determined by the system,  the schema table needs to be modified and used as an argument in `loadHdf5`.
+* startRow: an integer indicating the start row to read. If not specified, the dataset will be read from the beginning.
+* rowNum: an integer indicating the number of rows to read. If not specified, `loadHdf5` will read until the end of data.
 
 **Details**
 
@@ -353,28 +357,54 @@ output:
 
 > **Note: the dimension of the dataset must be less than or equal to 2, only 2D or 1D tables can be parsed**
 
-## 2.5 hdf5::loadHDF5Ex
+## 2.5 hdf5::loadPandasHDF5
 
 **Syntax**
 
-* `hdf5::loadHDF5Ex(dbHandle,tableName,[partitionColumns],fileName,datasetName,[schema],[startRow],[rowNum],[transform])`
+hdf5::loadPandasHDF5(fileName,groupName,[schema],[startRow],[rowNum])
 
-**Parameters** 
+**Parameters**
 
-* `dbHandle`and `tableName`: If the input data is to be saved into the distributed database, the database handle and table name should be specified.
-* `partitionColumns`: a string scalar/vector indicating partitioning column(s).
-* `fileName`: a HDF5 file name of type `string`.
-* `datasetName`: the dataset name, i.e., the table name of type `string`. It can be obtained by using `ls` or `lsTable`.
-* `schema`: a table with column names and data types of columns. If there is a need to change the data type of a column that is automatically determined by the system,  the schema table needs to be modified and used as an argument in `loadHdf5Ex`.
-* `startRow`: an integer indicating the start row to read. If not specified, the dataset will be read from the beginning.
-* `rowNum`: an integer indicating the number of rows to read. If not specified, `loadHdf5` will read until the end of data.
-* `transform`: an unary function. The parameter of the function must be a table. If parameter transform is specified, we need to first execute createPartitionedTable and then load the data. The system will apply the function specified in parameter transform and then save the results into the database.
+* fileName: a STRING scalar indicating the HDF5 file name saved by Pandas.
+* groupName: the identifier of the group, i.e. the key name.
+* schema: a table with column names and data types of columns. If there is a need to change the data type of a column that is automatically determined by the system, the schema table needs to be modified and used as an argument in `loadPandasHDF5`.
+* startRow: an integer indicating the start row to read. If not specified, the dataset will be read from the beginning.
+* rowNum: an integer indicating the number of rows to read. If not specified, `loadPandasHDF5` will read until the end of data.
 
 **Details**
 
-* Load an HDF5 file into a distributed table in a distributed database. The result is a table object with the loaded metadata.
-* The number of rows to read is defined in the HDF5 file, rather than the number of rows in the output DolphinDB table.
-* Supported data types, as well as data conversion rules are visible in the [Data Types](#Data Types) section.
+Load an HDF5 file saved by Pandas into a DolphinDB in-memory table. The number of rows to read is defined in the HDF5 file, rather than the number of rows in the output DolphinDB table. Regarding data types and data type conversion, see [Data Types](#Data Types).
+
+**Example**
+
+```
+hdf5::loadPandasHDF5("/home/ffliu/Data/data.h5","/s",,1,1)
+
+output:
+        A	 B	C  D  E
+        28 77	54 78 9
+```
+
+## 2.6 hdf5::loadHDF5Ex
+
+**Syntax**
+
+hdf5::loadHDF5Ex(dbHandle,tableName,[partitionColumns],fileName,datasetName,[schema],[startRow],[rowNum],[transform])
+
+**Parameters** 
+
+* dbHandle and tableName: If the input data is to be saved into the distributed database, the database handle and table name should be specified.
+* partitionColumns: a string scalar/vector indicating partitioning column(s).
+* fileName: a string indicating the HDF5 file name.
+* datasetName: the dataset name, i.e., the table name of type string. It can be obtained by using `ls` or `lsTable`.
+* schema: a table with column names and data types of columns. If there is a need to change the data type of a column that is automatically determined by the system,  the schema table needs to be modified and used as an argument in `loadHdf5Ex`.
+* startRow: an integer indicating the start row to read. If not specified, the dataset will be read from the beginning.
+* rowNum: an integer indicating the number of rows to read. If not specified, `loadHdf5` will read until the end of data.
+* transform: an unary function. The parameter of the function must be a table. If parameter transform is specified, we need to first execute createPartitionedTable and then load the data. The system will apply the function specified in parameter transform and then save the results into the database.
+
+**Details**
+
+Load an HDF5 file into a distributed table in a distributed database. The result is a table object with the loaded metadata. The number of rows to read is defined in the HDF5 file, rather than the number of rows in the output DolphinDB table. Regarding data types and data type conversion, see [Data Types](#Data Types).
 
 **Example**
 
@@ -418,17 +448,17 @@ def i2d(mutable t){
 t = hdf5::loadHDF5Ex(db,`tb1,`trans_time,dataFilePath,datasetName,,,,i2d)
 ```
 
-## 2.6 hdf5::HDF5DS
+## 2.7 hdf5::HDF5DS
 
 **Syntax**
 
-* `hdf5::HDF5DS(fileName,datasetName,[schema],[dsNum])`
+hdf5::HDF5DS(fileName,datasetName,[schema],[dsNum])
 
 **Parameters** 
-* `fileName`: a HDF5 file name of type `string`.
-* `datasetName`: the dataset name, i.e., the table name of type `string`. It can be obtained by using `ls` or `lsTable`.
-* `schema`: a table with column names and data types of columns. If there is a need to change the data type of a column that is automatically determined by the system,  the schema table needs to be modified and used as an argument in `hdf5DS`.
-* `dsNum`: the number of data sources to be generated. `HDF5DS` will divide the whole table equally into `dsNum` tables. If not specified, it will generate one data source.
+* fileName: a string indicating the HDF5 file name.
+* datasetName: the dataset name, i.e., the table name of type string. It can be obtained by using `ls` or `lsTable`.
+* schema: a table with column names and data types of columns. If there is a need to change the data type of a column that is automatically determined by the system,  the schema table needs to be modified and used as an argument in `hdf5DS`.
+* dsNum: the number of data sources to be generated. `HDF5DS` will divide the whole table equally into `dsNum` tables. If not specified, it will generate one data source.
 
 **Details**
 
@@ -474,19 +504,19 @@ ds = hdf5::HDF5DS("/smpl_numeric.h5", "sint", ,3)
 res = mr(ds, def(x) : x,,,false)
 ```
 
-## 2.7 hdf5::saveHDF5
+## 2.8 hdf5::saveHDF5
 
 **Syntax**
 
-* `hdf5::saveHDF5(table, fileName, datasetName, [append], [stringMaxLength])`
+hdf5::saveHDF5(table, fileName, datasetName, [append], [stringMaxLength])
 
 **Parameters** 
 
-* `table`: The table will be saved.
-* `fileName`: a HDF5 file name of type `string`.
-* `datasetName`: the dataset name, i.e., the table name of type `string`. It can be obtained by using `ls` or `lsTable`.
-* `append`: If append data to an existed table or not. Logical type. Default value is false.
-* `stringMaxLength`: Maximum length of string. Default is 16. Only effect string and symbol type in table.
+* table: The table will be saved.
+* fileName: a string indicating the HDF5 file name.
+* datasetName: the dataset name, i.e., the table name of type string. It can be obtained by using `ls` or `lsTable`.
+* append: If append data to an existed table or not. Logical type. Default value is false.
+* stringMaxLength: Maximum length of string. Default is 16. Only effect string and symbol type in table.
 
 **Details**
 

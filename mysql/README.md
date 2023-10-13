@@ -17,6 +17,9 @@ In Windows:
 ```
 loadPlugin("C:/path/to/mysql/PluginMySQL.txt")
 ```
+
+Note that you must load the plugin with an absolute path and replace "\\" with "\\\\" or "/".
+
 ### 1.2 Compile and install
 
 #### 1.2.1 Install in Linux
@@ -368,6 +371,6 @@ t=mysql::loadEx(conn, db, "",`stockid, 'select  * from US where stockid<=1000000
 
 * US stocks daily data from 1990 to 2016 with 22 fields and 50,591,907 rows. Total size is 6.5GB.
 
-### 4.3 Time Consumed for Data Import
+### 4.3 Time Consumed for data import
 
 160.5 seconds

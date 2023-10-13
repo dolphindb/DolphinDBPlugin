@@ -1,4 +1,5 @@
-OPC DA插件实现了OPC DA 2.05A版本规范，可用于访问并采集OPC服务器的数据。
+# OPC 插件使用说明
+DolphinDB 的 OPC 插件可用于访问并采集自动化行业 OPC 服务器的数据。OPC DA插件实现了OPC DA 2.05A版本规范。
 
 ## 1. 安装
 
@@ -16,6 +17,7 @@ OPC插件目前提供两种安装方式，一种是预编译安装，另一种�
 ```
 loadPlugin("C:/path/to/opc/PluginOpc.txt")
 ```
+请注意，必须指定绝对路径，且路径中使用"\\\\"或"/"代替"\\"
 
 ### 1.3 编译安装
 
@@ -233,3 +235,9 @@ opc::close(connection)
 ```
 opc::close(connection)
 ```
+
+# ReleasesNotes
+
+## 故障修复
+
+* 修复了用同一个连接多次订阅后取消订阅时 server 宕机的问题。（**1.30.22**）

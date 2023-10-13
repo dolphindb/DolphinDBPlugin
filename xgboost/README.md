@@ -1,5 +1,7 @@
 # XGBoost Plugin for DolphinDB
 
+The DolphinDB zip plugin has different branches, such as release200 and release130. Each branch corresponds to a DolphinDB server version. Please make sure you are in the correct branch of the plugin documentation.
+
 - [XGBoost Plugin for DolphinDB](#xgboost-plugin-for-dolphindb)
   - [1. Install the Plugin](#1-install-the-plugin)
     - [1.1 Compile on Linux](#11-compile-on-linux)
@@ -10,7 +12,6 @@
     - [2.3 xgboost::saveModel](#23-xgboostsavemodel)
     - [2.4 xgboost::loadModel](#24-xgboostloadmodel)
   - [3. Examples](#3-examples)
-
 
 DolphinDB XGBoost plugin offers methods for model training and prediction with given DolphinDB tables. You can also use the methods to save or load the trained models.
 

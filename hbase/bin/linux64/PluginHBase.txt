@@ -1,6 +1,0 @@
-hbase,libPluginHBase.so
-hbaseConnect,connect,system,2,3,0
-showTables,showTables,system,1,1,0
-getRow,getRow,system,3,4,0
-load,load,system,2,3,0
-deleteTable,deleteTable,system,2,2,0

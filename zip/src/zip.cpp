@@ -1,93 +1,142 @@
 #include "zip.h"
+#include "Exceptions.h"
+#include "Types.h"
 #include "Util.h"
 
-void unzipFile(const string& zipFilename, const string& outputDir, Heap* heap, FunctionDefSP function);
+
+static ConstantSP unzipFile(const string& zipFilename, const string& outputDir, Heap* heap, const FunctionDefSP& function, zipEncode encode);
 
 ConstantSP unzip(Heap* heap, vector<ConstantSP>& args) {
-    // 获取压缩文件的路径，需要是绝对路径
+    const string usage = "Usage: unzip(zipFileName, [outputDir], [callback], [zipEncode])";
     if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR) {
-        throw RuntimeException("first argument illegal, should be string");
+        throw IllegalArgumentException(__FUNCTION__, usage + "zipFileName must be a string scalar");
     }
     string zipFilename = args[0]->getString();
     if (zipFilename.empty()) {
-        throw RuntimeException("first argument illegal, should not be empty string");
+        throw IllegalArgumentException(__FUNCTION__, usage + "zipFileName must not be an empty string");
     }
-    if (zipFilename[0] != '/') {
-        throw RuntimeException("first argument illegal, should be absolute path");
+    if (!Util::isAbosultePath(zipFilename)) {
+        throw IllegalArgumentException(__FUNCTION__, usage + "zipFileName must be an absolute path");
     }
 
-    // 寻找最后一个'/'出现的位置pos，截取[0, pos + 1]字符串
-    int pos = zipFilename.find_last_of('/');
-
-    // 获取输出路径，若未指定输出路径，则默认与压缩包路径相同
+#ifdef WINDOWS
+	zipFilename = Util::replace(zipFilename, '/', '\\');
+#endif
+    // Get the output path. If no output path is specified, it will default to the same path as the compressed file.
+    bool isDir = false;
+    bool existFile = Util::exists(zipFilename, isDir);
+    if(isDir || !existFile){
+        throw IllegalArgumentException(__FUNCTION__, usage + "zipFileName must be a path to an existing file");
+    }
+    string shortName = Util::getShortFilename(zipFilename);
+    size_t pos = zipFilename.find(shortName);
+    if(pos == string::npos){
+        throw IllegalArgumentException(__FUNCTION__, usage + "failed to get folder Path in zipFileName " + zipFilename);
+    }
     string outputDir = zipFilename.substr(0, pos);
     if (args.size() > 1 && !args[1]->isNull()) {
         if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR) {
-            throw RuntimeException("second argument illegal, should be string scalar");
+            throw IllegalArgumentException(__FUNCTION__, usage + "outputDir must be string scalar");
         }
-        // if (!args[1]->getString().empty()) {
         outputDir = args[1]->getString();
-        // }
-        if (/*!args[1]->getString().empty() && */outputDir[0] != '/') {
-            throw RuntimeException("second argument illegal, should be string scalar and absolute path");
+        if (!Util::isAbosultePath(outputDir)) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "outputDir must be string scalar and absolute path");
         }
     }
+    string winSeparator = "\\";
+    string linuxSeparator = "/";
+#ifdef WINDOWS
+	outputDir = Util::replace(outputDir, '/', '\\');
+    if (!outputDir.empty() && !Util::endWith(outputDir, winSeparator) && !Util::endWith(outputDir, linuxSeparator)) {
+        outputDir.push_back('\\');
+    }
+#else
     if (!outputDir.empty() && outputDir.back() != '/') {
         outputDir.push_back('/');
     }
+#endif
 
-    // 获取回调函数
     FunctionDefSP function;
-    if (args.size() > 2) {
-        std::cout << "form" << args[2]->getForm() << std::endl;
-        std::cout << "type" << args[2]->getType() << std::endl;
+    if (args.size() > 2 && !args[2]->isNull()) {
         if (args[2]->getType() != DT_FUNCTIONDEF/* || args[2]->getForm() != DF_SCALAR*/) {
-            throw RuntimeException("third argument illegal, should be function");
+            throw IllegalArgumentException(__FUNCTION__, usage + "callback must be a function");
         }
         function = args[2];
     }
-    
-    // 实际进行解压的函数
-    unzipFile(zipFilename, outputDir, heap, function);
-
-    // 返回所有解压文件的名字
-    const char *zipFile = zipFilename.c_str();
-    unzFile uf = unzOpen64(zipFile);
-
-    vector<string> filenames;
-    (void)getFilenames(uf, filenames);
-
-    int size = (int)filenames.size();
-    ConstantSP ret = Util::createVector(DT_STRING, size, size);
-    for (int i = 0; i < size; i++) {
-        ret->setString(i, outputDir + filenames[i]);
+    zipEncode encode = zipEncode::DEFAULT;
+    if(args.size() > 3) {
+        if(args[3]->getType() != DT_STRING && args[3]->getForm() != DF_SCALAR) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "zipEncode must be a string scalar");
+        }
+        string code = Util::lower(args[3]->getString());
+        if(code == "utf-8") {
+            encode = zipEncode::UTF8;
+        } else if(code == "gbk") {
+            encode = zipEncode::GBK;
+        } else {
+            throw IllegalArgumentException(__FUNCTION__, usage + "zipEncode type must be utf-8 or gbk");
+        }
     }
 
-    return ret;
+    return unzipFile(zipFilename, outputDir, heap, function, encode);
 }
-
-void unzipFile(const string& zipFilename, const string& outputDir, Heap* heap, FunctionDefSP function) {
-    unzFile uf = NULL;
-    int retValue = 0;
+namespace unzHelper{
+    class unzFileWrapper{
+        public:
+        unzFile uf;
+        unzFileWrapper(): uf(nullptr){}
+        ~unzFileWrapper(){
+            if(uf != nullptr){
+                unzClose(uf);
+            }
+        }
+    };
+}
+ConstantSP unzipFile(const string& zipFilename, const string& outputDir, Heap* heap, const FunctionDefSP& function, zipEncode encode) {
     const char *zipFile = zipFilename.c_str();
-
-    uf = unzOpen64(zipFile);
-    if (uf == NULL)
+    unzHelper::unzFileWrapper wrapper;
+    wrapper.uf = unzOpen64(zipFile);
+    if (wrapper.uf == NULL)
     {
-        throw RuntimeException("Cannot open file " + zipFilename);
+        throw RuntimeException("Cannot open \"" + zipFilename + "\" as zip file.");
     }
 
-    // 获取当前工作路径。在该函数结束时切换回原来的工作路径
-    string currentDirName = get_current_dir_name();
-    if (/*!outputDir.empty() && */(retValue = chdir(outputDir.c_str()))) {
-        throw RuntimeException("Cannot open file " + outputDir);
+    if(!Util::existsDir(outputDir)) {
+        string errMsg;
+        Util::createDirectoryRecursive(outputDir, errMsg);
+        if(!errMsg.empty()) {
+            throw RuntimeException(ZIP_PREFIX + errMsg);
+        }
     }
-    retValue = do_extract(uf, 0, 1, nullptr, outputDir, heap, function);
 
-    // chdir back to original
-    retValue = chdir(currentDirName.c_str());
+    // if(access(outputDir.c_str(), 2) != 0){
+    //     for(int i = 0; i < outputDir.size(); ++i) {
+    //         std::cout << (int)(unsigned char)(outputDir.c_str()[i]) << " ";
+    //     }
+    //     std::cout << "\n";
+    //     throw RuntimeException("Cannot open outputDir " + outputDir + " in write mode");
+    // }
 
-    unzClose(uf);
+    std::vector<string> filenames;
 
-    (void)retValue;
+    do_extract(wrapper.uf, 0, 1, nullptr, outputDir, heap, function, encode);
+    unzGoToFirstFile(wrapper.uf);
+    getFilenames(wrapper.uf, filenames);
+    size_t size = filenames.size();
+    ConstantSP ret = Util::createVector(DT_STRING, size, size);
+    for (size_t i = 0; i < size; i++) {
+        string fileTmp = filenames[i];
+    #ifdef WIN32
+        fileTmp = Util::replace(fileTmp, '/', '\\');
+        if(encode == zipEncode::DEFAULT || encode == zipEncode::GBK) {
+            fileTmp = gbkToUtf8(heap, fileTmp);
+        }
+    #else
+        if(encode == zipEncode::GBK) {
+            fileTmp = gbkToUtf8(heap, fileTmp);
+        }
+    #endif
+        ret->setString(i, outputDir + fileTmp);
+    }
+    return ret;
 }

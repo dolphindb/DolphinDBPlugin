@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 project(PluginHTTP)
+add_definitions(-DLOCKFREE_SYMBASE)
 
 set(CMAKE_CXX_STANDARD 11)
 
@@ -13,6 +14,7 @@ elseif(UNIX)
     set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginHttpClient.txt")
 endif()
 
+include_directories(${PROJECT_SOURCE_DIR}/liburlencode/include)
 
 
 if(DEFINED BUILD_ARM)
@@ -26,7 +28,7 @@ if(DEFINED BUILD_ARM)
     link_directories(${CMAKE_BINARY_DIR})
 
 else ()
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fPIC -o3 -Wall")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fPIC -O3 -Wall")
 	message(STATUS ${CURL_DIR}/include)
 	message(STATUS ${SSL_DIR}/include)
 	message(STATUS ${Z_DIR}/include)
@@ -39,6 +41,7 @@ endif()
 
 
 aux_source_directory(${PROJECT_SOURCE_DIR}/src DIR_SRCS)
+aux_source_directory(${PROJECT_SOURCE_DIR}/liburlencode/src DIR_SRCS)
 
 add_library(PluginHttpClient SHARED ${DIR_SRCS})
 
@@ -65,8 +68,8 @@ elseif(UNIX)
         PluginHttpClient 
         DolphinDB
         ${CURL_DIR}/lib/libcurl.a
-        ${SSL_DIR}/lib/libssl.a
-        ${SSL_DIR}/lib/libcrypto.a
+        # ${SSL_DIR}/lib/libssl.a
+        # ${SSL_DIR}/lib/libcrypto.a
         ${Z_DIR}/lib/libz.a
         )
 endif()

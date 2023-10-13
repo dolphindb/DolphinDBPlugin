@@ -34,7 +34,7 @@ insight::connect(handles, ip, port, user, password, [workPoolThreadCount])
 
 #### 参数
 
-`handles`：类型为 Dictionary，Dictionary 的键为'StockTick', 'IndexTick', 'FuturesTick', 'StockTransaction' 或 'StockOrder'，值为 table。
+`handles`：类型为 Dictionary，Dictionary 的键为'StockTick', 'IndexTick', 'FuturesTick', 'StockTransaction' 或 'StockOrder'，值为 table。请注意，table 不能为 DFS 表。
 
 `ip`：服务器地址，类型为字符串标量。
 
@@ -180,3 +180,11 @@ insight::unsubscribe(tcpClient);
 ```
 insight::close(tcpClient);
 ```
+
+# ReleaseNotes:
+
+## 故障修复
+
+* 修复了在断网时取消订阅失败的问题。（**1.30.22**）
+* 修复了在执行 insight::close 后，再次执行 insight::getStatus 时 server 宕机的问题。（**1.30.22**）
+* 修复了当首次连接时输入错误密码，后续连接一直报错的问题。（**1.30.22**）
