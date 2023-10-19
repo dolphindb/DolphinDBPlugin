@@ -283,7 +283,7 @@ MatchingEngineSimulator::getEngineList();
 #### 语法
 
 ```
-MatchingEngineSimulator::getSymbolList();
+MatchingEngineSimulator::getSymbolList(engine);
 ```
 
 #### 参数
