@@ -284,7 +284,7 @@ MatchingEngineSimulator::getEngineList();
 #### 语法
 
 ```
-MatchingEngineSimulator::getEngineList();
+MatchingEngineSimulator::getSymbolList();
 ```
 
 #### 参数
