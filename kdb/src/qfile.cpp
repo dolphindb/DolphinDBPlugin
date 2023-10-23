@@ -195,7 +195,9 @@ struct kdb::ZLibStream::Trailer {
 };
 static_assert(sizeof(kdb::ZLibStream::Trailer) == 8+8, "kxzipped file trailer");
 
-const byte kdb::ZLibStream::Trailer::TAG[] = { 0x03, 0x00, 0x00, 0x00, 0x02 };
+const kdb::byte kdb::ZLibStream::Trailer::TAG[] = {
+    0x03, 0x00, 0x00, 0x00, 0x02,
+};
 #pragma pack(pop)
 
 //@see https://www.zlib.net/zlib_how.html

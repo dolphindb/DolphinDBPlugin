@@ -5,17 +5,12 @@
 #include <string>
 #include <vector>
 
-#include <Coreconcept.h>
+#include <CoreConcept.h>
 
 #include "k.h"
 #include "q2ddb.h"
 
 namespace kdb {
-
-    using byte = std::uint8_t;
-    static_assert(sizeof(byte) == 1, "basic encode/decode unit");
-
-    //////////////////////////////////////////////////////////////////////////
 
     class BinFile {
     public:

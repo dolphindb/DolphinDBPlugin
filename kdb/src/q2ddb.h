@@ -8,6 +8,7 @@
 #include "CoreConcept.h"
 
 #include "k.h"
+#include "endian.h"
 
 namespace kdb {
 

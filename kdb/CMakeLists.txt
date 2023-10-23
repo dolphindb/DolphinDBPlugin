@@ -1,21 +1,21 @@
 cmake_minimum_required(VERSION 3.1)
 
 #========================================
-if(NOT CMAKE_BUILD_TYPE)
+if(NOT DEFINED CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Debug|Release|RelWithDebInfo|MinSizeRel")
 endif ()
 message(STATUS "CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
 
 #=== vcpkg
-if(ENV{VCPKG_ROOT})
+if(DEFINED ENV{VCPKG_ROOT})
     set(VCPKG_ROOT "$ENV{VCPKG_ROOT}" CACHE PATH "vcpkg installation directory")
 endif()
-if(VCPKG_ROOT AND NOT CMAKE_TOOLCHAIN_FILE)
+if(DEFINED VCPKG_ROOT AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
     set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE FILEPATH "vcpkg toolchain for CMake")
 endif()
 message(STATUS "VCPKG_ROOT = ${VCPKG_ROOT}")
 
-if(NOT VCPKG_TARGET_TRIPLET)
+if(NOT DEFINED VCPKG_TARGET_TRIPLET)
     # We support only x64 builds on Windows for now.
     set(VCPKG_TARGET_TRIPLET "x64-windows" CACHE STRING "vcpkg target triplet" FORCE)
 endif()
@@ -93,8 +93,8 @@ if (${DDB_USE_ASAN})
 endif()
 
 #=== Dependencies
-if(NOT DOLPHINDB_ROOT)
-    if(NOT ENV{DOLPHINDB_ROOT})
+if(NOT DEFINED DOLPHINDB_ROOT)
+    if(NOT DEFINED ENV{DOLPHINDB_ROOT})
         message(FATAL_ERROR "DOLPHINDB_ROOT should be defined to provide path to DolphinDB installation!")
     else()
         set(DOLPHINDB_ROOT "$ENV{DOLPHINDB_ROOT}")
@@ -121,6 +121,7 @@ endif()
 #=== Post-build Actions
 install(TARGETS PluginKDB
     RUNTIME DESTINATION "${PROJECT_SOURCE_DIR}/bin/${install_type}"
+	LIBRARY DESTINATION "${PROJECT_SOURCE_DIR}/bin/${install_type}"
 )
 install(FILES
     "${PROJECT_BINARY_DIR}/PluginKDB.txt" ${extra_bin}

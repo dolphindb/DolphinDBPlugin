@@ -921,7 +921,7 @@ struct kdb::Parser::EnumSymsList : DataBlock<EnumSymsHeader, ItemIndex> {
         transform(begin, begin + getCount(), back_inserter(syms),
             [begin,
             &symList, &symName](const ItemIndex& idx) {
-                if(isNull(idx.index)) {
+                if(isNull(bit_cast<J>(idx.index))) {
                     return sym(nullptr);
                 } else
                 if(0 <= idx.index
@@ -951,7 +951,7 @@ struct kdb::Parser::EnumSymsList : DataBlock<EnumSymsHeader, ItemIndex> {
  *> kdb::K_NESTED_MIN <= "type" <= kdb::K_NESTED_MAX.
  *> The "item indices" are of type kdb::Parser::ItemIndex.
  */
-template<byte Tag0, byte Tag1, int32_t MinRef>
+template<kdb::byte Tag0, kdb::byte Tag1, int32_t MinRef>
 struct kdb::Parser::NestedListHeader
     : BaseListHeader, HeaderTag<Tag0, Tag1, NestedListHeader<Tag0, Tag1, MinRef>>
 {
@@ -964,7 +964,7 @@ struct kdb::Parser::NestedListHeader
 static_assert(sizeof(kdb::Parser::NestedListHeader<0xFD, 0x01>) == 8+8,
     "kdb+ file 0xFD01/0xFB00 secondary/ternary header - nested list");
 
-template<byte Tag0, byte Tag1, int32_t MinRef>
+template<kdb::byte Tag0, kdb::byte Tag1, int32_t MinRef>
 struct kdb::Parser::NestedList
     : DataBlock<NestedListHeader<Tag0, Tag1, MinRef>, ItemIndex>
 {
@@ -1438,15 +1438,15 @@ vector<kdb::byte>& kdb::Parser::getBuffer() noexcept {
     return buffer_;
 }
 
-const byte* kdb::Parser::begin() const noexcept {
+const kdb::byte* kdb::Parser::begin() const noexcept {
     return (assert(!buffer_.empty()), buffer_.data());
 }
 
-const byte* kdb::Parser::end() const noexcept {
+const kdb::byte* kdb::Parser::end() const noexcept {
     return end_ ? end_ : findEnd();
 }
 
-const byte* kdb::Parser::findEnd(const byte* start) const noexcept {
+const kdb::byte* kdb::Parser::findEnd(const byte* start) const noexcept {
     assert(!end_);
     const ptrdiff_t end = buffer_.size();
 
