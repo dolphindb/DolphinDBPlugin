@@ -1438,7 +1438,36 @@ static_assert(sizeof(kdb::Parser::Trailer) == 4*2+8+8,
     "kdb+ file trailer (optional)");
 
 const int8_t kdb::Parser::Trailer::TAG[] = {
-    0x03, 0x00, 0x00, 0x00, 0x02
+    0x03, 0x00, 0x00, 0x00, 0x02,
+};
+
+//============================================================================
+/**
+End of Data  00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
+~~~~~~~~~~--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ data items |00|00|00|00|00|00|00|00|02|00|14|02|??|??|??|??|
+~~~~~~~~~~--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ */
+struct kdb::Parser::IndexHeader {
+    int8_t  pad_00[8];
+    int8_t  tag[4];
+    int32_t type;
+
+    static constexpr int32_t INDEX_P = 0x00;
+    static constexpr int32_t INDEX_G = 0x01;
+    static const int8_t TAG[sizeof(tag)];
+
+    bool isValid(const byte* begin) const {
+        return memcmp(pad_00, "\0\0\0\0\0\0\0\0", sizeof(pad_00)) == 0
+            && memcmp(tag, TAG, sizeof(TAG)) == 0
+            && (type == INDEX_P || type == INDEX_G);
+    }
+};
+static_assert(sizeof(kdb::Parser::IndexHeader) == 8+4+4,
+    "kdb+ file index header");
+
+const int8_t kdb::Parser::IndexHeader::TAG[] = {
+    0x02, 0x00, 0x14, 0x02,
 };
 
 #pragma pack(pop)
@@ -1464,16 +1493,22 @@ const kdb::byte* kdb::Parser::findEnd(const byte* start) const noexcept {
     const ptrdiff_t end = buffer_.size();
 
     const ptrdiff_t from = start ? start - begin() : 0;
-    const ptrdiff_t to   = end - sizeof(Trailer);
-    assert(0 <= from && from < end);
+    const auto trailer = findObj<Trailer>(from, end);
+    const auto index   = findObj<IndexHeader>(from, end);
+    return end_ = begin() + min(trailer, index);
+}
 
-    for(auto p = from; p <= to; ++p) {
-        const auto trailer = parse<Trailer>(p);
-        if(trailer->isValid(begin())) {
-            return end_ = begin() + p;
+template<typename T>
+ptrdiff_t kdb::Parser::findObj(ptrdiff_t from, ptrdiff_t to) const noexcept
+{
+    const ptrdiff_t end = to - sizeof(T);
+    for(auto p = from; p <= end; ++p) {
+        const auto obj = parse<T>(p);
+        if(obj->isValid(begin())) {
+            return p;
         }
     }
-    return end_ = begin() + buffer_.size();
+    return buffer_.size();
 }
 
 template<typename T>

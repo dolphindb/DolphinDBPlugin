@@ -210,6 +210,9 @@ namespace kdb {
         // 0x0300000002HHHHHH+addr0+addr1
         struct Trailer;
 
+        // 0x000000000000000002001402HH000000
+        struct IndexHeader;
+
     public:
         Parser();
 
@@ -233,7 +236,10 @@ namespace kdb {
             bool allowEnd = false) const;
 
     private:
-        const byte* findEnd( const byte* start = nullptr) const noexcept;
+        const byte* findEnd(const byte* start = nullptr) const noexcept;
+        template<typename T>
+        std::ptrdiff_t findObj(
+            std::ptrdiff_t from, std::ptrdiff_t to) const noexcept;
 
         VectorSP getFastVector(const BaseList* data,
             const std::string& file,
