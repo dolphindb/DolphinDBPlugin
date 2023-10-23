@@ -907,7 +907,7 @@ struct kdb::Parser::EnumSymsList : DataBlock<EnumSymsHeader, ItemIndex> {
         return static_cast<size_t>((assert(header.count >= 0), header.count));
     }
 
-    vector<S> getSyms(
+    vector<S> getSyms(const byte* end,
         const vector<string>& symList, const string& symName
     ) const {
         if(UNLIKELY(!header.isValid())) {
@@ -915,12 +915,25 @@ struct kdb::Parser::EnumSymsList : DataBlock<EnumSymsHeader, ItemIndex> {
                 "kdb+ extended file - not a valid enumerated syms list.");
         }
 
-        vector<S> syms;
-        syms.reserve(getCount());
+        auto count = getCount();
         const auto begin = get();
-        transform(begin, begin + getCount(), back_inserter(syms),
-            [begin,
-            &symList, &symName](const ItemIndex& idx) {
+        //FIXME: Deal with some compressed enum sym vector with wrong count...
+        const auto length = end - reinterpret_cast<const byte*>(begin);
+        if(length % sizeof(data_t) == 0) {
+            const auto real_count = length / sizeof(data_t);
+            if(real_count > 0 && count == 0) {
+                LOG(PLUGIN_NAME ": "
+                    "Incorrect enum sym count found "
+                    "(count=" + to_string(count) + ","
+                    " expected=" + to_string(real_count) + ").");
+                count = real_count;
+            }
+        }
+
+        vector<S> syms;
+        syms.reserve(count);
+        transform(begin, begin + count, back_inserter(syms),
+            [begin, &symList, &symName](const ItemIndex& idx) {
                 if(isNull(bit_cast<J>(idx.index))) {
                     return sym(nullptr);
                 } else
@@ -1621,8 +1634,8 @@ VectorSP kdb::Parser::getEnumStrings(const EnumSymsList* data,
             "(" + to_string(data->header.type) + ").");
     }
 
-    const auto syms = data->getSyms(symList, symName);
-    assert(syms.size() == data->getCount());
+    const auto syms = data->getSyms(end(), symList, symName);
+    assert(syms.size() == data->getCount() || 0 == data->getCount());
     const auto begin = const_cast<S*>(syms.data());
     return toDDB::strings(begin, begin + syms.size(), file);
 }
