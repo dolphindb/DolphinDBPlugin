@@ -40,7 +40,6 @@ private:
     std::string host_;
     int port_;
     int handle_;
-    // Mutex kdbMutex_;
 
 };//class Connection
 

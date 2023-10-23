@@ -136,7 +136,7 @@ namespace /*anonymous*/ {
 
 Connection::Connection(
     const string& hostStr, const int port, const string& usernamePassword)
-  : host_{hostStr}, port_{port}
+  : host_{hostStr}, port_{port}, handle_{0}
 {
     const auto handle = khpunc(
         kdb::sym(hostStr), port, kdb::sym(usernamePassword),
@@ -158,7 +158,10 @@ Connection::Connection(
 }
 
 Connection::~Connection() {
-    kclose(handle_);
+    if(handle_) {
+        assert(handle_ > 0);
+        kclose(handle_);
+    }
 }
 
 KPtr Connection::kExec(const string& command) const {
@@ -229,8 +232,6 @@ ConstantSP Connection::loadColumn(
 TableSP Connection::getTable(
     const string& tablePath, const string& symFilePath
 ) const {
-    LockGuard<Mutex> guard(&LOCK_KDB);
-
     // load symbol
     const string symName = loadSymFile(symFilePath);
 
@@ -443,6 +444,8 @@ ConstantSP kdbConnect(Heap *heap, vector<ConstantSP> &args){
         usrStr = arg2String(args[2], "usernamePassword", usage, __FUNCTION__);
     }
 
+    LockGuard<Mutex> guard(&LOCK_KDB);
+
     // Use unique_ptr<> to manage cup until Util::createResource() takes over.
     /*
     //FIXME: make_unique<>() is available only after C++14...
@@ -476,6 +479,8 @@ ConstantSP kdbLoadTable(Heap *heap, vector<ConstantSP> &args){
     }
     symFilePath = normalizePath(symFilePath);
 
+    LockGuard<Mutex> guard(&LOCK_KDB);
+
     return safeOp(args[0],
         [&](Connection *conn) { return conn->getTable(tablePath, symFilePath); }
     );
@@ -507,6 +512,8 @@ ConstantSP kdbLoadFile(Heap *heap, vector<ConstantSP> &args){
             "symPath [" + symFilePath + "] " + extra + '.');
     }
 
+    LockGuard<Mutex> guard(&LOCK_KDB);
+
     vector<string> symList;
     if(!symFilePath.empty()) {
         symList = loadSymList(symFilePath);
@@ -526,6 +533,9 @@ ConstantSP kdbClose(Heap *heap, vector<ConstantSP> &args) {
     assert(args.size() >= 1);
 
     auto conn = arg2Connection(args[0], usage, __FUNCTION__);
+
+    LockGuard<Mutex> guard(&LOCK_KDB);
+
     if(conn != nullptr) {
         delete conn;
         args[0]->setLong(0);
