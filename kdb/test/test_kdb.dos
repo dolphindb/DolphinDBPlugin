@@ -539,7 +539,7 @@ def myConnect(HOST, PORT, usernamePassword, ex){
 	for(i in 1..N){
 		h.append!(kdb::connect(HOST,PORT,usernamePassword))
 	}
-    success = allTrue(eachLeft(def(x,y): eqObj(string(x), string(y)), h, ex))
+    success = eqObj:L(string:E(h), string(ex))
 	for(j in h){
 		try{kdb::close(j)}catch(exp){}
 	}
@@ -552,7 +552,7 @@ for(i in 1..5){
 	jobIds.append!(jobId)
 }
 for(jobId in jobIds){
-	assert 1,each(eqObj, getJobReturn(jobId,true),take(true,20))
+	assert 1,each(eqObj, getJobReturn(jobId,true),take(true,1000 / 5))
 }
 kdb::close(ex)
 
@@ -573,10 +573,10 @@ kdb::close()
 try{kdb::close(h)}catch(exp){}
 kdb::close(kdb::connect(HOST,PORT,usernamePassword))
 
-@testing:case = "test_kdb_close_handle_multi_close", exception = 1
+@testing:case = "test_kdb_close_handle_multi_close"
 h = kdb::connect(HOST,PORT,usernamePassword)
 kdb::close(h)
-kdb::close(h)
+kdb::close(h)	//silently complete, no error
 
 @testing:case = "test_kdb_close_handle_errorresource", exception = 1
 t = table(100:0, `x0`x1, [DOUBLE, DOUBLE])
