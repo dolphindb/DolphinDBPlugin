@@ -153,6 +153,7 @@ Connection::Connection(
                 throw RuntimeException(PLUGIN_NAME ": q-IPC error.");
             } else {
                 handle_ = handle;
+                LOG(PLUGIN_NAME ": Connection `:" + str() + " opened.");
             }
     }
 }
@@ -160,6 +161,7 @@ Connection::Connection(
 Connection::~Connection() {
     if(handle_) {
         assert(handle_ > 0);
+        LOG(PLUGIN_NAME ": Connection `:" + str() + " closed.");
         kclose(handle_);
     }
 }

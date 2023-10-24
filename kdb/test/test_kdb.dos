@@ -42,6 +42,7 @@ kdb::close(NULL)
 @testing:case = "test_kdb_loadTable_handle_num",exception=1
 h = kdb::connect(HOST,PORT,usernamePassword)
 re = kdb::loadTable(1, DATA_DIR+"/kdb_sample/2022.06.17/Daily/", DATA_DIR + "/kdb_sample/sym")
+kdb::close(h)
 
 @testing:case = "test_kdb_loadTable_handle_vector",exception=1
 re = kdb::loadTable(1..10, DATA_DIR+"/kdb_sample/2022.06.17/Daily/", DATA_DIR + "/kdb_sample/sym")
@@ -521,19 +522,28 @@ h = kdb::connect(HOST,PORT,string())
 @testing:case = "test_kdb_connect_less_than_three_param",syntaxError=1
 h = kdb::connect(HOST)
 
-@testing:case = "test_kdb_connect_repeate_create_connect"
-for(i in 1..10000){
-	h = kdb::connect(HOST,PORT,usernamePassword)
+@testing:case = "test_kdb_connect_repeat_create_connect"
+N = 1000
+h = array(any, 0, N)
+for(i in 1..N){
+	h.append!(kdb::connect(HOST,PORT,usernamePassword))
 }
-kdb::close(h)
+for(j in h){
+	try{kdb::close(j)}catch(exp){}
+}
 
 @testing:case = "test_kdb_connect_multi_thread_connect"
-try{kdb::close(h)}catch(exp){}
 def myConnect(HOST, PORT, usernamePassword, ex){
-	for(i in 1..10000){
-		h = kdb::connect(HOST,PORT,usernamePassword)
+	N = 1000 / 5
+	h = array(any, 0, N)
+	for(i in 1..N){
+		h.append!(kdb::connect(HOST,PORT,usernamePassword))
 	}
-	return eqObj(string(h), string(ex))
+    success = allTrue(eachLeft(def(x,y): eqObj(string(x), string(y)), h, ex))
+	for(j in h){
+		try{kdb::close(j)}catch(exp){}
+	}
+	return success
 }
 ex =  kdb::connect(HOST,PORT,usernamePassword)
 jobIds = array(string,0,100)
@@ -544,6 +554,7 @@ for(i in 1..5){
 for(jobId in jobIds){
 	assert 1,each(eqObj, getJobReturn(jobId,true),take(true,20))
 }
+kdb::close(ex)
 
 @testing:case = "test_kdb_close_not_handler",exception=1
 kdb::close(1)
