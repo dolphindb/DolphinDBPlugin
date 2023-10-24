@@ -659,6 +659,18 @@ VectorSP kdb::toDDB::nestedList(Type type,
 //////////////////////////////////////////////////////////////////////////////
 #pragma pack(push, 1)
 
+// FIXME: assert() cannot be used in constexpr functions in C++11.
+//@see http://ericniebler.com/2014/09/27/assert-and-constexpr-in-cxx11/
+#define CONSTEXPR_ASSERT(check, value)   \
+    (check) ? (value) : throw assert_failure([]{ assert(!#check); });
+
+namespace {
+    struct assert_failure {
+        template<typename Fun>
+        explicit assert_failure(Fun fun) { fun(); }
+    };
+}
+
 //============================================================================
 /**
    00   01   02  03   04   05   06   07
@@ -714,8 +726,10 @@ static_assert(
 
 struct kdb::Parser::SymsList : DataBlock<BaseHeader, char> {
     constexpr size_t getCount() const noexcept {
-        return static_cast<size_t>(
-            (assert(header.ref_count >= 0), header.ref_count));
+        return CONSTEXPR_ASSERT(
+            header.ref_count >= 0,
+            static_cast<size_t>(header.ref_count)
+        );
     }
 
     vector<string> getSyms(const byte* end) const {
@@ -788,13 +802,16 @@ struct kdb::Parser::BaseList : DataBlock<BaseListHeader, byte> {
     using DataBlock::isComplete;
 
     constexpr size_t getCount() const noexcept {
-        return static_cast<size_t>((assert(header.count >= 0), header.count));
+        return CONSTEXPR_ASSERT(
+            header.count >= 0,
+            static_cast<size_t>(header.count)
+        );
     }
 };
 
 //============================================================================
 /**
-  00   01   02   03  04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  0010~~0FEF           0FF0~~ 
+  00   01   02   03  04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  0010~~0FEF           0FF0~~
 +----+----+----+----+--+--+--+--+--+--+--+--+--+--+--+--+--~~~~~~~~~~~~~~~~--+--~~~~~~~~~~~
 | FD | 20 |type|attr| ref. count|00|00|00|00|00|00|00|00| 00..00 / enum name | ext. header
 +----+----+----+----+--+--+--+--+--+--+--+--+--+--+--+--+--~~~~~~~~~~~~~~~~--+--~~~~~~~~~~~
@@ -861,7 +878,10 @@ struct kdb::Parser::SimpleList : DataBlock<SimpleListHeader, byte> {
     }
 
     constexpr size_t getCount() const noexcept {
-        return static_cast<size_t>((assert(header.count >= 0), header.count));
+        return CONSTEXPR_ASSERT(
+            header.count >= 0,
+            static_cast<size_t>(header.count)
+        );
     }
 
     VectorSP getVector() const {
@@ -906,7 +926,10 @@ struct kdb::Parser::EnumSymsList : DataBlock<EnumSymsHeader, ItemIndex> {
     }
 
     constexpr size_t getCount() const noexcept {
-        return static_cast<size_t>((assert(header.count >= 0), header.count));
+        return CONSTEXPR_ASSERT(
+            header.count >= 0,
+            static_cast<size_t>(header.count)
+        );
     }
 
     vector<S> getSyms(const byte* end,
@@ -993,8 +1016,10 @@ struct kdb::Parser::NestedList
     }
 
     constexpr size_t getCount() const noexcept {
-        return static_cast<size_t>(
-            (assert(base_type::header.count >= 0), base_type::header.count));
+        return CONSTEXPR_ASSERT(
+            base_type::header.count >= 0,
+            static_cast<size_t>(base_type::header.count)
+        );
     }
 
     size_t guessCount(const byte* end) const noexcept {
@@ -1073,7 +1098,10 @@ struct kdb::Parser::NestedItem : DataBlock<NestedItemHeader, byte> {
     }
 
     constexpr size_t getCount() const noexcept {
-        return static_cast<size_t>((assert(header.count >= 0), header.count));
+        return CONSTEXPR_ASSERT(
+            header.count >= 0,
+            static_cast<size_t>(header.count)
+        );
     }
 };
 
@@ -1126,7 +1154,10 @@ struct kdb::Parser::NestedItemEx : DataBlock<NestedItemExHeader, byte> {
     }
 
     constexpr size_t getCount() const noexcept {
-        return static_cast<size_t>((assert(header.count >= 0), header.count));
+        return CONSTEXPR_ASSERT(
+            header.count >= 0,
+            static_cast<size_t>(header.count)
+        );
     }
 };
 
@@ -1174,8 +1205,10 @@ struct kdb::Parser::NestedEnumSyms : DataBlock<NestedEnumSymsHeader, ItemIndex> 
     }
 
     constexpr size_t getCount() const noexcept {
-        return static_cast<size_t>(
-            (assert(header.count_syms >= 0), header.count_syms));
+        return CONSTEXPR_ASSERT(
+            header.count_syms >= 0,
+            static_cast<size_t>(header.count_syms)
+        );
     }
 };
 
@@ -1225,7 +1258,10 @@ struct kdb::Parser::NestedEnumSymsEx
     }
 
     constexpr size_t getCount() const noexcept {
-        return static_cast<size_t>((assert(header.count >= 0), header.count));
+        return CONSTEXPR_ASSERT(
+            header.count >= 0,
+            static_cast<size_t>(header.count)
+        );
     }
 };
 

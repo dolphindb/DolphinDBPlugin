@@ -6,10 +6,10 @@
 #include <algorithm>
 
 //////////////////////////////////////////////////////////////////////
-#if __GNUG__ && __GNUG__ < 5
 //NOTE: std::is_trivially_copyable & std::is_trivially_constructible, etc.
 //      from C++11 are missing in g++ <5.0
 //@see https://stackoverflow.com/questions/25123458/is-trivially-copyable-is-not-a-member-of-std
+#if __GNUG__ && __GNUG__ < 5
 namespace std {
     template<typename T>
     struct is_trivially_copyable {
