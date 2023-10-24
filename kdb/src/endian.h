@@ -2,8 +2,10 @@
 #define _ENDIAN_H_
 
 #include <type_traits>
+#include <memory>
 #include <algorithm>
 
+//////////////////////////////////////////////////////////////////////
 #if __GNUG__ && __GNUG__ < 5
 //NOTE: std::is_trivially_copyable & std::is_trivially_constructible, etc.
 //      from C++11 are missing in g++ <5.0
@@ -21,23 +23,64 @@ namespace std {
 }
 #endif//__GNUG__ && __GNUG__ < 5
 
+//////////////////////////////////////////////////////////////////////
+//FIXME: std::make_unique<>() only became standard from C++14 onwards.
+//      As it is beneficial to ensure exception-safety, reproduce it here!
+namespace std {
+    namespace __detail {
+        template<typename T>
+        struct make_unique_type { using atom_t = unique_ptr<T>; };
+
+        template<typename T>
+        struct make_unique_type<T[]> { using array_t = unique_ptr<T[]>; };
+
+        template<typename T, std::size_t Bound>
+        struct make_unique_type<T[Bound]> { struct invalid_t{}; };
+    }
+
+    template<typename T, typename... Args>
+    constexpr inline
+    typename __detail::make_unique_type<T>::atom_t
+    make_unique(Args&&... args) {
+        return unique_ptr<T>{new T{forward<Args>(args)...}};
+    }
+
+    template<typename T>
+    constexpr inline
+    typename __detail::make_unique_type<T>::array_t
+    make_unique(std::size_t n) {
+        return unique_ptr<T>(new typename remove_extent<T>::type[n]{});
+    }
+
+    template<typename T, typename... Args>
+    typename __detail::make_unique_type<T>::invalid_t
+    make_unique(Args&&...) = delete;
+
+}//namespace std
+
+//////////////////////////////////////////////////////////////////////
 namespace kdb {
 
     using byte = std::uint8_t;
-    static_assert(sizeof(byte) == 1, "basic data unit");
+    static_assert(
+        sizeof(byte) == 1,
+        "basic data unit"
+    );
 
     //////////////////////////////////////////////////////////////////////////
 
     //FIXME: Available as std::bit_cast<To, From> since C++20
     template<typename To, class From>
     typename std::enable_if<
-        sizeof(To) == sizeof(From) &&
-        std::is_trivially_copyable<From>::value &&
-        std::is_trivially_copyable<To>::value,
+        sizeof(To) == sizeof(From)
+            && std::is_trivially_copyable<From>::value
+            && std::is_trivially_copyable<To>::value,
         To>::type
     bit_cast(const From& from) noexcept {
-        static_assert(std::is_trivially_constructible<To>::value,
-            "need to default-construct To");
+        static_assert(
+            std::is_trivially_constructible<To>::value,
+            "need to default-construct To"
+        );
         To to;
         std::memcpy(&to, &from, sizeof(To));
         return to;
@@ -63,7 +106,10 @@ namespace kdb {
 namespace endian {
 
     constexpr int lsb_detector{ 0x01 };
-    static_assert(CHAR_BIT == 8, "byte size");
+    static_assert(
+        CHAR_BIT == 8,
+        "byte size"
+    );
 
     enum Endianness { LITTLE, BIG };
 
@@ -77,15 +123,17 @@ namespace endian {
     template<typename T>
     constexpr
     typename std::enable_if<
-        native() == LITTLE && (sizeof(T) > 1) && std::is_integral<T>::value, T
-    >::type norm(T value) noexcept {
+        native() == LITTLE && (sizeof(T) > 1) && std::is_integral<T>::value,
+        T>::type
+    norm(T value) noexcept {
         return value;
     }
 
     template<typename T>
     typename std::enable_if<
-        native() == BIG && (sizeof(T) > 1) && std::is_integral<T>::value, T
-    >::type norm(T value) noexcept {
+        native() == BIG && (sizeof(T) > 1) && std::is_integral<T>::value,
+        T>::type
+    norm(T value) noexcept {
         return kdb::byteswap(value);
     }
 #endif

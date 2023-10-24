@@ -16,11 +16,6 @@ namespace kdb {
     public:
         static constexpr std::size_t MAGIC_BYTES = 8;
 
-#if 0
-        template<short Format>
-        struct FormatTag {};
-#endif
-
     public:
         BinFile(const std::string& path, const std::string& filename);
         ~BinFile();
@@ -70,7 +65,10 @@ namespace kdb {
                 };
             };
         };
-        static_assert(sizeof(Header) == 2, "zlib header format");
+        static_assert(
+            sizeof(Header) == 2,
+            "RFC 1950 zlib header format"
+        );
 #       pragma pack(pop)
 
         enum CompressMethod : byte {

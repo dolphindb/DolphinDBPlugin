@@ -214,7 +214,7 @@ namespace kdb {
         struct IndexHeader;
 
     public:
-        Parser();
+        Parser(bool strictNested = false);
 
         std::vector<byte>& getBuffer() noexcept;
 
@@ -275,6 +275,7 @@ namespace kdb {
     private:
         std::vector<byte> buffer_;
         mutable const byte* end_;
+        bool strict_;
 
     };//class Parser
 

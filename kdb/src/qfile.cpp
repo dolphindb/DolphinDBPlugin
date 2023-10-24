@@ -16,8 +16,8 @@ using namespace std;
 //////////////////////////////////////////////////////////////////////////////
 
 // zlib inflation parameters
-const int ZLib_FORMAT_DETECT = 32;
-const size_t ZLib_CHUNK_SIZE = 1 << 14;
+constexpr int    ZLib_FORMAT_DETECT = 32;
+constexpr size_t ZLib_CHUNK_SIZE    = 1 << 14;
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -45,7 +45,7 @@ size_t kdb::BinFile::readInto(vector<byte>& buffer) {
     fseek(fp_, 0, SEEK_SET);
     vector<char> header(MAGIC_BYTES, '\0');
     const auto read = fread(header.data(), 1, header.size(), fp_);
-    if(UNLIKELY(read < MAGIC_BYTES)) {
+    if(read < MAGIC_BYTES) {
         throw RuntimeException(PLUGIN_NAME ": "
             "Read " + filename_ + " header failed.");
     }
@@ -65,7 +65,7 @@ size_t kdb::BinFile::getFileLen() const {
 
     fseek(fp_, 0, SEEK_END);
     const auto len = ftell(fp_);
-    if(UNLIKELY(len < 0)) {
+    if(len < 0) {
         throw RuntimeException(PLUGIN_NAME ": "
             "Read " + filename_ + " failed.");
     }
@@ -74,7 +74,7 @@ size_t kdb::BinFile::getFileLen() const {
 
 size_t kdb::BinFile::getBodyLen() const {
     const size_t fileLen = getFileLen();
-    if(UNLIKELY(fileLen < MAGIC_BYTES)) {
+    if(fileLen < MAGIC_BYTES) {
         throw RuntimeException(PLUGIN_NAME ": "
             "Empty or truncated " + filename_ + ".");
     }
@@ -84,7 +84,7 @@ size_t kdb::BinFile::getBodyLen() const {
 size_t kdb::BinFile::readAll(vector<byte>& buffer, ptrdiff_t offset) {
     assert(fp_);
     const size_t len = getFileLen();
-    if(UNLIKELY(static_cast<ptrdiff_t>(len) < offset)) {
+    if(static_cast<ptrdiff_t>(len) < offset) {
         throw RuntimeException(PLUGIN_NAME ": "
             "Load " + filename_ + " too little data.");
     }
@@ -93,7 +93,7 @@ size_t kdb::BinFile::readAll(vector<byte>& buffer, ptrdiff_t offset) {
     buffer.resize(initLen + len);
     fseek(fp_, offset, SEEK_SET);
     const auto read = fread(buffer.data() + initLen, 1, len, fp_);
-    if(UNLIKELY(offset + read < len)) {
+    if(offset + read < len) {
         throw RuntimeException(PLUGIN_NAME ": "
             "Load " + filename_ + " data incomplete.");
     }
@@ -142,8 +142,8 @@ bool kdb::ZLibStream::isDeflated(Header* ph) const {
     Header header;
     fseek(fp_, offset_, SEEK_SET);
     const auto read = fread(&header, sizeof(header), 1, fp_);
-    if(UNLIKELY(read < 1)) {
-        throw string("error reading stream header");
+    if(read < 1) {
+        throw string{"error reading stream header"};
     }
 
     if(ph) {
@@ -160,17 +160,17 @@ size_t kdb::ZLibStream::inflate(vector<byte>& buffer) {
     const auto status = inflateChunks(buffer);
     switch(status) {
         case Z_ERRNO:
-            throw string("error reading from file");
+            throw string{"error reading from file"};
         case Z_STREAM_ERROR:
-            throw string("invalid compression level");
+            throw string{"invalid compression level"};
         case Z_DATA_ERROR:
-            throw string("invalid or incomplete deflate data");
+            throw string{"invalid or incomplete deflate data"};
         case Z_MEM_ERROR:
-            throw string("out of memory");
+            throw string{"out of memory"};
         case Z_VERSION_ERROR:
-            throw string("zlib versoin mismatch");
+            throw string{"zlib versoin mismatch"};
         default:
-            if(UNLIKELY(status < Z_OK)) {
+            if(status < Z_OK) {
                 throw "unknown error (" + to_string(status) + ")";
             }
     }
@@ -181,11 +181,11 @@ size_t kdb::ZLibStream::inflate(vector<byte>& buffer) {
 
 #pragma pack(push, 1)
 struct kdb::ZLibStream::Trailer {
-    struct {
-        byte   tag[5];
-        byte   pad_xxx[3];
-        size_t length;
-    };
+    //{
+    byte   tag[5];
+    byte   pad_xxx[3];
+    size_t length;
+    //}
 
     static const byte TAG[5];
 
@@ -193,7 +193,10 @@ struct kdb::ZLibStream::Trailer {
         return memcmp(tag, TAG, sizeof(TAG)) == 0;
     }
 };
-static_assert(sizeof(kdb::ZLibStream::Trailer) == 8+8, "kxzipped file trailer");
+static_assert(
+    sizeof(kdb::ZLibStream::Trailer) == 8+8,
+    "kxzipped file trailer"
+);
 
 const kdb::byte kdb::ZLibStream::Trailer::TAG[] = {
     0x03, 0x00, 0x00, 0x00, 0x02,
@@ -217,7 +220,7 @@ int kdb::ZLibStream::inflateChunks(vector<byte>& buffer) {
         stream.next_in  = Z_NULL;
 
         status = ::inflateInit(&stream);
-        if(UNLIKELY(status != Z_OK)) {
+        if(status != Z_OK) {
             return status;
         }
         assert(stream.total_out == 0);
@@ -227,15 +230,15 @@ int kdb::ZLibStream::inflateChunks(vector<byte>& buffer) {
         array<byte, ZLib_CHUNK_SIZE> deflated;
         do {
             const auto read = fread(deflated.data(), 1, ZLib_CHUNK_SIZE, fp_);
-            if(UNLIKELY(ferror(fp_))) {
+            if(ferror(fp_)) {
                 return Z_ERRNO;
             }
 
             // Deal with padded trailer at the end of compressed kdb+ files
-            if(LIKELY(read >= sizeof(Trailer))) {
+            if(read >= sizeof(Trailer)) {
                 const auto trailer =
                         reinterpret_cast<const Trailer*>(deflated.data());
-                if(UNLIKELY(trailer->isValid())) {
+                if(trailer->isValid()) {
                     return buffer.size() == trailer->length
                         ? Z_OK : Z_DATA_ERROR;
                 }
@@ -243,7 +246,7 @@ int kdb::ZLibStream::inflateChunks(vector<byte>& buffer) {
 
             stream.avail_in = read;
             stream.next_in  = deflated.data();
-            if(UNLIKELY(stream.avail_in == 0)) {
+            if(stream.avail_in == 0) {
                 break;
             }
 
@@ -267,7 +270,7 @@ int kdb::ZLibStream::inflateChunks(vector<byte>& buffer) {
                 assert(have >= 0);
                 buffer.resize(offset + have);
             }
-            while(LIKELY(stream.avail_out == 0));
+            while(stream.avail_out == 0);
         }
         while(LIKELY(status != Z_STREAM_END));
 

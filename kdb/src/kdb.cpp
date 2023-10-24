@@ -18,7 +18,6 @@
 #include "Util.h"
 
 #include "kdb.h"
-#include "endian.h"
 #include "q2ddb.h"
 #include "qfile.h"
 
@@ -45,6 +44,12 @@ enum KDB_IPC_error: int {
 namespace /*anonymous*/ {
 
     Mutex LOCK_KDB;
+
+    template<typename Fun>
+    void SingleThread(Fun&& fun) {
+        LockGuard<Mutex> guard(&LOCK_KDB);
+        fun();
+    }
 
     int arg2Int(const ConstantSP& arg, const char* argName = nullptr,
         const string& usage = "", const char* caller = nullptr
@@ -102,15 +107,16 @@ namespace /*anonymous*/ {
     }
 
     ConstantSP safeOp(const ConstantSP &arg,
-        std::function<ConstantSP(Connection *)> &&f
+        std::function<ConstantSP(Connection *)> &&fun
     ) {
         Connection* conn = arg2Connection(arg, "", __FUNCTION__);
-        if(conn) {
-            return f(conn);
-        } else {
+        if(!conn) {
             throw IllegalArgumentException(__FUNCTION__,
                 PLUGIN_NAME ": Connection object already closed.");
         }
+        ConstantSP result;
+        SingleThread([&](){ result = fun(conn); });
+        return result;
     }
 
     void kdbConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
@@ -119,7 +125,6 @@ namespace /*anonymous*/ {
             // Use unique_ptr<> to manage conn until it is reset.
             unique_ptr<Connection> conn{arg2Connection(args[0], __FUNCTION__)};
             if(conn) {
-                conn.reset();
                 args[0]->setLong(0);
             }
         }
@@ -151,11 +156,11 @@ Connection::Connection(
         default:
             if(handle < 0) {
                 throw RuntimeException(PLUGIN_NAME ": q-IPC error.");
-            } else {
-                handle_ = handle;
-                LOG(PLUGIN_NAME ": Connection `:" + str() + " opened.");
             }
     }
+    assert(handle > 0);
+    handle_ = handle;
+    LOG(PLUGIN_NAME ": Connection `:" + str() + " opened.");
 }
 
 Connection::~Connection() {
@@ -286,7 +291,7 @@ string Connection::str() const {
 
 vector<string> loadSymList(const string& symPath) {
     kdb::BinFile symFile{symPath, symPath};
-    if(UNLIKELY(!symFile)) {
+    if(!symFile) {
         throw RuntimeException(PLUGIN_NAME ": "
             "Open sym file " + symPath + " failed.");
     }
@@ -304,7 +309,7 @@ VectorSP loadSplayedColumn(const string& colPath,
     const vector<string>& symList, const string& symName
 ) {
     kdb::BinFile colFile{colPath, colPath};
-    if(UNLIKELY(!colFile)) {
+    if(!colFile) {
         throw RuntimeException(PLUGIN_NAME ": "
             "Open column " + colPath + " failed.");
     }
@@ -377,13 +382,7 @@ TableSP loadSplayedTable(string tablePath,
     vector<ConstantSP> cols;
     cols.reserve(colNum);
 
-#if !KDB_READ_PARALLEL
-    transform(colNames.cbegin(), colNames.cend(), back_inserter(cols),
-        [&tablePath, &symList, &symName](const string& colName) {
-            return loadSplayedColumn(tablePath + colName, symList, symName);
-        }
-    );
-#else
+#if KDB_READ_PARALLEL
     vector<ThreadSP> colThreads;
     colThreads.reserve(colNum);
     cols.resize(colNum);
@@ -407,7 +406,13 @@ TableSP loadSplayedTable(string tablePath,
     for(auto thread : colThreads) {
         thread->join();
     }
-#endif//!KDB_READ_PARALLEL
+#else//KDB_READ_PARALLEL
+    transform(colNames.cbegin(), colNames.cend(), back_inserter(cols),
+        [&tablePath, &symList, &symName](const string& colName) {
+            return loadSplayedColumn(tablePath + colName, symList, symName);
+        }
+    );
+#endif//KDB_READ_PARALLEL
 
     for(auto i = 0u; i < colNum; ++i) {
         if(cols[i].isNull()) {
@@ -446,15 +451,12 @@ ConstantSP kdbConnect(Heap *heap, vector<ConstantSP> &args){
         usrStr = arg2String(args[2], "usernamePassword", usage, __FUNCTION__);
     }
 
-    LockGuard<Mutex> guard(&LOCK_KDB);
-
     // Use unique_ptr<> to manage cup until Util::createResource() takes over.
-    /*
-    //FIXME: make_unique<>() is available only after C++14...
-    auto cup = make_unique<Connection>(hostStr, port, usrStr);
-    /*/
-    unique_ptr<Connection> cup{ new Connection(hostStr, port, usrStr) };
-    //*/
+    unique_ptr<Connection> cup;
+    SingleThread([&](){
+        cup = make_unique<Connection>(hostStr, port, usrStr);
+    });
+
     const string desc = Connection::MARKER + (" to [" + cup->str() + "]");
     FunctionDefSP onClose{
         Util::createSystemProcedure(
@@ -462,8 +464,10 @@ ConstantSP kdbConnect(Heap *heap, vector<ConstantSP> &args){
     };
     // FIXME: Still not quite safe!
     //  If Util::createResource throws, cup will be dangling forever.
-    static_assert(sizeof(long long) >= sizeof(Connection*),
-        "ensure enough space to store the pointer");
+    static_assert(
+        sizeof(long long) >= sizeof(Connection*),
+        "ensure enough space to store the pointer"
+    );
     return Util::createResource(reinterpret_cast<long long>(cup.release()),
         desc, onClose, heap->currentSession());
 }
@@ -481,11 +485,9 @@ ConstantSP kdbLoadTable(Heap *heap, vector<ConstantSP> &args){
     }
     symFilePath = normalizePath(symFilePath);
 
-    LockGuard<Mutex> guard(&LOCK_KDB);
-
-    return safeOp(args[0],
-        [&](Connection *conn) { return conn->getTable(tablePath, symFilePath); }
-    );
+    return safeOp(args[0], [&](Connection *conn){
+        return conn->getTable(tablePath, symFilePath);
+    });
 }
 
 ConstantSP kdbLoadFile(Heap *heap, vector<ConstantSP> &args){
@@ -514,8 +516,6 @@ ConstantSP kdbLoadFile(Heap *heap, vector<ConstantSP> &args){
             "symPath [" + symFilePath + "] " + extra + '.');
     }
 
-    LockGuard<Mutex> guard(&LOCK_KDB);
-
     vector<string> symList;
     if(!symFilePath.empty()) {
         symList = loadSymList(symFilePath);
@@ -527,6 +527,7 @@ ConstantSP kdbLoadFile(Heap *heap, vector<ConstantSP> &args){
     if(!fields.empty()) {
         symName = fields.back();
     }
+
     return loadSplayedTable(tablePath, symList, symName);
 }
 
@@ -534,12 +535,12 @@ ConstantSP kdbClose(Heap *heap, vector<ConstantSP> &args) {
     const string usage = "Usage: close(handle). ";
     assert(args.size() >= 1);
 
-    auto conn = arg2Connection(args[0], usage, __FUNCTION__);
-
-    LockGuard<Mutex> guard(&LOCK_KDB);
-
-    if(conn != nullptr) {
-        delete conn;
+    // Use unique_ptr<> to manage cup until reset.
+    unique_ptr<Connection> cup{
+        arg2Connection(args[0], usage, __FUNCTION__)
+    };
+    if(cup) {
+        SingleThread([&cup](){ cup.reset(); });
         args[0]->setLong(0);
     }
     return new Void();
