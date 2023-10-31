@@ -8,10 +8,11 @@ The DolphinDB httpClient plugin has different branches, such as release200 and r
   - [1. Build](#1-build)
     - [1.1 Load Plugin](#11-load-plugin)
     - [1.2 (Optional) Manually Build Plugin](#12-optional-manually-build-plugin)
-  - [Methods](#methods)
+  - [2. Methods](#2-methods)
     - [2.1 httpGet](#21-httpget)
     - [2.2 httpPost](#22-httppost)
-    - [2.3 emailSmtpConfig](#27-emailsmtpconfig)
+    - [2.3 emailSmtpConfig](#23-emailsmtpconfig)
+    - [2.4 sendEmail](#24-sendemail)
 
 
 ## 1. Build
@@ -95,7 +96,7 @@ make -j
 
 The plugin library *libPluginHttpClient.so* will be generated under the current directory.
 
-## Methods
+## 2. Methods
 
 ### 2.1 httpGet
 
@@ -208,5 +209,45 @@ emailName="example.com";
 host="smtp.example.com";
 port=25;
 httpClient::emailSmtpConfig(emailName,host,port);
+```
+
+### 2.4 sendEmail
+
+Send an email.
+
+- This plugin uses the SMTP protocol for sending email, so the mail server must support SMTP and have the SMTP port open. If the email service provider does not enable SMTP by default, you will need to enable SMTP service for that email account. Also check if the provider offers authorization codes for accounts. If so, use the authorization code for the *pwd* parameter instead of the account password.
+- If the email is sent successfully, a dictionary "res" will be returned with `res['responseCode']==250`.
+
+**Syntax**
+
+httpClient::sendEmail(userId,pwd,recipient,subject,body)
+
+**Arguments**
+
+- user: a string indicating the email address for sending the email.
+- pwd: a string or a vector of strings. If an SMTP password is provided, specify *pwd* as the SMTP password. Otherwise, it is the password to your mailbox.
+- recipient: a string indicating the mail address(es) to send the mail to. 
+- subject: a string indicating the subject of the email.  
+- body: a string indicating the subject of the email.  
+
+**Return**
+
+Return a dictionary “res“ containing the following fields: *userId* (email address of the sender), *recepient*, *responseCode*, *headers*, *text*, *elapsed* (the elapsed time since the request was sent).
+
+If the email is sent successfully, `res['responseCode']==250` is returned.
+
+**Example**
+
+Send mail to one recipient:
+
+```
+res=httpClient::sendEmail('MailFrom@example.com','xxxxx','MailTo@example.com','This is a subject','It is a text');
+```
+
+Send to multiple recipients:
+
+```
+recipients='recepient1@example.com''recepient2@example.com''recepient3@example.com';
+res=httpClient::sendEmail('MailFrom@example.com','xxxxx',recipients,'This is a subject','It is a text');
 ```
 
