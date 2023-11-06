@@ -48,10 +48,10 @@ function name in lib, function name in DolphinDB, function type, minParamCount, 
 * plugin version: 插件版本号  
 * function name in lib: 共享库中导出的函数名  
 * function name in DolphinDB: DolphinDB中的对应函数名  
-* function type: operator或者system  
+* function type: operator或者system，分别表示支持一个或两个参数的 Operator Functions 和支持任意数量参数的 System Functions
 * minParamCount: 最少参数个数  
 * maxParamCount：最多参数个数  
-* isAggregate: 是否为聚合函数  
+* isAggregate: 是否为聚合函数，可选值为 0 （非聚合函数，默认值）或 1（聚合函数） 
 
 ## 例子
 PluginDemo.txt:
