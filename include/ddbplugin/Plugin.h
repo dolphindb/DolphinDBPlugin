@@ -648,7 +648,7 @@ class BiMap {
 
     vector<Key> getKeys() const {
         vector<Key> ret;
-        ret.resize(dataMap_.size());
+        ret.reserve(dataMap_.size());
         for(auto it = dataMap_.begin(); it != dataMap_.end(); ++it) {
             ret.push_back(it->first);
         }
@@ -657,7 +657,7 @@ class BiMap {
 
     vector<Value> getValues() const {
         vector<Value> ret;
-        ret.resize(dataMap_.size());
+        ret.reserve(dataMap_.size());
         for(auto it = dataMap_.begin(); it != dataMap_.end(); ++it) {
             ret.push_back(it->second);
         }
@@ -885,6 +885,13 @@ class BackgroundResourceMap {
 
   private:
     void handleValidCheck(ConstantSP handle) const {
+        if(handle->getType() == DT_LONG) {
+            long long ptrValue = handle->getLong();
+            if (ptrValue == 0) {
+                throw RuntimeException(prefix_ + "Resource object already be destructed.");
+            }
+            return;
+        }
         if (handle->getType() != DT_RESOURCE || handle->getForm() != DF_SCALAR) {
             throw RuntimeException(prefix_ + "Invalid object, expect RESOURCE here.");
         }
@@ -1035,6 +1042,13 @@ class ResourceMap {
 
   private:
     void handleValidCheck(ConstantSP handle) const {
+        if(handle->getType() == DT_LONG) {
+            long long ptrValue = handle->getLong();
+            if (ptrValue == 0) {
+                throw RuntimeException(prefix_ + "Resource object already be destructed.");
+            }
+            return;
+        }
         if (handle->getType() != DT_RESOURCE || handle->getForm() != DF_SCALAR) {
             throw RuntimeException(prefix_ + "Invalid object, expect RESOURCE here.");
         }

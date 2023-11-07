@@ -196,7 +196,7 @@ class ThreadedQueue {
      */
     ThreadedQueue(Heap *heap, int timeout, long long capacity, MetaTable meta, TableSP schema, int flag,
                   const string &info, const string &prefix, long long bufferSize,
-                  void (*structReader)(vector<ConstantSP> &, DataStruct &))
+                  std::function<void (vector<ConstantSP> &, DataStruct &)> structReader)
         : stopFlag_(true),
           receivedTimeFlag_(flag & MarketOptionFlag::OPT_RECEIVED),
           outputElapsedFlag_(flag & MarketOptionFlag::OPT_ELAPSED),
@@ -249,9 +249,12 @@ class ThreadedQueue {
 
     ~ThreadedQueue() { stop(); }
     bool isStarted() { return !stopFlag_; }
+    // NOTE deprecate
     DictionarySP getStatus() { return status_.getStatus(); }
+    const MarketStatus getStatusConst() const { return status_; }
     string getInfo() { return info_; };
 
+    // WARNING: The start() and stop() functions must not be called concurrently
     // start a ThreadedQueue
     void start() {
         status_.startTime_ = Util::getNanoEpochTime() + localTimeGap_;
@@ -274,6 +277,7 @@ class ThreadedQueue {
         if (!stopFlag_) {
             stopFlag_ = true;
             thread_->join();
+            queue_.clear();
         }
     }
 
@@ -285,8 +289,16 @@ class ThreadedQueue {
     void setTransform(FunctionDefSP func) { transform_ = func; }
 
     // use push function to input the struct data.
-    void push(DataStruct &&data) { queue_.blockingPush(data); }
-    void push(DataStruct &data) { queue_.blockingPush(data); }
+    void push(DataStruct &&data) {
+        if(LIKELY(!stopFlag_)) {
+            queue_.blockingPush(data);
+        }
+    }
+    void push(DataStruct &data) {
+        if(LIKELY(!stopFlag_)) {
+            queue_.blockingPush(data);
+        }
+    }
 
   private:
     void extractHelper(DataStruct *data, uint32_t cnt) {
@@ -513,7 +525,7 @@ class ThreadedQueue {
     MarketStatus status_;
     vector<INDEX> resultColNums_;
     vector<string> resultColNames_;
-    void (*structReader_)(vector<ConstantSP> &, DataStruct &);
+    std::function<void (vector<ConstantSP> &, DataStruct &)> structReader_;
     vector<ConstantSP> buffer_;
 };
 
