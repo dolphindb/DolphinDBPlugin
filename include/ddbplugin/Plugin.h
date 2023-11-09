@@ -715,6 +715,9 @@ class BackgroundResourceMap {
      */
     void safeAdd(ConstantSP &handle, SmartPointer<T> handlePtr) {
         LockGuard<Mutex> guard(&resourceLock_);
+        if(inDestruction_) {
+            return;
+        }
         handleValidCheck(handle);
         long long ptrValue = handle->getLong();
         if (ptrValue == 0) {
@@ -744,6 +747,9 @@ class BackgroundResourceMap {
      */
     void safeAdd(ConstantSP handle, SmartPointer<T> handlePtr, const string &name) {
         LockGuard<Mutex> guard(&resourceLock_);
+        if(inDestruction_) {
+            return;
+        }
         handleValidCheck(handle);
         long long ptrValue = handle->getLong();
         if (ptrValue == 0) {
@@ -781,6 +787,9 @@ class BackgroundResourceMap {
      */
     SmartPointer<T> safeGet(ConstantSP handle) {
         LockGuard<Mutex> guard(&resourceLock_);
+        if(inDestruction_) {
+            throw RuntimeException(prefix_ + "BackgroundResourceMap is in destruction.");
+        }
         handleValidCheck(handle);
         long long ptrValue = handle->getLong();
         if (resourceMap_.find(ptrValue) == resourceMap_.end()) {
@@ -808,6 +817,9 @@ class BackgroundResourceMap {
      */
     ConstantSP getHandleByName(const string &name) {
         LockGuard<Mutex> guard(&resourceLock_);
+        if(inDestruction_) {
+            throw RuntimeException(prefix_ + "BackgroundResourceMap is in destruction.");
+        }
         long long ptrValue;
         if (!nameMap_.findKey(name, ptrValue)) {
             throw RuntimeException(prefix_ + "Unknown handle name [" + name + "].");
@@ -825,6 +837,9 @@ class BackgroundResourceMap {
      */
     void safeRemove(ConstantSP handle) {
         LockGuard<Mutex> guard(&resourceLock_);
+        if(inDestruction_) {
+            return;
+        }
         handleValidCheck(handle);
         long long ptrValue = handle->getLong();
         if (resourceMap_.find(ptrValue) == resourceMap_.end()) {
@@ -842,6 +857,9 @@ class BackgroundResourceMap {
      */
     vector<string> getHandleNames() {
         LockGuard<Mutex> guard(&resourceLock_);
+        if(inDestruction_) {
+            throw RuntimeException(prefix_ + "BackgroundResourceMap is in destruction.");
+        }
         return nameMap_.getKeys();
     }
 
@@ -869,6 +887,10 @@ class BackgroundResourceMap {
 
     void clear() {
         LockGuard<Mutex> guard(&resourceLock_);
+        if(inDestruction_) {
+            return;
+        }
+        inDestruction_ = true;
         nameMap_.clear();
         resourceMap_.clear();
     }
@@ -906,6 +928,7 @@ class BackgroundResourceMap {
         }
     }
 
+    bool inDestruction_ = false;
     string prefix_;   // prefix of exception sentence
     string keyword_;  // keyword need to be found in resource desc
     Mutex resourceLock_;
@@ -953,6 +976,9 @@ class ResourceMap {
      */
     void safeAdd(ConstantSP &handle, SmartPointer<T> handlePtr) {
         LockGuard<Mutex> guard(&resourceLock_);
+        if(inDestruction_) {
+            return;
+        }
         handleValidCheck(handle);
         long long ptrValue = handle->getLong();
         if (ptrValue == 0) {
@@ -978,6 +1004,9 @@ class ResourceMap {
      */
     SmartPointer<T> safeGet(ConstantSP &handle) {
         LockGuard<Mutex> guard(&resourceLock_);
+        if(inDestruction_) {
+            throw RuntimeException(prefix_ + "ResourceMap is in destruction.");
+        }
         handleValidCheck(handle);
         long long cp = handle->getLong();
         if (resourceMap_.find(cp) == resourceMap_.end()) {
@@ -1001,6 +1030,9 @@ class ResourceMap {
      */
     void safeRemove(ConstantSP &handle) {
         LockGuard<Mutex> guard(&resourceLock_);
+        if(inDestruction_) {
+            return;
+        }
         handleValidCheck(handle);
         long long cp = handle->getLong();
         if (resourceMap_.find(cp) == resourceMap_.end()) {
@@ -1037,6 +1069,10 @@ class ResourceMap {
 
     void clear() {
         LockGuard<Mutex> guard(&resourceLock_);
+        if(inDestruction_) {
+            return;
+        }
+        inDestruction_ = true;
         resourceMap_.clear();
     }
 
@@ -1063,6 +1099,7 @@ class ResourceMap {
         }
     }
 
+    bool inDestruction_ = false;
     string prefix_;   // prefix of exception sentence
     string keyword_;  // keyword need to be found in resource desc
     Mutex resourceLock_;

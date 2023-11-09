@@ -156,7 +156,7 @@ void AppendTable::run() {
 }
 
 SubConnection::~SubConnection() {
-    if(thread_->isRunning()) {
+    if(!thread_.isNull() && thread_->isRunning()) {
         cancelThread();
     }
     if (connected_) {

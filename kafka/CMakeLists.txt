@@ -60,7 +60,7 @@ if(DEFINED BUILD_ARM)
     aux_source_directory("./src" plugin_kafka_src)
     aux_source_directory("cppkafka/src" cppkafka)
     #add_subdirectory(cppkafka)
-    
+
     add_library(PluginKafka SHARED ${plugin_kafka_src} ${cppkafka})
     target_link_libraries(PluginKafka rdkafka rdkafka++ DolphinDB)
     set_target_properties(PluginKafka PROPERTIES LINK_FLAGS "-Wl,-rpath,$ORIGIN:.")
@@ -73,7 +73,7 @@ else ()
     aux_source_directory("./src" plugin_kafka_src)
     aux_source_directory("cppkafka/src" cppkafka)
 
-    add_subdirectory(cppkafka)
+    # add_subdirectory(cppkafka)
 
     add_library(PluginKafka SHARED ${plugin_kafka_src})
     target_link_libraries(PluginKafka librdkafka.a librdkafka++.a libcppkafka.a libz.a DolphinDB)

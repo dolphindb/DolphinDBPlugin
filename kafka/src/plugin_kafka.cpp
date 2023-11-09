@@ -28,6 +28,10 @@ static Mutex DICT_LATCH;
 const static int TYPE_SIZE[17] = {0,1,1,2,4,8,4,4,4,4,4,8,8,8,8,4,8};
 static DictionarySP STATUS_DICT = Util::createDictionary(DT_STRING,nullptr,DT_ANY,nullptr);
 
+static Defer destruct = Defer([](){
+    STATUS_DICT->clear();
+});
+
 const static string PRODUCER_DESC = "kafka producer connection";
 const static string CONSUMER_DESC = "kafka consumer connection";
 const static string QUEUE_DESC = "kafka queue connection";
@@ -109,8 +113,8 @@ static void kafkaConsumerOnClose(Heap *heap, vector<ConstantSP> &args) {
             for(int i = 0; i < keys->size(); i++){
                 string key = keys->getString(i);
                 ConstantSP conn = STATUS_DICT->getMember(key);
-                if(conn->getLong() != 0) {
-                    auto *sc = (SubConnection *)(conn->getLong());
+                if(!conn->isNull() && conn->getLong() != 0) {
+                    SubConnection *sc = (SubConnection *)(conn->getLong());
                     if (sc->getConsumer() == consumerValue) {
                         throw RuntimeException("The consumer [" + std::to_string(consumerValue) +
                             "] is still used in subJob [" + std::to_string(conn->getLong()) + "].");
@@ -119,7 +123,7 @@ static void kafkaConsumerOnClose(Heap *heap, vector<ConstantSP> &args) {
             }
             if(consumer!= nullptr) {
                 consumer->pause();
-                consumer->set_destroy_flags(RD_KAFKA_DESTROY_F_NO_CONSUMER_CLOSE);
+                // consumer->set_destroy_flags(RD_KAFKA_DESTROY_F_NO_CONSUMER_CLOSE);
                 consumer->unsubscribe();
                 consumer->unassign();
                 drain(consumer);
@@ -488,11 +492,14 @@ ConstantSP kafkaConsumerPollBatch(Heap *heap, vector<ConstantSP> &args) {
 
     return result;
 }
+
 static void kafkaSubConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
-    SubConnection* pObject = (SubConnection*)(args[0]->getLong());
-    if(pObject!= nullptr) {
-        delete (SubConnection *) (args[0]->getLong());
-        args[0]->setLong(0);
+    LockGuard<Mutex> _(&DICT_LATCH);
+    long long ptrValue = args[0]->getLong();
+    args[0]->setLong(0);
+    SubConnection *pObject = (SubConnection*)(ptrValue);
+    if(pObject != nullptr) {
+        delete pObject;
     }
 }
 
