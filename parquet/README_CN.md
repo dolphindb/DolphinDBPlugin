@@ -24,7 +24,7 @@ Parquet 插件目前支持版本：[relsease200](https://github.com/dolphindb/Do
 
 ### 1.1 下载预编译插件
 
-DolphinDB 提供了预编译的 Parquet 插件，可在 Linux 系统上直接进行安装。[点击此处下载插件](https://gitee.com/dolphindb/DolphinDBPlugin/tree/master/parquet/bin/linux64)
+DolphinDB 提供了预编译的 Parquet 插件，可在 Linux 系统上直接进行安装。[点击此处下载插件](https://gitee.com/dolphindb/DolphinDBPlugin/tree/release200/parquet/bin/linux)
 
 请注意插件的版本应与 DolphinDB 客户端版本相同，可以通过切换分支获取相应版本。
 
@@ -77,7 +77,7 @@ make
 
 ### 1.3 安装插件
 
-在 Linux 导入 DolphinDB 提供的[预编译 Parquet 插件](https://gitee.com/dolphindb/DolphinDBPlugin/tree/master/parquet/bin/linux64)，或用户自行编译的插件。
+在 Linux 导入 DolphinDB 提供的[预编译 Parquet 插件](https://gitee.com/dolphindb/DolphinDBPlugin/tree/release200/parquet/bin/linux)，或用户自行编译的插件。
 
 (1) 添加插件所在路径到 LIB 搜索路径 LD_LIBRARY_PATH
 
