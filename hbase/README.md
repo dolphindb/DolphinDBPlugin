@@ -258,14 +258,14 @@ cmake ../
 make
 ```
 
-# Release Notes:
+# Release Notes
 
-## v2.00.10
+## 2.00.10
 
-### 故障修复
-
-- 增加对load接口中disable table的抛出异常
-- 增加对连接有效性的检查
-- 增加connect接口中对非法isframed参数的检查
-- 增强多线程的稳定性
-- 优化多个类型转换
+- 避免下载数据时对非法格式的 minute 类型数据进行解析。
+- 修复在使用 hbase::load 导入 disable table 捕获到异常后未中止运行，导致后续 server 宕机的问题。
+- 增加下载数据时对 CHAR 类型数据的转换限制，若输入 string 值的长度超过1，则将返回空值。
+- 增加下载数据时对 SECOND 类型转换的检查。
+- 增加对连接有效性的检查。
+- connect 函数增加对参数 isFramed 非法输入值的检查。
+- 增强了多线程并行时的稳定性。
