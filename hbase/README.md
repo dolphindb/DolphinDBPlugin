@@ -1,59 +1,41 @@
-DolphinDB HBase Plugin
+# DolphinDB HBase Plugin
 
 本插件通过 Thrift 接口连接到 HBase，并读取数据。推荐版本：HBase 版本为 1.2.0，Thrift 版本为 0.14.0。
 
 HBase插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/hbase/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/hbase/README.md), [release120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/hbase/README.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
 
-## 1 安装
+## 1 在插件市场安装
 
-### 1.1 预编译安装
+### 版本要求
 
-可以导入 bin 目录下预编译好的 HBase 插件。
+* DolphinDB Server: 2.00.10.8及更高版本。
 
-#### Linux
+注意：目前插件市场仅支持 Linux 版本的 HBase。
 
-(1) 添加插件所在路径到 LIB 搜索路径 LD_LIBRARY_PATH
+### 安装步骤
 
-```
-export LD_LIBRARY_PATH=path_to_hbase_plugin/:$LD_LIBRARY_PATH
-```
-
-(2) 启动 DolphinDB server 并导入插件
+1. 在DolphinDB 客户端中使用 `listRemotePlugins` 命令查看插件仓库中的插件信息。
 
 ```
-loadPlugin("path_to_hbase_plugin/PluginHBase.txt")
+login("admin", "123456")
+listRemotePlugins(, "http://plugins.dolphindb.cn/plugins/")
 ```
 
-### 1.2 编译安装
-
-通过以下方法编译 HBase 插件，编译成功后通过以上方法导入插件。
-
-#### 在 Linux 下安装
-
-**使用 cmake 构建**
-
-安装 cmake：
+2. 使用 `installPlugin` 命令完成插件安装。
 
 ```
-sudo apt-get install cmake
+installPlugin("hbase")
 ```
 
-安装 OpenSSL：
+返回：<path_to_HBase_plugintxt>/pluginHBase.txt
+
+3. 使用 `loadPlugin` 命令加载插件（即上一步返回的.txt文件）。
 
 ```
-sudo apt-get install openssl
+loadPlugin("<path_to_HBase_plugintxt>/pluginHBase.txt")
 ```
 
-编译整个项目：
-
-```
-mkdir build
-cd build
-cmake ../
-make
-```
-
-### 1.3 开启 Thrift server
+### 开启 Thrift server
 
 通过以下命令开启 Thrift server，并指定端口 9090：
 
@@ -227,18 +209,63 @@ schema 中支持的数据类型如下表所示。HBase 中存储的数据格式�
 | NANOTIME      | 133010008007006, 13:30:10.008007006                          | 13:30:10.008007006, 13:30:10.008007006                       |
 | NANOTIMESTAMP | 20120613133010008007006,  2012.06.13 13:30:10.008007006, 2012.06.13T13:30:10.008007006 | 2012.06.13T13:30:10.008007006, 2012.06.13T13:30:10.008007006, 2012.06.13T13:30:10.008007006 |
 
+## 附录 （预）编译安装
 
-# ReleaseNotes:
+### 预编译安装
 
-## 故障修复
+可以导入 bin 目录下预编译好的 HBase 插件。
 
-* 避免下载数据时对非法格式的 minute 类型数据进行解析。（**2.00.10**）
-* 修复在使用 hbase::load 导入 disable table 捕获到异常后未中止运行，导致后续 server 宕机的问题。（**2.00.10**）
-* 增加下载数据时对 CHAR 类型数据的转换限制，若输入 string 值的长度超过1，则将返回空值。（**2.00.10**）
-* 增加下载数据时对 SECOND 类型转换的检查。（**2.00.10**）
-* 增加对连接有效性的检查。（**2.00.10**）
-* connect 函数增加对参数 isFramed 非法输入值的检查。（**2.00.10**）
+#### Linux
 
-# 功能优化
+(1) 添加插件所在路径到 LIB 搜索路径 LD_LIBRARY_PATH
 
-* 增强了多线程并行时的稳定性。（**2.00.10**）
+```
+export LD_LIBRARY_PATH=path_to_hbase_plugin/:$LD_LIBRARY_PATH
+```
+
+(2) 启动 DolphinDB server 并导入插件
+
+```
+loadPlugin("path_to_hbase_plugin/PluginHBase.txt")
+```
+
+### 编译安装
+
+通过以下方法编译 HBase 插件，编译成功后通过以上方法导入插件。
+
+#### 在 Linux 下安装
+
+**使用 cmake 构建**
+
+安装 cmake：
+
+```
+sudo apt-get install cmake
+```
+
+安装 OpenSSL：
+
+```
+sudo apt-get install openssl
+```
+
+编译整个项目：
+
+```
+mkdir build
+cd build
+cmake ../
+make
+```
+
+# Release Notes:
+
+## v2.00.10
+
+### 故障修复
+
+- 增加对load接口中disable table的抛出异常
+- 增加对连接有效性的检查
+- 增加connect接口中对非法isframed参数的检查
+- 增强多线程的稳定性
+- 优化多个类型转换
