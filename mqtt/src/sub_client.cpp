@@ -95,7 +95,7 @@ static void mqttConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
  */
 
 ConstantSP mqttClientSub(Heap *heap, vector<ConstantSP> &args) {
-    std::string usage = "Usage: subscribe(host, port, topic, [parser], handler,[username],[password]).";
+    std::string usage = "Usage: subscribe(host, port, topic, [parser], handler, [username], [password], [recvbufSize=20480]).";
     std::string userName;
     std::string password;
 
@@ -135,18 +135,37 @@ ConstantSP mqttClientSub(Heap *heap, vector<ConstantSP> &args) {
     if (!args[4]->isTable() && args[4]->getType() != DT_FUNCTIONDEF) {
         throw IllegalArgumentException(__FUNCTION__, usage + "handler must be a table or an unary function.");
     }
-    if(args.size()>5){
+    if(args.size() > 5 && !args[5]->isNull()){
         if (args[5]->getType() != DT_STRING || args[5]->getForm() != DF_SCALAR) {
             throw IllegalArgumentException(__FUNCTION__, usage + "username must be a string");
         }
+        userName = args[5]->getString();
+    }
+    if(args.size() > 6 && !args[6]->isNull()){
         if (args[6]->getType() != DT_STRING || args[6]->getForm() != DF_SCALAR) {
             throw IllegalArgumentException(__FUNCTION__, usage + "password must be a string");
         }
-        userName = args[5]->getString();
         password = args[6]->getString();
     }
+    if (!userName.empty() && (args.size() <= 6 || (args[6]->isNull() && args[6]->getType() == DT_VOID))) {
+        throw IllegalArgumentException(__FUNCTION__, usage + "password can't be ignored when username is set");
+    }
+
+    int recvbufSize = 20480;
+    if(args.size() > 7){
+        if (!args[7]->isScalar() || args[7]->getType() != DT_INT) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "the type of recvbufSize must be int");
+        }
+        recvbufSize = args[7]->getInt();
+    
+        if (recvbufSize <= 0){
+            throw IllegalArgumentException(__FUNCTION__, usage + "recvbufSize must be a positive number");
+        }
+    }
+
     std::unique_ptr<SubConnection> cup(
-        new SubConnection(args[0]->getString(), args[1]->getInt(), args[2]->getString(), parser, args[4],userName,password, heap));
+        new SubConnection(args[0]->getString(), args[1]->getInt(), args[2]->getString(), parser, args[4], userName, password,
+                          heap, 20480, recvbufSize));
     FunctionDefSP onClose(Util::createSystemProcedure("mqtt sub connection onClose()", mqttConnectionOnClose, 1, 1));
     ConstantSP conn = Util::createResource((long long)cup.release(), "mqtt subscribe connection", onClose, heap->currentSession());
     LockGuard<Mutex> guard(&mqttConn::CONN_MUTEX_LOCK);
@@ -274,17 +293,23 @@ SubConnection::~SubConnection() {
 }
 
 SubConnection::SubConnection(const std::string& hostname, int port, const std::string& topic, const FunctionDefSP& parser,
-		const ConstantSP& handler, const std::string& userName, const std::string& password, Heap *pHeap)
+		const ConstantSP& handler, const std::string& userName, const std::string& password, Heap *pHeap, int sendbufSize,
+        int recvbufSize)
     : ConnctionBase(new ConditionalNotifier()),
-    host_(hostname), port_(port), topic_(topic), parser_(parser), handler_(handler), pHeap_(pHeap), userName_(userName), password_(password) {
+    host_(hostname), port_(port), topic_(topic), parser_(parser), handler_(handler), pHeap_(pHeap), userName_(userName), password_(password), sendbufSize_(sendbufSize), recvbufSize_(recvbufSize), sendbuf_(new uint8_t[sendbufSize]),
+    recvbuf_(new uint8_t[recvbufSize]) {
     
     sockfd_ = new Socket(hostname, port, false);
     IO_ERR ret = sockfd_->connect();
     if (ret != OK && ret != INPROGRESS) {
         throw RuntimeException("Failed to connect. ");
     }
+    if (ret == INPROGRESS && !checkConnectStatus(sockfd_->getHandle())) { // handle EINPROGRESS on non-block TCP connection
+        throw RuntimeException("Failed to connect.");
+    }
+
     try {
-        mqtt_init(&client_, sockfd_->getHandle(), sendbuf_, sizeof(sendbuf_), recvbuf_, sizeof(recvbuf_), subCallback);
+        mqtt_init(&client_, sockfd_->getHandle(), sendbuf_.get(), sendbufSize_, recvbuf_.get(), recvbufSize_, subCallback);
         std::string client_id = "ddb_mqtt_plugin_sub" + std::to_string(sockfd_->getHandle());
         uint8_t connect_flags = MQTT_CONNECT_CLEAN_SESSION;
         if(userName=="") {
@@ -335,7 +360,7 @@ void SubConnection::reconnect(){
             LOG_ERR("[PluginMQTT]: Failed to connect. ");
             return;
         }
-        mqtt_reinit(&client_, sockfd_->getHandle(), sendbuf_, sizeof(sendbuf_), recvbuf_, sizeof(recvbuf_));
+        mqtt_reinit(&client_, sockfd_->getHandle(), sendbuf_.get(), sendbufSize_, recvbuf_.get(), recvbufSize_);
         uint8_t connect_flags = MQTT_CONNECT_CLEAN_SESSION;
         const char* client_id = "ddb_mqtt_plugin_sub";
         if(userName_=="") {

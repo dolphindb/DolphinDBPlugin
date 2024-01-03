@@ -202,7 +202,7 @@ ConstantSP parseCsv(Heap* heap, vector<ConstantSP>& args) {
     }
     for (int i = 0; i < nRows; ++i) {
         vector<string> raw = Util::split(data[i], delimiter);
-        for (int j = 0; j < nCols; ++j) {
+        for (size_t j = 0; j < nCols; ++j) {
             if (j >= raw.size() || raw[j].empty()) {
                 cols[j]->setNull(i);
                 continue;
