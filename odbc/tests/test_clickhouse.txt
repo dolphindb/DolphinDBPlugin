@@ -1,0 +1,591 @@
+
+#include "setup/settings.txt"
+login("admin","123456");
+try{
+	loadPlugin(getHomeDir()+"/plugins/odbc/PluginODBC.txt");
+}catch(ex){print ex}
+go
+use odbc
+go
+
+conn = odbc::connect(connStr_ClickHouse,"ClickHouse")
+
+@testing:case="test_odbc_ClickHouse_connStr_errordriver",exception=1
+strs=split(connStr_ClickHouse,";")
+conn = odbc::connect(strs[0]+"111;"+strs[1]+";"+strs[2]+";"+strs[3]+";"+strs[4]+";"+strs[5],"ClickHouse")
+
+@testing:case="test_odbc_ClickHouse_connStr_errorIp",exception=1
+strs=split(connStr_ClickHouse,";")
+conn = odbc::connect(strs[0]+";Server=lochost;"+strs[2]+";"+strs[3]+";"+strs[4]+";"+strs[5],"ClickHouse")
+odbc::query(conn, "show tables;");
+
+@testing:case="test_odbc_ClickHouse_connStr_errorPort1",exception=1
+strs=split(connStr_ClickHouse,";")
+conn = odbc::connect(strs[0]+";"+strs[1]+";"+strs[2]+";Port=9999"+";"+strs[4]+";"+strs[5],"ClickHouse")
+
+@testing:case="test_odbc_ClickHouse_connStr_errorDatabase",exception=1
+strs=split(connStr_ClickHouse,";")
+conn = odbc::connect(strs[0]+";"+strs[1]+";"+strs[2]+"111;"+strs[3]+";"+strs[4]+";"+strs[5],"ClickHouse")
+
+@testing:case="test_odbc_ClickHouse_connStr_erroruser"
+//same in isql
+strs=split(connStr_ClickHouse,";")
+conn = odbc::connect(strs[0]+";"+strs[1]+";"+strs[2]+";"+strs[3]+";"+strs[4]+"1111;"+strs[5],"ClickHouse")
+odbc::query(conn, "show tables;");
+
+@testing:case="test_odbc_ClickHouse_connStr_errorPassword",exception=1
+strs=split(connStr_ClickHouse,";")
+conn = odbc::connect(strs[0]+";"+strs[1]+";"+strs[2]+";"+strs[3]+";"+strs[4]+";"+strs[5]+"1111","ClickHouse")
+
+@testing:case="test_odbc_ClickHouse_connStr_erroruser&&pwd",exception=1
+strs=split(connStr_ClickHouse,";")
+conn = odbc::connect(strs[0]+";"+strs[1]+";"+strs[2]+";"+strs[3]+";"+strs[4]+"1111;"+strs[5]+"1111","ClickHouse")
+
+@testing:case="test_odbc_ClickHouse_execute_errorsql",exception=1
+odbc::execute(conn,"create table test_batchSize(col1 varchar(100),col2 int,col3 double, col4 date)")
+
+@testing:case="test_odbc_ClickHouse_query_errorsql",exception=1
+odbc::query(conn, "show table;");
+
+@testing:case="test_odbc_ClickHouse_query_errorsql_crash",exception=1
+odbc::query(conn, "select");
+
+@testing:case="test_odbc_ClickHouse_query_connStr"
+re= odbc::query(connStr_ClickHouse, "show tables;");
+
+@testing:case="test_odbc_ClickHouse_query_error_connStr",exception=1
+re= odbc::query(strs[0]+";"+strs[1]+";"+strs[2]+";"+strs[3]+";"+strs[4]+"1111;"+strs[5]+"1111", "show tables;");
+
+@testing:case="test_odbc_ClickHouse_query_batchSize=0",exception=1
+colNames=["col1","col2","col3","col4"]
+colTypes=[STRING,INT,DOUBLE,DATE]
+t=table(1:0,colNames,colTypes)
+insert into t values((["a","b","c",string()],[1,int(),3,4],[1.0,2.1,3.5,6.5],2019.01.01..2019.01.04))
+//odbc::execute(conn,"use DolphinDB;")
+odbc::execute(conn,"create table test_batchSize(col1 varchar(100),col2 int,col3 double, col4 date)engine=TinyLog")
+odbc::append(conn,t,"test_batchSize",false)
+re=odbc::query(conn,"select * from test_batchSize;",,0)
+
+@testing:case="test_odbc_ClickHouse_query_batchSize"
+odbc::execute(conn,"drop table  IF EXISTS test_batchSize;")
+colNames=["col1","col2","col3","col4"]
+colTypes=[STRING,INT,DOUBLE,DATE]
+t=table(1:0,colNames,colTypes)
+insert into t values((["a","b","c",string()],[1,int(),3,4],[1.0,2.1,3.5,6.5],2019.01.01..2019.01.04))
+odbc::execute(conn,"create table test_batchSize(col1 varchar(100),col2 int,col3 double, col4 date)engine=TinyLog")
+colNames=["col1","col2","col3","col4"]
+colTypes=[STRING,INT,DOUBLE,DATE]
+tmp=table(1:0,colNames,colTypes)
+for(i in 0:100){
+	odbc::append(conn,t,"test_batchSize",false)
+}
+re=odbc::query(conn,"select * from test_batchSize;",tmp,10)
+assert 3,(exec count(*) from tmp)==400
+re=odbc::query(conn,"select * from test_batchSize;",tmp,1024)
+assert 4,(exec count(*) from tmp)==800
+
+@testing:case="drop_table_batchsize"
+odbc::execute(conn,"drop table test_batchSize;")
+tables=odbc::query(conn,"show tables;")
+assert 4,in("test_batchSize",tables["name"])==false
+
+@testing:case="test_odbc_ClickHouse_query_tranform"
+colNames=["col1","col2","col3","col4"]
+colTypes=[STRING,INT,DOUBLE,DATE]
+t=table(1:0,colNames,colTypes)
+insert into t values((["a","b","c","d"],[1,-1,3,4],[1.0,2.1,3.5,6.5],2019.01.01..2019.01.04))
+//odbc::execute(conn,"use DolphinDB;")
+odbc::execute(conn,"create table test_tranform(col1 varchar(100),col2 int,col3 double, col4 date)engine=TinyLog")
+colNames=["col1","col2","col3","col4"]
+colTypes=[STRING,INT,DOUBLE,DATE]
+tmp=table(1:0,colNames,colTypes)
+odbc::append(conn,t,"test_tranform",false)
+def f(msg){
+	t=msg
+	update t set col2=0 where date(col4)>2019.01.02
+	return t
+}
+re=odbc::query(conn,"select * from test_tranform;",tmp,,f)
+update t set col2=0 where date(col4)>2019.01.02
+assert 3,each(eqObj,t.values(),re.values())
+
+@testing:case="test_odbc_ClickHouse_query_error_tranform",exception=1
+odbc::execute(conn,"drop table  IF EXISTS test_tranform;")
+colNames=["col1","col2","col3","col4"]
+colTypes=[STRING,INT,DOUBLE,DATE]
+t=table(1:0,colNames,colTypes)
+insert into t values((["a","b","c","d"],[1,-1,3,4],[1.0,2.1,3.5,6.5],2019.01.01..2019.01.04))
+odbc::execute(conn,"create table test_tranform(col1 varchar(100),col2 int,col3 double, col4 date)engine=TinyLog")
+colNames=["col1","col2","col3","col4"]
+colTypes=[STRING,INT,DOUBLE,DATE]
+tmp=table(1:0,colNames,colTypes)
+odbc::append(conn,t,"test_tranform",false)
+def f(){
+	return 1
+}
+re=odbc::query(conn,"select * from test_tranform;",tmp,,f)
+
+@testing:case="test_odbc_ClickHouse_query_tranform1"
+odbc::execute(conn,"drop table  IF EXISTS test_tranform;")
+colNames=["col1","col2","col3","col4"]
+colTypes=[STRING,INT,DOUBLE,DATE]
+t=table(1:0,colNames,colTypes)
+insert into t values((["a","b","c","d"],[1,-1,3,4],[1.0,2.1,3.5,6.5],2019.01.01..2019.01.04))
+odbc::execute(conn,"create table test_tranform(col1 varchar(100),col2 int,col3 double, col4 date)engine=TinyLog")
+colNames=["col1","col2","col3","col4"]
+colTypes=[STRING,INT,DOUBLE,DATE]
+tmp=table(1:0,colNames,colTypes)
+re=odbc::query(conn,"select * from test_tranform;",tmp,,count)
+assert 1,(exec count(*) from tmp)==0
+
+@testing:case="drop_table_transform"
+odbc::execute(conn,"drop table test_tranform;")
+tables=odbc::query(conn,"show tables;")
+assert 4,in("test_tranform",tables["name"])==false
+
+/***********dataType test******************/
+@testing:case="test_odbc_ClickHouse_query_int"
+odbc::execute(conn,"create table test_alldatatypes(col1 Int8,col2 Int16,col3 Int32,col4 Int64,col18 UInt8,col19 UInt16,col20 UInt32,col21 UInt64)engine=TinyLog;")
+odbc::execute(conn,"insert into test_alldatatypes values(-128,-32768,-2147483648,-9000000000000000000,0,0,0,0);")
+odbc::execute(conn,"insert into test_alldatatypes values(127,32767,2147483647,9000000000000000000,255,65535,4294967295,9000000000000000000);")
+odbc::execute(conn,"insert into test_alldatatypes values(8,768,214748,92268808,25,6535,429496,922338548);")
+odbc::execute(conn,"insert into test_alldatatypes values(-8,-768,-214748,-92268808,25,6535,429496,922338548);")
+odbc::execute(conn,"insert into test_alldatatypes values(NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);")
+re=odbc::query(conn,"select * from test_alldatatypes;")
+assert 1,schema(re).colDefs[`typeString]==["SHORT","SHORT","INT","LONG","SHORT","SHORT","LONG","LONG"]
+test_alldatatypes=table(100:0,"col"+string(1..8), [SHORT,SHORT,INT,LONG,SHORT,SHORT,LONG,LONG])
+insert into test_alldatatypes values(-128,-32768,-2147483648,-9000000000000000000,0,0,0,0);
+insert into test_alldatatypes values(127,32767,2147483647,9000000000000000000,255,65535,4294967295,9000000000000000000);
+insert into test_alldatatypes values(8,768,214748,92268808,25,6535,429496,922338548);
+insert into test_alldatatypes values(-8,-768,-214748,-92268808,25,6535,429496,922338548);
+insert into test_alldatatypes values(0,0,0,0,0,0,0,0);
+assert 2,each(eqObj,test_alldatatypes.values(),re.values())
+
+@testing:case="drop_table_test_int"
+odbc::execute(conn,"drop table test_alldatatypes;")
+tables=odbc::query(conn,"show tables;")
+assert 1,in("test_alldatatypes",tables[`name])==false
+
+@testing:case="test_odbc_ClickHouse_query_float"
+odbc::execute(conn,"create table test_alldatatypes(col1 Float32,col2 Float64,col3 float,col4 double,col5 Decimal32(4),col6 Decimal64(14),col7 Decimal128(14))engine=TinyLog;")
+odbc::execute(conn,"insert into test_alldatatypes values(NULL,NULL,NULL,NULL,NULL,NULL,NULL);")
+odbc::execute(conn,"insert into test_alldatatypes values(2.1,2.1,2.1,2.1,2.64334,0.325237545,325.435043504350);")
+odbc::execute(conn,"insert into test_alldatatypes values(-2.1,-2.1,-2.1,-2.1,-2.64334,-0.325237545,-325.435043504350);")
+odbc::execute(conn,"insert into test_alldatatypes values(0,0,0,0,0,0,0);")
+re=odbc::query(conn,"select * from test_alldatatypes;")
+assert 1, schema(re).colDefs[`typeString]==["FLOAT","DOUBLE","FLOAT","DOUBLE","DOUBLE","DOUBLE","DOUBLE"]
+test_alldatatypes=table(100:0,"col"+string(1..7), [FLOAT,DOUBLE,FLOAT,DOUBLE,DOUBLE,DOUBLE,DOUBLE])
+insert into test_alldatatypes values(0,0,0,0,0,0,0);
+insert into test_alldatatypes values(2.1,2.1,2.1,2.1,2.64334,0.325237545,325.435043504350);
+insert into test_alldatatypes values(-2.1,-2.1,-2.1,-2.1,-2.64334,-0.325237545,-325.435043504350);
+insert into test_alldatatypes values(0,0,0,0,0,0,0);
+assert 2, each(eqObj, test_alldatatypes.values(), re.values(), 4)
+
+@testing:case="drop_table_test_float"
+odbc::execute(conn,"drop table test_alldatatypes;")
+tables=odbc::query(conn,"show tables;")
+assert 1,in("test_alldatatypes",tables[`name])==false
+
+@testing:case="test_odbc_ClickHouse_query_string"
+odbc::execute(conn,"create table test_alldatatypes(col1 String,col2 FixedString(10),col3 UUID,col4 IPv4,col5 IPv6,col6 Nullable( Enum8('hello' = 1, 'world' = 2) ),col7 Nullable( Enum16('hello1' = 1, 'world1' = 2) ),col8 Bool,col9 Char,col10 LowCardinality(String),col11 VARCHAR(25))engine=TinyLog;")
+odbc::execute(conn,"insert into test_alldatatypes values(NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);")
+odbc::execute(conn,"insert into test_alldatatypes values('sym','sym','9d457e79-1bed-d6c2-3612-b0d31c1881f6','192.0.0.0','2001:0db8:86a3:08d3:1319:8a2e:0370:7344','hello','hello1',true,'1','3242','erwe');")
+odbc::execute(conn,"insert into test_alldatatypes values('sym1','sym1','9d457e79-1bed-d6c2-3612-b0d31c1881f0','192.0.0.220','2001:0db8:86a3:08d3:1319:8a2e:0370:7344','world','world1',false,'d','3242','erwe');")
+re=odbc::query(conn,"select * from test_alldatatypes;")
+assert 1,schema(re).colDefs[`typeString]==take("STRING",11)
+test_alldatatypes=table(100:0,"col"+string(1..11), take(STRING,11))
+insert into test_alldatatypes values("","","00000000-0000-0000-0000-000000000000","0.0.0.0","::",NULL,NULL,'false',"","","");
+insert into test_alldatatypes values('sym','sym','9d457e79-1bed-d6c2-3612-b0d31c1881f6','192.0.0.0','2001:db8:86a3:8d3:1319:8a2e:370:7344','hello','hello1','true','1','3242','erwe');
+insert into test_alldatatypes values('sym1','sym1','9d457e79-1bed-d6c2-3612-b0d31c1881f0','192.0.0.220','2001:db8:86a3:8d3:1319:8a2e:370:7344','world','world1','false','d','3242','erwe')
+assert 2,each(eqObj,test_alldatatypes.values(),re.values())
+
+@testing:case="drop_table_test_string"
+odbc::execute(conn,"drop table test_alldatatypes;")
+tables=odbc::query(conn,"show tables;")
+assert 1,in("test_alldatatypes",tables[`name])==false
+
+@testing:case="test_odbc_ClickHouse_query_longstring"
+odbc::execute(conn,"create table test_alldatatypes(col1  LONGTEXT)engine=TinyLog;")
+str=table("sym"+string(1..500) as symbol,"中文"+string(1..500) as symbol1).toJson()
+odbc::execute(conn,"insert into test_alldatatypes values('"+str+"');")
+re=odbc::query(conn,"select * from test_alldatatypes;")
+test_alldatatypes=table( take(str,1) as str)
+assert 2,each(eqObj,test_alldatatypes.values(),re.values())
+
+@testing:case="drop_table_test_longstring"
+odbc::execute(conn,"drop table test_alldatatypes;")
+tables=odbc::query(conn,"show tables;")
+assert 1,in("test_alldatatypes",tables[`name])==false
+
+@testing:case="test_odbc_ClickHouse_query_Array"
+odbc::execute(conn,"CREATE TABLE t_arr (`arr` Array(Array(Array(UInt32)))) ENGINE = MergeTree ORDER BY tuple();")
+odbc::execute(conn,"INSERT INTO t_arr VALUES ([[[12, 13, 0, 1],[12]]]);")
+odbc::execute(conn,"INSERT INTO t_arr VALUES ([[[12, 13, 0, 1],[]]]);")
+re=odbc::query(conn,"select * from t_arr;")
+assert 1,schema(re).colDefs[`typeString]==["STRING"]
+assert 2,(exec count(*) from re)==2
+
+@testing:case="drop_table_test_Array"
+odbc::execute(conn,"drop table t_arr;")
+tables=odbc::query(conn,"show tables;")
+assert 1,in("t_arr",tables[`name])==false
+
+@testing:case="test_odbc_ClickHouse_execute_chinese_table_name",exception=1
+odbc::execute(conn,"CREATE TABLE 测试中文(v1 String,v2 String)engine=TinyLog")
+
+@testing:case="test_odbc_ClickHouse_execute_chinese_table_colname",exception=1
+odbc::execute(conn,"CREATE TABLE tc(测试 String,v2 String)engine=TinyLog")
+
+@testing:case="test_odbc_append_dolphindb_table_to_ClickHouse_all_datatypes"
+colNames="col"+string(1..13)
+colTypes=[BOOL,CHAR,SHORT,INT,LONG,DATE,DATETIME,TIMESTAMP,NANOTIMESTAMP,FLOAT,DOUBLE,SYMBOL,STRING]
+t=table(1:0,colNames,colTypes)
+insert into t values(true,'a',2h,2,22l,2012.12.06,2012.06.12 12:30:00,2012.06.12 12:30:00.008,nanotimestamp(2012.06.12 12:30:00.008),2.1f,2.1,"hello","world")
+insert into t values(bool(),char(),short(),int(),long(),date(),datetime(),timestamp(),nanotimestamp(),float(),double(),string(),string())
+odbc::execute(conn,"CREATE TABLE IF NOT EXISTS ddb_alldatatypes(col1 Bool ,col2 Char,col3 Int8 ,col4 Int32,col5 Int64,col6 Date, col7   DateTime64,col8   DateTime64,col9   DateTime64,col15   Float32,col16   Float64,col17   String,col18   String)engine=TinyLog;")
+odbc::append(conn,t,"ddb_alldatatypes",false)
+re=odbc::query(conn,"select * from ddb_alldatatypes")
+colTypes=[STRING,STRING,SHORT,INT,LONG,DATE,NANOTIMESTAMP,NANOTIMESTAMP,NANOTIMESTAMP,FLOAT,DOUBLE,STRING,STRING]
+ex=table(1:0,colNames,colTypes)
+insert into ex values('true','a',2h,2,22l,2012.12.06,nanotimestamp(2012.06.12 12:30:00),nanotimestamp(2012.06.12 12:30:00.008),nanotimestamp(2012.06.12 12:30:00.008),2.1f,2.1,"hello","world")
+insert into ex values('false','',0,0,0,1970.01.01 ,nanotimestamp(1970.01.01 00:00:00.000) ,nanotimestamp(1970.01.01 00:00:00.000) ,nanotimestamp(1970.01.01 00:00:00.000) ,0 ,0,"","")
+assert 1,each(eqObj,re.values(),ex.values())
+
+@testing:case="drop_table_ddb_alldatatypes"
+odbc::execute(conn,"drop table ddb_alldatatypes;")
+re=odbc::query(conn,"show tables;")
+assert 1,in("ddb_alldatatypes",re[`name])==false
+
+@testing:case="test_odbc_ClickHouse_append_in_memory_table_createTable_true"
+colNames="col"+string(1..14)
+colTypes=[BOOL,CHAR,SHORT,INT,LONG,DATE,DATETIME,TIMESTAMP,NANOTIMESTAMP,FLOAT,DOUBLE,SYMBOL,STRING,MONTH]
+t=table(1:0,colNames,colTypes)
+insert into t values(true,'a',2h,2,22l,2012.12.06,2012.06.12 12:30:00,2012.06.12 12:30:00.008,nanotimestamp(2012.06.12 12:30:00.008),2.1f,2.1,"hello","world",month(now()))
+insert into t values(bool(),char(),short(),int(),long(),date(),datetime(),timestamp(),nanotimestamp(),float(),double(),string(),string(),month())
+odbc::append(conn,t,"test_append",true)
+tables=odbc::query(conn,"show tables;")
+assert 2,in("test_append",tables["name"])==true
+colTypes=[STRING,STRING,SHORT,INT,LONG,DATE,NANOTIMESTAMP,NANOTIMESTAMP,NANOTIMESTAMP,FLOAT,DOUBLE,SYMBOL,STRING,DATE]
+ex=table(1:0,colNames,colTypes)
+insert into ex values('true','a',2h,2,22l,2012.12.06,nanotimestamp(2012.06.12 12:30:00),nanotimestamp(2012.06.12 12:30:00.008),nanotimestamp(2012.06.12 12:30:00.008),2.1f,2.1,"hello","world",date(month(now())))
+insert into ex values('false','',0,0,0,1970.01.01 ,nanotimestamp(1970.01.01 00:00:00.000) ,nanotimestamp(1970.01.01 00:00:00.000) ,nanotimestamp(1970.01.01 00:00:00.000) ,0 ,0,"","",date(0))
+re=odbc::query(conn,"select * from test_append;")
+assert 3,each(eqObj,ex.values(),re.values())
+
+@testing:case="drop_table_append"
+odbc::execute(conn,"drop table test_append;")
+tables=odbc::query(conn,"show tables;")
+assert 4,in("test_append",tables["name"])==false
+
+
+@testing:case="test_odbc_append_dolphindb_table_to_ClickHouse_false_uuid"
+colNames="col"+string(1..2)
+colTypes=[STRING,STRING]
+t=table(1:0,colNames,colTypes)
+insert into t values("61f0c404-5cb3-11e7-907b-a6006ad3dba0","5d212a78-cc48-e3b1-4235-b4d91473ee87")
+insert into t values(string(),string())
+odbc::execute(conn,"CREATE TABLE IF NOT EXISTS ddb_alldatatypes(col1 UUID ,col2 UUID) engine=TinyLog;")
+odbc::append(conn,t,"ddb_alldatatypes",false)
+re=odbc::query(conn,"select * from ddb_alldatatypes")
+colNames="col"+string(1..2)
+colTypes=[STRING,STRING]
+t=table(1:0,colNames,colTypes)
+insert into t values("61f0c404-5cb3-11e7-907b-a6006ad3dba0","5d212a78-cc48-e3b1-4235-b4d91473ee87")
+insert into t values(string("00000000-0000-0000-0000-000000000000"),string("00000000-0000-0000-0000-000000000000"))
+assert 1,each(eqObj,re.values(),t.values())
+
+@testing:case="drop_table_ddb_false_uuid"
+odbc::execute(conn,"drop table ddb_alldatatypes;")
+re=odbc::query(conn,"show tables;")
+assert 1,in("ddb_alldatatypes",re[`name])==false
+
+
+@testing:case="test_odbc_append_dolphindb_table_to_ClickHouse_true_uuid",exception=1
+colNames="col"+string(1..2)
+colTypes=[UUID,UUID]
+t=table(1:0,colNames,colTypes)
+insert into t values(uuid("61f0c404-5cb3-11e7-907b-a6006ad3dba0"),uuid("5d212a78-cc48-e3b1-4235-b4d91473ee87"))
+insert into t values(uuid(),uuid())
+odbc::append(conn,t,"ddb_alldatatypes",true)
+re=odbc::query(conn,"select * from ddb_alldatatypes")
+
+@testing:case="drop_table_ddb_true_uuid"
+//odbc::execute(conn,"drop table ddb_alldatatypes;")
+re=odbc::query(conn,"show tables;")
+assert 1,in("ddb_alldatatypes",re[`name])==false
+
+@testing:case="test_odbc_append_dolphindb_table_to_ClickHouse_false_ipaddr"
+colNames="col"+string(1..2)
+colTypes=[STRING,STRING]
+t=table(1:0,colNames,colTypes)
+insert into t values("192.168.1.13","192.168.1.13")
+insert into t values(string(),string())
+odbc::execute(conn,"CREATE TABLE IF NOT EXISTS ddb_alldatatypes(col1 IPv4 ,col2 IPv4) engine=TinyLog;")
+odbc::append(conn,t,"ddb_alldatatypes",false)
+re=odbc::query(conn,"select * from ddb_alldatatypes")
+colNames="col"+string(1..2)
+colTypes=[STRING,STRING]
+t=table(1:0,colNames,colTypes)
+insert into t values("192.168.1.13","192.168.1.13")
+insert into t values(string("0.0.0.0"),string("0.0.0.0"))
+assert 1,each(eqObj,re.values(),t.values())
+
+@testing:case="drop_table_ddb_false_ipaddr"
+odbc::execute(conn,"drop table ddb_alldatatypes;")
+re=odbc::query(conn,"show tables;")
+assert 1,in("ddb_alldatatypes",re[`name])==false
+
+
+@testing:case="test_odbc_append_dolphindb_table_to_ClickHouse_true_ipaddr",exception=1
+colNames="col"+string(1..2)
+colTypes=[IPADDR,INT]
+t=table(1:0,colNames,colTypes)
+insert into t values(ipaddr("192.168.1.13"),1)
+insert into t values(ipaddr(),0)
+odbc::append(conn,t,"ddb_alldatatypes",true)
+re=odbc::query(conn,"select * from ddb_alldatatypes")
+
+@testing:case="drop_table_ddb_true_ipaddr"
+//odbc::execute(conn,"drop table ddb_alldatatypes;")
+re=odbc::query(conn,"show tables;")
+assert 1,in("ddb_alldatatypes",re[`name])==false
+
+@testing:case="test_odbc_append_dolphindb_table_to_ClickHouse_true_int128",exception=1
+colNames="col"+string(1..2)
+colTypes=[INT128,INT128]
+t=table(1:0,colNames,colTypes)
+insert into t values(int128("e1671797c52e15f763380b45e841ec32"),int128("e1671797c52e15f763380b45e841ec32"))
+insert into t values(int128(),int128())
+odbc::append(conn,t,"ddb_alldatatypes",true)
+re=odbc::query(conn,"select * from ddb_alldatatypes")
+
+@testing:case="drop_table_ddb_true_int128"
+//odbc::execute(conn,"drop table ddb_alldatatypes;")
+re=odbc::query(conn,"show tables;")
+assert 1,in("ddb_alldatatypes",re[`name])==false
+
+@testing:case="test_odbc_ClickHouse_append_in_memory_table_createTable_true_time",exception=1
+colNames="col"+string(1..2)
+colTypes=[TIME,INT]
+t=table(1:0,colNames,colTypes)
+insert into t values(12:30:00.008,1)
+odbc::append(conn,t,"test_append",true)
+
+@testing:case="test_odbc_ClickHouse_append_in_memory_table_createTable_true_nanotime",exception=1
+colNames="col"+string(1..2)
+colTypes=[NANOTIME,INT]
+t=table(1:0,colNames,colTypes)
+insert into t values(nanotime(12:30:00.008),1)
+odbc::append(conn,t,"test_append",true)
+
+@testing:case="test_odbc_ClickHouse_append_clear"
+odbc::execute(conn,"DROP TABLE IF EXISTS test_append;")
+
+@testing:case="test_odbc_ClickHouse_append_in_memory_table_createTable_true_second",exception=1
+colNames="col"+string(1..2)
+colTypes=[SECOND,INT]
+t=table(1:0,colNames,colTypes)
+insert into t values(12:30:00,1)
+odbc::append(conn,t,"test_append",true)
+
+@testing:case="test_odbc_ClickHouse_append_clear"
+odbc::execute(conn,"DROP TABLE IF EXISTS test_append;")
+
+@testing:case="test_odbc_ClickHouse_in_memory_table_createTable_false"
+odbc::execute(conn,"DROP TABLE IF EXISTS test_alldatatypes;")
+colNames=["col1","col2","col3","col4"]
+colTypes=[STRING,INT,DOUBLE,DATE]
+t=table(1:0,colNames,colTypes)
+insert into t values((["a","b","c",string()],[1,int(),3,4],[1.0,2.1,3.5,6.5],2019.01.01..2019.01.04))
+assert 1,(exec count(*) from t)==4
+odbc::execute(conn,"create table test_append(col1 varchar(100),col2 int,col3 double, col4 date)engine=TinyLog")
+odbc::append(conn,t,"test_append",false)
+re=odbc::query(conn,"select * from test_append;")
+ex=table(1:0,colNames,colTypes)
+insert into ex values((["a","b","c",""],[1,0,3,4],[1.0,2.1,3.5,6.5],2019.01.01..2019.01.04))
+assert 3,each(eqObj,ex.values(),re.values())
+odbc::execute(conn,"drop table test_append;")
+tables=odbc::query(conn,"show tables;")
+assert 4,in("test_append",tables["name"])==false
+
+@testing:case="test_odbc_ClickHouse_in_memory_table_insertIgnore_true",exception=1
+colNames=["col1","col2","col3","col4"]
+colTypes=[STRING,INT,DOUBLE,DATE]
+t=table(1:0,colNames,colTypes)
+insert into t values((["a","b","c","a","d","c"],[1,int(),3,4,5,4],[1.0,2.1,3.5,6.5,3.8,5.2],2019.01.01..2019.01.06))
+assert 1,(exec count(*) from t)==6
+odbc::execute(conn,"create table test_append(col1 varchar(100),col2 int,col3 double, col4 date)ENGINE = MergeTree() order by col4")
+odbc::append(conn,t,"test_append",false,true)
+
+@testing:case="drop_table_insertignore"
+odbc::execute(conn,"drop table test_append;")
+tables=odbc::query(conn,"show tables;")
+assert 4,in("test_append",tables["name"])==false
+
+@testing:case="test_odbc_ClickHouse_append_dfs_table",exception=1
+login("admin","123456")
+if(existsDatabase("dfs://db1")){
+	dropDatabase("dfs://db1")
+}
+db=database("dfs://db1",VALUE,1..5)
+t=table(take(1..5,100) as id,rand(10,100) as val)
+pt=db.createPartitionedTable(t,`pt,`id).append!(t)
+odbc::append(conn,pt,"test_append",true)
+
+@testing:case="test_odbc_ClickHouse_append_chinese_table_name",exception=1
+colNames=["字段1","字段2","字段3","字段4"]
+colTypes=[STRING,INT,DOUBLE,DATE]
+中文表=table(1:0,colNames,colTypes)
+insert into 中文表 values((["a","b","c",string()],[1,int(),3,4],[1.0,2.1,3.5,6.5],2019.01.01..2019.01.04))
+assert 1,(exec count(*) from 中文表)==4
+odbc::append(conn,中文表,"中文表",true)
+
+@testing:case="test_odbc_ClickHouse_append_chinese_cols"
+t=table("字段"+string(1..10) as col,"字"+string(1..10) as col1)
+odbc::execute(conn," CREATE TABLE IF NOT EXISTS test_cn(col1 String,col2 VARCHAR(20))engine=TinyLog;")
+odbc::append(conn, t, "test_cn", false, false)
+re = odbc::query(conn, "select * from test_cn")
+assert 1,each(eqObj,re.values(),t.values())
+
+@testing:case="clear_table_chinese"
+odbc::execute(conn,"drop table test_cn;")
+re = odbc::query(conn, "show tables;")
+assert 1, in("test_cn", re.col(0))==false
+
+@testing:case="test_odbc_ClickHouse_append_scpcial_char"
+odbc::execute(conn,"create table test_special_char(col1 varchar(100),col2 varchar(100))engine=TinyLog")
+col1v=["aa\\defcd", "degn/defnfr\\de", "a'def''de"]
+col2v=["一\\", "中文'Dee", "'de\\"]
+t=table(col1v as col1, col2v as col2)
+odbc::append(conn, t, "test_special_char", false)
+re = odbc::query(conn, "select * from test_special_char")
+assert 1, each(eqObj, re.values(), t.values())
+
+@testing:case="clear_table"
+//odbc::execute(conn,"use DolphinDB;")
+odbc::execute(conn,"drop table test_special_char;")
+re = odbc::query(conn, "show tables;")
+assert 1, in("test_special_char", re.col(0))==false
+
+@testing:case="test_odbc_query_all_textType_bigData"
+n = 10000000
+t = table(long(1..n) as col1,"A"+string(1..n) as col2,"B"+string(1..n) as col3,"C"+string(1..n) as col4,"D"+string(1..n) as col5)
+odbc::execute(conn," CREATE TABLE IF NOT EXISTS type_text_bigData(col1 Int64,col2 String,col3 VARCHAR(100),col4 VARCHAR(10),col5 VARCHAR(10))engine=TinyLog;")
+odbc::append(conn, t, "type_text_bigData", false)
+re=odbc::query(conn,"select * from type_text_bigData;")
+assert 1,eqObj(t.values(),re.values())
+
+@testing:case="clear_table_bigData"
+odbc::execute(conn,"drop table type_text_bigData;")
+re = odbc::query(conn, "show tables;")
+assert 1, in("type_text_bigData", re.col(0))==false
+
+@testing:case="test_odbc_execute_delete"
+n = 100
+t = table(long(1..n) as col1,"A"+string(1..n) as col2,"B"+string(1..n) as col3,"C"+string(1..n) as col4,"D"+string(1..n) as col5)
+odbc::append(conn, t, "type_text_delete", true)
+//odbc::execute(conn,"delete from DolphinDB.type_text_delete ")
+
+@testing:case="clear_table_execute_delete"
+//odbc::execute(conn,"use DolphinDB;")
+odbc::execute(conn,"drop table type_text_delete;")
+re = odbc::query(conn, "show tables;")
+assert 1, in("type_text_delete", re.col(0))==false
+
+@testing:case="test_odbc_execute_update"
+n = 100
+t = table(long(1..n) as col1,"A"+string(1..n) as col2,"B"+string(1..n) as col3,"C"+string(1..n) as col4,"D"+string(1..n) as col5)
+odbc::append(conn, t, "type_text_update", true)
+
+@testing:case="clear_table_execute_update"
+odbc::execute(conn,"drop table type_text_update;")
+re = odbc::query(conn, "show tables;")
+assert 1, in("type_text_update", re.col(0))==false
+
+@testing:case="test_odbc_ClickHouse_close"
+conn.close()
+
+@testing:case="test_odbc_afterclose",exception=1
+odbc::query(conn, "show tables;")
+
+/*********************************multiple thread*********************************************/
+@testing:case="test_odbc_multiple thread_query"
+conn = odbc::connect(connStr_ClickHouse,"ClickHouse")
+data = table(1..10 as id , take(`fffff, 10) as id2)
+odbc::execute(conn," CREATE TABLE IF NOT EXISTS multiple_thread(col1 Int64,col2 String)engine=TinyLog;")
+odbc::append(conn, data, "multiple_thread", false)
+
+def queryClickhouse(data,connStr_ClickHouse){
+	for(i in 1..100){
+		conn = odbc::connect(connStr_ClickHouse,"ClickHouse")
+		re=odbc::query(conn, "select * from multiple_thread")
+		assert 1,each(eqObj,re.values(),data.values())
+	}
+}
+jobs=array(STRING)
+for(i in 0:10){
+	jobs.append!(submitJob("data", "dfed", queryClickhouse,data,connStr_ClickHouse))
+}
+for(job in jobs){
+	getJobReturn(job,1)
+}
+
+@testing:case="test_odbc_multiple thread_query_delete"
+odbc::execute(conn,"drop table multiple_thread;")
+re = odbc::query(conn, "show tables;")
+assert 1, in("multiple_thread", re.col(0))==false
+
+@testing:case="test_odbc_multiple_thread_execute"
+conn = odbc::connect(connStr_ClickHouse,"ClickHouse")
+data = table(1..10 as id , take(`fffff, 10) as id2)
+odbc::execute(conn," CREATE TABLE IF NOT EXISTS multiple_thread(col1 Int64,col2 String)engine=TinyLog;")
+odbc::append(conn, data, "multiple_thread", false)
+
+def executeClickhouse(data,connStr_ClickHouse){
+	for(i in 1..100){
+		conn = odbc::connect(connStr_ClickHouse,"ClickHouse")
+		re=odbc::execute(conn, "select * from multiple_thread")
+		odbc::close(conn)
+	}
+}
+jobs=array(STRING)
+for(i in 0:10){
+	jobs.append!(submitJob("data", "dfed", executeClickhouse,data,connStr_ClickHouse))
+}
+for(job in jobs){
+	getJobReturn(job,1)
+}
+
+odbc::execute(conn,"drop table multiple_thread;")
+re = odbc::query(conn, "show tables;")
+assert 1, in("multiple_thread", re.col(0))==false
+
+@testing:case="test_odbc_multiple_thread_append"
+conn = odbc::connect(connStr_ClickHouse,"ClickHouse")
+data = table(1..10 as id , take(`fffff, 10) as id2)
+odbc::execute(conn," CREATE TABLE IF NOT EXISTS multiple_thread(col1 Int64,col2 String)engine=TinyLog;")
+
+def appendClickhouse(data,connStr_ClickHouse){
+	for(i in 1..100){
+		conn = odbc::connect(connStr_ClickHouse,"ClickHouse")
+		odbc::append(conn, data, "multiple_thread", false)
+	}
+}
+jobs=array(STRING)
+for(i in 0:10){
+	jobs.append!(submitJob("data", "dfed", appendClickhouse,data,connStr_ClickHouse))
+}
+for(job in jobs){
+	getJobReturn(job,1)
+}
+conn = odbc::connect(connStr_ClickHouse,"ClickHouse")
+re = odbc::query(conn, "select * from multiple_thread")
+ex = table(100:0, ["id", "id2"], [INT, STRING])
+for(i in 1..1000){
+	ex.append!(data)
+}
+assert 1, each(eqObj,re.values(),ex.values())
+odbc::execute(conn,"drop table multiple_thread;")
+re = odbc::query(conn, "show tables;")
+assert 2, in("multiple_thread", re.col(0))==false
+odbc::close(conn)
