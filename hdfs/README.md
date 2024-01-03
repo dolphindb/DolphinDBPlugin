@@ -337,12 +337,8 @@ hdfs::writeFile(conn,'/tmp/testfile.parquet',re,parquet::saveParquetHdfs)
 
 
 # ReleaseNotes
-
-## 故障修复
-
-* 修复使用方法 hdf5::ls 执行特定类型的 hdf5文件后 server 宕机的问题。（**2.00.10**）
-* 修复并行导入多个文件时 server 宕机的问题。（**2.00.10**）
-
-# 功能优化
-
-* 优化接口 hdf5::saveHDF5 的报错信息。（**2.00.10**）
+## v2.00.10
+1. connect函数支持集群环境下的配置
+2. 优化报错信息
+3. 修复了读文件没有关闭句柄的问题
+4. 修复了无法创建多个hdfs连接的问题
