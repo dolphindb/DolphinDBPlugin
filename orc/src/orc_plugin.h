@@ -23,6 +23,7 @@ namespace ORCPluginImp
 TableSP extractORCSchema(const string &filename);
 extern ConstantSP nullSP;
 extern const string STR_MIN;
+static const string ORC_PREFIX = "[PLUGIN::ORC] ";
 
 std::string getColumnType(const orc::Type *subtype);
 bool getSchemaCol(const orc::Type &schema_descr, const ConstantSP &col_idx, vector<ConstantSP> &dolphindbCol);
@@ -68,7 +69,7 @@ ConstantSP loadFromORCToDatabase(Heap *heap, vector<ConstantSP> &arguments);
 vector<DistributedCallSP> generateORCTasks(Heap* heap, const orc::Reader *reader, const TableSP &schema, const ConstantSP &column, const int rowStart, const int rowNum,
                                           const SystemHandleSP &db, const string &tableName, const ConstantSP &transform);
 
-TableSP generateInMemoryParitionedTable(Heap *heap, const SystemHandleSP &db,
+TableSP generateInMemoryPartitionedTable(Heap *heap, const SystemHandleSP &db,
                                         const ConstantSP &tables, const ConstantSP &partitionNames);
 
 ConstantSP generatePartition(Heap *heap, vector<ConstantSP> &arguments);

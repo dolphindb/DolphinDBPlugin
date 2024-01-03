@@ -1,5 +1,6 @@
 #include "orc_plugin.h"
 #include "Exceptions.h"
+#include "Types.h"
 #include <climits>
 #include <exception>
 
@@ -15,25 +16,26 @@ ConstantSP extractORCSchema(const ConstantSP &filename)
 
 ConstantSP loadORC(Heap *heap, vector<ConstantSP> &arguments)
 {
+    string usage{"orc::loadORC(filename,[schema],[column],[rowStart],[rowNum])"};
     ConstantSP filename = arguments[0];
 
     int rowStart = 0;
     int rowNum = 0;
     ConstantSP schema = ORCPluginImp::nullSP;
     ConstantSP column = new Void();
-    if(filename->getType() != DT_STRING && filename->getType() != DT_RESOURCE)
-        throw IllegalArgumentException(__FUNCTION__, "The filename and dataset must be a string.");
+    if(filename->getForm() != DF_SCALAR || filename->getType() != DT_STRING)
+        throw IllegalArgumentException(__FUNCTION__, usage + "The filename and dataset must be a string.");
     if(arguments.size() >= 2 && !arguments[1]->isNull())
     {
         if(!arguments[1]->isTable())
-            throw IllegalArgumentException(__FUNCTION__, "schema must be a table containing column names and types.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "schema must be a table containing column names and types.");
         else if(!arguments[1]->isNull())
             schema = arguments[1];
     }
     if(arguments.size() >= 3 && !arguments[2]->isNull())
     {
         if(!arguments[2]->isVector() || arguments[2]->getCategory() != INTEGRAL)
-            throw IllegalArgumentException(__FUNCTION__, "column must be a integer vector.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "column must be a integer vector.");
         else
             column = arguments[2];
     }
@@ -43,10 +45,10 @@ ConstantSP loadORC(Heap *heap, vector<ConstantSP> &arguments)
         {
             rowStart = arguments[3]->getInt();
             if(rowStart < 0)
-                throw IllegalArgumentException(__FUNCTION__, "rowStart must be positive.");
+                throw IllegalArgumentException(__FUNCTION__, usage + "rowStart must be positive.");
         }
         else
-            throw IllegalArgumentException(__FUNCTION__, "rowStart must be an integer.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "rowStart must be an integer.");
     }
     if(arguments.size() >= 5 && !arguments[4]->isNull())
     {
@@ -54,16 +56,17 @@ ConstantSP loadORC(Heap *heap, vector<ConstantSP> &arguments)
         {
             rowNum = arguments[4]->getInt();
             if(rowNum < 0)
-                throw IllegalArgumentException(__FUNCTION__, "rowNum must be a positive.");
+                throw IllegalArgumentException(__FUNCTION__, usage + "rowNum must be a positive.");
         }
         else
-            throw IllegalArgumentException(__FUNCTION__, "rowNum must be an integer.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "rowNum must be an integer.");
     }
     return ORCPluginImp::loadORC(filename->getString(), schema, column, rowStart, rowNum);
 }
 
 ConstantSP loadORCHdfs(Heap *heap, vector<ConstantSP> &arguments)
 {
+    string usage{"orc::loadORCHdfs(hdfsAddress, hdfsLength)"};
     if(arguments[0]->getType() != DT_RESOURCE || arguments[0]->getString() != "hdfs readFile address")
         throw IllegalArgumentException(__FUNCTION__,"The first arguments should be resource");
     if(arguments[1]->getType() != DT_RESOURCE || arguments[1]->getString() != "hdfs readFile length")
@@ -76,6 +79,7 @@ ConstantSP loadORCHdfs(Heap *heap, vector<ConstantSP> &arguments)
 
 ConstantSP loadORCEx(Heap *heap, vector<ConstantSP> &arguments)
 {
+    string usage = "orc::loadORCEx(dbHandle,tableName,[partitionColumns],fileName,[schema],[column],[rowStart],[rowNum],[transform])";
     ConstantSP db = arguments[0];
     ConstantSP tableName = arguments[1];
     ConstantSP partitionColumnNames = arguments[2];
@@ -87,24 +91,24 @@ ConstantSP loadORCEx(Heap *heap, vector<ConstantSP> &arguments)
     ConstantSP column = new Void();
 
     if (!db->isDatabase())
-        throw IllegalArgumentException(__FUNCTION__, "dbHandle must be a database handle.");
-    if (tableName->getType() != DT_STRING)
-        throw IllegalArgumentException(__FUNCTION__, "tableName must be a string.");
-    if (!partitionColumnNames->isNull() && partitionColumnNames->getType() != DT_STRING)
-        throw IllegalArgumentException(__FUNCTION__, "The partition columns must be in string or string vector.");
-    if (filename->getType() != DT_STRING)
-        throw IllegalArgumentException(__FUNCTION__, "The filename and dataset for h5read must be a string.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "dbHandle must be a database handle.");
+    if (!tableName->isScalar() || tableName->getType() != DT_STRING)
+        throw IllegalArgumentException(__FUNCTION__, usage + "tableName must be a string scalar.");
+    if (!partitionColumnNames->isNull() && (partitionColumnNames->getType() != DT_STRING || (partitionColumnNames->getForm() != DF_SCALAR && partitionColumnNames->getForm() != DF_VECTOR)))
+        throw IllegalArgumentException(__FUNCTION__, usage + "The partition columns must be in string or string vector.");
+    if (!filename->isScalar() || filename->getType() != DT_STRING)
+        throw IllegalArgumentException(__FUNCTION__, usage + "The filename must be a string scalar.");
     if (arguments.size() >= 5 && !arguments[4]->isNull())
     {
         if (!arguments[4]->isTable())
-            throw IllegalArgumentException(__FUNCTION__, "schema must be a table containing column names and types.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "schema must be a table containing column names and types.");
         else
             schema = arguments[4];
     }
     if (arguments.size() >= 6 && !arguments[5]->isNull())
     {
         if (!arguments[5]->isVector() || arguments[5]->getCategory() != INTEGRAL)
-            throw IllegalArgumentException(__FUNCTION__, "column must be a integer vector");
+            throw IllegalArgumentException(__FUNCTION__, usage + "column must be a integer vector");
         else
             column = arguments[5];
     }
@@ -113,25 +117,25 @@ ConstantSP loadORCEx(Heap *heap, vector<ConstantSP> &arguments)
         if (arguments[6]->isScalar() && arguments[6]->getCategory() == INTEGRAL){
             rowStart = arguments[6]->getInt();
             if (rowStart < 0)
-                throw IllegalArgumentException(__FUNCTION__, "rowStart must be a non-negative integer.");
+                throw IllegalArgumentException(__FUNCTION__, usage + "rowStart must be a non-negative integer.");
         }
         else
-            throw IllegalArgumentException(__FUNCTION__, "rowStart must be an integer.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "rowStart must be an integer.");
     }
     if (arguments.size() >= 8 && !arguments[7]->isNull())
     {
         if (arguments[7]->isScalar() && arguments[7]->getCategory() == INTEGRAL){
             rowNum = arguments[7]->getInt();
             if (rowNum <= 0)
-                throw IllegalArgumentException(__FUNCTION__, "rowNum must be a non-negative integer.");
+                throw IllegalArgumentException(__FUNCTION__, usage + "rowNum must be a non-negative integer.");
         }
         else
-            throw IllegalArgumentException(__FUNCTION__, "rowNum must be an integer.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "rowNum must be an integer.");
     }
     ConstantSP transform;
     if (arguments.size() >= 9 && !arguments[8]->isNull()) {
-        if (arguments[8]->getType() != DT_FUNCTIONDEF)
-            throw IllegalArgumentException(__FUNCTION__, "transform must be a function.");
+        if (!arguments[8]->isScalar() || arguments[8]->getType() != DT_FUNCTIONDEF)
+            throw IllegalArgumentException(__FUNCTION__, usage + "transform must be a function.");
         transform = arguments[8];
     }
     else
@@ -144,19 +148,20 @@ ConstantSP loadORCEx(Heap *heap, vector<ConstantSP> &arguments)
 
 ConstantSP orcDS(Heap *heap, vector<ConstantSP> &arguments)
 {
+    string usage{"orc::orcDS(fileName,chunkSize,[schema],[skipRows])"};
     ConstantSP filename = arguments[0];
     ConstantSP chunkSize = arguments[1];
     int skipRows = 0;
     ConstantSP schema = ORCPluginImp::nullSP;
-    if(filename->getType() != DT_STRING)
-        throw IllegalArgumentException(__FUNCTION__, "filename and dataset for h5read must be a string.");
+    if(!filename->isScalar() || filename->getType() != DT_STRING)
+        throw IllegalArgumentException(__FUNCTION__, usage + "filename must be a string vector.");
     if(chunkSize->isNull() || !chunkSize->isScalar() || chunkSize->getCategory() != INTEGRAL || chunkSize->getInt() <= 0){
-        throw IllegalArgumentException(__FUNCTION__, "chunkSize must be a positive integer");
+        throw IllegalArgumentException(__FUNCTION__, usage + "chunkSize must be a positive integer");
     }
     if(arguments.size() >= 3 && !arguments[2]->isNull())
     {
         if(!arguments[2]->isTable())
-            throw IllegalArgumentException(__FUNCTION__, "schema must be a table containing column names and types.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "schema must be a table containing column names and types.");
         else
             schema = arguments[2];
     }
@@ -165,20 +170,22 @@ ConstantSP orcDS(Heap *heap, vector<ConstantSP> &arguments)
         if (arguments[3]->isScalar() && arguments[3]->getCategory() == INTEGRAL){
             skipRows = arguments[3]->getInt();
             if (skipRows < 0)
-                throw IllegalArgumentException(__FUNCTION__, "skipRows must be a non-negative integer.");
+                throw IllegalArgumentException(__FUNCTION__, usage + "skipRows must be a non-negative integer.");
         }
     }
     return ORCPluginImp::orcDS(filename, chunkSize->getInt(), schema, skipRows);
 }
 
 ConstantSP saveORC(Heap *heap, vector<ConstantSP> &arguments){
+
+    string usage{"`orc::saveORC(table, fileName)"};
     TableSP table = arguments[0];
     ConstantSP fileName = arguments[1];
     if(table->getForm() != DF_TABLE){
         throw IllegalArgumentException(__FUNCTION__, "table must be a table type.");
     }
-    if(fileName->getType() != DT_STRING){
-        throw IllegalArgumentException(__FUNCTION__, "fileName must be a string.");
+    if(!fileName->isScalar() || fileName->getType() != DT_STRING){
+        throw IllegalArgumentException(__FUNCTION__, "fileName must be a string scalar.");
     }
     return ORCPluginImp::saveORC(table, fileName->getString());
 }
@@ -216,7 +223,7 @@ std::string getColumnType(const orc::Type *subtype)
     case orc::TypeKind::DATE:
         return "DATE";
     default:
-        throw RuntimeException("unsupported data type");
+        throw RuntimeException(ORC_PREFIX + "unsupported data type");
     }
 }
 bool getSchemaCol(const orc::Type &schema_descr, const ConstantSP &col_idx, vector<ConstantSP> &dolphindbCol)
@@ -232,7 +239,7 @@ bool getSchemaCol(const orc::Type &schema_descr, const ConstantSP &col_idx, vect
     {
         string name = schema_descr.getFieldName(col_idx->getInt(i));
         if(!Util::isVariableCandidate(name))
-            // throw RuntimeException("column name " + name + " is invalid.");
+            // throw RuntimeException(ORC_PREFIX + "column name " + name + " is invalid.");
             name = "Z" + name;
         string type = getColumnType(schema_descr.getSubtype(col_idx->getInt(i)));
         ConstantSP col_name = new String(name);
@@ -254,7 +261,7 @@ TableSP extractORCSchema(const string &filename)
     vector<ConstantSP> cols(2);
     ConstantSP col_idx = Util::createIndexVector(0, col_num);
     if(!getSchemaCol(schema_descr, col_idx, cols))
-        throw RuntimeException("get schema failed");
+        throw RuntimeException(ORC_PREFIX + "get schema failed");
     vector<string> colNames(2);
     colNames[0] = "name";
     colNames[1] = "type";
@@ -264,7 +271,7 @@ void createNewVectorSP(vector<VectorSP> &dolphindb_v, const TableSP &tb)
 {
     int col_num = dolphindb_v.size();
     if(col_num != tb->columns())
-        throw RuntimeException("schema and column are not match.");
+        throw RuntimeException(ORC_PREFIX + "schema and column are not match.");
     for(int i = 0; i < col_num; i++)
     {
         dolphindb_v[i] = Util::createVector(tb->getColumnType(i), 0);
@@ -284,7 +291,7 @@ TableSP appendColumnVecToTable(TableSP tb, vector<VectorSP> &colVec)
         cols[i] = {colVec[i]};
     }
     if(!tb->append(cols, insertedRows, errMsg))
-        throw TableRuntimeException(errMsg);
+        throw TableRuntimeException(ORC_PREFIX + errMsg);
     return tb;
 }
 bool convertToDTnanotime(orc::TypeKind type, vector<long long> &buffer)
@@ -543,7 +550,7 @@ int parseEnglishMonth(char first, char second, char third){
 	else
 		return 0;
 }
-bool parsePartialDate(const string &str, bool containDelimitor, int& part1, int& part2)
+bool parsePartialDate(const string &str, bool containDelimiter, int& part1, int& part2)
 {
 	if(str.length()<3)
 		return false;
@@ -552,13 +559,13 @@ bool parsePartialDate(const string &str, bool containDelimitor, int& part1, int&
 		part1=parseEnglishMonth(str[0],str[1],str[2]);
 		if(part1==0)
 			return false;
-		start=containDelimitor?4:3;
+		start=containDelimiter?4:3;
 	}
 	else{
 		part1=str[0]-'0';
 		if(Util::isDigit(str[1])){
 			part1=part1*10+str[1]-'0';
-			start=containDelimitor?3:2;
+			start=containDelimiter?3:2;
 		}
 		else
 			start=2;
@@ -851,17 +858,17 @@ bool convertORCToDolphindbBool(int col_idx, orc::StructVectorBatch *root, orc::T
                 else if(str == "false")
                     buffer.push_back(0);
                 else
-                    throw RuntimeException("value of boolean type must be \"true\" or \"false\".");
+                    throw RuntimeException(ORC_PREFIX + "value of boolean type must be \"true\" or \"false\".");
             }
         }
         break;
     }
     case orc::TypeKind::TIMESTAMP:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::TIMESTAMP->" + Util::getDataTypeString(DT_BOOL));
+        throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::TIMESTAMP->" + Util::getDataTypeString(DT_BOOL));
     case orc::TypeKind::DATE:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::DATE->" + Util::getDataTypeString(DT_BOOL));
+        throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::DATE->" + Util::getDataTypeString(DT_BOOL));
     default:
-        throw RuntimeException("unsupported data type.");
+        throw RuntimeException(ORC_PREFIX + "unsupported data type.");
     }
     return true;
 }
@@ -870,7 +877,7 @@ bool convertORCToDolphindbChar(int col_idx, orc::StructVectorBatch *root, orc::T
     switch(type)
     {
     case orc::TypeKind::BOOLEAN:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::BOOLEAN->" + Util::getDataTypeString(DT_CHAR));
+        throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::BOOLEAN->" + Util::getDataTypeString(DT_CHAR));
     case orc::TypeKind::BYTE:
     {
         orc::LongVectorBatch *col_batch = dynamic_cast<orc::LongVectorBatch*>(root->fields[col_idx]);
@@ -889,15 +896,15 @@ bool convertORCToDolphindbChar(int col_idx, orc::StructVectorBatch *root, orc::T
         break;
     }
     case orc::TypeKind::SHORT:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::SHORT->" + Util::getDataTypeString(DT_CHAR));
+        throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::SHORT->" + Util::getDataTypeString(DT_CHAR));
     case orc::TypeKind::INT:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::INT->" + Util::getDataTypeString(DT_CHAR));
+        throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::INT->" + Util::getDataTypeString(DT_CHAR));
     case orc::TypeKind::LONG:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::LONG->" + Util::getDataTypeString(DT_CHAR));
+        throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::LONG->" + Util::getDataTypeString(DT_CHAR));
     case orc::TypeKind::FLOAT:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::FLOAT->" + Util::getDataTypeString(DT_CHAR));
+        throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::FLOAT->" + Util::getDataTypeString(DT_CHAR));
     case orc::TypeKind::DOUBLE:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::DOUBLE->" + Util::getDataTypeString(DT_CHAR));
+        throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::DOUBLE->" + Util::getDataTypeString(DT_CHAR));
     case orc::TypeKind::STRING:
     {
         orc::StringVectorBatch *col_batch = dynamic_cast<orc::StringVectorBatch*>(root->fields[col_idx]);
@@ -905,7 +912,7 @@ bool convertORCToDolphindbChar(int col_idx, orc::StructVectorBatch *root, orc::T
         {
             int64_t len = col_batch->length[r];
             if(len > 1)
-                throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::STRING(length>1)->" + Util::getDataTypeString(DT_CHAR));
+                throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::STRING(length>1)->" + Util::getDataTypeString(DT_CHAR));
             if(col_batch->hasNulls && !col_batch->notNull[r])
             {
                 buffer.push_back(CHAR_MIN);
@@ -925,7 +932,7 @@ bool convertORCToDolphindbChar(int col_idx, orc::StructVectorBatch *root, orc::T
         {
             int64_t len = col_batch->length[r];
             if(len > 1)
-                throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::CHAR(length>1)->" + Util::getDataTypeString(DT_CHAR));
+                throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::CHAR(length>1)->" + Util::getDataTypeString(DT_CHAR));
             if(col_batch->hasNulls && !col_batch->notNull[r])
             {
                 buffer.push_back(CHAR_MIN);
@@ -945,7 +952,7 @@ bool convertORCToDolphindbChar(int col_idx, orc::StructVectorBatch *root, orc::T
         {
             int64_t len = col_batch->length[r];
             if(len > 1)
-                throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::VARCHAR(length>1)->" + Util::getDataTypeString(DT_CHAR));
+                throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::VARCHAR(length>1)->" + Util::getDataTypeString(DT_CHAR));
             if(col_batch->hasNulls && !col_batch->notNull[r])
             {
                 buffer.push_back(CHAR_MIN);
@@ -959,11 +966,11 @@ bool convertORCToDolphindbChar(int col_idx, orc::StructVectorBatch *root, orc::T
         break;
     }
     case orc::TypeKind::TIMESTAMP:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::TIMESTAMP->" + Util::getDataTypeString(DT_CHAR));
+        throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::TIMESTAMP->" + Util::getDataTypeString(DT_CHAR));
     case orc::TypeKind::DATE:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::DATE->" + Util::getDataTypeString(DT_CHAR));
+        throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::DATE->" + Util::getDataTypeString(DT_CHAR));
     default:
-        throw RuntimeException("unsupported data type.");
+        throw RuntimeException(ORC_PREFIX + "unsupported data type.");
     }
     return true;
 }
@@ -974,7 +981,7 @@ bool convertORCToDolphindbInt(int col_idx, orc::StructVectorBatch *root, orc::Ty
     case orc::TypeKind::BOOLEAN:
     {
         if(times_t != DT_INT)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::BOOLEAN->" + Util::getDataTypeString(times_t));
+            throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::BOOLEAN->" + Util::getDataTypeString(times_t));
         orc::LongVectorBatch *col_batch = dynamic_cast<orc::LongVectorBatch*>(root->fields[col_idx]);
         for(uint64_t r = 0; r < col_batch->numElements; ++r)
         {
@@ -994,7 +1001,7 @@ bool convertORCToDolphindbInt(int col_idx, orc::StructVectorBatch *root, orc::Ty
     case orc::TypeKind::BYTE:
     {
         if(times_t != DT_INT)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::BYTE->" + Util::getDataTypeString(times_t));
+            throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::BYTE->" + Util::getDataTypeString(times_t));
         orc::LongVectorBatch *col_batch = dynamic_cast<orc::LongVectorBatch*>(root->fields[col_idx]);
         for(uint64_t r = 0; r < col_batch->numElements; ++r)
         {
@@ -1013,7 +1020,7 @@ bool convertORCToDolphindbInt(int col_idx, orc::StructVectorBatch *root, orc::Ty
     case orc::TypeKind::SHORT:
     {
         if(times_t != DT_INT)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::SHORT->" + Util::getDataTypeString(times_t));
+            throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::SHORT->" + Util::getDataTypeString(times_t));
         orc::LongVectorBatch *col_batch = dynamic_cast<orc::LongVectorBatch*>(root->fields[col_idx]);
         for(uint64_t r = 0; r < col_batch->numElements; ++r)
         {
@@ -1068,7 +1075,7 @@ bool convertORCToDolphindbInt(int col_idx, orc::StructVectorBatch *root, orc::Ty
     case orc::TypeKind::FLOAT:
     {
         if(times_t != DT_INT)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::FLOAT->" + Util::getDataTypeString(times_t));
+            throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::FLOAT->" + Util::getDataTypeString(times_t));
         orc::DoubleVectorBatch *col_batch = dynamic_cast<orc::DoubleVectorBatch*>(root->fields[col_idx]);
         for(uint64_t r = 0; r < col_batch->numElements; ++r)
         {
@@ -1090,7 +1097,7 @@ bool convertORCToDolphindbInt(int col_idx, orc::StructVectorBatch *root, orc::Ty
     case orc::TypeKind::DOUBLE:
     {
         if(times_t != DT_INT)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::DOUBLE->" + Util::getDataTypeString(times_t));
+            throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::DOUBLE->" + Util::getDataTypeString(times_t));
         orc::DoubleVectorBatch *col_batch = dynamic_cast<orc::DoubleVectorBatch*>(root->fields[col_idx]);
         for(uint64_t r = 0; r < col_batch->numElements; ++r)
         {
@@ -1131,7 +1138,7 @@ bool convertORCToDolphindbInt(int col_idx, orc::StructVectorBatch *root, orc::Ty
                 try {
                     intVal = stoi(str);
                 } catch (exception& e) {
-                    throw RuntimeException("\"" + str + "\" can not be transformed can not be transformed to INT data.");
+                    throw RuntimeException(ORC_PREFIX + "\"" + str + "\" can not be transformed can not be transformed to INT data.");
                 }
                 break;
             case DT_DATE:
@@ -1243,7 +1250,7 @@ bool convertORCToDolphindbInt(int col_idx, orc::StructVectorBatch *root, orc::Ty
         break;
     }
     default:
-        throw RuntimeException("unsupported data type.");
+        throw RuntimeException(ORC_PREFIX + "unsupported data type.");
     }
     return true;
 }
@@ -1295,9 +1302,9 @@ bool convertORCToDolphindbLong(int col_idx, orc::StructVectorBatch *root, orc::T
             double value = col_batch->data[r];
             if(col_batch->hasNulls && !col_batch->notNull[r])
                 buffer.push_back(INT64_MIN);
-            else if(value >= INT64_MAX)
+            else if(value >= static_cast<double>(INT64_MAX))
                 buffer.push_back(INT64_MAX);
-            else if(value <= INT64_MIN + 1)
+            else if(value <= static_cast<double>(INT64_MIN + 1))
                 buffer.push_back(INT64_MIN + 1);
             else
             {
@@ -1326,7 +1333,7 @@ bool convertORCToDolphindbLong(int col_idx, orc::StructVectorBatch *root, orc::T
                 try {
                     longVal = stoll(str);
                 } catch (exception& e) {
-                    throw RuntimeException("\"" + str + "\" can not be transformed can not be transformed to LONG data.");
+                    throw RuntimeException(ORC_PREFIX + "\"" + str + "\" can not be transformed can not be transformed to LONG data.");
                 }
                 break;
             case DT_NANOTIME:
@@ -1410,7 +1417,7 @@ bool convertORCToDolphindbLong(int col_idx, orc::StructVectorBatch *root, orc::T
         break;
     }
     default:
-        throw RuntimeException("unsupported data type.");
+        throw RuntimeException(ORC_PREFIX + "unsupported data type.");
     }
     return true;
 }
@@ -1494,11 +1501,11 @@ bool convertORCToDolphindbShort(int col_idx, orc::StructVectorBatch *root, orc::
         break;
     }
     case orc::TypeKind::TIMESTAMP:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::TIMESTAMP->" + Util::getDataTypeString(DT_SHORT));
+        throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::TIMESTAMP->" + Util::getDataTypeString(DT_SHORT));
     case orc::TypeKind::DATE:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::DATE->" + Util::getDataTypeString(DT_SHORT));
+        throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::DATE->" + Util::getDataTypeString(DT_SHORT));
     default:
-        throw RuntimeException("unsupported data type.");
+        throw RuntimeException(ORC_PREFIX + "unsupported data type.");
     }
     return true;
 }
@@ -1561,18 +1568,18 @@ bool convertORCToDolphindbFloat(int col_idx, orc::StructVectorBatch *root, orc::
                 try {
                     buffer.push_back(std::stof(str));
                 } catch (exception& e) {
-                    throw RuntimeException("\"" + str + "\" can not be transformed can not be transformed to FLOAT data.");
+                    throw RuntimeException(ORC_PREFIX + "\"" + str + "\" can not be transformed can not be transformed to FLOAT data.");
                 }
             }
         }
         break;
     }
     case orc::TypeKind::TIMESTAMP:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::TIMESTAMP->" + Util::getDataTypeString(DT_FLOAT));
+        throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::TIMESTAMP->" + Util::getDataTypeString(DT_FLOAT));
     case orc::TypeKind::DATE:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::DATE->" + Util::getDataTypeString(DT_FLOAT));
+        throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::DATE->" + Util::getDataTypeString(DT_FLOAT));
     default:
-        throw RuntimeException("unsupported data type.");
+        throw RuntimeException(ORC_PREFIX + "unsupported data type.");
     }
     return true;
 }
@@ -1635,18 +1642,18 @@ bool convertORCToDolphindbDouble(int col_idx, orc::StructVectorBatch *root, orc:
                 try {
                     buffer.push_back(std::stod(str));
                 } catch (exception& e) {
-                    throw RuntimeException("\"" + str + "\" can not be transformed can not be transformed to DOUBLE data.");
+                    throw RuntimeException(ORC_PREFIX + "\"" + str + "\" can not be transformed can not be transformed to DOUBLE data.");
                 }
             }
         }
         break;
     }
     case orc::TypeKind::TIMESTAMP:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::TIMESTAMP->" + Util::getDataTypeString(DT_DOUBLE));
+        throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::TIMESTAMP->" + Util::getDataTypeString(DT_DOUBLE));
     case orc::TypeKind::DATE:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::DATE->" + Util::getDataTypeString(DT_DOUBLE));
+        throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::DATE->" + Util::getDataTypeString(DT_DOUBLE));
     default:
-        throw RuntimeException("unsupported data type.");
+        throw RuntimeException(ORC_PREFIX + "unsupported data type.");
     }
     return true;
 }
@@ -1657,7 +1664,7 @@ bool convertORCToDolphindbString(int col_idx, orc::StructVectorBatch *root, orc:
     case orc::TypeKind::BOOLEAN:
     {
         if(string_t == DT_UUID || string_t == DT_INT128)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc:BOOLEAN->" + Util::getDataTypeString(string_t));
+            throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc:BOOLEAN->" + Util::getDataTypeString(string_t));
         orc::LongVectorBatch *col_batch = dynamic_cast<orc::LongVectorBatch*>(root->fields[col_idx]);
         for(uint64_t r = 0; r < col_batch->numElements; ++r)
         {
@@ -1674,7 +1681,7 @@ bool convertORCToDolphindbString(int col_idx, orc::StructVectorBatch *root, orc:
     case orc::TypeKind::BYTE:
     {
         if(string_t == DT_UUID || string_t == DT_INT128)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc:BYTE->" + Util::getDataTypeString(string_t));
+            throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc:BYTE->" + Util::getDataTypeString(string_t));
         orc::LongVectorBatch *col_batch = dynamic_cast<orc::LongVectorBatch*>(root->fields[col_idx]);
         for(uint64_t r = 0; r < col_batch->numElements; ++r)
         {
@@ -1693,7 +1700,7 @@ bool convertORCToDolphindbString(int col_idx, orc::StructVectorBatch *root, orc:
     case orc::TypeKind::SHORT:
     {
         if(string_t == DT_UUID || string_t == DT_INT128)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc:SHORT->" + Util::getDataTypeString(string_t));
+            throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc:SHORT->" + Util::getDataTypeString(string_t));
         orc::LongVectorBatch *col_batch = dynamic_cast<orc::LongVectorBatch*>(root->fields[col_idx]);
         for(uint64_t r = 0; r < col_batch->numElements; ++r)
         {
@@ -1712,7 +1719,7 @@ bool convertORCToDolphindbString(int col_idx, orc::StructVectorBatch *root, orc:
     case orc::TypeKind::INT:
     {
         if(string_t == DT_UUID || string_t == DT_INT128)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc:INT->" + Util::getDataTypeString(string_t));
+            throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc:INT->" + Util::getDataTypeString(string_t));
         orc::LongVectorBatch *col_batch = dynamic_cast<orc::LongVectorBatch*>(root->fields[col_idx]);
         for(uint64_t r = 0; r < col_batch->numElements; ++r)
         {
@@ -1731,7 +1738,7 @@ bool convertORCToDolphindbString(int col_idx, orc::StructVectorBatch *root, orc:
     case orc::TypeKind::LONG:
     {
         if(string_t == DT_UUID || string_t == DT_INT128)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc:LONG->" + Util::getDataTypeString(string_t));
+            throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc:LONG->" + Util::getDataTypeString(string_t));
         orc::LongVectorBatch *col_batch = dynamic_cast<orc::LongVectorBatch*>(root->fields[col_idx]);
         for(uint64_t r = 0; r < col_batch->numElements; ++r)
         {
@@ -1750,7 +1757,7 @@ bool convertORCToDolphindbString(int col_idx, orc::StructVectorBatch *root, orc:
     case orc::TypeKind::FLOAT:
     {
         if(string_t == DT_UUID || string_t == DT_INT128)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc:FLOAT->" + Util::getDataTypeString(string_t));
+            throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc:FLOAT->" + Util::getDataTypeString(string_t));
         orc::DoubleVectorBatch *col_batch = dynamic_cast<orc::DoubleVectorBatch*>(root->fields[col_idx]);
         for(uint64_t r = 0; r < col_batch->numElements; ++r)
         {
@@ -1771,7 +1778,7 @@ bool convertORCToDolphindbString(int col_idx, orc::StructVectorBatch *root, orc:
     case orc::TypeKind::DOUBLE:
     {
         if(string_t == DT_UUID || string_t == DT_INT128)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc:DOUBLE->" + Util::getDataTypeString(string_t));
+            throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc:DOUBLE->" + Util::getDataTypeString(string_t));
         orc::DoubleVectorBatch *col_batch = dynamic_cast<orc::DoubleVectorBatch*>(root->fields[col_idx]);
         for(uint64_t r = 0; r < col_batch->numElements; ++r)
         {
@@ -1792,7 +1799,7 @@ bool convertORCToDolphindbString(int col_idx, orc::StructVectorBatch *root, orc:
     case orc::TypeKind::STRING:
     {
         if(string_t == DT_UUID || string_t == DT_INT128)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc:STRING->" + Util::getDataTypeString(string_t));
+            throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc:STRING->" + Util::getDataTypeString(string_t));
         orc::StringVectorBatch *col_batch = dynamic_cast<orc::StringVectorBatch*>(root->fields[col_idx]);
         for(uint64_t r = 0; r < col_batch->numElements; ++r)
         {
@@ -1812,10 +1819,10 @@ bool convertORCToDolphindbString(int col_idx, orc::StructVectorBatch *root, orc:
     case orc::TypeKind::CHAR:
     {
         if(string_t == DT_INT128)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::CHAR->" + Util::getDataTypeString(string_t));
+            throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::CHAR->" + Util::getDataTypeString(string_t));
         orc::StringVectorBatch *col_batch = dynamic_cast<orc::StringVectorBatch*>(root->fields[col_idx]);
         if(string_t == DT_UUID && col_batch->numElements > 0 && col_batch->length[0] != 16)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::CHAR, length NOT 16->" + Util::getDataTypeString(string_t));
+            throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::CHAR, length NOT 16->" + Util::getDataTypeString(string_t));
         for(uint64_t r = 0; r < col_batch->numElements; ++r)
         {
             if(col_batch->hasNulls && !col_batch->notNull[r])
@@ -1834,7 +1841,7 @@ bool convertORCToDolphindbString(int col_idx, orc::StructVectorBatch *root, orc:
     case orc::TypeKind::VARCHAR:
     {
         if(string_t == DT_UUID || string_t == DT_INT128)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc:VARCHAR->" + Util::getDataTypeString(string_t));
+            throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc:VARCHAR->" + Util::getDataTypeString(string_t));
         orc::StringVectorBatch *col_batch = dynamic_cast<orc::StringVectorBatch*>(root->fields[col_idx]);
         for(uint64_t r = 0; r < col_batch->numElements; ++r)
         {
@@ -1852,11 +1859,11 @@ bool convertORCToDolphindbString(int col_idx, orc::StructVectorBatch *root, orc:
         break;
     }
     case orc::TypeKind::TIMESTAMP:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::TIMESTAMP->" + Util::getDataTypeString(string_t));
+        throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::TIMESTAMP->" + Util::getDataTypeString(string_t));
     case orc::TypeKind::DATE:
-        throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " orc::DATE->" + Util::getDataTypeString(string_t));
+        throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::DATE->" + Util::getDataTypeString(string_t));
     default:
-        throw RuntimeException("unsupported data type.");
+        throw RuntimeException(ORC_PREFIX + "unsupported data type.");
     }
     return true;
 }
@@ -1887,7 +1894,7 @@ ConstantSP loadORC(const string &filename, const ConstantSP &schema, const Const
     }
     int totalRow = reader->getNumberOfRows();
     if(rowStart >= totalRow)
-        throw RuntimeException("stripeStart to read is out of range.");
+        throw RuntimeException(ORC_PREFIX + "stripeStart to read is out of range.");
     int rowCount;
     if(rowNum == 0)
     {
@@ -1904,7 +1911,7 @@ ConstantSP loadORC(const string &filename, const ConstantSP &schema, const Const
     {
         vector<ConstantSP> cols(2);
         if(!getSchemaCol(schema_descr, columnToRead, cols))
-            throw RuntimeException("get schema failed.");
+            throw RuntimeException(ORC_PREFIX + "get schema failed.");
         vector<string> colNames(2);
         colNames[0] = "name";
         colNames[1] = "type";
@@ -1972,7 +1979,7 @@ ConstantSP loadORCFromBuf(void *buffer, uint64_t length)
     }
     int totalRow = reader->getNumberOfRows();
     if(rowStart >= totalRow)
-        throw RuntimeException("stripeStart to read is out of range.");
+        throw RuntimeException(ORC_PREFIX + "stripeStart to read is out of range.");
     int rowCount;
     if(rowNum == 0)
     {
@@ -1989,7 +1996,7 @@ ConstantSP loadORCFromBuf(void *buffer, uint64_t length)
     {
         vector<ConstantSP> cols(2);
         if(!getSchemaCol(schema_descr, columnToRead, cols))
-            throw RuntimeException("get schema failed.");
+            throw RuntimeException(ORC_PREFIX + "get schema failed.");
         vector<string> colNames(2);
         colNames[0] = "name";
         colNames[1] = "type";
@@ -2146,7 +2153,7 @@ ConstantSP loadORC(orc::Reader *reader, const ConstantSP &schema, const Constant
                 break;
             }
             default:
-                throw RuntimeException("unsupported data type.");
+                throw RuntimeException(ORC_PREFIX + "unsupported data type.");
                 break;
             }
         }
@@ -2189,7 +2196,7 @@ ConstantSP loadFromORCToDatabase(Heap *heap, vector<ConstantSP> &arguments)
         string id = db->getDomain()->getPartition(arguments[7]->getInt())->getPath();
         string directory = db->getDatabaseDir() + "/" + id;
         if(!DBFileIO::saveBasicTable(heap->currentSession(), directory, loadedTable.get(), tableName, NULL, true, 1, false))
-            throw RuntimeException("Failed to save the table to directory " + directory);
+            throw RuntimeException(ORC_PREFIX + "Failed to save the table to directory " + directory);
         return new Long(loadedTable->rows());
     }
     else
@@ -2200,8 +2207,8 @@ vector<DistributedCallSP> generateORCTasks(Heap* heap, const orc::Reader *reader
                                           const SystemHandleSP &db, const string &tableName, const ConstantSP &transform)
 {
     int maxRowNum = reader->getNumberOfRows();
-    if(rowStart > maxRowNum){
-        throw RuntimeException("rowStart to read is out of range.");
+    if(rowStart >= maxRowNum){
+        throw RuntimeException(ORC_PREFIX + "rowStart to read is out of range.");
     }
     int partitions = floor((maxRowNum - rowStart) / 1000000.0);
     if(rowNum != 0){
@@ -2212,9 +2219,10 @@ vector<DistributedCallSP> generateORCTasks(Heap* heap, const orc::Reader *reader
     if(domain->getPartitionType() == SEQ)
     {
         if(domain->getPartitionCount() <= 1)
-            throw IOException("The database must have at least two partitions.");
+            throw IOException(ORC_PREFIX + "The database must have at least two partitions.");
         partitions = domain->getPartitionCount();
     }
+    partitions = partitions == 0 ? 1: partitions;
 
     vector<DistributedCallSP> tasks;
     ConstantSP _tableName = new String(tableName);
@@ -2228,6 +2236,9 @@ vector<DistributedCallSP> generateORCTasks(Heap* heap, const orc::Reader *reader
     {
         ConstantSP rowStart = new Long(i * rowPerPartition);
         ConstantSP id = new Int(i);
+        if(i == partitions-1) {
+            rowCount->setLong(reader->getNumberOfRows() - i * rowCount->getLong());
+        }
         vector<ConstantSP> args{orcReader, schema, column, rowStart, rowCount, db, _tableName, id, transform};
         ObjectSP call = Util::createRegularFunctionCall(func, args);
         DistributedCallSP task = new DistributedCall(call, true);
@@ -2236,7 +2247,7 @@ vector<DistributedCallSP> generateORCTasks(Heap* heap, const orc::Reader *reader
     return tasks;
 }
 
-TableSP generateInMemoryParitionedTable(Heap *heap, const SystemHandleSP &db,
+TableSP generateInMemoryPartitionedTable(Heap *heap, const SystemHandleSP &db,
                                         const ConstantSP &tables, const ConstantSP &partitionNames)
 {
     FunctionDefSP createPartitionedTable = heap->currentSession()->getFunctionDef("createPartitionedTable");
@@ -2285,7 +2296,7 @@ ConstantSP loadORCEx(Heap *heap, const SystemHandleSP &db, const string &tableNa
     {
         vector<ConstantSP> cols_d(2);
         if(!getSchemaCol(schema_descr, columnToRead, cols_d))
-            throw RuntimeException("get schema failed");
+            throw RuntimeException(ORC_PREFIX + "get schema failed");
         vector<string> colNames(2);
         colNames[0] = "name";
         colNames[1] = "type";
@@ -2311,7 +2322,7 @@ ConstantSP loadORCEx(Heap *heap, const SystemHandleSP &db, const string &tableNa
         {
             const string &errMsg = tasks[i]->getErrorMessage();
             if(!errMsg.empty())
-                throw RuntimeException(errMsg);
+                throw RuntimeException(ORC_PREFIX + errMsg);
         }
         if(inMemory)
         {
@@ -2319,7 +2330,7 @@ ConstantSP loadORCEx(Heap *heap, const SystemHandleSP &db, const string &tableNa
             for(int i = 0; i < partitions; i++)
                 tmpTables->set(i, tasks[i]->getResultObject());
             ConstantSP partitionNames = new String("");
-            return generateInMemoryParitionedTable(heap, db, tmpTables, partitionNames);
+            return generateInMemoryPartitionedTable(heap, db, tmpTables, partitionNames);
         }
         else
         {
@@ -2339,9 +2350,9 @@ ConstantSP loadORCEx(Heap *heap, const SystemHandleSP &db, const string &tableNa
 
             string physicalIndex = tableName;
             if(!DBFileIO::saveTableHeader(owner, physicalIndex, cols, partitionColumnIndices, 0, tableFile, NULL))
-                throw IOException("Failed to save table header " + tableFile);
+                throw IOException(ORC_PREFIX + "Failed to save table header " + tableFile);
             if(!DBFileIO::saveDatabase(db.get()))
-                throw IOException("Failed to save database " + db->getDatabaseDir());
+                throw IOException(ORC_PREFIX + "Failed to save database " + db->getDatabaseDir());
             db->getDomain()->addTable(tableName, owner, physicalIndex, cols, partitionColumnIndices);
             vector<ConstantSP> loadTableArgs = {db, tableName_};
             return heap->currentSession()->getFunctionDef("loadTable")->call(heap, loadTableArgs);
@@ -2378,7 +2389,7 @@ ConstantSP loadORCEx(Heap *heap, const SystemHandleSP &db, const string &tableNa
             if(!tasks[i]->getErrorMessage().empty()){
                 string errMsg;
                 errMsg = tasks[i]->getErrorMessage();
-                throw RuntimeException(errMsg);
+                throw RuntimeException(ORC_PREFIX + errMsg);
             }
         }
         if(!inMemory)
@@ -2467,7 +2478,7 @@ string getORCSchema(const TableSP &table){
             type = "string";
             break;
         default:
-            throw RuntimeException("unsupported type.");
+            throw RuntimeException(ORC_PREFIX + "unsupported type.");
         }
         if(schema == ""){
             schema = name + ":" + type;
@@ -2735,7 +2746,7 @@ static unsigned saveORCBatch(orc::StructVectorBatch *root, const TableSP table, 
             break;
         }
         default:
-            throw RuntimeException("unsupported type.");
+            throw RuntimeException(ORC_PREFIX + "unsupported type.");
         }
         root->fields[i]->numElements = count;
     }
@@ -2755,10 +2766,10 @@ ConstantSP saveORC(const TableSP &table, const string &fileName){
     uint64_t rows = 0;
     while(rows < rowCount){
         orc::StructVectorBatch *root = dynamic_cast<orc::StructVectorBatch*>(batch.get());
-        unsigned writed = saveORCBatch(root, table, rows, std::min(batchSize, rowCount - rows));
-        root->numElements = writed;
+        unsigned wrote = saveORCBatch(root, table, rows, std::min(batchSize, rowCount - rows));
+        root->numElements = wrote;
         writer->add(*batch);
-        rows += writed;
+        rows += wrote;
     }
     writer->close();
     return new Void();
