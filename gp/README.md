@@ -108,7 +108,7 @@ make
 
 #### 语法
 
-gp::plot(data, style, path, [props]）
+gp::plot(data, style, path, [props])
 
 #### 详情
 
@@ -128,6 +128,7 @@ gp::plot(data, style, path, [props]）
     * size: 图片比例，1为初始长度。为数值类型的向量，包含两个元素，表示长和宽的比列。
     * xTics: 数值型标量，表示 X 轴的单位间隔。
     * yTics: 数值型标量，表示 Y 轴的单位间隔。
+    * resolution: INT类型的向量，图片像素。在png和jpeg图像里支持。
   
     以下属性可以设置每个独立图像的特性。
     * lineColor: 字符串标量或向量，表示线条颜色。包含以下值："black", "red", "green", "blue", "cyan", "magenta", "yellow", "navy", "purple", "olive",  "orange", "violet", "pink", "white", "gray"。
@@ -151,3 +152,12 @@ re=gp::plot(data,"line",WORK_DIR+"/test.eps",prop)
 re=gp::plot(data,"line",WORK_DIR+"/test.png",prop)
 re=gp::plot(data,"line",WORK_DIR+"/test.jpeg",prop)
 ```
+
+# Release Notes
+
+## 2.00.11
+
+## 新增功能
+
+- 新增支持对 DATE, MINUTE, SECOND, DATETIME, DATEHOUR 类型的数据进行画图。
+- 新增支持画图时设置 JPEG、PNG 格式的分辨率。

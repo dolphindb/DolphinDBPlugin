@@ -634,8 +634,9 @@ int dataLen[1024];
 int blockIndex;
 int blockSize;
 extern char commandBuffer[1024];
+extern int setRowData(char* str, int column);
 
-char *	
+char *
 gpgetDataLine( FILE *fin )
 {
     int len = 0;
@@ -656,8 +657,7 @@ gpgetDataLine( FILE *fin )
 				strcpy(df_line+index," ");
 				index+=1;
 			}
-			sprintf(str, "%lf",DataPtr[blockIndex][i][dataIndex]);
-			int indexLen=strlen(str);
+			int indexLen = setRowData(str, i);
 			strncpy(df_line+index,str,indexLen);
 			index+=indexLen;
 		}

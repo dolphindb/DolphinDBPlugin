@@ -1,7 +1,8 @@
 #include"gp.h"
-
+// # define DEBUG_GP
 using namespace std;
 double *DataPtr[1024][6];
+ConstantSP ConstantData[1024][6];
 extern int dataIndex;
 //data rows
 int dataSize[1024];
@@ -23,7 +24,15 @@ vector<double> pointSizeVec;
 vector<string> smoothVec;
 extern double pointsize;
 std::string lineColor;
-std::string smooth;
+int resolution[2];
+
+extern "C" int setRowData(char* str, int column){
+    string origin = ConstantData[blockIndex][column]->getString(dataIndex);
+    // std::cout<<"blockIndex"<<blockIndex<<"column"<<column<<"dataIndex"<<dataIndex<<std::endl;
+    // std::cout<<origin<<std::endl;
+    strncpy(str, origin.c_str(), strlen(origin.c_str()) + 1);
+    return strlen(str);
+}
 
 //std::pair<double,double> size;
 void styleSetInit() {
@@ -38,7 +47,6 @@ void styleSetInit() {
     styleSet.insert("boxes");
     styleSet.insert("boxerrorbars");
     styleSet.insert("ellipses");
-    styleSet.insert("circles");
 }
 
 extern "C" int gpInit(int argc, char **argv);
@@ -57,6 +65,9 @@ extern "C" void gpSetCommand(std::string commad) {
     const char *origin = commad.c_str();
     strncpy(commandBuffer, origin, strlen(origin));
     commandBuffer[strlen(origin)] = '\0';
+    #ifdef DEBUG_GP
+    cout<<commad<<endl;
+    #endif
     try {
         com_line();
     }
@@ -68,10 +79,18 @@ extern "C" void gpSetCommand(std::string commad) {
 void gpSetPath(ConstantSP &path) {
     string pathStr = path->getString();
     if(Util::endWith(pathStr, ".png")){
-        gpSetCommand("set terminal png");
+        string tmp = "size 640, 480";
+        if(resolution[0] != 0 && resolution[1] != 0){
+            tmp = "size " + std::to_string(resolution[0]) + ", " + std::to_string(resolution[1]);
+        }
+        gpSetCommand("set terminal png " + tmp);
         gpSetCommand("set output \"" + std::string(pathStr) + "\"");
     }else if(Util::endWith(pathStr, ".jpeg")){
-        gpSetCommand("set terminal jpeg");
+        string tmp = "size 640, 480";
+        if(resolution[0] != 0 && resolution[1] != 0){
+            tmp = "size " + std::to_string(resolution[0]) + ", " + std::to_string(resolution[1]);
+        }
+        gpSetCommand("set terminal jpeg " + tmp);
         gpSetCommand("set output \"" + std::string(pathStr) + "\"");
     }else{
         gpSetCommand("set terminal postscript eps color solid ");
@@ -356,194 +375,132 @@ void gpSetProps(ConstantSP &props) {
             char **p = valueVector->getStringConst(0, size, buffer);
             for (int i = 0; i < size; ++i) {
                 string tmp = string(p[i]);
-                if (tmp == "csplines")
-                    smooth = tmp;
-                else if (tmp == "bezier") 
-                    smooth = tmp;
-                else
+                if (tmp != "csplines" && tmp != "bezier") 
                     throw RuntimeException("smooth must be bezier or csplines");
-                smoothVec.push_back(string(p[i]));
+                smoothVec.push_back(tmp);
             }
-        } else {
+        } else if (strKey == "resolution"){
+            if(value->getType() != DT_INT || value->getForm() != DF_VECTOR){
+                throw RuntimeException("resolution must be a int vector.");
+            }
+            VectorSP data = value;
+            if(data->rows() != 2)
+                throw RuntimeException("the size of resolution must be equal than 2. ");
+            resolution[0] = data->getInt(0);
+            resolution[1] = data->getInt(1);
+            if(resolution[0] <= 0 || resolution[1] <= 0){
+                throw RuntimeException("resolution must be greater than 0. ");
+            }
+        }
+        else {
             throw RuntimeException("the porp " + strKey + " doesn't exist");
         }
     }
 }
 
-void convertData(ConstantSP &data, int blockIndex, int colIndex, std::shared_ptr<double> &ptr) {
-    int subDataSize = data->size();
-    double *buffer = new double[subDataSize];
-    ptr = std::shared_ptr<double>(buffer);
-    if (data->getType() == DT_CHAR) {
-        int frep = subDataSize / mIndex;
-        int index = 0;
-        char tmpBuffer[1024];
-        for (int i = 0; i < frep; ++i) {
-            char *p = data->getCharBuffer(index, mIndex, tmpBuffer);
-            for (int j = 0; j < mIndex; ++j) {
-                if (p[j] == CHAR_MIN)
-                    throw RuntimeException("The plot data can't be null");
-                buffer[index + j] = p[j];
-            }
-            index += mIndex;
+void convertData(ConstantSP &data, int blockIndex, int colIndex, DATA_TYPE& lastType, const string& axesString) {
+    DATA_TYPE currentType = data->getType();
+    if(Util::getCategory(currentType) == DATA_CATEGORY::TEMPORAL && lastType != DT_DOUBLE && currentType != currentType){
+        throw RuntimeException("Time-type data must be of the same data type.");
+    }
+    int rows = data->rows();
+    for(int i = 0; i < rows; ++i){
+        if(data->isNull(i))
+            throw RuntimeException("The plot data can't be null");
+    }
+    string format;
+    switch (currentType)
+    {
+    case DT_CHAR:
+    case DT_SHORT:
+    case DT_INT:
+    case DT_LONG:
+    case DT_FLOAT:
+    case DT_DOUBLE:
+        break;
+    case DT_DATE:
+        format = "%Y.%m.%d";
+        break;
+    case DT_MINUTE:
+        format = "%H:%Mm";
+        break;
+    case DT_SECOND:
+        format = "%H:%M:%S";
+        break;
+    case DT_DATETIME:
+        format = "%Y.%m.%dT%H:%M:%S";
+        break;
+    case DT_DATEHOUR:
+        format = "%Y.%m.%dT%H";
+        break;
+    default:
+        throw RuntimeException("The data type " + std::to_string(currentType) + " is not supported yet");
+    }
+    if(!format.empty()){
+        lastType = currentType;
+        gpSetCommand("set timefmt \"" + format + "\"");
+        gpSetCommand("set format " + axesString + " \"" + format + "\"");
+        if(!axesString.empty()) gpSetCommand("set " + axesString + "data time");
+    }
+    ConstantData[blockIndex][colIndex] = data;
+}
+
+string getPlotConfig(size_t index){
+    string tmp;
+    tmp += titleVector.size() > index ? (" title '" + titleVector[index] + "'") : " notitle";
+    tmp += lineColorVec.size() > index ? " lc rgb \"" + lineColorVec[index] + "\"" : "";
+    tmp += lineWidthVec.size() > index ? " lw " + std::to_string(lineWidthVec[index]) : "";
+    tmp += pointTypeVec.size() > index ? " pt " + std::to_string(pointTypeVec[index]) : "";
+    tmp += pointSizeVec.size() > index ? " ps " + std::to_string(pointSizeVec[index]) : "";
+    tmp += smoothVec.size() > index ? " smooth " + smoothVec[index] : "";
+    return tmp;
+}
+
+string gpSetData(ConstantSP data, const std::string& style, int blockIndex, DATA_TYPE& xDataType, DATA_TYPE yDataType){
+    string plotString;
+    if (data->getForm() == DF_VECTOR){
+        plotString += " '-' using 1 with " + style + getPlotConfig(blockIndex);
+        convertData(data, blockIndex, 0, yDataType, "y");
+        int rows = data->rows();
+        dataSize[blockIndex] = rows;
+        dataLen[blockIndex] = 1;
+        return plotString;
+    }else if (data->getForm() == DF_TABLE){
+        int cols = data->columns();
+        if(cols == 1){
+            return gpSetData(data->getColumn(0), style, blockIndex, xDataType, yDataType);
+        }else{
+            plotString += " '-' using 1:2 with " + style + getPlotConfig(blockIndex);
+            
+            ConstantSP data1 = data->getColumn(0);
+            ConstantSP data2 = data->getColumn(1);
+            convertData(data1, blockIndex, 0, xDataType, "x");
+            convertData(data2, blockIndex, 1, xDataType, "y");
+            dataSize[blockIndex] = data1->size();
+            dataLen[blockIndex] = 2;
+            return plotString;
         }
-        int legacy = subDataSize % mIndex;
-        char *p = data->getCharBuffer(index, legacy, tmpBuffer);
-        for (int j = 0; j < legacy; ++j) {
-            if (p[j] == CHAR_MIN)
-                throw RuntimeException("The plot data can't be null");
-            buffer[index + j] = p[j];
-        }
-        DataPtr[blockIndex][colIndex] = buffer;
-    } else if (data->getType() == DT_SHORT) {
-        int frep = subDataSize / mIndex;
-        int index = 0;
-        short tmpBuffer[1024]; 
-        for (int i = 0; i < frep; ++i) {
-            short *p = data->getShortBuffer(index, mIndex, tmpBuffer);
-            for (int j = 0; j < mIndex; ++j) {
-                if (p[j] == SHRT_MIN)
-                    throw RuntimeException("The plot data can't be null");
-                buffer[index + j] = p[j];
-            }
-            index += mIndex;
-        }
-        int legacy = subDataSize % mIndex;
-        short *p = data->getShortBuffer(index, legacy, tmpBuffer);
-        for (int j = 0; j < legacy; ++j) {
-            if (p[j] == SHRT_MIN)
-                throw RuntimeException("The plot data can't be null");
-            buffer[index + j] = p[j];
-        }
-        DataPtr[blockIndex][colIndex] = buffer;
-    } else if (data->getType() == DT_INT) {
-        int frep = subDataSize / mIndex;
-        int index = 0;
-        int tmpBuffer[1024];
-        for (int i = 0; i < frep; ++i) {
-            int *p = data->getIntBuffer(index, mIndex, tmpBuffer);
-            for (int j = 0; j < mIndex; ++j) {
-                if (p[j] == INT_MIN)
-                    throw RuntimeException("The plot data can't be null");
-                buffer[index + j] = p[j];
-            }
-            index += mIndex;
-        }
-        int legacy = subDataSize % mIndex;
-        int *p = data->getIntBuffer(index, legacy, tmpBuffer);
-        for (int j = 0; j < legacy; ++j) {
-            if (p[j] == INT_MIN)
-                throw RuntimeException("The plot data can't be null");
-            buffer[index + j] = p[j];
-        }
-        DataPtr[blockIndex][colIndex] = buffer;
-    } else if (data->getType() == DT_LONG) {
-        int frep = subDataSize / mIndex;
-        int index = 0;
-        long long tmpBuffer[1024];
-        for (int i = 0; i < frep; ++i) {
-            long long *p = data->getLongBuffer(index, mIndex, tmpBuffer);
-            for (int j = 0; j < mIndex; ++j) {
-                if (p[j] == LONG_MIN)
-                    throw RuntimeException("The plot data can't be null");
-                buffer[index + j] = p[j];
-            }
-            index += mIndex;
-        }
-        int legacy = subDataSize % mIndex;
-        long long *p = data->getLongBuffer(index, legacy, tmpBuffer);
-        for (int j = 0; j < legacy; ++j) {
-            if (p[j] == LONG_MIN)
-                throw RuntimeException("The plot data can't be null");
-            buffer[index + j] = p[j];
-        }
-        DataPtr[blockIndex][colIndex] = buffer;
-    } else if (data->getType() == DT_FLOAT) {
-        int frep = subDataSize / mIndex;
-        int index = 0;
-        float tmpBuffer[1024];
-        for (int i = 0; i < frep; ++i) {
-            float *p = data->getFloatBuffer(index, mIndex, tmpBuffer);
-            for (int j = 0; j < mIndex; ++j) {
-                if (p[j] == FLT_NMIN)
-                    throw RuntimeException("The plot data can't be null");
-                buffer[index + j] = p[j];
-            }
-            index += mIndex;
-        }
-        int legacy = subDataSize % mIndex;
-        float *p = data->getFloatBuffer(index, legacy, tmpBuffer);
-        for (int j = 0; j < legacy; ++j) {
-            if (p[j] == FLT_NMIN)
-                throw RuntimeException("The plot data can't be null");
-            buffer[index + j] = p[j];
-        }
-        DataPtr[blockIndex][colIndex] = buffer;
-    } else if (data->getType() == DT_DOUBLE) {
-        double *p = data->getDoubleBuffer(0, subDataSize, buffer);
-        for (int i = 0; i < subDataSize; ++i) {
-            if (p[i] == DBL_NMIN)
-                throw RuntimeException("The plot data can't be null");
-        }
-        DataPtr[blockIndex][colIndex] = p;
-    } else
-        throw RuntimeException("the elements vector must be char, short, int, long, float, double");
+    }else{
+        throw RuntimeException("The data for plotting must be a vector or a table. ");
+    }
 }
 
 //set the data, plot
 //one point one line, lineCount = cols * rows
 void gpSetData(ConstantSP &data, std::string style) {
+    DATA_TYPE xDataType = DT_DOUBLE;
+    DATA_TYPE yDataType = DT_DOUBLE;
+    string plotString = "plot ";
     if (data->getType() == DT_ANY && data->getForm() == DF_VECTOR) {
-        std::string tmp =
-                "plot '-' with " + style + (titleVector.size() > 0 ? (" title '" + titleVector[0] + "'") : " notitle");
-        if (lineColorVec.size() >= 1)
-            tmp += " lc rgb \"" + lineColorVec[0] + "\"";
-        if (lineWidthVec.size() >= 1)
-            tmp += " lw " + std::to_string(lineWidthVec[0]);
-        if (pointTypeVec.size() >= 1)
-            tmp += " pt " + std::to_string(pointTypeVec[0]);
-        if (pointSizeVec.size() >= 1)
-            tmp += " ps " + std::to_string(pointSizeVec[0]);
-        if (smoothVec.size() >= 1)
-            tmp += " smooth " + smoothVec[0];
-        size_t cols = data->size();
-        for (size_t i = 1; i < cols; ++i) {
-            tmp += (", '-' with " + style +
-                    ((titleVector.size() > i) ? (" title '" + titleVector[i] + "'") : " notitle"));
-            if (lineColorVec.size() > i)
-                tmp += " lc rgb \"" + lineColorVec[i] + "\"";
-            if (lineWidthVec.size() > i)
-                tmp += " lw " + std::to_string(lineWidthVec[i]);
-            if (pointTypeVec.size() > i)
-                tmp += " pt " + std::to_string(pointTypeVec[i]);
-            if (pointSizeVec.size() > i)
-                tmp += " ps " + std::to_string(pointSizeVec[i]);
-            if (smoothVec.size() > i)
-                tmp += " smooth " + smoothVec[i];
-        }
-        std::shared_ptr<double> ptr[cols * 2];
-        for (size_t i = 0; i < cols; ++i) {
+        size_t size = data->rows();
+        for (size_t i = 0; i < size; ++i) {
             ConstantSP sp = data->get(i);
-            if (sp->getForm() == DF_VECTOR) {
+            if (sp->getForm() == DF_VECTOR || sp->getForm() == DF_TABLE) {
                 int subDataSize = sp->size();
-                dataSize[i] = subDataSize;
-                dataLen[i] = 1;
-                convertData(sp, i, 0, ptr[i]);
-            } else if (sp->getForm() == DF_TABLE) {
-                int cows = ((TableSP)sp)->columns();
-                if(cows>=1){
-                    ConstantSP data1 = sp->getColumn(0);
-                    int size = data1->size();
-                    convertData(data1, i, 0, ptr[i]);
-                    dataSize[i] = size;
-                    dataLen[i] = 1;
-                } 
-                if(cows>=2){
-                    ConstantSP data2 = sp->getColumn(1);
-                    convertData(data2, i, 1, ptr[i + cols]);
-                    dataLen[i] = 2;
+                if(i != 0){
+                    plotString += ", ";
                 }
-
+                plotString += gpSetData(sp, style, i, xDataType, yDataType);
             } else {
                 throw RuntimeException(
                         "The elements of a vector have to be vectors, tables,char scalar, short scalar, int scalar, long scalar, float scalar, double scalar");
@@ -551,61 +508,15 @@ void gpSetData(ConstantSP &data, std::string style) {
         }
         dataIndex = 0;
         blockIndex = 0;
-        blockSize = cols;
-        gpSetCommand(tmp);
-    } else if (data->getForm() == DF_VECTOR) {
-        int cols = data->size();
-        std::string tmp =
-                "plot '-' with " + style + (titleVector.size() > 0 ? (" title '" + titleVector[0] + "'") : " notitle");
-        if (lineColorVec.size() >= 1)
-            tmp += " lc rgb \"" + lineColorVec[0] + "\"";
-        if (lineWidthVec.size() >= 1)
-            tmp += " lw " + std::to_string(lineWidthVec[0]);
-        if (pointTypeVec.size() >= 1)
-            tmp += " pt " + std::to_string(pointTypeVec[0]);
-        if (pointSizeVec.size() >= 1)
-            tmp += " ps " + std::to_string(pointSizeVec[0]);
-        if (smoothVec.size() >= 1)
-            tmp += " smooth " + smoothVec[0];
-        std::shared_ptr<double> ptr;
-        convertData(data, 0, 0, ptr);
-        dataIndex = 0;
-        dataSize[0] = cols;
-        dataLen[0] = 1;
-        blockIndex = 0;
-        blockSize = 1;
-        gpSetCommand(tmp);
-    } else if (data->getForm() == DF_TABLE) {
-        TableSP sp = (TableSP) data;
-        std::string tmp =
-                "plot '-' with " + style + (titleVector.size() > 0 ? (" title '" + titleVector[0] + "'") : " notitle");
-        if (lineColorVec.size() >= 1)
-            tmp += " lc rgb \"" + lineColorVec[0] + "\"";
-        if (lineWidthVec.size() >= 1)
-            tmp += " lw " + std::to_string(lineWidthVec[0]);
-        if (pointTypeVec.size() >= 1)
-            tmp += " pt " + std::to_string(pointTypeVec[0]);
-        if (pointSizeVec.size() >= 1)
-            tmp += " ps " + std::to_string(pointSizeVec[0]);
-        if (smoothVec.size() >= 1)
-            tmp += " smooth " + smoothVec[0];
-        int cows = ((TableSP)sp)->columns();
-        std::shared_ptr<double> ptr[2];
-        if(cows>=1){
-            ConstantSP data1 = sp->getColumn(0);
-            convertData(data1, 0, 0, ptr[0]);
-            dataSize[0] = data1->size();
-            dataLen[0] = 1;
-        }
-        if(cows>=2){
-            ConstantSP data2 = sp->getColumn(1);
-            convertData(data2, 0, 1, ptr[1]);
-            dataLen[0] = 2;
-        }
+        blockSize = size;
+        if(size != 0)
+            gpSetCommand(plotString);
+    } else if (data->getForm() == DF_VECTOR || data->getForm() == DF_TABLE) {
+        plotString = "plot " + gpSetData(data, style, 0, xDataType, yDataType);
         dataIndex = 0;
         blockIndex = 0;
         blockSize = 1;
-        gpSetCommand(tmp);
+        gpSetCommand(plotString);
     }
 }
 
@@ -615,6 +526,7 @@ void onePlot() {
     pointTypeVec.clear();
     pointSizeVec.clear();
     smoothVec.clear();
+    titleVector.clear();
     gpSetCommand("unset xrange");
     gpSetCommand("set xrange");
     gpSetCommand("unset yrange");
@@ -627,6 +539,12 @@ void onePlot() {
     gpSetCommand("unset xlabel");
     gpSetCommand("unset ylabel");
     gpSetCommand("unset style");
+    gpSetCommand("set format x \"%f\"");
+    gpSetCommand("set format y \"%f\"");
+    gpSetCommand("unset xdata");
+    gpSetCommand("unset ydata");
+    resolution[0] = 0;
+    resolution[1] = 0;
 }
 
 bool needGpInit = true;
@@ -654,7 +572,8 @@ ConstantSP gpPlot(Heap *heap, vector<ConstantSP> &args) {
         needGpInit = false;
     }
     onePlot();
-    titleVector.clear();
+    if (args.size() > 3)
+        gpSetProps(args[3]);
     try {
         gpSetPath(args[2]);
     }
@@ -662,8 +581,6 @@ ConstantSP gpPlot(Heap *heap, vector<ConstantSP> &args) {
         throw RuntimeException(e);
     }
     gpSetStyle(args[1]->getString());
-    if (args.size() > 3)
-        gpSetProps(args[3]);
     gpSetData(args[0], args[1]->getString());
     return new Bool(true);
 }
