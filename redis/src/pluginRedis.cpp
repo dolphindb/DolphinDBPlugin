@@ -239,17 +239,17 @@ ConstantSP redisPluginBatchSet(Heap *heap, const vector<ConstantSP>& args) {
 			read = rest;
 		}
 
-        string mset = "MSET " + string(keysBuffer[0]) + " " + string(valuesBuffer[0]);
-		for (int i = 1; i < read; i++) {
-            mset += " " + string(keysBuffer[i]) + " " + string(valuesBuffer[i]);
+		for (int i = 0; i < read; i++) {
+			const char* setArgv[3] = {"SET", keysBuffer[i], valuesBuffer[i]};
+			const size_t setArgvLen[3] = {3, strlen(keysBuffer[i]), strlen(valuesBuffer[i])};
+			redisReply *reply = static_cast<redisReply *>(redisCommandArgv(ctx, 3, setArgv, setArgvLen));
+			if (ctx->err || reply == nullptr) {
+				throw RuntimeException("[Plguin::Redis] Execute command failed: " + string(ctx->errstr) + ".");
+			}
+			if (reply->type != REDIS_REPLY_STATUS || strncmp(reply->str, "OK", 2) != 0) {
+				throw RuntimeException("[Plguin::Redis] Set failed: " + string(reply->str) + ".");
+			}
 		}
-        redisReply *reply = static_cast<redisReply *>(redisCommand(ctx, mset.c_str()));
-        if (ctx->err || reply == nullptr) {
-            throw RuntimeException("[Plguin::Redis] Execute command failed: " + string(ctx->errstr) + ".");
-        }
-        if (reply->type != REDIS_REPLY_STATUS || strncmp(reply->str, "OK", 2) != 0) {
-            throw RuntimeException("[Plguin::Redis] Set failed: " + string(reply->str) + ".");
-        }
 	}
 	return new String("batchSet finish.");
 }
