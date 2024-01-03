@@ -201,7 +201,7 @@ mysql::load(conn, "SELECT now(6)");
 
 #### Syntax
 
-mysql::loadEx(connection, dbHandle,tableName,partitionColumns,table_or_query,[schema],[startRow],[rowNum],[transform])
+mysql::loadEx(connection, dbHandle,tableName,partitionColumns,table_or_query,[schema],[startRow],[rowNum],[transform],[sortColumns],[keepDuplicates],[sortKeyMappingFunction])
 
 #### Parameters
 * connection: a MySQL connection handle created with `mysql::connect`.
@@ -211,6 +211,9 @@ mysql::loadEx(connection, dbHandle,tableName,partitionColumns,table_or_query,[sc
 * schema: a table with names and data types of columns. If we need to change the data type of a column that is automatically determined by the system, the schema table needs to be modified and used as an argument.
 * startRow: an integer indicating the index of the starting row to read. If unspecified, read from the first row. If 'table_or_query' is a SQL query, then 'startRow' should unspecified.
 * rowNum: an integer indicating the number of rows to read. If unspecified, read to the last row. If 'table_or_query' is a SQL query, then 'rowNum' should unspecified.
+* sortColumns: a string scalar or vector used to specify the sorting column of the table. The written data will be sorted according to sortColumns. This is only required when creating a table with the TSDB engine.
+* keepDuplicates: specifies how to handle data with identical values for all sortColumns within each partition. "ALL" is used to retain all data and is the default value. "LAST" retains only the most recent data. "FIRST" retains only the first piece of data. This is only required when creating a table with the TSDB engine.
+* sortKeyMappingFunction: a vector composed of unary function objects, with a length consistent with the index columns, that is, the length of sortColumns minus 1. It specifies the mapping functions to be applied to each column in the index columns in order to reduce the number of sort key combinations. This process is called sort key dimensionality reduction. This is only required when creating a table with the TSDB engine.
 
 **Note:** If 'table_or_query' is a SQL query, use 'LIMIT' in SQL query to specify 'startRow' and 'rowNum'.
 
@@ -287,6 +290,26 @@ def replaceTable(mutable t){
 }
 t=mysql::loadEx(conn, db, "",`stockid, 'select  * from US where stockid<=1000000',,,,replaceTable)
 
+```
+
+### 2.6 mysql::close
+
+#### Syntax
+
+mysql::close(connection)
+
+#### Parameters
+
+* connection: a MySQL connection handle created with `mysql::connect`.
+
+#### Details
+
+Disconnect and close the MySQL handle.
+
+#### Examples
+
+```
+conn = mysql::close(conn)
 ```
 
 ## 3. Data Types

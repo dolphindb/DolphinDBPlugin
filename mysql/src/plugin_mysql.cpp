@@ -1,5 +1,6 @@
 #include "plugin_mysql.h"
 #include "ddbplugin/Plugin.h"
+#include "DecimalUtil.h"
 
 using dolphindb::Connection;
 using dolphindb::ConnectionSP;
@@ -17,6 +18,9 @@ ConstantSP safeOp(const ConstantSP &arg, std::function<ConstantSP(Connection *)>
             throw IllegalArgumentException(__FUNCTION__, "Invalid connection handle.");
         }
         auto conn = (Connection *)(arg->getLong());
+        if (conn->isClosed()) {
+            throw RuntimeException("Invalid connection object.");
+        }
         return conn->connected() ? f(conn) : messageSP("Not connected yet.");
     } else {
         throw IllegalArgumentException(__FUNCTION__, "Must be a Resource Object.");
@@ -72,6 +76,22 @@ ConstantSP mysqlConnect(Heap *heap, vector<ConstantSP> &args) {
     dolphindb::littleEndian = Util::isLittleEndian();
     FunctionDefSP onClose(Util::createSystemProcedure("mysql connection onClose()", mysqlConnectionOnClose, 1, 1));
     return Util::createResource((long long)cup.release(), desc.data(), onClose, heap->currentSession());
+}
+
+ConstantSP mysqlClose(Heap *heap, vector<ConstantSP> &args) {
+    std::string usage = "Usage: close(connection).";
+    if (args[0]->getType() != DT_RESOURCE || args[0]->getString().find("mysql connection") != 0) {
+        throw IllegalArgumentException(__FUNCTION__, usage + "Must be a mysql resource object.");
+    }
+    if (args[0]->getLong() == 0) {
+        throw IllegalArgumentException(__FUNCTION__, "Invalid connection handle.");
+    }
+
+    Connection* conn = reinterpret_cast<Connection*>(args[0]->getLong());
+    if(conn != nullptr) {
+        conn->close(); // the actual delete occurs when mysqlConnectionOnClose is called
+    }
+    return new String("Connection is closed.");
 }
 
 ConstantSP mysqlTables(const ConstantSP &connection) {
@@ -131,7 +151,7 @@ ConstantSP mysqlLoad(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP mysqlLoadEx(Heap *heap, vector<ConstantSP> &arguments) {
-    auto args = getArgs(arguments, 9);
+    auto args = getArgs(arguments, 12);
     ConstantSP dbHandle = nullptr;
     std::string tableName, tableInMySQL;
     ConstantSP partitionColumns = nullptr;
@@ -188,19 +208,52 @@ ConstantSP mysqlLoadEx(Heap *heap, vector<ConstantSP> &arguments) {
             throw IllegalArgumentException(__FUNCTION__, usage + "rowNum must be a non-negative integer");
         rowNum = args[7]->getLong();
     }
+
     FunctionDefSP transform;
     if (!args[8]->isNothing()) {
         if (arguments[8]->getType() != DT_FUNCTIONDEF)
             throw IllegalArgumentException(__FUNCTION__, "transform must be a function.");
         transform = (FunctionDefSP)args[8];
+    }
+
+    ConstantSP sortColumns;
+    if (!args[9]->isNothing()) {
+        if (args[9]->getType() != DT_STRING || (args[9]->getForm() != DF_SCALAR && args[9]->getForm() != DF_VECTOR)) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "sortColumns must be a string scalar or vector.");
+        }
+        sortColumns = args[9];
+    }
+
+    ConstantSP keepDuplicates;
+    if (!args[10]->isNothing()) {
+        if (args[10]->getType() != DT_INT || args[10]->getForm() != DF_SCALAR) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "keepDuplicates must be 0~2 or use ALL, FIRST and LAST macro.");
+        }
+        keepDuplicates = args[10];
+    }
+
+    ConstantSP sortKeyMappingFunction;
+    if (!args[11]->isNothing()) {
+        if (args[11]->getType() != DT_ANY || args[11]->getForm() != DF_VECTOR) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "sortKeyMappingFunction must be a function vector.");
+        }
+        int size = args[11]->size();
+        for (int i = 0; i < size; ++i) {
+            if (args[11]->get(i)->getType() != DT_FUNCTIONDEF) {
+                throw IllegalArgumentException(__FUNCTION__, usage + "sortKeyMappingFunction must be a function vector.");
+            }
+        }
+        sortKeyMappingFunction = args[11];
+    }
+
+    if (!transform.isNull()) {
         return safeOp(args[0], [&](Connection *conn) {
-            return conn->loadEx(heap, dbHandle, tableName, partitionColumns, tableInMySQL, schema, startRow, rowNum, transform);
+            return conn->loadEx(heap, dbHandle, tableName, partitionColumns, tableInMySQL, schema, startRow, rowNum, transform, sortColumns, keepDuplicates, sortKeyMappingFunction);
         });
     }
     return safeOp(args[0], [&](Connection *conn) {
-        return conn->loadEx(heap, dbHandle, tableName, partitionColumns, tableInMySQL, schema, startRow, rowNum);
+        return conn->loadEx(heap, dbHandle, tableName, partitionColumns, tableInMySQL, schema, startRow, rowNum, transform, sortColumns, keepDuplicates, sortKeyMappingFunction);
     });
-    
 }
 
 /// Connection
@@ -209,7 +262,7 @@ Connection::~Connection() {
 }
 
 Connection::Connection(std::string hostname, int port, std::string username, std::string password, std::string database)
-    : host_(hostname), user_(username), password_(password), db_(database), port_(port) {
+    : host_(hostname), user_(username), password_(password), db_(database), port_(port), isClosed_(false) {
     try {
         connect(db_.c_str(), host_.c_str(), user_.c_str(), password_.c_str(), port_);
     } catch (mysqlxx::Exception &e) {
@@ -240,8 +293,9 @@ ConstantSP Connection::load(const std::string &table_or_query, const TableSP &sc
     }
 }
 
-ConstantSP Connection::loadEx(Heap *heap, const ConstantSP &dbHandle, const std::string &tableName, const ConstantSP &partitionColumns, const std::string &MySQLTableName_or_query,
-                              const TableSP &schema, const uint64_t &startRow, const uint64_t &rowNum, const FunctionDefSP &transform) {
+ConstantSP Connection::loadEx(Heap *heap, const ConstantSP &dbHandle, const std::string &tableName, const ConstantSP &partitionColumns,
+        const std::string &MySQLTableName_or_query, const TableSP &schema, const uint64_t &startRow, const uint64_t &rowNum, 
+        const FunctionDefSP &transform, const ConstantSP& sortColumns, const ConstantSP& keepDuplicates, const ConstantSP& sortKeyMappingFunction) {
     LockGuard<Mutex> lk(&mtx_);
     DomainSP domain = static_cast<SystemHandleSP>(dbHandle)->getDomain();
     if (domain.isNull()) {
@@ -267,7 +321,25 @@ ConstantSP Connection::loadEx(Heap *heap, const ConstantSP &dbHandle, const std:
         vector<ConstantSP> args{new String(addr), new String(tableName)};
         ret = heap->currentSession()->getFunctionDef("loadTable")->call(heap, args);
     } else {
-        vector<ConstantSP> args{dbHandle, load(MySQLTableName_or_query, schema, 0, 1), new String(tableName), partitionColumns};
+        vector<ConstantSP> args;
+        if (sortColumns.isNull()) {
+            if (!keepDuplicates.isNull() || !sortKeyMappingFunction.isNull()) {
+                throw RuntimeException("Can't specify sortColumns, keepDuplicates and sortKeyMappingFunction for database engines other than TSDB engine.");
+            }
+
+            args = {dbHandle, load(MySQLTableName_or_query, schema, 0, 1), new String(tableName), partitionColumns};
+        } else {
+            args = {dbHandle, load(MySQLTableName_or_query, schema, 0, 1), new String(tableName), partitionColumns, Util::createNullConstant(DT_VOID), sortColumns};
+            if (!keepDuplicates.isNull()) {
+                args.push_back(keepDuplicates);
+            }
+            if (!sortKeyMappingFunction.isNull()) {
+                if (keepDuplicates.isNull()) {
+                    args.push_back(new Void());
+                }
+                args.push_back(sortKeyMappingFunction);
+            }
+        }
         ret = heap->currentSession()->getFunctionDef("createPartitionedTable")->call(heap, args);
     }
 
@@ -283,6 +355,19 @@ ConstantSP Connection::loadEx(Heap *heap, const ConstantSP &dbHandle, const std:
 ConstantSP Connection::extractSchema(const std::string &table) {
     LockGuard<Mutex> lk(&mtx_);
     return MySQLExtractor(query()).extractSchema(table);
+}
+
+void Connection::close() {
+    LockGuard<Mutex> lk(&mtx_);
+    if (isClosed_) {
+        throw RuntimeException("Invalid connection object.");
+    }
+    isClosed_ = true;
+    disconnect();
+}
+
+bool Connection::isClosed() const {
+    return isClosed_;
 }
 
 MySQLExtractor::MySQLExtractor(const mysqlxx::Query &q) : query_(q), emptyPackIdx_(DEFAULT_WORKSPACE_SIZE), fullPackIdx_(DEFAULT_WORKSPACE_SIZE), workspace_(DEFAULT_WORKSPACE_SIZE) {
@@ -303,7 +388,15 @@ TableSP MySQLExtractor::extractSchema(const std::string &table) {
 
         for (int i = 0; i < numFields; ++i) {
             colNames->set(i, new String(res.nameAt(i)));
-            colTypes->set(i, new String(Util::getDataTypeString(getDolphinDBType(res.typeAt(i), res.isUnsignedAt(i), res.isEnumAt(i), res.maxLengthAt(i)))));
+            DATA_TYPE dt = getDolphinDBType(res.typeAt(i), res.isUnsignedAt(i), res.isEnumAt(i), res.maxLengthAt(i));
+            if (dt == DT_DECIMAL) {
+                if (!res.decimalScaleAt(i)) {
+                    dt = chooseDecimalType(res.maxLengthAt(i) - 1); // subtract the negative sign 
+                } else {
+                    dt = chooseDecimalType(res.maxLengthAt(i) - 2); // subtract the negative sign and decimal point
+                }
+            }
+            colTypes->set(i, new String(Util::getDataTypeString(dt)));
             colRawType->set(i, new String(getMySQLTypeStr(res.typeAt(i))));
         }
         res.fetch();    // otherwise mysqlclient will hang
@@ -315,7 +408,7 @@ TableSP MySQLExtractor::extractSchema(const std::string &table) {
             auto res = tmp.use();
             for (int i = 0; i < numFields; ++i) {
                 auto row = res.fetch();
-                colTypesMySQL->set(i, new String(row[1].data()));
+                colTypesMySQL->set(i, new String(string(row[1].data())));
             }
         }
 #ifdef DEBUG
@@ -333,6 +426,19 @@ TableSP MySQLExtractor::extract(const ConstantSP &schema ,const bool &allowEmpty
         auto res = query_.use();
         prepareForExtract(schema, res);
         TableSP t = Util::createTable(colNames_, dstColTypes_, 0, 0);
+        if (hasDecimal_) { // rebuild the table to set scale for decimal columns
+            vector<ConstantSP> cols(2);
+            int sz = colNames_.size();
+            cols[0] = Util::createVector(DT_STRING, sz);
+            cols[1] = Util::createVector(DT_STRING, sz);
+            for (int i = 0; i < sz; ++i) {
+                cols[0]->setString(i, colNames_[i]);
+                cols[1]->setString(i, Util::getDataTypeString(dstColTypes_[i]));
+            }
+
+            TableSP schemaTable = Util::createTable({"name", "type"}, cols);
+            t = DBFileIO::createEmptyTableFromSchema(schemaTable, srcDecimalScale_);
+        }
 
         realExtract(res, schema, t, [&](Pack &p) { growTable(t, p); });
         if (t->size() == 0 && !allowEmptyTable) {
@@ -359,7 +465,7 @@ void MySQLExtractor::realExtract(mysqlxx::UseQueryResult &res, const ConstantSP 
         assert(emptyPackIdx_.size() == 0);
         assert(fullPackIdx_.size() == 0);
         for (int i = 0; i < (int)workspace_.size(); ++i) {
-            workspace_[i].init(srcColTypes_, dstColTypes_, resultTable, maxStrLen_);
+            workspace_[i].init(srcColTypes_, srcDecimalScale_, dstColTypes_, resultTable, maxStrLen_);
             emptyPackIdx_.push(i);
         }
     } catch (mysqlxx::Exception &e) {
@@ -437,10 +543,16 @@ void MySQLExtractor::realExtract(mysqlxx::UseQueryResult &res, const ConstantSP 
 }
 
 void MySQLExtractor::prepareForExtract(const ConstantSP &schema, mysqlxx::ResultBase &res) {
+    bool useSchema = !schema.isNull();
+    if (useSchema) {
+        dstColTypes_ = getDstType(schema);
+    }
     colNames_ = getColNames(res);
-    srcColTypes_ = getColTypes(res);
+    srcColTypes_ = getColTypes(res, useSchema);
     maxStrLen_ = getMaxStrlen(res);
-    dstColTypes_ = schema.isNull() ? srcColTypes_ : getDstType(schema);
+    if (!useSchema) {
+        dstColTypes_ = srcColTypes_;
+    }
     compatible(dstColTypes_, srcColTypes_);
 }
 
@@ -491,16 +603,32 @@ void MySQLExtractor::growTableEx(TableSP &t, Pack &p, Heap *heap, const Function
     });
 }
 
+DATA_TYPE MySQLExtractor::chooseDecimalType(const int& length) {
+    if (length < 1 || length > 38) {
+        throw RuntimeException("Invalid length for decimal type.");
+    }
+
+    if (length <= 9) {
+        return DT_DECIMAL32;
+    } else if (length <= 18) {
+        return DT_DECIMAL64;
+    }
+    return DT_DECIMAL128;
+}
+
 void MySQLExtractor::realGrowTable(Pack &p, std::function<void(vector<ConstantSP> &)> &&callback) {
     auto buffers = p.data();
     int nCol = p.nCol();
     vector<ConstantSP> cols(nCol);
     int len = p.size();
     for (int idx = 0; idx < nCol; ++idx) {
-        if (dstColTypes_[idx] == DT_SYMBOL)
+        if (dstColTypes_[idx] == DT_SYMBOL) {
             cols[idx] = Util::createVector(DT_STRING, len, len);
-        else
+        } else if (dstColTypes_[idx] == DT_DECIMAL32 || dstColTypes_[idx] == DT_DECIMAL64 || dstColTypes_[idx] == DT_DECIMAL128) {
+            cols[idx] = Util::createVector(dstColTypes_[idx], len, len, true, srcDecimalScale_[idx]);
+        } else {
             cols[idx] = Util::createVector(dstColTypes_[idx], len, len);
+        }
         VectorSP vec = cols[idx];
         char *colBuffer = buffers[idx];
         switch (dstColTypes_[idx]) {
@@ -532,9 +660,18 @@ void MySQLExtractor::realGrowTable(Pack &p, std::function<void(vector<ConstantSP
             case DT_DOUBLE:
                 vec->setDouble(0, len, (double*)colBuffer);
                 break;
-           case DT_SYMBOL:
+            case DT_SYMBOL:
             case DT_STRING:
                 vec->setString(0, len, (char **)colBuffer);
+                break;
+            case DT_DECIMAL32:
+                vec->setDecimal32(0, len, srcDecimalScale_[idx], (const int*)colBuffer);
+                break;
+            case DT_DECIMAL64:
+                vec->setDecimal64(0, len, srcDecimalScale_[idx], (const long long*)colBuffer);
+                break;
+            case DT_DECIMAL128:
+                vec->setDecimal128(0, len, srcDecimalScale_[idx], (const wide_integer::int128*)colBuffer);
                 break;
             default:
                 throw RuntimeException("The " + Util::getDataTypeString(dstColTypes_[idx]) + " type is not supported to realGrowTable");
@@ -555,12 +692,33 @@ vector<string> MySQLExtractor::getColNames(mysqlxx::ResultBase &res) {
     return ret;
 }
 
-vector<DATA_TYPE> MySQLExtractor::getColTypes(mysqlxx::ResultBase &res) {
+vector<DATA_TYPE> MySQLExtractor::getColTypes(mysqlxx::ResultBase &res, bool useSchema) {
     auto nCols = res.getNumFields();
     auto ret = vector<DATA_TYPE>(nCols);
+    auto scales = vector<long long>(nCols);
+    if (useSchema && dstColTypes_.size() != nCols) {
+        throw RuntimeException("Invalid schema table.");
+    }
     for (size_t i = 0; i < nCols; ++i) {
         ret[i] = getDolphinDBType(res.typeAt(i), res.isUnsignedAt(i), res.isEnumAt(i), res.maxLengthAt(i));
+        if (ret[i] == DT_DECIMAL) {
+            if (useSchema && dstColTypes_[i] == DT_DOUBLE) {
+                ret[i] = DT_DOUBLE;
+            } else {
+                if (!hasDecimal_) {
+                    hasDecimal_ = true;
+                }
+
+                scales[i] = res.decimalScaleAt(i);
+                if (!scales[i]) {
+                    ret[i] = chooseDecimalType(res.maxLengthAt(i) - 1); // subtract the negative sign 
+                } else {
+                    ret[i] = chooseDecimalType(res.maxLengthAt(i) - 2); // subtract the negative sign and decimal point
+                }     
+            }
+        }
     }
+    srcDecimalScale_ = std::move(scales);
     return ret;
 }
 
@@ -589,6 +747,10 @@ vector<size_t> MySQLExtractor::getMaxStrlen(mysqlxx::ResultBase &res) {
 // !? need more consideration on type conversion
 vector<DATA_TYPE> MySQLExtractor::getDstType(const TableSP &schemaTable) {
     vector<DATA_TYPE> ret;
+    if (schemaTable->columns() < 2) {
+        throw RuntimeException("Invalid schema table.");
+    }
+
     auto schema = schemaTable->getColumn(1);
     for (int i = 0; i < schema->size(); ++i) {
         ret.emplace_back(Util::getDataType(schema->getString(i)));
@@ -596,7 +758,7 @@ vector<DATA_TYPE> MySQLExtractor::getDstType(const TableSP &schemaTable) {
 
     for (auto &t : ret) {
         auto cat = Util::getCategory(t);
-        if (cat != LOGICAL && cat != INTEGRAL && cat != FLOATING && cat != TEMPORAL && cat != LITERAL) {
+        if (cat != LOGICAL && cat != INTEGRAL && cat != FLOATING && cat != TEMPORAL && cat != LITERAL  && cat != DENARY) {
             throw RuntimeException("The " + Util::getDataTypeString(t) + " type is not supported");
         }
     }
@@ -614,12 +776,13 @@ unsigned long long Pack::getRowStorage(vector<DATA_TYPE> types, vector<size_t> m
     return ret;
 }
 
-void Pack::init(vector<DATA_TYPE> srcDt, vector<DATA_TYPE> dstDt, TableSP &resultTable, vector<size_t> maxStrLen, size_t cap) {
+void Pack::init(const vector<DATA_TYPE>& srcDt, const vector<long long>& srcDecimalScale, const vector<DATA_TYPE>& dstDt, TableSP &resultTable, vector<size_t> maxStrLen, size_t cap) {
     assert(srcDt.size() == dstDt.size());
     nCol_ = srcDt.size();
     size_ = 0;
     capacity_ = cap;
     srcDt_ = srcDt;
+    srcDecimalScale_ = srcDecimalScale;
     dstDt_ = dstDt;
     typeLen_.resize(nCol_);
     rawBuffers_.resize(nCol_);
@@ -722,6 +885,15 @@ void Pack::append(const mysqlxx::Row &row) {
                     case DT_SYMBOL:
                     case DT_STRING:
                             containNull_[col] = containNull_[col] | parseString(dst, val, maxStrLen_[col]);
+                        break;
+                    case DT_DECIMAL32:
+                        containNull_[col] = containNull_[col] | parseDecimal(dst, val, srcDecimalScale_[col], dstDt_[col], nullVal_[col], typeLen_[col]);
+                        break;
+                    case DT_DECIMAL64:
+                        containNull_[col] = containNull_[col] | parseDecimal(dst, val, srcDecimalScale_[col], dstDt_[col], nullVal_[col], typeLen_[col]);
+                        break;
+                    case DT_DECIMAL128:
+                        containNull_[col] = containNull_[col] | parseDecimal(dst, val, srcDecimalScale_[col], dstDt_[col], nullVal_[col], typeLen_[col]);
                         break;
                     default:
                         throw RuntimeException("The " + Util::getDataTypeString(srcDt_[col]) + " type is not supported to pack append");
@@ -1035,6 +1207,34 @@ bool parseNanotime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char*
     return false;
 }
 
+bool parseDecimal(char *dst, const mysqlxx::Value &val, const long long& scale, DATA_TYPE &dstDt, char* nullVal, size_t len){
+    if(val.empty()){
+        memcpy(dst, nullVal, len);
+        return true;
+    }
+
+    if (scale > INT32_MAX) {
+        throw RuntimeException("Scale too big, can not greater than INT32_MAX.");
+    }
+    int s = static_cast<int>(scale);
+    if (len == 4) {
+        Decimal32::raw_data_t rawData; // int
+        decimal_util::toDecimal(string(val.data()), s, rawData);
+        memcpy(dst, &rawData, len);
+    } else if (len == 8) {
+        Decimal64::raw_data_t rawData; // long long
+        decimal_util::toDecimal(string(val.data()), s, rawData);
+        memcpy(dst, &rawData, len);
+    } else if (len == 16) {
+        Decimal128::raw_data_t rawData; // wide_integer::int128
+        decimal_util::toDecimal(string(val.data()), s, rawData);
+        memcpy(dst, &rawData, len);
+    } else {
+        throw RuntimeException("The size of decimal can only be 4, 8 and 16 bytes.");
+    }
+    return false;
+}
+
 static string bin2str(const char* tmp, size_t len, size_t maxStrLen)
 {
     string data;
@@ -1153,9 +1353,10 @@ DATA_TYPE getDolphinDBType(mysqlxx::enum_field_types type, bool isUnsigned, bool
         case MYSQL_TYPE_LONGLONG:
             return DT_LONG;
         case MYSQL_TYPE_DOUBLE:
+            return DT_DOUBLE;
         case MYSQL_TYPE_DECIMAL:
         case MYSQL_TYPE_NEWDECIMAL:
-            return DT_DOUBLE;
+            return DT_DECIMAL;
         case MYSQL_TYPE_FLOAT:
             return DT_FLOAT;
         case MYSQL_TYPE_DATE:
@@ -1260,6 +1461,12 @@ size_t typeLen(DATA_TYPE dt) {
         case DT_SYMBOL:
         case DT_STRING:
             return sizeof(char *);
+        case DT_DECIMAL32:
+            return 4;
+        case DT_DECIMAL64:
+            return 8;
+        case DT_DECIMAL128:
+            return 16;
         // case DT_VOID:
         // case DT_UUID:
         // case DT_FUNCTIONDEF:
@@ -1278,19 +1485,13 @@ size_t typeLen(DATA_TYPE dt) {
 
 bool compatible(DATA_TYPE dst, DATA_TYPE src) {
     // could convert any type to STRING
-    if (dst == DT_STRING)
+    if (dst == DT_STRING && Util::getCategory(src) != DENARY) // Not support convert decimal to string yet
         return true;
     if (dst == DT_SYMBOL && src == DT_STRING)
         return true;
 
     auto c1 = Util::getCategory(dst), c2 = Util::getCategory(src);
     set<DATA_CATEGORY> num{LOGICAL, INTEGRAL, FLOATING};
-    // set<DATA_TYPE > time{DT_TIME, DT_TIMESTAMP, DT_NANOTIME,
-    // DT_NANOTIMESTAMP}; from TIMESTAMP to DATETIME, DATE, TIME, NANODATETIME,
-    // NANOTIMESTAMP, NANOTIME from DATETIME to TIMESTAMP, DATE, TIME,
-    // NANODATETIME, NANOTIMESTAMP, NANOTIME {DT_TIMESTAMP, DT_NANOTIME,
-    // DT_NANOTIMESTAMP, DT_DATE, DT_MONTH, DT_TIME, DT_MINUTE, DT_SECOND,
-    // DT_DATETIME};
 
     if (src == dst) {
         return true;
@@ -1301,8 +1502,10 @@ bool compatible(DATA_TYPE dst, DATA_TYPE src) {
     } else if (src == DT_TIME && dst != DT_NANOTIME && dst != DT_MINUTE && dst != DT_SECOND) {
         return false;
     } else if (c1 == c2) {
-        return true;
+        return (c1 == DENARY && src != dst) ? false : true;
     } else if (num.count(c1) && num.count(c2)) {
+        return true;
+    } else if (c2 == DENARY && dst == DT_DOUBLE) {
         return true;
     }
     return false;

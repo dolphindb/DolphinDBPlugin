@@ -19,6 +19,7 @@ using std::chrono::nanoseconds;
 #endif
 
 extern "C" ConstantSP mysqlConnect(Heap *heap, vector<ConstantSP> &args);
+extern "C" ConstantSP mysqlClose(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP mysqlSchema(const ConstantSP &connection, const ConstantSP &table);
 extern "C" ConstantSP mysqlLoad(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP mysqlTables(const ConstantSP &connection);
@@ -40,6 +41,7 @@ bool parseMinute(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* n
 bool parseSecond(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
 bool parseDatetime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len);
 bool parseBit(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nullVal, size_t len, size_t maxStrLen);
+bool parseDecimal(char *dst, const mysqlxx::Value &val, const long long& scale, DATA_TYPE &dstDt, char* nullVal, size_t len);
 
 const set<DATA_TYPE> time_type{DT_TIMESTAMP, DT_NANOTIME, DT_NANOTIMESTAMP, DT_DATE, DT_MONTH, DT_TIME, DT_MINUTE, DT_SECOND, DT_DATETIME};
 bool compatible(DATA_TYPE dst, DATA_TYPE src);
@@ -87,11 +89,19 @@ class Connection : public mysqlxx::Connection {
                       const TableSP &schema = nullptr,
                       const uint64_t &startRow = 0,
                       const uint64_t &rowNum = std::numeric_limits<uint64_t>::max(),
-                      const FunctionDefSP &transform = nullptr);
+                      const FunctionDefSP &transform = nullptr,
+                      const ConstantSP& sortColumns = nullptr,
+                      const ConstantSP& keepDuplicates = nullptr,
+                      const ConstantSP& sortKeyMappingFunction = nullptr);
     std::string str() { return user_ + "@" + host_ + ":" + std::to_string(port_) + "/" + db_; }
+
+    void close();
+
+    bool isClosed() const;
 
    private:
     bool isQuery(std::string);
+    bool isClosed_;
     Mutex mtx_;
 };
 
@@ -113,12 +123,14 @@ class MySQLExtractor {
     void growTable(TableSP &t, Pack &p);
     void growTableEx(TableSP &t, Pack &p, Heap *heap, const FunctionDefSP &transform);
 
+    static DATA_TYPE chooseDecimalType(const int& length);
+
    private:
     vector<DATA_TYPE> getDstType(const TableSP &schema);
     void realExtract(mysqlxx::UseQueryResult &res, const ConstantSP &schema, TableSP &resultTable, std::function<void(Pack &pack)>);
     void realGrowTable(Pack &p, std::function<void(vector<ConstantSP> &)> &&callback);
     vector<string> getColNames(mysqlxx::ResultBase &);
-    vector<DATA_TYPE> getColTypes(mysqlxx::ResultBase &);
+    vector<DATA_TYPE> getColTypes(mysqlxx::ResultBase &, bool useSchema);
     vector<size_t> getMaxStrlen(mysqlxx::ResultBase &);
     void workerRequest();
     void workerRelease();
@@ -132,6 +144,9 @@ class MySQLExtractor {
     vector<DATA_TYPE> dstColTypes_;
     vector<size_t> maxStrLen_;
 
+    bool hasDecimal_ = false;
+    vector<long long> srcDecimalScale_; // sacle value when src type is decimal type
+
     Query query_;
     BlockingBoundedQueue<int, true> emptyPackIdx_, fullPackIdx_;
     vector<Pack> workspace_;
@@ -143,7 +158,7 @@ class Pack {
    public:
     Pack() : rawBuffers_(0), typeLen_(0), nCol_(0), size_(0), capacity_(0), srcDt_(0), dstDt_(0){};
     ~Pack();
-    void init(vector<DATA_TYPE> srcDt, vector<DATA_TYPE> dstDt, TableSP &t, vector<size_t> maxStrlen, size_t cap = DEFAULT_PACK_SIZE);
+    void init(const vector<DATA_TYPE>& srcDt, const vector<long long>& srcDecimalScale, const vector<DATA_TYPE>& dstDt, TableSP &t, vector<size_t> maxStrlen, size_t cap = DEFAULT_PACK_SIZE);
     void append(const mysqlxx::Row &);
     void clear();
 
@@ -166,6 +181,7 @@ class Pack {
     size_t size_;
     size_t capacity_;
     vector<DATA_TYPE> srcDt_, dstDt_;
+    vector<long long> srcDecimalScale_;
     size_t initedCols_ = 0;
     vector<char*> nullVal_;
     vector<bool> containNull_;
@@ -300,6 +316,21 @@ void getValNull(DATA_TYPE type, char* buf){
         case DT_DOUBLE:{
             double nullV = DBL_NMIN;
             memcpy(buf, &nullV, sizeof(double));
+            return;
+        }
+        case DT_DECIMAL32:{
+            int nullV = INT_MIN;
+            memcpy(buf, &nullV, sizeof(int));
+            return;
+        }
+        case DT_DECIMAL64:{
+            long long nullV = LLONG_MIN;
+            memcpy(buf, &nullV, sizeof(long long));
+            return;
+        }
+        case DT_DECIMAL128:{
+            wide_integer::int128 nullV = wide_integer::int128MinValue();
+            memcpy(buf, &nullV, sizeof(wide_integer::int128));
             return;
         }
         // case DT_SYMBOL:

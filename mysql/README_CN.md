@@ -2,92 +2,37 @@
 
 DolphinDB的MySQL导入插件可将MySQL中的数据表或语句查询结果高速导入DolphinDB，并且支持数据类型转换。本插件的部分设计参考了来自Yandex.Clickhouse的mysqlxx组件。
 
-mysql插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/mysql/README_CN.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/mysql/README_CN.md), [relsease120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/mysql/README_CN.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/mysql/README_CN.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
+## 1. 在插件市场安装插件
 
-## 1. 安装
+### 版本要求
 
-### 1.1 预编译安装
+- DolphinDB Server: 2.00.10及更高版本
 
-用户可以导入预编译好的MySQL插件（DolphinDB安装包中或者bin目录下)。
+### 安装步骤
 
+1. 在DolphinDB 客户端中使用 [listRemotePlugins](../../funcs/l/listRemotePlugins.dita) 命令查看插件仓库中的插件信息。
+    
+    ```
+    login("admin", "123456")
+    listRemotePlugins(, "http://plugins.dolphindb.cn/plugins/")
+    ```
+    
+1. 使用 [installPlugin](../../funcs/i/installPlugin.dita) 命令完成插件安装。
+    
+    ```
+    installPlugin("mysql")
+    ```
+    
+    返回：<path_to_MySQL_plugin>/PluginMySQL.txt
+    
+    
+1. 使用 loadPlugin 命令加载插件（即上一步返回的.txt文件）。
 
-在DolphinDB中执行以下命令导入MySQL插件：
-
-Linux环境：
-```
-loadPlugin("/path/to/plugins/mysql/PluginMySQL.txt")
-```
-
-Windows环境(假设安装在C盘上)：
-
-```
-loadPlugin("C:/path/to/mysql/PluginMySQL.txt")
-```
-请注意，必须指定绝对路径，且路径中使用"\\\\"或"/"代替"\\"。
-
-### 1.2 编译安装
-
-可使用以下方法编译MySQL插件，编译成功后通过以上方法导入。
-
-
-#### 在Linux环境中编译安装
-
-##### 环境准备
-
-安装 [git](https://git-scm.com/) 和 [CMake](https://cmake.org/)。
-
-Ubuntu用户只需要在命令行输入以下命令即可：
-```bash
-$ sudo apt-get install git cmake
-```
-
-然后通过更新git子模块来下载[mariadb-connector-c](https://github.com/MariaDB/mariadb-connector-c)的源文件。
-```
-$ git submodule update --init --recursive
-```
-
-
-安装cmake：
-```
-sudo apt-get install cmake
-```
-
-##### cmake编译
-
-构建插件内容：
-```
-mkdir build
-cd build
-cmake -DCMAKE_BUILD_TYPE=Release ../path/to/mysql_plugin/
-make -j`nproc`
-```
-
-**注意:** 编译之前请确保libDolphinDB.so在gcc可搜索的路径中。可使用LD_LIBRARY_PATH指定其路径，或者直接将其拷贝到build目录下。
-
-编译之后目录下会产生libPluginMySQL.so文件。
-
-
-#### 在Windows环境中编译安装
-
-##### 在Windows环境中需要使用CMake和MinGW编译
-
-* 下载安装[MinGW](http://www.mingw.org/)。确保将bin目录添加到系统环境变量Path中。 
-
-* 下载安装[cmake](https://cmake.org/)。
-
-##### cmake编译
-
-在编译开始之前，要将libDolphinDB.dll和包含curl头文件的文件夹拷贝到build文件夹内。
-
-构建插件内容：
-```
-mkdir build                                                        # 新建build目录
-cp path_to_libDolphinDB.dll/libDolphinDB.dll build                 # 拷贝 libDolphinDB.dll 到build目录下
-cp -r curl build                                                   # 拷贝 curl 头文件到build目录下
-cd build
-cmake -DCMAKE_BUILD_TYPE=Release ../path_to_mysql_plugin/ -G "MinGW Makefiles"
-mingw32-make -j4
-```
+    ```
+    loadPlugin("<path_to_MySQL_plugin>/PluginMySQL.txt")
+    ```
+    
+     **注意**：若使用 Windows 插件，加载时必须指定绝对路径，且路径中使用"\\\\"或"/"代替"\\"。
 
 ## 2.用户接口
 
@@ -215,7 +160,7 @@ mysql::load(conn, "SELECT now(6)");
 
 #### 语法
 
-mysql::loadEx(connection, dbHandle,tableName,partitionColumns,table_or_query,[schema],[startRow],[rowNum],[transform])
+mysql::loadEx(connection, dbHandle,tableName,partitionColumns,table_or_query,[schema],[startRow],[rowNum],[transform],[sortColumns],[keepDuplicates],[sortKeyMappingFunction])
 
 #### 参数
 
@@ -227,6 +172,9 @@ mysql::loadEx(connection, dbHandle,tableName,partitionColumns,table_or_query,[sc
 * startRow: 读取MySQL表的起始行数，若不指定，默认从数据集起始位置读取。若'table_or_query'是查询语句，则这个参数不起作用。
 * rowNum: 读取MySQL表的行数，若不指定，默认读到数据集的结尾。若'table_or_query'是查询语句，则这个参数不起作用。
 * transform: 导入到DolphinDB数据库前对MySQL表进行转换，例如替换列。
+* sortColumns: 字符串标量或向量，用于指定表的排序列，写入的数据将按 sortColumns 进行排序，只在创建 TSDB 引擎表时需要。
+* keepDuplicates: 指定在每个分区内如何处理所有 sortColumns 之值皆相同的数据，ALL 用于保留所有数据，为默认值，LAST 仅保留最新数据，FIRST 仅保留第一条数据，只在创建 TSDB 引擎表时需要。
+* sortKeyMappingFunction: 由一元函数对象组成的向量，其长度与索引列一致，即 sortColumns 的长度 - 1。用于指定应用在索引列中各列的映射函数，以减少 sort key 的组合数，该过程称为 sort key 降维，只在创建 TSDB 引擎表时需要。
 
 #### 详情
 
@@ -291,9 +239,25 @@ t=mysql::loadEx(conn, db, "",`stockid, 'select  * from US where stockid<=1000000
 
 ```
 
+### 2.6 mysql::close
 
-* 将数据导入DFS分布式文件系统中的分区表
+#### 语法
 
+mysql::close(connection)
+
+#### 参数
+
+* connection: 通过`mysql::connect`获得的MySQL连接句柄。
+
+#### 详情
+
+断开连接，关闭 MySQL 句柄。
+
+#### 例子
+
+```
+mysql::close(conn)
+```
 
 ## 3. 支持的数据类型
 
@@ -320,18 +284,22 @@ t=mysql::loadEx(conn, db, "",`stockid, 'select  * from US where stockid<=1000000
 * DolphinDB不支持 unsigned long long 类型。若MySQL中的类型为 bigint unsigned, 可在`load`或者`loadEx`的schema参数中设置为DOUBLE或者FLOAT。
 * DolphinDB中各类整形的最小值为NULL值，如 CHAR 的-128，SHORT的-32,768，INT的-2,147,483,648以及LONG的-9,223,372,036,854,775,808。
 
-### 3.2 浮点数类型
+### 3.2 小数类型
 
-| MySQL类型  | 对应的DolphinDB类型 |
-| ---------- | :------------------ |
-| double     | DOUBLE              |
-| decimal    | DOUBLE              |
-| newdecimal | DOUBLE              |
-| float      | FLOAT               |
+| MySQL类型                                       | 对应的DolphinDB类型 |
+|-------------------------------------------------|---------------------|
+| double                                          | DOUBLE              |
+| float                                           | FLOAT               |
+| newdecimal/decimal(1-9 length)                  | DECIMAL32           |
+| newdecimal/decimal(10-18 length)                | DECIMAL64           |
+| newdecimal/decimal(19-38 length)                | DECIMAL128          |
+| newdecimal/decimal(lenght < 1 \|\| length > 38) | 抛出异常            |
 
-注：IEEE754浮点数类型皆为有符号数。
+注：
 
-以上浮点类型皆可转化为DolphinDB中的数值相关类型(BOOL, CHAR, SHORT, INT, LONG, FLOAT, DOUBLE)。
+- IEEE754浮点数类型皆为有符号数。
+- 浮点类型 float 和 double 可转化为 DolphinDB 中的数值相关类型(BOOL, CHAR, SHORT, INT, LONG, FLOAT, DOUBLE)。
+- newdecimal/decimal 类型目前仅可转化为 DOUBLE。
 
 ### 3.3 时间类型
 
@@ -378,8 +346,110 @@ enum类型可以转化为DolphinDB中的字符串相关类型(STRING, SYMBOL)，
 
 美国股票市场从1990年至2016年的每日数据，共50,591,907行，22列，6.5GB。 导入耗时160.5秒。
 
-# ReleaseNotes:
+## 附录：（预）编译安装（可选）
 
-## 故障修复
+如果不通过插件市场安装插件，也可以选择预编译安装或编译安装方式。
 
-* 增加对传入连接有效性的校检。（**2.00.10**）
+### 预编译安装
+
+用户可以导入预编译好的MySQL插件（DolphinDB安装包中或者bin目录下)。
+
+
+在DolphinDB中执行以下命令导入MySQL插件：
+
+Linux环境：
+
+```
+loadPlugin("/path/to/plugins/mysql/PluginMySQL.txt")
+```
+
+Windows环境(假设安装在C盘上)：
+
+```
+loadPlugin("C:/path/to/mysql/PluginMySQL.txt")
+```
+
+请注意，必须指定绝对路径，且路径中使用"\\\\"或"/"代替"\\"。
+
+### 编译安装
+
+可使用以下方法编译MySQL插件，编译成功后通过以上方法导入。
+
+
+#### 在Linux环境中编译安装
+
+##### 环境准备
+
+安装 [git](https://git-scm.com/) 和 [CMake](https://cmake.org/)。
+
+Ubuntu用户只需要在命令行输入以下命令即可：
+```bash
+$ sudo apt-get install git cmake
+```
+
+然后通过更新git子模块来下载[mariadb-connector-c](https://github.com/MariaDB/mariadb-connector-c)的源文件。
+```
+$ git submodule update --init --recursive
+```
+
+
+安装cmake：
+```
+sudo apt-get install cmake
+```
+
+##### cmake编译
+
+构建插件内容：
+```
+mkdir build
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release ../path/to/mysql_plugin/
+make -j`nproc`
+```
+
+**注意:** 编译之前请确保libDolphinDB.so在gcc可搜索的路径中。可使用LD_LIBRARY_PATH指定其路径，或者直接将其拷贝到build目录下。
+
+编译之后目录下会产生libPluginMySQL.so文件。
+
+#### 在Windows环境中编译安装
+
+##### 在Windows环境中需要使用CMake和MinGW编译
+
+* 下载安装[MinGW](http://www.mingw.org/)。确保将bin目录添加到系统环境变量Path中。 
+
+* 下载安装[cmake](https://cmake.org/)。
+
+##### cmake编译
+
+在编译开始之前，要将libDolphinDB.dll和包含curl头文件的文件夹拷贝到build文件夹内。
+
+构建插件内容：
+```
+mkdir build                                                        # 新建build目录
+cp path_to_libDolphinDB.dll/libDolphinDB.dll build                 # 拷贝 libDolphinDB.dll 到build目录下
+cp -r curl build                                                   # 拷贝 curl 头文件到build目录下
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release ../path_to_mysql_plugin/ -G "MinGW Makefiles"
+mingw32-make -j4
+```
+
+# Release Notes
+
+## 2.00.11
+
+### 新增功能
+
+- 新增支持 Decimal 数据类型。
+- 新增接口函数 `mysql::close`，用于断开连接、关闭 MySQL 句柄。
+
+### 功能优化
+
+- 优化接口 `mysql::load`、`mysql::loadEx` 可传入字符串数据的上限。
+
+## 2.00.10
+
+### 故障修复
+
+- 增加对传入连接有效性的校检。
+

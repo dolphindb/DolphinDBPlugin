@@ -354,7 +354,7 @@ Row UseQueryResult::fetch() {
     if (!row) checkError(conn_->getDriver());
 
     return {row, this, mysql_fetch_lengths(res_)};
-}
+} 
 
 // Row
 
@@ -391,6 +391,8 @@ ResultBase::~ResultBase() { mysql_free_result(res_); }
 const char *ResultBase::nameAt(int idx) { return fields_[idx].name; }
 
 enum_field_types ResultBase::typeAt(int idx) { return static_cast<enum_field_types>(fields_[idx].type); }
+
+unsigned int ResultBase::decimalScaleAt(int idx) { return fields_[idx].decimals; }
 
 bool ResultBase::isEnumAt(int idx) { return fields_[idx].flags & ENUM_FLAG; }
 bool ResultBase::isUnsignedAt(int idx) { return fields_[idx].flags & UNSIGNED_FLAG; }

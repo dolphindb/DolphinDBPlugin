@@ -1,7 +1,8 @@
-mysql,libPluginMySQL.so,2.00.10
+mysql,libPluginMySQL.so,2.00.11
 mysqlConnect,connect,system,5,5,0
+mysqlClose,close,system,1,1,0
 mysqlLoad,load,system,2,6,0
-mysqlLoadEx,loadEx,system,5,9,0
+mysqlLoadEx,loadEx,system,5,12,0
 mysqlSchema,extractSchema,operator,2,2,0
 mysqlTables,showTables,operator,1,1,0
 

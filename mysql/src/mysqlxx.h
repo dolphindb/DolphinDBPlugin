@@ -364,6 +364,8 @@ class ResultBase {  // non-copyable
 
     enum_field_types typeAt(int idx);
 
+    unsigned int decimalScaleAt(int idx);
+
     bool isUnsignedAt(int idx);
 
     bool isEnumAt(int idx);
