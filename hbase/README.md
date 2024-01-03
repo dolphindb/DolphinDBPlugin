@@ -1,100 +1,99 @@
-DolphinDB HBase Plugin
+# DolphinDB HBase Plugin
 
-本插件通过 Thrift 接口连接到 HBase，并读取数据。推荐版本：HBase 版本为 1.2.0，Thrift 版本为 0.14.0。
+The DolphinDB Hbase plugin can establish a connection to HBase via Thrift and load data from the HBase database. Currently, HBase Plugin is only supported on Linux.
 
-HBase插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/hbase/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/hbase/README.md), [release120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/hbase/README.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
+Recommended version: 
 
-## 1 安装
+- HBase: version 1.2.0
+- Thrift: version 0.14.0
 
-### 1.1 预编译安装
+- [DolphinDB HBase Plugin](#dolphindb-hbase-plugin)
+  - [1. Install with `installPlugin`](#1-install-with-installplugin)
+    - [Installation Steps](#installation-steps)
+    - [Start Thrift server](#start-thrift-server)
+  - [2. Methods](#2-methods)
+    - [2.1 hbase::connect](#21-hbaseconnect)
+    - [2.2 hbase::showTables](#22-hbaseshowtables)
+    - [2.3 hbase::deleteTable](#23-hbasedeletetable)
+    - [2.4 hbase::getRow](#24-hbasegetrow)
+    - [2.5 hbase::load](#25-hbaseload)
+  - [3. Data Type Mappings](#3-data-type-mappings)
+  - [Appendix: Manual Installation](#appendix-manual-installation)
+    - [Use Precompiled Package](#use-precompiled-package)
+    - [Compile from Source](#compile-from-source)
 
-可以导入 bin 目录下预编译好的 HBase 插件。
 
-#### Linux
+## 1. Install with `installPlugin`
 
-(1) 添加插件所在路径到 LIB 搜索路径 LD_LIBRARY_PATH
+Required server version: DolphinDB 2.00.10.8/1.30.22.8 or higher
 
-```
-export LD_LIBRARY_PATH=path_to_hbase_plugin/:$LD_LIBRARY_PATH
-```
+### Installation Steps
 
-(2) 启动 DolphinDB server 并导入插件
-
-```
-loadPlugin("path_to_hbase_plugin/PluginHBase.txt")
-```
-
-### 1.2 编译安装
-
-通过以下方法编译 HBase 插件，编译成功后通过以上方法导入插件。
-
-#### 在 Linux 下安装
-
-**使用 cmake 构建**
-
-安装 cmake：
+(1) Use `listRemotePlugins` to check plugin information in the plugin repository
 
 ```
-sudo apt-get install cmake
+login("admin", "123456")
+listRemotePlugins(, "http://plugins.dolphindb.cn/plugins/")
 ```
 
-安装 OpenSSL：
+(2) Invoke `installPlugin` for plugin installation
 
 ```
-sudo apt-get install openssl
+installPlugin("hbase")
 ```
 
-编译整个项目：
+It returns `<path_to_HBase_plugintxt>/pluginHBase.txt`.
+
+(3) Load the plugin with `loadPlugin` (which takes the above return value as its input). 
 
 ```
-mkdir build
-cd build
-cmake ../
-make
+loadPlugin("<path_to_HBase_plugintxt>/pluginHBase.txt")
 ```
 
-### 1.3 开启 Thrift server
+### Start Thrift server
 
-通过以下命令开启 Thrift server，并指定端口 9090：
+Run the following command to start the Thrift server with port specified as 9090:
 
 ```
 $HBASE_HOME/bin/hbase-daenom.sh start thrift -p 9090
 ```
 
-通过以下命令关闭 Thrift：
+You can close the Thrift server with the following command:
 
 ```
 $HBASE_HOME/bin/hbase-daemon.sh stop thrift
 ```
 
-## 2 用户接口
+## 2. Methods
 
 ### 2.1 hbase::connect
 
-#### 语法
+**Syntax**
 
 hbase::connect(host, port, [isFramed], [timeout])
 
-#### 参数
+**Arguments**
 
-- host: 要连接的 Thrift server 的 IP 地址，类型为 STRING。
-- port: 要连接 Thrift server 的端口号，类型为 INT。
-- isFramed: 布尔值，默认为 false，表示通过 TBufferedTransport 进行传输。若设置为 true，则表示通过 TFramedTransport 进行传输。
-- timeout: 建立连接（ConnTimeout）与接收回复（RecvTimeout）的最长等待时间，单位为毫秒，默认为5000ms，类型为 INT。
+- host: *STRING*. The server address to connect to.
+- port: *INT*. The port number of the Thrift server. 
+- isFramed: *BOOL, default False*. Whether to transport using `TBufferedTransport` (default) or `TFramedTransport` (true).
+- timeout: *INT, default 5000ms*. The maximum time for connection and a receive call to wait before timeout.
 
-#### 详情
+**Details**
 
-通过 Thrift server 与 HBase 建立一个连接，返回一个 HBase 连接的句柄。
+Build a connection to HBase via Thrift server and return an HBase handle.
 
-#### 例子
+**Examples**
 
 ```
 conn = hbase::connect("192.168.1.114", 9090)
 ```
 
-**注意**：如果该连接长时间（默认为 1min）没有操作，HBase 会自动关闭这个连接。此时再通过该连接进行后续操作时，会报 `No more data to read` 的错误，需要执行 `hbase::connect` 重新进行连接。通过 HBase 的配置文件（conf/hbase-site.xml）可修改超时时间。若添加如下配置，则表示一天没有操作时将自动关闭连接：
+**Note**: If the connection remains inactive for a while (1min by default), HBase will automatically close it. If you try to operate through this connection, the `No more data to read` error will be reported. In such case, you have to execute `hbase::connect` to reconnect.
 
-修改 `hbase.thrift.server.socket.read.timeout` 和 `hbase.thrift.connection.max-idletime`
+You can configure with *hbase.thrift.server.socket.read.timeout* and *hbase.thrift.connection.max-idletime* to change the timeout.
+
+The following configuration parameters change the timeout to 1 day.
 
 ```
 <property>
@@ -113,19 +112,19 @@ conn = hbase::connect("192.168.1.114", 9090)
 
 ### 2.2 hbase::showTables
 
-#### 语法
+**Syntax**
 
 hbase::showTables(hbaseConnection)
 
-#### 参数
+**Arguments**
 
-- hbaseConnection: 通过 hbase::connect 获得的 HBase 句柄。
+- hbaseConnection: The handle returned by `hbase::connect`.
 
-#### 详情
+**Details**
 
-显示已连接的数据库中所有表的表名。
+Return all table names of the connected database.
 
-#### 例子
+**Examples**
 
 ```
 conn = hbase::connect("192.168.1.114", 9090)
@@ -134,20 +133,20 @@ hbase::showTables(conn)
 
 ### 2.3 hbase::deleteTable
 
-#### 语法
+**Syntax**
 
 hbase::deleteTable(hbaseConnection, tableName)
 
-#### 参数
+**Arguments**
 
-- hbaseConnection: 通过 hbase::connect 获得的 HBase 句柄。
-- tableName: 要删除的表的名字，类型为 STRING 或者 STRING vector。
+- hbaseConnection: The handle returned by hbase::connect.
+- tableName: STRING or STRING vector. The name of the table to be deleted.
 
-#### 详情
+**Details**
 
-删除数据库中存在的表。
+Delete tables in the database.
 
-#### 例子
+**Examples**
 
 ```
 conn = hbase::connect("192.168.1.114", 9090)
@@ -156,22 +155,22 @@ hbase::deleteTable(conn, "demo_table")
 
 ### 2.4 hbase::getRow
 
-#### 语法
+**Syntax**
 
 hbase::getRow(hbaseConnection, tableName, rowKey, [columnName])
 
-#### 参数
+**Arguments**
 
-- hbaseConnection: 通过 hbase::connect 获得的 HBase 句柄。
-- tableName: 需要读取数据的表的名字，类型为 STRING
-- rowKey: 需要读取的 row 的索引，类型为 STRING。
-- columnName：需要获取的列名，若不指定默认读取所有列数据，类型为 STRING 或者 STRING vector。
+- hbaseConnection: The handle returned by `hbase::connect`.
+- tableName: *STRING*. The name of the table to be read.
+- rowKey: *STRING*. The index of the row to be read.
+- columnName: *STRING or STRING vector*. The name of the column to be read. If not specified, all columns are read by default.
 
-#### 详情
+**Details**
 
-读取 rowKey 所对应的数据。
+Return the specific record with *rowKey*.
 
-#### 例子
+**Examples**
 
 ```
 conn = hbase::connect("192.168.1.114", 9090)
@@ -180,21 +179,21 @@ hbase::getRow(conn, "test", "row1")
 
 ### 2.5 hbase::load
 
-#### 语法
+**Syntax**
 
 hbase::load(hbaseConnection, tableName, [schema])
 
-#### 参数
+**Arguments**
 
-- hbaseConnection: 通过 hbase::connect 获得的 HBase 句柄。
-- tableName: 需要读取数据的表的名字，类型为 STRING。
-- schema: 包含列名和列的数据类型的表。由于 HBase 中数据以字节形式存储，没有指定数据类型。若不指定 schema，插件会尝试以第一行数据为基准进行建表，返回的 DolphinDB 表中每列数据类型都为 STRING。请注意，需要保证表中每行数据具有相同的列数，否则会出错。指定 schema 则可以指定每列的数据类型。此时，schema 中的列名需要与 HBase 中所要读取的列名完全一致。
+- hbaseConnection: The handle returned by `hbase::connect`.
+- tableName: *STRING*. The name of the table to be loaded.
+- schema: *optional*. If specified, it is a table containing names of the columns to be imported and their data types. The column names speicified in schema must be consistent with the HBase column names. If not specified, the table will be created based on the first row with each column of STRING type. Note that each row must have the same size.
 
-#### 详情
+**Details**
 
-将 HBase 的查询结果导入 DolphinDB 中的内存表。schema 中支持的数据格式见第3小节。
+Import the HBase results into a DolphinDB in-memory table. The data types supported for schema are described in chapter 3.
 
-#### 例子
+**Examples**
 
 ```
 conn = hbase::connect("192.168.1.114", 9090)
@@ -202,11 +201,11 @@ t =  table(["cf:a","cf:b", "cf:c", "cf:time"] as name, ["STRING", "INT", "FLOAT"
 t1 = hbase::load(conn, "test", t)
 ```
 
-## 3 支持的数据格式
+## 3. Data Type Mappings
 
-schema 中支持的数据类型如下表所示。HBase 中存储的数据格式需要与下表相同，才能将 HBase 中的数据转成 DolphinDB 中对应数据类型，否则无法转换，且会返回空值。
+The following is the data type mappings when an HBase table is imported to DolphinDB. Data stored in HBase must conform to the types specified in the table below, otherwise Null values will be returned.
 
-| Type          | HBase 数据                                                    | DolphinDB 数据                                                |
+| Type          | HBase                                                        | DolphinDB                                                    |
 | ------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | BOOL          | true, 1, FALSE                                               | true, true, false                                            |
 | CHAR          | a                                                            | a                                                            |
@@ -227,18 +226,47 @@ schema 中支持的数据类型如下表所示。HBase 中存储的数据格式�
 | NANOTIME      | 133010008007006, 13:30:10.008007006                          | 13:30:10.008007006, 13:30:10.008007006                       |
 | NANOTIMESTAMP | 20120613133010008007006,  2012.06.13 13:30:10.008007006, 2012.06.13T13:30:10.008007006 | 2012.06.13T13:30:10.008007006, 2012.06.13T13:30:10.008007006, 2012.06.13T13:30:10.008007006 |
 
+## Appendix: Manual Installation
 
-# ReleaseNotes:
+In addition to installing the plugin with function installPlugin, you can also install through precompiled binaries or compile from source. These files can be accessed from our [GitHub repository](https://github.com/dolphindb/DolphinDBPlugin/tree/master) by switching to the appropriate version branch.
 
-## 故障修复
+### Use Precompiled Package
 
-* 避免下载数据时对非法格式的 minute 类型数据进行解析。（**2.00.10**）
-* 修复在使用 hbase::load 导入 disable table 捕获到异常后未中止运行，导致后续 server 宕机的问题。（**2.00.10**）
-* 增加下载数据时对 CHAR 类型数据的转换限制，若输入 string 值的长度超过1，则将返回空值。（**2.00.10**）
-* 增加下载数据时对 SECOND 类型转换的检查。（**2.00.10**）
-* 增加对连接有效性的检查。（**2.00.10**）
-* connect 函数增加对参数 isFramed 非法输入值的检查。（**2.00.10**）
+You can use the pre-built binaries `libPluginOPCUA.so`.
 
-# 功能优化
+(1) Add the plugin path to the library search path `LD_LIBRARY_PATH`
 
-* 增强了多线程并行时的稳定性。（**2.00.10**）
+```
+export LD_LIBRARY_PATH=path_to_hbase_plugin/:$LD_LIBRARY_PATH
+```
+
+(2) Start the DolphinDB server and load the plugin.
+
+```
+loadPlugin("path_to_hbase_plugin/PluginHBase.txt")
+```
+
+### Compile from Source
+
+You can also manually compile an HBase plugin with [CMake](https://cmake.org/) on Linux following the instructions:
+
+(1) Install CMake
+
+```
+sudo apt-get install cmake
+```
+
+(2) Install OpenSSL
+
+```
+sudo apt-get install openssl
+```
+
+(3) Build the entire project
+
+```
+mkdir build
+cd build
+cmake ../
+make
+```

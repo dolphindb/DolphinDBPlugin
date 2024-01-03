@@ -7,6 +7,8 @@
 #include "ScalarImp.h"
 #include "Util.h"
 
+#include "ddbplugin/Plugin.h"
+
 #include <protocol/TBinaryProtocol.h>
 #include <transport/TTransportUtils.h>
 
@@ -15,6 +17,10 @@ using namespace apache::thrift;
 using namespace apache::thrift::protocol;
 using namespace apache::hadoop::hbase::thrift;
 
+const static string HBASE_PREFIX = "[Plugin::HBase]";
+const static string HBASE_CONNECTION_DESC = "hbase connection";
+
+dolphindb::ResourceMap<HBaseConnect> HBASE_CONNECTION_MAP(HBASE_PREFIX, HBASE_CONNECTION_DESC);
 
 /* INTERFACES */
 
@@ -46,23 +52,26 @@ ConstantSP connectH(Heap *heap, vector<ConstantSP> &args) {
         timeout = args[3]->getInt();
     }
 
-    std::unique_ptr<HBaseConnect> conn(new HBaseConnect(args[0]->getString(), args[1]->getInt(), isFramed, timeout));
+    SmartPointer<HBaseConnect> conn = new HBaseConnect(args[0]->getString(), args[1]->getInt(), isFramed, timeout);
     FunctionDefSP onClose(Util::createSystemProcedure(
-        "hbase connection onClose()", connectionOnCloseH, 1, 1));
-    return Util::createResource((long long) conn.release(), "hbase connection", onClose, heap->currentSession());
+            "hbase connection onClose()", connectionOnCloseH, 1, 1));
+    ConstantSP resource = Util::createResource(reinterpret_cast<long long>(conn.get()), HBASE_CONNECTION_DESC, onClose, heap->currentSession());
+    HBASE_CONNECTION_MAP.safeAdd(resource, conn);
+
+    return resource;
 }
 
 ConstantSP showTablesH(Heap *heap, vector<ConstantSP> &args) {
     string usage = "Usage: showTables(hbaseConnection). ";
 
-    auto conn = getConnectionFromArg(args[0], usage);
+    auto conn = HBASE_CONNECTION_MAP.safeGet(args[0]);
     return conn->showTablesH();
 }
 
 ConstantSP loadH(Heap *heap, vector<ConstantSP> &args) {
     string usage = "Usage: load(hbaseConnection, tableName, [schema]). ";
 
-    auto conn = getConnectionFromArg(args[0], usage);
+    auto conn = HBASE_CONNECTION_MAP.safeGet(args[0]);
 
     if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException(__FUNCTION__, usage + "tableName must be a string!");
@@ -79,7 +88,7 @@ ConstantSP loadH(Heap *heap, vector<ConstantSP> &args) {
 ConstantSP deleteTableH(Heap *heap, vector<ConstantSP> &args) {
     string usage = "Usage: deleteTable(hbaseConnection, tableName). ";
 
-    auto conn = getConnectionFromArg(args[0], usage);
+    auto conn = HBASE_CONNECTION_MAP.safeGet(args[0]);
 
     if ((args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR) && args[1]->getForm() != DF_VECTOR) {
         throw IllegalArgumentException(__FUNCTION__, usage + "tableName must be a string or string vector!");
@@ -98,7 +107,7 @@ ConstantSP getRowH(Heap *heap, vector<ConstantSP> &args) {
     string usage = "Usage: getRow(hbaseConnection, tableName, rowKey, [columnName]). ";
 
     vector<string> columnNames;
-    auto conn = getConnectionFromArg(args[0], usage);
+    auto conn = HBASE_CONNECTION_MAP.safeGet(args[0]);
 
     if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException(__FUNCTION__, usage + "tableName must be a string!");
@@ -1034,11 +1043,10 @@ bool HBaseConnect::timestampParserH(const string &str, long long &longVal) {
 }
 
 void connectionOnCloseH(Heap *heap, vector<ConstantSP> &args) {
-  auto conn = reinterpret_cast<HBaseConnect *>(args[0]->getLong());
-  if (conn) {
+  auto conn = HBASE_CONNECTION_MAP.safeGet(args[0]);
+  if (conn.get()) {
     conn->closeH();
-    delete conn;
-    args[0]->setLong(0);
+    conn.clear();
   }
 }
 
