@@ -58,7 +58,7 @@ ConstantSP loadParquet(Heap *heap, vector<ConstantSP> &arguments)
         else
             throw IllegalArgumentException(__FUNCTION__, "rowGroupNum must be an integer.");
     }
-    return ParquetPluginImp::loadParquet(filename->getString(), schema, column, rowGroupStart, rowGroupNum);
+    return ParquetPluginImp::loadParquetByFileName(heap, filename->getString(), schema, column, rowGroupStart, rowGroupNum);
 }
 
 ConstantSP loadParquetHdfs(Heap *heap, vector<ConstantSP> &arguments)
@@ -195,6 +195,7 @@ namespace ParquetPluginImp
 
 const string STR_MIN="";
 ConstantSP nullSP = Util::createNullConstant(DT_VOID);
+std::atomic<int> READ_THREAD_NUM(1);
 void ParquetReadOnlyFile::open(const std::string &file_name)
 {
     close();
@@ -455,7 +456,7 @@ TableSP extractParquetSchema(const string &filename)
     return Util::createTable(colNames, cols);
 }
 
-void createNewVectorSP(vector<VectorSP> &dolpindb_v, const TableSP &tb)
+void createNewVectorSP(vector<ConstantSP> &dolpindb_v, const TableSP &tb, int totalRows)
 {
 	if (tb.isNull())
 		throw RuntimeException("table can't be null");
@@ -463,9 +464,9 @@ void createNewVectorSP(vector<VectorSP> &dolpindb_v, const TableSP &tb)
     for (int i = 0; i < col_num; i++)
     {
         if(tb->getColumnType(i) == DT_SYMBOL)
-            dolpindb_v[i] = Util::createVector(DT_STRING, 0);
+            dolpindb_v[i] = Util::createVector(DT_STRING, totalRows);
         else
-            dolpindb_v[i] = Util::createVector(tb->getColumnType(i), 0);
+            dolpindb_v[i] = Util::createVector(tb->getColumnType(i), totalRows);
     }
 }
 
@@ -2872,7 +2873,7 @@ int convertParquetToDolphindbString(int col_idx, std::shared_ptr<parquet::Column
     return 0;
 }
 
-ConstantSP loadParquet(const string &filename, const ConstantSP &schema, const ConstantSP &column, const int rowGroupStart, const int rowGroupNum)
+ConstantSP loadParquetByFileName(Heap* heap, const string &filename, const ConstantSP &schema, const ConstantSP &column, const int rowGroupStart, const int rowGroupNum)
 {
     ParquetReadOnlyFile file(filename);
     std::shared_ptr<parquet::FileMetaData> file_metadata = file.fileMetadataReader();
@@ -2921,7 +2922,7 @@ ConstantSP loadParquet(const string &filename, const ConstantSP &schema, const C
         colNames[1] = "type";
         init_schema = Util::createTable(colNames, cols);
     }
-    return loadParquet(&file, init_schema, columnToRead, rowGroupStart, rowGroupEnd);
+    return loadParquetByFilePtr(&file, heap, filename, init_schema, columnToRead, rowGroupStart, rowGroupEnd);
 }
 
 ConstantSP loadParquetHdfs(void *buffer, int64_t len)
@@ -2979,125 +2980,70 @@ ConstantSP loadParquetHdfs(void *buffer, int64_t len)
         colNames[1] = "type";
         init_schema = Util::createTable(colNames, cols);
     }
-    return loadParquet(&file, init_schema, columnToRead, rowGroupStart, rowGroupEnd);
+    return loadParquetByFilePtr(&file, nullptr, "", init_schema, columnToRead, rowGroupStart, rowGroupEnd);
 }
 
-ConstantSP loadParquet(ParquetReadOnlyFile *file, const ConstantSP &schema, const ConstantSP &column, const int rowGroupStart, const int rowGroupEnd)
+ConstantSP loadParquetByFilePtr(ParquetReadOnlyFile *file, Heap *heap, string fileName, const ConstantSP &schema, const ConstantSP &column, const int rowGroupStart, const int rowGroupEnd)
 {
 	if (!file)
 		throw RuntimeException("file can't be null");
     TableSP tableWithSchema = DBFileIO::createEmptyTableFromSchema(schema);
     int col_num = column->size();
-    char buf[1024 * 64 * 8];
-    long long rows_read = 0;
-    for (int row = rowGroupStart; row < rowGroupEnd; row++)
-    {
+    
+    size_t totalRows = 0;
+    for (int row = rowGroupStart; row < rowGroupEnd; row++){
         std::shared_ptr<parquet::RowGroupReader> row_reader = file->rowReader(row);
-        if (row_reader == nullptr)
+        if (row_reader.get() == nullptr)
             throw RuntimeException("Read parquet file failed.");
-        size_t totalRows = row_reader->metadata()->num_rows();
-
-        size_t startRow = 0;
-        size_t batchRow = totalRows > 1024 * 64 ? 1024 * 64 : totalRows;
-        vector<std::shared_ptr<parquet::ColumnReader>> colReaders;
-        for (int i = 0; i < col_num; i++){
-            int col_idx = column->getInt(i);
-            std::shared_ptr<parquet::ColumnReader> column_reader = row_reader->Column(col_idx);
-            colReaders.push_back(column_reader);
-        }
-        INDEX insertRows = 1;
-        while(startRow < totalRows && insertRows != 0){
-            vector<VectorSP> dolphindbCol(col_num);
-            createNewVectorSP(dolphindbCol, tableWithSchema);
-            for (int i = 0; i < col_num; i++)
-            {
-                std::shared_ptr<parquet::ColumnReader> column_reader = colReaders[i];
-                const parquet::ColumnDescriptor *col_descr = column_reader->descr();
-                if (col_descr->max_repetition_level() != 0)
-                    throw RuntimeException("not support parquet repeated field yet.");
-                DATA_TYPE dolphin_t = dolphindbCol[i]->getType();
-                bool containNull;
-                switch (dolphin_t)
-                {
-                case DT_BOOL:
-                {
-                    rows_read = convertParquetToDolphindbBool(i, column_reader, col_descr, buf, batchRow, containNull);
-                    dolphindbCol[i]->appendChar(buf, rows_read);
-                    dolphindbCol[i]->setNullFlag(containNull);
-                    break;
-                }
-                case DT_CHAR:
-                {
-                    rows_read = convertParquetToDolphindbChar(i, column_reader, col_descr, buf, batchRow, containNull);
-                    dolphindbCol[i]->appendChar(buf, rows_read);
-                    dolphindbCol[i]->setNullFlag(containNull);
-                    break;
-                }
-                case DT_DATE:
-                case DT_MONTH:
-                case DT_TIME:
-                case DT_SECOND:
-                case DT_MINUTE:
-                case DT_DATETIME:
-                case DT_INT:
-                {
-                    rows_read = convertParquetToDolphindbInt(i, column_reader, col_descr, (int*)buf, dolphin_t, batchRow, containNull);
-                    dolphindbCol[i]->appendInt((int*)buf, rows_read);
-                    dolphindbCol[i]->setNullFlag(containNull);
-                    break;
-                }
-                case DT_LONG:
-                case DT_NANOTIME:
-                case DT_NANOTIMESTAMP:
-                case DT_TIMESTAMP:
-                {
-                    rows_read = convertParquetToDolphindbLong(i, column_reader, col_descr, (long long*)buf, dolphin_t, batchRow, containNull);
-                    dolphindbCol[i]->appendLong((long long *)buf, rows_read);
-                    dolphindbCol[i]->setNullFlag(containNull);
-                    break;
-                }
-                case DT_SHORT:
-                {
-                    rows_read = convertParquetToDolphindbShort(i, column_reader, col_descr, (short*)buf, batchRow, containNull);
-                    dolphindbCol[i]->appendShort((short *)buf, rows_read);
-                    dolphindbCol[i]->setNullFlag(containNull);
-                    break;
-                }
-                case DT_FLOAT:
-                {
-                    rows_read = convertParquetToDolphindbFloat(i, column_reader, col_descr, (float*)buf, batchRow, containNull);
-                    dolphindbCol[i]->appendFloat((float *)buf, rows_read);
-                    dolphindbCol[i]->setNullFlag(containNull);
-                    break;
-                }
-                case DT_DOUBLE:
-                {
-                    rows_read = convertParquetToDolphindbDouble(i, column_reader, col_descr, (double*)buf, batchRow, containNull);
-                    dolphindbCol[i]->appendDouble((double *)buf, rows_read);
-                    dolphindbCol[i]->setNullFlag(containNull);
-                    break;
-                }
-                case DT_INT128:
-                case DT_UUID:
-                case DT_STRING:
-                case DT_SYMBOL:
-                {
-                    vector<string> buffer(batchRow);
-                    rows_read =  convertParquetToDolphindbString(i, column_reader, col_descr, buffer, dolphin_t, batchRow, containNull);
-                    dolphindbCol[i]->appendString(buffer.data(), rows_read);
-                    dolphindbCol[i]->setNullFlag(containNull);
-                    break;
-                }
-                default:
-                    throw RuntimeException("unsupported data type.");
-                    break;
-                }
-            }
-            tableWithSchema = appendColumnVecToTable(tableWithSchema, dolphindbCol, insertRows);
-            startRow += insertRows;
-        }
+        totalRows += row_reader->metadata()->num_rows();
     }
-    return tableWithSchema;
+
+    vector<ConstantSP> dolphindbCol(col_num);
+    createNewVectorSP(dolphindbCol, tableWithSchema, totalRows);
+
+    size_t batchRow = totalRows > 1024 * 64 ? 1024 * 64 : totalRows;
+
+    int readThreadNum = READ_THREAD_NUM;
+    if(fileName.empty() || readThreadNum == 1){
+        int writeOffset = 0;
+        int rowCount = 0;
+        for(int row = rowGroupStart; row < rowGroupEnd; ++row){
+            for(int i = 0; i < col_num; ++i){
+                loadParquetColumn(file, batchRow, dolphindbCol[i], row, i, column->getInt(i), writeOffset, rowCount);
+            }
+            writeOffset += rowCount;
+        }
+    }else{
+        FunctionDefSP func = Util::createSystemFunction("pipeLoadParquet", loadParquetPloopFunc, 7, 7, false);
+        ConstantSP fileNameArgs = new String(fileName);
+        ConstantSP batchRowArgs = new Int(batchRow);
+        VectorSP dolphindbCols = Util::createVector(DT_ANY, col_num);
+        ConstantSP rowGroupStartArgs = new Int(rowGroupStart);
+        VectorSP arrowIndexArgs = Util::createVector(DT_INT, col_num);
+        ConstantSP rowGroupEndArgsArgs = new Int(rowGroupEnd);
+        VectorSP dolphinIndexArgs = Util::createVector(DT_INT, col_num);
+        for (int i = 0; i < col_num; ++i) {
+            dolphinIndexArgs->setInt(i, i);
+            arrowIndexArgs->setInt(i, column->getInt(i));
+            dolphindbCols->set(i, dolphindbCol[i]);
+        }
+        vector<ConstantSP> partialArgs{fileNameArgs,     batchRowArgs, dolphindbCols,
+                                rowGroupStartArgs, arrowIndexArgs, rowGroupEndArgsArgs};
+        FunctionDefSP partialFunction = Util::createPartialFunction(func, partialArgs);
+        int threadCount = readThreadNum == 0 ? col_num : readThreadNum; 
+        int cutSize = col_num / threadCount;
+        if(cutSize * threadCount < col_num) cutSize++;
+        vector<ConstantSP> cutArgs{dolphinIndexArgs, new Int(cutSize)};
+        dolphinIndexArgs = heap->currentSession()->getFunctionDef("cut")->call(heap, cutArgs);
+        vector<ConstantSP> ploopArg{partialFunction, dolphinIndexArgs};
+        heap->currentSession()->getFunctionDef("ploop")->call(heap, ploopArg);
+    }
+    vector<std::string> colNames;
+    for(int i = 0; i < col_num; ++i){
+        dolphindbCol[i]->setTemporary(true);
+        colNames.push_back(tableWithSchema->getColumnName(i));
+    }
+    return Util::createTable(colNames, dolphindbCol);
 }
 
 ConstantSP loadFromParquetToDatabase(Heap *heap, vector<ConstantSP> &arguments)
@@ -3109,10 +3055,11 @@ ConstantSP loadFromParquetToDatabase(Heap *heap, vector<ConstantSP> &arguments)
     int rowGroupEnd = arguments[4]->getInt();
     SystemHandleSP db = static_cast<SystemHandleSP>(arguments[5]);
     string tableName = arguments[6]->getString();
+    string fileName = arguments[9]->getString();
 
     bool diskSeqMode = !db->getDatabaseDir().empty() &&
                        db->getDomain()->getPartitionType() == SEQ;
-    TableSP loadedTable = loadParquet(file, schema, columnArg, rowGroup, rowGroupEnd);
+    TableSP loadedTable = loadParquetByFilePtr(file, heap, fileName, schema, columnArg, rowGroup, rowGroupEnd);
     FunctionDefSP transform = (FunctionDefSP)arguments[8];
     if(!transform.isNull() && !transform->isNull()){
         vector<ConstantSP> arg={loadedTable};
@@ -3140,7 +3087,7 @@ ConstantSP savePartition(Heap *heap, vector<ConstantSP> &arguments){
     FunctionDefSP append = heap->currentSession()->getFunctionDef("append!");
     vector<ConstantSP> appendArgs = {tb, tbInMemory};
     append->call(heap, appendArgs);
-    return new Void();
+    return new Void();  
 }
 
 ConstantSP loadParquetEx(Heap *heap, const SystemHandleSP &db, const string &tableName, const ConstantSP &partitionColumns,
@@ -3186,7 +3133,7 @@ ConstantSP loadParquetEx(Heap *heap, const SystemHandleSP &db, const string &tab
         convertedSchema = schema;
     }
 
-    vector<DistributedCallSP> tasks = generateParquetTasks(heap, f, convertedSchema, columnToRead, rowGroupStart, rowGroupNum, db, tableName, transform);
+    vector<DistributedCallSP> tasks = generateParquetTasks(heap, f, convertedSchema, columnToRead, rowGroupStart, rowGroupNum, db, tableName, transform, filename);
     int partitions = tasks.size();
     string owner = heap->currentSession()->getUser()->getUserId();
     DomainSP domain = db->getDomain();
@@ -3299,7 +3246,7 @@ void getParquetReadOnlyFile(Heap *heap, vector<ConstantSP> &arguments)
 
 vector<DistributedCallSP> generateParquetTasks(Heap *heap, ParquetReadOnlyFile *file,
                                                const TableSP &schema, const ConstantSP &column, const int rowGroupStart, const int rowGroupNum,
-                                               const SystemHandleSP &db, const string &tableName, const ConstantSP &transform)
+                                               const SystemHandleSP &db, const string &tableName, const ConstantSP &transform, const string& fileName)
 {
 	if (!file)
 		throw RuntimeException("file can't be null");
@@ -3326,14 +3273,15 @@ vector<DistributedCallSP> generateParquetTasks(Heap *heap, ParquetReadOnlyFile *
     const char *fmt = "Read parquet file";
     FunctionDefSP getParquetFileHead(Util::createSystemProcedure("getParquetReadOnlyFile", getParquetReadOnlyFile, 1, 1));
     ConstantSP parquetFile = Util::createResource(reinterpret_cast<long long>(file), fmt, getParquetFileHead, heap->currentSession());
-    FunctionDefSP func = Util::createSystemFunction("loadFromParquetToDatabase", loadFromParquetToDatabase, 9, 9, false);
+    FunctionDefSP func = Util::createSystemFunction("loadFromParquetToDatabase", loadFromParquetToDatabase, 10, 10, false);
+    ConstantSP fileNameArg = new String(fileName);
     //ConstantSP parquetFile=new Long((long long)file);
     for (int i = 0; i < partitions; i++)
     {
         ConstantSP rowGroupNo = new Long(rowGroupStart+i);
         ConstantSP rowGroupEnd = new Long(rowGroupStart+i+1);
         ConstantSP id = new Int(i);
-        vector<ConstantSP> args{parquetFile, schema, column, rowGroupNo, rowGroupEnd, db, _tableName, id, transform};
+        vector<ConstantSP> args{parquetFile, schema, column, rowGroupNo, rowGroupEnd, db, _tableName, id, transform, fileNameArg};
         ObjectSP call = Util::createRegularFunctionCall(func, args);
         //ConstantSP t = func->call(heap,args);
         DistributedCallSP task = new DistributedCall(call, true);
@@ -3920,4 +3868,166 @@ void writeStringToParquet(parquet::ByteArrayWriter *parquetCol, const VectorSP &
     }
 }
 
+ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const VectorSP &dolphindbCol, int row,
+                             int dolphinIndex, int arrowIndex, int offsetStart, int& totalRows) {
+
+    DATA_TYPE dolphin_t = dolphindbCol->getType();
+    char buf[batchRow * 8];
+    long long rows_read = -1;
+    std::shared_ptr<parquet::RowGroupReader> row_reader = file->rowReader(row);
+    if (row_reader.get() == nullptr) throw RuntimeException("Read parquet file failed.");
+    std::shared_ptr<parquet::ColumnReader> column_reader = row_reader->Column(arrowIndex);
+    const parquet::ColumnDescriptor *col_descr = column_reader->descr();
+
+    if (col_descr->max_repetition_level() != 0)
+        throw RuntimeException("not support parquet repeated field yet.");
+    bool containNull;
+    int subOffect = 0;
+    int offsetWrite = offsetStart;
+    totalRows = row_reader->metadata()->num_rows();
+    while (subOffect < totalRows && rows_read != 0) {
+        switch (dolphin_t) {
+            case DT_BOOL: {
+                char *ptr = dolphindbCol->getBoolBuffer(offsetWrite, batchRow, buf);
+                rows_read = convertParquetToDolphindbBool(dolphinIndex, column_reader, col_descr, ptr,
+                                                          batchRow, containNull);
+                dolphindbCol->setBool(offsetWrite, rows_read, ptr);
+                dolphindbCol->setNullFlag(containNull);
+                break;
+            }
+            case DT_CHAR: {
+                char *ptr = dolphindbCol->getCharBuffer(offsetWrite, batchRow, buf);
+                rows_read = convertParquetToDolphindbChar(dolphinIndex, column_reader, col_descr, ptr,
+                                                          batchRow, containNull);
+                dolphindbCol->setChar(offsetWrite, rows_read, ptr);
+                dolphindbCol->setNullFlag(containNull);
+                break;
+            }
+            case DT_DATE:
+            case DT_MONTH:
+            case DT_TIME:
+            case DT_SECOND:
+            case DT_MINUTE:
+            case DT_DATETIME:
+            case DT_INT: {
+                int *ptr = dolphindbCol->getIntBuffer(offsetWrite, batchRow, (int *)buf);
+                rows_read = convertParquetToDolphindbInt(dolphinIndex, column_reader, col_descr, ptr,
+                                                         dolphin_t, batchRow, containNull);
+                dolphindbCol->setInt(offsetWrite, rows_read, ptr);
+                dolphindbCol->setNullFlag(containNull);
+                break;
+            }
+            case DT_LONG:
+            case DT_NANOTIME:
+            case DT_NANOTIMESTAMP:
+            case DT_TIMESTAMP: {
+                long long *ptr = dolphindbCol->getLongBuffer(offsetWrite, batchRow, (long long *)buf);
+                rows_read = convertParquetToDolphindbLong(dolphinIndex, column_reader, col_descr, ptr,
+                                                          dolphin_t, batchRow, containNull);
+                dolphindbCol->setLong(offsetWrite, rows_read, ptr);
+                dolphindbCol->setNullFlag(containNull);
+                break;
+            }
+            case DT_SHORT: {
+                short *ptr = dolphindbCol->getShortBuffer(offsetWrite, batchRow, (short *)buf);
+                rows_read = convertParquetToDolphindbShort(dolphinIndex, column_reader, col_descr, ptr,
+                                                           batchRow, containNull);
+                dolphindbCol->setShort(offsetWrite, rows_read, ptr);
+                dolphindbCol->setNullFlag(containNull);
+                break;
+            }
+            case DT_FLOAT: {
+                float *ptr = dolphindbCol->getFloatBuffer(offsetWrite, batchRow, (float *)buf);
+                rows_read = convertParquetToDolphindbFloat(dolphinIndex, column_reader, col_descr, ptr,
+                                                           batchRow, containNull);
+                dolphindbCol->setFloat(offsetWrite, rows_read, ptr);
+                dolphindbCol->setNullFlag(containNull);
+                break;
+            }
+            case DT_DOUBLE: {
+                double *ptr = dolphindbCol->getDoubleBuffer(offsetWrite, batchRow, (double *)buf);
+                rows_read = convertParquetToDolphindbDouble(dolphinIndex, column_reader, col_descr, ptr,
+                                                            batchRow, containNull);
+                dolphindbCol->setDouble(offsetWrite, rows_read, ptr);
+                dolphindbCol->setNullFlag(containNull);
+                break;
+            }
+            case DT_INT128:
+            case DT_UUID:
+            case DT_STRING:
+            case DT_SYMBOL: {
+                vector<string> buffer(batchRow);
+                rows_read = convertParquetToDolphindbString(dolphinIndex, column_reader, col_descr, buffer,
+                                                            dolphin_t, batchRow, containNull);
+                dolphindbCol->setString(offsetWrite, rows_read, buffer.data());
+                dolphindbCol->setNullFlag(containNull);
+                break;
+            }
+            default: throw RuntimeException("unsupported data type."); break;
+        }
+        subOffect += rows_read;
+        offsetWrite += rows_read;
+    }
+    return new Bool(true);
+}
+
+ConstantSP loadParquetPloopFunc(Heap *heap, vector<ConstantSP> &arguments) {
+    if(arguments.size() < 7)
+        throw RuntimeException("the size of param for loadParquetPloopFunc can not be less than 7");
+    if(arguments[0]->getType() != DT_STRING || arguments[0]->getForm() != DF_SCALAR)
+        throw RuntimeException("the fileName for loadParquetPloopFunc must be a string scalar");
+    string fileName = arguments[0]->getString();
+    if(arguments[1]->getType() != DT_INT || arguments[1]->getForm() != DF_SCALAR)
+        throw RuntimeException("the batchRow for loadParquetPloopFunc must be an int scalar");
+    int batchRow = arguments[1]->getInt();
+    if(arguments[2]->getType() != DT_ANY || arguments[2]->getForm() != DF_VECTOR)
+        throw RuntimeException("the dolphindbColVec for dolphindbColVec must be an any vector");
+    VectorSP dolphindbColVec = arguments[2];
+    if(arguments[3]->getType() != DT_INT || arguments[3]->getForm() != DF_SCALAR)
+        throw RuntimeException("the rowGroupStart for loadParquetPloopFunc must be an int scalar");
+    int rowGroupStart = arguments[3]->getInt();
+    if(arguments[4]->getType() != DT_INT || arguments[4]->getForm() != DF_VECTOR)
+        throw RuntimeException("the arrowIndexVec for loadParquetPloopFunc must be an int vector");
+    VectorSP arrowIndexVec = arguments[4];
+    ParquetReadOnlyFile file(fileName);
+    if(arguments[5]->getType() != DT_INT || arguments[5]->getForm() != DF_SCALAR)
+        throw RuntimeException("the rowGroupEnd for loadParquetPloopFunc must be an int scalar");
+    int rowGroupEnd = arguments[5]->getInt();
+    if(arguments[6]->getType() != DT_INT || (arguments[6]->getForm() != DF_VECTOR && arguments[6]->getForm() != DF_SCALAR))
+        throw RuntimeException("the dolphinIndexVec for loadParquetPloopFunc must be an int vector");
+    VectorSP dolphinIndexVec = arguments[6];
+    int colSize = dolphinIndexVec->rows();
+    int dolphindbColVecSize = dolphindbColVec->rows();
+    int arrowIndexVecSize = arrowIndexVec->rows();
+    for(int i = 0; i < colSize; ++i){
+        int offsetWrite = 0;
+        int rowCount = 0;
+        int dolphinIndex = dolphinIndexVec->getInt(i);
+        if(dolphinIndex >= dolphindbColVecSize)
+            throw RuntimeException("the dolphinIndex must be less than the size of dolphindbColVec");
+        if(dolphinIndex >= arrowIndexVecSize)
+            throw RuntimeException("the dolphinIndex must be less than the size of arrowIndexVec");
+        for (int row = rowGroupStart; row < rowGroupEnd; row++){
+            loadParquetColumn(&file, batchRow, dolphindbColVec->get(dolphinIndex), row, dolphinIndex, arrowIndexVec->getInt(dolphinIndex), offsetWrite, rowCount);
+            offsetWrite += rowCount;
+        }
+    }
+    return new Bool(true);
+}
+
 } // namespace ParquetPluginImp
+
+ConstantSP setReadThreadNum(Heap *heap, vector<ConstantSP>& arguments){
+    string usage("parquet::setReadThreadNum(num) ");
+    if(arguments[0]->getType() != DT_INT || arguments[0]->getForm() != DF_SCALAR)
+        throw IllegalArgumentException("parquet::setReadThreadNum", usage + "num must be an int scalar. ");
+    int threadNum = arguments[0]->getInt();
+    if(threadNum < 0)
+        throw IllegalArgumentException("parquet::setReadThreadNum", usage + "num can not be less than 0 ");
+    ParquetPluginImp::READ_THREAD_NUM = threadNum;
+    return new Bool(true);
+}
+ConstantSP getReadThreadNum(Heap *heap, vector<ConstantSP>& arguments){
+    int readThreadNum = ParquetPluginImp::READ_THREAD_NUM;
+    return new Int(readThreadNum);
+}

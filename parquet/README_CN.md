@@ -16,15 +16,22 @@ Parquet 插件目前支持版本：[relsease200](https://github.com/dolphindb/Do
     - [2.3 parquet::loadParquetEx](#23-parquetloadparquetex)
     - [2.4 parquet::parquetDS](#24-parquetparquetds)
     - [2.5 parquet::saveParquet](#25-parquetsaveparquet)
+    - [2.6 parquet::setReadThreadNum](#26-parquetsetreadthreadnum)
+    - [2.7 parquet::getReadThreadNum](#27-parquetgetreadthreadnum)
   - [3 支持的数据类型](#3-支持的数据类型)
     - [3.1 导入](#31-导入)
     - [3.2 导出](#32-导出)
+- [Release Notes](#release-notes)
+  - [2.00.11](#20011)
+    - [新增功能](#新增功能)
+  - [2.00.10](#20010)
+    - [优化](#优化)
 
 ## 1 安装插件
 
 ### 1.1 下载预编译插件
 
-DolphinDB 提供了预编译的 Parquet 插件，可在 Linux 系统上直接进行安装。[点击此处下载插件](https://gitee.com/dolphindb/DolphinDBPlugin/tree/release200/parquet/bin/linux)
+DolphinDB 提供了预编译的 Parquet 插件，可在 Linux 系统上直接进行安装。[点击此处下载插件](https://gitee.com/dolphindb/DolphinDBPlugin/tree/master/parquet/bin/linux64)
 
 请注意插件的版本应与 DolphinDB 客户端版本相同，可以通过切换分支获取相应版本。
 
@@ -77,7 +84,7 @@ make
 
 ### 1.3 安装插件
 
-在 Linux 导入 DolphinDB 提供的[预编译 Parquet 插件](https://gitee.com/dolphindb/DolphinDBPlugin/tree/release200/parquet/bin/linux)，或用户自行编译的插件。
+在 Linux 导入 DolphinDB 提供的[预编译 Parquet 插件](https://gitee.com/dolphindb/DolphinDBPlugin/tree/master/parquet/bin/linux64)，或用户自行编译的插件。
 
 (1) 添加插件所在路径到 LIB 搜索路径 LD_LIBRARY_PATH
 
@@ -239,6 +246,48 @@ fileName: 保存的文件名，类型为字符串标量
 parquet::saveParquet(tb, "userdata1.parquet")
 ```
 
+### 2.6 parquet::setReadThreadNum
+
+**语法**
+
+parquet::setReadThreadNum(num)
+
+**参数**
+
+num：最大的读取线程数。
+
+- 默认为1，表示不额外创建线程，在当前线程读取 parquet 文件。
+- 如果大于1，则会将读取 parquet 文件的任务分成 num 份，即最大的读取线程数为 num。
+- 如果等于0，则每一列的读取都会作为 ploop 的任务。
+
+**详情**
+
+用于设置是否需要并发读取 parquet 文件和读取 parquet 的最大线程数。
+
+注意：因为 parquet 插件内部会调用 ploop 函数按列分组并行读取 parquet 文件，所以实际读取 parquet 文件的并发度也受 DolphinDB 的 worker 参数限制。
+
+**例子**
+
+```
+parquet::setReadThreadNum(0)
+```
+
+### 2.7 parquet::getReadThreadNum
+
+**语法**
+
+parquet::getReadThreadNum()
+
+**详情**
+
+获取 parquet 插件的最大读线程数。
+
+**例子**
+
+```
+parquet::getReadThreadNum()
+```
+
 ## 3 支持的数据类型
 
 ### 3.1 导入
@@ -298,6 +347,7 @@ DolphinDB 在导入 Parquet 数据时，优先按照源文件中定义的 Logica
 | FIXED_LEN_BYTE_ARRAY | STRING                   |
 
 > **请注意：**
+>
 >- 暂不支持转化 Parquet 中的 repeated 字段。
 >- 在 Parquet 中标注了 DECIMAL 类型的字段中，仅支持转化原始数据类型（physical type）为 INT32, INT64 和 FIXED_LEN_BYTE_ARRAY 的数据。
 >- 由于 DolphinDB 不支持无符号类型，所以读取 Parquet 中的 UINT_64 时若发生溢出，则会取 DolphinDB 中的 NULL 值。
@@ -327,8 +377,17 @@ DolphinDB 在导入 Parquet 数据时，优先按照源文件中定义的 Logica
 | STRING            | BYTE_ARRAY               | STRING                  |
 | SYMBOL            | BYTE_ARRAY               | STRING                  |
 
-# ReleaseNotes:
+# Release Notes
 
-## 功能优化
+## 2.00.11
 
-* 优化了部分报错信息。（**2.00.10**）
+### 新增功能
+
+- 新增接口 `parquet::setReadThreadNum(num)`，用于设置插件的最大读线程数。
+- 新增接口 `parquet::getReadThreadNum()`，用于获取插件的最大读线程数。
+
+## 2.00.10
+
+### 优化
+
+- 优化了部分报错信息。

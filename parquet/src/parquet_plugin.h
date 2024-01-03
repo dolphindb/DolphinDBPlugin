@@ -9,6 +9,7 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <atomic>
 
 #include <Concurrent.h>
 #include <CoreConcept.h>
@@ -30,6 +31,8 @@ extern "C" ConstantSP loadParquetEx(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP parquetDS(Heap *heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP saveParquet(Heap *heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP saveParquetHdfs(Heap *heap, vector<ConstantSP>& arguments);
+extern "C" ConstantSP setReadThreadNum(Heap *heap, vector<ConstantSP>& arguments);
+extern "C" ConstantSP getReadThreadNum(Heap *heap, vector<ConstantSP>& arguments);
 
 namespace ParquetPluginImp
 {
@@ -93,9 +96,9 @@ int convertParquetToDolphindbDouble(int col_idx,std::shared_ptr<parquet::ColumnR
 
 int convertParquetToDolphindbString(int col_idx,std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr,vector<string> &buffer, DATA_TYPE string_t, size_t batchSize, bool& containNull);
 
-ConstantSP loadParquet(const string &filename, const ConstantSP &schema, const ConstantSP &column, const int rowGroupStart, const int rowGroupNum);
+ConstantSP loadParquetByFileName(Heap *heap, const string &filename, const ConstantSP &schema, const ConstantSP &column, const int rowGroupStart, const int rowGroupNum);
 
-ConstantSP loadParquet(ParquetReadOnlyFile*file, const ConstantSP &schema, const ConstantSP &column, const int rowGroupStart, const int rowGroupEnd);
+ConstantSP loadParquetByFilePtr(ParquetReadOnlyFile *file, Heap *heap, string fileName, const ConstantSP &schema, const ConstantSP &column, const int rowGroupStart, const int rowGroupEnd);
 
 ConstantSP loadParquetHdfs(void *buffer, int64_t len);
 
@@ -123,7 +126,7 @@ void writeStringToParquet(parquet::ByteArrayWriter *parquetCol, const VectorSP &
 
 //ConstantSP loadFromParquetToDatabase(Heap *heap, vector<ConstantSP> &arguments);
 vector<DistributedCallSP> generateParquetTasks(Heap* heap, ParquetReadOnlyFile *file, const TableSP &schema, const ConstantSP &column,
-                                          const int rowGroupStart, const int rowGroupNum, const SystemHandleSP &db, const string &tableName, const ConstantSP &transform);
+                                          const int rowGroupStart, const int rowGroupNum, const SystemHandleSP &db, const string &tableName, const ConstantSP &transform, const string& fileName);
 
 TableSP generateInMemoryParitionedTable(Heap *heap, const SystemHandleSP &db,
                                         const ConstantSP &tables, const ConstantSP &partitionNames);
@@ -140,6 +143,11 @@ inline bool isDecimal(const parquet::ColumnDescriptor *col_descr){
 	return false;
   return col_descr->logical_type()->is_decimal() || (col_descr->converted_type()==parquet::ConvertedType::DECIMAL);
 }
+
+ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const VectorSP &dolphindbCol, int row,
+                             int dolphinIndex, int arrowIndex, int offsetStart, int& totalRows);
+
+ConstantSP loadParquetPloopFunc(Heap *heap, vector<ConstantSP> &arguments);
 }
 
 #endif
