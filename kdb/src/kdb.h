@@ -44,7 +44,7 @@ private:
 
 class Connection {
 public:
-    Connection(const string& host, const int& port, const string& usernamePassword);
+    Connection(string& host, const int& port, string& usernamePassword);
     ~Connection();
 
     TableSP getTable(const string& tablePath, const string& symFilePath);
