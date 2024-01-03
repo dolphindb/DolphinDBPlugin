@@ -2,10 +2,7 @@
 #include <cstdio>
 #include <iostream>
 #include <memory>
-#include <string>
 #include <unistd.h>
-#include "Exceptions.h"
-#include "Logger.h"
 #include "kerberos.h"
 
 using namespace std;
@@ -83,13 +80,13 @@ ConstantSP hdfs_Connect(Heap *heap, vector<ConstantSP> &args)
             hdfsBuilderSetNameNodePort(pbld, port);
         }
     }
-     if (args.size() > 2 && !args[2]->isNull())
-     {
-         if (args[2]->getType() != DT_STRING || args[2]->getForm() != DF_SCALAR || args[2]->getForm() != DF_SCALAR)
-             throw IllegalArgumentException(__FUNCTION__, PLUGIN_HDFS_LOG_PREFIX + usage + "userName must be a string scalar.");
-         userName = args[2]->getString();
-         hdfsBuilderSetUserName(pbld, userName.c_str());
-     }
+    if (args.size() > 2 && !args[2]->isNull())
+    {
+        if (args[2]->getType() != DT_STRING || args[2]->getForm() != DF_SCALAR || args[2]->getForm() != DF_SCALAR)
+            throw IllegalArgumentException(__FUNCTION__, PLUGIN_HDFS_LOG_PREFIX + usage + "userName must be a string scalar.");
+        userName = args[2]->getString();
+        hdfsBuilderSetUserName(pbld, userName.c_str());
+    }
     if(args.size() == 7) {
         if (args[3]->getType() != DT_STRING || args[3]->getForm() != DF_SCALAR)
             throw IllegalArgumentException(__FUNCTION__, PLUGIN_HDFS_LOG_PREFIX + usage + "kerbTicketCachePath must be a string scalar.");
@@ -110,8 +107,8 @@ ConstantSP hdfs_Connect(Heap *heap, vector<ConstantSP> &args)
         if (args[3]->getType() != DT_STRING || args[3]->getForm() != DF_SCALAR)
             throw IllegalArgumentException(__FUNCTION__, PLUGIN_HDFS_LOG_PREFIX + usage + "kerbTicketCachePath must be a string scalar.");
         cachePath = args[3]->getString();
-    } else {
-        throw IllegalArgumentException(__FUNCTION__, PLUGIN_HDFS_LOG_PREFIX + usage + "connect should be either 4 parameter or 7 parameters.");
+    } else if(args.size() > 4) {
+        throw IllegalArgumentException(__FUNCTION__, PLUGIN_HDFS_LOG_PREFIX + usage + "connect should be either less than or equal to 4 parameter or just 7 parameters.");
     }
     hdfsBuilderSetKerbTicketCachePath(pbld, cachePath.c_str());
 
@@ -240,34 +237,6 @@ ConstantSP hdfs_CreateDirectory(Heap *heap, vector<ConstantSP> &args)
     return new Void();
 }
 
-static short encodeMode(short mode) {
-    if(mode < 0 || mode >777) {
-        throw RuntimeException(PLUGIN_HDFS_LOG_PREFIX + "Invalid mode \"" + to_string(mode) + "\".");
-    }
-    short m1 = mode % 10;
-    mode /= 10;
-    short m2 = mode % 10;
-    mode /= 10;
-    short m3 = mode % 10;
-    if(m1 > 7 || m2 > 7 || m3 > 7) {
-        throw RuntimeException(PLUGIN_HDFS_LOG_PREFIX + "Invalid mode \"" + to_string(m3) + to_string(m2) + to_string(m1)  + "\".");
-    }
-    return m3*64 + m2*8 + m1;
-}
-
-static short decodeMode(short mode) {
-    if(mode < 0 || mode >511) {
-        LOG_WARN(PLUGIN_HDFS_LOG_PREFIX + "Invalid mode \"" + to_string(mode) + "\".");
-    }
-    short m1 = mode % 8;
-    mode /= 8;
-    short m2 = mode % 8;
-    mode /= 8;
-    short m3 = mode % 8;
-
-    return m3*100 + m2*10 + m1;
-}
-
 ConstantSP hdfs_Chmod(Heap *heap, vector<ConstantSP> &args)
 {
     const auto usage = string("Usage: chmod(hdfsFS, path, mode).\n");
@@ -279,7 +248,7 @@ ConstantSP hdfs_Chmod(Heap *heap, vector<ConstantSP> &args)
     if (args[2]->getType() != DT_INT || args[2]->getForm() != DF_SCALAR)
         throw IllegalArgumentException(__FUNCTION__, PLUGIN_HDFS_LOG_PREFIX + usage + "mode must be a integer.");
 
-    if (hdfsChmod(getConnection<hdfs_internal>(args[0]), args[1]->getString().c_str(), encodeMode(args[2]->getShort())) == -1)
+    if (hdfsChmod(getConnection<hdfs_internal>(args[0]), args[1]->getString().c_str(), args[2]->getShort()) == -1)
         throw RuntimeException(getErrorMsgWithPrefix("Error occurred when changing the ownership"));
     return new Void();
 }
@@ -336,7 +305,7 @@ ConstantSP hdfs_listDirectory(Heap *heap, vector<ConstantSP> &args)
         blockSizeVec->setLong(i, fileInfo->info[i].mBlockSize);
         ownerVec->setString(i, fileInfo->info[i].mOwner);
         groupVec->setString(i, fileInfo->info[i].mGroup);
-        permissionVec->setShort(i, decodeMode(fileInfo->info[i].mPermissions));
+        permissionVec->setShort(i, fileInfo->info[i].mPermissions);
         lastAccessVec->setInt(i, fileInfo->info[i].mLastAccess);
     }
     vector<string> colNames = {"mKind", "mName", "mLastMod", "mSize", "mReplication", "mBlockSize", "mOwner", "mGroup", "mPermissions", "mLastAccess"};
