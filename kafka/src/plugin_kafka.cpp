@@ -28,6 +28,10 @@ static Mutex DICT_LATCH;
 const static int TYPE_SIZE[17] = {0,1,1,2,4,8,4,4,4,4,4,8,8,8,8,4,8};
 static DictionarySP STATUS_DICT = Util::createDictionary(DT_STRING,nullptr,DT_ANY,nullptr);
 
+static Defer destruct = Defer([](){
+    STATUS_DICT->clear();
+});
+
 const static string PRODUCER_DESC = "kafka producer connection";
 const static string CONSUMER_DESC = "kafka consumer connection";
 const static string QUEUE_DESC = "kafka queue connection";
@@ -109,8 +113,8 @@ static void kafkaConsumerOnClose(Heap *heap, vector<ConstantSP> &args) {
             for(int i = 0; i < keys->size(); i++){
                 string key = keys->getString(i);
                 ConstantSP conn = STATUS_DICT->getMember(key);
-                if(conn->getLong() != 0) {
-                    auto *sc = (SubConnection *)(conn->getLong());
+                if(!conn->isNull() && conn->getLong() != 0) {
+                    SubConnection *sc = (SubConnection *)(conn->getLong());
                     if (sc->getConsumer() == consumerValue) {
                         throw RuntimeException("The consumer [" + std::to_string(consumerValue) +
                             "] is still used in subJob [" + std::to_string(conn->getLong()) + "].");
@@ -119,7 +123,7 @@ static void kafkaConsumerOnClose(Heap *heap, vector<ConstantSP> &args) {
             }
             if(consumer!= nullptr) {
                 consumer->pause();
-                consumer->set_destroy_flags(RD_KAFKA_DESTROY_F_NO_CONSUMER_CLOSE);
+                // consumer->set_destroy_flags(RD_KAFKA_DESTROY_F_NO_CONSUMER_CLOSE);
                 consumer->unsubscribe();
                 consumer->unassign();
                 drain(consumer);
@@ -488,18 +492,21 @@ ConstantSP kafkaConsumerPollBatch(Heap *heap, vector<ConstantSP> &args) {
 
     return result;
 }
+
 static void kafkaSubConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
-    SubConnection* pObject = (SubConnection*)(args[0]->getLong());
-    if(pObject!= nullptr) {
-        delete (SubConnection *) (args[0]->getLong());
-        args[0]->setLong(0);
+    LockGuard<Mutex> _(&DICT_LATCH);
+    long long ptrValue = args[0]->getLong();
+    args[0]->setLong(0);
+    SubConnection *pObject = (SubConnection*)(ptrValue);
+    if(pObject != nullptr) {
+        delete pObject;
     }
 }
 
 
 ConstantSP kafkaCreateSubJob(Heap *heap, vector<ConstantSP> args){
     const auto usage = string(
-            "Usage: createSubJob(consumer, table, parser, description, [timeout]).\n"
+            "Usage: createSubJob(consumer, handler, parser, description, [timeout]).\n"
     );
 
     if(args[0]->getType()!=DT_RESOURCE || args[0]->getString() != CONSUMER_DESC)
@@ -510,24 +517,30 @@ ConstantSP kafkaCreateSubJob(Heap *heap, vector<ConstantSP> args){
     auto timeout = static_cast<int>(consumer->get_timeout().count());
 
     if (!(args[1]->isTable() || args[1]->getType()==DT_FUNCTIONDEF || args[1]->isNothing())) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "the second argument must be a table or a function or null if the third argument is coder instance.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "handler should be a table or a function. If the third argument is a coder instance, handler must be null.");
     }
     if(args[1]->getType() == DT_FUNCTIONDEF){
         FunctionDefSP handle = args[1];
         if(handle->getParamCount() != 1){
-            throw IllegalArgumentException(__FUNCTION__, usage + "handle function must accept only one param.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "handler function must accept only one param.");
         }
     }
 
-    if (args[2]->getType() != DT_FUNCTIONDEF && !(args[2]->getType() == DT_RESOURCE && args[2]->getString() == "coder instance")) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "parser must be an function or a decoder.");
-        if(args[2]->getType() == DT_RESOURCE && args[2]->getString() == "coder instance" && !args[1]->isNothing()) {
-            throw IllegalArgumentException(__FUNCTION__, usage + "If you pass a decoder as parser, the second argument must be empty.");
-        } else if (args[1]->isNothing()) {
-            throw IllegalArgumentException(__FUNCTION__, usage + "the second argument must be a table or a function or null, if the third argument is coder instance.");
+    ConstantSP parser;
+    if (args[2]->getType() == DT_FUNCTIONDEF) {
+        if (args[1]->isNothing()) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "If parser is a function, the second argument must not be empty.");
         }
+        parser = args[2];
+    } else if(args[2]->getForm() == DF_TABLE && args[2]->getString() == "coder instance") {
+        if(!args[1]->isNothing()) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "If parser is a decoder, the second argument must be empty.");
+        }
+        parser = args[2];
+    } else {
+        throw IllegalArgumentException(__FUNCTION__, usage + "parser must be an function or a decoder.");
     }
-    ConstantSP parser = args[2];
+
     if(parser->getType() == DT_FUNCTIONDEF && (((FunctionDefSP)parser)->getParamCount() < 1 || ((FunctionDefSP)parser)->getParamCount() > 3)){
         throw IllegalArgumentException(__FUNCTION__, usage + "parser function must accept only 1 to 3 param.");
     };

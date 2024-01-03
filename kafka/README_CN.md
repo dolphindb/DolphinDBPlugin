@@ -366,6 +366,7 @@ kafka::pollDict(consumer, batch_size, [timeout])
 **详情**
 
 将订阅数据保存到 DolphinDB。返回一个包含消息键值对的字典。
+batch_size内的重复消息只会保留一个
 
 #### 3.3.10 提交 <!-- omit in toc -->
 
@@ -538,6 +539,7 @@ kafka::getOffsetCommitted(consumer, topics, partitions, offsets, [timeout])
 **详情**
 
 获取指定主题或分区列表提交的偏移量。
+返回一个table，由 STRING 类型的 topic，INT 类型的partition， INT 类型的 offset 三列组成。
 
 #### 3.3.21 获取偏移量位置 <!-- omit in toc -->
 
@@ -556,6 +558,7 @@ kafka::getOffsetPosition(consumer, topics, partitions)
 **详情**
 
 获取指定主题或分区列表提交的偏移量位置。
+返回一个table，由 STRING 类型的 topic，INT 类型的partition， INT 类型的 offset 三列组成。
 
 #### 3.3.22 存储消费者偏移量 <!-- omit in toc -->
 
@@ -1094,13 +1097,26 @@ conn = kafka::createSubJob(consumer,tab,mseed::parse,"test:0:get mseed data");
 kafka::getJobStat();
 kafka::cancelSubJob(conn);
 ```
-# ReleaseNotes:
 
-## 故障修复
+# Release Notes
 
-* 修复了接口 kafka::pollByteStream 不能接收非 JSON 格式数据的问题。（**1.30.22**）
-* 修复了多线程操作导致的 server 宕机问题。（**1.30.22**）
+## 1.30.23
 
-# 功能优化
+### 新增功能
 
-* 函数 eventGetParts , getOffsetPosition , getOffsetCommitted 增加了返回值。（**1.30.22**）
+- 新增支持 SASL2 认证与数据加密。
+
+### 故障修复
+
+- 修复 OOM 时插件宕机的问题。
+
+## 1.30.22
+
+### 优化
+
+- 函数 eventGetParts , getOffsetPosition , getOffsetCommitted 增加了返回值。
+
+### bug修复
+
+- 修复了接口 kafka::pollByteStream 不能接收非 JSON 格式数据的问题。
+- 修复了多线程操作导致的server 宕机问题。

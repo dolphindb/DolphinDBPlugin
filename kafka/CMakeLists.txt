@@ -18,8 +18,32 @@ endif ()
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -fPIC -std=c++11 -Wall -rdynamic ")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -fPIC -std=c++11 -Wall -rdynamic ")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -std=c++11 -Wall -rdynamic ")
+
+if("${CMAKE_BUILD_TYPE}" STREQUAL "")
+    set(CMAKE_BUILD_TYPE "RELEASE")
+endif ()
+
+string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
+message("CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
+
+if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
+elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "RELWITHDEBINFO")  # release with debug info
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O2")
+else ()
+    message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")
+endif ()
+
+if (${DDB_USE_ASAN})
+    add_compile_options(
+        "-fsanitize=address"                # Enable ASAN.
+        "-fno-omit-frame-pointer"           # Nicer stack traces in error messages.
+        "-fno-optimize-sibling-calls"       # Disable tail call elimination (perfect stack traces if inlining off).
+        )
+    set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS} "-fsanitize=address")
+endif ()
 
 if(DEFINED BUILD_ARM)
     message("build arm")
@@ -36,7 +60,7 @@ if(DEFINED BUILD_ARM)
     aux_source_directory("./src" plugin_kafka_src)
     aux_source_directory("cppkafka/src" cppkafka)
     #add_subdirectory(cppkafka)
-    
+
     add_library(PluginKafka SHARED ${plugin_kafka_src} ${cppkafka})
     target_link_libraries(PluginKafka rdkafka rdkafka++ DolphinDB)
     set_target_properties(PluginKafka PROPERTIES LINK_FLAGS "-Wl,-rpath,$ORIGIN:.")
@@ -49,10 +73,12 @@ else ()
     aux_source_directory("./src" plugin_kafka_src)
     aux_source_directory("cppkafka/src" cppkafka)
 
-    add_subdirectory(cppkafka)
+    # add_subdirectory(cppkafka)
 
     add_library(PluginKafka SHARED ${plugin_kafka_src})
-    target_link_libraries(PluginKafka librdkafka.a librdkafka++.a libcppkafka.a libz.a DolphinDB)
+    target_link_libraries(PluginKafka librdkafka.a librdkafka++.a libcppkafka.a libz.a DolphinDB sasl2)
+    set_target_properties(PluginKafka PROPERTIES LINK_FLAGS "-Wl,-rpath,$ORIGIN,-disable-new-dtags")
+
     # target_link_libraries(PluginKafka rdkafka++ cppkafka DolphinDB)
 endif()
 

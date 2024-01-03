@@ -5,6 +5,7 @@
 #include "client.h"
 #include "Types.h"
 #include "plugin_kafka.h"
+
 // #include "CoderBase.h"
 #include <cmath>
 #include <exception>
@@ -118,11 +119,14 @@ void AppendTable::run() {
 						else
 							LOG_ERR(string("[PLUGIN::KAFKA] ") + "Handle is not a function define.");
                     }
-                } else if(parser_->getType() == DT_RESOURCE) {
-                    ConstantSP content = Util::createTable({"string"}, parserString);
-                    string name = "append";
+                } else if(parser_->getForm() == DF_TABLE) {
+                    vector<ConstantSP> tableArgs = {parserString[0]};
+                    ConstantSP content = Util::createTable({"string"}, tableArgs);
+                    string name = "parseAndHandle";
                     vector<ConstantSP> args = {content};
                     parser_->callMethod(name, session_->getHeap().get(), args);
+                } else {
+                    LOG_ERR("[PLUGIN::KAFKA] Invalid parser parameter.");
                 }
             }
             catch(std::exception &exception){
@@ -152,7 +156,7 @@ void AppendTable::run() {
 }
 
 SubConnection::~SubConnection() {
-    if(thread_->isRunning()) {
+    if(!thread_.isNull() && thread_->isRunning()) {
         cancelThread();
     }
     if (connected_) {
