@@ -34,14 +34,14 @@ ConstantSP getConstantMarshal(Heap *heap, vector<ConstantSP> &args) {
     DataOutputStreamSP out  = *reinterpret_cast<DataOutputStreamSP *>(args[0]->getLong());
     MarshalMap* marshalMap = new MarshalMap();
     (*marshalMap)[FORMAT_ARROW][DF_TABLE] = new ArrowTableMarshall(out);
-    FunctionDefSP onDestroy = Util::createSystemProcedure("marshal onDestroy()", Destruction<MarshalMap*>, 1, 1);
+    FunctionDefSP onDestroy = Util::createSystemProcedure("marshal onDestroy()", Destruction<MarshalMap>, 1, 1);
     return Util::createResource((long long) marshalMap, "arrow marshal", onDestroy, heap->currentSession());
 }
 
 ConstantSP getConstantUnmarshal(Heap *heap, vector<ConstantSP> &args) {
     DataInputStreamSP in = *reinterpret_cast<DataInputStreamSP *>(args[0]->getLong());
     UnmarshalMap* unmarshalMap = new UnmarshalMap();
-    FunctionDefSP onDestroy = Util::createSystemProcedure("marshal onDestroy()", Destruction<UnmarshalMap*>, 1, 1);
+    FunctionDefSP onDestroy = Util::createSystemProcedure("marshal onDestroy()", Destruction<UnmarshalMap>, 1, 1);
     return Util::createResource((long long) &unmarshalMap, "arrow unmarshal", onDestroy, heap->currentSession());
 }
 
@@ -445,8 +445,28 @@ void MarshalVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_build
     case DT_UUID: {
         auto builder = static_cast<arrow::FixedSizeBinaryBuilder*>(batch_builder->GetField(columnId));
         std::unique_ptr<unsigned char[]> buffer(new unsigned char[real_size * 16]);
+        std::unique_ptr<unsigned char[]> vbuffer(new unsigned char[real_size * 16]);
         const unsigned char* pbuf = column->getBinaryConst(rowsSent, real_size, 16, buffer.get());
-        builder->AppendValues(reinterpret_cast<const uint8_t*>(pbuf), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        unsigned char* vbuf = vbuffer.get();
+        for (int i = 0; i < real_size; ++i) {
+            vbuf[i*16 + 0 ] = pbuf[i*16 + 15];
+            vbuf[i*16 + 1 ] = pbuf[i*16 + 14];
+            vbuf[i*16 + 2 ] = pbuf[i*16 + 13];
+            vbuf[i*16 + 3 ] = pbuf[i*16 + 12];
+            vbuf[i*16 + 4 ] = pbuf[i*16 + 11];
+            vbuf[i*16 + 5 ] = pbuf[i*16 + 10];
+            vbuf[i*16 + 6 ] = pbuf[i*16 + 9 ];
+            vbuf[i*16 + 7 ] = pbuf[i*16 + 8 ];
+            vbuf[i*16 + 8 ] = pbuf[i*16 + 7 ];
+            vbuf[i*16 + 9 ] = pbuf[i*16 + 6 ];
+            vbuf[i*16 + 10] = pbuf[i*16 + 5 ];
+            vbuf[i*16 + 11] = pbuf[i*16 + 4 ];
+            vbuf[i*16 + 12] = pbuf[i*16 + 3 ];
+            vbuf[i*16 + 13] = pbuf[i*16 + 2 ];
+            vbuf[i*16 + 14] = pbuf[i*16 + 1 ];
+            vbuf[i*16 + 15] = pbuf[i*16 + 0 ];
+        }
+        builder->AppendValues(reinterpret_cast<const uint8_t*>(vbuf), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
         break;
     }
     case DT_IP: {
@@ -644,8 +664,28 @@ void MarshalArrayVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_
     case DT_UUID: {
         arrow::FixedSizeBinaryBuilder* subBuilder = static_cast<arrow::FixedSizeBinaryBuilder*>(builder->value_builder());
         std::unique_ptr<unsigned char[]> valueBuffer(new unsigned char[real_len * 16]);
+        std::unique_ptr<unsigned char[]> vbuffer(new unsigned char[real_len * 16]);
         const unsigned char *pbuf = valueVector->getBinaryConst(offset[0], real_len, 16, valueBuffer.get());
-        subBuilder->AppendValues(reinterpret_cast<const uint8_t*>(pbuf), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        unsigned char* vbuf = vbuffer.get();
+        for (int i = 0; i < real_len; ++i) {
+            vbuf[i*16 + 0 ] = pbuf[i*16 + 15];
+            vbuf[i*16 + 1 ] = pbuf[i*16 + 14];
+            vbuf[i*16 + 2 ] = pbuf[i*16 + 13];
+            vbuf[i*16 + 3 ] = pbuf[i*16 + 12];
+            vbuf[i*16 + 4 ] = pbuf[i*16 + 11];
+            vbuf[i*16 + 5 ] = pbuf[i*16 + 10];
+            vbuf[i*16 + 6 ] = pbuf[i*16 + 9 ];
+            vbuf[i*16 + 7 ] = pbuf[i*16 + 8 ];
+            vbuf[i*16 + 8 ] = pbuf[i*16 + 7 ];
+            vbuf[i*16 + 9 ] = pbuf[i*16 + 6 ];
+            vbuf[i*16 + 10] = pbuf[i*16 + 5 ];
+            vbuf[i*16 + 11] = pbuf[i*16 + 4 ];
+            vbuf[i*16 + 12] = pbuf[i*16 + 3 ];
+            vbuf[i*16 + 13] = pbuf[i*16 + 2 ];
+            vbuf[i*16 + 14] = pbuf[i*16 + 1 ];
+            vbuf[i*16 + 15] = pbuf[i*16 + 0 ];
+        }
+        subBuilder->AppendValues(reinterpret_cast<const uint8_t*>(vbuf), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
         break;
     }
     case DT_IP: {

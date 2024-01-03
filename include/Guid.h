@@ -100,6 +100,8 @@ public:
     static string getString(const unsigned char* guid);
     static Guid ZERO;
 
+    friend std::ostream& operator<<(std::ostream &os, const Guid &guid);
+
 private:
 	unsigned char uuid_[16];
 };

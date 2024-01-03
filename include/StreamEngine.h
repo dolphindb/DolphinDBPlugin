@@ -41,7 +41,7 @@ private:
 
 class AbstractStreamEngine : public Table {
 public:
-    AbstractStreamEngine(const string &type, const string &name, const string &user, const TableSP& dummy, const string& snapshotDir = "", long long snapshotIntervalInMsgCount = LLONG_MAX, int raftGroup = -1);
+    AbstractStreamEngine(const string &type, const string &name, const string &user, const TableSP& dummy, const string& snapshotDir = "", long long snapshotIntervalInMsgCount = LLONG_MAX, int raftGroup = -1, const string &uuid = "");
     ~AbstractStreamEngine() override;
 
     /**
@@ -63,7 +63,7 @@ public:
      * any message.
      */
     virtual bool warmup(vector<ConstantSP>& values, string& errMsg){
-    	errMsg = "warmup() not supported.";
+    	errMsg = "warmup() stream engine currently only supports the reactive state engine. RefId:S03018";
     	return false;
     }
 
@@ -189,6 +189,7 @@ protected:
 
     vector<ConstantSP> engineStat_;
     string name_;
+    std::string uuid_;
 
     ConstantSP getInternal(INDEX index) const;
     ConstantSP getInternal(const ConstantSP& index) const;

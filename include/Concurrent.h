@@ -73,6 +73,26 @@ private:
 	friend class ConditionalVariable;
 };
 
+// Reference: https://en.cppreference.com/w/cpp/thread/recursive_timed_mutex
+class TimedMutex {
+public:
+	TimedMutex();
+	~TimedMutex();
+	void lock();
+	bool tryLock();
+	bool tryLockFor(int milli);
+	void unlock();
+
+private:
+#ifdef WINDOWS
+	HANDLE  mutex_;
+#else
+	pthread_mutexattr_t attr_;
+	pthread_mutex_t mutex_;
+#endif
+	// TimedMutex CANNOT be used with condition variable
+};
+
 class RWLock{
 public:
 	RWLock(bool preferWrite=false);
@@ -446,7 +466,14 @@ public:
 			empty_.wait(mutex_);
 		int count = std::min((int)items_.size(), n);
 		while(count>0){
-			container.push_back(items_.front());
+			do {
+				try {
+					container.push_back(items_.front());
+					break;
+				} catch (...) {
+					sleep(500);
+				}
+			} while (true);
 			items_.pop();
 			--count;
 		}
@@ -466,16 +493,52 @@ public:
 	template<class Y>
 	void removeItem(Y func){
 		LockGuard<Mutex> guard(&mutex_);
-		std::queue<T> newItem;
 		if(items_.empty())
 			return;
+		std::queue<T> newItem;
 		while(!items_.empty()){
-			T item = items_.front();
+			T item;
+			do {
+				try {
+					item = items_.front();
+					break;
+				} catch (...) {
+					sleep(500);
+				}
+			} while (true);
 			items_.pop();
-			if(!func(item))
-				newItem.push(item);
+
+			bool remove = false;
+			try {
+				if (func(item)) {
+					remove = true;
+				}
+			} catch (...) {
+				// ignore
+			}
+			if (!remove) {
+				do {
+					try {
+						newItem.push(item);
+						break;
+					} catch (...) {
+						sleep(500);
+					}
+				} while (true);
+			}
 		}
 		items_.swap(newItem);
+	}
+
+private:
+	void sleep(int milliSeconds) {
+		if (milliSeconds <= 0)
+			return;
+#ifdef WINDOWS
+		::Sleep(milliSeconds);
+#else
+		usleep(1000 * milliSeconds);
+#endif
 	}
 
 private:
@@ -516,6 +579,24 @@ public:
 		size_ += curSize;
 		if(items_.size() == 1)
 			empty_.notifyAll();
+	}
+
+	bool blockingPush(const T& item, int milliseconds){
+		LockGuard<Mutex> guard(&mutex_);
+		long long curSize = sizeFunc_(item);
+		if(curSize <= 0)
+			return true;
+
+		while(!manFunc_(item) && size_ >= capacity_) {
+			if (!full_.wait(mutex_, milliseconds)) {
+				return false;
+			}
+		}
+		items_.push(item);
+		size_ += curSize;
+		if(items_.size() == 1)
+			empty_.notifyAll();
+		return true;
 	}
 
 	void pop(std::vector<T>& container, long long n){

@@ -9,7 +9,10 @@
 #define SMARTPOINTER_H_
 
 #include <atomic>
+#include <typeinfo>
 #include <type_traits>
+#include "Exceptions.h"
+#include <assert.h>
 
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define LIKELY(x) (__builtin_expect((x), 1))
@@ -68,6 +71,8 @@ public:
 		static_assert(std::is_convertible<U*, T*>::value || std::is_base_of<U, T>::value, "U must be implicitly convertible to T or T must be a subclass of U");
 		counterP_=sp.counterP_;
 		if (UNLIKELY(counterP_ == nullptr)) return;
+		// multi-inheritance is not supported in SmartPointer
+		assert(static_cast<T*>((U*)(counterP_->p_)) == (T*)(counterP_->p_));
 		counterP_->addRef();
 	}
 
@@ -134,6 +139,15 @@ public:
 	T* get() const{
 		if (UNLIKELY(counterP_ == nullptr)) return nullptr;
 		return (T*)counterP_->p_;
+	}
+
+	template<typename Type>
+	Type* getAs() const{
+		Type* p = dynamic_cast<Type*>((T*)counterP_->p_);
+		if (UNLIKELY(!p)){
+			throw RuntimeException("cast from type<" + string(typeid(T).name()) + "> to type<" + string(typeid(Type).name()) + "> is not allowed");
+		} 
+		return p;
 	}
 
 	~SmartPointer(){

@@ -14,10 +14,13 @@
 class AnyVector:public Vector{
 public:
 	AnyVector(int size, bool isTableColumn = false, DATA_TYPE dt = DT_VOID, int decimalExtra = -1);
-	AnyVector(const deque<ConstantSP>& data, bool containNull, bool isTableColumn = false, DATA_TYPE dt = DT_VOID, int decimalExtra = -1) :
-		Vector(DT_ANY, MIXED), data_(data), containNull_(containNull), isDim_(false), isTableColumn_(isTableColumn), dt_(dt), decimalExtra_(decimalExtra) {}
-	AnyVector(const vector<ConstantSP>& data, bool containNull, bool isTableColumn = false, DATA_TYPE dt = DT_VOID, int decimalExtra = -1) :
-		Vector(DT_ANY, MIXED), data_(data.begin(), data.end()), containNull_(containNull), isDim_(false), isTableColumn_(isTableColumn), dt_(dt), decimalExtra_(decimalExtra) {}
+
+	AnyVector(const deque<ConstantSP>& data, bool containNull, bool isTableColumn = false, DATA_TYPE dt = DT_VOID,
+			int decimalExtra = -1);
+
+	AnyVector(const vector<ConstantSP>& data, bool containNull, bool isTableColumn = false, DATA_TYPE dt = DT_VOID,
+			int decimalExtra = -1);
+
 	virtual ~AnyVector(){}
 	virtual bool containNotMarshallableObject() const;
 	virtual bool isLargeConstant() const {return !isStatic() && !containNotMarshallableObject();}
@@ -34,6 +37,7 @@ public:
 	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex);
 	virtual bool set(INDEX index, const ConstantSP& value);
 	virtual bool set(const ConstantSP& index, const ConstantSP& value);
+	virtual bool set(Heap* heap, const ConstantSP& index, const ConstantSP& value, int dim);
 	virtual bool setItem(INDEX index, const ConstantSP& value);
 	virtual bool assign(const ConstantSP& value);
 	virtual ConstantSP get(INDEX index) const {return data_[index];}
@@ -148,10 +152,13 @@ public:
 		return count(0, data_.size());
 	}
 	virtual long long count(INDEX start, INDEX length) const;
-	virtual INDEX imax() const {throw RuntimeException("imax method not supported for AnyVector");}
-	virtual INDEX imin() const {throw RuntimeException("imin method not supported for AnyVector");}
-	virtual INDEX imax(INDEX start, INDEX length) const {throw RuntimeException("imax method not supported for AnyVector");}
-	virtual INDEX imin(INDEX start, INDEX length) const {throw RuntimeException("imin method not supported for AnyVector");}
+	/**
+	 * @param rightMost If there are multiple maximum/minimum values, choose the last one if `rightMost` is true.
+	 */
+	virtual INDEX imax(bool rightMost = false) const override {throw RuntimeException("imax method not supported for AnyVector");}
+	virtual INDEX imin(bool rightMost = false) const override {throw RuntimeException("imin method not supported for AnyVector");}
+	virtual INDEX imax(INDEX start, INDEX length, bool rightMost = false) const override {throw RuntimeException("imax method not supported for AnyVector");}
+	virtual INDEX imin(INDEX start, INDEX length, bool rightMost = false) const override {throw RuntimeException("imin method not supported for AnyVector");}
 
 	virtual ConstantSP avg() const {return avg(0, data_.size());}
 	virtual ConstantSP avg(INDEX start, INDEX length) const;
@@ -266,6 +273,7 @@ public:
 			dt_ = type;
 	}
 	void setDecimalExtra(int extra){ decimalExtra_ = extra; }
+	int getDecimalExtra() { return decimalExtra_; }
 	INDEX reserve(INDEX capacity);
 	inline long long getAllocatedMemory() const override {
 		long long memSize = 0;
@@ -275,6 +283,41 @@ public:
 		return memSize;
 	}
 	const ConstantSP& getConstant(INDEX index) const { return data_[index];}
+	void toVector(vector<ConstantSP>& v) const {
+		if(!v.empty())
+			v.clear();
+		v.insert(v.begin(), data_.begin(), data_.end());
+	}
+	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const {
+		if(!data_.empty())
+			throw RuntimeException("Code serialization is supported for a non-empty tuple.");
+		/*
+		 * We want to keep the property isStatic after serialization.
+		 * For this reason, we add 128 to the type if the object is static.
+		 */
+		DATA_TYPE type = getType();
+		if(isStatic())
+			type = (DATA_TYPE)((int)type + 128);
+		short flag = (getForm() <<8) + type;
+		buffer->write((char)CONSTOBJ);
+		buffer->write(flag);
+		buffer->write((int)rows());
+		return buffer->write((int)columns());
+	}
+
+	/**
+	 * @brief cast a Vector to AnyVector
+	 * @param v MUST BE a tuple Vector(isTuple() is true)
+	 * @return nullptr if v isn't a tuple vector
+	 * @return a copyed vector if v is subVector or SlicedVector(isView() is true)
+	 * @return v if v is an AnyVector
+	 */
+	static SmartPointer<AnyVector> toAnyVector(const VectorSP& v) {
+		if (LIKELY(!v->isView()))
+			return v;
+		// v may be a SubVector or SlicedVector
+		return ((Constant*)v.get())->getValue();
+	}
 
 private:
 	ConstantSP calcRowMetric(INDEX rowStart, INDEX count, OptrFunc func, FastFunc fastFunc, const ConstantSP& b, DATA_TYPE type) const;
@@ -483,10 +526,13 @@ public:
 	virtual long long count(INDEX start, INDEX length) const;
 	virtual ConstantSP minmax() const {return minmax(0, size_);}
 	virtual ConstantSP minmax(INDEX start, INDEX length) const;
-	virtual INDEX imax() const {return imax(0, size_);}
-	virtual INDEX imax(INDEX start, INDEX length) const;
-	virtual INDEX imin() const {return imin(0, size_);}
-	virtual INDEX imin(INDEX start, INDEX length) const;
+	/**
+	 * @param rightMost If there are multiple maximum/minimum values, choose the last one if `rightMost` is true.
+	 */
+	virtual INDEX imax(bool rightMost = false) const override { return imax(0, size_, rightMost); }
+	virtual INDEX imax(INDEX start, INDEX length, bool rightMost = false) const override;
+	virtual INDEX imin(bool rightMost = false) const override { return imin(0, size_, rightMost); }
+	virtual INDEX imin(INDEX start, INDEX length, bool rightMost = false) const override;
 
 	virtual ConstantSP max() const {return max(0, index_->size());}
 	virtual ConstantSP max(INDEX start, INDEX length) const;
@@ -586,7 +632,7 @@ public:
 	VectorSP getSourceVector() const { return source_;}
 	INDEX getSubVectorStart() const { return offset_;}
 	INDEX getSubVectorLength() const { return size_;}
-	virtual bool copyable() const {return false;}
+	virtual bool copyable() const {return true;}
 	virtual bool isView() const {return true;}
 	virtual DATA_TYPE getRawType() const {return source_->getRawType();}
 	virtual int getExtraParamForType() const { return source_->getExtraParamForType();}
@@ -1955,16 +2001,19 @@ public:
 	virtual bool appendDouble(double* buf, int len){throw RuntimeException("Immutable sub vector doesn't support method appendDouble");}
 	virtual bool assign(const ConstantSP& value){throw RuntimeException("Immutable sub vector doesn't support method assign");}
 
-	virtual INDEX imax() const override { return imax(0, size_); }
-	virtual INDEX imax(INDEX start, INDEX length) const override {
+	/**
+	 * @param rightMost If there are multiple maximum/minimum values, choose the last one if `rightMost` is true.
+	 */
+	virtual INDEX imax(bool rightMost = false) const override { return imax(0, size_, rightMost); }
+	virtual INDEX imax(INDEX start, INDEX length, bool rightMost = false) const override {
 		auto range = calculateOverlappedRange(start + offset_, length);
-		INDEX index = source_->imax(range.first, range.second);
+		INDEX index = source_->imax(range.first, range.second, rightMost);
 		return index >= 0 ? index - offset_ : index;
 	}
-	virtual INDEX imin() const override { return imin(0, size_); }
-	virtual INDEX imin(INDEX start, INDEX length) const override {
+	virtual INDEX imin(bool rightMost = false) const override { return imin(0, size_, rightMost); }
+	virtual INDEX imin(INDEX start, INDEX length, bool rightMost = false) const override {
 		auto range = calculateOverlappedRange(start + offset_, length);
-		INDEX index = source_->imin(range.first, range.second);
+		INDEX index = source_->imin(range.first, range.second, rightMost);
 		return index >= 0 ? index - offset_ : index;
 	}
 	virtual long long count() const override {return count(0, size_);}
@@ -2192,7 +2241,7 @@ public:
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const {throw RuntimeException("Immutable sub vector doesn't support method serialize");}
 	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict, char nullsOrder = 0) const {
 		auto range = calculateOverlappedRange(start + offset_, length);
-		return source_->isSorted(range.first, range.second, asc, strict);
+		return source_->isSorted(range.first, range.second, asc, strict, nullsOrder);
 	}
 	virtual ConstantSP topK(INDEX start, INDEX length, INDEX top, bool asc, bool extendEqualValue) const {
 		ConstantSP result = source_->topK(offset_ + start, length, top, asc, extendEqualValue);
@@ -2455,10 +2504,21 @@ public:
 	virtual long long count(INDEX start, INDEX length) const;
 	virtual ConstantSP minmax() const {return value_->minmax();}
 	virtual ConstantSP minmax(INDEX start, INDEX length) const;
-	virtual INDEX imax() const {throw RuntimeException("Array vector doesn't support method imax");}
-	virtual INDEX imax(INDEX start, INDEX length) const {throw RuntimeException("Array vector doesn't support method imax");}
-	virtual INDEX imin() const {throw RuntimeException("Array vector doesn't support method imin");}
-	virtual INDEX imin(INDEX start, INDEX length) const {throw RuntimeException("Array vector doesn't support method imin");}
+	/**
+	 * @param rightMost If there are multiple maximum/minimum values, choose the last one if `rightMost` is true.
+	 */
+	virtual INDEX imax(bool rightMost = false) const override {
+		throw RuntimeException("Array vector doesn't support method imax");
+	}
+	virtual INDEX imax(INDEX start, INDEX length, bool rightMost = false) const override {
+		throw RuntimeException("Array vector doesn't support method imax");
+	}
+	virtual INDEX imin(bool rightMost = false) const override {
+		throw RuntimeException("Array vector doesn't support method imin");
+	}
+	virtual INDEX imin(INDEX start, INDEX length, bool rightMost = false) const override {
+		throw RuntimeException("Array vector doesn't support method imin");
+	}
 
 	virtual ConstantSP max() const {return value_->max();}
 	virtual ConstantSP max(INDEX start, INDEX length) const;

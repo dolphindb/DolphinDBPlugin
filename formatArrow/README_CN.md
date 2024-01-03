@@ -1,8 +1,10 @@
-# DolphinDB formatArrow Plugin
+# DolphinDB Arrow 插件使用说明
 
-Apache Arrow 将列式数据结构的优势与内存计算相结合。DolphinDB 提供的 formatArrow 支持 API 与 DolphinDB 进行数据传输时使用 Arrow 数据格式，并自动进行数据类型转换。
+[Apache Arrow](https://arrow.apache.org/) 将列式数据结构的优势与内存计算相结合。DolphinDB 提供的 Arrow 插件支持 API 与 DolphinDB 在进行数据传输时使用 Arrow 数据格式，并自动进行数据类型转换。
 
-Arrow 插件目前支持版本： release200。您当前查看的插件版本为 release200，请使用 DolphinDB 2.00.X 版本 server。若使用其他版本 server，请切换至相应插件分支。
+**注意：自 2.00.11 版本起，formatArrow 插件更名为 Arrow。**
+
+请使用 DolphinDB 2.00.X 系列、2.00.11 及以上版本的 server。
 
 默认使用 Arrow 版本为 9.0.0。
 
@@ -35,7 +37,7 @@ make -j
 #### 编译插件
 
 ```
-cd /path/to/plugins/formatArrow
+cd /path/to/plugins/Arrow
 mkdir build
 cd build
 cmake ..
@@ -47,7 +49,7 @@ make
 #### DolphinDB 加载插件
 
 ```
-loadFormatPlugin("/path/to/plugin/PluginFormatArrow.txt")
+loadFormatPlugin("/path/to/plugin/PluginArrow.txt")
 ```
 
 ## 2 使用示例
@@ -55,7 +57,7 @@ loadFormatPlugin("/path/to/plugin/PluginFormatArrow.txt")
 #### DolphinDB server
 
 ```
-loadFormatPlugin("path/to/formatArrow/PluginFormatArrow.txt")
+loadFormatPlugin("path/to/Arrow/PluginArrow.txt")
 ```
 
 #### Python API：
@@ -110,6 +112,20 @@ DolphinDB 向 API 传输数据时，Arrow 与 DolphinDB 数据类型转换关系
 | DECIMAL32(X)    | decimal128(38, X)       |
 | DECIMAL64(X)    | decimal128(38, X)       |
 
-同时支持以上除了 DECIMAL 外的 ArrayVector 类型。
+注意：
 
-注意：使用 Arrow 数据格式从 DolphinDB Server 获取数据后转换为 pandas.DataFrame 时，DolphinDB 的 NANOTIME 数据类型对应 Arrow 的 time64 数据类型，因此要求进行转换的数值必须为1000的倍数，否则会提示`Value xxxxxxx has non-zero nanoseconds`。
+- 同时支持以上除了 DECIMAL 外的 ArrayVector 类型。
+- 使用 Arrow 数据格式从 DolphinDB Server 获取数据后转换为 pandas.DataFrame 时，DolphinDB 的 NANOTIME 数据类型对应 Arrow 的 time64 数据类型，因此要求进行转换的数值必须为1000的倍数，否则会提示`Value xxxxxxx has non-zero nanoseconds`。
+- 自 2.00.11 版本起，下载 UUID / INT128 后的字节顺序从反转修正为和上传时的顺序保持一致。
+
+# Release Notes 
+
+## 2.00.11
+
+### 功能优化
+
+- 调整插件名称为 Arrow。
+
+### 故障修复
+
+- 修正 UUID / INT128 数据下载后的字节顺序，和上传保持一致。

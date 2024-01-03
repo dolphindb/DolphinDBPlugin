@@ -97,7 +97,13 @@ public:
 	static Table* createTable(const vector<string>& colNames, const vector<ConstantSP>& cols);
 	static TableSP reloadExpiredTable(Heap* heap, const TableSP& tbl);
 	static Set* createSet(DATA_TYPE keyType, const SymbolBaseSP& symbolBase, INDEX capacity);
-	static Dictionary* createDictionary(DATA_TYPE keyType, const SymbolBaseSP& keyBase, DATA_TYPE valueType, const SymbolBaseSP& valueBase, bool isOrdered=true);
+	/**
+	 * @param keyExtraParam Extra information for key type, e.g., scale for decimal type.
+	 * @param valueExtraParam Extra information for value type, e.g., scale for decimal type.
+	 */
+	static Dictionary* createDictionary(DATA_TYPE keyType, const SymbolBaseSP& keyBase, DATA_TYPE valueType,
+										const SymbolBaseSP& valueBase, bool isOrdered = true, int keyExtraParam = 0,
+										int valueExtraParam = 0);
 	static Vector* createVector(DATA_TYPE type, INDEX size, INDEX capacity=0, bool fast=true, int extraParam=0,
 		void* data=0, void** dataSegment=0, int segmentSizeInBit=0, bool containNull=false);
 	static Vector* createSymbolVector(const SymbolBaseSP& symbolBase, INDEX size, INDEX capacity=0, bool fast=true,

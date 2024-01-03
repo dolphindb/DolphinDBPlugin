@@ -1,10 +1,12 @@
-# DolphinDB formatArrow Plugin
+# DolphinDB Arrow Plugin
 
-Apache Arrow defines a columnar memory format, which combines the benefits of columnar data structures with in-memory computing. With the DolphinDB formatArrow plugin, you can use the Arrow format to interact with the DolphinDB server through Python API with automatic data type conversion.
+[Apache Arrow](https://arrow.apache.org/) defines a columnar memory format, which combines the benefits of columnar data structures with in-memory computing. With the DolphinDB Arrow plugin, you can use the Arrow format to interact with the DolphinDB server through Python API with automatic data type conversion.
+
+**Note: Starting from 2.00.11, the plugin name has been changed from "formatArrow" to "Arrow".**
 
 The version of Apache Arrow used in this document is *9.0.0*.
 
-The DolphinDB zip plugin has different branches, such as release200. Each branch corresponds to a DolphinDB server version. Please make sure you are in the correct branch of the plugin documentation.
+For the DolphinDB Arrow plugin, please make sure you use DolphinDB server version 2.00.11 or higher. 
 
 ## 1. Install Plugin
 
@@ -35,7 +37,7 @@ b. After compilation, save the following files to your DolphinDB plugin director
 Before compilation, make sure the directories of *libDolphinDB.so* (included in the server package) and *libarrow.so.900* have been added to the GCC search path. You can set *LD_LIBRARY_PATH* or directly save the files under the *build* directory.
 
 ```
-cd /path/to/plugins/formatArrow
+cd /path/to/plugins/Arrow
 mkdir build
 cd build
 cmake ..
@@ -44,12 +46,12 @@ make
 
 ### 1.2 Load Plugin
 
-Alternatively, you can skip the manual compilation steps and simply download the precompile files *libarrow.so.900*, *libPluginFormatArrow.so* and *PluginFormatArrow.txt* at DolphinDBPlugin/formatArrow. Save the files under your DolphinDB plugin directory. 
+Alternatively, you can skip the manual compilation steps and simply download the precompile file *libarrow.so.900*. Save the files under your DolphinDB plugin directory. 
 
 To load the plugin, enter the following command in DolphinDB:
 
 ```
-loadFormatPlugin("/path/to/plugin/PluginFormatArrow.txt")
+loadFormatPlugin("/path/to/plugin/PluginArrow.txt")
 ```
 
 ## 2. Usage Example
@@ -57,7 +59,7 @@ loadFormatPlugin("/path/to/plugin/PluginFormatArrow.txt")
 a. Enter the following command on the DolphinDB server side to load the plugin:
 
 ```
-loadFormatPlugin("path/to/formatArrow/PluginFormatArrow.txt")
+loadFormatPlugin("path/to/Arrow/PluginArrow.txt")
 ```
 
 b. On the Python API side, execute the following script:
@@ -76,7 +78,7 @@ a: int32
 a: [[1,2,3,4,5,6,7,8,9,10]]
 ```
 
-Note: Currently, the DolphinDB server doesn’t support enabling compression when the Arrow protocol is used.
+Note: Currently, the DolphinDB server doesn't support enabling compression when the Arrow protocol is used.
 
 ## 3. Supported Data Types
 
@@ -112,6 +114,8 @@ When DolphinDB transfers data to the Python application through Python API, the 
 | DECIMAL32(X)  | decimal128(38, X)       |
 | DECIMAL64(X)  | decimal128(38, X)       |
 
-Array vectors of the types listed above (excluding the Decimal types) are also supported.
 
-Note: When converting Arrow-formatted data sent from the DolphinDB server to a pandas.DataFrame, the DolphinDB *NANOTIME*  type is converted to Arrow *time64* type. The NANOTIME value must be a multiple of 1,000, otherwise the error `Value xxxxxxx has non-zero nanoseconds` is raised.
+Note: 
+- Array vectors of the types listed above (excluding the Decimal types) are also supported. 
+- When converting Arrow-formatted data sent from the DolphinDB server to a pandas.DataFrame, the DolphinDB *NANOTIME*  type is converted to Arrow *time64* type. The NANOTIME value must be a multiple of 1,000, otherwise the error `Value xxxxxxx has non-zero nanoseconds` is raised.
+- Starting from version 2.00.11, the byte order of downloaded UUID/INT128 data matches the upload order, instead of reversing it.

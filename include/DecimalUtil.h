@@ -7,7 +7,9 @@
 #include <map>
 
 #include "CoreConcept.h"
+#include "Exceptions.h"
 #include "ScalarImp.h"
+#include "Types.h"
 #include "Util.h"
 #include "WideInteger.h"
 
@@ -31,6 +33,31 @@ template <> struct DecimalType<int> { static constexpr DATA_TYPE value = DT_DECI
 template <> struct DecimalType<long long> { static constexpr DATA_TYPE value = DT_DECIMAL64; };
 template <> struct DecimalType<wide_integer::int128> { static constexpr DATA_TYPE value = DT_DECIMAL128; };
 
+inline void validateScale(const DATA_TYPE type, const int scale) {
+#define CASE_DECIMAL(bits)                                                           \
+    case DT_DECIMAL##bits: {                                                         \
+        using T = Decimal##bits::raw_data_t;                                         \
+        if (scale < 0 || scale > MaxPrecision<T>::value) {                           \
+            throw RuntimeException("Scale out of bound for Decimal" #bits            \
+                    " (valid range: [0, " + std::to_string(MaxPrecision<T>::value) + \
+                    "], but get: " + std::to_string(scale) + ")");                   \
+        }                                                                            \
+        break;                                                                       \
+    }                                                                                \
+//======
+
+    if (Util::getCategory(type) == DENARY) {
+        switch (type) {
+            CASE_DECIMAL(32)
+            CASE_DECIMAL(64)
+            CASE_DECIMAL(128)
+            default:
+                throw RuntimeException("Unknown Decimal type: " + std::to_string(static_cast<int>(type)));
+        }
+    }
+
+#undef CASE_DECIMAL
+}
 
 inline int exp10_i32(int x) {
     constexpr int values[] = {
@@ -177,10 +204,8 @@ inline std::pair<DATA_TYPE, int> determineOperateResultType(const ConstantSP &lh
                 {rhs->getType(), rhs->getExtraParamForType()}, is_mul, is_div);
     } else if (lhs->getCategory() == DENARY) {
         return {lhs->getType(), lhs->getExtraParamForType()};
-    } else if (rhs->getCategory() == DENARY) {
+    } else /* (rhs->getCategory() == DENARY) */ {
         return {rhs->getType(), rhs->getExtraParamForType()};
-    } else {
-        ASSERT("unreachable" && 0);
     }
 }
 
@@ -781,7 +806,7 @@ T trunc(const T old_raw_data, const int old_scale, const int new_scale) {
         new_raw_data = old_raw_data / scaleMultiplier<T>(old_scale - new_scale);
     } else {
         if (mulOverflow(old_raw_data, scaleMultiplier<T>(new_scale - old_scale), new_raw_data)) {
-            throw MathException("Decimal math overflow");
+            throw MathException("Decimal math overflow. RefId:S05003");
         }
     }
 
@@ -813,12 +838,12 @@ T round(const T old_raw_data, const int old_scale, const int new_scale) {
 
         T rounded_val;
         if (addOverflow(old_raw_data, delta, rounded_val)) {
-            throw MathException("Decimal math overflow");
+            throw MathException("Decimal math overflow. RefId:S05003");
         }
         new_raw_data = rounded_val / scaleMultiplier<T>(old_scale - new_scale);
     } else {
         if (mulOverflow(old_raw_data, scaleMultiplier<T>(new_scale - old_scale), new_raw_data)) {
-            throw MathException("Decimal math overflow");
+            throw MathException("Decimal math overflow. RefId:S05003");
         }
     }
 
@@ -853,7 +878,7 @@ T ceil(const T old_raw_data, const int old_scale) {
         new_raw_data = old_raw_data / scaleMultiplier<T>(old_scale);
 
         if (delta != 0 && addOverflow(new_raw_data, delta, new_raw_data)) {
-            throw MathException("Decimal math overflow");
+            throw MathException("Decimal math overflow. RefId:S05003");
         }
     }
 
@@ -888,7 +913,7 @@ T floor(const T old_raw_data, const int old_scale) {
         new_raw_data = old_raw_data / scaleMultiplier<T>(old_scale);
 
         if (delta != 0 && addOverflow(new_raw_data, delta, new_raw_data)) {
-            throw MathException("Decimal math overflow");
+            throw MathException("Decimal math overflow. RefId:S05003");
         }
     }
 
@@ -909,6 +934,24 @@ namespace decimal_util {
 #define ENABLE_FOR_DECIMAL128(T, return_type_t) ENABLE_FOR_DECIMAL(128, T, return_type_t)
 
 
+/**
+ * Usage:
+ * @code {.cpp}
+ * ConstantSP value;
+ * {
+ *      using T = Decimal32::raw_data_t;                   // T is `int`.
+ *      decimal_util::wrapper<T>::getDecimal(value, ...);  // Will call value->getDecimal32(...).
+ * }
+ * {
+ *      using T = Decimal64::raw_data_t;                         // T is `long long`.
+ *      decimal_util::wrapper<T>::getDecimalBuffer(value, ...);  // Will call value->getDecimal64Buffer(...).
+ * }
+ * {
+ *      using T = Decimal128::raw_data_t;                  // T is `wide_integer::int128`.
+ *      decimal_util::wrapper<T>::setDecimal(value, ...);  // Will call value->setDecimal128(...).
+ * }
+ * @endcode
+ */
 template <typename T>
 struct wrapper {
     static T getDecimal(const ConstantSP &value, int scale) {

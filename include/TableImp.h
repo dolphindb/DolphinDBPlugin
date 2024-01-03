@@ -12,10 +12,103 @@
 #include "CoreConcept.h"
 #include "ConstantMarshal.h"
 
-class BasicTable;
 class SubTable;
-typedef SmartPointer<BasicTable> BasicTableSP;
+class BasicTable;
 typedef SmartPointer<SubTable> SubTableSP;
+typedef SmartPointer<BasicTable> BasicTableSP;
+
+class SubTable: public Table {
+public:
+	SubTable(const TableSP& source, INDEX offset, INDEX length);
+	SubTable(const TableSP& source, const ConstantSP& indices);
+	TableSP getSource() const { return source_;}
+	void reset(INDEX offset, INDEX length);
+	void reset(const ConstantSP& indices);
+	virtual ~SubTable(){}
+	virtual ConstantSP getColumn(const string& name) const;
+	virtual ConstantSP getColumn(const string& qualifier, const string& name) const;
+	virtual ConstantSP getColumn(INDEX index) const;
+	virtual ConstantSP getColumn(const string& name, const ConstantSP& rowFilter) const;
+	virtual ConstantSP getColumn(const string& qualifier, const string& name, const ConstantSP& rowFilter) const;
+	virtual ConstantSP getColumn(INDEX index, const ConstantSP& rowFilter) const;
+	virtual INDEX columns() const {return source_->columns();}
+	virtual const string& getColumnName(int index) const { return source_->getColumnName(index);}
+	virtual const string& getColumnQualifier(int index) const { return source_->getColumnQualifier(index);}
+	virtual void setColumnName(int index, const string& name) { throw RuntimeException("SubTable::setColumnName not supported.");}
+	virtual int getColumnIndex(const string& name) const { return source_->getColumnIndex(name);}
+	virtual DATA_TYPE getColumnType(int index) const { return source_->getColumnType(index);}
+	virtual bool contain(const string& name) const { return source_->contain(name);}
+	virtual bool contain(const string& qualifier, const string& name) const {return source_->contain(qualifier, name);}
+	virtual bool contain(const ColumnRef* col) const { return source_->contain(col);}
+	virtual bool contain(const ColumnRefSP& col) const { return source_->contain(col);}
+	virtual bool containAll(const vector<ColumnRefSP>& cols) const { return source_->containAll(cols);}
+	virtual void setName(const string& name) { name_ = name;}
+	virtual const string& getName() const { return name_;}
+	virtual ConstantSP get(INDEX index) const;
+	virtual ConstantSP get(const ConstantSP& index) const;
+	virtual ConstantSP getValue(INDEX capacity) const;
+	virtual ConstantSP getValue() const;
+	virtual ConstantSP getInstance(INDEX size) const { return source_->getInstance(size);}
+	virtual ConstantSP getInstance() const { return source_->getInstance(0);}
+	virtual INDEX size() const {return size_;}
+	virtual bool sizeable() const {return false;}
+	virtual string getString(INDEX index) const;
+	virtual string getString() const;
+	virtual ConstantSP getWindow(INDEX colStart, int colLength, INDEX rowStart, int rowLength) const;
+	virtual ConstantSP getSlice(const ConstantSP& rowIndex, const ConstantSP& colIndex) const;
+	virtual ConstantSP getMember(const ConstantSP& key) const;
+	virtual ConstantSP values() const;
+	virtual ConstantSP keys() const { return source_->keys();}
+	virtual TABLE_TYPE getTableType() const;
+	virtual bool append(vector<ConstantSP>& values, INDEX& insertedRows, string& errMsg) { return false;}
+	virtual bool update(vector<ConstantSP>& values, const ConstantSP& indexSP, vector<string>& colNames, string& errMsg){return false;}
+	virtual bool remove(const ConstantSP& indexSP, string& errMsg){return false;}
+	virtual bool isDistributedTable() const {return source_->isDistributedTable();}
+	virtual bool isSegmentedTable() const {return source_->isSegmentedTable();}
+	virtual bool isDimensionalTable() const {return source_->isDimensionalTable();}
+	virtual bool isBasicTable() const {return source_->isBasicTable();}
+	virtual bool isDFSTable() const {return source_->isDFSTable();}
+	virtual DomainSP getGlobalDomain() const {return source_->getGlobalDomain();}
+	virtual DomainSP getLocalDomain() const {return source_->getLocalDomain();}
+	virtual int getGlobalPartitionColumnIndex() const {return source_->getGlobalPartitionColumnIndex();}
+	virtual int getLocalPartitionColumnIndex(int dim) const {return source_->getLocalPartitionColumnIndex(dim);}
+	virtual void setGlobalPartition(const DomainSP& domain, const string& partitionColumn){ source_->setGlobalPartition(domain, partitionColumn);}
+	virtual bool isLargeConstant() const {return true;}
+	virtual long long getAllocatedMemory() const {return source_->getAllocatedMemory();}
+	virtual void release() const { source_->release();}
+	virtual void checkout() const { source_->checkout();}
+	virtual TableSP getSegment(Heap* heap, const DomainPartitionSP& partition, PartitionGuard* guard = 0) { return source_->getSegment(heap, partition, guard);}
+	virtual const TableSP& getEmptySegment() const { return source_->getEmptySegment();}
+	virtual bool segmentExists(const DomainPartitionSP& partition) const { return source_->segmentExists(partition);}
+	virtual bool snapshotIsolate() const { return false;}
+	virtual bool drop(vector<int>& columns) { return false;}
+	virtual bool join(vector<ConstantSP>& columns) { return false;}
+	virtual	bool clear() { return false;}
+	virtual bool reorderColumns(const vector<int>& newOrders) { return false;}
+	virtual bool replaceColumn(int index, const ConstantSP& col) {return false;}
+	virtual void sortBy(Heap* heap, const ObjectSP& sortExpr, const ConstantSP& sortOrder) {throw RuntimeException("SubTable::sortBy not supported.");}
+	virtual void update(Heap* heap, const SQLContextSP& context, const ConstantSP& updateColNames, const ObjectSP& updateExpr, const ConstantSP& filterExprs) {throw RuntimeException("SubTable::update not supported.");}
+	virtual void remove(Heap* heap, const SQLContextSP& context, const ConstantSP& filterExprs) {throw RuntimeException("SubTable::remove not supported.");}
+	virtual bool isEditable() const {return false;}
+	virtual bool isSchemaEditable() const {return false;}
+	virtual bool isAppendable() const {return false;}
+	virtual bool isExpired() const { return source_->isExpired();}
+	virtual int getKeyColumnCount() const { return source_->getKeyColumnCount();}
+	virtual int getKeyColumnIndex(int index) const { return source_->getKeyColumnIndex(index);}
+	virtual int getSortKeyCount() const { return source_->getSortKeyCount();}
+	virtual int getSortKeyColumnIndex(int index){return source_->getSortKeyColumnIndex(index);}
+	virtual void share(){}
+	virtual string getChunkPath() const { return source_->getChunkPath();}
+
+private:
+	TableSP source_;
+	ConstantSP indices_;
+	string name_;
+	INDEX offset_;
+	INDEX length_;
+	INDEX size_;
+};
+
 
 class AbstractTable : public Table {
 public:
@@ -130,6 +223,8 @@ public:
 	virtual ConstantSP getValue() const;
 	virtual ConstantSP getValue(INDEX capacity) const;
 	virtual bool upsert(vector<ConstantSP>& values, bool ignoreNull, INDEX& insertedRows, string& errMsg);
+	virtual bool upsert(vector<ConstantSP>& values, bool ignoreNull, INDEX& insertedRows, INDEX& updatedRows,
+						string& errMsg) override;
 	virtual bool append(vector<ConstantSP>& values, INDEX& insertedRows, string& errMsg);
 	virtual bool update(vector<ConstantSP>& values, const ConstantSP& indexSP, vector<string>& colNames, string& errMsg);
 	virtual bool remove(const ConstantSP& indexSP, string& errMsg);
@@ -140,6 +235,7 @@ public:
 	virtual int getGlobalPartitionColumnIndex() const {return partitionColumnIndex_;}
 	virtual void setGlobalPartition(const DomainSP& domain, const string& partitionColumn);
 	virtual ConstantSP retrieveMessage(long long offset, int length, bool msgAsTable, const ObjectSP& filter, long long& messageId);
+	virtual INDEX getFilterColumnIndex() const override { return filterColumnIndex_; }
 	virtual bool snapshotIsolate() const { return versionMutex_ != NULL;}
 	virtual void getSnapshot(TableSP& copy) const;
 	virtual void sortBy(Heap* heap, const ObjectSP& sortExpr, const ConstantSP& sortOrder);
@@ -193,6 +289,12 @@ private:
 	void initData(const vector<ConstantSP>& cols, const vector<string>& colNames);
 	bool internalUpsert(vector<ConstantSP>& values, INDEX& insertedRows, string& errMsg);
 	bool internalUpsertNonNull(vector<ConstantSP>& values, INDEX& insertedRows, string& errMsg);
+	bool internalUpsert(vector<ConstantSP>& values, INDEX& insertedRows, INDEX& updatedRows, string& errMsg);
+	/**
+	 * @param needUpdatedRows If true, will update `updatedRows`.
+	 */
+	bool internalUpsertNonNull(vector<ConstantSP>& values, INDEX& insertedRows, INDEX& updatedRows, string& errMsg,
+								bool needUpdatedRows);
 	bool internalAppend(vector<ConstantSP>& values, INDEX& insertedRows, string& errMsg);
 	void internalSortBy(Heap* heap, const ObjectSP& sortExpr, const ConstantSP& sortOrder);
 	bool internalUpdate(vector<ConstantSP>& values, const ConstantSP& indexSP, vector<string>& colNames, string& errMsg);
@@ -242,98 +344,6 @@ private:
 	INDEX capacity_;
 	string chunkPath_;
 	mutable BasicTableSP curVersion_;
-};
-
-class SubTable: public Table {
-public:
-	SubTable(const TableSP& source, INDEX offset, INDEX length);
-	SubTable(const TableSP& source, const ConstantSP& indices);
-	TableSP getSource() const { return source_;}
-	void reset(INDEX offset, INDEX length);
-	void reset(const ConstantSP& indices);
-	virtual ~SubTable(){}
-	virtual ConstantSP getColumn(const string& name) const;
-	virtual ConstantSP getColumn(const string& qualifier, const string& name) const;
-	virtual ConstantSP getColumn(INDEX index) const;
-	virtual ConstantSP getColumn(const string& name, const ConstantSP& rowFilter) const;
-	virtual ConstantSP getColumn(const string& qualifier, const string& name, const ConstantSP& rowFilter) const;
-	virtual ConstantSP getColumn(INDEX index, const ConstantSP& rowFilter) const;
-	virtual INDEX columns() const {return source_->columns();}
-	virtual const string& getColumnName(int index) const { return source_->getColumnName(index);}
-	virtual const string& getColumnQualifier(int index) const { return source_->getColumnQualifier(index);}
-	virtual void setColumnName(int index, const string& name) { throw RuntimeException("SubTable::setColumnName not supported.");}
-	virtual int getColumnIndex(const string& name) const { return source_->getColumnIndex(name);}
-	virtual DATA_TYPE getColumnType(int index) const { return source_->getColumnType(index);}
-	virtual bool contain(const string& name) const { return source_->contain(name);}
-	virtual bool contain(const string& qualifier, const string& name) const {return source_->contain(qualifier, name);}
-	virtual bool contain(const ColumnRef* col) const { return source_->contain(col);}
-	virtual bool contain(const ColumnRefSP& col) const { return source_->contain(col);}
-	virtual bool containAll(const vector<ColumnRefSP>& cols) const { return source_->containAll(cols);}
-	virtual void setName(const string& name) { name_ = name;}
-	virtual const string& getName() const { return name_;}
-	virtual ConstantSP get(INDEX index) const;
-	virtual ConstantSP get(const ConstantSP& index) const;
-	virtual ConstantSP getValue(INDEX capacity) const;
-	virtual ConstantSP getValue() const;
-	virtual ConstantSP getInstance(INDEX size) const { return source_->getInstance(size);}
-	virtual ConstantSP getInstance() const { return source_->getInstance(0);}
-	virtual INDEX size() const {return size_;}
-	virtual bool sizeable() const {return false;}
-	virtual string getString(INDEX index) const;
-	virtual string getString() const;
-	virtual ConstantSP getWindow(INDEX colStart, int colLength, INDEX rowStart, int rowLength) const;
-	virtual ConstantSP getSlice(const ConstantSP& rowIndex, const ConstantSP& colIndex) const;
-	virtual ConstantSP getMember(const ConstantSP& key) const;
-	virtual ConstantSP values() const;
-	virtual ConstantSP keys() const { return source_->keys();}
-	virtual TABLE_TYPE getTableType() const;
-	virtual bool append(vector<ConstantSP>& values, INDEX& insertedRows, string& errMsg) { return false;}
-	virtual bool update(vector<ConstantSP>& values, const ConstantSP& indexSP, vector<string>& colNames, string& errMsg){return false;}
-	virtual bool remove(const ConstantSP& indexSP, string& errMsg){return false;}
-	virtual bool isDistributedTable() const {return source_->isDistributedTable();}
-	virtual bool isSegmentedTable() const {return source_->isSegmentedTable();}
-	virtual bool isDimensionalTable() const {return source_->isDimensionalTable();}
-	virtual bool isBasicTable() const {return source_->isBasicTable();}
-	virtual bool isDFSTable() const {return source_->isDFSTable();}
-	virtual DomainSP getGlobalDomain() const {return source_->getGlobalDomain();}
-	virtual DomainSP getLocalDomain() const {return source_->getLocalDomain();}
-	virtual int getGlobalPartitionColumnIndex() const {return source_->getGlobalPartitionColumnIndex();}
-	virtual int getLocalPartitionColumnIndex(int dim) const {return source_->getLocalPartitionColumnIndex(dim);}
-	virtual void setGlobalPartition(const DomainSP& domain, const string& partitionColumn){ source_->setGlobalPartition(domain, partitionColumn);}
-	virtual bool isLargeConstant() const {return true;}
-	virtual long long getAllocatedMemory() const {return source_->getAllocatedMemory();}
-	virtual void release() const { source_->release();}
-	virtual void checkout() const { source_->checkout();}
-	virtual TableSP getSegment(Heap* heap, const DomainPartitionSP& partition, PartitionGuard* guard = 0) { return source_->getSegment(heap, partition, guard);}
-	virtual const TableSP& getEmptySegment() const { return source_->getEmptySegment();}
-	virtual bool segmentExists(const DomainPartitionSP& partition) const { return source_->segmentExists(partition);}
-	virtual bool snapshotIsolate() const { return false;}
-	virtual bool drop(vector<int>& columns) { return false;}
-	virtual bool join(vector<ConstantSP>& columns) { return false;}
-	virtual	bool clear() { return false;}
-	virtual bool reorderColumns(const vector<int>& newOrders) { return false;}
-	virtual bool replaceColumn(int index, const ConstantSP& col) {return false;}
-	virtual void sortBy(Heap* heap, const ObjectSP& sortExpr, const ConstantSP& sortOrder) {throw RuntimeException("SubTable::sortBy not supported.");}
-	virtual void update(Heap* heap, const SQLContextSP& context, const ConstantSP& updateColNames, const ObjectSP& updateExpr, const ConstantSP& filterExprs) {throw RuntimeException("SubTable::update not supported.");}
-	virtual void remove(Heap* heap, const SQLContextSP& context, const ConstantSP& filterExprs) {throw RuntimeException("SubTable::remove not supported.");}
-	virtual bool isEditable() const {return false;}
-	virtual bool isSchemaEditable() const {return false;}
-	virtual bool isAppendable() const {return false;}
-	virtual bool isExpired() const { return source_->isExpired();}
-	virtual int getKeyColumnCount() const { return source_->getKeyColumnCount();}
-	virtual int getKeyColumnIndex(int index) const { return source_->getKeyColumnIndex(index);}
-	virtual int getSortKeyCount() const { return source_->getSortKeyCount();}
-	virtual int getSortKeyColumnIndex(int index){return source_->getSortKeyColumnIndex(index);}
-	virtual void share(){}
-	virtual string getChunkPath() const { return source_->getChunkPath();}
-
-private:
-	TableSP source_;
-	ConstantSP indices_;
-	string name_;
-	INDEX offset_;
-	INDEX length_;
-	INDEX size_;
 };
 
 #endif /* TABLE_H_ */

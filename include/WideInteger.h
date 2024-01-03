@@ -112,7 +112,8 @@ std::ostream& operator<<(std::ostream &os, wide_integer::uint128 v);
 std::ostream& operator<<(std::ostream &os, wide_integer::int128 v);
 
 
-#if !(!defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_INT128))
+#if !(!defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_INT128)) && \
+        (__GNUC__ < 10 || (__GNUC__ == 10 && __GNUC_MINOR__ < 3))
 // Specialized numeric_limits for uint128 and int128.
 namespace std {
 template <>
@@ -213,7 +214,7 @@ static_assert(wide_integer::uint128(std::numeric_limits<wide_integer::int128>::m
         std::numeric_limits<wide_integer::int128>::max()) == std::numeric_limits<wide_integer::uint128>::max(), "");
 
 
-#if !(!defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_INT128)) || __GNUC__ < 6
+#if (!(!defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_INT128)) && __GNUC__ < 12) || __GNUC__ < 6
 namespace std {
 // Specialized std::hash for uint128 and int128.
 template <>
@@ -236,7 +237,7 @@ struct hash<wide_integer::uint128> {
     }
 };
 }  // namespace std
-#endif  // !(!defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_INT128)) || __GNUC__ < 6
+#endif  // (!(!defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_INT128)) && __GNUC__ < 12) || __GNUC__ < 6
 
 namespace std {
 // FIXME: ???
