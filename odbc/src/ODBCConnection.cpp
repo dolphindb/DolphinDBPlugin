@@ -415,6 +415,7 @@ void OdbcConnection::odbcExecute(nanodbc::transaction &cp, const string &querySq
 }
 
 void OdbcConnection::odbcExecute(const string &querySql, Heap *heap) {
+    LockGuard<Mutex> lockClickhouse(getClickhouseLock());
     LockGuard<Mutex> lockGuard(&lock);
     if(closed_)
         throw RuntimeException("[PLUGIN::ODBC]: odbc connection is closed. ");
@@ -461,7 +462,8 @@ ConstantSP OdbcConnection::odbcGetConnection(Heap *heap, vector<ConstantSP> &arg
         }
 
         OdbcConnectionSP cup(
-            new OdbcConnection(new nanodbc::connection(connStrU16), getDataBaseType(dataBaseType)));
+            new OdbcConnection(getDataBaseType(dataBaseType)));
+        cup->connect(connStrU16);
 
         if (dataBaseType == "clickhouse") {
             // can't use new String("select 1") for undefined error
@@ -534,6 +536,7 @@ TableSP OdbcConnection::odbcGetOrCreateTable(Heap *heap, const TableSP& schemaTa
 }
 
 ConstantSP OdbcConnection::odbcAppend(Heap* heap, TableSP t, const string& tableName, bool createTable, bool insertIgnore){
+    LockGuard<Mutex> lockClickhouse(getClickhouseLock());
     LockGuard<Mutex> lockGuard(&lock);
     if(closed_)
         throw RuntimeException("[PLUGIN::ODBC]: odbc connection is closed. ");
@@ -1061,6 +1064,7 @@ ConstantSP OdbcConnection::odbcAppend(Heap* heap, TableSP t, const string& table
 
 
 ConstantSP OdbcConnection::odbcQuery(Heap* heap, const TableSP& schemaTable, const FunctionDefSP& transform, int batchSize, const string& querySql){
+    LockGuard<Mutex> lockClickhouse(getClickhouseLock());
     LockGuard<Mutex> lockGuard(&lock);
     if(closed_)
         throw RuntimeException("[PLUGIN::ODBC]: odbc connection is closed. ");
@@ -1409,3 +1413,4 @@ unordered_map<string, ODBCDataBaseType> OdbcConnection::DBT_MAP = {{"", ODBC_DBT
 
 Mutex OdbcConnection::ODBC_PLUGIN_LOCK;
 unordered_map<long long, OdbcConnectionSP> OdbcConnection::ODBC_CONN_MAP;
+Mutex OdbcConnection::CLICKHOUSE_LOCK;;

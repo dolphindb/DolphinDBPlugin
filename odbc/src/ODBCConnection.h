@@ -1,4 +1,5 @@
 #include "DolphinDBODBC.h"
+#include "nanodbc/nanodbc.h"
 
 class OdbcConnection;
 
@@ -16,10 +17,34 @@ enum ODBCDataBaseType {
 
 class OdbcConnection {
 public:
-    OdbcConnection(nanodbc::connection* connection, ODBCDataBaseType dataBaseType)
-        : nanoConn_(connection), dataBaseType_(dataBaseType) {}
+    OdbcConnection(ODBCDataBaseType dataBaseType)
+        :dataBaseType_(dataBaseType) {}
+
+    ~OdbcConnection(){
+        close(true);
+    }
+
+    void connect(std::u16string connStr){
+        LockGuard<Mutex> lock(&CLICKHOUSE_LOCK);
+        nanoConn_ = new nanodbc::connection(connStr);
+        std::string dbmsName;
+        try{
+            dbmsName = utf16_to_utf8(nanoConn_->dbms_name());
+        }catch(exception& e){
+            LOG_INFO("[PLUGIN::ODBC]: failed to get dbms name: ", e.what());
+        }
+        dbmsName = Util::lower(dbmsName);
+        if(dbmsName == "clickhouse"){
+           if(dataBaseType_ != ODBC_DBT_VOID && dataBaseType_ != ODBC_DBT_CLICKHOUSE){
+                throw RuntimeException("[PLUGIN::ODBC]: If clickhouse odbc drives, the dataBaseType must be set to clickhouse. ");
+           }
+           dataBaseType_ = ODBC_DBT_CLICKHOUSE;
+        }
+        closed_ = false;
+    }
     ODBCDataBaseType getDataBaseType() { return dataBaseType_; }
     void close(bool ignoreClosed){
+        LockGuard<Mutex> lockClickhouse(getClickhouseLock());
         LockGuard<Mutex> lockGuard(&lock);
         if(isClosed()){
             if(ignoreClosed)return;
@@ -42,7 +67,7 @@ public:
         }catch(...){
             LOG_ERR("[PLUGIN::ODBC]: nanodbc failed to deallocate. ");
         }
-        delete nanoConn_.release();
+        nanoConn_.clear();
     }
 
     bool isClosed(){
@@ -53,7 +78,6 @@ public:
     ConstantSP odbcAppend(Heap* heap, TableSP t, const string& tableName, bool createTable, bool insertIgnore);
     ConstantSP odbcQuery(Heap* heap, const TableSP& schemaTable, const FunctionDefSP& transform, int batchSize, const string& querySql);
     void odbcExecute(const string &querySql, Heap *heap);
-    void odbcExecute(nanodbc::transaction &cp, const string &querySql, Heap *heap);
     static ConstantSP odbcGetConnection(Heap *heap, vector<ConstantSP> &args, const string &funcName);
     static TableSP odbcGetOrCreateTable(Heap *heap, const TableSP& schemaTable,
                                     const nanodbc::result &results, vector<ConstantSP> &columnVecs,
@@ -69,11 +93,18 @@ public:
     static unordered_map<long long, OdbcConnectionSP> ODBC_CONN_MAP;
     static Mutex ODBC_PLUGIN_LOCK;
     static unordered_map<string, ODBCDataBaseType> DBT_MAP;
+    static Mutex CLICKHOUSE_LOCK;
 
 private:
-    std::unique_ptr<nanodbc::connection> nanoConn_;
+    Mutex* getClickhouseLock(){
+        if(dataBaseType_ == ODBC_DBT_CLICKHOUSE)
+            return &CLICKHOUSE_LOCK;
+        return nullptr;
+    }
+    void odbcExecute(nanodbc::transaction &cp, const string &querySql, Heap *heap);
+    SmartPointer<nanodbc::connection> nanoConn_;
     ODBCDataBaseType dataBaseType_;
-    bool closed_ =  false;
+    bool closed_ =  true;
     Mutex lock;
 
 };
