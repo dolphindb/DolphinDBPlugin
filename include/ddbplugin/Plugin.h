@@ -893,6 +893,7 @@ class BackgroundResourceMap {
         inDestruction_ = true;
         nameMap_.clear();
         resourceMap_.clear();
+        inDestruction_ = false;
     }
 
     /**

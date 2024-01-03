@@ -43,22 +43,22 @@ enum MarketOptionFlag {
 };
 
 struct MarketStatus {
-    long long startTime_= LONG_LONG_MIN;
+    long long startTime_ = LONG_LONG_MIN;
     long long endTime_ = LONG_LONG_MIN;
     long long firstMsgTime_ = LONG_LONG_MIN;
     long long lastMsgTime_ = LONG_LONG_MIN;
-    long long processedMsgCount_ = 0;   // total msg count
-    long long failedMsgCount_ = 0;      // only err msg count
+    long long processedMsgCount_ = 0;  // total msg count
+    long long failedMsgCount_ = 0;     // only err msg count
     string lastErrMsg_;
     long long lastFailedTimestamp_ = LONG_LONG_MIN;
 
-    DictionarySP getStatus() {
+    DictionarySP getStatus() const {
         DictionarySP dict = Util::createDictionary(DT_STRING, NULL, DT_ANY, NULL);
         dict->set(new String(START_TIME_STR), new NanoTimestamp(startTime_));
         dict->set(new String(END_TIME_STR), new NanoTimestamp(endTime_));
         dict->set(new String(FIRST_MSG_TIME_STR), new NanoTimestamp(firstMsgTime_));
         dict->set(new String(LAST_MSG_TIME_STR), new NanoTimestamp(lastMsgTime_));
-        dict->set(new String(PROCESSED_MSG_COUNT_STR), new Long(processedMsgCount_-failedMsgCount_));
+        dict->set(new String(PROCESSED_MSG_COUNT_STR), new Long(processedMsgCount_ - failedMsgCount_));
         dict->set(new String(FAILED_MSG_COUNT_STR), new Long(failedMsgCount_));
         dict->set(new String(LAST_ERR_MSG_STR), new String(lastErrMsg_));
         dict->set(new String(LAST_FAILED_TIMESTAMP_STR), new NanoTimestamp(lastFailedTimestamp_));
@@ -70,7 +70,8 @@ class MarketTypeContainer {
   public:
     MarketTypeContainer() = default;
     explicit MarketTypeContainer(const string &prefix) : prefix_(prefix) {}
-    explicit MarketTypeContainer(const string &prefix, vector<string> name, vector<MetaTable> meta) : prefix_(prefix) {
+    explicit MarketTypeContainer(const string &prefix, const vector<string> &name, const vector<MetaTable> &meta)
+        : prefix_(prefix) {
         if (name.size() != meta.size()) {
             throw RuntimeException(prefix_ + "name & meta is not the same length.");
         }
@@ -79,11 +80,9 @@ class MarketTypeContainer {
         }
     }
 
-    void add(const string &type, MetaTable &meta) {
-        metaMap_[type] = meta;
-    }
+    void add(const string &type, const MetaTable &meta) { metaMap_[type] = meta; }
 
-    MetaTable &get(const string &type) {
+    MetaTable get(const string &type) {
         if (metaMap_.find(type) == metaMap_.end()) {
             throw RuntimeException(prefix_ + "unknown Type: " + type);
         }
@@ -152,6 +151,7 @@ class MarketTypeContainer {
         vector<ConstantSP> retCols{name, typeStr, typeInt};
         return Util::createTable(retNames, retCols);
     }
+
   private:
     string prefix_;
     unordered_map<string, MetaTable> metaMap_;
@@ -194,9 +194,9 @@ class ThreadedQueue {
      * @param bufferSize   queue pop size
      * @param structReader function to convert struct to ddb vector
      */
-    ThreadedQueue(Heap *heap, int timeout, long long capacity, MetaTable meta, TableSP schema, int flag,
+    ThreadedQueue(Heap *heap, int timeout, long long capacity, const MetaTable &meta, TableSP schema, int flag,
                   const string &info, const string &prefix, long long bufferSize,
-                  std::function<void (vector<ConstantSP> &, DataStruct &)> structReader)
+                  std::function<void(vector<ConstantSP> &, DataStruct &)> structReader)
         : stopFlag_(true),
           receivedTimeFlag_(flag & MarketOptionFlag::OPT_RECEIVED),
           outputElapsedFlag_(flag & MarketOptionFlag::OPT_ELAPSED),
@@ -248,11 +248,11 @@ class ThreadedQueue {
     }
 
     ~ThreadedQueue() { stop(); }
-    bool isStarted() { return !stopFlag_; }
+    bool isStarted() const { return !stopFlag_; }
     // NOTE deprecate
-    DictionarySP getStatus() { return status_.getStatus(); }
+    DictionarySP getStatus() const { return status_.getStatus(); }
     const MarketStatus getStatusConst() const { return status_; }
-    string getInfo() { return info_; };
+    string getInfo() const { return info_; };
 
     // WARNING: The start() and stop() functions must not be called concurrently
     // start a ThreadedQueue
@@ -290,14 +290,21 @@ class ThreadedQueue {
 
     // use push function to input the struct data.
     void push(DataStruct &&data) {
-        if(LIKELY(!stopFlag_)) {
+        if (LIKELY(!stopFlag_)) {
             queue_.blockingPush(data);
         }
     }
-    void push(DataStruct &data) {
-        if(LIKELY(!stopFlag_)) {
+    void push(const DataStruct &data) {
+        if (LIKELY(!stopFlag_)) {
             queue_.blockingPush(data);
         }
+    }
+
+    void setError(const string &errMsg, uint32_t failedMsgCount = 0) {
+        status_.lastErrMsg_ = errMsg;
+        status_.lastFailedTimestamp_ = Util::getNanoEpochTime() + localTimeGap_;
+        status_.failedMsgCount_ += failedMsgCount;
+        LOG_ERR(prefix_, info_, " Failed to process ", failedMsgCount, " lines of data due to ", errMsg);
     }
 
   private:
@@ -329,12 +336,10 @@ class ThreadedQueue {
             if (receivedTimeFlag_ || outputElapsedFlag_) {
                 reachTimeVec.push_back(data[i].reachTime);
                 status_.lastMsgTime_ = data[i].reachTime;
-                if(UNLIKELY(status_.firstMsgTime_ == LONG_LONG_MIN))
-                    status_.firstMsgTime_ = status_.lastMsgTime_;
+                if (UNLIKELY(status_.firstMsgTime_ == LONG_LONG_MIN)) status_.firstMsgTime_ = status_.lastMsgTime_;
             } else {
                 status_.lastMsgTime_ = Util::getNanoEpochTime() + localTimeGap_;
-                if(UNLIKELY(status_.firstMsgTime_ == LONG_LONG_MIN))
-                    status_.firstMsgTime_ = status_.lastMsgTime_;
+                if (UNLIKELY(status_.firstMsgTime_ == LONG_LONG_MIN)) status_.firstMsgTime_ = status_.lastMsgTime_;
             }
         }
         vector<ConstantSP> cols;
@@ -372,8 +377,8 @@ class ThreadedQueue {
             vector<ConstantSP> convertCols;
             for (unsigned int i = 0; i < resultColNums_.size(); ++i) {
                 if (UNLIKELY(i >= cols.size())) {
-                    throw RuntimeException("schema col number (" + std::to_string(i) +
-                                            ") exceed origin result size (" + std::to_string(cols.size()) + ")");
+                    throw RuntimeException("schema col number (" + std::to_string(i) + ") exceed origin result size (" +
+                                           std::to_string(cols.size()) + ")");
                 }
                 convertCols.push_back(cols[resultColNums_[i]]);
             }
@@ -389,16 +394,16 @@ class ThreadedQueue {
         } catch (exception &e) {
             throw RuntimeException("call transform error: " + string(e.what()));
         }
-        if(originData->getForm() != DF_TABLE) {
+        if (originData->getForm() != DF_TABLE) {
             throw RuntimeException(prefix_ + "transform result must be a TABLE");
         }
 
         if (UNLIKELY(insertedTable_.isNull())) throw RuntimeException("insertedTable is null");
         if (UNLIKELY(insertedTable_->columns() != originData->columns()))
             throw RuntimeException("data append failed: The number of columns (" +
-                                    std::to_string(originData->columns()) +
-                                    ") being inserted must match the column number (" +
-                                    std::to_string(insertedTable_->columns()) + ") of the insertedTable");
+                                   std::to_string(originData->columns()) +
+                                   ") being inserted must match the column number (" +
+                                   std::to_string(insertedTable_->columns()) + ") of the insertedTable");
 
         INDEX rows;
         string errMsg;
@@ -408,7 +413,7 @@ class ThreadedQueue {
         LockGuard<Mutex> _(insertedTable_->getLock());
         vector<ConstantSP> appendCols;
         INDEX appendSize = originData->columns();
-        for(INDEX i = 0; i < appendSize; ++i) {
+        for (INDEX i = 0; i < appendSize; ++i) {
             appendCols.push_back(originData->getColumn(i));
         }
         if (LIKELY(insertedTable_->getTableType() == REALTIMETBL)) {
@@ -525,7 +530,7 @@ class ThreadedQueue {
     MarketStatus status_;
     vector<INDEX> resultColNums_;
     vector<string> resultColNames_;
-    std::function<void (vector<ConstantSP> &, DataStruct &)> structReader_;
+    std::function<void(vector<ConstantSP> &, DataStruct &)> structReader_;
     vector<ConstantSP> buffer_;
 };
 
