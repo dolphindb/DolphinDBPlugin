@@ -348,6 +348,8 @@ opcua::close(connection)
 ```
 # ReleaseNotes:
 
-## 故障修复
+## v1.30.22
 
-* 修复了多线程作业相关的 server 宕机的问题。（**1.30.22**）
+### bug修复
+
+1. 修复了一些多线程情况下会 crash 的问题
