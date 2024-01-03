@@ -6,7 +6,7 @@ add_definitions(-DLOCKFREE_SYMBASE)
 set(CMAKE_CXX_STANDARD 11)
 
 if(WIN32)
-    set(platform_macro "-DWINDOWS")
+    set(platform_macro "-DWINDOWS -DUSE_WINDOWS")
 elseif(UNIX)
     set(platform_macro "-DLINUX")
     if(ENABLEABI MATCHES 1)
@@ -18,7 +18,8 @@ elseif(UNIX)
     endif()
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -fPIC -std=c++11 -Wall")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -fPIC -std=c++11 -Wall -DHAVE_AES")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${platform_macro} -fPIC -DHAVE_AES")
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "")
     set(CMAKE_BUILD_TYPE "RELEASE")
@@ -29,9 +30,11 @@ message("CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0 -ggdb")
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -O0 -ggdb")
     message(STATUS "Build: Debug with -O0 -Wall -g -ggdb")
 elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
+    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3")
     message(STATUS "Build: Release with -O3")
 elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "RELWITHDEBINFO")  # release with debug info
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O2")
@@ -50,11 +53,20 @@ if (${DDB_USE_ASAN})
 endif ()
 
 aux_source_directory(src DIR_LIB_SRCS)
+aux_source_directory(minizip/aes DIR_LIB_SRCS)
 aux_source_directory(minizip DIR_LIB_SRCS)
+aux_source_directory(zipper DIR_LIB_SRCS)
 include_directories(
     ${PROJECT_SOURCE_DIR}/../include
     ${PROJECT_SOURCE_DIR}/minizip
+    ${PROJECT_SOURCE_DIR}/zipper
 )
+if(WIN32)
+    include_directories(
+    ${PROJECT_SOURCE_DIR}/minizip/win32
+    )
+    aux_source_directory(minizip/win32 DIR_LIB_SRCS)
+endif()
 
 if (WIN32)
     link_directories(
