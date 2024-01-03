@@ -108,7 +108,7 @@ make
 
 #### 语法
 
-gp::plot(data, style, path, [props]）
+gp::plot(data, style, path, [props])
 
 #### 详情
 
@@ -116,7 +116,7 @@ gp::plot(data, style, path, [props]）
 
 #### 参数
 
-* data: 画图数据。一个向量、由向量组成的 tuple 或一个表。若为表，则用其第一列和第二列分别表示 x 轴、y 轴数据。
+* data: 画图数据。一个向量、由向量组成的 tuple 或一个表。若为表，则用其第一列和第二列分别表示 x 轴、y 轴数据。支持对 CHAR, SHORT, INT, LONG, FLOAT, DOUBLE, DATE, MINUTE, SECOND, DATETIME, DATEHOUR 类型的数据画图。
 * style: 字符串，表示画图的样式。包含以下值："line", "point", "linesoint", "impulses", "dots", "step", "errorbars", "histogram", "boxes", "boxerrorbars", "ellipses", "circles"。
 * path: 字符串，表示保存图片的路径。
 * props: 字典，表示画图特性。包含以下键值:
@@ -128,6 +128,7 @@ gp::plot(data, style, path, [props]）
     * size: 图片比例，1为初始长度。为数值类型的向量，包含两个元素，表示长和宽的比列。
     * xTics: 数值型标量，表示 X 轴的单位间隔。
     * yTics: 数值型标量，表示 Y 轴的单位间隔。
+    * resolution: INT类型的向量，图片像素。在png和jpeg图像里支持。
   
     以下属性可以设置每个独立图像的特性。
     * lineColor: 字符串标量或向量，表示线条颜色。包含以下值："black", "red", "green", "blue", "cyan", "magenta", "yellow", "navy", "purple", "olive",  "orange", "violet", "pink", "white", "gray"。
@@ -151,3 +152,12 @@ re=gp::plot(data,"line",WORK_DIR+"/test.eps",prop)
 re=gp::plot(data,"line",WORK_DIR+"/test.png",prop)
 re=gp::plot(data,"line",WORK_DIR+"/test.jpeg",prop)
 ```
+
+# Release Notes
+
+## 1.30.23
+
+## 新增功能
+
+- 新增支持对 DATE, MINUTE, SECOND, DATETIME, DATEHOUR 类型的数据进行画图。
+- 新增支持画图时设置 JPEG、PNG 格式的分辨率。
