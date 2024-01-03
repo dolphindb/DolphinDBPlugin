@@ -184,10 +184,12 @@ mat::writeMat("var.mat", "var1", data)
 
 # ReleaseNotes:
 
-## 新功能
+## v1.30.22
 
-* 新增支持多线程读写 mat 文件。（**1.30.22**）
+### bug修复
 
-# 故障修复
+- writeMat接口中增加非法varName的报错
 
-* 接口 mat::writeMat 新增对参数 *varName* 非法输入值的报错。（**1.30.22**）
+### 优化
+
+- 优化多线程的稳定性

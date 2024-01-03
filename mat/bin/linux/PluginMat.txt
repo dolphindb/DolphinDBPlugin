@@ -1,4 +1,4 @@
-mat,libPluginMat.so,1.30.22
+mat,libPluginMat.so,1.30.23
 extractMatSchema,extractMatSchema,system,1,1,0
 loadMat,loadMat,system,1,2,0
 convertToDatetime,convertToDatetime,system,1,1,0
