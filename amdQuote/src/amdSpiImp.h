@@ -1,520 +1,560 @@
-#ifndef __AMD_SPI_IMP_H
-#define __AMD_SPI_IMP_H
-
-#include <mutex>
-#include <ostream>
-#include <string>
-#include <unordered_map>
-#include <iostream>
-
-#include "Exceptions.h"
-#include "FlatHashmap.h"
-#include "Types.h"
-#include "ama.h"
-#include "ama_tools.h"
+#ifndef AMD_SPI_IMP_H
+#define AMD_SPI_IMP_H
 
 #include "CoreConcept.h"
+#include "Plugin.h"
+#include "ScalarImp.h"
+#include "Util.h"
+#include "ama.h"
+#include "ama_tools.h"
 #include "amdQuoteImp.h"
 #include "amdQuoteType.h"
-#include "Logger.h"
-#include "Util.h"
-#include "ScalarImp.h"
-#include "Plugin.h"
 
-using dolphindb::Executor;
+#ifndef AMD_USE_THREADED_QUEUE
+#define AMD_USE_THREADED_QUEUE
+#include "ddbplugin/ThreadedQueue.h"
+#endif
+
+const static int TIMEOUT = 100;
 const static int CAPACITY = 100000;
 static std::atomic<bool> ERROR_LOG(false);
 
 class AMDSpiImp : public amd::ama::IAMDSpi {
-public:
-    AMDSpiImp(SessionSP session) :
-    snapshotFlag_(false),
-    executionFlag_(false),
-    orderFlag_(false),
-    indexFlag_(false),
-    orderQueueFlag_(false),
-    fundSnapshotFlag_(false),
-    fundExecutionFlag_(false),
-    fundOrderFlag_(false),
-    bondSnapshotFlag_(false),
-    bondExecutionFlag_(false),
-    bondOrderFlag_(false),
-    snapshotBoundQueue_(new SnapshotQueue(CAPACITY, ObjectSizer<timeMDSnapshot>(), ObjectUrgency<timeMDSnapshot>())),
-    orderBoundQueue_(new OrderQueue(CAPACITY, ObjectSizer<timeMDTickOrder>(), ObjectUrgency<timeMDTickOrder>())),
-    executionBoundQueue_(new ExecutionQueue(CAPACITY, ObjectSizer<timeMDTickExecution>(), ObjectUrgency<timeMDTickExecution>())),
-    fundSnapshotBoundQueue_(new SnapshotQueue(CAPACITY, ObjectSizer<timeMDSnapshot>(), ObjectUrgency<timeMDSnapshot>())),
-    fundOrderBoundQueue_(new OrderQueue(CAPACITY, ObjectSizer<timeMDTickOrder>(), ObjectUrgency<timeMDTickOrder>())),
-    fundExecutionBoundQueue_(new ExecutionQueue(CAPACITY, ObjectSizer<timeMDTickExecution>(), ObjectUrgency<timeMDTickExecution>())),
-    bondSnapshotBoundQueue_(new BondSnapshotQueue(CAPACITY, ObjectSizer<timeMDBondSnapshot>(), ObjectUrgency<timeMDBondSnapshot>())),
-    bondOrderBoundQueue_(new BondOrderQueue(CAPACITY, ObjectSizer<timeMDBondTickOrder>(), ObjectUrgency<timeMDBondTickOrder>())),
-    bondExecutionBoundQueue_(new BondExecutionQueue(CAPACITY, ObjectSizer<timeMDBondTickExecution>(), ObjectUrgency<timeMDBondTickExecution>())),
-    indexBoundQueue_(new IndexQueue(CAPACITY, ObjectSizer<timeMDIndexSnapshot>(), ObjectUrgency<timeMDIndexSnapshot>())),
-    orderQueueBoundQueue_(new OrderQueueQueue(CAPACITY, ObjectSizer<timeMDOrderQueue>(), ObjectUrgency<timeMDOrderQueue>())),
-
-    orderExecutionStopFlag_(new bool(true)),
-    fundOrderExecutionStopFlag_(new bool(true)),
-    bondOrderExecutionStopFlag_(new bool(true)),
-
-    orderExecutionFlag_(false),
-    fundOrderExecutionFlag_(false),
-    bondOrderExecutionFlag_(false),
-
-    orderExecutionData_({}),
-    fundOrderExecutionData_({}),
-    bondOrderExecutionData_({}),
-
-    orderExecutionBoundQueue_({}),
-    fundOrderExecutionBoundQueue_({}),
-    bondOrderExecutionBoundQueue_({}),
-
-    orderExecutionThread_({}),
-    fundOrderExecutionThread_({}),
-    bondOrderExecutionThread_({}),
-
-    stopFlag_(new bool()),
-
-    session_(session),
-
-    dailyIndexFlag_(DAILY_INDEX_FLAG),
-    receivedTimeFlag_(RECEIVED_TIME_FLAG),
-    outputElapsedFlag_(OUTPUT_ELAPSED_FLAG)
-        {
-        *stopFlag_ = false;
-
-        initQueueBuffer<AmdOrderTableMeta>(orderBuffer_, orderTableMeta_);
-        initQueueBuffer<AmdOrderTableMeta>(fundOrderBuffer_, orderTableMeta_);
-        initQueueBuffer<AmdOrderTableMeta>(bondOrderBuffer_, orderTableMeta_);
-
-        initQueueBuffer<AmdIndexTableMeta>(indexBuffer_, indexTableMeta_);
-        initQueueBuffer<AmdOrderQueueTableMeta>(orderQueueBuffer_, orderQueueMeta_);
-
-        initQueueBuffer<AmdExecutionTableMeta>(executionBuffer_, executionTableMeta_);
-        initQueueBuffer<AmdExecutionTableMeta>(fundExecutionBuffer_, executionTableMeta_);
-        initQueueBuffer<AmdExecutionTableMeta>(bondExecutionBuffer_, executionTableMeta_);
-
-        initQueueBuffer<AmdSnapshotTableMeta>(snapshotBuffer_, snapshotDataTableMeta_);
-        initQueueBuffer<AmdSnapshotTableMeta>(fundSnapshotBuffer_, snapshotDataTableMeta_);
-        initQueueBuffer<AmdSnapshotTableMeta>(bondSnapshotBuffer_, snapshotDataTableMeta_);
-
-        startThread<timeMDSnapshot, SnapshotQueue>(snapshotBoundQueue_,
-            &AMDSpiImp::OnMDSnapshotHelper, "snapshot", snapshotThread_);
-        startThread<timeMDTickOrder, OrderQueue>(orderBoundQueue_,
-            &AMDSpiImp::OnMDTickOrderHelper, "order", orderThread_);
-        startThread<timeMDTickExecution, ExecutionQueue>(executionBoundQueue_,
-            &AMDSpiImp::OnMDTickExecutionHelper, "execution", executionThread_);
-
-        startThread<timeMDSnapshot, SnapshotQueue>(fundSnapshotBoundQueue_,
-            &AMDSpiImp::OnMDFundSnapshotHelper, "fundSnapshot", fundSnapshotThread_);
-        startThread<timeMDTickOrder, OrderQueue>(fundOrderBoundQueue_,
-            &AMDSpiImp::OnMDTickFundOrderHelper, "fundOrder", fundOrderThread_);
-        startThread<timeMDTickExecution, ExecutionQueue>(fundExecutionBoundQueue_,
-            &AMDSpiImp::OnMDTickFundExecutionHelper, "fundExecution", fundExecutionThread_);
-
-        startThread<timeMDBondSnapshot, BondSnapshotQueue>(bondSnapshotBoundQueue_,
-            &AMDSpiImp::OnMDBondSnapshotHelper, "bondSnapshot", bondSnapshotThread_);
-        startThread<timeMDBondTickOrder, BondOrderQueue>(bondOrderBoundQueue_,
-            &AMDSpiImp::OnMDBondTickOrderHelper, "bondOrder", bondOrderThread_);
-        startThread<timeMDBondTickExecution, BondExecutionQueue>(bondExecutionBoundQueue_,
-            &AMDSpiImp::OnMDBondTickExecutionHelper, "bondExecution", bondExecutionThread_);
-
-        startThread<timeMDIndexSnapshot, IndexQueue>(indexBoundQueue_,
-            &AMDSpiImp::OnMDIndexSnapshotHelper, "index", indexThread_);
-        startThread<timeMDOrderQueue, OrderQueueQueue>(orderQueueBoundQueue_,
-            &AMDSpiImp::OnMDOrderQueueHelper, "orderQueue", orderQueueThread_);
+  public:
+    AMDSpiImp(SessionSP session) : session_(session) {}
+    ~AMDSpiImp() {
+        LOG_INFO(AMDQUOTE_PREFIX + "release AMDSpiImp");
+        removeAll();
     }
-
-    template <typename DataStruct, typename Queue>
-    Executor* initExecutor(
-        SmartPointer<Queue>& queue,
-        void (AMDSpiImp::* helperFunc)(DataStruct*, uint32_t),
-        const string& typeStr)
-    {
-        return new Executor(std::bind(&blockHandling<DataStruct>, queue,
-            [this, helperFunc](vector<DataStruct>& data){
-                (this->*helperFunc)(data.data(), data.size());
-            }, stopFlag_, "[PLUGIN::AMDQUOTE]:", typeStr
-        ));
-    }
-
-    template <typename DataStruct, typename Queue>
-    void startThread(
-        SmartPointer<Queue>& queue,
-        void (AMDSpiImp::* helperFunc)(DataStruct*, uint32_t),
-        const string& typeStr, ThreadSP& thread)
-    {
-        SmartPointer<Executor> executor = initExecutor<DataStruct, Queue>(queue, helperFunc, typeStr);
-        thread = new Thread(executor);
-        thread->start();
-    }
-
-
-    template <typename T>
-    void initQueueBuffer(vector<ConstantSP>& buffer, const T& meta) {
-        buffer = vector<ConstantSP>(meta.colNames_.size());
-        for(unsigned int i = 0; i < meta.colNames_.size(); ++i) {
-            buffer[i] = Util::createVector(meta.colTypes_[i], 0, BUFFER_SIZE);
-            ((VectorSP)buffer[i])->initialize();
-        }
-        buffer.push_back(Util::createVector(DT_NANOTIMESTAMP, 0, BUFFER_SIZE));
-        buffer.push_back(Util::createVector(DT_INT, 0, BUFFER_SIZE));
-        buffer.push_back(Util::createVector(DT_NANOTIME, 0, BUFFER_SIZE));
-    }
-
-    ~AMDSpiImp(){
-        LOG_INFO("[PLUGIN::AMDQUOTE]: release AMDSpiImp");
-        *stopFlag_ = true;
-        snapshotThread_->join();
-        orderThread_->join();
-        executionThread_->join();
-        bondSnapshotThread_->join();
-        bondOrderThread_->join();
-        bondExecutionThread_->join();
-        indexThread_->join();
-        orderQueueThread_->join();
-    }
-
-    void startOrderExecution(string type);
-
-    void clearOrderExecution(string type);
-
     string transMarket(int type);
+    TableSP getStatus() {
+        vector<string> colNames{"topicType",
+                                "market",
+                                "channel",
+                                START_TIME_STR,
+                                END_TIME_STR,
+                                FIRST_MSG_TIME_STR,
+                                LAST_MSG_TIME_STR,
+                                PROCESSED_MSG_COUNT_STR,
+                                FAILED_MSG_COUNT_STR,
+                                LAST_ERR_MSG_STR,
+                                LAST_FAILED_TIMESTAMP_STR};
+        vector<string> topicTypeVec;
+        vector<int> marketVec;
+        vector<int> channelVec;
+        vector<long long> startTimeVec;
+        vector<long long> endTimeVec;
+        vector<long long> firstMsgTimeVec;
+        vector<long long> lastMsgTimeVec;
+        vector<long long> processedMsgCountVec;
+        vector<string> lastErrMsgVec;
+        vector<long long> failedMsgCountVec;
+        vector<long long> lastFailedTimestampVec;
 
-    template <typename DataStruct, typename Meta>
-    void genericAMDHelper(DataStruct* data, uint32_t cnt, TableSP& insertedTable, FunctionDefSP transform, bool& flag,
-        vector<ConstantSP>& buffer, const Meta& meta, const string& typeStr, AMDDataType datatype) noexcept;
-
-    void OnMDorderExecutionHelper(int channel, MDOrderExecution* ticks, uint32_t cnt, bool stockOrFund);
-    void OnMDBondOrderExecutionHelper(int channel, MDBondOrderExecution* ticks, uint32_t cnt);
-
-    void OnMDSnapshotHelper(timeMDSnapshot* snapshot, uint32_t cnt);
-    void OnMDFundSnapshotHelper(timeMDSnapshot* snapshot, uint32_t cnt);
-    void OnMDBondSnapshotHelper(timeMDBondSnapshot* snapshot, uint32_t cnt);
-
-    void OnMDTickOrderHelper(timeMDTickOrder* ticks, uint32_t cnt);
-    void OnMDTickFundOrderHelper(timeMDTickOrder* ticks, uint32_t cnt);
-    void OnMDBondTickOrderHelper(timeMDBondTickOrder* ticks, uint32_t cnt);
-
-    void OnMDTickExecutionHelper(timeMDTickExecution* tick, uint32_t cnt);
-    void OnMDTickFundExecutionHelper(timeMDTickExecution* tick, uint32_t cnt);
-    void OnMDBondTickExecutionHelper(timeMDBondTickExecution* tick, uint32_t cnt);
-
-    void OnMDIndexSnapshotHelper(timeMDIndexSnapshot* index, uint32_t cnt);
-    void OnMDOrderQueueHelper(timeMDOrderQueue* queue, uint32_t cnt);
-
-    void pushSnashotData(amd::ama::MDSnapshot* snapshot, uint32_t cnt, long long time);
-    void pushOrderData(amd::ama::MDTickOrder* ticks, uint32_t cnt, long long time);
-    void pushExecutionData(amd::ama::MDTickExecution* ticks, uint32_t cnt, long long time);
-    void pushIndexData(amd::ama::MDIndexSnapshot* index, uint32_t cnt, long long time);
-    void pushOrderQueueData(amd::ama::MDOrderQueue* queue, uint32_t cnt, long long time);
-    void pushBondSnapshotData(amd::ama::MDBondSnapshot* snapshots, uint32_t cnt, long long time);
-    void pushBondOrderData(amd::ama::MDBondTickOrder* ticks, uint32_t cnt, long long time);
-    void pushBondExecutionData(amd::ama::MDBondTickExecution* ticks, uint32_t cnt, long long time);
-
-    // 接受并处理快照数据（包含基金和股票数据）
-    virtual void OnMDSnapshot(amd::ama::MDSnapshot* snapshot, uint32_t cnt) override{
-        Defer df([=](){amd::ama::IAMDApi::FreeMemory(snapshot);});
-        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        pushSnashotData(snapshot, cnt, time);
+#define GET_STATISTICS(map, name)                                                                     \
+    for (auto it = map.begin(); it != map.end(); ++it) {                                              \
+        int market = it->first;                                                                       \
+        DictionarySP status = it->second->getStatus();                                                \
+        topicTypeVec.emplace_back(name);                                                              \
+        marketVec.emplace_back(market);                                                               \
+        channelVec.emplace_back(INT_MIN);                                                             \
+        startTimeVec.emplace_back(status->getMember(START_TIME_STR)->getLong());                      \
+        endTimeVec.emplace_back(status->getMember(END_TIME_STR)->getLong());                          \
+        firstMsgTimeVec.emplace_back(status->getMember(FIRST_MSG_TIME_STR)->getLong());               \
+        lastMsgTimeVec.emplace_back(status->getMember(LAST_MSG_TIME_STR)->getLong());                 \
+        processedMsgCountVec.emplace_back(status->getMember(PROCESSED_MSG_COUNT_STR)->getLong());     \
+        failedMsgCountVec.emplace_back(status->getMember(FAILED_MSG_COUNT_STR)->getLong());           \
+        lastErrMsgVec.emplace_back(status->getMember(LAST_ERR_MSG_STR)->getString());                 \
+        lastFailedTimestampVec.emplace_back(status->getMember(LAST_FAILED_TIMESTAMP_STR)->getLong()); \
     }
-    // 接受并处理逐笔委托数据（包含基金和股票数据）
-    virtual void OnMDTickOrder(amd::ama::MDTickOrder* ticks, uint32_t cnt) override{
-        Defer df([=](){amd::ama::IAMDApi::FreeMemory(ticks);});
+        GET_STATISTICS(orderQueueQueueMap_, "orderQueue")
+        GET_STATISTICS(indexQueueMap_, "index")
+        GET_STATISTICS(optionQueueMap_, "option")
+        GET_STATISTICS(futureQueueMap_, "future")
+#ifndef AMD_3_9_6
+        GET_STATISTICS(IOPVQueueMap_, "IOPV")
+#endif
+        GET_STATISTICS(snapshotQueueMap_, "snapshot")
+        GET_STATISTICS(fundSnapshotQueueMap_, "fundSnapshot")
+        GET_STATISTICS(bondSnapshotQueueMap_, "bondSnapshot")
+        GET_STATISTICS(orderQueueMap_, "order")
+        GET_STATISTICS(fundOrderQueueMap_, "fundOrder")
+        GET_STATISTICS(bondOrderQueueMap_, "bondOrder")
+        GET_STATISTICS(executionQueueMap_, "execution")
+        GET_STATISTICS(fundExecutionQueueMap_, "fundExecution")
+        GET_STATISTICS(bondExecutionQueueMap_, "bondExecution")
+#undef GET_STATISTICS
+
+#define GET_ORDER_EXECUTION_STATISTICS(map, name)                                                     \
+    for (auto it = map.begin(); it != map.end(); ++it) {                                              \
+        int market = it->first;                                                                       \
+        int channel = market / ORDER_EXECUTION_OFFSET;                                                \
+        market %= ORDER_EXECUTION_OFFSET;                                                             \
+        DictionarySP status = it->second->getStatus();                                                \
+        topicTypeVec.emplace_back(name);                                                              \
+        marketVec.emplace_back(market);                                                               \
+        channelVec.emplace_back(channel);                                                             \
+        startTimeVec.emplace_back(status->getMember(START_TIME_STR)->getLong());                      \
+        endTimeVec.emplace_back(status->getMember(END_TIME_STR)->getLong());                          \
+        firstMsgTimeVec.emplace_back(status->getMember(FIRST_MSG_TIME_STR)->getLong());               \
+        lastMsgTimeVec.emplace_back(status->getMember(LAST_MSG_TIME_STR)->getLong());                 \
+        processedMsgCountVec.emplace_back(status->getMember(PROCESSED_MSG_COUNT_STR)->getLong());     \
+        failedMsgCountVec.emplace_back(status->getMember(FAILED_MSG_COUNT_STR)->getLong());           \
+        lastErrMsgVec.emplace_back(status->getMember(LAST_ERR_MSG_STR)->getString());                 \
+        lastFailedTimestampVec.emplace_back(status->getMember(LAST_FAILED_TIMESTAMP_STR)->getLong()); \
+    }
+        GET_ORDER_EXECUTION_STATISTICS(orderExecutionQueueMap_, "orderExecution");
+        GET_ORDER_EXECUTION_STATISTICS(fundOrderExecutionQueueMap_, "fundOrderExecution");
+        GET_ORDER_EXECUTION_STATISTICS(bondOrderExecutionQueueMap_, "bondOrderExecution");
+#undef GET_ORDER_EXECUTION_STATISTICS
+
+        INDEX size = topicTypeVec.size();
+        VectorSP topicTypeDdbVec = Util::createVector(DT_STRING, 0, size);
+        VectorSP marketDdbVec = Util::createVector(DT_INT, 0, size);
+        VectorSP channelDdbVec = Util::createVector(DT_INT, 0, size);
+        VectorSP startTimeDdbVec = Util::createVector(DT_NANOTIMESTAMP, 0, size);
+        VectorSP endTimeDdbVec = Util::createVector(DT_NANOTIMESTAMP, 0, size);
+        VectorSP firstMsgTimeDdbVec = Util::createVector(DT_NANOTIMESTAMP, 0, size);
+        VectorSP lastMsgTimeDdbVec = Util::createVector(DT_NANOTIMESTAMP, 0, size);
+        VectorSP processedMsgCountDdbVec = Util::createVector(DT_LONG, 0, size);
+        VectorSP lastErrMsgDdbVec = Util::createVector(DT_STRING, 0, size);
+        VectorSP failedMsgCountDdbVec = Util::createVector(DT_LONG, 0, size);
+        VectorSP lastFailedTimestampDdbVec = Util::createVector(DT_NANOTIMESTAMP, 0, size);
+
+        topicTypeDdbVec->appendString(topicTypeVec.data(), size);
+        marketDdbVec->appendInt(marketVec.data(), size);
+        channelDdbVec->appendInt(channelVec.data(), size);
+        startTimeDdbVec->appendLong(startTimeVec.data(), size);
+        firstMsgTimeDdbVec->appendLong(firstMsgTimeVec.data(), size);
+        lastMsgTimeDdbVec->appendLong(lastMsgTimeVec.data(), size);
+        endTimeDdbVec->appendLong(endTimeVec.data(), size);
+        processedMsgCountDdbVec->appendLong(processedMsgCountVec.data(), size);
+        lastErrMsgDdbVec->appendString(lastErrMsgVec.data(), size);
+        failedMsgCountDdbVec->appendLong(failedMsgCountVec.data(), size);
+        lastFailedTimestampDdbVec->appendLong(lastFailedTimestampVec.data(), size);
+
+        vector<ConstantSP> cols{topicTypeDdbVec,
+                                marketDdbVec,
+                                channelDdbVec,
+                                startTimeDdbVec,
+                                endTimeDdbVec,
+                                firstMsgTimeDdbVec,
+                                lastMsgTimeDdbVec,
+                                processedMsgCountDdbVec,
+                                failedMsgCountDdbVec,
+                                lastErrMsgDdbVec,
+                                lastFailedTimestampDdbVec};
+        return Util::createTable(colNames, cols);
+    }
+    template <typename T>
+    void findAndPush(unordered_map<int, SmartPointer<ThreadedQueue<T>>> &queueMap, int key, T &data) {
+        if (queueMap.find(key) != queueMap.end()) {
+            queueMap[key]->push(data);
+        }
+    }
+
+    void pushOptionData(amd::ama::MDOptionSnapshot *snapshot, uint32_t cnt, long long time) {
+        for (uint32_t i = 0; i < cnt; ++i) {
+            timeMDOption data{time, snapshot[i]};
+            int market = snapshot[i].market_type;
+            findAndPush(optionQueueMap_, market, data);
+        }
+    }
+    void pushFutureData(amd::ama::MDFutureSnapshot *snapshot, uint32_t cnt, long long time) {
+        for (uint32_t i = 0; i < cnt; ++i) {
+            timeMDFuture data{time, snapshot[i]};
+            int market = snapshot[i].market_type;
+            findAndPush(futureQueueMap_, market, data);
+        }
+    }
+#ifndef AMD_3_9_6
+    void pushIOPVData(amd::ama::MDIOPVSnapshot *snapshot, uint32_t cnt, long long time) {
+        for (uint32_t i = 0; i < cnt; ++i) {
+            timeMDIOPV data{time, snapshot[i]};
+            int market = snapshot[i].market_type;
+            findAndPush(IOPVQueueMap_, market, data);
+        }
+    }
+#endif
+
+    void pushSnapshotData(amd::ama::MDSnapshot *snapshot, uint32_t cnt, long long time) {
+        for (uint32_t i = 0; i < cnt; ++i) {
+            timeMDSnapshot data{time, snapshot[i]};
+            int market = snapshot[i].market_type;
+            if (snapshot[i].variety_category == 1) {
+                findAndPush(snapshotQueueMap_, market, data);
+            } else {
+                findAndPush(fundSnapshotQueueMap_, market, data);
+            }
+        }
+    }
+    void pushOrderData(amd::ama::MDTickOrder *ticks, uint32_t cnt, long long time) {
+        for (uint32_t i = 0; i < cnt; ++i) {
+            timeMDTickOrder data{time, ticks[i]};
+            int market = ticks[i].market_type;
+            if (ticks[i].variety_category == 1) {
+                findAndPush(orderQueueMap_, market, data);
+            } else {
+                findAndPush(fundOrderQueueMap_, market, data);
+            }
+            int channel = ticks[i].channel_no;
+            /**
+             * orderExecution push data logic:
+             * if the data's channel is unknown, ignore this data.
+             *
+             * the next pushExecutionData/pushBondOrderData/pushBondExecutionData
+             * functions has same push logic
+             */
+            market += channel * ORDER_EXECUTION_OFFSET;
+            if (ticks[i].variety_category == 1) {
+                if (orderExecutionQueueMap_.find(market) != orderExecutionQueueMap_.end()) {
+                    MDOrderExecution data{true, time, {}};
+                    data.uni.tickOrder = ticks[i];
+                    orderExecutionQueueMap_[market]->push(data);
+                }
+            } else {
+                if (fundOrderExecutionQueueMap_.find(market) != fundOrderExecutionQueueMap_.end()) {
+                    MDOrderExecution data{true, time, {}};
+                    data.uni.tickOrder = ticks[i];
+                    fundOrderExecutionQueueMap_[market]->push(data);
+                }
+            }
+        }
+    }
+    void pushExecutionData(amd::ama::MDTickExecution *ticks, uint32_t cnt, long long time) {
+        for (uint32_t i = 0; i < cnt; ++i) {
+            timeMDTickExecution data{time, ticks[i]};
+            int market = ticks[i].market_type;
+            if (ticks[i].variety_category == 1) {
+                findAndPush(executionQueueMap_, market, data);
+            } else {
+                findAndPush(fundExecutionQueueMap_, market, data);
+            }
+            int channel = ticks[i].channel_no;
+            market += channel * ORDER_EXECUTION_OFFSET;
+            if (ticks[i].variety_category == 1) {
+                if (orderExecutionQueueMap_.find(market) != orderExecutionQueueMap_.end()) {
+                    MDOrderExecution data{false, time, {}};
+                    data.uni.tickExecution = ticks[i];
+                    orderExecutionQueueMap_[market]->push(data);
+                }
+            } else {
+                if (fundOrderExecutionQueueMap_.find(market) != fundOrderExecutionQueueMap_.end()) {
+                    MDOrderExecution data{false, time, {}};
+                    data.uni.tickExecution = ticks[i];
+                    fundOrderExecutionQueueMap_[market]->push(data);
+                }
+            }
+        }
+    }
+    void pushIndexData(amd::ama::MDIndexSnapshot *index, uint32_t cnt, long long time) {
+        for (uint32_t i = 0; i < cnt; ++i) {
+            timeMDIndexSnapshot data{time, index[i]};
+            int market = index[i].market_type;
+            findAndPush(indexQueueMap_, market, data);
+        }
+    }
+    void pushOrderQueueData(amd::ama::MDOrderQueue *queue, uint32_t cnt, long long time) {
+        for (uint32_t i = 0; i < cnt; ++i) {
+            timeMDOrderQueue data{time, queue[i]};
+            int market = queue[i].market_type;
+            findAndPush(orderQueueQueueMap_, market, data);
+        }
+    }
+    void pushBondSnapshotData(amd::ama::MDBondSnapshot *snapshots, uint32_t cnt, long long time) {
+        for (uint32_t i = 0; i < cnt; ++i) {
+            timeMDBondSnapshot data{time, snapshots[i]};
+            int market = snapshots[i].market_type;
+            findAndPush(bondSnapshotQueueMap_, market, data);
+        }
+    }
+    void pushBondOrderData(amd::ama::MDBondTickOrder *ticks, uint32_t cnt, long long time) {
+        for (uint32_t i = 0; i < cnt; ++i) {
+            timeMDBondTickOrder data{time, ticks[i]};
+            int market = ticks[i].market_type;
+            findAndPush(bondOrderQueueMap_, market, data);
+            int channel = ticks[i].channel_no;
+            market += channel * ORDER_EXECUTION_OFFSET;
+            if (bondOrderExecutionQueueMap_.find(market) != bondOrderExecutionQueueMap_.end()) {
+                MDBondOrderExecution data{true, time, {}};
+                data.uni.tickOrder = ticks[i];
+                bondOrderExecutionQueueMap_[market]->push(data);
+            }
+        }
+    }
+    void pushBondExecutionData(amd::ama::MDBondTickExecution *ticks, uint32_t cnt, long long time) {
+        for (uint32_t i = 0; i < cnt; ++i) {
+            timeMDBondTickExecution data{time, ticks[i]};
+            int market = ticks[i].market_type;
+            findAndPush(bondExecutionQueueMap_, market, data);
+            int channel = ticks[i].channel_no;
+            market += channel * ORDER_EXECUTION_OFFSET;
+            if (bondOrderExecutionQueueMap_.find(market) != bondOrderExecutionQueueMap_.end()) {
+                MDBondOrderExecution data{false, time, {}};
+                data.uni.tickExecution = ticks[i];
+                bondOrderExecutionQueueMap_[market]->push(data);
+            }
+        }
+    }
+
+    virtual void OnMDOptionSnapshot(amd::ama::MDOptionSnapshot *snapshots, uint32_t cnt) override {
+        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
+        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+        pushOptionData(snapshots, cnt, time);
+    }
+    virtual void OnMDFutureSnapshot(amd::ama::MDFutureSnapshot *snapshots, uint32_t cnt) override {
+        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
+        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+        pushFutureData(snapshots, cnt, time);
+    }
+#ifndef AMD_3_9_6
+    virtual void OnMDIOPVSnapshot(amd::ama::MDIOPVSnapshot *snapshots, uint32_t cnt) override {
+        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
+        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+        pushIOPVData(snapshots, cnt, time);
+    }
+#endif
+
+    virtual void OnMDSnapshot(amd::ama::MDSnapshot *snapshot, uint32_t cnt) override {
+        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshot); });
+        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+        pushSnapshotData(snapshot, cnt, time);
+    }
+    virtual void OnMDTickOrder(amd::ama::MDTickOrder *ticks, uint32_t cnt) override {
+        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushOrderData(ticks, cnt, time);
     }
-    // 接受并处理逐笔成交数据（包含基金和股票数据）
-    virtual void OnMDTickExecution(amd::ama::MDTickExecution* tick, uint32_t cnt) override{
-        Defer df([=](){amd::ama::IAMDApi::FreeMemory(tick);});
+    virtual void OnMDTickExecution(amd::ama::MDTickExecution *ticks, uint32_t cnt) override {
+        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        pushExecutionData(tick, cnt, time);
+        pushExecutionData(ticks, cnt, time);
     }
-    // 接受并处理指数快照数据
-    virtual void OnMDIndexSnapshot(amd::ama::MDIndexSnapshot* index, uint32_t cnt) override{
-        Defer df([=](){amd::ama::IAMDApi::FreeMemory(index);});
+    virtual void OnMDIndexSnapshot(amd::ama::MDIndexSnapshot *index, uint32_t cnt) override {
+        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(index); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushIndexData(index, cnt, time);
     }
-    // 接受并处理委托队列数据
-    virtual void OnMDOrderQueue(amd::ama::MDOrderQueue* queue, uint32_t cnt) override{
-        Defer df([=](){amd::ama::IAMDApi::FreeMemory(queue);});
+    virtual void OnMDOrderQueue(amd::ama::MDOrderQueue *queue, uint32_t cnt) override {
+        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(queue); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushOrderQueueData(queue, cnt, time);
     }
-
-    virtual void OnMDBondSnapshot(amd::ama::MDBondSnapshot* snapshots, uint32_t cnt) override {
-        Defer df([=](){amd::ama::IAMDApi::FreeMemory(snapshots);});
+    virtual void OnMDBondSnapshot(amd::ama::MDBondSnapshot *snapshots, uint32_t cnt) override {
+        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushBondSnapshotData(snapshots, cnt, time);
     }
-    virtual void OnMDBondTickOrder(amd::ama::MDBondTickOrder* ticks, uint32_t cnt) override {
-        Defer df([=](){amd::ama::IAMDApi::FreeMemory(ticks);});
+    virtual void OnMDBondTickOrder(amd::ama::MDBondTickOrder *ticks, uint32_t cnt) override {
+        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushBondOrderData(ticks, cnt, time);
     }
-    virtual void OnMDBondTickExecution(amd::ama::MDBondTickExecution* ticks, uint32_t cnt) override {
-        Defer df([=](){amd::ama::IAMDApi::FreeMemory(ticks);});
+    virtual void OnMDBondTickExecution(amd::ama::MDBondTickExecution *ticks, uint32_t cnt) override {
+        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushBondExecutionData(ticks, cnt, time);
     }
 
-    virtual void OnEvent(uint32_t level, uint32_t code, const char* event_msg, uint32_t len) override;
+    virtual void OnEvent(uint32_t level, uint32_t code, const char *event_msg, uint32_t len) override;
 
-    void latencyLog(AMDDataType type, long long startTime, uint32_t cnt, long long latency) {
-        if(type < 0 || type >= 14) {
-            return;
-        }
-        Statistic& stat = statistics_[type];
-        if (stat.startTime != 0 && startTime > stat.endTime) { // more than 30s，print log
-            if(stat.totalHandleCount > 0){
-                    LOG_INFO(       "type ", type,
-                                    ", statistics: total message count ", stat.totalMessageCount,
-                                    ", total latency(ns) ", stat.totalLatency,
-                                    ", min latency(ns) ", stat.minLatency,
-                                    ", max latency(ns) ", stat.maxLatency,
-                                    ", average latency(ns) ", stat.totalLatency / stat.totalHandleCount,
-                                    ", average message latency(ns) ", stat.totalLatency / stat.totalMessageCount,
-                                    ", total handle count", stat.totalHandleCount);
-            }
-            goto setValue;
-        } else if (stat.startTime == 0) {
-        setValue:
-            stat.startTime = startTime;
-            stat.endTime = stat.startTime  + duration_;
-            stat.totalMessageCount = cnt;
-            stat.totalHandleCount = 1;
-            stat.maxLatency = stat.minLatency = stat.totalLatency = latency;
-        } else  {
-            if(stat.maxLatency < latency)
-                stat.maxLatency = latency;
-            if(stat.minLatency > latency)
-                stat.minLatency = latency;
-            stat.totalLatency += latency;
-            stat.totalHandleCount += 1;
-            stat.totalMessageCount += cnt;
+    void addThreadedQueue(Heap *heap, const string &typeName, AMDDataType type, int key, TableSP table,
+                          FunctionDefSP transform, MetaTable meta, TableSP schema, int optionFlag,
+                          long long dailyStartTime, bool securityCodeToInt) {
+        switch (type) {
+#define ADD_THREADED_QUEUE(type, map, struct, reader)                                                         \
+    case type:                                                                                                \
+        if (map.find(key) != map.end()) {                                                                     \
+            map[key]->setTable(table);                                                                        \
+            map[key]->setTransform(transform);                                                                \
+            if (!map[key]->isStarted()) {                                                                     \
+                map[key]->start();                                                                            \
+            }                                                                                                 \
+        } else {                                                                                              \
+            map[key] = new ThreadedQueue<struct>(heap, TIMEOUT, CAPACITY, meta, schema, optionFlag, typeName, \
+                                                 AMDQUOTE_PREFIX, Util::BUF_SIZE, reader);                    \
+            map[key]->setTable(table);                                                                        \
+            map[key]->setTransform(transform);                                                                \
+            map[key]->setDailyIndex(dailyStartTime);                                                          \
+            map[key]->start();                                                                                \
+        }                                                                                                     \
+        break;
+            ADD_THREADED_QUEUE(AMD_SNAPSHOT, snapshotQueueMap_, timeMDSnapshot,
+                               [=](vector<ConstantSP> &buffer, timeMDSnapshot &data) {
+                                   return snapshotReader(buffer, data, securityCodeToInt);
+                               })
+            ADD_THREADED_QUEUE(AMD_EXECUTION, executionQueueMap_, timeMDTickExecution,
+                               [=](vector<ConstantSP> &buffer, timeMDTickExecution &data) {
+                                   return executionReader(buffer, data, securityCodeToInt);
+                               })
+            ADD_THREADED_QUEUE(AMD_ORDER, orderQueueMap_, timeMDTickOrder,
+                               [=](vector<ConstantSP> &buffer, timeMDTickOrder &data) {
+                                   return orderReader(buffer, data, securityCodeToInt);
+                               })
+            ADD_THREADED_QUEUE(AMD_FUND_SNAPSHOT, fundSnapshotQueueMap_, timeMDSnapshot,
+                               [=](vector<ConstantSP> &buffer, timeMDSnapshot &data) {
+                                   return snapshotReader(buffer, data, securityCodeToInt);
+                               })
+            ADD_THREADED_QUEUE(AMD_FUND_EXECUTION, fundExecutionQueueMap_, timeMDTickExecution,
+                               [=](vector<ConstantSP> &buffer, timeMDTickExecution &data) {
+                                   return executionReader(buffer, data, securityCodeToInt);
+                               })
+            ADD_THREADED_QUEUE(AMD_FUND_ORDER, fundOrderQueueMap_, timeMDTickOrder,
+                               [=](vector<ConstantSP> &buffer, timeMDTickOrder &data) {
+                                   return orderReader(buffer, data, securityCodeToInt);
+                               })
+            ADD_THREADED_QUEUE(AMD_BOND_SNAPSHOT, bondSnapshotQueueMap_, timeMDBondSnapshot,
+                               [=](vector<ConstantSP> &buffer, timeMDBondSnapshot &data) {
+                                   return bondSnapshotReader(buffer, data, securityCodeToInt);
+                               })
+            ADD_THREADED_QUEUE(AMD_BOND_EXECUTION, bondExecutionQueueMap_, timeMDBondTickExecution,
+                               [=](vector<ConstantSP> &buffer, timeMDBondTickExecution &data) {
+                                   return bondExecutionReader(buffer, data, securityCodeToInt);
+                               })
+            ADD_THREADED_QUEUE(AMD_BOND_ORDER, bondOrderQueueMap_, timeMDBondTickOrder,
+                               [=](vector<ConstantSP> &buffer, timeMDBondTickOrder &data) {
+                                   return bondOrderReader(buffer, data, securityCodeToInt);
+                               })
+            ADD_THREADED_QUEUE(AMD_ORDER_EXECUTION, orderExecutionQueueMap_, MDOrderExecution, orderExecutionReader)
+            ADD_THREADED_QUEUE(AMD_FUND_ORDER_EXECUTION, fundOrderExecutionQueueMap_, MDOrderExecution,
+                               orderExecutionReader)
+            ADD_THREADED_QUEUE(AMD_BOND_ORDER_EXECUTION, bondOrderExecutionQueueMap_, MDBondOrderExecution,
+                               bondOrderExecutionReader)
+            ADD_THREADED_QUEUE(AMD_INDEX, indexQueueMap_, timeMDIndexSnapshot,
+                               [=](vector<ConstantSP> &buffer, timeMDIndexSnapshot &data) {
+                                   return indexReader(buffer, data, securityCodeToInt);
+                               })
+            ADD_THREADED_QUEUE(AMD_ORDER_QUEUE, orderQueueQueueMap_, timeMDOrderQueue,
+                               [=](vector<ConstantSP> &buffer, timeMDOrderQueue &data) {
+                                   return orderQueueReader(buffer, data, securityCodeToInt);
+                               })
+            ADD_THREADED_QUEUE(AMD_OPTION_SNAPSHOT, optionQueueMap_, timeMDOption,
+                               [=](vector<ConstantSP> &buffer, timeMDOption &data) {
+                                   return optionReader(buffer, data, securityCodeToInt);
+                               })
+            ADD_THREADED_QUEUE(AMD_FUTURE_SNAPSHOT, futureQueueMap_, timeMDFuture,
+                               [=](vector<ConstantSP> &buffer, timeMDFuture &data) {
+                                   return futureReader(buffer, data, securityCodeToInt);
+                               })
+#ifndef AMD_3_9_6
+            ADD_THREADED_QUEUE(AMD_IOPV_SNAPSHOT, IOPVQueueMap_, timeMDIOPV,
+                               [=](vector<ConstantSP> &buffer, timeMDIOPV &data) {
+                                   return IOPVReader(buffer, data, securityCodeToInt);
+                               })
+#endif
+            case AMD_ERROR_DATA_TYPE:
+            default:
+                throw RuntimeException(AMDQUOTE_PREFIX + "Invalid AMD DataType to add");
+#undef ADD_THREADED_QUEUE
         }
     }
 
-    void unsetFlag(string type) {
-        if (type == "snapshot") {
-            snapshotFlag_ = false;
-        } else if (type == "execution") {
-            executionFlag_ = false;
-        } else if (type == "order") {
-            orderFlag_ = false;
-        } else if (type == "index") {
-            indexFlag_ = false;
-        } else if (type == "orderQueue") {
-            orderQueueFlag_ = false;
-        } else if (type == "fundSnapshot") {
-            fundSnapshotFlag_ = false;
-        } else if (type == "fundExecution") {
-            fundExecutionFlag_ = false;
-        } else if (type == "fundOrder") {
-            fundOrderFlag_ = false;
-        } else if (type == "bondSnapshot") {
-            bondSnapshotFlag_ = false;
-        } else if (type == "bondExecution") {
-            bondExecutionFlag_ = false;
-        } else if (type == "bondOrder") {
-            bondOrderFlag_ = false;
-        } else if(type == "all") {
-            snapshotFlag_ = false;
-            executionFlag_ = false;
-            orderFlag_ = false;
-            indexFlag_ = false;
-            orderQueueFlag_ = false;
-            fundSnapshotFlag_ = false;
-            fundExecutionFlag_ = false;
-            fundOrderFlag_ = false;
-            bondSnapshotFlag_ = false;
-            bondExecutionFlag_ = false;
-            bondOrderFlag_ = false;
+    void removeAll() {
+#define ERASE_IF_EXIST(map)                              \
+    for (auto it = map.begin(); it != map.end(); ++it) { \
+        it->second->stop();                              \
+    }                                                    \
+    // map.clear();
+
+        ERASE_IF_EXIST(snapshotQueueMap_)
+        ERASE_IF_EXIST(fundSnapshotQueueMap_)
+        ERASE_IF_EXIST(bondSnapshotQueueMap_)
+        ERASE_IF_EXIST(orderQueueMap_)
+        ERASE_IF_EXIST(fundOrderQueueMap_)
+        ERASE_IF_EXIST(bondOrderQueueMap_)
+        ERASE_IF_EXIST(executionQueueMap_)
+        ERASE_IF_EXIST(fundExecutionQueueMap_)
+        ERASE_IF_EXIST(bondExecutionQueueMap_)
+        ERASE_IF_EXIST(orderExecutionQueueMap_)
+        ERASE_IF_EXIST(fundOrderExecutionQueueMap_)
+        ERASE_IF_EXIST(bondOrderExecutionQueueMap_)
+        ERASE_IF_EXIST(indexQueueMap_)
+        ERASE_IF_EXIST(orderQueueQueueMap_)
+        ERASE_IF_EXIST(optionQueueMap_)
+        ERASE_IF_EXIST(futureQueueMap_)
+#ifndef AMD_3_9_6
+        ERASE_IF_EXIST(IOPVQueueMap_)
+#endif
+
+#undef ERASE_IF_EXIST
+    }
+
+    void removeThreadedQueue(AMDDataType type, int key) {
+        switch (type) {
+#define ERASE_IF_EXIST(type, map)                        \
+    case type:                                           \
+        if (map.find(key) != map.end()) {                \
+            if (map[key]->isStarted()) map[key]->stop(); \
+        }                                                \
+        break;
+#define ERASE_MERGE_IF_EXIST(type, map)                            \
+    {                                                              \
+        case type:                                                 \
+            vector<int> mergeList;                                 \
+            for (auto it = map.begin(); it != map.end(); ++it) {   \
+                if ((it->first % ORDER_EXECUTION_OFFSET) == key) { \
+                    mergeList.push_back(it->first);                \
+                }                                                  \
+            }                                                      \
+            for (int &num : mergeList) {                           \
+                if (map[num]->isStarted()) map[num]->stop();       \
+            }                                                      \
+            break;                                                 \
+    }
+
+            ERASE_IF_EXIST(AMD_SNAPSHOT, snapshotQueueMap_)
+            ERASE_IF_EXIST(AMD_EXECUTION, executionQueueMap_)
+            ERASE_IF_EXIST(AMD_ORDER, orderQueueMap_)
+            ERASE_IF_EXIST(AMD_FUND_SNAPSHOT, fundSnapshotQueueMap_)
+            ERASE_IF_EXIST(AMD_FUND_EXECUTION, fundExecutionQueueMap_)
+            ERASE_IF_EXIST(AMD_FUND_ORDER, fundOrderQueueMap_)
+            ERASE_IF_EXIST(AMD_BOND_SNAPSHOT, bondSnapshotQueueMap_)
+            ERASE_IF_EXIST(AMD_BOND_EXECUTION, bondExecutionQueueMap_)
+            ERASE_IF_EXIST(AMD_BOND_ORDER, bondOrderQueueMap_)
+            ERASE_MERGE_IF_EXIST(AMD_ORDER_EXECUTION, orderExecutionQueueMap_)
+            ERASE_MERGE_IF_EXIST(AMD_FUND_ORDER_EXECUTION, fundOrderExecutionQueueMap_)
+            ERASE_MERGE_IF_EXIST(AMD_BOND_ORDER_EXECUTION, bondOrderExecutionQueueMap_)
+            ERASE_IF_EXIST(AMD_INDEX, indexQueueMap_)
+            ERASE_IF_EXIST(AMD_ORDER_QUEUE, orderQueueQueueMap_)
+            ERASE_IF_EXIST(AMD_OPTION_SNAPSHOT, optionQueueMap_)
+            ERASE_IF_EXIST(AMD_FUTURE_SNAPSHOT, futureQueueMap_)
+#ifndef AMD_3_9_6
+            ERASE_IF_EXIST(AMD_IOPV_SNAPSHOT, IOPVQueueMap_)
+#endif
+            case AMD_ERROR_DATA_TYPE:
+            default:
+                throw RuntimeException(AMDQUOTE_PREFIX + "Invalid AMD DataType to remove");
+
+#undef ERASE_IF_EXIST
+#undef ERASE_MERGE_IF_EXIST
         }
     }
 
-    // set data
-    void setOrderExecutionData(string type, std::unordered_map<int, TableSP> orderExecutionData, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp, int market);
+  private:
+    unordered_map<int, SmartPointer<ThreadedQueue<timeMDOrderQueue>>> orderQueueQueueMap_;
+    unordered_map<int, SmartPointer<ThreadedQueue<timeMDIndexSnapshot>>> indexQueueMap_;
+    unordered_map<int, SmartPointer<ThreadedQueue<timeMDOption>>> optionQueueMap_;
+    unordered_map<int, SmartPointer<ThreadedQueue<timeMDFuture>>> futureQueueMap_;
+#ifndef AMD_3_9_6
+    unordered_map<int, SmartPointer<ThreadedQueue<timeMDIOPV>>> IOPVQueueMap_;
+#endif
 
-    void setSnapshotData(TableSP snapshotData, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp, int market);
+    unordered_map<int, SmartPointer<ThreadedQueue<timeMDSnapshot>>> snapshotQueueMap_;
+    unordered_map<int, SmartPointer<ThreadedQueue<timeMDSnapshot>>> fundSnapshotQueueMap_;
+    unordered_map<int, SmartPointer<ThreadedQueue<timeMDBondSnapshot>>> bondSnapshotQueueMap_;
 
-    void setExecutionData(TableSP executionData, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp, int market);
+    unordered_map<int, SmartPointer<ThreadedQueue<timeMDTickOrder>>> orderQueueMap_;
+    unordered_map<int, SmartPointer<ThreadedQueue<timeMDTickOrder>>> fundOrderQueueMap_;
+    unordered_map<int, SmartPointer<ThreadedQueue<timeMDBondTickOrder>>> bondOrderQueueMap_;
 
-    void setOrderData(TableSP orderData, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp, int market);
+    unordered_map<int, SmartPointer<ThreadedQueue<timeMDTickExecution>>> executionQueueMap_;
+    unordered_map<int, SmartPointer<ThreadedQueue<timeMDTickExecution>>> fundExecutionQueueMap_;
+    unordered_map<int, SmartPointer<ThreadedQueue<timeMDBondTickExecution>>> bondExecutionQueueMap_;
 
-    void setIndexData(TableSP indexData, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp, int market);
+    std::unordered_map<int, SmartPointer<ThreadedQueue<MDOrderExecution>>> orderExecutionQueueMap_;
+    std::unordered_map<int, SmartPointer<ThreadedQueue<MDOrderExecution>>> fundOrderExecutionQueueMap_;
+    std::unordered_map<int, SmartPointer<ThreadedQueue<MDBondOrderExecution>>> bondOrderExecutionQueueMap_;
 
-    void setOrderQueueData(TableSP orderQueueData, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp, int market);
-
-    void setFundSnapshotData(TableSP snapshotData, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp, int market);
-
-    void setFundExecutionData(TableSP executionData, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp, int market);
-
-    void setFundOrderData(TableSP orderData, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp, int market);
-
-    void setBondSnapshotData(TableSP snapshotData, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp, int market);
-
-    void setBondExecutionData(TableSP executionData, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp, int market);
-
-    void setBondOrderData(TableSP orderData, FunctionDefSP transform, bool receivedTimeFlag, long long dailyStartTimestamp, int market);
-
-
-    void setLatencyFlag(bool flag) {
-        latencyFlag_ = flag;
-    }
-
-    long long getDailyIndexStarTime(const string& dataType, int market){
-        AMDDataType amdDataType;
-        if(NAME_TYPE.count(dataType) != 0){
-            amdDataType = NAME_TYPE[dataType];
-        }
-        else
-            throw IllegalArgumentException(__FUNCTION__, "error dataType: " + dataType);
-        AMDTableType tableType = getAmdTableType(amdDataType, market);
-        if((int)tableType == (int)AMD_ERROR_TABLE_TYPE){
-            throw RuntimeException("getAmdTableType failed");
-        }
-        if(tableType >= sizeof(dailyIndex_) / sizeof(DailyIndex)){
-            throw RuntimeException("tableType exceeds the size of DailyIndex_");
-        }
-        return dailyIndex_[tableType].getStartTimestamp();
-    }
-
-private:
-    /*
-        * alert!!!
-        * structure with name 'order' used to deal with stock order data
-        * structure with name 'fund' order is with fund order data
-        * these two types of order data sometime processed together in one structure
-        * sometime separate into two structure to be processed
-        */
-    AmdSnapshotTableMeta  snapshotDataTableMeta_;
-    AmdExecutionTableMeta executionTableMeta_;
-    AmdOrderTableMeta  orderTableMeta_;
-    AmdIndexTableMeta indexTableMeta_;
-    AmdOrderQueueTableMeta orderQueueMeta_;
-
-    TableSP snapshotData_;
-    TableSP executionData_;
-    TableSP orderData_;
-    TableSP indexData_;
-    TableSP orderQueueData_;
-    TableSP fundSnapshotData_;
-    TableSP fundExecutionData_;
-    TableSP fundOrderData_;
-    TableSP bondSnapshotData_;
-    TableSP bondExecutionData_;
-    TableSP bondOrderData_;
-
-    bool snapshotFlag_;
-    bool executionFlag_;
-    bool orderFlag_;
-    bool indexFlag_;
-    bool orderQueueFlag_;
-    bool fundSnapshotFlag_;
-    bool fundExecutionFlag_;
-    bool fundOrderFlag_;
-    bool bondSnapshotFlag_;
-    bool bondExecutionFlag_;
-    bool bondOrderFlag_;
-
-    FunctionDefSP snapshotTransform_;
-    FunctionDefSP executionTransform_;
-    FunctionDefSP orderTransform_;
-    FunctionDefSP indexTransform_;
-    FunctionDefSP orderQueueTransform_;
-    FunctionDefSP fundSnapshotTransform_;
-    FunctionDefSP fundExecutionTransform_;
-    FunctionDefSP fundOrderTransform_;
-    FunctionDefSP bondSnapshotTransform_;
-    FunctionDefSP bondExecutionTransform_;
-    FunctionDefSP bondOrderTransform_;
-
-    ThreadSP snapshotThread_;
-    ThreadSP executionThread_;
-    ThreadSP orderThread_;
-    ThreadSP fundSnapshotThread_;
-    ThreadSP fundExecutionThread_;
-    ThreadSP fundOrderThread_;
-    ThreadSP indexThread_;
-    ThreadSP orderQueueThread_;
-    ThreadSP bondSnapshotThread_;
-    ThreadSP bondOrderThread_;
-    ThreadSP bondExecutionThread_;
-
-    SmartPointer<SnapshotQueue> snapshotBoundQueue_;
-    SmartPointer<OrderQueue> orderBoundQueue_;
-    SmartPointer<ExecutionQueue> executionBoundQueue_;
-    SmartPointer<SnapshotQueue> fundSnapshotBoundQueue_;
-    SmartPointer<OrderQueue> fundOrderBoundQueue_;
-    SmartPointer<ExecutionQueue> fundExecutionBoundQueue_;
-    SmartPointer<BondSnapshotQueue> bondSnapshotBoundQueue_;
-    SmartPointer<BondOrderQueue> bondOrderBoundQueue_;
-    SmartPointer<BondExecutionQueue> bondExecutionBoundQueue_;
-    SmartPointer<IndexQueue> indexBoundQueue_;
-    SmartPointer<OrderQueueQueue> orderQueueBoundQueue_;
-
-
-    AmdOrderExecutionTableMeta  orderExecutionTableMeta_;
-
-    SmartPointer<bool> orderExecutionStopFlag_;
-    SmartPointer<bool> fundOrderExecutionStopFlag_;
-    SmartPointer<bool> bondOrderExecutionStopFlag_;
-
-    bool orderExecutionFlag_;
-    bool fundOrderExecutionFlag_;
-    bool bondOrderExecutionFlag_;
-
-    std::unordered_map<int, TableSP> orderExecutionData_;
-    std::unordered_map<int, TableSP> fundOrderExecutionData_;
-    std::unordered_map<int, TableSP> bondOrderExecutionData_;
-
-    FunctionDefSP orderExecutionTransform_;
-    FunctionDefSP fundOrderExecutionTransform_;
-    FunctionDefSP bondOrderExecutionTransform_;
-
-    std::unordered_map<int, SmartPointer<OrderExecutionQueue>> orderExecutionBoundQueue_;
-    std::unordered_map<int, SmartPointer<OrderExecutionQueue>> fundOrderExecutionBoundQueue_;
-    std::unordered_map<int, SmartPointer<BondOrderExecutionQueue>> bondOrderExecutionBoundQueue_;
-
-    std::unordered_map<int, ThreadSP> orderExecutionThread_;
-    std::unordered_map<int, ThreadSP> fundOrderExecutionThread_;
-    std::unordered_map<int, ThreadSP> bondOrderExecutionThread_;
-
-    vector<ConstantSP> snapshotBuffer_;
-    vector<ConstantSP> executionBuffer_;
-    vector<ConstantSP> orderBuffer_;
-    vector<ConstantSP> indexBuffer_;
-    vector<ConstantSP> orderQueueBuffer_;
-    vector<ConstantSP> fundSnapshotBuffer_;
-    vector<ConstantSP> fundExecutionBuffer_;
-    vector<ConstantSP> fundOrderBuffer_;
-    vector<ConstantSP> bondSnapshotBuffer_;
-    vector<ConstantSP> bondExecutionBuffer_;
-    vector<ConstantSP> bondOrderBuffer_;
-    std::unordered_map<int, vector<ConstantSP>> orderExecutionBuffer_;
-    std::unordered_map<int, vector<ConstantSP>> fundOrderExecutionBuffer_;
-    std::unordered_map<int, vector<ConstantSP>> bondOrderExecutionBuffer_;
-
-    SmartPointer<bool> stopFlag_;
-    DailyIndex dailyIndex_[28];
-
-    struct Statistic {
-        long long startTime = 0;        // Time to read first data
-        long long endTime = 0;          // Statistical end time
-        long long totalLatency = 0;     // Total time(ns)
-        long long maxLatency = 0;       // Maximum latency of a single piece of data
-        long long minLatency = 0;       // Minimum latency of a single piece of data
-        long totalMessageCount = 0;     // Total message count
-        long totalHandleCount = 0;      // The number of times the data was processed, aka. the number of callback function calls
-    };
-    Statistic statistics_[14];
-    const long long duration_ = 30 * (long long)1000000000;
     SessionSP session_;
-
-    bool latencyFlag_ = false;
-    bool dailyIndexFlag_ = false;
-    bool receivedTimeFlag_ = false;
-    bool outputElapsedFlag_ = false;
 };
-
 #endif
