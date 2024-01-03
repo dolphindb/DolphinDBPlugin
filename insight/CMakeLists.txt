@@ -31,7 +31,7 @@ if (${DDB_USE_ASAN})
     set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS} "-fsanitize=address")
 endif ()
 
-aux_source_directory(src1 DIR_LIB_SRCS)
+aux_source_directory(src DIR_LIB_SRCS)
 include_directories(
     ${PROJECT_SOURCE_DIR}/../include
     ${PROJECT_SOURCE_DIR}/include/insight-tcp-client/mdc_gateway_client/include

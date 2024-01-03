@@ -1,8 +1,0 @@
-insight,libPluginInsight.so,2.00.10
-connectInsight,connect,system,5,6,0
-subscribe,subscribe,system,4,4,0
-unsubscribe,unsubscribe,system,1,1,0
-closeInsight,close,system,1,1,0
-getSchema,getSchema,system,1,1,0
-getStatus,getStatus,system,1,1,0
-
