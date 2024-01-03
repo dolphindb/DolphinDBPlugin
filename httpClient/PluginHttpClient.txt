@@ -1,4 +1,4 @@
-httpClient,libPluginHttpClient.so,2.00.10
+httpClient,libPluginHttpClient.so,2.00.11
 httpGet,httpGet,system,1,4,0
 httpPost,httpPost,system,1,4,0
 sendEmail,sendEmail,system,5,5,0
