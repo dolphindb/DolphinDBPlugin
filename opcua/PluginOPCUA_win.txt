@@ -1,4 +1,4 @@
-opcua,libPluginOPCUA.dll,2.00.10
+opcua,libPluginOPCUA.dll,2.00.11
 getOpcUaServerList,getOpcServerList,system,1,1,0
 getOpcUaEndPointList,getOpcEndPointList,system,1,1,0
 connectOpcUaServer,connect,system,2,8,0
