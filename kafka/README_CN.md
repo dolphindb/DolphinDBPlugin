@@ -1099,13 +1099,27 @@ conn = kafka::createSubJob(consumer,tab,mseed::parse,"test:0:get mseed data");
 kafka::getJobStat();
 kafka::cancelSubJob(conn);
 ```
-# ReleaseNotes:
 
-## 故障修复
+# Release Notes
 
-* 修复了接口 kafka::pollByteStream 不能接收非 JSON 格式数据的问题。（**2.00.10**）
-* 修复了多线程操作导致的 server 宕机问题。（**2.00.10**）
+## 2.00.11
 
-# 功能优化
+### 新增功能
 
-* 函数 eventGetParts , getOffsetPosition , getOffsetCommitted 增加了返回值。（**2.00.10**）
+- 新增支持 SASL2 认证与数据加密。
+
+### 故障修复
+
+- 修复 OOM 时插件宕机的问题。
+
+## 2.00.10
+
+### 优化
+
+- 函数 eventGetParts , getOffsetPosition , getOffsetCommitted 增加了返回值。
+
+### bug修复
+
+- 修复了接口 kafka::pollByteStream 不能接收非 JSON 格式数据的问题。
+- 修复了多线程操作导致的server 宕机问题。
+

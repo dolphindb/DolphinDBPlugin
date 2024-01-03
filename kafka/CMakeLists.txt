@@ -69,6 +69,8 @@ if(DEFINED BUILD_ARM)
 else ()
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
     link_directories(${CMAKE_BINARY_DIR})
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/cppkafka/include)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/cppkafka/include/cppkafka)
 
     aux_source_directory("./src" plugin_kafka_src)
     aux_source_directory("cppkafka/src" cppkafka)
@@ -76,8 +78,9 @@ else ()
     # add_subdirectory(cppkafka)
 
     add_library(PluginKafka SHARED ${plugin_kafka_src})
-    target_link_libraries(PluginKafka librdkafka.a librdkafka++.a libcppkafka.a libz.a DolphinDB)
+    target_link_libraries(PluginKafka librdkafka.a librdkafka++.a libcppkafka.a libz.a DolphinDB sasl2)
     # target_link_libraries(PluginKafka rdkafka++ cppkafka DolphinDB)
+    set_target_properties(PluginKafka PROPERTIES LINK_FLAGS "-Wl,-rpath,$ORIGIN,-disable-new-dtags")
 endif()
 
 add_custom_command(TARGET PluginKafka POST_BUILD
