@@ -249,7 +249,10 @@ ConstantSP train(Heap *heap, vector<ConstantSP> &args) {
     string funcName = "xgboost::train";
     string syntax = "Usage: " + funcName + "(Y, X, [params], [numBoostRound=10], [xgbModel]). ";
 
-    if (!args[0]->isArray() || !args[0]->isNumber()) {
+    bool invalidY = false;
+    if (!args[0]->isArray() || !args[0]->isNumber() || args[0]->size() == 0) invalidY = true;
+    for (auto i = 0; i < args[0]->size(); i++) if (args[0]->get(i)->isNull()) invalidY = true;
+    if (invalidY) {
         throw IllegalArgumentException(funcName, syntax + "Y must be a numeric vector.");
     }
     ConstantSP Y = args[0];

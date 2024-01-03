@@ -1,4 +1,4 @@
-xgboost,libPluginXgboost.dll,1.30.22
+xgboost,libPluginXgboost.dll,1.30.23
 train,train,system,2,5,0
 predict,predict,system,2,7,0
 saveModel,saveModel,operator,2,2,0
