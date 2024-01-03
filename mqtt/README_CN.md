@@ -11,7 +11,8 @@ DolphinDB 的 mqtt 插件可用于向 MQTT 服务器发布或订阅消息。
 - [3. 发布功能](#3-发布功能)
   - [3.1 连接](#31-连接)
   - [3.2 发布](#32-发布)
-  - [3.3 关闭连接](#33-关闭连接)
+  - [3.3 简化发布过程](#33-简化发布过程)
+  - [3.4 关闭连接](#34-关闭连接)
 - [4. 订阅功能](#4-订阅功能)
   - [4.1 订阅](#41-订阅)
   - [4.2 查询订阅](#42-查询订阅)
@@ -103,7 +104,7 @@ preloadModules=plugins::mqtt,plugins::odbc
 ### 3.1 连接
 
 ```
-mqtt::connect(host, port,[QoS=0],[formatter],[batchSize=0],[username],[password])
+mqtt::connect(host, port,[QoS=0],[formatter],[batchSize=0],[username],[password],[sendbufSize=40960])
 ```
 建立一个与 MQTT server/broker 的连接。返回一个 connection。可以显式的调用 `close` 函数去关闭，也可以在 reference count 为0时自动释放。
 
@@ -116,6 +117,7 @@ mqtt::connect(host, port,[QoS=0],[formatter],[batchSize=0],[username],[password]
 - 'batchSize' 是一个整数。当待发布内容是一个表时，可以分批发送，batchSize 表示每次发送的记录行数。
 - 'username' 是一个字符串，用于登录 MQTT server/broker 的用户名。
 - 'password' 是一个字符串，用于登录 MQTT server/broker 的密码。
+- 'sendbufSize' 是一个整数，省略时默认是 40960，用于指定发送缓冲区大小。
 
 **例子**
 
@@ -149,8 +151,48 @@ t=table(take(0..99,50) as hardwareId ,take(now(),
 mqtt::publish(conn,"dolphindb/device",t)
 ```
 
-### 3.3 关闭连接
+### 3.3 简化发布过程
 
+```
+mqtt::createPublisher(conn,topic,colNames,colTypes)
+```
+创建一个对象，可以通过向该对象写入数据来发布消息。
+
+**参数**
+
+- 'conn' 是 `connect` 函数返回的值。
+- 'topic' 是一个字符串，表示主题。
+- 'colNames' 发布的表结构的列名数组。
+- 'colTypes' 发布的表结构的列类型数组。
+
+**例子**
+
+```
+MyFormat = take("", 3)
+MyFormat[2] = "0.000"
+f = createCsvFormatter(MyFormat, ',', ';')
+pubConn = connect("127.0.0.1",1883,0,f,100)
+
+colNames = [`ts, `hardwareId, `val]
+colTypes = [TIMESTAMP, SYMBOL, INT]
+publisher = createPublisher(pubConn, "sensor/s001", colNames, colTypes)
+
+// 使用举例1：直接将要 push 的数据 append 到 publisher 中即可发布，这里的 tb 参数必须是一个表
+append!(publisher, tb)
+
+// 使用举例2：通过 insert SQL 语句
+insert into publisher values([2023.08.25 10:57:47.961, 2023.08.25 10:57:47.961], symbol([`bb,`cc]), [22,33])
+
+// 使用举例3：订阅流数据表时直接设置 handler=append!{publisher} 即可完成实时数据发布
+share streamTable(1000:0, `time`sym`val, [TIMESTAMP, SYMBOL, INT]) as trades
+subscribeTable(tableName="trades", actionName="engine1", offset=0, handler=append!{publisher}, msgAsTable=true);
+
+insert into trades values(2018.10.08T01:01:01.785,`dd,44)
+insert into trades values(2018.10.08T01:01:02.125,`ee,55)
+insert into trades values(2018.10.08T01:01:10.263,`ff,66)
+``` 
+
+### 3.4 关闭连接
 ```
 mqtt::close(conn)
 ```
@@ -172,7 +214,7 @@ mqtt::close(conn)
 ### 4.1 订阅
 
 ```
-mqtt::subscribe(host, port, topic, [parser], handler,[username],[password])
+mqtt::subscribe(host, port, topic, [parser], handler, [username], [password], [recvbufSize=20480])
 ```
 
 向 MQTT server/broker 订阅消息。返回一个连接。
@@ -186,6 +228,7 @@ mqtt::subscribe(host, port, topic, [parser], handler,[username],[password])
 - 'handler' 是一个函数或表，用于处理从 MQTT server/broker 接收的消息。
 - 'username' 是一个字符串，用于登录 MQTT server/broker 的用户名。
 - 'password' 是一个字符串，用于登录 MQTT server/broker 的密码。
+- 'recvbufSize' 是一个整数，省略时默认是 20480，用于指定接收缓冲区大小。
 
 **例子**
 
@@ -375,16 +418,26 @@ p = createCsvParser([INT, TIMESTAMP, DOUBLE, DOUBLE,DOUBLE], ',', ';' )
 sensorInfoTable = table( 10000:0,`deviceID`send_time`temperature`humidity`voltage ,[INT, TIMESTAMP, DOUBLE, DOUBLE,DOUBLE])
 conn = mqtt::subscribe("192.168.1.201",1883,"sensor/#",p,sensorInfoTable)
 ```
-# ReleaseNotes
 
-## 故障修复
+# Release Note
 
-* 当 MQTT 服务器关闭时，通过 mqtt::connect 进行连接将收到错误提示。（**1.30.22**）
-* 优化了 connect 函数中关于参数 batchsize 默认值的报错信息。（**1.30.22**）
-* 修复了当 mqtt::publish, mqtt::createCsvFormatter 参数的输入值为 NULL 时可能出现的宕机或卡住的问题。（**1.30.22**）
-* 修复了若发布消息中包含空值，订阅端无法接收到数据的问题。（**1.30.22**）
-* 修复了若发布数据中包含类型为 CHAR, MONTH 数据时，订阅端会接收到错误类型数据的问题。（**1.30.22**）
+## 1.30.23
 
-# 功能优化
+### 新增功能
 
-* 优化了部分场景下的报错信息。（**1.30.22**）
+- 接口 `mqtt::connect` 新增参数 *sendbufSize*，用于指定发送缓冲区的大小。
+- 接口 `mqtt::subscribe` 新增参数 *recvbufSize*，用于指定接收缓冲区的大小。
+
+## 1.30.22
+
+### 功能优化
+
+- 优化了部分场景下的报错信息。
+- 优化了 connect 函数中关于参数 batchsize 默认值的报错信息。
+
+### 故障修复
+
+- 当 MQTT 服务器关闭时，通过 mqtt::connect 进行连接将收到错误提示。
+- 修复了当 mqtt::publish, mqtt::createCsvFormatter 参数的输入值为 NULL 时可能出现的宕机或卡住的问题。
+- 修复了若发布消息中包含空值，订阅端无法接收到数据的问题。
+- 修复了若发布数据中包含类型为 CHAR  , MONTH 数据时，订阅端会接收到错误类型数据的问题。

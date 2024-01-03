@@ -9,7 +9,7 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}/lib/")
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src/ PluginSrc)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/lib/ MQTTSrc)
 
-set(CMAKE_VERBOSE_MAKEFILE ON)
+# set(CMAKE_VERBOSE_MAKEFILE ON)
 if (WIN32)
     set (platform_macro "-DWINDOWS")
 elseif (UNIX)

@@ -18,6 +18,7 @@ extern "C" ConstantSP mqttClientStopSub(const ConstantSP& handle, const Constant
 
 extern "C" ConstantSP mqttClientConnect(Heap* heap, vector<ConstantSP>& args);
 extern "C" ConstantSP mqttClientPub(Heap* heap, vector<ConstantSP>& args);
+extern "C" ConstantSP mqttClientCreatePublisher(Heap* heap, vector<ConstantSP>& args);
 extern "C" ConstantSP mqttClientClose(const ConstantSP& handle, const ConstantSP& b);
 extern "C" ConstantSP getSubscriberStat(const ConstantSP& handle, const ConstantSP& b);
 
@@ -46,7 +47,7 @@ protected:
 class Connection;
 class Connection : public ConnctionBase{
 public:
-	Connection(const std::string& hostname, int port, uint8_t qos, const FunctionDefSP& formatter, int batchSize, const std::string& userName, const std::string& password);
+	Connection(const std::string& hostname, int port, uint8_t qos, const FunctionDefSP& formatter, int batchSize, const std::string& userName, const std::string& password, int sendbufSize, int recvbufSize);
     virtual ~Connection();
     MQTTErrors publishMsg(const char* topic_name, void* application_message, size_t application_message_size);
     FunctionDefSP getFormatter() {
@@ -62,7 +63,7 @@ public:
             LOG_ERR("[PluginMQTT]: Failed to connect. ");
             return;
         }
-        mqtt_reinit(&client_, sockfd_->getHandle(), sendbuf_, sizeof(sendbuf_), recvbuf_, sizeof(recvbuf_));
+        mqtt_reinit(&client_, sockfd_->getHandle(), sendbuf_.get(), sendbufSize_, recvbuf_.get(), recvbufSize_);
         uint8_t connect_flags = MQTT_CONNECT_CLEAN_SESSION;
         //const char* client_id = NULL;
         const char* client_id = "ddb_mqtt_plugin_pub";
@@ -97,15 +98,18 @@ private:
     bool isClosed_ = false;
     struct mqtt_client client_;
     SmartPointer<Mutex> lockClient_;
-    uint8_t sendbuf_[40960]; /* sendbuf should be large enough to hold multiple
-                                whole mqtt messages */
-    uint8_t recvbuf_[20480]; /* recvbuf should be large enough any whole mqtt
-                                message expected to be received */
     ThreadSP clientDaemon_;
     int sendtimes_;
     int failed_;
     string userName_;
     string password_;
+
+    int sendbufSize_;
+    int recvbufSize_;
+    std::unique_ptr<uint8_t[]> sendbuf_ = nullptr; /* sendbuf should be large enough to hold multiple
+                                whole mqtt messages */
+    std::unique_ptr<uint8_t[]> recvbuf_ = nullptr; /* recvbuf should be large enough any whole mqtt
+                                message expected to be received */
 };
 
 class SubConnection : public ConnctionBase{
@@ -116,10 +120,6 @@ private:
 
     SocketSP sockfd_;
     struct mqtt_client client_;
-    uint8_t sendbuf_[20480]; /* sendbuf should be large enough to hold multiple
-                                whole mqtt messages */
-    uint8_t recvbuf_[20480]; /* recvbuf should be large enough any whole mqtt
-                                message expected to be received */
     ThreadSP clientDaemon_;
     SmartPointer<Mutex> lockClient_;
 
@@ -132,13 +132,22 @@ private:
     Heap* pHeap_;
     string userName_;
     string password_;
+
+    int sendbufSize_;
+    int recvbufSize_;
+    std::unique_ptr<uint8_t[]> sendbuf_ = nullptr; /* sendbuf should be large enough to hold multiple
+                                whole mqtt messages */
+    std::unique_ptr<uint8_t[]> recvbuf_ = nullptr; /* recvbuf should be large enough any whole mqtt
+                                message expected to be received */
+
     bool isClosed_ = false;
 public:
     SessionSP session;
 
 public:
 	SubConnection(const std::string& hostname, int port, const std::string& topic, const FunctionDefSP& parser,
-		const ConstantSP& handler, const std::string& userName, const std::string& password, Heap *pHeap);
+		const ConstantSP& handler, const std::string& userName, const std::string& password, Heap *pHeap,
+        int sendbufSize, int recvbufSize);
 
     virtual ~SubConnection();
     ConstantSP getHandler() {
@@ -178,6 +187,8 @@ public:
         return isClosed_;
     }
 };
+
+bool checkConnectStatus(int sockfd);
 
 }    // namespace mqtt
 
