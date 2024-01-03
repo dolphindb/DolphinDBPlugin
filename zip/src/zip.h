@@ -53,6 +53,7 @@
 static string ZIP_PREFIX = "[PLUGIN::ZIP] ";
 
 extern "C" ConstantSP unzip(Heap* heap, vector<ConstantSP>& args);
+extern "C" ConstantSP zip(Heap* heap, vector<ConstantSP>& args);
 
 namespace OperatorImp{
     ConstantSP convertEncode(Heap* heap, vector<ConstantSP>& arguments);

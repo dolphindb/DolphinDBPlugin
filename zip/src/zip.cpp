@@ -2,12 +2,74 @@
 #include "Exceptions.h"
 #include "Types.h"
 #include "Util.h"
+#include "zipper.h"
+
+ConstantSP zip(Heap* heap, vector<ConstantSP>& args){
+    const string usage = "Usage: zip(zipFileName, fileOrFolderPath, [compressionLevel], [password]) ";
+
+    if(args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR)
+        throw IllegalArgumentException(__FUNCTION__, usage + "zipFileName must be a string scalar");
+    string zipFileName = args[0]->getString();
+
+    if(args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR)
+        throw IllegalArgumentException(__FUNCTION__, usage + "fileOrFolderPath must be a string scalar");
+    string fileOrFolderPath = args[1]->getString();
+    
+    zipper::Zipper::zipFlags compressionLevel = static_cast<zipper::Zipper::zipFlags>(zipper::Zipper::zipFlags::Better | zipper::Zipper::zipFlags::Overwrite);
+    if(args.size() > 2){
+        if(args[2]->getType() != DT_STRING || args[2]->getForm() != DF_SCALAR)
+            throw IllegalArgumentException(__FUNCTION__, usage + "compressionLevel must be a string scalar");
+        string str = args[2]->getString();
+        if(str != "faster" && str != "better")
+            throw IllegalArgumentException(__FUNCTION__, usage + "compressionLevel must be faster or better");
+        if(str == "faster")
+            compressionLevel =  static_cast<zipper::Zipper::zipFlags>(zipper::Zipper::zipFlags::Faster | zipper::Zipper::zipFlags::Overwrite);
+    }
+
+    string password;
+    if(args.size() > 3){
+        if(args[3]->getType() != DT_STRING || args[3]->getForm() != DF_SCALAR)
+            throw IllegalArgumentException(__FUNCTION__, usage + "password must be a string scalar");
+        password = args[3]->getString();
+    }
+    if(password.size() > 128){
+        throw IllegalArgumentException(__FUNCTION__, usage + "the length for password must be not greater than 128. ");
+    }
+    if(Util::exists(zipFileName)){
+            throw IllegalArgumentException(__FUNCTION__, usage + zipFileName + " file already exists.");
+    }
+    bool isDir;
+    if(!Util::exists(fileOrFolderPath, isDir)){
+            throw IllegalArgumentException(__FUNCTION__, usage + fileOrFolderPath + " file does not exists.");
+    }
+    fileOrFolderPath = Util::replace(fileOrFolderPath, "\\", "/");
+    int separatorCount = 0;
+    for(int index = fileOrFolderPath.size() - 1; index >= 0; ++index){
+        if(fileOrFolderPath[index] != '/')
+            break;
+        separatorCount++;
+    }
+    fileOrFolderPath = fileOrFolderPath.substr(0, fileOrFolderPath.size() - separatorCount);
+    SmartPointer<zipper::Zipper> zipHandle;
+    try{
+        if(password != "")
+            zipHandle = new zipper::Zipper(zipFileName, password);
+        else    
+            zipHandle = new zipper::Zipper(zipFileName);
+        if(!zipHandle->add(fileOrFolderPath, compressionLevel))
+            throw RuntimeException("failed to zip " + fileOrFolderPath + " to " + zipFileName);
+        zipHandle->close();
+    }catch(exception& e){
+        throw RuntimeException(ZIP_PREFIX + e.what());
+    }
+    return new Bool(true);
+}
 
 
-static ConstantSP unzipFile(const string& zipFilename, const string& outputDir, Heap* heap, const FunctionDefSP& function, zipEncode encode);
+static ConstantSP unzipFile(const string& zipFilename, const string& outputDir, Heap* heap, const FunctionDefSP& function, zipEncode encode, const string& password);
 
 ConstantSP unzip(Heap* heap, vector<ConstantSP>& args) {
-    const string usage = "Usage: unzip(zipFileName, [outputDir], [callback], [zipEncode])";
+    const string usage = "Usage: unzip(zipFileName, [outputDir], [callback], [zipEncode]) ";
     if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException(__FUNCTION__, usage + "zipFileName must be a string scalar");
     }
@@ -57,14 +119,14 @@ ConstantSP unzip(Heap* heap, vector<ConstantSP>& args) {
 #endif
 
     FunctionDefSP function;
-    if (args.size() > 2 && !args[2]->isNull()) {
+    if (args.size() > 2 && !args[2]->isNothing() && !args[2]->isNull()) {
         if (args[2]->getType() != DT_FUNCTIONDEF/* || args[2]->getForm() != DF_SCALAR*/) {
             throw IllegalArgumentException(__FUNCTION__, usage + "callback must be a function");
         }
         function = args[2];
     }
     zipEncode encode = zipEncode::DEFAULT;
-    if(args.size() > 3) {
+    if(args.size() > 3 && !args[3]->isNothing() && !args[3]->isNull()) {
         if(args[3]->getType() != DT_STRING && args[3]->getForm() != DF_SCALAR) {
             throw IllegalArgumentException(__FUNCTION__, usage + "zipEncode must be a string scalar");
         }
@@ -77,9 +139,18 @@ ConstantSP unzip(Heap* heap, vector<ConstantSP>& args) {
             throw IllegalArgumentException(__FUNCTION__, usage + "zipEncode type must be utf-8 or gbk");
         }
     }
-
-    return unzipFile(zipFilename, outputDir, heap, function, encode);
-}
+    string password;
+    if(args.size() > 4 && !args[4]->isNothing() && !args[4]->isNull()) {
+        if(args[4]->getType() != DT_STRING && args[4]->getForm() != DF_SCALAR) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "password must be a string scalar");
+        }
+        password = args[4]->getString();
+    }
+    if(password.size() > 128){
+        throw IllegalArgumentException(__FUNCTION__, usage + "the length for password must be not greater than 128. ");
+    }
+    return unzipFile(zipFilename, outputDir, heap, function, encode, password);
+ }
 namespace unzHelper{
     class unzFileWrapper{
         public:
@@ -92,7 +163,7 @@ namespace unzHelper{
         }
     };
 }
-ConstantSP unzipFile(const string& zipFilename, const string& outputDir, Heap* heap, const FunctionDefSP& function, zipEncode encode) {
+ConstantSP unzipFile(const string& zipFilename, const string& outputDir, Heap* heap, const FunctionDefSP& function, zipEncode encode, const string& password) {
     const char *zipFile = zipFilename.c_str();
     unzHelper::unzFileWrapper wrapper;
     wrapper.uf = unzOpen64(zipFile);
@@ -119,7 +190,7 @@ ConstantSP unzipFile(const string& zipFilename, const string& outputDir, Heap* h
 
     std::vector<string> filenames;
 
-    do_extract(wrapper.uf, 0, 1, nullptr, outputDir, heap, function, encode);
+    do_extract(wrapper.uf, 0, 1, password == "" ? nullptr : password.c_str(), outputDir, heap, function, encode);
     unzGoToFirstFile(wrapper.uf);
     getFilenames(wrapper.uf, filenames);
     size_t size = filenames.size();
