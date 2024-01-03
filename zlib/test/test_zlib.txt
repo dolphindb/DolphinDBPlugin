@@ -1,0 +1,557 @@
+
+#include "setup/settings.txt"
+login("admin","123456")
+
+try{loadPlugin(getHomeDir()+"/plugins/zlib/PluginZlib.txt")}catch(ex){print ex}
+
+@testing:case="test_plugin_zlib_compressFile_inputFileName_not_exist",exception=1
+if(exists(getHomeDir() + "/zlib_test.txt")){
+	rm(getHomeDir() + "/zlib_test.txt")
+}
+zlib::compressFile(getHomeDir() + "/zlib_test.txt")
+
+@testing:case="test_plugin_zlib_compressFile_inputFileName_not_string",exception=1
+zlib::compressFile(1)
+
+@testing:case="test_plugin_zlib_compressFile_inputFileName_float",exception=1
+zlib::compressFile(1.2)
+
+@testing:case="test_plugin_zlib_compressFile_inputFileName_empty_vector",exception=1
+zlib::compressFile([])
+
+@testing:case="test_plugin_zlib_compressFile_inputFileName_NULL",exception=1
+zlib::compressFile(NULL)
+
+@testing:case="test_plugin_zlib_compressFile_inputFileName_not_pwd",exception=1
+if(exists("a")){
+	rm("a")
+}
+zlib::compressFile("a")
+
+@testing:case="test_plugin_zlib_compressFile_inputFileName_not_pwd_string_null",exception=1
+zlib::compressFile("")
+
+@testing:case="test_plugin_zlib_compressFile_inputFileName_is_vector",exception=1
+zlib::compressFile([DATA_DIR+"/USPricesSmall.csv"])
+
+@testing:case="test_plugin_zlib_compressFile_inputFileName_wrong_path",exception=1
+zlib::compressFile(DATA_DIR+"/USPricesSmall.csv/")
+
+@testing:case="test_plugin_zlib_compressFile_inputFileName_stream_is_bad"//,exception=1
+if (exists(getHomeDir() + "/test/")){
+	rmdir(getHomeDir() + "/test/", true)
+}
+data = table(1..10 as id, 11..20 as val)
+mkdir(getHomeDir() + "/test/")
+re = zlib::compressFile(getHomeDir() + "/test/")
+assert 1, re == NULL
+
+@testing:case="test_plugin_zlib_compressFile_inputFileName_clear"
+if (exists(getHomeDir() + "/test/")){
+	rmdir(getHomeDir() + "/test/", true)
+}
+
+@testing:case="test_plugin_zlib_compressFile_inputFileName_not_exist_ex1",exception=1
+zlib::compressFile()
+
+@testing:case="test_plugin_zlib_compressFile_inputFileName_not_exist_ex2",exception=1
+zlib::compressFile(, 2)
+
+@testing:case="test_plugin_zlib_compressFile_input_more_than_param_number",syntaxError=1
+zlib::compressFile(, 2, 3)
+
+@testing:case="test_plugin_zlib_compressFile_level_negative_integer",exception=1
+zlib::compressFile(getHomeDir() + "/zlib_test.txt", -2)
+
+@testing:case="test_plugin_zlib_compressFile_level_NULL",exception=1
+zlib::compressFile(getHomeDir() + "/zlib_test.txt", NULL)
+
+@testing:case="test_plugin_zlib_compressFile_level_larger_than_9",exception=1
+zlib::compressFile(getHomeDir() + "/zlib_test.txt", 99)
+
+@testing:case="test_plugin_zlib_compressFile_level_double",exception=1
+zlib::compressFile(getHomeDir() + "/zlib_test.txt", 6.5)
+
+@testing:case="test_plugin_zlib_compressFile_level_vector",exception=1
+zlib::compressFile(getHomeDir() + "/zlib_test.txt", [1,2,3])
+
+@testing:case="test_plugin_zlib_compressFile_level_string",exception=1
+zlib::compressFile(getHomeDir()+"/zlib_test.txt","2")
+
+@testing:case="test_plugin_zlib_compressFile_level_int_null",exception=1
+zlib::compressFile(getHomeDir()+"/zlib_test.txt", 00i)
+
+@testing:case="test_plugin_zlib_compressFile_level_string_null",exception=1
+zlib::compressFile(getHomeDir()+"/zlib_test.txt", "")
+
+@testing:case="test_plugin_zlib_compressFile_level_empty_vector",exception=1
+zlib::compressFile(getHomeDir()+"/zlib_test.txt", [])
+
+@testing:case="test_plugin_zlib_compressFile_level_date",exception=1
+zlib::compressFile(getHomeDir()+"/zlib_test.txt", 2012.01.01)
+
+@testing:case="test_plugin_zlib_compressFile_level_pair",exception=1
+zlib::compressFile(getHomeDir()+"/zlib_test.txt", 1:3)
+
+@testing:case="test_plugin_zlib_compressFile_level_matrix",exception=1
+zlib::compressFile(getHomeDir()+"/zlib_test.txt", 1..10$2:5)
+
+@testing:case="test_plugin_zlib_compressFile_level_int_vector",exception=1
+zlib::compressFile(getHomeDir()+"/zlib_test.txt", take(00i, 1))
+
+@testing:case="test_plugin_zlib_compressFile_level_function",exception=1
+zlib::compressFile(getHomeDir()+"/zlib_test.txt", add)
+
+@testing:case="test_plugin_zlib_compressFile_inputFileName_blob",exception=1
+try{rm(getHomeDir() + "/zlib_test.txt")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test.txt.gz")}catch(ex){}
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/zlib_test.txt")
+zlib::compressFile(blob([string(getHomeDir() + "/zlib_test.txt")])[0])
+
+@testing:case="test_plugin_zlib_decompressFile_inputFileName_not_exist",exception=1
+if(exists(getHomeDir() + "/zlib_test.txt.gz")){
+	rm(getHomeDir() + "/zlib_test.txt.gz")
+}
+zlib::decompressFile(getHomeDir() + "/zlib_test.txt.gz")
+
+@testing:case="test_plugin_zlib_decompressFile_inputFileName_not_string",exception=1
+zlib::decompressFile(1)
+
+@testing:case="test_plugin_zlib_decompressFile_inputFileName_null",exception=1
+zlib::decompressFile(NULL)
+
+@testing:case="test_plugin_zlib_decompressFile_inputFileName_string_null",exception=1
+zlib::decompressFile("")
+
+@testing:case="test_plugin_zlib_decompressFile_inputFileName_empty_vector",exception=1
+zlib::decompressFile([])
+
+@testing:case="test_plugin_zlib_decompressFile_inputFileName_string_null_vector",exception=1
+zlib::decompressFile([""])
+
+@testing:case="test_plugin_zlib_decompressFile_inputFileName_string_vector",exception=1
+try{rm(getHomeDir() + "/zlib_test.txt")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test.txt.gz")}catch(ex){}
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/zlib_test.txt")
+zlib::compressFile(getHomeDir() + "/zlib_test.txt", 8)
+zlib::decompressFile([getHomeDir() + "/zlib_test.txt.gz"])
+
+@testing:case="test_plugin_zlib_decompressFile_clear"
+try{rm(getHomeDir() + "/zlib_test.txt")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test.txt.gz")}catch(ex){}
+
+@testing:case="test_plugin_zlib_decompressFile_inputFileName_wrong_fileName",exception=1
+try{rm(getHomeDir() + "/zlib_test.txt")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test.txt.gz")}catch(ex){}
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/zlib_test.txt")
+zlib::compressFile(getHomeDir() + "/zlib_test.txt", 8)
+zlib::decompressFile(getHomeDir() + "/zlib_test.txt")
+
+@testing:case="test_plugin_zlib_decompressFile_clear2"
+try{rm(getHomeDir() + "/zlib_test.txt")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test.txt.gz")}catch(ex){}
+
+@testing:case="test_plugin_zlib_decompressFile_inputFileName_blob",exception=1
+try{rm(getHomeDir() + "/zlib_test.txt")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test.txt.gz")}catch(ex){}
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/zlib_test.txt")
+zlib::compressFile(getHomeDir() + "/zlib_test.txt", 8)
+zlib::decompressFile(blob([string(getHomeDir() + "/zlib_test.txt.gz")])[0])
+
+@testing:case="test_plugin_zlib_decompressFile_clear3"
+try{rm(getHomeDir() + "/zlib_test.txt")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test.txt.gz")}catch(ex){}
+
+@testing:case="test_plugin_zlib_decompressFile_inputFileName_end_with_zip",exception=1
+try{rm(getHomeDir() + "/zlib_test.txt.zip")}catch(ex){}
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/zlib_test.txt.zip")
+zlib::decompressFile(getHomeDir() + "/zlib_test.txt.zip")
+
+@testing:case="test_plugin_zlib_decompressFile_inputFileName_end_with_csv",exception=1
+try{rm(getHomeDir() + "/zlib_test.csv")}catch(ex){}
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/zlib_test.csv")
+zlib::decompressFile(getHomeDir() + "/zlib_test.csv")
+
+@testing:case="test_plugin_zlib_decompressFile_inputFileName_empty_archive",exception=1
+try{rm(getHomeDir() + "/zlib_test.gz")}catch(ex){}
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/zlib_test.gz")
+zlib::decompressFile(getHomeDir() + "/zlib_test.gz")
+
+@testing:case="test_plugin_zlib_decompressFile_inputFileName_end_with_/",exception=1
+try{rm(getHomeDir() + "/zlib_test.txt")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test.txt.gz")}catch(ex){}
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/zlib_test.txt")
+zlib::compressFile(getHomeDir() + "/zlib_test.txt", 8)
+zlib::decompressFile(getHomeDir() + "/zlib_test.txt.gz/")
+
+@testing:case="test_plugin_zlib_decompressFile_inputFileName_input_file_stream_bad",exception=1
+try{rm(getHomeDir() + "/zlib_test.txt.gz")}catch(ex){}
+mkdir(getHomeDir() + "/zlib_test.txt.gz")
+zlib::decompressFile(getHomeDir() + "/zlib_test.txt.gz")
+
+@testing:case="test_plugin_zlib_decompressFile_param_ex1",syntaxError=1
+try{rm(getHomeDir() + "/zlib_test.txt")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test.txt.gz")}catch(ex){}
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/zlib_test.txt")
+zlib::compressFile(getHomeDir() + "/zlib_test.txt", 8)
+zlib::decompressFile(getHomeDir() + "/zlib_test.txt", getHomeDir() + "/zlib_test.txt")
+
+@testing:case="test_plugin_zlib_decompressFile_param_ex2",exception=1
+zlib::decompressFile()
+
+@testing:case="test_plugin_zlib_compressFile_one_file"
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/zlib_test.txt")
+zlib::compressFile(getHomeDir() + "/zlib_test.txt", 8)
+assert 1,exists(getHomeDir() + "/zlib_test.txt.gz")==true
+
+rm(getHomeDir() + "/zlib_test.txt")
+rm(getHomeDir() + "/zlib_test.txt.gz")
+
+@testing:case="test_plugin_zlib_compressFile_inputFileName_no_suffix"
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/zlib_test")
+zlib::compressFile(getHomeDir() + "/zlib_test", 8)
+assert 1,exists(getHomeDir() + "/zlib_test.gz")==true
+
+rm(getHomeDir()+"/zlib_test")
+rm(getHomeDir()+"/zlib_test.gz")
+
+@testing:case="test_plugin_zlib_decompressFile_clear"
+try{rmdir(getHomeDir() + "/zlib_test.txt.gz")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test.txt")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test.gz")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test.txt.zip")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test.csv")}catch(ex){}
+
+@testing:case="test_plugin_zlib_compressFile_output_already_exist"
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/zlib_test.txt")
+zlib::compressFile(getHomeDir() + "/zlib_test.txt", 8)
+assert 1,exists(getHomeDir() + "/zlib_test.txt.gz")==true
+rm(getHomeDir() + "/zlib_test.txt")
+tmp=table(1..5 as id,11..15 as val)
+saveText(tmp, getHomeDir() + "/zlib_test.txt")
+zlib::compressFile(getHomeDir() + "/zlib_test.txt", 8)
+zlib::decompressFile(getHomeDir() + "/zlib_test.txt.gz")
+t=loadText(getHomeDir() + "/zlib_test.txt")
+assert 2,each(eqObj,t.values(),tmp.values())
+
+rm(getHomeDir() + "/zlib_test.txt")
+rm(getHomeDir() + "/zlib_test.txt.gz")
+
+@testing:case="test_plugin_zlib_compressFile_compare_level"
+//level 1: best speed
+try{rm(DATA_DIR+"/USPricesSmall.csv.gz")}catch(ex){}
+zlib::compressFile(DATA_DIR+"/USPricesSmall.csv",1)
+assert 1,exists(DATA_DIR+"/USPricesSmall.csv.gz")==true
+filesize1=exec fileSize from files(DATA_DIR) where filename="USPricesSmall.csv.gz"
+rm(DATA_DIR+"/USPricesSmall.csv.gz")
+//level 9: best compression
+zlib::compressFile(DATA_DIR+"/USPricesSmall.csv",9)
+assert 2,exists(DATA_DIR+"/USPricesSmall.csv.gz")==true
+filesize2=exec fileSize from files(DATA_DIR) where filename="USPricesSmall.csv.gz"
+rm(DATA_DIR+"/USPricesSmall.csv.gz")
+assert 3,filesize2<filesize1
+
+zlib::compressFile(DATA_DIR+"/USPricesSmall.csv",0)
+assert 4, exists(DATA_DIR+"/USPricesSmall.csv.gz")==true
+filesize3=exec fileSize from files(DATA_DIR) where filename="USPricesSmall.csv.gz"
+rm(DATA_DIR+"/USPricesSmall.csv.gz")
+assert 5, filesize2<filesize1<filesize3
+
+zlib::compressFile(DATA_DIR+"/USPricesSmall.csv",-1)
+assert 6, exists(DATA_DIR+"/USPricesSmall.csv.gz")==true
+filesize4=exec fileSize from files(DATA_DIR) where filename="USPricesSmall.csv.gz"
+rm(DATA_DIR+"/USPricesSmall.csv.gz")
+
+zlib::compressFile(DATA_DIR+"/USPricesSmall.csv",6)
+assert 7, exists(DATA_DIR+"/USPricesSmall.csv.gz")==true
+filesize5=exec fileSize from files(DATA_DIR) where filename="USPricesSmall.csv.gz"
+rm(DATA_DIR+"/USPricesSmall.csv.gz")
+assert 8, filesize2<filesize4==filesize5<filesize3
+
+@testing:case="test_plugin_zlib_compressFile_multi_files",exception=1
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/zlib_test1.txt")
+saveText(data, getHomeDir() + "/zlib_test2.txt")
+saveText(data, getHomeDir() + "/zlib_test3.txt")
+zlib::compressFile([getHomeDir() + "/zlib_test1.txt",getHomeDir() + "/zlib_test2.txt",getHomeDir() + "/zlib_test3.txt"])
+
+@testing:case="clear_test_file"
+rm(getHomeDir() + "/zlib_test1.txt")
+rm(getHomeDir() + "/zlib_test2.txt")
+rm(getHomeDir() + "/zlib_test3.txt")
+
+@testing:case="test_plugin_zlib_decompressFile_one_file"
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/zlib_test.txt")
+zlib::compressFile(getHomeDir() + "/zlib_test.txt", 8)
+assert 1,exists(getHomeDir() + "/zlib_test.txt.gz")==true
+rm(getHomeDir() + "/zlib_test.txt")
+zlib::decompressFile(getHomeDir() + "/zlib_test.txt.gz")
+assert 2,exists(getHomeDir() + "/zlib_test.txt")==true
+t=loadText(getHomeDir() + "/zlib_test.txt")
+assert 3,each(eqObj,data.values(),t.values())
+
+rm(getHomeDir() + "/zlib_test.txt")
+rm(getHomeDir() + "/zlib_test.txt.gz")
+
+@testing:case="test_plugin_zlib_decompressFile_overwrite_same_fileName"
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/zlib_test.txt")
+zlib::compressFile(getHomeDir() + "/zlib_test.txt", 8)
+assert 1,exists(getHomeDir() + "/zlib_test.txt.gz")==true
+rm(getHomeDir() + "/zlib_test.txt")
+tmp=table(1..5 as id,11..15 as val)
+saveText(data, getHomeDir() + "/zlib_test.txt")
+zlib::decompressFile(getHomeDir() + "/zlib_test.txt.gz")
+assert 2,exists(getHomeDir() + "/zlib_test.txt")==true
+t=loadText(getHomeDir() + "/zlib_test.txt")
+assert 3,each(eqObj,data.values(),t.values())
+
+rm(getHomeDir() + "/zlib_test.txt")
+rm(getHomeDir() + "/zlib_test.txt.gz")
+
+@testing:case="test_plugin_zlib_decompressFile_multi_file",exception=1
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/zlib_test1.txt")
+saveText(data, getHomeDir() + "/zlib_test2.txt")
+saveText(data, getHomeDir() + "/zlib_test3.txt")
+zlib::compressFile(getHomeDir() + "/zlib_test1.txt")
+zlib::compressFile(getHomeDir() + "/zlib_test2.txt")
+zlib::compressFile(getHomeDir() + "/zlib_test3.txt")
+zlib::decompressFile([getHomeDir() + "/zlib_test1.txt.gz",getHomeDir() + "/zlib_test2.txt.gz",getHomeDir() + "/zlib_test3.txt.gz"])
+
+@testing:case="clear_test_file"
+rm(getHomeDir() + "/zlib_test1.txt")
+rm(getHomeDir() + "/zlib_test2.txt")
+rm(getHomeDir() + "/zlib_test3.txt")
+
+rm(getHomeDir() + "/zlib_test1.txt.gz")
+rm(getHomeDir() + "/zlib_test2.txt.gz")
+rm(getHomeDir() + "/zlib_test3.txt.gz")
+
+@testing:case="test_plugin_zlib_submitJob_compressFile"
+n = 10000000
+data = table(1..n as id, rand(100, n) as val)
+saveText(data, getHomeDir() + "/zlib_test1.txt")
+def compressFun(filePath, level){
+	zlib::compressFile(filePath, level)
+}
+
+arr = array(STRING, 0)
+arr.append!(submitJob("compress_file1", "parall run compressFile", compressFun, DATA_DIR+"/USPrices.csv", 2))
+arr.append!(submitJob("compress_file2", "parall run compressFile", compressFun, DATA_DIR+"/USPricesSmall.csv", 9))
+arr.append!(submitJob("compress_file3", "parall run compressFile", compressFun, getHomeDir()+"/zlib_test1.txt", 1))
+
+for(jobs in arr){
+	getJobReturn(jobs, true)
+}
+
+re = exec errorMsg from getRecentJobs() where jobId in arr
+assert 1, re == string(take(00i, size(arr)))
+assert 2, exists(getHomeDir() + "/zlib_test1.txt.gz")
+assert 3, exists(DATA_DIR + "/USPrices.csv.gz")
+assert 4, exists(DATA_DIR + "/USPricesSmall.csv.gz")
+
+@testing:case="test_plugin_zlib_submitJob_decompressFile"
+def decompressFun(filePath){
+	zlib::decompressFile(filePath)
+}
+
+arr = array(STRING, 0)
+arr.append!(submitJob("compress_file1", "parall run compressFile", decompressFun, DATA_DIR+"/USPrices.csv.gz"))
+arr.append!(submitJob("compress_file2", "parall run compressFile", decompressFun, DATA_DIR+"/USPricesSmall.csv.gz"))
+arr.append!(submitJob("compress_file3", "parall run compressFile", decompressFun, getHomeDir()+"/zlib_test1.txt.gz"))
+
+for(jobs in arr){
+	getJobReturn(jobs, true)
+}
+re = exec errorMsg from getRecentJobs() where jobId in arr
+assert 1, re == string(take(00i, size(arr)))
+assert 2, exists(getHomeDir() + "/zlib_test1.txt")
+assert 3, exists(DATA_DIR + "/USPrices.csv")
+assert 4, exists(DATA_DIR + "/USPricesSmall.csv")
+
+try{rm(getHomeDir() + "/zlib_test1.txt")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test1.txt.gz")}catch(ex){}
+
+@testing:case="test_plugin_zlib_compressFile/decompressFile_multi_times"
+for(i in 1..10){
+	try{rm(getHomeDir() + "/zlib_test.txt")}catch(ex){}
+	try{rm(getHomeDir() + "/zlib_test.txt.gz")}catch(ex){}
+	data = table(1..10 as id, 11..20 as val)
+	saveText(data, getHomeDir() + "/zlib_test.txt")
+	zlib::compressFile(getHomeDir() + "/zlib_test.txt", 8)
+	assert 1,exists(getHomeDir() + "/zlib_test.txt.gz")==true
+	rm(getHomeDir() + "/zlib_test.txt")
+	tmp=table(1..5 as id,11..15 as val)
+	saveText(tmp, getHomeDir() + "/zlib_test.txt")
+	zlib::compressFile(getHomeDir() + "/zlib_test.txt", 8)
+	zlib::decompressFile(getHomeDir() + "/zlib_test.txt.gz")
+	t=loadText(getHomeDir() + "/zlib_test.txt")
+	assert 2,each(eqObj,t.values(),tmp.values())
+	try{rm(getHomeDir() + "/zlib_test.txt")}catch(ex){}
+	try{rm(getHomeDir() + "/zlib_test.txt.gz")}catch(ex){}
+}
+
+@testing:case="test_plugin_zlib_submitJob_compressFile_multi_times"
+n = 10000000
+data = table(1..n as id, rand(100, n) as val)
+saveText(data, getHomeDir() + "/zlib_test1.txt")
+def compressFun(filePath, level, m){
+	for(i in 1..m){
+		print(i)
+		zlib::compressFile(filePath, level)
+	}
+}
+
+arr = array(STRING, 0)
+arr.append!(submitJob("compress_file_multi1", "parall run compressFile", compressFun, DATA_DIR+"/USPrices.csv", 2, 3))
+arr.append!(submitJob("compress_file_multi2", "parall run compressFile", compressFun, DATA_DIR+"/USPricesSmall.csv", 9, 3))
+arr.append!(submitJob("compress_file_multi3", "parall run compressFile", compressFun, getHomeDir()+"/zlib_test1.txt", 1, 8))
+
+for(jobs in arr){
+	getJobReturn(jobs, true)
+}
+
+re = exec errorMsg from getRecentJobs() where jobId in arr
+assert 1, re == string(take(00i, size(arr)))
+assert 2, exists(getHomeDir() + "/zlib_test1.txt.gz")
+assert 3, exists(DATA_DIR + "/USPrices.csv.gz")
+assert 4, exists(DATA_DIR + "/USPricesSmall.csv.gz")
+
+@testing:case="test_plugin_zlib_submitJob_decompressFile_multi_times"
+def decompressFun(filePath, m){
+	for(i in 1..3){
+		print(i)
+		zlib::decompressFile(filePath)
+	}
+}
+
+arr = array(STRING, 0)
+arr.append!(submitJob("decompress_file_multi1", "parall run compressFile", decompressFun, DATA_DIR+"/USPrices.csv.gz", 3))
+arr.append!(submitJob("decompress_file_multi2", "parall run compressFile", decompressFun, DATA_DIR+"/USPricesSmall.csv.gz", 3))
+arr.append!(submitJob("decompress_file_multi3", "parall run compressFile", decompressFun, getHomeDir()+"/zlib_test1.txt.gz", 8))
+
+for(jobs in arr){
+	getJobReturn(jobs, true)
+}
+re = exec errorMsg from getRecentJobs() where jobId in arr
+assert 1, re == string(take(00i, size(arr)))
+assert 2, exists(getHomeDir() + "/zlib_test1.txt")
+assert 3, exists(DATA_DIR + "/USPrices.csv")
+assert 4, exists(DATA_DIR + "/USPricesSmall.csv")
+
+try{rm(getHomeDir() + "/zlib_test1.txt")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test1.txt.gz")}catch(ex){}
+
+@testing:case="test_plugin_zlib_submitJob_compressFile_with_decompressfile"
+n = 10000000
+data = table(1..n as id, rand(100, n) as val)
+saveText(data, getHomeDir() + "/zlib_test1.txt")
+def compressFun(filePath, level, m){
+	for(i in 1..m){
+		print(i)
+		zlib::compressFile(filePath, level)
+		zlib::decompressFile(filePath+".gz")
+	}
+}
+
+arr = array(STRING, 0)
+arr.append!(submitJob("deorcompress_file_multi1", "parall run compressFile", compressFun, DATA_DIR+"/USPrices.csv", 2, 2))
+arr.append!(submitJob("deorcompress_file_multi2", "parall run compressFile", compressFun, DATA_DIR+"/USPricesSmall.csv", 9, 2))
+arr.append!(submitJob("deorcompress_file_multi3", "parall run compressFile", compressFun, getHomeDir()+"/zlib_test1.txt", 1, 8))
+
+for(jobs in arr){
+	getJobReturn(jobs, true)
+}
+
+re = exec errorMsg from getRecentJobs() where jobId in arr
+assert 1, re == string(take(00i, size(arr)))
+assert 2, exists(getHomeDir() + "/zlib_test1.txt")
+assert 3, exists(DATA_DIR + "/USPrices.csv")
+assert 4, exists(DATA_DIR + "/USPricesSmall.csv")
+
+try{rm(getHomeDir() + "/zlib_test1.txt")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test1.txt.gz")}catch(ex){}
+
+@testing:case="test_plugin_zlib_compressFile_inputFileName_with_suffix_zip"
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/zlib_test.zip")
+zlib::compressFile(getHomeDir() + "/zlib_test.zip", 8)
+assert 1, exists(getHomeDir() + "/zlib_test.zip.gz") == true
+rm(getHomeDir()+"/zlib_test.zip")
+zlib::decompressFile(getHomeDir() + "/zlib_test.zip.gz")
+assert 2, exists(getHomeDir() + "/zlib_test.zip") == true
+rm(getHomeDir()+"/zlib_test.zip.gz")
+rm(getHomeDir()+"/zlib_test.zip")
+
+@testing:case="test_plugin_zlib_compressFile_inputFileName_with_suffix_tar.xz"
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/zlib_test.tar.xz")
+zlib::compressFile(getHomeDir() + "/zlib_test.tar.xz", 8)
+assert 1, exists(getHomeDir() + "/zlib_test.tar.xz.gz") == true
+rm(getHomeDir() + "/zlib_test.tar.xz")
+zlib::decompressFile(getHomeDir() + "/zlib_test.tar.xz.gz")
+assert 2, exists(getHomeDir() + "/zlib_test.tar.xz") == true
+rm(getHomeDir()+"/zlib_test.tar.xz")
+rm(getHomeDir()+"/zlib_test.tar.xz.gz")
+
+@testing:case="test_plugin_zlib_compressFile_inputFileName_with_suffix_7z"
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/zlib_test.7z")
+zlib::compressFile(getHomeDir() + "/zlib_test.7z", 8)
+assert 1, exists(getHomeDir() + "/zlib_test.7z.gz") == true
+rm(getHomeDir() + "/zlib_test.7z")
+zlib::decompressFile(getHomeDir() + "/zlib_test.7z.gz")
+assert 2, exists(getHomeDir() + "/zlib_test.7z") == true
+rm(getHomeDir()+"/zlib_test.7z")
+rm(getHomeDir()+"/zlib_test.7z.gz")
+
+@testing:case="test_plugin_zlib_compressFile_inputFileName_with_chinese_name"
+try{rm(getHomeDir() + "/插件测试")}catch(ex){}
+try{rm(getHomeDir() + "/插件测试.gz")}catch(ex){}
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/插件测试")
+zlib::compressFile(getHomeDir() + "/插件测试", 8)
+assert 1, exists(getHomeDir() + "/插件测试.gz") == true
+try{rm(getHomeDir() + "/插件测试")}catch(ex){}
+zlib::decompressFile(getHomeDir() + "/插件测试.gz")
+assert 2, exists(getHomeDir() + "/插件测试") == true
+try{rm(getHomeDir() + "/插件测试")}catch(ex){}
+try{rm(getHomeDir() + "/插件测试.gz")}catch(ex){}
+
+@testing:case="test_plugin_zlib_compressFile_inputFileName_with_special_symbols"
+try{rm(getHomeDir() + "/插件测!.试")}catch(ex){}
+try{rm(getHomeDir() + "/插件测!.试.gz")}catch(ex){}
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/插件测!.试")
+zlib::compressFile(getHomeDir() + "/插件测!.试", 8)
+assert 1, exists(getHomeDir() + "/插件测!.试.gz") == true
+try{rm(getHomeDir() + "/插件测!.试")}catch(ex){}
+zlib::decompressFile(getHomeDir() + "/插件测!.试.gz")
+assert 2, exists(getHomeDir() + "/插件测!.试") == true
+try{rm(getHomeDir() + "/插件测!.试")}catch(ex){}
+try{rm(getHomeDir() + "/插件测!.试.gz")}catch(ex){}
+
+@testing:case="test_plugin_zlib_clear"
+try{rm(getHomeDir() + "/zlib_test.csv")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test.txt.zip")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test.gz")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test.txt.gz")}catch(ex){}
+try{rm(getHomeDir() + "/zlib_test.zip.gz")}catch(ex){}
+try{rm(DATA_DIR + "/USPrices.csv.gz")}catch(ex){}
+try{rm(DATA_DIR + "/USPricesSmall.csv.gz")}catch(ex){}
