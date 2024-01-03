@@ -18,6 +18,7 @@ using std::chrono::nanoseconds;
 #endif
 
 extern "C" ConstantSP mysqlConnect(Heap *heap, vector<ConstantSP> &args);
+extern "C" ConstantSP mysqlClose(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP mysqlSchema(const ConstantSP &connection, const ConstantSP &table);
 extern "C" ConstantSP mysqlLoad(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP mysqlTables(const ConstantSP &connection);
@@ -86,11 +87,19 @@ class Connection : public mysqlxx::Connection {
                       const TableSP &schema = nullptr,
                       const uint64_t &startRow = 0,
                       const uint64_t &rowNum = std::numeric_limits<uint64_t>::max(),
-                      const FunctionDefSP &transform = nullptr);
+                      const FunctionDefSP &transform = nullptr,
+                      const ConstantSP& sortColumns = nullptr,
+                      const ConstantSP& keepDuplicates = nullptr,
+                      const ConstantSP& sortKeyMappingFunction = nullptr);
     std::string str() { return user_ + "@" + host_ + ":" + std::to_string(port_) + "/" + db_; }
+
+    void close();
+
+    bool isClosed() const;
 
    private:
     bool isQuery(std::string);
+    bool isClosed_;
     Mutex mtx_;
 };
 

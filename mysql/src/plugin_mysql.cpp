@@ -17,6 +17,9 @@ ConstantSP safeOp(const ConstantSP &arg, std::function<ConstantSP(Connection *)>
             throw IllegalArgumentException(__FUNCTION__, "Invalid connection handle.");
         }
         auto conn = (Connection *)(arg->getLong());
+        if (conn->isClosed()) {
+            throw RuntimeException("Invalid connection object.");
+        }
         return conn->connected() ? f(conn) : messageSP("Not connected yet.");
     } else {
         throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
@@ -69,6 +72,22 @@ ConstantSP mysqlConnect(Heap *heap, vector<ConstantSP> &args) {
     dolphindb::littleEndian = Util::isLittleEndian();
     FunctionDefSP onClose(Util::createSystemProcedure("mysql connection onClose()", mysqlConnectionOnClose, 1, 1));
     return Util::createResource((long long)cup.release(), descBuf.data(), onClose, heap->currentSession());
+}
+
+ConstantSP mysqlClose(Heap *heap, vector<ConstantSP> &args) {
+    std::string usage = "Usage: close(connection).";
+    if (args[0]->getType() != DT_RESOURCE || args[0]->getString().find("mysql connection") != 0) {
+        throw IllegalArgumentException(__FUNCTION__, usage + "Must be a mysql resource object.");
+    }
+    if (args[0]->getLong() == 0) {
+        throw IllegalArgumentException(__FUNCTION__, "Invalid connection handle.");
+    }
+
+    Connection* conn = reinterpret_cast<Connection*>(args[0]->getLong());
+    if(conn != nullptr) {
+        conn->close(); // the actual delete occurs when mysqlConnectionOnClose is called
+    }
+    return new String("Connection is closed.");
 }
 
 ConstantSP mysqlTables(const ConstantSP &connection) {
@@ -128,7 +147,7 @@ ConstantSP mysqlLoad(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP mysqlLoadEx(Heap *heap, vector<ConstantSP> &arguments) {
-    auto args = getArgs(arguments, 9);
+    auto args = getArgs(arguments, 12);
     ConstantSP dbHandle = nullptr;
     std::string tableName, tableInMySQL;
     ConstantSP partitionColumns = nullptr;
@@ -185,19 +204,52 @@ ConstantSP mysqlLoadEx(Heap *heap, vector<ConstantSP> &arguments) {
             throw IllegalArgumentException(__FUNCTION__, usage + "rowNum must be a non-negative integer");
         rowNum = args[7]->getLong();
     }
+
     FunctionDefSP transform;
     if (!args[8]->isNothing()) {
         if (arguments[8]->getType() != DT_FUNCTIONDEF)
             throw IllegalArgumentException(__FUNCTION__, "transform must be a function.");
         transform = (FunctionDefSP)args[8];
+    }
+
+    ConstantSP sortColumns;
+    if (!args[9]->isNothing()) {
+        if (args[9]->getType() != DT_STRING || (args[9]->getForm() != DF_SCALAR && args[9]->getForm() != DF_VECTOR)) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "sortColumns must be a string scalar or vector.");
+        }
+        sortColumns = args[9];
+    }
+
+    ConstantSP keepDuplicates;
+    if (!args[10]->isNothing()) {
+        if (args[10]->getType() != DT_INT || args[10]->getForm() != DF_SCALAR) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "keepDuplicates must be 0~2 or use ALL, FIRST and LAST macro.");
+        }
+        keepDuplicates = args[10];
+    }
+
+    ConstantSP sortKeyMappingFunction;
+    if (!args[11]->isNothing()) {
+        if (args[11]->getType() != DT_ANY || args[11]->getForm() != DF_VECTOR) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "sortKeyMappingFunction must be a function vector.");
+        }
+        int size = args[11]->size();
+        for (int i = 0; i < size; ++i) {
+            if (args[11]->get(i)->getType() != DT_FUNCTIONDEF) {
+                throw IllegalArgumentException(__FUNCTION__, usage + "sortKeyMappingFunction must be a function vector.");
+            }
+        }
+        sortKeyMappingFunction = args[11];
+    }
+
+    if (!transform.isNull()) {
         return safeOp(args[0], [&](Connection *conn) {
-            return conn->loadEx(heap, dbHandle, tableName, partitionColumns, tableInMySQL, schema, startRow, rowNum, transform);
+            return conn->loadEx(heap, dbHandle, tableName, partitionColumns, tableInMySQL, schema, startRow, rowNum, transform, sortColumns, keepDuplicates, sortKeyMappingFunction);
         });
     }
     return safeOp(args[0], [&](Connection *conn) {
-        return conn->loadEx(heap, dbHandle, tableName, partitionColumns, tableInMySQL, schema, startRow, rowNum);
+        return conn->loadEx(heap, dbHandle, tableName, partitionColumns, tableInMySQL, schema, startRow, rowNum, transform, sortColumns, keepDuplicates, sortKeyMappingFunction);
     });
-    
 }
 
 /// Connection
@@ -206,7 +258,7 @@ Connection::~Connection() {
 }
 
 Connection::Connection(std::string hostname, int port, std::string username, std::string password, std::string database)
-    : host_(hostname), user_(username), password_(password), db_(database), port_(port) {
+    : host_(hostname), user_(username), password_(password), db_(database), port_(port), isClosed_(false) {
     try {
         connect(db_.c_str(), host_.c_str(), user_.c_str(), password_.c_str(), port_);
     } catch (mysqlxx::Exception &e) {
@@ -237,8 +289,9 @@ ConstantSP Connection::load(const std::string &table_or_query, const TableSP &sc
     }
 }
 
-ConstantSP Connection::loadEx(Heap *heap, const ConstantSP &dbHandle, const std::string &tableName, const ConstantSP &partitionColumns, const std::string &MySQLTableName_or_query,
-                              const TableSP &schema, const uint64_t &startRow, const uint64_t &rowNum, const FunctionDefSP &transform) {
+ConstantSP Connection::loadEx(Heap *heap, const ConstantSP &dbHandle, const std::string &tableName, const ConstantSP &partitionColumns,
+        const std::string &MySQLTableName_or_query, const TableSP &schema, const uint64_t &startRow, const uint64_t &rowNum, 
+        const FunctionDefSP &transform, const ConstantSP& sortColumns, const ConstantSP& keepDuplicates, const ConstantSP& sortKeyMappingFunction) {
     LockGuard<Mutex> lk(&mtx_);
     DomainSP domain = static_cast<SystemHandleSP>(dbHandle)->getDomain();
     if (domain.isNull()) {
@@ -264,7 +317,25 @@ ConstantSP Connection::loadEx(Heap *heap, const ConstantSP &dbHandle, const std:
         vector<ConstantSP> args{new String(addr), new String(tableName)};
         ret = heap->currentSession()->getFunctionDef("loadTable")->call(heap, args);
     } else {
-        vector<ConstantSP> args{dbHandle, load(MySQLTableName_or_query, schema, 0, 1), new String(tableName), partitionColumns};
+        vector<ConstantSP> args;
+        if (sortColumns.isNull()) {
+            if (!keepDuplicates.isNull() || !sortKeyMappingFunction.isNull()) {
+                throw RuntimeException("Can't specify sortColumns, keepDuplicates and sortKeyMappingFunction for database engines other than TSDB engine.");
+            }
+
+            args = {dbHandle, load(MySQLTableName_or_query, schema, 0, 1), new String(tableName), partitionColumns};
+        } else {
+            args = {dbHandle, load(MySQLTableName_or_query, schema, 0, 1), new String(tableName), partitionColumns, Util::createNullConstant(DT_VOID), sortColumns};
+            if (!keepDuplicates.isNull()) {
+                args.push_back(keepDuplicates);
+            }
+            if (!sortKeyMappingFunction.isNull()) {
+                if (keepDuplicates.isNull()) {
+                    args.push_back(new Void());
+                }
+                args.push_back(sortKeyMappingFunction);
+            }
+        }
         ret = heap->currentSession()->getFunctionDef("createPartitionedTable")->call(heap, args);
     }
 
@@ -280,6 +351,19 @@ ConstantSP Connection::loadEx(Heap *heap, const ConstantSP &dbHandle, const std:
 ConstantSP Connection::extractSchema(const std::string &table) {
     LockGuard<Mutex> lk(&mtx_);
     return MySQLExtractor(query()).extractSchema(table);
+}
+
+void Connection::close() {
+    LockGuard<Mutex> lk(&mtx_);
+    if (isClosed_) {
+        throw RuntimeException("Invalid connection object.");
+    }
+    isClosed_ = true;
+    disconnect();
+}
+
+bool Connection::isClosed() const {
+    return isClosed_;
 }
 
 MySQLExtractor::MySQLExtractor(const mysqlxx::Query &q) : query_(q), emptyPackIdx_(DEFAULT_WORKSPACE_SIZE), fullPackIdx_(DEFAULT_WORKSPACE_SIZE), workspace_(DEFAULT_WORKSPACE_SIZE) {
@@ -586,6 +670,10 @@ vector<size_t> MySQLExtractor::getMaxStrlen(mysqlxx::ResultBase &res) {
 // !? need more consideration on type conversion
 vector<DATA_TYPE> MySQLExtractor::getDstType(const TableSP &schemaTable) {
     vector<DATA_TYPE> ret;
+    if (schemaTable->columns() < 2) {
+        throw RuntimeException("Invalid schema table.");
+    }
+
     auto schema = schemaTable->getColumn(1);
     for (int i = 0; i < schema->size(); ++i) {
         ret.emplace_back(Util::getDataType(schema->getString(i)));
