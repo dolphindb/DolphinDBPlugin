@@ -783,7 +783,16 @@ public:
 
     ~SwissTableImpl() {
         if(size_ > 0){
-            clear();
+            for (size_t i = 0; i < capacity_; ++i) {
+                if (!IsFull(ctrl_[i])){
+                    continue;
+                }
+                set_ctrl(i, kEmpty);
+                keys_[i].~key_type();
+                values_[i].~mapped_type();
+            }
+            size_ = 0;
+
             myFree(ctrl_unaligned_);
             myFree(keys_unaligned_);
             myFree(values_unaligned_);
@@ -966,6 +975,8 @@ public:
     }
 
     void clear() {
+        bool needFree = size_ > 0 ? true : false;
+
         for (size_t i = 0; i < capacity_; ++i) {
             if (!IsFull(ctrl_[i])){
                 continue;
@@ -975,6 +986,35 @@ public:
             values_[i].~mapped_type();
         }
         size_ = 0;
+
+        // destructor
+        if (needFree) {
+            myFree(ctrl_unaligned_);
+            myFree(keys_unaligned_);
+            myFree(values_unaligned_);
+        }
+
+        // constructor
+        endIterator = iterator();
+
+        old_ctrl_unaligned_ = nullptr;
+        old_keys_unaligned_ = nullptr;
+        old_values_unaligned_ = nullptr;
+
+        ctrl_unaligned_ = nullptr;
+        keys_unaligned_ = nullptr;
+        values_unaligned_ = nullptr;
+    
+        ctrl_ = EmptyGroup();
+        keys_ = nullptr;
+        values_ = nullptr;
+
+        size_ = 0;
+        capacity_ = 0;
+        grow_left_ = 0;
+
+        initialize();
+        endIterator = iterator(this, capacity_);
     }
 
     inline size_t size() {
@@ -2207,7 +2247,6 @@ public:
     }
 
     ~FlatBitset() {
-        clear();
         myFree(keyBitmapPtrUnaligned);
     }
 

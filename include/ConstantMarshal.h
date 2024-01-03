@@ -42,7 +42,7 @@ protected:
 	BufferWriter<DataOutputStreamSP> out_;
 	ConstantSP target_;
 	bool complete_;
-	char buf_[MARSHALL_BUFFER_SIZE];
+	alignas(16) char buf_[MARSHALL_BUFFER_SIZE];
 };
 
 class ConstantUnmarshalImp : public ConstantUnmarshal{
@@ -67,6 +67,8 @@ public:
 	static string getUniqueFuncName(const FunctionDef* func);
 	static string getNameFromUnqiueName(const string& uniqueName);
 	static bool isUniqueFuncName(const string& name);
+	// after D20-11228, getString() of funcDef contains unique funcName, we need regenerate script to fix it.
+	static void rmUniqueNameFromScript(FunctionDef* func);
 };
 
 class CodeMarshal: public ConstantMarshalImp{
@@ -141,7 +143,7 @@ private:
 	int nextStart_;
 	int partial_;
 	int syms_;
-	char buf_[MARSHALL_BUFFER_SIZE];
+	alignas(16) char buf_[MARSHALL_BUFFER_SIZE];
 };
 
 class SymbolBaseUnmarshal {

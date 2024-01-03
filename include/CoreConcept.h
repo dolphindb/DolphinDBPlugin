@@ -167,9 +167,10 @@ public:
 			bool globalUpdate, const set<string>& updateTables,const set<string>& deniedUpdateTables,
 			bool globalDelete, const set<string>& deleteTables,const set<string>& deniedDeleteTables,
 			bool viewRead, const set<string>& views, const set<string>& deniedViews,
-			bool dbobjCreate, const set<string>& createDBs, const set<string>& deniedCreateDBs, bool dbobjDelete, const set<string>& deleteDBs, const set<string>& deniedDeleteDBs, bool dbOwner,
+			bool dbobjCreate, const set<string>& createDBs, const set<string>& deniedCreateDBs, bool dbobjDelete,
+			const set<string>& deleteDBs, const set<string>& deniedDeleteDBs, bool dbOwner,
 			const set<string>& dbOwnerPattern, bool dbManage, const set<string>& allowDbManage, const set<string>& deniedDbManage,
-			long long queryResultMemLimit, long long taskGroupMemLimit);
+			long long queryResultMemLimit, long long taskGroupMemLimit, bool isViewOwner);
     AuthenticatedUser(const ConstantSP& userObj);
     ConstantSP toTuple() const ;
     void setLoginNanoTimeStamp(long long t){loginNanoTimestamp_ = t;}
@@ -190,8 +191,10 @@ public:
 	inline bool canUseView() const { return permissionFlag_ & 128;}
 	inline bool canCreateDBObject() const { return permissionFlag_ & 256;}
 	inline bool canDeleteDBObject() const { return permissionFlag_ & 512;}
-	inline bool isDBOwner() const { return permissionFlag_ & 1024;}
-	bool matchDBOwner(const string& obj) const { return matchPattern(isDBOwner(), dbOwnerPatterns_, obj); }
+	inline bool isDBOwner() const { return permissionFlag_ & 1024 || !dbOwnerPatterns_.empty(); }
+	bool isViewOwner() const { return permissionFlag_ & (1 << 14); }
+	bool matchViewOwner(const string& owner) const { return isViewOwner() && getUserId() == owner; }
+	bool matchDBOwner(const string& obj) const { return matchPattern(permissionFlag_ & 1024, dbOwnerPatterns_, obj); }
 	bool canReadTable(const string& name) const { return accessTableRule(canReadTable(), "RT_", "DRT_", name); }
 	bool canWriteTable(const string& name) const { return canInsertTable(name) && canUpdateTable(name) && canDeleteTable(name); }
 	bool canInsertTable(const string& name) const { return accessTableRule(canInsertTable(), "IT_", "DIT_", name); }
@@ -235,8 +238,9 @@ private:
      * bit11: global insert
      * bit12: global update
      * bit13: global delete
+	 * bit14: view owner
      */
-    unsigned int permissionFlag_;
+    uint32_t permissionFlag_;
 
     std::atomic<bool> expired_;
     unordered_set<string> permissions_;
@@ -597,6 +601,7 @@ public:
 	 * @return If the returned pointer is null, the object doesn't contain any column reference or variable.
 	 */
 	virtual ObjectSP copyAndMaterialize(Heap* pHeap, const SQLContextSP& context, const TableSP& table) const { return nullptr;}
+	virtual bool containAnalyticFunction() const { return false;}
 	virtual bool mayContainColumnRefOrVariable() const { return false;}
 };
 
@@ -1142,13 +1147,19 @@ public:
 	virtual ConstantSP max() const = 0;
 	virtual ConstantSP max(INDEX start, INDEX length) const = 0;
 	virtual void max(INDEX start, INDEX length, const ConstantSP& out, INDEX outputStart=0) const = 0;
-	virtual INDEX imax() const = 0;
-	virtual INDEX imax(INDEX start, INDEX length) const = 0;
+	/**
+	 * @param rightMost If there are multiple maximum/minimum values, choose the last one if `rightMost` is true.
+	 */
+	virtual INDEX imax(bool rightMost = false) const = 0;
+	virtual INDEX imax(INDEX start, INDEX length, bool rightMost = false) const = 0;
 	virtual ConstantSP min() const = 0;
 	virtual ConstantSP min(INDEX start, INDEX length) const = 0;
 	virtual void min(INDEX start, INDEX length, const ConstantSP& out, INDEX outputStart=0) const = 0;
-	virtual INDEX imin() const = 0;
-	virtual INDEX imin(INDEX start, INDEX length) const = 0;
+	/**
+	 * @param rightMost If there are multiple maximum/minimum values, choose the last one if `rightMost` is true.
+	 */
+	virtual INDEX imin(bool rightMost = false) const = 0;
+	virtual INDEX imin(INDEX start, INDEX length, bool rightMost = false) const = 0;
 	virtual ConstantSP avg() const = 0;
 	virtual ConstantSP avg(INDEX start, INDEX length) const = 0;
 	virtual void avg(INDEX start, INDEX length, const ConstantSP& out, INDEX outputStart=0) const = 0;
@@ -1348,6 +1359,8 @@ public:
 	virtual string getString(int index) const {throw RuntimeException("Dictionary::getString(int index) not supported");}
 	virtual bool remove(const ConstantSP& key) = 0;
 	virtual bool set(const ConstantSP& key, const ConstantSP& value)=0;
+	// This set function avoids the overhead of smart pointers to improve JIT speed
+	virtual bool set(Constant& key, Constant& value) { return false; }
 	virtual bool set(const string& key, const ConstantSP& value){throw RuntimeException("String key not supported");}
 	virtual bool reduce(BinaryOperator& optr, const ConstantSP& key, const ConstantSP& value)=0;
 	virtual bool reduce(Heap* heap, const FunctionDefSP& optr, const FunctionDefSP& initOptr, const ConstantSP& key, const ConstantSP& value)=0;
@@ -1437,6 +1450,10 @@ public:
     }
 	virtual bool remove(const ConstantSP& indexSP, string& errMsg) = 0;
 	virtual bool upsert(vector<ConstantSP>& values, bool ignoreNull, INDEX& insertedRows, string& errMsg) {throw RuntimeException("Table::upsert() not supported");}
+	virtual bool upsert(vector<ConstantSP>& values, bool ignoreNull, INDEX& insertedRows, INDEX& updatedRows,
+						string& errMsg) {
+		throw RuntimeException("Table::upsert() not supported");
+	}
 	virtual DATA_TYPE getRawType() const {return DT_DICTIONARY;}
 	virtual bool isDistributedTable() const {return false;}
 	virtual bool isSegmentedTable() const {return false;}
@@ -1463,6 +1480,7 @@ public:
 	virtual int getPartitionCount() const { throw RuntimeException("Table::getPartitionCount() not supported"); }
 	virtual long long getAllocatedMemory() const = 0;
 	virtual ConstantSP retrieveMessage(long long offset, int length, bool msgAsTable, const ObjectSP& filter, long long& messageId) { throw RuntimeException("Table::retrieveMessage() not supported"); }
+	virtual INDEX getFilterColumnIndex() const { return -1; };
 	virtual bool snapshotIsolate() const { return false;}
 	virtual void getSnapshot(TableSP& copy) const {}
 	virtual bool readPermitted(const AuthenticatedUserSP& user) const {return true;}
@@ -1509,8 +1527,8 @@ private:
 
 class DFSChunkMeta : public Constant{
 public:
-	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const vector<string>& sites, long long cid);
-	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const string* sites, int siteCount, long long cid);
+	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const vector<string>& sites, long long cid, long long term = -1);
+	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const string* sites, int siteCount, long long cid, long long term = -1);
 	DFSChunkMeta(const DataInputStreamSP& in);
 	virtual ~DFSChunkMeta();
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
@@ -1523,7 +1541,7 @@ public:
 	virtual ConstantSP values() const;
 	virtual DATA_TYPE getRawType() const {return DT_DICTIONARY;}
 	virtual ConstantSP getInstance() const {return getValue();}
-	virtual ConstantSP getValue() const {return new DFSChunkMeta(path_, id_, version_, size_, (CHUNK_TYPE)type_, sites_, replicaCount_, cid_);}
+	virtual ConstantSP getValue() const {return new DFSChunkMeta(path_, id_, version_, size_, (CHUNK_TYPE)type_, sites_, replicaCount_, cid_, term_);}
 	inline const string& getPath() const {return path_;}
 	inline const Guid& getId() const {return id_;}
 	inline long long getCommitId() const {return cid_;}
@@ -1539,6 +1557,7 @@ public:
 	inline bool isSplittable() const { return type_ == SPLIT_TABLET_CHUNK;}
 	inline bool isSmallFileBlock() const {return type_ == SMALLFILE_CHUNK;}
 	inline CHUNK_TYPE getChunkType() const {return (CHUNK_TYPE)type_;}
+	inline long long getTerm() const { return term_; }
 
 protected:
 	ConstantSP getAttribute(const string& attr) const;
@@ -1553,6 +1572,7 @@ private:
 	string path_;
 	long long cid_;
 	Guid id_;
+	long long term_;
 };
 
 class Param{
@@ -1717,6 +1737,8 @@ public:
 	inline void setWithinFromClause(bool option) { if(option) flag_ |= 16; else flag_ &= ~16;}
 	inline bool isWithinAnalyticFunction() const { return flag_ & 32;}
 	inline void setWithinAnalyticFunction(bool option) { if(option) flag_ |= 32; else flag_ &= ~32;}
+	inline bool isDefinedAnalyticFunction() const { return flag_ & 64;}
+	inline void setDefinedAnalyticFunction(bool option) { if(option) flag_ |= 64; else flag_ &= ~64;}
 
 private:
 	TableSP tableSP_;
@@ -1728,6 +1750,7 @@ private:
 	 * bit3: 0: allow comma as cross join, 1: not allow as cross join
 	 * bit4: 0: out of SQL FROM clause, 1: within SQL FROM clause
 	 * bit5: 0: not within analytic function, 1: within analytic function
+	 * bit6: 0: not define an analytic function, 1: define an analytic funciton
 	 */
 	int flag_;
 	DictionarySP cachedCols_;
@@ -1827,6 +1850,7 @@ public:
 	virtual bool run(const vector<string>& source, const string& currentPath = "", int firstLine = 0)=0;
 	virtual bool run(const string& scriptFile)=0;
 	virtual bool run(const ObjectSP& script)=0;
+	virtual bool run(const ObjectSP& script, ConstantSP& result)=0;
 	virtual bool run(const string& function, vector<ConstantSP>& params)=0;
 	virtual bool run(const FunctionDefSP& function, vector<ConstantSP>& params)=0;
 	virtual bool run(const vector<string>& variables, vector<ConstantSP>& params)=0;
@@ -2273,7 +2297,7 @@ public:
 	inline void setCommitId(long long cid) { cid_ = cid;}
 	inline bool operator ==(const DomainPartition& target){ return  (key_ == target.key_) && (id_ == target.id_);}
 	IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
-	static string processPartitionId(const string& id);
+	static string processPartitionId(const string& id, bool ignoreSpecialChar = true);
 	static ConstantSP parsePartitionId(const string& id, DATA_TYPE type);
 
 private:
@@ -2432,7 +2456,7 @@ public:
 	static void set_interaction(const vector<DomainPartitionSP>& set1, const vector<DomainPartitionSP>& set2, vector<DomainPartitionSP>& result);
 	static void set_union(const vector<DomainPartitionSP>& set1, const vector<DomainPartitionSP>& set2, vector<DomainPartitionSP>& result);
 	static DomainSP loadDomain(const string& domainFile);
-	static DomainSP loadDomain(const DataInputStreamSP& in);
+	static DomainSP loadDomain(const DataInputStreamSP& in, const string& dbName = "");
 	static DomainSP createDomain(const string& owner, PARTITION_TYPE  partitionType, const ConstantSP& scheme);
 	static DomainSP createDomain(const string& owner, PARTITION_TYPE  partitionType, const ConstantSP& scheme, const ConstantSP& sites);
 
@@ -2526,6 +2550,8 @@ struct TopicSubscribe {
 	bool append(long long msgId, const ConstantSP& msg, long long& outMsgId, ConstantSP& outMsg);
 	bool getMessage(long long now, long long& outMsgId, ConstantSP& outMsg);
 	bool updateSchema(const TableSP& emptyTable);
+	bool isUnsubscribed() { return isUnsubscribed_; }
+	void setUnsubscribed() { isUnsubscribed_ = true; }
 
 	const bool msgAsTable_;
 	const bool persistOffset_;
@@ -2554,6 +2580,7 @@ struct TopicSubscribe {
 	ConstantSP body_;
 	ConstantSP filter_;
 	Mutex mutex_;
+	bool isUnsubscribed_ = false;
 };
 
 class SessionThreadCallGuard {
@@ -2964,6 +2991,7 @@ public:
 	virtual bool mayContainColumnRefOrVariable() const { return true;}
 	virtual void retrieveColumns(const TableSP& table, vector<pair<string,string>>& columns) const;
 	virtual int checkSpecicalFunction(bool aggrOnly) const;
+	virtual bool containAnalyticFunction() const;
 
 	static ConstantSP void_;
 	static ConstantSP null_;
@@ -3385,8 +3413,6 @@ public:
 	inline ObjectSP getSetArgument(int index) const {return args_[index];}
 	inline int getMissingArgumentCount() const { return missingArgs_.size();}
 	inline int getMissingArgumentIndex(int index) const { return missingArgs_[index];}
-
-private:
 	string generateScript() const;
 
 private:
@@ -3416,6 +3442,7 @@ public:
 	virtual void append(Heap* heap, const ConstantSP& keyIndex) = 0;
 	virtual void addKeys(int count) = 0;
 	virtual void removeKeys(const vector<int>& keyIndices) = 0;
+	virtual void reserveKeys(int count) = 0;
 	virtual void getMemoryUsed(long long& fixedMemUsed, long long& variableMemUsedPerKey) = 0;
 	// clearkeys() will NOT remove keys, but reset their state to initial state, used in segmentby
 	// add clearKeys for [cumsum, cummax, cummin, cumcount, cumavg, cumstd, cumvar, cumstdp, cumvarp], others not support.
@@ -3458,6 +3485,11 @@ protected:
 	void setString(int outputColIndex, INDEX* indices, int count, DolphinString* buf);
 
 	template<class T>
+	void reserveElements(vector<T>& data, int keyIndices) {
+		data.reserve(keyIndices);
+	}
+
+	template<class T>
 	void removeElements(vector<T>& data, const vector<int>& keyIndices){
 		if(data.empty())
 			return;
@@ -3480,7 +3512,8 @@ protected:
 	            }
 	        }
 	    }
-	    data.resize(count - indicesCount);
+		data.erase(data.begin() + count - indicesCount, data.end());
+	    //data.resize(count - indicesCount);
 	}
 
 protected:

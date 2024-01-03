@@ -235,9 +235,3 @@ opc::close(connection)
 ```
 opc::close(connection)
 ```
-
-# ReleasesNotes
-
-## 故障修复
-
-* 修复了用同一个连接多次订阅后取消订阅时 server 宕机的问题。（**1.30.22**）

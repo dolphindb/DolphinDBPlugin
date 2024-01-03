@@ -54,53 +54,47 @@ public:
 	bool start(const string& fileName, long long sizeLimit);
 	void stop();
 	void setLogLevel(severity_type level) { level_ = level;}
+    severity_type getLogLevel() { return level_; }
+
+	template <severity_type level>
+	struct SeverityTypeToString;
 
 	template<severity_type severity , typename...Args>
-	void print(Args...args ){
-		try{
+	void print(const Args&...args ) {
+		try {
 			stringstream stream;
-			switch( severity ){
-				case severity_type::DEBUG:
-					if(level_ > severity_type::DEBUG)
-						return;
-					stream<<"<DEBUG> :";
-					break;
-				case severity_type::INFO:
-					if(level_ > severity_type::INFO)
-						return;
-					stream<<"<INFO> :";
-					break;
-				case severity_type::WARNING:
-					if(level_ > severity_type::WARNING)
-						return;
-					stream<<"<WARNING> :";
-					break;
-				case severity_type::ERR:
-					stream<<"<ERROR> :";
-					break;
-			};
-			printImpl(stream, args... );
-		}
-		catch(...){
-			//ignore call exceptions, usually OOM
+			stream << getTime() << SeverityTypeToString<severity>::value;
+
+			//unpack parameters by initializer list
+			//https://en.cppreference.com/w/cpp/language/parameter_pack
+			std::initializer_list<int>{(stream << args, 0)...};
+
+			buffer_->push(stream.str());
+		} catch (...) {
+			// ignore call exceptions, usually OOM
 		}
 	}
 
 private:
-	void printImpl(stringstream& stream){
-		buffer_->push(getTime() + " " + stream.str());
-	}
-	template<typename First, typename...Rest>
-	void printImpl(stringstream& stream, First parm1, Rest...parm){
-		stream<<parm1;
-		printImpl(stream, parm...);
-	}
 	string getTime();
 
 private:
 	severity_type level_;
 	SmartPointer<BlockingBoundlessQueue<string>> buffer_;
 	ThreadSP thread_;
+};
+
+template <> struct Logger::SeverityTypeToString<severity_type::DEBUG> {
+	static constexpr const char *const value = " <DEBUG> :";
+};
+template <> struct Logger::SeverityTypeToString<severity_type::INFO> {
+	static constexpr const char *const value = " <INFO> :";
+};
+template <> struct Logger::SeverityTypeToString<severity_type::WARNING> {
+	static constexpr const char *const value = " <WARNING> :";
+};
+template <> struct Logger::SeverityTypeToString<severity_type::ERR> {
+	static constexpr const char *const value = " <ERROR> :";
 };
 
 extern Logger log_inst;
@@ -113,15 +107,15 @@ extern Logger log_inst;
 #define XLOG_INFO log_inst.print<severity_type::INFO>
 #define XLOG_WARN log_inst.print<severity_type::WARNING>
 
-#define LOG(...) XLOG("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
-#define LOG_ERR(...) XLOG_ERR("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
-#define LOG_INFO(...) XLOG_INFO("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
-#define LOG_WARN(...) XLOG_WARN("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
+#define LOG(...) do { if (log_inst.getLogLevel() <= severity_type::DEBUG) {XLOG("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__);} } while(0)
+#define LOG_ERR(...) do { XLOG_ERR("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__); } while(0)
+#define LOG_INFO(...) do { if (log_inst.getLogLevel() <= severity_type::INFO) {XLOG_INFO("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__);} } while(0)
+#define LOG_WARN(...)  do { if (log_inst.getLogLevel() <= severity_type::WARNING) {XLOG_WARN("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__);} } while(0)
 #else
-#define LOG log_inst.print<severity_type::DEBUG>
-#define LOG_ERR log_inst.print<severity_type::ERR>
-#define LOG_INFO log_inst.print<severity_type::INFO>
-#define LOG_WARN log_inst.print<severity_type::WARNING>
+#define LOG(...) do { if (log_inst.getLogLevel() <= severity_type::DEBUG) {log_inst.print<severity_type::DEBUG>(__VA_ARGS__);} } while(0)
+#define LOG_ERR(...) do { log_inst.print<severity_type::ERR>(__VA_ARGS__); } while(0)
+#define LOG_INFO(...) do { if (log_inst.getLogLevel() <= severity_type::INFO) {log_inst.print<severity_type::INFO>(__VA_ARGS__);} } while(0)
+#define LOG_WARN(...) do { if (log_inst.getLogLevel() <= severity_type::WARNING) {log_inst.print<severity_type::WARNING>(__VA_ARGS__);} } while(0)
 #endif
 
 
