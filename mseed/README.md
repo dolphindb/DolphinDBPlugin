@@ -259,9 +259,8 @@ ret = mseed::streamize(data, 1000)
 
 # ReleaseNotes:
 
-## 故障修复
+## v1.30.22
 
-* 接口 mseed::write 新增对参数 *startTime* 非法输入值的报错。（**1.30.22**）
-* 接口 mseed::parseStreamInfo 新增对非法数据或非法 SID（Station Identifier）的报错。（**1.30.22**）
-* 接口 mseed::parse 新增对空字符串数据的检查。（**1.30.22**）
-* 接口 mseed::read 新增对非法参数输入值的检查。（**1.30.22**）
+### bug修复
+
+- 增加部分接口中非法参数的检查及抛出异常
