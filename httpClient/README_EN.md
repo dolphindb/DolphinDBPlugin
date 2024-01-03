@@ -8,11 +8,11 @@ The DolphinDB httpClient plugin has different branches, such as release200 and r
   - [1. Build](#1-build)
     - [1.1 Load Plugin](#11-load-plugin)
     - [1.2 (Optional) Manually Build Plugin](#12-optional-manually-build-plugin)
-  - [2. Methods](#2-methods)
+  - [Methods](#methods)
     - [2.1 httpGet](#21-httpget)
     - [2.2 httpPost](#22-httppost)
     - [2.3 emailSmtpConfig](#23-emailsmtpconfig)
-    - [2.4 sendEmail](#24-sendemail)
+    - [2.8 sendEmail](#28-sendemail)
 
 
 ## 1. Build
@@ -96,7 +96,7 @@ make -j
 
 The plugin library *libPluginHttpClient.so* will be generated under the current directory.
 
-## 2. Methods
+## Methods
 
 ### 2.1 httpGet
 
@@ -211,7 +211,7 @@ port=25;
 httpClient::emailSmtpConfig(emailName,host,port);
 ```
 
-### 2.4 sendEmail
+### 2.8 sendEmail
 
 Send an email.
 

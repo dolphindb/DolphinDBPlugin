@@ -227,14 +227,3 @@ res=httpClient::sendEmail('MailFrom@xxx.com','xxxxx','Maildestination@xxx.com','
 recipient='Maildestination@xxx.com''Maildestination2@xxx.com''Maildestination3@xxx.com';
 res=httpClient::sendEmail('MailFrom@xxx.com','xxxxx',recipient,'This is a subject','It is a text');
 ```
-
-# ReleasesNotes
-
-## 新功能
-
-* 增加对传入字典类型参数的校验。（**1.30.22**）
-* 新功能：增加对待发送数据的字节长度的校检。（**1.30.22**）
-
-## 功能优化
-
-* 删除接口 httpCreateSubJob，httpCreateMultiParserSubJob，httpCancelSubJob，httpGetJobStat。（**1.30.22**）
