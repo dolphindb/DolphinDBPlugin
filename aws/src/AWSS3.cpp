@@ -808,9 +808,6 @@ ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
                     }
                     outputFilePath = tempFolder + "/" + objectFileName;
                     try{
-                        if(Util::existsDir(outputFilePath.c_str())){
-                            throw RuntimeException(std::string("already exist a dir with the same name ") + outputFilePath.c_str());
-                        }
                         Aws::S3::Model::GetObjectRequest objectRequest;
                         objectRequest.WithBucket(bucketName.c_str()).WithKey(object.c_str())
                                 .SetResponseStreamFactory([&outputFilePath, &errCode](){
