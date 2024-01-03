@@ -458,7 +458,7 @@ ConstantSP fft(Heap* heap, vector<ConstantSP>& args)
     if (check != "")
         throw IllegalArgumentException("fft", check);
     ConstantSP vec = args[0];
-    int n = -1;
+    int n = vec->size();
     double scale = 1;
     bool overwrite = false;
     if (args.size() > 1)
@@ -480,7 +480,7 @@ ConstantSP fft1(Heap *heap, vector<ConstantSP> &args)
     if (check != "")
         throw IllegalArgumentException("fft!", check);
     ConstantSP vec = args[0];
-    int n = -1;
+    int n = vec->size();
     double scale = 1;
     bool overwrite = true;
     if (args.size() > 1)
@@ -502,7 +502,7 @@ ConstantSP ifft(Heap *heap, vector<ConstantSP> &args)
     if (check != "")
         throw IllegalArgumentException("ifft", check);
     ConstantSP vec = args[0];
-    int n = -1;
+    int n = vec->size();
     bool overwrite = false;
     if (args.size() > 1)
         n = args[1]->getInt();
@@ -524,7 +524,7 @@ ConstantSP ifft1(Heap *heap, vector<ConstantSP> &args)
     if (check != "")
         throw IllegalArgumentException("ifft!", check);
     ConstantSP vec = args[0];
-    int n = -1;
+    int n = vec->size();
 
     bool overwrite = true;
     if (args.size() > 1)

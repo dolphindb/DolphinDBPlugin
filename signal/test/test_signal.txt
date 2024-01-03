@@ -1,0 +1,2036 @@
+#include "setup/settings.txt"
+login("admin","123456")
+try{loadPlugin("plugins/signal/PluginSignal.txt")}catch(ex){print ex};
+go
+use signal
+
+@testing:case="test_signal_dct_single_NULL",exception=1
+signal::dct(NULL)
+
+@testing:case="test_signal_dct_scalar",exception=1
+signal::dct(1)
+
+@testing:case="test_signal_dct_table",exception=1
+signal::dct(table(214 as id))
+
+@testing:case="test_signal_dct_string",exception=1
+signal::dct(`1`6`89)
+
+@testing:case="test_signal_dct_time",exception=1
+signal::dct(12:12:12)
+
+@testing:case="test_signal_dct_null",exception=1
+x=take(int(),10)
+re=signal::dct((x))
+assert 1,re==x
+
+@testing:case="test_signal_dct_matrix",exception=1
+re=signal::dct((1..4$2:2))
+
+@testing:case="test_signal_dst_scalar",exception=1
+signal::dst(1)
+
+@testing:case="test_signal_dst_string",exception=1
+signal::dst(`1`6`89)
+
+@testing:case="test_signal_dst_time",exception=1
+signal::dst(12:12:12)
+
+@testing:case="test_signal_dst_table",exception=1
+signal::dst(table(214 as id))
+
+@testing:case="test_signal_dst_null",exception=1
+x=take(int(),10)
+re=signal::dst((x))
+
+@testing:case="test_signal_dst_matrix",exception=1
+re=signal::dst((1..4$2:2))
+
+@testing:case="test_signal_dst_pair",exception=1
+re=signal::dst(1:5)
+
+@testing:case="test_signal_dst_dict",exception=1
+re=signal::dst({1:2,2:3})
+
+@testing:case="test_signal_dst_tunlp",exception=1
+re=signal::dst((1,2,3))
+
+
+@testing:case="test_signal_dst_vector_has_null",exception=1
+re=signal::dst([1,2,3,NULL])
+
+//dwt
+@testing:case="test_signal_dwt_single_null",exception=1
+signal::dwt(NULL)
+
+@testing:case="test_signal_dwt_scalar",exception=1
+signal::dwt(1)
+
+@testing:case="test_signal_dwt_table",exception=1
+signal::dwt(table(214 as id))
+
+@testing:case="test_signal_dwt_string_vector",exception=1
+signal::dwt(`1`6`89)
+
+@testing:case="test_signal_dwt_time_vector",exception=1
+signal::dwt([12:12:12,12:12:12])
+
+@testing:case="test_signal_dwt_vector_has_null",exception=1
+re=signal::dwt(NULL 1 2)
+
+@testing:case="test_signal_dwt_matrix",exception=1
+signal::dwt(1..4$2:2)
+
+@testing:case="test_signal_dwt_dict",exception=1
+signal::dwt({1:2,3:4})
+
+@testing:case="test_signal_dwt_pair",exception=1
+signal::dwt(1:3)
+
+@testing:case="test_signal_dwt_tunlp",exception=1
+signal::dwt((1,3,4,5,4))
+
+//idwt
+@testing:case="test_signal_idwt_X_scalar",exception=1
+signal::idwt(1,1 2 3)
+
+@testing:case="test_signal_idwt_X_string_vector",exception=1
+signal::idwt(`a`b`c,1 2 3)
+
+@testing:case="test_signal_idwt_X_date_vector",exception=1
+signal::idwt(2021.01.01 2021.01.02 2021.01.03,1 2 3)
+
+@testing:case="test_signal_idwt_X_pair",exception=1
+signal::idwt(1:3,1 2 3)
+
+@testing:case="test_signal_idwt_X_matrix",exception=1
+signal::idwt(1..10$2:5,1 2 3)
+
+@testing:case="test_signal_idwt_X_tunlp",exception=1
+signal::idwt((1,2,3),1 2 3)
+
+@testing:case="test_signal_idwt_X_table",exception=1
+signal::idwt(table(1..10 as a),1 2 3)
+
+@testing:case="test_signal_idwt_X_dict",exception=1
+signal::idwt({1:2,2:3},1 2 3)
+
+@testing:case="test_signal_idwt_X_vector_has_null",exception=1
+signal::idwt(1 2 NULL,1 2 3)
+
+@testing:case="test_signal_idwt_Y_scalar",exception=1
+signal::idwt(1 2 3,1)
+
+@testing:case="test_signal_idwt_Y_string_vector",exception=1
+signal::idwt(1 2 3,`a`b`c)
+
+@testing:case="test_signal_idwt_Y_date_vector",exception=1
+signal::idwt(1 2 3,2021.01.01 2021.01.02 2021.01.03)
+
+@testing:case="test_signal_idwt_Y_pair",exception=1
+signal::idwt(1 2 3,1:3)
+
+@testing:case="test_signal_idwt_Y_matrix",exception=1
+signal::idwt(1 2 3,1..10$2:5)
+
+@testing:case="test_signal_idwt_Y_tunlp",exception=1
+signal::idwt(1 2 3,(1,2,3))
+
+@testing:case="test_signal_idwt_Y_table",exception=1
+signal::idwt(1 2 3,table(1..10 as a))
+
+@testing:case="test_signal_idwt_Y_dict",exception=1
+signal::idwt(1 2 3,{1:2,2:3})
+
+@testing:case="test_signal_idwt_Y_vector_has_null",exception=1
+signal::idwt(1 2 3,1 2 NULL)
+
+@testing:case="test_signal_idwt_X_Y_diff_size",exception=1
+signal::idwt(1 2 3,1 2 3 4)
+
+//fft
+@testing:case="test_signal_fft_X_single_NULL",exception=1
+signal::fft(NULL)
+
+@testing:case="test_signal_fft_X_scalar",exception=1
+signal::fft(1)
+
+@testing:case="test_signal_fft_X_string_vector",exception=1
+signal::fft(["aa", "bb", "cc"])
+
+@testing:case="test_signal_fft_X_date_vector",exception=1
+signal::fft([2021.01.01,2021.01.01,2021.01.01])
+
+@testing:case="test_signal_fft_X_dict",exception=1
+x=dict([1, 2, 3], ["aaa", "bbb", "ccc"])
+signal::fft(x)
+
+@testing:case="test_signal_fft_X_tunlp",exception=1
+signal::fft((1,3,4))
+
+@testing:case="test_signal_fft_X_set",exception=1
+x=set(1..10)
+signal::fft(x)
+
+@testing:case="test_signal_fft_X_table",exception=1
+signal::fft(table(1 2 34 as a))
+
+@testing:case="test_signal_fft_n_negative_int",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::fft(x, -2)
+
+@testing:case="test_signal_fft_n_zero",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::fft(x, 0)
+
+@testing:case="test_signal_fft_n_double",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::fft(x, 5.023)
+
+@testing:case="test_signal_fft_n_string",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::fft(x, "aa")
+
+@testing:case="test_signal_fft_n_int_vector",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::fft(x, 1..3)
+
+@testing:case="test_signal_fft_norm_invalid_string",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::fft(x, 5, "aaa")
+
+@testing:case="test_signal_fft_norm_int",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::fft(x, 5, 1)
+
+@testing:case="test_signal_fft_norm_vector",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::fft(x, 5, `a`b`c)
+
+@testing:case="test_signal_fft_X_include_null_ortho",exception=1
+x=[1, 2, NULL, -1, 0, 3]
+signal::fft(x, 10,"ortho")
+
+@testing:case="test_signal_fft_X_include_null_forward",exception=1
+x=[1, 2, NULL, -1, 0, 3]
+signal::fft(x, 1,"forward")
+
+@testing:case="test_signal_fft_X_include_null_backward",exception=1
+x=[1, 2, NULL, -1, 0, 3]
+signal::fft(x, 10,"backward")
+
+@testing:case="test_signal_fft_X_all_null",exception=1
+x=take(int(),10)
+signal::fft(x, 10)
+
+//ifft
+@testing:case="test_signal_ifft_X_scalar",exception=1
+signal::ifft(1)
+
+@testing:case="test_signal_ifft_X_string_vector",exception=1
+signal::ifft(["aa", "bb", "cc"])
+
+@testing:case="test_signal_ifft_X_dict",exception=1
+x=dict([1, 2, 3], ["aaa", "bbb", "ccc"])
+signal::ifft(x)
+
+@testing:case="test_signal_ifft_X_set",exception=1
+x=set(1..10)
+signal::ifft(x)
+
+@testing:case="test_signal_ifft_X_NULL",exception=1
+signal::ifft(NULL)
+
+@testing:case="test_signal_ifft_X_tunlp",exception=1
+signal::ifft((1,3,42))
+
+@testing:case="test_signal_ifft_n_negative_int",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::ifft(x, -2)
+
+@testing:case="test_signal_ifft_n_zero",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::ifft(x, 0)
+
+@testing:case="test_signal_ifft_n_double",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::ifft(x, 5.023)
+
+@testing:case="test_signal_ifft_n_string",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::ifft(x, "aa")
+
+@testing:case="test_signal_ifft_n_int_vector",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::ifft(x, 1..3)
+
+@testing:case="test_signal_ifft_norm_invalid_string",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::ifft(x, 5, "aaa")
+
+@testing:case="test_signal_ifft_norm_int",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::ifft(x, 5, 1)
+
+@testing:case="test_signal_ifft_norm_vector",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::ifft(x, 5, ["backward","forward"])
+
+//fft2
+@testing:case="test_signal_fft2_X_scalar",exception=1
+re  =signal::fft2(1)
+
+@testing:case="test_signal_fft2_X_vextor",exception=1
+re  =signal::fft2(1..10)
+
+@testing:case="test_signal_fft2_X_NULL",exception=1
+re  =signal::fft2(NULL)
+
+@testing:case="test_signal_fft2_X_include_NULL",exception=1
+re  =signal::fft2(1..9 join int()$2:5,2 5)
+
+@testing:case="test_signal_fft2_s_include0",exception=1
+re  =signal::fft2(1..10$2:5,0 5)
+
+@testing:case="test_signal_ifft2_n_negative_int",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::ifft2(x, -2 78)
+
+@testing:case="test_signal_ifft2_n_double",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::ifft2(x, 5.023 8)
+
+@testing:case="test_signal_ifft2_n_string",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::ifft2(x, "aa")
+
+@testing:case="test_signal_ifft2_n_int_vector",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::ifft2(x, 1..3)
+
+@testing:case="test_signal_ifft2_norm_invalid_string",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::ifft2(x, 5 8, "aaa")
+
+@testing:case="test_signal_ifft2_norm_int",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::ifft2(x, 5 8, 1)
+
+@testing:case="test_signal_fft2_n_negative_int",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::fft2(x, -2 78)
+
+@testing:case="test_signal_fft2_n_double",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::fft2(x, 5.023 8)
+
+@testing:case="test_signal_fft2_n_string",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::fft2(x, "aa")
+
+@testing:case="test_signal_fft2_n_int_vector",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::fft2(x, 1..3)
+
+@testing:case="test_signal_fft2_norm_invalid_string",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::fft2(x, 5 8, "aaa")
+
+@testing:case="test_signal_fft2_norm_int",exception=1
+x=[1, 2, 1, -1, 1.5]
+signal::fft2(x, 5 8, 1)
+
+//ifft2!
+@testing:case="test_signal_ifft2!_X_scalar",exception=1
+re  =signal::ifft2!(1)
+
+@testing:case="test_signal_ifft2!_X_vector",exception=1
+re  =signal::ifft2!(1..10)
+
+@testing:case="test_signal_ifft2!_X_has_NULL",exception=1
+re  =signal::ifft2!(1..9 join NULL$2:5)
+
+@testing:case="test_signal_ifft2!_s_scalar",exception=1
+re  =signal::ifft2!(1..10$2:5,1)
+
+@testing:case="test_signal_ifft2!_s_has_null",exception=1
+re  =signal::ifft2!(1..10$2:5,1 NULL)
+
+@testing:case="test_signal_ifft2!_s_has_-1",exception=1
+re  =signal::ifft2!(1..10$2:5,1 -1)
+
+@testing:case="test_signal_ifft2!_s_size_over_2",exception=1
+re  =signal::ifft2!(1..10$2:5,1 1 1 1)
+
+@testing:case="test_signal_ifft2!_norm_int",exception=1
+re  =signal::ifft2!(1..10$2:5,1 2,1)
+
+@testing:case="test_signal_ifft2!_norm_vector",exception=1
+re  =signal::ifft2!(1..10$2:5,1 2,["backward","forward"])
+
+@testing:case="test_signal_ifft2!_norm_error",exception=1
+re  =signal::ifft2!(1..10$2:5,1 2,"error")
+
+//fft2!
+@testing:case="test_signal_fft2!_s_include0",exception=1
+re  =signal::fft2!(1..10$2:5,0 5)
+
+@testing:case="test_signal_fft2!_X_include_NULL",exception=1
+re  =signal::fft2!(1..9 join int()$2:5,2 5)
+
+@testing:case="test_signal_fft2!_s_scalar",exception=1
+re  =signal::fft2!(1..9$3:3,1)
+
+@testing:case="test_signal_fft2!_s_has_NULL",exception=1
+re  =signal::fft2!(1..9$3:3,1 NULL)
+
+@testing:case="test_signal_fft2!_s_has_0",exception=1
+re  =signal::fft2!(1..9$3:3,1 0)
+
+@testing:case="test_signal_fft2!_s_has_-1",exception=1
+re  =signal::fft2!(1..9$3:3,1 -1)
+
+@testing:case="test_signal_fft2!_s_size_over_2",exception=1
+re  =signal::fft2!(1..9$3:3,1 1 1 1)
+
+@testing:case="test_signal_fft2!_norm_int",exception=1
+re  =signal::fft2!(1..9$3:3,1 2,1)
+
+@testing:case="test_signal_fft2!_norm_NULL",exception=1
+re  =signal::fft2!(1..9$3:3,1 2,string())
+
+@testing:case="test_signal_fft2!_norm_error",exception=1
+re  =signal::fft2!(1..9$3:3,1 2,"error")
+
+//secc
+@testing:case="test_signal_secc_data_scalar",exception=1
+y = matrix([1,3,2],[4,1,5])
+signal::secc(1,y,4)
+
+@testing:case="test_signal_secc_data_string",exception=1
+y = matrix([1,3,2],[4,1,5])
+signal::secc("dd",y,4)
+
+@testing:case="test_signal_secc_data_empty_vector",exception=1
+y = matrix([1,3,2],[4,1,5])
+signal::secc(take(int,0),y,4)
+
+@testing:case="test_signal_secc_data_complex_vector",exception=1
+y = matrix([1,3,2],[4,1,5])
+signal::secc([complex(1,2),complex(1,2)],y,4)
+
+@testing:case="test_signal_secc_template_scalar",exception=1
+x = [1, 2, 1, -1, 0, 3]
+signal::secc(x,1,4)
+
+@testing:case="test_signal_secc_template_empty_matrix",exception=1
+x = [1, 2, 1, -1, 0, 3]
+y = matrix(int,0,1)
+signal::secc(x,y,4)
+
+@testing:case="test_signal_secc_template_string",exception=1
+x = [1, 2, 1, -1, 0, 3]
+signal::secc(x,"aa",4)
+
+@testing:case="test_signal_secc_k_negative",exception=1
+x = [1, 2, 1, -1, 0, 3]
+y = matrix([1,3,2],[4,1,5])
+signal::secc(x,y,-1)
+
+@testing:case="test_signal_secc_k_float",exception=1
+signal::secc(x,y,0.1)
+
+@testing:case="test_signal_secc_k_vector",exception=1
+signal::secc(x,y,1..10)
+
+@testing:case="test_signal_secc_k_string",exception=1
+signal::secc(x,y,"aa")
+
+@testing:case="test_signal_secc_k_less_than_2m",exception=1
+signal::secc(x,y,4)
+
+@testing:case="test_signal_secc_moveout_scalar",exception=1
+signal::secc(x,y,6,1)
+
+@testing:case="test_signal_secc_moveout_string",exception=1
+signal::secc(x,y,6,"a")
+
+@testing:case="test_signal_secc_moveout_not_n",exception=1
+signal::secc(x,y,6,1..3)
+
+@testing:case="test_signal_secc_weight_scalar",exception=1
+signal::secc(x,y,4,1..2,1)
+
+@testing:case="test_signal_secc_weight_string",exception=1
+signal::secc(x,y,4,1..2,"a")
+
+@testing:case="test_signal_secc_weight_not_n",exception=1
+signal::secc(x,y,6,1..2,1..3)
+
+@testing:case="test_signal_secc_template_size_more_than_data_size",exception=1
+signal::secc(1..4,matrix(1..5),8)
+
+@testing:case="test_signal_secc_data_with_null",exception=1
+x=[1, NULL, 1, -1, NULL, 3.1]
+y=matrix([1,1.5,2],[4,1,-5])
+signal::secc(x,y,4)
+
+@testing:case="test_signal_secc_template_with_null",exception=1
+x=[1, 1.4, 1, -1, 1.4, 3.1]
+y=matrix([1,NULL,2],[4,1,-5])
+signal::secc(x,y,4)
+
+//abs
+@testing:case="test_signal_abs_empty_scalar",exception=1
+signal::abs(NULL)
+
+@testing:case="test_signal_abs_empty_complex",exception=1
+signal::abs(complex(int(), int()))
+
+@testing:case="test_signal_abs_empty_vector",exception=1
+x=take(int(),10)
+re=signal::abs((x))
+
+@testing:case="test_signal_abs_include_empty",exception=1
+x=complex(1 2 NULL,1 2 NULL)
+re=signal::abs((x))
+
+@testing:case="test_signal_abs_not_compelx_vector",exception=1
+x=[1,2,1]
+re=signal::abs((x))
+
+@testing:case="test_signal_abs_not_compelx_scalar",exception=1
+re=signal::abs(2)
+
+@testing:case="test_signal_abs_string",exception=1
+signal::abs(`1`6`89)
+
+@testing:case="test_signal_abs_time",exception=1
+signal::abs(12:12:12)
+
+@testing:case="test_signal_abs_table",exception=1
+signal::abs(table(214 as id))
+
+@testing:case="test_signal_abs_matrix",exception=1
+signal::abs(1..4$2:2)
+
+//mul
+@testing:case="test_signal_mul_data_empty_scalar",exception=1
+signal::mul(NULL,1.3)
+
+@testing:case="test_signal_mul_data_empty_complex",exception=1
+signal::mul(complex(1, int()),1.3)
+
+@testing:case="test_signal_mul_data_empty_vector",exception=1
+x=take(int(),10)
+re=signal::mul((x),1.3)
+
+@testing:case="test_signal_mul_data_include_empty",exception=1
+x=complex([1,,1],[1,,1])
+re=signal::mul((x),1.3)
+
+@testing:case="test_signal_mul_data_not_compelx_vector",exception=1
+x=[1,2,1]
+re=signal::mul((x),1.3)
+
+@testing:case="test_signal_mul_data_not_compelx_scalar",exception=1
+re=signal::mul(2,1.3)
+
+@testing:case="test_signal_mul_data_string",exception=1
+signal::mul(`1`6`8,1.3)
+
+@testing:case="test_signal_mul_data_time",exception=1
+signal::mul(12:12:12,1.3)
+
+@testing:case="test_signal_mul_data_table",exception=1
+signal::mul(table(214 as id),1.3)
+
+@testing:case="test_signal_mul_data_matrix",exception=1
+signal::mul(1..4$2:2,1.3)
+
+@testing:case="test_signal_mul_num_null",exception=1
+signal::mul(complex(1 2,2 3),NULL)
+
+@testing:case="test_signal_mul_num_string",exception=1
+signal::mul(complex(1 2,2 3),`1)
+
+@testing:case="test_signal_mul_num_complex",exception=1
+signal::mul(complex(1 2,2 3),complex(1 ,2 ))
+
+@testing:case="test_signal_mul_num_vector",exception=1
+signal::mul(complex(1 2,2 3),1.2 2.3)
+
+@testing:case="test_signal_mul_1arg",syntaxError=1
+signal::mul(complex(1 2,2 3))
+
+@testing:case="test_signal_dct"
+types=[int,short,long,float,double]
+def testdctTypes(type,x,expected){
+	res= signal::dct(type(x))
+	return eqObj(res,expected,0)
+}
+x = [1,2,3,4]
+expected=5.0000   -2.2304    0   -0.1585//matlab
+assert 1,loop(testdctTypes{,x,expected},types)
+x = [43,-9,23,0]
+expected=28.5000   19.4320   14.5000   32.5407
+assert 2,loop(testdctTypes{,x,expected},types)
+x=1..10000
+expected=loadText(DATA_DIR+"/dctBig.csv")[`col0]
+assert 3,loop(testdctTypes{,x,expected},types)
+
+@testing:case="test_signal_dst"
+types=[int,short,long,char,float,double]
+def testdstTypes(type,x,expected){
+	res= signal::dst(type(x))
+	return eqObj(res,expected,4)
+}
+x = [1,2,3,4]
+expected=15.38841769 -6.8819096   3.63271264  -1.62459848//python
+assert 1,loop(testdstTypes{,x,expected},types)
+x = [43,-9,23,0]
+expected=77.17911415  44.17260425  65.33287334 111.41714874
+assert 2,loop(testdstTypes{,x,expected},types)
+types=[int,short,long,float,double]
+def testdstTypesbig(type,x,expected){
+	res= signal::dst(type(x))
+	return eqObj(res/1000,expected/1000,0)
+}
+x=1..10000
+expected=loadText(DATA_DIR+"/dstBig.csv")[`gfg]
+assert 3,loop(testdstTypesbig{,x,expected},types)
+
+
+@testing:case="test_signal_dwt"
+types=[int,short,long,char,float,double]
+def testdstTypes(type,x,expected1,expected2){
+	res= signal::dwt(type(x))
+	return eqObj(res[`cA],expected1,4)&&eqObj(res[`cD],expected2,4)
+}
+x = [1,2,3,4]
+expected1=2.1213    4.9497
+expected2=-0.7071   -0.7071
+assert 1,loop(testdstTypes{,x,expected1,expected2},types)
+x = [43,-9,23,0]
+expected1=24.0416   16.2635
+expected2=36.7696   16.2635
+assert 2,loop(testdstTypes{,x,expected1,expected2},types)
+types=[int,short,long,float,double]
+def testdstTypesbig(type,x,expected1,expected2){
+	res= signal::dwt(type(x))
+	return eqObj(res[`cA],expected1,0)&&eqObj(res[`cD],expected2,0)
+}
+x =1..10000
+expected1=loadText(DATA_DIR+"/cA.csv")[`col0]
+expected2=take(-0.70710678,5000)
+assert 3,loop(testdstTypesbig{,x,expected1,expected2},types)
+
+
+@testing:case="test_signal_idwt"
+types=[int,short,long,char,float,double]
+def testdstTypes(type,x,y,expected){
+	res= signal::idwt(type(x),type(y))
+	return eqObj(round(res),expected,4)
+}
+expected = [1,2,3,4]
+x=2.1213    4.9497
+y=-0.7071   -0.7071
+assert 1,loop(testdstTypes{,x,y,expected},types)
+expected=1..10000
+x=loadText(DATA_DIR+"/cA.csv")[`col0]
+y=take(-0.70710678,5000)
+assert 2,eqObj(round(signal::idwt(x,y)),expected,0)
+
+@testing:case="test_signal_dctParallel"
+f1=0..9999
+f2=1..10000
+t=table(f1,f2)
+if(existsDatabase("dfs://rangedb_data")){
+dropDatabase("dfs://rangedb_data")
+}
+db = database("dfs://rangedb_data", RANGE, 0 5000 10000)
+signaldata = db.createPartitionedTable(t, "signaldata", "f1")
+signaldata.append!(t)
+signaldata=loadTable(db,"signaldata")
+ds=sqlDS(<select * from signaldata >)
+re=signal::dctParallel(ds);
+expected=loadText(DATA_DIR+"/dctBig.csv")[`col0]
+assert 3,eqObj(re,expected,0)
+
+@testing:case="test_signal_fft"
+
+types=[int, short, long, double, float]
+def checkFft(dtype, x, n, norm, expected){
+	re = signal::fft(dtype(x), n, norm)
+	return eqObj(re, expected,6)
+}
+x=[1, 2, 1, -1, 0, 3]
+expected=complex([6.0, 4.0, -3.0, -2.0, -3.0, 4.0], [-0, 3.33066907e-16, 1.73205081e+00, -0, -1.73205081e+00, 3.33066907e-16])
+assert 1,loop(checkFft{,x,6,"backward",expected},types)
+expected=complex([4, -0.5, -0.5], [0, -0.8660254, 0.8660254])
+assert 2,loop(checkFft{,x,3,"backward",expected},types)
+expected=complex([1.0], [0.0])
+assert 3,loop(checkFft{,x,1,"backward",expected},types)
+expected=complex([6.0, 1.0, 0, 1.0, -2.0, 1.0, 0, 1.0], [-0.0,0.41421356,-6.0,2.41421356,-0.0,-2.41421356,6.0,-0.41421356])
+assert 4,loop(checkFft{,x,8,"backward",expected},types)
+expected=complex([ 0.75 , 0.125,0.0,0.125,-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767,-0.0,-0.3017767,0.75,-0.0517767])
+assert 5,loop(checkFft{,x,8,"forward",expected},types)
+x=[1, 2, 1, -1, 0, 3]
+re=signal::fft(x, 1,"ortho")
+expected=complex([ 1.0], [-0.0])
+assert 6,loop(checkFft{,x,1,"ortho",expected},types)
+x=take(0,10)
+re=signal::fft(x, 10,"ortho")
+expected=complex(take(0,10), [-0.0,0.0,0.0,0.0,0.0,-0.0,-0.0,-0.0,-0.0,-0.0])
+assert 7,loop(checkFft{,x,10,"ortho",expected},types)
+
+//x=复数
+x=complex([ 0.75 , 0.125,0.0,0.125,-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767,-0.0,-0.3017767,0.75,-0.0517767])
+re=signal::fft(x,10,"ortho")
+expected=complex([ 3.16227766e-01,  2.01369552e-02,  2.36538739e-01,  8.86539866e-02,  8.14032106e-01,-7.02166694e-17, -1.47815230e-01, 3.61257724e-01,  1.64513095e-01,  5.18163103e-01], [0.00000000e+00 ,-1.57684336e-01,-1.94536062e-03 ,4.57087827e-01,-4.19114254e-01 ,7.02166694e-17 ,-2.79708741e-01 ,3.81900208e-01 ,2.23617498e-01 ,-2.04152840e-01])
+assert 8, eqObj(re, expected, 6)
+
+x=complex([ 0.75 , 0.125,0.0,0.125,-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767,-0.0,-0.3017767,0.75,-0.0517767])
+re=signal::fft(x,10,"forward")
+expected=complex([ 1.00000000e-01, 6.36786435e-03,  7.48001169e-02,  2.80348521e-02,  2.57419554e-01,-2.22044605e-17, -4.67432799e-02,1.14239723e-01,
+  5.20236086e-02,1.63857561e-01], [ 0.00000000e+00,-4.98641653e-02 ,-6.15177043e-04,1.44543862e-01  ,-1.32535564e-01 ,2.22044605e-17 ,-8.84516704e-02,1.20767450e-01  ,7.07140617e-02,-6.45587966e-02])
+assert 9, eqObj(re, expected, 6)
+
+x=complex([ 0.75 , 0.125,0.0,0.125,-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767,-0.0,-0.3017767,0.75,-0.0517767])
+re=signal::fft(x,10,"backward")
+expected=complex([ 1.00000000e+00,  6.36786435e-02,  7.48001169e-01,2.80348521e-01,  2.57419554e+00,-2.22044605e-16, -4.67432799e-01,1.14239723e+00,  5.20236086e-01, 1.63857561e+00],[0.00000000e+00  ,-4.98641653e-01  ,-6.15177043e-03  ,1.44543862e+00  ,-1.32535564e+00 ,2.22044605e-16,-8.84516704e-01  ,1.20767450e+00 ,7.07140617e-01  ,-6.45587966e-01])
+assert 10, eqObj(re, expected, 6)
+
+x=complex([ 0,0,0,0], [0,0,0,0])
+re=signal::fft(x,4,"backward")
+expected=x
+assert 11, eqObj(re, expected, 6)
+
+@testing:case="cutString_function_prepare"
+def cutString(s){
+	if(s=="0j"||s=="-0j"){
+		return  complex(0,0)
+	}
+	if(regexFind(s,"\\+")==1){
+		if(regexFind(s,"\\+",2)>-1){
+		re= split(s,"+")
+		r=double(substr(re[1],0))
+		i=double(substr(re[2],0,strlen(re[2])-2))
+		re=complex(r,i)
+		return  re
+		}
+		else if(regexFind(s,"\\-",2)>-1){
+		re= split(s,"-")
+		r=double(substr(re[0],1))
+		i=double(substr(re[1],0,strlen(re[1])-2))
+		i=-i
+		re=complex(r,i)
+		return  re
+		}
+	}
+	else if(regexFind(s,"\\-")==1){
+		if(regexFind(s,"\\-",2)>-1){
+		re= split(s,"-")
+		r=double(substr(re[1],0))
+		i=double(substr(re[2],0,strlen(re[2])-2))
+		r=-r
+		i=-i
+		re=complex(r,i)
+		return  re
+		}
+		else if(regexFind(s,"\\+",2)>-1){
+		re= split(s,"+")
+		r=double(substr(re[0],1))
+		i=double(substr(re[1],0,strlen(re[1])-2))
+		re=complex(r,i)
+		return  re
+		}
+	}
+	else{
+		if(regexFind(s,"\\-",2)>-1){
+		re= split(s,"-")
+		r=double(substr(re[0],1))
+		i=double(substr(re[1],0,strlen(re[1])-2))
+		i=-i		
+		return  complex(r,i)
+		}
+		else if(regexFind(s,"\\+",2)>-1){
+		re= split(s,"+")
+		r=double(substr(re[0],1))
+		i=double(substr(re[1],0,strlen(re[1])-2))
+		re=complex(r,i)
+		return  re
+		}
+	}
+}
+
+
+
+types=[int, short, long, double, float]
+def checkFftBigData(dtype, x, n, norm, expected,precision){
+	re = signal::fft(dtype(x), n, norm)
+	for(i in 0:(re.size())){
+	 	 s=expected[i]
+		return eqObj(re[i], cutString(s), precision)
+	}
+}
+
+@testing:case="test_signal_fft_bigdata"
+x=1..10000
+expected=loadText(DATA_DIR+"/fft_backward_realNumber_short.csv")[`c__col0]
+assert 4,loop(checkFftBigData{,x,x.size(),"backward",expected,0},[short])
+
+expected=loadText(DATA_DIR+"/fft_forward_realNumber_short.csv")[`c__col0]
+assert 5,loop(checkFftBigData{,x,x.size(),"forward",expected,6},[short])
+
+expected=loadText(DATA_DIR+"/fft_ortho_realNumber_short.csv")[`c__col0]
+assert 6,loop(checkFftBigData{,x,x.size(),"ortho",expected,6},[short])
+
+//complex
+x=complex(0..9999,0..9999)
+re=signal::fft(x,6000,"ortho")
+expected=loadText(DATA_DIR+"/fft_ortho_complex.csv")[`c__col0]
+for(i in 0:(re.size())){
+	s=expected[i]
+	assert 3 ,eqObj(re[i], cutString(s), 6)
+}
+
+re=signal::fft(x, 6000,"forward")
+expected=loadText(DATA_DIR+"/fft_forward_complex.csv")[`c__col0]
+for(i in 0:(re.size())){
+	s=expected[i]
+	assert 4 ,eqObj(re[i], cutString(s), 6)
+}
+
+re=signal::fft(x, 6000,"backward")
+expected=loadText(DATA_DIR+"/fft_backward_complex.csv")[`c__col0]
+for(i in 0:(re.size())){
+	s=expected[i]
+	assert 5 ,eqObj(re[i], cutString(s), 6)
+}
+
+@testing:case="test_signal_ifft"
+types=[int, short, long, double, float]
+def checkifft(dtype, x, n, norm, expected){
+	re = signal::ifft(dtype(x), n, norm)
+	return eqObj(re, expected,6)
+}
+
+x=[1, 2, 1, -1, 0, 3]
+re=signal::ifft(x,x.size(),"forward")
+expected=complex([6.0, 4.0, -3.0, -2.0, -3.0, 4.0], [-0, 0.0,-1.73205081e+00, 0, 1.73205081e+00, 0.0])
+assert 1,loop(checkifft{,x,x.size(),"forward",expected},types)
+
+expected=complex([4, -0.5, -0.5], [0, 0.8660254, -0.8660254])
+assert 2,loop(checkifft{,x,3,"forward",expected},types)
+
+expected=complex([1.0], [-0.0])
+assert 3,loop(checkifft{,x,1,"forward",expected},types)
+
+expected=complex([6.0, 1.0, 0, 1.0, -2.0, 1.0, 0, 1.0], [-0.0,-0.41421356,6.0,-2.41421356,-0.0,2.41421356,-6.0,0.41421356])
+assert 4,loop(checkifft{,x,8,"forward",expected},types)
+
+expected=complex([ 0.75 , 0.125,0.0,0.125,-0.25,0.125,0.0,0.125], [-0.0,-0.0517767,0.75,-0.3017767,-0.0,0.3017767,-0.75,0.0517767])
+assert 5,loop(checkifft{,x,8,"backward",expected},types)
+
+expected=complex([ 1.0], [-0.0])
+assert 6,loop(checkifft{,x,1,"ortho",expected},types)
+
+expected=complex([ 1.8973666,     0.07465125,1.46035057, -1.33956231,  0.75324379,-0.63245553,  0.75324379,-1.33956231,  1.46035057,  0.07465125], [-0 ,0.37174803 ,0.97324899,0.60150096 ,-0.22975292 ,-0 ,0.22975292,-0.60150096,-0.97324899,-0.37174803])
+assert 7,loop(checkifft{,x,10,"ortho",expected},types)
+x=take(0,10)
+expected=complex(take(0,10), [-0.0,0.0,0.0,0.0,0.0,-0.0,-0.0,-0.0,-0.0,-0.0])
+assert 8,loop(checkifft{,x,10,"ortho",expected},types)
+
+//x=复数
+x=complex([ 0.75 , 0.125,0.0,0.125,-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767,-0.0,-0.3017767,0.75,-0.0517767])
+re=signal::ifft(x,10,"ortho")
+expected=complex([ 3.16227766e-01, 5.18163103e-01,  1.64513095e-01,3.61257724e-01, -1.47815230e-01,-8.77708367e-18,  8.14032106e-01, 8.86539866e-02,  2.36538739e-01,2.01369552e-02],[ 0.00000000e+00,-2.04152840e-01  ,2.23617498e-01  ,3.81900208e-01 ,-2.79708741e-01 ,3.51083347e-17  ,-4.19114254e-01 ,4.57087827e-01  ,-1.94536062e-03  ,-1.57684336e-01])
+assert 9, eqObj(re, expected, 6)
+
+x=complex([ 0.75 , 0.125,0.0,0.125,-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767,-0.0,-0.3017767,0.75,-0.0517767])
+re=signal::ifft(x,10,"forward")
+expected=complex([ 1.00000000e+00, 1.63857561e+00,  5.20236086e-01,  1.14239723e+00, -4.67432799e-01, -2.77555756e-17,  2.57419554e+00,2.80348521e-01,  7.48001169e-01,  6.36786435e-02], [ 0.00000000e+00,  -6.45587966e-01,  7.07140617e-01,  1.20767450e+00,-8.84516704e-01, 1.11022302e-16,  -1.32535564e+00,  1.44543862e+00,-6.15177043e-03,  -4.98641653e-01])
+assert 10, eqObj(re, expected, 6)
+
+
+x=complex([ 0.75 , 0.125,0.0,0.125,-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767,-0.0,-0.3017767,0.75,-0.0517767])
+re=signal::ifft(x,10,"backward")
+expected=complex([ 1.00000000e-01,1.63857561e-01,  5.20236086e-02, 1.14239723e-01, -4.67432799e-02,-2.77555756e-18,  2.57419554e-01, 2.80348521e-02,  7.48001169e-02,6.36786435e-03], [0.00000000e+00,  -6.45587966e-02,7.07140617e-02,  1.20767450e-01, -8.84516704e-02, 1.11022302e-17,-1.32535564e-01,  1.44543862e-01,  -6.15177043e-04,  -4.98641653e-02])
+assert 11, eqObj(re, expected, 6)
+  
+x=complex([ 0,0,0,0], [0,0,0,0])
+re=signal::ifft(x,4,"backward")
+expected=x
+assert 12, eqObj(re, expected, 6)
+
+@testing:case="test_signal_ifft_bigdata"
+types=[int, short, long, double, float]
+def checkifftBigData(dtype, x, n, norm, expected,precision){
+	re = signal::ifft(dtype(x), n, norm)
+	for(i in 0:(re.size())){
+	 	 s=expected[i]
+		assert  eqObj(re[i], cutString(s), precision)
+	}
+}
+
+x=complex(0..9999,0..9999)
+re=signal::ifft(x,6000,"ortho")
+expected=loadText(DATA_DIR+"/ifft_ortho_complex.csv")[`c__col0]
+for(i in 0:(re.size())){
+	s=expected[i]
+	assert 4 ,eqObj(re[i], cutString(s), 6)
+}
+
+re=signal::ifft(x, 6000,"forward")
+expected=loadText(DATA_DIR+"/ifft_forward_complex.csv")[`c__col0]
+for(i in 0:(re.size())){
+	s=expected[i]
+	assert 5 ,eqObj(re[i], cutString(s), 6)
+}
+
+re=signal::ifft(x, 6000,"backward")
+expected=loadText(DATA_DIR+"/ifft_backward_complex.csv")[`c__col0]
+for(i in 0:(re.size())){
+	s=expected[i]
+	assert 6 ,eqObj(re[i], cutString(s), 6)
+}
+
+@testing:case="test_signal_ifft!"
+dtypes=[int, short, long, double, float]
+def checkifft1(dtype, x, n, norm, expected){
+	a=dtype(x)
+	re = signal::ifft!(a, n, norm)
+	return eqObj(re, expected,6)&&eqObj(a, dtype(x))
+}
+x=[1, 2, 1, -1, 0, 3]
+expected=complex([6.0, 4.0, -3.0, -2.0, -3.0, 4.0], [-0, 0.0,-1.73205081e+00, 0, 1.73205081e+00, 0.0])
+assert 1,loop(checkifft1{,x,6,"forward",expected},dtypes)
+
+x=[1, 2, 1, -1, 0, 3]
+expected=complex([ 0.75 , 0.125,0.0,0.125,-0.25,0.125,0.0,0.125], [-0.0,-0.0517767,0.75,-0.3017767,-0.0,0.3017767,-0.75,0.0517767])
+assert 2,loop(checkifft1{,x,8,"backward",expected},dtypes)
+
+x=[1, 2, 1, -1, 0, 3]
+expected=complex([ 1.0], [-0.0])
+assert 3,loop(checkifft1{,x,1,"ortho",expected},dtypes)
+
+//x=复数
+x=complex([ 0.75 , 0.125,0.0,0.125,-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767,-0.0,-0.3017767,0.75,-0.0517767])
+re=signal::ifft!(x,6,"ortho")
+expected=re[0:6].append!(x[6:8])
+assert 4, eqObj(x, expected, 6)
+
+x=complex([ 0.75 , 0.125,0.0,0.125,-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767,-0.0,-0.3017767,0.75,-0.0517767])
+re=signal::ifft!(x,6,"forward")
+expected=re[0:6].append!(x[6:8])
+assert 5, eqObj(x, expected, 6)
+
+x=complex([ 0.75 , 0.125,0.0,0.125,-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767,-0.0,-0.3017767,0.75,-0.0517767])
+re=signal::ifft!(x,6,"backward")
+expected=re[0:6].append!(x[6:8])
+assert 6, eqObj(x, expected, 6)
+  
+@testing:case="test_signal_ifft!_bigdata"
+dtypes=[int, short, long, double, float]
+//x=复数
+def checkifft1(dtype, x,y, n, norm){
+	a=complex(dtype(x),dtype(y))
+	re = signal::ifft!(a, n, norm)
+	expected=re[0:n].append!(a[n:(x.size())])
+	return eqObj(a,expected,6)
+}
+x=take([1,7,4,5,1,4,8,77,40,0],1000000)
+y= take([-1,24,0,4,-1,1,1,0,2,510],1000000)
+assert 1,loop(checkifft1{, x,y, 10000, "ortho"},dtypes)
+assert 2,loop(checkifft1{, x,y, 10000, "backward"},dtypes)
+assert 3,loop(checkifft1{, x,y, 10000, "forward"},dtypes)
+
+@testing:case="test_signal_fft!"
+dtypes=[int, short, long, double, float]
+def checkfft1(dtype, x, n, norm, expected){
+	a=dtype(x)
+	re = signal::fft!(a, n, norm)
+	return eqObj(re, expected,6)&&eqObj(a, dtype(x))
+}
+
+x=[1, 2, 1, -1, 0, 3]
+expected=complex([6.0, 4.0, -3.0, -2.0, -3.0, 4.0], [-0, 3.33066907e-16, 1.73205081e+00, -0, -1.73205081e+00, 3.33066907e-16])
+assert 1,loop(checkfft1{,x,x.size(),"backward",expected},dtypes)
+
+x=[1, 2, 1, -1, 0, 3]
+re=signal::fft!(x, 8,"forward")
+expected=complex([ 0.75 , 0.125,0.0,0.125,-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767,-0.0,-0.3017767,0.75,-0.0517767])
+assert 2,loop(checkfft1{,x,8,"forward",expected},dtypes)
+
+x=[1, 2, 1, -1, 0, 3]
+re=signal::fft!(x, 1,"ortho")
+expected=complex([ 1.0], [-0.0])
+assert 3,loop(checkfft1{,x,1,"ortho",expected},dtypes)
+//x=复数
+x=complex([ 0.75 , 0.125,0.0,0.125,-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767,-0.0,-0.3017767,0.75,-0.0517767])
+re=signal::fft!(x,6,"ortho")
+expected=re[0:6].append!(x[6:8])
+assert 4, eqObj(x, expected, 6)
+
+x=complex([ 0.75 , 0.125,0.0,0.125,-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767,-0.0,-0.3017767,0.75,-0.0517767])
+re=signal::fft!(x,6,"forward")
+expected=re[0:6].append!(x[6:8])
+assert 5, eqObj(x, expected, 6)
+
+x=complex([ 0.75 , 0.125,0.0,0.125,-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767,-0.0,-0.3017767,0.75,-0.0517767])
+re=signal::fft!(x,6,"backward")
+expected=re[0:6].append!(x[6:8])
+assert 6, eqObj(x, expected, 6)
+
+@testing:case="test_signal_fft!_bigdata"
+dtypes=[int, short, long, double, float]
+//x=复数
+def checkfft1(dtype, x,y, n, norm){
+	a=complex(dtype(x),dtype(y))
+	re = signal::fft!(a, n, norm)
+	expected=re[0:n].append!(a[n:(x.size())])
+	return eqObj(a,expected,6)
+}
+x=take([1,7,4,5,1,4,8,77,40,0],1000000)
+y= take([-1,24,0,4,-1,1,1,0,2,510],1000000)
+assert 1,loop(checkfft1{, x,y, 10000, "ortho"},dtypes)
+assert 2,loop(checkfft1{, x,y, 10000, "backward"},dtypes)
+assert 3,loop(checkfft1{, x,y, 10000, "forward"},dtypes)
+
+@testing:case="test_signal_fft2"
+dtypes=[int, short, long]
+types=[ double, float]
+def checkFft2(dtype, x, n, norm, expected,d){
+	re = signal::fft2(dtype(x), n, norm)
+	return eqObj(re, expected,d)
+}
+x=matrix([ 0.75 , 0.125,0.0,0.125],[-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767],[-0.0,-0.3017767,0.75,-0.0517767])
+n=4 4
+expected=complex([1,0.5,0,0.5,1.3964466,-0.25,1.6035534,0.25,0.2071068,2.5,-1.2071068,2.5,1.3964466,0.25,1.6035534,-0.25],[ 0,0.5,0,-0.5,0.3964466,-0.75,1.6035534,-0.25,0,0,0,0,-0.3964466,0.25,-1.6035534,0.75])$4:4
+assert 1,loop(checkFft2{,x,n,"backward",expected,4},types)
+
+x=matrix([ 0.75 , 0.125,0.0,0.125],[-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767],[-0.0,-0.3017767,0.75,-0.0517767])
+expected=complex([0.25,0.125,0,0.125, 0.34911165,-0.0625,0.40088835,0.0625,0.0517767,0.625,-0.3017767,0.625,0.34911165,0.0625,0.40088835,-0.0625],[0,0.125,0,-0.125,0.09911165,-0.1875,0.40088835,-0.0625,0,0,0,0,-0.09911165,0.0625,-0.40088835,0.1875])$4:4
+assert 2,loop(checkFft2{,x,n,"ortho",expected,4},types)
+
+x=matrix([ 0.75 , 0.125,0.0,0.125],[-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767],[-0.0,-0.3017767,0.75,-0.0517767])
+re  =signal::fft2(x,4 4,"forward")
+expected=complex([0.0625,0.03125,0,0.03125, 0.087275,-0.015625,0.100225,0.015625,0.01295,0.15625,-0.07545,0.15625,0.087275,0.015625, 0.100225,-0.015625],[0,0.03125,0,-0.03125,0.024775,-0.046875,0.100225,-0.015625,0,0,0,0,-0.024775,0.015625,-0.100225,0.046875])$4:4
+assert 3,loop(checkFft2{,x,n,"forward",expected,4},types)
+
+//complex
+x=complex([1,0.5,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0,0.5,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+re  =signal::fft2(x,5 2,"backward")
+expected=complex([5,1.71519909,0.53609522,5.30680108,-0.57609539,-1,1.32364268,0.60063352,-3.44352982,0.53725362],[1,-1.11092878,1.52730668,0.19755563,0.36806647,-1,1.8656915,-4.18418244,0.22325215,1.11323879])$5:2
+assert 4 ,eqObj(expected,re,4)
+
+x=complex([1,0.5,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0,0.5,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+re  =signal::fft2(x,2 4,"ortho")
+expected=complex([2.47487373,0.35355339,-0.50006592,1.62125443,0.50006592,-1.62125443,-0.35355339,0.35355339],[0,-5.55111512e-17,3.53553391e-01,-3.53553391e-01,3.53553391e-01,-3.53553391e-01,0,0])$2:4
+assert 5 ,eqObj(expected,re,4)
+
+x=complex([1,0.5,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0,0.5,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+re  =signal::fft2(x,4 4,"forward")
+expected=complex([0.75,0.125,0,0.125,0,-0.0518,0.75,-0.3018,0,0.3018,-0.75,0.0518,-0.25,0.125,0,0.125],take(0,16))$4:4
+assert 6 ,eqObj(expected,re,4)
+
+@testing:case="test_signal_fft2!"
+dtypes=[int, short, long]
+types=[ double, float]
+def checkFft21(dtype, x, n, norm, expected,d){
+	re = signal::fft2!(dtype(x), n, norm)
+	return eqObj(re, expected,d)
+}
+x=matrix([ 0.75 , 0.125,0.0,0.125],[-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767],[-0.0,-0.3017767,0.75,-0.0517767])
+expected=complex([1,0.5,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0,0.5,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+n=4 4
+assert 1,loop(checkFft21{,x,n,"backward",expected,4},types)
+
+x=matrix([ 0.75 , 0.125,0.0,0.125],[-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767],[-0.0,-0.3017767,0.75,-0.0517767])
+expected=complex([0.25,0.125,0,0.125, 0.34911165,-0.0625,0.40088835,0.0625,0.0517767,0.625,-0.3017767,0.625,0.34911165,0.0625,0.40088835,-0.0625],[0,0.125,0,-0.125,0.09911165,-0.1875,0.40088835,-0.0625,0,0,0,0,-0.09911165,0.0625,-0.40088835,0.1875])$4:4
+assert 2,loop(checkFft21{,x,n,"ortho",expected,4},types)
+
+x=matrix([ 0.75 , 0.125,0.0,0.125],[-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767],[-0.0,-0.3017767,0.75,-0.0517767])
+expected=complex([0.0625,0.03125,0,0.03125, 0.087275,-0.015625,0.100225,0.015625,0.01295,0.15625,-0.07545,0.15625,0.087275,0.015625, 0.100225,-0.015625],[0,0.03125,0,-0.03125,0.024775,-0.046875,0.100225,-0.015625,0,0,0,0,-0.024775,0.015625,-0.100225,0.046875])$4:4
+assert 3,loop(checkFft21{,x,n,"forward",expected,4},types)
+
+x=matrix([ 0.75 , 0.125,0.0,0.125],[-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767],[-0.0,-0.3017767,0.75,-0.0517767])
+expected=complex([0.75,0.25,1,1],[ 0,0,0,0])$2:2
+n=2 2
+assert 4,loop(checkFft21{,x,n,"backward",expected,4},types)
+
+x=matrix([ 0.75 , 0.125,0.0,0.125],[-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767],[-0.0,-0.3017767,0.75,-0.0517767])
+re  =signal::fft2!(x,2 1,"ortho")
+expected=complex([0.61871843,0.44194174],[0,0])$2:1
+n=2 1
+assert 5,loop(checkFft21{,x,n,"ortho",expected,4},types)
+
+x=matrix([ 0.75 , 0.125,0.0,0.125],[-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767],[-0.0,-0.3017767,0.75,-0.0517767])
+re  =signal::fft2!(x,1 2,"forward")
+expected=complex([0.25,0.5],[0,0])$1:2
+n= 1 2
+assert 6,loop(checkFft21{,x,n,"forward",expected,4},types)
+
+x=matrix([ 0.75 , 0.125,0.0,0.125],[-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767],[-0.0,-0.3017767,0.75,-0.0517767])
+re  =signal::fft2!(x,4 2,"backward")
+expected=complex([1,0.5,0,0.5,1,1,1,1],[ 0,0,0,0,0,0,0,0])$4:2
+n= 4 2
+assert 7,loop(checkFft21{,x,n,"backward",expected,4},types)
+
+x=matrix([ 0.75 , 0.125,0.0,0.125],[-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767],[-0.0,-0.3017767,0.75,-0.0517767])
+re  =signal::fft2!(x,2 4,"ortho")
+n= 2 4
+expected=complex([0.1767767,0.1767767, 0.29105339, 0.2392767,0.47855339,0.22855339,0.29105339,0.2392767],[0,0,-0.0625,0.2392767,0,0,0.0625,-0.2392767])$2:4
+assert 8,loop(checkFft21{,x,n,"ortho",expected,4},types)
+
+x=matrix([ 0.75 , 0.125,0.0,0.125],[-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767],[-0.0,-0.3017767,0.75,-0.0517767])
+re  =signal::fft2!(x,1 4,"forward")
+n= 1 4
+expected=complex([0.125,0.1875,0.25,0.1875],[0,0.0625,0,-0.0625])$1:4
+assert 9,loop(checkFft21{,x,n,"forward",expected,4},types)
+
+//x=complex
+x=complex([1,0.5,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0,0.5,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+re  =signal::fft2!(x,5 2,"backward")
+expected=complex([5,1.71519909,0.53609522,5.30680108,-0.57609539,-1,1.32364268,0.60063352,-3.44352982,0.53725362],[1,-1.11092878,1.52730668,0.19755563,0.36806647,-1,1.8656915,-4.18418244,0.22325215,1.11323879])$5:2
+assert 10 ,eqObj(expected,re,4)
+
+x=complex([1,0.5,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0,0.5,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+re  =signal::fft2!(x,2 4,"ortho")
+expected=complex([2.47487373,0.35355339,-0.50006592,1.62125443,0.50006592,-1.62125443,-0.35355339,0.35355339],[0,-5.55111512e-17,3.53553391e-01,-3.53553391e-01,3.53553391e-01,-3.53553391e-01,0,0])$2:4
+assert 11 ,eqObj(expected,re,4)
+
+x=complex([1,0.5,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0,0.5,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+re  =signal::fft2!(x,4 4,"forward")
+expected=complex([0.75,0.125,0,0.125,0,-0.0518,0.75,-0.3018,0,0.3018,-0.75,0.0518,-0.25,0.125,0,0.125],take(0,16))$4:4
+assert 12 ,eqObj(expected,re,4)
+//x=complex change
+x=complex([1,0.5,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0,0.5,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+re  =signal::fft2!(x,2 2,"backward")
+expected=complex([2.6464, 2.1464,0.3536,-1.1464],[0.1464,0.6464,0.8536,-1.6464])$2:2
+a=complex([2.6464, 2.1464,0,0.5,0.3536,-1.1464,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0.1464,0.6464,0,-0.5,0.8536,-1.6464,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+assert 13 ,eqObj(expected,re,4)
+assert 14 ,eqObj(x,a,4)
+
+x=complex([1,0.5,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0,0.5,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+re  =signal::fft2!(x,2 1,"ortho")
+expected=complex([1.06066017,0.35355339],[0.35355339,-0.35355339])$2:1
+a=complex([1.06066017,0.35355339,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0.35355339,-0.35355339,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+assert 15 ,eqObj(expected,re,4)
+assert 16 ,eqObj(x,a,4)
+x=complex([1,0.5,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0,0.5,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+re  =signal::fft2!(x,1 2,"forward")
+a=complex([ 1.1982,0.35355339,0,0.5,- 0.1982,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[0.1982,-0.35355339,0,-0.5,-0.1982,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+a=complex([1.1982,0.5,0,0.5,- 0.1982,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[0.1982,0.5,0,-0.5,-0.1982,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+expected=complex([ 1.1982,- 0.1982],[0.1982,-0.1982])$1:2
+assert 17 ,eqObj(expected,re,4)
+assert 18 ,eqObj(x,a,4)
+
+@testing:case="test_signal_ifft2"
+dtypes=[int, short, long,double, float]
+types=[ double, float]
+def checkiFft2(dtype, x, n, norm, expected,d){
+	re = signal::ifft2(dtype(x), n, norm)
+	return eqObj(re, expected,d)
+}
+x=matrix([ 0.75 , 0.125,0.0,0.125],[-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767],[-0.0,-0.3017767,0.75,-0.0517767])
+expected=complex([0.0625,0.03125,0,0.03125,0.08727791, -0.015625,0.10022209, 0.015625, 0.01294418,0.15625,-0.07544418, 0.15625,0.08727791, 0.015625,0.10022209,-0.015625 ],[ 0,-0.03125,0,0.03125,-0.02477791,0.046875,-0.10022209,0.015625,0,0,0,0,0.02477791,-0.015625,0.10022209,-0.046875])$4:4
+n=4 4
+assert 1,loop(checkiFft2{,x,n,"backward",expected,6},types)
+x=matrix([[1,5,9,3],[6,4,8,5],[5,8,6,111111],[98,4,0,0]]).transpose()
+expected=complex([4,-1,-0.5,-1.5],[0,0,0,0])$2:2
+assert 2,loop(checkiFft2{,x,2  2,"backward",expected,1},types)
+
+x=matrix([ 0.75 , 0.125,0.0,0.125],[-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767],[-0.0,-0.3017767,0.75,-0.0517767])
+re  =signal::ifft2(x,4 2,"ortho")
+expected=complex([0.35355339,0.1767767,0,0.1767767,0.35355339,0.35355339,0.35355339,0.35355339],take(0,8))$4:2
+n=4 2
+assert 3,loop(checkiFft2{,x,n,"ortho",expected,4},types)
+x=matrix([[1,5,9,3],[6,4,8,5],[5,8,6,111111],[98,4,0,0]]).transpose()
+expected=complex([8,-2,-1,-3],[0,0,0,0])$2:2
+assert 4,loop(checkiFft2{,x,2  2,"ortho",expected,1},types)
+
+x=matrix([ 0.75 , 0.125,0.0,0.125],[-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767],[-0.0,-0.3017767,0.75,-0.0517767])
+re  =signal::ifft2(x,2 4,"forward")
+n=2 4
+expected=complex([0.5,0.5,0.8232233,0.6767767,1.3535534,0.6464466,0.8232233,0.6767767],[0,0,0.1767767,-0.6767767,0,0,-0.1767767,0.6767767])$2:4
+assert 5,loop(checkiFft2{,x,n,"forward",expected,4},types)
+x=matrix([[1,5,9,3],[6,4,8,5],[5,8,6,111111],[98,4,0,0]]).transpose()
+expected=complex([16,-4,-2,-6],[0,0,0,0])$2:2
+assert 6,loop(checkiFft2{,x,2  2,"forward",expected,1},types)
+//complex
+x=complex([1,0.5,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0,0.5,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+re  =signal::ifft2(x,5 2,"backward")
+expected=complex([0.5,-0.05760954,0.53068011,0.05360952, 0.17151991,-0.1,  0.05372536,-0.34435298,0.06006335,0.13236427],[0.1,0.03680665,0.01975556,0.15273067,-0.11109288,-0.1,0.11132388,0.02232522,-0.41841824,0.18656915])$5:2
+assert 7 ,eqObj(expected,re,4)
+
+x=complex([1,0.5,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0,0.5,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+re  =signal::ifft2(x,2 4,"ortho")
+expected=complex([2.47487373,0.35355339, -0.35355339,0.35355339,0.50006592,-1.62125443, -0.50006592,1.62125443],[0,-5.55111512e-17,0,0,3.53553391e-01,-3.53553391e-01,3.53553391e-01,-3.53553391e-01])$2:4
+assert 8 ,eqObj(expected,re,4)
+
+x=complex([1,0.5,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0,0.5,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+re  =signal::ifft2(x,4 4,"forward")
+expected=complex([12,2,0,2,-4,2,0,2,0,0.8288,-12,4.8288,0,-4.8288,12,-0.8288],take(0,16))$4:4
+assert 9 ,eqObj(expected,re,4)
+
+@testing:case="test_signal_ifft2!"
+types=[ double, float]
+def checkiFft21(dtype, x, n, norm, expected,d){
+	re = signal::ifft2!(dtype(x), n, norm)
+	return eqObj(re, expected,d)
+}
+x=matrix([ 0.75 , 0.125,0.0,0.125],[-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767],[-0.0,-0.3017767,0.75,-0.0517767])
+expected=complex([0.0625,0.03125,0,0.03125,0.08727791, -0.015625,0.10022209, 0.015625, 0.01294418,0.15625,-0.07544418, 0.15625,0.08727791, 0.015625,0.10022209,-0.015625 ],[ 0,-0.03125,0,0.03125,-0.02477791,0.046875,-0.10022209,0.015625,0,0,0,0,0.02477791,-0.015625,0.10022209,-0.046875])$4:4
+n=4 4
+assert 1,loop(checkiFft21{,x,n,"backward",expected,6},types)
+
+x=matrix([ 0.75 , 0.125,0.0,0.125],[-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767],[-0.0,-0.3017767,0.75,-0.0517767])
+n= 4 2
+expected=complex([0.35355339,0.1767767,0,0.1767767,0.35355339,0.35355339,0.35355339,0.35355339],take(0,8))$4:2
+assert 2,loop(checkiFft21{,x,n,"ortho",expected,4},types)
+
+x=matrix([ 0.75 , 0.125,0.0,0.125],[-0.25,0.125,0.0,0.125], [-0.0,0.0517767,-0.75,0.3017767],[-0.0,-0.3017767,0.75,-0.0517767])
+re  =signal::ifft2!(x,2 4,"forward")
+expected=complex([0.5,0.5,0.8232233,0.6767767,1.3535534,0.6464466,0.8232233,0.6767767],[0,0,0.1767767,-0.6767767,0,0,-0.1767767,0.6767767])$2:4
+n=2 4
+assert 3,loop(checkiFft21{,x,n,"forward",expected,4},types)
+//complex
+
+x=complex([1,0.5,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0,0.5,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+re  =signal::ifft2!(x,5 2,"backward")
+expected=complex([0.5,-0.05760954,0.53068011,0.05360952, 0.17151991,-0.1,  0.05372536,-0.34435298,0.06006335,0.13236427],[0.1,0.03680665,0.01975556,0.15273067,-0.11109288,-0.1,0.11132388,0.02232522,-0.41841824,0.18656915])$5:2
+assert 4 ,eqObj(expected,re,4)
+
+x=complex([1,0.5,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0,0.5,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+re  =signal::ifft2!(x,2 4,"ortho")
+expected=complex([2.47487373,0.35355339, -0.35355339,0.35355339,0.50006592,-1.62125443, -0.50006592,1.62125443],[0,-5.55111512e-17,0,0,3.53553391e-01,-3.53553391e-01,3.53553391e-01,-3.53553391e-01])$2:4
+assert 5 ,eqObj(expected,re,4)
+
+x=complex([1,0.5,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0,0.5,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+re  =signal::ifft2!(x,4 4,"forward")
+expected=complex([12,2,0,2,-4,2,0,2,0,0.8288,-12,4.8288,0,-4.8288,12,-0.8288],take(0,16))$4:4
+assert 6 ,eqObj(expected,re,4)
+
+//x=complex change
+x=complex([1,0.5,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0,0.5,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+re  =signal::ifft2!(x,2 2,"backward")
+expected=complex([0.6616,0.5366,0.0884,-0.2866],[0.0366,0.1616,0.2134,-0.4116])$2:2
+a=complex([0.6616,0.5366,0,0.5,0.0884,-0.2866,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[0.0366,0.1616,0,-0.5,0.2134,-0.4116,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+assert 7 ,eqObj(expected,re,4)
+assert 8 ,eqObj(x,a,4)
+x=complex([1,0.5,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0,0.5,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+re  =signal::ifft2!(x,2 1,"ortho")
+expected=complex([1.06066017,0.35355339],[0.35355339,-0.35355339])$2:1
+a=complex([1.06066017,0.35355339,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0.35355339,-0.35355339,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+assert 9,eqObj(expected,re,4)
+assert 10 ,eqObj(x,a,4)
+x=complex([1,0.5,0,0.5,1.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[ 0,0.5,0,-0.5,0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+re  =signal::ifft2!(x,1 2,"forward")
+expected=complex([2.3964,-0.3964],[0.3964,-0.3964])$1:2
+a=complex([2.3964,0.5,0,0.5,-0.3964,-0.25,1.6036,0.25,0.2072,2.5,-1.2072,2.5,1.3964,0.25,1.6036,-0.25],[0.3964,0.5,0,-0.5,-0.3964,-0.75,1.6036,-0.25,0,0,0,0,-0.3964,0.25,-1.6036,0.75])$4:4
+assert 11 ,eqObj(expected,re,4)
+assert 12 ,eqObj(x,a,4)
+
+@testing:case="test_signal_fft2_bigdata"
+types=[int, short, long, double, float]
+def checkfft2BigData(dtype, m, n, norm, expected1, expected2,precision1,precision2){
+	re = signal::fft2(dtype(m), n, norm)
+	res=array(BOOL)
+	for(i in 0:500){ 	 
+		assert 1 ,  res.append!(eqObj(re[0][i], cutString(expected1[i]), precision1)).append!(eqObj(re[1][i], cutString(expected2[i]), precision2))
+	}
+}
+m=1..10000 join 1..10000$10000:2
+expected1=loadText(DATA_DIR+"/fft2_backward_realNumber.csv")[`col1]
+expected2=loadText(DATA_DIR+"/fft2_backward_realNumber.csv")[`col2]
+assert 1,loop(checkfft2BigData{,m,2000 2,"backward",expected1, expected2,6,0},types)
+
+expected1=loadText(DATA_DIR+"/fft2_forward_realNumber.csv")[`col1]
+expected2=loadText(DATA_DIR+"/fft2_forward_realNumber.csv")[`col2]
+assert 2,loop(checkfft2BigData{,m,2000 2,"forward",expected1, expected2,0,0},types)
+
+re = signal::fft2(long(m),2000 2, "ortho")
+expected1=loadText(DATA_DIR+"/fft2_ortho_realNumber.csv")[`col1]
+expected2=loadText(DATA_DIR+"/fft2_ortho_realNumber.csv")[`col2]
+assert 3,loop(checkfft2BigData{,m,2000 2,"ortho",expected1, expected2,6,0},types)
+
+def checkfft2Bigcomplex(dtype, x,y, n, norm, expected1, expected2,precision1,precision2){
+	re = signal::fft2(complex(dtype(x),dtype(y))$10000:2, n, norm)
+	res=array(BOOL)
+	for(i in 0:500){ 	 
+		assert 1 ,  res.append!(eqObj(re[0][i], cutString(expected1[i]), precision1)).append!(eqObj(re[1][i], cutString(expected2[i]), precision2))
+	}
+}
+x=1..10000 join 1..10000
+y=1..10000 join 1..10000	
+expected1=loadText(DATA_DIR+"/fft2_backward_complex.csv")[`col1]
+expected2=loadText(DATA_DIR+"/fft2_backward_complex.csv")[`col2]
+assert 4,loop(checkfft2Bigcomplex{,x,y,2000 2,"backward",expected1, expected2,6,0},types)
+
+expected1=loadText(DATA_DIR+"/fft2_forward_complex.csv")[`col1]
+expected2=loadText(DATA_DIR+"/fft2_forward_complex.csv")[`col2]
+assert 5,loop(checkfft2Bigcomplex{,x,y,2000 2,"forward",expected1, expected2,6,0},types)
+
+expected1=loadText(DATA_DIR+"/fft2_ortho_complex.csv")[`col1]
+expected2=loadText(DATA_DIR+"/fft2_ortho_complex.csv")[`col2]
+assert 6,loop(checkfft2Bigcomplex{,x,y,2000 2,"ortho",expected1, expected2,6,0},types)
+
+@testing:case="test_signal_ifft2_bigdata"
+types=[int, short, long, double, float]
+def checkifft2BigData(dtype, m, n, norm, expected1, expected2,precision1,precision2){
+	re = signal::ifft2(dtype(m), n, norm)
+	res=array(BOOL)
+	for(i in 0:500){ 	 
+		assert 1 ,  res.append!(eqObj(re[0][i], cutString(expected1[i]), precision1)).append!(eqObj(re[1][i], cutString(expected2[i]), precision2))
+	}
+}
+m=1..20000 join 1..20000$20000:2
+expected1=loadText(DATA_DIR+"/ifft2_backward_realNumber.csv")[`col1]
+expected2=loadText(DATA_DIR+"/ifft2_backward_realNumber.csv")[`col2]
+assert 1,loop(checkifft2BigData{,m,20000 2,"backward",expected1, expected2,6,0},types)
+
+expected1=loadText(DATA_DIR+"/ifft2_forward_realNumber.csv")[`col1]
+expected2=loadText(DATA_DIR+"/ifft2_forward_realNumber.csv")[`col2]
+assert 2,loop(checkifft2BigData{,m,20000 2,"forward",expected1, expected2,0,0},types)
+
+expected1=loadText(DATA_DIR+"/ifft2_ortho_realNumber.csv")[`col1]
+expected2=loadText(DATA_DIR+"/ifft2_ortho_realNumber.csv")[`col2]
+assert 3,loop(checkifft2BigData{,m,20000 2,"ortho",expected1, expected2,6,0},types)
+
+def checkifft2Bigcomplex(dtype, x,y, n, norm, expected1, expected2,precision1,precision2){
+	re = signal::ifft2(complex(dtype(x),dtype(y))$10000:2, n, norm)
+	res=array(BOOL)
+	for(i in 0:500){ 	 
+		assert 1 ,  res.append!(eqObj(re[0][i], cutString(expected1[i]), precision1)).append!(eqObj(re[1][i], cutString(expected2[i]), precision2))
+	}
+}
+x=1..10000 join 1..10000
+y=1..10000 join 1..10000	
+expected1=loadText(DATA_DIR+"/ifft2_backward_complex.csv")[`col1]
+expected2=loadText(DATA_DIR+"/ifft2_backward_complex.csv")[`col2]
+assert 4,loop(checkifft2Bigcomplex{,x,y,20000 2,"backward",expected1, expected2,6,0},types)
+
+expected1=loadText(DATA_DIR+"/ifft2_forward_complex.csv")[`col1]
+expected2=loadText(DATA_DIR+"/ifft2_forward_complex.csv")[`col2]
+assert 5,loop(checkifft2Bigcomplex{,x,y,2000 2,"forward",expected1, expected2,6,0},types)
+
+expected1=loadText(DATA_DIR+"/ifft2_ortho_complex.csv")[`col1]
+expected2=loadText(DATA_DIR+"/ifft2_ortho_complex.csv")[`col2]
+assert 6,loop(checkifft2Bigcomplex{,x,y,2000 2,"ortho",expected1, expected2,6,0},types)
+
+@testing:case="test_signal_fft2!_bigdata"
+dtypes=[int, short, long, double, float]
+//x=复数
+def checkfft21(dtype, x,y, n, norm){
+	a=complex(dtype(x),dtype(y))$10000:100
+	re = signal::fft2!(a, n, norm)
+	m=a
+	m[0:(n[0]),0:(n[1])]=re
+	return eqObj(a,m,6)
+}
+x=take([1,7,4,5,1,4,8,77,40,0],1000000)
+y= take([-1,24,0,4,-1,1,1,0,2,510],1000000)
+assert 1,loop(checkfft21{, x,y, 100  100, "ortho"},dtypes)
+assert 2,loop(checkfft21{, x,y, 100  100, "backward"},dtypes)
+assert 3,loop(checkfft21{, x,y, 100  100, "forward"},dtypes)
+
+@testing:case="test_signal_ifft2!_bigdata"
+dtypes=[int, short, long, double, float]
+//x=复数
+def checkifft21(dtype, x,y, n, norm){
+	a=complex(dtype(x),dtype(y))$10000:100
+	re = signal::ifft2!(a, n, norm)
+	m=a
+	m[0:(n[0]),0:(n[1])]=re
+	return eqObj(a,m,6)
+}
+x=take([1,7,4,5,1,4,8,77,40,0],1000000)
+y= take([-1,24,0,4,-1,1,1,0,2,510],1000000)
+assert 1,loop(checkifft21{, x,y, 100  100, "ortho"},dtypes)
+assert 2,loop(checkifft21{, x,y, 100  100, "backward"},dtypes)
+assert 3,loop(checkifft21{, x,y, 100  100, "forward"},dtypes)
+
+@testing:case="test_signal_secc_k_movetout_weight_default"
+x=[1, 2.1, 1, -1, 0, 3.1]
+y=matrix([1,3.1,2],[4,1,-5])
+ex = matrix(0.9827 0.3307 -0.3885 0.4177,0.0670 0.8776 0.3273 -0.9237)
+dtypes = [double, float]
+for(i in dtypes){
+	for(j in dtypes){
+		data = i(x)
+		template= j(y)
+		res = secc(data,template,8)
+		assert 1,eqObj(ex,res,3)
+	}
+}
+x=1..100;
+y=matrix([1..100],[101..200],[201..300],[301..400]);
+ex = matrix([1.0000], [0.9461], [0.9193], [0.9060])
+dtypes = [int, short, long, double, float]
+for(i in dtypes){
+	for(j in dtypes){
+		data = i(x)
+		template= j(y)
+		res = secc(data,template,256)
+		assert 2,eqObj(ex,res,3)
+	}
+}
+
+x=take(0,100);
+y=matrix([1..100],[101..200],[201..300],[301..400]);
+re = signal::secc(x,y,256)
+ex = take(double(),4)$1:4
+dtypes = [int, short, long, double, float]
+for(i in dtypes){
+	for(j in dtypes){
+		data = i(x)
+		template= j(y)
+		res = secc(data,template,256)
+		assert 2,eqObj(ex,res,3)
+	}
+}
+
+@testing:case="test_signal_secc_template_all_zero"
+x=1..100;
+y=matrix(take(0,100),take(0,100));
+ex = take(double(),2)$1:2
+dtypes = [int, short, long, double, float]
+for(i in dtypes){
+	for(j in dtypes){
+		data = i(x)
+		template= j(y)
+		res = secc(data,template,256)
+		assert 2,eqObj(ex,res,3)
+	}
+}
+
+@testing:case="test_signal_secc_data_all_zero"
+x=take(0,10)
+y=matrix(take(1,5),take(2,5))
+secc(x,y,16)
+ex = take(double(),12)$6:2
+dtypes = [int, short, long, double, float]
+for(i in dtypes){
+	for(j in dtypes){
+		data = i(x)
+		template= j(y)
+		res = secc(data,template,256)
+		assert 2,eqObj(ex,res,3)
+	}
+}
+
+@testing:case="test_signal_secc_movetout"
+x=[1, 2.1, 1, -1, 0, 3.1,100]
+y=matrix([1,3.1,2],[4,1,-5])
+ex = matrix(0.9827 0.3307 -0.3885 0.4177 0.5481,0.0670 0.8776 0.3273 -0.9237 -0.7664)
+re = secc(x,y,8,[0,0])
+assert 1,eqObj(ex,re,3)
+re = secc(x,y,8,[2,4])
+ex = matrix(0 0 0.9827 0.3307 -0.3885,0.0670 0.8776 0.3273 -0.9237 -0.7664)
+assert 2,eqObj(ex,re,3)
+
+@testing:case="test_signal_secc_weight"
+x=[1, 2.1, 1, -1, 0, 3.1 ,100]
+y=matrix([1,3.1,2],[4,1,-5])
+ex = matrix(0.9827 0.3307 -0.3885 0.4177 0.5481,0.0670 0.8776 0.3273 -0.9237 -0.7664)
+re = secc(x,y,8,[0,0],[1,1])
+assert 1,eqObj(ex,re,3)
+re = secc(x,y,8,[0,0],[4,10])
+ex = matrix(3.9308 1.3227 -1.5540 1.6706 2.1925,0.6704  8.7762 3.2733 -9.2375 -7.6637)
+assert 2,eqObj(ex,re,3)
+re = secc(x,y,8,[11,13],[4,10])
+ex = matrix(0 0 3.9308 1.3227 -1.5540,0.6704 8.7762 3.2733 -9.2375 -7.6637)
+assert 3,eqObj(ex,re,3)
+
+@testing:case="test_signal_secc_big_data"
+n = 1000000
+x = take(1 2.1 1 -1 0 3.1 1000 3 9 1.111,n)
+y=matrix([take(1 2.1 1 -1 0,n)],[take(1 3 100.4 -19 3.2,n)],[take(1 3.2 400 -30 800,n)])
+re = secc(x,y,2000000)
+ex = matrix([0.5466],[0.0226],[0.0043])
+assert 1,eqObj(re,ex,3)
+re = secc(x,y,2000000,take(0,3))
+assert 2,eqObj(re,ex,3)
+re = secc(x,y,2000000,take(0,3),take(1,3))
+assert 3,eqObj(re,ex,3)
+
+
+@testing:case="test_signal_abs_scalar"
+//abs(X)=sqrt(real(X).^2 + imag(X).^2)
+x = complex(0,1)
+res=signal::abs(x)
+expected=sqrt(1)
+assert 1,eqObj(res,expected)
+x = complex(1,0)
+res=signal::abs(x)
+expected=sqrt(1)
+assert 2,eqObj(res,expected)
+x = complex(0,0)
+res=signal::abs(x)
+expected=sqrt(0)
+assert 3,eqObj(res,expected)
+x = complex(2,3)
+res=signal::abs(x)
+expected=sqrt(4+9)
+assert 4,eqObj(res,expected)
+x = complex(-2,3)
+res=signal::abs(x)
+expected=sqrt(4+9)
+assert 5,eqObj(res,expected)
+x = complex(2,-3)
+res=signal::abs(x)
+expected=sqrt(4+9)
+assert 6,eqObj(res,expected)
+x = complex(-2,-3)
+res=signal::abs(x)
+expected=sqrt(4+9)
+assert 7,eqObj(res,expected)
+x = complex(-2.2,3.01)
+res=signal::abs(x)
+expected=sqrt(square(2.2)+square(3.01))
+assert 8,eqObj(res,expected)
+x = complex(2.2,-3.01)
+res=signal::abs(x)
+expected=sqrt(square(2.2)+square(3.01))
+assert 9,eqObj(res,expected)
+x = complex(-2.2,-3.01)
+res=signal::abs(x)
+expected=sqrt(square(2.2)+square(3.01))
+assert 10,eqObj(res,expected)
+
+@testing:case="test_signal_abs_vector"
+dtypes=[int, short, long, double]
+def checkabs(dtype, x,y){
+	a=complex(dtype(x),dtype(y))
+	re = signal::abs(a)
+	ex=sqrt(square(double(x))+square(double(y)))
+	return eqObj(re,ex)
+}
+x=take(0,100)
+y= take(0,100)
+assert 1,loop(checkabs{, x,y},dtypes)
+x=rand([1,7,4,5.0,1,4,8,-77,40,0],1023)
+y= rand([1,7,4,5.0,1,4,8,-77,40,0],1023)
+assert 2,loop(checkabs{, x,y},dtypes)
+x=rand([1,7,-4,5.0,1,4,8,-77,-40,0],1024)
+y= rand([1,7,4,5.0,1,-4,8,-77,40,0],1024)
+assert 3,loop(checkabs{, x,y},dtypes)
+x=take([1,7,-4,5.0,1,4,8,-77,-40,0],1025)
+y= take([1,7,4,5.0,1,-4,8,-77,40,0],1025)
+assert 4,loop(checkabs{, x,y},dtypes)
+dtypes=[double]
+x=rand([1,0.7,4,5.0,1,4,8,-7.7,40,0],1048575)
+y= rand([-1,24,0.6,4,-8.1,1,1,0,-2,0],1048575)
+assert 5,loop(checkabs{, x,y},dtypes)
+dtypes=[double]
+x=rand([1,0.7,4,5.0,1,4,8,-7.7,40,0],1048576)
+y= rand([-1,24,0.6,4,-8.1,1,1,0,-2,0],1048576)
+assert 6,loop(checkabs{, x,y},dtypes)
+dtypes=[double]
+x=rand([1,0.7,4,5.0,1,4,8,-7.7,40,0],1048577)
+y= rand([-1,24,0.6,4,-8.1,1,1,0,-2,0],1048577)
+assert 7,loop(checkabs{, x,y},dtypes)
+
+@testing:case="test_signal_mul"
+dtypes=[int, short, long, double, float]
+def checkmul(dtype, x,y,num){
+	a=complex(dtype(x),dtype(y))
+	re = signal::mul(a,dtype(num))
+	ex=complex(double(x)*dtype(num),double(y)*dtype(num))
+	return eqObj(re,ex)
+}
+
+//scalar
+x=0
+y= 9.0
+assert 1,loop(checkmul{, x,y,1.9},dtypes)
+x=-2
+y=0
+assert 2,loop(checkmul{, x,y,10.0},dtypes)
+x=0
+y=0
+assert 3,loop(checkmul{, x,y,-10.9},dtypes)
+x=10
+y=20
+assert 4,loop(checkmul{, x,y,0.9},dtypes)
+
+//vector
+x=take(0,100)
+y= take(0,100)
+assert 11,loop(checkmul{, x,y,0.9},dtypes)
+x=rand([1,7,4,5.0,1,4,8,-77,40,0],1023)
+y= rand([1,7,4,5.0,1,4,8,-77,40,0],1023)
+assert 12,loop(checkmul{, x,y,8.9},dtypes)
+x=rand([1,7,-4,5.0,1,4,8,-77,-40,0],1024)
+y= rand([1,7,4,5.0,1,-4,8,-77,40,0],1024)
+assert 13,loop(checkmul{, x,y,0.9},dtypes)
+x=take([1,7,-4,5.0,1,4,8,-77,-40,0],1025)
+y= take([1,7,4,5.0,1,-4,8,-77,40,0],1025)
+assert 14,loop(checkmul{, x,y,0.0},dtypes)
+dtypes=[double]
+x=rand([1,0.7,4,5.0,1,4,8,-7.7,40,0],1048575)
+y= rand([-1,24,0.6,4,-8.1,1,1,0,-2,0],1048575)
+assert 15,loop(checkmul{, x,y,-0.9},dtypes)
+dtypes=[double]
+x=rand([1,0.7,4,5.0,1,4,8,-7.7,40,0],1048576)
+y= rand([-1,24,0.6,4,-8.1,1,1,0,-2,0],1048576)
+assert 16,loop(checkmul{, x,y,3.9},dtypes)
+dtypes=[double]
+x=rand([1,0.7,4,5.0,1,4,8,-7.7,40,0],1048577)
+y= rand([-1,24,0.6,4,-8.1,1,1,0,-2,0],1048577)
+assert 17,loop(checkmul{, x,y,1.9},dtypes)
+
+@testing:case="test_signal_multithreading"
+//signal::dst
+x = -10..10
+def job(x){
+	t = ()
+	for(i in 1..1000){
+	 	t.append!(signal::dst(x))
+	}
+	return t
+}
+jobId = []
+for(i in 1..10){jobId.append!(submitJob("job"+string(i), "signal", job, x))}
+y = signal::dst(x)
+for(id in jobId){
+	tt =getJobReturn(id,true)
+	for(t in tt)
+	{
+		assert 1, t == y
+	}
+}
+for(id in jobId){
+	out = getJobStatus(id)['errorMsg']
+	assert 2, out[0] == NULL
+}
+//signal::dct
+def job1(x){
+	t = ()
+	for(i in 1..1000){
+	 	t.append!(signal::dct(x))
+	}
+	return t
+}
+x = -10..10
+jobId = []
+for(i in 1..10){jobId.append!(submitJob("job_dctss"+string(i), "signal_dct", job1, x))}
+y = signal::dct(x)
+for(id in jobId){
+	tt =getJobReturn(id,true)
+	for(t in tt)
+	{
+		assert 3, t == y
+	}
+}
+for(id in jobId){
+	out = getJobStatus(id)['errorMsg']
+	assert 4, out[0] == NULL
+}
+//signal::dwt
+x = -10..10
+def job3(x){
+	t = ()
+	for(i in 1..1000){
+	 	t.append!(signal::dwt(x))
+	}
+	return t
+}
+jobId = []
+for(i in 1..10){jobId.append!(submitJob("job_dwt"+string(i), "signal_dwt", job3, x))}
+y = signal::dwt(x)
+for(id in jobId){
+	tt =getJobReturn(id,true)
+	for(xx in tt)
+	{
+	assert 5, each(eqObj, xx.values(), y.values())
+	}
+//	assert 5, each(eqObj, xx.values(), y.values())
+}
+for(id in jobId){
+	out = getJobStatus(id)['errorMsg']
+	assert 6, out[0] == NULL
+}
+//signal::idwt
+x = -10..10
+def job2(x){
+	t = ()
+	for(i in 1..1000){
+	 	t.append!(signal::idwt(x, x))
+	}
+	return t
+}
+jobId = []
+for(i in 1..10){jobId.append!(submitJob("job_idwt"+string(i), "signal_idwt", job2, x))}
+y = signal::idwt(x, x)
+for(id in jobId){
+	tt =getJobReturn(id,true)
+	for(xx in tt)
+	{
+		assert 7, xx == y
+	}
+//	assert 7, xx == y
+}
+for(id in jobId){
+	out = getJobStatus(id)['errorMsg']
+	assert 8, out[0] == NULL
+}
+
+//signal::fft
+x = -10..10
+def job5(x){
+	t = ()
+	for(i in 1..1000){
+	 	t.append!(signal::fft(x))
+	}
+	return t
+}
+jobId = []
+for(i in 1..10){jobId.append!(submitJob("job_fft"+string(i), "signal_fft", job5, x))}
+y = signal::fft(x)
+for(id in jobId){
+	tt =getJobReturn(id,true)
+	for(xx in tt)
+	{
+		assert 13, xx == y
+	}
+//	assert 13, xx == y
+}
+for(id in jobId){
+	out = getJobStatus(id)['errorMsg']
+	assert 14, out[0] == NULL
+}
+//signal::ifft
+x = -10..10
+def job6(x){
+	t = ()
+	for(i in 1..1000){
+	 	t.append!(signal::ifft(x))
+	}
+	return t
+}
+jobId = []
+for(i in 1..10){jobId.append!(submitJob("job_ifft"+string(i), "signal_ifft", job6, x))}
+y = signal::ifft(x)
+for(id in jobId){
+	tt =getJobReturn(id,true)
+	for(xx in tt)
+	{
+		assert 15, xx == y
+	}
+//	assert 15, xx == y
+}
+for(id in jobId){
+	out = getJobStatus(id)['errorMsg']
+	assert 16, out[0] == NULL
+}
+//signal::ifft!
+x = -10..10
+def job7(x){
+	t = ()
+	for(i in 1..1000){
+	 	t.append!(signal::ifft!(x))
+	}
+	return t
+}
+jobId = []
+for(i in 1..10){jobId.append!(submitJob("job_ifft_"+string(i), "signal_ifft!", job7, x))}
+y = signal::ifft!(x)
+for(id in jobId){
+	tt =getJobReturn(id,true)
+	for(xx in tt)
+	{
+		assert 17, xx == y
+	}
+//	assert 17, xx == y
+}
+for(id in jobId){
+	out = getJobStatus(id)['errorMsg']
+	assert 18, out[0] == NULL
+}
+
+//signal::fft2
+x = -9..10$4:5
+def job8(x){
+	t = ()
+	for(i in 1..1000){
+	 	t.append!(signal::fft2(x))
+	}
+	return t
+}
+jobId = []
+for(i in 1..10){jobId.append!(submitJob("job_fft2"+string(i), "signal_fft2", job8, x))}
+y = signal::fft2(x)
+for(id in jobId){
+	tt =getJobReturn(id,true)
+	for(xx in tt)
+	{
+		assert 19, xx == y
+	}
+//	assert 19, xx == y
+}
+for(id in jobId){
+	out = getJobStatus(id)['errorMsg']
+	assert 20, out[0] == NULL
+}
+//signal::fft2!
+x = -9..10$4:5
+def job9(x){
+	t = ()
+	for(i in 1..1000){
+	 	t.append!(signal::fft2!(x))
+	}
+	return t
+}
+jobId = []
+for(i in 1..10){jobId.append!(submitJob("job_fft2_"+string(i), "signal_fft2!", job9, x))}
+y = signal::fft2!(x)
+for(id in jobId){
+	tt =getJobReturn(id,true)
+	for(xx in tt)
+	{
+		assert 21, xx == y
+	}
+//	assert 21, xx == y
+}
+for(id in jobId){
+	out = getJobStatus(id)['errorMsg']
+	assert 22, out[0] == NULL
+}
+//signal::ifft2
+x = -9..10$4:5
+def job10(x){
+	t = ()
+	for(i in 1..1000){
+	 	t.append!(signal::ifft2(x))
+	}
+	return t
+}
+jobId = []
+for(i in 1..10){jobId.append!(submitJob("job_ifft2"+string(i), "signal_ifft2", job10, x))}
+y = signal::ifft2(x)
+for(id in jobId){
+	tt =getJobReturn(id,true)
+	for(xx in tt)
+	{
+		assert 23, xx == y
+	}
+//	assert 19, xx == y
+}
+for(id in jobId){
+	out = getJobStatus(id)['errorMsg']
+	assert 24, out[0] == NULL
+}
+//signal::ifft2!
+x = -9..10$4:5
+def job11(x){
+	t = ()
+	for(i in 1..1000){
+	 	t.append!(signal::ifft2!(x))
+	}
+	return t
+}
+jobId = []
+for(i in 1..10){jobId.append!(submitJob("job_ifft2_"+string(i), "signal::ifft2!", job11, x))}
+y = signal::ifft2!(x)
+for(id in jobId){
+	tt =getJobReturn(id,true)
+	for(xx in tt)
+	{
+		assert 25, xx == y
+	}
+//	assert 19, xx == y
+}
+for(id in jobId){
+	out = getJobStatus(id)['errorMsg']
+	assert 26, out[0] == NULL
+}
+
+//signal::secc
+x=[1, 2.1, 1, -1, 0, 3.1]
+y=matrix([1,3.1,2],[4,1,-5])
+ex = matrix(0.9827 0.3307 -0.3885 0.4177,0.0670 0.8776 0.3273 -0.9237)
+def job12(x, y){
+	t = ()
+	for(i in 1..1000){
+	 	t.append!(signal::secc(x, y, 8))
+	}
+	return t
+}
+jobId = []
+for(i in 1..10){jobId.append!(submitJob("secc"+string(i), "signal::secc", job12, x, y))}
+for(id in jobId){
+	tt =getJobReturn(id,true)
+	for(xx in tt)
+	{
+		assert 27, eqObj(xx, ex, 3)
+	}
+//	assert 19, xx == ex
+}
+for(id in jobId){
+	out = getJobStatus(id)['errorMsg']
+	assert 28, out[0] == NULL
+}
+
+//signal::abs
+x = complex(0,1)
+def job13(x){
+	t = ()
+	for(i in 1..1000){
+	 	t.append!(signal::abs(x))
+	}
+	return t
+}
+jobId = []
+for(i in 1..10){jobId.append!(submitJob("abs"+string(i), "signal::abs", job13, x))}
+y=signal::abs(x)
+for(id in jobId){
+	tt =getJobReturn(id,true)
+	for(xx in tt)
+	{
+		assert 29, xx == y
+	}
+//	assert 19, xx == y
+}
+for(id in jobId){
+	out = getJobStatus(id)['errorMsg']
+	assert 30, out[0] == NULL
+}
+//signal::mul
+x = complex(2,1)
+y = 5.0
+def job14(x, y){
+	t = ()
+	for(i in 1..1000){
+	 	t.append!(signal::mul(x, y))
+	}
+	return t
+}
+jobId = []
+for(i in 1..10){jobId.append!(submitJob("mul"+string(i), "signal::mul", job14, x, y))}
+y=signal::mul(x,y)
+for(id in jobId){
+	tt =getJobReturn(id,true)
+	for(xx in tt)
+	{
+		assert 31, xx == y
+	}
+//	assert 19, xx == y
+}
+for(id in jobId){
+	out = getJobStatus(id)['errorMsg']
+	assert 32, out[0] == NULL
+}
+
+@testing:case="test_signal_in_many_tims"
+//signal::dst
+x = -10..10
+a = signal::dst(x)
+for(i in 1..100){
+	b=signal::dst(x)
+	assert 1, a ==b}
+//signal::dct
+x = -10..10
+a = signal::dct(x)
+for(i in 1..100){
+	b=signal::dct(x)
+	assert 2, a ==b}
+//signal::dwt
+x = -10..10
+a = signal::dwt(x)
+for(i in 1..100){
+	b=signal::dwt(x)
+	assert 3, each(eqObj,a.values(), b.values())}
+//signal::idwt
+x = -10..10
+a = signal::idwt(x,x)
+for(i in 1..100){
+	b=signal::idwt(x,x)
+	assert 4, a ==b}
+	
+//signal::dctParallel
+f1=0..9999
+f2=1..10000
+t=table(f1,f2)
+if(existsDatabase("dfs://rangedb_data")){
+dropDatabase("dfs://rangedb_data")
+}
+db = database("dfs://rangedb_data", RANGE, 0 5000 10000)
+signaldata = db.createPartitionedTable(t, "signaldata", "f1")
+signaldata.append!(t)
+signaldata=loadTable(db,"signaldata")
+ds=sqlDS(<select * from signaldata >)
+b = signal::dctParallel(ds)
+for(i in 1..10){
+	a = signal::dctParallel(ds)
+	assert 5, each(eqObj,a,b)
+}
+//signal::fft
+x = -10..10
+a = signal::fft(x)
+for(i in 1..100){
+	b=signal::fft(x)
+	assert 6, a ==b}
+//signal::ifft
+x = -10..10
+jobId = []
+a = signal::ifft(x)
+for(i in 1..100){
+	b=signal::ifft(x)
+	assert 7, a ==b}
+//signal::ifft!
+x = -10..10
+a = signal::ifft!(x)
+for(i in 1..100){
+	b=signal::ifft!(x)
+	assert 8, a ==b}
+//signal::fft2
+x = -9..10$4:5
+a = signal::fft2(x)
+for(i in 1..100){
+	b=signal::fft2(x)
+	assert 9, a ==b}
+//signal::fft2!
+x = -9..10$4:5
+a = signal::fft2!(x)
+for(i in 1..100){
+	b=signal::fft2!(x)
+	assert 10, a ==b}
+//signal::ifft2
+x = -9..10$4:5
+a = signal::ifft2!(x)
+for(i in 1..100){
+	b=signal::ifft2!(x)
+	assert 11, a ==b}
+//signal::ifft2!
+x = -9..10$4:5
+a = signal::ifft2!(x)
+for(i in 1..100){
+	b=signal::ifft2!(x)
+	assert 12, a ==b}
+//signal::secc
+x=[1, 2.1, 1, -1, 0, 3.1]
+y=matrix([1,3.1,2],[4,1,-5])
+a = matrix(0.9827 0.3307 -0.3885 0.4177,0.0670 0.8776 0.3273 -0.9237)
+for(i in 1..100){
+	b=signal::secc(x,y,8)
+	assert 13, eqObj(a, b, 4)
+}
+//signal::abs
+x = complex(0,1)
+a=signal::abs(x)
+for(i in 1..100){
+	b = signal::abs(x)
+	assert 14,a ==b
+	}
+
+//signal::mul
+x = complex(2,1)
+y = 5.0
+a=signal::mul(x,y)
+for(i in 1..100){
+	b=signal::mul(x,y)
+	assert 15, eqObj(a, b)
+}
