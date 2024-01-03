@@ -5,7 +5,7 @@ project (dolphindb_insight_plugin)
 set(CMAKE_CXX_COMPILER g++)
 add_compile_options(-std=c++11 -DLINUX -D_GLIBCXX_USE_CXX11_ABI=0 -Wall -O3 -g -fPIC -Wl,--no-as-needed)
 
-aux_source_directory(src1 DIR_LIB_SRCS)
+aux_source_directory(src DIR_LIB_SRCS)
 include_directories(
     ${PROJECT_SOURCE_DIR}/../include
     ${PROJECT_SOURCE_DIR}/include/insight-tcp-client/mdc_gateway_client/include
