@@ -14,10 +14,16 @@ Apache Parquet 文件采用列式存储格式，可用于高效存储与提取�
     - [2.3 parquet::loadParquetEx](#23-parquetloadparquetex)
     - [2.4 parquet::parquetDS](#24-parquetparquetds)
     - [2.5 parquet::saveParquet](#25-parquetsaveparquet)
+    - [2.6 parquet::setReadThreadNum](#26-parquetsetreadthreadnum)
+    - [2.7 parquet::getReadThreadNum](#27-parquetgetreadthreadnum)
   - [3 支持的数据类型](#3-支持的数据类型)
     - [3.1 导入](#31-导入)
     - [3.2 导出](#32-导出)
-
+- [Release Notes](#release-notes)
+  - [1.30.23](#13023)
+    - [新增功能](#新增功能)
+  - [1.30.22](#13022)
+    - [优化](#优化)
 ## 1 安装插件
 
 ### 1.1 下载预编译插件
@@ -237,6 +243,48 @@ fileName: 保存的文件名，类型为字符串标量
 parquet::saveParquet(tb, "userdata1.parquet")
 ```
 
+### 2.6 parquet::setReadThreadNum
+
+**语法**
+
+parquet::setReadThreadNum(num)
+
+**参数**
+
+num：最大的读取线程数。
+
+- 默认为1，表示不额外创建线程，在当前线程读取 parquet 文件。
+- 如果大于1，则会将读取 parquet 文件的任务分成 num 份，即最大的读取线程数为 num。
+- 如果等于0，则每一列的读取都会作为 ploop 的任务。
+
+**详情**
+
+用于设置是否需要并发读取 parquet 文件和读取 parquet 的最大线程数。
+
+注意：因为 parquet 插件内部会调用 ploop 函数按列分组并行读取 parquet 文件，所以实际读取 parquet 文件的并发度也受 DolphinDB 的 worker 参数限制。
+
+**例子**
+
+```
+parquet::setReadThreadNum(0)
+```
+
+### 2.7 parquet::getReadThreadNum
+
+**语法**
+
+parquet::getReadThreadNum()
+
+**详情**
+
+获取 parquet 插件的最大读线程数。
+
+**例子**
+
+```
+parquet::getReadThreadNum()
+```
+
 ## 3 支持的数据类型
 
 ### 3.1 导入
@@ -325,8 +373,17 @@ DolphinDB 在导入 Parquet 数据时，优先按照源文件中定义的 Logica
 | STRING            | BYTE_ARRAY               | STRING                  |
 | SYMBOL            | BYTE_ARRAY               | STRING                  |
 
-# ReleaseNotes:
+# Release Notes
 
-## 功能优化
+## 1.30.23
 
-* 优化了部分报错信息。（**1.30.22**）
+### 新增功能
+
+- 新增接口 `parquet::setReadThreadNum(num)`，用于设置插件的最大读线程数。
+- 新增接口 `parquet::getReadThreadNum()`，用于获取插件的最大读线程数。
+
+## 1.30.22
+
+### 优化
+
+- 优化了部分报错信息。

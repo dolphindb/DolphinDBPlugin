@@ -10,7 +10,7 @@ elseif (UNIX)
     set (plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginParquet.txt")
 endif ()
 message("platform: ${platform_macro}")
-add_compile_options("-std=c++11" "-fPIC" ${platform_macro} "-Wall")
+add_compile_options("-std=c++11" "-fPIC" ${platform_macro} "-Wall" "-O3")
 
 macro(replace_cxx_release_flag src_flag dest_flag)
     string(REPLACE "${src_flag}" "${dest_flag}" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
