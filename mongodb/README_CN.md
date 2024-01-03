@@ -369,10 +369,3 @@ DolphinDB中各类整型的最小值（例如：INT的-2,147,483,648以及LONG�
 | string   | STRING              |
 | symbol | STRING              |
 | oid          | STRING             |
-
-# ReleasesNotes
-
-## 功能优化
-
-* 优化了部分报错信息。（**2.00.10**）
-* 加强了 mongodb::aggregate, mongodb::load, mongodb::connect 的参数校检。（**2.00.10**）
