@@ -270,11 +270,11 @@ aws::loadS3Object(account, 'dolphindb-test-bucket', 't2.zip', 4, db, `pt, `ID);
 
 # ReleaseNotes:
 
-## 故障修复
+## v1.30.22
 
-* 接口 loadS3Object 增加对参数 threadCount 可用最大线程数的限制。（**1.30.22**）
-* 接口 getS3Object 增加对参数 outputFileName 有效性的检查。（**1.30.22**）
+### bug修复
 
-## 功能优化
-
-* 优化了 loadS3Object 对临时文件的处理方法。（**1.30.22**）
+- 增加了最大线程数的限制
+- getS3Object接口中增加检查outputFile是否存在
+- getS3Object接口中的outputFile如果为目录且不存在，创建目录
+- loadS3Object接口中避免过早删除临时文件
