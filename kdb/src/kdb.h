@@ -1,9 +1,11 @@
-#include <type_traits>
-#include <memory>
+#include <string>
 
 #include "CoreConcept.h"
 
 #include "k.h"
+#include "kptr.h"
+
+#define PLUGIN_NAME "[PLUGIN::KDB]"
 
 extern "C" {
 
@@ -16,14 +18,9 @@ extern "C" {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-struct KDeleter {
-    void operator()(K k) const;
-};
-using KPtr = std::unique_ptr<typename std::remove_pointer<K>::type, KDeleter>;
-
 class Connection {
 public:
-    static const char* const marker;
+    static constexpr char const* MARKER = "kdb+ connection";
 
 public:
     Connection(const std::string& host, const int port, const std::string& usernamePassword);
@@ -43,40 +40,8 @@ private:
     std::string host_;
     int port_;
     int handle_;
-    // Mutex kdbMutex_;
 
 };//class Connection
-
-enum kdbType: short {
-    KDB_LIST = 0,
-    KDB_BOOL = (KB),
-    KDB_GUID = (UU),
-    KDB_BYTE = (KG),
-    KDB_SHORT = (KH),
-    KDB_INT = (KI),
-    KDB_LONG = (KJ),
-    KDB_FLOAT = (KE),
-    KDB_DOUBLE = (KF),
-    KDB_CHAR = (KC),
-    KDB_STRING = (KS),
-    KDB_TIMESTAMP = (KP),
-    KDB_MONTH = (KM),
-    KDB_DATE = (KD),
-    KDB_DATETIME = (KZ),
-    KDB_TIMESPAN = (KN),
-    KDB_MINUTE = (KU),
-    KDB_SECOND = (KV),
-    KDB_TIME = (KT),
-    KDB_ENUM_MIN = 20,
-    KDB_ENUM_MAX = 76,
-    KDB_NESTED_MIN = 77,
-    KDB_NESTED_MAX = 97,
-    KDB_TABLE = (XT),
-    KDB_DICT = (XD),
-    KDB_FUNCTION_MIN = 100,
-    KDB_FUNCTION_MAX = 112,
-    KDB_ERROR = -128,
-};
 
 class Defer {
 public:
