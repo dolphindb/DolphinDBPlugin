@@ -631,6 +631,21 @@ kafka::pollByteStream(consumer, [timeout])
 
 将订阅数据保存到 DolphinDB。返回一个STRING类型的标量。该标量为获取到的 kafka 消息中的 value，不包含 key 和 topic。
 
+#### 3.3.26 获取后台订阅对应的 consumer <!-- omit in toc -->
+
+**语法**
+
+```
+kafka::getSubJobConsumer(connection)
+```
+
+**参数**
+
+- 'connection'：是函数 kafka::createSubJob 的返回值，或从函数 getJobStat() 获得的订阅 Id，数据类型为 LONG，INT 或 STRING。
+
+**详情**
+
+如果需要获取特定后台订阅中的 consumer，可以使用此接口。
 
 ### 3.4 队列
 
@@ -1099,27 +1114,4 @@ conn = kafka::createSubJob(consumer,tab,mseed::parse,"test:0:get mseed data");
 kafka::getJobStat();
 kafka::cancelSubJob(conn);
 ```
-
-# Release Notes
-
-## 2.00.11
-
-### 新增功能
-
-- 新增支持 SASL2 认证与数据加密。
-
-### 故障修复
-
-- 修复 OOM 时插件宕机的问题。
-
-## 2.00.10
-
-### 优化
-
-- 函数 eventGetParts , getOffsetPosition , getOffsetCommitted 增加了返回值。
-
-### bug修复
-
-- 修复了接口 kafka::pollByteStream 不能接收非 JSON 格式数据的问题。
-- 修复了多线程操作导致的server 宕机问题。
 
