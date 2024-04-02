@@ -65,7 +65,7 @@ make install
 
   时延的定义：'amd 回调函数返回数据' 到 '准备开始 transform' 处理，或准备 append 到共享流表前’ 这段时间。
 
-如果需要启用合并类型 'bondExecution'，'orderExecution'，'fundOrderExecution'，则 ReceivedTime 和 DailyIndex 必须指定为 true。
+如果需要启用合并类型 'bondExecution'，'orderExecution'，则 ReceivedTime 和 DailyIndex 必须指定为 true。
 
 **函数详情**
 
@@ -79,16 +79,16 @@ make install
 
 `handle` connect 接口返回的句柄。
 
-`type` 字符串标量，表示行情的类型，可取以下值：'snapshot'（股票快照）, 'execution'（股票逐笔成交）, 'order'（股票逐笔委托）, 'index'（指数）, 'orderQueue'（委托队列）, 'fundSnapshot'（基金快照）, 'fundExecution'（基金逐笔成交），'fundOrder'（基金逐笔委托），'bondSnapshot'（债券快照），'bondOrder'（债券逐笔委托），'bondExecution'（债券逐笔成交），'orderExecution'（股票逐笔委托、逐笔成交合并），'fundOrderExecution'（基金逐笔委托、逐笔成交合并），'bondOrderExecution'（债券逐笔委托、逐笔成交合并），'option' (期权)，'IOPV' （ ETF 基金份额参考净值）。
+`type` 字符串标量，表示行情的类型，可取以下值：'snapshot'（股票快照）, 'execution'（股票逐笔成交）, 'order'（股票逐笔委托）, 'index'（指数）, 'orderQueue'（委托队列）, 'fundSnapshot'（基金快照）, 'fundExecution'（基金逐笔成交），'fundOrder'（基金逐笔委托），'bondSnapshot'（债券快照），'bondOrder'（债券逐笔委托），'bondExecution'（债券逐笔成交），'orderExecution'（股票基金逐笔委托、逐笔成交合并），'bondOrderExecution'（债券逐笔委托、逐笔成交合并），'option' (期权)，'IOPV' （ ETF 基金份额参考净值），'future'（期货）。注意 orderExecution 同时包含基金和股票数据。
 
 注意，最后三种 type 获取的行情数据中。第一列 `SecurityID 会在末尾加上 '.SZ' 或者 '.SH'
 
-`outputTable` 如果 type 类型**不是**合并类型 'bondExecution'，'orderExecution'，'fundOrderExecution'，则表示一个 共享流表 或者 IPC 表 对象， 需要在订阅前创建。该表的 schema 需要和获取的行情数据结构一致。可以通过插件提供的 getSchema 函数来获取行情数据的 schema。
+`outputTable` 如果 type 类型**不是**合并类型 'bondExecution'，'orderExecution'，则表示一个 共享流表 或者 IPC 表 对象， 需要在订阅前创建。该表的 schema 需要和获取的行情数据结构一致。可以通过插件提供的 getSchema 函数来获取行情数据的 schema。
 
-如果 type 类型是合并类型 'bondExecution'，'orderExecution'，'fundOrderExecution'。则该参数需要传入一个字典。字典的 key 为整型标量，指代特定的 channel，需要大于 0。字典的 value 为 共享流表 或 IPC 表。流表的 schema 需要和获取的行情数据结构一致。
+如果 type 类型是合并类型 'bondExecution'，'orderExecution'。则该参数需要传入一个字典。字典的 key 为整型标量，指代特定的 channel，需要大于 0。字典的 value 为 共享流表 或 IPC 表。流表的 schema 需要和获取的行情数据结构一致。
 
 `marketType` 整型标量。表示市场类型。需要和 AMD 中定义的市场类型一致。**amdQuote 插件不支持订阅全部市场，因此必须填写具体的市场代码如 101。**
-注意，如果 type 类型是合并类型 'bondExecution'，'orderExecution'，'fundOrderExecution'，则一次只能订阅一种市场，重新订阅后将不会收到之前订阅的市场的数据。
+注意，如果 type 类型是合并类型 'bondExecution'，'orderExecution'，则一次只能订阅一种市场，重新订阅后将不会收到之前订阅的市场的数据。
 
 `codeList` 字符串向量，可选。表示股票列表。不传该参数表示订阅所有股票。
 
@@ -106,7 +106,7 @@ make install
 
 `handle` connect 接口返回的句柄。
 
-`dataType` 字符串标量，表示行情的类型，可取以下值：'snapshot', 'execution', 'order', 'index', 'orderQueue', 'fundSnapshot', 'fundExecution', 'fundOrder', 'bondSnapshot', 'bondOrder', 'bondExecution'，'orderExecution'，'fundOrderExecution'，'bondOrderExecution'，'option'，'IOPV' 和 'all'。其中，'all' 表示取消所有订阅。
+`type` 字符串标量，表示行情的类型，可取以下值：'snapshot', 'execution', 'order', 'index', 'orderQueue', 'fundSnapshot', 'fundExecution', 'fundOrder', 'bondSnapshot', 'bondOrder', 'bondExecution'，'orderExecution'，'bondOrderExecution'，'option'，'IOPV'，'future' 和 'all'。其中，'all' 表示取消所有订阅。
 
 `marketType` 整型标量，表示市场类型，需要和 AMD 中定义的市场类型一致。
 
@@ -115,8 +115,8 @@ make install
 **函数详情**
 
 取消对行情数据的订阅。
-* 如果 *dataType* 指定为 'all'，表示取消所有订阅，此时无需指定 *marketType* 和 *codeList*。
-* 如果 *dataType* 指定非 'all' 的值：
+* 如果 *type* 指定为 'all'，表示取消所有订阅，此时无需指定 *marketType* 和 *codeList*。
+* 如果 *type* 指定非 'all' 的值：
   * 只指定 *marketType*，表示取消 *marketType* 下的所有订阅。
   * 同时指定 *marketType* 和 *codeList*，表示只取消对 *codeList* 的订阅。
 
@@ -136,13 +136,19 @@ make install
 
 **参数**
 
-`type` 字符串标量，表示行情的类型，可取以下值：'snapshot', 'execution', 'order', 'index', 'orderQueue', 'fundSnapshot', 'fundExecution', 'fundOrder', 'bondSnapshot', 'bondOrder'，'option'，'IOPV' 和 'bondExecution'，'orderExecution'，'fundOrderExecution'，'bondOrderExecution'。
+`type` 字符串标量，表示行情的类型，可取以下值：'snapshot', 'execution', 'order', 'index', 'orderQueue', 'fundSnapshot', 'fundExecution', 'fundOrder', 'bondSnapshot', 'bondOrder'，'option'，'IOPV'，'future' 和 'bondExecution'，'orderExecution'，'bondOrderExecution'。
+
+注意 orderExecution 同时包含基金和股票数据。
 
 **函数详情**
 
 该函数应该在 connect 函数之后调用。获取行情数据的表结构。返回一个表，包含三列：name，type 和 typeInt，分别表示该行情表中 字段的名字，字段类型的名称和类型的枚举值。通过该表来创建具有相同结构的共享流表。
 
 如果在 amdQuote::connect 中指定了 options，在返回的 schema 中会增加对应的列。如果指定了`ReceivedTime`为 true，则会增加一个 NANOTIMESTAMP 类型列 `receivedTime`；如果指定了`DailyIndex`为 true，则会增加一个 LONG 类型列 `dailyIndex`；如果指定了`OutputElapsed`为 true，则会增加一个 LONG 类型列 `perPenetrationTime`
+
+目前 getSchema 函数返回的个别字段的命名与行情数据中的字段名不同，使用中需要注意：
+
+* execution、bondExecution 类型对应行情数据的第 9 列字段名为 `bidApplSeqNum`，而该函数返回的字段名为 `bidAppSeqNum`。
 
 ### 2.6. **amdQuote::getStatus(handle)**
 
@@ -176,11 +182,11 @@ make install
 
 获取当前已有的 AMD 连接句柄。如果尚未连接则抛出异常。
 
-### 2.8. **amdQuote::getCodeList()**
+### 2.8. **amdQuote::getCodeList([market])**
 
 **参数**
 
-无
+`market` 可选，类型为整型向量，为需要查询的市场代码所组成的向量。如果不填写将会默认查询上交所与深交所。支持传入 0 即华锐定义的 kNone 市场类型，可以查询所有市场。
 
 **函数详情**
 
@@ -188,17 +194,11 @@ make install
 
 Amd sdk 版本为 3.9.6 的插件不支持该函数
 
-### 2.9. **amdQuote::getETFCodeList()**
+### 2.9. **amdQuote::getETFCodeList([market])**
 
 **参数**
 
-无
-
-**函数详情**
-
-获取当前连接下的 ETF 代码表结构。
-
-Amd sdk 版本为 3.9.6 的插件不支持该函数
+`market` 可选，类型为整型向量，为需要查询的市场代码所组成的向量。如果不填写将会默认查询上交所与深交所。支持传入 0 即华锐定义的 kNone 市场类型，可以查询所有市场。
 
 ### 2.10. **amdQuote::setLogError(flag)**
 
@@ -279,11 +279,18 @@ amdQuote::close(handle)
 
 # Release Notes
 
+## 2.00.11.1
+
+### 新功能
+
+- 支持接收期货数据。
+- 在 log 中增加输出华锐 SDK 的 log。
+
 ## 2.00.11
 
 ### 新功能
 
-- 持接收 ETF 期权与 IOPV 数据（支持华锐 SDK 3.9.8 及以后版本）
+- 支持接收 ETF 期权与 IOPV 数据（支持华锐 SDK 3.9.8 及以后版本）
 - 新增 getHandle 接口，获取已连接的句柄。
 - 接口 getStatus 新增返回内容 processedMsgCount，显示已经处理的消息数。
 - 新增支持华锐 SDK 4.3.0 版本。

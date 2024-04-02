@@ -283,6 +283,7 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments) {
                 snapshot[0].exec_type = 'F';
                 snapshot[0].md_stream_id[0] = '\0';
                 amdSpi->pushBondExecutionData(snapshot, 1, time);
+                delete[] snapshot;
             }
         } else if (amdDataType == AMD_ORDER || amdDataType == AMD_FUND_ORDER) {
             for (int i = 0; i < cnt; ++i) {
@@ -332,6 +333,7 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments) {
                 snapshot[0].md_stream_id[0] = '\0';
                 snapshot[0].orig_order_no = i + bias++;
                 amdSpi->pushBondOrderData(snapshot, 1, time);
+                delete[] snapshot;
             }
         } else if (amdDataType == AMD_INDEX) {
             for (int i = 0; i < cnt; ++i) {
@@ -384,6 +386,7 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments) {
                 fill(snapshot[0].volume, 50, i);
                 snapshot[0].md_stream_id[0] = '\0';
                 amdSpi->pushOrderQueueData(snapshot, 1, time);
+                delete[] snapshot;
             }
         } else if (amdDataType == AMD_OPTION_SNAPSHOT) {
             for (int i = 0; i < cnt; ++i) {

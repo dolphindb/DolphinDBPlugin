@@ -19,6 +19,11 @@ static const int ZX_DAILY_TIME = 31200000;
 static const unordered_set<string> OPTION_SET = {"DailyIndex", "ReceivedTime", "StartTime", "OutputElapsed", "SecurityCodeToInt"};
 const long long AMD_MIN_CONNECT_MEMORY = 250 * 1024 * 1024;
 
+void marketVerify(int market, const string &funcName, const string &syntax) {
+    if(market < amd::ama::MarketType::kNone || market > amd::ama::MarketType::kMax) {
+        throw IllegalArgumentException(funcName, syntax + "invalid market: " + std::to_string(market) + ".");
+    }
+}
 void closeAmd(Heap *heap, vector<ConstantSP> &arguments) { AMD_HANDLE_MAP.safeRemoveWithoutException(arguments[0]); }
 
 // Check to see if the available memory is sufficient for initialization
@@ -92,7 +97,7 @@ ConstantSP amdConnect(Heap *heap, vector<ConstantSP> &arguments) {
         }
 
         ConstantSP value = options->getMember("ReceivedTime");
-        if (!value.isNull() && !value->isNull()) {
+        if (!value->isNull()) {
             if (value->getType() != DT_BOOL || value->getForm() != DF_SCALAR) {
                 throw IllegalArgumentException(
                     "amdQuote::connect", usage + "value type of key 'ReceivedTime' in options must be BOOLEAN SCALAR");
@@ -100,7 +105,7 @@ ConstantSP amdConnect(Heap *heap, vector<ConstantSP> &arguments) {
             receivedTime = value->getBool();
         }
         value = options->getMember("DailyIndex");
-        if (!value.isNull() && !value->isNull()) {
+        if (!value->isNull()) {
             if (value->getType() != DT_BOOL || value->getForm() != DF_SCALAR) {
                 throw IllegalArgumentException(
                     "amdQuote::connect", usage + "value type of key 'DailyIndex' in options must be BOOLEAN SCALAR");
@@ -108,7 +113,7 @@ ConstantSP amdConnect(Heap *heap, vector<ConstantSP> &arguments) {
             dailyIndex = value->getBool();
         }
         value = options->getMember("StartTime");
-        if (!value.isNull() && !value->isNull()) {
+        if (!value->isNull()) {
             if (value->getType() != DT_TIME || value->getForm() != DF_SCALAR) {
                 throw IllegalArgumentException("amdQuote::connect",
                                                usage + "value type of key 'StartTime' in options must be TIME SCALAR");
@@ -116,7 +121,7 @@ ConstantSP amdConnect(Heap *heap, vector<ConstantSP> &arguments) {
             dailyStartTime = value->getInt();
         }
         value = options->getMember("OutputElapsed");
-        if (!value.isNull() && !value->isNull()) {
+        if (!value->isNull()) {
             if (value->getType() != DT_BOOL || value->getForm() != DF_SCALAR) {
                 throw IllegalArgumentException(
                     "amdQuote::connect", usage + "value type of key 'OutputElapsed' in options must be TIME SCALAR");
@@ -124,7 +129,7 @@ ConstantSP amdConnect(Heap *heap, vector<ConstantSP> &arguments) {
             outputElapsed = value->getInt();
         }
         value = options->getMember("SecurityCodeToInt");
-        if (!value.isNull() && !value->isNull()) {
+        if (!value->isNull()) {
             if (value->getType() != DT_BOOL || value->getForm() != DF_SCALAR) {
                 throw IllegalArgumentException(__FUNCTION__, "value of 'SecurityCodeToInt' must be boolean");
             }
@@ -177,12 +182,12 @@ bool checkDict(string type, ConstantSP dict) {
         ConstantSP value = dict->getMember(keys->get(index));
         if (value->getForm() != DF_TABLE) {
             throw RuntimeException(AMDQUOTE_PREFIX +
-                                   "The third parameter dict's value should be shared stream table or IPC table");
+                                   "The third parameter dict's value should be shared stream table or IPC table or stream engine");
         }
-        TABLE_TYPE tbl_type = ((TableSP)value)->getTableType();
-        if(!(tbl_type == REALTIMETBL && ((TableSP)value)->isSharedTable()) && tbl_type != IPCTBL) {
+        TABLE_TYPE tblType = ((TableSP)value)->getTableType();
+        if(!(tblType == REALTIMETBL && ((TableSP)value)->isSharedTable()) && tblType != IPCTBL && tblType != STREAMENGINE) {
             throw RuntimeException(AMDQUOTE_PREFIX +
-                                    "The third parameter dict's value should be shared stream table or IPC table");
+                                    "The third parameter dict's value should be shared stream table, IPC table or stream engine");
         }
         // TODO more column quantity & type check
         // if (!checkSchema(type, (TableSP)value)) {
@@ -207,12 +212,13 @@ ConstantSP subscribe(Heap *heap, vector<ConstantSP> &arguments) {
     string type = arguments[1]->getString();
 
     ConstantSP table = arguments[2];
-    if (type == "orderExecution" || type == "fundOrderExecution" || type == "bondOrderExecution") {
+    if (type == "orderExecution" || type == "bondOrderExecution") {
         if (!(table->getForm() == DF_DICTIONARY && checkDict(type, table))) {
             string errMsg = "type [" + type + "] must pass a dict with int key and table value into the third argument";
             throw IllegalArgumentException("amdQuote::subscribe", usage + errMsg);
         }
     } else {
+        getAmdDataType(type); // use to check if type is legal, if illegal would throw exception
         if (!(table->getForm() == DF_TABLE && ((TableSP)table)->getTableType() == REALTIMETBL &&
               ((TableSP)table)->isSharedTable())) {
             if (!(table->getForm() == DF_TABLE && ((TableSP)table)->getTableType() == IPCTBL)) {
@@ -229,7 +235,9 @@ ConstantSP subscribe(Heap *heap, vector<ConstantSP> &arguments) {
             throw IllegalArgumentException("amdQuote::subscribe", usage + "market should be INTEGRAL SCALAR");
         }
         marketType = arguments[3]->getInt();
+        marketVerify(marketType, "amdQuote::unsubscribe", usage);
     }
+    if(marketType == 0) {throw IllegalArgumentException("amdQuote::subscribe", usage + "doesn't support market kNone(0).");}
 
     std::vector<string> codeList;
     if (arguments.size() > 4 && !arguments[4]->isNull()) {
@@ -288,7 +296,9 @@ ConstantSP unsubscribe(Heap *heap, vector<ConstantSP> &arguments) {
             throw IllegalArgumentException("amdQuote::unsubscribe", usage + "market must be INTEGRAL SCALAR");
         }
         marketType = arguments[2]->getInt();
+        marketVerify(marketType, "amdQuote::unsubscribe", usage);
     }
+    if(marketType == 0) {throw IllegalArgumentException("amdQuote::unsubscribe", usage + "doesn't support market kNone(0).");}
     std::vector<string> codeList;
     if (arguments.size() > 3) {
         if (arguments[3]->getForm() != DF_VECTOR || arguments[3]->getType() != DT_STRING) {
@@ -313,12 +323,12 @@ ConstantSP amdClose(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP getSchema(Heap *heap, vector<ConstantSP> &arguments) {
-    string usage("amdQuote::getSchema(dataType) ");
+    string usage("amdQuote::getSchema(type) ");
     if (AMD_HANDLE_MAP.size() != 1) {
         throw RuntimeException(AMDQUOTE_PREFIX + " please call the connect function first");
     }
     if (arguments[0]->getForm() != DF_SCALAR || arguments[0]->getType() != DT_STRING) {
-        throw IllegalArgumentException("amdQuote::getSchema", usage + "dataType should be STRING SCALAR");
+        throw IllegalArgumentException("amdQuote::getSchema", usage + "type should be STRING SCALAR");
     }
     string amdDataType = arguments[0]->getString();
     SmartPointer<AmdQuote> amdQuotePtr = AMD_HANDLE_MAP.safeGetByName(AMD_SINGLETON_NAME);
@@ -349,24 +359,40 @@ ConstantSP getHandle(Heap *heap, vector<ConstantSP> &arguments) {
 
 #ifndef AMD_3_9_6
 ConstantSP getCodeList(Heap *heap, vector<ConstantSP> &arguments) {
-    string usage("amdQuote::getCodeList() ");
+    string usage("amdQuote::getCodeList([market]) ");
     LockGuard<Mutex> amdLock_(&AMD_MUTEX);
     if (AMD_HANDLE_MAP.size() == 0) {
         throw RuntimeException(AMDQUOTE_PREFIX + "call amdQuote::connect before calling getCodeList");
     }
     SmartPointer<AmdQuote> amdQuotePtr = AMD_HANDLE_MAP.safeGetByName(AMD_SINGLETON_NAME);
 
+    vector<int> marketList;
+    if(arguments.size() == 1) {
+        if(arguments[0]->getCategory() != INTEGRAL || arguments[0]->getForm() != DF_VECTOR) {
+            throw IllegalArgumentException("amdQuote::getCodeList", usage + "markets must be integer vector.");
+        }
+        for(int i = 0; i < arguments[0]->size(); ++i) {
+            long long market = arguments[0]->getLong(i);
+            marketVerify(market, "amdQuote::getCodeList", usage);
+            marketList.emplace_back(market);
+        }
+    } else {
+        marketList = {amd::ama::MarketType::kSZSE, amd::ama::MarketType::kSSE};
+    }
+
     amd::ama::CodeTableRecordList list;
-    amd::ama::SubCodeTableItem sub[2];
-    memset(sub, 0, sizeof(sub));
-    sub[0].market = amd::ama::MarketType::kSZSE;  //查询深交所代码表的数据
-    strcpy(sub[0].security_code, "\0");           //查询全部代码代码表的数据
-    sub[1].market = amd::ama::MarketType::kSSE;   //查询上交所代码表的数据
-    strcpy(sub[1].security_code, "\0");           //查询全部代码代码表的数据
+    amd::ama::SubCodeTableItem* sub = new amd::ama::SubCodeTableItem[marketList.size()];
+    PluginDefer defer([=](){
+        delete[] sub;
+    });
+    for (auto i = 0u; i <marketList.size(); ++i) {
+        sub[i].market = marketList[i];
+        strcpy(sub[i].security_code, "\0");
+    }
 
     bool ret;
     try {
-        ret = amd::ama::IAMDApi::GetCodeTableList(list, sub, 2);
+        ret = amd::ama::IAMDApi::GetCodeTableList(list, sub, marketList.size());
     } catch (std::exception &exception) {
         throw RuntimeException(string(AMDQUOTE_PREFIX + "") + exception.what());
     }
@@ -542,25 +568,40 @@ ConstantSP getCodeList(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP getETFCodeList(Heap *heap, vector<ConstantSP> &arguments) {
-    string usage("amdQuote::getETFCodeList() ");
+    string usage("amdQuote::getETFCodeList([market]) ");
     LockGuard<Mutex> amdLock_(&AMD_MUTEX);
     if (AMD_HANDLE_MAP.size() == 0) {
         throw RuntimeException(AMDQUOTE_PREFIX + "call amdQuote::connect before calling getETFCodeList");
     }
     SmartPointer<AmdQuote> amdQuotePtr = AMD_HANDLE_MAP.safeGetByName(AMD_SINGLETON_NAME);
 
+    vector<int> marketList;
+    if(arguments.size() == 1) {
+        if(arguments[0]->getCategory() != INTEGRAL || arguments[0]->getForm() != DF_VECTOR) {
+            throw IllegalArgumentException("amdQuote::getETFCodeList", usage + "markets must be integer vector.");
+        }
+        for(int i = 0; i < arguments[0]->size(); ++i) {
+            long long market = arguments[0]->getLong(i);
+            marketVerify(market, "amdQuote::getETFCodeList", usage);
+            marketList.emplace_back(market);
+        }
+    } else {
+        marketList = {amd::ama::MarketType::kSZSE, amd::ama::MarketType::kSSE};
+    }
+
     amd::ama::ETFCodeTableRecordList list;
+    amd::ama::ETFItem * etf = new amd::ama::ETFItem[marketList.size()];
+    PluginDefer defer([=](){
+        delete[] etf;
+    });
+    for (auto i = 0u; i <marketList.size(); ++i) {
+        etf[i].market = marketList[i];
+        strcpy(etf[i].security_code, "\0");
+    }
 
-    amd::ama::ETFItem etf[2];
-    memset(etf, 0, sizeof(etf));
-    etf[0].market = amd::ama::MarketType::kSZSE;  //查询深交所ETF代码表的数据
-    strcpy(etf[0].security_code, "\0");           //查询全部代码ETF代码表的数据
-
-    etf[1].market = amd::ama::MarketType::kSSE;  //查询上交所ETF代码表的数据
-    strcpy(etf[1].security_code, "\0");          //查询全部代码ETF代码表的数据
     bool ret;
     try {
-        ret = amd::ama::IAMDApi::GetETFCodeTableList(list, etf, 2);
+        ret = amd::ama::IAMDApi::GetETFCodeTableList(list, etf, marketList.size());
     } catch (std::exception &exception) {
         throw RuntimeException(string(AMDQUOTE_PREFIX + "") + exception.what());
     }

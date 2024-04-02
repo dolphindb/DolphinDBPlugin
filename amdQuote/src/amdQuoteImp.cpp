@@ -24,10 +24,6 @@ AmdQuote::AmdQuote(const string &username, const string &password, const vector<
         initTypeContainer(amdTypeContainer_);
     }
 
-    if (ips.size() != ports.size()) {
-        throw RuntimeException(AMDQUOTE_PREFIX + "connect to Amd Failed, ips num not equal to ports");
-    }
-
     // The configuration is detailed in the AMD header file
     cfg_.channel_mode = amd::ama::ChannelMode::kTCP;
     cfg_.tcp_compress_mode = 0;
@@ -108,10 +104,6 @@ uint64_t getSubscribeDataType(AMDDataType dataType) {
             return amd::ama::SubscribeSecuDataType::kTickExecution;
         case AMD_BOND_ORDER:
             return amd::ama::SubscribeSecuDataType::kTickOrder;
-        case AMD_ORDER_EXECUTION:
-        case AMD_FUND_ORDER_EXECUTION:
-        case AMD_BOND_ORDER_EXECUTION:
-            throw RuntimeException(AMDQUOTE_PREFIX + "getSubscribeDataType() don't support orderExecution.");
         case AMD_INDEX:
             return amd::ama::SubscribeSecuDataType::kSnapshot;
         case AMD_ORDER_QUEUE:
@@ -124,9 +116,8 @@ uint64_t getSubscribeDataType(AMDDataType dataType) {
         case AMD_IOPV_SNAPSHOT:
             return amd::ama::SubscribeSecuDataType::kSnapshot;
 #endif
-        case AMD_ERROR_DATA_TYPE:
         default:
-            throw RuntimeException(AMDQUOTE_PREFIX + "Invalid dataType.");
+            throw RuntimeException(AMDQUOTE_PREFIX + "Invalid dataType " + std::to_string(dataType) + ".");
     }
 }
 
@@ -151,9 +142,7 @@ uint64_t getSubscribeCategoryType(AMDDataType dataType) {
         case AMD_BOND_ORDER:
             return amd::ama::SubscribeCategoryType::kBond;
         case AMD_ORDER_EXECUTION:
-            return amd::ama::SubscribeCategoryType::kStock;
-        case AMD_FUND_ORDER_EXECUTION:
-            return amd::ama::SubscribeCategoryType::kFund;
+            return amd::ama::SubscribeCategoryType::kStock | amd::ama::SubscribeCategoryType::kFund;
         case AMD_BOND_ORDER_EXECUTION:
             return amd::ama::SubscribeCategoryType::kBond;
         case AMD_INDEX:
@@ -168,9 +157,8 @@ uint64_t getSubscribeCategoryType(AMDDataType dataType) {
         case AMD_IOPV_SNAPSHOT:
             return amd::ama::SubscribeDerivedDataType::kIOPVSnapshot;
 #endif
-        case AMD_ERROR_DATA_TYPE:
         default:
-            throw RuntimeException(AMDQUOTE_PREFIX + "Invalid dataType.");
+            throw RuntimeException(AMDQUOTE_PREFIX + "Invalid dataType " + std::to_string(dataType) + ".");
     }
 }
 
@@ -214,7 +202,7 @@ void AmdQuote::addSubscribe(Heap *heap, const string &typeName, AMDDataType amdT
     if (receivedTime_) flag |= OPT_RECEIVED;
     if (outputElapsed_) flag |= OPT_ELAPSED;
     if (dailyIndex_) flag |= OPT_DAILY_INDEX;
-    if (amdType == AMD_ORDER_EXECUTION || amdType == AMD_FUND_ORDER_EXECUTION || amdType == AMD_BOND_ORDER_EXECUTION) {
+    if (amdType == AMD_ORDER_EXECUTION || amdType == AMD_BOND_ORDER_EXECUTION) {
         flag &= OPT_ELAPSED;
     }
     // FUTURE add schema checking logic
@@ -241,7 +229,12 @@ void AmdQuote::subscribe(Heap *heap, const string &typeName, int market, vector<
         dailyStartTime = LONG_LONG_MIN;
     }
 
-    if (amdType == AMD_ORDER_EXECUTION || amdType == AMD_FUND_ORDER_EXECUTION || amdType == AMD_BOND_ORDER_EXECUTION) {
+    if (amdType == AMD_ORDER_EXECUTION) {
+        doSubscribe(market, codeList, amd::ama::SubscribeSecuDataType::kTickOrder, amd::ama::SubscribeCategoryType::kStock , typeName);
+        doSubscribe(market, codeList, amd::ama::SubscribeSecuDataType::kTickOrder, amd::ama::SubscribeCategoryType::kFund, typeName);
+        doSubscribe(market, codeList, amd::ama::SubscribeSecuDataType::kTickExecution, amd::ama::SubscribeCategoryType::kStock , typeName);
+        doSubscribe(market, codeList, amd::ama::SubscribeSecuDataType::kTickExecution, amd::ama::SubscribeCategoryType::kFund, typeName);
+    } else if (amdType == AMD_BOND_ORDER_EXECUTION) {
         doSubscribe(market, codeList, amd::ama::SubscribeSecuDataType::kTickOrder, categoryType, typeName);
         doSubscribe(market, codeList, amd::ama::SubscribeSecuDataType::kTickExecution, categoryType, typeName);
     } else {
@@ -310,7 +303,7 @@ void AmdQuote::unsubscribe(const string &dataType, int market, vector<string> co
         try {
             if (amd::ama::IAMDApi::SubscribeData(amd::ama::SubscribeType::kCancelAll, sub, 1) !=
                 amd::ama::ErrorCode::kSuccess) {
-                throw RuntimeException("unsubscribe all err");
+                throw RuntimeException("unsubscribe all market failed");
             }
         } catch (std::exception &exception) {
             throw RuntimeException(AMDQUOTE_PREFIX + exception.what());
@@ -321,7 +314,12 @@ void AmdQuote::unsubscribe(const string &dataType, int market, vector<string> co
     AMDDataType amdType = getAmdDataType(dataType);
     uint64_t categoryType = getSubscribeCategoryType(amdType);
     // stop async threads
-    if (amdType == AMD_ORDER_EXECUTION || amdType == AMD_FUND_ORDER_EXECUTION || amdType == AMD_BOND_ORDER_EXECUTION) {
+    if (amdType == AMD_ORDER_EXECUTION) {
+        doUnSubscribe(market, codeList, amd::ama::SubscribeSecuDataType::kTickOrder, amd::ama::SubscribeCategoryType::kStock , dataType);
+        doUnSubscribe(market, codeList, amd::ama::SubscribeSecuDataType::kTickOrder, amd::ama::SubscribeCategoryType::kFund, dataType);
+        doUnSubscribe(market, codeList, amd::ama::SubscribeSecuDataType::kTickExecution, amd::ama::SubscribeCategoryType::kStock , dataType);
+        doUnSubscribe(market, codeList, amd::ama::SubscribeSecuDataType::kTickExecution, amd::ama::SubscribeCategoryType::kFund, dataType);
+    } else if (amdType == AMD_BOND_ORDER_EXECUTION) {
         doUnSubscribe(market, codeList, amd::ama::SubscribeSecuDataType::kTickOrder, categoryType, dataType);
         doUnSubscribe(market, codeList, amd::ama::SubscribeSecuDataType::kTickExecution, categoryType, dataType);
     } else {

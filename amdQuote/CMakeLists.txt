@@ -30,7 +30,6 @@ option(DDB_USE_ASAN
 
 set(PLUGIN_COMPILE_DEFINITIONS
     "-DLOCKFREE_SYMBASE"
-    "-D_GLIBCXX_USE_CXX11_ABI=1"
 )
 set(PLUGIN_COMPILE_OPTIONS
     "-std=c++11"
@@ -68,6 +67,16 @@ elseif (WIN32)
 else ()
     message(FATAL_ERROR "Unsupported platform.")
 endif ()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "5.0")
+        list(APPEND PLUGIN_COMPILE_DEFINITIONS "-D_GLIBCXX_USE_CXX11_ABI=0")
+        message(STATUS "Use ABI=0")
+    else()
+        list(APPEND PLUGIN_COMPILE_DEFINITIONS "-D_GLIBCXX_USE_CXX11_ABI=1")
+        message(STATUS "Use ABI=1")
+    endif()
+endif()
 
 # Cmake Build Type
 if (NOT CMAKE_BUILD_TYPE)

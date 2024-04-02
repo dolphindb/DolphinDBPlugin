@@ -26,7 +26,6 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
         LOG_INFO(AMDQUOTE_PREFIX + "release AMDSpiImp");
         removeAll();
     }
-    string transMarket(int type);
     TableSP getStatus() {
         vector<string> colNames{"topicType",
                                 "market",
@@ -104,7 +103,6 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
         lastFailedTimestampVec.emplace_back(status->getMember(LAST_FAILED_TIMESTAMP_STR)->getLong()); \
     }
         GET_ORDER_EXECUTION_STATISTICS(orderExecutionQueueMap_, "orderExecution");
-        GET_ORDER_EXECUTION_STATISTICS(fundOrderExecutionQueueMap_, "fundOrderExecution");
         GET_ORDER_EXECUTION_STATISTICS(bondOrderExecutionQueueMap_, "bondOrderExecution");
 #undef GET_ORDER_EXECUTION_STATISTICS
 
@@ -122,16 +120,27 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
         VectorSP lastFailedTimestampDdbVec = Util::createVector(DT_NANOTIMESTAMP, 0, size);
 
         topicTypeDdbVec->appendString(topicTypeVec.data(), size);
+        topicTypeDdbVec->setNullFlag(true);
         marketDdbVec->appendInt(marketVec.data(), size);
+        marketDdbVec->setNullFlag(true);
         channelDdbVec->appendInt(channelVec.data(), size);
+        channelDdbVec->setNullFlag(true);
         startTimeDdbVec->appendLong(startTimeVec.data(), size);
+        startTimeDdbVec->setNullFlag(true);
         firstMsgTimeDdbVec->appendLong(firstMsgTimeVec.data(), size);
+        firstMsgTimeDdbVec->setNullFlag(true);
         lastMsgTimeDdbVec->appendLong(lastMsgTimeVec.data(), size);
+        lastMsgTimeDdbVec->setNullFlag(true);
         endTimeDdbVec->appendLong(endTimeVec.data(), size);
+        endTimeDdbVec->setNullFlag(true);
         processedMsgCountDdbVec->appendLong(processedMsgCountVec.data(), size);
+        processedMsgCountDdbVec->setNullFlag(true);
         lastErrMsgDdbVec->appendString(lastErrMsgVec.data(), size);
+        lastErrMsgDdbVec->setNullFlag(true);
         failedMsgCountDdbVec->appendLong(failedMsgCountVec.data(), size);
+        failedMsgCountDdbVec->setNullFlag(true);
         lastFailedTimestampDdbVec->appendLong(lastFailedTimestampVec.data(), size);
+        lastFailedTimestampDdbVec->setNullFlag(true);
 
         vector<ConstantSP> cols{topicTypeDdbVec,
                                 marketDdbVec,
@@ -206,19 +215,12 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
              * functions has same push logic
              */
             market += channel * ORDER_EXECUTION_OFFSET;
-            if (ticks[i].variety_category == 1) {
-                if (orderExecutionQueueMap_.find(market) != orderExecutionQueueMap_.end()) {
-                    MDOrderExecution data{true, time, {}};
-                    data.uni.tickOrder = ticks[i];
-                    orderExecutionQueueMap_[market]->push(data);
-                }
-            } else {
-                if (fundOrderExecutionQueueMap_.find(market) != fundOrderExecutionQueueMap_.end()) {
-                    MDOrderExecution data{true, time, {}};
-                    data.uni.tickOrder = ticks[i];
-                    fundOrderExecutionQueueMap_[market]->push(data);
-                }
+            if (orderExecutionQueueMap_.find(market) != orderExecutionQueueMap_.end()) {
+                MDOrderExecution data{true, time, {}};
+                data.uni.tickOrder = ticks[i];
+                orderExecutionQueueMap_[market]->push(data);
             }
+
         }
     }
     void pushExecutionData(amd::ama::MDTickExecution *ticks, uint32_t cnt, long long time) {
@@ -232,18 +234,10 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
             }
             int channel = ticks[i].channel_no;
             market += channel * ORDER_EXECUTION_OFFSET;
-            if (ticks[i].variety_category == 1) {
-                if (orderExecutionQueueMap_.find(market) != orderExecutionQueueMap_.end()) {
-                    MDOrderExecution data{false, time, {}};
-                    data.uni.tickExecution = ticks[i];
-                    orderExecutionQueueMap_[market]->push(data);
-                }
-            } else {
-                if (fundOrderExecutionQueueMap_.find(market) != fundOrderExecutionQueueMap_.end()) {
-                    MDOrderExecution data{false, time, {}};
-                    data.uni.tickExecution = ticks[i];
-                    fundOrderExecutionQueueMap_[market]->push(data);
-                }
+            if (orderExecutionQueueMap_.find(market) != orderExecutionQueueMap_.end()) {
+                MDOrderExecution data{false, time, {}};
+                data.uni.tickExecution = ticks[i];
+                orderExecutionQueueMap_[market]->push(data);
             }
         }
     }
@@ -358,6 +352,10 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
 
     virtual void OnEvent(uint32_t level, uint32_t code, const char *event_msg, uint32_t len) override;
 
+    virtual void OnLog(const int32_t& level, const char* log, uint32_t len) override;
+
+    virtual void OnIndicator(const char* indicator, uint32_t len) override;
+
     void addThreadedQueue(Heap *heap, const string &typeName, AMDDataType type, int key, TableSP table,
                           FunctionDefSP transform, MetaTable meta, TableSP schema, int optionFlag,
                           long long dailyStartTime, bool securityCodeToInt) {
@@ -416,8 +414,6 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
                                    return bondOrderReader(buffer, data, securityCodeToInt);
                                })
             ADD_THREADED_QUEUE(AMD_ORDER_EXECUTION, orderExecutionQueueMap_, MDOrderExecution, orderExecutionReader)
-            ADD_THREADED_QUEUE(AMD_FUND_ORDER_EXECUTION, fundOrderExecutionQueueMap_, MDOrderExecution,
-                               orderExecutionReader)
             ADD_THREADED_QUEUE(AMD_BOND_ORDER_EXECUTION, bondOrderExecutionQueueMap_, MDBondOrderExecution,
                                bondOrderExecutionReader)
             ADD_THREADED_QUEUE(AMD_INDEX, indexQueueMap_, timeMDIndexSnapshot,
@@ -466,7 +462,6 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
         ERASE_IF_EXIST(fundExecutionQueueMap_)
         ERASE_IF_EXIST(bondExecutionQueueMap_)
         ERASE_IF_EXIST(orderExecutionQueueMap_)
-        ERASE_IF_EXIST(fundOrderExecutionQueueMap_)
         ERASE_IF_EXIST(bondOrderExecutionQueueMap_)
         ERASE_IF_EXIST(indexQueueMap_)
         ERASE_IF_EXIST(orderQueueQueueMap_)
@@ -512,7 +507,6 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
             ERASE_IF_EXIST(AMD_BOND_EXECUTION, bondExecutionQueueMap_)
             ERASE_IF_EXIST(AMD_BOND_ORDER, bondOrderQueueMap_)
             ERASE_MERGE_IF_EXIST(AMD_ORDER_EXECUTION, orderExecutionQueueMap_)
-            ERASE_MERGE_IF_EXIST(AMD_FUND_ORDER_EXECUTION, fundOrderExecutionQueueMap_)
             ERASE_MERGE_IF_EXIST(AMD_BOND_ORDER_EXECUTION, bondOrderExecutionQueueMap_)
             ERASE_IF_EXIST(AMD_INDEX, indexQueueMap_)
             ERASE_IF_EXIST(AMD_ORDER_QUEUE, orderQueueQueueMap_)
@@ -552,7 +546,6 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
     unordered_map<int, SmartPointer<ThreadedQueue<timeMDBondTickExecution>>> bondExecutionQueueMap_;
 
     std::unordered_map<int, SmartPointer<ThreadedQueue<MDOrderExecution>>> orderExecutionQueueMap_;
-    std::unordered_map<int, SmartPointer<ThreadedQueue<MDOrderExecution>>> fundOrderExecutionQueueMap_;
     std::unordered_map<int, SmartPointer<ThreadedQueue<MDBondOrderExecution>>> bondOrderExecutionQueueMap_;
 
     SessionSP session_;

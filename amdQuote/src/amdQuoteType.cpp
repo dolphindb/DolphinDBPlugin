@@ -1041,7 +1041,7 @@ void orderExecutionReader(vector<ConstantSP> &buffer, MDOrderExecution &data) {
         ((VectorSP)(buffer[colNum++]))->appendInt(&orderTime, 1);
         string securityIDSource = transMarket(data.uni.tickOrder.market_type);
         ((VectorSP)(buffer[colNum++]))->appendString(&securityIDSource, 1);
-        string securityType("StockType");
+        string securityType = varietyCategory == 1 ? "StockType": "FundType";
         ((VectorSP)(buffer[colNum++]))->appendString(&securityType, 1);
 
         //  make sure DailyIndexFlagTotal always true
@@ -1081,7 +1081,7 @@ void orderExecutionReader(vector<ConstantSP> &buffer, MDOrderExecution &data) {
         ((VectorSP)(buffer[colNum++]))->appendInt(&orderTime, 1);
         string securityIDSource = transMarket(data.uni.tickExecution.market_type);
         ((VectorSP)(buffer[colNum++]))->appendString(&securityIDSource, 1);
-        string securityType("StockType");
+        string securityType = varietyCategory == 1 ? "StockType": "FundType";
         ((VectorSP)(buffer[colNum++]))->appendString(&securityType, 1);
         int DailyIndex = data.uni.tickExecution.appl_seq_num;
         ((VectorSP)(buffer[colNum++]))->appendInt(&DailyIndex, 1);
@@ -1604,14 +1604,12 @@ AMDDataType getAmdDataType(const string &typeStr) {
 #endif
     } else if (typeStr == "orderExecution") {
         return AMD_ORDER_EXECUTION;
-    } else if (typeStr == "fundOrderExecution") {
-        return AMD_FUND_ORDER_EXECUTION;
     } else if (typeStr == "bondOrderExecution") {
         return AMD_BOND_ORDER_EXECUTION;
     } else {
         throw RuntimeException(
-            "DataType should be `snapshot, `execution, `order, `index, `future, `option, `IOPV(Except for amd version 3.9.6), `orderQueue, `fundSnapshot, "
-            "`fundExecution`, `fundOrder, 'orderExecution', 'fundOrderExecution' or 'bondOrderExecution'");
+            "type should be `snapshot, `execution, `order, `index, `future, `option, `IOPV(Except for amd version 3.9.6), `orderQueue, `fundSnapshot, "
+            "`fundExecution`, `fundOrder, 'orderExecution' or 'bondOrderExecution'");
     }
 }
 
@@ -1675,24 +1673,26 @@ int getDailyIndex(DailyIndex &index, timeMDBondTickExecution& data, long long ti
 
 template <>
 int getDailyIndex(DailyIndex &index, MDOrderExecution& data, long long timestamp) {
-    int channelNo = 0;
-    if(data.orderOrExecution) {
-        channelNo = data.uni.tickOrder.channel_no;
-    } else {
-        channelNo = data.uni.tickExecution.channel_no;
-    }
-    return index.getIndex(channelNo, timestamp);
+    // int channelNo = 0;
+    // if(data.orderOrExecution) {
+    //     channelNo = data.uni.tickOrder.channel_no;
+    // } else {
+    //     channelNo = data.uni.tickExecution.channel_no;
+    // }
+    // return index.getIndex(channelNo, timestamp);
+    return INT_MIN;
 }
 
 template <>
 int getDailyIndex(DailyIndex &index, MDBondOrderExecution& data, long long timestamp) {
-    int channelNo = 0;
-    if(data.orderOrExecution) {
-        channelNo = data.uni.tickOrder.channel_no;
-    } else {
-        channelNo = data.uni.tickExecution.channel_no;
-    }
-    return index.getIndex(channelNo, timestamp);
+    // int channelNo = 0;
+    // if(data.orderOrExecution) {
+    //     channelNo = data.uni.tickOrder.channel_no;
+    // } else {
+    //     channelNo = data.uni.tickExecution.channel_no;
+    // }
+    // return index.getIndex(channelNo, timestamp);
+    return INT_MIN;
 }
 
 // TODO(ruibinhuang@dolphindb.com): check the real attributes of the table

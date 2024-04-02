@@ -60,7 +60,6 @@ class AmdQuote {
             case AMD_BOND_ORDER:
                 return amdTypeContainer_.get("order");
             case AMD_ORDER_EXECUTION:
-            case AMD_FUND_ORDER_EXECUTION:
             case AMD_BOND_ORDER_EXECUTION:
                 return amdTypeContainer_.get("orderExecution");
             case AMD_INDEX:
@@ -75,9 +74,8 @@ class AmdQuote {
             case AMD_IOPV_SNAPSHOT:
                 return amdTypeContainer_.get("IOPV");
 #endif
-            case AMD_ERROR_DATA_TYPE:
             default:
-                throw RuntimeException(AMDQUOTE_PREFIX + "Invalid dataType.");
+                throw RuntimeException(AMDQUOTE_PREFIX + "Invalid dataType " + std::to_string(type) + ".");
         }
     }
 
@@ -96,7 +94,6 @@ class AmdQuote {
             case AMD_BOND_ORDER:
                 return amdTypeContainer_.getSchema("order", optionFlag);
             case AMD_ORDER_EXECUTION:
-            case AMD_FUND_ORDER_EXECUTION:
             case AMD_BOND_ORDER_EXECUTION:
                 // special treatment, no flag passed in.
                 return amdTypeContainer_.getSchema("orderExecution", optionFlag & OPT_ELAPSED);
@@ -112,9 +109,8 @@ class AmdQuote {
             case AMD_IOPV_SNAPSHOT:
                 return amdTypeContainer_.getSchema("IOPV", optionFlag);
 #endif
-            case AMD_ERROR_DATA_TYPE:
             default:
-                throw RuntimeException(AMDQUOTE_PREFIX + "Invalid dataType.");
+                throw RuntimeException(AMDQUOTE_PREFIX + "Invalid dataType " + std::to_string(type) + ".");
         }
     }
 
@@ -137,8 +133,8 @@ class AmdQuote {
     bool securityCodeToInt_;
     amd::ama::Cfg cfg_;
     AMDSpiImp *amdSpi_;
-    const string &username_;
-    const string &password_;
+    string username_;
+    string password_;
     vector<string> ips_;
     vector<int> ports_;
     MarketTypeContainer amdTypeContainer_;
