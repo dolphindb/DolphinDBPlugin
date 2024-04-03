@@ -20,6 +20,13 @@
 #include <unistd.h>
 #include <ScalarImp.h>
 
+#ifdef _WIN32
+// Windows doesn't have symbolic links.
+#define lstat stat
+// DO NOT include <io.h>, instead create functions in io_win32.{h,cc} and import
+// them like we do below.
+#endif
+
 #define windowBits 15
 
 int def(std::iostream &srcFile, std::iostream &dstFile, int level);

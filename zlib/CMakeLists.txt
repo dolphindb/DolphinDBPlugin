@@ -11,7 +11,7 @@ include_directories(
 
 if(WIN32)
     set(platform_macro "-DWINDOWS")
-    set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginZlib_win32.txt")
+    set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginZlib_win.txt")
 elseif(UNIX)
     set(platform_macro "-DLINUX")
     set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginZlib.txt")
@@ -40,9 +40,19 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_SOURCE_DIR}/../include)
 
 link_directories("${CMAKE_BINARY_DIR}")
+if (WIN32)
+    link_directories(
+        ${PROJECT_SOURCE_DIR}/lib/Win64
+        ${CMAKE_BINARY_DIR}
+    )
+endif()
 
 aux_source_directory(${PROJECT_SOURCE_DIR}/src  DIR_SRCS)
 
 add_library(PluginZlib SHARED ${DIR_SRCS})
-target_link_libraries(PluginZlib DolphinDB z)
+if(UNIX)
+    target_link_libraries(PluginZlib z)
+elseif(WIN32)
+    target_link_libraries(PluginZlib DolphinDB zlibstatic)
+endif()
 configure_file(${plugin_file} ${CMAKE_BINARY_DIR}/PluginZlib.txt COPYONLY)

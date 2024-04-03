@@ -9,6 +9,7 @@
 #define ZLIBPLUGIN_H_
 
 #include "CoreConcept.h"
+#include "ddbplugin/CommonInterface.h"
 #include "Util.h"
 #include <cstring>
 #include <string>
@@ -24,45 +25,45 @@ extern "C" ConstantSP decompressFile(Heap* heap, vector<ConstantSP>& args);
 
 extern "C" ConstantSP createZlibInputStream(Heap* heap, vector<ConstantSP>& args);
 
-class ZlibBuffer
-{
-public:
-    ZlibBuffer(): ZlibBuffer(50 * CHUNK) { }
-    size_t sgetn(char *buf, size_t size);
-    size_t sputn(const char *buf, size_t size);
-    size_t in_avail() { return cur-exp; }
-    size_t total() { return end-beg; }
-    ~ZlibBuffer() { delete [] beg; }
-private:
-    ZlibBuffer(size_t capacity): beg(new char[capacity]), exp(beg), cur(beg), end(beg+capacity) { }
-    size_t remain() {return end-cur; }
-    char *beg;
-    char *exp;
-    char *cur;
-    char *end;
-};
+// class ZlibBuffer
+// {
+// public:
+//     ZlibBuffer(): ZlibBuffer(50 * CHUNK) { }
+//     size_t sgetn(char *buf, size_t size);
+//     size_t sputn(const char *buf, size_t size);
+//     size_t in_avail() { return cur-exp; }
+//     size_t total() { return end-beg; }
+//     ~ZlibBuffer() { delete [] beg; }
+// private:
+//     ZlibBuffer(size_t capacity): beg(new char[capacity]), exp(beg), cur(beg), end(beg+capacity) { }
+//     size_t remain() {return end-cur; }
+//     char *beg;
+//     char *exp;
+//     char *cur;
+//     char *end;
+// };
 
-inline size_t ZlibBuffer::sgetn(char *buf, size_t size) {
-    size_t avail = in_avail();
-    size_t actual = std::min(avail, size);
-    memmove(buf, exp, actual);
-    exp += actual;
-    return actual;
-}
+// inline size_t ZlibBuffer::sgetn(char *buf, size_t size) {
+//     size_t avail = in_avail();
+//     size_t actual = std::min(avail, size);
+//     memmove(buf, exp, actual);
+//     exp += actual;
+//     return actual;
+// }
 
-inline size_t ZlibBuffer::sputn(const char *buf, size_t size) {
-    if(size > remain()) {
-        size_t mv = exp-beg;
-        memmove(beg, exp, in_avail());
-        cur -= mv;
-        exp = beg;
-        if(size > remain())
-            throw RuntimeException("ZlibBuffer: not enough buffer space.");
-    }
-    memcpy(cur, buf, size);
-    cur += size;
-    return size;
-}
+// inline size_t ZlibBuffer::sputn(const char *buf, size_t size) {
+//     if(size > remain()) {
+//         size_t mv = exp-beg;
+//         memmove(beg, exp, in_avail());
+//         cur -= mv;
+//         exp = beg;
+//         if(size > remain())
+//             throw RuntimeException("ZlibBuffer: not enough buffer space.");
+//     }
+//     memcpy(cur, buf, size);
+//     cur += size;
+//     return size;
+// }
 #if 0
 class ZlibInputStream : public DataInputStream
 {
