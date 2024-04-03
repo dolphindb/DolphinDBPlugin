@@ -1,44 +1,49 @@
 # DolphinDB ODBC 插件
 
-通过 ODBC 插件，可以连接其它数据源，将数据导入到 DolphinDB 数据库，或将 DolphinDB 内存表导出到其它数据库。
+通过 DolphinDB 的 ODBC 插件，可以连接其它数据源，将数据导入到 DolphinDB 数据库，或将 DolphinDB 内存表导出到其它数据库。
 
-- [1. 前置条件](#1-前置条件)
-  - [1.1 Ubuntu](#11-ubuntu)
-  - [1.2 CentOS](#12-centos)
-  - [1.3 Windows](#13-windows)
-  - [1.4 Docker 容器环境 （Alpine Linux）](#14-docker-容器环境-alpine-linux)
-- [2. 编译](#2-编译)
-  - [2.1 编译 unixODBC-2.3.11](#21-编译-unixodbc-2311)
-  - [2.2 编译 ODBC 插件](#22-编译-odbc-插件)
-  - [2.3 编译 freetds odbc](#23-编译-freetds-odbc)
-- [3. 将插件加载到 DolphinDB 中](#3-将插件加载到-dolphindb-中)
-- [4. 使用插件](#4-使用插件)
-  - [4.1 odbc::connect](#41-odbcconnect)
-  - [4.2 odbc::close](#42-odbcclose)
-  - [4.3 odbc::query](#43-odbcquery)
-  - [4.4 odbc::execute](#44-odbcexecute)
-  - [4.5 odbc::append](#45-odbcappend)
-- [5 类型支持](#5-类型支持)
-  - [5.1 查询类型支持](#51-查询类型支持)
-  - [5.2 转换类型支持](#52-转换类型支持)
-- [6 问题分析与解决](#6-问题分析与解决)
+<!-- TOC -->
+* [DolphinDB ODBC 插件](#dolphindb-odbc-插件)
+  * [前置条件](#前置条件)
+    * [Ubuntu](#ubuntu)
+    * [CentOS](#centos)
+    * [Windows](#windows)
+    * [Docker 容器环境 （Alpine Linux）](#docker-容器环境-alpine-linux)
+  * [在插件市场安装插件](#在插件市场安装插件)
+    * [安装步骤](#安装步骤)
+  * [接口说明](#接口说明)
+    * [odbc::connect](#odbcconnect)
+    * [odbc::close](#odbcclose)
+    * [odbc::query](#odbcquery)
+    * [odbc::execute](#odbcexecute)
+    * [odbc::append](#odbcappend)
+  * [类型支持](#类型支持)
+    * [查询类型支持](#查询类型支持)
+    * [转换类型支持](#转换类型支持)
+  * [问题分析与解决](#问题分析与解决)
+  * [附录：编译安装（可选）](#附录编译安装可选)
+    * [编译 unixODBC-2.3.11](#编译-unixodbc-2311)
+    * [编译 ODBC 插件](#编译-odbc-插件)
+    * [编译 freetds odbc](#编译-freetds-odbc)
+  * [ReleaseNotes](#releasenotes)
+    * [2.00.11](#20011)
+    * [2.00.10](#20010)
+<!-- TOC -->
 
-
-
-## 1. 前置条件
+## 前置条件
 
 ODBC 插件可以成功连接以下安装于 CentOS 7 的数据库：MySQL, PostgreSQL, SQLServer, Clickhouse, SQLite, Oracle。连接时需要指定数据库名称，如："MySQL"。
 
 使用该插件前，请根据操作系统和数据库安装相应的 ODBC 驱动。
 
-### 1.1 Ubuntu
-
+### Ubuntu
 
 - 安装 unixODBC 库
 
 ```
 apt-get install unixodbc unixodbc-dev
 ```
+
 - 安装 SQL Server ODBC 驱动
 
 ```
@@ -50,6 +55,7 @@ apt-get install tdsodbc
 ```
 apt-get install odbc-postgresql
 ```
+
 - 安装 MySQL ODBC 驱动
 
 ```
@@ -62,7 +68,7 @@ apt-get install libmyodbc
 apt-get install libsqliteodbc
 ```
 
-### 1.2 CentOS
+### CentOS
 
 ```
 # 安装 unixODBC 库
@@ -72,7 +78,7 @@ yum install unixODBC  unixODBC-devel
 yum install mysql-connector-odbc
 ```
 
-### 1.3 Windows
+### Windows
 
 1. 从官网下载并安装 MySQL 或其他数据库的 ODBC 驱动程序。示例如下：
 
@@ -82,8 +88,7 @@ yum install mysql-connector-odbc
 
 * 配置 ODBC 数据源。例如，在 Windows 操作系统中配置 MySQL 的 ODBC 数据源的操作指导，可以参考： [MySQL manual](https://dev.mysql.com/doc/connector-odbc/en/connector-odbc-configuration-dsn-windows-5-2.html).
 
-
-### 1.4 Docker 容器环境 （Alpine Linux）
+### Docker 容器环境 （Alpine Linux）
 
 运行以下命令安装 unixODBC 库：
 
@@ -93,102 +98,38 @@ apk add unixodbc
 apk add unixodbc-dev
 ```
 
-## 2. 编译
+## 在插件市场安装插件
 
-### 2.1 编译 unixODBC-2.3.11
+### 安装步骤
 
-推荐编译 2.3.11 版本的 unixODBC 库。
+1. 在DolphinDB 客户端中使用 [listRemotePlugins](../../funcs/l/listRemotePlugins.dita) 命令查看插件仓库中的插件信息。
 
-```
-wget https://src.fedoraproject.org/repo/pkgs/unixODBC/unixODBC-2.3.11.tar.gz/sha512/dddc32f90a7962e6988e1130a8093c6fb8b9ff532cad270d572250324aecbc739f45f9d8021d217313910bab25b08e69009b4f87456575535e93be1f46f5f13d/unixODBC-2.3.11.tar.gz
-tar -zxvf unixODBC-2.3.11.tar.gz
-LDFLAGS="-lrt" CFLAGS="-fPIC"  ./configure --prefix=/hdd1/gitlab/DolphinDBPlugin/unixodbc2.3.11Lib --enable-static=yes --enable-shared=no --sysconfdir=/etc/ --with-included-ltdl=yes
-make -j
-make install
-```
+    ```
+    login("admin", "123456")
+    listRemotePlugins(, "http://plugins.dolphindb.cn/plugins/")
+    ```
 
-### 2.2 编译 ODBC 插件
+2. 使用 [installPlugin](../../funcs/i/installPlugin.dita) 命令完成插件安装。
 
-运行以下命令编译并生成 ODBC 插件 `libPluginODBC.so`：
+    ```
+    installPlugin("odbc")
+    ```
 
-```
-cd <plugin_odbc_dir>
-mkdir build
-cd build
-cmake ..  -DUNIXODBCDIR=/hdd1/gitlab/DolphinDBPlugin/unixodbc2.3.11Lib
-make -j
-```
+   返回：<path_to_ODBC_plugin>/PluginODBC.txt
 
+3. 使用 loadPlugin 命令加载插件（即上一步返回的.txt文件）。
 
-### 2.3 编译 freetds odbc
+    ```
+    loadPlugin("<path_to_ODBC_plugin>/PluginODBC.txt")
+    ```
 
-如需连接 SQLServer 数据源，则需要编译 freetds odbc：
+   **注意**：
+   - 若使用 Windows 插件，加载时必须指定绝对路径，且路径中使用"\\\\"或"/"代替"\\"。
+   - 若在 Alpine Linux 环境中使用插件，加载时可能会出现无法找到依赖库的报错，需要在 DolphinDB 的 server 目录下添加软链接：`ln -s /usr/lib/libodbc.so.2 libodbc.so.1`
 
-```
-wget -c http://ibiblio.org/pub/Linux/ALPHA/freetds/stable/freetds-stable.tgz
-tar -zxvf freetds-stable.tgz
-cd freetds
-./configure --prefix=/usr/local/freetds --with-tdsver=8.0 --enable-msdblib
-make -j
-make install
-```
+## 接口说明
 
-若插件运行机器与编译机器不是同一个，则需要将编译好的 freetds 拷贝至运行机器上，即：
-
-* 将 `/usr/local/freetds/lib`下的 freetds.conf, locales.conf, pool.conf 拷贝至到目标机器上的 `/usr/local/freetds/lib` 目录
-* 将 `/usr/local/freetds/lib/ibtdsodbc.so.0.0.0` 拷贝至目标机器的 `/usr/local/freetds/lib` 目录。
-
-> :bulb:**注意**：
->>若使用Docker容器（即使用Alpine Linux操作系统），直接使用 `apk add freetds` 安装的新版本 freetds odbc 可能会与DolphinDB ODBC插件产生冲突而无法正常使用，因此推荐用户按照本小节给出的步骤下载并手动编译 freetds odbc。
-
-在 Alpine Linux 环境中编译 freetds odbc 前，需要先添加某些库以提供编译环境：
-
-```
-wget -c http://ibiblio.org/pub/Linux/ALPHA/freetds/stable/freetds-stable.tgz
-tar -zxvf freetds-stable.tgz
-
-# 添加依赖库
-apk add gcc
-apk add g++
-apk add make
-apk add linux-headers
-```
-然后运行以下命令进行编译：
-
-```
-# 编译
-./configure --prefix=/usr/local/freetds --with-tdsver=8.0 --enable-msdblib --disable-libiconv --disable-apps
-make -j
-make install
-```
-
-## 3. 将插件加载到 DolphinDB 中
-
-使用 DolphinDB 函数 `loadPlugin` 加载插件。它唯一的参数是插件描述文件。例如，下面的 DolphinDB 脚本会加载插件：``PluginODBC.txt``:
-
-```
-loadPlugin("./plugins/odbc/PluginODBC.txt")
-```
-
-> :bulb:**注意**：
->>- 若使用 Windows 插件，加载时必须指定绝对路径，且路径中使用 `\\\\` 或 `/` 代替 `\\`。
->>- 若在 Alpine Linux 环境中使用插件，加载时可能会出现无法找到依赖库的报错，需要在 DolphinDB 的 server 目录下添加软链接：
->>>>
->>>>  ```
->>>>  ln -s /usr/lib/libodbc.so.2 libodbc.so.1
->>>>  ```
-
-## 4. 使用插件
-
-您可以通过使用语句 `use odbc` 导入 ODBC 模块名称空间来省略前缀 “odbc ::”。但是，如果函数名称与其他模块中的函数名称冲突，则需要在函数名称中添加前缀 `odbc ::`。
-
-```
-use odbc;
-```
-
-该插件提供以下5个功能：
-
-### 4.1 odbc::connect
+### odbc::connect
 
 **语法**
 
@@ -219,7 +160,7 @@ conn2 = odbc::connect("Driver={MySQL ODBC 8.0 UNICODE Driver};Server=127.0.0.1;D
 conn3 = odbc::connect("Driver=SQL Server;Server=localhost;Database=zyb_test;User =sa;Password=DolphinDB123;")  
 ```
 
-### 4.2 odbc::close
+### odbc::close
 
 **语法**
 
@@ -239,7 +180,7 @@ conn1 = odbc::connect("Dsn=mysqlOdbcDsn")
 odbc::close(conn1)
 ```
 
-### 4.3 odbc::query
+### odbc::query
 
 **语法**
 
@@ -263,7 +204,7 @@ odbc::close(conn1)
 t=odbc::query(conn1,"SELECT max(time),min(time) FROM ecimp_ver3.tbl_monitor;")
 ```
 
-### 4.4 odbc::execute
+### odbc::execute
 
 **语法**
 
@@ -275,6 +216,7 @@ t=odbc::query(conn1,"SELECT max(time),min(time) FROM ecimp_ver3.tbl_monitor;")
 * SQLstatements: SQL 语句。
 
 **描述**
+
 `odbc::execute` 执行 SQL 语句。无返回结果。
 
 **例子**
@@ -283,7 +225,7 @@ t=odbc::query(conn1,"SELECT max(time),min(time) FROM ecimp_ver3.tbl_monitor;")
 odbc::execute(conn1,"delete from ecimp_ver3.tbl_monitor where `timestamp` BETWEEN '2013-03-26 00:00:01' AND '2013-03-26 23:59:59'")
 ```
 
-### 4.5 odbc::append
+### odbc::append
 
 **语法**
 
@@ -309,12 +251,12 @@ odbc::append(conn1, t,"ddbtale", true)
 odbc::query(conn1,"SELECT * FROM ecimp_ver3.ddbtale")
 ```
 
-## 5 类型支持
+## 类型支持
 
-### 5.1 查询类型支持
+### 查询类型支持
 
 | type in ODBC                                 | Type in DolphinDB |
-| -------------------------------------------- | ----------------- |
+|----------------------------------------------|-------------------|
 | SQL_BIT                                      | BOOL              |
 | SQL_TINYINT / SQL_SMALLINT                   | SHORT             |
 | SQL_INTEGER                                  | INT               |
@@ -325,12 +267,12 @@ odbc::query(conn1,"SELECT * FROM ecimp_ver3.ddbtale")
 | SQL_TIME/SQL_TYPE_TIME                       | SECOND            |
 | SQL_TIMESTAMP/SQL_TYPE_TIMESTAMP             | NANOTIMESTAMP     |
 | SQL_CHAR(len == 1)                           | CHAR              |
-| 其它类型                                     | STRING            |
+| 其它类型                                         | STRING            |
 
-### 5.2 转换类型支持
+### 转换类型支持
 
 | DolphinDB     | PostgreSQL       | ClickHouse   | Oracle        | SQL Server   | SQLite       | MySQL        |
-| ------------- | ---------------- | ------------ | ------------- | ------------ | ------------ | ------------ |
+|---------------|------------------|--------------|---------------|--------------|--------------|--------------|
 | BOOL          | boolean          | Bool         | char(1)       | bit          | bit          | bit          |
 | CHAR          | char(1)          | char(1)      | char(1)       | char(1)      | char(1)      | char(1)      |
 | SHORT         | smallint         | smallint     | smallint      | smallint     | smallint     | smallint     |
@@ -350,7 +292,7 @@ odbc::query(conn1,"SELECT * FROM ecimp_ver3.ddbtale")
 | SYMBOL        | varchar(255)     | varchar(255) | varchar(255)  | varchar(255) | varchar(255) | varchar(255) |
 | STRING        | varchar(255)     | varchar(255) | varchar(255)  | varchar(255) | varchar(255) | varchar(255) |
 
-## 6 问题分析与解决
+## 问题分析与解决
 
 1. 连接 windows 系统的 ClickHouse，查询得到的结果显示中文乱码。
 
@@ -422,22 +364,90 @@ odbc::query(conn1,"SELECT * FROM ecimp_ver3.ddbtale")
     conn = odbc::connect("Driver=MySQL ODBC 8.0 Unicode Driver;Server=172.17.0.10;Port=3306;Database=testdb;User=root;Password=123456;", "MySQL");
     ```
 
-# ReleaseNotes:
+## 附录：编译安装（可选）
 
-## 2.00.11
+### 编译 unixODBC-2.3.11
 
-### 故障修复
+推荐编译 2.3.11 版本的 unixODBC 库。
+
+```
+wget https://src.fedoraproject.org/repo/pkgs/unixODBC/unixODBC-2.3.11.tar.gz/sha512/dddc32f90a7962e6988e1130a8093c6fb8b9ff532cad270d572250324aecbc739f45f9d8021d217313910bab25b08e69009b4f87456575535e93be1f46f5f13d/unixODBC-2.3.11.tar.gz
+tar -zxvf unixODBC-2.3.11.tar.gz
+LDFLAGS="-lrt" CFLAGS="-fPIC"  ./configure --prefix=/hdd1/gitlab/DolphinDBPlugin/unixodbc2.3.11Lib --enable-static=yes --enable-shared=no --sysconfdir=/etc/ --with-included-ltdl=yes
+make -j
+make install
+```
+
+### 编译 ODBC 插件
+
+运行以下命令编译并生成 ODBC 插件 `libPluginODBC.so`：
+
+```
+cd <plugin_odbc_dir>
+mkdir build
+cd build
+cmake ..  -DUNIXODBCDIR=/hdd1/gitlab/DolphinDBPlugin/unixodbc2.3.11Lib
+make -j
+```
+
+### 编译 freetds odbc
+
+如需连接 SQLServer 数据源，则需要编译 freetds odbc：
+
+```
+wget -c http://ibiblio.org/pub/Linux/ALPHA/freetds/stable/freetds-stable.tgz
+tar -zxvf freetds-stable.tgz
+cd freetds
+./configure --prefix=/usr/local/freetds --with-tdsver=8.0 --enable-msdblib
+make -j
+make install
+```
+
+若插件运行机器与编译机器不是同一个，则需要将编译好的 freetds 拷贝至运行机器上，即：
+
+* 将 `/usr/local/freetds/lib`下的 freetds.conf, locales.conf, pool.conf 拷贝至到目标机器上的 `/usr/local/freetds/lib` 目录
+* 将 `/usr/local/freetds/lib/ibtdsodbc.so.0.0.0` 拷贝至目标机器的 `/usr/local/freetds/lib` 目录。
+
+> :bulb:**注意**：
+>>若使用Docker容器（即使用Alpine Linux操作系统），直接使用 `apk add freetds` 安装的新版本 freetds odbc 可能会与DolphinDB ODBC插件产生冲突而无法正常使用，因此推荐用户按照本小节给出的步骤下载并手动编译 freetds odbc。
+
+在 Alpine Linux 环境中编译 freetds odbc 前，需要先添加某些库以提供编译环境：
+
+```
+wget -c http://ibiblio.org/pub/Linux/ALPHA/freetds/stable/freetds-stable.tgz
+tar -zxvf freetds-stable.tgz
+
+# 添加依赖库
+apk add gcc
+apk add g++
+apk add make
+apk add linux-headers
+```
+然后运行以下命令进行编译：
+
+```
+# 编译
+./configure --prefix=/usr/local/freetds --with-tdsver=8.0 --enable-msdblib --disable-libiconv --disable-apps
+make -j
+make install
+```
+
+## ReleaseNotes
+
+### 2.00.11
+
+**故障修复**
 
 - 修复多线程使用 ClickHouse ODBC 驱动时插件 crash 的问题。
 
-## 2.00.10
+### 2.00.10
 
-### 优化
+**优化**
 
 - 优化了部分报错信息。
 - 增加对接口 odbc::close 输入参数的校验。
 
-### 故障修复
+**故障修复**
 
 - 修复了多个线程共用一个连接进行并发查询和写入时 server 宕机的问题。
 - 修复了读取 Oracle 的中文标点数据时出现乱码的问题。

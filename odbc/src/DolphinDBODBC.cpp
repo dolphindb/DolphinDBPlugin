@@ -9,6 +9,8 @@
 #include "ScalarImp.h"
 #include <algorithm>
 #include <map>
+#include "ddbplugin/CommonInterface.h"
+
 using namespace std;
 
 OdbcConnectionSP safeGet(const ConstantSP &arg) {
