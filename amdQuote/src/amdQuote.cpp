@@ -1,6 +1,7 @@
 #include "amdQuote.h"
 #include <string>
 
+#include "ddbplugin/CommonInterface.h"
 #include "Concurrent.h"
 #include "Exceptions.h"
 #include "Types.h"
