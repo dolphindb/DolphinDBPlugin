@@ -1,0 +1,4 @@
+mat,libPluginMat.dll,3.00.0
+extractMatSchema,extractMatSchema,system,1,1,0
+loadMat,loadMat,system,1,2,0
+loadMatDict,loadMatDict,system,1,2,0
