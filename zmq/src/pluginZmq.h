@@ -7,6 +7,7 @@
 #include "zmq.hpp"
 #include "json.hpp"
 #include "Logger.h"
+#include "ddbplugin/CommonInterface.h"
 
 using namespace std;
 using json = nlohmann::json;
