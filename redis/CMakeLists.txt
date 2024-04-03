@@ -13,13 +13,10 @@ elseif (UNIX)
     set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginRedis.txt")
     add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 endif ()
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -fPIC -std=c++11 -Wall")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
-#set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -DDEBUG_PARSE")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
-#add_definitions(-Weffc++)
 
-#add_definitions(-fsanitize=address)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -std=c++11")
+add_compile_options(-Wall -O3 -fPIC)
+
 ## set include dires
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
 link_directories("${CMAKE_BINARY_DIR}")
@@ -30,7 +27,8 @@ add_subdirectory(contrib/hiredis)
 
 ## build PluginRedis
 add_library(PluginRedis SHARED
-        src/pluginRedis.cpp)
+        src/pluginRedis.cpp
+        src/redisConnection.cpp)
 
 set_target_properties(PluginRedis PROPERTIES LINK_DIRECTORIES "${CMAKE_BINARY_DIR}")
 target_link_libraries(PluginRedis hiredis_static)
