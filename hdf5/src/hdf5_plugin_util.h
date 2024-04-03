@@ -26,6 +26,11 @@ void registerUnixTimeConvert();
 void checkHDF5Parameter(Heap* heap, vector<ConstantSP> &arguments, ConstantSP &filename, ConstantSP& destOrGroupName,
                         ConstantSP &schema, size_t& startRow, size_t& rowNum, const string &syntax);
 
+template<typename Ex>
+inline void checkFailAndThrow(bool val, const string &errMsg) {
+    if (val) { throw Ex(HDF5_LOG_PREFIX + errMsg); }
+}
+
 /* AUX */
 typedef struct GroupInfoTag
 {

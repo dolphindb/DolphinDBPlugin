@@ -39,7 +39,6 @@ set(PLUGIN_LINK_DIRECTORIES
     ${CMAKE_BINARY_DIR}
 )
 set(PLUGIN_LINK_LIBRARIES
-    DolphinDB
 )
 set(PLUGIN_LINK_OPTIONS
     "-L ./ -Wl,-rpath,$ORIGIN"
@@ -118,7 +117,7 @@ elseif (WIN32)
          ${CMAKE_SOURCE_DIR}/include_win/hdf5-blosc
         )
     list(APPEND PLUGIN_LINK_DIRECTORIES ${CMAKE_SOURCE_DIR}/lib)
-    list(APPEND PLUGIN_LINK_LIBRARIES hdf5_hl hdf5_cpp hdf5 blosc z)
+    list(APPEND PLUGIN_LINK_LIBRARIES DolphinDB hdf5_hl hdf5_cpp hdf5 blosc z)
 else ()
     message(FATAL_ERROR "Unsupported platform.")
 endif ()

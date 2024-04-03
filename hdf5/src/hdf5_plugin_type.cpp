@@ -1305,50 +1305,15 @@ DATA_TYPE BoolColumn::packData(pack_info_t t)
     switch (destType_)
     {
     case DT_BOOL:
+    case DT_CHAR:
+    case DT_SHORT:
+    case DT_INT:
+    case DT_LONG:
+    case DT_FLOAT:
+    case DT_DOUBLE:
         packBoolTo<bool>(t);
         return DT_CHAR;
-    case DT_CHAR:
-        packBoolTo<char>(t);
-        return DT_CHAR;
-    case DT_SHORT:
-        packBoolTo<short>(t);
-        return DT_SHORT;
-    case DT_INT:
-        packBoolTo<int>(t);
-        return DT_INT;
-    case DT_LONG:
-        packBoolTo<long long>(t);
-        return DT_LONG;
-    case DT_FLOAT:
-        packBoolTo<float>(t);
-        return DT_FLOAT;
-    case DT_DOUBLE:
-        packBoolTo<double>(t);
-        return DT_DOUBLE;
-    case DT_MONTH:
-        packBoolTo<int>(t);
-        return DT_INT;
-    case DT_TIME:
-        packBoolTo<int>(t);
-        return DT_INT;
-    case DT_MINUTE:
-        packBoolTo<int>(t);
-        return DT_INT;
-    case DT_SECOND:
-        packBoolTo<int>(t);
-        return DT_INT;
-    case DT_NANOTIME:
-        packBoolTo<int>(t);
-        return DT_INT;
-    case DT_DATE:
-        packBoolTo<int>(t);
-        return DT_INT;
-    case DT_TIMESTAMP:
-        packBoolTo<int>(t);
-        return DT_INT;
-    case DT_NANOTIMESTAMP:
-        packBoolTo<int>(t);
-        return DT_INT;
+
     default:
         return DT_VOID;
     }

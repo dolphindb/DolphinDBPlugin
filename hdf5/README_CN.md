@@ -492,6 +492,7 @@ stringMaxLength: 字符串最大长度，类型为数值类型，默认为 16。
 #### 详情 <!-- omit in toc -->
 
 将 DolphinDB 数据库的内存表保存到 HDF5 文件中的指定数据集。支持的数据类型，以及数据转化规则可见[数据类型](#3-支持的数据类型)章节。
+注意，目前 HDF5 插件无法存储列数过多的表格，如果列数超过 900 列则有可能会存储失败。
 
 #### 例子 <!-- omit in toc -->
 
@@ -700,17 +701,3 @@ hdf5::saveHDF5(tb, "example.h5", "dataset name in hdf5")
     * 文件大小 3.9G
     * 耗时 15 秒
 
-# Release Notes
-
-## 2.00.11
-
-### 新功能
-
-- 接口 `hdf5::loadPandasHDF5` 新增对表类型 series_table, frame_table 支持索引方式 multiIndex 。
-
-## 2.00.10
-
-### bug修复
-
-- 修复使用方法 hdf5::ls 执行特定类型的 hdf5 文件后 server 宕机的问题。
-- 修复并行导入多个文件时 server 宕机的问题。

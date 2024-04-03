@@ -62,15 +62,13 @@ ConstantSP loadPandasHDF5(const string &fileName, const string &groupName, const
                           const size_t startRow, const size_t rowNum) {
     H5::Exception::dontPrint();
     H5::H5File f(fileName, H5F_ACC_RDONLY);
-    if (!f.nameExists(groupName))
-        throw RuntimeException(HDF5_LOG_PREFIX + "The group [" + groupName + "] is not exist.");
+    checkFailAndThrow<RuntimeException>(!f.nameExists(groupName), "The group [" + groupName + "] is not exist.");
 
     H5::Group group;
     HDF5_SAFE_EXECUTE(group = f.openGroup(groupName));
 
     // check pandas_type.
-    if (!group.attrExists("pandas_type"))
-        throw RuntimeException(HDF5_LOG_PREFIX + "The file name: " + fileName +
+    checkFailAndThrow<RuntimeException>(!group.attrExists("pandas_type"), "The file name: " + fileName +
                                " is not pandas hdf5 file. Try loadHDF5 function.");
 
     // check table type.
@@ -79,10 +77,7 @@ ConstantSP loadPandasHDF5(const string &fileName, const string &groupName, const
         getGroupAttribute(group, "table_type", tableTypeInfo);
         unordered_set<string> tableTypeSet{"appendable_frame", "appendable_series", "appendable_multiframe",
                                            "appendable_multiseries"};
-        if(tableTypeSet.find(tableTypeInfo) == tableTypeSet.end()) {
-            throw RuntimeException(HDF5_LOG_PREFIX +
-                                   "The type: " + tableTypeInfo + " is not support now. Try loadHDF5 function.");
-        }
+        checkFailAndThrow<RuntimeException>(tableTypeSet.find(tableTypeInfo) == tableTypeSet.end(), "The type: " + tableTypeInfo + " is not support now. Try loadHDF5 function.");
 
         GroupInfo info;
         string colValueInfo;
@@ -131,6 +126,11 @@ ConstantSP loadPandasHDF5(const string &fileName, const string &groupName, const
         }
     }
 }
+
+void indexCheck(unsigned int index, unsigned int levelVecSize) {
+    checkFailAndThrow<RuntimeException>(index < 0 || index >= levelVecSize, "index form process failed due to index exceed");
+}
+
 ConstantSP combineLabelLevel(ConstantSP label, ConstantSP level) {
     INDEX labelSize = label->size();
     vector<long long> labelIndex;
@@ -201,9 +201,7 @@ ConstantSP combineLabelLevel(ConstantSP label, ConstantSP level) {
             data.reserve(labelSize);
             for (unsigned int i = 0; i < labelIndex.size(); ++i) {
                 unsigned int index = labelIndex[i];
-                if (index < 0 || index >= levelVec.size()) {
-                    throw RuntimeException(HDF5_LOG_PREFIX + "index form process failed due to index exceed");
-                }
+                indexCheck(index, levelVec.size());
                 data.emplace_back(levelVec[labelIndex[i]]);
             }
             VectorSP ret = Util::createVector(level->getType(), 0, labelSize);
@@ -225,9 +223,7 @@ ConstantSP combineLabelLevel(ConstantSP label, ConstantSP level) {
             data.reserve(labelSize);
             for (unsigned int i = 0; i < labelIndex.size(); ++i) {
                 unsigned int index = labelIndex[i];
-                if (index < 0 || index >= levelVec.size()) {
-                    throw RuntimeException(HDF5_LOG_PREFIX + "index form process failed due to index exceed");
-                }
+                indexCheck(index, levelVec.size());
                 data.emplace_back(levelVec[labelIndex[i]]);
             }
             VectorSP ret = Util::createVector(level->getType(), 0, labelSize);
@@ -249,39 +245,14 @@ ConstantSP combineLabelLevel(ConstantSP label, ConstantSP level) {
             data.reserve(labelSize);
             for (unsigned int i = 0; i < labelIndex.size(); ++i) {
                 unsigned int index = labelIndex[i];
-                if (index < 0 || index >= levelVec.size()) {
-                    throw RuntimeException(HDF5_LOG_PREFIX + "index form process failed due to index exceed");
-                }
+                indexCheck(index, levelVec.size());
                 data.emplace_back(levelVec[labelIndex[i]]);
             }
             VectorSP ret = Util::createVector(level->getType(), 0, labelSize);
             ret->appendInt(data.data(), labelSize);
             return ret;
         }
-        case DT_LONG: {
-            vector<long long> levelVec;
-            levelVec.reserve(levelSize);
-            long long buf[Util::BUF_SIZE];
-            const long long *pbuf;
-            while (start < levelSize) {
-                count = std::min(Util::BUF_SIZE, levelSize - start);
-                pbuf = level->getLongConst(start, count, buf);
-                levelVec.insert(levelVec.end(), pbuf, pbuf + count);
-                start += count;
-            }
-            vector<long long> data;
-            data.reserve(labelSize);
-            for (unsigned int i = 0; i < labelIndex.size(); ++i) {
-                unsigned int index = labelIndex[i];
-                if (index < 0 || index >= levelVec.size()) {
-                    throw RuntimeException(HDF5_LOG_PREFIX + "index form process failed due to index exceed");
-                }
-                data.emplace_back(levelVec[labelIndex[i]]);
-            }
-            VectorSP ret = Util::createVector(level->getType(), 0, labelSize);
-            ret->appendLong(data.data(), labelSize);
-            return ret;
-        }
+        case DT_LONG:
         case DT_TIMESTAMP: {
             vector<long long> levelVec;
             levelVec.reserve(levelSize);
@@ -297,9 +268,7 @@ ConstantSP combineLabelLevel(ConstantSP label, ConstantSP level) {
             data.reserve(labelSize);
             for (unsigned int i = 0; i < labelIndex.size(); ++i) {
                 unsigned int index = labelIndex[i];
-                if (index < 0 || index >= levelVec.size()) {
-                    throw RuntimeException(HDF5_LOG_PREFIX + "index form process failed due to index exceed");
-                }
+                indexCheck(index, levelVec.size());
                 data.emplace_back(levelVec[labelIndex[i]]);
             }
             VectorSP ret = Util::createVector(level->getType(), 0, labelSize);
@@ -317,9 +286,7 @@ ConstantSP combineLabelLevel(ConstantSP label, ConstantSP level) {
             data.reserve(labelSize);
             for (unsigned int i = 0; i < labelIndex.size(); ++i) {
                 unsigned int index = labelIndex[i];
-                if (index < 0 || index >= levelVec.size()) {
-                    throw RuntimeException(HDF5_LOG_PREFIX + "index form process failed due to index exceed");
-                }
+                indexCheck(index, levelVec.size());
                 data.emplace_back(levelVec[labelIndex[i]]);
             }
             VectorSP ret = Util::createVector(level->getType(), 0, labelSize);
@@ -341,9 +308,7 @@ ConstantSP combineLabelLevel(ConstantSP label, ConstantSP level) {
             data.reserve(labelSize);
             for (unsigned int i = 0; i < labelIndex.size(); ++i) {
                 unsigned int index = labelIndex[i];
-                if (index < 0 || index >= levelVec.size()) {
-                    throw RuntimeException(HDF5_LOG_PREFIX + "index form process failed due to index exceed");
-                }
+                checkFailAndThrow<RuntimeException>(index < 0 || index >= levelVec.size(), "index form process failed due to index exceed");
                 data.emplace_back(levelVec[labelIndex[i]]);
             }
             VectorSP ret = Util::createVector(level->getType(), 0, labelSize);
@@ -365,9 +330,7 @@ ConstantSP combineLabelLevel(ConstantSP label, ConstantSP level) {
             data.reserve(labelSize);
             for (unsigned int i = 0; i < labelIndex.size(); ++i) {
                 unsigned int index = labelIndex[i];
-                if (index < 0 || index >= levelVec.size()) {
-                    throw RuntimeException(HDF5_LOG_PREFIX + "index form process failed due to index exceed");
-                }
+                checkFailAndThrow<RuntimeException>(index < 0 || index >= levelVec.size(), "index form process failed due to index exceed");
                 data.emplace_back(levelVec[labelIndex[i]]);
             }
             VectorSP ret = Util::createVector(level->getType(), 0, labelSize);
@@ -383,8 +346,7 @@ ConstantSP combineLabelLevel(ConstantSP label, ConstantSP level) {
 vector<ConstantSP> readSimpleDataFromDataSet(hid_t set, H5DataType &type, const TableSP &schema, const size_t startRow,
                                              const size_t readRowNum) {
     H5DataType convertedType;
-    if (!TypeColumn::convertHdf5SimpleType(type, convertedType))
-        throw RuntimeException(HDF5_LOG_PREFIX + "unsupported data type");
+    checkFailAndThrow<RuntimeException>(!TypeColumn::convertHdf5SimpleType(type, convertedType), "unsupported data type");
 
     vector<size_t> rowAndColNum;
     getRowAndColNum(set, rowAndColNum);
@@ -399,7 +361,7 @@ vector<ConstantSP> readSimpleDataFromDataSet(hid_t set, H5DataType &type, const 
         endElement = (startRow + readRowNum) * colNum;
     }
     H5BlockDataReader reader(set, startElement, endElement, 1024 * 1024 * 32, 1024 * 1024 * 32, convertedType.id());
-    if (!reader.columnNum() || !reader.rowNum()) throw RuntimeException(HDF5_LOG_PREFIX + "empty dataset!");
+    checkFailAndThrow<RuntimeException>(!reader.columnNum() || !reader.rowNum(), "empty dataset!");
 
     vector<H5ColumnSP> cols;
     createColumnVec(cols, reader.columnNum(), std::min(readRowNum, rowNum), convertedType, schema);
@@ -442,6 +404,9 @@ ConstantSP loadPandasHDF5(const hid_t set, const ConstantSP &schema, const size_
     }
 }
 
+bool checkNull(ConstantSP value) {
+    return value.isNull() || value->isNull();
+}
 TableSP loadFrameTypeHDF5(const H5::Group &group, const ConstantSP &schema, size_t startRow, size_t readRowNum,
                           const string &groupName) {
     TableSP tableWithSchema =
@@ -454,26 +419,20 @@ TableSP loadFrameTypeHDF5(const H5::Group &group, const ConstantSP &schema, size
     int nBlocks;
     getGroupAttribute<int>(group, "ndim", &nDim);
     getGroupAttribute<int>(group, "nblocks", &nBlocks);
-    if (nDim != 2) {
-        throw RuntimeException(
-            HDF5_LOG_PREFIX + parseFailPrefix +
+    checkFailAndThrow<RuntimeException>(nDim != 2, parseFailPrefix +
             "only pandas HDF5 data with '2' ndim is supported. Current ndim: " + std::to_string(nDim));
-    }
     string axis0_variety;
     string axis1_variety;
     getGroupAttribute(group, "axis0_variety", axis0_variety);
     getGroupAttribute(group, "axis1_variety", axis1_variety);
-    if (axis0_variety != "regular") {
-        throw RuntimeException(
-            HDF5_LOG_PREFIX + parseFailPrefix +
+    checkFailAndThrow<RuntimeException>(axis0_variety != "regular", parseFailPrefix +
             "only pandas HDF5 data with 'regular' axis0_variety is supported. Current axis0_variety type: " +
             axis0_variety);
-    }
+
     if (axis1_variety == "regular") {
         string colNameStr = "axis0";
-        if (!group.nameExists(colNameStr)) {
-            throw RuntimeException(HDF5_LOG_PREFIX + parseFailPrefix + colNameStr + " doesn't exist in group.");
-        }
+        checkFailAndThrow<RuntimeException>(!group.nameExists(colNameStr), parseFailPrefix + colNameStr + " doesn't exist in group.");
+
         H5::DataSet colNameDataSet;
         HDF5_SAFE_EXECUTE(colNameDataSet = group.openDataSet(colNameStr));
         // parse cols name dataset.
@@ -489,9 +448,8 @@ TableSP loadFrameTypeHDF5(const H5::Group &group, const ConstantSP &schema, size
 
         // parse row index.
         string colIndexStr = "axis1";
-        if (!group.nameExists(colIndexStr)) {
-            throw RuntimeException(HDF5_LOG_PREFIX + parseFailPrefix + colIndexStr + " doesn't exists in group.");
-        }
+        checkFailAndThrow<RuntimeException>(!group.nameExists(colIndexStr), parseFailPrefix + colIndexStr + " doesn't exists in group.");
+
         H5::DataSet rowIndexDataSet;
         HDF5_SAFE_EXECUTE(rowIndexDataSet = group.openDataSet(colIndexStr));
         ConstantSP rowIndex = loadDataSet(rowIndexDataSet.getId(), nullSP, startRow, readRowNum)[0];
@@ -519,11 +477,10 @@ TableSP loadFrameTypeHDF5(const H5::Group &group, const ConstantSP &schema, size
             vector<ConstantSP> data = loadDataSet(valueId, schema, startRow, readRowNum);
             dataCols.insert(dataCols.end(), data.begin(), data.end());
         }
-        if (nameArray.size() != dataCols.size()) {
-            throw RuntimeException(HDF5_LOG_PREFIX + parseFailPrefix + "colNames size(" +
+        checkFailAndThrow<RuntimeException>(nameArray.size() != dataCols.size(), parseFailPrefix + "colNames size(" +
                                    std::to_string(nameArray.size()) + ") is not equal to col size(" +
                                    std::to_string(dataCols.size()) + ").");
-        }
+
 
         vector<ConstantSP> finalDataCols;
         // push back index cols.
@@ -532,7 +489,7 @@ TableSP loadFrameTypeHDF5(const H5::Group &group, const ConstantSP &schema, size
             size_t index = find(dataColsName.begin(), dataColsName.end(), nameArray[i]) - dataColsName.begin();
             finalDataCols.push_back(dataCols[index + 1]);
         }
-        if (tableWithSchema.isNull() || tableWithSchema->isNull()) {
+        if (checkNull(tableWithSchema)) {
             return Util::createTable(nameArray, finalDataCols);
         }
         return appendColumnVecToTable(tableWithSchema, finalDataCols);
@@ -541,9 +498,8 @@ TableSP loadFrameTypeHDF5(const H5::Group &group, const ConstantSP &schema, size
         getGroupAttribute<int>(group, "axis1_nlevels", &axis1NLevels);
 
         string colNameStr = "axis0";
-        if (!group.nameExists(colNameStr)) {
-            throw RuntimeException(HDF5_LOG_PREFIX + parseFailPrefix + colNameStr + " doesn't exist in group.");
-        }
+        checkFailAndThrow<RuntimeException>(!group.nameExists(colNameStr), parseFailPrefix + colNameStr + " doesn't exist in group.");
+
         H5::DataSet colNameDataSet;
         HDF5_SAFE_EXECUTE(colNameDataSet = group.openDataSet(colNameStr));
         // parse cols name dataset.
@@ -558,18 +514,16 @@ TableSP loadFrameTypeHDF5(const H5::Group &group, const ConstantSP &schema, size
         for (int i = 0; i < axis1NLevels; ++i) {
             // get label data
             string colLabelStr = "axis1_label" + std::to_string(i);
-            if (!group.nameExists(colLabelStr)) {
-                throw RuntimeException(HDF5_LOG_PREFIX + parseFailPrefix + colLabelStr + " doesn't exist in group.");
-            }
+            checkFailAndThrow<RuntimeException>(!group.nameExists(colLabelStr), parseFailPrefix + colLabelStr + " doesn't exist in group.");
+
             H5::DataSet rowLabelDataSet;
             HDF5_SAFE_EXECUTE(rowLabelDataSet = group.openDataSet(colLabelStr));
             ConstantSP rowLabel = loadDataSet(rowLabelDataSet.getId(), nullSP, startRow, readRowNum)[0];
 
             // get index data
             string colIndexStr = "axis1_level" + std::to_string(i);
-            if (!group.nameExists(colIndexStr)) {
-                throw RuntimeException(HDF5_LOG_PREFIX + parseFailPrefix + colIndexStr + " doesn't exist in group.");
-            }
+            checkFailAndThrow<RuntimeException>(!group.nameExists(colIndexStr), parseFailPrefix + colIndexStr + " doesn't exist in group.");
+
             H5::DataSet rowIndexDataSet;
             HDF5_SAFE_EXECUTE(rowIndexDataSet = group.openDataSet(colIndexStr));
             ConstantSP rowIndex = loadDataSet(rowIndexDataSet.getId(), nullSP, startRow, readRowNum)[0];
@@ -627,11 +581,10 @@ TableSP loadFrameTypeHDF5(const H5::Group &group, const ConstantSP &schema, size
             vector<ConstantSP> data = loadDataSet(valueSet.getId(), schema, startRow, readRowNum);
             dataCols.insert(dataCols.end(), data.begin(), data.end());
         }
-        if (nameArray.size() != dataCols.size()) {
-            throw RuntimeException(HDF5_LOG_PREFIX + parseFailPrefix + "colNames size(" +
+        checkFailAndThrow<RuntimeException>(nameArray.size() != dataCols.size(), parseFailPrefix + "colNames size(" +
                                    std::to_string(nameArray.size()) + ") is not equal to col size(" +
                                    std::to_string(dataCols.size()) + ").");
-        }
+
         // push back index cols.
         vector<ConstantSP> finalDataCols;
         for (int i = 0; i < axis1NLevels; ++i) {
@@ -639,13 +592,12 @@ TableSP loadFrameTypeHDF5(const H5::Group &group, const ConstantSP &schema, size
         }
         for (size_t i = axis1NLevels; i < nameArray.size(); i++) {
             size_t index = find(dataColsName.begin(), dataColsName.end(), nameArray[i]) - dataColsName.begin();
-            if (index == dataColsName.size()) {
-                throw RuntimeException(HDF5_LOG_PREFIX + parseFailPrefix + "col " + nameArray[i] +
+            checkFailAndThrow<RuntimeException>(index == dataColsName.size(), parseFailPrefix + "col " + nameArray[i] +
                                        " not found in HDF5 dataSet, parse failed.");
-            }
+
             finalDataCols.push_back(dataCols[index + axis1NLevels]);
         }
-        if (tableWithSchema.isNull() || tableWithSchema->isNull()) {
+        if (checkNull(tableWithSchema)) {
             return Util::createTable(nameArray, finalDataCols);
         }
         return appendColumnVecToTable(tableWithSchema, finalDataCols);
@@ -673,7 +625,7 @@ TableSP loadSeriesTypeHDF5(const H5::Group &group, const ConstantSP &schema, siz
         vector<ConstantSP> cols;
         cols.push_back(indexColSP);
         cols.push_back(valueColSP);
-        if (tableWithSchema.isNull() || tableWithSchema->isNull()) {
+        if (checkNull(tableWithSchema)) {
             return Util::createTable(nameArray, cols);
         }
         return appendColumnVecToTable(tableWithSchema, cols);
@@ -691,9 +643,8 @@ TableSP loadSeriesTypeHDF5(const H5::Group &group, const ConstantSP &schema, siz
 
             // get index data
             string colIndexStr = "index_level" + std::to_string(i);
-            if (!group.nameExists(colIndexStr)) {
-                throw RuntimeException(HDF5_LOG_PREFIX + parseFailPrefix + colIndexStr + " doesn't exist in group.");
-            }
+            checkFailAndThrow<RuntimeException>(!group.nameExists(colIndexStr), parseFailPrefix + colIndexStr + " doesn't exist in group.");
+
             H5::DataSet rowIndexDataSet;
             HDF5_SAFE_EXECUTE(rowIndexDataSet = group.openDataSet(colIndexStr));
             ConstantSP rowIndex = loadDataSet(rowIndexDataSet.getId(), nullSP, startRow, readRowNum)[0];
@@ -718,7 +669,7 @@ TableSP loadSeriesTypeHDF5(const H5::Group &group, const ConstantSP &schema, siz
         ConstantSP valueColSP = loadDataSet(valueSet.getId(), nullSP, startRow, readRowNum)[0];
         nameArray.emplace_back("value");
         cols.push_back(valueColSP);
-        if (tableWithSchema.isNull() || tableWithSchema->isNull()) {
+        if (checkNull(tableWithSchema)) {
             return Util::createTable(nameArray, cols);
         }
         return appendColumnVecToTable(tableWithSchema, cols);

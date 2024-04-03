@@ -4,6 +4,8 @@
 #include <hdf5_plugin_imp.h>
 #include <hdf5_plugin_util.h>
 #include <hdf5_plugin_pandas.h>
+#include "ddbplugin/CommonInterface.h"
+
 
 static Mutex hdf5Mutex;
 
@@ -126,26 +128,28 @@ ConstantSP loadHDF5Ex(Heap *heap, vector<ConstantSP>& arguments) {
             schema = arguments[5];
     }
     if (arguments.size() >= 7) {
-        if (arguments[6]->isScalar() && arguments[6]->isNumber())
+        if (arguments[6]->isScalar() && arguments[6]->isNumber()) {
+            if (arguments[6]->getLong() < 0) {
+                throw IllegalArgumentException(__FUNCTION__, syntax + "startRow must be nonnegative.");
+            }
             startRow = arguments[6]->getLong();
-        else if (arguments[6]->isNull())
+        } else if (arguments[6]->isNull())
             startRow = 0;
         else
             throw IllegalArgumentException(__FUNCTION__, syntax + "startRow must be an integer scalar.");
 
-        if (startRow < 0)
-            throw IllegalArgumentException(__FUNCTION__, syntax + "startRow must be nonnegative.");
+
     }
     if (arguments.size() >= 8) {
-        if (arguments[7]->isScalar() && arguments[7]->isNumber())
+        if (arguments[7]->isScalar() && arguments[7]->isNumber()) {
+            if (arguments[7]->getLong() < 0)
+                throw IllegalArgumentException(__FUNCTION__, syntax + "rowNum must be nonnegative.");
             rowNum = arguments[7]->getLong();
-        else if (arguments[7]->isNull())
+        } else if (arguments[7]->isNull())
             rowNum = 0;
         else
             throw IllegalArgumentException(__FUNCTION__, syntax + "rowNum must be an integer scalar.");
 
-        if (rowNum < 0)
-            throw IllegalArgumentException(__FUNCTION__, syntax + "rowNum must be nonnegative.");
     }
     FunctionDefSP transform;
     if (arguments.size() >= 9) {
