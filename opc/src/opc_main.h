@@ -3,6 +3,7 @@
 
 #include "CoreConcept.h"
 #include "Logger.h"
+#include "ddbplugin/CommonInterface.h"
 
 extern "C" ConstantSP getOpcServerList(Heap* heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP connectOpcServer(Heap* heap, vector<ConstantSP>& arguments);
