@@ -8,7 +8,7 @@
 #include "CoreConcept.h"
 #include "Hbase.h"
 #include <transport/TSocket.h>
-
+#include "ddbplugin/CommonInterface.h"
 
 /* INTERFACES */
 
@@ -40,8 +40,6 @@ private:
     Mutex mtx_;
 
     /* HELPERS */
-
-    static int englishMonthParserH(char first, char second, char third);
     static bool partialDateParserH(const string &str, bool containDelimitor, int &part1, int &part2);
     static bool dateParserH(const string &str, int &intVal);
     static bool monthParserH(const string &str, int &intVal);
@@ -58,8 +56,6 @@ private:
 
 
 /* HELPERS */
-
-HBaseConnect *getConnectionFromArg(ConstantSP &conn, const string &usage);
 void connectionOnCloseH(Heap *heap, vector<ConstantSP> &args);
 
 #endif//PLUGINHBASE_PLUGINHBASE_H

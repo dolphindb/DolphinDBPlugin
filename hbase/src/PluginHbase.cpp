@@ -645,47 +645,12 @@ void HBaseConnect::closeH() {
 
 /* HELPERS */
 
-int HBaseConnect::englishMonthParserH(char first, char second, char third) {
-    if (first == 'J' || first == 'j') {
-        if (second == 'a' || second == 'A')
-            return 1;
-        else if (third == 'N' || third == 'n')
-            return 6;
-        else
-            return 7;
-    } else if (first == 'F' || first == 'f')
-        return 2;
-    else if (first == 'M' || first == 'm') {
-        if (third == 'R' || third == 'r')
-            return 3;
-        else
-            return 5;
-    } else if (first == 'A' || first == 'a') {
-        if (second == 'P' || second == 'p')
-            return 4;
-        else
-            return 8;
-    } else if (first == 'S' || first == 's')
-        return 9;
-    else if (first == 'O' || first == 'o')
-        return 10;
-    else if (first == 'N' || first == 'n')
-        return 11;
-    else if (first == 'D' || first == 'd')
-        return 12;
-    else
-        return 0;
-}
-
 bool HBaseConnect::partialDateParserH(const string &str, bool containDelimitor, int &part1, int &part2) {
     if (str.length() < 3)
         return false;
     unsigned start = 0;
     if (Util::isLetter(str[0])) {
-        part1 = englishMonthParserH(str[0], str[1], str[2]);
-        if (part1 == 0)
-            return false;
-        start = containDelimitor ? 4 : 3;
+        return false;
     } else {
         part1 = str[0] - '0';
         if (Util::isDigit(str[1])) {
@@ -1052,16 +1017,4 @@ void connectionOnCloseH(Heap *heap, vector<ConstantSP> &args) {
 
 void HBaseConnect::customThriftLogFunction(const char *message) {}
 
-HBaseConnect *getConnectionFromArg(ConstantSP &conn, const string &usage) {
-    if (conn->getType() != DT_RESOURCE || conn->getString() != "hbase connection") {
-        throw IllegalArgumentException(__FUNCTION__, usage + "hbaseConnection must be a hbase connection!");
-    }
-
-    auto connection = reinterpret_cast<HBaseConnect *>(conn->getLong());
-    if (connection == nullptr) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "hbaseConnection may be closed.");
-    }
-
-    return connection;
-}
 
