@@ -1,10 +1,8 @@
-#include <cstddef>
 #include <stdlib.h>
+#include <cstddef>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-#include <cstring>
-#include <stdexcept>
 #include <string>
 #include <zlib.h>
 #include <exception>
@@ -13,13 +11,14 @@
 #include <map>
 #include <ctime>
 
+#include "snappy.h"
+#include "lz4.h"
 #include "Logger.h"
 #include "kdb.h"
 #include "Concurrent.h"
 #include "Exceptions.h"
 #include "ScalarImp.h"
 #include "Util.h"
-#include "ddbplugin/Plugin.h"
 
 using namespace std;
 
@@ -36,25 +35,46 @@ using namespace std;
 #define KDB_DATETIME_GAP 946684800000
 #define KDB_MONTH_GAP 24000
 #define KDB_DATE_GAP 10957
-static string KDB_PREFIX = "[PLUGIN::KDB]: ";
-static Mutex LOCK_KDB;
-static dolphindb::ResourceMap<Connection> KDB_HANDLE_MAP(KDB_PREFIX + "", "kdb+ connection");
 
-static void kdbConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
-    if(!KDB_HANDLE_MAP.safeRemoveWithoutException(args[0])) {
-        LOG_ERR(KDB_PREFIX + "kdb onClose failed.");
+#define FILE_BOUNDARY_CHECK(condition)      \
+    if(UNLIKELY(condition)) {               \
+        throw RuntimeException("Parsing failed, exceeding buffer bound");\
+    }
+
+static Mutex LOCK_KDB;
+
+ConstantSP safeOp(const ConstantSP &arg, std::function<ConstantSP(Connection *)> &&f) {
+    if (arg->getType() == DT_RESOURCE && ((Connection *)(arg->getLong()) != nullptr)) {
+        string desc = arg->getString();
+        if(desc.find("kdb+ connection") == desc.npos) {
+            throw IllegalArgumentException(__FUNCTION__, "[PLUGIN::KDB]: Invalid kdb+ connection object.");
+        }
+        auto conn = (Connection *)(arg->getLong());
+        return f(conn);
+    } else {
+        throw IllegalArgumentException(__FUNCTION__, "[PLUGIN::KDB]: Invalid connection object.");
     }
 }
 
-Connection::Connection(string& hostStr, const int& port, string& usernamePassword): host_(hostStr), port_(port) {
-    I handle = khpunc(&hostStr[0], port, &usernamePassword[0], 1000, 1);
+static void kdbConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
+    Connection* conn = (Connection*)(args[0]->getLong());
+    if(conn!= nullptr) {
+        delete conn;
+        args[0]->setLong(0);
+    }
+}
+
+Connection::Connection(const string& hostStr, const int& port, const string& usernamePassword): host_(hostStr), port_(port) {
+    char* host = const_cast<char*>(hostStr.c_str());
+    char* usr = const_cast<char*>(usernamePassword.c_str());
+    I handle = khpunc(host, port, usr, 1000, 1);
 
     if(handle == 0) {
-        throw RuntimeException(KDB_PREFIX + "Authentication error.");
+        throw RuntimeException("[PLUGIN::KDB]: Authentication error.");
     } else if(handle == -1) {
-        throw RuntimeException(KDB_PREFIX + "Connection error.");
+        throw RuntimeException("[PLUGIN::KDB]: Connection error.");
     } else if (handle == -2) {
-        throw RuntimeException(KDB_PREFIX + "Connection time out.");
+        throw RuntimeException("[PLUGIN::KDB]: Connection time out.");
     }
     handle_ = handle;
 }
@@ -73,54 +93,56 @@ TableSP Connection::getTable(const string& tablePath, const string& symFilePath)
         vector<string> fields;
         Util::split(symFilePath, '/', fields);
         if(fields.size() == 0) {
-            throw RuntimeException(KDB_PREFIX + "Invalid symFilePath");
+            throw RuntimeException("[PLUGIN::KDB]: Invalid symFilePath");
         }
         symName = fields.back();
         // load sym to kdb
         string command = symName + ":get`:" + symFilePath;
-
-        K res = k(handle_, &command[0],(K)0);
+        char * arg = const_cast<char*>(command.c_str());
+        K res = k(handle_, arg,(K)0);
         if(!res) {
-            throw RuntimeException(KDB_PREFIX + "kdb+ execution error. fail to execute " + command + ".");
+            throw RuntimeException("[PLUGIN::KDB]: kdb+ execution error. fail to execute " + command + ".");
         }
         if(res->t == -128) {
             string errMsg = res->s;
-            throw RuntimeException(KDB_PREFIX + "kdb+ execution error " + errMsg + ".");
+            throw RuntimeException("[PLUGIN::KDB]: kdb+ execution error " + errMsg + ".");
         }
     }
 
     // load table
     string loadCommand = "\\l " + tablePath;
-    K loadRes = k(handle_, &loadCommand[0],(K)0);
+    char * loadArg = const_cast<char*>(loadCommand.c_str());
+    K loadRes = k(handle_, loadArg,(K)0);
     if(!loadRes) {
-        throw RuntimeException(KDB_PREFIX + "kdb+ execution error. fail to execute " + loadCommand + ".");
+        throw RuntimeException("[PLUGIN::KDB]: kdb+ execution error. fail to execute " + loadCommand + ".");
     }
     if(loadRes->t == -128) {
         string errMsg = loadRes->s;
-        throw RuntimeException(KDB_PREFIX + "load table failed: " + errMsg + ".");
+        throw RuntimeException("[PLUGIN::KDB]: load table failed: " + errMsg + ".");
     }
 
     // split table path, get table name, get cols
     vector<string> pathVec = Util::split(tablePath, '/');
     if(pathVec.size() == 0) {
-        throw RuntimeException(KDB_PREFIX + "invalid file path " + tablePath + ".");
+        throw RuntimeException("[PLUGIN::KDB]: invalid file path " + tablePath + ".");
     }
     string tableName = pathVec[pathVec.size()-1];
     string colsCommand = "cols " + tableName;
-    K colsRes = k(handle_, &colsCommand[0],(K)0);
+    char * colsArg = const_cast<char*>(colsCommand.c_str());
+    K colsRes = k(handle_, colsArg,(K)0);
     if(!colsRes) {
-        throw RuntimeException(KDB_PREFIX + "kdb+ execution error. fail to execute " + colsCommand + ".");
+        throw RuntimeException("[PLUGIN::KDB]: kdb+ execution error. fail to execute " + colsCommand + ".");
     }
     if(colsRes->t == -128) {
         string errMsg = colsRes->s;
-        throw RuntimeException(KDB_PREFIX + "get table failed: " + errMsg + ".");
+        throw RuntimeException("[PLUGIN::KDB]: get table failed: " + errMsg + ".");
     }
 
     int colNum = colsRes->n;
     vector<string> colNames(colNum);
     vector<ConstantSP> cols(colNum);
     if(kS(colsRes) == nullptr) {
-        throw RuntimeException(KDB_PREFIX + "failed to get table cols");
+        throw RuntimeException("[PLUGIN::KDB]: failed to get table cols");
     }
     for(int i = 0; i < colNum; i++) {
         colNames[i] = kS(colsRes)[i];
@@ -128,13 +150,14 @@ TableSP Connection::getTable(const string& tablePath, const string& symFilePath)
 
     for(int i = 0; i < colNum; i++) {
         string queryCommand = "select " +  colNames[i] + " from " + tableName;
-        K colRes = k(handle_, &queryCommand[0],(K)0);
+        char * queryArg = const_cast<char*>(queryCommand.c_str());
+        K colRes = k(handle_, queryArg,(K)0);
         if(!colsRes) {
-            throw RuntimeException(KDB_PREFIX + "kdb+ execution error. fail to execute " + colsCommand + ".");
+            throw RuntimeException("[PLUGIN::KDB]: kdb+ execution error. fail to execute " + colsCommand + ".");
         }
         if(colRes->t == -128) {
             string errMsg = colRes->s;
-            throw RuntimeException(KDB_PREFIX + "kdb+ execution error " + errMsg + ".");
+            throw RuntimeException("[PLUGIN::KDB]: kdb+ execution error " + errMsg + ".");
         }
 
         /**
@@ -156,7 +179,7 @@ TableSP Connection::getTable(const string& tablePath, const string& symFilePath)
         // checkout kK, kKkK, kKkKkG
         if(colRes->k == nullptr || kK(colRes->k) == nullptr || colRes->k->n < 2 || kK(colRes->k)[1] == nullptr ||
            kK(colRes->k)[1]->n < 1 || kK(kK(colRes->k)[1])[0] == nullptr || kG(kK(kK(colRes->k)[1])[0]) == nullptr) {
-            throw RuntimeException(KDB_PREFIX + "failed to parse kdb+ query result");
+            throw RuntimeException("[PLUGIN::KDB]: failed to parse kdb+ query result");
         }
         int type = kK(kK(colRes->k)[1])[0]->t;
         long long length = (long long)(kK(kK(colRes->k)[1])[0]->n);
@@ -167,7 +190,7 @@ TableSP Connection::getTable(const string& tablePath, const string& symFilePath)
                 vector<string> charArray;
                 for(int index = 0; index < length; ++index) {
                     if(kK(kK(kK(colRes->k)[1])[0])[index] == 0 || kC(kK(kK(kK(colRes->k)[1])[0])[index]) == 0) {
-                        throw RuntimeException(KDB_PREFIX + "failed to parse kdb+ query result");
+                        throw RuntimeException("[PLUGIN::KDB]: failed to parse kdb+ query result");
                     }
                     int constantType = int(kK(kK(kK(colRes->k)[1])[0])[index]->t);
                     string str = "";
@@ -179,7 +202,7 @@ TableSP Connection::getTable(const string& tablePath, const string& symFilePath)
                     } else if (constantType == -10) {
                         str.push_back(kK(kK(kK(colRes->k)[1])[0])[index]->g);
                     } else {
-                        throw RuntimeException(KDB_PREFIX + "loadTable() only support char nested array");
+                        throw RuntimeException("[PLUGIN::KDB]: loadTable() only support char nested array");
                     }
                     charArray.emplace_back(str);
                 }
@@ -343,33 +366,35 @@ TableSP Connection::getTable(const string& tablePath, const string& symFilePath)
                 ((Vector*)(cols[i].get()))->appendInt((int *)ptr, length);
                 break;
             default:
-                throw RuntimeException(KDB_PREFIX + "Can't parse column " + colNames[i] + " .");
+                throw RuntimeException("[PLUGIN::KDB]: Can't parse column " + colNames[i] + " .");
         }
         ((Vector*)(cols[i].get()))->setNullFlag(((Vector*)(cols[i].get()))->hasNull());
         r0(colRes);
-        LOG(KDB_PREFIX + "load col" + colNames[i] + " size: " + to_string(((Vector*)(cols[i].get()))->size()) + ".");
+        LOG("[PLUGIN::KDB] load col" + colNames[i] + " size: " + to_string(((Vector*)(cols[i].get()))->size()) + ".");
     }
     r0(colsRes);
     //drop table, release memory in kdb+
     string dropCommand = tableName + ":0";
-    K dropRes = k(handle_, &dropCommand[0],(K)0);
+    char* dropArg = const_cast<char*>(dropCommand.c_str());
+    K dropRes = k(handle_, dropArg,(K)0);
     if(!dropRes) {
-        LOG_INFO(KDB_PREFIX + "kdb+ execution error. fail to execute " + dropCommand + ".");
+        LOG_INFO("[PLUGIN::KDB]: kdb+ execution error. fail to execute " + dropCommand + ".");
     }
     if(dropRes->t == -128) {
         string errMsg = dropRes->s;
-        LOG_INFO(KDB_PREFIX + "drop table failed: " + errMsg + ".");
+        LOG_INFO("[PLUGIN::KDB]: drop table failed: " + errMsg + ".");
     }
 
     // drop sym table
     dropCommand = symName + ":0";
-    dropRes = k(handle_, &dropCommand[0],(K)0);
+    dropArg = const_cast<char*>(dropCommand.c_str());
+    dropRes = k(handle_, dropArg,(K)0);
     if(!dropRes) {
-        LOG_INFO(KDB_PREFIX + "kdb+ execution error. fail to execute " + dropCommand + ".");
+        LOG_INFO("[PLUGIN::KDB]: kdb+ execution error. fail to execute " + dropCommand + ".");
     }
     if(dropRes->t == -128) {
         string errMsg = dropRes->s;
-        LOG_INFO(KDB_PREFIX + "drop sym failed: " + errMsg + ".");
+        LOG_INFO("[PLUGIN::KDB]: drop sym failed: " + errMsg + ".");
     }
     for(ConstantSP col: cols) {
         col->setTemporary(true);
@@ -404,38 +429,58 @@ double rd(unsigned char* src, long long pos) {
     return reinterpret_cast<double&>(num);
 }
 
-long long decompress(unsigned char *src, size_t src_len, unsigned char *dest, size_t dest_len, int compressType)
-{
+long long decompressPlainText(unsigned char *src, size_t srcLen, unsigned char *dest, size_t destLen) {
+    // TODO do some verification
+    memcpy(dest, src, srcLen);
+    return srcLen;
+}
+
+long long decompressQIpc(unsigned char *src, size_t srcLen, unsigned char *dest, size_t destLen) {
+    throw RuntimeException("unsupported compress type: q IPC");
+}
+
+long long decompressGzip(unsigned char *src, size_t srcLen, unsigned char *dest, size_t destLen) {
     if(UNLIKELY(src == nullptr)) {
-        return -4;
-    }
-    if(UNLIKELY(compressType == 0)) {
-        memcpy(dest, src, src_len);
-        return src_len;
+        throw RuntimeException("parse col failed.");
     }
     z_stream strm;
     strm.zalloc = Z_NULL;
     strm.zfree = Z_NULL;
     strm.opaque = Z_NULL;
     strm.next_in = src;
-    strm.avail_in = src_len;
+    strm.avail_in = srcLen;
     strm.next_out = dest;
-    strm.avail_out = dest_len;
+    strm.avail_out = destLen;
     if (inflateInit2 (& strm, WINDOWS_BITS | ENABLE_ZLIB_GZIP) < 0){
-        return -2;
+        throw RuntimeException("gzip decompress: init inflate failed.");
     }
     long long res = inflate (& strm, Z_NO_FLUSH);
 
     if (UNLIKELY(res < 0)){
-        return -2;
+        throw RuntimeException("gzip decompress: inflate failed.");
     }
     inflateEnd (& strm);
-    return dest_len - strm.avail_out;
+    return destLen - strm.avail_out;
 }
+
+long long decompressSnappy(unsigned char *src, size_t srcLen, unsigned char *dest, size_t destLen) {
+    // string destStr;
+    bool success = snappy::RawUncompress(reinterpret_cast<char *>(src), srcLen, reinterpret_cast<char *>(dest));
+    if(!success) {
+        throw RuntimeException("snappy decompress failed.");
+    }
+    // memcpy(dest, destStr.c_str(), destStr.size());
+    return destLen;
+}
+
+long long decompressLz4hc(unsigned char *src, size_t srcLen, unsigned char *dest, size_t destLen) {
+    return LZ4_decompress_safe(reinterpret_cast<char *>(src), reinterpret_cast<char *>(dest), srcLen, destLen);
+}
+
 
 long long decompress(FILE * fp, vector<unsigned char>& dest) {
     if(!fp) {
-        return -4;
+        throw RuntimeException("invalid file descriptor");
     }
     fseek(fp, 0, SEEK_END);
     long long fileLen = ftell(fp)-8;
@@ -445,20 +490,14 @@ long long decompress(FILE * fp, vector<unsigned char>& dest) {
     srcVec.resize(fileLen);
     unsigned char *src = srcVec.data();
     size_t bytesRead = fread(src, 1, fileLen, fp);
-    if(UNLIKELY((long long)bytesRead != fileLen)) {
-        return -4;
-    }
+    FILE_BOUNDARY_CHECK((long long)bytesRead != fileLen)
 
     // read meta data of compressed file
     // read block num of compressed file
-    if(UNLIKELY(fileLen < 8)) {
-        return -4;
-    }
+    FILE_BOUNDARY_CHECK(fileLen < 8)
     long long blockSize = rl(src, fileLen-8);
 
-    if(UNLIKELY(fileLen < 8 + 8*blockSize + 32)) {
-        return -4;
-    }
+    FILE_BOUNDARY_CHECK(fileLen < 8 + 8*blockSize + 32)
     long long bufPos = fileLen-8-8*blockSize - 32;
 
     // read compress type&level
@@ -467,11 +506,12 @@ long long decompress(FILE * fp, vector<unsigned char>& dest) {
     bufPos+=1;
     // int compressLevel = src[bufPos]; // currently no use
 
-    // only support type 2 zlib
-    if(UNLIKELY(compressType == 1 || compressType == 3 || compressType == 4)) {
-        return -3;
+    if(UNLIKELY(compressType == KDB_COMPRESS_Q_IPC)) {
+        throw RuntimeException("unsupported compress type: q IPC");
     }
-
+    // else if(UNLIKELY(compressType == KDB_COMPRESS_LZ4HC)) {
+    //     throw RuntimeException("unsupported compress type: lz4hc");
+    // }
     // read uncompress size
     bufPos+=3;
     long long originSize = rl(src, bufPos);
@@ -481,40 +521,46 @@ long long decompress(FILE * fp, vector<unsigned char>& dest) {
     long long originBlockSize = rl(src, bufPos);
 
     // read every compress block size
-    // TODO maybe different blocks would have different compress type
     vector<pair<size_t, size_t>> blockVec(blockSize);
     for(long long i = 0; i < blockSize; i++) {
         bufPos+=8;
-        if(UNLIKELY(bufPos+8 > fileLen)) {
-            throw RuntimeException(KDB_PREFIX + "Parsing failed, exceeding buffer bound");
-        }
+        FILE_BOUNDARY_CHECK(bufPos+8 > fileLen)
         size_t len = ri(src, bufPos);
         size_t type = ri(src, bufPos+4);
         blockVec[i] = pair<size_t, size_t>{len, type};
     }
 
     dest.resize(originBlockSize * blockSize);
-    // unsigned char *destRet = dest;
     long long offset = 0;
     for(long long i = 0; i < blockSize; i++) {
         long long decompressSize = -1;
-        try {
-            decompressSize = decompress(src,blockVec[i].first, dest.data()+offset, originBlockSize, blockVec[i].second);
-        } catch(exception& e) {
-            throw RuntimeException(KDB_PREFIX + "depression failed. " + string(e.what()));
+        switch(blockVec[i].second) {
+            case kdbCompressType::KDB_NO_COMPRESS:
+                decompressSize = decompressPlainText(src, blockVec[i].first, dest.data()+offset, originBlockSize);
+                break;
+            case kdbCompressType::KDB_COMPRESS_Q_IPC:
+                decompressSize = decompressQIpc(src, blockVec[i].first, dest.data()+offset, originBlockSize);
+                break;
+            case kdbCompressType::KDB_COMPRESS_GZIP:
+                decompressSize = decompressGzip(src, blockVec[i].first, dest.data()+offset, originBlockSize);
+                break;
+            case kdbCompressType::KDB_COMPRESS_SNAPPY:
+                decompressSize = decompressSnappy(src, blockVec[i].first, dest.data()+offset, originBlockSize);
+                break;
+            case kdbCompressType::KDB_COMPRESS_LZ4HC:
+                decompressSize = decompressLz4hc(src, blockVec[i].first, dest.data()+offset, originBlockSize);
+                break;
+            default:
+                break;
         }
 
-        if (UNLIKELY(decompressSize == -1)) {
-            return -1;
-        } else if (UNLIKELY(decompressSize == -2)) {
-            return -2;
-        } else if(UNLIKELY(decompressSize == -4)) {
-            return -4;
+        if (UNLIKELY(decompressSize < 0)) {
+            throw RuntimeException("invalid depression.");
         }
         src+=blockVec[i].first;
         offset+=decompressSize;
     }
-    LOG("Expected depressed file size: ", offset, ", Actually: ", originSize);
+    LOG_WARN("Expected depressed file size: ", offset, ", Actually: ", originSize);
     return originSize;
 }
 
@@ -522,7 +568,7 @@ vector<string> loadSym(string symSrc) {
     vector<string> symVec;
     FILE * fp = fopen(symSrc.c_str(), "rb");
      if (UNLIKELY(!fp)){
-        throw RuntimeException(KDB_PREFIX + "Open sym file failed\n");
+        throw RuntimeException("[PLUGIN::KDB]: Open sym file failed\n");
     }
     Defer df([=](){fclose(fp);});
 
@@ -535,7 +581,7 @@ vector<string> loadSym(string symSrc) {
 
     size_t bytesRead = fread(src, 1, fileLen, fp);
     if(UNLIKELY((long long)bytesRead != fileLen)) {
-        throw RuntimeException(KDB_PREFIX + "Load sym file failed\n");
+        throw RuntimeException("[PLUGIN::KDB]: Load sym file failed\n");
     }
 
     vector<char> charVec;
@@ -578,18 +624,9 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
         try {
             dep = decompress(fp, srcVec);
         } catch(exception& e) {
-             return new String(KDB_PREFIX + "depression failed. " + string(e.what()));
+             return new String("[PLUGIN::KDB]: " + colSrc + " depression failed. " + string(e.what()));
         }
 
-        if(UNLIKELY(dep == -1)) {
-            return new String("Depression failed, can't init inflate");
-        } else if(UNLIKELY(dep == -2)) {
-            return new String("Depression failed, can't inflate.");
-        } else if(UNLIKELY(dep == -3)) {
-            return new String("Unsupported kdb compress type, please use loadTable().");
-        } else if(UNLIKELY(dep == -4)) {
-            return new String("load " + colSrc + " col file failed.");
-        }
         src = srcVec.data();
         fileLen = dep;
     } else {
@@ -619,7 +656,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
         return new String("Parsing failed, exceeding buffer bound");
     }
     switch(type) {
-        case 0: // have risk, maybe have some unknown mechanism
+        case KDB_LIST: // have risk, maybe have some unknown mechanism
         {
             if(bufPos == fileLen) {
                 VectorSP vec = Util::createVector(DT_SYMBOL, 0, 0, true);
@@ -660,7 +697,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
                 bufPos+=8;
 
                 // FIXME use this flag, temporary get the right result
-                if(length == 0 && flag == 0) {
+                if(length == 0 && (flag == 0 || flag == 1)) {
                     length = (fileLen - bufPos) / 8;
                 }
 
@@ -682,7 +719,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
                     }
                 }
                 vec->appendString(strVec.data(), length);
-                LOG(KDB_PREFIX + "load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
+                LOG("[PLUGIN::KDB]: load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
                 return vec;
             } else if(str == "") {
                 // here assumes that, if str is "", it must be a nested column
@@ -694,7 +731,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
                 if (UNLIKELY(!fpSharp)){
                     return new String("Open cols " + colSrcSharp + " failed\n");
                 } else {
-                    LOG(KDB_PREFIX + "Open "+ colSrcSharp + ".");
+                    LOG("[PLUGIN::KDB]: Open "+ colSrcSharp + ".");
                 }
 
                 Defer df([=](){fclose(fpSharp);});
@@ -718,16 +755,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
                     try {
                         dep = decompress(fpSharp, srcVecSharp);
                     } catch(exception& e) {
-                         return new String(KDB_PREFIX + "depression failed. " + string(e.what()));
-                    }
-                    if(UNLIKELY(dep == -1)) {
-                        return new String("Depression failed, can't init inflate");
-                    } else if(UNLIKELY(dep == -2)) {
-                        return new String("Depression failed, can't inflate.");
-                    } else if(UNLIKELY(dep == -3)) {
-                        return new String("Unsupported kdb compress type, please use loadTable().");
-                    } else if(UNLIKELY(dep == -4)) {
-                        return new String("Load " + colSrcSharp + " col file failed.");
+                         return new String("[PLUGIN::KDB]: " + colSrcSharp + " depression failed. " + string(e.what()));
                     }
                     srcSharp = srcVecSharp.data();
                     fileLenSharp = dep;
@@ -796,11 +824,11 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
 
                 VectorSP vec = Util::createVector(DT_STRING, 0, strVec.size(), true);
                 vec->appendString(strVec.data(), strVec.size());
-                LOG(KDB_PREFIX + "load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
+                LOG("[PLUGIN::KDB]: load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
                 return vec;
             } else {
-                // un-match pattern, to be find
-                return new String("load Sym file failed.");
+                // sym file to be find
+                return new String("sym file: '" + str + "' is needed");
             }
         }
         case KDB_BOOL:
@@ -816,7 +844,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
             char * boolSrc = reinterpret_cast<char *>(src + bufPos);
             VectorSP vec = Util::createVector(DT_BOOL, 0, length, true);
             vec->appendBool((char *)boolSrc, length);
-            LOG(KDB_PREFIX + "load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
+            LOG("[PLUGIN::KDB]: load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
             return vec;
         }
         case KDB_GUID:
@@ -840,7 +868,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
             }
             VectorSP vec = Util::createVector(DT_UUID, 0, length, true);
             vec->appendGuid((Guid *)charSrc, length);
-            LOG(KDB_PREFIX + "load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
+            LOG("[PLUGIN::KDB]: load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
             return vec;
         }
         case KDB_BYTE:
@@ -857,7 +885,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
             char * charSrc = reinterpret_cast<char *>(src + bufPos);
             VectorSP vec = Util::createVector(DT_CHAR, 0, length, true);
             vec->appendChar((char *)charSrc, length);
-            LOG(KDB_PREFIX + "load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
+            LOG("[PLUGIN::KDB]: load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
             return vec;
         }
         case KDB_SHORT:
@@ -873,7 +901,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
             short * shortSrc = reinterpret_cast<short *>(src + bufPos);
             VectorSP vec = Util::createVector(DT_SHORT, 0, length, true);
             vec->appendShort((short *)shortSrc, length);
-            LOG(KDB_PREFIX + "load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
+            LOG("[PLUGIN::KDB]: load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
             return vec;
         }
         case KDB_INT:
@@ -889,7 +917,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
             int * intSrc = reinterpret_cast<int *>(src + bufPos);
             VectorSP vec = Util::createVector(DT_INT, 0, length, true);
             vec->appendInt((int *)intSrc, length);
-            LOG(KDB_PREFIX + "load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
+            LOG("[PLUGIN::KDB]: load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
             return vec;
         }
         case KDB_LONG:
@@ -905,7 +933,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
             long long * longSrc = reinterpret_cast<long long *>(src + bufPos);
             VectorSP vec = Util::createVector(DT_LONG, 0, length, true);
             vec->appendLong((long long *)longSrc, length);
-            LOG(KDB_PREFIX + "load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
+            LOG("[PLUGIN::KDB]: load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
             return vec;
         }
         case KDB_FLOAT:
@@ -928,7 +956,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
             }
 
             vec->appendFloat((float *)floatSrc, length);
-            LOG(KDB_PREFIX + "load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
+            LOG("[PLUGIN::KDB]: load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
             return vec;
         }
         case KDB_DOUBLE:
@@ -951,7 +979,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
             }
 
             vec->appendDouble((double *)doubleSrc, length);
-            LOG(KDB_PREFIX + "load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
+            LOG("[PLUGIN::KDB]: load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
             return vec;
         }
         case KDB_TIMESTAMP:
@@ -975,7 +1003,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
             }
             VectorSP vec = Util::createVector(DT_NANOTIMESTAMP, 0, length, true);
             vec->appendLong((long long *)longSrc, length);
-            LOG(KDB_PREFIX + "load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
+            LOG("[PLUGIN::KDB]: load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
             return vec;
         }
         case KDB_MONTH:
@@ -998,7 +1026,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
             }
             VectorSP vec = Util::createVector(DT_MONTH, 0, length, true);
             vec->appendInt((int *)intSrc, length);
-            LOG(KDB_PREFIX + "load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
+            LOG("[PLUGIN::KDB]: load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
             return vec;
         }
         case KDB_DATE:
@@ -1021,7 +1049,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
             }
             VectorSP vec = Util::createVector(DT_DATE, 0, length, true);
             vec->appendInt((int *)intSrc, length);
-            LOG(KDB_PREFIX + "load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
+            LOG("[PLUGIN::KDB]: load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
             return vec;
         }
         case KDB_DATETIME:
@@ -1041,7 +1069,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
                 longSrc[i] = (long long)((doubleSrc[i]) * 86400000 + KDB_DATETIME_GAP);
             }
             vec->appendLong((long long *)(longSrc.data()), length);
-            LOG(KDB_PREFIX + "load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
+            LOG("[PLUGIN::KDB]: load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
             return vec;
         }
         case KDB_TIMESPAN:
@@ -1057,7 +1085,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
             long long * longSrc = reinterpret_cast<long long *>(src + bufPos);
             VectorSP vec = Util::createVector(DT_NANOTIME, 0, length, true);
             vec->appendLong((long long *)longSrc, length);
-            LOG(KDB_PREFIX + "load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
+            LOG("[PLUGIN::KDB]: load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
             return vec;
         }
         case KDB_MINUTE:
@@ -1073,7 +1101,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
             int * intSrc = reinterpret_cast<int *>(src + bufPos);
             VectorSP vec = Util::createVector(DT_MINUTE, 0, length, true);
             vec->appendInt((int *)intSrc, length);
-            LOG(KDB_PREFIX + "load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
+            LOG("[PLUGIN::KDB]: load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
             return vec;
         }
         case KDB_SECOND:
@@ -1089,7 +1117,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
             int * intSrc = reinterpret_cast<int *>(src + bufPos);
             VectorSP vec = Util::createVector(DT_SECOND, 0, length, true);
             vec->appendInt((int *)intSrc, length);
-            LOG(KDB_PREFIX + "load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
+            LOG("[PLUGIN::KDB]: load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
             return vec;
         }
         case KDB_TIME:
@@ -1105,7 +1133,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
             int * intSrc = reinterpret_cast<int *>(src + bufPos);
             VectorSP vec = Util::createVector(DT_TIME, 0, length, true);
             vec->appendInt((int *)intSrc, length);
-            LOG(KDB_PREFIX + "load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
+            LOG("[PLUGIN::KDB]: load col "+ colSrc + " size: " + to_string(((Vector*)vec.get())->size()) + ".");
             return vec;
         }
         case KDB_STRING:
@@ -1116,7 +1144,7 @@ ConstantSP loadSplayedCol(const string& colSrc, const vector<string>& symList, c
              */
         }
         default:
-            return new String(KDB_PREFIX + "can't parse column " + colSrc + " .");
+            return new String("[PLUGIN::KDB]: can't parse column " + colSrc + " .");
     }
     VectorSP vec = Util::createVector(DT_VOID, 0);
     return vec;
@@ -1142,9 +1170,9 @@ void run() override {
         vec->setNullFlag(true);
         cols_[colIndex_] = vec;
     } catch (std::exception& ex) {
-        LOG_ERR(string(KDB_PREFIX + "parse kdb col file failed: ") + ex.what());
+        LOG_ERR(string("[PLUGIN::KDB]: parse kdb col file failed: ") + ex.what());
     } catch (...) {
-        LOG_ERR(KDB_PREFIX + "parse kdb col file failed.");
+        LOG_ERR("[PLUGIN::KDB]: parse kdb col file failed.");
     }
 }
 private:
@@ -1165,7 +1193,7 @@ TableSP loadSplayedTable(string tablePath, vector<string>& symList, string symNa
     string dotD = tablePath + ".d";
     FILE * fp = fopen(dotD.c_str(), "rb");
     if (!fp){
-        throw RuntimeException(KDB_PREFIX + "Open .d file failed, this is not a splayed table\n");
+        throw RuntimeException("[PLUGIN::KDB]: Open .d file failed, this is not a splayed table\n");
     }
     Defer df([=](){fclose(fp);});
 
@@ -1174,7 +1202,7 @@ TableSP loadSplayedTable(string tablePath, vector<string>& symList, string symNa
     auto startSrc = startSrcVec.data();
     size_t bytesRead = fread(startSrc, 1, 8, fp);
     if(bytesRead != 8) {
-        throw RuntimeException(KDB_PREFIX + "read header failed\n");
+        throw RuntimeException("[PLUGIN::KDB]: read header failed\n");
     }
     startSrc[8] = '\0';
     string headStr = "";
@@ -1189,16 +1217,7 @@ TableSP loadSplayedTable(string tablePath, vector<string>& symList, string symNa
         try {
             dep = decompress(fp, srcVec);
         } catch(exception& e) {
-            throw RuntimeException(KDB_PREFIX + "depression failed. " + string(e.what()));
-        }
-        if(dep == -1) {
-            throw RuntimeException(KDB_PREFIX + ".d file Depression failed, can't init inflate");
-        } else if(dep == -2) {
-            throw RuntimeException(KDB_PREFIX + ".d file Depression failed, can't inflate.");
-        } else if(dep == -3) {
-            throw RuntimeException(KDB_PREFIX + ".d file Unsupported kdb compress type, please use loadTable().");
-        } else if(dep == -4) {
-            throw RuntimeException(KDB_PREFIX + "load .d file failed.");
+            throw RuntimeException("[PLUGIN::KDB]: .d depression failed. " + string(e.what()));
         }
         // skip head 00 completion of file
         src = srcVec.data()+8;
@@ -1211,7 +1230,7 @@ TableSP loadSplayedTable(string tablePath, vector<string>& symList, string symNa
         src = srcVec.data();
         bytesRead = fread(src, 1, fileLen, fp);
         if((long long)bytesRead != fileLen) {
-            throw RuntimeException(KDB_PREFIX + "load .d file failed.");
+            throw RuntimeException("[PLUGIN::KDB]: load .d file failed.");
         }
     }
 
@@ -1255,9 +1274,9 @@ TableSP loadSplayedTable(string tablePath, vector<string>& symList, string symNa
     for(auto col: cols) {
         if(col->getForm() != DF_VECTOR ) {
             if(col->getType() == DT_STRING && !col->isNull()) {
-                throw RuntimeException(KDB_PREFIX + "" + col->getString());
+                throw RuntimeException("[PLUGIN::KDB]: " + col->getString());
             } else {
-                throw RuntimeException(KDB_PREFIX + "parsing col failed");
+                throw RuntimeException("[PLUGIN::KDB]: parsing col failed");
             }
         }
         col->setTemporary(true);
@@ -1267,22 +1286,21 @@ TableSP loadSplayedTable(string tablePath, vector<string>& symList, string symNa
 }
 
 ConstantSP kdbConnect(Heap *heap, vector<ConstantSP> &args){
-    LockGuard<Mutex> guard(&LOCK_KDB);
     const auto usage = string("Usage: connect(host, port, usernamePassword). ");
     if(args[0]->getType() != DT_STRING){
-        throw IllegalArgumentException(__FUNCTION__, usage + KDB_PREFIX + "host should be a string.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "[PLUGIN::KDB]: host should be a string.");
     }
     string hostStr = args[0]->getString();
 
     if(args[1]->getType() != DT_INT){
-        throw IllegalArgumentException(__FUNCTION__, usage + KDB_PREFIX + "port should be a integer.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "[PLUGIN::KDB]: port should be a integer.");
     }
     I port = args[1]->getInt();
 
     string usrStr = "";
     if(args.size() == 3) {
         if(args[2]->getType() != DT_STRING){
-            throw IllegalArgumentException(__FUNCTION__, usage + KDB_PREFIX + "usernamePassword should be a string.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "[PLUGIN::KDB]: usernamePassword should be a string.");
         }
         usrStr = args[2]->getString();
     }
@@ -1290,16 +1308,14 @@ ConstantSP kdbConnect(Heap *heap, vector<ConstantSP> &args){
     Connection* cup = new Connection(hostStr, port, usrStr);
     string desc = "kdb+ connection to [" + cup->str() + "]";
     FunctionDefSP onClose(Util::createSystemProcedure("kdb+ connection onClose()", kdbConnectionOnClose, 1, 1));
-    ConstantSP ret = Util::createResource((long long)cup, desc, onClose, heap->currentSession());
-    KDB_HANDLE_MAP.safeAdd(ret, cup);
-    return ret;
+    return Util::createResource((long long)cup, desc, onClose, heap->currentSession());
 }
 
 ConstantSP kdbLoadTable(Heap *heap, vector<ConstantSP> &args){
     const auto usage = string("Usage: loadTable(handle, tablePath, symPath). ");
 
     if(args[1]->getType() != DT_STRING) {
-        throw IllegalArgumentException(__FUNCTION__, usage + KDB_PREFIX + "tablePath should be a string.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "[PLUGIN::KDB]: tablePath should be a string.");
     }
     string tablePath = args[1]->getString();
 #ifdef WINDOWS
@@ -1313,13 +1329,13 @@ ConstantSP kdbLoadTable(Heap *heap, vector<ConstantSP> &args){
      * so the existence verification is useless
      */
     // if(!Util::exists(tablePath) && !Util::existsDir(tablePath)) {
-    //     throw IllegalArgumentException(__FUNCTION__, usage + KDB_PREFIX + "tablePath [" + tablePath + "] doesn't exist.");
+    //     throw IllegalArgumentException(__FUNCTION__, usage + "[PLUGIN::KDB]: tablePath [" + tablePath + "] doesn't exist.");
     // }
 
     string symFilePath = "";
     if(args.size() == 3) {
         if(args[2]->getType() != DT_STRING) {
-            throw IllegalArgumentException(__FUNCTION__, usage + KDB_PREFIX + "symPath should be a string.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "[PLUGIN::KDB]: symPath should be a string.");
         }
         symFilePath = args[2]->getString();
     }
@@ -1332,19 +1348,18 @@ ConstantSP kdbLoadTable(Heap *heap, vector<ConstantSP> &args){
     }
     // if(symFilePath!= "" && !Util::exists(symFilePath)) {
     //     if(Util::existsDir(symFilePath)) {
-    //         throw IllegalArgumentException(__FUNCTION__, usage + KDB_PREFIX + "symPath [" +
+    //         throw IllegalArgumentException(__FUNCTION__, usage + "[PLUGIN::KDB]: symPath [" +
     //                                         symFilePath + "] should be a single file, not a directory.");
     //     }
-    //     throw IllegalArgumentException(__FUNCTION__, usage + KDB_PREFIX + "symPath [" + symFilePath + "] doesn't exist.");
+    //     throw IllegalArgumentException(__FUNCTION__, usage + "[PLUGIN::KDB]: symPath [" + symFilePath + "] doesn't exist.");
     // }
-    SmartPointer<Connection> conn = KDB_HANDLE_MAP.safeGet(args[0]);
-    return conn->getTable(tablePath, symFilePath);
+    return safeOp(args[0], [&](Connection *conn) {return conn->getTable(tablePath, symFilePath);});
 }
 
 ConstantSP kdbLoadFile(Heap *heap, vector<ConstantSP> &args){
     const auto usage = string("Usage: loadFile(tablePath, symPath). ");
     if(args[0]->getType() != DT_STRING) {
-        throw IllegalArgumentException(__FUNCTION__, usage + KDB_PREFIX + "tablePath should be a string.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "[PLUGIN::KDB]: tablePath should be a string.");
     }
     string tablePath = args[0]->getString();
 #ifdef WINDOWS
@@ -1355,12 +1370,12 @@ ConstantSP kdbLoadFile(Heap *heap, vector<ConstantSP> &args){
         tablePath.pop_back();
     }
     if(!Util::exists(tablePath) && !Util::existsDir(tablePath)) {
-        throw IllegalArgumentException(__FUNCTION__, usage + KDB_PREFIX + "tablePath [" + tablePath + "] doesn't exist.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "[PLUGIN::KDB]: tablePath [" + tablePath + "] doesn't exist.");
     }
     string symFilePath = "";
     if(args.size() == 2) {
         if(args[1]->getType() != DT_STRING) {
-            throw IllegalArgumentException(__FUNCTION__, usage + KDB_PREFIX + "symPath should be a string.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "[PLUGIN::KDB]: symPath should be a string.");
         }
         symFilePath = args[1]->getString();
     }
@@ -1373,10 +1388,10 @@ ConstantSP kdbLoadFile(Heap *heap, vector<ConstantSP> &args){
     }
     if(symFilePath!= "" && !Util::exists(symFilePath)) {
         if(Util::existsDir(symFilePath)) {
-            throw IllegalArgumentException(__FUNCTION__, usage + KDB_PREFIX + "symPath [" +
+            throw IllegalArgumentException(__FUNCTION__, usage + "[PLUGIN::KDB]: symPath [" +
                                             symFilePath + "] should be a single file, not a directory.");
         }
-        throw IllegalArgumentException(__FUNCTION__, usage + KDB_PREFIX + "symPath [" + symFilePath + "] doesn't exist.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "[PLUGIN::KDB]: symPath [" + symFilePath + "] doesn't exist.");
     }
 
     vector<string> symList;
@@ -1394,10 +1409,20 @@ ConstantSP kdbLoadFile(Heap *heap, vector<ConstantSP> &args){
 
 ConstantSP kdbClose(Heap *heap, vector<ConstantSP> &args){
     const auto usage = string("Usage: close(handle). ");
-    try{
-        KDB_HANDLE_MAP.safeRemove(args[0]);
-    } catch(RuntimeException& e) {
-        throw IllegalArgumentException(__FUNCTION__, usage + e.what());
+    if (args[0]->getType() == DT_RESOURCE) {
+        string desc = args[0]->getString();
+        if(desc.find("kdb+ connection") == desc.npos) {
+            throw IllegalArgumentException(__FUNCTION__, "[PLUGIN::KDB]: Invalid kdb+ connection object.");
+        }
+        Connection* conn = (Connection*)(args[0]->getLong());
+        if(conn!= nullptr) {
+            delete conn;
+            args[0]->setLong(0);
+        } else {
+            throw IllegalArgumentException(__FUNCTION__, "[PLUGIN::KDB]: Invalid connection object.");
+        }
+    } else {
+        throw IllegalArgumentException(__FUNCTION__, "[PLUGIN::KDB]: Invalid connection object.");
     }
     return new Void();
 }

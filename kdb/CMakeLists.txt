@@ -8,7 +8,10 @@ if (WIN32)
     add_definitions("-DWINDOWS -D_WIN32_WINNT=0x0600 -DWINVER=0x0600")
     set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginKDB_WIN32.txt")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -DKXVER=3 -Wall")
-    file(COPY ${PROJECT_SOURCE_DIR}/lib/w64/c.dll DESTINATION ${CMAKE_BINARY_DIR}/)
+    file(COPY ${PROJECT_SOURCE_DIR}/lib/win/c.dll DESTINATION ${CMAKE_BINARY_DIR}/)
+    file(COPY ${PROJECT_SOURCE_DIR}/lib/win/lz4.dll DESTINATION ${CMAKE_BINARY_DIR}/)
+    file(COPY ${PROJECT_SOURCE_DIR}/lib/win/libsnappy.dll DESTINATION ${CMAKE_BINARY_DIR}/)
+    file(COPY ${PROJECT_SOURCE_DIR}/lib/win/zlib1.dll DESTINATION ${CMAKE_BINARY_DIR}/)
 elseif(UNIX)
     set(platform_macro "-DLINUX")
     set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginKDB.txt")
@@ -42,15 +45,29 @@ if (${DDB_USE_ASAN})
 endif ()
 
 include_directories(${CMAKE_SOURCE_DIR}/../include)
+include_directories(${CMAKE_SOURCE_DIR}/include)
 link_directories("${CMAKE_BINARY_DIR}")
 
 aux_source_directory(${PROJECT_SOURCE_DIR}/src DIR_SRCS)
 add_library(PluginKDB SHARED ${DIR_SRCS})
 
 if (WIN32)
-target_link_libraries(PluginKDB DolphinDB ${PROJECT_SOURCE_DIR}/lib/w64/c.lib  ${PROJECT_SOURCE_DIR}/lib/w64/c.dll z)
+    target_link_libraries(PluginKDB
+        DolphinDB
+        ${PROJECT_SOURCE_DIR}/lib/win/libsnappy.dll
+        ${PROJECT_SOURCE_DIR}/lib/win/zlib1.dll
+        ${PROJECT_SOURCE_DIR}/lib/win/lz4.dll
+        ${PROJECT_SOURCE_DIR}/lib/win/c.lib
+        ${PROJECT_SOURCE_DIR}/lib/win/c.dll
+    )
 elseif(UNIX)
-target_link_libraries(PluginKDB DolphinDB ${PROJECT_SOURCE_DIR}/lib/c.o z)
+    target_link_libraries(PluginKDB
+        DolphinDB
+        ${PROJECT_SOURCE_DIR}/lib/linux/c.o
+        ${PROJECT_SOURCE_DIR}/lib/linux/libz.a
+        ${PROJECT_SOURCE_DIR}/lib/linux/libsnappy.a
+        ${PROJECT_SOURCE_DIR}/lib/linux/liblz4.a
+    )
 endif()
 
 configure_file(${plugin_file} ${CMAKE_BINARY_DIR}/PluginKDB.txt COPYONLY)

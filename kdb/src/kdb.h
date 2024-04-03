@@ -1,10 +1,19 @@
 #include "CoreConcept.h"
 #include "k.h"
+#include "ddbplugin/CommonInterface.h"
 
 extern "C" ConstantSP kdbConnect(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP kdbLoadTable(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP kdbLoadFile(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP kdbClose(Heap *heap, vector<ConstantSP> &arguments);
+
+enum kdbCompressType {
+    KDB_NO_COMPRESS = 0,
+    KDB_COMPRESS_Q_IPC = 1,
+    KDB_COMPRESS_GZIP = 2,
+    KDB_COMPRESS_SNAPPY = 3,
+    KDB_COMPRESS_LZ4HC = 4
+};
 
 enum kdbType {
     KDB_LIST = 0,
@@ -44,7 +53,7 @@ private:
 
 class Connection {
 public:
-    Connection(string& host, const int& port, string& usernamePassword);
+    Connection(const string& host, const int& port, const string& usernamePassword);
     ~Connection();
 
     TableSP getTable(const string& tablePath, const string& symFilePath);

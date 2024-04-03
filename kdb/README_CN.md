@@ -266,7 +266,7 @@ Txns2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Txns/", DATA_DIR + "/sym")
 注意事项：
 
 1. 无法读取单个表（single object）。
-2. 只能读取采用 gzip 压缩方法持久化的数据。
+2. 能读取采用 gzip, snappy, lz4hc 压缩方法持久化的数据，无法读取 q IPC 方式压缩的数据。
 3. 待导入的表中不应包含除 char 类型以外的 nested column。
 4. loadFile 指定的加载路径分区下的表路径。
 5. 如果导入的表中存在 sorted、unique 、partitioned 、true index 等列属性，建议使用loadTable，减少出错的可能
@@ -296,7 +296,7 @@ Txns2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Txns/", DATA_DIR + "/sym")
 
   `loadTable()` 或 `loadFile()`
 
-  如果未压缩或使用 gzip 压缩，则推荐使用第二种方法，导入效率会更高。
+  如果未压缩，或者使用 gzip, snappy, lz4hc 压缩，则推荐使用第二种方法，导入效率会更高。
 
   举例：
   ```
