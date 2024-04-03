@@ -16,7 +16,7 @@ ConstantSP zip(Heap* heap, vector<ConstantSP>& args){
     string fileOrFolderPath = args[1]->getString();
     
     zipper::Zipper::zipFlags compressionLevel = static_cast<zipper::Zipper::zipFlags>(zipper::Zipper::zipFlags::Better | zipper::Zipper::zipFlags::Overwrite);
-    if(args.size() > 2){
+    if(args.size() > 2 && !args[2]->isNothing()){
         if(args[2]->getType() != DT_STRING || args[2]->getForm() != DF_SCALAR)
             throw IllegalArgumentException(__FUNCTION__, usage + "compressionLevel must be a string scalar");
         string str = args[2]->getString();
@@ -27,10 +27,12 @@ ConstantSP zip(Heap* heap, vector<ConstantSP>& args){
     }
 
     string password;
-    if(args.size() > 3){
+    if(args.size() > 3 && !args[3]->isNothing()){
         if(args[3]->getType() != DT_STRING || args[3]->getForm() != DF_SCALAR)
             throw IllegalArgumentException(__FUNCTION__, usage + "password must be a string scalar");
         password = args[3]->getString();
+        if(password.size() == 0)
+            throw IllegalArgumentException(__FUNCTION__, usage + "password must not be empty. ");
     }
     if(password.size() > 128){
         throw IllegalArgumentException(__FUNCTION__, usage + "the length for password must be not greater than 128. ");
@@ -96,7 +98,7 @@ ConstantSP unzip(Heap* heap, vector<ConstantSP>& args) {
         throw IllegalArgumentException(__FUNCTION__, usage + "failed to get folder Path in zipFileName " + zipFilename);
     }
     string outputDir = zipFilename.substr(0, pos);
-    if (args.size() > 1 && !args[1]->isNull()) {
+    if (args.size() > 1 && !args[1]->isNothing() && !args[1]->isNull()) {
         if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR) {
             throw IllegalArgumentException(__FUNCTION__, usage + "outputDir must be string scalar");
         }
@@ -126,8 +128,8 @@ ConstantSP unzip(Heap* heap, vector<ConstantSP>& args) {
         function = args[2];
     }
     zipEncode encode = zipEncode::DEFAULT;
-    if(args.size() > 3 && !args[3]->isNothing() && !args[3]->isNull()) {
-        if(args[3]->getType() != DT_STRING && args[3]->getForm() != DF_SCALAR) {
+    if(args.size() > 3 && !args[3]->isNothing()) {
+        if(args[3]->getType() != DT_STRING || args[3]->getForm() != DF_SCALAR) {
             throw IllegalArgumentException(__FUNCTION__, usage + "zipEncode must be a string scalar");
         }
         string code = Util::lower(args[3]->getString());
@@ -140,8 +142,8 @@ ConstantSP unzip(Heap* heap, vector<ConstantSP>& args) {
         }
     }
     string password;
-    if(args.size() > 4 && !args[4]->isNothing() && !args[4]->isNull()) {
-        if(args[4]->getType() != DT_STRING && args[4]->getForm() != DF_SCALAR) {
+    if(args.size() > 4 && !args[4]->isNothing()) {
+        if(args[4]->getType() != DT_STRING || args[4]->getForm() != DF_SCALAR) {
             throw IllegalArgumentException(__FUNCTION__, usage + "password must be a string scalar");
         }
         password = args[4]->getString();
@@ -190,7 +192,7 @@ ConstantSP unzipFile(const string& zipFilename, const string& outputDir, Heap* h
 
     std::vector<string> filenames;
 
-    do_extract(wrapper.uf, 0, 1, password == "" ? nullptr : password.c_str(), outputDir, heap, function, encode);
+    do_extract(wrapper.uf, 0, password == "" ? nullptr : password.c_str(), outputDir, heap, function, encode);
     unzGoToFirstFile(wrapper.uf);
     getFilenames(wrapper.uf, filenames);
     size_t size = filenames.size();

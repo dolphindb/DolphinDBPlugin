@@ -34,6 +34,7 @@
 
 #include "unzip.h"
 #include "CoreConcept.h"
+#include "ddbplugin/CommonInterface.h"
 #include "ScalarImp.h"
 #include "Util.h"
 
@@ -94,61 +95,61 @@ void change_file_date(const char *filename, uLong dosdate, tm_unz tmu_date)
   utime(filename,&ut);
 }
 
-int mymkdir(const char* dirname)
-{
-    int ret=0;
-    ret = mkdir(dirname,0775);
-    return ret;
-}
+// int mymkdir(const char* dirname)
+// {
+//     int ret=0;
+//     ret = mkdir(dirname,0775);
+//     return ret;
+// }
 
-int makedir(const char *newdir)
-{
-  char *buffer ;
-  char *p;
-  size_t len = strlen(newdir);
+// int makedir(const char *newdir)
+// {
+//   char *buffer ;
+//   char *p;
+//   size_t len = strlen(newdir);
 
-  if (len == 0)
-    return 0;
+//   if (len == 0)
+//     return 0;
 
-  buffer = (char*)malloc(len+1);
-        if (buffer==NULL)
-        {
-                LOG_ERR("Error allocating memory\n");
-                return UNZ_INTERNALERROR;
-        }
-  strcpy(buffer,newdir);
+//   buffer = (char*)malloc(len+1);
+//         if (buffer==NULL)
+//         {
+//                 LOG_ERR("Error allocating memory\n");
+//                 return UNZ_INTERNALERROR;
+//         }
+//   strcpy(buffer,newdir);
 
-  if (buffer[len-1] == '/') {
-    buffer[len-1] = '\0';
-  }
-  if (mymkdir(buffer) == 0)
-    {
-      free(buffer);
-      return 1;
-    }
+//   if (buffer[len-1] == '/') {
+//     buffer[len-1] = '\0';
+//   }
+//   if (mymkdir(buffer) == 0)
+//     {
+//       free(buffer);
+//       return 1;
+//     }
 
-  p = buffer+1;
-  while (1)
-    {
-      char hold;
+//   p = buffer+1;
+//   while (1)
+//     {
+//       char hold;
 
-      while(*p && *p != '\\' && *p != '/')
-        p++;
-      hold = *p;
-      *p = 0;
-      if ((mymkdir(buffer) == -1) && (errno == ENOENT))
-        {
-          LOG_ERR("couldn't create directory %s\n",buffer);
-          free(buffer);
-          return 0;
-        }
-      if (hold == 0)
-        break;
-      *p++ = hold;
-    }
-  free(buffer);
-  return 1;
-}
+//       while(*p && *p != '\\' && *p != '/')
+//         p++;
+//       hold = *p;
+//       *p = 0;
+//       if ((mymkdir(buffer) == -1) && (errno == ENOENT))
+//         {
+//           LOG_ERR("couldn't create directory %s\n",buffer);
+//           free(buffer);
+//           return 0;
+//         }
+//       if (hold == 0)
+//         break;
+//       *p++ = hold;
+//     }
+//   free(buffer);
+//   return 1;
+// }
 
 int getFilenames(unzFile uf, vector<string>& filenames){
     uLong i;
@@ -185,17 +186,17 @@ int getFilenames(unzFile uf, vector<string>& filenames){
     return 0;
 }
 
-// print binary string's hex data
-void printBinary(string word, string outputPath) {
-    std::cout << word << "     " << outputPath << "     ";
-    for(size_t i = 0; i < outputPath.size(); ++i) {
-        std::cout << (unsigned int)(unsigned char)outputPath.c_str()[i] << " ";
-    }
-    std::cout << "\n";
-}
+// // print binary string's hex data
+// void printBinary(string word, string outputPath) {
+//     std::cout << word << "     " << outputPath << "     ";
+//     for(size_t i = 0; i < outputPath.size(); ++i) {
+//         std::cout << (unsigned int)(unsigned char)outputPath.c_str()[i] << " ";
+//     }
+//     std::cout << "\n";
+// }
 
 //int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, int* popt_overwrite, const char* password)
-int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, int* popt_overwrite, const char* password, const string& outputPath, Heap* heap, zipEncode encode)
+int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, const char* password, const string& outputPath, Heap* heap, zipEncode encode)
 {
     char filename_inzip[256];
     char* filename_withoutpath;
@@ -278,44 +279,6 @@ int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, int
         if (err!=UNZ_OK)
         {
             LOG_ERR(ZIP_PREFIX, "error ", err, " with zipfile in unzOpenCurrentFilePassword\n");
-        }
-
-        if (((*popt_overwrite)==0) && (err==UNZ_OK))
-        {
-            char rep=0;
-            FILE* ftestexist;
-        #ifdef WIN32
-            write_filename = Util::replace(write_filename, "/", "\\");
-        #else
-        #endif
-            // printBinary("1st open file ", write_filename);
-            ftestexist = Util::fopen(write_filename.c_str(),"rb");
-            if (ftestexist!=NULL)
-            {
-                fclose(ftestexist);
-                do
-                {
-                    char answer[128];
-                    int ret;
-
-                    LOG_ERR(ZIP_PREFIX, "The file ", write_filename, " exists. Overwrite ? [y]es, [n]o, [A]ll: ");
-                    ret = scanf("%1s",answer);
-                    if (ret != 1)
-                    {
-                       exit(EXIT_FAILURE);
-                    }
-                    rep = answer[0] ;
-                    if ((rep>='a') && (rep<='z'))
-                        rep -= 0x20;
-                }
-                while ((rep!='Y') && (rep!='N') && (rep!='A'));
-            }
-
-            if (rep == 'N')
-                skip = 1;
-
-            if (rep == 'A')
-                *popt_overwrite=1;
         }
 
         if ((skip==0) && (err==UNZ_OK))
@@ -408,7 +371,7 @@ int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, int
 }
 
 
-int do_extract(unzFile uf, int opt_extract_without_path, int opt_overwrite, const char* password,
+int do_extract(unzFile uf, int opt_extract_without_path, const char* password,
                const string& outputDir, Heap* heap, const FunctionDefSP& function, zipEncode code)
 {
     uLong i;
@@ -423,7 +386,7 @@ int do_extract(unzFile uf, int opt_extract_without_path, int opt_overwrite, cons
     {
         // Extract current file
         if (do_extract_currentfile(uf, &opt_extract_without_path,
-                                   &opt_overwrite, password,
+                                   password,
                                    outputDir, heap, code) != UNZ_OK) {
             throw RuntimeException(ZIP_PREFIX + "Failed to extract file in zip file.");
         }
