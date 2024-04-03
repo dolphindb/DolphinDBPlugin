@@ -31,7 +31,7 @@ export LD_LIBRARY_PATH=/path_to_insight/lib:$LD_LIBRARY_PATH
 
 #### 语法
 ```
-insight::connect(handles, ip, port, user, password, [workPoolThreadCount=5], [options], [ignoreApplSeq=false])
+insight::connect(handles, ip, port, user, password, [workPoolThreadCount=5], [options], [ignoreApplSeq=false], [certDirPath])
 ```
 
 #### 参数
@@ -53,12 +53,13 @@ insight::connect(handles, ip, port, user, password, [workPoolThreadCount=5], [op
 `workPoolThreadCount`：可选，处理线程池的线程数，类型为整型标量，默认为 5。大小需要在 1-32767 之间
 
 `options`：可选，是字典类型，表示扩展参数，key 为 string 类型，value 为 boolean 类型。当前支持 `ReceivedTime`, `OutputElapsed`。
-
     ReceivedTime 表示是否获取插件收到行情数据的时间戳，默认为 true。其指定为 dict(["ReceivedTime"], [true]) 时，插件处理输出的数据将包含行情数据的时间戳列。
-
     OutputElapsed 表示是否获取 Insight 插件 接收数据处理的时延，默认为 false。其指定为 dict(["OutputElapsed"], [true]) 时，插件处理输出的数据将包含行情数据的时延列。时延的定义：'insight 回调函数返回数据' 到 '准备开始 transform' 处理，或准备 append 到共享流表前’ 这段时间。该列的单位为纳秒。
 
 `ignoreApplSeq`：可选，类型为布尔标量，默认为 false。在 `OrderTransaction` 合并类型订阅中生效。如果为 false 则当 `OrderTransaction` 数据中出现数据丢失时停止接收数据，如果为 true 则忽略数据丢失问题，继续接收数据。
+
+`certDirPath`：可选，类型为字符串标量。如果未指定，默认会在 DolphinDB server 的同一目录，以及 pluginDir 中的 insight 文件夹中进行查找。
+    如果指定了错误的且存在的文件夹，在连接时会报错 `failed to registHandleAndLogin: create client failed`。但如果在进行错误连接前已经进行过正确的连接，那么由于已经验证过，则使用错误参数进行的连接可能可以连上。
 
 #### 详情
 
@@ -118,9 +119,7 @@ insight::getSchema(type, [options])
 `dataType`：为字符串标量，指需要获取 schema 的类型 `OrderTransaction`, `StockTick`, `IndexTick`, `FuturesTick`, `Transaction`, `Order` 或 `OrderTransaction`。
 
 `options`：可选，是字典类型，表示扩展参数，key 为 string 类型，value 为 boolean 类型。当前支持 `ReceivedTime`, `OutputElapsed`。
-
     ReceivedTime 表示是否获取插件收到行情数据的时间戳，默认为 true。其指定为 dict(["ReceivedTime"], [true]) 时，getSchema 获取的表结构中将包含插件收到行情数据的时间戳列。
-
     OutputElapsed 表示是否获取 Insight 插件 接收数据处理的时延，默认为 false。其指定为 dict(["OutputElapsed"], [true]) 时，getSchema 获取的表结构中将包含插件收到行情数据的时延列。时延的定义：'insight 回调函数返回数据' 到 '准备开始 transform' 处理，或准备 append 到共享流表前’ 这段时间。该列的单位为纳秒。
 
 

@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "ddbplugin/CommonInterface.h"
 #include "Exceptions.h"
 #include "InsightHandle.h"
 #include "Logger.h"
@@ -51,7 +52,7 @@ class TcpClient {
   public:
     TcpClient(Heap *heap, DictionarySP handles, int workPoolThreadCount, const string &ip, int port,
               const string &user_name, const string &password, bool ignoreApplSeq, bool receivedTime,
-              bool outputElapsed) {
+              bool outputElapsed, string certDirPath) {
         LockGuard<Mutex> _(&mutex_);
         try {
             if (login_) {
@@ -70,7 +71,7 @@ class TcpClient {
             close_file_log();
             open_response_callback();
             // close_compress();
-            clientInterface_ = ClientFactory::Instance()->CreateClient(true, "./cert");
+            clientInterface_ = ClientFactory::Instance()->CreateClient(true, certDirPath.c_str());
             if (!clientInterface_) {
                 throw RuntimeException("create client failed!");
             }
@@ -294,7 +295,7 @@ void retrieveOption(ConstantSP option, const string &usage, bool &receivedTime, 
 ConstantSP connectInsight(Heap *heap, vector<ConstantSP> &arguments) {
     string usage =
         "insight::connect(handles, ip, port, user, password, [workPoolThreadCount=5], [options], "
-        "[ignoreApplSeq=false])";
+        "[ignoreApplSeq=false], [certDirPath]) ";
     LockGuard<Mutex> lock(&TcpClient::TCP_CLIENT_LOCK);
 
     DictionarySP handles;
@@ -332,6 +333,31 @@ ConstantSP connectInsight(Heap *heap, vector<ConstantSP> &arguments) {
         }
         ignoreApplSeq = arguments[7]->getBool();
     }
+    string certDirPath;
+    if (arguments.size() > 8) {
+        if (arguments[8]->getType() != DT_STRING || arguments[8]->getForm() != DF_SCALAR) {
+            throw IllegalArgumentException("insight::connect", usage + "certDirPath must be string scalar");
+        }
+        certDirPath = arguments[8]->getString();
+        if (!Util::existsDir(certDirPath)) {
+            throw IllegalArgumentException("insight::connect", usage + "certDirPath \"" + certDirPath + "\" doesn't exist.");
+        }
+    } else {
+        vector<ConstantSP> getHomeDirArgs{};
+        string homeDir = heap->currentSession()->getFunctionDef("getHomeDir")->call(heap, getHomeDirArgs)->getString();
+        string certInServer = homeDir + "/cert";
+        vector<ConstantSP> getConfigArgs{new String("pluginDir")};
+        string pluginDir = heap->currentSession()->getFunctionDef("getConfig")->call(heap, getConfigArgs)->getString();
+        string certInPlugins = pluginDir + "/insight/cert";
+        if (Util::existsDir(certInServer)) {
+            certDirPath = certInServer;
+        } else if (Util::existsDir(certInPlugins)) {
+            certDirPath = certInPlugins;
+        } else {
+            throw IllegalArgumentException("insight::connect", usage + "insight cert directory not found, certDirPath is required.");
+        }
+    }
+
     if (INSIGHT_HANDLE_MAP.size() == 1) {
         LOG_WARN(PLUGIN_INSIGHT_PREFIX +
                  "insight connect handle already exists, connect function returns the existed handle");
@@ -339,7 +365,7 @@ ConstantSP connectInsight(Heap *heap, vector<ConstantSP> &arguments) {
     }
 
     SmartPointer<TcpClient> client = new TcpClient(heap, handles, workPoolThreadCount, ip, port, user, password,
-                                                   ignoreApplSeq, receivedTime, outputElapsed);
+                                                   ignoreApplSeq, receivedTime, outputElapsed, certDirPath);
 
     FunctionDefSP onClose(Util::createSystemProcedure("tcpClient onClose()", tcpOnClose, 1, 1));
     ConstantSP ret = Util::createResource(reinterpret_cast<long long>(client.get()), "Insight_client", onClose,
