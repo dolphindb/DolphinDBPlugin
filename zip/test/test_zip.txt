@@ -1,0 +1,549 @@
+
+#include "setup/settings.txt"
+
+login("admin","123456")
+try{loadPlugin(getHomeDir()+"/plugins/zip/PluginZip.txt")}catch(ex){print ex}
+
+@testing:case="test_unzip_zipfileName_ex1", exception=1
+re = zip::unzip(1)
+
+@testing:case="test_unzip_zipfileName_ex2", exception=1
+re = zip::unzip(NULL)
+
+@testing:case="test_unzip_zipfileName_ex3", exception=1
+re = zip::unzip(1.1)
+
+@testing:case="test_unzip_zipfileName_ex4", exception=1
+re = zip::unzip("a")
+
+@testing:case="test_unzip_zipfileName_ex5", exception=1
+re = zip::unzip("")
+
+@testing:case="test_unzip_zipfileName_ex7", exception=1
+re = zip::unzip("/home/")
+
+@testing:case="test_unzip_zipFileName_ex8", exception=1
+re = zip::unzip([DATA_DIR+"/TradesSmall.zip"])
+
+@testing:case="test_unzip_zipFileName_ex9", exception=1
+re = zip::unzip([1])
+
+@testing:case="test_unzip_zipfileName_ex10", exception=1
+re = zip::unzip("/")
+
+@testing:case="test_unzip_zipfileName_empty_vector_ex1", exception=1
+zip::unzip([], WORK_DIR)
+
+@testing:case="test_unzip_zipfileName_empty_vector_ex2", exception=1
+zip::unzip([])
+
+@testing:case="test_unzip_zipfileName_wrong_path", exception=1
+re = zip::unzip(DATA_DIR+"/TradesSmall.zip/")
+
+@testing:case="test_unzip_outputDir_ex1", exception=1
+re = zip::unzip(, WORK_DIR)
+
+@testing:case="test_unzip_outputDir_ex2", exception=1
+re = zip::unzip(DATA_DIR+"/TradesSmall.zip", 1.2)
+
+@testing:case="test_unzip_outputDir_ex3", exception=1
+re = zip::unzip(DATA_DIR+"/TradesSmall.zip", [1.2])
+
+@testing:case="test_unzip_outputDir_ex4", exception=1
+re = zip::unzip(DATA_DIR+"/TradesSmall.zip", [WORK_DIR])
+
+@testing:case="test_unzip_outputDir_string", exception=1
+re = zip::unzip(DATA_DIR+"/TradesSmall.zip", "AALP")
+
+@testing:case="test_unzip_outputDir_wrong_path"//, exception=1
+if (exists(WORK_DIR)){
+	rmdir(WORK_DIR+"/", true)
+}
+re = zip::unzip(DATA_DIR+"/TradesSmall.zip", WORK_DIR+"/!")
+assert 1, exists(WORK_DIR+"/!/TradesSmall.csv")
+assert 2, re[0]==WORK_DIR+"/!/TradesSmall.csv"
+try{rmdir(WORK_DIR+"/", true)}catch(ex){}
+
+@testing:case="test_unzip_outputDir_string_null_vector", exception=1
+re = zip::unzip(DATA_DIR+"/TradesSmall.zip", [""])
+
+@testing:case="test_unzip_callback", exception=1
+re = zip::unzip(DATA_DIR+"/TradesSmall.zip", WORK_DIR, 1)
+
+@testing:case="test_unzip_callback", exception=1
+re = zip::unzip(DATA_DIR+"/TradesSmall.zip", WORK_DIR, "A")
+
+@testing:case="test_unzip_callback_vector", exception=1
+re = zip::unzip(DATA_DIR+"/TradesSmall.zip", WORK_DIR, ["A"])
+
+@testing:case="test_unzip_callback_bfill_vector", exception=1
+re = zip::unzip(DATA_DIR+"/TradesSmall.zip", WORK_DIR, [bfill])
+
+@testing:case="test_unzip_callback_string_null"//, exception=1
+re = zip::unzip(DATA_DIR+"/TradesSmall.zip", WORK_DIR, "")
+assert 1, re[0] == WORK_DIR+"/TradesSmall.csv"
+assert 2, exists(WORK_DIR+"/TradesSmall.csv")==true
+
+@testing:case="test_unzip_callback_empty_vector", exception=1
+re = zip::unzip(DATA_DIR+"/TradesSmall.zip", WORK_DIR, [])
+
+@testing:case="test_unzip_callback_function_with_multi_param", exception=1
+re = zip::unzip(DATA_DIR+"/TradesSmall.zip", WORK_DIR, add)
+
+@testing:case="test_unzip_inputFileName_with_outputDir_not_exist"//, exception=1
+if (exists(WORK_DIR)){
+	rmdir(WORK_DIR+"/", true)
+}
+re = zip::unzip(DATA_DIR+"/test_plugin_zip.zip", WORK_DIR)
+assert 1, exists(WORK_DIR+"/test_plugin_zip/TradesSmall.csv")
+assert 2, exists(WORK_DIR+"/test_plugin_zip/文本文件.txt")
+assert 3, exists(WORK_DIR+"/test_plugin_zip/test.txt")
+
+@testing:case="test_unzip_inputFileName_not_zip_file", exception=1
+re = zip::unzip(zip::unzip(DATA_DIR+"/datatypes.rar"))
+
+@testing:case="test_unzip_param_more_than_expected_ex1", exception=1
+zip::unzip(DATA_DIR+"/TradesSmall.zip", WORK_DIR, , 1)
+
+@testing:case="test_unzip_param_more_than_expected_ex2", exception=1
+zip::unzip(DATA_DIR+"/TradesSmall.zip", , , 1)
+
+@testing:case="test_unzip_param_more_than_expected_ex3", exception=1
+zip::unzip(, , , 1)
+
+@testing:case="test_unzip_param_less_than_expected_ex", exception=1
+zip::unzip()
+
+@testing:case="test_unzip_inputFileName_not_start_with_/", exception=1
+m=DATA_DIR+"/TradesSmall.zip"
+zip::unzip(substr(m, 1))
+
+@testing:case="test_unzip_inputFileName_start_with_\\", exception=1
+m=DATA_DIR+"/TradesSmall.zip"
+zip::unzip("\\"+m)
+
+@testing:case="test_unzip_inputFileName_is_an_empty_archive", exception=1
+data = table(1..10 as id, 11..20 as val)
+saveText(data, getHomeDir() + "/zlib_test.zip")
+zip::unzip(getHomeDir() + "/zlib_test.zip")
+
+@testing:case="test_unzip_param_zipEncode_null", exception=1
+zip::unzip(DATA_DIR+"/TradesSmall.zip", WORK_DIR, , NULL)
+
+@testing:case="test_unzip_param_zipEncode_string_null", exception=1
+zip::unzip(DATA_DIR+"/TradesSmall.zip", WORK_DIR, , "")
+
+@testing:case="test_unzip_param_zipEncode_string_gbk_pair", exception=1
+zip::unzip(DATA_DIR+"/TradesSmall.zip", WORK_DIR, , "gbk":"gbk")
+
+@testing:case="test_unzip_param_zipEncode_string_utf-8_vector", exception=1
+zip::unzip(DATA_DIR+"/TradesSmall.zip", WORK_DIR, , ["utf-8"])
+
+@testing:case="test_unzip_clear"
+try{rm(getHomeDir() + "/zlib_test.zip")}catch(ex){}
+
+@testing:case="test_unzip_inputFileName_empty_file"
+countNum=[]
+def GetCountNum(fileName, mutable countNum){
+	x = (exec count(*) from loadText(fileName))[0]
+	countNum.append!(x)
+}
+if (exists(WORK_DIR)){
+	rmdir(WORK_DIR, true)
+}
+mkdir(WORK_DIR)
+re=zip::unzip(DATA_DIR+"/empty_file.zip", WORK_DIR, GetCountNum{, countNum})
+assert 1, re == NULL
+assert 2, exists(WORK_DIR+"/empty_file") == true
+assert 3, size(files(WORK_DIR+"/empty_file")) == 0
+rmdir(WORK_DIR+"/empty_file", true)
+assert 4, exists(WORK_DIR+"/empty_file") == false
+
+@testing:case="test_unzip_inputFileName_with_no_outputDir"
+if (exists(DATA_DIR+"/test_plugin_zip/")){
+	rmdir(DATA_DIR+"/test_plugin_zip/", true)
+}
+assert 1, exists(DATA_DIR+"/test_plugin_zip/TradesSmall.csv")==false
+assert 2, exists(DATA_DIR+"/test_plugin_zip/文本文件.txt")==false
+assert 3, exists(DATA_DIR+"/test_plugin_zip/test.txt")==false
+re = zip::unzip(DATA_DIR+"/test_plugin_zip.zip")
+assert 4, size(re) == 3
+assert 5, re in [DATA_DIR+"/test_plugin_zip/TradesSmall.csv", DATA_DIR+"/test_plugin_zip/文本文件.txt", DATA_DIR+"/test_plugin_zip/test.txt"]
+assert 6, exists(DATA_DIR+"/test_plugin_zip/TradesSmall.csv")
+assert 7, exists(DATA_DIR+"/test_plugin_zip/文本文件.txt")
+assert 8, exists(DATA_DIR+"/test_plugin_zip/test.txt")
+if (exists(DATA_DIR+"/test_plugin_zip/")){
+	rmdir(DATA_DIR+"/test_plugin_zip/", true)
+}
+
+@testing:case="test_unzip_inputFileName_with_outputDir_string_empty"
+if (exists(DATA_DIR+"/test_plugin_zip/")){
+	rmdir(DATA_DIR+"/test_plugin_zip/", true)
+}
+assert 1, exists(DATA_DIR+"/test_plugin_zip/TradesSmall.csv")==false
+assert 2, exists(DATA_DIR+"/test_plugin_zip/文本文件.txt")==false
+assert 3, exists(DATA_DIR+"/test_plugin_zip/test.txt")==false
+re = zip::unzip(DATA_DIR+"/test_plugin_zip.zip", "")
+assert 4, size(re) == 3
+assert 5, re in [DATA_DIR+"/test_plugin_zip/TradesSmall.csv", DATA_DIR+"/test_plugin_zip/文本文件.txt", DATA_DIR+"/test_plugin_zip/test.txt"]
+assert 6, exists(DATA_DIR+"/test_plugin_zip/TradesSmall.csv")
+assert 7, exists(DATA_DIR+"/test_plugin_zip/文本文件.txt")
+assert 8, exists(DATA_DIR+"/test_plugin_zip/test.txt")
+if (exists(DATA_DIR+"/test_plugin_zip/")){
+	rmdir(DATA_DIR+"/test_plugin_zip/", true)
+}
+assert 9, exists(DATA_DIR+"/test_plugin_zip/")==false
+
+@testing:case="test_unzip_inputFileName_with_outputDir_null"
+if (exists(DATA_DIR+"/test_plugin_zip/")){
+	rmdir(DATA_DIR+"/test_plugin_zip/", true)
+}
+assert 1, exists(DATA_DIR+"/test_plugin_zip/TradesSmall.csv")==false
+assert 2, exists(DATA_DIR+"/test_plugin_zip/文本文件.txt")==false
+assert 3, exists(DATA_DIR+"/test_plugin_zip/test.txt")==false
+re = zip::unzip(DATA_DIR+"/test_plugin_zip.zip", NULL)
+assert 4, size(re) == 3
+assert 5, re in [DATA_DIR+"/test_plugin_zip/TradesSmall.csv", DATA_DIR+"/test_plugin_zip/文本文件.txt", DATA_DIR+"/test_plugin_zip/test.txt"]
+assert 6, exists(DATA_DIR+"/test_plugin_zip/TradesSmall.csv")
+assert 7, exists(DATA_DIR+"/test_plugin_zip/文本文件.txt")
+assert 8, exists(DATA_DIR+"/test_plugin_zip/test.txt")
+if (exists(DATA_DIR+"/test_plugin_zip/")){
+	rmdir(DATA_DIR+"/test_plugin_zip/", true)
+}
+assert 9, exists(DATA_DIR+"/test_plugin_zip/")==false
+
+@testing:case="test_unzip_inputFileName_with_outputDir_existed"
+if (exists(WORK_DIR)){
+	rmdir(WORK_DIR, true)
+}
+mkdir(WORK_DIR)
+assert 1, exists(WORK_DIR+"/test_plugin_zip/TradesSmall.csv")==false
+assert 2, exists(WORK_DIR+"/test_plugin_zip/文本文件.txt")==false
+assert 3, exists(WORK_DIR+"/test_plugin_zip/test.txt")==false
+re = zip::unzip(DATA_DIR+"/test_plugin_zip.zip", WORK_DIR)
+assert 4, size(re) == 3
+assert 5, re in [WORK_DIR+"/test_plugin_zip/TradesSmall.csv", WORK_DIR+"/test_plugin_zip/文本文件.txt", WORK_DIR+"/test_plugin_zip/test.txt"]
+assert 6, exists(WORK_DIR+"/test_plugin_zip/TradesSmall.csv")==true
+assert 7, exists(WORK_DIR+"/test_plugin_zip/文本文件.txt")==true
+assert 8, exists(WORK_DIR+"/test_plugin_zip/test.txt")==true
+if (exists(WORK_DIR+"/test_plugin_zip/")){
+	rmdir(WORK_DIR+"/test_plugin_zip/", true)
+}
+assert 9, exists(WORK_DIR+"/test_plugin_zip/")==false
+
+@testing:case="test_unzip_outputDir_directory_contain_chinese"
+if (exists(WORK_DIR)){
+	rmdir(WORK_DIR, true)
+}
+mkdir(WORK_DIR+"/路径")
+assert 1, exists(WORK_DIR+"/路径/test_plugin_zip/TradesSmall.csv")==false
+assert 2, exists(WORK_DIR+"/路径/test_plugin_zip/文本文件.txt")==false
+assert 3, exists(WORK_DIR+"/路径/test_plugin_zip/test.txt")==false
+re = zip::unzip(DATA_DIR+"/test_plugin_zip.zip", WORK_DIR+"/路径")
+assert 4, size(re) == 3
+assert 5, re in [WORK_DIR+"/路径/test_plugin_zip/TradesSmall.csv", WORK_DIR+"/路径/test_plugin_zip/文本文件.txt", WORK_DIR+"/路径/test_plugin_zip/test.txt"]
+assert 6, exists(WORK_DIR+"/路径/test_plugin_zip/TradesSmall.csv")==true
+assert 7, exists(WORK_DIR+"/路径/test_plugin_zip/文本文件.txt")==true
+assert 8, exists(WORK_DIR+"/路径/test_plugin_zip/test.txt")==true
+if (exists(WORK_DIR+"/路径/test_plugin_zip/")){
+	rmdir(WORK_DIR+"/路径/test_plugin_zip/", true)
+}
+assert 9, exists(WORK_DIR+"/路径/test_plugin_zip/")==false
+
+@testing:case="test_unzip_outputDir_directory_contain_number"
+if (exists(WORK_DIR)){
+	rmdir(WORK_DIR, true)
+}
+mkdir(WORK_DIR+"/32")
+assert 1, exists(WORK_DIR+"/32/test_plugin_zip/TradesSmall.csv")==false
+assert 2, exists(WORK_DIR+"/32/test_plugin_zip/文本文件.txt")==false
+assert 3, exists(WORK_DIR+"/32/test_plugin_zip/test.txt")==false
+re = zip::unzip(DATA_DIR+"/test_plugin_zip.zip", WORK_DIR+"/32")
+assert 4, size(re) == 3
+assert 5, re in [WORK_DIR+"/32/test_plugin_zip/TradesSmall.csv", WORK_DIR+"/32/test_plugin_zip/文本文件.txt", WORK_DIR+"/32/test_plugin_zip/test.txt"]
+assert 6, exists(WORK_DIR+"/32/test_plugin_zip/TradesSmall.csv")==true
+assert 7, exists(WORK_DIR+"/32/test_plugin_zip/文本文件.txt")==true
+assert 8, exists(WORK_DIR+"/32/test_plugin_zip/test.txt")==true
+if (exists(WORK_DIR+"/32/test_plugin_zip/")){
+	rmdir(WORK_DIR+"/32/test_plugin_zip/", true)
+}
+assert 9, exists(WORK_DIR+"/32/test_plugin_zip/")==false
+
+@testing:case="test_unzip_overwrite_files_with_the_same_name"
+if (exists(WORK_DIR)){
+	rmdir(WORK_DIR, true)
+}
+mkdir(WORK_DIR)
+n=200
+syms=`IBM`C`MS`MSFT`JPM`ORCL`GE`EBAY`GOOG`FORD`GS
+timestamp=09:30:00+rand(18000, n)
+sym=rand(syms, n)
+qty=100*(1+rand(100, n))
+price=5.0+rand(100.0, n)
+t1=table(timestamp,sym,qty,price);
+saveText(t1, WORK_DIR+"/TradesSmall.csv");
+re = zip::unzip(DATA_DIR+"/TradesSmall.zip", WORK_DIR)
+assert 1, (exec count(*) from loadText(re[0]))[0]!=200
+
+@testing:case="test_unzip_all_datatypes"
+if (exists(WORK_DIR)){
+	rmdir(WORK_DIR, true)
+}
+mkdir(WORK_DIR)
+re = zip::unzip(DATA_DIR+"/datatypes.zip", WORK_DIR)
+assert 1, size(re) == 2
+re_sym = loadText(WORK_DIR+"/datatypes/symbol.csv")
+assert 2, re_sym[`col1] == ["1234567890QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnmwo!2@#$^&*(()_{}?|,./<>?;':/|\"=+-_][~`rld"]
+assert 3, re_sym[`col2] == ["1234567890QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnmw'o!2@#$^&*(()_{}?|"]
+re_datatypes = loadText(WORK_DIR+"/datatypes/datatypes.csv")
+assert 4, size(re_datatypes) == 1030
+if (exists(WORK_DIR)){
+	rmdir(WORK_DIR, true)
+}
+
+@testing:case="test_unzip_callback_function"
+countNum=[]
+def GetCountNum(fileName, mutable countNum){
+	x = (exec count(*) from loadText(fileName))[0]
+	countNum.append!(x)
+}
+if (exists(WORK_DIR)){
+	rmdir(WORK_DIR, true)
+}
+mkdir(WORK_DIR)
+re = zip::unzip(DATA_DIR+"/TradesSmall.zip", WORK_DIR, GetCountNum{, countNum})
+assert 1, re == [WORK_DIR+"/TradesSmall.csv"]
+assert 2, countNum[0] == 100
+
+@testing:case="test_unzip_callback_multi_file"
+countNum=[]
+def GetCountNum(fileName, WORK_DIR, mutable countNum){
+	print(fileName)
+	x = (exec count(*) from loadText(fileName))[0]
+	countNum.append!(x)
+}
+if (exists(WORK_DIR)){
+	rmdir(WORK_DIR, true)
+}
+mkdir(WORK_DIR)
+re = zip::unzip(DATA_DIR+"/datatypes.zip", WORK_DIR, GetCountNum{, WORK_DIR, countNum})
+assert 1, size(re) == 2
+assert 2, countNum == [1, 1030]
+
+@testing:case="test_unzip_callback_dfsTable"
+def writeDfsTable(fileName){
+	re = select * from loadText(fileName)
+	t = table(100:0, [`sym, `datev, `timev, `pricev, `size, `G127, `corr, `cond, `ex], ["SYMBOL","DATE","SECOND","DOUBLE","INT","INT","INT","CHAR","CHAR"])
+	dbName = "dfs://testzip"
+	if(existsDatabase(dbName)){
+		dropDatabase(dbName)
+	}
+	db = database(dbName, HASH, [SYMBOL, 10])
+	pt = db.createPartitionedTable(t, "pt", `sym)
+	pt.append!(re)
+}
+if (exists(WORK_DIR)){
+	rmdir(WORK_DIR, true)
+}
+mkdir(WORK_DIR)
+
+re = zip::unzip(DATA_DIR+"/TradesSmall.zip", WORK_DIR, writeDfsTable)
+assert 1, re == [WORK_DIR+"/TradesSmall.csv"]
+reTable = select * from loadTable("dfs://testzip", "pt") order by sym, datev, timev
+schemav = table([`sym, `datev, `timev, `pricev, `size, `G127, `corr, `cond, `ex] as name, ["SYMBOL","DATE","SECOND","DOUBLE","INT","INT","INT","CHAR","CHAR"] as type)
+ex = select * from loadText(DATA_DIR+"/exData/TradesSmall.csv", , schemav) order by sym, datev, timev
+assert 2, each(eqObj, reTable.values(), ex.values())
+
+@testing:case="test_unzip_callback_with_no_outputdir"
+def writeDfsTable(fileName){
+	re = select * from loadText(fileName)
+	t = table(100:0, [`sym, `datev, `timev, `pricev, `size, `G127, `corr, `cond, `ex], ["SYMBOL","DATE","SECOND","DOUBLE","INT","INT","INT","CHAR","CHAR"])
+	dbName = "dfs://testzip"
+	if(existsDatabase(dbName)){
+		dropDatabase(dbName)
+	}
+	db = database(dbName, HASH, [SYMBOL, 10])
+	pt = db.createPartitionedTable(t, "pt", `sym)
+	pt.append!(re)
+}
+if (exists(DATA_DIR+"/TradesSmall.csv")){
+	rm(DATA_DIR+"/TradesSmall.csv")
+}
+re = zip::unzip(DATA_DIR+"/TradesSmall.zip", , writeDfsTable)
+assert 1, re == [DATA_DIR+"/TradesSmall.csv"]
+reTable = select * from loadTable("dfs://testzip", "pt") order by sym, datev, timev
+schemav = table([`sym, `datev, `timev, `pricev, `size, `G127, `corr, `cond, `ex] as name, ["SYMBOL","DATE","SECOND","DOUBLE","INT","INT","INT","CHAR","CHAR"] as type)
+ex = select * from loadText(DATA_DIR+"/exData/TradesSmall.csv", , schemav) order by sym, datev, timev
+assert 2, each(eqObj, reTable.values(), ex.values())
+try{rm(DATA_DIR+"/TradesSmall.csv")}catch(ex){print(ex)}
+
+@testing:case="test_unzip_multi_times"
+if (exists(WORK_DIR)){
+	rmdir(WORK_DIR, true)
+}
+mkdir(WORK_DIR)
+for(i in 1..10){
+	re = zip::unzip(DATA_DIR+"/test_plugin_zip.zip", WORK_DIR)
+	assert 1, size(re) == 3
+	assert 2, re in [WORK_DIR+"/test_plugin_zip/TradesSmall.csv", WORK_DIR+"/test_plugin_zip/文本文件.txt", WORK_DIR+"/test_plugin_zip/test.txt"]
+}
+
+@testing:case="test_unzip_submitJob"
+def GetCountNum(fileName, mutable countNum){
+	x = (exec count(*) from loadText(fileName))[0]
+	countNum.append!(x)
+}
+
+def unzipFiles(DATA_DIR, WORK_DIR, pwd, filePath){
+	countNum=[]
+	if (exists(DATA_DIR+pwd)){
+		rmdir(DATA_DIR+pwd, true)
+	}
+	re = zip::unzip(DATA_DIR+filePath, , GetCountNum{, countNum})
+}
+
+arr=array(STRING, 0)
+arr.append!(submitJob("job1", "unzip files", unzipFiles, DATA_DIR, WORK_DIR, "/2021/20211006/", "/2021/20211006.zip"))
+arr.append!(submitJob("job2", "unzip files", unzipFiles, DATA_DIR, WORK_DIR, "/2022/20221006/", "/2022/20221006.zip"))
+for (jobName in arr){
+	getJobReturn(jobName, true)
+}
+re = exec errorMsg from getRecentJobs() where jobId in arr
+assert 1, re == string(take(00i, size(arr)))
+
+rmdir(DATA_DIR+"/2021/20211006/", true)
+rmdir(DATA_DIR+"/2022/20221006/", true)
+
+@testing:case="test_unzip_multi_times_in_multi_threads"
+def GetCountNum(fileName, mutable countNum){
+	x = (exec count(*) from loadText(fileName))[0]
+	countNum.append!(x)
+}
+
+def unzipFiles(DATA_DIR, WORK_DIR, pwd, filePath, m){
+	countNum=[]
+	for(i in 1..m){
+		if (exists(DATA_DIR+pwd)){
+			rmdir(DATA_DIR+pwd, true)
+		}
+		re = zip::unzip(DATA_DIR+filePath, , GetCountNum{, countNum})
+	}
+}
+
+arr=array(STRING, 0)
+arr.append!(submitJob("job1", "unzip files", unzipFiles, DATA_DIR, WORK_DIR, "/TradesSmall/", "/TradesSmall.zip", 5))
+arr.append!(submitJob("job2", "unzip files", unzipFiles, DATA_DIR, WORK_DIR, "/2022/20221006/", "/2022/20221006.zip", 100))
+arr.append!(submitJob("job3", "unzip files", unzipFiles, DATA_DIR, WORK_DIR, "datatypes/", "/datatypes.zip", 10))
+for (jobName in arr){
+	getJobReturn(jobName, true)
+}
+re = exec errorMsg from getRecentJobs() where jobId in arr
+assert 1, re == string(take(00i, size(arr)))
+
+try{rmdir(DATA_DIR+"/2021/20211006/", true)}catch(ex){}
+try{rmdir(DATA_DIR+"/2022/20221006/", true)}catch(ex){}
+try{rmdir(DATA_DIR+"/datatypes/", true)}catch(ex){}
+try{rm(DATA_DIR+"/TradesSmall.csv")}catch(ex){}
+
+@testing:case="test_unzip_inputFileName_contain_special_symbols_.zip"
+if (exists(DATA_DIR+"/test_plugin.zip/")){
+	rmdir(DATA_DIR+"/test_plugin.zip/", true)
+}
+re = zip::unzip(DATA_DIR+"/test_plugin.zip.zip")
+assert 1, size(re) == 3
+assert 2, re in [DATA_DIR+"/test_plugin.zip/TradesSmall.csv", DATA_DIR+"/test_plugin.zip/文本文件.txt", DATA_DIR+"/test_plugin.zip/test.txt"]
+assert 3, exists(DATA_DIR+"/test_plugin.zip/TradesSmall.csv")==true
+assert 4, exists(DATA_DIR+"/test_plugin.zip/文本文件.txt")==true
+assert 5, exists(DATA_DIR+"/test_plugin.zip/test.txt")==true
+
+if (exists(DATA_DIR+"/test_plugin.zip/")){
+	rmdir(DATA_DIR+"/test_plugin.zip/", true)
+}
+
+try{rmdir(WORK_DIR+"/test_plugin.zip/", true)}catch(ex){}
+re = zip::unzip(DATA_DIR+"/test_plugin.zip.zip", WORK_DIR)
+assert 6, size(re) == 3
+assert 7, re in [WORK_DIR+"/test_plugin.zip/TradesSmall.csv", WORK_DIR+"/test_plugin.zip/文本文件.txt", WORK_DIR+"/test_plugin.zip/test.txt"]
+assert 8, exists(WORK_DIR+"/test_plugin.zip/TradesSmall.csv")==true
+assert 9, exists(WORK_DIR+"/test_plugin.zip/文本文件.txt")==true
+assert 10, exists(WORK_DIR+"/test_plugin.zip/test.txt")==true
+
+fileNameList=[]
+def GetFileList(fileName, mutable fileNameList){
+	print(fileName)
+	fileNameList.append!(fileName)
+}
+
+try{rmdir(WORK_DIR+"/test_plugin.zip/", true)}catch(ex){}
+re = zip::unzip(DATA_DIR+"/test_plugin.zip.zip", WORK_DIR, GetFileList{, fileNameList})
+assert 11, size(re) == 3
+assert 12, re in [WORK_DIR+"/test_plugin.zip/TradesSmall.csv", WORK_DIR+"/test_plugin.zip/文本文件.txt", WORK_DIR+"/test_plugin.zip/test.txt"]
+assert 13, fileNameList in [WORK_DIR+"/test_plugin.zip/TradesSmall.csv", WORK_DIR+"/test_plugin.zip/文本文件.txt", WORK_DIR+"/test_plugin.zip/test.txt"]
+assert 14, exists(WORK_DIR+"/test_plugin.zip/TradesSmall.csv")==true
+assert 15, exists(WORK_DIR+"/test_plugin.zip/文本文件.txt")==true
+assert 16, exists(WORK_DIR+"/test_plugin.zip/test.txt")==true
+try{rmdir(WORK_DIR+"/test_plugin.zip/", true)}catch(ex){}
+try{rmdir(WORK_DIR, true)}catch(ex){}
+
+@testing:case="test_unzip_zipEncode_windows_create_zip_not_setzipEncode"
+if (exists(WORK_DIR)){
+	rmdir(WORK_DIR, true)
+}
+mkdir(WORK_DIR)
+assert 1, exists(WORK_DIR+"/test_gbk_zip/test_windows.csv") == false
+assert 2, exists(WORK_DIR+"/test_gbk_zip/test_windows.txt") == false
+assert 3, exists(WORK_DIR+"/test_gbk_zip/测试windows创建的文件.txt") == false
+re = zip::unzip(DATA_DIR+"/test_gbk_zip.zip", WORK_DIR, , "gbk")
+assert 4, exists(WORK_DIR+"/test_gbk_zip/test_windows.csv") == true
+assert 5, exists(WORK_DIR+"/test_gbk_zip/test_windows.txt") == true
+assert 6, exists(WORK_DIR+"/test_gbk_zip/测试windows创建的文件.txt") == true
+assert 7, re in [WORK_DIR+"/test_gbk_zip/test_windows.csv",WORK_DIR+"/test_gbk_zip/test_windows.txt",WORK_DIR+"/test_gbk_zip/测试windows创建的文件.txt"]
+try{rmdir(WORK_DIR, true)}catch(ex){}
+
+@testing:case="test_unzip_zipEncode_windows_create_zip_setzipEncode_gbk"
+if (exists(WORK_DIR)){
+	rmdir(WORK_DIR, true)
+}
+mkdir(WORK_DIR)
+assert 1, exists(WORK_DIR+"/test_gbk_zip/test_windows.csv") == false
+assert 2, exists(WORK_DIR+"/test_gbk_zip/test_windows.txt") == false
+assert 3, exists(WORK_DIR+"/test_gbk_zip/测试windows创建的文件.txt") == false
+re = zip::unzip(DATA_DIR+"/test_gbk_zip.zip", WORK_DIR)
+assert 4, exists(WORK_DIR+"/test_gbk_zip/test_windows.csv") == true
+assert 5, exists(WORK_DIR+"/test_gbk_zip/test_windows.txt") == true
+assert 6, exists(WORK_DIR+"/test_gbk_zip/测试windows创建的文件.txt") == false
+try{rmdir(WORK_DIR, true)}catch(ex){}
+
+@testing:case="test_unzip_zipEncode_windows_create_zip_setzipEncode"
+if (exists(WORK_DIR)){
+	rmdir(WORK_DIR, true)
+}
+mkdir(WORK_DIR)
+assert 1, exists(WORK_DIR+"/test_gbk_zip/test_windows.csv") == false
+assert 2, exists(WORK_DIR+"/test_gbk_zip/test_windows.txt") == false
+assert 3, exists(WORK_DIR+"/test_gbk_zip/测试windows创建的文件.txt") == false
+re = zip::unzip(DATA_DIR+"/test_gbk_zip.zip", WORK_DIR, ,"gbk")
+assert 4, exists(WORK_DIR+"/test_gbk_zip/test_windows.csv") == true
+assert 5, exists(WORK_DIR+"/test_gbk_zip/test_windows.txt") == true
+assert 6, exists(WORK_DIR+"/test_gbk_zip/测试windows创建的文件.txt") == true
+assert 7, re in [WORK_DIR+"/test_gbk_zip/test_windows.csv",WORK_DIR+"/test_gbk_zip/test_windows.txt",WORK_DIR+"/test_gbk_zip/测试windows创建的文件.txt"]
+t1 = loadText(WORK_DIR+"/test_gbk_zip/test_windows.csv")
+try{rmdir(WORK_DIR, true)}catch(ex){}
+
+@testing:case="test_unzip_multi_times_zipEncode"
+if (exists(WORK_DIR)){
+	rmdir(WORK_DIR, true)
+}
+mkdir(WORK_DIR)
+for(i in 1..10){
+	re = zip::unzip(DATA_DIR+"/test_gbk_zip.zip", WORK_DIR, ,"gbk")
+	assert 1, exists(WORK_DIR+"/test_gbk_zip/test_windows.csv") == true
+	assert 2, exists(WORK_DIR+"/test_gbk_zip/test_windows.txt") == true
+	assert 3, exists(WORK_DIR+"/test_gbk_zip/测试windows创建的文件.txt") == true
+	assert 4, re in [WORK_DIR+"/test_gbk_zip/test_windows.csv",WORK_DIR+"/test_gbk_zip/test_windows.txt",WORK_DIR+"/test_gbk_zip/测试windows创建的文件.txt"]
+}
+
+if (exists(WORK_DIR)){
+	rmdir(WORK_DIR, true)
+}
+
