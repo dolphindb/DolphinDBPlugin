@@ -14,6 +14,7 @@
 #include "ScalarImp.h"
 #include "hdfs.h"
 #include "Logger.h"
+#include "ddbplugin/CommonInterface.h"
 
 using namespace std;
 

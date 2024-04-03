@@ -2,7 +2,10 @@
 #include <cstdio>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <unistd.h>
+#include "Exceptions.h"
+#include "Logger.h"
 #include "kerberos.h"
 
 using namespace std;
@@ -237,6 +240,34 @@ ConstantSP hdfs_CreateDirectory(Heap *heap, vector<ConstantSP> &args)
     return new Void();
 }
 
+static short encodeMode(short mode) {
+    if(mode < 0 || mode >777) {
+        throw RuntimeException(PLUGIN_HDFS_LOG_PREFIX + "Invalid mode \"" + to_string(mode) + "\".");
+    }
+    short m1 = mode % 10;
+    mode /= 10;
+    short m2 = mode % 10;
+    mode /= 10;
+    short m3 = mode % 10;
+    if(m1 > 7 || m2 > 7 || m3 > 7) {
+        throw RuntimeException(PLUGIN_HDFS_LOG_PREFIX + "Invalid mode \"" + to_string(m3) + to_string(m2) + to_string(m1)  + "\".");
+    }
+    return m3*64 + m2*8 + m1;
+}
+
+static short decodeMode(short mode) {
+    if(mode < 0 || mode >511) {
+        LOG_WARN(PLUGIN_HDFS_LOG_PREFIX + "Invalid mode \"" + to_string(mode) + "\".");
+    }
+    short m1 = mode % 8;
+    mode /= 8;
+    short m2 = mode % 8;
+    mode /= 8;
+    short m3 = mode % 8;
+
+    return m3*100 + m2*10 + m1;
+}
+
 ConstantSP hdfs_Chmod(Heap *heap, vector<ConstantSP> &args)
 {
     const auto usage = string("Usage: chmod(hdfsFS, path, mode).\n");
@@ -248,7 +279,7 @@ ConstantSP hdfs_Chmod(Heap *heap, vector<ConstantSP> &args)
     if (args[2]->getType() != DT_INT || args[2]->getForm() != DF_SCALAR)
         throw IllegalArgumentException(__FUNCTION__, PLUGIN_HDFS_LOG_PREFIX + usage + "mode must be a integer.");
 
-    if (hdfsChmod(getConnection<hdfs_internal>(args[0]), args[1]->getString().c_str(), args[2]->getShort()) == -1)
+    if (hdfsChmod(getConnection<hdfs_internal>(args[0]), args[1]->getString().c_str(), encodeMode(args[2]->getShort())) == -1)
         throw RuntimeException(getErrorMsgWithPrefix("Error occurred when changing the ownership"));
     return new Void();
 }
@@ -305,7 +336,7 @@ ConstantSP hdfs_listDirectory(Heap *heap, vector<ConstantSP> &args)
         blockSizeVec->setLong(i, fileInfo->info[i].mBlockSize);
         ownerVec->setString(i, fileInfo->info[i].mOwner);
         groupVec->setString(i, fileInfo->info[i].mGroup);
-        permissionVec->setShort(i, fileInfo->info[i].mPermissions);
+        permissionVec->setShort(i, decodeMode(fileInfo->info[i].mPermissions));
         lastAccessVec->setInt(i, fileInfo->info[i].mLastAccess);
     }
     vector<string> colNames = {"mKind", "mName", "mLastMod", "mSize", "mReplication", "mBlockSize", "mOwner", "mGroup", "mPermissions", "mLastAccess"};
