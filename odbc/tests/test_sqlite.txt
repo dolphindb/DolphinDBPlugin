@@ -1,0 +1,748 @@
+
+#include "setup/settings.txt"
+login("admin","123456")
+try{
+	loadPlugin(getHomeDir()+"/plugins/odbc/PluginODBC.txt")
+}catch(ex){print ex}
+go
+use odbc
+go
+
+//conn = odbc::connect("Dsn=mysqlitedb",`sqlite)
+conn = odbc::connect(connStr_sqlite,`sqlite)
+
+@testing:case="test_odbc_sqlite_append_query_result_table_not_exist",syntaxError=1
+odbc::query(conn,"select * from employees",not_exist)
+
+@testing:case="test_odbc_sqlite_in_memory_table_insertIgnore_true",exception=1
+colNames=["col1","col2","col3","col4"]
+colTypes=[STRING,INT,DOUBLE,DATE]
+t=table(1:0,colNames,colTypes)
+insert into t values((["a","b","c","a","d","c"],[1,int(),3,4,5,4],[1.0,2.1,3.5,6.5,3.8,5.2],2019.01.01..2019.01.06))
+assert 1,(exec count(*) from t)==6
+odbc::execute(conn,"create table test_append(col1 varchar(100),col2 int,col3 double precision, col4 date,primary key(col1));")
+odbc::append(conn,t,"test_append",true)
+
+@testing:case="test_odbc_sqlite_append_dfs_table",exception=1
+login("admin","123456")
+if(existsDatabase("dfs://db1")){
+	dropDatabase("dfs://db1")
+}
+db=database("dfs://db1",VALUE,1..5)
+t=table(take(1..5,100) as id,rand(10,100) as val)
+pt=db.createPartitionedTable(t,`pt,`id).append!(t)
+odbc::append(conn,pt,"test_append",true)
+
+
+@testing:case="test_odbc_sqlite_query_all_datatypes"
+odbc::execute(conn,"DROP TABLE IF EXISTS test_alldatatypes;")
+odbc::execute(conn,"CREATE TABLE test_alldatatypes(col1 INT,col2 INTEGER,col3  TINYINT,col4 SMALLINT,col5 MEDIUMINT,col6 BIGINT,col7 UNSIGNED BIG INT,col8 INT2,col9 INT8,col10 CHARACTER(20),col11 VARCHAR(255),col12 VARYING CHARACTER(255),col13 NCHAR(55),col14 NATIVE CHARACTER(70),col15 NVARCHAR(100),col16 TEXT,col17 CLOB,col18 BLOB,col19 no datatype specified,col20 REAL,col21 DOUBLE,col22 DOUBLE PRECISION,col23 FLOAT,col24 NUMERIC,col25 DECIMAL(10,5),col26 BOOLEAN,col27 DATE,col28 DATETIME);")
+re = odbc::query(conn, "select * from test_alldatatypes");
+assert 1, size(re) == 0
+odbc::execute(conn,"insert into test_alldatatypes values(-10000000,-10000000,-10,-32000,-8300000,-9000000000000000000,9000000000000000000,-10,-490000000,'a','abc','aaaaaaaaaaaaaaaa','dawdwa','123156','dwada3215','wd546dawd','dwa&%&^%456','dwa','123456',-3.1415926,-2.222222,-3.33333333,-1.4,-3141592648,-153.443,1,'2021-12-13 22:13:56.123','1953-12-13 22:13:56.123')")
+odbc::execute(conn,"insert into test_alldatatypes values(10000000,10000000,10,32000,8300000,9000000000000000000,9000000000000000000,10,490000000,'','智臾1a科技','智3c臾科技','智臾科技','智臾科技123','智臾abc科技','智臾科技*&^','123智臾dw科技^&*','dwa','123456',3.1415926,2.222222,3.33333333,1.4,3141592648,153.443,0,'1888-12-13 22:13:56.123','2222-12-13 22:13:56.123')")
+odbc::execute(conn,"insert into test_alldatatypes values(NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);")
+re = odbc::query(conn, "select * from test_alldatatypes");
+
+assert 2,re[`col1] == [-10000000,10000000,NULL]
+assert 3,re[`col2] == [-10000000,10000000,NULL]
+assert 4,re[`col3] == [-10,10,NULL]
+assert 5,re[`col4] == [-32000,32000,NULL]
+assert 6,re[`col5] == [-8300000,8300000,NULL]
+assert 7,re[`col6] == [-9000000000000000000,9000000000000000000,NULL]
+assert 8,re[`col7] == ['9000000000000000000','9000000000000000000',NULL]
+assert 9,re[`col8] == [-10,10,NULL]
+assert 10,re[`col9] == [-490000000,490000000,NULL]
+assert 11,re[`col10] == ['a','',NULL]
+//assert 12,re[`col11] == ['abc','智臾1a科技',NULL]
+//assert 13,re[`col12] == ['aaaaaaaaaaaaaaaa','智3c臾科技',NULL]
+//assert 14,re[`col13] == ['dawdwa','智臾科技',NULL]
+//assert 15,re[`col14] == ['123156','智臾科技123',NULL]
+//assert 16,re[`col15] == ['dwada3215','智臾abc科技',NULL]
+//assert 17,re[`col16] == ['wd546dawd','智臾科技*&^',NULL]
+//assert 18,re[`col17] == ['dwa&%&^%456','123智臾dw科技^&*',NULL]
+assert 19,re[`col18] == ['dwa','dwa',NULL]
+assert 20,re[`col19] == ['123456','123456',NULL]
+assert 21,re[`col20] == [-3.1415926,3.1415926,NULL]
+assert 22,re[`col21] == [-2.222222,2.222222,NULL]
+assert 23,re[`col22] == [-3.33333333,3.33333333,NULL]
+assert 24,re[`col23] == [-1.4,1.4,NULL]
+assert 25,re[`col24] == [-3141592648,3141592648,NULL]
+assert 26,re[`col25] == ['-153.443','153.443',NULL]
+assert 27,re[`col26] == [1,0,NULL]
+assert 28,re[`col27] == [2021.12.13,1888.12.13,NULL]
+assert 29,re[`col28] == [1953.12.13T22:13:56.123000000,2222.12.13T22:13:56.123000000,NULL]
+//检查null flag
+colNames="col"+string(1..28)
+for(colName in colNames){
+	assert 1, re[colName][3].isNull();
+}
+
+@testing:case="test_odbc_postgresql_execute"
+//create table
+odbc::execute(conn,"DROP TABLE IF EXISTS products;")
+odbc::execute(conn,"CREATE TABLE products (product_no integer,name text,price numeric);")
+tables=odbc::query(conn,"SELECT tbl_name FROM sqlite_master where type = 'table' and tbl_name='products' ;")
+assert 1,in("products",tables["tbl_name"])==true
+odbc::execute(conn,"INSERT INTO products (product_no, name, price) VALUES(1, 'Cheese', 9.99),(2, 'Bread', 1.99),(3, 'Milk', 2.99);")
+re=odbc::query(conn,"select * from products;")
+assert 2,re[0,0]==[1]
+assert 3,re[0,1]==['Cheese']
+assert 4,re[0,2]==[9.99]
+assert 5,re[1,0]==[2]
+assert 6,re[1,1]==['Bread']
+assert 7,re[1,2]==[1.99]
+assert 8,re[2,0]==[3]
+assert 9,re[2,1]==['Milk']
+assert 10,re[2,2]==[2.99]
+odbc::execute(conn,"drop table products;")
+tables=odbc::query(conn,"SELECT tbl_name FROM sqlite_master where type = 'table' and tbl_name='products' ;")
+assert 4,in("products",tables["tbl_name"])==false
+
+@testing:case="test_odbc_sqlite_in_memory_table_bool"
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(rand(true false, 10) as boolv)
+odbc::execute(conn,  "CREATE TABLE testType (boolv BOOLEAN)")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 1, each(eqObj, re.values(), ex.values())
+assert 2, schema(re).colDefs[`typeString] == ["BOOL"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(rand(true false, 10) as boolv)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 3, each(eqObj, re.values(), ex.values())
+assert 4, schema(re).colDefs[`typeString] == ["BOOL"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(bool() as boolv)
+odbc::execute(conn,  "CREATE TABLE testType (boolv BOOLEAN)")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 5, each(eqObj, re.values(), ex.values())
+assert 6, schema(re).colDefs[`typeString] == ["BOOL"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(bool() as boolv)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 7, each(eqObj, re.values(), ex.values())
+assert 8, schema(re).colDefs[`typeString] == ["BOOL"]
+
+@testing:case="test_odbc_sqlite_in_memory_table_char"
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+data = 1
+t = table(char(data) as charv)
+odbc::execute(conn,  "CREATE TABLE testType (charv CHARACTER (1))")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 1, re["charv"][0] == "1"
+assert 2, schema(re).colDefs[`typeString] == ["STRING"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(char(1) as charv)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 3, re["charv"][0] == "1"
+assert 4, schema(re).colDefs[`typeString] == ["STRING"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(char() as charv)
+odbc::execute(conn,  "CREATE TABLE testType (charv CHARACTER ( 1 ))")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 5, each(eqObj, re.values()[0], ex.values()[0])
+assert 6, schema(re).colDefs[`typeString] == ["STRING"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(char() as charv)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 7, each(eqObj, re.values()[0], ex.values()[0])
+assert 8, schema(re).colDefs[`typeString] == ["STRING"]
+
+@testing:case="test_odbc_sqlite_in_memory_table_short"
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(rand(32767h,10) as shortv)
+odbc::execute(conn,  "CREATE TABLE testType (shortv SMALLINT)")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 1, each(eqObj, re.values(), ex.values())
+assert 2, schema(re).colDefs[`typeString] == ["SHORT"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(rand(32767h,10) as shortv)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 3, each(eqObj, re.values(), ex.values())
+assert 4, schema(re).colDefs[`typeString] == ["SHORT"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(short() as shortv)
+odbc::execute(conn,  "CREATE TABLE testType (charv SMALLINT)")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 5, each(eqObj, re.values(), ex.values())
+assert 6, schema(re).colDefs[`typeString] == ["SHORT"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(short() as shortv)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 7, each(eqObj, re.values(), ex.values())
+assert 8, schema(re).colDefs[`typeString] == ["SHORT"]
+
+@testing:case="test_odbc_sqlite_in_memory_table_int"
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(rand(2147483647,10) as intv)
+odbc::execute(conn,  "CREATE TABLE testType (intv INT)")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 1, each(eqObj, re.values(), ex.values())
+assert 2, schema(re).colDefs[`typeString] == ["INT"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(rand(2147483647,10) as intv)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 3, each(eqObj, re.values(), ex.values())
+assert 4, schema(re).colDefs[`typeString] == ["INT"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(int() as intv)
+odbc::execute(conn,  "CREATE TABLE testType (intv INT)")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 5, each(eqObj, re.values(), ex.values())
+assert 6, schema(re).colDefs[`typeString] == ["INT"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(int() as intv)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 7, each(eqObj, re.values(), ex.values())
+assert 8, schema(re).colDefs[`typeString] == ["INT"]
+
+@testing:case="test_odbc_sqlite_in_memory_table_long"
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(rand(2147483647l,10) as longv)
+odbc::execute(conn,  "CREATE TABLE testType (longv BIGINT)")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 1, each(eqObj, re.values(), ex.values())
+assert 2, schema(re).colDefs[`typeString] == ["LONG"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(rand(2147483647l,10) as intv)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 3, each(eqObj, re.values(), ex.values())
+assert 4, schema(re).colDefs[`typeString] == ["LONG"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(long() as intv)
+odbc::execute(conn,  "CREATE TABLE testType (longv BIGINT)")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 5, each(eqObj, re.values(), ex.values())
+assert 6, schema(re).colDefs[`typeString] == ["LONG"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(long() as intv)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 7, each(eqObj, re.values(), ex.values())
+assert 8, schema(re).colDefs[`typeString] == ["LONG"]
+
+@testing:case="test_odbc_sqlite_in_memory_table_date"
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table([1969.01.15,2022.03.01] as datev)
+odbc::execute(conn,  "CREATE TABLE testType (datev DATE)")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 1, each(eqObj, re.values(), ex.values())
+assert 2, schema(re).colDefs[`typeString] == ["DATE"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table([1969.01.15,2022.03.01] as datev)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 3, each(eqObj, re.values(), ex.values())
+assert 4, schema(re).colDefs[`typeString] == ["DATE"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(date() as datev)
+odbc::execute(conn,  "CREATE TABLE testType (datev DATE)")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 5, each(eqObj, re.values(), ex.values())
+assert 6, schema(re).colDefs[`typeString] == ["DATE"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(date() as datev)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 7, each(eqObj, re.values(), ex.values())
+assert 8, schema(re).colDefs[`typeString] == ["DATE"]
+
+@testing:case="test_odbc_sqlite_in_memory_table_timestamp"
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(2012.06.13T13:30:10.008 as datetimev)
+odbc::execute(conn,  "CREATE TABLE testType (datetimev datetime)")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 1, each(eqObj, timestamp(re.values()), ex.values())
+assert 2, schema(re).colDefs[`typeString] == ["NANOTIMESTAMP"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(2012.06.13T13:30:10.008 as datev)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 3, each(eqObj, timestamp(re.values()), ex.values())
+assert 4, schema(re).colDefs[`typeString] == ["NANOTIMESTAMP"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(timestamp() as datev)
+odbc::execute(conn,  "CREATE TABLE testType (datev DATETIME)")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 5, each(eqObj, timestamp(re.values()), ex.values())
+assert 6, schema(re).colDefs[`typeString] == ["NANOTIMESTAMP"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(timestamp() as datev)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 7, each(eqObj, timestamp(re.values()), ex.values())
+assert 8, schema(re).colDefs[`typeString] == ["NANOTIMESTAMP"]
+
+@testing:case="test_odbc_sqlite_in_memory_table_second"
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(13:30:10 as timev)
+odbc::execute(conn,  "CREATE TABLE testType (timev TIME)")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 1, each(eqObj, re.values(), ex.values())
+assert 2, schema(re).colDefs[`typeString] == ["SECOND"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(13:30:10 as datev)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 3, each(eqObj, re.values(), ex.values())
+assert 4, schema(re).colDefs[`typeString] == ["SECOND"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(second() as datev)
+odbc::execute(conn,  "CREATE TABLE testType (datev TIME)")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 5, each(eqObj, re.values(), ex.values())
+assert 6, schema(re).colDefs[`typeString] == ["SECOND"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(second() as datev)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 7, each(eqObj, re.values(), ex.values())
+assert 8, schema(re).colDefs[`typeString] == ["SECOND"]
+
+@testing:case="test_odbc_sqlite_in_memory_table_float"
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(rand(100.0f, 10) as floatv)
+odbc::execute(conn,  "CREATE TABLE testType (floatv FLOAT)")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 1, each(eqObj, re.values(), ex.values(), 4)
+assert 2, schema(re).colDefs[`typeString] == ["DOUBLE"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(rand(100.0f, 10) as floatv)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 3, each(eqObj, re.values(), ex.values(), 4)
+assert 4, schema(re).colDefs[`typeString] == ["DOUBLE"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(float() as floatv)
+odbc::execute(conn,  "CREATE TABLE testType (floatv FLOAT)")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 5, each(eqObj, re.values(), ex.values())
+assert 6, schema(re).colDefs[`typeString] == ["DOUBLE"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(float() as floatv)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 7, each(eqObj, re.values(), ex.values())
+assert 8, schema(re).colDefs[`typeString] == ["DOUBLE"]
+
+@testing:case="test_odbc_sqlite_in_memory_table_double"
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(rand(100.0, 10) as doublev)
+odbc::execute(conn,  "CREATE TABLE testType (doublev DOUBLE)")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 1, each(eqObj, re.values(), ex.values(), 4)
+assert 2, schema(re).colDefs[`typeString] == ["DOUBLE"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(rand(100.0, 10) as doublev)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 3, each(eqObj, re.values(), ex.values(), 4)
+assert 4, schema(re).colDefs[`typeString] == ["DOUBLE"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(double() as doublev)
+odbc::execute(conn,  "CREATE TABLE testType (doublev DOUBLE)")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 5, each(eqObj, re.values(), ex.values())
+assert 6, schema(re).colDefs[`typeString] == ["DOUBLE"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(double() as doublev)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 7, each(eqObj, re.values(), ex.values())
+assert 8, schema(re).colDefs[`typeString] == ["DOUBLE"]
+
+@testing:case="test_odbc_sqlite_in_memory_table_string"
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(`dolphindb`ddd as stringv)
+odbc::execute(conn,  "CREATE TABLE testType (stringv TEXT)")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 1, each(eqObj, re.values(), ex.values())
+assert 2, schema(re).colDefs[`typeString] == ["STRING"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(`dolphindb`ddd as stringv)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 3, each(eqObj, re.values(), ex.values())
+assert 4, schema(re).colDefs[`typeString] == ["STRING"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(string() as stringv)
+odbc::execute(conn,  "CREATE TABLE testType (stringv TEXT)")
+odbc::append(conn, t, "testType", false)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 5, each(eqObj, re.values(), ex.values())
+assert 6, schema(re).colDefs[`typeString] == ["STRING"]
+
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(string() as stringv)
+odbc::append(conn, t, "testType", true)
+re = odbc::query(conn, "select * from testType")
+ex = select * from t
+assert 7, each(eqObj, re.values(), ex.values())
+assert 8, schema(re).colDefs[`typeString] == ["STRING"]
+
+@testing:case="test_odbc_append_dolphindb_table_symbol"
+odbc::execute(conn,"drop table  IF EXISTS testType;")
+colNames="col"+string(1 2)
+colTypes=[STRING,SYMBOL]
+t=table(1:0,colNames,colTypes)
+odbc::execute(conn,  "CREATE TABLE testType (col1 TEXT,col2 TEXT)")
+insert into t values("1234567890QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnmwo\\'!@#$%^&*()_+-={}[]|:;<>,./?`~",
+"1234567890QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnmwo\\'!@#$%^&*()_+-={}[]|:;<>,./?`~")
+odbc::append(conn,t,"testType",false)
+re=odbc::query(conn,"select * from testType")
+assert 1,re[`col1][0]=="1234567890QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnmwo\\'!@#$%^&*()_+-={}[]|:;<>,./?`~"
+assert 2,re[`col2]==["1234567890QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnmwo\\'!@#$%^&*()_+-={}[]|:;<>,./?`~"]
+
+odbc::execute(conn,"drop table  IF EXISTS testType;")
+colNames="col"+string(1 2)
+colTypes=[STRING,SYMBOL]
+t=table(1:0,colNames,colTypes)
+insert into t values("1234567890QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnmwo\\'!@#$%^&*()_+-={}[]|:;<>,./?`~",
+"1234567890QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnmwo\\'!@#$%^&*()_+-={}[]|:;<>,./?`~")
+odbc::append(conn,t,"testType")
+re=odbc::query(conn,"select * from testType")
+assert 1,re[`col1][0]=="1234567890QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnmwo\\'!@#$%^&*()_+-={}[]|:;<>,./?`~"
+assert 2,re[`col2]==["1234567890QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnmwo\\'!@#$%^&*()_+-={}[]|:;<>,./?`~"]
+
+@testing:case="test_odbc_sqlite_append_scpcial_char_createTable"
+odbc::execute(conn,"drop table  IF EXISTS test_special_char;")
+odbc::execute(conn,"create table test_special_char(col1 varchar(100),col2 varchar(100));")
+col1v=["aa\\defcd", "degn/defnfr\\de", "a'def''de"]
+col2v=["6\\", "wd'Dee", "'de\\"]
+t=table(col1v as col1, col2v as col2)
+odbc::append(conn, t, "test_special_char", false)
+re = odbc::query(conn, "select * from test_special_char")
+assert 1, each(eqObj, re.values(), t.values())
+
+/*
+@testing:case="test_odbc_sqlite_append_chinese_table_name"
+colNames=["字段1","字段2","字段3","字段4"]
+colTypes=[STRING,INT,DOUBLE,DATE]
+ctable=table(1:0,colNames,colTypes)
+insert into ctable values((["a","b","c",string()],[1,int(),3,4],[1.0,2.1,3.5,6.5],2019.01.01..2019.01.04))
+odbc::append(conn,ctable,"中文表",true)
+re=odbc::query(conn,"select * from 中文表;")
+assert re.size()==4
+odbc::execute(conn,"drop table 中文表;")
+*/
+
+@testing:case="test_odbc_append_dolphindb_table_to_sqlite_all_datatypes"
+odbc::execute(conn,"drop table IF EXISTS  ddb_alldatatypes;")
+colNames="col"+string(1..18)
+colTypes=[BOOL,CHAR,SHORT,INT,LONG,DATE,MONTH,TIME,MINUTE,SECOND,DATETIME,TIMESTAMP,NANOTIME,NANOTIMESTAMP,FLOAT,DOUBLE,SYMBOL,STRING]
+t=table(1:0,colNames,colTypes)
+insert into t values(true,'a',2h,2,22l,2012.12.06,2012.06M,12:30:00.008,12:30m,12:30:00,2012.06.12 12:30:00,2012.06.12 12:30:00.008,13:30:10.008007006,2012.06.13 13:30:10.008007006,2.1f,2.1,"hello","world")
+odbc::append(conn,t,"ddb_alldatatypes",true,false)
+re=odbc::query(conn,"select * from ddb_alldatatypes")
+schema(re).colDefs[`typeString]
+assert 1,re[`col1]==[true]
+assert 2,re[`col2]==['a']
+assert 3,re[`col3]==[2]
+assert 4,re[`col4]==[2]
+assert 5,re[`col5]==[22]
+assert 6,re[`col6]==[2012.12.06]
+assert 7,re[`col7]==[2012.06.01]
+assert 8,re[`col8]==[12:30:00]
+assert 9,re[`col9]==[12:30:00]
+assert 10,re[`col10]==[12:30:00]
+assert 11,re[`col11]==[2012.06.12T12:30:00.000000000]
+assert 12,re[`col12]==[2012.06.12T12:30:00.008000000]
+assert 13,re[`col13]==[13:30:10]
+assert 14,re[`col14]==[2012.06.13T13:30:10.008000000]
+assert 15,re[`col15]==[2.1]
+assert 16,re[`col16]==[2.1]
+assert 17,re[`col17]==["hello"]
+assert 18,re[`col18]==["world"]
+
+t=table(1:0,colNames,colTypes)
+odbc::append(conn,t,"ddb_alldatatypes",false,false)
+re=odbc::query(conn,"select * from ddb_alldatatypes")
+assert 19, size(re) == 1
+
+@testing:case="drop_table_ddb_alldatatypes"
+odbc::execute(conn,"drop table ddb_alldatatypes;")
+re=odbc::query(conn,"SELECT tbl_name FROM sqlite_master WHERE type = 'table' and tbl_name = 'ddb_alldatatypes';")
+assert 1,in("ddb_alldatatypes",re[`tbl_name])==false
+
+@testing:case="test_odbc_sqlite_in_memory_table_append_true"
+def test_append_memoryTable_append_true(conn, n){
+	odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+	odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+	t = table(rand(true false, n) as boolv, short(rand(100, n)) as shortv, int(rand(100, n)) as intv, long(rand(100, n)) as longv, rand([1969.12.03, 1970.01.01, 1968.12.13, 1972.02.15], n) as datev, rand(1969.10M+1..100, n) as monthv, rand(22:00:00.055+1..100, n) as timev, rand(01:20m+1..100, n) as minutev, rand(00:00:15+1..100, n) as secondv, rand(1969.12.31T23:59:50+1..100, n) as datetimev,rand(2012.06.13T13:30:10.008+1..100,n) as timestampv ,rand(00:30:10.008007006+1..100,n) as nanotimev,rand(1969.06.13T13:30:10.008007006+1..100,n) as nanotimestampv,float(rand(100.0, n)) as floatv, rand(100.0, n) as doublev, rand("PLA"+string(1..100), n) as stringv)
+	odbc::append(conn, t, "testType", true)
+	tmp = odbc::query(conn, "select * from testType")
+	re = select boolv, shortv, intv, longv, datev , monthv,  timev, minutev,  secondv,  datetimev,timestampv,nanotimev,nanotimestampv, floatv, doublev, stringv from tmp
+	ex = select * from t
+	assert 1, re[`boolv] == ex[`boolv]
+	assert 2, re[`shortv] == ex[`shortv]
+	assert 3, re[`intv] == ex[`intv]
+	assert 4, re[`longv] == ex[`longv]
+	assert 5, re[`datev] == ex[`datev]
+	assert 6, re[`monthv] == date(ex[`monthv])
+	assert 7, re[`secondv] == ex[`secondv]
+	assert 8, re[`datetimev] == ex[`datetimev]
+	assert 9, re[`timestampv] == ex[`timestampv]
+	assert 10, re[`nanotimev] == second( ex[`nanotimev])
+	//assert 11, re[`nanotimestampv] == ex[`nanotimestampv]
+	assert 12, each(eqFloat,re[`floatv],ex[`floatv],6)
+	assert 13, each(eqFloat,re[`doublev],ex[`doublev],6)
+	assert 14, re[`stringv] ==  ex[`stringv]
+	//return each(eqObj, tmp.values(), ex.values(), 1)
+}
+test_append_memoryTable_append_true(conn, 10)
+test_append_memoryTable_append_true(conn, 1000)
+test_append_memoryTable_append_true(conn, 100000)
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+
+@testing:case="test_odbc_sqlite_query_transform"
+odbc::execute(conn, "DROP TABLE IF EXISTS query_transform;")
+n = 100
+t = table(1..n as id,rand(true false, n) as boolv, short(rand(100, n)) as shortv, int(rand(100, n)) as intv, long(rand(100, n)) as longv, rand([1969.12.03, 1970.01.01, 1968.12.13, 1972.02.15], n) as datev, rand(00:00:15+1..100, n) as secondv,float(rand(100.0, n)) as floatv, rand(100.0, n) as doublev, rand("PLA"+string(1..100), n) as stringv)
+odbc::append(conn, t, "query_transform", true)
+if( existsDatabase("dfs://db_query_transform")){
+	dropDatabase("dfs://db_query_transform")
+}
+db = database("dfs://db_query_transform",partitionType=VALUE, partitionScheme=1..100);
+db.createPartitionedTable(t,`pt,`id)
+pt =loadTable(db,`pt)
+
+def replaceTable1(mutable t){
+	t.replaceColumn!(`shortv,t[`shortv]-1)
+	t.replaceColumn!(`boolv,!t[`boolv])
+	t.replaceColumn!(`intv,t[`intv]+1)
+	t.replaceColumn!(`longv,t[`longv]*2)
+	t.replaceColumn!(`datev,t[`datev]+2)
+	t.replaceColumn!(`secondv,t[`secondv]+2)
+	t.replaceColumn!(`floatv,t[`floatv]+3)
+	t.replaceColumn!(`doublev,t[`doublev]-3)
+	t.replaceColumn!(`stringv,t[`stringv]+"1")
+	return t;
+}
+
+odbc::query(conn,"select * from query_transform",pt,100,replaceTable1)
+
+ex = select id, !boolv as boolv, shortv-1 as shortv,intv+1 as intv,longv*2 as longv,datev+2 as datev,secondv+2 as secondv,floatv+3 as floatv,doublev-3 as doublev,stringv+"1" as stringv from t
+re = select * from pt
+assert 1,each(eqObj,re.values(),ex.values(),4)
+
+def replaceTable2(mutable t){
+	t.replaceColumn!(`shortv,double(t[`shortv]))
+	t.replaceColumn!(`boolv,int(t[`boolv]))
+	t.replaceColumn!(`intv,double(t[`intv]))
+	t.replaceColumn!(`longv, double(t[`longv]))
+	t.replaceColumn!(`datev,long(t[`datev]))
+	t.replaceColumn!(`secondv,long(t[`secondv]))
+	t.replaceColumn!(`floatv,int(t[`floatv]))
+	t.replaceColumn!(`doublev,int(t[`doublev]))
+	t.replaceColumn!(`stringv,symbol(t[`stringv]))
+	return t;
+}
+
+colNames ="col" + string(1..10)
+colTypes = [INT,INT,DOUBLE,DOUBLE,DOUBLE,LONG,LONG,INT,INT,SYMBOL]
+t2 = table(n:0, colNames, colTypes)
+t2.append!(t)
+db.createPartitionedTable(t2,`pt2,`col1)
+pt2 =loadTable(db,`pt2)
+
+odbc::query(conn,"select * from query_transform",pt2,100,replaceTable2)
+
+assert 2,each(eqObj,colTypes,pt2.schema()[`colDefs].typeInt)
+
+ex = select col1, int(col2) as col2, double(col3) as col3,double(col4) as col4,double(col5) as col5,long(col6) as col6,long(col7) as col7,int(col8) as col8,int(col9) as col9,symbol(col10) as col10 from t2
+re = select * from pt2
+select * from t2
+assert 3,each(eqObj,re.values(),ex.values(),4)
+
+@testing:case="test_odbc_sqlite_close"
+conn.close()
+
+@testing:case="test_odbc_sqlite_execute_MultiThread"
+conn = odbc::connect(connStr_sqlite,`sqlite)
+odbc::execute(conn,"DROP TABLE IF EXISTS test_alldatatypes;")
+odbc::execute(conn,"CREATE TABLE test_alldatatypes(col1 INT,col2 INTEGER,col3  TINYINT,col4 SMALLINT,col5 MEDIUMINT,col6 BIGINT,col7 UNSIGNED BIG INT,col8 INT2,col9 INT8,col10 CHARACTER(20),col11 VARCHAR(255),col12 VARYING CHARACTER(255),col13 NCHAR(55),col14 NATIVE CHARACTER(70),col15 NVARCHAR(100),col16 TEXT,col17 CLOB,col18 BLOB,col19 no datatype specified,col20 REAL,col21 DOUBLE,col22 DOUBLE PRECISION,col23 FLOAT,col24 NUMERIC,col25 DECIMAL(10,5),col26 BOOLEAN,col27 DATE,col28 DATETIME);")
+re = odbc::query(conn, "select * from test_alldatatypes");
+assert 1, size(re) == 0
+def test_execute(connStr_sqlite){
+	for(i in 1..100){
+		conn = odbc::connect(connStr_sqlite,`sqlite)
+		odbc::execute(conn,"insert into test_alldatatypes values(-10000000,-10000000,-10,-32000,-8300000,-9000000000000000000,9000000000000000000,-10,-490000000,'a','abc','aaaaaaaaaaaaaaaa','dawdwa','123156','dwada3215','wd546dawd','dwa&%&^%456','dwa','123456',-3.1415926,-2.222222,-3.33333333,-1.4,-3141592648,-153.443,1,'2021-12-13 22:13:56.123','1953-12-13 22:13:56.123')")
+		odbc::close(conn)	
+	}
+}
+jobs=array(STRING)
+for(i in 0:10){
+	jobs.append!(submitJob("data", "dfed", test_execute,connStr_sqlite))
+}
+for(job in jobs){
+	getJobReturn(job,1)
+}
+re = odbc::query(conn, "select * from test_alldatatypes");
+assert 2, size(re) == 1000
+odbc::close(conn)
+
+@testing:case="test_odbc_sqlite_query_MultiThread"
+conn = odbc::connect(connStr_sqlite,`sqlite)
+n = 1000
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+t = table(rand(true false, n) as boolv, short(rand(100, n)) as shortv, int(rand(100, n)) as intv, long(rand(100, n)) as longv, rand([1969.12.03, 1970.01.01, 1968.12.13, 1972.02.15], n) as datev, rand(1969.10M+1..100, n) as monthv, rand(00:00:00.055+1..100, n) as timev, rand(01:20m+1..100, n) as minutev, rand(00:00:15+1..100, n) as secondv, rand(1969.12.31T23:59:50+1..100, n) as datetimev, float(rand(100.0, n)) as floatv, rand(100.0, n) as doublev, rand("PLA"+string(1..100), n) as stringv)
+odbc::append(conn, t, "testType", true)
+rem = odbc::query(conn, "select * from testType")
+memTable = table(100:0, schema(rem).colDefs["name"], schema(rem).colDefs["typeString"])
+share memTable as shareMemTable
+def testThreadMultiQuery(connStr_sqlite, t, mutable memTable){
+	for(i in 1..10){
+		conn = odbc::connect(connStr_sqlite,`sqlite)
+		tmp=odbc::query(conn, "select * from testType", memTable)
+		odbc::close(conn)
+	}
+}
+arr = array(STRING, 0, 10)
+for(i in 1..10){
+	arr.append!(submitJob("multiThreadAppend", "", testThreadMultiQuery, connStr_sqlite, t, memTable))
+}
+for (jobName in arr){
+	getJobReturn(jobName, true)
+}
+conn = odbc::connect(connStr_sqlite,`sqlite)
+tmp = odbc::query(conn, "select * from testType") 
+re = select boolv, shortv, intv, longv,(datev) as datev, month((monthv)) as monthv, timev, minutev, secondv, datetime(datetimev) as datetimev, float(floatv), doublev, stringv from tmp order by boolv, shortv, intv, longv, datev,monthv,timev, minutev, secondv, datetimev, floatv, doublev, stringv
+ex = select boolv, shortv, intv, longv, datev, monthv, second(timev) as timev, second(minutev) as minutev, second((secondv)) as secondv, datetime(datetimev) as datetimev, double(floatv), doublev, stringv from t order by boolv, shortv, intv, longv, datev, monthv,timev, minutev, secondv, datetimev, floatv, doublev, stringv
+assert 1, each(eqObj, re.values(), ex.values(), 6)
+odbc::execute(conn, "DROP TABLE IF EXISTS testType;")
+odbc::close(conn)
+
+@testing:case="test_odbc_multiple_thread_append"
+conn = odbc::connect(connStr_sqlite,`sqlite)
+data = table(1..10 as id , take(`fffff, 10) as id2)
+odbc::execute(conn," CREATE TABLE IF NOT EXISTS multiple_thread(col1 Int64,col2 String)")
+
+def appendSqlite(data,connStr_sqlite){
+	for(i in 1..100){
+		conn = odbc::connect(connStr_sqlite,`sqlite)
+		odbc::append(conn, data, "multiple_thread", false)
+		odbc::close(conn)
+	}
+}
+jobs=array(STRING)
+for(i in 0:10){
+	jobs.append!(submitJob("data", "dfed", appendSqlite,data,connStr_sqlite))
+}
+for(job in jobs){
+	getJobReturn(job,1)
+}
+conn = odbc::connect(connStr_sqlite,`sqlite)
+re = odbc::query(conn, "select * from multiple_thread")
+ex = table(100:0, ["id", "id2"], [INT, STRING])
+for(i in 1..1000){
+	ex.append!(data)
+}
+assert 1, each(eqObj,re.values(),ex.values())
+odbc::execute(conn,"DROP TABLE IF EXISTS multiple_thread;")
+odbc::close(conn)
+
