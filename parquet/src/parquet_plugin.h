@@ -13,6 +13,7 @@
 
 #include <Concurrent.h>
 #include <CoreConcept.h>
+#include "ddbplugin/CommonInterface.h"
 #include <Exceptions.h>
 #include <FlatHashmap.h>
 #include <ScalarImp.h>
@@ -70,6 +71,7 @@ enum parquetTime{
   TimestampNanos,
   None
 };
+unordered_set<string> COMPRESSION_SET = {"snappy", "gzip", "zstd"};
 std::string getDafaultColumnType(parquet::Type::type physical_t);
 std::string getLayoutColumnType(std::shared_ptr<const  parquet::LogicalType>& logical_t,parquet::Type::type physical_t,parquet::SortOrder::type sort_order);
 std::string getLayoutColumnType(parquet::ConvertedType::type converted_t,parquet::Type::type physical_t,parquet::SortOrder::type sort_order);
@@ -104,7 +106,7 @@ ConstantSP loadParquetHdfs(void *buffer, int64_t len);
 
 ConstantSP parquetDS(const ConstantSP &filename,const ConstantSP &schema);
 
-ConstantSP saveParquet(ConstantSP &tb, const string &filename);
+ConstantSP saveParquet(ConstantSP &tb, const string &filename, const string &compression);
 
 ConstantSP saveParquetHdfs(ConstantSP &table);
 

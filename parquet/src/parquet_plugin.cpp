@@ -180,7 +180,15 @@ ConstantSP saveParquet(Heap *heap, vector<ConstantSP> &arguments)
         throw IllegalArgumentException(__FUNCTION__, "tb must be a table.");
     if(filename.isNull() || filename->getType() != DT_STRING || filename->getForm() != DF_SCALAR)
         throw IllegalArgumentException(__FUNCTION__, "The filename must be a string scalars.");
-    return ParquetPluginImp::saveParquet(tb, filename->getString());
+    string compression;
+    if(arguments.size() >= 3 && !arguments[2]->isNothing()){
+        if(arguments[2]->getType() != DT_STRING || arguments[2]->getForm() != DF_SCALAR)
+            throw IllegalArgumentException(__FUNCTION__, "The compression must be a string scalar.");
+        compression = arguments[2]->getString();
+        if(ParquetPluginImp::COMPRESSION_SET.count(compression) == 0)
+            throw IllegalArgumentException(__FUNCTION__, "The compression type only supports snappy, gzip, zstd.");
+    }
+    return ParquetPluginImp::saveParquet(tb, filename->getString(), compression);
 }
 
 ConstantSP saveParquetHdfs(Heap *heap, vector<ConstantSP>& arguments)
@@ -461,6 +469,8 @@ void createNewVectorSP(vector<ConstantSP> &dolpindb_v, const TableSP &tb, int to
 	if (tb.isNull())
 		throw RuntimeException("table can't be null");
     int col_num = dolpindb_v.size();
+    if(tb->columns() != col_num)
+        throw RuntimeException("the size of column schema not match");
     for (int i = 0; i < col_num; i++)
     {
         if(tb->getColumnType(i) == DT_SYMBOL)
@@ -3317,7 +3327,7 @@ ConstantSP parquetDS(const ConstantSP &filename, const ConstantSP &schema)
 const int16_t ONE = 1;
 const int16_t ZERO = 0;
 
-ConstantSP saveParquet(ConstantSP &table, const string &filename)
+ConstantSP saveParquet(ConstantSP &table, const string &filename, const string &compression)
 {
     std::shared_ptr<arrow::io::FileOutputStream> outfile;
     PARQUET_ASSIGN_OR_THROW(
@@ -3327,6 +3337,13 @@ ConstantSP saveParquet(ConstantSP &table, const string &filename)
 
     std::shared_ptr<parquet::schema::GroupNode> schema = getParquetSchemaFromDolphindb(table);
     parquet::WriterProperties::Builder builder;
+    if (compression == "snappy") {
+        builder.compression(parquet::Compression::SNAPPY);
+    } else if (compression == "gzip") {
+        builder.compression(parquet::Compression::GZIP);
+    } else if (compression == "zstd") {
+        builder.compression(parquet::Compression::ZSTD);
+    }
     std::unique_ptr<parquet::ParquetFileWriter> writer = parquet::ParquetFileWriter::Open(
         outfile,
         schema,

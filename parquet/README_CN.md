@@ -228,13 +228,14 @@ DataSource< loadParquet("userdata1.parquet",,,0,1) >
 
 **语法**
 
-parquet::saveParquet(table, fileName)
+parquet::saveParquet(table, fileName, [compression])
 
 **参数**
 
 table: 要保存的表
 
 fileName: 保存的文件名，类型为字符串标量
+compression: 压缩格式。类型为字符串标量。支持snappy, gzip, zstd, 默认为不压缩。
 
 **详情**
 

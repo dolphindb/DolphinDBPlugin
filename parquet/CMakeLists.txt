@@ -16,7 +16,7 @@ macro(replace_cxx_release_flag src_flag dest_flag)
     string(REPLACE "${src_flag}" "${dest_flag}" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 endmacro(replace_cxx_release_flag flag)
 
-replace_cxx_release_flag("-O3" "-O2") 
+replace_cxx_release_flag("-O3" "-O2")
 include_directories("./parquetApi/include" "../include")
 link_directories(./parquetApi/lib/linux)
 # link_directories(/mnt/data/zsy/thriftLib/lib)
@@ -36,9 +36,8 @@ target_link_libraries(PluginParquet
     rt
     ${CMAKE_CURRENT_LIST_DIR}/parquetApi/lib/linux/libboost_regex.a
     ${CMAKE_CURRENT_LIST_DIR}/parquetApi/lib/linux/libthrift.a
-    DolphinDB
     )
 
-add_custom_command( TARGET PluginParquet POST_BUILD 
-                    COMMAND cp ${plugin_file} "${CMAKE_BINARY_DIR}/PluginParquet.txt" 
+add_custom_command( TARGET PluginParquet POST_BUILD
+                    COMMAND cp ${plugin_file} "${CMAKE_BINARY_DIR}/PluginParquet.txt"
                     COMMENT "copy PluginParquet.txt")
