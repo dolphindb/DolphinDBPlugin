@@ -1,0 +1,26 @@
+try{
+	loadPlugin("/home/slshen/DolphinDBPlugin/feather/build/PluginFeather.txt")
+}catch(ex){}
+
+go
+
+DATA_DIR="/home/slshen/feather/data/";
+
+t1 = feather::load(DATA_DIR+"Minute.feather");
+
+t2 = feather::load(DATA_DIR+"Minute.compressed.feather");
+nostr= feather::load(DATA_DIR+"nostring_Minute.feather");
+
+//t3 = feather::load(DATA_DIR+"Trades_small.feather");
+t4 = feather::load(DATA_DIR+"Trades_small.compressed.feather");
+
+nostr = select size, match, amt, open, high, low, close, oi from t1;
+
+feather::save(nostr, DATA_DIR+"nostring_Minute.feather");
+
+feather::save(t1, DATA_DIR+"ddb_Minute.feather");
+
+t1 = feather::load(DATA_DIR+"ddb_Minute.feather");
+
+feather::save(t4, DATA_DIR+"ddb_Trades_small.feather");
+

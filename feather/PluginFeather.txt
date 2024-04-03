@@ -1,0 +1,4 @@
+feather,libPluginFeather.so,3.00.0
+schemaFeather,extractSchema,system,1,1,0
+loadFeather,load,system,1,2,0
+saveFeather,save,system,2,4,0
