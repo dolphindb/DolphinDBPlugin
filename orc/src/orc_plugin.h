@@ -7,6 +7,7 @@
 #include <sstream>
 
 #include <CoreConcept.h>
+#include "ddbplugin/CommonInterface.h"
 #include <ScalarImp.h>
 #include <Util.h>
 #include <orc/OrcFile.hh>
