@@ -6,6 +6,7 @@
 #include <fstream>
 #include "mseed.h"
 #include "libmseed.h"
+#include "ddbplugin/CommonInterface.h"
 
 using namespace std;
 
