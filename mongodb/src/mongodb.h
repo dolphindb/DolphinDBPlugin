@@ -1,5 +1,6 @@
 
 #include <CoreConcept.h>
+#include "ddbplugin/CommonInterface.h"
 
 extern "C" ConstantSP mongodbConnect(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP mongodbLoad(Heap *heap, vector<ConstantSP> &arguments);
