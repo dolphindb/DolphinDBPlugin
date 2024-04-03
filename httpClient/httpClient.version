@@ -1,0 +1,6 @@
+HTTP_CLIENT_1.0 {
+    local:
+        SSL_CTX_new;
+        OBJ_NAME_add;
+        CRYPTO_free;
+};
