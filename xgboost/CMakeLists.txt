@@ -1,0 +1,184 @@
+cmake_minimum_required(VERSION 3.0)
+project(PluginXgboost LANGUAGES CXX)
+
+#######################################################################################################################
+# CMake options and global variables.
+#
+# CMake build types, specify with -DCMAKE_BUILD_TYPE={option}.
+#   Debug, Release (default), RelWithDebInfo.
+#
+# CMake options, specify with -DDDB_{option}=On.
+#   DDB_USE_ASAN                    : Enable ASAN, a fast memory error detector. Default OFF.
+#
+# CMake custom variables, specify with -D{variable}={value}.
+#   XGBOOST_VERSION                     : use to determine xgboost lib version, support '1.2' or '2.0'
+#
+# CMake global variables. These are NOT CMake options, i.e., these variables are internal.
+#   PLUGIN_COMPILE_DEFINITIONS      : Compile definitions to be added to plugin.
+#   PLUGIN_COMPILE_OPTIONS          : Compile options to be added to plugin.
+#   PLUGIN_INCLUDE_DIRECTORIES      : Include directories to be used for plugin.
+#   PLUGIN_LINK_DIRECTORIES         : Link directories to be used for plugin.
+#   PLUGIN_LINK_LIBRARIES           : Link libraries to be added to plugin.
+#   PLUGIN_LINK_FLAGS             : Link options to be added to plugin.
+#######################################################################################################################
+
+# Initial setup
+option(DDB_USE_ASAN
+    "Enable ASAN, a fast memory error detector. https://clang.llvm.org/docs/AddressSanitizer.html"
+    OFF)
+
+set(PLUGIN_COMPILE_DEFINITIONS
+    "-DLOCKFREE_SYMBASE"
+)
+set(PLUGIN_COMPILE_OPTIONS
+    "-std=c++11"
+    "-Wall"
+)
+set(PLUGIN_INCLUDE_DIRECTORIES
+    ${PROJECT_SOURCE_DIR}/../include
+)
+set(PLUGIN_LINK_DIRECTORIES
+    ${CMAKE_BINARY_DIR}
+    ${LIBDOLPHINDB}
+)
+set(PLUGIN_LINK_LIBRARIES
+    DolphinDB
+)
+set(PLUGIN_LINK_FLAGS
+    "-L ./ -Wl,-rpath,$ORIGIN"
+)
+
+if("${XGBOOST_VERSION}" STREQUAL "2.0")
+    list(APPEND PLUGIN_COMPILE_DEFINITIONS "-DXGBOOST_2_0_0")
+elseif("${XGBOOST_VERSION}" STREQUAL "1.2")
+    list(APPEND PLUGIN_COMPILE_DEFINITIONS "-DXGBOOST_1_2_0")
+else()
+    message(STATUS "Set XGBOOST_VERSION to 1.2 as default")
+    set(XGBOOST_VERSION "1.2") # use 1.2 as default
+endif()
+
+if("${XGBOOST_VERSION}" STREQUAL "2.0")
+    message(STATUS "XGBOOST_VERSION=2.0")
+    message(STATUS "USE ABI=1")
+    list(APPEND PLUGIN_COMPILE_DEFINITIONS "-D_GLIBCXX_USE_CXX11_ABI=1")
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "8.1")
+            message(FATAL_ERROR "Need GCC 8.1 or newer to build xgboost version 2.0 plugin")
+        endif()
+    endif()
+else("${XGBOOST_VERSION}" STREQUAL "1.2")
+    message(STATUS "XGBOOST_VERSION=1.2")
+    message(STATUS "USE ABI=0")
+    if(UNIX)
+        list(APPEND PLUGIN_COMPILE_DEFINITIONS "-D_GLIBCXX_USE_CXX11_ABI=0")
+    endif()
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "5.0")
+            message(FATAL_ERROR "Need GCC 5.0 or newer to build xgboost version 1.2 plugin")
+        endif()
+    endif()
+endif()
+
+set(destPluginTxt "PluginXgboost.txt")
+
+# Platform
+if (UNIX)
+    MESSAGE(STATUS "Platform: UNIX")
+    list(APPEND PLUGIN_COMPILE_DEFINITIONS "-DLINUX")
+    list(APPEND PLUGIN_LINK_LIBRARIES
+        ${CMAKE_CURRENT_LIST_DIR}/lib/${XGBOOST_VERSION}/libxgboost.a
+        ${CMAKE_CURRENT_LIST_DIR}/lib/${XGBOOST_VERSION}/libdmlc.a
+        stdc++fs # for centos 7 compile
+    )
+    if("${XGBOOST_VERSION}" STREQUAL "1.2") # only xgboost 1.2 has rabit dependency
+        list(APPEND PLUGIN_LINK_LIBRARIES
+            ${CMAKE_CURRENT_LIST_DIR}/lib/${XGBOOST_VERSION}/librabit.a
+        )
+    endif()
+    set(installType linux)
+    set(pluginFileTxt "${CMAKE_CURRENT_LIST_DIR}/PluginXgboost.txt")
+elseif (WIN32)
+    if("${XGBOOST_VERSION}" STREQUAL "2.0")
+        message(FATAL_ERROR "Xgboost 2.0 version plugin doesn't support windows")
+    endif()
+    MESSAGE(STATUS "Platform: WINDOWS")
+    list(APPEND PLUGIN_LINK_LIBRARIES
+        ${CMAKE_CURRENT_LIST_DIR}/lib/${XGBOOST_VERSION}/xgboost.dll
+    )
+    list(APPEND PLUGIN_COMPILE_DEFINITIONS "-DWINDOWS")
+    set(installType win)
+    set(pluginFileTxt "${CMAKE_CURRENT_LIST_DIR}/PluginXgboost_win.txt")
+else ()
+    message(FATAL_ERROR "Unsupported platform.")
+endif ()
+
+# Cmake Build Type
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE RELEASE)
+endif (NOT CMAKE_BUILD_TYPE)
+
+string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
+if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+    list(APPEND PLUGIN_COMPILE_OPTIONS "-ggdb" "-O0" "-fno-omit-frame-pointer" "-fno-optimize-sibling-calls")
+elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+    list(APPEND PLUGIN_COMPILE_DEFINITIONS "-DNDEBUG")
+    list(APPEND PLUGIN_COMPILE_OPTIONS "-O3")
+elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "RELWITHDEBINFO")
+    list(APPEND PLUGIN_COMPILE_DEFINITIONS "-DNDEBUG")
+    list(APPEND PLUGIN_COMPILE_OPTIONS "-ggdb" "-O2")
+else ()
+    message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")
+endif ()
+message(STATUS "CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
+
+# ASAN
+if (${DDB_USE_ASAN})
+    set(DDB_ASAN_FLAGS
+        "-fsanitize=address"                # Enable ASAN.
+        "-fno-omit-frame-pointer"           # Nicer stack traces in error messages.
+        "-fno-optimize-sibling-calls"       # Disable tail call elimination (perfect stack traces if inlining off).
+        )
+    list(APPEND PLUGIN_COMPILE_OPTIONS ${DDB_ASAN_FLAGS})
+    # list(APPEND PLUGIN_LINK_FLAGS "-fsanitize=address")
+    unset(DDB_ASAN_FLAGS)
+endif ()
+message(STATUS "ASAN: ${DDB_USE_ASAN}")
+
+# Source Code
+file(GLOB PluginXgboost_HEADER CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.h)
+file(GLOB PluginXgboost_SOURCE CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.cpp)
+
+# Options & Dependencies
+list(APPEND PLUGIN_INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}/include/${XGBOOST_VERSION}/)
+list(APPEND PLUGIN_LINK_FLAGS "-fopenmp -static-libstdc++")
+list(APPEND PLUGIN_LINK_DIRECTORIES ${CMAKE_SOURCE_DIR}/lib/${XGBOOST_VERSION}/)
+
+# Build Target
+add_library(PluginXgboost SHARED)
+if("${XGBOOST_VERSION}" STREQUAL "2.0")
+    set_property(TARGET PluginXgboost PROPERTY CXX_STANDARD 14)
+elseif("${XGBOOST_VERSION}" STREQUAL "1.2")
+    set_property(TARGET PluginXgboost PROPERTY CXX_STANDARD 11)
+endif()
+target_sources(PluginXgboost PUBLIC ${PluginXgboost_HEADER} PRIVATE ${PluginXgboost_SOURCE})
+
+target_include_directories(PluginXgboost PRIVATE ${PLUGIN_INCLUDE_DIRECTORIES})
+target_compile_definitions(PluginXgboost PRIVATE ${PLUGIN_COMPILE_DEFINITIONS})
+target_compile_options(PluginXgboost PRIVATE ${PLUGIN_COMPILE_OPTIONS})
+target_link_directories(PluginXgboost PRIVATE ${PLUGIN_LINK_DIRECTORIES})
+target_link_libraries(PluginXgboost ${PLUGIN_LINK_FLAGS} ${PLUGIN_LINK_LIBRARIES})
+
+# Post-build
+if (WIN32)
+elseif (UNIX)
+    install(TARGETS PluginXgboost
+         DESTINATION "${PROJECT_SOURCE_DIR}/bin/${installType}"
+    )
+    install(FILES ${pluginFileTxt}
+        DESTINATION "${PROJECT_SOURCE_DIR}/bin/${installType}"
+        RENAME ${destPluginTxt}
+    )
+    message(STATUS "Install Destination: ${PROJECT_SOURCE_DIR}/bin/${installType}")
+endif()
+
+configure_file(${pluginFileTxt} ${CMAKE_BINARY_DIR}/PluginXgboost.txt COPYONLY)
