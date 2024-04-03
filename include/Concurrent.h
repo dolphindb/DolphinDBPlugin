@@ -228,6 +228,30 @@ public:
 		}
 	}
 
+	void unlock() {
+		if (res_ != NULL) {
+			if (exclusive_) {
+				res_->releaseWrite();
+			} else {
+				res_->releaseRead();
+			}
+			res_ = NULL;
+		}
+	}
+
+	void relock(T* res, bool exclusive) {
+		res_ = res;
+		exclusive_ = exclusive;
+		if (res != NULL) {
+			if(exclusive_) {
+				res_->acquireWrite();
+			}
+			else {
+				res_->acquireRead();
+			}
+		}
+	}
+
 	RWLockGuard(const RWLockGuard &) = delete;
 	RWLockGuard& operator=(const RWLockGuard &) = delete;
 

@@ -203,6 +203,7 @@ public:
 	BasicTable(const vector<ConstantSP>& cols, const vector<string>& colNames);
 	virtual ~BasicTable();
 	virtual bool isBasicTable() const {return true;}
+	virtual bool isSpecialBasicTable() const {return false;}
 	virtual ConstantSP getColumn(INDEX index) const;
 	virtual ConstantSP get(INDEX col, INDEX row) const {return cols_[col]->get(row);}
 	virtual DATA_TYPE getColumnType(const int index) const { return cols_[index]->getType();}

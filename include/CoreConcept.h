@@ -256,7 +256,7 @@ class Array{
 public:
 	Array(int capacity) : data_(new T[capacity]), size_(0), capacity_(capacity){}
 	Array(T* data, int size, int capacity): data_(data), size_(size), capacity_(capacity){}
-	Array(const Array<T>& copy) : data_(new T[copy.size_]), size_(copy.size_), capacity_(copy.capacity_){
+	Array(const Array<T>& copy) : size_(copy.size_), capacity_(copy.capacity_){
 		data_ = new T[size_];
 		memcpy(data_, copy.data_, sizeof(T) * size_);
 	}
@@ -465,7 +465,7 @@ private:
 	IrremovableLocklessFlatHashmap<DolphinString, int> keyMap_;
 #endif
 	deque<int> sortedIndices_;
-	mutable Mutex writeMutex_;
+	mutable RWLock writeMutex_;
 	mutable Mutex versionMutex_;
     bool readOnly_ = false;
 };
@@ -735,7 +735,7 @@ public:
 	virtual ConstantSP get(INDEX column, INDEX row) const {return get(row);}
 	/**
 	 * @brief Get the data according to the index.
-	 * 
+	 *
 	 * @param index: the index gives the indices of data to get. If the index is out of range,
 	 * 		i.e. negative or larger than the size, the null value is returned correspondingly.
 	 * @return ConstantSP: the data
@@ -743,7 +743,7 @@ public:
 	virtual ConstantSP get(const ConstantSP& index) const {return getValue();}
 	/**
 	 * @brief Get the data according to the index.
-	 * 
+	 *
 	 * @param offset: the index is offseted by offset
 	 * @param index: the index gives the indices of data to get
 	 * @return ConstantSP: the data
@@ -760,7 +760,7 @@ public:
 
 	/**
 	 * @brief Judge the data from start to (start + len - 1) is null or not
-	 * 
+	 *
 	 * @param start: the start index
 	 * @param len: the length of data to be judged
 	 * @param buf: the result is stored in buf
@@ -796,7 +796,7 @@ public:
 
 	/**
 	 * @brief Judge the data according to indices is null or not
-	 * 
+	 *
 	 * @param indices: the maybe out-of-ordered indices to judge
 	 * @param len: the length of data to be judged
 	 * @param buf: the result is stored in buf
@@ -832,7 +832,7 @@ public:
 	 * 		  Note that if the required underlying data is contiguous, then there is
 	 *          no copy happened in this function and the underlying buffer is directly returned;
 	 * 			otherwise, the data is copied into buf, and buf is returned.
-	 * 
+	 *
 	 * @param start: the start index
 	 * @param len: the length of data to get
 	 * @param buf: a buffer with at least length len
@@ -865,7 +865,7 @@ public:
 	 * 		  Note that if the required underlying data is contiguous,
 	 * 			then the underlying buffer is directly returned;
 	 * 			otherwise, the buf is returned.
-	 * 
+	 *
 	 * @param start: the start index
 	 * @param len: the length of data to get
 	 * @param buf: a buffer with at least length len
@@ -896,13 +896,13 @@ public:
     virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial) {throw RuntimeException("deserialize method not supported");}
 	/**
 	 * @brief Fill the null value with val.
-	 * 
+	 *
 	 * @param val
 	 */
 	virtual void nullFill(const ConstantSP& val){}
 	/**
 	 * @brief Set the index-th element to be val.
-	 * 
+	 *
 	 * @param index: the index of element to be set.
 	 * @param val: the value to be set.
 	 */
@@ -935,7 +935,7 @@ public:
 	virtual bool set(INDEX column, INDEX row, const ConstantSP& value){return false;}
 	/**
 	 * @brief Replace the cell value specified by the index with value.
-	 * 
+	 *
 	 * @param index: scalar or vector. Make sure all indices in are valid,
 	 * 		i.e. no less than zero and less than the size of the value.
 	 * @param value: the value to be set.
@@ -967,7 +967,7 @@ public:
 	/**
 	 * @brief Replace the cell value specified by the index with value.
 	 * 		  Note that setNonNull will ignore null value when replacing data.
-	 * 
+	 *
 	 * @param index: Scalar or vector. Make sure all indices in are valid,
 	 * 		i.e. no less than zero and less than the size of the value.
 	 * @param value: The value to be set.
@@ -981,7 +981,7 @@ public:
 	virtual bool reshape(INDEX cols, INDEX rows) {return false;}
 	/**
 	 * @brief Replace the underlying data to be value.
-	 * 
+	 *
 	 * @param value: The data to be assigned. Note that the size of value must be the same as the
 	 * 				 		the size of this constant.
 	 * @return true if assignment succeed, else false.
@@ -995,7 +995,7 @@ public:
 	 * 		  Note that if buf is already among the underlying data, then actually
 	 * 		  		nothing happens in this function; otherwise, the data of buf will be
 	 * 				copied.
-	 * 
+	 *
 	 * @param start: the start index
 	 * @param len: the length of data to set
 	 * @param buf: a buffer with at least length len
@@ -1021,14 +1021,14 @@ public:
 
 	/**
 	 * @brief Add inc to the underlying data from start to (start + length - 1).
-	 * @return true if succeed, else false 
+	 * @return true if succeed, else false
 	 */
 	virtual bool add(INDEX start, INDEX length, long long inc) { return false;}
 	virtual bool add(INDEX start, INDEX length, double inc) { return false;}
 	virtual void validate() {}
 	/**
 	 * @brief Compare the index-th cell with the constant target
-	 * 
+	 *
 	 * @param index
 	 * @param target
 	 * @return 0: if index-th cell is equal to target
@@ -1039,14 +1039,14 @@ public:
 
 	/**
 	 * @brief Get the null flag.
-	 * 
+	 *
 	 * @return true: this constant **may** contain null value
 	 * @return false: this constant must not contain null value
 	 */
 	virtual bool getNullFlag() const {return isNull();}
 	/**
 	 * @brief Set the null flag.
-	 * 
+	 *
 	 * @param containNull: true if this constant **may** contain null value,
 	 * 					   false if this constant must not contain null value
 	 */
@@ -1186,9 +1186,9 @@ public:
 	virtual ConstantSP getInstance() const {return getInstance(size());}
 	virtual ConstantSP getInstance(INDEX size) const = 0;
 	/**
-	 * @brief  Copy this vector. 
-	 * 
-	 * @param capacity: The capacity of the new vector. 
+	 * @brief  Copy this vector.
+	 *
+	 * @param capacity: The capacity of the new vector.
 	 * @return ConstantSP: The new vector.
 	 */
 	virtual ConstantSP getValue(INDEX capacity) const {throw RuntimeException("Vector::getValue method not supported");}
@@ -1197,10 +1197,10 @@ public:
 	virtual ConstantSP getWindow(INDEX colStart, int colLength, INDEX rowStart, int rowLength) const {return getSubVector(rowStart,rowLength);}
 	/**
 	 * @brief Get the sub-vector of this vector.
-	 * 
+	 *
 	 * @param start
-	 * @param length 
-	 * @return ConstantSP: the sub-vector 
+	 * @param length
+	 * @return ConstantSP: the sub-vector
 	 */
 	virtual ConstantSP getSubVector(INDEX start, INDEX length) const { throw RuntimeException("getSubVector method not supported");}
 	virtual ConstantSP getSubVector(INDEX start, INDEX length, INDEX capacity) const { return getSubVector(start, length);}
@@ -1305,7 +1305,7 @@ public:
 	virtual void lastNot(INDEX start, INDEX length, const ConstantSP& exclude, const ConstantSP& out, INDEX outputStart=0) const = 0;
 	/**
 	 * @brief Return whether this vector is sorted.
-	 * 
+	 *
 	 * @param asc: Indicating whether this vector is sorted in ascending order(true) or descending order(false).
 	 * @param strict: Indicating whether this vector is strictly increasing(decreasing).
 	 * @param nullsOrder: 0: NONE, 1: NULLS FIRST, 2: NULLS LAST.
@@ -1314,7 +1314,7 @@ public:
 	virtual bool isSorted(bool asc, bool strict = false, char nullsOrder = 0) const { return isSorted(0, size(), asc, strict, nullsOrder);}
 	/**
 	 * @brief Return whether the specified range of this vector is sorted.
-	 * 
+	 *
 	 * @param start: The starting position of the specified range.
 	 * @param length: The length of the specified range.
 	 * @param asc: Indicating whether this vector is sorted in ascending order(true) or descending order(false).
@@ -1348,7 +1348,7 @@ public:
 	}
 	/**
 	 * @brief Sort the whole vector with given order.
-	 * 
+	 *
 	 * @param asc: Indicating if it is ascending order.
 	 * @param nullsOrder: 0: NONE, 1: NULLS FIRST, 2: NULLS LAST.
 	 * @return True if sort succeed, else false.
@@ -1378,7 +1378,7 @@ public:
 
 	/**
 	 * @brief Sort the selected indices based on the corresponding data with given order.
-	 * 
+	 *
 	 * @param indices: The selected indices to sort.
 	 * @param start: The start position in indices vector.
 	 * @param length: The number of indices to sort.
@@ -1607,7 +1607,7 @@ public:
 	virtual	bool clear() { return false;}
 	/**
 	 * @brief Reorder the columns of the table with the given new orders.
-	 * 
+	 *
 	 * @param newOrders: indices of the columns of the new orders.
 	 * @return true if reorder succeed, else false.
 	 */
@@ -1615,7 +1615,7 @@ public:
 	virtual bool replaceColumn(int index, const ConstantSP& col) {return false;}
 	/**
 	 * @brief Drop specified columns.
-	 * 
+	 *
 	 * @param columns: indices of the columns to drop
 	 * @return true if drop succeed, else false
 	 */
@@ -1626,7 +1626,7 @@ public:
 	virtual bool update(vector<ConstantSP>& values, const ConstantSP& indexSP, vector<string>& colNames, string& errMsg) = 0;
 	/**
 	 * @brief Append values to this table.
-	 * 
+	 *
 	 * @param values: the values to append
 	 * @param insertedRows: out parameter, means how many rows are actually inserted
 	 * @param errMsg: if the append fails, the error message is stored in errMsg.
@@ -1979,6 +1979,8 @@ public:
 	inline void setWithinAnalyticFunction(bool option) { if(option) flag_ |= 32; else flag_ &= ~32;}
 	inline bool isDefinedAnalyticFunction() const { return flag_ & 64;}
 	inline void setDefinedAnalyticFunction(bool option) { if(option) flag_ |= 64; else flag_ &= ~64;}
+	inline bool isMacroUsed() const {return flag_ & 128;}
+	inline void setMacroUsed(bool option) { if(option) flag_ |= 128; else flag_ &= ~128;}
 
 private:
 	TableSP tableSP_;
@@ -1991,6 +1993,7 @@ private:
 	 * bit4: 0: out of SQL FROM clause, 1: within SQL FROM clause
 	 * bit5: 0: not within analytic function, 1: within analytic function
 	 * bit6: 0: not define an analytic function, 1: define an analytic funciton
+	 * bit7: 0: not use macro object, 1: macro object used.
 	 */
 	int flag_;
 	DictionarySP cachedCols_;
@@ -2029,6 +2032,7 @@ public:
 	ColumnRef* localize(const SQLContextSP& contextSP) const{ return new ColumnRef(contextSP, qualifier_, name_);}
 	ColumnRef* localize() const{ return new ColumnRef(contextSP_, qualifier_, name_);}
 	bool operator ==(const ColumnRef& target);
+	bool operator ==(const ColumnRef& target) const;
 	virtual void collectVariables(vector<int>& vars, int minIndex, int maxIndex) const { if(index_<=maxIndex && index_>=minIndex) vars.push_back(index_);}
 	virtual void retrieveColumns(const TableSP& table, vector<pair<string,string>>& columns) const;
 	virtual ObjectSP copy(Heap* pHeap, const SQLContextSP& context, bool localize) const;
@@ -2047,16 +2051,21 @@ class Operator{
 public:
 	Operator(int priority, bool unary): priority_(priority), unary_(unary){}
 	virtual ~Operator(){}
-	int getPriority() const {return priority_;}
-	bool isUnary() const {return unary_;}
+	inline int getPriority() const {return priority_;}
+	inline bool isUnary() const {return unary_;}
+	inline const string& getName() const {return funcDef_->getName();}
+	inline string getTemplateSymbol() const { return templateSymbol_;}
+	inline const FunctionDefSP& getFunctionDef() const { return funcDef_;}
+	inline FastFunc getFastImplementation() const {return funcDef_->getFastImplementation();}
 	virtual ConstantSP evaluate(Heap* heap, const ConstantSP& a, const ConstantSP& b) = 0;
-	virtual const string& getName() const = 0;
 	virtual string getOperatorSymbol() const  = 0;
-	virtual string getTemplateSymbol() const = 0;
 	virtual bool isPrimitiveOperator() const = 0;
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const = 0;
 	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const = 0;
-	virtual FastFunc getFastImplementation() const = 0;
+
+protected:
+	FunctionDefSP funcDef_;
+	string templateSymbol_;
 
 private:
 	int priority_;
@@ -2098,6 +2107,10 @@ public:
 	virtual FunctionDefSP parseFunctionDef(const string& script) = 0;
 	virtual vector<string> parseModuleStatement(const string& script) = 0;
 	virtual vector<vector<string>> parseUseStatement(const string& script) = 0;
+    virtual DictionarySP parseScript(const vector<string> &source, const string &currentPath = "", int firstLine = 0)= 0;
+	virtual vector<FunctionDefSP> parseFunctionDefInModule(const string &moduleName) {
+		throw RuntimeException("Session::parseFunctionDefInModule isn't implement yet.");
+	}
 	virtual bool contain(const string& key) const =0;
 	virtual ConstantSP get(const string& key) const=0;
 	virtual vector<pair<string,ConstantSP>> getAll() const=0;
@@ -2146,6 +2159,7 @@ public:
 	virtual OptrFunc getOperator(const string& optrSymbol, bool unary, const string& templateName) const = 0;
 	virtual OperatorSP getOperator(const FunctionDefSP& func, bool unary) const = 0;
 	virtual bool addPluginFunction(const FunctionDefSP& funcDef) = 0;
+	virtual bool replaceFunction(const FunctionDefSP& funcDef) = 0;
 	virtual void addFunctionDeclaration(FunctionDefSP& func) = 0;
 	virtual void addFunctionalView(const FunctionDefSP& funcDef) = 0;
 	virtual bool removeFunctionalView(const string& name) = 0;
@@ -2167,43 +2181,31 @@ public:
 	inline void setCompressionOption(bool option){ if(option) flag_ |= 64; else flag_ &= ~64;}
 	inline int getDepth() const { return (flag_ >> 8) & 7;}
 	inline void setDepth(int depth) { flag_ = (flag_ & ~(7<<8)) | (depth << 8);}
-    inline bool isTracing() const { return tracing_; }
-    inline void setTracing(bool tracing) { tracing_ = tracing; }
 	inline bool getEnableTransactionStatement() const { return flag_ & 2048; }
 	inline void setEnableTransactionStatement(bool option) { if(option) flag_ |= 2048; else flag_ &= ~2048; }
 	inline bool isStreamingEnv() const { return flag_ & 4096;}
 	inline void setStreamingEnv(bool option) {if(option) flag_ |= 4096; else flag_ &= ~4096; }
 	inline int getSQLStandard() const { return (flag_ >> 13) & 15;}
 	inline void setSQLStandard(int sqlStandard) {flag_ = (flag_ & ~(15<<13)) | (sqlStandard << 13); }
-	inline bool serializeUniqueName() { return flag_ & (1 << 18); }
-	inline void setSerializeUniqueName(bool option) { if (option) flag_ |= (1 << 18); else flag_ &= ~(1 << 18); }
-	virtual TransactionSP getTransaction() { return transaction_; }
-	virtual void setTransaction(const TransactionSP& transaction) { transaction_ =  transaction; }
-	virtual int64_t getAsyncReplicationTaskId() { return asyncReplicationTaskId_; }
-	virtual void setAsyncReplicationTaskId(int64_t taskId) { asyncReplicationTaskId_ = taskId; }
-
+	inline bool isTracing() { return flag_ & (1 << 18); }
+	inline void setTracing(bool option) { if (option) flag_ |= (1 << 18); else flag_ &= ~(1 << 18); }
+	inline TransactionSP getTransaction() { return transaction_; }
+	inline void setTransaction(const TransactionSP& transaction) { transaction_ =  transaction; }
+	inline long long getAsyncReplicationTaskId() { return asyncReplicationTaskId_; }
+	inline void setAsyncReplicationTaskId(long long taskId) { asyncReplicationTaskId_ = taskId; }
 	inline const Guid& getClientId() const { return clientId_;}
 	inline void setClientId(const Guid& clientId) { clientId_ = clientId;}
 	inline long long getSeqNo() const { return seqNo_;}
 	inline void setSeqNo(long long seqNo) { seqNo_ = seqNo;}
 
-    virtual DictionarySP parseScript(const vector<string> &source, const string &currentPath = "", int firstLine = 0) = 0;
-
-	/**
-	 * Parse a module file (.dos), return all function definition.
-	 */
-	virtual vector<FunctionDefSP> parseFunctionDefInModule(const string &moduleName) {
-		throw RuntimeException("`Session::parseFunctionDefInModule` does not implement");
-	}
-
-  protected:
+protected:
 	long long sessionID_;
 	HeapSP heap_;
 	OutputSP out_;
 	AuthenticatedUserSP user_;
 	string remoteIP_;
-	int remotePort_;
 	string remoteSiteAlias_;
+	int remotePort_;
 	int remoteSiteIndex_;
 	Guid rootJobId_;
 	Guid jobId_;
@@ -2212,12 +2214,11 @@ public:
 	int flag_;
 	TransactionSP transaction_;
 	// for async replication task execution
-	int64_t asyncReplicationTaskId_ = 0;
-	
+	long long asyncReplicationTaskId_ = 0;
+
 private:
-  bool tracing_ = false;
-  Guid clientId_;
-  long long seqNo_;
+    Guid clientId_;
+    long long seqNo_;
 };
 
 class Transaction {
@@ -2229,7 +2230,6 @@ public:
 	virtual bool needRetry() = 0;
 	virtual uint64_t getTxnId() const = 0;
 	virtual ~Transaction() {}
-private:
 };
 
 class Console {
@@ -2555,7 +2555,7 @@ public:
 	inline void setCommitId(long long cid) { cid_ = cid;}
 	inline bool operator ==(const DomainPartition& target){ return  (key_ == target.key_) && (id_ == target.id_);}
 	IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
-	static string processPartitionId(const string& id, bool ignoreSpecialChar = true);
+	static string processPartitionId(const string& id, bool removeSpecialChar = true);
 	static ConstantSP parsePartitionId(const string& id, DATA_TYPE type);
 
 private:
@@ -2698,6 +2698,7 @@ public:
 	inline int getRentionDimension() const { return retentionDimension_;}
     inline int getHoursToColdVolume() const {return hoursToColdVolume_;}
 	inline int getTimeZoneOffset() const { return tzOffset_;}
+	inline int getFlag() const { return flag_; }
 	void setRentionPeriod(int retentionPeriod, int retentionDimension, int tzOffset, int hoursToColdVolume);
 	string getOwner() const { return owner_;}
 	bool isOwner(const string& owner) const { return owner == owner_;}
@@ -2709,6 +2710,8 @@ public:
     bool isSingleTableTablet() const {return flag_ & 1;}
 	bool enableReplication() const { return flag_ & (1 << 1); }
 	void setReplication(bool enable) { if (enable) flag_ |= ((unsigned long)1) << 1; else flag_ &= ~(((unsigned long)1) << 1); }
+	bool isRemoveSpecialChar() const { return flag_ & (1 << 2); }
+	void setRemoveSpecialChar(bool enable) { if (enable) flag_ |= ((unsigned long)1) << 2; else flag_ &= ~(((unsigned long)1) << 2); }
 	void setTableIndependentChunk(bool option) { tableIndependentChunk_ = option;}
 	bool isTableIndependentChunk() const { return tableIndependentChunk_;}
     static string getUniqueIndex(long long id);
@@ -2771,6 +2774,7 @@ protected:
 	/*
 		bit0: isSingleTablet
 		bit1: enableReplication
+		bit2: removeSpecialChar
 	*/
     int flag_;
 	SymbolBaseManagerSP symbaseManager_;
@@ -2815,9 +2819,9 @@ struct TableUpdateUrgency {
 struct TopicSubscribe {
 	TopicSubscribe(const string& topic, int hashValue, vector<string> attributes, const FunctionDefSP& handler, const AuthenticatedUserSP& user,
 			bool msgAsTable, int batchSize, int throttleTime, bool persistOffset, bool timeTrigger, bool handlerNeedMsgId,
-			const string& userId = "", const string& pwd = "") : msgAsTable_(msgAsTable),
+			const string& userId = "", const string& pwd = "", long long sessionID = 0) : msgAsTable_(msgAsTable),
 			persistOffset_(persistOffset), timeTrigger_(timeTrigger), handlerNeedMsgId_(handlerNeedMsgId), hashValue_(hashValue), batchSize_(batchSize),
-			throttleTime_(throttleTime), userId_(userId), pwd_(pwd), cumSize_(0), messageId_(-1), expired_(-1), topic_(topic), attributes_(attributes), handler_(handler), user_(user){}
+			throttleTime_(throttleTime), userId_(userId), pwd_(pwd), sessionID_(sessionID), cumSize_(0), messageId_(-1), expired_(-1), topic_(topic), attributes_(attributes), handler_(handler), user_(user){}
 	bool append(long long msgId, const ConstantSP& msg, long long& outMsgId, ConstantSP& outMsg);
 	bool getMessage(long long now, long long& outMsgId, ConstantSP& outMsg);
 	bool updateSchema(const TableSP& emptyTable);
@@ -2842,6 +2846,7 @@ struct TopicSubscribe {
 	const int throttleTime_; //in millisecond
 	const string userId_;
 	const string pwd_;
+    const long long sessionID_;
 	int cumSize_;
 	std::atomic<long long> messageId_;
 	long long expired_;
@@ -3299,6 +3304,7 @@ public:
 
 	static ConstantSP void_;
 	static ConstantSP null_;
+	static ConstantSP default_;
 	static ConstantSP true_;
 	static ConstantSP false_;
 	static ConstantSP one_;

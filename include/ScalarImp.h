@@ -27,9 +27,10 @@ void initFormatters();
 
 class Void: public Constant{
 public:
-	Void(bool explicitNull = false) : Constant(DF_SCALAR, DT_VOID, NOTHING){setNothing(!explicitNull);}
-	virtual ConstantSP getInstance() const {return ConstantSP(new Void(!isNothing()));}
-	virtual ConstantSP getValue() const {return ConstantSP(new Void(!isNothing()));}
+	Void(bool explicitNull = false, bool isDefault = false);
+	inline bool isDefault() const { return isDefault_;}
+	virtual ConstantSP getInstance() const;
+	virtual ConstantSP getValue() const;
 	virtual DATA_TYPE getRawType() const { return DT_VOID;}
 	virtual string getString() const {return Constant::EMPTY;}
 	virtual string getScript() const {return isNothing() ? Constant::EMPTY : Constant::NULL_STR;}
@@ -153,6 +154,9 @@ public:  /// {get,set}Decimal{32,64}
 private:
 	template <typename R>
 	bool getDecimal(INDEX /*start*/, int len, int scale, R *buf) const;
+
+private:
+	bool isDefault_;
 };
 
 class ObjectPool: public Void {
@@ -285,7 +289,6 @@ private:
 	static bool parseIP6(const char* str, size_t len, unsigned char* buf);
 };
 # endif
-
 class DoublePair {
 public:
 	DoublePair(bool null = true);
@@ -534,6 +537,7 @@ public:
 	ObjectSP getCode() const { return code_;}
 	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
 	virtual bool isLargeConstant() const { return false;}
+	IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial) override;
 
 private:
 	ObjectSP code_;
@@ -689,7 +693,7 @@ public:
 		}
 		ConstantSP vec = Util::createVector(getType(), index->size());
 		((Vector*)vec.get())->fill(0, vec->size(), getValue());
-		
+
 		if (((Vector*)index.get())->min()->getInt() >= 0) {
 			return vec;
 		}

@@ -19,6 +19,24 @@
 namespace decimal_util {
 
 template <typename T>
+struct RawDecimal {
+    /// Determines how many decimal digits fraction can have.
+    /// Valid range: [0, MaxPrecision]
+    int scale;
+    /// 0.001 => 1
+    /// 12.345 => 12345
+    T rawData;
+};
+
+enum class RoundingMode {
+    round,
+    trunc,
+};
+
+/// Default rounding mode.
+extern RoundingMode gDefaultRoundingMode;
+
+template <typename T>
 struct MinPrecision { static constexpr int value = 1; };
 
 template <typename T>
@@ -32,32 +50,6 @@ struct DecimalType;
 template <> struct DecimalType<int> { static constexpr DATA_TYPE value = DT_DECIMAL32; };
 template <> struct DecimalType<long long> { static constexpr DATA_TYPE value = DT_DECIMAL64; };
 template <> struct DecimalType<wide_integer::int128> { static constexpr DATA_TYPE value = DT_DECIMAL128; };
-
-inline void validateScale(const DATA_TYPE type, const int scale) {
-#define CASE_DECIMAL(bits)                                                           \
-    case DT_DECIMAL##bits: {                                                         \
-        using T = Decimal##bits::raw_data_t;                                         \
-        if (scale < 0 || scale > MaxPrecision<T>::value) {                           \
-            throw RuntimeException("Scale out of bound for Decimal" #bits            \
-                    " (valid range: [0, " + std::to_string(MaxPrecision<T>::value) + \
-                    "], but get: " + std::to_string(scale) + ")");                   \
-        }                                                                            \
-        break;                                                                       \
-    }                                                                                \
-//======
-
-    if (Util::getCategory(type) == DENARY) {
-        switch (type) {
-            CASE_DECIMAL(32)
-            CASE_DECIMAL(64)
-            CASE_DECIMAL(128)
-            default:
-                throw RuntimeException("Unknown Decimal type: " + std::to_string(static_cast<int>(type)));
-        }
-    }
-
-#undef CASE_DECIMAL
-}
 
 inline int exp10_i32(int x) {
     constexpr int values[] = {
@@ -166,47 +158,6 @@ inline long long scaleMultiplier<long long>(int scale) {
 template <>
 inline wide_integer::int128 scaleMultiplier<wide_integer::int128>(int scale) {
     return exp10_i128(scale);
-}
-
-
-inline std::pair<DATA_TYPE, int> determineOperateResultType(const std::pair<DATA_TYPE, int> &lhs,
-                                                            const std::pair<DATA_TYPE, int> &rhs,
-                                                            bool is_mul, bool is_div) {
-    ASSERT(Util::getCategory(lhs.first) == DENARY && Util::getCategory(rhs.first) == DENARY);
-    DATA_TYPE resultType = std::max(lhs.first, rhs.first);
-
-    int resultScale = -1;
-    if (is_mul) {
-        resultScale = lhs.second + rhs.second;
-    } else if (is_div) {
-        resultScale = lhs.second;
-    } else {
-        resultScale = std::max(lhs.second, rhs.second);
-    }
-
-    if (resultType == DT_DECIMAL32) {
-        if (resultScale > decimal_util::MaxPrecision<Decimal32::raw_data_t>::value) {
-            resultType = DT_DECIMAL64;
-        }
-    } else if (resultType == DT_DECIMAL64) {
-        if (resultScale > decimal_util::MaxPrecision<Decimal64::raw_data_t>::value) {
-            resultType = DT_DECIMAL128;
-        }
-    }
-
-    return {resultType, resultScale};
-}
-
-inline std::pair<DATA_TYPE, int> determineOperateResultType(const ConstantSP &lhs, const ConstantSP &rhs,
-                                                            bool is_mul, bool is_div) {
-    if (lhs->getCategory() == DENARY && rhs->getCategory() == DENARY) {
-        return determineOperateResultType({lhs->getType(), lhs->getExtraParamForType()},
-                {rhs->getType(), rhs->getExtraParamForType()}, is_mul, is_div);
-    } else if (lhs->getCategory() == DENARY) {
-        return {lhs->getType(), lhs->getExtraParamForType()};
-    } else /* (rhs->getCategory() == DENARY) */ {
-        return {rhs->getType(), rhs->getExtraParamForType()};
-    }
 }
 
 
@@ -341,249 +292,295 @@ inline std::string toString(int scale, T rawData) {
     return ss.str();
 }
 
-/**
- * @brief Parse string to decimal.
- *
- * @param[out] rawData The Integer representation of decimal.
- * @param[in,out] scale The scale of decimal. If less then 0 (e.g. -1), will automatically identify scale.
- * @param[out] errMsg The reason if parse failed.
- * @param strict If true, parse invalid decimal string (e.g., "2013.06.13") will fail.
- * @return Whether the parsing is successful.
- *
- * @note Only support string like "0.0000000123", not support "15e16"|"-0x1afp-2"|"inF"|"Nan"|"invalid".
- */
-template <typename T>
-inline bool parseString(const char *str, size_t str_len, T &rawData, int &scale, string &errMsg, bool strict = false) {
-    const char dec_point = '.';
+struct DecimalParser {
+    struct Context {
+        /// The specified scale of decimal (i.e. the digits count of decimal fraction). This field only valid
+        /// when `determine_scale_automatically` set to false.
+        int scale = 0;
+        /// Indicate whether determine `scale` automatically. If true, will ignore the `scale` field.
+        bool determine_scale_automatically = true;
+        /// Rounding mode, see @c RoundingMode
+        RoundingMode rounding = gDefaultRoundingMode;
+        /// Indicate whether in strict mode. If true, string like "2013.06.13" will treated as invalid,
+        /// if false, "2013.06.13" will be parsed to "2013.06".
+        /// Note: string that does not contain any numerical digits at the beginning (e.g. "aaa123") will
+        /// be parsed to "NULL", no matter whether `strict` is set to true or false.
+        bool strict = false;
 
-    enum StateEnum { IN_SIGN, IN_BEFORE_FIRST_DIG, IN_BEFORE_DEC, IN_AFTER_DEC, IN_END } state = IN_SIGN;
-    enum ErrorCodes {
-        NO_ERR = 0,
-        ERR_WRONG_CHAR = 1,
-        ERR_NO_DIGITS = 2,
-        ERR_WRONG_STATE = 3,
-        ERR_SCALE_ERROR = 4,
-        ERR_OVERFLOW = 5,
-        ERROR_CODE_COUNT,
-    };
-    const char *const msg[] = {
-        "",
-        "illegal string",
-        "no digits",
-        "illegal string",
-        "the number of digits exceed scale",
-        "decimal overflow"
-    };
-
-    StateEnum prevState = IN_SIGN;
-
-    rawData = 0;
-
-    bool determine_scale = false;
-    if (scale < 0) {
-        determine_scale = true;
-        scale = decimal_util::MaxPrecision<T>::value;
-    }
-
-    int sign = 1;
-    ErrorCodes error = NO_ERR;
-    int digitsCount = 0; // including '+' '-'
-    int noneZeroDigitsCount = 0; // ignore zero before numbers ( which in left of '.' or '1-9')
-    int afterDigitCount = 0;
-
-    bool rounding = false;
-
-    char c;
-    size_t i = 0;
-    while ((i < str_len) && (state != IN_END))  // loop while extraction from file is possible
-    {
-        c = str[i++];
-
-        switch (state) {
-            case IN_SIGN:
-                if (c == '-') {
-                    sign = -1;
-                    state = IN_BEFORE_FIRST_DIG;
-                    digitsCount++;
-                } else if (c == '+') {
-                    state = IN_BEFORE_FIRST_DIG;
-                    digitsCount++;
-                } else if ((c >= '0') && (c <= '9')) {
-                    state = IN_BEFORE_DEC;
-                    rawData = static_cast<int>(c - '0');
-                    digitsCount++;
-                    if (c != '0') {
-                        noneZeroDigitsCount++;
-                    }              
-                } else if (c == dec_point) {
-                    state = IN_AFTER_DEC;
-                } else if ((c != ' ') && (c != '\t')) {
-                    error = ERR_WRONG_CHAR;
-                    state = IN_END;
-                    prevState = IN_SIGN;
-                }
-                // else ignore char
-                break;
-            case IN_BEFORE_FIRST_DIG:
-                if ((c >= '0') && (c <= '9')) {
-                    if (noneZeroDigitsCount + 1 > decimal_util::MaxPrecision<T>::value) {
-                        error = ERR_OVERFLOW;
-                        state = IN_END;
-                        break;
-                    }
-                    digitsCount++;
-                    if (c != '0') {
-                        noneZeroDigitsCount++;
-                    }
-                    rawData = 10 * rawData + static_cast<int>(c - '0');
-                    state = IN_BEFORE_DEC;
-                } else if (c == dec_point) {
-                    state = IN_AFTER_DEC;
-                } else if ((c != ' ') && (c != '\t')) {
-                    error = ERR_WRONG_CHAR;
-                    state = IN_END;
-                    prevState = IN_BEFORE_FIRST_DIG;
-                }
-                break;
-            case IN_BEFORE_DEC:
-                if ((c >= '0') && (c <= '9')) {
-                    if (noneZeroDigitsCount + 1 > decimal_util::MaxPrecision<T>::value) {
-                        error = ERR_OVERFLOW;
-                        state = IN_END;
-                        break;
-                    }
-                    digitsCount++;
-                    if (noneZeroDigitsCount != 0 || c != '0') {
-                        noneZeroDigitsCount++;
-                    }                    
-                    rawData = 10 * rawData + static_cast<int>(c - '0');
-                } else if (c == dec_point) {
-                    state = IN_AFTER_DEC;
-                } else if ((c != ' ') && (c != '\t')) {
-                    error = ERR_WRONG_CHAR;
-                    state = IN_END;
-                    prevState = IN_BEFORE_DEC;
-                }
-                break;
-            case IN_AFTER_DEC:
-                if ((c >= '0') && (c <= '9')) {
-                    if (afterDigitCount + 1 > scale) {
-                        // error = ERR_SCALE_ERROR;
-                        rounding = (static_cast<int>(c - '0') >= 5);
-                        state = IN_END;
-                        break;
-                    }
-                    if (noneZeroDigitsCount + 1 > decimal_util::MaxPrecision<T>::value) {
-                        error = ERR_OVERFLOW;
-                        state = IN_END;
-                        break;
-                    }
-                    digitsCount++;
-                    noneZeroDigitsCount++;
-                    afterDigitCount++;
-                    rawData = 10 * rawData + static_cast<int>(c - '0');
-                } else if ((c != ' ') && (c != '\t')) {
-                    error = ERR_WRONG_CHAR;
-                    state = IN_END;
-                    prevState = IN_AFTER_DEC;
-                }
-                break;
-            default:
-                error = ERR_WRONG_STATE;
-                state = IN_END;
-                break;
-        }  // switch state
-    }
-
-    if (rounding) {
-        rawData += 1;
-    }
-
-    if (determine_scale) {
-        scale = afterDigitCount;
-    }
-
-    auto buildErrorMsg = [&](ErrorCodes err) {
-        assert(err < ERROR_CODE_COUNT);
-        return "parse `" + std::string(str, str_len) + "` to " + Util::getDataTypeString(DecimalType<T>::value) +
-                "(" + std::to_string(scale) + ") failed: " + msg[err];
-    };
-
-    if (error == NO_ERR || (strict == false && error == ERR_WRONG_CHAR && prevState != IN_SIGN)) {
-        if (digitsCount == 0) {
-            rawData = std::numeric_limits<T>::min();
-            return true;
+        /// Providing specified scale.
+        explicit Context(int _scale, RoundingMode _rounding = gDefaultRoundingMode, bool _strict = false)
+                : scale(_scale), determine_scale_automatically(false), rounding(_rounding), strict(_strict) {
         }
-        if (determine_scale || scale > afterDigitCount) {
-            if (noneZeroDigitsCount + scale - afterDigitCount > decimal_util::MaxPrecision<T>::value) {
-                errMsg = buildErrorMsg(ERR_OVERFLOW);
-                return false;
-            } else {
-                rawData = rawData * decimal_util::scaleMultiplier<T>(scale - afterDigitCount);
+        /// No specified scale, determine scale automatically.
+        explicit Context(RoundingMode _rounding = gDefaultRoundingMode, bool _strict = false)
+                : scale(0), determine_scale_automatically(true), rounding(_rounding), strict(_strict) {
+        }
+    };
+
+    /**
+    * @brief Parse string to decimal.
+    *
+    * @param[out] errMsg The reason if parse failed, caller MUST check it after calling this function.
+    * @param ctx The parser context, see @c Context above.
+    *
+    * @note Not support string like: "1E-16" | "-0x1afp-2" | "inf" | "NaN" | "NULL"
+    */
+    template <typename T>
+    static RawDecimal<T> parse(const string &str, string &errMsg, const Context &ctx) {
+        return parse<T>(str.data(), str.size(), errMsg, ctx);
+    }
+    template <typename T>
+    static RawDecimal<T> parse(const char *str, size_t str_len, string &errMsg, const Context &ctx) {
+        enum class State {
+            BeforeSign,
+            BeforeFirstDigit,
+            BeforeDecPoint,
+            AfterDecPoint,
+            /*------*/
+            Finish
+        };
+        enum class Error {
+            Ok = 0,
+            WrongChar,
+            WrongState,
+            Overflow,
+            ScaleOverflow,
+            /*------*/
+            Count
+        };
+        const char *const kErrorMsg[] = {
+            "",  // No error.
+            "Invalid string",
+            "Invalid string",
+            "Decimal overflow",
+            "Scale out of bounds",
+            "BUG!"
+        };
+
+        const char dec_point = '.';
+
+        Error error = Error::Ok;
+        State prevState = State::BeforeSign;
+        State state = State::BeforeSign;
+
+        int scale = ctx.scale;
+        T rawData = 0;
+
+        const auto buildErrorMsg = [&](Error err) {
+            assert(err < Error::Count);
+            return "Failed to parse \"" + std::string(str, str_len) + "\" to " +
+                    Util::getDataTypeString(DecimalType<T>::value) + "(" + std::to_string(scale) + "): " +
+                    kErrorMsg[static_cast<int>(err)];
+        };
+
+        const bool determine_scale = ctx.determine_scale_automatically;
+        if (determine_scale) {
+            scale = decimal_util::MaxPrecision<T>::value;
+        } else {
+            if (scale < 0 || scale > MaxPrecision<T>::value) {
+                errMsg = buildErrorMsg(Error::ScaleOverflow) + " (valid range: [0, " +
+                        std::to_string(MaxPrecision<T>::value) + "], but get: " + std::to_string(scale) +
+                        "). RefId: S05010";
+                return RawDecimal<T>{.scale = -9529, .rawData = 0};
             }
         }
-        if (sign < 0) {
-            rawData = -rawData;
-        }
-        error = NO_ERR;
-    } else {
-        if (error == ERR_WRONG_CHAR &&  prevState == IN_SIGN) {
-            rawData = std::numeric_limits<T>::min();
-            return true;
-        }
-        rawData = 0;
-        errMsg = buildErrorMsg(error);
-    }
 
-    return (error == NO_ERR);
-}
+        // For compatibility with floating in DDB, '+' and '-' are treated as digit,
+        // but '.' is not considered a digit, e.g.:
+        //   "+" => 0
+        //   "-" => 0
+        //   "," => NULL
+        bool no_digits = true;
+        // Total digits count, ignore leading zeros, e.g.: "001.11" => 3
+        int digits_count = 0;
+        // Fraction digits count, e.g.: "1.11" => 2, "1.1100" => 4
+        int frac_digits_count = 0;
+
+        int sign = 1;
+        bool need_rounding = false;
+
+        for (size_t i = 0; (i < str_len) && (state != State::Finish); /*nop*/) {
+            const char c = str[i++];
+            switch (state) {
+                case State::BeforeSign:
+                    if (c == '-') {
+                        sign = -1;
+                        no_digits = false;
+                        state = State::BeforeFirstDigit;
+                    } else if (c == '+') {
+                        no_digits = false;
+                        state = State::BeforeFirstDigit;
+                    } else if ((c >= '0') && (c <= '9')) {
+                        no_digits = false;
+                        if (c != '0') {
+                            assert(digits_count == 0);
+                            digits_count++;
+                        }
+                        assert(rawData == 0);
+                        rawData = static_cast<int>(c - '0');
+                        state = State::BeforeDecPoint;
+                    } else if (c == dec_point) {
+                        state = State::AfterDecPoint;
+                    } else if ((c == ' ') || (c == '\t')) {
+                        // Skip whitespace.
+                    } else {
+                        error = Error::WrongChar;
+                        prevState = state;
+                        state = State::Finish;
+                    }
+                    // else: Skip whitespace.
+                    break;
+                case State::BeforeFirstDigit:
+                    if ((c >= '0') && (c <= '9')) {
+                        if (c != '0') {
+                            assert(digits_count == 0);
+                            digits_count++;
+                        }
+                        assert(rawData == 0);
+                        rawData = static_cast<int>(c - '0');
+                        state = State::BeforeDecPoint;
+                    } else if (c == dec_point) {
+                        state = State::AfterDecPoint;
+                    } else {
+                        error = Error::WrongChar;
+                        prevState = state;
+                        state = State::Finish;
+                    }
+                    break;
+                case State::BeforeDecPoint:
+                    if ((c >= '0') && (c <= '9')) {
+                        // Case: 000001.123 => 1.234
+                        if (digits_count != 0 || c != '0') {
+                            if (digits_count + 1 > decimal_util::MaxPrecision<T>::value) {
+                                error = Error::Overflow;
+                                state = State::Finish;
+                                break;
+                            }
+                            digits_count++;
+                        }
+                        rawData = 10 * rawData + static_cast<int>(c - '0');
+                    } else if (c == dec_point) {
+                        state = State::AfterDecPoint;
+                    } else {
+                        error = Error::WrongChar;
+                        prevState = state;
+                        state = State::Finish;
+                    }
+                    break;
+                case State::AfterDecPoint:
+                    if ((c >= '0') && (c <= '9')) {
+                        // Case: "." => NULL
+                        // Case: ".000" => 0 (This is not compatible with floating in DDB)
+                        no_digits = false;
+
+                        if (frac_digits_count + 1 > scale) {
+                            need_rounding = (static_cast<int>(c - '0') >= 5);
+                            state = State::Finish;
+                            break;
+                        }
+                        if (digits_count + 1 > decimal_util::MaxPrecision<T>::value) {
+                            error = Error::Overflow;
+                            state = State::Finish;
+                            break;
+                        }
+                        digits_count++;
+                        frac_digits_count++;
+                        rawData = 10 * rawData + static_cast<int>(c - '0');
+                    } else {
+                        error = Error::WrongChar;
+                        prevState = state;
+                        state = State::Finish;
+                    }
+                    break;
+                default:
+                    error = Error::WrongState;
+                    state = State::Finish;
+                    break;
+            }
+        }
+
+        if (ctx.rounding == RoundingMode::round && need_rounding) {
+            rawData += 1;
+        }
+
+        if (determine_scale) {
+            scale = frac_digits_count;
+        }
+
+        RawDecimal<T> result{.scale = scale, .rawData = rawData};
+
+        const auto buildResult = [&]() {
+            // Case: 1.234aaaa =>
+            //   if ctx.strict == false:
+            //     1.234
+            //   else:
+            //     Failed
+            if (error == Error::Ok || (ctx.strict == false && error == Error::WrongChar)) {
+                if (no_digits) {
+                    // Case: aaaa => NULL
+                    result.rawData = std::numeric_limits<T>::min();
+                    return;
+                }
+                if (determine_scale || scale > frac_digits_count) {
+                    if (digits_count + scale - frac_digits_count > decimal_util::MaxPrecision<T>::value) {
+                        result.scale = -9527;
+                        result.rawData = 0;
+                        errMsg = buildErrorMsg(Error::Overflow);
+                        return;
+                    } else {
+                        result.rawData = rawData * decimal_util::scaleMultiplier<T>(scale - frac_digits_count);
+                    }
+                }
+                if (sign < 0) {
+                    result.rawData = -result.rawData;
+                }
+            } else {
+                if (error == Error::WrongChar && prevState == State::BeforeSign) {
+                    // Case: aaaa => NULL
+                    result.rawData = std::numeric_limits<T>::min();
+                    return;
+                }
+                result.scale = -9528;
+                result.rawData = 0;
+                errMsg = buildErrorMsg(error);
+            }
+        };
+
+        buildResult();
+        return result;
+    }
+};
 
 template <typename T>
-inline bool parseString(const string &str, T &rawData, int &scale, string &errMsg, bool strict = false) {
-    return parseString(str.c_str(), str.size(), rawData, scale, errMsg, strict);
-}
+inline RawDecimal<T> toDecimal(const string &str, int scale) {
+    const DecimalParser::Context ctx(scale, gDefaultRoundingMode);
 
-// For example, Decimal32(4) can contain numbers from -99999.9999 to 99999.9999 with 0.0001 step.
-template <typename T>
-inline void toDecimal(const string &str, int scale, T& rawData) {
-    if (scale < 0 || scale > decimal_util::MaxPrecision<T>::value) {
-        throw RuntimeException("Scale out of bound (valid range: [0, " +
-                std::to_string(decimal_util::MaxPrecision<T>::value) + "], but get: " +
-                std::to_string(scale) + ")");
-    }
-
-    rawData = 0;
     std::string errMsg;
-    if (!parseString(str, rawData, scale, errMsg)) {
+    const auto dec = DecimalParser::parse<T>(str, errMsg, ctx);
+    if (errMsg.empty() == false) {
         throw RuntimeException(errMsg);
     }
-}
 
-inline Decimal32 toDecimal32(const string &str, int scale) {
-    Decimal32 res(scale);
-    Decimal32::raw_data_t rawData;
-    toDecimal(str, scale, rawData);
-    res.setRawData(rawData);
-    return res;
+    assert(dec.scale == scale);
+    return dec;
 }
-
-inline Decimal64 toDecimal64(const string &str, int scale) {
-    Decimal64 res(scale);
-    Decimal64::raw_data_t rawData;
-    toDecimal(str, scale, rawData);
-    res.setRawData(rawData);
-    return res;
+inline RawDecimal<Decimal32::raw_data_t> toDecimal32(const string &str, int scale) {
+    return toDecimal<Decimal32::raw_data_t>(str, scale);
 }
-
+inline RawDecimal<Decimal64::raw_data_t> toDecimal64(const string &str, int scale) {
+    return toDecimal<Decimal64::raw_data_t>(str, scale);
+}
+inline RawDecimal<Decimal128::raw_data_t> toDecimal128(const string &str, int scale) {
+    return toDecimal<Decimal128::raw_data_t>(str, scale);
+}
 
 template <typename T>
-inline Decimal<T> convertFrom(const int scale, const ConstantSP &obj) {
+inline Decimal<T> toDecimal(const ConstantSP &obj, int scale) {
     Decimal<T> ret{scale};
-
     if (false == ret.assign(obj)) {
-        throw RuntimeException("Can't convert " + Util::getDataTypeString(obj->getType()) + " to DECIMAL");
+        throw RuntimeException("Can't convert " + Util::getDataTypeString(obj->getType()) + " to " +
+                Util::getDataTypeString(DecimalType<T>::value) + "(" + std::to_string(scale) + ")");
     }
-
     return ret;
 }
 
@@ -595,16 +592,92 @@ inline Decimal<T> convertFrom(const int scale, const ConstantSP &obj) {
 //========================================================================
 namespace decimal_util {
 
+template <typename T> inline long double to_long_double(T v) {
+    return static_cast<long double>(v);
+}
+
+// Ref: https://github.com/abseil/abseil-cpp/blob/master/absl/numeric/int128_no_intrinsic.inc#L135-L146
+inline long double to_long_double(wide_integer::int128 v) {
+#ifdef WINDOWS
+    assert(v != wide_integer::INT128_MIN);
+    return (v < 0 ? -static_cast<long double>(-v) : static_cast<long double>(v));
+#else
+    return static_cast<long double>(v);
+#endif
+}
+
+inline std::pair<DATA_TYPE, int> determineOperateResultType(const std::pair<DATA_TYPE, int> &lhs,
+                                                            const std::pair<DATA_TYPE, int> &rhs,
+                                                            bool is_mul, bool is_div) {
+    ASSERT(Util::getCategory(lhs.first) == DENARY && Util::getCategory(rhs.first) == DENARY);
+    DATA_TYPE resultType = std::max(lhs.first, rhs.first);
+
+    int resultScale = -1;
+    if (is_mul) {
+        resultScale = lhs.second + rhs.second;
+    } else if (is_div) {
+        resultScale = lhs.second;
+    } else {
+        resultScale = std::max(lhs.second, rhs.second);
+    }
+
+    if (resultType == DT_DECIMAL32) {
+        if (resultScale > decimal_util::MaxPrecision<Decimal32::raw_data_t>::value) {
+            resultType = DT_DECIMAL64;
+        }
+    } else if (resultType == DT_DECIMAL64) {
+        if (resultScale > decimal_util::MaxPrecision<Decimal64::raw_data_t>::value) {
+            resultType = DT_DECIMAL128;
+        }
+    }
+
+    return {resultType, resultScale};
+}
+
+inline std::pair<DATA_TYPE, int> determineOperateResultType(const ConstantSP &lhs, const ConstantSP &rhs,
+                                                            bool is_mul, bool is_div) {
+    if (lhs->getCategory() == DENARY && rhs->getCategory() == DENARY) {
+        return determineOperateResultType({lhs->getType(), lhs->getExtraParamForType()},
+                {rhs->getType(), rhs->getExtraParamForType()}, is_mul, is_div);
+    } else if (lhs->getCategory() == DENARY) {
+        return {lhs->getType(), lhs->getExtraParamForType()};
+    } else /* (rhs->getCategory() == DENARY) */ {
+        return {rhs->getType(), rhs->getExtraParamForType()};
+    }
+}
+
+inline void validateScale(const DATA_TYPE type, const int scale) {
+#define CASE_DECIMAL(bits)                                                           \
+    case DT_DECIMAL##bits: {                                                         \
+        using T = Decimal##bits::raw_data_t;                                         \
+        if (scale < 0 || scale > MaxPrecision<T>::value) {                           \
+            throw RuntimeException("Scale out of bounds for Decimal" #bits           \
+                    " (valid range: [0, " + std::to_string(MaxPrecision<T>::value) + \
+                    "], but get: " + std::to_string(scale) + "). RefId: S05010");    \
+        }                                                                            \
+        break;                                                                       \
+    }                                                                                \
+//======
+
+    if (Util::getCategory(type) == DENARY) {
+        switch (type) {
+            CASE_DECIMAL(32)
+            CASE_DECIMAL(64)
+            CASE_DECIMAL(128)
+            default:
+                throw RuntimeException("Unknown Decimal type: " + std::to_string(static_cast<int>(type)));
+        }
+    }
+
+#undef CASE_DECIMAL
+}
+
 inline bool isDecimalType(DATA_TYPE type) {
     if (type >= ARRAY_TYPE_BASE) {
         type = static_cast<DATA_TYPE>(type - ARRAY_TYPE_BASE);
     }
     return (Util::getCategory(type) == DENARY);
 }
-
-enum class CompareType {
-    eq, ne, lt, gt, le, ge, between
-};
 
 inline std::string categoryToString(const DATA_CATEGORY cat) {
 #define NORMAL_CASE(tag) case tag: return #tag;
@@ -766,31 +839,14 @@ inline int getScaleFromExtraParam(int extra) {
     return extra & 0x00ffffff;
 }
 
-/**
- * @brief Convert a Decimal scalar/vector to Float scalar/vector.
- */
-inline ConstantSP convertDecimalToFloat(const ConstantSP &obj) {
-    ASSERT(obj->getCategory() == DENARY);
-    ConstantSP ret;
-    if (obj->isVector()) {
-        ret = Util::createVector(DT_DOUBLE, 0, obj->size());
-        reinterpret_cast<Vector *>(ret.get())->append(obj);
-    } else {
-        ASSERT(obj->isScalar());
-        ret = Util::createConstant(DT_DOUBLE);
-        ret->setDouble(obj->getDouble());
-    }
-    return ret;
-}
-
 } // namespace decimal_util
 
 
 namespace decimal_util {
 /**
  * trunc(1.236, 3, 1) => 1.2
- * round(1.236, 3, 2) => 1.23
- * round(1.236, 3, 4) => 1.2360
+ * trunc(1.236, 3, 2) => 1.23
+ * trunc(1.236, 3, 4) => 1.2360
  */
 template <typename T>
 T trunc(const T old_raw_data, const int old_scale, const int new_scale) {
@@ -821,32 +877,25 @@ T trunc(const T old_raw_data, const int old_scale, const int new_scale) {
 template <typename T>
 T round(const T old_raw_data, const int old_scale, const int new_scale) {
     assert(new_scale >= 0);
-    T new_raw_data;
-
-    if (old_raw_data == std::numeric_limits<T>::min()) {
-        new_raw_data = old_raw_data;
-        return new_raw_data;
+    if (old_raw_data == std::numeric_limits<T>::min() || old_scale == new_scale) {
+        return old_raw_data;
     }
 
+    T new_raw_data{};
     if (old_scale > new_scale) {
-        T delta = 0;
-        if (old_raw_data > 0) {
-            delta = 0.5 * scaleMultiplier<T>(old_scale - new_scale);
-        } else {
-            delta = -0.5 * scaleMultiplier<T>(old_scale - new_scale);
-        }
+        const int sign = (old_raw_data < 0) ? -1 : 1;
+        const T diff_pow10 = scaleMultiplier<T>(old_scale - new_scale);
+        const T rounded = sign * old_raw_data % diff_pow10;
 
-        T rounded_val;
-        if (addOverflow(old_raw_data, delta, rounded_val)) {
-            throw MathException("Decimal math overflow. RefId:S05003");
+        new_raw_data = old_raw_data / diff_pow10;
+        if (rounded >= (diff_pow10 / 2)) {
+            new_raw_data += (sign);
         }
-        new_raw_data = rounded_val / scaleMultiplier<T>(old_scale - new_scale);
     } else {
         if (mulOverflow(old_raw_data, scaleMultiplier<T>(new_scale - old_scale), new_raw_data)) {
             throw MathException("Decimal math overflow. RefId:S05003");
         }
     }
-
     return new_raw_data;
 }
 

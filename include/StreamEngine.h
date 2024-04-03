@@ -63,7 +63,7 @@ public:
      * any message.
      */
     virtual bool warmup(vector<ConstantSP>& values, string& errMsg){
-    	errMsg = "warmup() stream engine currently only supports the reactive state engine. RefId:S03018";
+    	errMsg = "warmupStreamEngine currently only supports the reactive state engine and time series engine. RefId:S03018";
     	return false;
     }
 

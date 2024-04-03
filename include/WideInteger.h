@@ -111,9 +111,17 @@ static_assert(uint128(int128MinValue() | int128MaxValue()) == uint128MaxValue(),
 std::ostream& operator<<(std::ostream &os, wide_integer::uint128 v);
 std::ostream& operator<<(std::ostream &os, wide_integer::int128 v);
 
-
+/*
+    -std=c++11 && (
+        (clang < 12) ||
+        (gcc < 10.3)
+    )
+*/
 #if !(!defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_INT128)) && \
-        (__GNUC__ < 10 || (__GNUC__ == 10 && __GNUC_MINOR__ < 3))
+        ( \
+            (defined(__clang__) && (__clang_major__ < 12)) || \
+            (!defined(__clang__) && (__GNUC__ < 10 || (__GNUC__ == 10 && __GNUC_MINOR__ < 3))) \
+        )
 // Specialized numeric_limits for uint128 and int128.
 namespace std {
 template <>
@@ -206,7 +214,7 @@ struct is_integral<wide_integer::int128> : public true_type {};
 template <>
 struct is_integral<wide_integer::uint128> : public true_type {};
 }  // namespace std
-#endif  // !(!defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_INT128))
+#endif
 
 static_assert(std::numeric_limits<wide_integer::int128>::min() ==
         (-std::numeric_limits<wide_integer::int128>::max() - 1), "");
@@ -214,7 +222,28 @@ static_assert(wide_integer::uint128(std::numeric_limits<wide_integer::int128>::m
         std::numeric_limits<wide_integer::int128>::max()) == std::numeric_limits<wide_integer::uint128>::max(), "");
 
 
-#if (!(!defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_INT128)) && __GNUC__ < 12) || __GNUC__ < 6
+/*
+    clang && (
+        (-std=c++11) ||
+        (-std=gnu++11 && clang < 15)
+    ) ||
+    gcc && (
+        (-std=c++11) ||
+        (gcc < 6)
+    )
+*/
+#if (defined(__clang__) && \
+        ( \
+            (defined(__STRICT_ANSI__)) || \
+            (!(!defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_INT128)) && __clang_major__ < 15) \
+        ) \
+    ) || \
+    (!defined(__clang__) && \
+        ( \
+            (defined(__STRICT_ANSI__)) || \
+            (__GNUC__ < 6) \
+        ) \
+    )
 namespace std {
 // Specialized std::hash for uint128 and int128.
 template <>
@@ -237,7 +266,7 @@ struct hash<wide_integer::uint128> {
     }
 };
 }  // namespace std
-#endif  // (!(!defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_INT128)) && __GNUC__ < 12) || __GNUC__ < 6
+#endif
 
 namespace std {
 // FIXME: ???

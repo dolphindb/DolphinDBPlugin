@@ -43,13 +43,13 @@ public:
     }
 
     //Move-constructor
-    DolphinString(DolphinString && rhs) {
+    DolphinString(DolphinString && rhs) noexcept {
         noninlineData = rhs.noninlineData;
         rhs.constructInlineString(nullptr, 0);
     }
 
     //Move-assignment operator
-    DolphinString & operator=(DolphinString && rhs) {
+    DolphinString & operator=(DolphinString && rhs) noexcept {
         if (this != &rhs) {
             clear();
             noninlineData = rhs.noninlineData;

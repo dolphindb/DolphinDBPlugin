@@ -128,6 +128,7 @@ public:
 	static VectorSP createInverseIndexVector(const VectorSP& index, INDEX length);
 	static Constant* createConstant(DATA_TYPE dataType, int extraParam = 0);
 	static Constant* createNullConstant(DATA_TYPE dataType, int extraParam = 0);
+	static VectorSP prepareCleanDoubleVector(const VectorSP& x, int isFastMode);
 
 	static DataInputStreamSP createBlockFileInputStream(const string& filename, int devId, long long fileLength, int bufSize, long long offset, long long length);
 	static Constant* createResource(long long handle, const string& desc, const FunctionDefSP& onClose, Session* session);
@@ -352,12 +353,23 @@ public:
 	static int rand(int x){ return (*Util::m1)() % x;}
 	static unsigned int checksum(FILE* fp, long long offset, long long len);
 
+	/**
+	 * @brief Get the current license type of server
+	 *
+	 * @return One of 'free', 'commercial' or 'trial'
+	 */
+	static string getLicenseType();
+
 private:
 	static bool readScriptFile(const string& parentPath,const string& filename, unordered_set<string> scriptAlias, vector<string>& lines, string& errMsg);
 };
 
 inline ConstantSP evaluateObject(const ObjectSP& obj, Heap* pHeap) {
 	return obj->isConstant() && !((Constant*)obj.get())->isStatic() ? ConstantSP(obj) : obj->getReference(pHeap);
+}
+
+inline ConstantSP copyIfNecessary(const ConstantSP& obj) {
+	return (!obj->isTemporary() && obj->copyable()) ? obj->getValue() : obj;
 }
 
 inline IO_ERR serializeCode(Heap* pHeap, const ObjectSP& obj, const ByteArrayCodeBufferSP& buffer){

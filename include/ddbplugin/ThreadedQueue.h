@@ -314,6 +314,9 @@ class ThreadedQueue {
         LOG_ERR(prefix_, info_, " Failed to process ", failedMsgCount, " lines of data due to ", errMsg);
     }
 
+    // get outputTable
+    TableSP getTable() { return insertedTable_; }
+
   private:
     void extractHelper(DataStruct *data, uint32_t cnt) {
         if (UNLIKELY(cnt == 0)) return;
@@ -423,7 +426,7 @@ class ThreadedQueue {
         for (INDEX i = 0; i < appendSize; ++i) {
             appendCols.push_back(originData->getColumn(i));
         }
-        if (LIKELY(insertedTable_->getTableType() == REALTIMETBL)) {
+        if (LIKELY(insertedTable_->getTableType() == REALTIMETBL || insertedTable_->getTableType() == STREAMENGINE)) {
             for (auto &col : appendCols) {
                 col = col->getValue();
             }
@@ -440,13 +443,10 @@ class ThreadedQueue {
         for (unsigned int i = 0; i < meta_.colNames_.size(); ++i) {
             if (meta_.colTypes_[i] == DT_SYMBOL) {
                 buffer_[i] = Util::createVector(DT_STRING, 0, bufferSize_);
-                ((VectorSP)buffer_[i])->initialize();
-            } else if (meta_.colTypes_[i] >= ARRAY_TYPE_BASE) {
-                buffer_[i] = InternalUtil::createArrayVector(meta_.colTypes_[i], 0, 0, bufferSize_);
             } else {
                 buffer_[i] = Util::createVector(meta_.colTypes_[i], 0, bufferSize_);
-                ((VectorSP)buffer_[i])->initialize();
             }
+            ((VectorSP)buffer_[i])->initialize();
         }
         receivedTimeVec_ = Util::createVector(DT_NANOTIMESTAMP, 0, bufferSize_);
         outputElapsedVec_ = Util::createVector(DT_LONG, 0, bufferSize_);
@@ -543,34 +543,5 @@ class ThreadedQueue {
     std::function<void(vector<ConstantSP> &, DataStruct &)> structReader_;
     vector<ConstantSP> buffer_;
 };
-
-namespace ThreadedQueueUtil {
-
-template <typename T>
-class TimedWrapper {
-  public:
-    T data;
-    long long reachTime;
-};
-
-template <typename T>
-struct TimedWrapperTrait {
-    typedef SmartPointer<ThreadedQueue<TimedWrapper<T>>> Type;
-};
-
-typedef vector<ConstantSP>::iterator ConstantVecIterator;
-
-inline VectorSP getVec(const ConstantVecIterator &colIter) { return *colIter; }
-inline void appendString(const ConstantVecIterator &colIter, const string &data) {
-    getVec(colIter)->appendString(&data, 1);
-}
-inline void appendInt(const ConstantVecIterator &colIter, int data) { getVec(colIter)->appendInt(&data, 1); }
-inline void appendShort(const ConstantVecIterator &colIter, short data) { getVec(colIter)->appendShort(&data, 1); }
-inline void appendLong(const ConstantVecIterator &colIter, long long data) { getVec(colIter)->appendLong(&data, 1); }
-inline void appendDouble(const ConstantVecIterator &colIter, double data) { getVec(colIter)->appendDouble(&data, 1); }
-inline void appendChar(const ConstantVecIterator &colIter, char data) { getVec(colIter)->appendChar(&data, 1); }
-
-
-}
 
 #endif

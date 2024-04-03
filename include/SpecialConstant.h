@@ -2208,9 +2208,26 @@ public:
 		}
 	}
 
-	virtual INDEX lowerBound(INDEX start, const ConstantSP& target) override {
-		auto range = calculateOverlappedRange(start + offset_, size_);
-		return source_->lowerBound(range.first, target);  // FIXME: ???
+	virtual INDEX lowerBound(INDEX start, const ConstantSP& target) override;
+
+	virtual bool equalToPrior(INDEX start, INDEX length, bool* result){
+		return source_->equalToPrior(offset_ + start, length, result);
+	}
+
+	virtual bool equalToPrior(INDEX prior, const INDEX* indices, INDEX length, bool* result){
+		INDEX indexBuf[Util::BUF_SIZE];
+		INDEX start = 0;
+		prior += offset_;
+		while(start < length){
+			int count = std::min(length - start, Util::BUF_SIZE);
+			for(int i=0; i<count; ++i)
+				indexBuf[i] = offset_ + indices[start + i];
+			if(!source_->equalToPrior(prior, indexBuf, count, result + start))
+				return false;
+			prior = indexBuf[count - 1];
+			start += count;
+		}
+		return true;
 	}
 
 	virtual bool findDuplicatedElements(Vector*  indices, INDEX start, INDEX length, vector<pair<INDEX,INDEX> >& duplicates){
