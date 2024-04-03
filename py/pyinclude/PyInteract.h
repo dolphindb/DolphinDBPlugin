@@ -7,6 +7,7 @@
 
 #include "Python.h"
 #include "CoreConcept.h"
+#include "ddbplugin/CommonInterface.h"
 
 extern "C" ConstantSP runCommand(Heap* heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP importModule(Heap* heap, vector<ConstantSP>& arguments);

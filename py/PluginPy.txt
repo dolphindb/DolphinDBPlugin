@@ -1,4 +1,4 @@
-py,libPluginPy.so,2.00.11
+py,libPluginPy.so,2.00.12
 runCommand,cmd,system,1,1,0
 importModule,importModule,system,1,1,0
 reloadModule,reloadModule,system,1,1,0
