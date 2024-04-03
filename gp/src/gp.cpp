@@ -47,6 +47,7 @@ void styleSetInit() {
     styleSet.insert("boxes");
     styleSet.insert("boxerrorbars");
     styleSet.insert("ellipses");
+    styleSet.insert("circles");
 }
 
 extern "C" int gpInit(int argc, char **argv);
@@ -180,52 +181,52 @@ std::vector<std::string> convertVectorDataToString(ConstantSP &data, int require
     return ret;
 }
 
-int convertToInt(ConstantSP &data, std::string &varName) {
-    if (data->getForm() != DF_SCALAR) {
-        throw RuntimeException(varName + "must be a digital scalar");
-    }
-    int ret;
-    if (data->getType() == DT_CHAR) {
-        char tmp = data->getChar();
-        ret = tmp;
-    } else if (data->getType() == DT_SHORT) {
-        short tmp = data->getShort();
-        ret = tmp;
-    } else if (data->getType() == DT_INT) {
-        int tmp = data->getInt();
-        ret = tmp;
-    } else
-        throw RuntimeException(varName + " must be a scalar with type is char, short, int");
-    return ret;
-}
+// int convertToInt(ConstantSP &data, std::string &varName) {
+//     if (data->getForm() != DF_SCALAR) {
+//         throw RuntimeException(varName + "must be a digital scalar");
+//     }
+//     int ret;
+//     if (data->getType() == DT_CHAR) {
+//         char tmp = data->getChar();
+//         ret = tmp;
+//     } else if (data->getType() == DT_SHORT) {
+//         short tmp = data->getShort();
+//         ret = tmp;
+//     } else if (data->getType() == DT_INT) {
+//         int tmp = data->getInt();
+//         ret = tmp;
+//     } else
+//         throw RuntimeException(varName + " must be a scalar with type is char, short, int");
+//     return ret;
+// }
 
-double convertToDouble(ConstantSP &data, std::string &varName) {
-    if (data->getForm() != DF_SCALAR) {
-        throw RuntimeException(varName + "must be a digital scalar");
-    }
-    double ret;
-    if (data->getType() == DT_CHAR) {
-        char tmp = data->getChar();
-        ret = tmp;
-    } else if (data->getType() == DT_SHORT) {
-        short tmp = data->getShort();
-        ret = tmp;
-    } else if (data->getType() == DT_INT) {
-        int tmp = data->getInt();
-        ret = tmp;
-    } else if (data->getType() == DT_LONG) {
-        long long tmp = data->getLong();
-        ret = tmp;
-    } else if (data->getType() == DT_FLOAT) {
-        float tmp = data->getFloat();
-        ret = tmp;
-    } else if (data->getType() == DT_DOUBLE) {
-        double tmp = data->getDouble();
-        ret = tmp;
-    } else
-        throw RuntimeException(varName + " must be a digital scalar");
-    return ret;
-}
+// double convertToDouble(ConstantSP &data, std::string &varName) {
+//     if (data->getForm() != DF_SCALAR) {
+//         throw RuntimeException(varName + "must be a digital scalar");
+//     }
+//     double ret;
+//     if (data->getType() == DT_CHAR) {
+//         char tmp = data->getChar();
+//         ret = tmp;
+//     } else if (data->getType() == DT_SHORT) {
+//         short tmp = data->getShort();
+//         ret = tmp;
+//     } else if (data->getType() == DT_INT) {
+//         int tmp = data->getInt();
+//         ret = tmp;
+//     } else if (data->getType() == DT_LONG) {
+//         long long tmp = data->getLong();
+//         ret = tmp;
+//     } else if (data->getType() == DT_FLOAT) {
+//         float tmp = data->getFloat();
+//         ret = tmp;
+//     } else if (data->getType() == DT_DOUBLE) {
+//         double tmp = data->getDouble();
+//         ret = tmp;
+//     } else
+//         throw RuntimeException(varName + " must be a digital scalar");
+//     return ret;
+// }
 
 void gpSetProps(ConstantSP &props) {
     ConstantSP keys = props->keys();
@@ -398,7 +399,7 @@ void gpSetProps(ConstantSP &props) {
     }
 }
 
-void convertData(ConstantSP &data, int blockIndex, int colIndex, DATA_TYPE& lastType, const string& axesString) {
+void convertData(ConstantSP &data, const string& style, int blockIndex, int colIndex, DATA_TYPE& lastType, const string& axesString) {
     DATA_TYPE currentType = data->getType();
     if(Util::getCategory(currentType) == DATA_CATEGORY::TEMPORAL && lastType != DT_DOUBLE && currentType != currentType){
         throw RuntimeException("Time-type data must be of the same data type.");
@@ -437,6 +438,9 @@ void convertData(ConstantSP &data, int blockIndex, int colIndex, DATA_TYPE& last
         throw RuntimeException("The data type " + std::to_string(currentType) + " is not supported yet");
     }
     if(!format.empty()){
+        if(style == "boxerrorbars" || style == "ellipses" || style == "circles"){
+            throw RuntimeException("Time-type data is not supported for " + style + " style");
+        }
         lastType = currentType;
         gpSetCommand("set timefmt \"" + format + "\"");
         gpSetCommand("set format " + axesString + " \"" + format + "\"");
@@ -459,8 +463,12 @@ string getPlotConfig(size_t index){
 string gpSetData(ConstantSP data, const std::string& style, int blockIndex, DATA_TYPE& xDataType, DATA_TYPE yDataType){
     string plotString;
     if (data->getForm() == DF_VECTOR){
-        plotString += " '-' using 1 with " + style + getPlotConfig(blockIndex);
-        convertData(data, blockIndex, 0, yDataType, "y");
+        if(style == "boxerrorbars" || style == "ellipses" || style == "circles"){
+            plotString += " '-' with " + style + getPlotConfig(blockIndex);
+        }else{
+            plotString += " '-' using 1 with " + style + getPlotConfig(blockIndex);
+        }
+        convertData(data, style, blockIndex, 0, yDataType, "y");
         int rows = data->rows();
         dataSize[blockIndex] = rows;
         dataLen[blockIndex] = 1;
@@ -470,12 +478,16 @@ string gpSetData(ConstantSP data, const std::string& style, int blockIndex, DATA
         if(cols == 1){
             return gpSetData(data->getColumn(0), style, blockIndex, xDataType, yDataType);
         }else{
-            plotString += " '-' using 1:2 with " + style + getPlotConfig(blockIndex);
+            if(style == "boxerrorbars" || style == "ellipses" || style == "circles"){
+                plotString += " '-' with " + style + getPlotConfig(blockIndex);
+            }else{
+                plotString += " '-' using 1:2 with " + style + getPlotConfig(blockIndex);
+            }
             
             ConstantSP data1 = data->getColumn(0);
             ConstantSP data2 = data->getColumn(1);
-            convertData(data1, blockIndex, 0, xDataType, "x");
-            convertData(data2, blockIndex, 1, xDataType, "y");
+            convertData(data1, style, blockIndex, 0, xDataType, "x");
+            convertData(data2, style, blockIndex, 1, xDataType, "y");
             dataSize[blockIndex] = data1->size();
             dataLen[blockIndex] = 2;
             return plotString;
@@ -496,7 +508,6 @@ void gpSetData(ConstantSP &data, std::string style) {
         for (size_t i = 0; i < size; ++i) {
             ConstantSP sp = data->get(i);
             if (sp->getForm() == DF_VECTOR || sp->getForm() == DF_TABLE) {
-                int subDataSize = sp->size();
                 if(i != 0){
                     plotString += ", ";
                 }
