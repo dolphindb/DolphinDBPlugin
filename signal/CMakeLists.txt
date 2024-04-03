@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
+set(CMAKE_SKIP_RPATH TRUE)
 project(signal)
 add_definitions(-DLOCKFREE_SYMBASE)
 

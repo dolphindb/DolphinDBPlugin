@@ -763,8 +763,6 @@ ConstantSP ifft21(Heap *heap, vector<ConstantSP> &args)
 ConstantSP secc(Heap *heap, vector<ConstantSP> &args)
 {
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
-    if (args.size() > 5 || args.size() < 3)
-        throw IllegalArgumentException("secc", "Need 3-5 arguments");
     if (!args[0]->isVector() || !args[0]->isNumber() || args[0]->size() <= 0)
         throw IllegalArgumentException("secc", "The first argument should be a nonempty vector");
     if (args[0]->hasNull())

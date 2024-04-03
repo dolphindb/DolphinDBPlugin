@@ -9,6 +9,7 @@
 #ifndef SIGNAL_H_
 #define SIGNAL_H_
 #include "CoreConcept.h"
+#include "ddbplugin/CommonInterface.h"
 
 extern "C" ConstantSP dct(const ConstantSP &a, const ConstantSP &b);  //离散余弦变换(DCT-II)
 extern "C" ConstantSP dst(const ConstantSP &a, const ConstantSP &b);  //离散正弦变换(DST-I)
