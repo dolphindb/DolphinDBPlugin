@@ -1,0 +1,77 @@
+//V5.1.2
+syntax="proto2";
+package Protocol.Protobuf; //定义protobuf的包名称空间，对应C++,C#的nanmespace，Java的package
+option java_package = "com.framework.protobuf.util.bean";
+option java_outer_classname = "BeanProtoQuotation";
+
+//请求全量快照行情的定义
+// exchId，为空时此条件无效，不做处理。具体定义参照CiccQuotationDef.h
+// stkType，预留字段，目前没有相关定义。
+
+
+//成交统计信息
+message TrdStat{
+	optional		int64		lNumTrd			= 1;		//成交笔数
+	optional		int64		lVolume			= 2;		//成交量
+	optional		double		fTurnover		= 3;		//成交总金额
+};
+
+// 实时行情集合
+message ProtoQuotationArray {
+    optional string strCategory = 1; //行情分类
+    optional string strSubCategory = 2; //子行情类别
+    optional int32 iSource = 3; //行情来源
+    optional ProtoQuotation quotation = 4; //现货行情 single
+}
+
+//实时行情定义（包括深市、沪市、港股通、港股现货行情及期货行情）
+message ProtoQuotation {
+    optional int64 lSerialnum = 1; //序列号
+    optional fixed32 iTradingDay = 2; //日期
+    optional int32 iTime = 3; //交易所时间
+    optional int32 iStatus = 4; //状态
+    optional string strExchId = 5; //市场
+    optional string strCode = 6; //合约代码
+    optional int32 iLocalTime = 7; //本地时间
+    optional double fPreClose = 8; //前收盘价
+    optional double fTdClose = 9; //今收收盘价
+    optional double fOpen = 10; //开盘价
+    optional double fHigh = 11; //最高价
+    optional double fLow = 12; //最低价
+    optional double fLast = 13; //最新价
+    // repeated double fAskPrice = 14 [packed = true];
+    // repeated int32 iAskVol = 15 [packed = true];
+    // repeated double fBidPrice = 16 [packed = true];
+    // repeated int32 iBidVol = 17 [packed = true];
+    optional int64 lNumTrades = 18; //成交笔数
+    optional int64 lVolume = 19; //成交总量
+    optional int64 lTurnover = 20; //成交总金额
+    optional int32 iIOPV = 21; //IOPV净值估值
+    optional int64 iPreOpenInterest = 22; //昨持仓量
+    optional int64 iOpenInterest = 23; //持仓量
+    optional double fPreSettlePrice = 24; //昨结算
+    optional double fSettlePrice = 25; //今结算
+    optional double fHighLimited = 26; //涨停板价
+    optional double fLowLimited = 27; //跌停板价
+    optional double fPreDelta = 28; //昨虚实度
+    optional double fCurrDelta = 29; //今虚实度
+    optional double fNomialPrice = 30; //按盘价
+    optional string strTradeStatus = 31; //产品交易阶段（产品状态）
+    optional string strCloseFlag = 32; //停牌标志
+    optional int32 iSource = 33; //行情来源
+    optional int32 iLevel = 34; //行情级别，Level1、Level2行情
+    optional double fAuctionPrice = 35; //动态参考价格,波动性中断参考价
+    optional int64 lAuctionQty = 36; //虚拟匹配数量
+    optional int32 iLotSize = 41; //每手股数
+    optional string strStkName = 42; //股票英文名称
+    optional int64 iTotalAskQty = 43;
+    optional int64 iTotalBidQty = 44;
+    optional double fIOPV = 45; //IOPV净值估值
+    optional double fTurnover = 46; //成交总金额
+    optional double fPreIOPV = 47; //PreIOPV净值估值
+    optional string strTradeStatusEx = 48; //产品交易阶段（全部）
+    optional int32 	iTrdDate	 										= 49; 	//交易日历(交易日)
+    optional TrdStat		OffExchangeTrdStat				= 60;		//场外成交统计信;
+	optional TrdStat		TrdTotalStat					= 61;		//总成交信息
+}
+

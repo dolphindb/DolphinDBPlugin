@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+// 有repeated字段，无string
+message test_repeat_1{
+    double double = 1;
+    float float = 2;
+    repeated int32 int32 = 3;
+}

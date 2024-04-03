@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+// 有oneof
+message test_bad_oneof {
+    oneof type {
+        double double = 1;
+        float float = 2;
+        int32 int32 = 3;
+        int64 int64 = 4;
+        bool bool = 5;
+        string string = 6;
+    }
+    sint32 sint32 = 7;
+    sint64 sint64 = 8;
+    fixed32 fixed32 = 9;
+    fixed64 fixed64 = 10;
+}

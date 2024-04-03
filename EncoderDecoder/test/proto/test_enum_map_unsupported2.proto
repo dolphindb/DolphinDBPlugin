@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+// 类型测试
+message test_unsupported{
+    double double = 1;
+    enum EnumType {
+    	TYPE1 = 0;
+    	TYPE2 = 1;
+    }
+    map<string, string> remark = 2;
+    map<int32, double> remark_1 = 3;
+}
