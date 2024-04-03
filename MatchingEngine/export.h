@@ -6,7 +6,7 @@
 #define MATCHINGENGINE_EXPORT_H
 
 #include <CoreConcept.h>
-
+#include "ddbplugin/CommonInterface.h"
 extern "C" ConstantSP setupGlobalConfig(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP createExchange(Heap *heap, vector<ConstantSP> &args);
 
