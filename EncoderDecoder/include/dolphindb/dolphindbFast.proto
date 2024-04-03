@@ -1,0 +1,63 @@
+syntax = "proto3";
+package ddbprotobuf;
+
+message Scalar{
+  bool is_null = 1;
+  oneof type {
+    sint32 dt_int = 2;
+    sint64 dt_long = 3;
+    float dt_float = 4;
+    double dt_double = 5;
+    string dt_string = 6;
+    bool dt_bool = 7;
+  }
+}
+
+message intVector{
+    repeated sint32 dt_int = 1;
+}
+message longVector{
+    repeated sint64 dt_long = 1;
+}
+message floatVector{
+    repeated float dt_float = 1;
+}
+message doubleVector{
+    repeated double dt_double = 1;
+}
+message stringVector{
+    repeated string dt_string = 1;
+}
+message boolVector{
+    repeated bool dt_bool = 1;
+}
+
+message Vector{
+  bool is_null = 1;
+  oneof type {
+    intVector int_vec = 2;
+    longVector long_vec = 3;
+    floatVector float_vec = 4;
+    doubleVector double_vec = 5;
+    stringVector string_vec = 6;
+    boolVector bool_vec = 7;
+  }
+}
+
+message Table{
+  repeated Vector columns = 1;
+}
+
+message Dictionary{
+  Vector keys = 1;
+  Vector values = 2;
+}
+
+message DolphinMessage{
+  oneof form{
+    Scalar df_scalar = 1;
+    Vector df_vector = 2;
+    Table df_table = 3;
+    Dictionary df_dictionary = 4;
+  }
+}

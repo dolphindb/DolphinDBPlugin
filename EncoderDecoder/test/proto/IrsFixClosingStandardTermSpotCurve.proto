@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+// 中金提供的格式
+message Pb_IrsFixClosingStandardTermSpotCurveMessage {
+  Pb_MessageHeader header = 1;
+  Pb_IrsFixClosingStandardTermSpotCurve body = 2;
+
+message Pb_MessageHeader {
+  string action = 1;  // 定义的消息类型对应的功能号
+  string clientID = 2;  // CMDSService
+  string serialNo = 3; // 通过guid产生的序列号
+  string version = 4;  //获取当前程序版本号
+  string msgType = 5; // 消息类型，8、W、S
+  string sendingTime = 6; // 当前时间
+  string from = 7;  // null
+  string operator = 8;  // operator = CMDSService
+  string errorCode = 9; // errorCode = 0
+  string errorMsg = 10; // null
+};
+
+message Pb_IrsFixClosingStandardTermSpotCurve {
+  int32  id = 1;
+  string mdType = 2;
+  int32  mdSubType = 3;
+  string securityId = 4;
+  string symbol = 5;
+  repeated Pb_IrsFixClosingStandardTermSpotCurveNoYield yieldList = 6;
+};
+
+message Pb_IrsFixClosingStandardTermSpotCurveNoYield {
+  string id = 1;
+  string yieldTerm = 2;
+  string yieldRate = 3;
+};
+
+}

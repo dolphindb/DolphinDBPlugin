@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+// repeat结构中的单层repeat，一个nested repeat
+message test_repeat_5{
+    repeated double double = 1;
+    repeated repeatMsg r1 = 2;
+    repeated NestRepeatMsg r2 = 3;
+
+    message NestRepeatMsg {
+        repeated int64 long = 1;
+    }
+    message repeatMsg {
+        double double = 1;
+        float float = 2;
+    }
+}

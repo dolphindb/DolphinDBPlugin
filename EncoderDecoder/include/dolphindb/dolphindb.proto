@@ -1,0 +1,36 @@
+syntax = "proto3";
+package ddbprotobuf;
+
+message Scalar{
+  bool is_null = 1;
+  oneof type{
+    sint32 dt_int = 2;
+    sint64 dt_long = 3;
+    float dt_float = 4;
+    double dt_double = 5;
+    string dt_string = 6;
+    bool dt_bool = 7;
+  }
+}
+
+message Vector{
+  repeated Scalar elements = 1;
+}
+
+message Table{
+  repeated Vector columns = 1;
+}
+
+message Dictionary{
+  Vector keys = 1;
+  Vector values = 2;
+}
+
+message DolphinMessage{
+  oneof form{
+    Scalar df_scalar = 1;
+    Vector df_vector = 2;
+    Table df_table = 3;
+    Dictionary df_dictionary = 4;
+  }
+}
