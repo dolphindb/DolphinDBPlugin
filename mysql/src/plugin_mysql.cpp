@@ -957,6 +957,10 @@ inline bool month(const mysqlxx::Value &val, int &ret) {
     }
 }
 
+inline bool year_month(const mysqlxx::Value &val, int &ret_year, int& ret_month) {
+    return year(val, ret_year) && month(val, ret_month);
+}
+
 inline bool day(const mysqlxx::Value &val, int &ret) {
     if (haveDate(val)) {
         ret = get(val.data(), 8, 9);
@@ -1005,6 +1009,11 @@ inline bool second(const mysqlxx::Value &val, int &ret) {
     }
 }
 
+inline bool hms(const mysqlxx::Value &val, int &h, int &m, int &s) {
+    return hour(val, h) && minute(val, m) && second(val, s);
+}
+
+
 // extract fraction second from '2019-01-22 18:05:24.123456' (size: [19 ~ 26])
 //                           or '18:05:24.123456' (size [8 ~ 15])
 inline bool haveFractionalSecond(const mysqlxx::Value &val) {
@@ -1051,7 +1060,7 @@ inline int countSeconds(int h, int m, int s) {
 
 bool getUnixTimeStamp(const mysqlxx::Value &val, long long &ret) {
     int y, mon, d, h, m, s;
-    if (year(val, y) && month(val, mon) && day(val, d) && hour(val, h) && minute(val, m) && second(val, s)) {
+    if (year_month(val, y, mon) && day(val, d) && hms(val, h, m, s)) {
         ret = 86400LL * Util::countDays(y, mon, d) + countSeconds(h, m, s);
         return true;
     } else {
@@ -1065,7 +1074,7 @@ bool parseDate(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nul
         return true;
     }
     int y, m, d;
-    if (year(val, y) && month(val, m) && day(val, d)) {
+    if (year_month(val, y, m) && day(val, d)) {
         setter(dst, Util::countDays(y, m, d), dstDt);
         return false;
     } else {
@@ -1081,7 +1090,7 @@ bool parseDate(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nul
          return true;
      }
      int y, m;
-     if (year(val, y) && month(val, m)) {
+     if (year_month(val, y, m)) {
          setter(dst, y * 12 + m - 1, dstDt);
          return false;
      } else {
@@ -1098,7 +1107,7 @@ bool parseTime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* nul
     }
     int h, m, s;
     double fracSec = 0.0;
-    if (hour(val, h) && minute(val, m) && second(val, s) && fractionalSecond(val, fracSec)) {
+    if (hms(val, h, m, s) && fractionalSecond(val, fracSec)) {
         setter(dst, countSeconds(h, m, s) * 1000 + static_cast<int>(fracSec * 1000), dstDt);
         return false;
     } else {
@@ -1130,7 +1139,7 @@ bool parseSecond(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char* n
         return true;
     }
     int h, m, s;
-    if (hour(val, h) && minute(val, m) && second(val, s)) {
+    if (hms(val, h, m, s)) {
         setter(dst, countSeconds(h, m, s), dstDt);
         return false;
     } else {
@@ -1197,7 +1206,7 @@ bool parseNanotime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char*
     }
     int h, m, s;
     double fracSec = 0.0;
-    if (hour(val, h) && minute(val, m) && second(val, s) && fractionalSecond(val, fracSec)) {
+    if (hms(val, h, m, s) && fractionalSecond(val, fracSec)) {
         setter(dst, ((60ll * h + m) * 60ll + s) * 1000000000 + static_cast<long long>(fracSec * 1000000000), dstDt);
         return false;
     } else {
@@ -1213,22 +1222,16 @@ bool parseDecimal(char *dst, const mysqlxx::Value &val, const long long& scale, 
         return true;
     }
 
-    if (scale > INT32_MAX) {
-        throw RuntimeException("Scale too big, can not greater than INT32_MAX.");
-    }
     int s = static_cast<int>(scale);
     if (len == 4) {
-        Decimal32::raw_data_t rawData; // int
-        decimal_util::toDecimal(string(val.data()), s, rawData);
-        memcpy(dst, &rawData, len);
+        auto rawDecimal = decimal_util::toDecimal32(val.data(), s);
+        memcpy(dst, &rawDecimal.rawData, len);
     } else if (len == 8) {
-        Decimal64::raw_data_t rawData; // long long
-        decimal_util::toDecimal(string(val.data()), s, rawData);
-        memcpy(dst, &rawData, len);
+        auto rawDecimal = decimal_util::toDecimal64(val.data(), s);
+        memcpy(dst, &rawDecimal.rawData, len);
     } else if (len == 16) {
-        Decimal128::raw_data_t rawData; // wide_integer::int128
-        decimal_util::toDecimal(string(val.data()), s, rawData);
-        memcpy(dst, &rawData, len);
+        auto rawDecimal = decimal_util::toDecimal128(val.data(), s);
+        memcpy(dst, &rawDecimal.rawData, len);
     } else {
         throw RuntimeException("The size of decimal can only be 4, 8 and 16 bytes.");
     }

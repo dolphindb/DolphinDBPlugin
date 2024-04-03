@@ -6,6 +6,7 @@
 #include <thread>
 #include "Concurrent.h"
 #include "CoreConcept.h"
+#include "ddbplugin/CommonInterface.h"
 #include "LocklessContainer.h"
 #include "ScalarImp.h"
 #include "Util.h"
