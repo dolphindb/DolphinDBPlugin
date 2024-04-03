@@ -48,22 +48,42 @@
 #include <sys/stat.h>
 #endif
 
+Mutex mutex;
+
 void setS3account(DictionarySP& account, Aws::Auth::AWSCredentials& credential, Aws::Client::ClientConfiguration& config) {
     Aws::String keyId;
     Aws::String secretKey;
     Aws::String region;
+    Aws::String endpoint;
     Aws::String caPath;
     Aws::String caFile;
     //bool verifySSL = false;
-    if (account->getMember("id")->isNull() || account->getMember("key")->isNull() || (account->getMember("region")->isNull())) {
-        throw IllegalArgumentException("S3account", "s3account should have id, key, region");
+    if (account->getMember("id")->isNull() || account->getMember("key")->isNull() ) {
+        throw IllegalArgumentException("S3account", "s3account should have id, key");
     }
     keyId = Aws::String((account->getMember("id")->getString().c_str()));
     secretKey = Aws::String((account->getMember("key")->getString().c_str()));
-    region = Aws::String((account->getMember("region")->getString().c_str()));
     credential.SetAWSAccessKeyId(keyId);
     credential.SetAWSSecretKey(secretKey);
-    config.region = region;
+
+    if(!account->getMember("endpoint")->isNull()){
+        config.endpointOverride = Aws::String(account->getMember("endpoint")->getString().c_str());
+        ConstantSP isHttpMember = account->getMember("isHttp");
+        if(!isHttpMember->isNull()){
+            if(isHttpMember->getForm() != DF_SCALAR || isHttpMember->getType() != DT_BOOL){
+                throw IllegalArgumentException("S3account", "isHttp in s3account must be a BOOL");
+            }
+            bool isHttp = isHttpMember->getBool();
+            if(isHttp){
+                config.scheme = Aws::Http::Scheme::HTTP;
+            }
+        }
+    }
+
+    if(!account->getMember("region")->isNull()){
+        config.region = Aws::String(account->getMember("region")->getString().c_str());
+    }
+
     try {
         caPath = Aws::String(account->getMember("caPath")->getString().c_str());
         config.caPath = caPath;
@@ -106,7 +126,12 @@ public:
 
             {
 //                std::lock_guard<std::mutex> _(a2cMutex_);
-                client_ = new Aws::S3::S3Client(credential, config);
+                if(config.endpointOverride.empty()){
+                    client_ = new Aws::S3::S3Client(credential, config);
+                }
+                else{
+                    client_ = new Aws::S3::S3Client(credential, config, Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never, false);
+                }
             }
         }
     }
@@ -204,6 +229,7 @@ static VectorSP retriveVecStrArg(ConstantSP arg) {
 }
 
 ConstantSP getS3Object(Heap* heap, vector<ConstantSP>& args) {
+    LockGuard<Mutex> lk(&mutex);
     if(!args[0]->isDictionary()) {
         throw IllegalArgumentException("getS3Object",
             "Invalid argument type, s3account should be a dictionary.");
@@ -266,6 +292,7 @@ ConstantSP getS3Object(Heap* heap, vector<ConstantSP>& args) {
 }
 
 ConstantSP listS3Object(Heap* heap, vector<ConstantSP>& args) {
+    LockGuard<Mutex> lk(&mutex);
     if(!args[0]->isDictionary()) {
         throw IllegalArgumentException("listS3Object",
             "Invalid argument type, s3account should be a dictionary.");
@@ -389,6 +416,7 @@ ConstantSP listS3Object(Heap* heap, vector<ConstantSP>& args) {
 }
 
 ConstantSP readS3Object(Heap* heap, vector<ConstantSP>& args) {
+    LockGuard<Mutex> lk(&mutex);
     if(!args[0]->isDictionary()) {
         throw IllegalArgumentException("readS3Object",
             "Invalid argument type, s3account should be a dictionary.");
@@ -439,6 +467,7 @@ ConstantSP readS3Object(Heap* heap, vector<ConstantSP>& args) {
 }
 
 void deleteS3Object(Heap* heap, vector<ConstantSP>& args) {
+    LockGuard<Mutex> lk(&mutex);
     if(!args[0]->isDictionary()) {
         throw IllegalArgumentException("deleteS3Object",
             "Invalid argument type, s3account should be a dictionary.");
@@ -475,8 +504,6 @@ void deleteS3Object(Heap* heap, vector<ConstantSP>& args) {
         GetResult(futures[i].get(), Aws::String(__func__) + Aws::String(" cannot delete object ") + Aws::String(keyNames->getString(i).c_str()));
     }
 }
-
-Mutex mutex;
 
 void uploadS3Object(Heap* heap, vector<ConstantSP>& args) {
 
@@ -545,6 +572,7 @@ void uploadS3Object(Heap* heap, vector<ConstantSP>& args) {
 }
 
 ConstantSP listS3Bucket(Heap* heap, vector<ConstantSP>& args) {
+    LockGuard<Mutex> lk(&mutex);
     if(!args[0]->isDictionary()) {
         throw IllegalArgumentException("listS3Bucket",
             "Invalid argument type, s3account should be a dictionary.");
@@ -585,6 +613,7 @@ ConstantSP listS3Bucket(Heap* heap, vector<ConstantSP>& args) {
 }
 
 void deleteS3Bucket(Heap* heap, vector<ConstantSP>& args) {
+    LockGuard<Mutex> lk(&mutex);
     if(!args[0]->isDictionary()) {
         throw IllegalArgumentException("deleteS3Bucket",
             "Invalid argument type, s3account should be a dictionary.");
@@ -611,6 +640,7 @@ void deleteS3Bucket(Heap* heap, vector<ConstantSP>& args) {
 }
 
 void createS3Bucket(Heap* heap, vector<ConstantSP>& args) {
+    LockGuard<Mutex> lk(&mutex);
     if(!args[0]->isDictionary()) {
         throw IllegalArgumentException("createS3Bucket",
             "Invalid argument type, s3account should be a dictionary.");
@@ -640,6 +670,7 @@ void createS3Bucket(Heap* heap, vector<ConstantSP>& args) {
 }
 
 ConstantSP headS3Object(Heap* heap, vector<ConstantSP>& args) {
+    LockGuard<Mutex> lk(&mutex);
     assertArg(args[0]->isDictionary(), "HeadS3Object", "s3account", "Dictionary");
     assertArg(args[1]->getType() == DT_STRING, "HeadS3Object", "bucketName", "string");
     assertArg(args[2]->getType() == DT_STRING, "HeadS3Object", "key", "string");
@@ -662,6 +693,7 @@ ConstantSP headS3Object(Heap* heap, vector<ConstantSP>& args) {
 }
 
 void copyS3Object(Heap* heap, vector<ConstantSP>& args) {
+    LockGuard<Mutex> lk(&mutex);
     assertArg(args[0]->isDictionary(), __func__, "s3account", "Dictionary");
     assertArg(args[1]->getType() == DT_STRING, __func__, "bucketName", "string");
     assertArg(args[2]->getType() == DT_STRING || args[2]->isVector(), __func__, "srcPath", "string");
@@ -694,6 +726,7 @@ void copyS3Object(Heap* heap, vector<ConstantSP>& args) {
 }
 
 ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
+    LockGuard<Mutex> lk(&mutex);
     //4+3+4 = 7-11 parameters
     assertArg(args[0]->isDictionary(), __func__, "s3account", "Dictionary");
     assertArg(args[1]->getType() == DT_STRING, __func__, "bucketName", "string");

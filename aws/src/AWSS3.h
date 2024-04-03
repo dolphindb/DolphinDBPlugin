@@ -8,6 +8,7 @@
 #ifndef AWSS3PLUGIN_H_
 #define AWSS3PLUGIN_H_
 
+#include "ddbplugin/CommonInterface.h"
 #include "CoreConcept.h"
 #include "ScalarImp.h"
 #include "Util.h"

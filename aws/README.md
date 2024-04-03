@@ -1,59 +1,67 @@
 # DolphinDB AWS Plugin
 
-DolphinDB的AWS插件，目前支持S3服务，需要链接AWS的动态库。
+DolphinDB的AWS插件，目前支持S3服务，可以将数据备份到云端或者从云端下载数据。目前该插件只有Linux版本
 
-AWS插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/aws/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/aws/README.md), [release120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/aws/README.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/aws/README.md)。您当前查看的插件版本为release200，请使用DolphinDB 2.00.X版本server。若使用其它版本server，请切换至相应插件分支。
+## 在插件市场安装插件
 
-## 1 插件编译与加载
+### 安装步骤
 
-注意首先需要[构建aws sdk](https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/setup.html)以及构建Zlib。Zlib自身构建时需要指定`-fPIC`参数。
-
-通过CMake进行编译，默认zlib/aws/dolphindb库文件都位于/usr/local/lib下。可以在CMakeLists.txt中指定库文件和头文件的地址。
-```
-cd aws/s3
-cmake .
-make
-```
-或直接
-```
-cd aws/s3
-g++ -DLINUX -std=c++11 -fPIC -c src/AWSS3.cpp -I../../include -o AWSS3.o
-g++ -fPIC -shared -o libPluginAWSS3.so AWSS3.o -Wl,-Bstatic -lz -Wl,-Bdynamic -lDolphinDB -laws-cpp-sdk-s3 -laws-cpp-sdk-core
+(1) 在 DolphinDB 客户端中使用 listRemotePlugins 命令查看插件仓库中的插件信息。
+```DolphinDB
+login("admin", "123456")
+listRemotePlugins(, "http://plugins.dolphindb.cn/plugins/")
 ```
 
-编译之后目录下会产生libPluginAWSS3.so文件。
-
-请注意：Windows平台暂时无法通过MingW编译AWS SDK。
-
-## 2 DolphinDB加载插件
-
-使用AWS插件前需要预先载入并设置好id, key和region。插件的module name为aws。
-
-### 2.1 加载插件
-启动DolphinDB实例，执行下述命令加载插件：
+(2) 使用 installPlugin 命令完成插件安装。
+```DolphinDB
+installPlugin("awss3")
 ```
-loadPlugin("path/to/DolphinDBPlugin/awss3/PluginAWSS3.txt");
+
+(3) 使用 loadPlugin 命令加载插件。
+```DolphinDB
+loadPlugin("awss3")
 ```
-### 2.2 设置账户
+
+## 函数接口
+
+### 0. 准备账户信息
+
+使用AWS插件的各个接口需要提供账户信息，内容可以包含id, key，region以及endpoint,其形式为一个字典，示例代码如下所示：  
+(1) 连接公有云，此时需要提供id key region
 ```
 account=dict(string,string);
 account['id']=your_access_key_id;
 account['key']=your_secret_access_key;
 account['region']=your_region;
+```
+(2) 连接私有云，此时需要提供id key endpoint isHttp
+```
+account=dict(STRING,ANY)
+account['id']="minioadmin";
+account['key']="minioadmin"
+account['endpoint'] = "127.0.0.1:9000";
+account['isHttp'] = true;
+```
 
-//注意，若无法通过验证或SSL出错，可以尝试指定证书
+注意，若无法通过验证或SSL出错，可以尝试指定证书
+```
 account['caPath']=your_ca_file_path;     //e.g. '/etc/ssl/certs'
 account['caFile']=your_ca_file;          //e.g. 'ca-certificates.crt'
 account['verifySSL']=verify_or_not;      //e.g. false
 ```
-## 3 接口说明
-**listS3Object(s3account, bucket, prefix, [marker],[delimiter], [nextMarker], [MaxKeys])**
+### 1. listS3Object
+
+**语法**
+
+aws::listS3Object(s3account, bucket, prefix, [marker],[delimiter], [nextMarker], [MaxKeys])
+
+**详情**
 
 列出S3中指定路径下的所有对象及相关属性。
 
 **参数**
 
-* s3account：账户account对象，至少需包含三个值（id, key 和 region）。
+* s3account：账户account对象
 * bucket：字符串，表示访问的桶名称。
 * prefix：必选参数，一个字符串，表示访问路径的前缀, 可以传空字符串 `""`。
 * marker: 可选参数: 含义参考 [AWS S3](https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/API/API_ListObjects.html#API_ListObjects_RequestSyntax)
@@ -73,14 +81,19 @@ account['verifySSL']=verify_or_not;      //e.g. false
 * ETag：标记
 * owner：所有者
 
-使用案例
+**示例**
 
 ```
 aws::listS3Object(account,'mys3bucket','test.csv',"")
 ```
 
+### 2. getS3Object
 
-**getS3Object** 
+**语法**
+
+aws::getS3Object(s3account, bucket, key, [outputFileName])
+
+**详情**
 
 获取S3中指定的一个对象
 
@@ -95,13 +108,19 @@ aws::listS3Object(account,'mys3bucket','test.csv',"")
 
 * 本地输出对象的文件名
 
-使用案例
+**示例**
 
 ```
 aws::getS3Object(account,'mys3bucket','test.csv')
 ```
 
-**readS3Object**
+### 3. readS3Object
+
+**语法**
+
+aws::readS3Object(s3account, bucket, key, offset, length)
+
+**详情**
 
 获取S3中指定对象的部分内容。
 
@@ -117,14 +136,19 @@ aws::getS3Object(account,'mys3bucket','test.csv')
 
 * 返回由对象指定部分的内容构成的字符向量。
 
-使用案例
+**示例**
 
 ```
 aws::readS3Object(account,'mys3bucket','test.csv', 0, 100)
 ```
 
+### 4. deleteS3Object
 
-**deleteS3Object**
+**语法**
+
+aws::deleteS3Object(s3account, bucket, key)
+
+**详情**
 
 删除S3中的指定对象（警告: 删除操作无法撤销）。
 
@@ -138,13 +162,19 @@ aws::readS3Object(account,'mys3bucket','test.csv', 0, 100)
 
 * 无
 
-使用案例
+**示例**
 
 ```
 aws::deleteS3Object(account,'mys3bucket','test.csv')
 ```
 
-**uploadS3Object**
+### 5. uploadS3Object
+
+**语法**
+
+aws::uploadS3Object(s3account, bucket, key, inputFileName)
+
+**详情**
 
 向S3上传一个对象。
 
@@ -159,70 +189,94 @@ aws::deleteS3Object(account,'mys3bucket','test.csv')
 
 * 无
 
-使用案例
+**示例**
 
 ```
 aws::uploadS3Object(account,'mys3bucket','test.csv','/home/test.csv')
 ```
 
+### 6. listS3Bucket
 
-**listS3Bucket**
+**语法**
+
+aws::listS3Bucket(s3account)
+
+**详情**
 
 列出S3指定账户下的所有桶及创建的时间。
 
 **参数**
 
-* s3account：账户account对象，至少需包含三个值（id, key 和 region）。
+* s3account：账户account对象
 
 **返回值**
 
 包含所有桶名字和对应创建时间的表，时间的格式是ISO_8601。
 
-使用案例
+**示例**
 
 ```
 aws::listS3Bucket(account);
 ```
 
-**deleteS3Bucket**
+### 7. deleteS3Bucket
+
+**语法**
+
+aws::deleteS3Bucket(s3account, bucket)
+
+**详情**
 
 删除S3中指定的桶（警告：删除操作无法撤销）。
 
 **参数**
 
-* s3account：账户account对象，至少需包含三个值（id, key 和 region）。
+* s3account：账户account对象
 * bucket：字符串，表示删除的桶名称。
 
 **返回值**
 
 * 无
 
-使用案例
+**示例**
 
 ```
 aws::deleteS3Bucket(account,'mys3bucket')
 ```
 
-**createS3Bucket**
+### 8. createS3Bucket
+
+**语法**
+
+aws::createS3Bucket(s3account, bucket)
+
+**详情**
 
 创建一个桶
 
 **参数**
 
-* s3account：账户account对象，至少需包含三个值（id, key 和 region）。
+* s3account：账户account对象
 * bucket：字符串，表示创建的桶名称。
 
 **返回值**
 
 * 无
 
-使用案例
+**示例**
 
 ```
 aws::createS3Bucket(account,'mys3bucket')
 ```
 
-**loadS3Object**
+### 9. loadS3Object
+
+**语法**
+
+aws::createS3Bucket(s3account, bucket, key, threadCount, dbHandle, tableName, partitionColumns, [delimiter],
+[schema], [skipRows], [transform], [sortColumns], [atomic], [arrayDelimiter])
+
+**详情**
 
 加载一批对象到表中
 
@@ -257,17 +311,65 @@ aws::createS3Bucket(account,'mys3bucket')
 6-抛出异常，有详细信息  
 7-抛出未知异常，没有详细信息
 
-使用案例
+**示例**
 
 ```
-//创建账号
-account=dict(string,string);
-account['id']='XXXXXXXXXXXXXXX';
-account['key']='XXXXXXXXXX';
-account['region']='us-east';
 //加载S3对象
 db = database(directory="dfs://rangedb", partitionType=RANGE, partitionScheme=0 51 101)
 aws::loadS3Object(account, 'dolphindb-test-bucket', 't2.zip', 4, db, `pt, `ID);
+```
+
+### 10. headS3Object
+
+**语法**
+
+aws::headS3Object(s3account, bucket, key)
+
+**详情**
+
+获取某个文件的元数据
+
+**参数**
+
+* s3account：账户account对象
+* bucket：字符串，表示创建的桶名称。
+* key：字符串，表示对象名。
+
+**返回值**
+
+* 返回一个字典，包含如下字段："bucket name", "key name", "length", "last modified", "ETag", "content type"
+
+**示例**
+
+```
+aws::headS3Object(account, 'mys3bucket', 'test.csv')
+```
+
+### 11. copyS3Object
+
+**语法**
+
+aws::copyS3Object(s3account, bucket, srcPath, destPath)
+
+**详情**
+
+拷贝S3文件到同一个bucket的另一个位置
+
+**参数**
+
+* s3account：账户account对象
+* bucket：bucket的名字。
+* srcPath：字符串数组，表示源文件路径
+* destPath：字符串数组，表示目标文件路径
+
+**返回值**
+
+* 无
+
+**示例**
+
+```
+aws::copyS3Object(account, 'mys3bucket', ['dir1/test.csv'], ['dir2/test.csv'])
 ```
 
 # ReleaseNotes:

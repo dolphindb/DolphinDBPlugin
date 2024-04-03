@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.0)
+set(CMAKE_SKIP_RPATH TRUE)
 project(PluginAWSS3)
 add_definitions(-DLOCKFREE_SYMBASE)
 
