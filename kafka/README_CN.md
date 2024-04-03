@@ -647,6 +647,7 @@ kafka::getSubJobConsumer(connection)
 
 如果需要获取特定后台订阅中的 consumer，可以使用此接口。
 
+
 ### 3.4 队列
 
 #### 3.4.1 获取主队列 <!-- omit in toc -->
@@ -1114,4 +1115,3 @@ conn = kafka::createSubJob(consumer,tab,mseed::parse,"test:0:get mseed data");
 kafka::getJobStat();
 kafka::cancelSubJob(conn);
 ```
-

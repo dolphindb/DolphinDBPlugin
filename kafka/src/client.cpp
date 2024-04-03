@@ -169,7 +169,7 @@ SubConnection::~SubConnection() {
 SubConnection::SubConnection(Heap *heap, const string& description, const ConstantSP& parser, const ConstantSP& handle, const ConstantSP& consumer, int timeout)
     :description_(std::move(description)),heap_(heap), consumerWrapper_(consumer) {
     connected_ = true;
-    createTime_=Util::getEpochTime();
+    createTime_ = Util::toLocalTimestamp(Util::getEpochTime());
     session_ = heap->currentSession()->copy();
     session_->setUser(heap->currentSession()->getUser());
 

@@ -79,8 +79,8 @@ else ()
 
     add_library(PluginKafka SHARED ${plugin_kafka_src})
     target_link_libraries(PluginKafka librdkafka.a librdkafka++.a libcppkafka.a libz.a DolphinDB sasl2)
+    set_target_properties(PluginKafka PROPERTIES LINK_FLAGS "-Wl,-rpath,$ORIGIN:.")
     # target_link_libraries(PluginKafka rdkafka++ cppkafka DolphinDB)
-    set_target_properties(PluginKafka PROPERTIES LINK_FLAGS "-Wl,-rpath,$ORIGIN,-disable-new-dtags")
 endif()
 
 add_custom_command(TARGET PluginKafka POST_BUILD

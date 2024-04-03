@@ -1,4 +1,4 @@
-kafka,libPluginKafka.so,2.00.11
+kafka,libPluginKafka.so,2.00.12
 kafkaProducer,producer,system,1,1,0
 kafkaProducerFlush,producerFlush,system,1,1,0
 kafkaProduce,produce,system,5,6,0
@@ -53,3 +53,4 @@ kafkaGetBufferSize,getBufferSize,system,0,0,0
 kafkaSetBufferSize,setBufferSize,system,1,1,0
 kafkaGetMessageSize,getMessageSize,system,0,0,0
 kafkaSetMessageSize,setMessageSize,system,1,1,0
+kafkaGetSubJobConsumer,getSubJobConsumer,system,1,1,0

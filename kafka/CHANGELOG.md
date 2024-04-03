@@ -1,4 +1,4 @@
-# CHANGELOG
+# Kafka Plugin Changelog
 
 ## 2.00.11.3.1
 

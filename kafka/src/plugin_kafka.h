@@ -135,6 +135,8 @@ extern "C" ConstantSP kafkaGetMessageSize(Heap *heap, vector<ConstantSP> &args);
 
 extern "C" ConstantSP kafkaSetMessageSize(Heap *heap, vector<ConstantSP> &args);
 
+extern "C" ConstantSP kafkaGetSubJobConsumer(Heap *heap, vector<ConstantSP> &args);
+
 void produceMessage(ConstantSP &produce, ConstantSP &pTopic, ConstantSP &key, ConstantSP &value, ConstantSP &json, ConstantSP &pPartition);
 
 Vector *getMsg(Message &msg);
@@ -214,7 +216,7 @@ public:
         Defer([this]{
             rwLock.releaseWrite();
         });
-        if(!dataPtr) {
+        if(dataPtr != nullptr) {
             delete dataPtr;
             dataPtr = NULL;
         }

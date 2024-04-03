@@ -4,10 +4,13 @@
 #include "Types.h"
 #include "Util.h"
 #include <cppkafka/producer.h>
+#include <cppkafka/logging.h>
+#include <cppkafka/error.h>
 #include <exception>
 #include <memory>
 #include <mutex>
 #include <string>
+#include "ddbplugin/CommonInterface.h"
 
 using namespace cppkafka;
 using namespace std;
@@ -115,7 +118,7 @@ static void kafkaConsumerOnClose(Heap *heap, vector<ConstantSP> &args) {
                 ConstantSP conn = STATUS_DICT->getMember(key);
                 if(!conn->isNull() && conn->getLong() != 0) {
                     SubConnection *sc = (SubConnection *)(conn->getLong());
-                    if (sc->getConsumer() == consumerValue) {
+                    if (sc->getConsumerLong() == consumerValue) {
                         throw RuntimeException("The consumer [" + std::to_string(consumerValue) +
                             "] is still used in subJob [" + std::to_string(conn->getLong()) + "].");
                     }
@@ -592,6 +595,37 @@ ConstantSP kafkaGetJobStat(Heap *heap, vector<ConstantSP> &args){
     return Util::createTable(colNames,cols);
 }
 
+void getSubJobConn(ConstantSP handle, ConstantSP &conn, SubConnection *&sc, string &key) {
+    switch (handle->getType()){
+    case DT_RESOURCE:
+        sc = (SubConnection *)(handle->getLong());
+        key = std::to_string(handle->getLong());
+        conn = STATUS_DICT->getMember(key);
+        if(conn->isNothing())
+            throw IllegalArgumentException(__FUNCTION__, "Invalid connection resource.");
+        break;
+    case DT_STRING:
+        key = handle->getString();
+        conn = STATUS_DICT->getMember(key);
+        if(conn->isNothing())
+            throw IllegalArgumentException(__FUNCTION__, "Invalid connection string.");
+        else
+            sc = (SubConnection *)(conn->getLong());
+        break;
+    case DT_LONG:
+    case DT_INT:
+        key = std::to_string(handle->getLong());
+        conn = STATUS_DICT->getMember(key);
+        if(conn->isNothing())
+            throw IllegalArgumentException(__FUNCTION__, "Invalid connection long.");
+        else
+            sc = (SubConnection *)(conn->getLong());
+        break;
+    default:
+        throw IllegalArgumentException(__FUNCTION__, "Invalid connection handle.");
+}
+}
+
 ConstantSP kafkaCancelSubJob(Heap *heap, vector<ConstantSP> args){
     // parse args first
     std::string usage = "Usage: cancelSubJob(connection or connection ID). ";
@@ -600,41 +634,8 @@ ConstantSP kafkaCancelSubJob(Heap *heap, vector<ConstantSP> args){
     ConstantSP conn = nullptr;
     auto handle = args[0];
     LockGuard<Mutex> _(&DICT_LATCH);
-    switch (handle->getType()){
-        case DT_RESOURCE:
-            sc = (SubConnection *)(handle->getLong());
-            key = std::to_string(handle->getLong());
-            conn = STATUS_DICT->getMember(key);
-            if(conn->isNothing())
-                throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
-            break;
-        case DT_STRING:
-            key = handle->getString();
-            conn = STATUS_DICT->getMember(key);
-            if(conn->isNothing())
-                throw IllegalArgumentException(__FUNCTION__, "Invalid connection string.");
-            else
-                sc = (SubConnection *)(conn->getLong());
-            break;
-        case DT_LONG:
-            key = std::to_string(handle->getLong());
-            conn = STATUS_DICT->getMember(key);
-            if(conn->isNothing())
-                throw IllegalArgumentException(__FUNCTION__, "Invalid connection long.");
-            else
-                sc = (SubConnection *)(conn->getLong());
-            break;
-        case DT_INT:
-            key = std::to_string(handle->getInt());
-            conn = STATUS_DICT->getMember(key);
-            if(conn->isNothing())
-                throw IllegalArgumentException(__FUNCTION__, "Invalid connection integer.");
-            else
-                sc = (SubConnection *)(conn->getLong());
-            break;
-        default:
-            throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
-    }
+
+    getSubJobConn(handle, conn, sc, key);
 
     string ret;
     if (sc != nullptr) {
@@ -816,8 +817,35 @@ ConstantSP kafkaUnsubscribe(Heap *heap, vector<ConstantSP> &args) {
     return new Void();
 }
 
+void kafkaErrorCallback(KafkaHandleBase& handle, int error, const std::string& reason) {
+    LOG_ERR("[PLUGIN::KAFKA] error: ", Error((rd_kafka_resp_err_t)error).to_string(), ", reason: ", reason);
+}
+
+void kafkaLogCallback(KafkaHandleBase& handle, int level, const std::string& facility, const std::string& message) {
+    switch((LogLevel)level) {
+        case LogLevel::LogEmerg:
+        case LogLevel::LogAlert:
+        case LogLevel::LogCrit:
+        case LogLevel::LogErr:
+            LOG_ERR("[PLUGIN::KAFKA] facility: ", facility, ", message: ", message);
+            break;
+        case LogLevel::LogWarning:
+            LOG_WARN("[PLUGIN::KAFKA] facility: ", facility, ", message: ", message);
+            break;
+        case LogLevel::LogNotice:
+        case LogLevel::LogInfo:
+            LOG_INFO("[PLUGIN::KAFKA] facility: ", facility, ", message: ", message);
+            break;
+        case LogLevel::LogDebug:
+        default:
+            LOG("[PLUGIN::KAFKA] facility: ", facility, ", message: ", message);
+    }
+}
+
 Configuration createConf(ConstantSP & dict, bool consumer) {
     Configuration configuration;
+    configuration.set_error_callback(kafkaErrorCallback);
+    configuration.set_log_callback(kafkaLogCallback);
     bool group_id = false;
     bool server = false;
 
@@ -2109,4 +2137,21 @@ ConstantSP kafkaDeserialize(const string &dataInit){
     ConstantSP result = unmarshall->getConstant();
 
     return result;
+}
+
+ConstantSP kafkaGetSubJobConsumer(Heap *heap, vector<ConstantSP> &args) {
+    std::string usage = "Usage: getSubJobConsumer(connection or connection ID). ";
+    SubConnection *sc = nullptr;
+    string key;
+    ConstantSP conn = nullptr;
+    auto handle = args[0];
+    LockGuard<Mutex> _(&DICT_LATCH);
+
+    getSubJobConn(handle, conn, sc, key);
+
+    if (sc == nullptr) {
+        throw RuntimeException("[PLUGIN::KAFKA] Invalid connection object.");
+    }
+
+    return sc->getConsumerHandle();
 }

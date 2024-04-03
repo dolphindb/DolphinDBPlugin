@@ -65,8 +65,8 @@ class SubConnection {
 private:
     std::string description_;
     bool connected_;
-    long long createTime_{};
-    Heap* heap_{};
+    long long createTime_;
+    Heap* heap_;
     ConstantSP consumerWrapper_;
     ThreadSP thread_;
     SessionSP session_;
@@ -76,8 +76,11 @@ public:
     SubConnection(Heap *heap, const string& description, const ConstantSP& parser, const ConstantSP& handle, const ConstantSP& consumer, int timeout);
     ~SubConnection();
 
-    long long getConsumer() {
+    long long getConsumerLong() {
         return consumerWrapper_->getLong();
+    }
+    ConstantSP getConsumerHandle() {
+        return consumerWrapper_;
     }
     string getDescription(){
         return description_;
