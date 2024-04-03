@@ -2,6 +2,7 @@
 #define FEATHER_PLUGIN_H
 
 #include <CoreConcept.h>
+#include "ddbplugin/CommonInterface.h"
 #include <Exceptions.h>
 #include <FlatHashmap.h>
 #include <ScalarImp.h>
@@ -113,65 +114,65 @@ DATA_TYPE convertArrowToDolphinDB(std::shared_ptr<arrow::DataType> type){
         }
         break;
     }
-        
-    /// YEAR_MONTH interval in SQL style
-    case arrow::Type::type::INTERVAL_MONTHS:
-        break;
-    /// DAY_TIME interval in SQL style
-    case arrow::Type::type::INTERVAL_DAY_TIME:
-        break;
-    /// Precision- and scale-based decimal type with 128 bits.
-    case arrow::Type::type::DECIMAL128:
-        break;
-    /// Precision- and scale-based decimal type with 256 bits.
-    case arrow::Type::type::DECIMAL256:
-        break;
-    /// A list of some logical data type
-    case arrow::Type::type::LIST:
-        break;
-    /// Struct of logical types
-    case arrow::Type::type::STRUCT:
-        break;
-    /// Sparse unions of logical types
-    case arrow::Type::type::SPARSE_UNION:
-        break;
-    /// Dense unions of logical types
-    case arrow::Type::type::DENSE_UNION:
-        break;
-    /// Dictionary-encoded type, also called "categorical" or "factor"
-    /// in other programming languages. Holds the dictionary value
-    /// type but not the dictionary itself, which is part of the
-    /// ArrayData struct
-    case arrow::Type::type::DICTIONARY:
-        break;
-    /// Map, a repeated struct logical type
-    case arrow::Type::type::MAP:
-        break;
-    /// Custom data type, implemented by user
-    case arrow::Type::type::EXTENSION:
-        break;
-    /// Fixed size list of some logical type
-    case arrow::Type::type::FIXED_SIZE_LIST:
-        break;
-    /// Measure of elapsed time in either seconds, milliseconds, microseconds
-    /// or nanoseconds.
-    case arrow::Type::type::DURATION:
-        break;
-    /// Like STRING, but with 64-bit offsets
-    case arrow::Type::type::LARGE_STRING:
-        break;
-    /// Like BINARY, but with 64-bit offsets
-    case arrow::Type::type::LARGE_BINARY:
-        break;
-    /// Like LIST, but with 64-bit offsets
-    case arrow::Type::type::LARGE_LIST:
-        break;
-    /// Calendar interval type with three fields.
-    case arrow::Type::type::INTERVAL_MONTH_DAY_NANO:
-        break;
-    // Leave this at the end
-    case arrow::Type::type::MAX_ID:
-        break;
+
+    // /// YEAR_MONTH interval in SQL style
+    // case arrow::Type::type::INTERVAL_MONTHS:
+    //     break;
+    // /// DAY_TIME interval in SQL style
+    // case arrow::Type::type::INTERVAL_DAY_TIME:
+    //     break;
+    // /// Precision- and scale-based decimal type with 128 bits.
+    // case arrow::Type::type::DECIMAL128:
+    //     break;
+    // /// Precision- and scale-based decimal type with 256 bits.
+    // case arrow::Type::type::DECIMAL256:
+    //     break;
+    // /// A list of some logical data type
+    // case arrow::Type::type::LIST:
+    //     break;
+    // /// Struct of logical types
+    // case arrow::Type::type::STRUCT:
+    //     break;
+    // /// Sparse unions of logical types
+    // case arrow::Type::type::SPARSE_UNION:
+    //     break;
+    // /// Dense unions of logical types
+    // case arrow::Type::type::DENSE_UNION:
+    //     break;
+    // /// Dictionary-encoded type, also called "categorical" or "factor"
+    // /// in other programming languages. Holds the dictionary value
+    // /// type but not the dictionary itself, which is part of the
+    // /// ArrayData struct
+    // case arrow::Type::type::DICTIONARY:
+    //     break;
+    // /// Map, a repeated struct logical type
+    // case arrow::Type::type::MAP:
+    //     break;
+    // /// Custom data type, implemented by user
+    // case arrow::Type::type::EXTENSION:
+    //     break;
+    // /// Fixed size list of some logical type
+    // case arrow::Type::type::FIXED_SIZE_LIST:
+    //     break;
+    // /// Measure of elapsed time in either seconds, milliseconds, microseconds
+    // /// or nanoseconds.
+    // case arrow::Type::type::DURATION:
+    //     break;
+    // /// Like STRING, but with 64-bit offsets
+    // case arrow::Type::type::LARGE_STRING:
+    //     break;
+    // /// Like BINARY, but with 64-bit offsets
+    // case arrow::Type::type::LARGE_BINARY:
+    //     break;
+    // /// Like LIST, but with 64-bit offsets
+    // case arrow::Type::type::LARGE_LIST:
+    //     break;
+    // /// Calendar interval type with three fields.
+    // case arrow::Type::type::INTERVAL_MONTH_DAY_NANO:
+    //     break;
+    // // Leave this at the end
+    // case arrow::Type::type::MAX_ID:
+    //     break;
     default:
         //TODO
         return DT_VOID;
