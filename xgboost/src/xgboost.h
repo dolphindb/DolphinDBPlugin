@@ -2,7 +2,7 @@
 #define _PLUGIN_XGBOOST_
 
 #include "CoreConcept.h"
-
+#include "ddbplugin/CommonInterface.h"
 #ifdef LINUX
     #define EXPORT_DLL
 #else

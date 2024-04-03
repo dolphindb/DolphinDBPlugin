@@ -5,6 +5,7 @@
 #include "FlatHashmap.h"
 #include "Util.h"
 #include "ScalarImp.h"
+#include "Logger.h"
 
 #include "xgboost/c_api.h"
 
@@ -15,24 +16,22 @@
 #define safe_xgboost(call) {    \
 int err = (call);               \
 if (err != 0)                   \
-    throw RuntimeException(string(XGBGetLastError()));  \
+    throw RuntimeException("[PLUGIN::XGBOOST] " + string(XGBGetLastError()));  \
 }
 
 static const string XGBOOST_BOOSTER = "xgboost Booster";
 static void checkObjective(string key, string value){
     if(key == "objective"){
-        if(value != "reg:linear" && value != "reg:squarederror" && value != "reg:squaredlogerror" && value != "reg:logistic" && 
+        if(value != "reg:linear" && value != "reg:squarederror" && value != "reg:squaredlogerror" && value != "reg:logistic" &&
            value != "reg:pseudohubererror" && value != "binary:logistic" && value != "binary:logitraw" &&
-           value != "binary:hinge" && value != "count:poisson" && value != "survival:cox" && value != "survival:aft" && 
-           value != "aft_loss_distribution" && value != "multi:softmax" && value != "multi:softprob" && value != "rank:pairwise" && 
+           value != "binary:hinge" && value != "count:poisson" && value != "survival:cox" && value != "survival:aft" &&
+           value != "aft_loss_distribution" && value != "multi:softmax" && value != "multi:softprob" && value != "rank:pairwise" &&
            value != "rank:ndcg" && value != "rank:map" && value != "reg:gamma" && value != "reg:tweedie"){
-               throw RuntimeException("Unknown objective function: " + value + ". Objective must be one of \'reg:squarederror\' \'reg:squaredlogerror\' " + 
-               "\'reg:logistic\' \'reg:pseudohubererror\' \'binary:logistic\' \'binary:logitraw\' \'binary:hinge\' \'count:poisson\' \'survival:cox\' \'survival:aft\' \'aft_loss_distribution\' " + 
+               throw RuntimeException("[PLUGIN::XGBOOST] Unknown objective function: " + value + ". Objective must be one of \'reg:squarederror\' \'reg:squaredlogerror\' " +
+               "\'reg:logistic\' \'reg:pseudohubererror\' \'binary:logistic\' \'binary:logitraw\' \'binary:hinge\' \'count:poisson\' \'survival:cox\' \'survival:aft\' \'aft_loss_distribution\' " +
                "\'multi:softmax\' \'multi:softprob\' \'rank:pairwise\' \'rank:ndcg\' \'rank:map\' \'reg:gamma\' \'reg:tweedie\'");
         }
-       
     }
-    return;
 }
 static void xgboostBoosterOnClose(Heap *heap, vector<ConstantSP> &args) {
     BoosterHandle hBooster = (BoosterHandle) args[0]->getLong();
@@ -42,7 +41,7 @@ static void xgboostBoosterOnClose(Heap *heap, vector<ConstantSP> &args) {
     }
 }
 
-static void tableToXGDMatrix(TableSP input, vector<int> &xColIndices, const int rows, const int cols, float *data, DMatrixHandle *out) {
+static void tableToXGDMatrix(TableSP input, const vector<int> &xColIndices, const int rows, const int cols, float *data, DMatrixHandle *out) {
     float buf[Util::BUF_SIZE];
     for (int i = 0; i < cols; i++) {
         int index = xColIndices[i];
@@ -223,7 +222,7 @@ ConstantSP trainEx(Heap *heap, vector<ConstantSP> &args) {
         }
     }
 
-    ConstantSP xgbModel(nullptr);
+    ConstantSP xgbModel;
     bool hasXgbModel = false;
     if (args.size() >= 6 && !args[5]->isNull()) {
         if (args[5]->getType() != DT_RESOURCE || args[5]->getString() != XGBOOST_BOOSTER) {
@@ -249,12 +248,13 @@ ConstantSP trainEx(Heap *heap, vector<ConstantSP> &args) {
 ConstantSP train(Heap *heap, vector<ConstantSP> &args) {
     string funcName = "xgboost::train";
     string syntax = "Usage: " + funcName + "(Y, X, [params], [numBoostRound=10], [xgbModel]). ";
-
-    bool invalidY = false;
-    if (!args[0]->isArray() || !args[0]->isNumber() || args[0]->size() == 0) invalidY = true;
-    for (auto i = 0; i < args[0]->size(); i++) if (args[0]->get(i)->isNull()) invalidY = true;
-    if (invalidY) {
+    if (args[0]->getForm() != DF_VECTOR || !args[0]->isNumber() || args[0]->size() == 0) {
         throw IllegalArgumentException(funcName, syntax + "Y must be a numeric vector.");
+    }
+    for (auto i = 0; i < args[0]->size(); i++) {
+        if (args[0]->get(i)->isNull()) {
+            throw IllegalArgumentException(funcName, syntax + "Y must be a numeric vector.");
+        }
     }
     ConstantSP Y = args[0];
 
@@ -272,6 +272,10 @@ ConstantSP train(Heap *heap, vector<ConstantSP> &args) {
         for (int i = 0; i < cols; i++) {
             if (!t->getColumn(i)->isNumber())
                 throw IllegalArgumentException(funcName, syntax + "Every column in X must be of a numeric type.");
+        }
+    } else { // x is matrix
+        if (!X->isNumber()) {
+            throw IllegalArgumentException(funcName, syntax + "X must be a numeric matrix");
         }
     }
 
@@ -300,7 +304,7 @@ ConstantSP train(Heap *heap, vector<ConstantSP> &args) {
         }
     }
 
-    ConstantSP xgbModel(nullptr);
+    ConstantSP xgbModel;
     bool hasXgbModel = false;
     if (args.size() >= 5 && !args[4]->isNull()) {
         if (args[4]->getType() != DT_RESOURCE || args[4]->getString() != XGBOOST_BOOSTER) {
@@ -327,6 +331,9 @@ static ConstantSP predictImpl(Heap *heap, const BoosterHandle hBooster, const DM
     bst_ulong outLen = 0;
     const float *f = nullptr;
     safe_xgboost(XGBoosterPredict(hBooster, hTest, optionMask, ntreeLimit, training, &outLen, &f));
+    if (!f) {
+        throw RuntimeException("[PLUGIN::XGBOOST] predict failed.");
+    }
 
     ConstantSP out = outputMatrix ? Util::createMatrix(DT_FLOAT, rows, outLen/rows, rows) : Util::createVector(DT_FLOAT, outLen);
     float buf[Util::BUF_SIZE];
@@ -431,6 +438,173 @@ ConstantSP predictEx(Heap *heap, vector<ConstantSP> &args) {
     return out;
 }
 
+#ifdef XGBOOST_2_0_0
+// use XGBoosterPredictFromDMatrix only for xgboost2.0.0
+static ConstantSP predictImpl2(Heap *heap, const BoosterHandle hBooster, const DMatrixHandle hTest, const int rows, const int type, const long long iterationStart, const long long iterationEnd, const bool training, const bool strictShape) {
+    string configStr = "{";
+    configStr += "\"type\":";
+    configStr += std::to_string(type);
+    configStr += ", \"training\":";
+    configStr += training ? "true": "false";
+    configStr += ", \"iteration_begin\":";
+    configStr += std::to_string(iterationStart);
+    configStr += ", \"iteration_end\":";
+    configStr += std::to_string(iterationEnd);
+    configStr += ", \"strict_shape\":";
+    configStr += strictShape ? "true": "false";
+    configStr += "}";
+    const char *config = configStr.c_str();
+    bst_ulong const *outShape = nullptr;
+    bst_ulong outDim = 0;
+    const float *outResult = nullptr;
+    safe_xgboost(XGBoosterPredictFromDMatrix(hBooster, hTest, config, &outShape, &outDim, &outResult));
+    if (!outShape || !outResult) {
+        throw RuntimeException("[PLUGIN::XGBOOST] predict failed.");
+    }
+
+    ConstantSP out = new Void();
+    if(outDim == 1) {
+        long long outLen = outShape[0];
+        out = Util::createVector(DT_FLOAT, outLen);
+
+        float buf[Util::BUF_SIZE];
+        INDEX start = 0, len;
+        while (start < (INDEX) outLen) {
+            len = std::min(Util::BUF_SIZE, (INDEX) outLen - start);
+            float *p = out->getFloatBuffer(start, len, buf);
+            std::memcpy(p, outResult + start, sizeof(float) * len);
+            out->setFloat(start, len, p);
+            start += len;
+        }
+    } else if (outDim == 2){
+        int colNum = outShape[0];
+        int colLength = outShape[1];
+        out = Util::createMatrix(DT_FLOAT, colNum, colLength, colNum * colLength);
+        float buf[Util::BUF_SIZE];
+        long long outLen = colNum * colLength;
+        INDEX start = 0, len;
+        while (start < (INDEX) outLen) {
+            len = std::min(Util::BUF_SIZE, (INDEX) outLen - start);
+            float *p = out->getFloatBuffer(start, len, buf);
+            std::memcpy(p, outResult + start, sizeof(float) * len);
+            out->setFloat(start, len, p);
+            start += len;
+        }
+    } else {
+        throw RuntimeException("[PLUGIN::XGBOOST] xgboost don't support " + std::to_string(outDim) + " dim prediction result.");
+    }
+
+    return out;
+}
+
+ConstantSP predict(Heap *heap, vector<ConstantSP> &args) {
+    string funcName = "xgboost::predict";
+    string syntax = "Usage: " + funcName + "(model, X, [type=0], [iterationPair], [strictShape=false], [training=false]). ";
+
+    if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != XGBOOST_BOOSTER) {
+        throw IllegalArgumentException(funcName, syntax + "model must be an xgboost Booster resource.");
+    }
+    BoosterHandle hBooster = (BoosterHandle) args[0]->getLong();
+    if (!args[1]->isMatrix() && !args[1]->isTable()) {
+        throw IllegalArgumentException(funcName, syntax + "X must be a matrix or a table.");
+    }
+    ConstantSP X = args[1];
+
+    const int rows = X->rows();
+    const int cols = X->columns();
+
+    if (X->isTable()) {
+        TableSP t = X;
+        if (!t->isBasicTable())
+            throw IllegalArgumentException(funcName, syntax + "X must be a basic table.");
+        for (int i = 0; i < cols; i++) {
+            if (!t->getColumn(i)->isNumber())
+                throw IllegalArgumentException(funcName, syntax + "Every column in X must be of a numeric type.");
+        }
+    } else { // x is matrix
+        if (!X->isNumber()) {
+            throw IllegalArgumentException(funcName, syntax + "X must be a numeric matrix");
+        }
+    }
+
+    int type = 0;
+    if (args.size() >= 3 && !args[2]->isNull()) {
+        if (!args[2]->isScalar() || args[2]->getCategory() != INTEGRAL) {
+            throw IllegalArgumentException(funcName, syntax + "type must be an integer scalar.");
+        }
+        type = args[2]->getLong();
+        if(type < 0 || type > 6) {
+            throw IllegalArgumentException(funcName, syntax + "type must be in the range of 0 to 6.");
+        }
+    }
+
+    long long iterationStart = 0;
+    long long iterationEnd = 0;
+    if (args.size() >= 4 && !args[3]->isNull()) {
+        if (!args[3]->isPair() || args[3]->getCategory() != INTEGRAL) {
+            throw IllegalArgumentException(funcName, syntax + "iterationPair must be a integer pair.");
+        }
+        iterationStart = args[3]->getLong(0);
+        iterationEnd = args[3]->getLong(1);
+        if (iterationStart < 0 || iterationEnd < 0) {
+            throw IllegalArgumentException(funcName, syntax + "both number of iterationPair must be a non-negative integer.");
+        }
+        if(iterationEnd < iterationStart) {
+            throw IllegalArgumentException(funcName, syntax + "first number of iterationPair must less than second number.");
+        }
+        // HACK xgboost has bug, if iterationEnd greater than INT_MAX would crash
+        if(iterationEnd > INT_MAX) {
+            throw IllegalArgumentException(funcName, syntax + "both number of iterationPair must less than 2147483648.");
+        }
+    } else {
+        const char * key = "best_iteration";
+        const char * out = "";
+        int success;
+        safe_xgboost(XGBoosterGetAttr(hBooster, key, &out, &success));
+        try {
+            if(out != nullptr) {
+                int bestIteration = std::atoi(out);
+                iterationEnd = bestIteration + 1;
+            }
+        } catch(...) {
+            LOG_ERR("[PLUGIN::XGBOOST] parse best_iteration failed.");
+        }
+    }
+
+    bool strictShape = false;
+    if (args.size() >= 5 && !args[4]->isNull()) {
+        if (!args[4]->isScalar() || args[4]->getType() != DT_BOOL) {
+            throw IllegalArgumentException(funcName, syntax + "strictShape must be a boolean scalar.");
+        }
+        strictShape = args[4]->getBool();
+    }
+
+    bool training = 0;
+    if (args.size() >= 6 && !args[5]->isNull()) {
+        if (!args[5]->isScalar() || args[5]->getType() != DT_BOOL) {
+            throw IllegalArgumentException(funcName, syntax + "training must be a boolean scalar.");
+        }
+        training = args[5]->getBool();
+    }
+    if (args.size() > 6) {
+            throw IllegalArgumentException(funcName, syntax +
+                "expects 2~6 argument(s), but the actual number of arguments is: " + std::to_string(args.size()) + ".");
+    }
+
+    // create the train data
+    vector<float> data(rows * cols);
+    DMatrixHandle hTest = nullptr;
+    matrixOrTableToXGDMatrix(X, rows, cols, data.data(), &hTest);
+    if (!hTest) {
+        throw RuntimeException("[PLUGIN::XGBOOST] failed to get matrix handle.");
+    }
+
+    ConstantSP out = predictImpl2(heap, hBooster, hTest, rows, type, iterationStart, iterationEnd, training, strictShape);
+    safe_xgboost(XGDMatrixFree(hTest));
+
+    return out;
+}
+#else
 ConstantSP predict(Heap *heap, vector<ConstantSP> &args) {
     string funcName = "xgboost::predict";
     string syntax = "Usage: " + funcName + "(model, X, [outputMargin=false], [ntreeLimit=0], [predLeaf=false], [predContribs=false], [training=false]). ";
@@ -454,6 +628,10 @@ ConstantSP predict(Heap *heap, vector<ConstantSP> &args) {
         for (int i = 0; i < cols; i++) {
             if (!t->getColumn(i)->isNumber())
                 throw IllegalArgumentException(funcName, syntax + "Every column in X must be of a numeric type.");
+        }
+    } else { // x is matrix
+        if (!X->isNumber()) {
+            throw IllegalArgumentException(funcName, syntax + "X must be a numeric matrix");
         }
     }
 
@@ -510,6 +688,7 @@ ConstantSP predict(Heap *heap, vector<ConstantSP> &args) {
 
     return out;
 }
+#endif
 
 ConstantSP saveModel(const ConstantSP& model, const ConstantSP &fname) {
     string funcName = "xgboost::saveModel";
