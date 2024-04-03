@@ -1,0 +1,123 @@
+loadPlugin("PluginOPC.txt")
+
+host=`desk9
+
+@testing:case = "opc_sub_unsub" 
+conn=opc::connect(host,`Matrikon.OPC.Simulation.1,100)
+t9 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+opc::writeTag(conn,"testwrite.test9",115.20)
+opc::subscribe(conn,"testwrite.test9",t9)
+sleep(2000)
+assert 1,t9.size()>0
+opc::writeTag(conn,"testwrite.test9",115.30)
+sleep(2000)
+assert 2,t9.size()==2
+opc::unsubscribe(conn)
+opc::writeTag(conn,"testwrite.test9",115.10)
+sleep(2000)
+opc::close(conn)
+assert 3,t9.size()==2
+
+
+@testing:case = "opc_sub_close" 
+conn1=opc::connect(host,`Matrikon.OPC.Simulation.1,100)
+t = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+opc::writeTag(conn1,"testwrite.test9",115.30)
+opc::subscribe(conn1,"testwrite.test9",t)
+sleep(1000)
+assert 1,t.size()==1
+opc::writeTag(conn1,"testwrite.test9",115.20)
+sleep(1000)
+assert 2,t.size()==2
+opc::close(conn1)
+conn1=opc::connect(host,`Matrikon.OPC.Simulation.1,100)
+try{
+ret=opc::writeTag(conn1,"testwrite.test9",115.10)
+}catch(ex){
+	ret=false
+	print ex
+}
+opc::close(conn1)
+assert 3,t.size()==2
+
+@testing:case = "opc_resub" 
+conn=opc::connect(host,`Matrikon.OPC.Simulation.1,100)
+t9 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+opc::subscribe(conn,"testwrite.test9",t9)
+try{
+opc::subscribe(conn,"testwrite.test9",t9)
+}catch(ex){	print ex }
+sleep(1000)
+opc::close(conn)
+assert 1,t9.size()==1
+
+
+@testing:case = "opc_sub_array" 
+conn=opc::connect(host,`Matrikon.OPC.Simulation.1,100)
+t3 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+opc::writeTag(conn,"testwrite.test9",115.10)
+opc::writeTag(conn,"testwrite.test4",11)
+opc::writeTag(conn,"testwrite.test7",11.12)
+opc::writeTag(conn,"testwrite.test8",8.2)
+
+opc::subscribe(conn, ["testwrite.test4","testwrite.test7","testwrite.test8", "testwrite.test9"],t3) 
+sleep(1000)
+opc::unsubscribe(conn)
+opc::close(conn)
+assert 1,t3.size()==4
+assert 2,t3[`value][0]==11
+
+t1 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, INT, INT])
+t2 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, INT, INT])
+t3 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, INT, INT])
+t4 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, STRING, INT])
+t5 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+t6 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+t7 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, BOOL, INT])
+
+t8 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DATETIME, INT])
+t9 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+
+@testing:case = "opc_sub_handler_is_a_table" 
+conn1=opc::connect(host,`Matrikon.OPC.Simulation.1,100)
+opc::subscribe(conn1,".testString",  t4)
+sleep(1000)
+sz1=t4.size()
+sleep(1000)
+assert 1,t4.size()>0
+assert 2,t4.size()>sz1
+conn2 = opc::connect(host,`Matrikon.OPC.Simulation.1,10)
+opc::subscribe(conn2,".testReal8",  t6)
+sleep(1000)
+sz2=t6.size()
+sleep(1000)
+opc::unsubscribe(conn1)
+opc::close(conn1)
+opc::unsubscribe(conn2)
+opc::close(conn2)
+assert 3,t6.size()>0
+assert 4,t6.size()>sz2
+
+
+@testing:case = "opc_sub_table_array"
+conn20 = opc::connect(host,`Matrikon.OPC.Simulation.1,10)
+opc::subscribe(conn20,[".testINT2",".testReal8"], t5)
+conn21 = opc::connect(host,`Matrikon.OPC.Simulation.1,10)
+opc::subscribe(conn21,[".testTime",".testMoney"], t8)
+sleep(2000)
+opc::close(conn20)
+opc::close(conn21)
+t5cnt=exec count(*) from t5 group by tag
+
+assert 1,t5cnt.size()==2  && t5cnt[`count][0]>0
+assert 2,t8.size()>1
+
+@testing:case = "opc_sub_handler_function"//
+def callback1(mutable t1, d) {
+	t1.append!(d)
+}
+conn10 = opc::connect(host,`Matrikon.OPC.Simulation.1,10)
+opc::subscribe(conn10,".testBool",   callback1{t7})
+sleep(2000)
+opc::close(conn10)
+assert 1,t7.size()>1
