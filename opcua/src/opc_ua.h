@@ -15,6 +15,7 @@
 #include "Logger.h"
 #include <map>
 #include <vector>
+#include "ddbplugin/CommonInterface.h"
 
 extern "C" ConstantSP getOpcUaServerList(Heap* heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP getOpcUaEndPointList(Heap* heap, vector<ConstantSP>& arguments);

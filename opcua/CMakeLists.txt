@@ -34,7 +34,6 @@ if (WIN32 OR MINGW)
 elseif (UNIX)
     target_link_libraries(PluginOPCUA
         open62541
-        DolphinDB
         )
     set_target_properties(PluginOPCUA PROPERTIES LINK_FLAGS "-Wl,-rpath,$ORIGIN")
 endif ()
