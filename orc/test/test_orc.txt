@@ -1,0 +1,2577 @@
+#include "setup/settings.txt"
+login("admin","123456")
+try{
+	loadPlugin(getHomeDir()+"/plugins/orc/PluginOrc.txt")
+}catch(ex){}
+go
+
+@testing:case="test_orc_extractORCSchema_args_less",exception=1
+orc::extractORCSchema()
+
+@testing:case="test_orc_extractORCSchema_args_more",syntaxError=1
+orc::extractORCSchema(DATA_DIR+"/date.orc",DATA_DIR+"/date.orc")
+
+@testing:case="test_orc_extractORCSchema_empty_file",exception=1
+orc::extractORCSchema(DATA_DIR+"/emptyFile.orc")
+
+@testing:case="test_orc_extractORCSchema_file_vector",exception=1
+orc::extractORCSchema([DATA_DIR+"/date.orc",DATA_DIR+"/date.orc"])
+
+@testing:case="test_orc_extractORCSchema_wrong_fileName",exception=1
+orc::extractORCSchema("fileName.orc")
+
+@testing:case="test_orc_extractORCSchema_null_fileName",exception=1
+orc::extractORCSchema(NULL)
+
+@testing:case="test_orc_extractORCSchema_INT_fileName",exception=1
+orc::extractORCSchema(1)
+
+@testing:case="test_orc_extractORCSchema_binary",exception=1
+orc::extractORCSchema(DATA_DIR+"/binary.orc")
+
+@testing:case="test_orc_extractORCSchema_uniontype",exception=1
+orc::extractORCSchema(DATA_DIR+"/uniontype.orc")
+
+@testing:case="test_orc_extractORCSchema_map",exception=1
+orc::extractORCSchema(DATA_DIR+"/map.orc")
+
+@testing:case="test_orc_extractORCSchema_map",exception=1
+orc::extractORCSchema(DATA_DIR+"/struct.orc")
+
+@testing:case="test_orc_extractORCSchema_NULLstring",exception=1
+orc::extractORCSchema("")
+
+@testing:case="test_orc_extractORCSchema_vector",exception=1
+tb=orc::extractORCSchema([DATA_DIR+"/date.orc",DATA_DIR+"/date.orc"])
+
+@testing:case="test_orc_loadORC_args_less",exception=1
+orc::loadORC()
+
+@testing:case="test_orc_loadORC_args_more",syntaxError=1
+tb=orc::loadORC(DATA_DIR+"/date.orc",,,,12,1)
+
+@testing:case="test_orc_loadORC_wrong_fileName",exception=1
+orc::loadORC("fileName.orc")
+
+@testing:case="test_orc_loadORC_null_fileName",exception=1
+orc::loadORC(NULL)
+
+@testing:case="test_orc_loadORC_INT_fileName",exception=1
+orc::loadORC(1)
+
+@testing:case="test_orc_loadORC_empty_file",exception=1
+orc::loadORC(DATA_DIR+"/emptyFile.orc")
+
+@testing:case="test_orc_loadORC_arg_less",exception=1
+tb=orc::loadORC()
+
+@testing:case="test_orc_loadORC_nullstring",exception=1
+tb=orc::loadORC("")
+
+@testing:case="test_orc_loadORC_column_schema_int",exception=1
+tb=orc::loadORC(DATA_DIR+"/date.orc",1)
+
+@testing:case="test_orc_loadORC_column_schema_vector",exception=1
+schema=table(`s`f`d`str as name,`SHORT`FLOAT`DOUBLE`STRING as type)
+tb=orc::loadORC(DATA_DIR+"/date.orc",[schema,schema])
+
+@testing:case="test_orc_loadORC_column_schema_diff_ex1",exception=1
+schema=table(`s`f`d`str as name,`SHORT`FLOAT`DOUBLE`STRING as type)
+tb=orc::loadORC(DATA_DIR+"/date.orc",schema, 1 3 4 8 9 10 )
+
+@testing:case="test_orc_loadORC_column_schema_diff_ex2",exception=1
+schema=table(`s`f`d`str as name,`SHORT`FLOAT`DOUBLE`STRING as type)
+tb=orc::loadORC(DATA_DIR+"/date.orc",schema )
+
+@testing:case="test_orc_loadORC_column_scalar",exception=1
+schema=table(`s`f`d`str as name,`SHORT`FLOAT`DOUBLE`STRING as type)
+tb=orc::loadORC(DATA_DIR+"/date.orc",schema ,1)
+
+@testing:case="test_orc_loadORC_column_vector_NULL",exception=1
+schema=table(`s`f`d`str as name,`SHORT`FLOAT`DOUBLE`STRING as type)
+tb=orc::loadORC(DATA_DIR+"/date.orc",schema ,take(int(NULL),10))
+
+@testing:case="test_orc_loadORC_column_schema_diff_ex3",exception=1
+tb=orc::loadORC(DATA_DIR+"/date.orc",,125 8 -9 )
+
+@testing:case="test_orc_loadORC_rowStart_over_file_length",exception=1
+tb=orc::loadORC(DATA_DIR+"/date.orc",,,10000000)
+
+@testing:case="test_orc_loadORC_rowStart_vector",exception=1
+tb=orc::loadORC(DATA_DIR+"/date.orc",,,[1,2])
+
+@testing:case="test_orc_loadORC_rowStart_eq_file_length",exception=1
+tb=orc::loadORC(DATA_DIR+"/date.orc",,,1000000)
+
+@testing:case="test_orc_loadORC_rowStart_not_positive",exception=1
+tb=orc::loadORC(DATA_DIR+"/date.orc",,,-12)
+
+@testing:case="test_orc_loadORC_rowNum_not_positive",exception=1
+tb=orc::loadORC(DATA_DIR+"/date.orc",,,,-12)
+
+@testing:case="test_orc_loadORC_rowNum_vector",exception=1
+tb=orc::loadORC(DATA_DIR+"/date.orc",,,,[1,2])
+
+@testing:case="test_orc_orcDS_args_less",exception=1
+ds = orc::orcDS()
+
+@testing:case="test_orc_orcDS_args_more",syntaxError=1
+ds = orc::orcDS(DATA_DIR+"/date.orc",,,,1)
+
+@testing:case="test_orc_orcDS_fileName_NULL",exception=1
+ds = orc::orcDS(NULL,1)
+
+@testing:case="test_orc_orcDS_fileName_empty_string",exception=1
+ds = orc::orcDS("",1)
+
+@testing:case="test_orc_orcDS_fileName_string(NULL)",exception=1
+ds = orc::orcDS(string(NULL),1)
+
+@testing:case="test_orc_orcDS_fileName_vector",exception=1
+ds = orc::orcDS([DATA_DIR+"/bigdata.orc",DATA_DIR+"/bigdata.orc"],1)
+
+@testing:case="test_orc_orcDS_chunkSize_NULL",exception=1
+ds = orc::orcDS(DATA_DIR+"/bigdata.orc",NULL)
+
+@testing:case="test_orc_orcDS_chunkSize_int(NULL)",exception=1
+ds = orc::orcDS(DATA_DIR+"/bigdata.orc",int(NULL))
+
+@testing:case="test_orc_orcDS_chunkSize_vector",exception=1
+ds = orc::orcDS(DATA_DIR+"/bigdata.orc",[1,10])
+
+@testing:case="test_orc_orcDS_chunkSize=0",exception=1
+ds = orc::orcDS(DATA_DIR+"/bigdata.orc", 0,,)
+
+@testing:case="test_orc_orcDS_chunkSize<0",exception=1
+ds = orc::orcDS(DATA_DIR+"/bigdata.orc", -1,,)
+
+@testing:case="test_orc_orcDS_nullstring",exception=1
+ds = orc::orcDS("",1000,,)
+
+@testing:case="test_orc_orcDS_schema_int",exception=1
+ds = orc::orcDS(DATA_DIR+"/bigdata.orc",100000,1)
+
+@testing:case="test_orc_orcDS_schema_vector",exception=1
+ds = orc::orcDS(DATA_DIR+"/bigdata.orc",100000,[1,1])
+
+@testing:case="test_orc_orcDS_skipRows_-1",exception=1
+schema=orc::extractORCSchema(DATA_DIR+"/bigdata.orc")
+tb=orc::orcDS(DATA_DIR+"/bigdata.orc",10,schema ,-1)
+
+@testing:case="test_orc_orcDS_schema_skipRows_over_file_length"
+ds = orc::orcDS(DATA_DIR+"/bigdata.orc",100000,,10000000)
+assert 1,size(ds) == 0
+
+@testing:case="test_orc_loadORCEx_createdb"
+if(existsDatabase("dfs://testorc")){
+	dropDatabase("dfs://testorc")
+}
+db1 = database("",RANGE,1970.01.01+0..100*10000)
+db2 = database("",HASH,[STRING,10])
+db = database("dfs://testorc",COMPO,[db1,db2])
+
+@testing:case="test_orc_loadORCEx_dbHandle_vector",exception=1
+tb=orc::loadORCEx([db,db],`tb,`time`var,DATA_DIR+"/bigdata.orc",,,,,)
+
+@testing:case="test_orc_loadORCEx_partitionColumns_NULL",exception=1
+tb=orc::loadORCEx(db,`tb,take(string(NULL),2),DATA_DIR+"/bigdata.orc",,,,,)
+
+@testing:case="test_orc_loadORCEx_partitionColumns_not_string",exception=1
+tb=orc::loadORCEx(db,`tb,[1,2],DATA_DIR+"/bigdata.orc",,,,,)
+
+@testing:case="test_orc_loadORCEx_dbHandle_int",exception=1
+tb=orc::loadORCEx(1,`tb,`time`var,DATA_DIR+"/bigdata.orc",,,,,)
+
+@testing:case="test_orc_loadORCEx_tableName_int",exception=1
+tb=orc::loadORCEx(db,1,`time`var,DATA_DIR+"/bigdata.orc",,,,,)
+
+@testing:case="test_orc_loadORCEx_tableName_string(NULL)",exception=1
+tb=orc::loadORCEx(db,string(NULL),`time`var,DATA_DIR+"/bigdata.orc",,,,,)
+
+@testing:case="test_orc_loadORCEx_tableName_NULL",exception=1
+tb=orc::loadORCEx(db,,`time`var,DATA_DIR+"/bigdata.orc",,,,,)
+
+@testing:case="test_orc_loadORCEx_tableName_vector",exception=1
+tb=orc::loadORCEx(db,`tb`tb2,`time`var,DATA_DIR+"/bigdata.orc",,,,,)
+
+@testing:case="test_orc_loadORCEx_partitionColumns_wrong",exception=1
+tb=orc::loadORCEx(db,`tb,`aaa`var1,DATA_DIR+"/bigdata.orc",,,,,)
+
+@testing:case="test_orc_loadORCEx_wrong_fileName",exception=1
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bdata.orc",,,,,)
+
+@testing:case="test_orc_loadORCEx_null_fileName",exception=1
+tb=orc::loadORCEx(db,`tb,`time`var,NULL,,,,,)
+
+@testing:case="test_orc_loadORCEx_INT_fileName",exception=1
+tb=orc::loadORCEx(db,`tb,`time`var,7,,,,,)
+
+@testing:case="test_orc_loadORCEx_empty_file",exception=1
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/emptyFile.orc",,,,,)
+
+@testing:case="test_orc_loadORCEx_column_schema_diff_ex1",exception=1
+schema=table(`s`f`d`str as name,`SHORT`FLOAT`DOUBLE`STRING as type)
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bigdata.orc",schema, 1 3 4 8 9 10)
+
+@testing:case="test_orc_loadORCEx_column_schema_diff_ex2",exception=1
+schema=table(`s`f`d`str as name,`SHORT`FLOAT`DOUBLE`STRING as type)
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bigdata.orc",schema,)
+
+@testing:case="test_orc_loadORCEx_column_schema_diff_ex3",exception=1
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bigdata.orc",schema,125 8 -9)
+
+@testing:case="test_orc_loadORCEx_column_schema_int",exception=1
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bigdata.orc",1)
+
+@testing:case="test_orc_loadORCEx_column_schema_vector",exception=1
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bigdata.orc",[schema,schema])
+
+@testing:case="test_orc_loadORCEx_column_scalar",exception=1
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bigdata.orc",schema,-1)
+
+@testing:case="test_orc_loadORCEx_column_vector_negative",exception=1
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bigdata.orc",schema,[-1,-2])
+
+@testing:case="test_orc_loadORCEx_column_vector_double",exception=1
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bigdata.orc",,[1.1,2.2])
+
+@testing:case="test_orc_loadORCEx_rowStart_over_file_length",exception=1
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bigdata.orc",,,10000000)
+
+@testing:case="test_orc_loadORCEx_rowStart_eq_file_length",exception=1
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bigdata.orc",,,1000000)
+
+@testing:case="test_orc_loadORCEx_rowStart_not_positive",exception=1
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bigdata.orc",,,-12)
+
+@testing:case="test_orc_loadORCEx_rowStart_vector",exception=1
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bigdata.orc",,,[12,13])
+
+@testing:case="test_orc_loadORCEx_rowNum_not_positive_ex1",exception=1
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bigdata.orc",,,,-12)
+
+@testing:case="test_orc_loadORCEx_rowNum_not_positive_ex2",exception=1
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bigdata.orc",,,,0)
+
+@testing:case="test_orc_loadORCEx_rowNum_vector",exception=1
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bigdata.orc",,,,[1,100])
+
+@testing:case="test_orc_loadORCEx_nullstring",exception=1
+tb=orc::loadORCEx(db,,,"",,,,,)
+
+@testing:case="test_orc_loadORCEx_transform_int",exception=1
+tb=orc::loadORCEx(db,`tb,,DATA_DIR+"/bigdata.orc",,,,,1)
+
+@testing:case="test_orc_loadORCEx_rowStart_not_int",exception=1
+tb=orc::loadORCEx(db,`tb,`date`id,DATA_DIR+"/bigdata.orc",,,"1",,)
+
+//
+@testing:case="test_orc_saveORC_tuple_file",exception=1
+a=(1 2 3, `IBM`MSFT`GOOG, 2.5);  
+tb=orc::saveORC(a,WORK_DIR+"/tuple.orc")
+
+@testing:case="test_orc_saveORC_bigarray_file",exception=1
+x=bigarray(int,10,10000000);
+tb=orc::saveORC(x,WORK_DIR+"/bigarray.orc")
+
+@testing:case="test_orc_saveORC_subarray_file",exception=1
+x=1..100
+a=subarray(x,10:20)
+tb=orc::saveORC(a,WORK_DIR+"/subarray.orc")
+
+@testing:case="test_orc_saveORC_scalar_file",exception=1
+tb=orc::saveORC(2,WORK_DIR+"/scalar.orc")
+
+@testing:case="test_orc_saveORC_matrix_file",exception=1
+x = matrix(int, 2, 3);   
+tb=orc::saveORC(x,WORK_DIR+"/matrix.orc")
+
+@testing:case="test_orc_saveORC_set_file",exception=1
+x = set([5,5,3,4]);   
+tb=orc::saveORC(x,WORK_DIR+"/set.orc")
+
+@testing:case="test_orc_saveORC_dict_file",exception=1
+x=1 2 3 1;                        
+y=2.3 4.6 5.3 6.4;
+z=dict(x, y);     
+tb=orc::saveORC(z,WORK_DIR+"/dict.orc")
+
+@testing:case="test_orc_Saveorc_UUID",exception=1
+n = 10000
+t = table(n:n,[`string,`uuid],[STRING,UUID])
+t[`string] = rand(("hello"+string(1..10)) join NULL,n)
+t[`uuid] = rand(uuid(),n)
+tb=orc::saveORC(t,WORK_DIR+"/UUID.orc")
+
+@testing:case="test_orc_Saveorc_INT128",exception=1
+n = 10000
+t = table(n:n,[`string,`int128],[STRING,INT128])
+t[`string] = rand(("hello"+string(1..10)) join NULL,n)
+t[`int128] = rand(int128(),n)
+tb=orc::saveORC(t,WORK_DIR+"/int128.orc")
+
+@testing:case="test_orc_Saveorc_nullstring",exception=1
+n = 10000
+t = table(n:n,[`string],[STRING])
+t[`string] = string()
+tb=orc::saveORC(t,"")
+
+@testing:case="test_orc_Saveorc_not_string",exception=1
+n = 10000
+t = table(n:n,[`string],[STRING])
+t[`string] = string()
+tb=orc::saveORC(t,123456)
+
+@testing:case="test_orc_extractORCSchema_types"
+t=orc::extractORCSchema(DATA_DIR+"/boolean.orc")
+assert 1,t[`name]==`x
+assert 2,t[`type]==`BOOL
+t=orc::extractORCSchema(DATA_DIR+"/int.orc")
+assert 3,t[`name]==`x
+assert 4,t[`type]==`INT
+t=orc::extractORCSchema(DATA_DIR+"/smallint.orc")
+assert 5,t[`name]==`x
+assert 6,t[`type]==`SHORT
+t=orc::extractORCSchema(DATA_DIR+"/tinyint.orc")
+assert 7,t[`name]==`x
+assert 8,t[`type]==`CHAR
+t=orc::extractORCSchema(DATA_DIR+"/bigint.orc")
+assert 9,t[`name]==`x
+assert 10,t[`type]==`LONG
+t=orc::extractORCSchema(DATA_DIR+"/float.orc")
+assert 11,t[`name]==`x
+assert 12,t[`type]==`FLOAT
+t=orc::extractORCSchema(DATA_DIR+"/double.orc")
+assert 13,t[`name]==`x
+assert 14,t[`type]==`DOUBLE
+t=orc::extractORCSchema(DATA_DIR+"/string.orc")
+assert 15,t[`name]==`x
+assert 16,t[`type]==`STRING
+t=orc::extractORCSchema(DATA_DIR+"/char.orc")
+assert 17,t[`name]==`x
+assert 18,t[`type]==`STRING
+t=orc::extractORCSchema(DATA_DIR+"/varchar.orc")
+assert 19,t[`name]==`x
+assert 20,t[`type]==`STRING
+t=orc::extractORCSchema(DATA_DIR+"/timestamp.orc")
+assert 21,t[`name]==`x
+assert 22,t[`type]==`NANOTIMESTAMP
+t=orc::extractORCSchema(DATA_DIR+"/date.orc")
+assert 23,t[`name]==`x
+assert 24,t[`type]==`DATE
+//null table
+t=orc::extractORCSchema(DATA_DIR+"/datanull.orc")
+assert 23,t[`name]==["s","l","f","d","b","i","t","str","c","var","time","date"]
+assert 24,t[`type]==["SHORT","LONG","FLOAT","DOUBLE","BOOL","INT","CHAR","STRING","STRING","STRING","NANOTIMESTAMP","DATE"]
+t=orc::extractORCSchema(DATA_DIR+"/oneRow.orc")
+assert 25,t[`name]==["s","l","f","d","b","i","t","str","c","var","time","date"]
+assert 26,t[`type]==["SHORT","LONG","FLOAT","DOUBLE","BOOL","INT","CHAR","STRING","STRING","STRING","NANOTIMESTAMP","DATE"]
+t=orc::extractORCSchema(DATA_DIR+"/chinese.orc")
+assert 27,t[`name]==["s","l","f","d","b","i","t","str","c","var","time","date"]
+assert 28,t[`type]==["SHORT","LONG","FLOAT","DOUBLE","BOOL","INT","CHAR","STRING","STRING","STRING","NANOTIMESTAMP","DATE"]
+
+@testing:case="test_orc_loadORC_types"
+t=orc::loadORC(DATA_DIR+"/boolean.orc",,,,1000)
+expected = table([NULL,true,true,true,true,false,false,false,false,NULL] as b)
+assert 1,each(eqObj,t.values(),expected.values())
+t=orc::loadORC(DATA_DIR+"/int.orc")
+expected = table([NULL,1,2,3,4,5,6,7,8,NULL] as b)
+assert 2,each(eqObj,t.values(),expected.values())
+t=orc::loadORC(DATA_DIR+"/smallint.orc")[`x]
+expected = short([NULL,1,2,3,4,5,6,7,8,NULL])
+assert 3,eq(t,expected)
+t=orc::loadORC(DATA_DIR+"/tinyint.orc")
+expected = table(char([NULL,1,2,3,4,5,6,7,8,NULL]) as b)
+assert 4,each(eqObj,t.values(),expected.values())
+t=orc::loadORC(DATA_DIR+"/bigint.orc")
+expected = table([NULL,1100001,1100002,1100003,1100004,1100005,1100006,1100007,1100008,NULL] as b)
+assert 5,each(eqObj,t.values(),expected.values())
+t=orc::loadORC(DATA_DIR+"/float.orc")
+expected = table([NULL,1.25,2.25,3.25,4.25,5.25,6.25,7.25,8.25,NULL] as b)
+assert 6,each(eqObj,t.values(),expected.values())
+t=orc::loadORC(DATA_DIR+"/double.orc")
+expected = table([NULL,1.25,2.25,3.25,4.25,5.25,6.25,7.25,8.25,NULL] as b)
+assert 7,each(eqObj,t.values(),expected.values())
+t=orc::loadORC(DATA_DIR+"/string.orc")
+expected = table(``c1`c2`c3`c4`c5`c6`c7`c8` as b)
+assert 8,each(eqObj,t.values(),expected.values())
+t=orc::loadORC(DATA_DIR+"/char.orc")
+expected = table(``c1`c2`c3`c4`c5`c6`c7`c8` as b)
+assert 9,each(eqObj,t.values(),expected.values())
+t=orc::loadORC(DATA_DIR+"/varchar.orc")
+expected = table(``c101`c402`c903`c1604`c2505`c3606`c4907`c6408` as b)
+assert 10,each(eqObj,t.values(),expected.values())
+t=orc::loadORC(DATA_DIR+"/timestamp.orc")
+expected = table([NULL,2021.01.01T01:01:01.000000000,2021.01.01T01:01:02.000000000,2021.01.01T01:01:03.000000000,2021.01.01T01:01:04.000000000,2021.01.01T01:01:05.000000000,2021.01.01T01:01:06.000000000,2021.01.01T01:01:07.000000000,2021.01.01T01:01:08.000000000,NULL] as b)
+assert 11,each(eqObj,t.values(),expected.values())
+t=orc::loadORC(DATA_DIR+"/date.orc")
+expected = table([NULL,2024.10.05,2024.10.06,2024.10.07,2024.10.08,2024.10.09,2024.10.10,2024.10.11,2024.10.12,NULL] as b)
+assert 12,each(eqObj,t.values(),expected.values())
+t=orc::loadORC(DATA_DIR+"/oneRow.orc")
+expected = table(0 as s,0 as l,0.0 as f,0.0 as d,false as b,0 as i,0 as t,`c0 as str,`c as c,`c0 as var,2021.01.01T01:01:01.000000000 as time,1970.01.01 as date)
+assert 13,each(eqObj,t.values(),expected.values())
+t=orc::loadORC(DATA_DIR+"/chinese.orc")
+expected = table(0..9 as s,0..9 as l,float(0..9) as f,double(0..9) as d,false join take(true,9) as b,0..9 as i,0..9 as t,"智鱼克己"+string(0..9)as str,take(`智,10) as c,"智鱼克己"+string(0..9) as var,take(2021.01.01T01:01:01.000000000,10) as time,1970.01.01+0..9 as date)
+assert 14,each(eqObj,t.values(),expected.values())
+
+@testing:case="test_orc_loadORC_bigdata"
+//bigdata
+tb=orc::loadORC(DATA_DIR+"/bigdata.orc")
+s=short(0..10000).append!(take(short(),10000)).append!(short(20001..999999))
+l=long(0..10000).append!(take(long(),10000)).append!(long(20001..999999))
+f=float(0..10000).append!(take(float(),10000)).append!(float(20001..999999))
+d=double(0..10000).append!(take(double(),10000)).append!(double(20001..999999))
+b=bool(0..10000).append!(take(bool(),10000)).append!(bool(20001..999999))
+i=int(0..10000).append!(take(int(),10000)).append!(int(20001..999999))
+t=char(0..10000).append!(take(char(),10000)).append!(char(20001..999999))
+str=array(STRING)
+str.append!("c"+string(0..10000)).append!(take(string(),10000)).append!("c"+string(20001..999999))
+c=array(STRING)
+c.append!(take("c",10001)).append!(take(string(),10000)).append!(take("c",979999))
+var=array(STRING)
+var.append!("c"+string(0..10000)).append!(take(string(),10000)).append!("c"+string(20001..999999))
+time=take(2021.01.01T01:01:01.000000000,2001).append!(take(2021.01.02 01:01:01.000000000,3000)).append!(take(2021.01.03 01:01:01.000000000,5000)).append!(take(2021.01.04 01:01:01.000000000,10000)).append!(take(2021.01.05 01:01:01.000000000,979999))
+date=date(1970.01.01+0..999999)
+expected=table(s,l,f,d,b,i,t,str,c,var,time,date)
+ex=select top 10000 * from expected
+assert 1,each(eqObj,tb.values(),ex.values())
+
+@testing:case="test_orc_loadORC_change_schema"
+schema=orc::extractORCSchema(DATA_DIR+"/bigdata.orc")
+update schema set type=`INT where name=`b        
+update schema set type=`TIMESTAMP where name=`time       
+//bigdata
+tb=orc::loadORC(DATA_DIR+"/bigdata.orc",schema)
+shortv=short(0..10000).append!(take(short(),10000)).append!(short(20001..999999))
+longv=long(0..10000).append!(take(long(),10000)).append!(long(20001..999999))
+floatv=float(0..10000).append!(take(float(),10000)).append!(float(20001..999999))
+doublev=double(0..10000).append!(take(double(),10000)).append!(double(20001..999999))
+datav=[0].append!(take(1,10000)).append!(take(int(),10000)).append!(take(1,979999))
+intv=int(0..10000).append!(take(int(),10000)).append!(int(20001..999999))
+charv=char(0..10000).append!(take(char(),10000)).append!(char(20001..999999))
+str=array(STRING).append!("c"+string(0..10000)).append!(take(string(),10000)).append!("c"+string(20001..999999))
+c=array(STRING).append!(take("c",10001)).append!(take(string(),10000)).append!(take("c",979999))
+var=array(STRING)
+var.append!("c"+string(0..10000)).append!(take(string(),10000)).append!("c"+string(20001..999999))
+timev=timestamp(take(2021.01.01T01:01:01,2001).append!(take(2021.01.02 01:01:01,3000)).append!(take(2021.01.03 01:01:01,5000)).append!(take(2021.01.04 01:01:01,10000)).append!(take(2021.01.05 01:01:01,979999)))
+datev = date(1970.01.01+0..999999)
+expected = table(shortv, longv, floatv, doublev , datav, intv, charv, str, c, var, timev, datev)
+ex = select top 10000 * from expected
+assert 1, each(eqObj, tb.values(), ex.values())
+
+
+schema=orc::extractORCSchema(DATA_DIR+"/bigdata.orc")
+update schema set type=`SYMBOL where name=`str or name=`c or name=`var    
+//bigdata
+tb=orc::loadORC(DATA_DIR+"/bigdata.orc",schema)
+s=short(0..10000).append!(take(short(),10000)).append!(short(20001..999999))
+l=long(0..10000).append!(take(long(),10000)).append!(long(20001..999999))
+f=float(0..10000).append!(take(float(),10000)).append!(float(20001..999999))
+d=double(0..10000).append!(take(double(),10000)).append!(double(20001..999999))
+b=bool([0].append!(take(1,10000)).append!(take(int(),10000)).append!(take(1,979999)))
+i=int(0..10000).append!(take(int(),10000)).append!(int(20001..999999))
+t=char(0..10000).append!(take(char(),10000)).append!(char(20001..999999))
+str=array(SYMBOL)
+str.append!("c"+string(0..10000)).append!(take(string(),10000)).append!("c"+string(20001..999999))
+c=array(SYMBOL)
+c.append!(take("c",10001)).append!(take(string(),10000)).append!(take("c",979999))
+var=array(SYMBOL)
+var.append!("c"+string(0..10000)).append!(take(string(),10000)).append!("c"+string(20001..999999))
+time=take(2021.01.01T01:01:01.000000000,2001).append!(take(2021.01.02 01:01:01.000000000,3000)).append!(take(2021.01.03 01:01:01.000000000,5000)).append!(take(2021.01.04 01:01:01.000000000,10000)).append!(take(2021.01.05 01:01:01.000000000,979999))
+date=date(1970.01.01+0..999999)
+expected=table(s,l,f,d,b,i,t,str,c,var,time,date)
+ex = select top 10000 * from expected
+assert 2, each(eqObj, tb.values(), ex.values())
+
+
+@testing:case="test_orc_loadORC_column"     
+schema=table(`s`f`d`str as name,`SHORT`FLOAT`DOUBLE`STRING as type)
+tb=orc::loadORC(DATA_DIR+"/bigdata.orc",schema,0 2 3 7)
+s=short(0..10000).append!(take(short(),10000)).append!(short(20001..999999))
+f=float(0..10000).append!(take(float(),10000)).append!(float(20001..999999))
+d=double(0..10000).append!(take(double(),10000)).append!(double(20001..999999))
+str=array(STRING)
+str.append!("c"+string(0..10000)).append!(take(string(),10000)).append!("c"+string(20001..999999))
+expected=table(s,f,d,str)
+ex = select top 10000 * from expected
+assert 1, each(eqObj, tb.values(), ex.values())
+
+tb=orc::loadORC(DATA_DIR+"/bigdata.orc",,0 2 3 7)
+s=short(0..10000).append!(take(short(),10000)).append!(short(20001..999999))
+f=float(0..10000).append!(take(float(),10000)).append!(float(20001..999999))
+d=double(0..10000).append!(take(double(),10000)).append!(double(20001..999999))
+str=array(STRING)
+str.append!("c"+string(0..10000)).append!(take(string(),10000)).append!("c"+string(20001..999999))
+expected=table(s,f,d,str)
+ex = select top 10000 * from expected
+assert 2, each(eqObj, tb.values(), ex.values())
+
+tb=orc::loadORC(DATA_DIR+"/bigdata.orc",,3 0 2 7)
+s=short(0..10000).append!(take(short(),10000)).append!(short(20001..999999))
+f=float(0..10000).append!(take(float(),10000)).append!(float(20001..999999))
+d=double(0..10000).append!(take(double(),10000)).append!(double(20001..999999))
+str=array(STRING)
+str.append!("c"+string(0..10000)).append!(take(string(),10000)).append!("c"+string(20001..999999))
+expected=table(d,s,f,str)
+ex = select top 10000 * from expected
+assert 3, each(eqObj, tb.values(), ex.values())
+
+@testing:case="test_orc_loadORC_rowNum"
+tb=orc::loadORC(DATA_DIR+"/bigdata.orc",,0..10,1000,1)
+s=[short(1000)]
+l=[long(1000)]
+f=[float(1000)]
+d=[double(1000)]
+b=[bool(1000)]
+i=[int(1000)]
+t=[char(1000)]
+str=array(STRING)
+str.append!("c"+string(1000))
+c=array(STRING)
+c.append!(take("c",1))
+var=array(STRING)
+var.append!("c"+string(1000))
+time=take(2021.01.01 01:01:01.000000000,1)
+expected=table(s,l,f,d,b,i,t,str,c,var,time)
+assert 1,each(eqObj,tb.values(),expected.values())
+
+tb=orc::loadORC(DATA_DIR+"/bigdata.orc",,,0,0)
+s=short(0..10000).append!(take(short(),10000)).append!(short(20001..999999))
+l=long(0..10000).append!(take(long(),10000)).append!(long(20001..999999))
+f=float(0..10000).append!(take(float(),10000)).append!(float(20001..999999))
+d=double(0..10000).append!(take(double(),10000)).append!(double(20001..999999))
+b=bool(0..10000).append!(take(bool(),10000)).append!(bool(20001..999999))
+i=int(0..10000).append!(take(int(),10000)).append!(int(20001..999999))
+t=char(0..10000).append!(take(char(),10000)).append!(char(20001..999999))
+str=array(STRING)
+str.append!("c"+string(0..10000)).append!(take(string(),10000)).append!("c"+string(20001..999999))
+c=array(STRING)
+c.append!(take("c",10001)).append!(take(string(),10000)).append!(take("c",979999))
+var=array(STRING)
+var.append!("c"+string(0..10000)).append!(take(string(),10000)).append!("c"+string(20001..999999))
+time=take(2021.01.01T01:01:01.000000000,2001).append!(take(2021.01.02 01:01:01.000000000,3000)).append!(take(2021.01.03 01:01:01.000000000,5000)).append!(take(2021.01.04 01:01:01.000000000,10000)).append!(take(2021.01.05 01:01:01.000000000,979999))
+date=date(1970.01.01+0..999999)
+expected=table(s,l,f,d,b,i,t,str,c,var,time,date)
+expected=select top 10000 * from expected
+assert 2,each(eqObj,tb.values(),expected.values())
+
+@testing:case="test_orc_loadORCEx"
+//date+int
+if(existsDatabase("dfs://testorc")){
+	dropDatabase("dfs://testorc")
+}
+db1 = database("",RANGE,1970.01.01+0..100*100)
+db2 = database("",HASH,[INT,10])
+db = database("dfs://testorc",COMPO,[db1,db2])
+tb=orc::loadORCEx(db,`tb,`date`i,DATA_DIR+"/bigdata.orc")
+expected=orc::loadORC(DATA_DIR+"/bigdata.orc")
+db.createPartitionedTable(expected,`pt,`date`i).append!(expected)
+tb=select *  from loadTable("dfs://testorc",`tb) 
+pt=select *  from loadTable("dfs://testorc",`pt) 
+assert 1,each(eqObj,tb.values(),pt.values())
+
+//date+char +schema
+schema=orc::extractORCSchema(DATA_DIR+"/bigdata.orc")
+update schema set type=`INT where name=`b
+if(existsDatabase("dfs://testorc")){
+	dropDatabase("dfs://testorc")
+}
+db1 = database("",RANGE,1970.01.01+0..100*1000)
+db2 = database("",HASH,[CHAR,10])
+db = database("dfs://testorc",COMPO,[db1,db2])
+tb=orc::loadORCEx(db,`tb,`date`t,DATA_DIR+"/bigdata.orc",schema)
+expected=orc::loadORC(DATA_DIR+"/bigdata.orc",schema)
+db.createPartitionedTable(expected,`pt,`date`t).append!(expected)
+tb=select *  from loadTable("dfs://testorc",`tb) 
+pt=select *  from loadTable("dfs://testorc",`pt) 
+assert 2,each(eqObj,tb.values(),pt.values())
+
+//datetime+short
+if(existsDatabase("dfs://testorc")){
+	dropDatabase("dfs://testorc")
+}
+db1 = database("",VALUE,1970.01.01+0..10000)
+db2 = database("",RANGE,0..10*100000)
+db = database("dfs://testorc",COMPO,[db1,db2])
+tb=orc::loadORCEx(db,`tb,`time`s,DATA_DIR+"/bigdata.orc")
+expected=orc::loadORC(DATA_DIR+"/bigdata.orc")
+db.createPartitionedTable(expected,`pt,`time`s).append!(expected)
+tb=select *  from loadTable("dfs://testorc",`tb) 
+pt=select *  from loadTable("dfs://testorc",`pt) 
+assert 3,each(eqObj,tb.values(),pt.values())
+
+//datetime+int+schema+column
+name=`s`l`f`b`i`time`date
+value=`SHORT`LONG`FLOAT`INT`INT`TIMESTAMP`DATE
+schema=table(name,value)
+if(existsDatabase("dfs://testorc")){
+	dropDatabase("dfs://testorc")
+}
+db1 = database("",VALUE,1970.01.01+0..1000)
+db2 = database("",RANGE,0..10*1000)
+db = database("dfs://testorc",COMPO,[db1,db2])
+tb=orc::loadORCEx(db,`tb,`time`i,DATA_DIR+"/bigdata.orc",schema,0 1 2 4 5 10 11)
+expected=orc::loadORC(DATA_DIR+"/bigdata.orc",schema,0 1 2 4 5 10 11)
+db.createPartitionedTable(expected,`pt,`time`i).append!(expected)
+tb=select *  from loadTable("dfs://testorc",`tb) 
+pt=select *  from loadTable("dfs://testorc",`pt) 
+assert 4,each(eqObj,tb.values(),pt.values())
+
+//datetime+LONG
+if(existsDatabase("dfs://testorc")){
+	dropDatabase("dfs://testorc")
+}
+db1 = database("",VALUE,1970.01.01+0..10000)
+db2 = database("",HASH,[LONG,10])
+db = database("dfs://testorc",COMPO,[db1,db2])
+tb=orc::loadORCEx(db,`tb,`time`l,DATA_DIR+"/bigdata.orc")
+expected=orc::loadORC(DATA_DIR+"/bigdata.orc")
+db.createPartitionedTable(expected,`pt,`time`l).append!(expected)
+tb=select *  from loadTable("dfs://testorc",`tb) 
+pt=select *  from loadTable("dfs://testorc",`pt) 
+assert 5,each(eqObj,tb.values(),pt.values())
+
+//datetime+STRING+schema
+if(existsDatabase("dfs://testorc")){
+	dropDatabase("dfs://testorc")
+}
+db1 = database("",RANGE,1970.01.01+0..100*1000)
+db2 = database("",HASH,[STRING,10])
+db = database("dfs://testorc",COMPO,[db1,db2])
+tb=orc::loadORCEx(db,`tb,`time`str,DATA_DIR+"/bigdata.orc")
+expected=orc::loadORC(DATA_DIR+"/bigdata.orc")
+db.createPartitionedTable(expected,`pt,`time`str).append!(expected)
+tb=select *  from loadTable("dfs://testorc",`tb) 
+pt=select *  from loadTable("dfs://testorc",`pt) 
+assert 6,each(eqObj,tb.values(),pt.values())
+
+//datetime+varchar+tranform
+if(existsDatabase("dfs://testorc")){
+	dropDatabase("dfs://testorc")
+}
+db1 = database("",RANGE,1970.01.01+0..100*1000)
+db2 = database("",HASH,[STRING,10])
+db = database("dfs://testorc",COMPO,[db1,db2])
+expected=orc::loadORC(DATA_DIR+"/bigdata.orc")
+def  cacusum(mutable t){
+	return t.replaceColumn!(`l,(exec l from expected)+1)
+}
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bigdata.orc",,,,,cacusum)
+update expected set l=l+1
+db.createPartitionedTable(expected,`pt,`time`var).append!(expected)
+tb=select *  from loadTable("dfs://testorc",`tb) 
+pt=select *  from loadTable("dfs://testorc",`pt) 
+assert 7,each(eqObj,tb.values(),pt.values())
+
+//datetime+int+schema+column2
+if(existsDatabase("dfs://testorc")){
+	dropDatabase("dfs://testorc")
+}
+db1 = database("",VALUE,1970.01.01+0..10000)
+db2 = database("",RANGE,0..10*100000)
+db = database("dfs://testorc",COMPO,[db1,db2])
+tb=orc::loadORCEx(db,`tb,`time`i,DATA_DIR+"/bigdata.orc",, 11 2 4 5 0 1 10)
+expected=orc::loadORC(DATA_DIR+"/bigdata.orc",,11 2 4 5 0 1  10 )
+db.createPartitionedTable(expected,`pt,`time`i).append!(expected)
+tb=select * from loadTable("dfs://testorc",`tb) 
+pt=select * from loadTable("dfs://testorc",`pt) 
+assert 8,each(eqObj,tb.values(),pt.values())
+
+@testing:case="test_orc_loadORCEx_seq_partitions=1",exception=1
+if(existsDatabase(WORK_DIR + "/testorc_SEQ")){
+	dropDatabase(WORK_DIR + "/testorc_SEQ")
+}
+db = database(WORK_DIR + "/testorc_SEQ",SEQ,partitionScheme=1)
+tb=orc::loadORCEx(db,`tb,,DATA_DIR+"/bigdata.orc")
+
+@testing:case="test_orc_loadORCEx_transform_partial_application"
+if(existsDatabase("dfs://testorc")){
+	dropDatabase("dfs://testorc")
+}
+db1 = database("",RANGE,1970.01.01+0..100*10000)
+db2 = database("",HASH,[STRING,10])
+db = database("dfs://testorc",COMPO,[db1,db2])
+expected=orc::loadORC(DATA_DIR+"/bigdata.orc")
+def  cacusum(mutable t,x){
+	return t.replaceColumn!(`l,(exec l from expected)+1)
+}
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bigdata.orc",,,,,cacusum{,1})
+update expected set l=l+1
+db.createPartitionedTable(expected,`pt,`time`var).append!(expected)
+tb=select *  from loadTable("dfs://testorc",`tb) 
+pt=select *  from loadTable("dfs://testorc",`pt) 
+assert 1,each(eqObj,tb.values(),pt.values())
+
+@testing:case="test_orc_loadORCEx_transform_exception",exception = 1
+if(existsDatabase("dfs://testorc")){
+	dropDatabase("dfs://testorc")
+}
+db1 = database("",RANGE,1970.01.01+0..100*10000)
+db2 = database("",HASH,[STRING,10])
+db = database("dfs://testorc",COMPO,[db1,db2])
+expected=orc::loadORC(DATA_DIR+"/bigdata.orc")
+def  cacusum(mutable t){
+	throw "exception"
+	return t.replaceColumn!(`l,(exec l from expected)+1)
+}
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bigdata.orc",,,,,cacusum)
+
+@testing:case="test_orc_loadORCEx_transform_return_wrong",exception = 1
+if(existsDatabase("dfs://testorc")){
+	dropDatabase("dfs://testorc")
+}
+db1 = database("",RANGE,1970.01.01+0..100*10000)
+db2 = database("",HASH,[STRING,10])
+db = database("dfs://testorc",COMPO,[db1,db2])
+expected=orc::loadORC(DATA_DIR+"/bigdata.orc")
+def  cacusum(mutable t){
+	return 1
+}
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bigdata.orc",,,,,cacusum)
+
+@testing:case="test_orc_loadORCEx_transform_input_wrong",exception = 1
+if(existsDatabase("dfs://testorc")){
+	dropDatabase("dfs://testorc")
+}
+db1 = database("",RANGE,1970.01.01+0..100*10000)
+db2 = database("",HASH,[STRING,10])
+db = database("dfs://testorc",COMPO,[db1,db2])
+expected=orc::loadORC(DATA_DIR+"/bigdata.orc")
+def  cacusum(mutable t,x){
+	return t.replaceColumn!(`l,(exec l from expected)+1)
+}
+tb=orc::loadORCEx(db,`tb,`time`var,DATA_DIR+"/bigdata.orc",,,,,cacusum{1})
+
+@testing:case="test_orc_orcDS"
+ds = orc::orcDS(DATA_DIR+"/bigdata.orc", 10000)
+assert 1,ds.size()==1
+for(i in 0:1){
+assert 2,string(ds[i])=="DataSource< loadOrc("+"\""+DATA_DIR+"/bigdata.orc"+"\""+", , , " +(i*100000)+", 10000) >"
+}
+
+schema=orc::extractORCSchema(DATA_DIR+"/bigdata.orc")
+update schema set type=`INT where name=`b
+ds = orc::orcDS(DATA_DIR+"/bigdata.orc", 1,schema)
+assert 3,ds.size()==10000
+for(i in 0:10000){
+assert 4,like(string(ds[i]),"DataSource< loadOrc("+"\""+DATA_DIR+"/bigdata.orc"+"\""+", schema%, , " +i+", 1) >")
+}
+
+ds = orc::orcDS(DATA_DIR+"/bigdata.orc", 30,,)
+assert 5,ds.size()==334
+for(i in 0:334){
+assert 6,string(ds[i])=="DataSource< loadOrc("+"\""+DATA_DIR+"/bigdata.orc"+"\""+", , , " +i*30+", 30) >"
+}
+
+ds = orc::orcDS(DATA_DIR+"/bigdata.orc", 2000000,,)
+assert 7,ds.size()==1
+assert 8,string(ds[0])=="DataSource< loadOrc("+"\""+DATA_DIR+"/bigdata.orc"+"\""+", , , " +0+", 2000000) >"
+
+ds = orc::orcDS(DATA_DIR+"/bigdata.orc",1,,1000000)
+assert 9,ds.size()==0
+
+ds = orc::orcDS(DATA_DIR+"/bigdata.orc",1,,2000000)
+assert 10,ds.size()==0
+
+@testing:case="test_orc_orcDS_mr"
+ds = orc::orcDS(DATA_DIR+"/bigdata.orc", 1000)
+def  ret(table){
+	re=exec count(*)  from table
+	return re
+}
+res=mr(ds,ret)[0]
+assert 1,res==take(1000,10)
+
+schema=orc::extractORCSchema(DATA_DIR+"/bigdata.orc")
+update schema set type=`INT where name=`b
+update schema set type=`SYMBOL where name=`str or name=`c or name=`var    
+ds = orc::orcDS(DATA_DIR+"/bigdata.orc", 1000,schema)
+res=mr(ds,ret)[0]
+assert 1,res==take(1000,10)
+
+@testing:case="test_orc_dropdb"
+if(existsDatabase("dfs://testorc")){
+	dropDatabase("dfs://testorc")
+}
+
+@testing:case="test_orc_saveORC_empty_file"
+n = 100000
+t = table(n:0,[`symbol,`string,`bool,`short,`int,`long,`float,`double,`nanotimestamp,`date,`char,`month,`time,`minute,`second,`datetime,`timestamp,`nanotime],[SYMBOL,STRING,BOOL,SHORT,INT,LONG,FLOAT,DOUBLE,NANOTIMESTAMP, DATE,CHAR,MONTH,TIME,MINUTE,SECOND,DATETIME,TIMESTAMP,NANOTIME])
+tb=orc::saveORC(t,WORK_DIR+"/t_emptyfile.orc")
+assert 1,exists(WORK_DIR+"/t_emptyfile.orc")
+
+
+@testing:case="test_orc_saveORC_onlyonerow_file"
+t = table(n:1, [`symbolv, `stringv, `boolv, `shortv, `intv, `longv, `floatv, `doublev, `nanotimestampv, `datev, `charv, `monthv, `timev, `minutev, `secondv, `datetimev, `timestampv, `nanotimev], [SYMBOL, STRING, BOOL, SHORT, INT, LONG, FLOAT, DOUBLE, NANOTIMESTAMP, DATE,CHAR, MONTH, TIME, MINUTE, SECOND, DATETIME, TIMESTAMP, NANOTIME])
+t[`symbolv] = rand(("mmmm" +string(1..1000)) join NULL, 1)
+t[`stringv] = rand(("hello"+string(1..1000)) join NULL, 1)
+t[`boolv] = rand([true, false, NULL], 1)
+t[`shortv] = rand((1..32767h) join NULL, 1)
+t[`intv] = rand(rand(-100..100, 10) join NULL, 1)
+t[`longv] = rand(1..100l join NULL, 1)
+t[`floatv] = rand(rand(100.0f, 1000) join NULL, 1)
+t[`doublev] = rand(rand(100.0, 1000) join NULL, 1)
+t[`nanotimestampv] = 1970.01.01T00:00:00.000000000
+t[`datev] = 2017.01.16
+t[`charv] = char(rand(127c, 1))
+t[`monthv] = 2012.06M
+t[`timev] = 13:30:10.008
+t[`minutev] = 13:30m
+t[`secondv] = 13:30:10
+t[`datetimev] = 2012.06.13T13:30:10
+t[`timestampv] = 2012.06.13T13:30:10.008
+t[`nanotimev] = 13:30:10.008007006
+tb = orc::saveORC(t, WORK_DIR+"/onlyonerow.orc")
+re = orc::loadORC(WORK_DIR+"/onlyonerow.orc")
+v = [`symbolv, `stringv, `boolv, `shortv, `intv, `longv, `floatv, `doublev, `nanotimestampv, `datev, `charv]
+for(i in v){
+	assert i, re[i] == t[i]
+}
+assert 12, eqObj(re[`monthv], date(t[`monthv]))
+assert 13, eqObj(time(re[`timev]), t[`timev])
+assert 14, eqObj(minute(re[`minutev]), t[`minutev])
+assert 15, eqObj(second(re[`secondv]), t[`secondv])
+assert 16, eqObj(re[`datetimev], nanotimestamp(t[`datetimev]))
+assert 17, eqObj(re[`timestampv],  nanotimestamp(t[`timestampv]))
+assert 18, eqObj(nanotime(re[`nanotimev]), t[`nanotimev])
+
+@testing:case="test_orc_Saveorc_BIGDATA"
+n = 3000000
+t = table(n : n, [`symbolv, `stringv, `boolv, `shortv, `intv, `longv, `floatv, `doublev, `nanotimestampv, `datev, `charv, `monthv, `timev, `minutev, `secondv, `datetimev, `timestampv, `nanotimev], [SYMBOL, STRING, BOOL, SHORT, INT, LONG, FLOAT, DOUBLE, NANOTIMESTAMP, DATE,CHAR, MONTH, TIME, MINUTE, SECOND, DATETIME, TIMESTAMP, NANOTIME])
+t[`symbolv] = rand(("mmmm"+string(1..100)) join NULL, n)
+t[`stringv] = rand(("hello"+string(1..100)) join NULL, n)
+t[`boolv] = rand([true, false, NULL], n)
+t[`shortv] = rand(rand(-100..100, 10) join NULL, n)
+t[`intv] = rand(rand(-100..100, 10) join NULL, n)
+t[`longv] = rand(1..100l join NULL, n)
+t[`floatv] = rand(rand(100.0f,1000) join NULL, n)
+t[`doublev] = rand(rand(100.0,1000) join NULL, n)
+tem1 = 1970.01.01T00:00:00.000000000
+ts1 = array(nanotimestamp,0,n)
+for(i in 1..n){
+	tem1 = temporalAdd(tem1,1,`ns)
+	ts1.append!(tem1)
+}
+t[`nanotimestampv] = ts1
+t[`datev] = 1969.02.02+1..n
+t[`charv] = char(rand(127c, n))
+t[`monthv] = rand(2000.01M..2016.12M, n)
+t[`timev] = 13:30:10.008 + 1..n
+t[`minutev] = 13:30m +1..n
+t[`secondv] = 13:30:10 + 1..n
+t[`datetimev] = 2012.06.13T13:30:10 + 1..n
+t[`timestampv] = 2012.06.13T13:30:10.008 + 1..n
+t[`nanotimev] = 13:30:10.008007006
+
+for (i in 0:100) {
+	insert into t values(`mmmm1, `hello, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,NULL);	
+}
+for (i in 0:100) {
+	insert into t values(`mmmm1, `hello, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,NULL);	
+}
+tb = orc::saveORC(t,WORK_DIR+"/bigdata.orc")
+re = orc::loadORC(WORK_DIR+"/bigdata.orc")
+v = [`symbolv, `stringv, `boolv, `shortv, `intv, `longv, `floatv, `doublev, `nanotimestampv, `datev, `charv]
+for(i in v){
+	assert i, re[i] == t[i]
+}
+
+assert 12, eqObj(re[`monthv], date(t[`monthv]))
+assert 13, eqObj(time(re[`timev]), t[`timev])
+assert 14, eqObj(minute(re[`minutev]), t[`minutev])
+assert 15, eqObj(second(re[`secondv]), t[`secondv])
+assert 16, eqObj(re[`datetimev], nanotimestamp(t[`datetimev]))
+assert 17, eqObj(re[`timestampv],  nanotimestamp(t[`timestampv]))
+assert 18, eqObj(nanotime(re[`nanotimev]), t[`nanotimev])
+ 
+
+@testing:case="test_orc_Saveorc_string_scope"
+n = 100000
+t = table(n : n, [`symbolv, `stringv, `boolv, `shortv, `intv, `longv, `floatv, `doublev, `nanotimestampv, `datev, `charv, `monthv, `timev, `minutev, `secondv, `datetimev, `timestampv, `nanotimev], [SYMBOL, STRING, BOOL, SHORT, INT, LONG, FLOAT, DOUBLE, NANOTIMESTAMP, DATE,CHAR, MONTH, TIME, MINUTE, SECOND, DATETIME, TIMESTAMP, NANOTIME])
+t[`symbolv] = rand(("mmmm"+string(1..10000)) join NULL, n)
+t[`stringv] = rand(("hello"+string(1..10000)) join NULL, n)
+t[`boolv] = rand([true, false, NULL], n)
+t[`shortv] = rand(rand(-100..100, 10) join NULL, n)
+t[`intv] = rand(rand(-100..100, 10) join NULL, n)
+t[`longv] = rand(1..100l join NULL, n)
+t[`floatv] = rand(rand(100.0f,1000) join NULL, n)
+t[`doublev] = rand(rand(100.0,1000) join NULL, n)
+tem1 = 1970.01.01T00:00:00.000000000
+ts1 = array(nanotimestamp, 0, n)
+for(i in 1..n){
+	tem1 = temporalAdd(tem1, 1, `ns)
+	ts1.append!(tem1)
+}
+t[`nanotimestampv] = ts1
+t[`datev] = 1969.02.02+1..n
+t[`charv] = char(rand(127c, n))
+t[`monthv] = rand(2000.01M..2016.12M, n)
+t[`timev] = 13:30:10.008 + 1..n
+t[`minutev] = 13:30m +1..n
+t[`secondv] = 13:30:10 + 1..n
+t[`datetimev] = 2012.06.13T13:30:10 + 1..n
+t[`timestampv] = 2012.06.13T13:30:10.008 + 1..n
+t[`nanotimev] = 13:30:10.008007006
+
+for (i in 0:100) {
+	insert into t values(`mmmm1, `hello, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,NULL);	
+}
+for (i in 0:100) {
+	insert into t values(`mmmm1, `hello, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,NULL);	
+}
+tb = orc::saveORC(t,WORK_DIR+"/bigdata.orc")
+re = orc::loadORC(WORK_DIR+"/bigdata.orc")
+v = [`symbolv, `stringv, `boolv, `shortv, `intv, `longv, `floatv, `doublev, `nanotimestampv, `datev, `charv]
+for(i in v){
+	assert i, re[i] == t[i]
+}
+
+assert 12, eqObj(re[`monthv], date(t[`monthv]))
+assert 13, eqObj(time(re[`timev]), t[`timev])
+assert 14, eqObj(minute(re[`minutev]), t[`minutev])
+assert 15, eqObj(second(re[`secondv]), t[`secondv])
+assert 16, eqObj(re[`datetimev], nanotimestamp(t[`datetimev]))
+assert 17, eqObj(re[`timestampv],  nanotimestamp(t[`timestampv]))
+assert 18, eqObj(nanotime(re[`nanotimev]), t[`nanotimev])
+
+
+@testing:case="test_orc_Saveorc_string_@"
+n = 100000
+t = table(n : n, [`symbolv, `stringv, `boolv, `shortv, `intv, `longv, `floatv, `doublev, `nanotimestampv, `datev, `charv, `monthv, `timev, `minutev, `secondv, `datetimev, `timestampv, `nanotimev], [SYMBOL, STRING, BOOL, SHORT, INT, LONG, FLOAT, DOUBLE, NANOTIMESTAMP, DATE,CHAR, MONTH, TIME, MINUTE, SECOND, DATETIME, TIMESTAMP, NANOTIME])
+t[`symbolv] = rand(("mmmm"+string(1..10000)) join NULL, n)
+t[`stringv] = rand(("@"+string(1..10000)) join NULL, n)
+t[`boolv] = rand([true, false, NULL], n)
+t[`shortv] = rand(rand(-100..100, 10) join NULL, n)
+t[`intv] = rand(rand(-100..100, 10) join NULL, n)
+t[`longv] = rand(1..100l join NULL, n)
+t[`floatv] = rand(rand(100.0f,1000) join NULL, n)
+t[`doublev] = rand(rand(100.0,1000) join NULL, n)
+tem1 = 1970.01.01T00:00:00.000000000
+ts1 = array(nanotimestamp, 0, n)
+for(i in 1..n){
+	tem1 = temporalAdd(tem1, 1, `ns)
+	ts1.append!(tem1)
+}
+t[`nanotimestampv] = ts1
+t[`datev] = 1969.02.02+1..n
+t[`charv] = char(rand(127c, n))
+t[`monthv] = rand(2000.01M..2016.12M, n)
+t[`timev] = 13:30:10.008 + 1..n
+t[`minutev] = 13:30m +1..n
+t[`secondv] = 13:30:10 + 1..n
+t[`datetimev] = 2012.06.13T13:30:10 + 1..n
+t[`timestampv] = 2012.06.13T13:30:10.008 + 1..n
+t[`nanotimev] = 13:30:10.008007006
+
+for (i in 0:100) {
+	insert into t values(`mmmm1, `hello, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,NULL);	
+}
+for (i in 0:100) {
+	insert into t values(`mmmm1, `hello, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,NULL);	
+}
+tb = orc::saveORC(t,WORK_DIR+"/bigdata.orc")
+re = orc::loadORC(WORK_DIR+"/bigdata.orc")
+v = [`symbolv, `stringv, `boolv, `shortv, `intv, `longv, `floatv, `doublev, `nanotimestampv, `datev, `charv]
+for(i in v){
+	assert i, re[i] == t[i]
+}
+assert 12, eqObj(re[`monthv], date(t[`monthv]))
+assert 13, eqObj(time(re[`timev]), t[`timev])
+assert 14, eqObj(minute(re[`minutev]), t[`minutev])
+assert 15, eqObj(second(re[`secondv]), t[`secondv])
+assert 16, eqObj(re[`datetimev], nanotimestamp(t[`datetimev]))
+assert 17, eqObj(re[`timestampv],  nanotimestamp(t[`timestampv]))
+assert 18, eqObj(nanotime(re[`nanotimev]), t[`nanotimev])
+
+
+@testing:case="test_orc_Saveorc_string_chinese"
+n = 100000
+t = table(n : n, [`symbolv, `stringv, `boolv, `shortv, `intv, `longv, `floatv, `doublev, `nanotimestampv, `datev, `charv, `monthv, `timev, `minutev, `secondv, `datetimev, `timestampv, `nanotimev], [SYMBOL, STRING, BOOL, SHORT, INT, LONG, FLOAT, DOUBLE, NANOTIMESTAMP, DATE,CHAR, MONTH, TIME, MINUTE, SECOND, DATETIME, TIMESTAMP, NANOTIME])
+t[`symbolv] = rand(("mmmm"+string(1..10000)) join NULL, n)
+t[`stringv] = rand(("数据库"+string(1..10000)) join NULL, n)
+t[`boolv] = rand([true, false, NULL], n)
+t[`shortv] = rand(rand(-100..100, 10) join NULL, n)
+t[`intv] = rand(rand(-100..100, 10) join NULL, n)
+t[`longv] = rand(1..100l join NULL, n)
+t[`floatv] = rand(rand(100.0f,1000) join NULL, n)
+t[`doublev] = rand(rand(100.0,1000) join NULL, n)
+tem1 = 1970.01.01T00:00:00.000000000
+ts1 = array(nanotimestamp, 0, n)
+for(i in 1..n){
+	tem1 = temporalAdd(tem1, 1, `ns)
+	ts1.append!(tem1)
+}
+t[`nanotimestampv] = ts1
+t[`datev] = 1969.02.02+1..n
+t[`charv] = char(rand(127c, n))
+t[`monthv] = rand(2000.01M..2016.12M, n)
+t[`timev] = 13:30:10.008 + 1..n
+t[`minutev] = 13:30m +1..n
+t[`secondv] = 13:30:10 + 1..n
+t[`datetimev] = 2012.06.13T13:30:10 + 1..n
+t[`timestampv] = 2012.06.13T13:30:10.008 + 1..n
+t[`nanotimev] = 13:30:10.008007006
+
+for (i in 0:100) {
+	insert into t values(`mmmm1, `hello, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,NULL);	
+}
+for (i in 0:100) {
+	insert into t values(`mmmm1, `hello, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,NULL);	
+}
+tb = orc::saveORC(t,WORK_DIR+"/bigdata.orc")
+re = orc::loadORC(WORK_DIR+"/bigdata.orc")
+v = [`symbolv, `stringv, `boolv, `shortv, `intv, `longv, `floatv, `doublev, `nanotimestampv, `datev, `charv]
+for(i in v){
+	assert i, re[i] == t[i]
+}
+
+assert 12, eqObj(re[`monthv], date(t[`monthv]))
+assert 13, eqObj(time(re[`timev]), t[`timev])
+assert 14, eqObj(minute(re[`minutev]), t[`minutev])
+assert 15, eqObj(second(re[`secondv]), t[`secondv])
+assert 16, eqObj(re[`datetimev], nanotimestamp(t[`datetimev]))
+assert 17, eqObj(re[`timestampv],  nanotimestamp(t[`timestampv]))
+assert 18, eqObj(nanotime(re[`nanotimev]), t[`nanotimev])
+
+
+@testing:case="test_orc_Saveorc_less_than_1024"
+n = 1023
+t = table(n : n, [`symbolv, `stringv, `boolv, `shortv, `intv, `longv, `floatv, `doublev, `nanotimestampv, `datev, `charv, `monthv, `timev, `minutev, `secondv, `datetimev, `timestampv, `nanotimev], [SYMBOL, STRING, BOOL, SHORT, INT, LONG, FLOAT, DOUBLE, NANOTIMESTAMP, DATE,CHAR, MONTH, TIME, MINUTE, SECOND, DATETIME, TIMESTAMP, NANOTIME])
+t[`symbolv] = rand(("mmmm"+string(1..100)) join NULL, n)
+t[`stringv] = rand(("hello"+string(1..100)) join NULL, n)
+t[`boolv] = rand([true, false, NULL], n)
+t[`shortv] = rand(rand(-100..100, 10) join NULL, n)
+t[`intv] = rand(rand(-100..100, 10) join NULL, n)
+t[`longv] = rand(1..100l join NULL, n)
+t[`floatv] = rand(rand(100.0f,1000) join NULL, n)
+t[`doublev] = rand(rand(100.0,1000) join NULL, n)
+tem1 = 1970.01.01T00:00:00.000000000
+ts1 = array(nanotimestamp,0,n)
+for(i in 1..n){
+	tem1 = temporalAdd(tem1,1,`ns)
+	ts1.append!(tem1)
+}
+t[`nanotimestampv] = ts1
+t[`datev] = 1969.02.02+1..n
+t[`charv] = char(rand(127c, n))
+t[`monthv] = rand(2000.01M..2016.12M, n)
+t[`timev] = 13:30:10.008 + 1..n
+t[`minutev] = 13:30m +1..n
+t[`secondv] = 13:30:10 + 1..n
+t[`datetimev] = 2012.06.13T13:30:10 + 1..n
+t[`timestampv] = 2012.06.13T13:30:10.008 + 1..n
+t[`nanotimev] = 13:30:10.008007006
+
+for (i in 0:100) {
+	insert into t values(`mmmm1, `hello, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,NULL);	
+}
+for (i in 0:100) {
+	insert into t values(`mmmm1, `hello, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,NULL);	
+}
+tb = orc::saveORC(t,WORK_DIR+"/bigdata.orc")
+re = orc::loadORC(WORK_DIR+"/bigdata.orc")
+v = [`symbolv, `stringv, `boolv, `shortv, `intv, `longv, `floatv, `doublev, `nanotimestampv, `datev, `charv]
+for(i in v){
+	assert i, re[i] == t[i]
+}
+
+assert 12, eqObj(re[`monthv], date(t[`monthv]))
+assert 13, eqObj(time(re[`timev]), t[`timev])
+assert 14, eqObj(minute(re[`minutev]), t[`minutev])
+assert 15, eqObj(second(re[`secondv]), t[`secondv])
+assert 16, eqObj(re[`datetimev], nanotimestamp(t[`datetimev]))
+assert 17, eqObj(re[`timestampv],  nanotimestamp(t[`timestampv]))
+assert 18, eqObj(nanotime(re[`nanotimev]), t[`nanotimev])
+
+
+@testing:case="test_orc_Saveorc_more_than_1024"
+n = 1025
+t = table(n : n, [`symbolv, `stringv, `boolv, `shortv, `intv, `longv, `floatv, `doublev, `nanotimestampv, `datev, `charv, `monthv, `timev, `minutev, `secondv, `datetimev, `timestampv, `nanotimev], [SYMBOL, STRING, BOOL, SHORT, INT, LONG, FLOAT, DOUBLE, NANOTIMESTAMP, DATE,CHAR, MONTH, TIME, MINUTE, SECOND, DATETIME, TIMESTAMP, NANOTIME])
+t[`symbolv] = rand(("mmmm"+string(1..100)) join NULL, n)
+t[`stringv] = rand(("hello"+string(1..100)) join NULL, n)
+t[`boolv] = rand([true, false, NULL], n)
+t[`shortv] = rand(rand(-100..100, 10) join NULL, n)
+t[`intv] = rand(rand(-100..100, 10) join NULL, n)
+t[`longv] = rand(1..100l join NULL, n)
+t[`floatv] = rand(rand(100.0f,1000) join NULL, n)
+t[`doublev] = rand(rand(100.0,1000) join NULL, n)
+tem1 = 1970.01.01T00:00:00.000000000
+ts1 = array(nanotimestamp,0,n)
+for(i in 1..n){
+	tem1 = temporalAdd(tem1,1,`ns)
+	ts1.append!(tem1)
+}
+t[`nanotimestampv] = ts1
+t[`datev] = 1969.02.02+1..n
+t[`charv] = char(rand(127c, n))
+t[`monthv] = rand(2000.01M..2016.12M, n)
+t[`timev] = 13:30:10.008 + 1..n
+t[`minutev] = 13:30m +1..n
+t[`secondv] = 13:30:10 + 1..n
+t[`datetimev] = 2012.06.13T13:30:10 + 1..n
+t[`timestampv] = 2012.06.13T13:30:10.008 + 1..n
+t[`nanotimev] = 13:30:10.008007006
+
+for (i in 0:100) {
+	insert into t values(`mmmm1, `hello, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,NULL);	
+}
+for (i in 0:100) {
+	insert into t values(`mmmm1, `hello, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,NULL);	
+}
+tb = orc::saveORC(t,WORK_DIR+"/bigdata.orc")
+re = orc::loadORC(WORK_DIR+"/bigdata.orc")
+v = [`symbolv, `stringv, `boolv, `shortv, `intv, `longv, `floatv, `doublev, `nanotimestampv, `datev, `charv]
+for(i in v){
+	assert i, re[i] == t[i]
+}
+
+assert 12, eqObj(re[`monthv], date(t[`monthv]))
+assert 13, eqObj(time(re[`timev]), t[`timev])
+assert 14, eqObj(minute(re[`minutev]), t[`minutev])
+assert 15, eqObj(second(re[`secondv]), t[`secondv])
+assert 16, eqObj(re[`datetimev], nanotimestamp(t[`datetimev]))
+assert 17, eqObj(re[`timestampv],  nanotimestamp(t[`timestampv]))
+assert 18, eqObj(nanotime(re[`nanotimev]), t[`nanotimev])
+
+
+@testing:case="test_orc_Saveorc_less_than_1048576"
+n = 1048575
+t = table(n : n, [`symbolv, `stringv, `boolv, `shortv, `intv, `longv, `floatv, `doublev, `nanotimestampv, `datev, `charv, `monthv, `timev, `minutev, `secondv, `datetimev, `timestampv, `nanotimev], [SYMBOL, STRING, BOOL, SHORT, INT, LONG, FLOAT, DOUBLE, NANOTIMESTAMP, DATE,CHAR, MONTH, TIME, MINUTE, SECOND, DATETIME, TIMESTAMP, NANOTIME])
+t[`symbolv] = rand(("mmmm"+string(1..100)) join NULL, n)
+t[`stringv] = rand(("hello"+string(1..100)) join NULL, n)
+t[`boolv] = rand([true, false, NULL], n)
+t[`shortv] = rand(rand(-100..100, 10) join NULL, n)
+t[`intv] = rand(rand(-100..100, 10) join NULL, n)
+t[`longv] = rand(1..100l join NULL, n)
+t[`floatv] = rand(rand(100.0f,1000) join NULL, n)
+t[`doublev] = rand(rand(100.0,1000) join NULL, n)
+tem1 = 1970.01.01T00:00:00.000000000
+ts1 = array(nanotimestamp,0,n)
+for(i in 1..n){
+	tem1 = temporalAdd(tem1,1,`ns)
+	ts1.append!(tem1)
+}
+t[`nanotimestampv] = ts1
+t[`datev] = 1969.02.02+1..n
+t[`charv] = char(rand(127c, n))
+t[`monthv] = rand(2000.01M..2016.12M, n)
+t[`timev] = 13:30:10.008 + 1..n
+t[`minutev] = 13:30m +1..n
+t[`secondv] = 13:30:10 + 1..n
+t[`datetimev] = 2012.06.13T13:30:10 + 1..n
+t[`timestampv] = 2012.06.13T13:30:10.008 + 1..n
+t[`nanotimev] = 13:30:10.008007006
+
+for (i in 0:100) {
+	insert into t values(`mmmm1, `hello, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,NULL);	
+}
+for (i in 0:100) {
+	insert into t values(`mmmm1, `hello, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,NULL);	
+}
+tb = orc::saveORC(t,WORK_DIR+"/bigdata.orc")
+re = orc::loadORC(WORK_DIR+"/bigdata.orc")
+v = [`symbolv, `stringv, `boolv, `shortv, `intv, `longv, `floatv, `doublev, `nanotimestampv, `datev, `charv]
+for(i in v){
+	assert i, re[i] == t[i]
+}
+
+assert 12, eqObj(re[`monthv], date(t[`monthv]))
+assert 13, eqObj(time(re[`timev]), t[`timev])
+assert 14, eqObj(minute(re[`minutev]), t[`minutev])
+assert 15, eqObj(second(re[`secondv]), t[`secondv])
+assert 16, eqObj(re[`datetimev], nanotimestamp(t[`datetimev]))
+assert 17, eqObj(re[`timestampv],  nanotimestamp(t[`timestampv]))
+assert 18, eqObj(nanotime(re[`nanotimev]), t[`nanotimev])
+
+
+@testing:case="test_orc_Saveorc_more_than_1048576"
+n = 1048580
+t = table(n : n, [`symbolv, `stringv, `boolv, `shortv, `intv, `longv, `floatv, `doublev, `nanotimestampv, `datev, `charv, `monthv, `timev, `minutev, `secondv, `datetimev, `timestampv, `nanotimev], [SYMBOL, STRING, BOOL, SHORT, INT, LONG, FLOAT, DOUBLE, NANOTIMESTAMP, DATE,CHAR, MONTH, TIME, MINUTE, SECOND, DATETIME, TIMESTAMP, NANOTIME])
+t[`symbolv] = rand(("mmmm"+string(1..100)) join NULL, n)
+t[`stringv] = rand(("hello"+string(1..100)) join NULL, n)
+t[`boolv] = rand([true, false, NULL], n)
+t[`shortv] = rand(rand(-100..100, 10) join NULL, n)
+t[`intv] = rand(rand(-100..100, 10) join NULL, n)
+t[`longv] = rand(1..100l join NULL, n)
+t[`floatv] = rand(rand(100.0f,1000) join NULL, n)
+t[`doublev] = rand(rand(100.0,1000) join NULL, n)
+tem1 = 1970.01.01T00:00:00.000000000
+ts1 = array(nanotimestamp,0,n)
+for(i in 1..n){
+	tem1 = temporalAdd(tem1,1,`ns)
+	ts1.append!(tem1)
+}
+t[`nanotimestampv] = ts1
+t[`datev] = 1969.02.02+1..n
+t[`charv] = char(rand(127c, n))
+t[`monthv] = rand(2000.01M..2016.12M, n)
+t[`timev] = 13:30:10.008 + 1..n
+t[`minutev] = 13:30m +1..n
+t[`secondv] = 13:30:10 + 1..n
+t[`datetimev] = 2012.06.13T13:30:10 + 1..n
+t[`timestampv] = 2012.06.13T13:30:10.008 + 1..n
+t[`nanotimev] = 13:30:10.008007006
+
+for (i in 0:100) {
+	insert into t values(`mmmm1, `hello, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,NULL);	
+}
+for (i in 0:100) {
+	insert into t values(`mmmm1, `hello, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,NULL);	
+}
+tb = orc::saveORC(t,WORK_DIR+"/bigdata.orc")
+re = orc::loadORC(WORK_DIR+"/bigdata.orc")
+v = [`symbolv, `stringv, `boolv, `shortv, `intv, `longv, `floatv, `doublev, `nanotimestampv, `datev, `charv]
+for(i in v){
+	assert i, re[i] == t[i]
+}
+
+assert 12, eqObj(re[`monthv], date(t[`monthv]))
+assert 13, eqObj(time(re[`timev]), t[`timev])
+assert 14, eqObj(minute(re[`minutev]), t[`minutev])
+assert 15, eqObj(second(re[`secondv]), t[`secondv])
+assert 16, eqObj(re[`datetimev], nanotimestamp(t[`datetimev]))
+assert 17, eqObj(re[`timestampv],  nanotimestamp(t[`timestampv]))
+assert 18, eqObj(nanotime(re[`nanotimev]), t[`nanotimev])
+
+/****multiple thread****/
+@testing:case="test_orc_extractORCSchema_Multithreading"
+def mextractORCSchema(DATA_DIR){
+	for(i in 0..100){
+		t=orc::extractORCSchema(DATA_DIR+"/date.orc")
+		assert 1,t[`name]==`x
+		assert 2,t[`type]==`DATE
+	}
+}
+jobIds = []
+for(i in 0..10){
+	jobIds.append!(submitJob("extractORCSchema_Multithreading","extractORCSchema_Multithreading",mextractORCSchema{DATA_DIR}))
+}
+for(i in 0..10){
+	getJobReturn(jobIds[i],true)
+}
+
+@testing:case="test_orc_loadORC_Multithreading"
+def mloadORC(DATA_DIR){
+	s=[short(1000)]
+	l=[long(1000)]
+	f=[float(1000)]
+	d=[double(1000)]
+	b=[bool(1000)]
+	i=[int(1000)]
+	t=[char(1000)]
+	str=array(STRING)
+	str.append!("c"+string(1000))
+	c=array(STRING)
+	c.append!(take("c",1))
+	var=array(STRING)
+	var.append!("c"+string(1000))
+	time=take(2021.01.01 01:01:01.000000000,1)
+	expected=table(s,l,f,d,b,i,t,str,c,var,time)
+	for(i in 0..100){
+		tb=orc::loadORC(DATA_DIR+"/bigdata.orc",,0..10,1000,1)
+		assert 1,each(eqObj,tb.values(),expected.values())
+	}	
+}
+jobIds = []
+for(i in 0..10){
+	jobIds.append!(submitJob("mloadORC","mloadORC",mloadORC{DATA_DIR}))
+}
+for(i in 0..10){
+	getJobReturn(jobIds[i],true)
+}
+
+@testing:case="test_orc_loadORCEx_Multithreading"
+if(existsDatabase("dfs://testorc_Multithreading")){
+	dropDatabase("dfs://testorc_Multithreading")
+}
+db1 = database("",VALUE,1970.01.01+0..1000)
+db2 = database("",RANGE,0..10*1000)
+db = database("dfs://testorc_Multithreading",COMPO,[db1,db2])
+
+def mloadORCEx(DATA_DIR,db,i){
+	for(k in 0..10){
+		orc::loadORCEx(db,`tb + i,`time`i,DATA_DIR+"/bigdata.orc",, 11 2 4 5 0 1 10)
+	}
+}
+jobIds = []
+for(i in 0..10){
+	jobIds.append!(submitJob("mloadORCEx","mloadORCEx",mloadORCEx{DATA_DIR,db,i}))
+}
+for(i in 0..10){
+	getJobReturn(jobIds[i],true)
+}
+
+for(i in 0..10){
+	assert 1, (exec count(*) from loadTable("dfs://testorc_Multithreading",`tb + i)) == 110000
+}
+
+@testing:case="test_orc_orcDS_Multithreading"
+schema=orc::extractORCSchema(DATA_DIR+"/bigdata.orc")
+update schema set type=`INT where name=`b
+update schema set type=`SYMBOL where name=`str or name=`c or name=`var  
+
+def ret(table){
+	re=exec count(*)  from table
+	return re
+}
+
+def morcDS(DATA_DIR,schema){
+	for(i in 0..100){
+		ds = orc::orcDS(DATA_DIR+"/bigdata.orc", 1000,schema)
+		res=mr(ds,ret)[0]
+		assert 1,res==take(1000,10)
+	}
+}
+jobIds = []
+for(i in 0..10){
+	jobIds.append!(submitJob("morcDS","morcDS",morcDS{DATA_DIR,schema}))
+}
+for(i in 0..10){
+	getJobReturn(jobIds[i],true)
+}
+
+@testing:case="test_orc_saveORC_Multithreading"
+n = 1024
+t = table(n : n, [`symbolv, `stringv, `boolv, `shortv, `intv, `longv, `floatv, `doublev, `nanotimestampv, `datev, `charv, `monthv, `timev, `minutev, `secondv, `datetimev, `timestampv, `nanotimev], [SYMBOL, STRING, BOOL, SHORT, INT, LONG, FLOAT, DOUBLE, NANOTIMESTAMP, DATE,CHAR, MONTH, TIME, MINUTE, SECOND, DATETIME, TIMESTAMP, NANOTIME])
+t[`symbolv] = rand(("mmmm"+string(1..100)) join NULL, n)
+t[`stringv] = rand(("hello"+string(1..100)) join NULL, n)
+t[`boolv] = rand([true, false, NULL], n)
+t[`shortv] = rand(rand(-100..100, 10) join NULL, n)
+t[`intv] = rand(rand(-100..100, 10) join NULL, n)
+t[`longv] = rand(1..100l join NULL, n)
+t[`floatv] = rand(rand(100.0f,1000) join NULL, n)
+t[`doublev] = rand(rand(100.0,1000) join NULL, n)
+tem1 = 1970.01.01T00:00:00.000000000
+ts1 = array(nanotimestamp,0,n)
+for(i in 1..n){
+	tem1 = temporalAdd(tem1,1,`ns)
+	ts1.append!(tem1)
+}
+t[`nanotimestampv] = ts1
+t[`datev] = 1969.02.02+1..n
+t[`charv] = char(rand(127c, n))
+t[`monthv] = rand(2000.01M..2016.12M, n)
+t[`timev] = 13:30:10.008 + 1..n
+t[`minutev] = 13:30m +1..n
+t[`secondv] = 13:30:10 + 1..n
+t[`datetimev] = 2012.06.13T13:30:10 + 1..n
+t[`timestampv] = 2012.06.13T13:30:10.008 + 1..n
+t[`nanotimev] = 13:30:10.008007006
+
+for (i in 0:100) {
+	insert into t values(`mmmm1, `hello, NULL, NULL, 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,NULL);	
+}
+for (i in 0:100) {
+	insert into t values(`mmmm1, `hello, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,NULL);	
+}
+
+def msaveORC(WORK_DIR,t){
+	for(k in 1..100){
+		orc::saveORC(t,WORK_DIR+"/bigdata.orc")
+	}
+}
+jobIds = []
+for(i in 0..10){
+	jobIds.append!(submitJob("msaveORC","msaveORC",msaveORC{WORK_DIR,t}))
+}
+for(i in 0..10){
+	getJobReturn(jobIds[i],true)
+}
+
+v = [`symbolv, `stringv, `boolv, `shortv, `intv, `longv, `floatv, `doublev, `nanotimestampv, `datev, `charv]
+for(i in v){//i=`stringv
+	re = orc::loadORC(WORK_DIR+"/bigdata.orc")
+	assert 1, size(re) == 1224
+}
+
+//types = [bool, char, int, short, long, float, double,date, time, second, minute, timestamp, nanotimestamp, nanotime, datetime,  month,string]
+@testing:case="test_orc_convertToBool"
+login("admin","123456")
+def get_all_type_table(tx){
+	a =[1,NULL];colv = tx(a);
+	testt = table(colv as col)
+	return testt
+}
+types = [bool, char, int, short, long, float, double]
+for(tx in types){
+	print(tx)
+	t = get_all_type_table(tx)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToBool.orc")
+	schema=table(`col as name,`BOOL as type)
+	res = orc::loadORC(WORK_DIR+"/convertToBool.orc",schema)
+	assert 1 , each(eqObj,res.values().flatten(),bool([1,NULL]))
+}
+
+@testing:case="test_orc_convertToBool_DATE",exception = 1
+t = get_all_type_table(date)
+tb = orc::saveORC(t, WORK_DIR+"/convertToBool.orc")
+schema=table(`col as name,`BOOL as type)
+res = orc::loadORC(WORK_DIR+"/convertToBool.orc",schema)
+
+@testing:case="test_orc_convertToBool_TIMESTAMP",exception = 1
+t = get_all_type_table(timestamp)
+tb = orc::saveORC(t, WORK_DIR+"/convertToBool.orc")
+schema=table(`col as name,`BOOL as type)
+res = orc::loadORC(WORK_DIR+"/convertToBool.orc",schema)
+
+@testing:case="test_orc_convertToBool_STRING",exception = 1
+t = get_all_type_table(string)
+tb = orc::saveORC(t, WORK_DIR+"/convertToBool.orc")
+schema=table(`col as name,`BOOL as type)
+res = orc::loadORC(WORK_DIR+"/convertToBool.orc",schema)
+
+@testing:case="test_orc_convertToBool_STRING_TRUE"
+colv = ["false","true",NULL];
+testt = table(colv as col)
+tb = orc::saveORC(testt, WORK_DIR+"/convertToBool.orc")
+schema=table(`col as name,`BOOL as type)
+res = orc::loadORC(WORK_DIR+"/convertToBool.orc",schema)
+assert 1,res.col(0) == [false, true, NULL]
+
+//types = [bool, char, int, short, long, float, double,date,timestamp,string]
+@testing:case="test_orc_convertToChar"
+login("admin","123456")
+def get_all_type_table(tx){
+	a =[1,NULL];colv = tx(a);
+	testt = table(colv as col)
+	return testt
+}
+// types = [char,string]
+t = get_all_type_table(char)
+tb = orc::saveORC(t, WORK_DIR+"/convertToChar.orc")
+schema=table(`col as name,`CHAR as type)
+res = orc::loadORC(WORK_DIR+"/convertToChar.orc",schema)
+assert 1 , each(eqObj,res.values().flatten(),char([1,NULL]))
+
+t = get_all_type_table(string)
+tb = orc::saveORC(t, WORK_DIR+"/convertToChar.orc")
+schema=table(`col as name,`CHAR as type)
+res = orc::loadORC(WORK_DIR+"/convertToChar.orc",schema)
+assert 2 , each(eqObj,res.values().flatten(),char(['1',NULL]))
+
+
+@testing:case="test_orc_convertToBool_DATE",exception = 1
+t = get_all_type_table(date)
+tb = orc::saveORC(t, WORK_DIR+"/convertToChar.orc")
+schema=table(`col as name,`CHAR as type)
+res = orc::loadORC(WORK_DIR+"/convertToChar.orc",schema)
+
+@testing:case="test_orc_convertToBool_DOUBLE",exception = 1
+t = get_all_type_table(double)
+tb = orc::saveORC(t, WORK_DIR+"/convertToChar.orc")
+schema=table(`col as name,`CHAR as type)
+res = orc::loadORC(WORK_DIR+"/convertToChar.orc",schema)
+
+@testing:case="test_orc_convertToBool_FLOAT",exception = 1
+t = get_all_type_table(float)
+tb = orc::saveORC(t, WORK_DIR+"/convertToChar.orc")
+schema=table(`col as name,`CHAR as type)
+res = orc::loadORC(WORK_DIR+"/convertToChar.orc",schema)
+
+@testing:case="test_orc_convertToBool_LONG",exception = 1
+t = get_all_type_table(long)
+tb = orc::saveORC(t, WORK_DIR+"/convertToChar.orc")
+schema=table(`col as name,`CHAR as type)
+res = orc::loadORC(WORK_DIR+"/convertToChar.orc",schema)
+
+@testing:case="test_orc_convertToBool_SHORT",exception = 1
+t = get_all_type_table(short)
+tb = orc::saveORC(t, WORK_DIR+"/convertToChar.orc")
+schema=table(`col as name,`CHAR as type)
+res = orc::loadORC(WORK_DIR+"/convertToChar.orc",schema)
+
+@testing:case="test_orc_convertToBool_INT",exception = 1
+t = get_all_type_table(int)
+tb = orc::saveORC(t, WORK_DIR+"/convertToChar.orc")
+schema=table(`col as name,`CHAR as type)
+res = orc::loadORC(WORK_DIR+"/convertToChar.orc",schema)
+
+@testing:case="test_orc_convertToBool_BOOL",exception = 1
+t = get_all_type_table(bool)
+tb = orc::saveORC(t, WORK_DIR+"/convertToChar.orc")
+schema=table(`col as name,`CHAR as type)
+res = orc::loadORC(WORK_DIR+"/convertToChar.orc",schema)
+
+@testing:case="test_orc_convertToBool_TIMESTAMP",exception = 1
+t = get_all_type_table(timestamp)
+tb = orc::saveORC(t, WORK_DIR+"/convertToChar.orc")
+schema=table(`col as name,`CHAR as type)
+res = orc::loadORC(WORK_DIR+"/convertToChar.orc",schema)
+
+//types = [bool, char, int, short, long, float, double,date,timestamp,string]
+@testing:case="test_orc_convertToDOUBLE"
+login("admin","123456")
+def get_all_type_table(tx){
+	a =[1,NULL];colv = tx(a);
+	testt = table(colv as col)
+	return testt
+}
+types = [bool, char, int, short, long, float, double,string]
+for(tx in types){
+	print(tx)
+	t = get_all_type_table(tx)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToDOUBLE.orc")
+	schema=table(`col as name,`DOUBLE as type)
+	res = orc::loadORC(WORK_DIR+"/convertToDOUBLE.orc",schema)
+	assert 1 , each(eqObj,res.values().flatten(),double([1,NULL]))
+}
+
+@testing:case="test_orc_convertToDOUBLE_DATE",exception = 1
+t = get_all_type_table(date)
+tb = orc::saveORC(t, WORK_DIR+"/convertToDOUBLE.orc")
+schema=table(`col as name,`DOUBLE as type)
+res = orc::loadORC(WORK_DIR+"/convertToDOUBLE.orc",schema)
+
+@testing:case="test_orc_convertToDOUBLE_TIMESTAMP",exception = 1
+t = get_all_type_table(timestamp)
+tb = orc::saveORC(t, WORK_DIR+"/convertToDOUBLE.orc")
+schema=table(`col as name,`DOUBLE as type)
+res = orc::loadORC(WORK_DIR+"/convertToDOUBLE.orc",schema)
+
+//types = [bool, char, int, short, long, float, double,date,timestamp,string]
+// dates = (2013.06.13,2012.06M,13:30:10.008,13:30m,13:30:10,2012.06.13 13:30:10,2012.06.13 13:30:10.008,13:30:10.008007006,2012.06.13 13:30:10.008007006)
+@testing:case="test_orc_convertToINT"
+login("admin","123456")
+def get_all_type_table(tx){
+	a =[1,NULL];colv = tx(a);
+	testt = table(colv as col)
+	return testt
+}
+undef(`date)
+undef(`timestamp)
+go;
+types = [bool, char, int, short, long, float, double,date,timestamp,string]
+for(tx in types){
+	print(tx)
+	t = get_all_type_table(tx)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToINT.orc")
+	schema=table(`col as name,`INT as type)
+	res = orc::loadORC(WORK_DIR+"/convertToINT.orc",schema)
+	assert 1 , each(eqObj,res.values().flatten(),int([1,NULL]))
+}
+
+a =[2147483647,2147483648,NULL,-2147483648,-2147483647];colv = long(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToINT.orc")
+schema=table(`col as name,`INT as type)
+res = orc::loadORC(WORK_DIR+"/convertToINT.orc",schema)
+assert 2 , each(eqObj,res.values().flatten(),int([2147483647,2147483647,NULL,NULL,-2147483647]))
+
+a =[2147483647,2147483648,NULL,-2147483648,-2147483647];colv = float(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToINT.orc")
+schema=table(`col as name,`INT as type)
+res = orc::loadORC(WORK_DIR+"/convertToINT.orc",schema)
+assert 3 , each(eqObj,res.values().flatten(),int([2147483647,2147483647,NULL,NULL,-2147483647]))
+
+a =[2147483647,2147483648,NULL,-2147483648,-2147483647];colv = double(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToINT.orc")
+schema=table(`col as name,`INT as type)
+res = orc::loadORC(WORK_DIR+"/convertToINT.orc",schema)
+assert 4 , each(eqObj,res.values().flatten(),int([2147483647,2147483647,NULL,NULL,-2147483647]))
+
+@testing:case="test_orc_convertToINT_STRING"
+a =["1",NULL];colv = string(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToINT.orc")
+schema=table(`col as name,`INT as type)
+res = orc::loadORC(WORK_DIR+"/convertToINT.orc",schema)
+assert 1,res[`col] == 1 NULL
+
+dates = ("2013.06.13","2013.06M","2013.06.13 13:30:10","2013.06.13 13:30:10.008","2013.06.13 13:30:10.008007006")
+
+for(d in dates){
+	a =[string(d),NULL];
+	t = table(a as col)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToINT.orc")
+	schema=table(`col as name,`INT as type)
+	res = orc::loadORC(WORK_DIR+"/convertToINT.orc",schema)
+	assert 2,res[`col] == [2013 ,NULL ]
+}
+
+dates = ("13:30:10.008","13:30:10,13:30m","13:30:10.008007006")
+
+for(d in dates){
+	a =[string(d),NULL];
+	t = table(a as col)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToINT.orc")
+	schema=table(`col as name,`INT as type)
+	res = orc::loadORC(WORK_DIR+"/convertToINT.orc",schema)
+	assert 3,res[`col] == [13 ,NULL ]
+}
+
+@testing:case="test_orc_convertToINT_Temporal"
+dates = (2012.06.13,2012.06M,2012.06.13 13:30:10,2012.06.13 13:30:10.008,2012.06.13 13:30:10.008007006)
+
+for(d in dates){
+	a =[d,NULL];colv = string(a);
+	t = table(colv as col)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToINT.orc")
+	schema=table(`col as name,`INT as type)
+	res = orc::loadORC(WORK_DIR+"/convertToINT.orc",schema)
+	assert 1,res[`col] == [2012 ,NULL ]
+}
+
+dates = ("13:30:10.008","13:30:10,13:30m","13:30:10.008007006")
+
+for(d in dates){
+	a =[d,NULL];colv = string(a);
+	t = table(colv as col)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToINT.orc")
+	schema=table(`col as name,`INT as type)
+	res = orc::loadORC(WORK_DIR+"/convertToINT.orc",schema)
+	assert 2,res[`col] == [13 ,NULL ]
+}
+
+//types = [bool, char, int, short, long, float, double,date,timestamp,string]
+// dates = (2013.06.13,2012.06M,13:30:10.008,13:30m,13:30:10,2012.06.13 13:30:10,2012.06.13 13:30:10.008,13:30:10.008007006,2012.06.13 13:30:10.008007006)
+@testing:case="test_orc_convertToLONG"
+login("admin","123456")
+def get_all_type_table(tx){
+	a =[1,NULL];colv = tx(a);
+	testt = table(colv as col)
+	return testt
+}
+undef(`date)
+undef(`timestamp)
+go
+types = [bool, char, int, short, long, float, double,date]
+for(tx in types){
+	t = get_all_type_table(tx)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToLONG.orc")
+	schema=table(`col as name,`LONG as type)
+	res = orc::loadORC(WORK_DIR+"/convertToLONG.orc",schema)
+	assert 1 , each(eqObj,res.values().flatten(),long([1,NULL]))
+}
+
+t = get_all_type_table(string)
+update t set col = "2"
+tb = orc::saveORC(t, WORK_DIR+"/convertToLONG.orc")
+schema=table(`col as name,`LONG as type)
+res = orc::loadORC(WORK_DIR+"/convertToLONG.orc",schema)
+assert 2 , each(eqObj,res.values().flatten(),long([2,2]))
+
+a =long([2147483647,2147483648,NULL,-2147483648,-2147483647]);colv = long(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToLONG.orc")
+schema=table(`col as name,`LONG as type)
+res = orc::loadORC(WORK_DIR+"/convertToLONG.orc",schema)
+assert 3 , each(eqObj,res.values().flatten(),long([2147483647,2147483648,NULL,NULL,-2147483647]))
+
+a =float([2147483647,2147483648,NULL,-2147483648,-2147483647]);colv = float(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToLONG.orc")
+schema=table(`col as name,`LONG as type)
+res = orc::loadORC(WORK_DIR+"/convertToLONG.orc",schema)
+assert 4 , each(eqObj,res.values().flatten(),long([2147483648,2147483648,NULL,NULL,-2147483648l]))
+
+a =double([2147483647,2147483648,NULL,-2147483648,-2147483647]);colv = double(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToLONG.orc")
+schema=table(`col as name,`LONG as type)
+res = orc::loadORC(WORK_DIR+"/convertToLONG.orc",schema)
+assert 5 , each(eqObj,res.values().flatten(),long([2147483647,2147483648,NULL,NULL,-2147483647]))
+
+@testing:case="test_orc_convertToLONG",exception=1
+t = get_all_type_table(string)
+tb = orc::saveORC(t, WORK_DIR+"/convertToLONG.orc")
+schema=table(`col as name,`LONG as type)
+res = orc::loadORC(WORK_DIR+"/convertToLONG.orc",schema)
+
+@testing:case="test_orc_convertToLONG_STRING"
+dates = ("2013.06.13","2013.06M","2013.06.13 13:30:10","2013.06.13 13:30:10.008","2013.06.13 13:30:10.008007006")
+
+for(d in dates){
+	a =[string(d)];
+	t = table(a as col)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToLONG.orc")
+	schema=table(`col as name,`LONG as type)
+	res = orc::loadORC(WORK_DIR+"/convertToLONG.orc",schema)
+	assert 1,res[`col] == [2013]
+}
+
+dates = ("13:30:10.008","13:30:10,13:30m","13:30:10.008007006")
+for(d in dates){
+	a =[string(d)];
+	t = table(a as col)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToLONG.orc")
+	schema=table(`col as name,`LONG as type)
+	res = orc::loadORC(WORK_DIR+"/convertToLONG.orc",schema)
+	assert 2,res[`col] == [13 ]
+}
+
+@testing:case="test_orc_convertToLONG_Temporal"
+dates = (2013.06.13,2013.06.13 13:30:10.008007006)
+
+for(d in dates){
+	a =[d];
+	t = table(a as col)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToLONG.orc")
+	schema=table(`col as name,`LONG as type)
+	res = orc::loadORC(WORK_DIR+"/convertToLONG.orc",schema)
+	assert 1,res[`col] == [long(d)]
+}
+
+@testing:case="test_orc_convertToSHORT_DATE",exception=1
+t = get_all_type_table(date)
+tb = orc::saveORC(t, WORK_DIR+"/convertToSHORT.orc")
+schema=table(`col as name,`SHORT as type)
+res = orc::loadORC(WORK_DIR+"/convertToSHORT.orc",schema)
+
+@testing:case="test_orc_convertToSHORT_TIMESTAMP",exception=1
+t = get_all_type_table(timestamp)
+tb = orc::saveORC(t, WORK_DIR+"/convertToSHORT.orc")
+schema=table(`col as name,`SHORT as type)
+res = orc::loadORC(WORK_DIR+"/convertToSHORT.orc",schema)
+
+@testing:case="test_orc_convertToSHORT"
+login("admin","123456")
+types = [bool, char, int, short, long, float, double,string]
+for(tx in types){//tx = string
+	print(tx)
+	t = get_all_type_table(tx)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToSHORT.orc")
+	schema=table(`col as name,`SHORT as type)
+	res = orc::loadORC(WORK_DIR+"/convertToSHORT.orc",schema)
+	assert 1 , each(eqObj,res.values().flatten(),long([1,NULL]))
+}
+
+a =short([32768,32769,NULL,-32768,-32769]);colv = short(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToSHORT.orc")
+schema=table(`col as name,`SHORT as type)
+res = orc::loadORC(WORK_DIR+"/convertToSHORT.orc",schema)
+assert 2 , each(eqObj,res.values().flatten(),short([NULL,-32767,NULL,NULL,32767]))
+
+a =int([32768,32769,NULL,-32768,-32769]);colv = int(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToSHORT.orc")
+schema=table(`col as name,`SHORT as type)
+res = orc::loadORC(WORK_DIR+"/convertToSHORT.orc",schema)
+assert 3 , each(eqObj,res.values().flatten(),short([32767,32767,NULL,-32767,-32767]))
+
+a =long([32768,32769,NULL,-32768,-32769]);colv = long(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToSHORT.orc")
+schema=table(`col as name,`SHORT as type)
+res = orc::loadORC(WORK_DIR+"/convertToSHORT.orc",schema)
+assert 4 , each(eqObj,res.values().flatten(),short([32767,32767,NULL,-32767,-32767]))
+
+a =float([32768,32769,NULL,-32768,-32769]);colv = float(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToSHORT.orc")
+schema=table(`col as name,`SHORT as type)
+res = orc::loadORC(WORK_DIR+"/convertToSHORT.orc",schema)
+assert 5 , each(eqObj,res.values().flatten(),short([32767,32767,NULL,-32767,-32767]))
+
+a =double([32768,32769,NULL,-32768,-32769]);colv = double(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToSHORT.orc")
+schema=table(`col as name,`SHORT as type)
+res = orc::loadORC(WORK_DIR+"/convertToSHORT.orc",schema)
+assert 6 , each(eqObj,res.values().flatten(),long([32767,32767,NULL,-32767,-32767]))
+
+@testing:case="test_orc_convertToSHORT_STRING"
+a =["1",NULL];
+t = table(a as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToSHORT.orc")
+schema=table(`col as name,`SHORT as type)
+res = orc::loadORC(WORK_DIR+"/convertToSHORT.orc",schema)
+assert 1,res[`col] == 1 NULL
+
+dates = (2013.06.13,2013.06M,2013.06.13 13:30:10,2013.06.13 13:30:10.008,2013.06.13 13:30:10.008007006)
+
+for(d in dates){
+	a =[string(d),NULL];
+	t = table(a as col)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToSHORT.orc")
+	schema=table(`col as name,`SHORT as type)
+	res = orc::loadORC(WORK_DIR+"/convertToSHORT.orc",schema)
+	assert 2,res[`col] == [2013 ,NULL ]
+}
+
+dates = (13:30:10.008,13:30m,13:30:10,13:30:10.008007006)
+for(d in dates){
+	a =[string(d),NULL];
+	t = table(a as col)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToSHORT.orc")
+	schema=table(`col as name,`SHORT as type)
+	res = orc::loadORC(WORK_DIR+"/convertToSHORT.orc",schema)
+	assert 3,res[`col] == [13 ,NULL ]
+}
+
+@testing:case="test_orc_convertToFLOAT_DATE",exception=1
+t = get_all_type_table(date)
+tb = orc::saveORC(t, WORK_DIR+"/convertToFLOAT.orc")
+schema=table(`col as name,`FLOAT as type)
+res = orc::loadORC(WORK_DIR+"/convertToFLOAT.orc",schema)
+
+@testing:case="test_orc_convertToFLOAT_TIMESTAMP",exception=1
+t = get_all_type_table(timestamp)
+tb = orc::saveORC(t, WORK_DIR+"/convertToFLOAT.orc")
+schema=table(`col as name,`FLOAT as type)
+res = orc::loadORC(WORK_DIR+"/convertToFLOAT.orc",schema)
+
+@testing:case="test_orc_convertToFLOAT"
+login("admin","123456")
+types = [bool, char, int, short, long, float, double,string]
+for(tx in types){//tx = string
+	print(tx)
+	t = get_all_type_table(tx)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToFLOAT.orc")
+	schema=table(`col as name,`FLOAT as type)
+	res = orc::loadORC(WORK_DIR+"/convertToFLOAT.orc",schema)
+	assert 1 , each(eqObj,res.values().flatten(),float([1,NULL]))
+}
+
+a =short([32768,32769,NULL,-32768,-32769]);colv = short(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToFLOAT.orc")
+schema=table(`col as name,`FLOAT as type)
+res = orc::loadORC(WORK_DIR+"/convertToFLOAT.orc",schema)
+assert 2 , each(eqObj,res.values().flatten(),float([NULL,-32767,NULL,NULL,32767]))
+
+a =int([2147483647,2147483648,NULL,-2147483647,-2147483648]);colv = int(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToFLOAT.orc")
+schema=table(`col as name,`FLOAT as type)
+res = orc::loadORC(WORK_DIR+"/convertToFLOAT.orc",schema)
+assert 3 , each(eqObj,res.values().flatten(),float([2147483648,NULL,NULL,-2147483648l,NULL]))
+
+a =long([2147483647,2147483648,NULL,-2147483647,-2147483648]);colv = long(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToFLOAT.orc")
+schema=table(`col as name,`FLOAT as type)
+res = orc::loadORC(WORK_DIR+"/convertToFLOAT.orc",schema)
+assert 4 , each(eqObj,res.values().flatten(),float([2147483648,2147483648,NULL,-2147483648l,NULL]))
+
+a =float([2147483647,2147483648,NULL,-2147483647,-2147483648]);colv = float(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToFLOAT.orc")
+schema=table(`col as name,`FLOAT as type)
+res = orc::loadORC(WORK_DIR+"/convertToFLOAT.orc",schema)
+assert 5 , each(eqObj,res.values().flatten(),float([2147483647,2147483648,NULL,-2147483647,-2147483648]))
+
+a =double([2147483647,2147483648,NULL,-2147483647,-2147483648]);colv = double(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToFLOAT.orc")
+schema=table(`col as name,`FLOAT as type)
+res = orc::loadORC(WORK_DIR+"/convertToFLOAT.orc",schema)
+assert 6 , each(eqObj,res.values().flatten(),float([2147483647,2147483648,NULL,-2147483647,-2147483648]))
+
+@testing:case="test_orc_convertToFLOAT_STRING"
+a =["1",NULL];
+t = table(a as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToFLOAT.orc")
+schema=table(`col as name,`FLOAT as type)
+res = orc::loadORC(WORK_DIR+"/convertToFLOAT.orc",schema)
+assert 1,res[`col] == 1 NULL
+
+dates = (2013.06.13,2013.06M,2013.06.13 13:30:10,2013.06.13 13:30:10.008,2013.06.13 13:30:10.008007006)
+
+for(d in dates){
+	a =[string(d),NULL];
+	t = table(a as col)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToFLOAT.orc")
+	schema=table(`col as name,`FLOAT as type)
+	res = orc::loadORC(WORK_DIR+"/convertToFLOAT.orc",schema)
+	assert 2, int(res[`col]) == [2013 ,NULL ]
+}
+
+dates = (13:30:10.008,13:30m,13:30:10,13:30:10.008007006)
+
+for(d in dates){
+	a =[string(d),NULL];
+	t = table(a as col)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToFLOAT.orc")
+	schema=table(`col as name,`FLOAT as type)
+	res = orc::loadORC(WORK_DIR+"/convertToFLOAT.orc",schema)
+	assert 3, int(res[`col]) == [13 ,NULL ]
+}
+
+//types = [bool, char, int, short, long, float, double,date,timestamp,string]
+// dates = (2013.06.13,2012.06M,13:30:10.008,13:30m,13:30:10,2012.06.13 13:30:10,2012.06.13 13:30:10.008,13:30:10.008007006,2012.06.13 13:30:10.008007006)
+@testing:case="test_orc_convertToDOUBLE_DATE",exception=1
+t = get_all_type_table(date)
+tb = orc::saveORC(t, WORK_DIR+"/convertToDOUBLE.orc")
+schema=table(`col as name,`DOUBLE as type)
+res = orc::loadORC(WORK_DIR+"/convertToDOUBLE.orc",schema)
+
+@testing:case="test_orc_convertToDOUBLE_TIMESTAMP",exception=1
+t = get_all_type_table(timestamp)
+tb = orc::saveORC(t, WORK_DIR+"/convertToDOUBLE.orc")
+schema=table(`col as name,`DOUBLE as type)
+res = orc::loadORC(WORK_DIR+"/convertToDOUBLE.orc",schema)
+
+@testing:case="test_orc_convertToDOUBLE"
+login("admin","123456")
+types = [bool, char, int, short, long, float, double,string]
+for(tx in types){//tx = string
+	print(tx)
+	t = get_all_type_table(tx)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToDOUBLE.orc")
+	schema=table(`col as name,`DOUBLE as type)
+	res = orc::loadORC(WORK_DIR+"/convertToDOUBLE.orc",schema)
+	assert 1 , each(eqObj,res.values().flatten(),double([1,NULL]))
+}
+
+a =short([32768,32769,NULL,-32768,-32769]);colv = short(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToDOUBLE.orc")
+schema=table(`col as name,`DOUBLE as type)
+res = orc::loadORC(WORK_DIR+"/convertToDOUBLE.orc",schema)
+assert 2 , each(eqObj,res.values().flatten(),double([NULL,-32767,NULL,NULL,32767]))
+
+a =int([2147483647,2147483648,NULL,-2147483647,-2147483648]);colv = int(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToDOUBLE.orc")
+schema=table(`col as name,`DOUBLE as type)
+res = orc::loadORC(WORK_DIR+"/convertToDOUBLE.orc",schema)
+assert 3 , each(eqObj,res.values().flatten(),double([2147483647l,NULL,NULL,-2147483647l,NULL]))
+
+a =long([2147483647,2147483648,NULL,-2147483647,-2147483648]);colv = long(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToDOUBLE.orc")
+schema=table(`col as name,`DOUBLE as type)
+res = orc::loadORC(WORK_DIR+"/convertToDOUBLE.orc",schema)
+assert 4 , each(eqObj,res.values().flatten(),double([2147483647,2147483648l,NULL,-2147483647l,NULL]))
+
+a =float([2147483647,2147483648,NULL,-2147483647,-2147483648]);colv = float(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToDOUBLE.orc")
+schema=table(`col as name,`DOUBLE as type)
+res = orc::loadORC(WORK_DIR+"/convertToDOUBLE.orc",schema)
+assert 5 , each(eqObj,res.values().flatten(),double([2147483648,2147483648l,NULL,-2147483648l,NULL]))
+
+a =double([2147483647,2147483648,NULL,-2147483647,-2147483648]);colv = double(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToDOUBLE.orc")
+schema=table(`col as name,`DOUBLE as type)
+res = orc::loadORC(WORK_DIR+"/convertToDOUBLE.orc",schema)
+assert 6 , each(eqObj,res.values().flatten(),double([2147483647,2147483648l,NULL,-2147483647l,NULL]))
+
+@testing:case="test_orc_convertToDOUBLE_STRING"
+a =["1",NULL];
+t = table(a as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToDOUBLE.orc")
+schema=table(`col as name,`DOUBLE as type)
+res = orc::loadORC(WORK_DIR+"/convertToDOUBLE.orc",schema)
+assert 1,res[`col] == 1 NULL
+
+dates = (2013.06.13,2013.06M,2013.06.13 13:30:10,2013.06.13 13:30:10.008,2013.06.13 13:30:10.008007006)
+
+for(d in dates){
+	a =[string(d),NULL];
+	t = table(a as col)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToDOUBLE.orc")
+	schema=table(`col as name,`DOUBLE as type)
+	res = orc::loadORC(WORK_DIR+"/convertToDOUBLE.orc",schema)
+	assert 2,int(res[`col]) == [2013 ,NULL ]
+}
+
+dates = (13:30:10.008,13:30m,13:30:10,13:30:10.008007006)
+
+for(d in dates){
+	a =[string(d),NULL];
+	t = table(a as col)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToDOUBLE.orc")
+	schema=table(`col as name,`DOUBLE as type)
+	res = orc::loadORC(WORK_DIR+"/convertToDOUBLE.orc",schema)
+	assert 2,int(res[`col]) == [13 ,NULL ]
+}
+
+//types = [bool, char, int, short, long, float, double,date,timestamp,string]
+// dates = (2013.06.13,2012.06M,13:30:10.008,13:30m,13:30:10,2012.06.13 13:30:10,2012.06.13 13:30:10.008,13:30:10.008007006,2012.06.13 13:30:10.008007006)
+@testing:case="test_orc_convertToString_DATE",exception=1
+t = get_all_type_table(date)
+tb = orc::saveORC(t, WORK_DIR+"/convertToString.orc")
+schema=table(`col as name,`String as type)
+res = orc::loadORC(WORK_DIR+"/convertToString.orc",schema)
+
+@testing:case="test_orc_convertToString_TIMESTAMP",exception=1
+t = get_all_type_table(timestamp)
+tb = orc::saveORC(t, WORK_DIR+"/convertToString.orc")
+schema=table(`col as name,`String as type)
+res = orc::loadORC(WORK_DIR+"/convertToString.orc",schema)
+
+@testing:case="test_orc_convertToString"
+login("admin","123456")
+types = [char, int, short, long, float, double,string]
+for(tx in types){
+	print(tx)
+	t = get_all_type_table(tx)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToString.orc")
+	schema=table(`col as name,`String as type)
+	res = orc::loadORC(WORK_DIR+"/convertToString.orc",schema)
+	assert 1 , each(eqObj,res.values().flatten(),string([1,NULL]))
+}
+
+t = get_all_type_table(bool)
+tb = orc::saveORC(t, WORK_DIR+"/convertToString.orc")
+schema=table(`col as name,`String as type)
+res = orc::loadORC(WORK_DIR+"/convertToString.orc",schema)
+assert 2 , each(eqObj,res.values().flatten(),string(["true",NULL]))
+
+a =short([32768,32769,NULL,-32768,-32769]);colv = short(a);
+t = table(colv as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToString.orc")
+schema=table(`col as name,`String as type)
+res = orc::loadORC(WORK_DIR+"/convertToString.orc",schema)
+assert 3 , each(eqObj,res.values().flatten(),string([NULL,-32767,NULL,NULL,32767]))
+
+a =int([2147483647,NULL,-2147483647]);
+t = table(a as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToString.orc")
+schema=table(`col as name,`String as type)
+res = orc::loadORC(WORK_DIR+"/convertToString.orc",schema)
+assert 4 , each(eqObj,res.values().flatten(),string([2147483647,NULL,-2147483647]))
+
+a =long([2147483648,NULL,-2147483648]);
+t = table(a as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToString.orc")
+schema=table(`col as name,`String as type)
+res = orc::loadORC(WORK_DIR+"/convertToString.orc",schema)
+assert 5 , each(eqObj,res.values().flatten(),string([2147483648,NULL,-2147483648]))
+
+a =float([2147483647,NULL,-2147483647]);
+t = table(a as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToString.orc")
+schema=table(`col as name,`String as type)
+res = orc::loadORC(WORK_DIR+"/convertToString.orc",schema)
+assert 6 , each(eqObj,res.values().flatten(),string(["2.14748e+09",NULL,"-2.14748e+09"]))
+
+a =double([2147483648,NULL,-2147483648]);
+t = table(a as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToString.orc")
+schema=table(`col as name,`String as type)
+res = orc::loadORC(WORK_DIR+"/convertToString.orc",schema)
+assert 7 , each(eqObj,res.values().flatten(),string(["2.14748e+09",NULL,NULL]))
+
+@testing:case="test_orc_convertToString_STRING"
+a =["1",NULL];
+t = table(a as col)
+tb = orc::saveORC(t, WORK_DIR+"/convertToString.orc")
+schema=table(`col as name,`String as type)
+res = orc::loadORC(WORK_DIR+"/convertToString.orc",schema)
+assert 1,res[`col] == "1" NULL
+
+dates = (2013.06.13,2012.06M,13:30:10.008,13:30m,13:30:10,2012.06.13 13:30:10,2012.06.13 13:30:10.008,13:30:10.008007006,2012.06.13 13:30:10.008007006)
+
+for(d in dates){
+	a =[string(d),NULL];
+	t = table(a as col)
+	tb = orc::saveORC(t, WORK_DIR+"/convertToString.orc")
+	schema=table(`col as name,`String as type)
+	res = orc::loadORC(WORK_DIR+"/convertToString.orc",schema)
+	assert 2,res[`col] == [string(d) ,NULL ]
+}
+
+@testing:case="test_orc_convertToDATE"
+def get_all_type_table(tx){
+	a =[1,NULL];colv = tx(a);
+	testt = table(colv as col)
+	return testt
+}
+t = get_all_type_table(timestamp)
+tb = orc::saveORC(t, WORK_DIR+"/convertToDATE.orc")
+schema=table(`col as name,`DATE as type)
+res = orc::loadORC(WORK_DIR+"/convertToDATE.orc",schema)
+assert 1, res.values().flatten() == 1970.01.01 NULL
+
+t = get_all_type_table(date)
+tb = orc::saveORC(t, WORK_DIR+"/convertToDATE.orc")
+schema=table(`col as name,`DATE as type)
+res = orc::loadORC(WORK_DIR+"/convertToDATE.orc",schema)
+assert 2, res.values().flatten() == 1970.01.02 NULL
+
+t = get_all_type_table(int)
+tb = orc::saveORC(t, WORK_DIR+"/convertToDATE.orc")
+schema=table(`col as name,`DATE as type)
+res = orc::loadORC(WORK_DIR+"/convertToDATE.orc",schema)
+assert 3, res.values().flatten() == 1970.01.02 NULL
+
+@testing:case="test_orc_convertToDATETIME"
+t = get_all_type_table(timestamp)
+tb = orc::saveORC(t, WORK_DIR+"/convertToDATETIME.orc")
+schema=table(`col as name,`DATETIME as type)
+res = orc::loadORC(WORK_DIR+"/convertToDATETIME.orc",schema)
+assert 1, res.values().flatten() == 1970.01.01 00:00:00 NULL
+
+t = get_all_type_table(date)
+tb = orc::saveORC(t, WORK_DIR+"/convertToDATETIME.orc")
+schema=table(`col as name,`DATETIME as type)
+res = orc::loadORC(WORK_DIR+"/convertToDATETIME.orc",schema)
+assert 2, res.values().flatten() == 1970.01.02 00:00:00 NULL
+
+t = get_all_type_table(int)
+tb = orc::saveORC(t, WORK_DIR+"/convertToDATETIME.orc")
+schema=table(`col as name,`DATETIME as type)
+res = orc::loadORC(WORK_DIR+"/convertToDATETIME.orc",schema)
+assert 3, res.values().flatten() == [datetime(1) ,NULL]
+
+@testing:case="test_orc_convertToMONTH"
+t = get_all_type_table(timestamp)
+tb = orc::saveORC(t, WORK_DIR+"/convertToMONTH.orc")
+schema=table(`col as name,`MONTH as type)
+res = orc::loadORC(WORK_DIR+"/convertToMONTH.orc",schema)
+assert 1, res.values().flatten() == 1970.01M NULL
+
+t = get_all_type_table(date)
+tb = orc::saveORC(t, WORK_DIR+"/convertToMONTH.orc")
+schema=table(`col as name,`MONTH as type)
+res = orc::loadORC(WORK_DIR+"/convertToMONTH.orc",schema)
+assert 2, res.values().flatten() == 1970.01M NULL
+
+t = get_all_type_table(int)
+tb = orc::saveORC(t, WORK_DIR+"/convertToMONTH.orc")
+schema=table(`col as name,`MONTH as type)
+res = orc::loadORC(WORK_DIR+"/convertToMONTH.orc",schema)
+assert 3, res.values().flatten() == [month(1) ,NULL]
+
+@testing:case="test_orc_convertToMINUTE"
+t = get_all_type_table(timestamp)
+tb = orc::saveORC(t, WORK_DIR+"/convertToMINUTE.orc")
+schema=table(`col as name,`MINUTE as type)
+res = orc::loadORC(WORK_DIR+"/convertToMINUTE.orc",schema)
+assert 1, res.values().flatten() == [minute(0), NULL]
+
+t = get_all_type_table(date)
+tb = orc::saveORC(t, WORK_DIR+"/convertToMINUTE.orc")
+schema=table(`col as name,`MINUTE as type)
+res = orc::loadORC(WORK_DIR+"/convertToMINUTE.orc",schema)
+assert 2, res.values().flatten() == [minute(0), minute(0)]
+
+t = get_all_type_table(int)
+tb = orc::saveORC(t, WORK_DIR+"/convertToMINUTE.orc")
+schema=table(`col as name,`MINUTE as type)
+res = orc::loadORC(WORK_DIR+"/convertToMINUTE.orc",schema)
+assert 3, res.values().flatten() == [minute(1) ,NULL]
+
+@testing:case="test_orc_convertToNANOTIME"
+t = get_all_type_table(timestamp)
+tb = orc::saveORC(t, WORK_DIR+"/convertToNANOTIME.orc")
+schema=table(`col as name,`NANOTIME as type)
+res = orc::loadORC(WORK_DIR+"/convertToNANOTIME.orc",schema)
+assert 1, res.values().flatten() == [nanotime(timestamp(1)), NULL]
+
+t = get_all_type_table(int)
+tb = orc::saveORC(t, WORK_DIR+"/convertToNANOTIME.orc")
+schema=table(`col as name,`NANOTIME as type)
+res = orc::loadORC(WORK_DIR+"/convertToNANOTIME.orc",schema)
+assert 2, res.values().flatten() == [nanotime(1) ,NULL]
+
+@testing:case="test_orc_convertToNANOTIME_date"
+t = get_all_type_table(date)
+tb = orc::saveORC(t, WORK_DIR+"/convertToNANOTIME.orc")
+schema=table(`col as name,`NANOTIME as type)
+res = orc::loadORC(WORK_DIR+"/convertToNANOTIME.orc",schema)
+assert 2, res.values().flatten() == [nanotime(1) ,NULL]
+
+@testing:case="test_orc_convertToNANOTIMESTAMP"
+t = get_all_type_table(timestamp)
+tb = orc::saveORC(t, WORK_DIR+"/convertToNANOTIMESTAMP.orc")
+schema=table(`col as name,`NANOTIMESTAMP as type)
+res = orc::loadORC(WORK_DIR+"/convertToNANOTIMESTAMP.orc",schema)
+assert 1, res.values().flatten() == [nanotimestamp(timestamp(1)), NULL]
+
+t = get_all_type_table(int)
+tb = orc::saveORC(t, WORK_DIR+"/convertToNANOTIMESTAMP.orc")
+schema=table(`col as name,`NANOTIMESTAMP as type)
+res = orc::loadORC(WORK_DIR+"/convertToNANOTIMESTAMP.orc",schema)
+assert 2, res.values().flatten() == [nanotimestamp(1) ,NULL]
+
+t = get_all_type_table(date)
+tb = orc::saveORC(t, WORK_DIR+"/convertToNANOTIMESTAMP.orc")
+schema=table(`col as name,`NANOTIMESTAMP as type)
+res = orc::loadORC(WORK_DIR+"/convertToNANOTIMESTAMP.orc",schema)
+assert 2, res.values().flatten() == [nanotimestamp(date(1)) ,NULL]
+
+@testing:case="test_orc_convertToSECOND"
+t = get_all_type_table(timestamp)
+tb = orc::saveORC(t, WORK_DIR+"/convertToSECOND.orc")
+schema=table(`col as name,`SECOND as type)
+res = orc::loadORC(WORK_DIR+"/convertToSECOND.orc",schema)
+assert 1, res.values().flatten() == [second(0), NULL]
+
+t = get_all_type_table(int)
+tb = orc::saveORC(t, WORK_DIR+"/convertToSECOND.orc")
+schema=table(`col as name,`SECOND as type)
+res = orc::loadORC(WORK_DIR+"/convertToSECOND.orc",schema)
+assert 2, res.values().flatten() == [second(1) ,NULL]
+
+t = get_all_type_table(date)
+tb = orc::saveORC(t, WORK_DIR+"/convertToSECOND.orc")
+schema=table(`col as name,`SECOND as type)
+res = orc::loadORC(WORK_DIR+"/convertToSECOND.orc",schema)
+assert 3, res.values().flatten() == [ 00:00:00,00:00:00]
+
+@testing:case="test_orc_convertToTIMESTAMP"
+t = get_all_type_table(timestamp)
+tb = orc::saveORC(t, WORK_DIR+"/convertToTIMESTAMP.orc")
+schema=table(`col as name,`TIMESTAMP as type)
+res = orc::loadORC(WORK_DIR+"/convertToTIMESTAMP.orc",schema)
+assert 1, res.values().flatten() == [timestamp(1), NULL]
+
+t = get_all_type_table(int)
+tb = orc::saveORC(t, WORK_DIR+"/convertToTIMESTAMP.orc")
+schema=table(`col as name,`TIMESTAMP as type)
+res = orc::loadORC(WORK_DIR+"/convertToTIMESTAMP.orc",schema)
+assert 2, res.values().flatten() == [timestamp(1) ,NULL]
+
+t = get_all_type_table(date)
+tb = orc::saveORC(t, WORK_DIR+"/convertToTIMESTAMP.orc")
+schema=table(`col as name,`TIMESTAMP as type)
+res = orc::loadORC(WORK_DIR+"/convertToTIMESTAMP.orc",schema)
+assert 3, res.values().flatten() == [timestamp(date(1)) ,NULL]
+
+@testing:case="test_orc_convertToTIME"
+t = get_all_type_table(timestamp)
+tb = orc::saveORC(t, WORK_DIR+"/convertToTIME.orc")
+schema=table(`col as name,`TIME as type)
+res = orc::loadORC(WORK_DIR+"/convertToTIME.orc",schema)
+assert 1, res.values().flatten() == [time(timestamp(0)), NULL]
+
+t = get_all_type_table(int)
+tb = orc::saveORC(t, WORK_DIR+"/convertToTIME.orc")
+schema=table(`col as name,`TIME as type)
+res = orc::loadORC(WORK_DIR+"/convertToTIME.orc",schema)
+assert 2, res.values().flatten() == [time(1) ,NULL]
+
+t = get_all_type_table(date)
+tb = orc::saveORC(t, WORK_DIR+"/convertToTIME.orc")
+schema=table(`col as name,`TIME as type)
+res = orc::loadORC(WORK_DIR+"/convertToTIME.orc",schema)
+assert 3, res.values().flatten() == [time(0) ,time(0)]
+
+@testing:case="test_orc_dateParser"
+def get_string_table(str){
+	a =[str];
+	testt = table(a as col)
+	return testt
+}
+def test_dateParser(t,WORK_DIR){
+	tb = orc::saveORC(t, WORK_DIR+"/dateParser.orc")
+	schema=table(`col as name,`DATE as type)
+	res = orc::loadORC(WORK_DIR+"/dateParser.orc",schema)
+	return res
+}
+
+res = test_dateParser(get_string_table("15"),WORK_DIR)
+assert 1,res[`col][0] == NULL
+
+res = test_dateParser(get_string_table("19-2-1"),WORK_DIR)
+assert 2,res[`col][0] == 2019.02.01
+
+res = test_dateParser(get_string_table("19-12-11"),WORK_DIR)
+assert 3,res[`col][0] == 2019.12.11
+
+res = test_dateParser(get_string_table("20-2-1"),WORK_DIR)
+assert 4,res[`col][0] == 1920.02.01
+
+res = test_dateParser(get_string_table("20-2-1"),WORK_DIR)
+assert 5,res[`col][0] == 1920.02.01
+
+res = test_dateParser(get_string_table("20-12-11"),WORK_DIR)
+assert 6,res[`col][0] == 1920.12.11
+
+res = test_dateParser(get_string_table("20-90-90"),WORK_DIR)
+assert 6,res[`col][0] == NULL
+
+res = test_dateParser(get_string_table("200201"),WORK_DIR)
+assert 7,res[`col][0] == 1920.02.01
+
+res = test_dateParser(get_string_table("201211"),WORK_DIR)
+assert 8,res[`col][0] == 1920.12.11
+
+res = test_dateParser(get_string_table("190201"),WORK_DIR)
+assert 9,res[`col][0] == 2019.02.01
+
+res = test_dateParser(get_string_table("191211"),WORK_DIR)
+assert 10,res[`col][0] == 2019.12.11
+
+res = test_dateParser(get_string_table("198090"),WORK_DIR)
+assert 11,res[`col][0] == NULL
+
+res = test_dateParser(get_string_table("20201211"),WORK_DIR)
+assert 12,res[`col][0] == 2020.12.11
+
+res = test_dateParser(get_string_table("20200201"),WORK_DIR)
+assert 13,res[`col][0] == 2020.02.01
+
+res = test_dateParser(get_string_table("20203080"),WORK_DIR)
+assert 14,res[`col][0] == NULL
+
+res = test_dateParser(get_string_table("2020-02-01"),WORK_DIR)
+assert 15,res[`col][0] == 2020.02.01
+
+res = test_dateParser(get_string_table("2020-12-11"),WORK_DIR)
+assert 16,res[`col][0] == 2020.12.11
+
+res = test_dateParser(get_string_table("2020-30-80"),WORK_DIR)
+assert 17,res[`col][0] == NULL
+
+@testing:case="test_orc_datetimeParser"
+def get_string_table(str){
+	a =[str];
+	testt = table(a as col)
+	return testt
+}
+def test_datetimeParser(t,WORK_DIR){
+	tb = orc::saveORC(t, WORK_DIR+"/datetimeParser.orc")
+	schema=table(`col as name,`DATETIME as type)
+	res = orc::loadORC(WORK_DIR+"/datetimeParser.orc",schema)
+	return res
+}
+
+res = test_dateParser(get_string_table("15"),WORK_DIR)
+assert 1,res[`col][0] == NULL
+
+res = test_datetimeParser(get_string_table("2012.06.13 13:30:10"),WORK_DIR)
+assert 2,res[`col][0] == 2012.06.13 13:30:10
+
+res = test_datetimeParser(get_string_table("2012.06.13 24:30:10"),WORK_DIR)
+assert 3,res[`col][0] == NULL
+
+res = test_datetimeParser(get_string_table("2012.06.13013:30:10"),WORK_DIR)
+assert 4,res[`col][0] == NULL
+
+@testing:case="test_orc_secondParser"
+def get_string_table(str){
+	a =[str];
+	testt = table(a as col)
+	return testt
+}
+def test_secondParser(t,WORK_DIR){
+	tb = orc::saveORC(t, WORK_DIR+"/secondParser.orc")
+	schema=table(`col as name,`SECOND as type)
+	res = orc::loadORC(WORK_DIR+"/secondParser.orc",schema)
+	return res
+}
+
+res = test_secondParser(get_string_table("15"),WORK_DIR)
+assert 1,res[`col][0] == NULL
+
+res = test_secondParser(get_string_table("13:30:10"),WORK_DIR)
+assert 2,res[`col][0] == 13:30:10
+
+res = test_secondParser(get_string_table("3:30:10"),WORK_DIR)
+assert 3,res[`col][0] == 03:30:10
+
+res = test_secondParser(get_string_table("24:30:10"),WORK_DIR)
+assert 4,res[`col][0] == NULL
+
+@testing:case="test_orc_timeParser"
+def get_string_table(str){
+	a =[str];
+	testt = table(a as col)
+	return testt
+}
+def test_timeParser(t,WORK_DIR){
+	tb = orc::saveORC(t, WORK_DIR+"/timeParser.orc")
+	schema=table(`col as name,`TIME as type)
+	res = orc::loadORC(WORK_DIR+"/timeParser.orc",schema)
+	return res
+}
+
+res = test_timeParser(get_string_table("15"),WORK_DIR)
+assert 1,res[`col][0] == NULL
+
+res = test_timeParser(get_string_table("13:30:10.008"),WORK_DIR)
+assert 2,res[`col][0] == 13:30:10.008
+
+res = test_timeParser(get_string_table("24:30:10.008"),WORK_DIR)
+assert 3,res[`col][0] == NULL
+
+@testing:case="test_orc_timestampParser"
+def get_string_table(str){
+	a =[str];
+	testt = table(a as col)
+	return testt
+}
+def test_timestampParser(t,WORK_DIR){
+	tb = orc::saveORC(t, WORK_DIR+"/timestampParser.orc")
+	schema=table(`col as name,`TIMESTAMP as type)
+	res = orc::loadORC(WORK_DIR+"/timestampParser.orc",schema)
+	return res
+}
+
+res = test_timestampParser(get_string_table("15"),WORK_DIR)
+assert 1,res[`col][0] == NULL
+
+res = test_timestampParser(get_string_table("2012.06.13T13:30:10.008"),WORK_DIR)
+assert 2,res[`col][0] == 2012.06.13T13:30:10.008
+
+res = test_timestampParser(get_string_table("2012.06.13 13:30:10.008"),WORK_DIR)
+assert 3,res[`col][0] == 2012.06.13T13:30:10.008
+
+res = test_timestampParser(get_string_table("2012.06.13 24:30:10.008"),WORK_DIR)
+assert 4,res[`col][0] == NULL
+
+res = test_timestampParser(get_string_table("2012.06.13024:30:10.008"),WORK_DIR)
+assert 5,res[`col][0] == NULL
+
+@testing:case="test_orc_minuteParser"
+def get_string_table(str){
+	a =[str];
+	testt = table(a as col)
+	return testt
+}
+def test_minuteParser(t,WORK_DIR){
+	tb = orc::saveORC(t, WORK_DIR+"/minuteParser.orc")
+	schema=table(`col as name,`MINUTE as type)
+	res = orc::loadORC(WORK_DIR+"/minuteParser.orc",schema)
+	return res
+}
+
+res = test_minuteParser(get_string_table("15"),WORK_DIR)
+assert 1,res[`col][0] == NULL
+
+res = test_minuteParser(get_string_table("13:30m"),WORK_DIR)
+assert 2,res[`col][0] == 13:30m
+
+res = test_minuteParser(get_string_table("24:30m"),WORK_DIR)
+assert 3,res[`col][0] == NULL
+
+@testing:case="test_orc_monthParser"
+def get_string_table(str){
+	a =[str];
+	testt = table(a as col)
+	return testt
+}
+def test_monthParser(t,WORK_DIR){
+	tb = orc::saveORC(t, WORK_DIR+"/monthParser.orc")
+	schema=table(`col as name,`MONTH as type)
+	res = orc::loadORC(WORK_DIR+"/monthParser.orc",schema)
+	return res
+}
+
+res = test_monthParser(get_string_table("15"),WORK_DIR)
+assert 1,res[`col][0] == NULL
+
+res = test_monthParser(get_string_table("2012.06M"),WORK_DIR)
+assert 2,res[`col][0] == 2012.06M
+
+res = test_monthParser(get_string_table("2012.22M"),WORK_DIR)
+assert 3,res[`col][0] == NULL
+
+@testing:case="test_orc_nanotimeParser"
+def get_string_table(str){
+	a =[str];
+	testt = table(a as col)
+	return testt
+}
+def test_nanotimeParser(t,WORK_DIR){
+	tb = orc::saveORC(t, WORK_DIR+"/nanotimeParser.orc")
+	schema=table(`col as name,`NANOTIME as type)
+	res = orc::loadORC(WORK_DIR+"/nanotimeParser.orc",schema)
+	return res
+}
+
+res = test_nanotimeParser(get_string_table("15"),WORK_DIR)
+assert 1,res[`col][0] == NULL
+
+res = test_nanotimeParser(get_string_table("13:30:10.008007006"),WORK_DIR)
+assert 2,res[`col][0] == 13:30:10.008007006
+
+res = test_nanotimeParser(get_string_table("24:30:10.008007006"),WORK_DIR)
+assert 3,res[`col][0] == NULL
+
+res = test_nanotimeParser(get_string_table("04:03:01.008007006"),WORK_DIR)
+assert 4,res[`col][0] == 04:03:01.008007006
+
+res = test_nanotimeParser(get_string_table("141311008007006"),WORK_DIR)
+assert 5,res[`col][0] == 14:13:11.008007006
+
+res = test_nanotimeParser(get_string_table("241311008007006"),WORK_DIR)
+assert 6,res[`col][0] == NULL
+
+@testing:case="test_orc_nanotimestampParser"
+def get_string_table(str){
+	a =[str];
+	testt = table(a as col)
+	return testt
+}
+def test_nanotimestampParser(t,WORK_DIR){
+	tb = orc::saveORC(t, WORK_DIR+"/nanotimestampParser.orc")
+	schema=table(`col as name,`NANOTIMESTAMP as type)
+	res = orc::loadORC(WORK_DIR+"/nanotimestampParser.orc",schema)
+	return res
+}
+
+res = test_nanotimestampParser(get_string_table("15"),WORK_DIR)
+assert 1,res[`col][0] == NULL
+
+res = test_nanotimestampParser(get_string_table("2012.06.13T13:30:10.008007006"),WORK_DIR)
+assert 2,res[`col][0] == 2012.06.13T13:30:10.008007006
+
+res = test_nanotimestampParser(get_string_table("2012.06.13 13:30:10.008007006"),WORK_DIR)
+assert 3,res[`col][0] == 2012.06.13T13:30:10.008007006
+
+res = test_nanotimestampParser(get_string_table("2012.06.13 13:30:10.008007"),WORK_DIR)
+assert 4,res[`col][0] == 2012.06.13 13:30:10.000008007
+
+res = test_nanotimestampParser(get_string_table("2012.06.13K13:30:10.008007"),WORK_DIR)
+assert 5,res[`col][0] == NULL
+
+res = test_nanotimestampParser(get_string_table("2012.78.13K13:30:10.008007"),WORK_DIR)
+assert 6,res[`col][0] == NULL
+
+@testing:case="test_orc_parseEnglishMonth"
+def get_string_table(str){
+	a =[str];
+	testt = table(a as col)
+	return testt
+}
+def test_dateParser(t,WORK_DIR){
+	tb = orc::saveORC(t, WORK_DIR+"/dateParser.orc")
+	schema=table(`col as name,`DATE as type)
+	res = orc::loadORC(WORK_DIR+"/dateParser.orc",schema)
+	return res
+}
+
+res = test_dateParser(get_string_table("19-JAN-1"),WORK_DIR)
+assert 1,res[`col][0] == 2019.01.01
+
+res = test_dateParser(get_string_table("19-jun-1"),WORK_DIR)
+assert 2,res[`col][0] == 2019.06.01
+
+res = test_dateParser(get_string_table("19-jul-1"),WORK_DIR)
+assert 3,res[`col][0] == 2019.07.01
+
+res = test_dateParser(get_string_table("19-fab-1"),WORK_DIR)
+assert 4,res[`col][0] == 2019.02.01
+
+res = test_dateParser(get_string_table("19-mar-1"),WORK_DIR)
+assert 5,res[`col][0] == 2019.03.01
+
+res = test_dateParser(get_string_table("19-may-1"),WORK_DIR)
+assert 6,res[`col][0] == 2019.05.01
+
+res = test_dateParser(get_string_table("19-apr-1"),WORK_DIR)
+assert 7,res[`col][0] == 2019.04.01
+
+res = test_dateParser(get_string_table("19-aug-1"),WORK_DIR)
+assert 8,res[`col][0] == 2019.08.01
+
+res = test_dateParser(get_string_table("19-sep-1"),WORK_DIR)
+assert 9,res[`col][0] == 2019.09.01
+
+res = test_dateParser(get_string_table("19-oct-1"),WORK_DIR)
+assert 10,res[`col][0] == 2019.10.01
+
+res = test_dateParser(get_string_table("19-dec-1"),WORK_DIR)
+assert 11,res[`col][0] == 2019.12.01
+
+res = test_dateParser(get_string_table("19-nov-1"),WORK_DIR)
+assert 12,res[`col][0] == 2019.11.01
+
+@testing:case="test_orc_getSchemaCol",exception=1
+def get_string_table(str){
+	a =[str];
+	testt = table(a as col)
+	return testt
+}
+tb = orc::saveORC(get_string_table("aaa"), WORK_DIR+"/getSchemaCol.orc")
+schema=table(`col as name)
+res = orc::loadORC(WORK_DIR+"/dateParser.orc",schema)
