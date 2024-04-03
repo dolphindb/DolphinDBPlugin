@@ -1,4 +1,5 @@
 #include "client.h"
+#include "ddbplugin/CommonInterface.h"
 
 #ifdef LINUX
 #include <poll.h>

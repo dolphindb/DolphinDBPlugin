@@ -133,7 +133,7 @@ void setData(nlohmann::json &data, vector<ConstantSP> &cols, std::map<string, in
                     break;
                 }
                 default:
-                    throw RuntimeException("The schema type in position " + std::to_string(curCol + 1) + "does net support");
+                    throw RuntimeException("The schema type in position " + std::to_string(curCol + 1) + " does not support");
             }
         } catch (exception& e) {
             throw RuntimeException(LOG_PRE_STR + " set data failed when parse csv or json, error message is <" + string(e.what()) + ">" + " data type is <" + Util::getDataTypeString(dt[curCol]) + ">, data content is:" + colCurData);

@@ -49,7 +49,8 @@ if (WIN32)
 endif ()
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath,.")
 
-add_library(${PROJECT_NAME} SHARED ${PluginSrc} ${MQTTSrc} ./src/templates/posix_sockets.c)
+# add_library(${PROJECT_NAME} SHARED ${PluginSrc} ${MQTTSrc} ./src/templates/posix_sockets.c)
+add_library(${PROJECT_NAME} SHARED ${PluginSrc} ${MQTTSrc})
 
 if (WIN32)
     target_link_libraries(${PROJECT_NAME}   WS2_32 DolphinDB pthread)

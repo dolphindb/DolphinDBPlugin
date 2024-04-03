@@ -12,7 +12,6 @@
 #include "Util.h"
 #include "client.h"
 #include "publisher.h"
-#include "templates/posix_sockets.h"
 using mqtt::Connection;
 using namespace std;
 
@@ -323,6 +322,8 @@ void RefeshPubConn::run() {
 Connection::~Connection(){
     isClosed_ = true;
     clientDaemon_->join();
+    mqtt_disconnect(&client_);
+    mqtt_sync(&client_);
     sockfd_->close();
     LOG_INFO("[PluginMQTT]: close publish connection");
 }
@@ -383,6 +384,7 @@ MQTTErrors Connection::publishMsg(const char *topic, void *message, size_t size)
                 LOG_INFO(string("[PluginMQTT]: publishMsg error:") + mqtt_error_str(err));
                 failed_++;
             }
+            mqtt_sync(&client_);
         } catch (exception& e) {
             std::string errMsg(e.what());
             LOG_ERR(LOG_PRE_STR + " mqtt publish msg failed, error message is <", errMsg, ">");

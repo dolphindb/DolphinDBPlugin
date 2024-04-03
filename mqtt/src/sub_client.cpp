@@ -12,7 +12,6 @@
 #include "Util.h"
 #include "client.h"
 #include "mqtt.h"
-#include "templates/posix_sockets.h"
 
 using namespace std;
 using mqtt::SubConnection;
