@@ -14,338 +14,351 @@
     #endif
 #endif
 
-///å›è°ƒè™šç±»
+///»Øµ÷ĞéÀà
 class CHSNsqSpi
 {
 public:
-    /// Description: å½“å®¢æˆ·ç«¯ä¸åå°å¼€å§‹å»ºç«‹é€šä¿¡è¿æ¥ï¼Œè¿æ¥æˆåŠŸåæ­¤æ–¹æ³•è¢«å›è°ƒã€‚
+    /// Description: µ±¿Í»§¶ËÓëºóÌ¨¿ªÊ¼½¨Á¢Í¨ĞÅÁ¬½Ó£¬Á¬½Ó³É¹¦ºó´Ë·½·¨±»»Øµ÷¡£
     virtual void OnFrontConnected(){};
 
-    /// Description:å½“å®¢æˆ·ç«¯ä¸åå°é€šä¿¡è¿æ¥å¼‚å¸¸æ—¶ï¼Œè¯¥æ–¹æ³•è¢«è°ƒç”¨ã€‚
-    /// Others     :é€šè¿‡GetApiErrorMsg(nResult)è·å–è¯¦ç»†é”™è¯¯ä¿¡æ¯ã€‚
+    /// Description:µ±¿Í»§¶ËÓëºóÌ¨Í¨ĞÅÁ¬½ÓÒì³£Ê±£¬¸Ã·½·¨±»µ÷ÓÃ¡£
+    /// Others     :Í¨¹ıGetApiErrorMsg(nResult)»ñÈ¡ÏêÏ¸´íÎóĞÅÏ¢¡£
     virtual void OnFrontDisconnected(int nResult){};
 
 
-    /// Description:å®¢æˆ·ç™»å½•åº”ç­”
+    /// Description:¿Í»§µÇÂ¼Ó¦´ğ
     virtual void OnRspUserLogin(CHSNsqRspUserLoginField *pRspUserLogin, CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast){};
 
-    ////ä»¥ä¸‹æ˜¯æœŸè´§æ¥å£
+    ////ÒÔÏÂÊÇÆÚ»õ½Ó¿Ú
 
-    /// Description: æœŸè´§è®¢é˜…-è¡Œæƒ…åº”ç­”
+    /// Description: ÆÚ»õ¶©ÔÄ-ĞĞÇéÓ¦´ğ
     virtual void OnRspFutuDepthMarketDataSubscribe(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {};
 
-    /// Description: æœŸè´§è®¢é˜…å–æ¶ˆ-è¡Œæƒ…åº”ç­”
+    /// Description: ÆÚ»õ¶©ÔÄÈ¡Ïû-ĞĞÇéÓ¦´ğ
     virtual void OnRspFutuDepthMarketDataCancel(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {};
 
-    /// Description: ä¸»æ¨-æœŸè´§è¡Œæƒ…
+    /// Description: Ö÷ÍÆ-ÆÚ»õĞĞÇé
     virtual void OnRtnFutuDepthMarketData(CHSNsqFutuDepthMarketDataField *pFutuDepthMarketData) {};
 
-    /// Description: è·å–å½“å‰äº¤æ˜“æ—¥åˆçº¦åº”ç­”
+    /// Description: »ñÈ¡µ±Ç°½»Ò×ÈÕºÏÔ¼Ó¦´ğ
     virtual void OnRspQryFutuInstruments(CHSNsqFutuInstrumentStaticInfoField *pFutuInstrumentStaticInfo, CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {};
 
-    /// Description: è·å–åˆçº¦çš„æœ€æ–°å¿«ç…§ä¿¡æ¯åº”ç­”
+    /// Description: »ñÈ¡ºÏÔ¼µÄ×îĞÂ¿ìÕÕĞÅÏ¢Ó¦´ğ
     virtual void OnRspQryFutuDepthMarketData(CHSNsqFutuDepthMarketDataField *pFutuDepthMarketData, CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {};	 
 
 
-    ////ä»¥ä¸‹æ˜¯ç°è´§æ¥å£
+    ////ÒÔÏÂÊÇÏÖ»õ½Ó¿Ú
 
-    /// Description: è®¢é˜…-ç°è´§å¿«ç…§è¡Œæƒ…åº”ç­”	
+    /// Description: ¶©ÔÄ-ÏÖ»õ¿ìÕÕĞĞÇéÓ¦´ğ	
     virtual void OnRspSecuDepthMarketDataSubscribe(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {};
 
-    /// Description: è®¢é˜…å–æ¶ˆ-ç°è´§å¿«ç…§è¡Œæƒ…åº”ç­”
+    /// Description: ¶©ÔÄÈ¡Ïû-ÏÖ»õ¿ìÕÕĞĞÇéÓ¦´ğ
     virtual void OnRspSecuDepthMarketDataCancel(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {};
 
-    /// Description: ä¸»æ¨-ç°è´§å¿«ç…§è¡Œæƒ…
-    ///Others     :Bid1Volumeä¹°ä¸€é˜Ÿåˆ—æ•°ç»„, Bid1Countä¹°ä¸€é˜Ÿåˆ—æ•°ç»„ä¸ªæ•°, MaxBid1Countä¹°ä¸€æ€»å§”æ‰˜ç¬”æ•°
-    ///           :Ask1Volumeå–ä¸€é˜Ÿåˆ—æ•°ç»„, Ask1Countå–ä¸€é˜Ÿåˆ—æ•°ç»„ä¸ªæ•°, MaxAsk1Countå–ä¸€æ€»å§”æ‰˜ç¬”æ•°
+    /// Description: Ö÷ÍÆ-ÏÖ»õ¿ìÕÕĞĞÇé
+    ///Others     :Bid1VolumeÂòÒ»¶ÓÁĞÊı×é, Bid1CountÂòÒ»¶ÓÁĞÊı×é¸öÊı, MaxBid1CountÂòÒ»×ÜÎ¯ÍĞ±ÊÊı
+    ///           :Ask1VolumeÂôÒ»¶ÓÁĞÊı×é, Ask1CountÂôÒ»¶ÓÁĞÊı×é¸öÊı, MaxAsk1CountÂôÒ»×ÜÎ¯ÍĞ±ÊÊı
     virtual void OnRtnSecuDepthMarketData(CHSNsqSecuDepthMarketDataField *pSecuDepthMarketData, HSIntVolume Bid1Volume[], HSNum Bid1Count, HSNum MaxBid1Count, HSIntVolume Ask1Volume[], HSNum Ask1Count, HSNum MaxAsk1Count) {};
 
 
-    /// Description: ä¸»æ¨-ç°è´§ç›˜åå®šä»·å¿«ç…§è¡Œæƒ…
-    ///Others     :Bid1Volumeä¹°ä¸€é˜Ÿåˆ—æ•°ç»„, Bid1Countä¹°ä¸€é˜Ÿåˆ—æ•°ç»„ä¸ªæ•°, MaxBid1Countä¹°ä¸€æ€»å§”æ‰˜ç¬”æ•°
-    ///           :Ask1Volumeå–ä¸€é˜Ÿåˆ—æ•°ç»„, Ask1Countå–ä¸€é˜Ÿåˆ—æ•°ç»„ä¸ªæ•°, MaxAsk1Countå–ä¸€æ€»å§”æ‰˜ç¬”æ•°
+    /// Description: Ö÷ÍÆ-ÏÖ»õÅÌºó¶¨¼Û¿ìÕÕĞĞÇé
+    ///Others     :Bid1VolumeÂòÒ»¶ÓÁĞÊı×é, Bid1CountÂòÒ»¶ÓÁĞÊı×é¸öÊı, MaxBid1CountÂòÒ»×ÜÎ¯ÍĞ±ÊÊı
+    ///           :Ask1VolumeÂôÒ»¶ÓÁĞÊı×é, Ask1CountÂôÒ»¶ÓÁĞÊı×é¸öÊı, MaxAsk1CountÂôÒ»×ÜÎ¯ÍĞ±ÊÊı
     virtual void OnRtnSecuATPMarketData(CHSNsqSecuATPMarketDataField *pSecuDepthMarketData, HSIntVolume Bid1Volume[], HSNum Bid1Count, HSNum MaxBid1Count, HSIntVolume Ask1Volume[], HSNum Ask1Count, HSNum MaxAsk1Count) {};
 
 
-    /// Description: è®¢é˜…-ç°è´§é€ç¬”è¡Œæƒ…åº”ç­”
+    /// Description: ¶©ÔÄ-ÏÖ»õÖğ±ÊĞĞÇéÓ¦´ğ
     virtual void OnRspSecuTransactionSubscribe(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {};
 
-    /// Description: è®¢é˜…å–æ¶ˆ-ç°è´§é€ç¬”è¡Œæƒ…åº”ç­”
+    /// Description: ¶©ÔÄÈ¡Ïû-ÏÖ»õÖğ±ÊĞĞÇéÓ¦´ğ
     virtual void OnRspSecuTransactionCancel(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {};
 
-    /// Description: ä¸»æ¨-ç°è´§é€ç¬”æˆäº¤è¡Œæƒ…
+    /// Description: Ö÷ÍÆ-ÏÖ»õÖğ±Ê³É½»ĞĞÇé
     virtual void OnRtnSecuTransactionTradeData(CHSNsqSecuTransactionTradeDataField *pSecuTransactionTradeData) {};
 
-    /// Description: ä¸»æ¨-ç°è´§é€ç¬”å§”æ‰˜è¡Œæƒ…
+    /// Description: Ö÷ÍÆ-ÏÖ»õÖğ±ÊÎ¯ÍĞĞĞÇé
     virtual void OnRtnSecuTransactionEntrustData(CHSNsqSecuTransactionEntrustDataField *pSecuTransactionEntrustData) {};
 
 
-    /// Description: ä¸»æ¨-ç°è´§ç›˜åå›ºå®šé€ç¬”æˆäº¤è¡Œæƒ…
+    /// Description: Ö÷ÍÆ-ÏÖ»õÅÌºó¹Ì¶¨Öğ±Ê³É½»ĞĞÇé
     virtual void OnRtnSecuATPTransactionTradeData(CHSNsqSecuTransactionTradeDataField *pSecuTransactionTradeData) {};
 
-    /// Description: ä¸»æ¨-æ·±è¯æ–°å€ºåˆ¸é€ç¬”æˆäº¤è¡Œæƒ…
+    /// Description: Ö÷ÍÆ-ÉîÖ¤ĞÂÕ®È¯Öğ±Ê³É½»ĞĞÇé
     virtual void OnRtnBondTransactionTradeData(CHSNsqBondTransactionTradeDataField* pSecuTransactionTradeData) {};
 
-    /// Description: ä¸»æ¨-æ·±è¯æ–°å€ºåˆ¸é€ç¬”å§”æ‰˜è¡Œæƒ…
+    /// Description: Ö÷ÍÆ-ÉîÖ¤ĞÂÕ®È¯Öğ±ÊÎ¯ÍĞĞĞÇé
     virtual void OnRtnBondTransactionEntrustData(CHSNsqBondTransactionEntrustDataField* pSecuTransactionEntrustData) {};
 
 
-    /// Description: è·å–å½“å‰äº¤æ˜“æ—¥ç°è´§åˆçº¦åº”ç­”
+    /// Description: »ñÈ¡µ±Ç°½»Ò×ÈÕÏÖ»õºÏÔ¼Ó¦´ğ
     virtual void OnRspQrySecuInstruments(CHSNsqSecuInstrumentStaticInfoField *pSecuInstrumentStaticInfo, CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {};
 
-    /// Description: è·å–ç°è´§åˆçº¦çš„æœ€æ–°å¿«ç…§ä¿¡æ¯åº”ç­”
+    /// Description: »ñÈ¡ÏÖ»õºÏÔ¼µÄ×îĞÂ¿ìÕÕĞÅÏ¢Ó¦´ğ
     virtual void OnRspQrySecuDepthMarketData(CHSNsqSecuDepthMarketDataField *pSecuDepthMarketData, CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {};	
 
 
-    ////ä»¥ä¸‹æ˜¯æœŸæƒæ¥å£
+    ////ÒÔÏÂÊÇÆÚÈ¨½Ó¿Ú
 
-    /// Description: æœŸæƒè®¢é˜…-è¡Œæƒ…åº”ç­”
+    /// Description: ÆÚÈ¨¶©ÔÄ-ĞĞÇéÓ¦´ğ
     virtual void OnRspOptDepthMarketDataSubscribe(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {};
 
-    /// Description: æœŸæƒè®¢é˜…å–æ¶ˆ-è¡Œæƒ…åº”ç­”
+    /// Description: ÆÚÈ¨¶©ÔÄÈ¡Ïû-ĞĞÇéÓ¦´ğ
     virtual void OnRspOptDepthMarketDataCancel(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {};
 
-    /// Description: ä¸»æ¨-æœŸæƒè¡Œæƒ…
+    /// Description: Ö÷ÍÆ-ÆÚÈ¨ĞĞÇé
     virtual void OnRtnOptDepthMarketData(CHSNsqOptDepthMarketDataField *pOptDepthMarketData) {};
 
-    /// Description: è·å–å½“å‰äº¤æ˜“æ—¥åˆçº¦åº”ç­”
+    /// Description: »ñÈ¡µ±Ç°½»Ò×ÈÕºÏÔ¼Ó¦´ğ
     virtual void OnRspQryOptInstruments(CHSNsqOptInstrumentStaticInfoField *pOptInstrumentStaticInfo, CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {};
 
-    /// Description: è·å–åˆçº¦çš„æœ€æ–°å¿«ç…§ä¿¡æ¯åº”ç­”
+    /// Description: »ñÈ¡ºÏÔ¼µÄ×îĞÂ¿ìÕÕĞÅÏ¢Ó¦´ğ
     virtual void OnRspQryOptDepthMarketData(CHSNsqOptDepthMarketDataField *pOptDepthMarketData, CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {};	 
 
-    ////ä»¥ä¸‹æ˜¯ç°è´§å¿«ç…§Plusæ¥å£
+    ////ÒÔÏÂÊÇÏÖ»õ¿ìÕÕPlus½Ó¿Ú
 
-    /// Description: è®¢é˜…-ç°è´§å¿«ç…§Plusè¡Œæƒ…åº”ç­”	
+    /// Description: ¶©ÔÄ-ÏÖ»õ¿ìÕÕPlusĞĞÇéÓ¦´ğ	
     virtual void OnRspSecuDepthMarketDataPlusSubscribe(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {};
 
-    /// Description: è®¢é˜…å–æ¶ˆ-ç°è´§å¿«ç…§Plusè¡Œæƒ…åº”ç­”
+    /// Description: ¶©ÔÄÈ¡Ïû-ÏÖ»õ¿ìÕÕPlusĞĞÇéÓ¦´ğ
     virtual void OnRspSecuDepthMarketDataPlusCancel(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {};
 
-    /// Description: ä¸»æ¨-ç°è´§å¿«ç…§Plusè¡Œæƒ…
+    /// Description: Ö÷ÍÆ-ÏÖ»õ¿ìÕÕPlusĞĞÇé
     virtual void OnRtnSecuDepthMarketDataPlus(CHSNsqSecuDepthMarketDataPlusField *pSecuDepthMarketDataPlus) {};
 
-    /// Description: ä¸»æ¨-ç°è´§å¿«ç…§Plusè¡Œæƒ…åœæ­¢é€šçŸ¥
-    ///Others     :å½“â€œå¿«ç…§Plusâ€æœåŠ¡å‘ç°äº¤æ˜“æ‰€ä¸‹å‘çš„æŸä¸ªé€šé“çš„é€ç¬”æ•°æ®å­˜åœ¨ä¸¢åŒ…æ—¶ï¼Œâ€œå¿«ç…§Plusâ€æœåŠ¡ä¼šè‡ªè¡Œå‘èµ·å¯¹ä¸¢å¤±é€ç¬”æ•°æ®çš„é‡å»ºã€‚
-    ///           åœ¨é‡å»ºå®Œæˆä¹‹å‰ï¼Œâ€œå¿«ç…§Plusâ€æœåŠ¡ä¼šå‘¨æœŸæ€§æ¨é€å…·ä½“é€šé“çš„åœæ­¢é€šçŸ¥ï¼Œä»è€Œè§¦å‘æœ¬å›è°ƒã€‚
-    ///           å½“é‡å»ºå®Œæˆåï¼Œå…·ä½“é€šé“çš„åœæ­¢é€šçŸ¥ä¼šåœæ­¢æ¨é€ï¼ŒåŒæ—¶â€œå¿«ç…§Plusâ€æœåŠ¡ä¼šç»§ç»­æ¨é€ç›¸åº”é€šé“é‡å»ºå‡ºæ¥çš„å¿«ç…§
+    /// Description: Ö÷ÍÆ-ÏÖ»õ¿ìÕÕPlusĞĞÇéÍ£Ö¹Í¨Öª
+    ///Others     :µ±¡°¿ìÕÕPlus¡±·şÎñ·¢ÏÖ½»Ò×ËùÏÂ·¢µÄÄ³¸öÍ¨µÀµÄÖğ±ÊÊı¾İ´æÔÚ¶ª°üÊ±£¬¡°¿ìÕÕPlus¡±·şÎñ»á×ÔĞĞ·¢Æğ¶Ô¶ªÊ§Öğ±ÊÊı¾İµÄÖØ½¨¡£
+    ///           ÔÚÖØ½¨Íê³ÉÖ®Ç°£¬¡°¿ìÕÕPlus¡±·şÎñ»áÖÜÆÚĞÔÍÆËÍ¾ßÌåÍ¨µÀµÄÍ£Ö¹Í¨Öª£¬´Ó¶ø´¥·¢±¾»Øµ÷¡£
+    ///           µ±ÖØ½¨Íê³Éºó£¬¾ßÌåÍ¨µÀµÄÍ£Ö¹Í¨Öª»áÍ£Ö¹ÍÆËÍ£¬Í¬Ê±¡°¿ìÕÕPlus¡±·şÎñ»á¼ÌĞøÍÆËÍÏàÓ¦Í¨µÀÖØ½¨³öÀ´µÄ¿ìÕÕ
     virtual void OnRtnSecuDepthMarketDataPlusStopNotice(CHSNsqSecuDepthMarketDataPlusStopNoticeField *pSecuDepthMarketDataPlusStopNotice) {};
 
-    ////ä»¥ä¸‹æ˜¯ç°è´§é€ç¬”é‡å»ºæ¥å£
+    ////ÒÔÏÂÊÇÏÖ»õÖğ±ÊÖØ½¨½Ó¿Ú
 
-    /// Description: é‡å»ºåº”ç­”-ç°è´§é€ç¬”æ•°æ®
+    /// Description: ÖØ½¨Ó¦´ğ-ÏÖ»õÖğ±ÊÊı¾İ
     virtual void OnRspSecuTransactionData(CHSNsqSecuTransactionDataField *pSecuTransactionData, CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {};
 
-    /// Description: é‡å»ºåº”ç­”è¶…æ—¶-ç°è´§é€ç¬”æ•°æ®ï¼ˆæœ¬å›è°ƒçº¿ç¨‹ä¸å…¶ä»–å›è°ƒçº¿ç¨‹ä¸åŒï¼‰
+    /// Description: ÖØ½¨Ó¦´ğ³¬Ê±-ÏÖ»õÖğ±ÊÊı¾İ£¨±¾»Øµ÷Ïß³ÌÓëÆäËû»Øµ÷Ïß³Ì²»Í¬£©
     virtual void OnRspSecuTransactionDataTimeout(int nRequestID) {};
 
 
-    ////ä»¥ä¸‹æ˜¯æ¸¯è‚¡é€šæ¥å£
+    ////ÒÔÏÂÊÇ¸Û¹ÉÍ¨½Ó¿Ú
 
-    /// Description: è·å–å½“å‰äº¤æ˜“æ—¥åˆçº¦åº”ç­”
+    /// Description: »ñÈ¡µ±Ç°½»Ò×ÈÕºÏÔ¼Ó¦´ğ
     virtual void OnRspQryHktInstruments(CHSNsqHktInstrumentStaticInfoField *pHktInstrumentStaticInfo, CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {};
 
-    /// Description: ä¸»æ¨-æ¸¯è‚¡é€šè¡Œæƒ…
+    /// Description: Ö÷ÍÆ-¸Û¹ÉÍ¨ĞĞÇé
     virtual void OnRtnHktDepthMarketData(CHSNsqHktDepthMarketDataField *pHktDepthMarketData) {};
 
+    ////ÒÔÏÂÊÇÍ¨Öª½Ó¿Ú
+    
+    /// Description: Ö÷ÍÆ-¾²Ì¬´úÂë±íÊı¾İ³õÊ¼»¯Í¨Öª
+    /// Others µ±sailfish_service·şÎñÄ³¸öÊĞ³¡/ÒµÎñ³õÊ¼»¯³É¹¦Ê±(°üÀ¨ÖØĞÂ³õÊ¼»¯)»áÏÂ·¢¸ÃÍ¨Öª¡£
+    ///        SDKµÇÂ¼µ½sailfish_serviceÖ®ºósailfish_service³õÊ¼»¯³É¹¦£¬SDK²ÅÄÜÊÕµ½¸ÃÍ¨Öª¡£
+	///        ÊÕµ½¸ÃÍ¨Öªºó£¬¿É¸ù¾İÊ¹ÓÃ³¡¾°ÖØĞÂ»ñÈ¡¶ÔÓ¦ÊĞ³¡/ÒµÎñµÄ¾²Ì¬Âë±íĞÅÏ¢¡£
+    virtual void OnRtnInstrumentsDataChangeNotice(CHSNsqInstrumentsDataChangeNoticeField *pInstrumentsDataChangeNotice){};
+
+
+    virtual ~CHSNsqSpi(){}
 };
 
 
 
 
-///è¡Œæƒ…
+///ĞĞÇé
 class CHSNsqApi
 {
 public:
-    /// Description: åˆ é™¤æ¥å£å¯¹è±¡æœ¬èº«
+    /// Description: É¾³ı½Ó¿Ú¶ÔÏó±¾Éí
     virtual void ReleaseApi() = 0;
 
-    /// Description: åˆå§‹åŒ–è¿æ¥
-    ///              pszLicFile            é€šè®¯è¯ä¹¦
-    ///              pszSafeLevel          å®‰å…¨çº§åˆ«
-    ///              pszPwd                é€šè®¯å¯†ç 
-    ///              pszSslFile            SSLè¯ä¹¦
-    ///              pszSslPwd             SSLå¯†ç 
+    /// Description: ³õÊ¼»¯Á¬½Ó
+    ///              pszLicFile            Í¨Ñ¶Ö¤Êé
+    ///              pszSafeLevel          °²È«¼¶±ğ
+    ///              pszPwd                Í¨Ñ¶ÃÜÂë
+    ///              pszSslFile            SSLÖ¤Êé
+    ///              pszSslPwd             SSLÃÜÂë
     virtual int Init(const char *pszLicFile,const char *pszSafeLevel = "", const char *pszPwd = "", const char *pszSslFile = "", const char *pszSslPwd = "") = 0;
 
 
-    /// Description:å®¢æˆ·ç™»å½•
+    /// Description:¿Í»§µÇÂ¼
     virtual int  ReqUserLogin(CHSNsqReqUserLoginField *pReqUserLogin, int nRequestID) = 0;
 
 
-    /// Description: APIå’Œåå°å»ºç«‹è¿æ¥ï¼Œè¿æ¥å»ºç«‹æˆåŠŸåï¼Œä¸»çº¿ç¨‹ä¼šç­‰å¾…ç”¨æˆ·æ“ä½œå­çº¿ç¨‹é€€å‡º
-    /// Return     ï¼šint 0è¡¨ç¤ºè¿æ¥å»ºç«‹æˆåŠŸï¼Œå¦åˆ™è¡¨ç¤ºå¤±è´¥ï¼Œé€šè¿‡è°ƒç”¨GetApiErrorMsgå¯ä»¥è·å–è¯¦ç»†é”™è¯¯ä¿¡æ¯
+    /// Description: APIºÍºóÌ¨½¨Á¢Á¬½Ó£¬Á¬½Ó½¨Á¢³É¹¦ºó£¬Ö÷Ïß³Ì»áµÈ´ıÓÃ»§²Ù×÷×ÓÏß³ÌÍË³ö
+    /// Return     £ºint 0±íÊ¾Á¬½Ó½¨Á¢³É¹¦£¬·ñÔò±íÊ¾Ê§°Ü£¬Í¨¹ıµ÷ÓÃGetApiErrorMsg¿ÉÒÔ»ñÈ¡ÏêÏ¸´íÎóĞÅÏ¢
     virtual int Join() = 0;
 
-    /// Description: æ³¨å†Œåå°ç½‘ç»œåœ°å€
-    /// Input      : pszFrontAddress            åå°ç½‘ç»œåœ°å€  å¦‚ï¼šâ€tcp://127.0.0.1:17001â€
-    /// Return     : int 0è¡¨ç¤ºè®¾ç½®æˆåŠŸï¼Œå¦åˆ™è¡¨ç¤ºå¤±è´¥ï¼Œé€šè¿‡è°ƒç”¨GetApiErrorMsgå¯ä»¥è·å–è¯¦ç»†é”™è¯¯ä¿¡æ¯
+    /// Description: ×¢²áºóÌ¨ÍøÂçµØÖ·
+    /// Input      : pszFrontAddress            ºóÌ¨ÍøÂçµØÖ·  Èç£º¡±tcp://127.0.0.1:17001¡±
+    /// Return     : int 0±íÊ¾ÉèÖÃ³É¹¦£¬·ñÔò±íÊ¾Ê§°Ü£¬Í¨¹ıµ÷ÓÃGetApiErrorMsg¿ÉÒÔ»ñÈ¡ÏêÏ¸´íÎóĞÅÏ¢
     virtual int RegisterFront(const char *pszFrontAddress) = 0;
 
-    /// Description: æ³¨å†ŒFensç½‘ç»œåœ°å€
-    /// Input      : pszFensAddress            Fensç½‘ç»œåœ°å€
-    /// Input      : pszAccountID              è´¦å·
-    /// Return     : int 0è¡¨ç¤ºè®¾ç½®æˆåŠŸï¼Œå¦åˆ™è¡¨ç¤ºå¤±è´¥ï¼Œé€šè¿‡è°ƒç”¨GetApiErrorMsgå¯ä»¥è·å–è¯¦ç»†é”™è¯¯ä¿¡æ¯
-    virtual int RegisterFensServer(const char *pszFensAddress, const char *pszAccountID) = 0;// æœŸè´§æ’ç”Ÿç»çºªæŸœå°ä¸“ç”¨ï¼ŒNSQæ²¡ç”¨
+    /// Description: ×¢²áFensÍøÂçµØÖ·
+    /// Input      : pszFensAddress            FensÍøÂçµØÖ·
+    /// Input      : pszAccountID              ÕËºÅ
+    /// Return     : int 0±íÊ¾ÉèÖÃ³É¹¦£¬·ñÔò±íÊ¾Ê§°Ü£¬Í¨¹ıµ÷ÓÃGetApiErrorMsg¿ÉÒÔ»ñÈ¡ÏêÏ¸´íÎóĞÅÏ¢
+    virtual int RegisterFensServer(const char *pszFensAddress, const char *pszAccountID) = 0;// ÆÚ»õºãÉú¾­¼Í¹ñÌ¨×¨ÓÃ£¬NSQÃ»ÓÃ
 
-    /// Description: æ³¨å†Œå›è°ƒæ¥å£
-    /// Input      : pSpi            æ´¾ç”Ÿè‡ªå›è°ƒæ¥å£ç±»çš„å®ä¾‹     
+    /// Description: ×¢²á»Øµ÷½Ó¿Ú
+    /// Input      : pSpi            ÅÉÉú×Ô»Øµ÷½Ó¿ÚÀàµÄÊµÀı     
     virtual void RegisterSpi(CHSNsqSpi *pSpi) = 0;
 
 
-    ///ä»¥ä¸‹æ˜¯æœŸè´§ç›¸å…³æ¥å£
+    ///ÒÔÏÂÊÇÆÚ»õÏà¹Ø½Ó¿Ú  (Ôİ²»Ö§³Ö)
 
-    /// Description: è®¢é˜…-æœŸè´§å•è…¿è¡Œæƒ…è¯·æ±‚
-    /// Input      : pReqFutuDepthMarketDataSubscribe[]        è¡Œæƒ…è®¢é˜…è¯·æ±‚ç»“æ„ä½“æ•°ç»„ 
-    ///              nCount                                    è®¢é˜…è¡Œæƒ…åˆçº¦ä¸ªæ•°ã€‚nCountä¸º0ï¼Œè¡¨ç¤ºè®¢é˜…pReqFutuDepthMarketDataSubscribe[0].ExchangeIDå…¨å¸‚åœº
-    ///              nRequestID                                è¯·æ±‚ç¼–å· 
+    /// Description: ¶©ÔÄ-ÆÚ»õµ¥ÍÈĞĞÇéÇëÇó
+    /// Input      : pReqFutuDepthMarketDataSubscribe[]        ĞĞÇé¶©ÔÄÇëÇó½á¹¹ÌåÊı×é 
+    ///              nCount                                    ¶©ÔÄĞĞÇéºÏÔ¼¸öÊı¡£nCountÎª0£¬±íÊ¾¶©ÔÄpReqFutuDepthMarketDataSubscribe[0].ExchangeIDÈ«ÊĞ³¡
+    ///              nRequestID                                ÇëÇó±àºÅ 
     virtual int ReqFutuDepthMarketDataSubscribe(CHSNsqReqFutuDepthMarketDataField pReqFutuDepthMarketDataSubscribe[], int nCount, int nRequestID) = 0;
 
-    /// Description: è®¢é˜…å–æ¶ˆ-å•è…¿è¡Œæƒ…è¯·æ±‚
-    /// Input      : pReqFutuDepthMarketDataCancel[]        è¡Œæƒ…è®¢é˜…è¯·æ±‚ç»“æ„ä½“æ•°ç»„ 
-    ///              nCount                                 è®¢é˜…è¡Œæƒ…åˆçº¦ä¸ªæ•°ã€‚nCountä¸º0ï¼Œè¡¨ç¤ºå–æ¶ˆè®¢é˜…pReqFutuDepthMarketDataCancel[0].ExchangeIDå…¨å¸‚åœº
-    ///              nRequestID                             è¯·æ±‚ç¼–å· 
+    /// Description: ¶©ÔÄÈ¡Ïû-µ¥ÍÈĞĞÇéÇëÇó
+    /// Input      : pReqFutuDepthMarketDataCancel[]        ĞĞÇé¶©ÔÄÇëÇó½á¹¹ÌåÊı×é 
+    ///              nCount                                 ¶©ÔÄĞĞÇéºÏÔ¼¸öÊı¡£nCountÎª0£¬±íÊ¾È¡Ïû¶©ÔÄpReqFutuDepthMarketDataCancel[0].ExchangeIDÈ«ÊĞ³¡
+    ///              nRequestID                             ÇëÇó±àºÅ 
     virtual int ReqFutuDepthMarketDataCancel(CHSNsqReqFutuDepthMarketDataField pReqFutuDepthMarketDataCancel[], int nCount, int nRequestID) = 0;
 
-    /// Description: æŸ¥è¯¢-è·å–å½“å‰äº¤æ˜“æ—¥çš„åˆçº¦ä¿¡æ¯
-    /// Input      : pReqQryFutuInstruments[]             è¡Œæƒ…æŸ¥è¯¢è¯·æ±‚ç»“æ„ä½“æ•°ç»„
-    ///              nCount 						      æŸ¥è¯¢è¡Œæƒ…åˆçº¦ä¸ªæ•°ã€‚nCountä¸º0ï¼Œè¡¨ç¤ºæŸ¥è¯¢pReqQryFutuInstruments[0].ExchangeIDå…¨å¸‚åœº 
-    ///              nRequestID 					      è¯·æ±‚ç¼–å· 
+    /// Description: ²éÑ¯-»ñÈ¡µ±Ç°½»Ò×ÈÕµÄºÏÔ¼ĞÅÏ¢
+    /// Input      : pReqQryFutuInstruments[]             ĞĞÇé²éÑ¯ÇëÇó½á¹¹ÌåÊı×é
+    ///              nCount 						      ²éÑ¯ĞĞÇéºÏÔ¼¸öÊı¡£nCountÎª0£¬±íÊ¾²éÑ¯pReqQryFutuInstruments[0].ExchangeIDÈ«ÊĞ³¡ 
+    ///              nRequestID 					      ÇëÇó±àºÅ 
     virtual int ReqQryFutuInstruments(CHSNsqReqFutuDepthMarketDataField pReqQryFutuInstruments[], int nCount, int nRequestID) = 0;
 
-    /// Description: æŸ¥è¯¢-è·å–æœŸè´§åˆçº¦çš„æœ€æ–°å¿«ç…§ä¿¡æ¯
-    /// Input      : pReqQryFutuDepthMarketData[]         è¡Œæƒ…æŸ¥è¯¢è¯·æ±‚ç»“æ„ä½“æ•°ç»„
-    ///              nCount 						      æŸ¥è¯¢è¡Œæƒ…åˆçº¦ä¸ªæ•°ã€‚nCountä¸º0ï¼Œè¡¨ç¤ºæŸ¥è¯¢pReqQryFutuDepthMarketData[0].ExchangeIDå…¨å¸‚åœº 
-    ///              nRequestID 					      è¯·æ±‚ç¼–å· 
+    /// Description: ²éÑ¯-»ñÈ¡ÆÚ»õºÏÔ¼µÄ×îĞÂ¿ìÕÕĞÅÏ¢ 
+    /// Input      : pReqQryFutuDepthMarketData[]         ĞĞÇé²éÑ¯ÇëÇó½á¹¹ÌåÊı×é
+    ///              nCount 						      ²éÑ¯ĞĞÇéºÏÔ¼¸öÊı¡£nCountÎª0£¬±íÊ¾²éÑ¯pReqQryFutuDepthMarketData[0].ExchangeIDÈ«ÊĞ³¡ 
+    ///              nRequestID 					      ÇëÇó±àºÅ 
     virtual int ReqQryFutuDepthMarketData(CHSNsqReqFutuDepthMarketDataField pReqQryFutuDepthMarketData[], int nCount, int nRequestID) = 0;
 
 
 
-    ////ä»¥ä¸‹æ˜¯ç°è´§æ¥å£
+    ////ÒÔÏÂÊÇÏÖ»õ½Ó¿Ú
 
-    /// Description: è®¢é˜…-ç°è´§è¡Œæƒ…å¿«ç…§è¯·æ±‚
-    /// Input      : pReqSecuDepthMarketDataSubscribe[]         è¡Œæƒ…è®¢é˜…è¯·æ±‚ç»“æ„ä½“æ•°ç»„
-    ///              nCount 						      		è®¢é˜…è¡Œæƒ…åˆçº¦ä¸ªæ•°ã€‚nCountä¸º0ï¼Œè¡¨ç¤ºè®¢é˜…pReqSecuDepthMarketDataSubscribe[0].ExchangeIDå…¨å¸‚åœº
-    ///              nRequestID 					      		è¯·æ±‚ç¼–å· 
+    /// Description: ¶©ÔÄ-ÏÖ»õĞĞÇé¿ìÕÕÇëÇó
+    /// Input      : pReqSecuDepthMarketDataSubscribe[]         ĞĞÇé¶©ÔÄÇëÇó½á¹¹ÌåÊı×é
+    ///              nCount 						      		¶©ÔÄĞĞÇéºÏÔ¼¸öÊı¡£nCountÎª0£¬±íÊ¾¶©ÔÄpReqSecuDepthMarketDataSubscribe[0].ExchangeIDÈ«ÊĞ³¡
+    ///              nRequestID 					      		ÇëÇó±àºÅ 
     virtual int ReqSecuDepthMarketDataSubscribe(CHSNsqReqSecuDepthMarketDataField pReqSecuDepthMarketDataSubscribe[], int nCount, int nRequestID) = 0;
 
-    /// Description: è®¢é˜…å–æ¶ˆ-ç°è´§è¡Œæƒ…å¿«ç…§è¯·æ±‚
-    /// Input      : pReqFutuDepthMarketDataCancel[]        è¡Œæƒ…è®¢é˜…è¯·æ±‚ç»“æ„ä½“æ•°ç»„ 
-    ///              nCount                                 å–æ¶ˆè®¢é˜…è¡Œæƒ…åˆçº¦ä¸ªæ•°ã€‚nCountä¸º0ï¼Œè¡¨ç¤ºå–æ¶ˆè®¢é˜…pReqSecuDepthMarketDataCancel[0].ExchangeIDå…¨å¸‚åœº
-    ///              nRequestID                             è¯·æ±‚ç¼–å·                      
+    /// Description: ¶©ÔÄÈ¡Ïû-ÏÖ»õĞĞÇé¿ìÕÕÇëÇó
+    /// Input      : pReqSecuDepthMarketDataCancel[]        ĞĞÇé¶©ÔÄÇëÇó½á¹¹ÌåÊı×é 
+    ///              nCount                                 È¡Ïû¶©ÔÄĞĞÇéºÏÔ¼¸öÊı¡£nCountÎª0£¬±íÊ¾È¡Ïû¶©ÔÄpReqSecuDepthMarketDataCancel[0].ExchangeIDÈ«ÊĞ³¡
+    ///              nRequestID                             ÇëÇó±àºÅ                      
     virtual int ReqSecuDepthMarketDataCancel(CHSNsqReqSecuDepthMarketDataField pReqSecuDepthMarketDataCancel[], int nCount, int nRequestID) = 0;
 
-    /// Description: è®¢é˜…-ç°è´§é€ç¬”è¡Œæƒ…è¯·æ±‚
-    /// Input      : cTransType                             é€ç¬”ç±»å‹: '0'-é€ç¬”æˆäº¤å’Œé€ç¬”å§”æ‰˜ï¼ˆä¸Šæµ·å¸‚åœºåªä¼šæ¨é€é€ç¬”æˆäº¤ï¼‰; '1'-é€ç¬”æˆäº¤ï¼›'2'-é€ç¬”å§”æ‰˜
-    ///              pReqSecuTransactionSubscribe[]         è¡Œæƒ…è®¢é˜…è¯·æ±‚ç»“æ„ä½“æ•°ç»„ 
-    ///              nCount                                 è®¢é˜…è¡Œæƒ…åˆçº¦ä¸ªæ•°ã€‚nCountä¸º0ï¼Œè¡¨ç¤ºè®¢é˜…pReqSecuTransactionSubscribe[0].ExchangeIDå…¨å¸‚åœº
-    ///              nRequestID                             è¯·æ±‚ç¼–å· 
+    /// Description: ¶©ÔÄ-ÏÖ»õÖğ±ÊĞĞÇéÇëÇó
+    /// Input      : cTransType                             Öğ±ÊÀàĞÍ: '0'-Öğ±Ê³É½»ºÍÖğ±ÊÎ¯ÍĞ; '1'-Öğ±Ê³É½»£»'2'-Öğ±ÊÎ¯ÍĞ
+    ///              pReqSecuTransactionSubscribe[]         ĞĞÇé¶©ÔÄÇëÇó½á¹¹ÌåÊı×é 
+    ///              nCount                                 ¶©ÔÄĞĞÇéºÏÔ¼¸öÊı¡£nCountÎª0£¬±íÊ¾¶©ÔÄpReqSecuTransactionSubscribe[0].ExchangeIDÈ«ÊĞ³¡
+    ///              nRequestID                             ÇëÇó±àºÅ 
     virtual int ReqSecuTransactionSubscribe(HSTransType cTransType, CHSNsqReqSecuDepthMarketDataField pReqSecuTransactionSubscribe[], int nCount, int nRequestID) = 0;
 
-    /// Description: è®¢é˜…å–æ¶ˆ-ç°è´§é€ç¬”è¡Œæƒ…è¯·æ±‚
-    /// Input      : cTransType                             é€ç¬”ç±»å‹: '0'-é€ç¬”æˆäº¤å’Œé€ç¬”å§”æ‰˜; '1'-é€ç¬”æˆäº¤ï¼›'2'-é€ç¬”å§”æ‰˜
-    ///              pReqSecuTransactionCancel[]            è¡Œæƒ…è®¢é˜…è¯·æ±‚ç»“æ„ä½“æ•°ç»„ 
-    ///              nCount                                 å–æ¶ˆè®¢é˜…è¡Œæƒ…åˆçº¦ä¸ªæ•°ã€‚nCountä¸º0ï¼Œè¡¨ç¤ºå–æ¶ˆè®¢é˜…pReqSecuTransactionCancel[0].ExchangeIDå…¨å¸‚åœº
-    ///              nRequestID                             è¯·æ±‚ç¼–å· 
+    /// Description: ¶©ÔÄÈ¡Ïû-ÏÖ»õÖğ±ÊĞĞÇéÇëÇó
+    /// Input      : cTransType                             Öğ±ÊÀàĞÍ: '0'-Öğ±Ê³É½»ºÍÖğ±ÊÎ¯ÍĞ; '1'-Öğ±Ê³É½»£»'2'-Öğ±ÊÎ¯ÍĞ
+    ///              pReqSecuTransactionCancel[]            ĞĞÇé¶©ÔÄÇëÇó½á¹¹ÌåÊı×é 
+    ///              nCount                                 È¡Ïû¶©ÔÄĞĞÇéºÏÔ¼¸öÊı¡£nCountÎª0£¬±íÊ¾È¡Ïû¶©ÔÄpReqSecuTransactionCancel[0].ExchangeIDÈ«ÊĞ³¡
+    ///              nRequestID                             ÇëÇó±àºÅ 
     virtual int ReqSecuTransactionCancel(HSTransType cTransType, CHSNsqReqSecuDepthMarketDataField pReqSecuTransactionCancel[], int nCount, int nRequestID) = 0;
 
 
-    /// Description: å½“å‰äº¤æ˜“æ—¥ä»£ç ä¿¡æ¯æŸ¥è¯¢
-    /// Input      : pReqQrySecuInstruments[]               ä»£ç ä¿¡æ¯æŸ¥è¯¢è¯·æ±‚ç»“æ„ä½“æ•°ç»„ 
-    ///              nCount                                 æŸ¥è¯¢è¡Œæƒ…åˆçº¦ä¸ªæ•°ã€‚nCountä¸º0ï¼Œè¡¨ç¤ºæŸ¥è¯¢pReqQrySecuInstruments[0].ExchangeIDå…¨å¸‚åœº
-    ///              nRequestID                             è¯·æ±‚ç¼–å· 
+    /// Description: µ±Ç°½»Ò×ÈÕ´úÂëĞÅÏ¢²éÑ¯
+    /// Input      : pReqQrySecuInstruments[]               ´úÂëĞÅÏ¢²éÑ¯ÇëÇó½á¹¹ÌåÊı×é 
+    ///              nCount                                 ²éÑ¯ĞĞÇéºÏÔ¼¸öÊı¡£nCountÎª0£¬±íÊ¾²éÑ¯pReqQrySecuInstruments[0].ExchangeIDÈ«ÊĞ³¡
+    ///              nRequestID                             ÇëÇó±àºÅ 
+    /// Return     : int 0±íÊ¾ÇëÇó³É¹¦(Êı¾İÍ¨¹ıOnRspQrySecuInstruments·µ»Ø)£¬·ñÔò±íÊ¾Ê§°Ü£¬Í¨¹ıµ÷ÓÃGetApiErrorMsg¿ÉÒÔ»ñÈ¡ÏêÏ¸´íÎóĞÅÏ¢
     virtual int ReqQrySecuInstruments(CHSNsqReqSecuDepthMarketDataField pReqQrySecuInstruments[], int nCount, int nRequestID) = 0;
 
-    /// Description: æŸ¥è¯¢ä»£ç çš„æœ€æ–°å¿«ç…§ä¿¡æ¯
-    /// Input      : pReqQrySecuDepthMarketData[]           ä»£ç ä¿¡æ¯æŸ¥è¯¢è¯·æ±‚ç»“æ„ä½“æ•°ç»„ 
-    ///              nCount                                 æŸ¥è¯¢è¡Œæƒ…åˆçº¦ä¸ªæ•°ã€‚nCountä¸º0ï¼Œè¡¨ç¤ºæŸ¥è¯¢pReqQrySecuDepthMarketData[0].ExchangeIDå…¨å¸‚åœº
-    ///              nRequestID                             è¯·æ±‚ç¼–å· 
+    /// Description: ²éÑ¯´úÂëµÄ×îĞÂ¿ìÕÕĞÅÏ¢  (Ôİ²»Ö§³Ö)
+    /// Input      : pReqQrySecuDepthMarketData[]           ´úÂëĞÅÏ¢²éÑ¯ÇëÇó½á¹¹ÌåÊı×é 
+    ///              nCount                                 ²éÑ¯ĞĞÇéºÏÔ¼¸öÊı¡£nCountÎª0£¬±íÊ¾²éÑ¯pReqQrySecuDepthMarketData[0].ExchangeIDÈ«ÊĞ³¡
+    ///              nRequestID                             ÇëÇó±àºÅ 
     virtual int ReqQrySecuDepthMarketData(CHSNsqReqSecuDepthMarketDataField pReqQrySecuDepthMarketData[], int nCount, int nRequestID) = 0;
 
 
 
-    ////ä»¥ä¸‹æ˜¯æœŸæƒæ¥å£
-    /// Description: è®¢é˜…-æœŸæƒè¡Œæƒ…è¯·æ±‚
-    /// Input      : pReqOptDepthMarketDataSubscribe[]    è¡Œæƒ…è®¢é˜…è¯·æ±‚ç»“æ„ä½“æ•°ç»„ 
-    ///              nCount                                 è®¢é˜…è¡Œæƒ…åˆçº¦ä¸ªæ•°ã€‚nCountä¸º0ï¼Œè¡¨ç¤ºè®¢é˜…pReqOptDepthMarketDataSubscribe[0].ExchangeIDå…¨å¸‚åœº
-    ///              nRequestID                             è¯·æ±‚ç¼–å· 
+    ////ÒÔÏÂÊÇÆÚÈ¨½Ó¿Ú
+    /// Description: ¶©ÔÄ-ÆÚÈ¨ĞĞÇéÇëÇó
+    /// Input      : pReqOptDepthMarketDataSubscribe[]    ĞĞÇé¶©ÔÄÇëÇó½á¹¹ÌåÊı×é 
+    ///              nCount                                 ¶©ÔÄĞĞÇéºÏÔ¼¸öÊı¡£nCountÎª0£¬±íÊ¾¶©ÔÄpReqOptDepthMarketDataSubscribe[0].ExchangeIDÈ«ÊĞ³¡
+    ///              nRequestID                             ÇëÇó±àºÅ 
     virtual int ReqOptDepthMarketDataSubscribe(CHSNsqReqOptDepthMarketDataField pReqOptDepthMarketDataSubscribe[], int nCount, int nRequestID) = 0;
 
-    /// Description: è®¢é˜…å–æ¶ˆ-æœŸæƒè¡Œæƒ…å¿«ç…§è¯·æ±‚
-    /// Input      : pReqOptDepthMarketDataCancel[]         è¡Œæƒ…è®¢é˜…è¯·æ±‚ç»“æ„ä½“æ•°ç»„ 
-    ///              nCount                                 è®¢é˜…è¡Œæƒ…åˆçº¦ä¸ªæ•°ã€‚nCountä¸º0ï¼Œè¡¨ç¤ºå–æ¶ˆè®¢é˜…pReqOptDepthMarketDataCancel[0].ExchangeIDå…¨å¸‚åœº
-    ///              nRequestID                             è¯·æ±‚ç¼–å·                      
+    /// Description: ¶©ÔÄÈ¡Ïû-ÆÚÈ¨ĞĞÇé¿ìÕÕÇëÇó
+    /// Input      : pReqOptDepthMarketDataCancel[]         ĞĞÇé¶©ÔÄÇëÇó½á¹¹ÌåÊı×é 
+    ///              nCount                                 ¶©ÔÄĞĞÇéºÏÔ¼¸öÊı¡£nCountÎª0£¬±íÊ¾È¡Ïû¶©ÔÄpReqOptDepthMarketDataCancel[0].ExchangeIDÈ«ÊĞ³¡
+    ///              nRequestID                             ÇëÇó±àºÅ                      
     virtual int ReqOptDepthMarketDataCancel(CHSNsqReqOptDepthMarketDataField pReqOptDepthMarketDataCancel[], int nCount, int nRequestID) = 0;
 
-    /// Description: å½“å‰äº¤æ˜“æ—¥åˆçº¦ä¿¡æ¯æŸ¥è¯¢
-    /// Input      : pReqQrySecuInstruments[]               ä»£ç ä¿¡æ¯æŸ¥è¯¢è¯·æ±‚ç»“æ„ä½“æ•°ç»„ 
-    ///              nCount                                 æŸ¥è¯¢è¡Œæƒ…åˆçº¦ä¸ªæ•°ã€‚nCountä¸º0ï¼Œè¡¨ç¤ºæŸ¥è¯¢pReqQryOptInstruments[0].ExchangeIDå…¨å¸‚åœº
-    ///              nRequestID                             è¯·æ±‚ç¼–å· 
+    /// Description: µ±Ç°½»Ò×ÈÕºÏÔ¼ĞÅÏ¢²éÑ¯
+    /// Input      : pReqQryOptInstruments[]               ´úÂëĞÅÏ¢²éÑ¯ÇëÇó½á¹¹ÌåÊı×é 
+    ///              nCount                                 ²éÑ¯ĞĞÇéºÏÔ¼¸öÊı¡£nCountÎª0£¬±íÊ¾²éÑ¯pReqQryOptInstruments[0].ExchangeIDÈ«ÊĞ³¡
+    ///              nRequestID                             ÇëÇó±àºÅ 
+    /// Return     : int 0±íÊ¾ÇëÇó³É¹¦(Êı¾İÍ¨¹ıOnRspQryOptInstruments·µ»Ø)£¬·ñÔò±íÊ¾Ê§°Ü£¬Í¨¹ıµ÷ÓÃGetApiErrorMsg¿ÉÒÔ»ñÈ¡ÏêÏ¸´íÎóĞÅÏ¢
     virtual int ReqQryOptInstruments(CHSNsqReqOptDepthMarketDataField pReqQryOptInstruments[], int nCount, int nRequestID) = 0;
 
-    /// Description: æŸ¥è¯¢åˆçº¦çš„æœ€æ–°å¿«ç…§ä¿¡æ¯
-    /// Input      : pReqQrySecuDepthMarketData[]           ä»£ç ä¿¡æ¯æŸ¥è¯¢è¯·æ±‚ç»“æ„ä½“æ•°ç»„ 
-    ///              nCount                                 æŸ¥è¯¢è¡Œæƒ…åˆçº¦ä¸ªæ•°ã€‚nCountä¸º0ï¼Œè¡¨ç¤ºæŸ¥è¯¢pReqQryOptDepthMarketData[0].ExchangeIDå…¨å¸‚åœº
-    ///              nRequestID                             è¯·æ±‚ç¼–å· 
+    /// Description: ²éÑ¯ºÏÔ¼µÄ×îĞÂ¿ìÕÕĞÅÏ¢ (Ôİ²»Ö§³Ö)
+    /// Input      : pReqQryOptDepthMarketData[]           ´úÂëĞÅÏ¢²éÑ¯ÇëÇó½á¹¹ÌåÊı×é 
+    ///              nCount                                 ²éÑ¯ĞĞÇéºÏÔ¼¸öÊı¡£nCountÎª0£¬±íÊ¾²éÑ¯pReqQryOptDepthMarketData[0].ExchangeIDÈ«ÊĞ³¡
+    ///              nRequestID                             ÇëÇó±àºÅ 
     virtual int ReqQryOptDepthMarketData(CHSNsqReqOptDepthMarketDataField pReqQryOptDepthMarketData[], int nCount, int nRequestID) = 0;
 
 
 
     ///////////////////////////////////////////////////////////////////////////////////////
-    /// Description: è·å¾—é”™è¯¯è¯¦ç»†ä¿¡æ¯
-    /// Input	   : nErrorCode 		   é”™è¯¯å·
-    /// Return	   ï¼šé”™è¯¯ä¿¡æ¯
+    /// Description: »ñµÃ´íÎóÏêÏ¸ĞÅÏ¢
+    /// Input	   : nErrorCode 		   ´íÎóºÅ
+    /// Return	   £º´íÎóĞÅÏ¢
     ///////////////////////////////////////////////////////////////////////////////////////
     virtual const char* GetApiErrorMsg(int nErrorCode) = 0;
 
-    ////ä»¥ä¸‹æ˜¯ç°è´§å¿«ç…§Plusæ¥å£
+    ////ÒÔÏÂÊÇÏÖ»õ¿ìÕÕPlus½Ó¿Ú
 
-    /// Description: è®¢é˜…-ç°è´§è¡Œæƒ…å¿«ç…§Plusè¯·æ±‚
-    /// Input      : pReqSecuDepthMarketDataSubscribe[]         è¡Œæƒ…è®¢é˜…è¯·æ±‚ç»“æ„ä½“æ•°ç»„
-    ///              nCount 						      		è®¢é˜…è¡Œæƒ…åˆçº¦ä¸ªæ•°ã€‚nCountä¸º0ï¼Œè¡¨ç¤ºè®¢é˜…pReqSecuDepthMarketDataSubscribe[0].ExchangeIDå…¨å¸‚åœº
-    ///              nRequestID 					      		è¯·æ±‚ç¼–å· 
+    /// Description: ¶©ÔÄ-ÏÖ»õĞĞÇé¿ìÕÕPlusÇëÇó
+    /// Input      : pReqSecuDepthMarketDataSubscribe[]         ĞĞÇé¶©ÔÄÇëÇó½á¹¹ÌåÊı×é
+    ///              nCount 						      		¶©ÔÄĞĞÇéºÏÔ¼¸öÊı¡£nCountÎª0£¬±íÊ¾¶©ÔÄpReqSecuDepthMarketDataSubscribe[0].ExchangeIDÈ«ÊĞ³¡
+    ///              nRequestID 					      		ÇëÇó±àºÅ 
     virtual int ReqSecuDepthMarketDataPlusSubscribe(CHSNsqReqSecuDepthMarketDataField pReqSecuDepthMarketDataSubscribe[], int nCount, int nRequestID) = 0;
 
-    /// Description: è®¢é˜…å–æ¶ˆ-ç°è´§è¡Œæƒ…å¿«ç…§Plusè¯·æ±‚
-    /// Input      : pReqFutuDepthMarketDataCancel[]        è¡Œæƒ…è®¢é˜…è¯·æ±‚ç»“æ„ä½“æ•°ç»„ 
-    ///              nCount                                 å–æ¶ˆè®¢é˜…è¡Œæƒ…åˆçº¦ä¸ªæ•°ã€‚nCountä¸º0ï¼Œè¡¨ç¤ºå–æ¶ˆè®¢é˜…pReqSecuDepthMarketDataCancel[0].ExchangeIDå…¨å¸‚åœº
-    ///              nRequestID                             è¯·æ±‚ç¼–å·                      
+    /// Description: ¶©ÔÄÈ¡Ïû-ÏÖ»õĞĞÇé¿ìÕÕPlusÇëÇó
+    /// Input      : pReqSecuDepthMarketDataCancel[]        ĞĞÇé¶©ÔÄÇëÇó½á¹¹ÌåÊı×é 
+    ///              nCount                                 È¡Ïû¶©ÔÄĞĞÇéºÏÔ¼¸öÊı¡£nCountÎª0£¬±íÊ¾È¡Ïû¶©ÔÄpReqSecuDepthMarketDataCancel[0].ExchangeIDÈ«ÊĞ³¡
+    ///              nRequestID                             ÇëÇó±àºÅ                      
     virtual int ReqSecuDepthMarketDataPlusCancel(CHSNsqReqSecuDepthMarketDataField pReqSecuDepthMarketDataCancel[], int nCount, int nRequestID) = 0;
 
-    ////ä»¥ä¸‹æ˜¯ç°è´§é€ç¬”é‡å»ºæ¥å£
+    ////ÒÔÏÂÊÇÏÖ»õÖğ±ÊÖØ½¨½Ó¿Ú
 
-    /// Description: é€ç¬”é‡å»ºè¯·æ±‚
-    /// Input      : pReqSecuTransactionRebuild             é‡å»ºèŒƒå›´ 
-    ///              nRequestID                             è¯·æ±‚ç¼–å· 
+    /// Description: Öğ±ÊÖØ½¨ÇëÇó
+    /// Input      : pReqSecuTransactionRebuild             ÖØ½¨·¶Î§ 
+    ///              nRequestID                             ÇëÇó±àºÅ 
     virtual int ReqSecuTransactionRebuild(CHSNsqReqSecuTransactionRebuildField *pReqSecuTransactionRebuild, int nRequestID) = 0;
 
 
-    ////ä»¥ä¸‹æ˜¯æ¸¯è‚¡é€šæ¥å£
+    ////ÒÔÏÂÊÇ¸Û¹ÉÍ¨½Ó¿Ú
 
-    /// Description: å½“å‰äº¤æ˜“æ—¥åˆçº¦ä¿¡æ¯æŸ¥è¯¢
-    /// Input      : pReqQryHktInstruments[]                ä»£ç ä¿¡æ¯æŸ¥è¯¢è¯·æ±‚ç»“æ„ä½“æ•°ç»„ 
-    ///              nCount                                 æŸ¥è¯¢è¡Œæƒ…åˆçº¦ä¸ªæ•°ã€‚nCountä¸º0ï¼Œè¡¨ç¤ºæŸ¥è¯¢pReqQryHktInstruments[0].ExchangeIDå…¨å¸‚åœº
-    ///              nRequestID                             è¯·æ±‚ç¼–å· 
+    /// Description: µ±Ç°½»Ò×ÈÕºÏÔ¼ĞÅÏ¢²éÑ¯
+    /// Input      : pReqQryHktInstruments[]                ´úÂëĞÅÏ¢²éÑ¯ÇëÇó½á¹¹ÌåÊı×é 
+    ///              nCount                                 ²éÑ¯ĞĞÇéºÏÔ¼¸öÊı¡£nCountÎª0£¬±íÊ¾²éÑ¯pReqQryHktInstruments[0].ExchangeIDÈ«ÊĞ³¡
+    ///              nRequestID                             ÇëÇó±àºÅ 
+    /// Return     : int 0±íÊ¾ÇëÇó³É¹¦(Êı¾İÍ¨¹ıOnRspQryHktInstruments·µ»Ø)£¬·ñÔò±íÊ¾Ê§°Ü£¬Í¨¹ıµ÷ÓÃGetApiErrorMsg¿ÉÒÔ»ñÈ¡ÏêÏ¸´íÎóĞÅÏ¢
     virtual int ReqQryHktInstruments(CHSNsqReqHktDepthMarketDataField pReqQryHktInstruments[], int nCount, int nRequestID) = 0;
 
 protected:
-    ~CHSNsqApi(){};
+    virtual ~CHSNsqApi(){};
 };
 #ifdef __cplusplus
 extern "C"
 {
 #endif
-    /// Description: è·å–APIç‰ˆæœ¬å·
-    /// Return     : APIç‰ˆæœ¬å·
+    /// Description: »ñÈ¡API°æ±¾ºÅ
+    /// Return     : API°æ±¾ºÅ
     NSQ_API_EXPORT const char* GetNsqApiVersion();
 
-    /// Description: åˆ›å»ºè¡Œæƒ…æ¥å£
-    /// Input      : pszFlowPath    æ—¥å¿—è·¯å¾„   
+    /// Description: ´´½¨ĞĞÇé½Ó¿Ú
+    /// Input      : pszFlowPath    ÈÕÖ¾Â·¾¶   
     NSQ_API_EXPORT CHSNsqApi* NewNsqApi(const char *pszFlowPath);
 
-    /// Description: åˆ›å»ºè¡Œæƒ…æ¥å£
-    /// Input      : pszFlowPath    æ—¥å¿—è·¯å¾„
-    /// Input      : sdkCfgFilePath      é…ç½®æ–‡ä»¶è·¯å¾„
+    /// Description: ´´½¨ĞĞÇé½Ó¿Ú
+    /// Input      : pszFlowPath    ÈÕÖ¾Â·¾¶
+    /// Input      : sdkCfgFilePath      ÅäÖÃÎÄ¼şÂ·¾¶
     NSQ_API_EXPORT CHSNsqApi* NewNsqApiExt(const char *pszFlowPath, const char* sdkCfgFilePath);
 
 #ifdef __cplusplus

@@ -19,9 +19,9 @@ NSQ 插件目前支持版本：[relsease200](https://github.com/dolphindb/Dolphi
 1. 预先编译的插件文件存放在 [for Windows](https://github.com/dolphindb/DolphinDBPlugin/tree/release200/nsq/bin/win) 或 [for Linux](https://github.com/dolphindb/DolphinDBPlugin/tree/release200/nsq/bin/linux) 目录。将该目录下的所有文件（包括动态库文件）下载至 DolphinDB server 所在机器的如下目录：/DolphinDB/server/plugins/xxx。
 
 2. 若使用 Linux 系统，在加载 NSQ 插件前，需为依赖库指定环境变量：
-   
+
    ```
-	export LD_LIBRARY_PATH= /your_plugin_path/:$LD_LIBRARY_PATH 
+	export LD_LIBRARY_PATH= /your_plugin_path/:$LD_LIBRARY_PATH
 	```
 
 3. 启动 DolphinDB，加载插件：
@@ -79,7 +79,7 @@ Windows 系统下，需要将 [win32](https://github.com/dolphindb/DolphinDBPlug
 
 ## 2. 接口函数
 
-### nsq::connect(configFilePath, options)
+### connect(configFilePath, [options], [username], [password])
 
 **参数**
 
@@ -87,11 +87,20 @@ Windows 系统下，需要将 [win32](https://github.com/dolphindb/DolphinDBPlug
 
 `options` 可选参数。是字典类型，表示扩展参数。当前键只支持 receivedTime 和 getAllFieldNames，receivedTime 表示是否显示接收时间，对应值为布尔值。 getAllFieldNames 表示是否接受所有字段数据，对应值为布尔值。详见后文示例。
 
+`username` 可选参数。是字符串类型，表示登录的用户名。
+
+`password` 可选参数。是字符串类型，表示登录用户名对应的密码。
+
 **函数详情**
 
-该函数将根据 NSQ 配置文件 `sdk_config.ini` 的配置，和行情服务器进行连接。连接成功后在日志文件 dolphindb.log 中会打印 “OnFrontConnected”。
+该函数将根据 NSQ 配置文件 `sdk_config.ini` 的配置，以及传入的用户名与密码和行情服务器进行连接。连接成功后在日志文件 dolphindb.log 中会打印 “OnFrontConnected”。
 
-请注意，再次执行 connect 进行重新连接前，需要先执行 nsq::close() 断开连接，否则会抛出异常。
+注意：
+
+1. 部分 nsq 的 行情服务器会强制要求用户传入用户名密码，请注意填写。
+
+2. 再次执行 connect 进行重新连接前，需要先执行 nsq::close() 断开连接，否则会抛出异常。
+
 
 ### nsq::getSchema(dataType)
 

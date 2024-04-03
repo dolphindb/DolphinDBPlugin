@@ -15,13 +15,14 @@ include_directories(
 )
 
 set(BASE_DIR ${PROJECT_SOURCE_DIR})
-link_directories(${BASE_DIR}/lib/linux.x64)
 link_directories("${CMAKE_BINARY_DIR}")
 
 if(WIN32)
+    link_directories(${BASE_DIR}/lib/win64)
     set(platform_macro "-DWINDOWS")
     set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginNsq_win.txt")
 elseif(UNIX)
+    link_directories(${BASE_DIR}/lib/linux.x64)
     set(platform_macro "-DLINUX")
     set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginNsq.txt")
 endif()
