@@ -1,4 +1,5 @@
 #include <CoreConcept.h>
+#include "ddbplugin/CommonInterface.h"
 #include <Util.h>
 #include "svm.h"
 
@@ -15,6 +16,7 @@ extern "C" EXPORT_DLL ConstantSP score(Heap *heap, vector<ConstantSP> &args);
 extern "C" EXPORT_DLL ConstantSP saveModel(Heap *heap, vector<ConstantSP> &args);
 extern "C" EXPORT_DLL ConstantSP loadModel(Heap *heap, vector<ConstantSP> &args);
 
+static const string SVM_PLUGIN_PREFIX = "[PLUGIN:SVM] ";
 namespace svm{
     static Mutex mutex;
     typedef SmartPointer<struct svm_model> modelSP;
@@ -47,6 +49,9 @@ namespace svm{
 
         explicit svm(const std::string &fname){
             model=svm_load_model(fname.c_str());
+            if(model == nullptr) {
+                throw RuntimeException(SVM_PLUGIN_PREFIX + "svm_load_model failed");
+            }
         }
 
         ~svm(){
@@ -56,18 +61,24 @@ namespace svm{
             }
         }
 
+        string getErrMsg() {
+            return errMsg;
+        }
+
         void save(const std::string &fname) const {
-            ::svm_save_model(fname.c_str(), model);
+            if (::svm_save_model(fname.c_str(), model)) {
+                throw RuntimeException(SVM_PLUGIN_PREFIX + "svm_save_model failed");
+            }
         }
 
         void dump(string &path){
             if(::svm_save_model(path.c_str(), model))
-                throw IOException("can't save model to file " + path);
+                throw IOException(SVM_PLUGIN_PREFIX + "can't save model to file " + path);
         }
 
         void load(string &path){
             if((model = ::svm_load_model(path.c_str())) == 0)
-                throw IOException("can't load model from file " + path);
+                throw IOException(SVM_PLUGIN_PREFIX + "can't load model from file " + path);
         }
 
         void set_linear(){
@@ -172,6 +183,12 @@ namespace svm{
                 prob.x[i][dat[i].second.size()].value=0;
             }
 
+            // check if parameter legal
+            const char* parameterCheckError = svm_check_parameter(&prob, &param);
+            if (parameterCheckError != NULL) {
+                errMsg = string("libsvm parameter check error: ") + parameterCheckError;
+            }
+
             model=svm_train(&prob, &param);
 
             if (auto_reload){
@@ -194,6 +211,7 @@ namespace svm{
             for (int i=0; i<prob.l; i++)
                 delete []prob.x[i];
             delete []prob.x;
+            errMsg.clear(); // if train succeed, clear errMsg.
         }
 
         double predict(const std::vector<std::pair<int, double> > &vect) const {
@@ -218,6 +236,7 @@ namespace svm{
         std::vector<std::pair<int, std::vector<std::pair<int, double>>>> dat;
         svm_parameter param;
         svm_model *model;
+        string errMsg;
     };
 }
 

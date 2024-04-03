@@ -160,6 +160,10 @@ namespace svm{
         }
 
         psvmObject->train();
+        if(!psvmObject->getErrMsg().empty()) {
+            delete psvmObject;
+            throw RuntimeException(SVM_PLUGIN_PREFIX + psvmObject->getErrMsg());
+        }
 
         FunctionDefSP onClose(Util::createSystemProcedure("SVM Object deconstruct", svmObjectClose, 1, 1));
         return Util::createResource(reinterpret_cast<long long>(psvmObject),"SVM model", onClose, heap->currentSession());
@@ -171,6 +175,7 @@ namespace svm{
         if(psvmObject == nullptr){
             throw IllegalArgumentException(__FUNCTION__, "Not a illegal SVM object");
         }
+
         const int m = psvmObject->get_nr_class();
         ConstantSP y;
         if(df == DF_VECTOR || df == DF_MATRIX){
