@@ -3,6 +3,7 @@
 
 #include <map>
 
+#include "ddbplugin/CommonInterface.h"
 #include <CoreConcept.h>
 #include <ConstantMarshal.h>
 #include <Exceptions.h>

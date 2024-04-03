@@ -1,4 +1,5 @@
-arrow,libPluginArrow.so,2.00.11
+arrow,libPluginArrow.so,2.00.12
+pluginType="format"
 getSupportedFormats,getSupportedFormats,system,0,0,0
 getConstantMarshal,getConstantMarshal,system,1,1,0
 getConstantUnmarshal,getConstantUnmarshal,system,1,1,0

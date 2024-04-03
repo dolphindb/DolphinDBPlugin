@@ -8,6 +8,8 @@
 #include "ConstantMarshal.h"
 #include "SpecialConstant.h"
 
+#define RECORDBATCH_SIZE 8192
+
 template<class T>
 static void Destruction(Heap *heap, vector<ConstantSP> &args) {
     T * ptr = (T *) (args[0]->getLong());
@@ -90,7 +92,7 @@ bool ArrowTableMarshall::start(const char* requestHeader, size_t headerSize, con
     if(ret != OK){
         return false;
     }
-    //send table datas, send 8192 lines once
+    //send table datas, send RECORDBATCH_SIZE lines once
     ret = sendRecordBatch();
     if(ret != OK){
         return false;
@@ -518,7 +520,13 @@ void MarshalArrayVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_
     
     const INDEX *pindbuf = indexVector->getIndexConst(rowsSent, real_size, indbuf.get());
     memcpy(offset.get()+1, pindbuf, real_size*sizeof(INDEX));
-    offset[0] = rowsSent==0 ? 0 : indexVector->getIndex(rowsSent-1);
+    offset[0] = 0;
+    int lastv = rowsSent == 0 ? 0 : indexVector->getIndex(rowsSent-1);
+    if (lastv != 0) {
+        for (int i = 1; i <= real_size; ++i) {
+            offset[i] = offset[i] - lastv;
+        }
+    }
 
     int real_len = offset[real_size] - offset[0];
     
@@ -708,10 +716,10 @@ void MarshalArrayVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_
 IO_ERR ArrowTableMarshall::sendRecordBatch(){
     int numCols = target_->columns();
     int vecLen = target_->size();
-    std::shared_ptr<char> validBuffer(new char[8192], [](char *p) { delete[] p; });
+    std::shared_ptr<char> validBuffer(new char[RECORDBATCH_SIZE], [](char *p) { delete[] p; });
     char *pvalidBuffer = validBuffer.get();
     while(rowsSent_ < vecLen) {
-        int real_size = std::min(8192, vecLen - rowsSent_);
+        int real_size = std::min(RECORDBATCH_SIZE, vecLen - rowsSent_);
         auto recordBatchRuilderResult = arrow::RecordBatchBuilder::Make(schema_, arrow::default_memory_pool(), real_size);
         if (!recordBatchRuilderResult.ok()) {
             throw RuntimeException("Fail to create Record Batch Builder");
@@ -745,7 +753,10 @@ IO_ERR ArrowTableMarshall::sendRecordBatch(){
             throw RuntimeException("GetRecordBatchPayload Fail");
         }
 
-        writer_->WritePayload(payload);
+        status = writer_->WritePayload(payload);
+        if (!status.ok()){
+            throw RuntimeException("WritePayload Fail");
+        }
         auto bufferResult = stream_->Finish();
         if (!bufferResult.ok())
             throw RuntimeException("Fail to get buffer from outputStream.");
