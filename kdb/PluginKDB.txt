@@ -1,0 +1,5 @@
+kdb,libPluginKDB.so,3.00.0
+kdbConnect,connect,system,2,3,0
+kdbLoadTable,loadTable,system,2,3,0
+kdbLoadFile,loadFile,system,1,2,0
+kdbClose,close,system,1,1,0
