@@ -1,7 +1,7 @@
 #include <CoreConcept.h>
 #include <curl/curl.h>
 #include <openssl/ssl.h>
-
+#include "ddbplugin/CommonInterface.h"
 extern "C" ConstantSP httpGet(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP httpPost(Heap *heap, vector<ConstantSP> &args);
 
