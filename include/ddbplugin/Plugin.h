@@ -768,7 +768,7 @@ class BackgroundResourceMap {
             throw RuntimeException(prefix_ + "Handle already exists in the map.");
         }
         if (nameMap_.findKey(name, ptrResult)) {
-            throw RuntimeException(prefix_ + "[" + name + "] has already used by another " + keyword_ + "handle.");
+            throw RuntimeException(prefix_ + "name [" + name + "] already exists.");
         }
         resourceMap_[ptrValue] = std::make_pair(handle, handlePtr);
         string errMsg;

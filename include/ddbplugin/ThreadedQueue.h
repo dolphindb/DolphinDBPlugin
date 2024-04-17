@@ -29,10 +29,6 @@ static const string FAILED_MSG_COUNT_STR = "failedMsgCount";
 static const string LAST_ERR_MSG_STR = "lastErrMsg";
 static const string LAST_FAILED_TIMESTAMP_STR = "lastFailedTimestamp";
 
-static const string RECEIVED_TIME_OPTION_STR = "ReceivedTime";
-static const string OUTPUT_RECV_TIME_OPTION_STR = "OutputRecvTime";
-static const string OUTPUT_ELAPSED_OPTION_STR = "OutputElapsed";
-
 struct MetaTable {
     vector<string> colNames_;
     vector<DATA_TYPE> colTypes_;
@@ -47,7 +43,6 @@ enum MarketOptionFlag {
 };
 
 struct MarketStatus {
-    string name_;
     long long startTime_ = LONG_LONG_MIN;
     long long endTime_ = LONG_LONG_MIN;
     long long firstMsgTime_ = LONG_LONG_MIN;
@@ -59,7 +54,6 @@ struct MarketStatus {
 
     DictionarySP getStatus() const {
         DictionarySP dict = Util::createDictionary(DT_STRING, NULL, DT_ANY, NULL);
-        dict->set(new String("name"), new String(name_));
         dict->set(new String(START_TIME_STR), new NanoTimestamp(startTime_));
         dict->set(new String(END_TIME_STR), new NanoTimestamp(endTime_));
         dict->set(new String(FIRST_MSG_TIME_STR), new NanoTimestamp(firstMsgTime_));
@@ -219,7 +213,6 @@ class ThreadedQueue {
         initQueueBuffer();
         session_ = heap->currentSession()->copy();
         session_->setUser(heap->currentSession()->getUser());
-        status_.name_ = info;
 
         long long currentTime = Util::getNanoEpochTime();
         localTimeGap_ = Util::toLocalNanoTimestamp(currentTime) - currentTime;
@@ -280,8 +273,8 @@ class ThreadedQueue {
 
     // stop a ThreadedQueue
     void stop() {
+        status_.endTime_ = Util::getNanoEpochTime() + localTimeGap_;
         if (!stopFlag_) {
-            status_.endTime_ = Util::getNanoEpochTime() + localTimeGap_;
             stopFlag_ = true;
             thread_->join();
             queue_.clear();
@@ -350,7 +343,7 @@ class ThreadedQueue {
             }
         }
         vector<ConstantSP> cols;
-        for (unsigned int i = 0; i < meta_.colNames_.size(); ++i) {
+        for (int i = 0; i < meta_.colNames_.size(); ++i) {
             cols.push_back(buffer_[i]);
         }
         vector<string> colNames = meta_.colNames_;
@@ -440,13 +433,10 @@ class ThreadedQueue {
         for (unsigned int i = 0; i < meta_.colNames_.size(); ++i) {
             if (meta_.colTypes_[i] == DT_SYMBOL) {
                 buffer_[i] = Util::createVector(DT_STRING, 0, bufferSize_);
-                ((VectorSP)buffer_[i])->initialize();
-            } else if (meta_.colTypes_[i] >= ARRAY_TYPE_BASE) {
-                buffer_[i] = InternalUtil::createArrayVector(meta_.colTypes_[i], 0, 0, bufferSize_);
             } else {
                 buffer_[i] = Util::createVector(meta_.colTypes_[i], 0, bufferSize_);
-                ((VectorSP)buffer_[i])->initialize();
             }
+            ((VectorSP)buffer_[i])->initialize();
         }
         receivedTimeVec_ = Util::createVector(DT_NANOTIMESTAMP, 0, bufferSize_);
         outputElapsedVec_ = Util::createVector(DT_LONG, 0, bufferSize_);
@@ -543,34 +533,5 @@ class ThreadedQueue {
     std::function<void(vector<ConstantSP> &, DataStruct &)> structReader_;
     vector<ConstantSP> buffer_;
 };
-
-namespace ThreadedQueueUtil {
-
-template <typename T>
-class TimedWrapper {
-  public:
-    T data;
-    long long reachTime;
-};
-
-template <typename T>
-struct TimedWrapperTrait {
-    typedef SmartPointer<ThreadedQueue<TimedWrapper<T>>> Type;
-};
-
-typedef vector<ConstantSP>::iterator ConstantVecIterator;
-
-inline VectorSP getVec(const ConstantVecIterator &colIter) { return *colIter; }
-inline void appendString(const ConstantVecIterator &colIter, const string &data) {
-    getVec(colIter)->appendString(&data, 1);
-}
-inline void appendInt(const ConstantVecIterator &colIter, int data) { getVec(colIter)->appendInt(&data, 1); }
-inline void appendShort(const ConstantVecIterator &colIter, short data) { getVec(colIter)->appendShort(&data, 1); }
-inline void appendLong(const ConstantVecIterator &colIter, long long data) { getVec(colIter)->appendLong(&data, 1); }
-inline void appendDouble(const ConstantVecIterator &colIter, double data) { getVec(colIter)->appendDouble(&data, 1); }
-inline void appendChar(const ConstantVecIterator &colIter, char data) { getVec(colIter)->appendChar(&data, 1); }
-
-
-}
 
 #endif
