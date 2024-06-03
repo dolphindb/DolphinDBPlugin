@@ -57,7 +57,36 @@ void checkDictionaryContent(DictionarySP params){
     }
 }
 
-ConstantSP httpGet(Heap *heap, vector<ConstantSP> &args) {
+httpClient::HttpRequestConfig getHttpRequestConfig(DictionarySP params){
+    httpClient::HttpRequestConfig config;
+    //proxy
+    ConstantSP proxy = params->getMember("proxy");
+    if(!proxy->isNull()){
+        if(proxy->getType() != DT_STRING || proxy->getForm() != DF_SCALAR){
+            throw IllegalArgumentException(__FUNCTION__, "config proxy must be a string scalar");
+        }
+        config.proxy_ = proxy->getString();
+    }
+    //proxy_username
+    ConstantSP proxy_username = params->getMember("proxy_username");
+    if(!proxy_username->isNull()){
+        if(proxy_username->getType() != DT_STRING || proxy_username->getForm() != DF_SCALAR){
+            throw IllegalArgumentException(__FUNCTION__, "config proxy_username must be a string scalar");
+        }
+        config.proxyUsername_ = proxy_username->getString();
+    }
+    //proxy_password
+    ConstantSP proxy_password = params->getMember("proxy_password");
+    if(!proxy_password->isNull()){
+        if(proxy_password->getType() != DT_STRING || proxy_password->getForm() != DF_SCALAR){
+            throw IllegalArgumentException(__FUNCTION__, "config proxy_password must be a string scalar");
+        }
+        config.proxyPassword_ = proxy_password->getString();
+    }
+    return config;
+}
+
+ConstantSP handleHttpRequest(vector<ConstantSP> &args, httpClient::RequestMethod method){
     ConstantSP url = args[0];
     ConstantSP params, timeout, headers;
 
@@ -78,44 +107,6 @@ ConstantSP httpGet(Heap *heap, vector<ConstantSP> &args) {
         if (timeout.isNull() || !timeout->isNumber() || timeout->getForm() != DF_SCALAR || timeout->getLong() < 0)
             throw IllegalArgumentException(__FUNCTION__, "Timeout must be an nonnegative integer scalar");
     } else
-        timeout = new Int(0);
-    if (args.size() >= 4 && !args[3]->isNull()) {
-        headers = args[3];
-        if ((headers->getType() != DT_STRING || headers->getForm() != DF_SCALAR) &&
-            (headers->getForm() != DF_DICTIONARY ||
-             ((DictionarySP) headers)->getKeyType() != DT_STRING ||
-             ((DictionarySP) headers)->getType() != DT_STRING))
-            throw IllegalArgumentException(__FUNCTION__, "Headers must be a string or a dictionary with STRING-STRING key-value type");
-        if(headers->getForm() == DF_DICTIONARY){
-            checkDictionaryContent(headers);
-        }
-
-    } else
-        headers = new String("");
-    return httpClient::httpRequest(httpClient::GET, url, params, timeout, headers);
-}
-
-ConstantSP httpPost(Heap *heap, vector<ConstantSP> &args) {
-    ConstantSP url = args[0];
-    ConstantSP params, timeout, headers;
-
-    if (url->getType() != DT_STRING || url->getForm() != DF_SCALAR)
-        throw IllegalArgumentException(__FUNCTION__, "Url must be a string scalar");
-    if (args.size() >= 2 && !args[1]->isNull()) {
-        params = args[1];
-        if ((params->getType() != DT_STRING || params->getForm() != DF_SCALAR) &&
-            (params->getForm() != DF_DICTIONARY || ((DictionarySP) params)->getKeyType() != DT_STRING))
-            throw IllegalArgumentException(__FUNCTION__, "Params must be a string scalar or a dictionary with STRING key");
-        if(params->getForm() == DF_DICTIONARY){
-            checkDictionaryContent(params);
-        }
-    } else
-        params = new String("");
-    if (args.size() >= 3) {
-        timeout = args[2];
-        if (!timeout->isNumber() || timeout->getForm() != DF_SCALAR || timeout->getLong() < 0)
-            throw IllegalArgumentException(__FUNCTION__, "Timeout must be an nonnegative integer scalar");
-    } else
         timeout = new Long(0);
     if (args.size() >= 4 && !args[3]->isNull()) {
         headers = args[3];
@@ -129,7 +120,37 @@ ConstantSP httpPost(Heap *heap, vector<ConstantSP> &args) {
         }
     } else
         headers = new String("");
-    return httpClient::httpRequest(httpClient::POST, url, params, timeout, headers);
+
+    httpClient::HttpRequestConfig config;
+    if(args.size() >= 5 && !args[4]->isNull()){
+        if (args[4]->getForm() != DF_DICTIONARY) {
+            throw IllegalArgumentException(__FUNCTION__, "config must be a dictionary");
+        }
+        DictionarySP dic = args[4];
+        if(dic->getKeyType() != DT_STRING){
+            throw IllegalArgumentException(__FUNCTION__, "config must be a dictionary whose key type is string");
+        }
+        config = getHttpRequestConfig(dic);
+    }
+    return httpClient::httpRequest(method, url, params, timeout, headers, config);
+}
+
+Mutex mutex;
+
+ConstantSP httpPut(Heap *heap, vector<ConstantSP> &args){
+    LockGuard<Mutex> lk(&mutex);
+    return handleHttpRequest(args, httpClient::PUT);
+}
+ConstantSP httpDelete(Heap *heap, vector<ConstantSP> &args){
+    return handleHttpRequest(args, httpClient::DELETE_);
+}
+
+ConstantSP httpGet(Heap *heap, vector<ConstantSP> &args) {
+    return handleHttpRequest(args, httpClient::GET);
+}
+
+ConstantSP httpPost(Heap *heap, vector<ConstantSP> &args) {
+    return handleHttpRequest(args, httpClient::POST);
 }
 
 namespace httpClient {
@@ -207,9 +228,19 @@ namespace httpClient {
         return slist;
     }
 
+    size_t lengthRemained;
+    static size_t read_cb(char *ptr, size_t size, size_t nmemb, void *userdata)
+    {
+        const char* data = reinterpret_cast<const char*>(userdata);
+        size_t count = std::min(size * nmemb, lengthRemained);
+        memcpy(ptr, data, count);
+        lengthRemained -= count;
+        return count;
+    }
+
     ConstantSP
     httpRequest(RequestMethod method, const ConstantSP &url, const ConstantSP &params, const ConstantSP &timeout,
-                const ConstantSP &headers) {
+                const ConstantSP &headers, const HttpRequestConfig& config) {
         ConstantSP res = Util::createDictionary(DT_STRING, nullptr, DT_ANY, nullptr);
         string urlString = url->getString();
         CURL *curl = curl_easy_init();
@@ -222,6 +253,7 @@ namespace httpClient {
             else
                 paramString = params->getString();
 
+            curl_slist *headerList = NULL;
             switch (method) {
                 case GET:
                     if (!paramString.empty()) {
@@ -232,12 +264,22 @@ namespace httpClient {
                 case POST:
                     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, paramString.c_str());
                     break;
+                case PUT:
+                    curl_easy_setopt(curl, CURLOPT_READFUNCTION, read_cb);
+                    curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
+                    curl_easy_setopt(curl, CURLOPT_READDATA, paramString.c_str());
+                    lengthRemained = paramString.size();
+                    curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE, static_cast<curl_off_t>(paramString.size()));
+                    headerList = curl_slist_append(headerList, "Expect:");
+                    break;
+                case DELETE_:
+                    curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
+                    break;
                 default:
                     curl_easy_cleanup(curl);
                     throw RuntimeException("Unknown request method");
             }
 
-            curl_slist *headerList = NULL;
             if (headers->getForm() == DF_DICTIONARY)
                 headerList = setHeaders(headers, headerList);
             else {
@@ -265,6 +307,16 @@ namespace httpClient {
             curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, timeout->getLong());
 
             curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
+
+            if(!config.proxy_.empty()){
+                curl_easy_setopt(curl, CURLOPT_PROXY, config.proxy_.c_str());
+                if(!config.proxyUsername_.empty()){
+                    curl_easy_setopt(curl, CURLOPT_PROXYUSERNAME, config.proxyUsername_.c_str());
+                }
+                if(!config.proxyPassword_.empty()){
+                    curl_easy_setopt(curl, CURLOPT_PROXYPASSWORD, config.proxyPassword_.c_str());
+                }
+            }
 
             string responseString;
             string headerString;
