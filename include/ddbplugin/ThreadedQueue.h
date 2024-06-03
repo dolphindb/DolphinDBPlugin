@@ -29,24 +29,24 @@ static const string FAILED_MSG_COUNT_STR = "failedMsgCount";
 static const string LAST_ERR_MSG_STR = "lastErrMsg";
 static const string LAST_FAILED_TIMESTAMP_STR = "lastFailedTimestamp";
 
-static const string RECEIVED_TIME_OPTION_STR = "ReceivedTime";
-static const string OUTPUT_RECV_TIME_OPTION_STR = "OutputRecvTime";
-static const string OUTPUT_ELAPSED_OPTION_STR = "OutputElapsed";
+static const string RECEIVED_TIME_OPTION_STR = "receivedTime";
+static const string OUTPUT_RECV_TIME_OPTION_STR = "outputRecvTime";
+static const string OUTPUT_ELAPSED_OPTION_STR = "outputElapsed";
 
 struct MetaTable {
     vector<string> colNames_;
     vector<DATA_TYPE> colTypes_;
 };
 
-enum MarketOptionFlag {
+typedef enum StreamOptionFlag {
     OPT_RECEIVED = 0b01,
     OPT_ELAPSED = 0b10,
 #ifdef AMD_USE_THREADED_QUEUE
     OPT_DAILY_INDEX = 0b100,
 #endif
-};
+} MarketOptionFlag;
 
-struct MarketStatus {
+typedef struct StreamStatus {
     string name_;
     long long startTime_ = LONG_LONG_MIN;
     long long endTime_ = LONG_LONG_MIN;
@@ -70,7 +70,7 @@ struct MarketStatus {
         dict->set(new String(LAST_FAILED_TIMESTAMP_STR), new NanoTimestamp(lastFailedTimestamp_));
         return dict;
     }
-};
+} MarketStatus;
 
 class MarketTypeContainer {
   public:
@@ -258,7 +258,7 @@ class ThreadedQueue {
     bool isStarted() const { return !stopFlag_; }
     // NOTE deprecate
     DictionarySP getStatus() const { return status_.getStatus(); }
-    const MarketStatus getStatusConst() const { return status_; }
+    const MarketStatus &getStatusConst() const { return status_; }
     string getInfo() const { return info_; };
 
     // WARNING: The start() and stop() functions must not be called concurrently
@@ -396,6 +396,10 @@ class ThreadedQueue {
             cols = convertCols;
         }
 
+        for (ConstantSP &col : cols) {
+            col->setNullFlag(true);
+        }
+
         TableSP originData = Util::createTable(colNames, cols);
         vector<ConstantSP> args = {originData};
 
@@ -443,10 +447,13 @@ class ThreadedQueue {
         for (unsigned int i = 0; i < meta_.colNames_.size(); ++i) {
             if (meta_.colTypes_[i] == DT_SYMBOL) {
                 buffer_[i] = Util::createVector(DT_STRING, 0, bufferSize_);
+                ((VectorSP)buffer_[i])->initialize();
+            } else if (meta_.colTypes_[i] >= ARRAY_TYPE_BASE) {
+                buffer_[i] = InternalUtil::createArrayVector(meta_.colTypes_[i], 0, 0, bufferSize_);
             } else {
                 buffer_[i] = Util::createVector(meta_.colTypes_[i], 0, bufferSize_);
+                ((VectorSP)buffer_[i])->initialize();
             }
-            ((VectorSP)buffer_[i])->initialize();
         }
         receivedTimeVec_ = Util::createVector(DT_NANOTIMESTAMP, 0, bufferSize_);
         outputElapsedVec_ = Util::createVector(DT_LONG, 0, bufferSize_);
@@ -543,5 +550,121 @@ class ThreadedQueue {
     std::function<void(vector<ConstantSP> &, DataStruct &)> structReader_;
     vector<ConstantSP> buffer_;
 };
+
+namespace ThreadedQueueUtil {
+
+template <typename T>
+class TimedWrapper {
+  public:
+    T data;
+    long long reachTime;
+};
+
+template <typename T>
+struct TimedWrapperTrait {
+    typedef SmartPointer<ThreadedQueue<TimedWrapper<T>>> Type;
+};
+
+template <typename T>
+class orderbookReaderWrapper {
+  public:
+    typedef std::function<void(vector<ConstantSP> &, T &, int, std::unordered_map<int, long long> &,
+                               std::unordered_map<int, long long> &)> FuncTrait;
+    orderbookReaderWrapper(FuncTrait reader, int seqCheckMode) : seqCheckMode_(seqCheckMode), reader_(reader) {}
+    void operator()(vector<ConstantSP> &buffer, T &data) {
+        reader_(buffer, data, seqCheckMode_, shLastSeqNum_, szLastSeqNum_);
+    }
+
+  private:
+    int seqCheckMode_;
+    FuncTrait reader_;
+    std::unordered_map<int, long long> shLastSeqNum_;
+    std::unordered_map<int, long long> szLastSeqNum_;
+};
+
+typedef vector<ConstantSP>::iterator ConstantVecIterator;
+
+inline VectorSP getVec(const ConstantVecIterator &colIter) { return *colIter; }
+inline void appendString(const ConstantVecIterator &colIter, const string &data) {
+    getVec(colIter)->appendString(&data, 1);
+}
+inline void appendInt(const ConstantVecIterator &colIter, int data) { getVec(colIter)->appendInt(&data, 1); }
+inline void appendShort(const ConstantVecIterator &colIter, short data) { getVec(colIter)->appendShort(&data, 1); }
+inline void appendLong(const ConstantVecIterator &colIter, long long data) { getVec(colIter)->appendLong(&data, 1); }
+inline void appendDouble(const ConstantVecIterator &colIter, double data) { getVec(colIter)->appendDouble(&data, 1); }
+inline void appendChar(const ConstantVecIterator &colIter, char data) { getVec(colIter)->appendChar(&data, 1); }
+
+}  // namespace ThreadedQueueUtil
+
+namespace MarketUtil {
+struct SeqCheckMode {
+    enum {
+        CHECK = 0,
+        IGNORE_WITH_LOG,
+# ifdef WIN32
+        IGNORE_ALL,
+# else
+        IGNORE,
+# endif
+    };
+};
+
+struct OrderBookMsgType {
+    enum {
+        PRODUCT_STATUS = -1,
+        ORDER = 0,
+        TRADE = 1,
+    };
+};
+
+struct OrderBookBSFlag {
+    enum {
+        UNKNOWN = 0,
+        BUY = 1,
+        SELL = 2,
+    };
+};
+
+struct OrderBookOrderType {
+    enum {
+        MARKET_ORDER = 1,
+        LIMIT_ORDER = 2,
+        BEST = 3,
+        CANCEL = 10,
+        STATUS = 11,
+    };
+};
+
+struct OrderBookTradeType {
+    enum {
+        DEAL = 0,
+        CANCEL = 1,
+    };
+};
+
+static inline void checkSeqNum(const string &prefix, const string &tag, std::unordered_map<int, long long> &lastSeqNum,
+                               long long seqNum, int channelNo, int seqCheckMode) {
+    if (lastSeqNum.find(channelNo) != lastSeqNum.end() && seqNum != lastSeqNum[channelNo] + 1) {
+        std::stringstream errMsgStream;
+        errMsgStream << "wrong " << tag << " channel " << channelNo << ", expected " << lastSeqNum[channelNo] + 1
+                     << ", actually " << seqNum;
+        std::string errMsg = errMsgStream.str();
+        if (seqCheckMode == SeqCheckMode::CHECK) {
+            if (lastSeqNum[channelNo] == -1)
+                throw RuntimeException("channel " + std::to_string(channelNo) +
+                                       " stops receiving data due to data discontinuity of " + tag);
+            else {
+                lastSeqNum[channelNo] = -1;
+                throw RuntimeException(errMsg);
+            }
+        }
+        if (seqCheckMode == SeqCheckMode::IGNORE_WITH_LOG) {
+            LOG_INFO(prefix + errMsg);
+        }
+    }
+    lastSeqNum[channelNo] = seqNum;
+}
+
+}  // namespace MarketUtil
 
 #endif

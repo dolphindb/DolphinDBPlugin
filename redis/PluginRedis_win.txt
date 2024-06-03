@@ -1,4 +1,4 @@
-redis,libPluginRedis.so,3.00.0.2
+redis,libPluginRedis.dll,3.00.0.2
 redisPluginConnect,connect,system,2,2,0
 redisPluginRun,run,system,2,10,0
 redisPluginBatchSet,batchSet,system,3,3,0
