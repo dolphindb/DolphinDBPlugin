@@ -18,6 +18,8 @@ void NsqQueues::initAndStart(Heap *heap, const string &dataType, const string &m
         addThreadedQueue<nsqUtil::EntrustDataStruct>(heap, dataType, marketType, table, entrustMeta, threadedQueueMapE_, entrustReader);
     } else if (dataType == SNAPSHOT) {
         addThreadedQueue<nsqUtil::SnapshotDataStruct>(heap, dataType, marketType, table, marketTypes_.get(SNAPSHOT), threadedQueueMapS_, snapshotReader_);
+    } else if (dataType == ENTRUST_220105) {
+        addThreadedQueue<nsqUtil::EntrustDataStruct>(heap, dataType, marketType, table, entrustMeta_220105, threadedQueueMapE_, entrustReader_220105);
     }
 }
 
@@ -145,14 +147,13 @@ ConstantSP NsqQueues::getStatus() {
 
     for (auto &dataType : {TRADE, ENTRUST, SNAPSHOT}) {
         for (auto &marketType : {SH, SZ}) {
-            DictionarySP status;
+            StreamStatus status;
             if (dataType == TRADE && threadedQueueMapT_.count(marketType)) {
-                status = threadedQueueMapT_[marketType]->getStatus();
+                status = threadedQueueMapT_[marketType]->getStatusConst();
             } else if (dataType == ENTRUST && threadedQueueMapE_.count(marketType)) {
-                if (threadedQueueMapE_.count(marketType) == 0) continue;
-                status = threadedQueueMapE_[marketType]->getStatus();
+                status = threadedQueueMapE_[marketType]->getStatusConst();
             } else if (dataType == SNAPSHOT && threadedQueueMapS_.count(marketType)) {
-                status = threadedQueueMapS_[marketType]->getStatus();
+                status = threadedQueueMapS_[marketType]->getStatusConst();
             } else {
                 continue;
             }
@@ -160,14 +161,37 @@ ConstantSP NsqQueues::getStatus() {
             auto col = cols.begin();
 
             appendString(col++, string("(") + dataType + ", " + marketType + ")");
-            appendLong(col++, status->getMember(START_TIME_STR)->getLong());
-            appendLong(col++, status->getMember(END_TIME_STR)->getLong());
-            appendLong(col++, status->getMember(FIRST_MSG_TIME_STR)->getLong());
-            appendLong(col++, status->getMember(LAST_MSG_TIME_STR)->getLong());
-            appendLong(col++, status->getMember(PROCESSED_MSG_COUNT_STR)->getLong());
-            appendString(col++, status->getMember(LAST_ERR_MSG_STR)->getString());
-            appendLong(col++, status->getMember(FAILED_MSG_COUNT_STR)->getLong());
-            appendLong(col++, status->getMember(LAST_FAILED_TIMESTAMP_STR)->getLong());
+            appendLong(col++, status.startTime_);
+            appendLong(col++, status.endTime_);
+            appendLong(col++, status.firstMsgTime_);
+            appendLong(col++, status.lastMsgTime_);
+            appendLong(col++, status.processedMsgCount_);
+            appendString(col++, status.lastErrMsg_);
+            appendLong(col++, status.failedMsgCount_);
+            appendLong(col++, status.lastFailedTimestamp_);
+        }
+    }
+
+    // orderTrade type status
+    for (auto &marketType : {SH, SZ}) {
+        StreamStatus status;
+        if (threadedQueueMapTE_.count(marketType)) {
+            for (auto it = threadedQueueMapTE_[marketType].begin(); it != threadedQueueMapTE_[marketType].end(); ++it) {
+                int channelNo = it->first;
+                status = it->second->getStatusConst();
+
+                auto col = cols.begin();
+
+                appendString(col++, string("(orderTrade") +  + ", " + marketType + ", channel " + std::to_string(channelNo) +")");
+                appendLong(col++, status.startTime_);
+                appendLong(col++, status.endTime_);
+                appendLong(col++, status.firstMsgTime_);
+                appendLong(col++, status.lastMsgTime_);
+                appendLong(col++, status.processedMsgCount_);
+                appendString(col++, status.lastErrMsg_);
+                appendLong(col++, status.failedMsgCount_);
+                appendLong(col++, status.lastFailedTimestamp_);
+            }
         }
     }
 
@@ -198,7 +222,7 @@ void NsqQueues::setOptionFlag(int option) {
     optionFlag_ |= option;
 }
 
-void NsqQueues::addSnapshotExtra() {
+void NsqQueues::addSnapshotExtra(const string &dataVersion) {
 
     // update meta
     auto snapshotMeta = marketTypes_.get(SNAPSHOT);
@@ -206,15 +230,34 @@ void NsqQueues::addSnapshotExtra() {
             snapshotMetaExtra.colNames_.begin(), snapshotMetaExtra.colNames_.end());
     snapshotMeta.colTypes_.insert(snapshotMeta.colTypes_.end(),
             snapshotMetaExtra.colTypes_.begin(), snapshotMetaExtra.colTypes_.end());
-    marketTypes_.add(SNAPSHOT, snapshotMeta);
+    if (dataVersion == "v220105") {
+        snapshotMeta.colNames_.insert(snapshotMeta.colNames_.end(),
+                snapshotMetaExtra_220105.colNames_.begin(), snapshotMetaExtra_220105.colNames_.end());
+        snapshotMeta.colTypes_.insert(snapshotMeta.colTypes_.end(),
+                snapshotMetaExtra_220105.colTypes_.begin(), snapshotMetaExtra_220105.colTypes_.end());
+        marketTypes_.add(SNAPSHOT, snapshotMeta);
 
-    // update reader
-    snapshotReader_ = [](vector<ConstantSP> &buffer, nsqUtil::SnapshotDataStruct &data) {
+        // update reader
+        snapshotReader_ = [](vector<ConstantSP> &buffer, nsqUtil::SnapshotDataStruct &data) {
 
-        auto col = buffer.begin();
-        col = snapshotReaderConcise(col, data);
-        snapshotReaderExtra(col, data);
-    };
+            auto col = buffer.begin();
+            col = snapshotReaderConcise(col, data);
+            snapshotReaderExtra(col, data);
+            snapshotReaderExtra_220105(col, data);
+        };
+
+    } else {
+        marketTypes_.add(SNAPSHOT, snapshotMeta);
+
+        // update reader
+        snapshotReader_ = [](vector<ConstantSP> &buffer, nsqUtil::SnapshotDataStruct &data) {
+
+            auto col = buffer.begin();
+            col = snapshotReaderConcise(col, data);
+            snapshotReaderExtra(col, data);
+        };
+
+    }
 }
 
 ConstantSP NsqQueues::getSchema(const string &dataType) {
