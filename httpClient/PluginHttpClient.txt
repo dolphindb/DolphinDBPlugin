@@ -1,5 +1,7 @@
-httpClient,libPluginHttpClient.so,3.00.0
-httpGet,httpGet,system,1,4,0
-httpPost,httpPost,system,1,4,0
+httpClient,libPluginHttpClient.so,3.00.0.2
+httpGet,httpGet,system,1,5,0
+httpPost,httpPost,system,1,5,0
+httpPut,httpPut,system,1,5,0
+httpDelete,httpDelete,system,1,5,0
 sendEmail,sendEmail,system,5,5,0
 emailSmtpConfig,emailSmtpConfig,system,2,3,0

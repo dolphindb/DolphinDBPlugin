@@ -93,7 +93,7 @@ make -j
 
 语法：
 
-httpClient::httpGet(url, [params], [timeout], [headers])
+httpClient::httpGet(url, [params], [timeout], [headers], [config])
 
 参数：
 
@@ -103,8 +103,14 @@ httpClient::httpGet(url, [params], [timeout], [headers])
     * 如果params为一个字符串（例如，"example"），则发出的完整http报文的请求头中的url为 "www.dolphindb.cn?example"。
     * 如果params为一个字典（例如，两个键值对"name"->"zmx"和"id"->"111"），则发出的完整http报文的请求头中的url为 "www.dolphindb.cn?id=111&name=zmx"。
 * timeout: 超时时间，单位为毫秒。
-* headers: 一个字符串或一个键和值都是string的字典，填写http请求头部。如果headers为一个字典（两个键值对"groupName"->"dolphindb"和"groupId"->"11"），
-则发出的完整http报文添加请求头"groupId:11"和"groupName:dolphindb"。如果只是一个字符串，则必须是"xx:xx"格式，会添加一个http请求头。
+* headers: 一个字符串或一个键和值都是string的字典，填写http请求头部。如果headers为一个字典（两个键值对"groupName"->"dolphindb"和"groupId"->"11"），则发出的完整http报文添加请求头"groupId:11"和"groupName:dolphindb"。如果只是一个字符串，则必须是"xx:xx"格式，会添加一个http请求头。
+* config：一个字典，包含一些配置项：
+
+|配置项(key)|值类型|说明|
+|:-|:-|:-|
+|proxy|STRING|可选参数，设置代理地址|
+|proxy_username|STRING|可选参数，设置代理用户名|
+|proxy_password|STRING|可选参数，设置代理密码|
 
 返回一个dictionary，包括以下键：
 
@@ -133,7 +139,7 @@ res = httpClient::httpGet(url,param,1000,header);
 
 语法：
 
-httpClient::httpPost(url, [params], [timeout], [headers])
+httpClient::httpPost(url, [params], [timeout], [headers], [config])
 
 参数：
 
@@ -144,6 +150,13 @@ httpClient::httpPost(url, [params], [timeout], [headers])
 * timeout: 超时时间，单位为毫秒。
 * headers: 一个字符串或一个键和值都是string的字典，填写http请求头部。如果headers为一个字典（两个键值对"groupName"->"dolphindb"和"groupId"->"11"），
 则发出的完整http报文添加请求头"groupId:11"和"groupName:dolphindb"。如果只是一个字符串，则必须是"xx:xx"格式，会添加一个http请求头。
+* config：一个字典，包含一些配置项：
+
+|配置项(key)|值类型|说明|
+|:-|:-|:-|
+|proxy|STRING|可选参数，设置代理地址|
+|proxy_username|STRING|可选参数，设置代理用户名|
+|proxy_password|STRING|可选参数，设置代理密码|
 
 返回一个dictionary，键包括：
 

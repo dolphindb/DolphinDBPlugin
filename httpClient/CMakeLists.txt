@@ -9,7 +9,7 @@ if (WIN32)
     add_definitions("-DWINDOWS")
     set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginHttpClient_win.txt")
     set(target_path "${CMAKE_CURRENT_LIST_DIR}/bin/Windows/")
-    configure_file(${PROJECT_SOURCE_DIR}/thirdParty/curl/windows/lib/libcurl.dll ${target_path}/libcurl.dll COPYONLY)
+    configure_file(${PROJECT_SOURCE_DIR}/thirdParty/curl/windows/lib/libcurl-x64.dll ${target_path}/libcurl-x64.dll COPYONLY)
 elseif(UNIX)
     add_definitions("-DLINUX")
     add_definitions("-D_GLIBCXX_USE_CXX11_ABI=0") 
@@ -103,11 +103,9 @@ elseif(WIN32 OR MINGW)
     target_link_libraries(
         PluginHttpClient 
         DolphinDB 
-        curl
+        curl-x64
         crypto
-        pthread
-        gdi32 
-        ws2_32)
+        pthread)
 elseif(UNIX)
     target_link_libraries(
         PluginHttpClient 
