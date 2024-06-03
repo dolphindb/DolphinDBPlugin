@@ -1,17 +1,18 @@
 #include "publisher.h"
-#include "client.h"
-#include "ScalarImp.h"
 
-PublishTable::PublishTable(const vector<ConstantSP>& cols, const vector<string>& colNames, const ConstantSP& resource,
-        const string& topic, Heap* heap) : BasicTable(cols, colNames), resource_(resource), topic_(topic),
-        cols_(cols), colNames_(colNames) {
+#include "ScalarImp.h"
+#include "client.h"
+
+PublishTable::PublishTable(const vector<ConstantSP> &cols, const vector<string> &colNames, const ConstantSP &resource,
+                           const string &topic, Heap *heap)
+    : BasicTable(cols, colNames), resource_(resource), topic_(topic), cols_(cols), colNames_(colNames) {
     session_ = heap->currentSession()->copy();
 }
 
-bool PublishTable::append(vector<ConstantSP>& values, INDEX& insertedRows, string& errMsg) {
+bool PublishTable::append(vector<ConstantSP> &values, INDEX &insertedRows, string &errMsg) {
     TableSP table;
     int numCols = colNames_.size();
-    if(values.size() == 1 && values[0]->isTable()){
+    if (values.size() == 1 && values[0]->isTable()) {
         table = values[0];
 
         if (table->columns() != numCols) {

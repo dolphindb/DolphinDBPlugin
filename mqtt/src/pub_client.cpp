@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
 #include "ScalarImp.h"
 #include "Util.h"
 #include "client.h"
@@ -42,7 +43,8 @@ static void mqttConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
  * @brief connect a mqtt broke or server.
  */
 ConstantSP mqttClientConnect(Heap *heap, vector<ConstantSP> &args) {
-    std::string usage = "Usage: connect(host, port, [qos=0], [formatter], [batchsize=1], [username], [password], [sendbufSize=40960]).";
+    std::string usage =
+        "Usage: connect(host, port, [qos=0], [formatter], [batchsize=1], [username], [password], [sendbufSize=40960]).";
 
     uint8_t publishFlags = MQTT_PUBLISH_QOS_0;
     FunctionDefSP formatter;
@@ -79,10 +81,11 @@ ConstantSP mqttClientConnect(Heap *heap, vector<ConstantSP> &args) {
         if (args[3]->getType() != DT_FUNCTIONDEF) {
             throw IllegalArgumentException(__FUNCTION__, usage + "formatter must be an function.");
         }
-        formatter =  FunctionDefSP(args[3]);
+        formatter = FunctionDefSP(args[3]);
         // string functionName = formatter->getName();
         // if (functionName != "formatCsv" && functionName != "formatJson" && functionName != "toStdJson") {
-        //     throw IllegalArgumentException(__FUNCTION__, usage + "formatter must be formatCsv or formatJson or toStdJson, paramFunction:" + functionName);
+        //     throw IllegalArgumentException(__FUNCTION__, usage + "formatter must be formatCsv or formatJson or
+        //     toStdJson, paramFunction:" + functionName);
         // }
     }
     if (args.size() >= 5 && !args[4]->isNull()) {
@@ -95,13 +98,13 @@ ConstantSP mqttClientConnect(Heap *heap, vector<ConstantSP> &args) {
             }
         }
     }
-    if(args.size() > 5 && !args[5]->isNull()){
+    if (args.size() > 5 && !args[5]->isNull()) {
         if (args[5]->getType() != DT_STRING || args[5]->getForm() != DF_SCALAR) {
             throw IllegalArgumentException(__FUNCTION__, usage + "username must be a string");
         }
         userName = args[5]->getString();
     }
-    if(args.size() > 6 && !args[6]->isNull()){
+    if (args.size() > 6 && !args[6]->isNull()) {
         if (args[6]->getType() != DT_STRING || args[6]->getForm() != DF_SCALAR) {
             throw IllegalArgumentException(__FUNCTION__, usage + "password must be a string");
         }
@@ -110,22 +113,21 @@ ConstantSP mqttClientConnect(Heap *heap, vector<ConstantSP> &args) {
     if (!userName.empty() && (args.size() <= 6 || (args[6]->isNull() && args[6]->getType() == DT_VOID))) {
         throw IllegalArgumentException(__FUNCTION__, usage + "password can't be ignored when username is set");
     }
-   
+
     int sendbufSize = 40960;
-    if(args.size() > 7){
+    if (args.size() > 7) {
         if (!args[7]->isScalar() || args[7]->getType() != DT_INT) {
             throw IllegalArgumentException(__FUNCTION__, usage + "the type of sendbufSize must be int");
         }
         sendbufSize = args[7]->getInt();
 
-        if (sendbufSize <= 0){
+        if (sendbufSize <= 0) {
             throw IllegalArgumentException(__FUNCTION__, usage + "sendbufSize must be a positive number");
         }
     }
 
-    std::unique_ptr<Connection> cup(
-        new Connection(args[0]->getString(), args[1]->getInt(), publishFlags, formatter, batchSize, userName,
-                       password, sendbufSize, 20480));
+    std::unique_ptr<Connection> cup(new Connection(args[0]->getString(), args[1]->getInt(), publishFlags, formatter,
+                                                   batchSize, userName, password, sendbufSize, 20480));
 
     FunctionDefSP onClose(Util::createSystemProcedure("mqtt connection onClose()", mqttConnectionOnClose, 1, 1));
     return Util::createResource((long long)cup.release(), "mqtt publish connection", onClose, heap->currentSession());
@@ -139,26 +141,26 @@ ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
     size_t msgLen;
     Connection *conn;
     string topicStr;
-    string  messageStr;
+    string messageStr;
 
     // parse args first
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != "mqtt publish connection") {
         throw IllegalArgumentException(__FUNCTION__, "connection must be a mqtt publish connection.");
     }
     conn = (Connection *)(args[0]->getLong());
-    if (conn==nullptr || conn->isClosed()) {
+    if (conn == nullptr || conn->isClosed()) {
         throw IllegalArgumentException(__FUNCTION__, "connection is closed.");
     }
 
     if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException(__FUNCTION__, usage + "topic must be a string");
-    } 
+    }
     topicStr = args[1]->getString();
     if (topicStr.length() == 0) {
         throw RuntimeException(LOG_PRE_STR + " the length of topic should more than 0");
     }
     if (args[2]->isTable()) {
-        if (conn->getFormatter().isNull()== true) {
+        if (conn->getFormatter().isNull() == true) {
             throw IllegalArgumentException(__FUNCTION__,
                                            "Please reconnect,the formatter must be provided while publishing table.");
         }
@@ -187,7 +189,7 @@ ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
 
             return new Int(MQTT_OK);
         } else {
-            vector<ConstantSP> args1 = {t};    // args1.push_back(table);
+            vector<ConstantSP> args1 = {t};  // args1.push_back(table);
 
             FunctionDefSP formatter = conn->getFormatter();
             ConstantSP s = formatter->call(heap, args1);
@@ -204,7 +206,6 @@ ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
             if (err != MQTT_OK) {
                 throw RuntimeException(mqtt_error_str(err));
             }
-
         }
         return new Int(MQTT_OK);
 
@@ -245,7 +246,7 @@ ConstantSP mqttClientCreatePublisher(Heap *heap, vector<ConstantSP> &args) {
     if (num != args[3]->size()) {
         throw IllegalArgumentException(__FUNCTION__, usage + " the num of colNames and colTypes must be the same.");
     }
-    
+
     vector<string> colNames(num);
     for (int i = 0; i < num; ++i) {
         colNames[i] = tmpVec->getString(i);
@@ -269,7 +270,7 @@ ConstantSP mqttClientClose(const ConstantSP &handle, const ConstantSP &b) {
     // parse args first
     if (handle->getType() == DT_RESOURCE) {
         cp = (Connection *)(handle->getLong());
-        if(handle->getString() != "mqtt publish connection"){
+        if (handle->getString() != "mqtt publish connection") {
             throw IllegalArgumentException(__FUNCTION__, "connection must be a mqtt publish connection.");
         }
     } else {
@@ -286,40 +287,42 @@ ConstantSP mqttClientClose(const ConstantSP &handle, const ConstantSP &b) {
 /// Connection
 namespace mqtt {
 class RefeshPubConn : public Runnable {
-public:
-    RefeshPubConn(Connection * connection)
-            : connection_(connection){};
+  public:
+    RefeshPubConn(Connection *connection) : connection_(connection){};
     ~RefeshPubConn() override = default;
     void run() override;
-private:
-    Connection * connection_;
+
+  private:
+    Connection *connection_;
     SmartPointer<Mutex> lockClient_;
     SmartPointer<ConditionalNotifier> freeNotifier_;
 };
 
 void RefeshPubConn::run() {
-    struct mqtt_client* client = connection_->getClient();
-    while(!connection_->isClosed())
-    {
+    struct mqtt_client *client = connection_->getClient();
+    while (!connection_->isClosed()) {
         try {
             MQTTErrors ret = mqtt_sync(client);
-            int currentRetryCount = 0;                       
-            while (ret == MQTT_ERROR_SOCKET_ERROR && currentRetryCount < MAX_RETRY_COUNT){
+            int currentRetryCount = 0;
+            while (ret == MQTT_ERROR_SOCKET_ERROR && currentRetryCount < MAX_RETRY_COUNT) {
                 connection_->reconnect();
                 Util::sleep(100);
                 ret = mqtt_sync(client);
                 currentRetryCount++;
             }
-        } catch (exception& e) {
+            if (currentRetryCount == MAX_RETRY_COUNT) {
+                LOG_ERR(LOG_PRE_STR, " pub reconnect failed.");
+            }
+        } catch (exception &e) {
             LOG_ERR(LOG_PRE_STR, " refresh publish connection failed, err message is <", string(e.what()), ">");
-        }catch (...) {
+        } catch (...) {
             LOG_ERR(LOG_PRE_STR, " refresh publish connection failed.");
         }
         usleep(100000U);
     }
 }
 
-Connection::~Connection(){
+Connection::~Connection() {
     isClosed_ = true;
     clientDaemon_->join();
     mqtt_disconnect(&client_);
@@ -328,35 +331,50 @@ Connection::~Connection(){
     LOG_INFO("[PluginMQTT]: close publish connection");
 }
 
-Connection::Connection(const std::string& hostname, int port, uint8_t qos, const FunctionDefSP& formatter, int batchSize, 
-        const std::string& userName, const std::string& password, int sendbufSize, int recvbufSize)
+Connection::Connection(const std::string &hostname, int port, uint8_t qos, const FunctionDefSP &formatter,
+                       int batchSize, const std::string &userName, const std::string &password, int sendbufSize,
+                       int recvbufSize)
     : ConnctionBase(new ConditionalNotifier()),
-    host_(hostname), port_(port), publishFlags_(qos), formatter_(formatter), batchSize_(batchSize),
-    userName_(userName), password_(password),sendbufSize_(sendbufSize),recvbufSize_(recvbufSize),
-    sendbuf_(new uint8_t[sendbufSize]),recvbuf_(new uint8_t[recvbufSize]){
+      host_(hostname),
+      port_(port),
+      publishFlags_(qos),
+      formatter_(formatter),
+      batchSize_(batchSize),
+      userName_(userName),
+      password_(password),
+      sendbufSize_(sendbufSize),
+      recvbufSize_(recvbufSize),
+      sendbuf_(new uint8_t[sendbufSize]),
+      recvbuf_(new uint8_t[recvbufSize]) {
     sockfd_ = new Socket(hostname, port, false);
     IO_ERR ret = sockfd_->connect();
     if (ret != OK && ret != INPROGRESS) {
         throw RuntimeException(LOG_PRE_STR + " Failed to connect.");
     }
-    if (ret == INPROGRESS && !checkConnectStatus(sockfd_->getHandle())) { // handle EINPROGRESS on non-block TCP connection
+    if (ret == INPROGRESS &&
+        !checkConnectStatus(sockfd_->getHandle())) {  // handle EINPROGRESS on non-block TCP connection
         throw RuntimeException("Failed to connect.");
     }
 
     try {
-        mqtt_init(&client_, sockfd_->getHandle(), sendbuf_.get(), sendbufSize_, recvbuf_.get(), recvbufSize_, publishCallback);
+        mqtt_init(&client_, sockfd_->getHandle(), sendbuf_.get(), sendbufSize_, recvbuf_.get(), recvbufSize_,
+                  publishCallback);
         std::string client_id = "ddb_mqtt_plugin_pub" + std::to_string(sockfd_->getHandle());
         uint8_t connect_flags = MQTT_CONNECT_CLEAN_SESSION;
-        if(userName == "") {
+        if (userName == "") {
             mqtt_connect(&client_, client_id.c_str(), NULL, NULL, 0, NULL, NULL, connect_flags, 400);
+        } else {
+            mqtt_connect(&client_, client_id.c_str(), NULL, NULL, 0, userName.c_str(), password.c_str(), connect_flags,
+                         400);
         }
-        else{
-            mqtt_connect(&client_, client_id.c_str(), NULL, NULL, 0, userName.c_str(), password.c_str(), connect_flags, 400);
-        }
-
         if (client_.error != MQTT_OK) {
             throw RuntimeException(mqtt_error_str(client_.error));
         }
+
+        // check connack
+        checkConnack(&client_);
+
+        // create thread
         lockClient_ = new Mutex();
         SmartPointer<RefeshPubConn> PubConn = new RefeshPubConn(this);
         clientDaemon_ = new Thread(PubConn);
@@ -365,7 +383,7 @@ Connection::Connection(const std::string& hostname, int port, uint8_t qos, const
         }
         sendtimes_ = 0;
         failed_ = 0;
-    } catch (exception& e){
+    } catch (exception &e) {
         std::string errMsg(e.what());
         LOG_ERR(LOG_PRE_STR + " mqtt publish connection init failed, error message is <", errMsg, ">");
         throw RuntimeException(LOG_PRE_STR + " mqtt publish connection init failed, error message is <" + errMsg + ">");
@@ -378,28 +396,26 @@ MQTTErrors Connection::publishMsg(const char *topic, void *message, size_t size)
     do {
         try {
             err = mqtt_publish(&client_, topic, message, size, publishFlags_);
-            if(err == MQTT_ERROR_SEND_BUFFER_IS_FULL)
-                client_.error = MQTT_OK;
+            if (err == MQTT_ERROR_SEND_BUFFER_IS_FULL) client_.error = MQTT_OK;
             if (err != MQTT_OK) {
                 LOG_INFO(string("[PluginMQTT]: publishMsg error:") + mqtt_error_str(err));
                 failed_++;
             }
             mqtt_sync(&client_);
-        } catch (exception& e) {
+        } catch (exception &e) {
             std::string errMsg(e.what());
             LOG_ERR(LOG_PRE_STR + " mqtt publish msg failed, error message is <", errMsg, ">");
             throw RuntimeException(LOG_PRE_STR + " mqtt publish msg failed, error message is <" + errMsg + ">");
         }
-        
+
         if (err == MQTT_ERROR_SEND_BUFFER_IS_FULL) {
             Util::sleep(500);
             LOG_INFO("[PluginMQTT]: publishMsg get MQTT_ERROR_SEND_BUFFER_IS_FULL err.");
         }
-        if(isClosed_)
-            throw RuntimeException(LOG_PRE_STR + "connection is closed");
+        if (isClosed_) throw RuntimeException(LOG_PRE_STR + "connection is closed");
     } while (MQTT_OK != err && failed_ < MAX_RETRY_COUNT);
     failed_ = 0;
     return err;
 }
 
-}    // namespace mqtt
+}  // namespace mqtt
