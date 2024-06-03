@@ -359,6 +359,7 @@ public:
 	 * @return One of 'free', 'commercial' or 'trial'
 	 */
 	static string getLicenseType();
+	static int getLicenseExpiration();
 
 private:
 	static bool readScriptFile(const string& parentPath,const string& filename, unordered_set<string> scriptAlias, vector<string>& lines, string& errMsg);

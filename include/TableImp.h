@@ -269,13 +269,7 @@ public:
 	void setVersion(const BasicTableSP& table) {
 		curVersion_ = table->getValue();
 	}
-	void setTable(const BasicTableSP& table) {
-		vector<ConstantSP> cols(table->columns());
-		for (int i = 0; i < table->columns(); ++i) {
-			cols[i] = table->getColumn(i)->getValue();
-		}
-		std::swap(cols_, cols);
-	}
+	void setTable(const BasicTableSP& table);
 	void setSize(INDEX size) { size_ = size; }
 
 protected:
@@ -344,6 +338,7 @@ private:
 	int filterColumnIndex_;
 	INDEX capacity_;
 	string chunkPath_;
+	int rowUnitLength_;
 	mutable BasicTableSP curVersion_;
 };
 
