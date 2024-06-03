@@ -7,6 +7,7 @@
 #include "zmq.hpp"
 #include "json.hpp"
 #include "Logger.h"
+#include "ddbplugin/Plugin.h"
 #include "ddbplugin/CommonInterface.h"
 
 using namespace std;
@@ -30,12 +31,125 @@ extern "C" ConstantSP zmqGetSubJobStat(Heap *heap, vector<ConstantSP> &args);
 
 extern "C" ConstantSP zmqCreatepusher(Heap *heap, vector<ConstantSP> &args);
 
+extern "C" ConstantSP zmqSetMonitor(Heap *heap, vector<ConstantSP> &args);
+
 static shared_ptr<zmq::socket_t> createZmqSocket(zmq::context_t &context, const string &socketType);
+
+class ZMQMonitor : public zmq::monitor_t{
+public:
+    ZMQMonitor() {}
+    virtual ~ZMQMonitor() {}
+    virtual void on_event_connected(const zmq_event_t &event_, const char *addr_) override {
+        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Connected to " + string(addr_));
+    }
+    virtual void on_event_connect_delayed(const zmq_event_t &event_, const char *addr_) override {
+        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Connect delayed to " + string(addr_));
+    }
+    virtual void on_event_connect_retried(const zmq_event_t &event_, const char *addr_) override {
+        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Connect retried to " + string(addr_));
+    }
+    virtual void on_event_listening(const zmq_event_t &event_, const char *addr_) override {
+        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Listening on " + string(addr_));
+    }
+    virtual void on_event_bind_failed(const zmq_event_t &event_, const char *addr_) override {
+        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Bind failed on " + string(addr_));
+    }
+    virtual void on_event_accepted(const zmq_event_t &event_, const char *addr_) override {
+        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Accepted on " + string(addr_));
+    }
+    virtual void on_event_accept_failed(const zmq_event_t &event_, const char *addr_) override {
+        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Accept failed on " + string(addr_));
+    }
+    virtual void on_event_closed(const zmq_event_t &event_, const char *addr_) override {
+        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Closed on " + string(addr_));
+    }
+    virtual void on_event_close_failed(const zmq_event_t &event_, const char *addr_) override {
+        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Close failed on " + string(addr_));
+    }
+    virtual void on_event_disconnected(const zmq_event_t &event_, const char *addr_) override {
+        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Disconnected on " + string(addr_));
+    }
+};
+
+struct HashSocket{
+    size_t operator()(const shared_ptr<zmq::socket_t>& socket) const{
+        return std::hash<void*>()(socket.get());
+    }
+};
+
+class ZMQExecutor;
+
+class ZmqStatus{
+public:
+    static DictionarySP STATUS_DICT;
+    static Mutex GLOBAL_LOCK;
+    static std::unordered_map<shared_ptr<zmq::socket_t>, shared_ptr<ZMQMonitor>, HashSocket> ZMQ_MONITOR_MAP;
+    static Mutex ZMQ_MONITOR_MAP_LOCK;
+    static bool SET_MONITOR;
+    static SmartPointer<ZMQExecutor> MONITOR_EXECUTOR;
+    static SmartPointer<Thread> MONITOR_THREAD;
+};
+
+class ZMQExecutor : public Runnable {
+public:
+    ZMQExecutor(): isStop_(false) {};
+    void run() override {
+        try{
+            while(true){
+                {
+                    LockGuard<Mutex> _(&ZmqStatus::ZMQ_MONITOR_MAP_LOCK);
+                    if(ZmqStatus::SET_MONITOR){
+                        for(auto iter : ZmqStatus::ZMQ_MONITOR_MAP){
+                            if(iter.second.get() == nullptr){
+                                ZmqStatus::ZMQ_MONITOR_MAP[iter.first] = shared_ptr<ZMQMonitor>(new ZMQMonitor());
+                                ZmqStatus::ZMQ_MONITOR_MAP[iter.first]->init(*iter.first, "inproc://monitor.rep");
+                            }
+                            ZmqStatus::ZMQ_MONITOR_MAP[iter.first]->check_event();
+                        }
+                    }else{
+                        for(auto iter : ZmqStatus::ZMQ_MONITOR_MAP){
+                            iter.second.reset();
+                        }
+                    }
+                    if(isStop_)
+                        break;
+                }
+                Util::sleep(1000);
+            }
+        }
+        catch(...){
+            LOG_ERR(PLUGIN_ZMQ_PREFIX + "an uncaught exception was found");
+        }
+    };
+
+    void stop(){
+        isStop_ = true;
+    }
+private:
+    bool isStop_;
+};
+
+DictionarySP ZmqStatus::STATUS_DICT = Util::createDictionary(DT_STRING, nullptr, DT_ANY, nullptr);
+Mutex ZmqStatus::GLOBAL_LOCK;
+std::unordered_map<shared_ptr<zmq::socket_t>, shared_ptr<ZMQMonitor>, HashSocket> ZmqStatus::ZMQ_MONITOR_MAP;
+Mutex ZmqStatus::ZMQ_MONITOR_MAP_LOCK;
+bool ZmqStatus::SET_MONITOR = false;
+SmartPointer<ZMQExecutor> ZmqStatus::MONITOR_EXECUTOR = nullptr;
+SmartPointer<Thread> ZmqStatus::MONITOR_THREAD = nullptr;
 
 class ZmqSocket {
 public:
     ZmqSocket(const string &type)
-        : context(), zmq_Socket_(createZmqSocket(context, type)) {}
+        : context(), zmq_Socket_(createZmqSocket(context, type)) {
+        LockGuard<Mutex> _(&ZmqStatus::ZMQ_MONITOR_MAP_LOCK);
+        ZmqStatus::ZMQ_MONITOR_MAP[zmq_Socket_] = shared_ptr<ZMQMonitor>(new ZMQMonitor());
+        ZmqStatus::ZMQ_MONITOR_MAP[zmq_Socket_] ->init(*zmq_Socket_, "inproc://monitor.rep");
+        if(ZmqStatus::MONITOR_THREAD.isNull()){
+            ZmqStatus::MONITOR_EXECUTOR = new ZMQExecutor();
+            ZmqStatus::MONITOR_THREAD = new Thread(ZmqStatus::MONITOR_EXECUTOR);
+            ZmqStatus::MONITOR_THREAD->start();
+        }
+    }
 
     void connect(const string &addr, const string &prefix) {
         ZmqSocket::checkFileNum();
@@ -62,6 +176,19 @@ public:
 
     virtual ~ZmqSocket() {
         LOG_INFO("PluginZmq: socket[" + addr_ + "] is closed. ");
+        LockGuard<Mutex> _(&ZmqStatus::ZMQ_MONITOR_MAP_LOCK);
+        if(ZmqStatus::ZMQ_MONITOR_MAP.erase(zmq_Socket_) == 0){
+            LOG_ERR(PLUGIN_ZMQ_PREFIX + "Failed to erase the monitor map");
+        }
+        if(ZmqStatus::ZMQ_MONITOR_MAP.size() == 0 && !ZmqStatus::MONITOR_THREAD.isNull()){
+            SmartPointer<Thread> thread = ZmqStatus::MONITOR_THREAD;
+            SmartPointer<ZMQExecutor> executor = ZmqStatus::MONITOR_EXECUTOR;
+            ZmqStatus::MONITOR_THREAD.clear();
+            ZmqStatus::MONITOR_EXECUTOR.clear();
+            if(!executor.isNull()) executor->stop();
+            _.unlock();
+            thread->join();
+        }
     }
 
     shared_ptr<zmq::socket_t> getSocket() {
@@ -203,10 +330,11 @@ public:
 };
 
 
+
 class AppendTable : public Runnable {
 public:
     AppendTable(Heap *heap, shared_ptr<ZmqSubSocket> socket, const FunctionDefSP &parser, ConstantSP handle)
-            : socket_(socket), parser_(parser), handle_(handle), recv(0), needStop_(false), isStop_(1) {
+            : socket_(socket), parser_(parser), handle_(handle), recv(0), needStop_(false), isStop_(1){
         session_ = heap->currentSession()->copy();
         session_->setUser(heap->currentSession()->getUser());
         session_->setOutput(new DummyOutput);

@@ -4,64 +4,33 @@ ZeroMQ（zmq）是一个可伸缩的分布式或并发应用程序设计的高�
 
 通过 DolphinDB 的 zmq 插件，用户可以创建 zmq socket，完成 zmq 消息通信的常见操作，包含通过请求应答机制的会话建立、发布、订阅以及消息的管道传输。
 
-zmq 插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/zmq/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/zmq/README.md), [release120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/zmq/README.md)。您当前查看的插件版本为release200，请使用 DolphinDB 2.00.X 版本 server。若使用其它版本 server，请切换至相应插件分支。
+## 在插件市场安装插件
 
-## 1. 安装构建
+### 版本要求
+DolphinDB Server: 2.00.10 及更高版本。
 
-### 1.1 预编译安装
-
-#### Linux
-
-预先编译的插件文件存放在 `DolphinDBPlugin/zmq/bin/linux64` 目录下。通过 DolphinDB，执行以下命令可导入 zmq 插件：
+### 安装步骤
+在 DolphinDB 客户端中使用 listRemotePlugins 命令查看插件仓库中的插件信息。
 
 ```
-cd DolphinDB/server //进入DolphinDB server目录
-./dolphindb //启动 DolphinDB server
-loadPlugin("<PluginDir>/zmq/bin/linux64/PluginZmq.txt") //加载插件
+login("admin", "123456")
+listRemotePlugins()
 ```
 
-### 1.2 自行编译
-
-#### 编译 libzmq
-
-下载 [libzmq-4.3.4](https://github.com/zeromq/libzmq/releases/tag/v4.3.4)
-
-```bash
-cd libzmq-4.3.4
-cp include/zmq.h /path/to/PluginZmq/bin/include/
-mkdir build && cd build
-cmake ..
-make -j8
-cp lib/libzmq.a /path/to/PluginZmq/bin/linux64/
+使用 installPlugin 命令完成插件安装。
+```
+installPlugin("zmq")
 ```
 
-#### 获取 cppzmq 头文件
-
-下载 [cppzmq-4.7.1](https://github.com/zeromq/cppzmq/releases/tag/v4.7.1)
-
-```bash
-cd cppzmq-4.7.1
-cp zmq.hpp /path/to/PluginZmq/bin/include/
+使用 loadPlugin 命令加载插件。
+```
+loadPlugin("zmq")
 ```
 
-#### 构建插件
 
-构建插件内容
+## 用户接口
 
-```
-mkdir build
-cd build
-cmake  ../
-make
-```
-
-> **注意**：编译之前请确保 libDolphinDB.so 在 gcc 可搜索的路径中。可使用 `LD_LIBRARY_PATH` 指定其路径，或者直接将其拷贝到 build 目录下。
-
-编译后目录下会产生两个文件：libPluginZmq.so 和 PluginZmq.txt。
-
-## 2. 发送
-
-### 2.1 zmq::socket
+### zmq::socket
 
 **语法**
 
@@ -87,7 +56,7 @@ formatter = zmq::createJSONFormatter()
 socket = zmq::socket("ZMQ_PUB", formatter)
 ```
 
-### 2.2 zmq::connect
+### zmq::connect
 
 **语法**
 
@@ -96,7 +65,7 @@ zmq::connect(socket, addr, [prefix])
 **参数**
 
 * socket：zmq 连接句柄。
-* addr：STRING 类型，表示 socket 连接到的远端地址，格式为 "transport://address:port"。*transport* 表示要使用的底层协议，取值为 tcp, ipc, inproc, pgm 或 epgm。*address:port* 表示远端的 IP 地址和端口号。
+* addr：STRING 类型，表示 socket 连接到的远端地址，格式为 "transport://address:port"。* transport* 表示要使用的底层协议，取值为 tcp, ipc, inproc, pgm 或 epgm。* address:port* 表示远端的 IP 地址和端口号。
 * prefix：STRING 类型，表示发送前缀。
 
 **详情**
@@ -111,7 +80,7 @@ socket = zmq::socket("ZMQ_PUB", formatter)
 zmq::connect(socket, "tcp://localhost:55632", "prefix1")
 ```
 
-### 2.3 zmq::bind
+### zmq::bind
 
 **语法**
 
@@ -120,7 +89,7 @@ zmq::bind(socket, addr, [prefix])
 **参数**
 
 * socket：zmq 连接句柄。
-* addr：STRING 型，表示 socket 绑定的地址，格式为 "transport://address:port"。*transport* 表示要使用的底层协议，取值为 tcp, ipc, inproc, pgm 或 epgm。*address:port* 表示进行绑定的地址和端口号，* 表示同一个服务器的所有 IP。
+* addr：STRING 型，表示 socket 绑定的地址，格式为 "transport://address:port"。* transport* 表示要使用的底层协议，取值为 tcp, ipc, inproc, pgm 或 epgm。* address:port* 表示进行绑定的地址和端口号，* 表示同一个服务器的所有 IP。
 * prefix：STRING 类型，表示发送前缀。
   
 **详情**
@@ -135,7 +104,7 @@ socket = zmq::socket("ZMQ_PUB", formatter)
 zmq::bind(socket, "tcp://*:55631", "prefix1")
 ```
 
-### 2.4 zmq::send
+### zmq::send
 
 **语法**
 
@@ -144,7 +113,7 @@ zmq::send(socket, data, [prefix])
 **参数**
 
 * socket：zmq 连接句柄。
-* data：发送的数据，类型应为 zmq::socket 创建时 formatter 的传入参数的数据类型，不然会在调用 *formatter* 时格式化失败而抛出异常。
+* data：发送的数据，类型应为 zmq::socket 创建时 formatter 的传入参数的数据类型，不然会在调用 * formatter* 时格式化失败而抛出异常。
 * prefix：STRING 类型，表示消息前缀。
 
 **详情**
@@ -160,7 +129,7 @@ zmq::connect(socket, "tcp://localhost:55632", "prefix1")
 zmq::send(socket, table(1..10 as id))
 ```
 
-### 2.5 zmq::close
+### zmq::close
 
 **语法**
 
@@ -182,9 +151,7 @@ zmq::connect(socket, "tcp://localhost:55632", "prefix1")
 zmq::close(socket)
 ```
 
-## 3. 订阅
-
-### 3.1 zmq::createSubJob
+### zmq::createSubJob
 
 **语法**
 
@@ -192,11 +159,11 @@ zmq::createSubJob(addr, type, isConnnect, handle, parser, [prefix])
 
 **参数**
 
-* addr：STRING 类型，格式为 "transport://address:port"。*transport* 表示要使用的底层协议，取值为 tcp, ipc, inproc, pgm 或 epgm。*address:port* 表示 zmq 绑定的地址和端口。
+* addr：STRING 类型，格式为 "transport://address:port"。* transport* 表示要使用的底层协议，取值为 tcp, ipc, inproc, pgm 或 epgm。* address:port* 表示 zmq 绑定的地址和端口。
 * type：STRING 类型，表示 zmq 的 socket 类型，取值为 "ZMQ_SUB" 和 "ZMQ_PULL"。
-* isConnnect：BOOL 类型，表示是否是对 *addr* 进行连接，如果为否，则对 *addr* 进行绑定。
+* isConnnect：BOOL 类型，表示是否是对 * addr* 进行连接，如果为否，则对 * addr* 进行绑定。
 * handle：一个函数或表，用于处理从 zmq 接收的消息。
-* parser：一个函数，用于对发布的数据进行解包。目前 zmq 插件提供2种 `createJSONParser` 或 `createCSVParser` 解包方式。输出参数是一个 table，输入参数是一个 string 的 scalar。
+* parser：一个函数，用于对发布的数据进行解包。目前 zmq 插件提供 2 种 `createJSONParser` 或 `createCSVParser` 解包方式。输出参数是一个 table，输入参数是一个 string 的 scalar。
 * prefix：STRING 类型，表示消息前缀。
 
 **详情**
@@ -229,7 +196,7 @@ while True:
 	time.sleep(2)
 ```
 
-### 3.2 zmq::getSubJobStat
+### zmq::getSubJobStat
 
 **语法**
 
@@ -257,7 +224,7 @@ zmq::createSubJob("tcp://localhost:55633", "ZMQ_SUB", handle, parser, "prefix1")
 zmq::getSubJobStat()
 ```
 
-### 3.3 zmq::cancelSubJob
+### zmq::cancelSubJob
 
 **语法**
 
@@ -278,7 +245,7 @@ zmq::cancelSubJob(sub1)
 zmq::cancelSubJob(42070480)
 ```
 
-### 3.4 zmq::createPusher
+### zmq::createPusher
 
 **语法**
 
@@ -322,9 +289,20 @@ insert into trades values(2018.10.08T01:04:04.412,`B,32)
 insert into trades values(2018.10.08T01:04:05.152,`B,23)
 ```
 
-## 4. 打/解包功能
+### setMonitor
+**语法**
 
-### 4.1 createCSVFormatter
+zmq::setMonitor(enabled)
+
+**详情**
+
+是否启用监视日志。配置启用后，在 ZMQ 的新建连接、连接重连、端口绑定、连接断开时，会在日志写入 INFO 级别的 log。
+
+**参数**
+
+* enabled: BOOL 类型的标量，表示是否启用监视日志。当 enabled 参数的值为 true，表示需要启用监视日志。
+
+### createCSVFormatter
 
 **语法**
 zmq::createCSVFormatter([format], [delimiter=','], [rowDelimiter=';'])
@@ -332,8 +310,8 @@ zmq::createCSVFormatter([format], [delimiter=','], [rowDelimiter=';'])
 **参数**
 
 * format：STRING 类型的向量。
-* delimiter：列之间的分隔符，默认是','。
-* rowDelimiter：行之间的分隔符，默认是';'。
+* delimiter：列之间的分隔符，默认是 ','。
+* rowDelimiter：行之间的分隔符，默认是 ';'。
 
 **详情**
 
@@ -347,7 +325,7 @@ MyFormat[2] = "0.000"
 f = createCSVFormatter(MyFormat, ',', ';')
 ```
 
-### 4.2 createCSVParser
+### createCSVParser
 
 **语法**
 zmq::createCSVParser(schema, [delimiter=','], [rowDelimiter=';'])
@@ -355,8 +333,8 @@ zmq::createCSVParser(schema, [delimiter=','], [rowDelimiter=';'])
 **参数**
 
 * schema：一个包含各列数据类型的向量。
-* delimiter：列之间的分隔符，默认是','。
-* rowDelimiter：行之间的分隔符，默认是';'。
+* delimiter：列之间的分隔符，默认是 ','。
+* rowDelimiter：行之间的分隔符，默认是 ';'。
 
 **详情**
 
@@ -375,7 +353,7 @@ p = zmq::createCSVParser([BOOL,CHAR,SHORT,INT,LONG,DATE,MONTH,TIME,MINUTE,SECOND
 p(s)
 ```
 
-### 4.3 createJSONFormatter
+### createJSONFormatter
 
 **语法**
 zmq::createJSONFormatter()
@@ -395,7 +373,7 @@ f = zmq::createJSONFormatter()
 f(t)
 ```
 
-### 4.4 createJSONParser
+### createJSONParser
 
 **语法**
 zmq::createJSONParser(schema, colNames)
@@ -424,7 +402,7 @@ x=p(s)
 
 ```
 
-## 5. 完整例子
+### 完整例子
 
 ```
 loadPlugin("/home/zmx/worker/DolphinDBPlugin/zmq/cmake-build-debug/PluginZmq.txt")
@@ -436,7 +414,7 @@ data = table(1..10 as id, take(now(), 10) as ts, rand(10, 10) as volume)
 zmq::send(socket, data)
 ```
 
-### 5.1 与之搭配的 python 脚本
+#### 与之搭配的 python 脚本
 
 ```
 import zmq
@@ -460,10 +438,42 @@ if __name__=='__main__':
         print (recvStr)
 ```
 
-# ReleaseNotes:
 
-## v2.00.10
+## 自行编译
 
-### bug修复
+### 编译 libzmq
 
-- 增加及调整非法参数的报错
+下载 [libzmq-4.3.4](https://github.com/zeromq/libzmq/releases/tag/v4.3.4)
+
+```bash
+cd libzmq-4.3.4
+cp include/zmq.h /path/to/PluginZmq/bin/include/
+mkdir build && cd build
+cmake ..
+make -j8
+cp lib/libzmq.a /path/to/PluginZmq/bin/linux64/
+```
+
+### 获取 cppzmq 头文件
+
+下载 [cppzmq-4.7.1](https://github.com/zeromq/cppzmq/releases/tag/v4.7.1)
+
+```bash
+cd cppzmq-4.7.1
+cp zmq.hpp /path/to/PluginZmq/bin/include/
+```
+
+### 构建插件
+
+构建插件内容
+
+```
+mkdir build
+cd build
+cmake  ../
+make
+```
+
+> **注意**：编译之前请确保 libDolphinDB.so 在 gcc 可搜索的路径中。可使用 `LD_LIBRARY_PATH` 指定其路径，或者直接将其拷贝到 build 目录下。
+
+编译后目录下会产生两个文件：libPluginZmq.so 和 PluginZmq.txt。
