@@ -29,7 +29,7 @@ public:
     void initAndStart(Heap *heap, const string &dataType, const string &marketType, const TableSP &table);
     void initAndStartTradeEntrust(Heap *heap, const string &marketType, int channel, const TableSP &table);
     void setOptionFlag(int option);
-    void addSnapshotExtra();
+    void addSnapshotExtra(const string &dataVersion);
     ConstantSP getSchema(const string &dataType);
     void stop(const string& dataType, const string& marketType);
     ConstantSP getStatus();
@@ -52,8 +52,8 @@ private:
 
     MarketTypeContainer marketTypes_{
         NSQ_PREFIX,
-        {nsqUtil::TRADE, nsqUtil::ENTRUST, nsqUtil::SNAPSHOT, nsqUtil::TRADE_ENTRUST},
-        {nsqUtil::tradeMeta, nsqUtil::entrustMeta, nsqUtil::snapshotMetaConcise, nsqUtil::tradeEntrustMeta}
+        {nsqUtil::TRADE, nsqUtil::ENTRUST, nsqUtil::SNAPSHOT, nsqUtil::TRADE_ENTRUST, nsqUtil::ENTRUST_220105},
+        {nsqUtil::tradeMeta, nsqUtil::entrustMeta, nsqUtil::snapshotMetaConcise, nsqUtil::tradeEntrustMeta, nsqUtil::entrustMeta_220105}
     };
 
     std::function<void (vector<ConstantSP> &, nsqUtil::SnapshotDataStruct &)>

@@ -4,13 +4,26 @@
 
 #include "NsqPlugin.h"
 #include "NsqConnection.h"
+#include "ini.h"
 
 #include "PluginUtil.h"
 
 using namespace pluginUtil;
 
+bool isIniValid(const string &configPath) {
+    mINI::INIFile file(configPath);
+    mINI::INIStructure ini;
+    file.read(ini);
+    if (ini["sailfish"]["service_addr"].empty() || ini["sailfish"]["service_port"].empty()) {
+        if (ini["sailfish"]["service_addr1"].empty() || ini["sailfish"]["service_port1"].empty()) {
+            return false;
+        }
+    }
+    return true;
+}
+
 ConstantSP nsqConnect(Heap *heap, vector<ConstantSP> &args) {
-    string usage = "connect(configFilePath, [options], [username], [password]) ";
+    string usage = "connect(configFilePath, [options], [username], [password], [dataVersion]) ";
 
     LockGuard<Mutex> l(NsqConnection::getMutex());
 
@@ -19,6 +32,9 @@ ConstantSP nsqConnect(Heap *heap, vector<ConstantSP> &args) {
     auto configFilePath = getStringScalar(args[0], "configFilePath", __FUNCTION__, usage);
     if (!Util::exists(configFilePath)) {
         throw IllegalArgumentException(__FUNCTION__, usage + "configFilePath does not exist.");
+    }
+    if (!isIniValid(configFilePath)) {
+        throw IllegalArgumentException(__FUNCTION__, usage + "invalid configFile, could not find 'service_addr' or 'service_port' in [" + configFilePath + "]");
     }
     // options
     DictionarySP options;
@@ -33,8 +49,15 @@ ConstantSP nsqConnect(Heap *heap, vector<ConstantSP> &args) {
         username = getStringScalar(args[2], "username", "nsq::connect", usage);
         password = getStringScalar(args[3], "password", "nsq::connect", usage);
     }
+    string dataVersion = "ORIGIN";
+    if (args.size() > 4 && !args[4]->isNull()) {
+        dataVersion = getStringScalar(args[4], "dataVersion", __FUNCTION__, usage);
+        if (dataVersion != "ORIGIN" or dataVersion != "v220105") {
+            throw IllegalArgumentException(__FUNCTION__, usage + "dataVersion must be 'ORIGIN' or 'v220105'.");
+        }
+    }
     /// connect and login
-    NsqConnection::initInstance(configFilePath, options, username, password);
+    NsqConnection::initInstance(configFilePath, options, username, password, dataVersion);
     return new Void();
 }
 
@@ -69,6 +92,9 @@ ConstantSP nsqSubscribe(Heap *heap, vector<ConstantSP> &args) {
     auto dataType = getStringScalar(args[0], "type", __FUNCTION__, usage);
     auto marketType = getStringScalar(args[1], "location", __FUNCTION__, usage);
 
+    /// check dataType and marketType
+    nsqUtil::checkTypes(dataType, marketType);
+
     if (dataType == nsqUtil::TRADE_ENTRUST) {
         /// subscribe tradeOrders
         DictionarySP tableDict = getDictWithIntKeyAndSharedRealtimeTableValue(args[2], "streamTable", __FUNCTION__, usage);
@@ -90,6 +116,9 @@ ConstantSP nsqUnsubscribe(Heap *heap, vector<ConstantSP> &args) {
     /// parse args
     auto dataType = getStringScalar(args[0], "type", __FUNCTION__, usage);
     auto marketType = getStringScalar(args[1], "location", __FUNCTION__, usage);
+
+    /// check dataType and marketType
+    nsqUtil::checkTypes(dataType, marketType);
 
     /// unsubscribe
     NsqConnection::getInstance()->unsubscribe(dataType, marketType);

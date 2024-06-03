@@ -76,7 +76,7 @@ void NsqConnection::loginNotifyL() {
     }
 }
 
-void NsqConnection::initInstance(const string &configFilePath, const DictionarySP& options, const string &username, const string &password) {
+void NsqConnection::initInstance(const string &configFilePath, const DictionarySP& options, const string &username, const string &password, const string &version) {
 
     // init singleton
     if (instancePtr == nullptr) {
@@ -84,18 +84,31 @@ void NsqConnection::initInstance(const string &configFilePath, const DictionaryS
         instancePtr->configFilePath_ = configFilePath;
         instancePtr->username_ = username;
         instancePtr->password_ = password;
+        instancePtr->dataVersion_ = version;
+    } else {
+        throw RuntimeException(NSQ_PREFIX + "there is already a connection.");
     }
 
-    if (!options.isNull()) {
-        instancePtr->parseOptions(options);
+    try {
+        if (!options.isNull()) {
+            instancePtr->parseOptions(options);
+        }
+        instancePtr->connectAndLogin(configFilePath, username, password);
+    } catch (std::exception &e) {
+        NsqConnection::destroyInstance();
+        throw RuntimeException(e.what());
+    } catch (...) {
+        NsqConnection::destroyInstance();
+        throw RuntimeException(NSQ_PREFIX + "init failed.");
     }
-    instancePtr->connectAndLogin(configFilePath, username, password);
+    instancePtr->spi_->isConnected_ = true;
 }
 
 void NsqConnection::destroyInstance() {
 
     if (instancePtr != nullptr) {
-        instancePtr->api_->ReleaseApi();
+        instancePtr->spi_->isConnected_ = false;
+        if(instancePtr->api_) { instancePtr->api_->ReleaseApi(); }
         instancePtr.clear();
     } else {
         throw RuntimeException(NSQ_PREFIX + "there is no connection to close.");
@@ -146,19 +159,18 @@ void NsqConnection::subscribeOrCancel(const string &dataType, const string &mark
 
 void NsqConnection::subscribe(Heap *heap, const string &dataType, const string &marketType, const TableSP &table) {
 
-    /// check dataType and marketType
-    nsqUtil::checkTypes(dataType, marketType);
+    string type = dataType;
+    if (dataVersion_ == "v220105") {
+        if (dataType == "orders") { type = nsqUtil::ENTRUST_220105;};
+    }
 
     /// subscribe
-    subscribeOrCancel(dataType, marketType);
-    spi_->queues_->initAndStart(heap, dataType, marketType, table);
+    subscribeOrCancel(type, marketType);
+    spi_->queues_->initAndStart(heap, type, marketType, table);
 }
 
 void
 NsqConnection::subscribeTradeEntrust(Heap *heap, const string &dataType, const string &marketType, const DictionarySP &tableDict) {
-
-    /// check dataType and marketType
-    nsqUtil::checkTypes(dataType, marketType);
 
     /// subscribe
     if (tableDict->size() != 0) {
@@ -175,9 +187,6 @@ NsqConnection::subscribeTradeEntrust(Heap *heap, const string &dataType, const s
 }
 
 void NsqConnection::unsubscribe(const string &dataType, const string &marketType) {
-
-    /// check dataType and marketType
-    nsqUtil::checkTypes(dataType, marketType);
 
     /// unsubscribe
     auto types = spi_->queues_->getTypesToCancel(dataType, marketType);
@@ -231,7 +240,7 @@ void NsqConnection::parseOptions(const DictionarySP &options) {
                 throw RuntimeException(NSQ_PREFIX + nsqUtil::GET_ALL_FIELD_NAMES + " value should be bool");
             }
             if (value->getBool()) {
-                spi_->queues_->addSnapshotExtra();
+                spi_->queues_->addSnapshotExtra(dataVersion_);
             }
         } else {
             throw RuntimeException(NSQ_PREFIX + "options only support " + nsqUtil::RECEIVED_TIME + ", " + nsqUtil::OUTPUT_ELAPSED + ", and " + nsqUtil::GET_ALL_FIELD_NAMES);
@@ -240,5 +249,9 @@ void NsqConnection::parseOptions(const DictionarySP &options) {
 }
 
 ConstantSP NsqConnection::getSchema(const string &dataType) {
-    return spi_->queues_->getSchema(dataType);
+    string type = dataType;
+    if (dataVersion_ == "v220105") {
+        if (dataType == "orders") { type = nsqUtil::ENTRUST_220105;};
+    }
+    return spi_->queues_->getSchema(type);
 }

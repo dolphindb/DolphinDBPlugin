@@ -12,31 +12,53 @@ void CHSNsqSpiImpl::OnFrontConnected() {
 
 void CHSNsqSpiImpl::OnRspUserLogin(CHSNsqRspUserLoginField *pRspUserLogin, CHSNsqRspInfoField *pRspInfo, int nRequestID,
                                    bool bIsLast) {
-
-    if (pRspInfo->ErrorID != 0) {
-        // optimization: log
-    } else {
-        NsqConnection::loginNotifyL();
+    try {
+        if (pRspInfo->ErrorID != 0) {
+            // optimization: log
+        } else {
+            NsqConnection::loginNotifyL();
+        }
+    } catch (std::exception &e) {
+        LOG_ERR(e.what());
+    } catch (...) {
+        LOG_ERR("An error occurred in ", __FUNCTION__);
     }
 }
 
 void CHSNsqSpiImpl::OnFrontDisconnected(int nResult) {
-
-    // optimization: nResult
-    NsqConnection::reconnectL();
+    try {
+        // optimization: nResult
+        if(isConnected_) { NsqConnection::reconnectL(); }
+    } catch (std::exception &e) {
+        LOG_ERR(e.what());
+    } catch (...) {
+        LOG_ERR("An error occurred in ", __FUNCTION__);
+    }
 }
 
 void CHSNsqSpiImpl::OnRspSecuDepthMarketDataSubscribe(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {
 
-    if (pRspInfo->ErrorID != 0) {
-        throw RuntimeException(NSQ_PREFIX + "subscribe failed."); // optimization: add message from demo
+    try {
+        if (pRspInfo->ErrorID != 0) {
+            throw RuntimeException(NSQ_PREFIX + "subscribe failed."); // optimization: add message from demo
+        }
+    } catch (std::exception &e) {
+        LOG_ERR(e.what());
+    } catch (...) {
+        LOG_ERR("An error occurred in ", __FUNCTION__);
     }
 }
 
 void CHSNsqSpiImpl::OnRspSecuDepthMarketDataCancel(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {
 
-    if (pRspInfo->ErrorID != 0) {
-        throw RuntimeException(NSQ_PREFIX + "unsubscribe failed.");
+    try {
+        if (pRspInfo->ErrorID != 0) {
+            throw RuntimeException(NSQ_PREFIX + "unsubscribe failed.");
+        }
+    } catch (std::exception &e) {
+        LOG_ERR(e.what());
+    } catch (...) {
+        LOG_ERR("An error occurred in ", __FUNCTION__);
     }
 }
 
@@ -44,61 +66,91 @@ void CHSNsqSpiImpl::OnRtnSecuDepthMarketData(CHSNsqSecuDepthMarketDataField *pSe
                                              HSIntVolume *Bid1Volume, HSNum Bid1Count, HSNum MaxBid1Count,
                                              HSIntVolume *Ask1Volume, HSNum Ask1Count, HSNum MaxAsk1Count) {
 
-    nsqUtil::SnapshotDataStruct data{
-            Util::toLocalNanoTimestamp(Util::getNanoEpochTime()),
-            *pSecuDepthMarketData,
-            vector<HSIntVolume>(Bid1Count),
-            Bid1Count,
-            MaxBid1Count,
-            vector<HSIntVolume>(Ask1Count),
-            Ask1Count,
-            MaxAsk1Count
-    };
+    try {
+        nsqUtil::SnapshotDataStruct data{
+                Util::toLocalNanoTimestamp(Util::getNanoEpochTime()),
+                *pSecuDepthMarketData,
+                vector<HSIntVolume>(Bid1Count),
+                Bid1Count,
+                MaxBid1Count,
+                vector<HSIntVolume>(Ask1Count),
+                Ask1Count,
+                MaxAsk1Count
+        };
 
-    std::memcpy(data.Bid1Volume.data(), Bid1Volume, sizeof(HSIntVolume) * Bid1Count);
-    std::memcpy(data.Ask1Volume.data(), Ask1Volume, sizeof(HSIntVolume) * Ask1Count);
+        std::memcpy(data.Bid1Volume.data(), Bid1Volume, sizeof(HSIntVolume) * Bid1Count);
+        std::memcpy(data.Ask1Volume.data(), Ask1Volume, sizeof(HSIntVolume) * Ask1Count);
 
-    string marketType;
-    if (strcmp(pSecuDepthMarketData->ExchangeID, HS_EI_SSE) == 0) {
-        marketType = nsqUtil::SH;
-    } else if (strcmp(pSecuDepthMarketData->ExchangeID, HS_EI_SZSE) == 0) {
-        marketType = nsqUtil::SZ;
+        string marketType;
+        if (strcmp(pSecuDepthMarketData->ExchangeID, HS_EI_SSE) == 0) {
+            marketType = nsqUtil::SH;
+        } else if (strcmp(pSecuDepthMarketData->ExchangeID, HS_EI_SZSE) == 0) {
+            marketType = nsqUtil::SZ;
+        }
+        queues_->pushData(data, marketType);
+    } catch (std::exception &e) {
+        LOG_ERR(e.what());
+    } catch (...) {
+        LOG_ERR("An error occurred in ", __FUNCTION__);
     }
-    queues_->pushData(data, marketType);
 }
 
 void CHSNsqSpiImpl::OnRspSecuTransactionSubscribe(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {
 
-    if (pRspInfo->ErrorID != 0) {
-        throw RuntimeException(NSQ_PREFIX + "subscribe failed.");
+    try {
+        if (pRspInfo->ErrorID != 0) {
+            throw RuntimeException(NSQ_PREFIX + "subscribe failed.");
+        }
+    } catch (std::exception &e) {
+        LOG_ERR(e.what());
+    } catch (...) {
+        LOG_ERR("An error occurred in ", __FUNCTION__);
     }
 }
 
 void CHSNsqSpiImpl::OnRspSecuTransactionCancel(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {
 
-    if (pRspInfo->ErrorID != 0) {
-        throw RuntimeException(NSQ_PREFIX + "unsubscribe failed.");
+    try {
+        if (pRspInfo->ErrorID != 0) {
+            throw RuntimeException(NSQ_PREFIX + "unsubscribe failed.");
+        }
+    } catch (std::exception &e) {
+        LOG_ERR(e.what());
+    } catch (...) {
+        LOG_ERR("An error occurred in ", __FUNCTION__);
     }
 }
 
 void CHSNsqSpiImpl::OnRtnSecuTransactionTradeData(CHSNsqSecuTransactionTradeDataField *pSecuTransactionTradeData) {
 
-    string marketType;
-    if (strcmp(pSecuTransactionTradeData->ExchangeID, HS_EI_SSE) == 0) {
-        marketType = nsqUtil::SH;
-    } else if (strcmp(pSecuTransactionTradeData->ExchangeID, HS_EI_SZSE) == 0) {
-        marketType = nsqUtil::SZ;
+    try {
+        string marketType;
+        if (strcmp(pSecuTransactionTradeData->ExchangeID, HS_EI_SSE) == 0) {
+            marketType = nsqUtil::SH;
+        } else if (strcmp(pSecuTransactionTradeData->ExchangeID, HS_EI_SZSE) == 0) {
+            marketType = nsqUtil::SZ;
+        }
+        queues_->pushData(pSecuTransactionTradeData, marketType);
+    } catch (std::exception &e) {
+        LOG_ERR(e.what());
+    } catch (...) {
+        LOG_ERR("An error occurred in ", __FUNCTION__);
     }
-    queues_->pushData(pSecuTransactionTradeData, marketType);
 }
 
 void CHSNsqSpiImpl::OnRtnSecuTransactionEntrustData(CHSNsqSecuTransactionEntrustDataField *pSecuTransactionEntrustData) {
 
-    string marketType;
-    if (strcmp(pSecuTransactionEntrustData->ExchangeID, HS_EI_SSE) == 0) {
-        marketType = nsqUtil::SH;
-    } else if (strcmp(pSecuTransactionEntrustData->ExchangeID, HS_EI_SZSE) == 0) {
-        marketType = nsqUtil::SZ;
+    try {
+        string marketType;
+        if (strcmp(pSecuTransactionEntrustData->ExchangeID, HS_EI_SSE) == 0) {
+            marketType = nsqUtil::SH;
+        } else if (strcmp(pSecuTransactionEntrustData->ExchangeID, HS_EI_SZSE) == 0) {
+            marketType = nsqUtil::SZ;
+        }
+        queues_->pushData(pSecuTransactionEntrustData, marketType);
+    } catch (std::exception &e) {
+        LOG_ERR(e.what());
+    } catch (...) {
+        LOG_ERR("An error occurred in ", __FUNCTION__);
     }
-    queues_->pushData(pSecuTransactionEntrustData, marketType);
 }

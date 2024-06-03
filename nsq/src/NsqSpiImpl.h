@@ -50,6 +50,7 @@ public:
     virtual ~CHSNsqSpiImpl() = default;
 
     SmartPointer<NsqQueues> queues_ = new NsqQueues();
+    bool isConnected_ = false;
 };
 
 

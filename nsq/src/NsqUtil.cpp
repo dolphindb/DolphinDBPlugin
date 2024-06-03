@@ -27,10 +27,7 @@ namespace nsqUtil {
         appendLong(col++, data.data.BizIndex);
     }
 
-    void entrustReader(vector<ConstantSP> &buffer, EntrustDataStruct &data) {
-
-        auto col = buffer.begin();
-
+    void entrustHelper(ConstantVecIterator &col, EntrustDataStruct &data) {
         appendString(col++, data.data.ExchangeID);
         appendString(col++, data.data.InstrumentID);
         appendInt(col++, data.data.TransFlag);
@@ -44,6 +41,18 @@ namespace nsqUtil {
         appendChar(col++, data.data.OrdType);
         appendLong(col++, data.data.OrdNo);
         appendLong(col++, data.data.BizIndex);
+    }
+
+    void entrustReader(vector<ConstantSP> &buffer, EntrustDataStruct &data) {
+        auto col = buffer.begin();
+        entrustHelper(col, data);
+    }
+
+    void entrustReader_220105(vector<ConstantSP> &buffer, EntrustDataStruct &data) {
+        auto col = buffer.begin();
+        entrustHelper(col, data);
+        appendChar(col++, data.data.TickStatus);
+        appendLong(col++, data.data.TrdVolume);
     }
 
     void tradeEntrustReader(vector<ConstantSP> &buffer, TradeEntrustDataStruct &data) {
@@ -74,8 +83,8 @@ namespace nsqUtil {
             appendInt(col++, getDate(tradeData.TradeDate));
             appendInt(col++, getTime(tradeData.TransactTime));
             appendString(col++, tradeData.ExchangeID);
-            appendString(col++, "StockType");
-            appendLong(col++, tradeData.BizIndex);
+            appendString(col++, "");
+            appendLong(col++, tradeData.SeqNo);
             appendInt(col++, 1);
             appendInt(col++, Type);
             appendLong(col++, (long long)round(tradeData.TrdPrice * 10000));
@@ -90,6 +99,7 @@ namespace nsqUtil {
             auto entrustData = data.entrustData;
 
             auto Type = INT_MIN;
+            int sourceType = 0;
             switch (entrustData.OrdType) {
                 case '1':
                     Type = 1;
@@ -104,6 +114,9 @@ namespace nsqUtil {
                 case 'D':
                     Type = 10;
                     break;
+                case 'S':
+                    Type = 11;
+                    sourceType = -1; // special treat of status msg
             }
 
             auto BSFlag = INT_MIN;
@@ -122,9 +135,9 @@ namespace nsqUtil {
             appendInt(col++, getDate(entrustData.TradeDate));
             appendInt(col++, getTime(entrustData.TransactTime));
             appendString(col++, entrustData.ExchangeID);
-            appendString(col++, "StockType");
-            appendLong(col++, entrustData.BizIndex);
-            appendInt(col++, 0);
+            appendString(col++, "");
+            appendLong(col++, entrustData.SeqNo);
+            appendInt(col++, sourceType);
             appendInt(col++, Type);
             appendLong(col++, (long long)round(entrustData.OrdPrice * 10000));
             appendLong(col++, entrustData.OrdVolume);
@@ -193,6 +206,21 @@ namespace nsqUtil {
         return col;
     }
 
+    void snapshotReaderExtra_220105(ConstantVecIterator &col, SnapshotDataStruct &data) {
+        appendInt(col++, data.data.ChannelNo);
+        appendDouble(col++, data.data.BondLastAuctionPrice);
+        appendLong(col++, data.data.BondAuctionVolume);
+        appendDouble(col++, data.data.BondAuctionBalance);
+        appendChar(col++, data.data.BondLastTradeType);
+        appendString(col++, data.data.BondTradeStatus);
+        for(int i = 0; i < 10; ++i) {
+            appendInt(col++, data.data.BidNumOrders[i]);
+        }
+        for(int i = 0; i < 10; ++i) {
+            appendInt(col++, data.data.AskNumOrders[i]);
+        }
+    }
+
     void snapshotReaderExtra(ConstantVecIterator &col, SnapshotDataStruct &data) {
 
         appendInt(col++, data.Bid1Count);
@@ -215,7 +243,7 @@ namespace nsqUtil {
 
     void checkTypes(const string& dataType, const string& marketType) {
 
-        if (dataType != SNAPSHOT and dataType != TRADE and dataType != ENTRUST and dataType != TRADE_ENTRUST) {
+        if (dataType != ENTRUST_220105 and dataType != SNAPSHOT and dataType != TRADE and dataType != ENTRUST and dataType != TRADE_ENTRUST) {
             throw RuntimeException(NSQ_PREFIX + "dataType should be snapshot, trade, orders, or tradeAndOrder");
         }
         if (marketType != SH and marketType != SZ) {
@@ -268,6 +296,20 @@ namespace nsqUtil {
             }
     };
 
+    const MetaTable entrustMeta_220105 = {
+            {
+                    "ExchangeID", "InstrumentID", "TransFlag", "SeqNo", "ChannelNo",
+                    "TradeDate", "TransactTime", "OrdPrice", "OrdVolume", "OrdSide",
+                    "OrdType", "OrdNo", "BizIndex", "TickStatus", "TrdVolume"
+            },
+            {
+                    DT_SYMBOL, DT_SYMBOL, DT_INT, DT_LONG, DT_INT,
+                    DT_DATE, DT_TIME, DT_DOUBLE, DT_LONG, DT_CHAR,
+                    DT_CHAR, DT_LONG, DT_LONG, DT_CHAR, DT_LONG
+            }
+    };
+
+
     const MetaTable snapshotMetaConcise = {
             {
                     "ExchangeID", "InstrumentID", "LastPrice", "PreClosePrice", "OpenPrice",
@@ -311,6 +353,24 @@ namespace nsqUtil {
             }
     };
 
+    extern const MetaTable snapshotMetaExtra_220105 = {
+        {
+            "ChannelNo", "BondLastAuctionPrice", "BondAuctionVolume","BondAuctionBalance", "BondLastTradeType",
+            "BondTradeStatus",
+            "BidNumOrders1", "BidNumOrders2", "BidNumOrders3", "BidNumOrders4", "BidNumOrders5",
+            "BidNumOrders6", "BidNumOrders7", "BidNumOrders8", "BidNumOrders9", "BidNumOrders10",
+            "AskNumOrders1", "AskNumOrders2", "AskNumOrders3", "AskNumOrders4", "AskNumOrders5",
+            "AskNumOrders6", "AskNumOrders7", "AskNumOrders8", "AskNumOrders9", "AskNumOrders10",
+        },
+        {
+            DT_INT, DT_DOUBLE, DT_LONG, DT_DOUBLE, DT_CHAR,
+            DT_SYMBOL,
+            DT_INT, DT_INT, DT_INT, DT_INT, DT_INT,
+            DT_INT, DT_INT, DT_INT, DT_INT, DT_INT,
+            DT_INT, DT_INT, DT_INT, DT_INT, DT_INT,
+            DT_INT, DT_INT, DT_INT, DT_INT, DT_INT,
+        }
+    };
     const MetaTable snapshotMetaExtra = {
             {
                     "Bid1Count", "MaxBid1Count", "Ask1Count", "MaxAsk1Count",

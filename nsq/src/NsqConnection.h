@@ -23,7 +23,7 @@ public:
     NsqConnection(const NsqConnection&) = delete;
     NsqConnection& operator=(const NsqConnection&) = delete;
     // instance operations
-    static void initInstance(const string &configFilePath, const DictionarySP& options, const string &username, const string &password);
+    static void initInstance(const string &configFilePath, const DictionarySP& options, const string &username, const string &password, const string &version);
     static SmartPointer<NsqConnection> getInstance();
     static void destroyInstance();
 private:
@@ -63,6 +63,7 @@ private:
     string configFilePath_;
     string username_;
     string password_;
+    string dataVersion_;
 
     int nRequestID_ = 0;
 

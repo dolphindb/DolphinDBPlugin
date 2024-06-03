@@ -50,7 +50,8 @@ namespace nsqUtil {
     constexpr char SNAPSHOT[] = "snapshot";
     constexpr char TRADE[] = "trade";
     constexpr char ENTRUST[] = "orders";
-    constexpr char TRADE_ENTRUST[] = "tradeAndOrder";
+    constexpr char ENTRUST_220105[] = "orders_220105";
+    constexpr char TRADE_ENTRUST[] = "orderTrade";
 
     // Market Types
     constexpr char SH[] = "sh";
@@ -64,7 +65,9 @@ namespace nsqUtil {
     // Table Metas
     extern const MetaTable tradeMeta;
     extern const MetaTable entrustMeta;
+    extern const MetaTable entrustMeta_220105;
     extern const MetaTable snapshotMetaConcise;
+    extern const MetaTable snapshotMetaExtra_220105;
     extern const MetaTable snapshotMetaExtra;
     extern const MetaTable tradeEntrustMeta;
 
@@ -74,8 +77,10 @@ namespace nsqUtil {
     // Struct Readers for ThreadedQueue
     void tradeReader(vector<ConstantSP> &buffer, TradeDataStruct &data);
     void entrustReader(vector<ConstantSP> &buffer, EntrustDataStruct &data);
+    void entrustReader_220105(vector<ConstantSP> &buffer, EntrustDataStruct &data);
     void tradeEntrustReader(vector<ConstantSP> &buffer, TradeEntrustDataStruct &data);
     ConstantVecIterator &snapshotReaderConcise(ConstantVecIterator &col, SnapshotDataStruct &data);
+    void snapshotReaderExtra_220105(ConstantVecIterator &col, SnapshotDataStruct &data);
     void snapshotReaderExtra(ConstantVecIterator &col, SnapshotDataStruct &data);
 
     // Helpers
