@@ -1,4 +1,5 @@
 #include "parser.h"
+
 #include "ScalarImp.h"
 #include "Util.h"
 #include "json.hpp"
@@ -12,10 +13,14 @@
 #endif
 
 static ConstantSP const void_ = Util::createConstant(DT_VOID);
-void setData(nlohmann::json &data, vector<ConstantSP> &cols, std::map<string, int> &colIdx, vector<DATA_TYPE> &dt, int i, Heap *heap){
+void setData(nlohmann::json &data, vector<ConstantSP> &cols, std::map<string, int> &colIdx, vector<DATA_TYPE> &dt,
+             int i, Heap *heap) {
     for (auto it = data.begin(); it != data.end(); ++it) {
-        if(colIdx.find(it.key()) == colIdx.end()) {
-            LOG_ERR("error ocurred when parse json data in subscribe callback of mqtt. the error message is the given JSON data does not have a key named:", it.key());
+        if (colIdx.find(it.key()) == colIdx.end()) {
+            LOG_ERR(
+                "error ocurred when parse json data in subscribe callback of mqtt. the error message is the given JSON "
+                "data does not have a key named:",
+                it.key());
             throw RuntimeException("The given JSON data does not have a key named " + it.key());
         }
         int curCol = colIdx[it.key()];
@@ -26,18 +31,15 @@ void setData(nlohmann::json &data, vector<ConstantSP> &cols, std::map<string, in
                 continue;
             }
             switch (dt[curCol]) {
-                case DT_BOOL:                                    // true, false, True, False
-                    {
-                        cols[curCol]->setBool(i, colCurData == "1");
-                    }
-                    break;
-                case DT_CHAR:
-                    {
-                        int charData = 0;
-                        charData = std::stoi(colCurData);
-                        cols[curCol]->setChar(i, (char)charData);    // todo: should be char
-                    }
-                    break;
+                case DT_BOOL:  // true, false, True, False
+                {
+                    cols[curCol]->setBool(i, colCurData == "1");
+                } break;
+                case DT_CHAR: {
+                    int charData = 0;
+                    charData = std::stoi(colCurData);
+                    cols[curCol]->setChar(i, (char)charData);  // todo: should be char
+                } break;
                 case DT_SHORT:
                     cols[curCol]->setShort(i, std::stoi(colCurData));
                     break;
@@ -133,15 +135,18 @@ void setData(nlohmann::json &data, vector<ConstantSP> &cols, std::map<string, in
                     break;
                 }
                 default:
-                    throw RuntimeException("The schema type in position " + std::to_string(curCol + 1) + " does not support");
+                    throw RuntimeException("The schema type in position " + std::to_string(curCol + 1) +
+                                           " does not support");
             }
-        } catch (exception& e) {
-            throw RuntimeException(LOG_PRE_STR + " set data failed when parse csv or json, error message is <" + string(e.what()) + ">" + " data type is <" + Util::getDataTypeString(dt[curCol]) + ">, data content is:" + colCurData);
+        } catch (exception &e) {
+            throw RuntimeException(LOG_PRE_STR + " set data failed when parse csv or json, error message is <" +
+                                   string(e.what()) + ">" + " data type is <" + Util::getDataTypeString(dt[curCol]) +
+                                   ">, data content is:" + colCurData);
         }
     }
 }
 
-ConstantSP parseJson(Heap* heap, vector<ConstantSP>& args) {
+ConstantSP parseJson(Heap *heap, vector<ConstantSP> &args) {
     using namespace nlohmann;
     VectorSP schema = args[0];
     VectorSP colNames = args[1];
@@ -157,22 +162,23 @@ ConstantSP parseJson(Heap* heap, vector<ConstantSP>& args) {
     vector<DATA_TYPE> dt(nCols);
     vector<ConstantSP> cols(nCols);
     if (nCols != schema->size()) {
-        throw RuntimeException(LOG_PRE_STR + "parse json data to ddb table failed, column number of data parsed from jsom not equal to schema");
+        throw RuntimeException(
+            LOG_PRE_STR +
+            "parse json data to ddb table failed, column number of data parsed from jsom not equal to schema");
     }
 
     for (int i = 0; i < nCols; ++i) {
         dt[i] = (DATA_TYPE)schema->getInt(i);
-        if (dt[i] == DT_SYMBOL)
-            dt[i] = DT_STRING;
+        if (dt[i] == DT_SYMBOL) dt[i] = DT_STRING;
         cols[i] = Util::createVector((DATA_TYPE)schema->getInt(i), nRows, nRows);
     }
 
-    if(isJsonArray){
+    if (isJsonArray) {
         for (int i = 0; i < nRows; ++i) {
-            auto& row = parsedObj[i];
+            auto &row = parsedObj[i];
             setData(row, cols, colIdx, dt, i, heap);
         }
-    }else{
+    } else {
         setData(parsedObj, cols, colIdx, dt, 0, heap);
     }
     vector<string> colNames_(colNames->size());
@@ -182,11 +188,11 @@ ConstantSP parseJson(Heap* heap, vector<ConstantSP>& args) {
     return Util::createTable(colNames_, cols);
 }
 
-ConstantSP parseCsv(Heap* heap, vector<ConstantSP>& args) {
+ConstantSP parseCsv(Heap *heap, vector<ConstantSP> &args) {
     VectorSP schema = args[0];
     char delimiter = args[1]->getChar();
     char rowDelimiter = args[2]->getChar();
-    string original = args[3]->getString();    // row1 [rowDelimiter] row2 ...
+    string original = args[3]->getString();  // row1 [rowDelimiter] row2 ...
 
     vector<string> data = Util::split(original, rowDelimiter);
     int nCols = schema->size();
@@ -196,8 +202,7 @@ ConstantSP parseCsv(Heap* heap, vector<ConstantSP>& args) {
 
     for (int i = 0; i < nCols; ++i) {
         dt[i] = (DATA_TYPE)schema->getInt(i);
-        if (dt[i] == DT_SYMBOL)
-            dt[i] = DT_STRING;
+        if (dt[i] == DT_SYMBOL) dt[i] = DT_STRING;
         cols[i] = Util::createVector((DATA_TYPE)schema->getInt(i), nRows, nRows);
     }
     for (int i = 0; i < nRows; ++i) {
@@ -210,14 +215,13 @@ ConstantSP parseCsv(Heap* heap, vector<ConstantSP>& args) {
             try {
                 switch (dt[j]) {
                     case DT_BOOL:
-                        cols[j]->setBool(i, raw[j][0] == '1');                         // true, false, True, False
+                        cols[j]->setBool(i, raw[j][0] == '1');  // true, false, True, False
                         break;
                     case DT_CHAR: {
-                            int charData = std::stoi(raw[j]);
-                            // set char from the value of ASCII
-                            cols[j]->setChar(i, (char)charData);
-                        }
-                        break;
+                        int charData = std::stoi(raw[j]);
+                        // set char from the value of ASCII
+                        cols[j]->setChar(i, (char)charData);
+                    } break;
                     case DT_SHORT:
                         cols[j]->setShort(i, std::stoi(raw[j]));
                         break;
@@ -309,22 +313,21 @@ ConstantSP parseCsv(Heap* heap, vector<ConstantSP>& args) {
                         break;
                     }
                     default:
-                        LOG_ERR(LOG_PRE_STR, "the data type of schema in position <", j+1, "> is ", dt[j], "which is not supported when execute csv parser");
+                        LOG_ERR(LOG_PRE_STR, "the data type of schema in position <", j + 1, "> is ", dt[j],
+                                "which is not supported when execute csv parser");
                 }
-            }
-            catch (exception& e) {
+            } catch (exception &e) {
                 cols[j]->setNull(i);
                 LOG_ERR(LOG_PRE_STR, "error occured when executed csv parser, err msg is ", string(e.what()));
             }
         }
     }
     vector<string> colNames(nCols);
-    for (int i = 0; i < nCols; ++i)
-        colNames[i] = string("c").append(Util::convert(i));
+    for (int i = 0; i < nCols; ++i) colNames[i] = string("c").append(Util::convert(i));
     return Util::createTable(colNames, cols);
 }
 
-ConstantSP formatCsv(Heap* heap, vector<ConstantSP>& args) {
+ConstantSP formatCsv(Heap *heap, vector<ConstantSP> &args) {
     string func = "formatCsv";
     string usage = "formatCsv([format], delimiter=',', rowDelimiter=';', Table)";
     char delimiter = args[1]->getChar();
@@ -360,8 +363,8 @@ ConstantSP formatCsv(Heap* heap, vector<ConstantSP>& args) {
                 std::string rowData = str[col]->get(row)->getString();
                 if (t->getColumnType(col) == DT_CHAR) {
                     char charBuf[nRows];
-                    char* charData;
-                    charData = (char*)(t->getColumn(col)->getDataBuffer(0, nRows, charBuf));
+                    char *charData;
+                    charData = (char *)(t->getColumn(col)->getDataBuffer(0, nRows, charBuf));
                     // transform the char to value of ASCII
                     rowData = std::to_string((int)charData[row]);
                 } else if (t->getColumnType(col) == DT_MONTH) {
@@ -374,15 +377,16 @@ ConstantSP formatCsv(Heap* heap, vector<ConstantSP>& args) {
                 }
             }
             ret += rowDelimiter;
-        } 
-    } catch (exception& e) {
+        }
+    } catch (exception &e) {
         std::string errMsg(e.what());
-        throw RuntimeException(LOG_PRE_STR + " err occured when call fortmat csv function, message is <" + errMsg + ">");
+        throw RuntimeException(LOG_PRE_STR + " err occured when call fortmat csv function, message is <" + errMsg +
+                               ">");
     }
     return new String(ret);
 }
 
-ConstantSP formatJson(Heap* heap, vector<ConstantSP>& args) {
+ConstantSP formatJson(Heap *heap, vector<ConstantSP> &args) {
     using namespace nlohmann;
     string func = "formatJson";
     string usage = "formatJson(Table)";
@@ -407,8 +411,8 @@ ConstantSP formatJson(Heap* heap, vector<ConstantSP>& args) {
                 std::string rowData = str[col]->get(row)->getString();
                 if (t->getColumnType(col) == DT_CHAR) {
                     char charBuf[nRows];
-                    char* charData;
-                    charData = (char*)(t->getColumn(col)->getDataBuffer(0, nRows, charBuf));
+                    char *charData;
+                    charData = (char *)(t->getColumn(col)->getDataBuffer(0, nRows, charBuf));
                     // transform the char to value of ASCII
                     rowData = std::to_string((int)charData[row]);
                 } else if (t->getColumnType(col) == DT_MONTH) {
@@ -419,22 +423,23 @@ ConstantSP formatJson(Heap* heap, vector<ConstantSP>& args) {
                 jsonRowData[t->getColumnName(col)] = rowData;
             }
             result.push_back(jsonRowData);
-        } 
-    } catch (exception& e) {
+        }
+    } catch (exception &e) {
         std::string errMsg(e.what());
-        throw RuntimeException(LOG_PRE_STR + " err occured when call fortmat csv function, message is <" + errMsg + ">");
+        throw RuntimeException(LOG_PRE_STR + " err occured when call fortmat csv function, message is <" + errMsg +
+                               ">");
     }
     return new String(result.dump());
 }
 
 namespace {
-ConstantSP createParser(Heap* heap, vector<ConstantSP>& args, FunctionDefSP def, const string& usage) {
+ConstantSP createParser(Heap *heap, vector<ConstantSP> &args, FunctionDefSP def, const string &usage) {
     FunctionDefSP defNew = Util::createPartialFunction(def, args);
     return defNew;
 }
-}    // namespace
+}  // namespace
 
-ConstantSP createJsonParser(Heap* heap, vector<ConstantSP>& args) {
+ConstantSP createJsonParser(Heap *heap, vector<ConstantSP> &args) {
     static FunctionDefSP const def = Util::createSystemFunction("parseJson", parseJson, 3, 3, 0);
     string usage = "createJsonParser(schema, colNames)";
     if (args[1]->getType() != DT_STRING || !args[1]->isVector()) {
@@ -447,12 +452,12 @@ ConstantSP createJsonParser(Heap* heap, vector<ConstantSP>& args) {
     return createParser(heap, args, def, usage);
 }
 
-ConstantSP createJsonFormatter(Heap* heap, vector<ConstantSP>& args) {
+ConstantSP createJsonFormatter(Heap *heap, vector<ConstantSP> &args) {
     static FunctionDefSP const formatter = Util::createSystemFunction("formatJson", formatJson, 1, 1, 0);
     return formatter;
 }
 
-ConstantSP createCsvParser(Heap* heap, vector<ConstantSP>& args) {
+ConstantSP createCsvParser(Heap *heap, vector<ConstantSP> &args) {
     string usage = "createCsvParser(schema, [delimiter=','], [rowDelimiter=';']). ";
     char delimiter = ',';
     char rowDelimiter = ';';
@@ -473,7 +478,7 @@ ConstantSP createCsvParser(Heap* heap, vector<ConstantSP>& args) {
     return createParser(heap, argsNew, def, usage);
 }
 
-ConstantSP createCsvFormatter(Heap* heap, vector<ConstantSP>& args) {
+ConstantSP createCsvFormatter(Heap *heap, vector<ConstantSP> &args) {
     string usage = "createCsvFormatter(format, [delimiter=','], [rowDelimiter=';']). ";
     char delimiter = ',';
     char rowDelimiter = ';';
@@ -481,7 +486,7 @@ ConstantSP createCsvFormatter(Heap* heap, vector<ConstantSP>& args) {
         if (args[0]->getType() != DT_VOID && (args[0]->getType() != DT_STRING || !args[0]->isVector())) {
             throw IllegalArgumentException(usage, "the first argument must be a tuple of string ");
         }
-    } else{
+    } else {
         throw IllegalArgumentException(usage, "the first argument must be a tuple of string ");
     }
 
