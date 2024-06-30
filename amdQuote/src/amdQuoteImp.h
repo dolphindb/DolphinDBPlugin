@@ -22,12 +22,12 @@ extern unordered_map<string, AMDDataType> NAME_TYPE;
 class AmdQuote {
   public:
     AmdQuote(const string &username, const string &password, const vector<string>& ips, const vector<int>& ports,
-             SessionSP session, bool receivedTime, bool dailyIndex, bool outputElapsed, int dailyStartTime, bool securityCodeToInt);
+             SessionSP session, bool receivedTime, bool dailyIndex, bool outputElapsed, int dailyStartTime, bool securityCodeToInt, string dataVersion);
     void enableLatencyStatistics(bool flag);
     void subscribe(Heap *heap, const string &dataType, int market, vector<string> codeList, ConstantSP table,
-                   FunctionDefSP transform, long long timestamp);
+                   FunctionDefSP transform, long long timestamp, int seqCheckMode);
     void addSubscribe(Heap *heap, const string &typeName, AMDDataType type, int key, TableSP table,
-                      FunctionDefSP transform, long long dailyStartTime);
+                      FunctionDefSP transform, long long dailyStartTime, int seqCheckMode);
     void removeSubscribe(AMDDataType type, int key);
     void unsubscribe(const string &dataType, int market, vector<string> codeList);
     TableSP getStatus();
@@ -49,16 +49,30 @@ class AmdQuote {
         switch (type) {
             case AMD_SNAPSHOT:
             case AMD_FUND_SNAPSHOT:
-            case AMD_BOND_SNAPSHOT:
                 return amdTypeContainer_.get("snapshot");
+            case AMD_BOND_SNAPSHOT:
+                if(dataVersion_ == "4.0.1") {
+                    return amdTypeContainer_.get("bondSnapshot_4.0.1");
+                } else {
+                    return amdTypeContainer_.get("snapshot");
+                }
             case AMD_EXECUTION:
             case AMD_FUND_EXECUTION:
             case AMD_BOND_EXECUTION:
                 return amdTypeContainer_.get("execution");
             case AMD_ORDER:
             case AMD_FUND_ORDER:
+                if(dataVersion_ == "4.0.1") {
+                    return amdTypeContainer_.get("order_4.0.1");
+                } else {
+                    return amdTypeContainer_.get("order");
+                }
             case AMD_BOND_ORDER:
-                return amdTypeContainer_.get("order");
+                if(dataVersion_ == "4.0.1") {
+                    return amdTypeContainer_.get("bondOrder_4.0.1");
+                } else {
+                    return amdTypeContainer_.get("order");
+                }
             case AMD_ORDER_EXECUTION:
             case AMD_BOND_ORDER_EXECUTION:
                 return amdTypeContainer_.get("orderExecution");
@@ -83,16 +97,30 @@ class AmdQuote {
         switch (type) {
             case AMD_SNAPSHOT:
             case AMD_FUND_SNAPSHOT:
-            case AMD_BOND_SNAPSHOT:
                 return amdTypeContainer_.getSchema("snapshot", optionFlag);
+            case AMD_BOND_SNAPSHOT:
+                if(dataVersion_ == "4.0.1") {
+                    return amdTypeContainer_.getSchema("bondSnapshot_4.0.1", optionFlag);
+                } else {
+                    return amdTypeContainer_.getSchema("snapshot", optionFlag);
+                }
             case AMD_EXECUTION:
             case AMD_FUND_EXECUTION:
             case AMD_BOND_EXECUTION:
                 return amdTypeContainer_.getSchema("execution", optionFlag);
             case AMD_ORDER:
             case AMD_FUND_ORDER:
+                if(dataVersion_ == "4.0.1") {
+                    return amdTypeContainer_.getSchema("order_4.0.1", optionFlag);
+                } else {
+                    return amdTypeContainer_.getSchema("order", optionFlag);
+                }
             case AMD_BOND_ORDER:
-                return amdTypeContainer_.getSchema("order", optionFlag);
+                if(dataVersion_ == "4.0.1") {
+                    return amdTypeContainer_.getSchema("bondOrder_4.0.1", optionFlag);
+                } else {
+                    return amdTypeContainer_.getSchema("order", optionFlag);
+                }
             case AMD_ORDER_EXECUTION:
             case AMD_BOND_ORDER_EXECUTION:
                 // special treatment, no flag passed in.
@@ -131,6 +159,7 @@ class AmdQuote {
     bool outputElapsed_;
     int dailyStartTime_;
     bool securityCodeToInt_;
+    string dataVersion_;
     amd::ama::Cfg cfg_;
     AMDSpiImp *amdSpi_;
     string username_;

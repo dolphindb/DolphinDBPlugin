@@ -64,6 +64,24 @@ int getChannel(int market) {
     }
 }
 
+int getChannel(int market, AMDDataType type) {
+    int randValue = rand();
+    if (market == 101) {
+        if (type == AMD_BOND_EXECUTION || type == AMD_BOND_ORDER) {
+            return 801;
+        }
+        return 1 + randValue % 6;
+    } else {
+        if (type == AMD_EXECUTION || type == AMD_ORDER) {
+            return 2011 + randValue % 4;
+        } else if (type == AMD_FUND_EXECUTION || type == AMD_FUND_ORDER) {
+            return 2021 + randValue % 4;
+        } else {
+            return 2031 + randValue % 4;
+        }
+    }
+}
+
 void fill(volatile int64_t *dest, int size, long long start) {
     for (int i = 0; i < size; ++i) {
         dest[i] = start + i;
@@ -242,7 +260,7 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments) {
                 string code = std::to_string(600000 + i);
                 std::strcpy(snapshot[0].security_code, code.c_str());
                 snapshot[0].market_type = 101 + i % 2;
-                snapshot[0].channel_no = getChannel(snapshot[0].market_type);
+                snapshot[0].channel_no = getChannel(snapshot[0].market_type, amdDataType);
                 snapshot[0].variety_category = amdDataType == AMD_EXECUTION ? 1 : 2;
                 snapshot[0].exec_time = convertToAMDTime(time);
                 snapshot[0].appl_seq_num = i + bias++;
@@ -270,7 +288,7 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments) {
                 string code = std::to_string(600000 + i);
                 std::strcpy(snapshot[0].security_code, code.c_str());
                 snapshot[0].market_type = 101 + i % 2;
-                snapshot[0].channel_no = getChannel(snapshot[0].market_type);
+                snapshot[0].channel_no = getChannel(snapshot[0].market_type, amdDataType);
                 snapshot[0].variety_category = 3;
                 snapshot[0].exec_time = convertToAMDTime(time);
                 snapshot[0].appl_seq_num = i + bias++;
@@ -296,7 +314,7 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments) {
                 string code = std::to_string(600000 + i);
                 std::strcpy(snapshot[0].security_code, code.c_str());
                 snapshot[0].market_type = 101 + i % 2;
-                snapshot[0].channel_no = getChannel(snapshot[0].market_type);
+                snapshot[0].channel_no = getChannel(snapshot[0].market_type, amdDataType);
                 snapshot[0].variety_category = amdDataType == AMD_ORDER ? 1 : 2;
                 snapshot[0].order_time = convertToAMDTime(time);
                 snapshot[0].appl_seq_num = i + bias++;
@@ -322,7 +340,7 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments) {
                 string code = std::to_string(600000 + i);
                 std::strcpy(snapshot[0].security_code, code.c_str());
                 snapshot[0].market_type = 101 + i % 2;
-                snapshot[0].channel_no = getChannel(snapshot[0].market_type);
+                snapshot[0].channel_no = getChannel(snapshot[0].market_type, amdDataType);
                 snapshot[0].variety_category = 3;
                 snapshot[0].order_time = convertToAMDTime(time);
                 snapshot[0].appl_seq_num = i + bias++;

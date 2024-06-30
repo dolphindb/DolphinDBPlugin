@@ -1,6 +1,6 @@
-amdQuote,libPluginAmdQuote.so,3.00.0
+amdQuote,libPluginAmdQuote.so,3.00.1
 amdConnect,connect,system,4,5,0
-subscribe,subscribe,system,4,6,0
+subscribe,subscribe,system,4,7,0
 unsubscribe,unsubscribe,system,2,4,0
 getSchema,getSchema,system,1,1,0
 getStatus,getStatus,system,1,1,0

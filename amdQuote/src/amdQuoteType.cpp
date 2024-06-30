@@ -5,6 +5,62 @@
 #include "ddbplugin/ThreadedQueue.h"
 #endif
 
+using namespace ThreadedQueueUtil;
+using namespace MarketUtil;
+
+MetaTable AmdBondSnapshotTableMeta_4_0_1 = {
+    {
+    "marketType", "securityCode", "origTime", "tradingPhaseCode", "preClosePrice",
+    "openPrice", "highPrice", "lowPrice", "lastPrice", "closePrice",
+
+    "bidPrice1", "bidPrice2", "bidPrice3", "bidPrice4", "bidPrice5",
+    "bidPrice6", "bidPrice7", "bidPrice8", "bidPrice9", "bidPrice10",
+    "bidVolume1", "bidVolume2", "bidVolume3", "bidVolume4", "bidVolume5",
+    "bidVolume6", "bidVolume7", "bidVolume8", "bidVolume9", "bidVolume10",
+    "offerPrice1", "offerPrice2", "offerPrice3", "offerPrice4", "offerPrice5",
+    "offerPrice6", "offerPrice7", "offerPrice8", "offerPrice9", "offerPrice10",
+    "offerVolume1", "offerVolume2", "offerVolume3", "offerVolume4", "offerVolume5",
+    "offerVolume6", "offerVolume7", "offerVolume8", "offerVolume9", "offerVolume10",
+
+    "numTrades", "totalVolumeTrade", "totalValueTrade", "totalBidVolume", "totalOfferVolume",
+    "weightedAvgBidPrice", "weightedAvgOfferPrice", "highLimited", "lowLimited", "change1",
+    "change2", "weightedAvgBp", "preCloseWeightedAvgPrice", "auctLastPrice", "lastPriceTradingType",
+    "channelNo", "mdStreamID", "instrumentStatus", "withdrawBuyNumber", "withdrawBuyAmount",
+    "withdrawBuyMoney", "withdrawSellNumber", "withdrawSellAmount", "withdrawSellMoney", "totalBidNumber",
+    "totalOfferNumber", "bidTradeMaxDuration", "offerTradeMaxDuration", "numBidOrders", "numOfferOrders",
+    "lastTradeTime", "weightedAvgPrice", "noSubTradingPhaseCode", "subTradingPhaseCode1", "subTradingPhaseTradingType1",
+    "subTradingPhaseCode2", "subTradingPhaseTradingType2", "subTradingPhaseCode3", "subTradingPhaseTradingType3", "subTradingPhaseCode4",
+    "subTradingPhaseTradingType4", "subTradingPhaseCode5", "subTradingPhaseTradingType5","subTradingPhaseCode6", "subTradingPhaseTradingType6",
+    "subTradingPhaseCode7", "subTradingPhaseTradingType7", "subTradingPhaseCode8", "subTradingPhaseTradingType8", "auctVolumeTrade",
+    "auctValueTrade", "varietyCategory",
+    },
+    {
+    DT_INT, DT_SYMBOL, DT_TIMESTAMP, DT_STRING, DT_LONG,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_CHAR,
+    DT_INT,  DT_STRING, DT_STRING, DT_LONG, DT_LONG,
+    DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+    DT_LONG, DT_INT, DT_INT, DT_INT, DT_INT,
+    DT_TIMESTAMP, DT_LONG, DT_LONG, DT_STRING, DT_CHAR,
+    DT_STRING, DT_CHAR, DT_STRING, DT_CHAR, DT_STRING,
+    DT_CHAR, DT_STRING, DT_CHAR, DT_STRING, DT_CHAR,
+    DT_STRING, DT_CHAR, DT_STRING, DT_CHAR, DT_LONG,
+    DT_LONG, DT_CHAR,
+    }
+};
+
 MetaTable AmdSnapshotTableMeta = {
     {
     // 市场类型        证券代码         时间        交易阶段代码         昨收价            开盘价       最高价        最低价       最新价       收盘价
@@ -69,6 +125,32 @@ MetaTable AmdOrderTableMeta {
         }
 };
 
+MetaTable AmdOrderTableMeta_4_0_1 {
+        {
+            "marketType", "securityCode", "channelNo", "applSeqNum", "orderTime",
+            "orderPrice", "orderVolume", "side", "orderType", "mdStreamId",
+            "origOrderNo", "bizIndex", "varietyCategory", "tradedOrderVolume"
+        },
+        {
+            DT_INT, DT_SYMBOL, DT_INT, DT_LONG, DT_TIMESTAMP,
+            DT_LONG, DT_LONG, DT_CHAR, DT_CHAR, DT_STRING,
+            DT_LONG, DT_LONG, DT_CHAR, DT_LONG
+        }
+};
+
+MetaTable AmdBondOrderTableMeta_4_0_1 {
+        {
+            "marketType", "securityCode", "channelNo", "applSeqNum", "orderTime",
+            "orderPrice", "orderVolume", "side", "orderType", "mdStreamId",
+            "productStatus", "origOrderNo", "varietyCategory"
+        },
+        {
+            DT_INT, DT_SYMBOL, DT_INT, DT_LONG, DT_TIMESTAMP,
+            DT_LONG, DT_LONG, DT_CHAR, DT_CHAR, DT_STRING,
+            DT_STRING, DT_LONG, DT_CHAR
+        }
+};
+
 MetaTable AmdIndexTableMeta {
     {
     //  市场类型       证券代码         时间        交易阶段代码         前收盘指数         今开盘指数   最高指数
@@ -117,7 +199,7 @@ MetaTable AmdOrderExecutionTableMeta {
     {
 //           证券代码           交易日期   交易时间  证券市场             证券类型         编号     来源种类      类型
         "SecurityID", "MDDate", "MDTime", "SecurityIDSource", "SecurityType", "Index", "SourceType", "Type", \
-//   真实价格*10000   股数   买卖方向   冗余列    冗余列    逐笔数据序号   原始频道代码   数据接收时间戳
+//   真实价格*100000   股数   买卖方向   冗余列    冗余列    逐笔数据序号   原始频道代码   数据接收时间戳
         "Price", "Qty", "BSFlag", "BuyNo", "SellNo", "ApplSeqNum", "ChannelNo", "ReceiveTime",
     },
 
@@ -235,6 +317,16 @@ void initSecurityCodeToIntTypeContainer(MarketTypeContainer& container){
     auto IOPVMeta = AmdIOPVTableMeta;
     IOPVMeta.colTypes_[1] = DT_INT;
     container.add("IOPV", IOPVMeta);
+
+    auto bondSnashotMeta = AmdBondSnapshotTableMeta_4_0_1;
+    bondSnashotMeta.colTypes_[1] = DT_INT;
+    container.add("bondSnapshot_4.0.1", bondSnashotMeta);
+    orderMeta = AmdOrderTableMeta_4_0_1;
+    orderMeta.colTypes_[1] = DT_INT;
+    container.add("order_4.0.1", orderMeta);
+    auto bondOrder = AmdBondOrderTableMeta_4_0_1;
+    bondOrder.colTypes_[1] = DT_INT;
+    container.add("bondOrder_4.0.1", bondOrder);
 #endif
 }
 
@@ -250,6 +342,9 @@ void initTypeContainer(MarketTypeContainer& container){
 #ifndef AMD_3_9_6
     container.add("IOPV", AmdIOPVTableMeta);
 #endif
+    container.add("bondSnapshot_4.0.1", AmdBondSnapshotTableMeta_4_0_1);
+    container.add("order_4.0.1", AmdOrderTableMeta_4_0_1);
+    container.add("bondOrder_4.0.1", AmdBondOrderTableMeta_4_0_1);
 }
 
 #ifndef AMD_3_9_6
@@ -268,46 +363,14 @@ void IOPVReader(vector<ConstantSP> &buffer, timeMDIOPV &data, bool securityCodeT
     long long last_iopv = data.IOPV.last_iopv;
     ((VectorSP)(buffer[colNum++]))->appendLong(&last_iopv, 1);
 
-    long long bid_iopv1 = data.IOPV.bid_iopv[0];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&bid_iopv1 , 1);
-    long long bid_iopv2 = data.IOPV.bid_iopv[1];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&bid_iopv2 , 1);
-    long long bid_iopv3 = data.IOPV.bid_iopv[2];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&bid_iopv3 , 1);
-    long long bid_iopv4 = data.IOPV.bid_iopv[3];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&bid_iopv4 , 1);
-    long long bid_iopv5 = data.IOPV.bid_iopv[4];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&bid_iopv5 , 1);
-    long long bid_iopv6 = data.IOPV.bid_iopv[5];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&bid_iopv6 , 1);
-    long long bid_iopv7 = data.IOPV.bid_iopv[6];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&bid_iopv7 , 1);
-    long long bid_iopv8 = data.IOPV.bid_iopv[7];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&bid_iopv8 , 1);
-    long long bid_iopv9 = data.IOPV.bid_iopv[8];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&bid_iopv9 , 1);
-    long long bid_iopv10 = data.IOPV.bid_iopv[9];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&bid_iopv10 , 1);
-    long long offer_iopv1 = data.IOPV.offer_iopv[0];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&offer_iopv1, 1);
-    long long offer_iopv2 = data.IOPV.offer_iopv[1];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&offer_iopv2, 1);
-    long long offer_iopv3 = data.IOPV.offer_iopv[2];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&offer_iopv3, 1);
-    long long offer_iopv4 = data.IOPV.offer_iopv[3];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&offer_iopv4, 1);
-    long long offer_iopv5 = data.IOPV.offer_iopv[4];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&offer_iopv5, 1);
-    long long offer_iopv6 = data.IOPV.offer_iopv[5];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&offer_iopv6, 1);
-    long long offer_iopv7 = data.IOPV.offer_iopv[6];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&offer_iopv7, 1);
-    long long offer_iopv8 = data.IOPV.offer_iopv[7];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&offer_iopv8, 1);
-    long long offer_iopv9 = data.IOPV.offer_iopv[8];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&offer_iopv9, 1);
-    long long offer_iopv10 = data.IOPV.offer_iopv[9];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&offer_iopv10, 1);
+    for(int i = 0; i < 10; ++i) {
+        long long bid_iopv = data.IOPV.bid_iopv[i];
+        ((VectorSP)(buffer[colNum++]))->appendLong(&bid_iopv , 1);
+    }
+    for(int i = 0; i < 10; ++i) {
+        long long offer_iopv = data.IOPV.offer_iopv[i];
+        ((VectorSP)(buffer[colNum++]))->appendLong(&offer_iopv , 1);
+    }
 }
 #endif
 
@@ -614,110 +677,10 @@ void orderQueueReader(vector<ConstantSP> &buffer, timeMDOrderQueue &data, bool s
     int items = data.orderQueue.items;
     ((VectorSP)(buffer[colNum++]))->appendInt(&items, 1);
 
-    long long volume0 = data.orderQueue.volume[0];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume0, 1);
-    long long volume1 = data.orderQueue.volume[1];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume1, 1);
-    long long volume2 = data.orderQueue.volume[2];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume2, 1);
-    long long volume3 = data.orderQueue.volume[3];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume3, 1);
-    long long volume4 = data.orderQueue.volume[4];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume4, 1);
-    long long volume5 = data.orderQueue.volume[5];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume5, 1);
-    long long volume6 = data.orderQueue.volume[6];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume6, 1);
-    long long volume7 = data.orderQueue.volume[7];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume7, 1);
-    long long volume8 = data.orderQueue.volume[8];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume8, 1);
-    long long volume9 = data.orderQueue.volume[9];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume9, 1);
-    long long volume10 = data.orderQueue.volume[10];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume10, 1);
-
-    long long volume11 = data.orderQueue.volume[11];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume11, 1);
-    long long volume12 = data.orderQueue.volume[12];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume12, 1);
-    long long volume13 = data.orderQueue.volume[13];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume13, 1);
-    long long volume14 = data.orderQueue.volume[14];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume14, 1);
-    long long volume15 = data.orderQueue.volume[15];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume15, 1);
-    long long volume16 = data.orderQueue.volume[16];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume16, 1);
-    long long volume17 = data.orderQueue.volume[17];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume17, 1);
-    long long volume18 = data.orderQueue.volume[18];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume18, 1);
-    long long volume19 = data.orderQueue.volume[19];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume19, 1);
-    long long volume20 = data.orderQueue.volume[20];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume20, 1);
-
-    long long volume21 = data.orderQueue.volume[21];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume21, 1);
-    long long volume22 = data.orderQueue.volume[22];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume22, 1);
-    long long volume23 = data.orderQueue.volume[23];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume23, 1);
-    long long volume24 = data.orderQueue.volume[24];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume24, 1);
-    long long volume25 = data.orderQueue.volume[25];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume25, 1);
-    long long volume26 = data.orderQueue.volume[26];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume26, 1);
-    long long volume27 = data.orderQueue.volume[27];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume27, 1);
-    long long volume28 = data.orderQueue.volume[28];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume28, 1);
-    long long volume29 = data.orderQueue.volume[29];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume29, 1);
-    long long volume30 = data.orderQueue.volume[30];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume30, 1);
-
-    long long volume31 = data.orderQueue.volume[31];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume31, 1);
-    long long volume32 = data.orderQueue.volume[32];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume32, 1);
-    long long volume33 = data.orderQueue.volume[33];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume33, 1);
-    long long volume34 = data.orderQueue.volume[34];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume34, 1);
-    long long volume35 = data.orderQueue.volume[35];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume35, 1);
-    long long volume36 = data.orderQueue.volume[36];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume36, 1);
-    long long volume37 = data.orderQueue.volume[37];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume37, 1);
-    long long volume38 = data.orderQueue.volume[38];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume38, 1);
-    long long volume39 = data.orderQueue.volume[39];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume39, 1);
-    long long volume40 = data.orderQueue.volume[40];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume40, 1);
-
-    long long volume41 = data.orderQueue.volume[41];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume41, 1);
-    long long volume42 = data.orderQueue.volume[42];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume42, 1);
-    long long volume43 = data.orderQueue.volume[43];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume43, 1);
-    long long volume44 = data.orderQueue.volume[44];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume44, 1);
-    long long volume45 = data.orderQueue.volume[45];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume45, 1);
-    long long volume46 = data.orderQueue.volume[46];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume46, 1);
-    long long volume47 = data.orderQueue.volume[47];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume47, 1);
-    long long volume48 = data.orderQueue.volume[48];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume48, 1);
-    long long volume49 = data.orderQueue.volume[49];
-    ((VectorSP)(buffer[colNum++]))->appendLong(&volume49, 1);
+    for(int i = 0; i < 50; ++i) {
+        long long volume = data.orderQueue.volume[i];
+        ((VectorSP)(buffer[colNum++]))->appendLong(&volume, 1);
+    }
 
     int channelNo = data.orderQueue.channel_no;
     ((VectorSP)(buffer[colNum++]))->appendInt(&channelNo, 1);
@@ -726,6 +689,7 @@ void orderQueueReader(vector<ConstantSP> &buffer, timeMDOrderQueue &data, bool s
     char varietyCategory = data.orderQueue.variety_category;
     ((VectorSP)(buffer[colNum++]))->appendChar(&varietyCategory, 1);
 }
+
 void snapshotReader(vector<ConstantSP> &buffer, timeMDSnapshot &data, bool securityCodeToInt) {
     int colNum = 0;
     int marketType          = data.snapshot.market_type;
@@ -754,93 +718,22 @@ void snapshotReader(vector<ConstantSP> &buffer, timeMDSnapshot &data, bool secur
     long long closePrice    = data.snapshot.close_price;
     ((Vector*)buffer[colNum++].get())->appendLong(&closePrice, 1);
 
-    int bidPriceIndex = 0;
-    long long bidPrice1 = data.snapshot.bid_price[bidPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice1, 1);
-    long long bidPrice2 = data.snapshot.bid_price[bidPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice2, 1);
-    long long bidPrice3 = data.snapshot.bid_price[bidPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice3, 1);
-    long long bidPrice4 = data.snapshot.bid_price[bidPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice4, 1);
-    long long bidPrice5 = data.snapshot.bid_price[bidPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice5, 1);
-    long long bidPrice6 = data.snapshot.bid_price[bidPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice6, 1);
-    long long bidPrice7 = data.snapshot.bid_price[bidPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice7, 1);
-    long long bidPrice8 = data.snapshot.bid_price[bidPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice8, 1);
-    long long bidPrice9 = data.snapshot.bid_price[bidPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice9, 1);
-    long long bidPrice10= data.snapshot.bid_price[bidPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice10, 1);
-
-    int bidVolumeIndex = 0;
-    long long bidVolume1 = data.snapshot.bid_volume[bidVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume1, 1);
-    long long bidVolume2 = data.snapshot.bid_volume[bidVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume2, 1);
-    long long bidVolume3 = data.snapshot.bid_volume[bidVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume3, 1);
-    long long bidVolume4 = data.snapshot.bid_volume[bidVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume4, 1);
-    long long bidVolume5 = data.snapshot.bid_volume[bidVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume5, 1);
-    long long bidVolume6 = data.snapshot.bid_volume[bidVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume6, 1);
-    long long bidVolume7 = data.snapshot.bid_volume[bidVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume7, 1);
-    long long bidVolume8 = data.snapshot.bid_volume[bidVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume8, 1);
-    long long bidVolume9 = data.snapshot.bid_volume[bidVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume9, 1);
-    long long bidVolume10= data.snapshot.bid_volume[bidVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume10, 1);
-
-    int offerPriceIndex = 0;
-    long long offerPrice1 = data.snapshot.offer_price[offerPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice1, 1);
-    long long offerPrice2 = data.snapshot.offer_price[offerPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice2, 1);
-    long long offerPrice3 = data.snapshot.offer_price[offerPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice3, 1);
-    long long offerPrice4 = data.snapshot.offer_price[offerPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice4, 1);
-    long long offerPrice5 = data.snapshot.offer_price[offerPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice5, 1);
-    long long offerPrice6 = data.snapshot.offer_price[offerPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice6, 1);
-    long long offerPrice7 = data.snapshot.offer_price[offerPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice7, 1);
-    long long offerPrice8 = data.snapshot.offer_price[offerPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice8, 1);
-    long long offerPrice9 = data.snapshot.offer_price[offerPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice9, 1);
-    long long offerPrice10= data.snapshot.offer_price[offerPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice10, 1);
-
-    int offerVolumeIndex = 0;
-    long long offerVolume1  = data.snapshot.offer_volume[offerVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume1, 1);
-    long long offerVolume2  = data.snapshot.offer_volume[offerVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume2, 1);
-    long long offerVolume3  = data.snapshot.offer_volume[offerVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume3, 1);
-    long long offerVolume4  = data.snapshot.offer_volume[offerVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume4, 1);
-    long long offerVolume5  = data.snapshot.offer_volume[offerVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume5, 1);
-    long long offerVolume6  = data.snapshot.offer_volume[offerVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume6, 1);
-    long long offerVolume7  = data.snapshot.offer_volume[offerVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume7, 1);
-    long long offerVolume8  = data.snapshot.offer_volume[offerVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume8, 1);
-    long long offerVolume9  = data.snapshot.offer_volume[offerVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume9, 1);
-    long long offerVolume10 = data.snapshot.offer_volume[offerVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume10, 1);
+    for(int i = 0; i < 10; ++i) {
+        long long bidPrice = data.snapshot.bid_price[i];
+        ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice, 1);
+    }
+    for(int i = 0; i < 10; ++i) {
+        long long bidVolume = data.snapshot.bid_volume[i];
+        ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume, 1);
+    }
+    for(int i = 0; i < 10; ++i) {
+        long long offerPrice = data.snapshot.offer_price[i];
+        ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice, 1);
+    }
+    for(int i = 0; i < 10; ++i) {
+        long long offerVolume  = data.snapshot.offer_volume[i];
+        ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume, 1);
+    }
 
     long long numTrades             = data.snapshot.num_trades;
     ((Vector*)buffer[colNum++].get())->appendLong(&numTrades, 1);
@@ -1008,103 +901,88 @@ void executionReader(vector<ConstantSP> &buffer, timeMDTickExecution &data, bool
     char varietyCategory = data.execution.variety_category;
     ((VectorSP)(buffer[colNum++]))->appendChar(&varietyCategory, 1);
 }
-void orderExecutionReader(vector<ConstantSP> &buffer, MDOrderExecution &data) {
-    int marketType;
-    uint8_t varietyCategory;
+void orderExecutionReader(vector<ConstantSP> &buffer, MDOrderExecution &data, int seqCheckMode,
+                            std::unordered_map<int, long long> &szLastSeqNum,
+                            std::unordered_map<int, long long> &shLastSeqNum) {
+    ConstantVecIterator iter = buffer.begin();
     if(data.orderOrExecution) {
-        marketType = data.uni.tickOrder.market_type;
-    } else {
-        marketType = data.uni.tickExecution.market_type;
-    }
-    if (data.orderOrExecution) {
-        varietyCategory = data.uni.tickOrder.variety_category;
-    } else {
-        varietyCategory = data.uni.tickExecution.variety_category;
-    }
-
-    if(varietyCategory != 1 && varietyCategory != 2) {
-        return;
-    }
-    int colNum = 0;
-    if(data.orderOrExecution) {
-        if(marketType == 101) {
-            string securityCode = data.uni.tickOrder.security_code + string(".SH");
-            ((VectorSP)(buffer[colNum++]))->appendString(&securityCode, 1);
-        } else if (marketType == 102) {
-            string securityCode = data.uni.tickOrder.security_code + string(".SZ");
-            ((VectorSP)(buffer[colNum++]))->appendString(&securityCode, 1);
+        int marketType = data.uni.tickOrder.market_type;
+        uint8_t varietyCategory = data.uni.tickOrder.variety_category;
+        string securityCode;
+        if(marketType == amd::ama::MarketType::kSSE) {
+            securityCode = data.uni.tickOrder.security_code + string(".SH");
+            MarketUtil::checkSeqNum("", "XSHG Order", shLastSeqNum, data.uni.tickOrder.appl_seq_num,
+                                    data.uni.tickOrder.channel_no, seqCheckMode);
+        } else if (marketType == amd::ama::MarketType::kSZSE) {
+            securityCode = data.uni.tickOrder.security_code + string(".SZ");
+            MarketUtil::checkSeqNum("", "XSHE Order", szLastSeqNum, data.uni.tickOrder.appl_seq_num,
+                                    data.uni.tickOrder.channel_no, seqCheckMode);
         }
-
         int orderDate = convertToDate(data.uni.tickOrder.order_time);
-        ((VectorSP)(buffer[colNum++]))->appendInt(&orderDate, 1);
         int orderTime = convertToTime(data.uni.tickOrder.order_time);
-        ((VectorSP)(buffer[colNum++]))->appendInt(&orderTime, 1);
         string securityIDSource = transMarket(data.uni.tickOrder.market_type);
-        ((VectorSP)(buffer[colNum++]))->appendString(&securityIDSource, 1);
-        string securityType = varietyCategory == 1 ? "StockType": "FundType";
-        ((VectorSP)(buffer[colNum++]))->appendString(&securityType, 1);
-
-        //  make sure DailyIndexFlagTotal always true
-        int DailyIndex = data.uni.tickOrder.appl_seq_num;
-        ((VectorSP)(buffer[colNum++]))->appendInt(&DailyIndex, 1);
-        int sourceType = 0;
-        ((VectorSP)(buffer[colNum++]))->appendInt(&sourceType, 1);
+        string securityType = varietyCategory == amd::ama::VarietyCategory::kStock ? "StockType": "FundType";
+        int sourceType = OrderBookMsgType::ORDER;
+        if (data.uni.tickOrder.order_type == 'S') {
+            sourceType = OrderBookMsgType::PRODUCT_STATUS;
+        }
         int type = convertType(data.uni.tickOrder.order_type);
-        ((VectorSP)(buffer[colNum++]))->appendInt(&type, 1);
-        long long orderPrice = data.uni.tickOrder.order_price;
-        ((VectorSP)(buffer[colNum++]))->appendLong(&orderPrice, 1);
-        long long orderVolume = data.uni.tickOrder.order_volume;
-        ((VectorSP)(buffer[colNum++]))->appendLong(&orderVolume, 1);
         int BSFlag = convertBSFlag(data.uni.tickOrder.side);
-        ((VectorSP)(buffer[colNum++]))->appendInt(&BSFlag, 1);
-        long long origOrderNo = data.uni.tickOrder.orig_order_no;
-        ((VectorSP)(buffer[colNum++]))->appendLong(&origOrderNo, 1);
-        // same as the previous one
-        ((VectorSP)(buffer[colNum++]))->appendLong(&origOrderNo, 1);
-        long long applSeqNum = data.uni.tickOrder.appl_seq_num;
-        ((VectorSP)(buffer[colNum++]))->appendLong(&applSeqNum, 1);
-        int channelNo = data.uni.tickOrder.channel_no;
-        ((VectorSP)(buffer[colNum++]))->appendInt(&channelNo, 1);
-        int timestamp = data.reachTime / 1000000;
-        ((VectorSP)(buffer[colNum++]))->appendInt(&timestamp, 1);
+
+        appendString(iter++, securityCode);
+        appendInt(iter++, orderDate);
+        appendInt(iter++, orderTime);
+        appendString(iter++, securityIDSource);
+        appendString(iter++, securityType);
+        appendInt(iter++, data.uni.tickOrder.appl_seq_num); // use appl_seq_num as index
+        appendInt(iter++, sourceType);
+        appendInt(iter++, type);
+        appendLong(iter++, data.uni.tickOrder.order_price);
+        appendLong(iter++, data.uni.tickOrder.order_volume);
+        appendInt(iter++, BSFlag);
+        appendLong(iter++, data.uni.tickOrder.orig_order_no);
+        appendLong(iter++, data.uni.tickOrder.orig_order_no); // same as the previous one
+        appendLong(iter++, data.uni.tickOrder.appl_seq_num);
+        appendInt(iter++, data.uni.tickOrder.channel_no);
+        appendLong(iter++, data.reachTime / 1000000);
     } else {
-        if(marketType == 101) {
-            string securityCode = data.uni.tickExecution.security_code + string(".SH");
-            ((VectorSP)(buffer[colNum++]))->appendString(&securityCode, 1);
-        } else if (marketType == 102) {
-            string securityCode = data.uni.tickExecution.security_code + string(".SZ");
-            ((VectorSP)(buffer[colNum++]))->appendString(&securityCode, 1);
+        int marketType = data.uni.tickExecution.market_type;
+        uint8_t varietyCategory = data.uni.tickExecution.variety_category;
+        string securityCode;
+        if(marketType == amd::ama::MarketType::kSSE) {
+            securityCode = data.uni.tickExecution.security_code + string(".SH");
+            MarketUtil::checkSeqNum("", "XSHG Execution", shLastSeqNum, data.uni.tickExecution.appl_seq_num,
+                                    data.uni.tickExecution.channel_no, seqCheckMode);
+        } else if (marketType == amd::ama::MarketType::kSZSE) {
+            securityCode = data.uni.tickExecution.security_code + string(".SZ");
+            MarketUtil::checkSeqNum("", "XSHG Execution", szLastSeqNum, data.uni.tickExecution.appl_seq_num,
+                                    data.uni.tickExecution.channel_no, seqCheckMode);
         }
         int orderDate = convertToDate(data.uni.tickExecution.exec_time);
-        ((VectorSP)(buffer[colNum++]))->appendInt(&orderDate, 1);
         int orderTime = convertToTime(data.uni.tickExecution.exec_time);
-        ((VectorSP)(buffer[colNum++]))->appendInt(&orderTime, 1);
         string securityIDSource = transMarket(data.uni.tickExecution.market_type);
-        ((VectorSP)(buffer[colNum++]))->appendString(&securityIDSource, 1);
-        string securityType = varietyCategory == 1 ? "StockType": "FundType";
-        ((VectorSP)(buffer[colNum++]))->appendString(&securityType, 1);
-        int DailyIndex = data.uni.tickExecution.appl_seq_num;
-        ((VectorSP)(buffer[colNum++]))->appendInt(&DailyIndex, 1);
-        int sourceType = 1;
-        ((VectorSP)(buffer[colNum++]))->appendInt(&sourceType, 1);
+        string securityType = varietyCategory == amd::ama::VarietyCategory::kStock ? "StockType": "FundType";
+        int sourceType = OrderBookMsgType::TRADE;
         int type = convertType(data.uni.tickExecution.exec_type);
-        ((VectorSP)(buffer[colNum++]))->appendInt(&type, 1);
-        long long orderPrice = data.uni.tickExecution.exec_price;
-        ((VectorSP)(buffer[colNum++]))->appendLong(&orderPrice, 1);
-        long long orderVolume = data.uni.tickExecution.exec_volume;
-        ((VectorSP)(buffer[colNum++]))->appendLong(&orderVolume, 1);
-        int BSFlag = convertBSFlag(data.uni.tickExecution.side);
-        ((VectorSP)(buffer[colNum++]))->appendInt(&BSFlag, 1);
-        long long origOrderNo = data.uni.tickExecution.bid_appl_seq_num;
-        ((VectorSP)(buffer[colNum++]))->appendLong(&origOrderNo, 1);
-        long long offerApplSeqNum = data.uni.tickExecution.offer_appl_seq_num;
-        ((VectorSP)(buffer[colNum++]))->appendLong(&offerApplSeqNum, 1);
-        long long applSeqNum = data.uni.tickExecution.appl_seq_num;
-        ((VectorSP)(buffer[colNum++]))->appendLong(&applSeqNum, 1);
-        int channelNo = data.uni.tickExecution.channel_no;
-        ((VectorSP)(buffer[colNum++]))->appendInt(&channelNo, 1);
-        int timestamp = data.reachTime / 1000000;
-        ((VectorSP)(buffer[colNum++]))->appendInt(&timestamp, 1);
+        int BSFlag = convertBSFlag(data.uni.tickExecution.side, data.uni.tickExecution.bid_appl_seq_num,
+                                   data.uni.tickExecution.offer_appl_seq_num);
+
+        appendString(iter++, securityCode);
+        appendInt(iter++, orderDate);
+        appendInt(iter++, orderTime);
+        appendString(iter++, securityIDSource);
+        appendString(iter++, securityType);
+        appendInt(iter++, data.uni.tickExecution.appl_seq_num); // use appl_seq_num as index
+        appendInt(iter++, sourceType);
+        appendInt(iter++, type);
+        appendLong(iter++, data.uni.tickExecution.exec_price);
+        appendLong(iter++, data.uni.tickExecution.exec_volume);
+        appendInt(iter++, BSFlag);
+        appendLong(iter++, data.uni.tickExecution.bid_appl_seq_num);
+        appendLong(iter++, data.uni.tickExecution.offer_appl_seq_num);
+        appendLong(iter++, data.uni.tickExecution.appl_seq_num);
+        appendInt(iter++, data.uni.tickExecution.channel_no);
+        appendLong(iter++, data.reachTime / 1000000);
     }
 }
 void bondSnapshotReader(vector<ConstantSP> &buffer, timeMDBondSnapshot &data, bool securityCodeToInt) {
@@ -1135,93 +1013,22 @@ void bondSnapshotReader(vector<ConstantSP> &buffer, timeMDBondSnapshot &data, bo
     long long closePrice    = data.bondSnapshot.close_price;
     ((Vector*)buffer[colNum++].get())->appendLong(&closePrice, 1);
 
-    int bidPriceIndex = 0;
-    long long bidPrice1 = data.bondSnapshot.bid_price[bidPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice1, 1);
-    long long bidPrice2 = data.bondSnapshot.bid_price[bidPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice2, 1);
-    long long bidPrice3 = data.bondSnapshot.bid_price[bidPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice3, 1);
-    long long bidPrice4 = data.bondSnapshot.bid_price[bidPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice4, 1);
-    long long bidPrice5 = data.bondSnapshot.bid_price[bidPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice5, 1);
-    long long bidPrice6 = data.bondSnapshot.bid_price[bidPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice6, 1);
-    long long bidPrice7 = data.bondSnapshot.bid_price[bidPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice7, 1);
-    long long bidPrice8 = data.bondSnapshot.bid_price[bidPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice8, 1);
-    long long bidPrice9 = data.bondSnapshot.bid_price[bidPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice9, 1);
-    long long bidPrice10= data.bondSnapshot.bid_price[bidPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice10, 1);
-
-    int bidVolumeIndex = 0;
-    long long bidVolume1 = data.bondSnapshot.bid_volume[bidVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume1, 1);
-    long long bidVolume2 = data.bondSnapshot.bid_volume[bidVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume2, 1);
-    long long bidVolume3 = data.bondSnapshot.bid_volume[bidVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume3, 1);
-    long long bidVolume4 = data.bondSnapshot.bid_volume[bidVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume4, 1);
-    long long bidVolume5 = data.bondSnapshot.bid_volume[bidVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume5, 1);
-    long long bidVolume6 = data.bondSnapshot.bid_volume[bidVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume6, 1);
-    long long bidVolume7 = data.bondSnapshot.bid_volume[bidVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume7, 1);
-    long long bidVolume8 = data.bondSnapshot.bid_volume[bidVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume8, 1);
-    long long bidVolume9 = data.bondSnapshot.bid_volume[bidVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume9, 1);
-    long long bidVolume10= data.bondSnapshot.bid_volume[bidVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume10, 1);
-
-    int offerPriceIndex = 0;
-    long long offerPrice1 = data.bondSnapshot.offer_price[offerPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice1, 1);
-    long long offerPrice2 = data.bondSnapshot.offer_price[offerPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice2, 1);
-    long long offerPrice3 = data.bondSnapshot.offer_price[offerPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice3, 1);
-    long long offerPrice4 = data.bondSnapshot.offer_price[offerPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice4, 1);
-    long long offerPrice5 = data.bondSnapshot.offer_price[offerPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice5, 1);
-    long long offerPrice6 = data.bondSnapshot.offer_price[offerPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice6, 1);
-    long long offerPrice7 = data.bondSnapshot.offer_price[offerPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice7, 1);
-    long long offerPrice8 = data.bondSnapshot.offer_price[offerPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice8, 1);
-    long long offerPrice9 = data.bondSnapshot.offer_price[offerPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice9, 1);
-    long long offerPrice10= data.bondSnapshot.offer_price[offerPriceIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice10, 1);
-
-    int offerVolumeIndex = 0;
-    long long offerVolume1  = data.bondSnapshot.offer_volume[offerVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume1, 1);
-    long long offerVolume2  = data.bondSnapshot.offer_volume[offerVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume2, 1);
-    long long offerVolume3  = data.bondSnapshot.offer_volume[offerVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume3, 1);
-    long long offerVolume4  = data.bondSnapshot.offer_volume[offerVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume4, 1);
-    long long offerVolume5  = data.bondSnapshot.offer_volume[offerVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume5, 1);
-    long long offerVolume6  = data.bondSnapshot.offer_volume[offerVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume6, 1);
-    long long offerVolume7  = data.bondSnapshot.offer_volume[offerVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume7, 1);
-    long long offerVolume8  = data.bondSnapshot.offer_volume[offerVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume8, 1);
-    long long offerVolume9  = data.bondSnapshot.offer_volume[offerVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume9, 1);
-    long long offerVolume10 = data.bondSnapshot.offer_volume[offerVolumeIndex++];
-    ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume10, 1);
+    for(int i = 0; i < 10; ++i) {
+        long long bidPrice = data.bondSnapshot.bid_price[i];
+        ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice, 1);
+    }
+    for(int i = 0; i < 10; ++i) {
+        long long bidVolume = data.bondSnapshot.bid_volume[i];
+        ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume, 1);
+    }
+    for(int i = 0; i < 10; ++i) {
+        long long offerPrice = data.bondSnapshot.offer_price[i];
+        ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice, 1);
+    }
+    for(int i = 0; i < 10; ++i) {
+        long long offerVolume  = data.bondSnapshot.offer_volume[i];
+        ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume, 1);
+    }
 
     long long numTrades             = data.bondSnapshot.num_trades;
     ((Vector*)buffer[colNum++].get())->appendLong(&numTrades, 1);
@@ -1389,101 +1196,297 @@ void bondExecutionReader(vector<ConstantSP> &buffer, timeMDBondTickExecution &da
     char varietyCategory = data.bondExecution.variety_category;
     ((VectorSP)(buffer[colNum++]))->appendChar(&varietyCategory, 1);
 }
-void bondOrderExecutionReader(vector<ConstantSP> &buffer, MDBondOrderExecution &data) {
-    TableSP insertedTable;
-    FunctionDefSP transform;
-    uint8_t varietyCategory;
 
-    int marketType;
+void bondOrderExecutionReader(vector<ConstantSP> &buffer, MDBondOrderExecution &data, int seqCheckMode,
+                            std::unordered_map<int, long long> &szLastSeqNum,
+                            std::unordered_map<int, long long> &shLastSeqNum) {
+    ConstantVecIterator iter = buffer.begin();
     if(data.orderOrExecution) {
-        marketType = data.uni.tickOrder.market_type;
-        varietyCategory = data.uni.tickOrder.variety_category;
-    } else {
-        marketType = data.uni.tickExecution.market_type;
-        varietyCategory = data.uni.tickExecution.variety_category;
-    }
-
-    if (varietyCategory != 3) { // 债券
-        return;
-    }
-    int colNum = 0;
-    if(data.orderOrExecution) {
-        if(marketType == 101) {
-            string securityCode = data.uni.tickOrder.security_code + string(".SH");
-            ((VectorSP)(buffer[colNum++]))->appendString(&securityCode, 1);
-        } else if (marketType == 102) {
-            string securityCode = data.uni.tickOrder.security_code + string(".SZ");
-            ((VectorSP)(buffer[colNum++]))->appendString(&securityCode, 1);
+        int marketType = data.uni.tickOrder.market_type;
+        string securityCode;
+        if(marketType == amd::ama::MarketType::kSSE) {
+            securityCode = data.uni.tickOrder.security_code + string(".SH");
+            MarketUtil::checkSeqNum("", "XSHG BondOrder", shLastSeqNum, data.uni.tickOrder.appl_seq_num,
+                                    data.uni.tickOrder.channel_no, seqCheckMode);
+        } else if (marketType == amd::ama::MarketType::kSZSE) {
+            securityCode = data.uni.tickOrder.security_code + string(".SZ");
+            MarketUtil::checkSeqNum("", "XSHE BondOrder", szLastSeqNum, data.uni.tickOrder.appl_seq_num,
+                                    data.uni.tickOrder.channel_no, seqCheckMode);
         }
         int orderDate = convertToDate(data.uni.tickOrder.order_time);
-        ((VectorSP)(buffer[colNum++]))->appendInt(&orderDate, 1);
         int orderTime = convertToTime(data.uni.tickOrder.order_time);
-        ((VectorSP)(buffer[colNum++]))->appendInt(&orderTime, 1);
         string securityIDSource = transMarket(data.uni.tickOrder.market_type);
-        ((VectorSP)(buffer[colNum++]))->appendString(&securityIDSource, 1);
-        string securityType("BondType");
-        ((VectorSP)(buffer[colNum++]))->appendString(&securityType, 1);
-        int DailyIndex = data.uni.tickOrder.appl_seq_num;
-        ((VectorSP)(buffer[colNum++]))->appendInt(&DailyIndex, 1);
-        int sourceType = 0;
-        ((VectorSP)(buffer[colNum++]))->appendInt(&sourceType, 1);
+        string securityType = "BondType";
+        int sourceType = OrderBookMsgType::ORDER;
+        if (data.uni.tickOrder.order_type == 'S') {
+            sourceType = OrderBookMsgType::PRODUCT_STATUS;
+        }
         int type = convertType(data.uni.tickOrder.order_type);
-        ((VectorSP)(buffer[colNum++]))->appendInt(&type, 1);
-        long long orderPrice = data.uni.tickOrder.order_price;
-        ((VectorSP)(buffer[colNum++]))->appendLong(&orderPrice, 1);
-        long long orderVolume = data.uni.tickOrder.order_volume;
-        ((VectorSP)(buffer[colNum++]))->appendLong(&orderVolume, 1);
         int BSFlag = convertBSFlag(data.uni.tickOrder.side);
-        ((VectorSP)(buffer[colNum++]))->appendInt(&BSFlag, 1);
-        long long origOrderNo = data.uni.tickOrder.orig_order_no;
-        ((VectorSP)(buffer[colNum++]))->appendLong(&origOrderNo, 1);
-        // same as the previous one
-        ((VectorSP)(buffer[colNum++]))->appendLong(&origOrderNo, 1);
-        long long applSeqNum = data.uni.tickOrder.appl_seq_num;
-        ((VectorSP)(buffer[colNum++]))->appendLong(&applSeqNum, 1);
-        int channelNo = data.uni.tickOrder.channel_no;
-        ((VectorSP)(buffer[colNum++]))->appendInt(&channelNo, 1);
-        int fakeDay = INT_MIN;
-        ((VectorSP)(buffer[colNum++]))->appendInt(&fakeDay, 1);
+
+        appendString(iter++, securityCode);
+        appendInt(iter++, orderDate);
+        appendInt(iter++, orderTime);
+        appendString(iter++, securityIDSource);
+        appendString(iter++, securityType);
+        appendInt(iter++, data.uni.tickOrder.appl_seq_num); // use appl_seq_num as index
+        appendInt(iter++, sourceType);
+        appendInt(iter++, type);
+        appendLong(iter++, data.uni.tickOrder.order_price);
+        appendLong(iter++, data.uni.tickOrder.order_volume);
+        appendInt(iter++, BSFlag);
+        appendLong(iter++, data.uni.tickOrder.orig_order_no);
+        appendLong(iter++, data.uni.tickOrder.orig_order_no); // same as the previous one
+        appendLong(iter++, data.uni.tickOrder.appl_seq_num);
+        appendInt(iter++, data.uni.tickOrder.channel_no);
+        appendLong(iter++, data.reachTime / 1000000);
     } else {
-        if(marketType == 101) {
-            string securityCode = data.uni.tickExecution.security_code + string(".SH");
-            ((VectorSP)(buffer[colNum++]))->appendString(&securityCode, 1);
-        } else if (marketType == 102) {
-            string securityCode = data.uni.tickExecution.security_code + string(".SZ");
-            ((VectorSP)(buffer[colNum++]))->appendString(&securityCode, 1);
+        int marketType = data.uni.tickExecution.market_type;
+        string securityCode;
+        if(marketType == amd::ama::MarketType::kSSE) {
+            securityCode = data.uni.tickExecution.security_code + string(".SH");
+            MarketUtil::checkSeqNum("", "XSHG BondExecution", shLastSeqNum, data.uni.tickExecution.appl_seq_num,
+                                    data.uni.tickExecution.channel_no, seqCheckMode);
+        } else if (marketType == amd::ama::MarketType::kSZSE) {
+            securityCode = data.uni.tickExecution.security_code + string(".SZ");
+            MarketUtil::checkSeqNum("", "XSHG BondExecution", szLastSeqNum, data.uni.tickExecution.appl_seq_num,
+                                    data.uni.tickExecution.channel_no, seqCheckMode);
         }
         int orderDate = convertToDate(data.uni.tickExecution.exec_time);
-        ((VectorSP)(buffer[colNum++]))->appendInt(&orderDate, 1);
         int orderTime = convertToTime(data.uni.tickExecution.exec_time);
-        ((VectorSP)(buffer[colNum++]))->appendInt(&orderTime, 1);
         string securityIDSource = transMarket(data.uni.tickExecution.market_type);
-        ((VectorSP)(buffer[colNum++]))->appendString(&securityIDSource, 1);
-        string securityType("BondType");
-        ((VectorSP)(buffer[colNum++]))->appendString(&securityType, 1);
-        int DailyIndex = data.uni.tickExecution.appl_seq_num;
-        ((VectorSP)(buffer[colNum++]))->appendInt(&DailyIndex, 1);
-        int sourceType = 1;
-        ((VectorSP)(buffer[colNum++]))->appendInt(&sourceType, 1);
+        string securityType = "BondType";
+        int sourceType = OrderBookMsgType::TRADE;
         int type = convertType(data.uni.tickExecution.exec_type);
-        ((VectorSP)(buffer[colNum++]))->appendInt(&type, 1);
-        long long orderPrice = data.uni.tickExecution.exec_price;
-        ((VectorSP)(buffer[colNum++]))->appendLong(&orderPrice, 1);
-        long long orderVolume = data.uni.tickExecution.exec_volume;
-        ((VectorSP)(buffer[colNum++]))->appendLong(&orderVolume, 1);
-        int BSFlag = convertBSFlag(data.uni.tickExecution.side);
-        ((VectorSP)(buffer[colNum++]))->appendInt(&BSFlag, 1);
-        long long origOrderNo = data.uni.tickExecution.bid_appl_seq_num;
-        ((VectorSP)(buffer[colNum++]))->appendLong(&origOrderNo, 1);
-        long long offerApplSeqNum = data.uni.tickExecution.offer_appl_seq_num;
-        ((VectorSP)(buffer[colNum++]))->appendLong(&offerApplSeqNum, 1);
-        long long applSeqNum = data.uni.tickExecution.appl_seq_num;
-        ((VectorSP)(buffer[colNum++]))->appendLong(&applSeqNum, 1);
-        int channelNo = data.uni.tickExecution.channel_no;
-        ((VectorSP)(buffer[colNum++]))->appendInt(&channelNo, 1);
-        int fakeDay = INT_MIN;
-        ((VectorSP)(buffer[colNum++]))->appendInt(&fakeDay, 1);
+        int BSFlag = convertBSFlag(data.uni.tickExecution.side, data.uni.tickExecution.bid_appl_seq_num,
+                                   data.uni.tickExecution.offer_appl_seq_num);
+
+        appendString(iter++, securityCode);
+        appendInt(iter++, orderDate);
+        appendInt(iter++, orderTime);
+        appendString(iter++, securityIDSource);
+        appendString(iter++, securityType);
+        appendInt(iter++, data.uni.tickExecution.appl_seq_num); // use appl_seq_num as index
+        appendInt(iter++, sourceType);
+        appendInt(iter++, type);
+        appendLong(iter++, data.uni.tickExecution.exec_price);
+        appendLong(iter++, data.uni.tickExecution.exec_volume);
+        appendInt(iter++, BSFlag);
+        appendLong(iter++, data.uni.tickExecution.bid_appl_seq_num);
+        appendLong(iter++, data.uni.tickExecution.offer_appl_seq_num);
+        appendLong(iter++, data.uni.tickExecution.appl_seq_num);
+        appendInt(iter++, data.uni.tickExecution.channel_no);
+        appendLong(iter++, data.reachTime / 1000000);
     }
+}
+
+void orderReader_4_0_1(vector<ConstantSP> &buffer, timeMDTickOrder &data, bool securityCodeToInt){
+    int colNum = 0;
+    int marketType = data.order.market_type;
+    ((VectorSP)(buffer[colNum++]))->appendInt(&marketType, 1);
+    string securityCode(data.order.security_code);
+    if(securityCodeToInt) {
+        int num = std::atoi(securityCode.c_str());
+        ((VectorSP)(buffer[colNum++]))->appendInt(&num, 1);
+    } else {
+        ((VectorSP)(buffer[colNum++]))->appendString(&securityCode, 1);
+    }
+    int channelNo = data.order.channel_no;
+    ((VectorSP)(buffer[colNum++]))->appendInt(&channelNo, 1);
+    long long applSeqNum = data.order.appl_seq_num;
+    ((VectorSP)(buffer[colNum++]))->appendLong(&applSeqNum, 1);
+    long long orderTime = convertTime(data.order.order_time);
+    ((VectorSP)(buffer[colNum++]))->appendLong(&orderTime, 1);
+    long long orderPrice = data.order.order_price;
+    ((VectorSP)(buffer[colNum++]))->appendLong(&orderPrice, 1);
+    long long orderVolume = data.order.order_volume;
+    ((VectorSP)(buffer[colNum++]))->appendLong(&orderVolume, 1);
+    int side = data.order.side;
+    ((VectorSP)(buffer[colNum++]))->appendInt(&side, 1);
+    int orderType = data.order.order_type;
+    ((VectorSP)(buffer[colNum++]))->appendInt(&orderType, 1);
+    string mdStreamId = data.order.md_stream_id;
+    ((VectorSP)(buffer[colNum++]))->appendString(&mdStreamId, 1);
+    long long origOrderNo = data.order.orig_order_no;
+    ((VectorSP)(buffer[colNum++]))->appendLong(&origOrderNo, 1);
+    long long bizIndex = data.order.biz_index;
+    ((VectorSP)(buffer[colNum++]))->appendLong(&bizIndex, 1);
+    int varietyCategory = data.order.variety_category;
+    ((VectorSP)(buffer[colNum++]))->appendInt(&varietyCategory, 1);
+#ifdef AMD_TRADE_ORDER_VOLUME
+    long long tradedOrderVolume = data.order.traded_order_volume;
+    ((VectorSP)(buffer[colNum++]))->appendLong(&tradedOrderVolume, 1);
+# else
+    long long tradedOrderVolume = LONG_LONG_MIN;
+    ((VectorSP)(buffer[colNum++]))->appendLong(&tradedOrderVolume, 1);
+# endif
+}
+
+void bondOrderReader_4_0_1(vector<ConstantSP> &buffer, timeMDBondTickOrder &data, bool securityCodeToInt) {
+    int colNum = 0;
+    int marketType = data.bondOrder.market_type;
+    ((VectorSP)(buffer[colNum++]))->appendInt(&marketType, 1);
+    string securityCode(data.bondOrder.security_code);
+    if(securityCodeToInt) {
+        int num = std::atoi(securityCode.c_str());
+        ((VectorSP)(buffer[colNum++]))->appendInt(&num, 1);
+    } else {
+        ((VectorSP)(buffer[colNum++]))->appendString(&securityCode, 1);
+    }
+    int channelNo = data.bondOrder.channel_no;
+    ((VectorSP)(buffer[colNum++]))->appendInt(&channelNo, 1);
+    long long applSeqNum = data.bondOrder.appl_seq_num;
+    ((VectorSP)(buffer[colNum++]))->appendLong(&applSeqNum, 1);
+    long long orderTime = convertTime(data.bondOrder.order_time);
+    ((VectorSP)(buffer[colNum++]))->appendLong(&orderTime, 1);
+    long long orderPrice = data.bondOrder.order_price;
+    ((VectorSP)(buffer[colNum++]))->appendLong(&orderPrice, 1);
+    long long orderVolume = data.bondOrder.order_volume;
+    ((VectorSP)(buffer[colNum++]))->appendLong(&orderVolume, 1);
+    int side = data.bondOrder.side;
+    ((VectorSP)(buffer[colNum++]))->appendInt(&side, 1);
+    int orderType = data.bondOrder.order_type;
+    ((VectorSP)(buffer[colNum++]))->appendInt(&orderType, 1);
+    string mdStreamId = data.bondOrder.md_stream_id;
+    ((VectorSP)(buffer[colNum++]))->appendString(&mdStreamId, 1);
+    string productStatus = data.bondOrder.product_status;
+    ((VectorSP)(buffer[colNum++]))->appendString(&productStatus, 1);
+    long long origOrderNo = data.bondOrder.orig_order_no;
+    ((VectorSP)(buffer[colNum++]))->appendLong(&origOrderNo, 1);
+    int varietyCategory = data.bondOrder.variety_category;
+    ((VectorSP)(buffer[colNum++]))->appendInt(&varietyCategory, 1);
+}
+
+void bondSnapshotReader_4_0_1(vector<ConstantSP> &buffer, timeMDBondSnapshot &data, bool securityCodeToInt) {
+    int colNum = 0;
+    int marketType          = data.bondSnapshot.market_type;
+    ((Vector*)buffer[colNum++].get())->appendInt(&marketType, 1);
+    string securityCode     = data.bondSnapshot.security_code;
+    if (securityCodeToInt) {
+        int num = std::atoi(securityCode.c_str());
+        ((VectorSP)(buffer[colNum++]))->appendInt(&num, 1);
+    } else {
+        ((VectorSP)(buffer[colNum++]))->appendString(&securityCode, 1);
+    }
+    long long origTime      = convertTime(data.bondSnapshot.orig_time);
+    ((Vector*)buffer[colNum++].get())->appendLong(&origTime, 1);
+    string tradingPhaseCode = data.bondSnapshot.trading_phase_code;
+    ((Vector*)buffer[colNum++].get())->appendString(&tradingPhaseCode, 1);
+    long long preClosePrice = data.bondSnapshot.pre_close_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&preClosePrice, 1);
+    long long openPrice     = data.bondSnapshot.open_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&openPrice, 1);
+    long long highPrice     = data.bondSnapshot.high_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&highPrice, 1);
+    long long lowPrice      = data.bondSnapshot.low_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&lowPrice, 1);
+    long long lastPrice     = data.bondSnapshot.last_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&lastPrice, 1);
+    long long closePrice    = data.bondSnapshot.close_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&closePrice, 1);
+
+    for(int i = 0; i < 10; ++i) {
+        long long bidPrice = data.bondSnapshot.bid_price[i];
+        ((Vector*)buffer[colNum++].get())->appendLong(&bidPrice, 1);
+    }
+    for(int i = 0; i < 10; ++i) {
+        long long bidVolume = data.bondSnapshot.bid_volume[i];
+        ((Vector*)buffer[colNum++].get())->appendLong(&bidVolume, 1);
+    }
+    for(int i = 0; i < 10; ++i) {
+        long long offerPrice = data.bondSnapshot.offer_price[i];
+        ((Vector*)buffer[colNum++].get())->appendLong(&offerPrice, 1);
+    }
+    for(int i = 0; i < 10; ++i) {
+        long long offerVolume  = data.bondSnapshot.offer_volume[i];
+        ((Vector*)buffer[colNum++].get())->appendLong(&offerVolume, 1);
+    }
+
+    long long numTrades             = data.bondSnapshot.num_trades;
+    ((Vector*)buffer[colNum++].get())->appendLong(&numTrades, 1);
+    long long totalVolumeTrade      = data.bondSnapshot.total_volume_trade;
+    ((Vector*)buffer[colNum++].get())->appendLong(&totalVolumeTrade, 1);
+    long long totalValueTrade       = data.bondSnapshot.total_value_trade;
+    ((Vector*)buffer[colNum++].get())->appendLong(&totalValueTrade, 1);
+    long long totalBidVolume        = data.bondSnapshot.total_bid_volume;
+    ((Vector*)buffer[colNum++].get())->appendLong(&totalBidVolume, 1);
+    long long totalOfferVolume      = data.bondSnapshot.total_offer_volume;
+    ((Vector*)buffer[colNum++].get())->appendLong(&totalOfferVolume, 1);
+    long long weightedAvgBidPrice   = data.bondSnapshot.weighted_avg_bid_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&weightedAvgBidPrice, 1);
+    long long weightedAvgOfferPrice = data.bondSnapshot.weighted_avg_offer_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&weightedAvgOfferPrice, 1);
+
+    long long highLimited           = data.bondSnapshot.high_limited;
+    ((Vector*)buffer[colNum++].get())->appendLong(&highLimited, 1);
+    long long lowLimited             = data.bondSnapshot.low_limited;
+    ((Vector*)buffer[colNum++].get())->appendLong(&lowLimited, 1);
+    long long change1                = data.bondSnapshot.change1;
+    ((Vector*)buffer[colNum++].get())->appendLong(&change1, 1);
+    long long change2                = data.bondSnapshot.change2;
+    ((Vector*)buffer[colNum++].get())->appendLong(&change2, 1);
+
+    long long weighted_avg_bp = data.bondSnapshot.weighted_avg_bp;
+    ((Vector*)buffer[colNum++].get())->appendLong(&weighted_avg_bp, 1);
+    long long pre_close_weighted_avg_price = data.bondSnapshot.pre_close_weighted_avg_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&pre_close_weighted_avg_price, 1);
+    long long auct_last_price = data.bondSnapshot.auct_last_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&auct_last_price, 1);
+    long long last_price_trading_type = data.bondSnapshot.last_price_trading_type;
+    ((Vector*)buffer[colNum++].get())->appendLong(&last_price_trading_type, 1);
+
+    int channelNo                    = data.bondSnapshot.channel_no;
+    ((Vector*)buffer[colNum++].get())->appendInt(&channelNo, 1);
+    string mdStreamID                = data.bondSnapshot.md_stream_id;
+    ((Vector*)buffer[colNum++].get())->appendString(&mdStreamID, 1);
+    string instrumentStatus          = data.bondSnapshot.instrument_status;
+    ((Vector*)buffer[colNum++].get())->appendString(&instrumentStatus, 1);
+    long long withdrawBuyNumber   = data.bondSnapshot.withdraw_buy_number;
+    ((Vector*)buffer[colNum++].get())->appendLong(&withdrawBuyNumber, 1);
+    long long withdrawBuyAmount   = data.bondSnapshot.withdraw_buy_amount;
+    ((Vector*)buffer[colNum++].get())->appendLong(&withdrawBuyAmount, 1);
+    long long withdrawBuyMoney    = data.bondSnapshot.withdraw_buy_money;
+    ((Vector*)buffer[colNum++].get())->appendLong(&withdrawBuyMoney, 1);
+    long long withdrawSellNumber  = data.bondSnapshot.withdraw_sell_number;
+    ((Vector*)buffer[colNum++].get())->appendLong(&withdrawSellNumber, 1);
+    long long withdrawSellAmount  = data.bondSnapshot.withdraw_sell_amount;
+    ((Vector*)buffer[colNum++].get())->appendLong(&withdrawSellAmount, 1);
+    long long withdrawSellMoney   = data.bondSnapshot.withdraw_sell_money;
+    ((Vector*)buffer[colNum++].get())->appendLong(&withdrawSellMoney, 1);
+    long long totalBidNumber      = data.bondSnapshot.total_bid_number;
+    ((Vector*)buffer[colNum++].get())->appendLong(&totalBidNumber, 1);
+    long long totalOfferNumber    = data.bondSnapshot.total_offer_number;
+    ((Vector*)buffer[colNum++].get())->appendLong(&totalOfferNumber, 1);
+    int bidTradeMaxDuration       = data.bondSnapshot.bid_trade_max_duration;
+    ((Vector*)buffer[colNum++].get())->appendInt(&bidTradeMaxDuration, 1);
+    int offerTradeMaxDuration       = data.bondSnapshot.offer_trade_max_duration;
+    ((Vector*)buffer[colNum++].get())->appendInt(&offerTradeMaxDuration, 1);
+    int numBidOrders                = data.bondSnapshot.num_bid_orders;
+    ((Vector*)buffer[colNum++].get())->appendInt(&numBidOrders, 1);
+    long long numOfferOrders        = data.bondSnapshot.num_offer_orders;
+    ((Vector*)buffer[colNum++].get())->appendLong(&numOfferOrders, 1);
+    long long lastTradeTime         = data.bondSnapshot.last_trade_time;
+    ((Vector*)buffer[colNum++].get())->appendLong(&lastTradeTime, 1);
+
+    long long weighted_avg_price = data.bondSnapshot.weighted_avg_price;
+    ((Vector*)buffer[colNum++].get())->appendLong(&weighted_avg_price, 1);
+    long long no_sub_trading_phase_code = data.bondSnapshot.no_sub_trading_phase_code;
+    ((Vector*)buffer[colNum++].get())->appendLong(&no_sub_trading_phase_code, 1);
+
+    for(int i = 0; i < 8; ++i) {
+        string sub_trading_phase_code = data.bondSnapshot.sub_trading_phase[i].sub_trading_phase_code;
+        ((Vector*)buffer[colNum++].get())->appendString(&sub_trading_phase_code, 1);
+        char trading_type = data.bondSnapshot.sub_trading_phase[i].trading_type;
+        ((Vector*)buffer[colNum++].get())->appendChar(&trading_type, 1);
+    }
+
+    long long auct_volume_trade = data.bondSnapshot.auct_volume_trade;
+    ((Vector*)buffer[colNum++].get())->appendLong(&auct_volume_trade, 1);
+    long long auct_value_trade = data.bondSnapshot.auct_value_trade;
+    ((Vector*)buffer[colNum++].get())->appendLong(&auct_value_trade, 1);
+
+    char varietyCategory            = data.bondSnapshot.variety_category;
+    ((Vector*)buffer[colNum++].get())->appendChar(&varietyCategory, 1);
 }
 
 
@@ -1499,12 +1502,33 @@ int countDays(int amdDays) { return Util::countDays(amdDays / 10000, (amdDays / 
 // details see https://dolphindb1.atlassian.net/browse/DPLG-837
 int convertBSFlag(int flag) {
     switch (flag) {
-        case 49:
-        case 66:
-            return 1;
-        case 50:
-        case 83:
-            return 2;
+        case '1':
+        case 'B':
+            return OrderBookBSFlag::BUY;
+        case '2':
+        case 'S':
+            return OrderBookBSFlag::SELL;
+        case 'N':
+            return OrderBookBSFlag::UNKNOWN;
+        default:
+            return flag;
+    }
+}
+
+int convertBSFlag(int flag, int64_t buyNo, int64_t sellNo) {
+    switch (flag) {
+        case '1':
+        case 'B':
+            return OrderBookBSFlag::BUY;
+        case '2':
+        case 'S':
+            return OrderBookBSFlag::SELL;
+        case 'N':
+            if (buyNo > sellNo) {
+                return OrderBookBSFlag::BUY;
+            } else {
+                return OrderBookBSFlag::SELL;
+            }
         default:
             return flag;
     }
@@ -1512,21 +1536,22 @@ int convertBSFlag(int flag) {
 
 int convertType(int type) {
     switch (type) {
-        case 50:
-        case 65:
-            return 2;
-        case 68:
-            return 10;
-        case 83:
-            return 11;
-        case 85:
-            return 3;
-        case 70:
-            return 0;
+        case '2':
+        case 'A':
+            return OrderBookOrderType::LIMIT_ORDER;
+        case 'D':
+            return OrderBookOrderType::CANCEL;
+        case 'S':
+            return OrderBookOrderType::STATUS;
+        case 'U':
+            return OrderBookOrderType::BEST;
+        case 'F':
+            return OrderBookTradeType::DEAL;
         case 4:
-        case 49:
-        case 52:
-            return 1;
+        case '1':
+            return OrderBookOrderType::MARKET_ORDER;
+        case '4':
+            return OrderBookTradeType::CANCEL;
         default:
             return type;
     }
@@ -1563,9 +1588,9 @@ long long convertTime(long long time) {
 }
 
 string transMarket(int type) {
-    if (type == 101) {
+    if (type == amd::ama::MarketType::kSSE) {
         return "XSHG";
-    } else if (type == 102) {
+    } else if (type == amd::ama::MarketType::kSZSE) {
         return "XSHE";
     }
     return "";

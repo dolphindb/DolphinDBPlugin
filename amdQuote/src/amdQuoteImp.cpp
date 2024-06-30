@@ -8,12 +8,13 @@
 
 bool STOP_TEST = true;
 AmdQuote::AmdQuote(const string &username, const string &password, const vector<string>& ips, const vector<int>& ports,
-                   SessionSP session, bool receivedTime, bool dailyIndex, bool outputElapsed, int dailyStartTime, bool securityCodeToInt)
+                   SessionSP session, bool receivedTime, bool dailyIndex, bool outputElapsed, int dailyStartTime, bool securityCodeToInt, string dataVersion)
     : receivedTime_(receivedTime),
       dailyIndex_(dailyIndex),
       outputElapsed_(outputElapsed),
       dailyStartTime_(dailyStartTime),
       securityCodeToInt_(securityCodeToInt),
+      dataVersion_(dataVersion),
       username_(username),
       password_(password),
       ips_(ips),
@@ -53,7 +54,7 @@ AmdQuote::AmdQuote(const string &username, const string &password, const vector<
 
     cfg_.is_thread_safe = false;
 
-    amdSpi_ = new AMDSpiImp(session);  // special treatment
+    amdSpi_ = new AMDSpiImp(session, dataVersion_);  // special treatment
     try {
         if (amd::ama::IAMDApi::Init(amdSpi_, cfg_) != amd::ama::ErrorCode::kSuccess) {
             amd::ama::IAMDApi::Release();
@@ -197,7 +198,7 @@ void doSubscribe(const int market, const vector<string> &codeList, const uint64_
 }
 
 void AmdQuote::addSubscribe(Heap *heap, const string &typeName, AMDDataType amdType, int key, TableSP table,
-                            FunctionDefSP transform, long long dailyStartTime) {
+                            FunctionDefSP transform, long long dailyStartTime, int seqCheckMode) {
     int flag = 0;
     if (receivedTime_) flag |= OPT_RECEIVED;
     if (outputElapsed_) flag |= OPT_ELAPSED;
@@ -208,14 +209,16 @@ void AmdQuote::addSubscribe(Heap *heap, const string &typeName, AMDDataType amdT
     // FUTURE add schema checking logic
     TableSP schema = nullptr;
     amdSpi_->addThreadedQueue(heap, typeName, amdType, key, table, transform, getMetaByAMDType(amdType), schema, flag,
-                              dailyStartTime, securityCodeToInt_);
+                              dailyStartTime, securityCodeToInt_, seqCheckMode);
 }
 
 void AmdQuote::subscribe(Heap *heap, const string &typeName, int market, vector<string> codeList, ConstantSP table,
-                         FunctionDefSP transform, long long timestamp) {
+                         FunctionDefSP transform, long long timestamp, int seqCheckMode) {
     vector<string> nullCodeList;
-    // FUTURE unsubscribe maybe not required
-    unsubscribe(typeName, market, nullCodeList);
+
+    /* unsubscribe maybe not required */
+    // unsubscribe(typeName, market, nullCodeList);
+
     AMDDataType amdType = getAmdDataType(typeName);
     uint64_t categoryType = getSubscribeCategoryType(amdType);
 
@@ -252,10 +255,10 @@ void AmdQuote::subscribe(Heap *heap, const string &typeName, int market, vector<
             // the key for threadedQueue is market + channelNo * ORDER_EXECUTION_OFFSET(1000 currently)
             // the callback registered in amdSpi also follow this logic to distribute data
             int marketKey = market + channelNo * ORDER_EXECUTION_OFFSET;
-            addSubscribe(heap, typeName, amdType, marketKey, table, transform, dailyStartTime);
+            addSubscribe(heap, typeName, amdType, marketKey, table, transform, dailyStartTime, seqCheckMode);
         }
     } else {
-        addSubscribe(heap, typeName, amdType, market, table, transform, dailyStartTime);
+        addSubscribe(heap, typeName, amdType, market, table, transform, dailyStartTime, seqCheckMode);
     }
 }
 

@@ -43,13 +43,13 @@ set(PLUGIN_LINK_DIRECTORIES
     ${CMAKE_BINARY_DIR}
 )
 set(PLUGIN_LINK_LIBRARIES
-    DolphinDB
 )
 set(PLUGIN_LINK_OPTIONS
     "-L ./ -Wl,-rpath,$ORIGIN"
 )
 
 set(destPluginTxt "PluginAmdQuote.txt")
+set(CMAKE_SKIP_RPATH TRUE)
 
 # Platform
 if (UNIX)
@@ -62,53 +62,33 @@ if (UNIX)
     else()
         set(pluginFileTxt "${CMAKE_CURRENT_LIST_DIR}/PluginAmdQuote.txt")
     endif()
+
+    if("${AMD_VERSION}" STREQUAL "4.0.1")
+        add_definitions(-DAMD_TRADE_ORDER_VOLUME)
+    elseif("${AMD_VERSION}" STREQUAL "4.2.0")
+        add_definitions(-DAMD_TRADE_ORDER_VOLUME)
+    elseif("${AMD_VERSION}" STREQUAL "4.3.0")
+        add_definitions(-DAMD_TRADE_ORDER_VOLUME)
+    endif()
+
 elseif (WIN32)
     message(FATAL_ERROR "Unsupported platform: Windows.")
 else ()
     message(FATAL_ERROR "Unsupported platform.")
 endif ()
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "5.0")
-        list(APPEND PLUGIN_COMPILE_DEFINITIONS "-D_GLIBCXX_USE_CXX11_ABI=0")
-        message(STATUS "Use ABI=0")
-    else()
-        list(APPEND PLUGIN_COMPILE_DEFINITIONS "-D_GLIBCXX_USE_CXX11_ABI=1")
-        message(STATUS "Use ABI=1")
-    endif()
+if(DEFINED AMD_USE_ABI)
+    list(APPEND PLUGIN_COMPILE_DEFINITIONS "-D_GLIBCXX_USE_CXX11_ABI=1")
+    message(STATUS "Use ABI=1")
+else()
+    list(APPEND PLUGIN_COMPILE_DEFINITIONS "-D_GLIBCXX_USE_CXX11_ABI=0")
+    message(STATUS "Use ABI=0")
 endif()
 
+
 # Cmake Build Type
-if (NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE RELEASE)
-endif (NOT CMAKE_BUILD_TYPE)
-
-string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
-if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-    list(APPEND PLUGIN_COMPILE_OPTIONS "-ggdb" "-O0" "-fno-omit-frame-pointer" "-fno-optimize-sibling-calls")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
-    list(APPEND PLUGIN_COMPILE_DEFINITIONS "-DNDEBUG")
-    list(APPEND PLUGIN_COMPILE_OPTIONS "-O3")
-elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "RELWITHDEBINFO")
-    list(APPEND PLUGIN_COMPILE_DEFINITIONS "-DNDEBUG")
-    list(APPEND PLUGIN_COMPILE_OPTIONS "-ggdb" "-O2")
-else ()
-    message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")
-endif ()
-message(STATUS "CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
-
 # ASAN
-if (${DDB_USE_ASAN})
-    set(DDB_ASAN_FLAGS
-        "-fsanitize=address"                # Enable ASAN.
-        "-fno-omit-frame-pointer"           # Nicer stack traces in error messages.
-        "-fno-optimize-sibling-calls"       # Disable tail call elimination (perfect stack traces if inlining off).
-        )
-    list(APPEND PLUGIN_COMPILE_OPTIONS ${DDB_ASAN_FLAGS})
-    # list(APPEND PLUGIN_LINK_OPTIONS "-fsanitize=address")
-    unset(DDB_ASAN_FLAGS)
-endif ()
-message(STATUS "ASAN: ${DDB_USE_ASAN}")
+include(../buildSetup.cmake)
 
 # Source Code
 file(GLOB PLUGINAMD_HEADER CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.h)
