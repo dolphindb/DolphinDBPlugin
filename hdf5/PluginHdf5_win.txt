@@ -1,4 +1,4 @@
-hdf5,libPluginHdf5.dll,2.00.12
+hdf5,libPluginHdf5.dll,2.00.13
 h5ls,ls,operator,1,1,0
 h5lsTable,lsTable,operator,1,1,0
 extractHDF5Schema,extractHDF5Schema,operator,2,2,0

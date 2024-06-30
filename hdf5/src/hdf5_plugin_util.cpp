@@ -14,6 +14,18 @@ void generateIncrementedColsName(std::vector<string> &cols, int size)
         cols[i].append(std::to_string(i));
 }
 
+void checkFailAndThrowRuntimeException(bool val, const string &errMsg) {
+    if (val) { throw RuntimeException(HDF5_LOG_PREFIX + errMsg); }
+}
+
+void checkFailAndThrowRuntimeException(bool left, bool right, const string &errMsg) {
+    if (left || right) { throw RuntimeException(HDF5_LOG_PREFIX + errMsg); }
+}
+
+void checkFailAndThrowIOException(bool val, const string &errMsg, IO_ERR errCode) {
+    if (val) { throw IOException(HDF5_LOG_PREFIX + errMsg, errCode); }
+}
+
 std::string typeIncompatibleErrorMsg(int idx, DATA_TYPE src, const VectorSP& destVec)
 {
     DATA_TYPE dest = (destVec == nullptr) ? src : destVec->getType();
