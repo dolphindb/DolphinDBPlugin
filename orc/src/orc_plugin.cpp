@@ -2353,7 +2353,8 @@ ConstantSP loadORCEx(Heap *heap, const SystemHandleSP &db, const string &tableNa
                 throw IOException(ORC_PREFIX + "Failed to save table header " + tableFile);
             if(!DBFileIO::saveDatabase(db.get()))
                 throw IOException(ORC_PREFIX + "Failed to save database " + db->getDatabaseDir());
-            db->getDomain()->addTable(tableName, owner, physicalIndex, cols, partitionColumnIndices);
+            vector<FunctionDefSP> partitionFuncs{};
+            db->getDomain()->addTable(tableName, owner, physicalIndex, cols, partitionColumnIndices, partitionFuncs);
             vector<ConstantSP> loadTableArgs = {db, tableName_};
             return heap->currentSession()->getFunctionDef("loadTable")->call(heap, loadTableArgs);
         }
