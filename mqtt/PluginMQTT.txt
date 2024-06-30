@@ -1,4 +1,4 @@
-mqtt,libPluginMQTTClient.so,3.00.0.2
+mqtt,libPluginMQTTClient.so,3.00.1
 mqttClientSub,subscribe,system,5,8,0
 mqttClientStopSub,unsubscribe,operator,1,1,0
 mqttClientConnect,connect,system,2,8,0
