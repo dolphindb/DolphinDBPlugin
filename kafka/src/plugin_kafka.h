@@ -206,7 +206,7 @@ public:
     }
     ~KafkaWrapper() {
         auto start = Util::getEpochTime();
-        while(!rwLock.tryAcqurieWrite()) {
+        while(!rwLock.tryAcquireWrite()) {
             auto current = Util::getEpochTime();
             if(current - start > 5000) {
                 LOG_ERR(string("[PLUGIN::KAFKA] ") + typeid(T).name() + string("destruction failed"));

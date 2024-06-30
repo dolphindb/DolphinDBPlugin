@@ -1,4 +1,4 @@
-kafka,libPluginKafka.so,3.00.0
+kafka,libPluginKafka.so,3.00.1
 kafkaProducer,producer,system,1,1,0
 kafkaProducerFlush,producerFlush,system,1,1,0
 kafkaProduce,produce,system,5,6,0
