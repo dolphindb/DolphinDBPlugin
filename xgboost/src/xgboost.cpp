@@ -160,6 +160,7 @@ static ConstantSP trainImpl(Heap *heap, const DMatrixHandle hTrain[], const int 
     }
 }
 
+/**
 ConstantSP trainEx(Heap *heap, vector<ConstantSP> &args) {
     string funcName = "xgboost::trainEx";
     string syntax = "Usage: " + funcName + "(dtrain, yColName, xColNames, [params], [numBoostRound=10], [xgbModel]). ";
@@ -244,6 +245,7 @@ ConstantSP trainEx(Heap *heap, vector<ConstantSP> &args) {
 
     return model;
 }
+*/
 
 ConstantSP train(Heap *heap, vector<ConstantSP> &args) {
     string funcName = "xgboost::train";
@@ -352,6 +354,7 @@ static ConstantSP predictImpl(Heap *heap, const BoosterHandle hBooster, const DM
     return out;
 }
 
+/**
 ConstantSP predictEx(Heap *heap, vector<ConstantSP> &args) {
     string funcName = "xgboost::predictEx";
     string syntax = "Usage: " + funcName + "(model, data, xColNames, [outputMargin=false], [ntreeLimit=0], [predLeaf=false], [predContribs=false], [training=false]). ";
@@ -437,6 +440,7 @@ ConstantSP predictEx(Heap *heap, vector<ConstantSP> &args) {
 
     return out;
 }
+*/
 
 #ifdef XGBOOST_2_0_0
 // use XGBoosterPredictFromDMatrix only for xgboost2.0.0

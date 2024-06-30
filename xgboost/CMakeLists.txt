@@ -39,10 +39,8 @@ set(PLUGIN_INCLUDE_DIRECTORIES
 )
 set(PLUGIN_LINK_DIRECTORIES
     ${CMAKE_BINARY_DIR}
-    ${LIBDOLPHINDB}
 )
 set(PLUGIN_LINK_LIBRARIES
-    DolphinDB
 )
 set(PLUGIN_LINK_FLAGS
     "-L ./ -Wl,-rpath,$ORIGIN"
@@ -69,7 +67,9 @@ if("${XGBOOST_VERSION}" STREQUAL "2.0")
 else("${XGBOOST_VERSION}" STREQUAL "1.2")
     message(STATUS "XGBOOST_VERSION=1.2")
     message(STATUS "USE ABI=0")
-    list(APPEND PLUGIN_COMPILE_DEFINITIONS "-D_GLIBCXX_USE_CXX11_ABI=0")
+    if(UNIX)
+        list(APPEND PLUGIN_COMPILE_DEFINITIONS "-D_GLIBCXX_USE_CXX11_ABI=0")
+    endif()
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "5.0")
             message(FATAL_ERROR "Need GCC 5.0 or newer to build xgboost version 1.2 plugin")
@@ -100,8 +100,8 @@ elseif (WIN32)
         message(FATAL_ERROR "Xgboost 2.0 version plugin doesn't support windows")
     endif()
     MESSAGE(STATUS "Platform: WINDOWS")
-    list(APPEND PLUGIN_LINK_LIBRARIES
-        ${CMAKE_CURRENT_LIST_DIR}/lib/${XGBOOST_VERSION}/libxgboost.dll
+    list(APPEND PLUGIN_LINK_LIBRARIES DolphinDB
+        ${CMAKE_CURRENT_LIST_DIR}/lib/${XGBOOST_VERSION}/xgboost.dll
     )
     list(APPEND PLUGIN_COMPILE_DEFINITIONS "-DWINDOWS")
     set(installType win)
