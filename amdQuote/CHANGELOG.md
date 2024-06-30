@@ -1,6 +1,19 @@
 
 # AmdQuote Plugin Changelog
 
+## 2.00.12.4 & 3.00.0.1
+
+### 新功能
+
+- 连接时支持指定 dataVersion，增加对 dataVersion 为 4.0.1 的新增数据字段的支持。
+- subscribe 新增 seqCheckMode 参数，可以在订阅 orderExecution 类型时指定连续性检测的模式。
+
+## 2.00.12 & 3.00.0
+
+### 新功能
+
+- amdQuote398 插件支持 Linux X86-64 ABI=1 DolphinDB server。
+
 ## 2.00.11.3.1
 
 ### 功能改进：

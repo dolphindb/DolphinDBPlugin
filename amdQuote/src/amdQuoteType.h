@@ -159,8 +159,16 @@ void IOPVReader(vector<ConstantSP> &buffer, timeMDIOPV &data, bool securityCodeT
 
 void bondOrderReader(vector<ConstantSP> &buffer, timeMDBondTickOrder &data, bool securityCodeToInt);
 void bondExecutionReader(vector<ConstantSP> &buffer, timeMDBondTickExecution &data, bool securityCodeToInt);
-void orderExecutionReader(vector<ConstantSP> &buffer, MDOrderExecution &data);
-void bondOrderExecutionReader(vector<ConstantSP> &buffer, MDBondOrderExecution &data);
+void orderExecutionReader(vector<ConstantSP> &buffer, MDOrderExecution &data, int seqCheckMode,
+                            std::unordered_map<int, long long> &szLastSeqNum,
+                            std::unordered_map<int, long long> &shLastSeqNum);
+void bondOrderExecutionReader(vector<ConstantSP> &buffer, MDBondOrderExecution &data, int seqCheckMode,
+                            std::unordered_map<int, long long> &szLastSeqNum,
+                            std::unordered_map<int, long long> &shLastSeqNum);
+
+void orderReader_4_0_1(vector<ConstantSP> &buffer, timeMDTickOrder &data, bool securityCodeToInt);
+void bondOrderReader_4_0_1(vector<ConstantSP> &buffer, timeMDBondTickOrder &data, bool securityCodeToInt);
+void bondSnapshotReader_4_0_1(vector<ConstantSP> &buffer, timeMDBondSnapshot &data, bool securityCodeToInt);
 
 // TODO(ruibinhuang@dolphindb.com): check the real attributes of the table
 bool checkSchema(const string &type, TableSP table);
@@ -169,6 +177,7 @@ bool checkSchema(const string &type, TableSP table);
 // if a flag & type not exist in insight, return origin value.
 // details see https://dolphindb1.atlassian.net/browse/DPLG-837
 int convertBSFlag(int flag);
+int convertBSFlag(int flag, int64_t buyNo, int64_t sellNo);
 long long countTemporalUnit(int days, long long multiplier, long long remainder);
 int countDays(int amdDays);
 int convertType(int type);

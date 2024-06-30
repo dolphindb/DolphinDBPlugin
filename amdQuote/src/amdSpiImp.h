@@ -21,7 +21,7 @@ static std::atomic<bool> ERROR_LOG(false);
 
 class AMDSpiImp : public amd::ama::IAMDSpi {
   public:
-    AMDSpiImp(SessionSP session) : session_(session) {}
+    AMDSpiImp(SessionSP session, string dataVersion) : dataVersion_(dataVersion), session_(session) {}
     ~AMDSpiImp() {
         LOG_INFO(AMDQUOTE_PREFIX + "release AMDSpiImp");
         removeAll();
@@ -220,7 +220,6 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
                 data.uni.tickOrder = ticks[i];
                 orderExecutionQueueMap_[market]->push(data);
             }
-
         }
     }
     void pushExecutionData(amd::ama::MDTickExecution *ticks, uint32_t cnt, long long time) {
@@ -352,95 +351,102 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
 
     virtual void OnEvent(uint32_t level, uint32_t code, const char *event_msg, uint32_t len) override;
 
-    virtual void OnLog(const int32_t& level, const char* log, uint32_t len) override;
+    virtual void OnLog(const int32_t &level, const char *log, uint32_t len) override;
 
-    virtual void OnIndicator(const char* indicator, uint32_t len) override;
+    virtual void OnIndicator(const char *indicator, uint32_t len) override;
 
     void addThreadedQueue(Heap *heap, const string &typeName, AMDDataType type, int key, TableSP table,
                           FunctionDefSP transform, MetaTable meta, TableSP schema, int optionFlag,
-                          long long dailyStartTime, bool securityCodeToInt) {
+                          long long dailyStartTime, bool securityCodeToInt, int seqCheckMode) {
+        std::function<void(vector<ConstantSP> &, timeMDTickOrder &)> readerParamOrder;
+        std::function<void(vector<ConstantSP> &, timeMDBondTickOrder &)> readerParamBondOrder;
+        std::function<void(vector<ConstantSP> &, timeMDBondSnapshot &)> readerParamBondSnapshot;
+        if (dataVersion_ == "4.0.1") {
+            readerParamOrder = [=](vector<ConstantSP> &buffer, timeMDTickOrder &data) {
+                return orderReader_4_0_1(buffer, data, securityCodeToInt);
+            };
+            readerParamBondOrder = [=](vector<ConstantSP> &buffer, timeMDBondTickOrder &data) {
+                return bondOrderReader_4_0_1(buffer, data, securityCodeToInt);
+            };
+            readerParamBondSnapshot = [=](vector<ConstantSP> &buffer, timeMDBondSnapshot &data) {
+                return bondSnapshotReader_4_0_1(buffer, data, securityCodeToInt);
+            };
+        } else {
+            readerParamOrder = [=](vector<ConstantSP> &buffer, timeMDTickOrder &data) {
+                return orderReader(buffer, data, securityCodeToInt);
+            };
+            readerParamBondOrder = [=](vector<ConstantSP> &buffer, timeMDBondTickOrder &data) {
+                return bondOrderReader(buffer, data, securityCodeToInt);
+            };
+            readerParamBondSnapshot = [=](vector<ConstantSP> &buffer, timeMDBondSnapshot &data) {
+                return bondSnapshotReader(buffer, data, securityCodeToInt);
+            };
+        }
         switch (type) {
-#define ADD_THREADED_QUEUE(type, map, struct, reader)                                                         \
-    case type:                                                                                                \
-        if (map.find(key) != map.end()) {                                                                     \
-            map[key]->setTable(table);                                                                        \
-            map[key]->setTransform(transform);                                                                \
-            if (!map[key]->isStarted()) {                                                                     \
-                map[key]->start();                                                                            \
-            }                                                                                                 \
-        } else {                                                                                              \
-            map[key] = new ThreadedQueue<struct>(heap, TIMEOUT, CAPACITY, meta, schema, optionFlag, typeName, \
-                                                 AMDQUOTE_PREFIX, Util::BUF_SIZE, reader);                    \
-            map[key]->setTable(table);                                                                        \
-            map[key]->setTransform(transform);                                                                \
-            map[key]->setDailyIndex(dailyStartTime);                                                          \
-            map[key]->start();                                                                                \
-        }                                                                                                     \
+#define ADD_THREADED_QUEUE(type, map, struct, reader)                                                     \
+    case type:                                                                                            \
+        map[key] = new ThreadedQueue<struct>(heap, TIMEOUT, CAPACITY, meta, schema, optionFlag, typeName, \
+                                                AMDQUOTE_PREFIX, Util::BUF_SIZE, reader);                 \
+        map[key]->setTable(table);                                                                        \
+        map[key]->setTransform(transform);                                                                \
+        map[key]->setDailyIndex(dailyStartTime);                                                          \
+        map[key]->start();                                                                                \
         break;
-            ADD_THREADED_QUEUE(AMD_SNAPSHOT, snapshotQueueMap_, timeMDSnapshot,
-                               [=](vector<ConstantSP> &buffer, timeMDSnapshot &data) {
-                                   return snapshotReader(buffer, data, securityCodeToInt);
-                               })
-            ADD_THREADED_QUEUE(AMD_EXECUTION, executionQueueMap_, timeMDTickExecution,
-                               [=](vector<ConstantSP> &buffer, timeMDTickExecution &data) {
-                                   return executionReader(buffer, data, securityCodeToInt);
-                               })
-            ADD_THREADED_QUEUE(AMD_ORDER, orderQueueMap_, timeMDTickOrder,
-                               [=](vector<ConstantSP> &buffer, timeMDTickOrder &data) {
-                                   return orderReader(buffer, data, securityCodeToInt);
-                               })
-            ADD_THREADED_QUEUE(AMD_FUND_SNAPSHOT, fundSnapshotQueueMap_, timeMDSnapshot,
-                               [=](vector<ConstantSP> &buffer, timeMDSnapshot &data) {
-                                   return snapshotReader(buffer, data, securityCodeToInt);
-                               })
-            ADD_THREADED_QUEUE(AMD_FUND_EXECUTION, fundExecutionQueueMap_, timeMDTickExecution,
-                               [=](vector<ConstantSP> &buffer, timeMDTickExecution &data) {
-                                   return executionReader(buffer, data, securityCodeToInt);
-                               })
-            ADD_THREADED_QUEUE(AMD_FUND_ORDER, fundOrderQueueMap_, timeMDTickOrder,
-                               [=](vector<ConstantSP> &buffer, timeMDTickOrder &data) {
-                                   return orderReader(buffer, data, securityCodeToInt);
-                               })
-            ADD_THREADED_QUEUE(AMD_BOND_SNAPSHOT, bondSnapshotQueueMap_, timeMDBondSnapshot,
-                               [=](vector<ConstantSP> &buffer, timeMDBondSnapshot &data) {
-                                   return bondSnapshotReader(buffer, data, securityCodeToInt);
-                               })
-            ADD_THREADED_QUEUE(AMD_BOND_EXECUTION, bondExecutionQueueMap_, timeMDBondTickExecution,
-                               [=](vector<ConstantSP> &buffer, timeMDBondTickExecution &data) {
-                                   return bondExecutionReader(buffer, data, securityCodeToInt);
-                               })
-            ADD_THREADED_QUEUE(AMD_BOND_ORDER, bondOrderQueueMap_, timeMDBondTickOrder,
-                               [=](vector<ConstantSP> &buffer, timeMDBondTickOrder &data) {
-                                   return bondOrderReader(buffer, data, securityCodeToInt);
-                               })
-            ADD_THREADED_QUEUE(AMD_ORDER_EXECUTION, orderExecutionQueueMap_, MDOrderExecution, orderExecutionReader)
-            ADD_THREADED_QUEUE(AMD_BOND_ORDER_EXECUTION, bondOrderExecutionQueueMap_, MDBondOrderExecution,
-                               bondOrderExecutionReader)
-            ADD_THREADED_QUEUE(AMD_INDEX, indexQueueMap_, timeMDIndexSnapshot,
-                               [=](vector<ConstantSP> &buffer, timeMDIndexSnapshot &data) {
-                                   return indexReader(buffer, data, securityCodeToInt);
-                               })
-            ADD_THREADED_QUEUE(AMD_ORDER_QUEUE, orderQueueQueueMap_, timeMDOrderQueue,
-                               [=](vector<ConstantSP> &buffer, timeMDOrderQueue &data) {
-                                   return orderQueueReader(buffer, data, securityCodeToInt);
-                               })
-            ADD_THREADED_QUEUE(AMD_OPTION_SNAPSHOT, optionQueueMap_, timeMDOption,
-                               [=](vector<ConstantSP> &buffer, timeMDOption &data) {
-                                   return optionReader(buffer, data, securityCodeToInt);
-                               })
-            ADD_THREADED_QUEUE(AMD_FUTURE_SNAPSHOT, futureQueueMap_, timeMDFuture,
-                               [=](vector<ConstantSP> &buffer, timeMDFuture &data) {
-                                   return futureReader(buffer, data, securityCodeToInt);
-                               })
+        ADD_THREADED_QUEUE(AMD_SNAPSHOT, snapshotQueueMap_, timeMDSnapshot,
+                            [=](vector<ConstantSP> &buffer, timeMDSnapshot &data) {
+                                return snapshotReader(buffer, data, securityCodeToInt);
+                            })
+        ADD_THREADED_QUEUE(AMD_EXECUTION, executionQueueMap_, timeMDTickExecution,
+                            [=](vector<ConstantSP> &buffer, timeMDTickExecution &data) {
+                                return executionReader(buffer, data, securityCodeToInt);
+                            })
+        ADD_THREADED_QUEUE(AMD_ORDER, orderQueueMap_, timeMDTickOrder, readerParamOrder)
+        ADD_THREADED_QUEUE(AMD_FUND_SNAPSHOT, fundSnapshotQueueMap_, timeMDSnapshot,
+                            [=](vector<ConstantSP> &buffer, timeMDSnapshot &data) {
+                                return snapshotReader(buffer, data, securityCodeToInt);
+                            })
+        ADD_THREADED_QUEUE(AMD_FUND_EXECUTION, fundExecutionQueueMap_, timeMDTickExecution,
+                            [=](vector<ConstantSP> &buffer, timeMDTickExecution &data) {
+                                return executionReader(buffer, data, securityCodeToInt);
+                            })
+        ADD_THREADED_QUEUE(AMD_FUND_ORDER, fundOrderQueueMap_, timeMDTickOrder, readerParamOrder)
+        ADD_THREADED_QUEUE(AMD_BOND_SNAPSHOT, bondSnapshotQueueMap_, timeMDBondSnapshot, readerParamBondSnapshot)
+        ADD_THREADED_QUEUE(AMD_BOND_EXECUTION, bondExecutionQueueMap_, timeMDBondTickExecution,
+                            [=](vector<ConstantSP> &buffer, timeMDBondTickExecution &data) {
+                                return bondExecutionReader(buffer, data, securityCodeToInt);
+                            })
+        ADD_THREADED_QUEUE(AMD_BOND_ORDER, bondOrderQueueMap_, timeMDBondTickOrder, readerParamBondOrder)
+        ADD_THREADED_QUEUE(
+            AMD_ORDER_EXECUTION, orderExecutionQueueMap_, MDOrderExecution,
+            ThreadedQueueUtil::orderbookReaderWrapper<MDOrderExecution>(orderExecutionReader, seqCheckMode))
+        ADD_THREADED_QUEUE(
+            AMD_BOND_ORDER_EXECUTION, bondOrderExecutionQueueMap_, MDBondOrderExecution,
+            ThreadedQueueUtil::orderbookReaderWrapper<MDBondOrderExecution>(bondOrderExecutionReader, seqCheckMode))
+        ADD_THREADED_QUEUE(AMD_INDEX, indexQueueMap_, timeMDIndexSnapshot,
+                            [=](vector<ConstantSP> &buffer, timeMDIndexSnapshot &data) {
+                                return indexReader(buffer, data, securityCodeToInt);
+                            })
+        ADD_THREADED_QUEUE(AMD_ORDER_QUEUE, orderQueueQueueMap_, timeMDOrderQueue,
+                            [=](vector<ConstantSP> &buffer, timeMDOrderQueue &data) {
+                                return orderQueueReader(buffer, data, securityCodeToInt);
+                            })
+        ADD_THREADED_QUEUE(AMD_OPTION_SNAPSHOT, optionQueueMap_, timeMDOption,
+                            [=](vector<ConstantSP> &buffer, timeMDOption &data) {
+                                return optionReader(buffer, data, securityCodeToInt);
+                            })
+        ADD_THREADED_QUEUE(AMD_FUTURE_SNAPSHOT, futureQueueMap_, timeMDFuture,
+                            [=](vector<ConstantSP> &buffer, timeMDFuture &data) {
+                                return futureReader(buffer, data, securityCodeToInt);
+                            })
 #ifndef AMD_3_9_6
-            ADD_THREADED_QUEUE(AMD_IOPV_SNAPSHOT, IOPVQueueMap_, timeMDIOPV,
-                               [=](vector<ConstantSP> &buffer, timeMDIOPV &data) {
-                                   return IOPVReader(buffer, data, securityCodeToInt);
-                               })
+        ADD_THREADED_QUEUE(AMD_IOPV_SNAPSHOT, IOPVQueueMap_, timeMDIOPV,
+                            [=](vector<ConstantSP> &buffer, timeMDIOPV &data) {
+                                return IOPVReader(buffer, data, securityCodeToInt);
+                            })
 #endif
-            case AMD_ERROR_DATA_TYPE:
-            default:
-                throw RuntimeException(AMDQUOTE_PREFIX + "Invalid AMD DataType to add");
+        case AMD_ERROR_DATA_TYPE:
+        default:
+            throw RuntimeException(AMDQUOTE_PREFIX + "Invalid AMD DataType to add");
 #undef ADD_THREADED_QUEUE
         }
     }
@@ -548,6 +554,7 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
     std::unordered_map<int, SmartPointer<ThreadedQueue<MDOrderExecution>>> orderExecutionQueueMap_;
     std::unordered_map<int, SmartPointer<ThreadedQueue<MDBondOrderExecution>>> bondOrderExecutionQueueMap_;
 
+    string dataVersion_;
     SessionSP session_;
 };
 #endif
