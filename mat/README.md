@@ -1,40 +1,14 @@
 # DolphinDB mat Plugin
 
-mat 插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/mat/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/mat/README.md), [relsease120](https://github.com/dolphindb/DolphinDBPlugin/blob/release120/mat/README.md), [release110](https://github.com/dolphindb/DolphinDBPlugin/blob/release110/mat/README.md)。您当前查看的插件版本为 release200，请使用 DolphinDB 2.00.X 版本 server。若使用其它版本 server，请切换至相应插件分支。
+DolphinDB 的 mat 插件支持读取 mat 文件的数据到 DolphinDB，或将 DolphinDB 变量写入 mat 文件，且在读取或写入时自动进行类型转换。mat 插件基于 MATLAB Runtime 运行库开发。本文档仅介绍编译构建方法。通过 [文档中心 - Mat](https://docs.dolphindb.cn/zh/plugins/mat/mat.html) 查看接口介绍；通过 [CHANGELOG.md](./CHANGELOG.md) 查看版本发布记录。
 
-DolphinDB 的 mat 插件支持读取 mat 文件的数据到 DolphinDB，或将 DolphinDB 变量写入 mat 文件，且在读取或写入时自动进行类型转换。
-
-## 1. 安装构建
-
-### 1.1 插件加载
-本插件使用了 MATLAB Runtime Installer 的外部接口，需要提前安装 MATLAB Runtime Installer。
-#### 安装 MATLAB Runtime Installer R2016a
-```
-wget https://ssd.mathworks.com/supportfiles/downloads/R2016a/deployment_files/R2016a/installers/glnxa64/MCR_R2016a_glnxa64_installer.zip
-unzip MCR_R2016a_glnxa64_installer.zip -d matlabFile
-cd matlabFile
-./install -mode silent -agreeToLicense  yes  -destinationFolder  /home/Matlab //安装时指定安装位置
-```
-确保 matlab 插件依赖库在 gcc 可搜索的路径中。通过以下命令配置：
-```
-cd <DolphinDBServerDir>
-export LD_LIBRARY_PATH=/home/Matlab/v901/bin/glnxa64:$LD_LIBRARY_PATH
-./dolphindb
-```
-然后启动 DolphinDB，加载插件。
-```
-./dolphindb
-login(`admin,`123456)
-loadPlugin("<PluginDir>/mat/build/PluginMat.txt");
-```
-
-### 1.2 插件编译
+## 插件编译
 
 需要 CMake 和对应编译器即可在本地编译 mat 插件。
 
-#### Linux
+### Linux
 
-##### 使用 CMake 构建：
+#### 使用 CMake 构建：
 
 安装 CMake：
 
@@ -48,7 +22,7 @@ sudo apt-get install cmake
 cd <PluginDir>/mat
 mkdir build
 cd build
-cmake -DmatlabRoot=/home/Matlab/v901/ ../   //指定 matlab 的安装位置
+cmake -DmatlabRoot=/home/Matlab/v901/../   // 指定 matlab 的安装位置
 make
 ```
 
@@ -56,142 +30,24 @@ make
 
 编译后目录下会产生文件 libPluginMat.so 和 PluginMat.txt。
 
-##  2. 用户接口
+### Windows
 
-### 2.1 mat::extractMatSchema
+#### 下载 Matlab R2026a 运行库
+https://ssd.mathworks.cn/supportfiles/downloads/R2016a/deployment_files/R2016a/installers/win64/MCR_R2016a_win64_installer.exe
 
-**语法**
+#### 使用 CMake 构建：
 
-mat::extractMatSchema(file)
+在编译开始之前，要将 libDolphinDB.dll 拷贝到 build 文件夹，并且拷贝部分 Matlab 的依赖库到 build 目录。
 
-**详情**
-
-生成 mat 文件中指定数据集的结构。包括两列：字段名和数据类型。
-
-**参数**
-
-* file：需要读取的 mat 文件所在的绝对路径。类型为字符串。
-
-**例子**
+构建插件内容：
 
 ```
-schema=mat::extractMatSchema("<FileDir>/simple.mat");
+mkdir build                                                        # 新建 build 目录
+cp <ServerDir>/libDolphinDB.dll build                 # 拷贝 libDolphinDB.dll 到 build 目录下
+.\copyFile.bat <R2026a_DIR>\R2026\v901\bin\win64 build winLib.txt # R2026a 库路径、目标文件夹 build、所需依赖库列表
+cd build
+cmake  ../ -G "MinGW Makefiles"
+mingw32-make -j4
 ```
 
-### 2.2 mat::loadMat
-
-**语法**
-
-mat::loadMat(file, [schema])
-
-**详情**
-
-读取一个 mat 文件。返回一个 DolphinDB 字典。
-
-**参数**
-* file：需要写入的 mat 文件所在的绝对路径。类型为 string。
-
-* schema：包含列名和列的数据类型的表。若要改变由系统自动决定的列的数据类型，需要在 schema 表中修改数据类型。
-
-**返回值**
-返回一个字典。其 key 为变量名称，字符串类型；value 是一个矩阵或向量，为 key 指定变量对应的数据。如果一个变量是字符数组类型，对应返回值为 STRING 类型的向量。
-
-**例子**
-```
-schema=mat::extractMatSchema("<FileDir>/simple.mat");
-ret=loadMat("<FileDir>/simple.mat",schema);
-//simple 中 t_num 变量为 double 类型的时间变量
-ret=mat::convertToDatetime(ret[`t_num]);
-```
-
-### 2.3 mat::convertToDatetime
-
-**语法**
-
-mat::convertToDatetime(data)
-
-**详情**
-
-把 matlab 中以 double 储存的时间变量转换为 DolphinDB 的 DATETIME。
-
-**参数**
-
-* data：需要转换的变量。为 double 类型的 scalar, vector, matrix。
-
-**返回值**
-
-返回值是对应于参数 data 的 DATETIME 类型的 scalar, vector, matrix。
-
-**例子**
-```
-schema=mat::extractMatSchema("<FileDir>/simple.mat");
-ret=loadMat("<FileDir>/simple.mat",schema);
-ret=mat::convertToDatetime(ret);
-```
-
-### 2.4 mat::writeMat
-
-**语法**
-
-mat::writeMat(file, varName, data)
-
-**详情**
-
-把一个矩阵写入到 mat 文件。
-
-**参数**
-
-* file：被写入文件的文件名。为 string 类型的 scalar。
-* varName：data 写入文件后对应的变量名。为 string 类型的 scalar。
-* data：需要写入的矩阵。可以是 bool, char, short, int, long, float, double类型。
-
-**例子**
-```
-data = matrix([1, 1, 1], [2, 2, 2]).float()
-mat::writeMat("var.mat", "var1", data)
-```
-
-## 3. 支持的数据类型
-
-### 3.1 整型
-
-| matlab 类型         | 对应的 DolphinDB 类型 |
-| ------------------ | :------------------ |
-| int8            | CHAR                |
-| uint8            | SHORT                |
-| int16            | SHORT                |
-| uint16            | INT                |
-| int32            | INT                |
-| uint32            | LONG                |
-| int64                 | LONG               |
-| uint64              | 不支持               |
-
-* DolphinDB 中数值类型都为有符号类型,为了防止溢出,所有无符号类型会被转化为高一阶的有符号类型。例如，无符号 CHAR 转化为有符号 SHORT，无符号 SHORT 转化为有符号 INT，等等。64位无符号类型不予支持。
-* DolphinDB 不支持 unsigned long long 类型，如果 matlab 中的类型为 bigint unsigned, 可在 `loadMat` 的 schema 参数里面设置为 DOUBLE 或者 FLOAT。
-* DolphinDB 中各类整型的最小值为 NULL，如 CHAR 的-128，SHORT 的-32,768，INT 的-2,147,483,648以及 LONG 的-9,223,372,036,854,775,808。
-* Matlab 中的 NaN 和 Inf 会转换为 DolphinDB 的 NULL。
-### 3.2 浮点数类型
-
-| matlab 类型 | 对应的 DolphinDB 类型 |
-| ---------- | :------------------ |
-| single     | FLOAT              |
-| double     | DOUBLE              |
-
-### 3.3 字符串类型
-
-| matlab 类型         | 对应的 DolphinDB 类型 |
-| ------------------- | :------------------ |
-| character array   | STRING              |
-
-
-# ReleaseNotes:
-
-## v2.00.10
-
-### bug修复
-
-- writeMat接口中增加非法varName的报错
-
-### 优化
-
-- 优化多线程的稳定性
+编译后目录下会产生文件 libPluginMat.dll 和 PluginMat.txt

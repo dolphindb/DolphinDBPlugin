@@ -1,0 +1,31 @@
+/* Copyright 2014 The MathWorks, Inc. */
+
+#ifndef ParamTuningTgtAppSvc_dll_h
+#define ParamTuningTgtAppSvc_dll_h
+
+#ifdef __cplusplus
+  #define PARAMTUNINGTGTAPPSVC_API_EXTERN_C extern "C"
+#else
+  #define PARAMTUNINGTGTAPPSVC_API_EXTERN_C
+#endif
+
+#ifdef SL_INTERNAL
+
+  #include "version.h"
+
+  #if defined(BUILDING_LIBMWCODER_PARAMTUNINGTGTAPPSVC)
+      #define PARAMTUNINGTGTAPPSVC_API DLL_EXPORT_SYM
+      #define PARAMTUNINGTGTAPPSVC_API_C PARAMTUNINGTGTAPPSVC_API_EXTERN_C DLL_EXPORT_SYM
+  #else
+      #define PARAMTUNINGTGTAPPSVC_API DLL_IMPORT_SYM
+      #define PARAMTUNINGTGTAPPSVC_API_C PARAMTUNINGTGTAPPSVC_API_EXTERN_C DLL_IMPORT_SYM
+  #endif
+
+#else
+
+  #define PARAMTUNINGTGTAPPSVC_API
+  #define PARAMTUNINGTGTAPPSVC_API_C PARAMTUNINGTGTAPPSVC_API_EXTERN_C
+
+#endif
+
+#endif
