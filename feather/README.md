@@ -1,16 +1,28 @@
 # DolphinDB Feather Plugin
 
-Apache Arrow Feather 文件采用列式存储格式，可用于高效存储与提取数据。DolphinDB 提供的 Feather 插件支持高效的将 Feather 文件导入和导出 DolphinDB，并且在导入导出过程中自动进行数据类型转换。
+Feather uses the Apache Arrow columnar memory format for data, which is organized for efficient analytic operations. The DolphinDB Feather plugin supports efficient import and export of Feather files with automatic data type conversion.
 
-Feather 插件目前支持版本：[relsease200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/feather/README.md), [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/feather/README.md)。您当前查看的插件版本为 release200，请使用 DolphinDB 2.00.X 版本 server。若使用其它版本 server，请切换至相应插件分支。
+The DolphinDB Feather plugin has the following versions: [release 200](https://github.com/dolphindb/DolphinDBPlugin/blob/release200/parquet/README.md) and [release130](https://github.com/dolphindb/DolphinDBPlugin/blob/release130/parquet/README.md). Each plugin version corresponds to a DolphinDB server version. You're looking at the plugin documentation for release200. You're looking at the plugin documentation for release200. If you use a different DolphinDB server version, please refer to the corresponding version of the plugin documentation.
 
-## 1 安装插件
+- [DolphinDB Feather Plugin](#dolphindb-feather-plugin)
+  - [1 Install the Plugin](#1-install-the-plugin)
+    - [1.1 Compile on Linux](#11-compile-on-linux)
+    - [1.2 Load the Plugin](#12-load-the-plugin)
+  - [2 Methods](#2-methods)
+    - [2.1 feather::extractSchema](#21-featherextractschema)
+    - [2.2 feather::load](#22-featherload)
+    - [2.3 feather::save](#23-feathersave)
+  - [3 Data Type Mappings](#3-data-type-mappings)
+    - [3.1 Import](#31-import)
+    - [3.2 Export](#32-export)
 
-### 1.1 Linux 编译
+## 1 Install the Plugin
 
-#### 初始化环境配置
+### 1.1 Compile on Linux
 
-(1) 编译 Feather 开发包：
+**Initialization**
+
+(1) Compile the Feather Development Kit.
 
 ```shell
 git clone https://github.com/apache/arrow.git
@@ -21,7 +33,7 @@ cmake .. -DARROW_BUILD_STATIC=ON -DARROW_BUILD_SHARED=OFF -DARROW_DEPENDENCY_USE
 make -j
 ```
 
-(2) 编译完成后，拷贝以下文件到插件文件夹中的相应目录：
+(2) After compiling, copy the following files to the target directories.
 
 | **Files**                                                   | **Target Directory** |
 | ------------------------------------------------------------ | -------------------- |
@@ -29,10 +41,11 @@ make -j
 | arrow/cpp/build/release/libarrow.a<br/>arrow/cpp/build/jemalloc_ep-prefix/src/jemalloc_ep/lib/libjemalloc_pic.a<br/>arrow/cpp/build/zstd_ep-install/lib64/libzstd.a<br/>arrow/cpp/build/zlib_ep/src/zlib_ep-install/lib/libz.a<br/>arrow/cpp/build/lz4_ep-prefix/src/lz4_ep/lib/liblz4.a | ./lib/linux          |
 
 
-**注意**
-如果编译过程中出现上表 Files 列出的文件不存在，可以手动编译以下三个库。
+**Note:**
+If the files listed in the "Files" column do not exist during compilation, you can manually compile the following three libraries.
 
-1. 如果 libz.a 无法找到，执行以下命令：
+* If `libz.a` cannot be found, run the following command:
+
 ```shell
 wget http://www.zlib.net/zlib-1.2.12.tar.gz
 tar -zxf zlib-1.2.12.tar.gz
@@ -40,18 +53,20 @@ cd zlib-1.2.12
 CFLAGS="-fPIC" ./configure
 make
 ```
-然后在 zlib-1.2.12 目录下找到 libz.a，放到插件文件夹下的./lib/linux 目录中。
+Find `libz.a` in the `zlib-1.2.12` directory and put it to the `./lib/linux` directory in the plugins folder.
 
-2. 如果 liblz4.a 无法找到，执行以下命令：
+* If `liblz4.a` cannot be found, run the following command:
+
 ```shell
 wget https://github.com/lz4/lz4/archive/8f61d8eb7c6979769a484cde8df61ff7c4c77765.tar.gz
 tar -xzvf 8f61d8eb7c6979769a484cde8df61ff7c4c77765.tar.gz
 cd lz4-8f61d8eb7c6979769a484cde8df61ff7c4c77765/
 make
 ```
-然后在 lz4-8f61d8eb7c6979769a484cde8df61ff7c4c77765/lib 目录下找到 liblz4.a，放到插件文件夹下的./lib/linux 目录中。
+Find `libz.a` in the `lz4-8f61d8eb7c6979769a484cde8df61ff7c4c77765/lib` directory and put it to the `./lib/linux` directory in the plugins folder.
 
-3. 如果 libzstd.a 无法找到，执行以下命令：
+* If  `libzstd.a`  cannot be found, run the following command:
+
 ```shell
 wget https://github.com/facebook/zstd/releases/download/v1.5.2/zstd-1.5.2.tar.gz
 tar -zxvf zstd-1.5.2.tar.gz
@@ -62,9 +77,10 @@ cd build/
 cmake ..
 make -j
 ```
-然后在 zstd-1.5.2/build/cmake/build/lib 目录下找到 libzstd.a，放到插件文件夹下的 ./lib/linux 目录中。
+Find `libz.a` in the `zstd-1.5.2/build/cmake/build/lib` directory and put it to the `./lib/linux` directory in the plugins folder.
 
-#### 编译插件
+(3) Build the Entire Project
+
 ```linux shell
 cd /path/to/plugins/feather
 mkdir build
@@ -72,33 +88,42 @@ cd build
 cmake ..
 make
 ```
-注意：编译之前请确保libDolphinDB.so在gcc可搜索的路径中。可使用LD_LIBRARY_PATH指定其路径，或者直接将其拷贝到build目录下。
-### 1.2 DolphinDB 加载插件
+
+**Note:** 
+Make sure the file libDolphinDB.so is under the GCC search path before compilation. You can add the plugin path to the library search path `LD_LIBRARY_PATH` or copy it to the build directory.
+
+### 1.2 Load the Plugin
 
 ```DolphinDB shell
 loadPlugin("/path/to/plugin/PluginFeather.txt")
 ```
 
-## 2 用户接口
+## 2 Methods
 
 ### 2.1 feather::extractSchema
 
-#### 语法
+**Syntax**
 
 ``` shell
 feather::extractSchema(filePath)
 ```
 
-#### 参数
+**Parameters**
 
-- filePath：Feather 文件路径，类型为字符串标量
+- filePath: a STRING scalar indicating the Feather file path.
 
-#### 详情
+**Details**
 
-读取 Feather 文件数据的表结构，返回一张包含三列的表，第一列是列名，第二列是 Arrow 的数据类型，第三列是转换为 DolphinDB 的数据类型。
-注意：如果 DolphinDBType 的某一行为 VOID，则说明 Feather 文件对应的列数据无法导入 DolphinDB。
+Get the schema of the Feature file and return a table containing the following three columns:
 
-#### 例子
+1. column names
+2. data type of Arrow
+3. data type of DolphinDB
+
+**Note:**
+If the value of a cell in column DolphinDB Type is VOID, it indicates that the corresponding data type in Arrow is not supported to be converted.
+
+**Examples**
 
 ```dolphindb
 feather::extractSchema("path/to/data.feather");
@@ -107,28 +132,26 @@ feather::extractSchema("path/to/data.compressed.feather");
 
 ### 2.2 feather::load
 
-#### 语法
+**Syntax**
 
 ``` shell
 feather::load(filePath, [columns])
 ```
 
-#### 参数
+**Parameters**
 
-- filePath：Feather 文件路径，类型为字符串标量。
-- columns：可选参数，字符串向量，表示要读取的列名集合。
+- filePath: a STRING scalar indicating the Feather file path.
+- columns: a STRING scalar indicating column names to be loaded. It is an optional parameter.
 
-#### 详情
+**Details**
 
-将 Feather 文件数据加载到 DolphinDB 数据库的内存表。Feather 文件中的 Arrow 数据类型与 DolphinDB 数据类型的转化规则，参见 [数据类型](##3 支持的数据类型) 。
+Load a Feather file to a DolphinDB in-memory table. Regarding data type conversion, see [Data Type Mappings](##3 Data Type Mappings) 。
 
-注意：
+**Note:**
+* Since the minimum of DolphinDB integral type is a NULL character, the minimum of Arrow int8, int16, int32, int64 cannot be imported into DolphinDB.
+* The infinities and NaNs (not a number) of floating-point numbers are converted to NULL values in DolphinDB.
 
-1. 由于 DolphinDB 整数类型的最小值表示空值，因此，Arrow int8, Arrow int16, Arrow int32, Arrow int64 类型对应的最小值无法导入 DolphinDB。
-
-3. 浮点数的正负无穷、nan 值都会被转换为 DolphinDB 中的空值。
-
-#### 例子
+**Examples**
 
 ```dolphindb
 table = feather::load("path/to/data.feather");
@@ -137,25 +160,24 @@ table_part = feather::load("path/to/data.feather", [ "col1_name","col2_name"]);
 
 ### 2.3 feather::save
 
-#### 语法
+**Syntax**
 
 ``` shell
 feather::save(table, filePath, [compressMethod], [compressionLevel])
 ```
 
-#### 参数
+**Parameters**
 
-- table：要保存的表。
-- filePath：保存的文件路径，类型为字符串标量。
-- compression：可选参数，类型为字符串标量，用于指定压缩类型。包含以下三种类型："uncompressed", "lz4", "zstd"，不区分大小写。本插件默认开启 lz4 压缩方式。
-- compressionLevel：可选参数，类型为整型标量。只有 zstd 压缩类型能够指定压缩级别。
+- table: the table to be exported.
+- filePath: a STRING scalar indicating the Feather file path.
+- compression: a STRING scalar indicating the following three compression methods: "uncompressed", "lz4", "zstd" (case insensitive). The default is lz4. It is an optional parameter.
+- compressionLevel: an integral scalar. It is an optional parameter only used for compression method “zstd”.
 
-#### 详情
+**Details**
 
-将 DolphinDB 中的表以 Feather 格式保存到文件中。关于 Feather 文件中的 Arrow 数据类型与 DolphinDB 数据类型的转化规则，参见 [数据类型](##3 支持的数据类型) 。
+Export a DolphinDB table to a Feather file. Regarding data type conversion, see [Data Type Mappings](##3 Data Type Mappings) 。
 
-
-#### 例子
+**Examples**
 
 ``` dolphindb
 feather::save(table, "path/to/save/data.feather");
@@ -163,23 +185,11 @@ feather::save(table, "path/to/save/data.feather", "lz4");
 feather::save(table, "path/to/save/data.feather", "zstd", 2);
 ```
 
-### 2.4 完整示例
+## 3 Data Type Mappings
 
-``` DolphinDB shell
-loadPlugin("/path/to/plugins/feather/PluginFeather.txt")
-feather::extractSchema("path/to/data.feather");
-table = feather::load("path/to/data.feather");
-table_part = feather::load("path/to/data.feather", [ "col1_name","col2_name"]);
-feather::save(table, "path/to/save/data.feather");
-feather::save(table, "path/to/save/data.feather", "lz4");
-feather::save(table, "path/to/save/data.feather", "zstd", 2);
-```
+### 3.1 Import
 
-## 3 支持的数据类型
-
-### 3.1 导入
-
-DolphinDB 导入 Feather 文件时，Arrow 与 DolphinDB 数据类型转换关系如下：
+The following is the data type mappings when a Feather file is imported to DolphinDB:
 
 | Arrow           | DolphinDB |
 | ----------------| :---------------- |
@@ -203,11 +213,11 @@ DolphinDB 导入 Feather 文件时，Arrow 与 DolphinDB 数据类型转换关�
 | time32(ms)       | TIME              |
 | time64(ns)       | NANOTIME          |
 
-不支持转换以下 Arrow 类型：binary, fixed_size_binary, half_float, timestamp(us), time64(us), interval_months, interval_day_time, decimal128, decimal, decimal256, list, struct, sparse_union, dense_union, dictionary, map, extension, fixed_size_list, large_string, large_binary, large_list, interval_month_day_nano, max_id
+The following Arrow types are not supported for conversion: binary, fixed_size_binary, half_float, timestamp(us), time64(us), interval_months, interval_day_time, decimal128, decimal, decimal256, list, struct, sparse_union, dense_union, dictionary, map, extension, fixed_size_list, large_string, large_binary, large_list, interval_month_day_nano, max_id
 
-### 3.2 导出
+### 3.2 Export
 
-DolphinDB 导出 feather 文件时，DolphinDB 与 Arrow 数据类型的对应关系如下：
+The following is the data type mappings when exporting data from DolphinDB to a Parquet file:
 
 | DolphinDB         | Arrow           |
 | ----------------- | :-------------- |
@@ -228,15 +238,24 @@ DolphinDB 导出 feather 文件时，DolphinDB 与 Arrow 数据类型的对应�
 | SYMBOL            | string          |
 
 
-不支持转换以下 DolphinDB 类型：MINUTE, MONTH, DATETIME, UUID, FUNCTIONDEF, HANDLE, CODE, DATASOURCE, RESOURCE, ANY, COMPRESS, ANY DICTIONARY, DATEHOUR, IPADDR, INT128, BLOB, COMPLEX, POINT, DURATION
+The following DolphinDB data types are not supported for conversion: MINUTE, MONTH, DATETIME, UUID, FUNCTIONDEF, HANDLE, CODE, DATASOURCE, RESOURCE, ANY, COMPRESS, ANY DICTIONARY, DATEHOUR, IPADDR, INT128, BLOB, COMPLEX, POINT, DURATION
 
-### 3.3 Python 读取 Feather 文件
+**Note:**
 
-本节介绍通过 Python 读取 Feather 文件时，可能遇到的问题，给出了相应的解决方案：
+You may encounter some problems when reading Feather files using Python.
 
-1. Feather 文件中如果包含 time64(ns) 类型的数据，通过 `pyarrow.feather.read_feather()` 方法读取可能会报错 `Value XXXXXXXXXXXXX has non-zero nanoseconds`。这是因为 pyarrow.lib.Table 在转换为 DataFrame 时，time64(ns) 类型会被转换为 datetime.time 类型，而后者不支持纳秒精度的时间数据。建议使用 `pyarrow.feather.read_table()` 方法进行读取。
+**Scenario 1:**
+The error `Value XXXXXXXXXXXXX has non-zero nanoseconds` is raised when reading the Feather file contains data of type time64(ns) using pyarrow.feather.read_feather(). When a table is converted to a DataFrame, the time64(ns) type is converted to the datetime.time type, which does not support temporal data in nanosecond.
 
-2. 通过 `pyarrow.feather.read_feather()` 读取的 Feather 文件若存在包含空值整型列，则会把该整型列转成浮点类型。建议先将 Feather 读到 pyarrow table 里，通过指定 types_mapper 转换类型。
+**Solution:** 
+It is recommended to read with function pyarrow.feather.read_table().
+
+**Scenario 2:**
+Use `pyarrow.feather.read_feather()` to read Feather files that contain null integer columns will convert the integer columns to floating point types.
+
+**Solution:**
+It is recommended to read Feather files into the pyarrow table and convert the data type by specifying `types_mapper`.
+
     ```python
     pa_table = feather.read_table("path/to/feather_file")
     df = pa_table.to_pandas(types_mapper={pa.int64(): pd.Int64Dtype()}.get)
