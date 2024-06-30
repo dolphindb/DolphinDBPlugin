@@ -2999,7 +2999,7 @@ ConstantSP loadParquetByFilePtr(ParquetReadOnlyFile *file, Heap *heap, string fi
 		throw RuntimeException("file can't be null");
     TableSP tableWithSchema = DBFileIO::createEmptyTableFromSchema(schema);
     int col_num = column->size();
-    
+
     size_t totalRows = 0;
     for (int row = rowGroupStart; row < rowGroupEnd; row++){
         std::shared_ptr<parquet::RowGroupReader> row_reader = file->rowReader(row);
@@ -3040,7 +3040,7 @@ ConstantSP loadParquetByFilePtr(ParquetReadOnlyFile *file, Heap *heap, string fi
         vector<ConstantSP> partialArgs{fileNameArgs,     batchRowArgs, dolphindbCols,
                                 rowGroupStartArgs, arrowIndexArgs, rowGroupEndArgsArgs};
         FunctionDefSP partialFunction = Util::createPartialFunction(func, partialArgs);
-        int threadCount = readThreadNum == 0 ? col_num : readThreadNum; 
+        int threadCount = readThreadNum == 0 ? col_num : readThreadNum;
         int cutSize = col_num / threadCount;
         if(cutSize * threadCount < col_num) cutSize++;
         vector<ConstantSP> cutArgs{dolphinIndexArgs, new Int(cutSize)};
@@ -3097,7 +3097,7 @@ ConstantSP savePartition(Heap *heap, vector<ConstantSP> &arguments){
     FunctionDefSP append = heap->currentSession()->getFunctionDef("append!");
     vector<ConstantSP> appendArgs = {tb, tbInMemory};
     append->call(heap, appendArgs);
-    return new Void();  
+    return new Void();
 }
 
 ConstantSP loadParquetEx(Heap *heap, const SystemHandleSP &db, const string &tableName, const ConstantSP &partitionColumns,
@@ -3188,7 +3188,8 @@ ConstantSP loadParquetEx(Heap *heap, const SystemHandleSP &db, const string &tab
                 throw IOException("Failed to save table header " + tableFile);
             if (!DBFileIO::saveDatabase(db.get()))
                 throw IOException("Failed to save database " + db->getDatabaseDir());
-            db->getDomain()->addTable(tableName, owner, physicalIndex, cols, partitionColumnIndices);
+            vector<FunctionDefSP> partitionFuncs{};
+            db->getDomain()->addTable(tableName, owner, physicalIndex, cols, partitionColumnIndices, partitionFuncs);
             vector<ConstantSP> loadTableArgs = {db, tableName_};
             return heap->currentSession()->getFunctionDef("loadTable")->call(heap, loadTableArgs);
         }
