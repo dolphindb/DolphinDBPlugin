@@ -1,4 +1,4 @@
-nsq,libPluginNsq.so,2.00.12.5
+nsq,libPluginNsq.so,2.00.13
 nsqConnect,connect,system,1,5,0
 nsqSubscribe,subscribe,system,3,3,0
 nsqUnsubscribe,unsubscribe,system,2,2,0

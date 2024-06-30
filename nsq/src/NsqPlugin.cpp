@@ -52,7 +52,7 @@ ConstantSP nsqConnect(Heap *heap, vector<ConstantSP> &args) {
     string dataVersion = "ORIGIN";
     if (args.size() > 4 && !args[4]->isNull()) {
         dataVersion = getStringScalar(args[4], "dataVersion", __FUNCTION__, usage);
-        if (dataVersion != "ORIGIN" or dataVersion != "v220105") {
+        if (dataVersion != "ORIGIN" && dataVersion != "v220105") {
             throw IllegalArgumentException(__FUNCTION__, usage + "dataVersion must be 'ORIGIN' or 'v220105'.");
         }
     }
