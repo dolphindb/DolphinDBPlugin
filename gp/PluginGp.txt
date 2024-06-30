@@ -1,2 +1,2 @@
-gp,libPluginGp.so,3.00.0
+gp,libPluginGp.so,3.00.1
 gpPlot,plot,system,3,4,0
