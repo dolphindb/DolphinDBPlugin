@@ -495,6 +495,88 @@ class MDSecurityLending : public ::google::protobuf::Message /* @@protoc_inserti
   const ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADEstimatedSecurityLendingEntry >&
       externallends() const;
 
+  // optional string HtscBorrowTerm = 57;
+  void clear_htscborrowterm();
+  static const int kHtscBorrowTermFieldNumber = 57;
+  const ::std::string& htscborrowterm() const;
+  void set_htscborrowterm(const ::std::string& value);
+  void set_htscborrowterm(const char* value);
+  void set_htscborrowterm(const char* value, size_t size);
+  ::std::string* mutable_htscborrowterm();
+  ::std::string* release_htscborrowterm();
+  void set_allocated_htscborrowterm(::std::string* htscborrowterm);
+
+  // optional int64 HtscBorrowOrderAmount = 58;
+  void clear_htscborroworderamount();
+  static const int kHtscBorrowOrderAmountFieldNumber = 58;
+  ::google::protobuf::int64 htscborroworderamount() const;
+  void set_htscborroworderamount(::google::protobuf::int64 value);
+
+  // optional string ValidLendTerm = 59;
+  void clear_validlendterm();
+  static const int kValidLendTermFieldNumber = 59;
+  const ::std::string& validlendterm() const;
+  void set_validlendterm(const ::std::string& value);
+  void set_validlendterm(const char* value);
+  void set_validlendterm(const char* value, size_t size);
+  ::std::string* mutable_validlendterm();
+  ::std::string* release_validlendterm();
+  void set_allocated_validlendterm(::std::string* validlendterm);
+
+  // optional int64 ValidLendOrderAmount = 60;
+  void clear_validlendorderamount();
+  static const int kValidLendOrderAmountFieldNumber = 60;
+  ::google::protobuf::int64 validlendorderamount() const;
+  void set_validlendorderamount(::google::protobuf::int64 value);
+
+  // repeated .com.htsc.mdc.insight.model.ADValidSecurityLendingEntry MarketLoans = 61;
+  int marketloans_size() const;
+  void clear_marketloans();
+  static const int kMarketLoansFieldNumber = 61;
+  const ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry& marketloans(int index) const;
+  ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry* mutable_marketloans(int index);
+  ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry* add_marketloans();
+  ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry >*
+      mutable_marketloans();
+  const ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry >&
+      marketloans() const;
+
+  // repeated .com.htsc.mdc.insight.model.ADValidSecurityLendingEntry MarketLends = 62;
+  int marketlends_size() const;
+  void clear_marketlends();
+  static const int kMarketLendsFieldNumber = 62;
+  const ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry& marketlends(int index) const;
+  ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry* mutable_marketlends(int index);
+  ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry* add_marketlends();
+  ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry >*
+      mutable_marketlends();
+  const ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry >&
+      marketlends() const;
+
+  // optional int64 ValidBorrowAmount = 63;
+  void clear_validborrowamount();
+  static const int kValidBorrowAmountFieldNumber = 63;
+  ::google::protobuf::int64 validborrowamount() const;
+  void set_validborrowamount(::google::protobuf::int64 value);
+
+  // optional int64 LoanAmount = 64;
+  void clear_loanamount();
+  static const int kLoanAmountFieldNumber = 64;
+  ::google::protobuf::int64 loanamount() const;
+  void set_loanamount(::google::protobuf::int64 value);
+
+  // repeated .com.htsc.mdc.insight.model.ADValidSecurityLendingEntry MarketBorrows = 65;
+  int marketborrows_size() const;
+  void clear_marketborrows();
+  static const int kMarketBorrowsFieldNumber = 65;
+  const ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry& marketborrows(int index) const;
+  ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry* mutable_marketborrows(int index);
+  ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry* add_marketborrows();
+  ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry >*
+      mutable_marketborrows();
+  const ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry >&
+      marketborrows() const;
+
   // @@protoc_insertion_point(class_scope:com.htsc.mdc.insight.model.MDSecurityLending)
  private:
 
@@ -514,8 +596,13 @@ class MDSecurityLending : public ::google::protobuf::Message /* @@protoc_inserti
   ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry > htscborrows_;
   ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry > loans_;
   ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADEstimatedSecurityLendingEntry > externallends_;
+  ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry > marketloans_;
+  ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry > marketlends_;
+  ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry > marketborrows_;
   ::google::protobuf::internal::ArenaStringPtr htscsecurityid_;
   ::google::protobuf::internal::ArenaStringPtr tradingphasecode_;
+  ::google::protobuf::internal::ArenaStringPtr htscborrowterm_;
+  ::google::protobuf::internal::ArenaStringPtr validlendterm_;
   ::google::protobuf::int32 mddate_;
   ::google::protobuf::int32 mdtime_;
   ::google::protobuf::int64 datatimestamp_;
@@ -545,6 +632,10 @@ class MDSecurityLending : public ::google::protobuf::Message /* @@protoc_inserti
   ::google::protobuf::int64 htscborrowweightedrate_;
   ::google::protobuf::int64 prehtscborrowtradevolume_;
   ::google::protobuf::int64 prehtscborrowweightedrate_;
+  ::google::protobuf::int64 htscborroworderamount_;
+  ::google::protobuf::int64 validlendorderamount_;
+  ::google::protobuf::int64 validborrowamount_;
+  ::google::protobuf::int64 loanamount_;
   ::google::protobuf::int32 datamultiplepowerof10_;
   mutable int _cached_size_;
   friend void  protobuf_InitDefaults_MDSecurityLending_2eproto_impl();
@@ -1867,6 +1958,240 @@ inline const ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::mo
 MDSecurityLending::externallends() const {
   // @@protoc_insertion_point(field_list:com.htsc.mdc.insight.model.MDSecurityLending.ExternalLends)
   return externallends_;
+}
+
+// optional string HtscBorrowTerm = 57;
+inline void MDSecurityLending::clear_htscborrowterm() {
+  htscborrowterm_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& MDSecurityLending::htscborrowterm() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDSecurityLending.HtscBorrowTerm)
+  return htscborrowterm_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDSecurityLending::set_htscborrowterm(const ::std::string& value) {
+  
+  htscborrowterm_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDSecurityLending.HtscBorrowTerm)
+}
+inline void MDSecurityLending::set_htscborrowterm(const char* value) {
+  
+  htscborrowterm_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDSecurityLending.HtscBorrowTerm)
+}
+inline void MDSecurityLending::set_htscborrowterm(const char* value, size_t size) {
+  
+  htscborrowterm_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDSecurityLending.HtscBorrowTerm)
+}
+inline ::std::string* MDSecurityLending::mutable_htscborrowterm() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDSecurityLending.HtscBorrowTerm)
+  return htscborrowterm_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* MDSecurityLending::release_htscborrowterm() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MDSecurityLending.HtscBorrowTerm)
+  
+  return htscborrowterm_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDSecurityLending::set_allocated_htscborrowterm(::std::string* htscborrowterm) {
+  if (htscborrowterm != NULL) {
+    
+  } else {
+    
+  }
+  htscborrowterm_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), htscborrowterm);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDSecurityLending.HtscBorrowTerm)
+}
+
+// optional int64 HtscBorrowOrderAmount = 58;
+inline void MDSecurityLending::clear_htscborroworderamount() {
+  htscborroworderamount_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 MDSecurityLending::htscborroworderamount() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDSecurityLending.HtscBorrowOrderAmount)
+  return htscborroworderamount_;
+}
+inline void MDSecurityLending::set_htscborroworderamount(::google::protobuf::int64 value) {
+  
+  htscborroworderamount_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDSecurityLending.HtscBorrowOrderAmount)
+}
+
+// optional string ValidLendTerm = 59;
+inline void MDSecurityLending::clear_validlendterm() {
+  validlendterm_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& MDSecurityLending::validlendterm() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDSecurityLending.ValidLendTerm)
+  return validlendterm_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDSecurityLending::set_validlendterm(const ::std::string& value) {
+  
+  validlendterm_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDSecurityLending.ValidLendTerm)
+}
+inline void MDSecurityLending::set_validlendterm(const char* value) {
+  
+  validlendterm_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDSecurityLending.ValidLendTerm)
+}
+inline void MDSecurityLending::set_validlendterm(const char* value, size_t size) {
+  
+  validlendterm_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDSecurityLending.ValidLendTerm)
+}
+inline ::std::string* MDSecurityLending::mutable_validlendterm() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDSecurityLending.ValidLendTerm)
+  return validlendterm_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* MDSecurityLending::release_validlendterm() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MDSecurityLending.ValidLendTerm)
+  
+  return validlendterm_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDSecurityLending::set_allocated_validlendterm(::std::string* validlendterm) {
+  if (validlendterm != NULL) {
+    
+  } else {
+    
+  }
+  validlendterm_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), validlendterm);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDSecurityLending.ValidLendTerm)
+}
+
+// optional int64 ValidLendOrderAmount = 60;
+inline void MDSecurityLending::clear_validlendorderamount() {
+  validlendorderamount_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 MDSecurityLending::validlendorderamount() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDSecurityLending.ValidLendOrderAmount)
+  return validlendorderamount_;
+}
+inline void MDSecurityLending::set_validlendorderamount(::google::protobuf::int64 value) {
+  
+  validlendorderamount_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDSecurityLending.ValidLendOrderAmount)
+}
+
+// repeated .com.htsc.mdc.insight.model.ADValidSecurityLendingEntry MarketLoans = 61;
+inline int MDSecurityLending::marketloans_size() const {
+  return marketloans_.size();
+}
+inline void MDSecurityLending::clear_marketloans() {
+  marketloans_.Clear();
+}
+inline const ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry& MDSecurityLending::marketloans(int index) const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDSecurityLending.MarketLoans)
+  return marketloans_.Get(index);
+}
+inline ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry* MDSecurityLending::mutable_marketloans(int index) {
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDSecurityLending.MarketLoans)
+  return marketloans_.Mutable(index);
+}
+inline ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry* MDSecurityLending::add_marketloans() {
+  // @@protoc_insertion_point(field_add:com.htsc.mdc.insight.model.MDSecurityLending.MarketLoans)
+  return marketloans_.Add();
+}
+inline ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry >*
+MDSecurityLending::mutable_marketloans() {
+  // @@protoc_insertion_point(field_mutable_list:com.htsc.mdc.insight.model.MDSecurityLending.MarketLoans)
+  return &marketloans_;
+}
+inline const ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry >&
+MDSecurityLending::marketloans() const {
+  // @@protoc_insertion_point(field_list:com.htsc.mdc.insight.model.MDSecurityLending.MarketLoans)
+  return marketloans_;
+}
+
+// repeated .com.htsc.mdc.insight.model.ADValidSecurityLendingEntry MarketLends = 62;
+inline int MDSecurityLending::marketlends_size() const {
+  return marketlends_.size();
+}
+inline void MDSecurityLending::clear_marketlends() {
+  marketlends_.Clear();
+}
+inline const ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry& MDSecurityLending::marketlends(int index) const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDSecurityLending.MarketLends)
+  return marketlends_.Get(index);
+}
+inline ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry* MDSecurityLending::mutable_marketlends(int index) {
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDSecurityLending.MarketLends)
+  return marketlends_.Mutable(index);
+}
+inline ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry* MDSecurityLending::add_marketlends() {
+  // @@protoc_insertion_point(field_add:com.htsc.mdc.insight.model.MDSecurityLending.MarketLends)
+  return marketlends_.Add();
+}
+inline ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry >*
+MDSecurityLending::mutable_marketlends() {
+  // @@protoc_insertion_point(field_mutable_list:com.htsc.mdc.insight.model.MDSecurityLending.MarketLends)
+  return &marketlends_;
+}
+inline const ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry >&
+MDSecurityLending::marketlends() const {
+  // @@protoc_insertion_point(field_list:com.htsc.mdc.insight.model.MDSecurityLending.MarketLends)
+  return marketlends_;
+}
+
+// optional int64 ValidBorrowAmount = 63;
+inline void MDSecurityLending::clear_validborrowamount() {
+  validborrowamount_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 MDSecurityLending::validborrowamount() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDSecurityLending.ValidBorrowAmount)
+  return validborrowamount_;
+}
+inline void MDSecurityLending::set_validborrowamount(::google::protobuf::int64 value) {
+  
+  validborrowamount_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDSecurityLending.ValidBorrowAmount)
+}
+
+// optional int64 LoanAmount = 64;
+inline void MDSecurityLending::clear_loanamount() {
+  loanamount_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 MDSecurityLending::loanamount() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDSecurityLending.LoanAmount)
+  return loanamount_;
+}
+inline void MDSecurityLending::set_loanamount(::google::protobuf::int64 value) {
+  
+  loanamount_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDSecurityLending.LoanAmount)
+}
+
+// repeated .com.htsc.mdc.insight.model.ADValidSecurityLendingEntry MarketBorrows = 65;
+inline int MDSecurityLending::marketborrows_size() const {
+  return marketborrows_.size();
+}
+inline void MDSecurityLending::clear_marketborrows() {
+  marketborrows_.Clear();
+}
+inline const ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry& MDSecurityLending::marketborrows(int index) const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDSecurityLending.MarketBorrows)
+  return marketborrows_.Get(index);
+}
+inline ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry* MDSecurityLending::mutable_marketborrows(int index) {
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDSecurityLending.MarketBorrows)
+  return marketborrows_.Mutable(index);
+}
+inline ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry* MDSecurityLending::add_marketborrows() {
+  // @@protoc_insertion_point(field_add:com.htsc.mdc.insight.model.MDSecurityLending.MarketBorrows)
+  return marketborrows_.Add();
+}
+inline ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry >*
+MDSecurityLending::mutable_marketborrows() {
+  // @@protoc_insertion_point(field_mutable_list:com.htsc.mdc.insight.model.MDSecurityLending.MarketBorrows)
+  return &marketborrows_;
+}
+inline const ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADValidSecurityLendingEntry >&
+MDSecurityLending::marketborrows() const {
+  // @@protoc_insertion_point(field_list:com.htsc.mdc.insight.model.MDSecurityLending.MarketBorrows)
+  return marketborrows_;
 }
 
 inline const MDSecurityLending* MDSecurityLending::internal_default_instance() {

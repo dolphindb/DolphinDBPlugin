@@ -40,7 +40,7 @@ void protobuf_AssignDesc_MDFund_2eproto() {
       "MDFund.proto");
   GOOGLE_CHECK(file != NULL);
   MDFund_descriptor_ = file->message_type(0);
-  static const int MDFund_offsets_[82] = {
+  static const int MDFund_offsets_[84] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFund, htscsecurityid_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFund, mddate_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFund, mdtime_),
@@ -123,6 +123,8 @@ void protobuf_AssignDesc_MDFund_2eproto() {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFund, qtyatbestbuyprice_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFund, bestsellprice_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFund, qtyatbestsellprice_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFund, highaccuracyiopv_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFund, highaccuracypreiopv_),
   };
   MDFund_reflection_ =
     ::google::protobuf::internal::GeneratedMessageReflection::NewGeneratedMessageReflection(
@@ -180,7 +182,7 @@ void protobuf_AddDesc_MDFund_2eproto_impl() {
   ::google::protobuf::DescriptorPool::InternalAddGeneratedFile(
     "\n\014MDFund.proto\022\032com.htsc.mdc.insight.mod"
     "el\032\027ESecurityIDSource.proto\032\023ESecurityTy"
-    "pe.proto\"\263\020\n\006MDFund\022\026\n\016HTSCSecurityID\030\001 "
+    "pe.proto\"\352\020\n\006MDFund\022\026\n\016HTSCSecurityID\030\001 "
     "\001(\t\022\016\n\006MDDate\030\002 \001(\005\022\016\n\006MDTime\030\003 \001(\005\022\025\n\rD"
     "ataTimestamp\030\004 \001(\003\022\030\n\020TradingPhaseCode\030\005"
     " \001(\t\022\?\n\020securityIDSource\030\006 \001(\0162%.com.hts"
@@ -232,9 +234,10 @@ void protobuf_AddDesc_MDFund_2eproto_impl() {
     "WeightedAvgPx\030P \001(\003\022\035\n\025PreCloseWeightedA"
     "vgPx\030Q \001(\003\022\024\n\014BestBuyPrice\030R \001(\003\022\031\n\021QtyA"
     "tBestBuyPrice\030S \001(\003\022\025\n\rBestSellPrice\030T \001"
-    "(\003\022\032\n\022QtyAtBestSellPrice\030U \001(\003B/\n\032com.ht"
-    "sc.mdc.insight.modelB\014MDFundProtosH\001\240\001\001b"
-    "\006proto3", 2247);
+    "(\003\022\032\n\022QtyAtBestSellPrice\030U \001(\003\022\030\n\020HighAc"
+    "curacyIOPV\030V \001(\003\022\033\n\023HighAccuracyPreIOPV\030"
+    "W \001(\003B/\n\032com.htsc.mdc.insight.modelB\014MDF"
+    "undProtosH\001\240\001\001b\006proto3", 2302);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "MDFund.proto", &protobuf_RegisterTypes);
   ::com::htsc::mdc::model::protobuf_AddDesc_ESecurityIDSource_2eproto();
@@ -349,6 +352,8 @@ const int MDFund::kBestBuyPriceFieldNumber;
 const int MDFund::kQtyAtBestBuyPriceFieldNumber;
 const int MDFund::kBestSellPriceFieldNumber;
 const int MDFund::kQtyAtBestSellPriceFieldNumber;
+const int MDFund::kHighAccuracyIOPVFieldNumber;
+const int MDFund::kHighAccuracyPreIOPVFieldNumber;
 #endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
 
 MDFund::MDFund()
@@ -374,8 +379,8 @@ void MDFund::SharedCtor() {
   tradingphasecode_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   marketphasecode_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   tradinghaltreason_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-  ::memset(&mddate_, 0, reinterpret_cast<char*>(&qtyatbestsellprice_) -
-    reinterpret_cast<char*>(&mddate_) + sizeof(qtyatbestsellprice_));
+  ::memset(&mddate_, 0, reinterpret_cast<char*>(&highaccuracypreiopv_) -
+    reinterpret_cast<char*>(&mddate_) + sizeof(highaccuracypreiopv_));
   _cached_size_ = 0;
 }
 
@@ -451,7 +456,7 @@ void MDFund::Clear() {
   tradinghaltreason_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   ZR_(otctotalvolumetrade_, qtyatbestbuyprice_);
   datamultiplepowerof10_ = 0;
-  ZR_(bestsellprice_, qtyatbestsellprice_);
+  ZR_(bestsellprice_, highaccuracypreiopv_);
 
 #undef ZR_HELPER_
 #undef ZR_
@@ -1735,6 +1740,36 @@ bool MDFund::MergePartialFromCodedStream(
         } else {
           goto handle_unusual;
         }
+        if (input->ExpectTag(688)) goto parse_HighAccuracyIOPV;
+        break;
+      }
+
+      // optional int64 HighAccuracyIOPV = 86;
+      case 86: {
+        if (tag == 688) {
+         parse_HighAccuracyIOPV:
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &highaccuracyiopv_)));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(696)) goto parse_HighAccuracyPreIOPV;
+        break;
+      }
+
+      // optional int64 HighAccuracyPreIOPV = 87;
+      case 87: {
+        if (tag == 696) {
+         parse_HighAccuracyPreIOPV:
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &highaccuracypreiopv_)));
+        } else {
+          goto handle_unusual;
+        }
         if (input->ExpectAtEnd()) goto success;
         break;
       }
@@ -2233,6 +2268,16 @@ void MDFund::SerializeWithCachedSizes(
   // optional int64 QtyAtBestSellPrice = 85;
   if (this->qtyatbestsellprice() != 0) {
     ::google::protobuf::internal::WireFormatLite::WriteInt64(85, this->qtyatbestsellprice(), output);
+  }
+
+  // optional int64 HighAccuracyIOPV = 86;
+  if (this->highaccuracyiopv() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(86, this->highaccuracyiopv(), output);
+  }
+
+  // optional int64 HighAccuracyPreIOPV = 87;
+  if (this->highaccuracypreiopv() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(87, this->highaccuracypreiopv(), output);
   }
 
   // @@protoc_insertion_point(serialize_end:com.htsc.mdc.insight.model.MDFund)
@@ -2748,6 +2793,16 @@ void MDFund::SerializeWithCachedSizes(
   // optional int64 QtyAtBestSellPrice = 85;
   if (this->qtyatbestsellprice() != 0) {
     target = ::google::protobuf::internal::WireFormatLite::WriteInt64ToArray(85, this->qtyatbestsellprice(), target);
+  }
+
+  // optional int64 HighAccuracyIOPV = 86;
+  if (this->highaccuracyiopv() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt64ToArray(86, this->highaccuracyiopv(), target);
+  }
+
+  // optional int64 HighAccuracyPreIOPV = 87;
+  if (this->highaccuracypreiopv() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt64ToArray(87, this->highaccuracypreiopv(), target);
   }
 
   // @@protoc_insertion_point(serialize_to_array_end:com.htsc.mdc.insight.model.MDFund)
@@ -3274,6 +3329,20 @@ size_t MDFund::ByteSizeLong() const {
         this->qtyatbestsellprice());
   }
 
+  // optional int64 HighAccuracyIOPV = 86;
+  if (this->highaccuracyiopv() != 0) {
+    total_size += 2 +
+      ::google::protobuf::internal::WireFormatLite::Int64Size(
+        this->highaccuracyiopv());
+  }
+
+  // optional int64 HighAccuracyPreIOPV = 87;
+  if (this->highaccuracypreiopv() != 0) {
+    total_size += 2 +
+      ::google::protobuf::internal::WireFormatLite::Int64Size(
+        this->highaccuracypreiopv());
+  }
+
   // repeated int64 BuyPriceQueue = 51 [packed = true];
   {
     size_t data_size = 0;
@@ -3693,6 +3762,12 @@ void MDFund::UnsafeMergeFrom(const MDFund& from) {
   if (from.qtyatbestsellprice() != 0) {
     set_qtyatbestsellprice(from.qtyatbestsellprice());
   }
+  if (from.highaccuracyiopv() != 0) {
+    set_highaccuracyiopv(from.highaccuracyiopv());
+  }
+  if (from.highaccuracypreiopv() != 0) {
+    set_highaccuracypreiopv(from.highaccuracypreiopv());
+  }
 }
 
 void MDFund::CopyFrom(const ::google::protobuf::Message& from) {
@@ -3801,6 +3876,8 @@ void MDFund::InternalSwap(MDFund* other) {
   std::swap(qtyatbestbuyprice_, other->qtyatbestbuyprice_);
   std::swap(bestsellprice_, other->bestsellprice_);
   std::swap(qtyatbestsellprice_, other->qtyatbestsellprice_);
+  std::swap(highaccuracyiopv_, other->highaccuracyiopv_);
+  std::swap(highaccuracypreiopv_, other->highaccuracypreiopv_);
   _internal_metadata_.Swap(&other->_internal_metadata_);
   std::swap(_cached_size_, other->_cached_size_);
 }
@@ -5210,6 +5287,34 @@ void MDFund::set_qtyatbestsellprice(::google::protobuf::int64 value) {
   
   qtyatbestsellprice_ = value;
   // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFund.QtyAtBestSellPrice)
+}
+
+// optional int64 HighAccuracyIOPV = 86;
+void MDFund::clear_highaccuracyiopv() {
+  highaccuracyiopv_ = GOOGLE_LONGLONG(0);
+}
+::google::protobuf::int64 MDFund::highaccuracyiopv() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDFund.HighAccuracyIOPV)
+  return highaccuracyiopv_;
+}
+void MDFund::set_highaccuracyiopv(::google::protobuf::int64 value) {
+  
+  highaccuracyiopv_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFund.HighAccuracyIOPV)
+}
+
+// optional int64 HighAccuracyPreIOPV = 87;
+void MDFund::clear_highaccuracypreiopv() {
+  highaccuracypreiopv_ = GOOGLE_LONGLONG(0);
+}
+::google::protobuf::int64 MDFund::highaccuracypreiopv() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDFund.HighAccuracyPreIOPV)
+  return highaccuracypreiopv_;
+}
+void MDFund::set_highaccuracypreiopv(::google::protobuf::int64 value) {
+  
+  highaccuracypreiopv_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFund.HighAccuracyPreIOPV)
 }
 
 inline const MDFund* MDFund::internal_default_instance() {

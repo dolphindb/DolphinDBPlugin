@@ -2,6 +2,8 @@ cmake_minimum_required (VERSION 2.8)
 
 project (dolphindb_insight_plugin)
 
+# set(CMAKE_SKIP_RPATH TRUE)
+
 set(CMAKE_CXX_COMPILER g++)
 add_compile_options(-std=c++11 -DLINUX -D_GLIBCXX_USE_CXX11_ABI=0 -Wall -fPIC -Wl,--no-as-needed)
 
@@ -47,7 +49,7 @@ add_library(PluginInsight SHARED ${DIR_LIB_SRCS})
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build)
 target_link_libraries(PluginInsight
     #dl
-    DolphinDB
+    # DolphinDB
     #pthread
     #ssl
     #crypto

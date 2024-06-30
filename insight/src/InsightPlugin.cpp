@@ -1,8 +1,10 @@
 #include "InsightPlugin.h"
 
 #include <exception>
+#include <iostream>
 #include <memory>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -17,8 +19,6 @@
 #include "ddbplugin/Plugin.h"
 #include "mdc_client_factory.h"
 #include "parameter_define.h"
-#include <iostream>
-#include <thread>
 
 using namespace std;
 using namespace com::htsc::mdc::gateway;
@@ -32,27 +32,37 @@ const unordered_map<string, EMarketDataType> MARKET_DATA_TYPE_MAP = {
     {"MD_TICK", MD_TICK},
     {"MD_TRANSACTION", MD_TRANSACTION},
     {"MD_ORDER", MD_ORDER},
+    {"MD_SECURITY_LENDING", MD_SECURITY_LENDING}
 };
 
 const unordered_map<string, ESecurityIDSource> SECURITY_ID_SOURCE_MAP = {
-    {"XSHE", XSHE}, {"XSHG", XSHG}, {"CCFX", CCFX}, {"CSI", CSI}};
+    {"XSHE", XSHE}, {"XSHG", XSHG}, {"CCFX", CCFX}, {"CSI", CSI},
+    {"XBSE", XBSE}, {"XDCE", XDCE}, {"XSGE", XSGE}, {"NEEQ", NEEQ},
+    {"XZCE", XZCE}, {"HKSC", HKSC}, {"HGHQ", HGHQ}, {"CNI", CNI},
+    {"HTSM", HTSM}, {"HTIS", HTIS}
+    };
 
 const unordered_map<string, ESecurityType> SECURITY_TYPE_MAP = {
     {"StockType", StockType}, {"FundType", FundType},       {"BondType", BondType},
-    {"IndexType", IndexType}, {"FuturesType", FuturesType},
+    {"IndexType", IndexType}, {"FuturesType", FuturesType}, {"OptionType", OptionType},
 };
 
+static const unordered_set<string> TYPE_SET{"Transaction", "Order",       "StockTransaction", "StockOrder",
+                                            "FundTick",    "BondTick",    "OptionTick",       "StockTick",
+                                            "IndexTick",   "FuturesTick", "OrderTransaction", "SecurityLending"};
+
 static const unordered_set<string> OPTION_SET = {"ReceivedTime", "OutputElapsed"};
+static const unordered_set<string> DATA_VERSION_SET = {"3.2.8", "3.2.11"};
+
 static const string INSIGHT_KEY_NAME = "Insight_handle";
 static MarketTypeContainer TYPE_CONTAINER;
-static bool TYPE_CONTAINER_INIT_FLAG = false;
 static dolphindb::BackgroundResourceMap<TcpClient> INSIGHT_HANDLE_MAP(PLUGIN_INSIGHT_PREFIX, "Insight_client");
 
 class TcpClient {
   public:
     TcpClient(Heap *heap, DictionarySP handles, int workPoolThreadCount, const string &ip, int port,
-              const string &user_name, const string &password, bool ignoreApplSeq, bool receivedTime,
-              bool outputElapsed, string certDirPath) {
+              const string &user_name, const string &password, int seqCheckMode, bool receivedTime,
+              bool outputElapsed, const string &certDirPath, const string &dataVersion, const vector<string> &backupList) {
         LockGuard<Mutex> _(&mutex_);
         try {
             if (login_) {
@@ -77,11 +87,16 @@ class TcpClient {
             }
             SessionSP session = heap->currentSession()->copy();
             session->setUser(heap->currentSession()->getUser());
-            insightHandle_ = new InsightHandle(session, handles, ignoreApplSeq, receivedTime, outputElapsed);
+            insightHandle_ = new InsightHandle(session, handles, seqCheckMode, receivedTime, outputElapsed, dataVersion);
             clientInterface_->set_handle_pool_thread_count(workPoolThreadCount);
             clientInterface_->RegistHandle(insightHandle_.get());
 
-            int result = clientInterface_->LoginByServiceDiscovery(ip, port, user_name, password, false);
+            int result;
+            if (backupList.empty()) {
+                result = clientInterface_->LoginByServiceDiscovery(ip, port, user_name, password, false);
+            } else {
+                result = clientInterface_->LoginByServiceDiscovery(ip, port, user_name, password, false, backupList);
+            }
             if (result != 0) {
                 throw RuntimeException(get_error_code_value(result));
             }
@@ -224,8 +239,6 @@ Mutex TcpClient::TCP_CLIENT_LOCK;
 static void tcpOnClose(Heap *heap, vector<ConstantSP> &arguments) {
     INSIGHT_HANDLE_MAP.safeRemoveWithoutException(arguments[0]);
 }
-static const unordered_set<string> TYPE_SET{"Transaction", "Order",     "StockTransaction", "StockOrder",
-                                            "StockTick",   "IndexTick", "FuturesTick",      "OrderTransaction"};
 static void registHandleArgumentValidation(vector<ConstantSP> &arguments, DictionarySP &handles,
                                            int &workPoolThreadCount, const string &usage) {
     if (arguments[0]->getForm() != DF_DICTIONARY)
@@ -242,6 +255,7 @@ static void registHandleArgumentValidation(vector<ConstantSP> &arguments, Dictio
             throw IllegalArgumentException(__FUNCTION__,
                                            usage +
                                                "key of handles must be one of 'StockTick', 'IndexTick', "
+                                               "'FundTick', 'BondTick', 'OptionTick', "
                                                "'FuturesTick', 'OrderTransaction', 'Transaction' and 'Order'");
         }
     }
@@ -275,7 +289,7 @@ void retrieveOption(ConstantSP option, const string &usage, bool &receivedTime, 
                                            usage + "key of options must be 'ReceivedTime' or 'OutputElapsed'");
     }
     ConstantSP value = options->getMember("ReceivedTime");
-    if (!value.isNull() && !value->isNull()) {
+    if (!value->isNull()) {
         if (value->getType() != DT_BOOL || value->getForm() != DF_SCALAR) {
             throw IllegalArgumentException(
                 "insight::connect", usage + "value type of key 'ReceivedTime' in options must be boolean scalar");
@@ -283,7 +297,7 @@ void retrieveOption(ConstantSP option, const string &usage, bool &receivedTime, 
         receivedTime = value->getBool();
     }
     value = options->getMember("OutputElapsed");
-    if (!value.isNull() && !value->isNull()) {
+    if (!value->isNull()) {
         if (value->getType() != DT_BOOL || value->getForm() != DF_SCALAR) {
             throw IllegalArgumentException(
                 "insight::connect", usage + "value type of key 'OutputElapsed' in options must be boolean scalar");
@@ -295,7 +309,7 @@ void retrieveOption(ConstantSP option, const string &usage, bool &receivedTime, 
 ConstantSP connectInsight(Heap *heap, vector<ConstantSP> &arguments) {
     string usage =
         "insight::connect(handles, ip, port, user, password, [workPoolThreadCount=5], [options], "
-        "[ignoreApplSeq=false], [certDirPath]) ";
+        "[seqCheckMode=1], [certDirPath], [dataVersion='3.2.8'], [backupList]) ";
     LockGuard<Mutex> lock(&TcpClient::TCP_CLIENT_LOCK);
 
     DictionarySP handles;
@@ -326,35 +340,103 @@ ConstantSP connectInsight(Heap *heap, vector<ConstantSP> &arguments) {
     if (arguments.size() > 6 && !arguments[6]->isNull()) {
         retrieveOption(arguments[6], usage, receivedTime, outputElapsed);
     }
-    bool ignoreApplSeq = false;
+    int seqCheckMode = 1;
     if (arguments.size() > 7 && !arguments[7]->isNull()) {
-        if (arguments[7]->getType() != DT_BOOL || arguments[7]->getForm() != DF_SCALAR) {
-            throw IllegalArgumentException("insight::connect", usage + "ignoreApplSeq must be boolean scalar");
+        if (arguments[7]->getForm() != DF_SCALAR) {
+            throw IllegalArgumentException("insight::connect", usage + "seqCheckMode must be int or string scalar");
         }
-        ignoreApplSeq = arguments[7]->getBool();
+        if (arguments[7]->getType() == DT_BOOL || arguments[7]->getCategory() == INTEGRAL) {
+            seqCheckMode = arguments[7]->getLong();
+            if (seqCheckMode < 0 || seqCheckMode > 2) {
+                throw IllegalArgumentException("insight::connect", usage + "if seqCheckMode is int scalar, it must be 0, 1 or 2");
+            }
+        } else if (arguments[7]->getType() == DT_STRING) {
+            string modeStr = arguments[7]->getString();
+            if (modeStr == "check") {
+                seqCheckMode = 0;
+            } else if (modeStr == "ignoreWithLog") {
+                seqCheckMode = 1;
+            } else if (modeStr == "ignore") {
+                seqCheckMode = 2;
+            } else {
+                throw IllegalArgumentException("insight::connect", usage + "if seqCheckMode is string scalar, it must be 'check', 'ignoreWithLog' or 'ignore'");
+            }
+        } else {
+            throw IllegalArgumentException("insight::connect", usage + "seqCheckMode must be int or string scalar");
+        }
     }
     string certDirPath;
-    if (arguments.size() > 8) {
+    if (arguments.size() > 8 && !arguments[8]->isNull()) {
         if (arguments[8]->getType() != DT_STRING || arguments[8]->getForm() != DF_SCALAR) {
             throw IllegalArgumentException("insight::connect", usage + "certDirPath must be string scalar");
         }
         certDirPath = arguments[8]->getString();
-        if (!Util::existsDir(certDirPath)) {
-            throw IllegalArgumentException("insight::connect", usage + "certDirPath \"" + certDirPath + "\" doesn't exist.");
-        }
-    } else {
-        vector<ConstantSP> getHomeDirArgs{};
-        string homeDir = heap->currentSession()->getFunctionDef("getHomeDir")->call(heap, getHomeDirArgs)->getString();
-        string certInServer = homeDir + "/cert";
+    }
+    if (certDirPath == "") {
+        string certInServer = Util::EXEC_DIR + "/cert";
         vector<ConstantSP> getConfigArgs{new String("pluginDir")};
         string pluginDir = heap->currentSession()->getFunctionDef("getConfig")->call(heap, getConfigArgs)->getString();
+
+        if(!Util::isAbosultePath(pluginDir)){
+            if(Util::existsDir(Util::HOME_DIR + "/" + pluginDir))
+                pluginDir = Util::HOME_DIR + "/" + pluginDir;
+            else if(Util::existsDir(Util::WORKING_DIR + "/" + pluginDir))
+                pluginDir = Util::WORKING_DIR + "/" + pluginDir;
+            else if(Util::existsDir(Util::EXEC_DIR + "/" + pluginDir))
+                pluginDir = Util::EXEC_DIR + "/" + pluginDir;
+            else
+                pluginDir = Util::HOME_DIR + "/" + pluginDir;
+        }
+
         string certInPlugins = pluginDir + "/insight/cert";
         if (Util::existsDir(certInServer)) {
             certDirPath = certInServer;
         } else if (Util::existsDir(certInPlugins)) {
             certDirPath = certInPlugins;
         } else {
-            throw IllegalArgumentException("insight::connect", usage + "insight cert directory not found, certDirPath is required.");
+            throw IllegalArgumentException("insight::connect",
+                                           usage + "insight cert directory not found, certDirPath is required.");
+        }
+    } else {
+        if (!Util::existsDir(certDirPath)) {
+            throw IllegalArgumentException("insight::connect",
+                                           usage + "certDirPath \"" + certDirPath + "\" doesn't exist.");
+        }
+
+        string errMsg;
+        vector<FileAttributes> files;
+        if (Util::getDirectoryContent(certDirPath, files, errMsg)) {
+            bool noPerm = true;
+            for (auto &file: files) {
+                if (file.name.find(".pem") != std::string::npos) {
+                    noPerm = false;
+                }
+            }
+            if (noPerm) {
+                throw IllegalArgumentException("insight::connect",
+                                               usage + "cannot find .pem file in [" + certDirPath + "]");
+            }
+        } else {
+            throw IllegalArgumentException("insight::connect", usage + errMsg);
+        }
+    }
+    string dataVersion = "3.2.8";
+    if (arguments.size() > 9 && !arguments[9]->isNull()) {
+        if(arguments[9]->getType() != DT_STRING || arguments[9]->getForm() != DF_SCALAR) {
+            throw IllegalArgumentException("insight::getSchema", usage + "dataVersion must be a string scalar.");
+        }
+        dataVersion = arguments[9]->getString();
+        if (DATA_VERSION_SET.find(dataVersion) == DATA_VERSION_SET.end()) {
+            throw IllegalArgumentException("insight::connect", usage + "dataVersion must be '3.2.8' or '3.2.11'.");
+        }
+    }
+    vector<string> backupList;
+    if (arguments.size() > 10 && !arguments[10]->isNull()) {
+        if(arguments[10]->getType() != DT_STRING || arguments[10]->getForm() != DF_VECTOR) {
+            throw IllegalArgumentException("insight::getSchema", usage + "backupList must be a string vector.");
+        }
+        for (int i = 0; i < arguments[10]->size(); i++) {
+            backupList.emplace_back(arguments[10]->get(i)->getString());
         }
     }
 
@@ -365,7 +447,7 @@ ConstantSP connectInsight(Heap *heap, vector<ConstantSP> &arguments) {
     }
 
     SmartPointer<TcpClient> client = new TcpClient(heap, handles, workPoolThreadCount, ip, port, user, password,
-                                                   ignoreApplSeq, receivedTime, outputElapsed, certDirPath);
+                                                   seqCheckMode, receivedTime, outputElapsed, certDirPath, dataVersion, backupList);
 
     FunctionDefSP onClose(Util::createSystemProcedure("tcpClient onClose()", tcpOnClose, 1, 1));
     ConstantSP ret = Util::createResource(reinterpret_cast<long long>(client.get()), "Insight_client", onClose,
@@ -375,7 +457,7 @@ ConstantSP connectInsight(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 void subscribe(Heap *heap, vector<ConstantSP> &arguments) {
-    string usage = "insight::subscribe(tcpClient, marketDataTypes, securityIDSource, securityType)";
+    string usage = "insight::subscribe(tcpClient, marketDataTypes, securityIDSource, securityType) ";
     LockGuard<Mutex> lock(&TcpClient::TCP_CLIENT_LOCK);
     TcpClientSP client = INSIGHT_HANDLE_MAP.safeGet(arguments[0]);
 
@@ -409,24 +491,31 @@ void closeInsight(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP getSchema(Heap *heap, vector<ConstantSP> &arguments) {
-    string usage = "insight::getSchema(type, [options])";
-    if (!TYPE_CONTAINER_INIT_FLAG) {
-        initTypeContainer(TYPE_CONTAINER);
-        TYPE_CONTAINER_INIT_FLAG = true;
-    }
+    string usage = "insight::getSchema(type, [options], [dataVersion='3.2.8']) ";
     LockGuard<Mutex> lock(&TcpClient::TCP_CLIENT_LOCK);
     if (arguments[0]->getType() != DT_STRING) {
         throw IllegalArgumentException(__FUNCTION__, usage + "type must be a string");
     }
     bool receivedTime = true;
     bool outputElapsed = false;
-    if (arguments.size() > 1) {
+    if (arguments.size() > 1 && !arguments[1]->isNull()) {
         retrieveOption(arguments[1], usage, receivedTime, outputElapsed);
     }
     string type = arguments[0]->getString();
     if (TYPE_SET.find(type) == TYPE_SET.end()) {
         throw IllegalArgumentException(__FUNCTION__, usage + "unknown schema type " + type);
     }
+    string dataVersion = "3.2.8";
+    if (arguments.size() > 2 && !arguments[2]->isNull()) {
+        if(arguments[2]->getType() != DT_STRING || arguments[2]->getForm() != DF_SCALAR) {
+            throw IllegalArgumentException("insight::getSchema", usage + "dataVersion must be a string scalar.");
+        }
+        dataVersion = arguments[2]->getString();
+        if (DATA_VERSION_SET.find(dataVersion) == DATA_VERSION_SET.end()) {
+            throw IllegalArgumentException("insight::connect", usage + "dataVersion must be '3.2.8' or '3.2.11'.");
+        }
+    }
+    initTypeContainer(TYPE_CONTAINER, dataVersion);
     string queryType;
     if (type == "StockTransaction" || type == "Transaction") {
         queryType = "Transaction";

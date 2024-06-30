@@ -31,6 +31,9 @@ const ::google::protobuf::internal::GeneratedMessageReflection*
 const ::google::protobuf::Descriptor* MDCashBondQuote_descriptor_ = NULL;
 const ::google::protobuf::internal::GeneratedMessageReflection*
   MDCashBondQuote_reflection_ = NULL;
+const ::google::protobuf::Descriptor* MDFxBestQuote_descriptor_ = NULL;
+const ::google::protobuf::internal::GeneratedMessageReflection*
+  MDFxBestQuote_reflection_ = NULL;
 
 }  // namespace
 
@@ -43,7 +46,7 @@ void protobuf_AssignDesc_MDQuote_2eproto() {
       "MDQuote.proto");
   GOOGLE_CHECK(file != NULL);
   MDQuote_descriptor_ = file->message_type(0);
-  static const int MDQuote_offsets_[19] = {
+  static const int MDQuote_offsets_[21] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDQuote, htscsecurityid_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDQuote, mddate_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDQuote, mdtime_),
@@ -63,6 +66,8 @@ void protobuf_AssignDesc_MDQuote_2eproto() {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDQuote, mdsubbooktype_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDQuote, mdcashbondquotes_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDQuote, datamultiplepowerof10_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDQuote, volatilitysurface_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDQuote, mdfxbestquotes_),
   };
   MDQuote_reflection_ =
     ::google::protobuf::internal::GeneratedMessageReflection::NewGeneratedMessageReflection(
@@ -75,7 +80,7 @@ void protobuf_AssignDesc_MDQuote_2eproto() {
       sizeof(MDQuote),
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDQuote, _internal_metadata_));
   MDCashBondQuote_descriptor_ = file->message_type(1);
-  static const int MDCashBondQuote_offsets_[19] = {
+  static const int MDCashBondQuote_offsets_[20] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDCashBondQuote, quotetype_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDCashBondQuote, side_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDCashBondQuote, pricelevel_),
@@ -95,6 +100,7 @@ void protobuf_AssignDesc_MDQuote_2eproto() {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDCashBondQuote, maturityyield_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDCashBondQuote, deliverytype_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDCashBondQuote, traderaccountid_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDCashBondQuote, datatype_),
   };
   MDCashBondQuote_reflection_ =
     ::google::protobuf::internal::GeneratedMessageReflection::NewGeneratedMessageReflection(
@@ -106,6 +112,26 @@ void protobuf_AssignDesc_MDQuote_2eproto() {
       -1,
       sizeof(MDCashBondQuote),
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDCashBondQuote, _internal_metadata_));
+  MDFxBestQuote_descriptor_ = file->message_type(2);
+  static const int MDFxBestQuote_offsets_[7] = {
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFxBestQuote, side_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFxBestQuote, price_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFxBestQuote, tenor_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFxBestQuote, date_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFxBestQuote, time_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFxBestQuote, liquidproviders_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFxBestQuote, legsign_),
+  };
+  MDFxBestQuote_reflection_ =
+    ::google::protobuf::internal::GeneratedMessageReflection::NewGeneratedMessageReflection(
+      MDFxBestQuote_descriptor_,
+      MDFxBestQuote::internal_default_instance(),
+      MDFxBestQuote_offsets_,
+      -1,
+      -1,
+      -1,
+      sizeof(MDFxBestQuote),
+      GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFxBestQuote, _internal_metadata_));
 }
 
 namespace {
@@ -123,6 +149,8 @@ void protobuf_RegisterTypes(const ::std::string&) {
       MDQuote_descriptor_, MDQuote::internal_default_instance());
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedMessage(
       MDCashBondQuote_descriptor_, MDCashBondQuote::internal_default_instance());
+  ::google::protobuf::MessageFactory::InternalRegisterGeneratedMessage(
+      MDFxBestQuote_descriptor_, MDFxBestQuote::internal_default_instance());
 }
 
 }  // namespace
@@ -132,6 +160,8 @@ void protobuf_ShutdownFile_MDQuote_2eproto() {
   delete MDQuote_reflection_;
   MDCashBondQuote_default_instance_.Shutdown();
   delete MDCashBondQuote_reflection_;
+  MDFxBestQuote_default_instance_.Shutdown();
+  delete MDFxBestQuote_reflection_;
 }
 
 void protobuf_InitDefaults_MDQuote_2eproto_impl() {
@@ -143,8 +173,11 @@ void protobuf_InitDefaults_MDQuote_2eproto_impl() {
   MDQuote_default_instance_.DefaultConstruct();
   ::google::protobuf::internal::GetEmptyString();
   MDCashBondQuote_default_instance_.DefaultConstruct();
+  ::google::protobuf::internal::GetEmptyString();
+  MDFxBestQuote_default_instance_.DefaultConstruct();
   MDQuote_default_instance_.get_mutable()->InitAsDefaultInstance();
   MDCashBondQuote_default_instance_.get_mutable()->InitAsDefaultInstance();
+  MDFxBestQuote_default_instance_.get_mutable()->InitAsDefaultInstance();
 }
 
 GOOGLE_PROTOBUF_DECLARE_ONCE(protobuf_InitDefaults_MDQuote_2eproto_once_);
@@ -159,7 +192,7 @@ void protobuf_AddDesc_MDQuote_2eproto_impl() {
   ::google::protobuf::DescriptorPool::InternalAddGeneratedFile(
     "\n\rMDQuote.proto\022\032com.htsc.mdc.insight.mo"
     "del\032\027ESecurityIDSource.proto\032\023ESecurityT"
-    "ype.proto\"\234\004\n\007MDQuote\022\026\n\016HTSCSecurityID\030"
+    "ype.proto\"\372\004\n\007MDQuote\022\026\n\016HTSCSecurityID\030"
     "\001 \001(\t\022\016\n\006MDDate\030\002 \001(\005\022\016\n\006MDTime\030\003 \001(\005\022\025\n"
     "\rDataTimestamp\030\004 \001(\003\022\030\n\020TradingPhaseCode"
     "\030\005 \001(\t\022\?\n\020securityIDSource\030\006 \001(\0162%.com.h"
@@ -172,19 +205,25 @@ void protobuf_AddDesc_MDQuote_2eproto_impl() {
     "\030\017 \001(\t\022\023\n\013MarketDepth\030\020 \001(\005\022\025\n\rMDSubBook"
     "Type\030\021 \001(\005\022E\n\020MDCashBondQuotes\030\022 \003(\0132+.c"
     "om.htsc.mdc.insight.model.MDCashBondQuot"
-    "e\022\035\n\025DataMultiplePowerOf10\030\023 \001(\005\"\230\003\n\017MDC"
-    "ashBondQuote\022\021\n\tQuoteType\030\001 \001(\005\022\014\n\004Side\030"
-    "\002 \001(\005\022\022\n\nPriceLevel\030\003 \001(\005\022\017\n\007QuoteID\030\004 \001"
-    "(\t\022\021\n\tQuoteDate\030\005 \001(\005\022\021\n\tQuoteTime\030\006 \001(\005"
-    "\022\022\n\nCleanPrice\030\007 \001(\003\022\022\n\nDirtyPrice\030\010 \001(\003"
-    "\022\026\n\016TotalFaceValue\030\t \001(\003\022\026\n\016ClearingMeth"
-    "od\030\n \001(\005\022\021\n\tSettlType\030\013 \001(\t\022\021\n\tSettlDate"
-    "\030\014 \001(\005\022\025\n\rSettlCurrency\030\r \001(\t\022\027\n\017SettlCu"
-    "rrFxRate\030\016 \001(\003\022\021\n\tPartyRole\030\017 \001(\005\022\022\n\nTra"
-    "derCode\030\020 \001(\t\022\025\n\rMaturityYield\030\021 \001(\003\022\024\n\014"
-    "DeliveryType\030\022 \001(\005\022\027\n\017TraderAccountID\030\023 "
-    "\001(\tB0\n\032com.htsc.mdc.insight.modelB\rMDQuo"
-    "teProtosH\001\240\001\001b\006proto3", 1101);
+    "e\022\035\n\025DataMultiplePowerOf10\030\023 \001(\005\022\031\n\021Vola"
+    "tilitySurface\030\024 \001(\t\022A\n\016MDFxBestQuotes\030\025 "
+    "\003(\0132).com.htsc.mdc.insight.model.MDFxBes"
+    "tQuote\"\252\003\n\017MDCashBondQuote\022\021\n\tQuoteType\030"
+    "\001 \001(\005\022\014\n\004Side\030\002 \001(\005\022\022\n\nPriceLevel\030\003 \001(\005\022"
+    "\017\n\007QuoteID\030\004 \001(\t\022\021\n\tQuoteDate\030\005 \001(\005\022\021\n\tQ"
+    "uoteTime\030\006 \001(\005\022\022\n\nCleanPrice\030\007 \001(\003\022\022\n\nDi"
+    "rtyPrice\030\010 \001(\003\022\026\n\016TotalFaceValue\030\t \001(\003\022\026"
+    "\n\016ClearingMethod\030\n \001(\005\022\021\n\tSettlType\030\013 \001("
+    "\t\022\021\n\tSettlDate\030\014 \001(\005\022\025\n\rSettlCurrency\030\r "
+    "\001(\t\022\027\n\017SettlCurrFxRate\030\016 \001(\003\022\021\n\tPartyRol"
+    "e\030\017 \001(\005\022\022\n\nTraderCode\030\020 \001(\t\022\025\n\rMaturityY"
+    "ield\030\021 \001(\003\022\024\n\014DeliveryType\030\022 \001(\005\022\027\n\017Trad"
+    "erAccountID\030\023 \001(\t\022\020\n\010DataType\030\024 \001(\005\"\201\001\n\r"
+    "MDFxBestQuote\022\014\n\004Side\030\001 \001(\005\022\r\n\005Price\030\002 \001"
+    "(\003\022\r\n\005Tenor\030\003 \001(\t\022\014\n\004Date\030\004 \001(\t\022\014\n\004Time\030"
+    "\005 \001(\t\022\027\n\017LiquidProviders\030\006 \003(\t\022\017\n\007LegSig"
+    "n\030\007 \001(\tB0\n\032com.htsc.mdc.insight.modelB\rM"
+    "DQuoteProtosH\001\240\001\001b\006proto3", 1345);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "MDQuote.proto", &protobuf_RegisterTypes);
   ::com::htsc::mdc::model::protobuf_AddDesc_ESecurityIDSource_2eproto();
@@ -236,6 +275,8 @@ const int MDQuote::kMarketDepthFieldNumber;
 const int MDQuote::kMDSubBookTypeFieldNumber;
 const int MDQuote::kMDCashBondQuotesFieldNumber;
 const int MDQuote::kDataMultiplePowerOf10FieldNumber;
+const int MDQuote::kVolatilitySurfaceFieldNumber;
+const int MDQuote::kMDFxBestQuotesFieldNumber;
 #endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
 
 MDQuote::MDQuote()
@@ -260,6 +301,7 @@ void MDQuote::SharedCtor() {
   htscsecurityid_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   tradingphasecode_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   marketindicator_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  volatilitysurface_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   ::memset(&mddate_, 0, reinterpret_cast<char*>(&datamultiplepowerof10_) -
     reinterpret_cast<char*>(&mddate_) + sizeof(datamultiplepowerof10_));
   _cached_size_ = 0;
@@ -274,6 +316,7 @@ void MDQuote::SharedDtor() {
   htscsecurityid_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   tradingphasecode_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   marketindicator_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  volatilitysurface_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
 }
 
 void MDQuote::SetCachedSize(int size) const {
@@ -325,11 +368,13 @@ void MDQuote::Clear() {
   ZR_(exchangetime_, marketdepth_);
   marketindicator_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   ZR_(mdsubbooktype_, datamultiplepowerof10_);
+  volatilitysurface_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
 
 #undef ZR_HELPER_
 #undef ZR_
 
   mdcashbondquotes_.Clear();
+  mdfxbestquotes_.Clear();
 }
 
 bool MDQuote::MergePartialFromCodedStream(
@@ -632,6 +677,40 @@ bool MDQuote::MergePartialFromCodedStream(
         } else {
           goto handle_unusual;
         }
+        if (input->ExpectTag(162)) goto parse_VolatilitySurface;
+        break;
+      }
+
+      // optional string VolatilitySurface = 20;
+      case 20: {
+        if (tag == 162) {
+         parse_VolatilitySurface:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_volatilitysurface()));
+          DO_(::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+            this->volatilitysurface().data(), this->volatilitysurface().length(),
+            ::google::protobuf::internal::WireFormatLite::PARSE,
+            "com.htsc.mdc.insight.model.MDQuote.VolatilitySurface"));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(170)) goto parse_MDFxBestQuotes;
+        break;
+      }
+
+      // repeated .com.htsc.mdc.insight.model.MDFxBestQuote MDFxBestQuotes = 21;
+      case 21: {
+        if (tag == 170) {
+         parse_MDFxBestQuotes:
+          DO_(input->IncrementRecursionDepth());
+         parse_loop_MDFxBestQuotes:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtualNoRecursionDepth(
+                input, add_mdfxbestquotes()));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(170)) goto parse_loop_MDFxBestQuotes;
+        input->UnsafeDecrementRecursionDepth();
         if (input->ExpectAtEnd()) goto success;
         break;
       }
@@ -773,6 +852,22 @@ void MDQuote::SerializeWithCachedSizes(
     ::google::protobuf::internal::WireFormatLite::WriteInt32(19, this->datamultiplepowerof10(), output);
   }
 
+  // optional string VolatilitySurface = 20;
+  if (this->volatilitysurface().size() > 0) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->volatilitysurface().data(), this->volatilitysurface().length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.MDQuote.VolatilitySurface");
+    ::google::protobuf::internal::WireFormatLite::WriteStringMaybeAliased(
+      20, this->volatilitysurface(), output);
+  }
+
+  // repeated .com.htsc.mdc.insight.model.MDFxBestQuote MDFxBestQuotes = 21;
+  for (unsigned int i = 0, n = this->mdfxbestquotes_size(); i < n; i++) {
+    ::google::protobuf::internal::WireFormatLite::WriteMessageMaybeToArray(
+      21, this->mdfxbestquotes(i), output);
+  }
+
   // @@protoc_insertion_point(serialize_end:com.htsc.mdc.insight.model.MDQuote)
 }
 
@@ -895,6 +990,24 @@ void MDQuote::SerializeWithCachedSizes(
   // optional int32 DataMultiplePowerOf10 = 19;
   if (this->datamultiplepowerof10() != 0) {
     target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(19, this->datamultiplepowerof10(), target);
+  }
+
+  // optional string VolatilitySurface = 20;
+  if (this->volatilitysurface().size() > 0) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->volatilitysurface().data(), this->volatilitysurface().length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.MDQuote.VolatilitySurface");
+    target =
+      ::google::protobuf::internal::WireFormatLite::WriteStringToArray(
+        20, this->volatilitysurface(), target);
+  }
+
+  // repeated .com.htsc.mdc.insight.model.MDFxBestQuote MDFxBestQuotes = 21;
+  for (unsigned int i = 0, n = this->mdfxbestquotes_size(); i < n; i++) {
+    target = ::google::protobuf::internal::WireFormatLite::
+      InternalWriteMessageNoVirtualToArray(
+        21, this->mdfxbestquotes(i), false, target);
   }
 
   // @@protoc_insertion_point(serialize_to_array_end:com.htsc.mdc.insight.model.MDQuote)
@@ -1029,6 +1142,13 @@ size_t MDQuote::ByteSizeLong() const {
         this->datamultiplepowerof10());
   }
 
+  // optional string VolatilitySurface = 20;
+  if (this->volatilitysurface().size() > 0) {
+    total_size += 2 +
+      ::google::protobuf::internal::WireFormatLite::StringSize(
+        this->volatilitysurface());
+  }
+
   // repeated .com.htsc.mdc.insight.model.MDCashBondQuote MDCashBondQuotes = 18;
   {
     unsigned int count = this->mdcashbondquotes_size();
@@ -1037,6 +1157,17 @@ size_t MDQuote::ByteSizeLong() const {
       total_size +=
         ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
           this->mdcashbondquotes(i));
+    }
+  }
+
+  // repeated .com.htsc.mdc.insight.model.MDFxBestQuote MDFxBestQuotes = 21;
+  {
+    unsigned int count = this->mdfxbestquotes_size();
+    total_size += 2UL * count;
+    for (unsigned int i = 0; i < count; i++) {
+      total_size +=
+        ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
+          this->mdfxbestquotes(i));
     }
   }
 
@@ -1074,6 +1205,7 @@ void MDQuote::MergeFrom(const MDQuote& from) {
 void MDQuote::UnsafeMergeFrom(const MDQuote& from) {
   GOOGLE_DCHECK(&from != this);
   mdcashbondquotes_.MergeFrom(from.mdcashbondquotes_);
+  mdfxbestquotes_.MergeFrom(from.mdfxbestquotes_);
   if (from.htscsecurityid().size() > 0) {
 
     htscsecurityid_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.htscsecurityid_);
@@ -1131,6 +1263,10 @@ void MDQuote::UnsafeMergeFrom(const MDQuote& from) {
   if (from.datamultiplepowerof10() != 0) {
     set_datamultiplepowerof10(from.datamultiplepowerof10());
   }
+  if (from.volatilitysurface().size() > 0) {
+
+    volatilitysurface_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.volatilitysurface_);
+  }
 }
 
 void MDQuote::CopyFrom(const ::google::protobuf::Message& from) {
@@ -1176,6 +1312,8 @@ void MDQuote::InternalSwap(MDQuote* other) {
   std::swap(mdsubbooktype_, other->mdsubbooktype_);
   mdcashbondquotes_.UnsafeArenaSwap(&other->mdcashbondquotes_);
   std::swap(datamultiplepowerof10_, other->datamultiplepowerof10_);
+  volatilitysurface_.Swap(&other->volatilitysurface_);
+  mdfxbestquotes_.UnsafeArenaSwap(&other->mdfxbestquotes_);
   _internal_metadata_.Swap(&other->_internal_metadata_);
   std::swap(_cached_size_, other->_cached_size_);
 }
@@ -1563,6 +1701,80 @@ void MDQuote::set_datamultiplepowerof10(::google::protobuf::int32 value) {
   // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDQuote.DataMultiplePowerOf10)
 }
 
+// optional string VolatilitySurface = 20;
+void MDQuote::clear_volatilitysurface() {
+  volatilitysurface_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+const ::std::string& MDQuote::volatilitysurface() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDQuote.VolatilitySurface)
+  return volatilitysurface_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+void MDQuote::set_volatilitysurface(const ::std::string& value) {
+  
+  volatilitysurface_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDQuote.VolatilitySurface)
+}
+void MDQuote::set_volatilitysurface(const char* value) {
+  
+  volatilitysurface_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDQuote.VolatilitySurface)
+}
+void MDQuote::set_volatilitysurface(const char* value, size_t size) {
+  
+  volatilitysurface_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDQuote.VolatilitySurface)
+}
+::std::string* MDQuote::mutable_volatilitysurface() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDQuote.VolatilitySurface)
+  return volatilitysurface_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+::std::string* MDQuote::release_volatilitysurface() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MDQuote.VolatilitySurface)
+  
+  return volatilitysurface_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+void MDQuote::set_allocated_volatilitysurface(::std::string* volatilitysurface) {
+  if (volatilitysurface != NULL) {
+    
+  } else {
+    
+  }
+  volatilitysurface_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), volatilitysurface);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDQuote.VolatilitySurface)
+}
+
+// repeated .com.htsc.mdc.insight.model.MDFxBestQuote MDFxBestQuotes = 21;
+int MDQuote::mdfxbestquotes_size() const {
+  return mdfxbestquotes_.size();
+}
+void MDQuote::clear_mdfxbestquotes() {
+  mdfxbestquotes_.Clear();
+}
+const ::com::htsc::mdc::insight::model::MDFxBestQuote& MDQuote::mdfxbestquotes(int index) const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDQuote.MDFxBestQuotes)
+  return mdfxbestquotes_.Get(index);
+}
+::com::htsc::mdc::insight::model::MDFxBestQuote* MDQuote::mutable_mdfxbestquotes(int index) {
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDQuote.MDFxBestQuotes)
+  return mdfxbestquotes_.Mutable(index);
+}
+::com::htsc::mdc::insight::model::MDFxBestQuote* MDQuote::add_mdfxbestquotes() {
+  // @@protoc_insertion_point(field_add:com.htsc.mdc.insight.model.MDQuote.MDFxBestQuotes)
+  return mdfxbestquotes_.Add();
+}
+::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::MDFxBestQuote >*
+MDQuote::mutable_mdfxbestquotes() {
+  // @@protoc_insertion_point(field_mutable_list:com.htsc.mdc.insight.model.MDQuote.MDFxBestQuotes)
+  return &mdfxbestquotes_;
+}
+const ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::MDFxBestQuote >&
+MDQuote::mdfxbestquotes() const {
+  // @@protoc_insertion_point(field_list:com.htsc.mdc.insight.model.MDQuote.MDFxBestQuotes)
+  return mdfxbestquotes_;
+}
+
 inline const MDQuote* MDQuote::internal_default_instance() {
   return &MDQuote_default_instance_.get();
 }
@@ -1590,6 +1802,7 @@ const int MDCashBondQuote::kTraderCodeFieldNumber;
 const int MDCashBondQuote::kMaturityYieldFieldNumber;
 const int MDCashBondQuote::kDeliveryTypeFieldNumber;
 const int MDCashBondQuote::kTraderAccountIDFieldNumber;
+const int MDCashBondQuote::kDataTypeFieldNumber;
 #endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
 
 MDCashBondQuote::MDCashBondQuote()
@@ -1616,8 +1829,8 @@ void MDCashBondQuote::SharedCtor() {
   settlcurrency_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   tradercode_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   traderaccountid_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-  ::memset(&quotetype_, 0, reinterpret_cast<char*>(&deliverytype_) -
-    reinterpret_cast<char*>(&quotetype_) + sizeof(deliverytype_));
+  ::memset(&quotetype_, 0, reinterpret_cast<char*>(&datatype_) -
+    reinterpret_cast<char*>(&quotetype_) + sizeof(datatype_));
   _cached_size_ = 0;
 }
 
@@ -1683,7 +1896,7 @@ void MDCashBondQuote::Clear() {
   settltype_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   settlcurrency_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   tradercode_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-  ZR_(maturityyield_, deliverytype_);
+  ZR_(maturityyield_, datatype_);
   traderaccountid_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
 
 #undef ZR_HELPER_
@@ -1991,6 +2204,21 @@ bool MDCashBondQuote::MergePartialFromCodedStream(
         } else {
           goto handle_unusual;
         }
+        if (input->ExpectTag(160)) goto parse_DataType;
+        break;
+      }
+
+      // optional int32 DataType = 20;
+      case 20: {
+        if (tag == 160) {
+         parse_DataType:
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
+                 input, &datatype_)));
+        } else {
+          goto handle_unusual;
+        }
         if (input->ExpectAtEnd()) goto success;
         break;
       }
@@ -2139,6 +2367,11 @@ void MDCashBondQuote::SerializeWithCachedSizes(
       19, this->traderaccountid(), output);
   }
 
+  // optional int32 DataType = 20;
+  if (this->datatype() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt32(20, this->datatype(), output);
+  }
+
   // @@protoc_insertion_point(serialize_end:com.htsc.mdc.insight.model.MDCashBondQuote)
 }
 
@@ -2269,6 +2502,11 @@ void MDCashBondQuote::SerializeWithCachedSizes(
     target =
       ::google::protobuf::internal::WireFormatLite::WriteStringToArray(
         19, this->traderaccountid(), target);
+  }
+
+  // optional int32 DataType = 20;
+  if (this->datatype() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(20, this->datatype(), target);
   }
 
   // @@protoc_insertion_point(serialize_to_array_end:com.htsc.mdc.insight.model.MDCashBondQuote)
@@ -2412,6 +2650,13 @@ size_t MDCashBondQuote::ByteSizeLong() const {
         this->traderaccountid());
   }
 
+  // optional int32 DataType = 20;
+  if (this->datatype() != 0) {
+    total_size += 2 +
+      ::google::protobuf::internal::WireFormatLite::Int32Size(
+        this->datatype());
+  }
+
   int cached_size = ::google::protobuf::internal::ToCachedSize(total_size);
   GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
   _cached_size_ = cached_size;
@@ -2507,6 +2752,9 @@ void MDCashBondQuote::UnsafeMergeFrom(const MDCashBondQuote& from) {
 
     traderaccountid_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.traderaccountid_);
   }
+  if (from.datatype() != 0) {
+    set_datatype(from.datatype());
+  }
 }
 
 void MDCashBondQuote::CopyFrom(const ::google::protobuf::Message& from) {
@@ -2552,6 +2800,7 @@ void MDCashBondQuote::InternalSwap(MDCashBondQuote* other) {
   std::swap(maturityyield_, other->maturityyield_);
   std::swap(deliverytype_, other->deliverytype_);
   traderaccountid_.Swap(&other->traderaccountid_);
+  std::swap(datatype_, other->datatype_);
   _internal_metadata_.Swap(&other->_internal_metadata_);
   std::swap(_cached_size_, other->_cached_size_);
 }
@@ -2983,8 +3232,836 @@ void MDCashBondQuote::set_allocated_traderaccountid(::std::string* traderaccount
   // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDCashBondQuote.TraderAccountID)
 }
 
+// optional int32 DataType = 20;
+void MDCashBondQuote::clear_datatype() {
+  datatype_ = 0;
+}
+::google::protobuf::int32 MDCashBondQuote::datatype() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDCashBondQuote.DataType)
+  return datatype_;
+}
+void MDCashBondQuote::set_datatype(::google::protobuf::int32 value) {
+  
+  datatype_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDCashBondQuote.DataType)
+}
+
 inline const MDCashBondQuote* MDCashBondQuote::internal_default_instance() {
   return &MDCashBondQuote_default_instance_.get();
+}
+#endif  // PROTOBUF_INLINE_NOT_IN_HEADERS
+
+// ===================================================================
+
+#if !defined(_MSC_VER) || _MSC_VER >= 1900
+const int MDFxBestQuote::kSideFieldNumber;
+const int MDFxBestQuote::kPriceFieldNumber;
+const int MDFxBestQuote::kTenorFieldNumber;
+const int MDFxBestQuote::kDateFieldNumber;
+const int MDFxBestQuote::kTimeFieldNumber;
+const int MDFxBestQuote::kLiquidProvidersFieldNumber;
+const int MDFxBestQuote::kLegSignFieldNumber;
+#endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
+
+MDFxBestQuote::MDFxBestQuote()
+  : ::google::protobuf::Message(), _internal_metadata_(NULL) {
+  if (this != internal_default_instance()) protobuf_InitDefaults_MDQuote_2eproto();
+  SharedCtor();
+  // @@protoc_insertion_point(constructor:com.htsc.mdc.insight.model.MDFxBestQuote)
+}
+
+void MDFxBestQuote::InitAsDefaultInstance() {
+}
+
+MDFxBestQuote::MDFxBestQuote(const MDFxBestQuote& from)
+  : ::google::protobuf::Message(),
+    _internal_metadata_(NULL) {
+  SharedCtor();
+  UnsafeMergeFrom(from);
+  // @@protoc_insertion_point(copy_constructor:com.htsc.mdc.insight.model.MDFxBestQuote)
+}
+
+void MDFxBestQuote::SharedCtor() {
+  tenor_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  date_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  time_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  legsign_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  ::memset(&price_, 0, reinterpret_cast<char*>(&side_) -
+    reinterpret_cast<char*>(&price_) + sizeof(side_));
+  _cached_size_ = 0;
+}
+
+MDFxBestQuote::~MDFxBestQuote() {
+  // @@protoc_insertion_point(destructor:com.htsc.mdc.insight.model.MDFxBestQuote)
+  SharedDtor();
+}
+
+void MDFxBestQuote::SharedDtor() {
+  tenor_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  date_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  time_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  legsign_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+
+void MDFxBestQuote::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const ::google::protobuf::Descriptor* MDFxBestQuote::descriptor() {
+  protobuf_AssignDescriptorsOnce();
+  return MDFxBestQuote_descriptor_;
+}
+
+const MDFxBestQuote& MDFxBestQuote::default_instance() {
+  protobuf_InitDefaults_MDQuote_2eproto();
+  return *internal_default_instance();
+}
+
+::google::protobuf::internal::ExplicitlyConstructed<MDFxBestQuote> MDFxBestQuote_default_instance_;
+
+MDFxBestQuote* MDFxBestQuote::New(::google::protobuf::Arena* arena) const {
+  MDFxBestQuote* n = new MDFxBestQuote;
+  if (arena != NULL) {
+    arena->Own(n);
+  }
+  return n;
+}
+
+void MDFxBestQuote::Clear() {
+// @@protoc_insertion_point(message_clear_start:com.htsc.mdc.insight.model.MDFxBestQuote)
+#if defined(__clang__)
+#define ZR_HELPER_(f) \
+  _Pragma("clang diagnostic push") \
+  _Pragma("clang diagnostic ignored \"-Winvalid-offsetof\"") \
+  __builtin_offsetof(MDFxBestQuote, f) \
+  _Pragma("clang diagnostic pop")
+#else
+#define ZR_HELPER_(f) reinterpret_cast<char*>(\
+  &reinterpret_cast<MDFxBestQuote*>(16)->f)
+#endif
+
+#define ZR_(first, last) do {\
+  ::memset(&(first), 0,\
+           ZR_HELPER_(last) - ZR_HELPER_(first) + sizeof(last));\
+} while (0)
+
+  ZR_(price_, side_);
+  tenor_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  date_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  time_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  legsign_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+
+#undef ZR_HELPER_
+#undef ZR_
+
+  liquidproviders_.Clear();
+}
+
+bool MDFxBestQuote::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!GOOGLE_PREDICT_TRUE(EXPRESSION)) goto failure
+  ::google::protobuf::uint32 tag;
+  // @@protoc_insertion_point(parse_start:com.htsc.mdc.insight.model.MDFxBestQuote)
+  for (;;) {
+    ::std::pair< ::google::protobuf::uint32, bool> p = input->ReadTagWithCutoff(127);
+    tag = p.first;
+    if (!p.second) goto handle_unusual;
+    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
+      // optional int32 Side = 1;
+      case 1: {
+        if (tag == 8) {
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
+                 input, &side_)));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(16)) goto parse_Price;
+        break;
+      }
+
+      // optional int64 Price = 2;
+      case 2: {
+        if (tag == 16) {
+         parse_Price:
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &price_)));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(26)) goto parse_Tenor;
+        break;
+      }
+
+      // optional string Tenor = 3;
+      case 3: {
+        if (tag == 26) {
+         parse_Tenor:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_tenor()));
+          DO_(::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+            this->tenor().data(), this->tenor().length(),
+            ::google::protobuf::internal::WireFormatLite::PARSE,
+            "com.htsc.mdc.insight.model.MDFxBestQuote.Tenor"));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(34)) goto parse_Date;
+        break;
+      }
+
+      // optional string Date = 4;
+      case 4: {
+        if (tag == 34) {
+         parse_Date:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_date()));
+          DO_(::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+            this->date().data(), this->date().length(),
+            ::google::protobuf::internal::WireFormatLite::PARSE,
+            "com.htsc.mdc.insight.model.MDFxBestQuote.Date"));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(42)) goto parse_Time;
+        break;
+      }
+
+      // optional string Time = 5;
+      case 5: {
+        if (tag == 42) {
+         parse_Time:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_time()));
+          DO_(::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+            this->time().data(), this->time().length(),
+            ::google::protobuf::internal::WireFormatLite::PARSE,
+            "com.htsc.mdc.insight.model.MDFxBestQuote.Time"));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(50)) goto parse_LiquidProviders;
+        break;
+      }
+
+      // repeated string LiquidProviders = 6;
+      case 6: {
+        if (tag == 50) {
+         parse_LiquidProviders:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->add_liquidproviders()));
+          DO_(::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+            this->liquidproviders(this->liquidproviders_size() - 1).data(),
+            this->liquidproviders(this->liquidproviders_size() - 1).length(),
+            ::google::protobuf::internal::WireFormatLite::PARSE,
+            "com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders"));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(50)) goto parse_LiquidProviders;
+        if (input->ExpectTag(58)) goto parse_LegSign;
+        break;
+      }
+
+      // optional string LegSign = 7;
+      case 7: {
+        if (tag == 58) {
+         parse_LegSign:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_legsign()));
+          DO_(::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+            this->legsign().data(), this->legsign().length(),
+            ::google::protobuf::internal::WireFormatLite::PARSE,
+            "com.htsc.mdc.insight.model.MDFxBestQuote.LegSign"));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectAtEnd()) goto success;
+        break;
+      }
+
+      default: {
+      handle_unusual:
+        if (tag == 0 ||
+            ::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+          goto success;
+        }
+        DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+        break;
+      }
+    }
+  }
+success:
+  // @@protoc_insertion_point(parse_success:com.htsc.mdc.insight.model.MDFxBestQuote)
+  return true;
+failure:
+  // @@protoc_insertion_point(parse_failure:com.htsc.mdc.insight.model.MDFxBestQuote)
+  return false;
+#undef DO_
+}
+
+void MDFxBestQuote::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+  // @@protoc_insertion_point(serialize_start:com.htsc.mdc.insight.model.MDFxBestQuote)
+  // optional int32 Side = 1;
+  if (this->side() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt32(1, this->side(), output);
+  }
+
+  // optional int64 Price = 2;
+  if (this->price() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(2, this->price(), output);
+  }
+
+  // optional string Tenor = 3;
+  if (this->tenor().size() > 0) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->tenor().data(), this->tenor().length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.MDFxBestQuote.Tenor");
+    ::google::protobuf::internal::WireFormatLite::WriteStringMaybeAliased(
+      3, this->tenor(), output);
+  }
+
+  // optional string Date = 4;
+  if (this->date().size() > 0) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->date().data(), this->date().length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.MDFxBestQuote.Date");
+    ::google::protobuf::internal::WireFormatLite::WriteStringMaybeAliased(
+      4, this->date(), output);
+  }
+
+  // optional string Time = 5;
+  if (this->time().size() > 0) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->time().data(), this->time().length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.MDFxBestQuote.Time");
+    ::google::protobuf::internal::WireFormatLite::WriteStringMaybeAliased(
+      5, this->time(), output);
+  }
+
+  // repeated string LiquidProviders = 6;
+  for (int i = 0; i < this->liquidproviders_size(); i++) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->liquidproviders(i).data(), this->liquidproviders(i).length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders");
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      6, this->liquidproviders(i), output);
+  }
+
+  // optional string LegSign = 7;
+  if (this->legsign().size() > 0) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->legsign().data(), this->legsign().length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.MDFxBestQuote.LegSign");
+    ::google::protobuf::internal::WireFormatLite::WriteStringMaybeAliased(
+      7, this->legsign(), output);
+  }
+
+  // @@protoc_insertion_point(serialize_end:com.htsc.mdc.insight.model.MDFxBestQuote)
+}
+
+::google::protobuf::uint8* MDFxBestQuote::InternalSerializeWithCachedSizesToArray(
+    bool deterministic, ::google::protobuf::uint8* target) const {
+  (void)deterministic; // Unused
+  // @@protoc_insertion_point(serialize_to_array_start:com.htsc.mdc.insight.model.MDFxBestQuote)
+  // optional int32 Side = 1;
+  if (this->side() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(1, this->side(), target);
+  }
+
+  // optional int64 Price = 2;
+  if (this->price() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt64ToArray(2, this->price(), target);
+  }
+
+  // optional string Tenor = 3;
+  if (this->tenor().size() > 0) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->tenor().data(), this->tenor().length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.MDFxBestQuote.Tenor");
+    target =
+      ::google::protobuf::internal::WireFormatLite::WriteStringToArray(
+        3, this->tenor(), target);
+  }
+
+  // optional string Date = 4;
+  if (this->date().size() > 0) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->date().data(), this->date().length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.MDFxBestQuote.Date");
+    target =
+      ::google::protobuf::internal::WireFormatLite::WriteStringToArray(
+        4, this->date(), target);
+  }
+
+  // optional string Time = 5;
+  if (this->time().size() > 0) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->time().data(), this->time().length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.MDFxBestQuote.Time");
+    target =
+      ::google::protobuf::internal::WireFormatLite::WriteStringToArray(
+        5, this->time(), target);
+  }
+
+  // repeated string LiquidProviders = 6;
+  for (int i = 0; i < this->liquidproviders_size(); i++) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->liquidproviders(i).data(), this->liquidproviders(i).length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders");
+    target = ::google::protobuf::internal::WireFormatLite::
+      WriteStringToArray(6, this->liquidproviders(i), target);
+  }
+
+  // optional string LegSign = 7;
+  if (this->legsign().size() > 0) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->legsign().data(), this->legsign().length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.MDFxBestQuote.LegSign");
+    target =
+      ::google::protobuf::internal::WireFormatLite::WriteStringToArray(
+        7, this->legsign(), target);
+  }
+
+  // @@protoc_insertion_point(serialize_to_array_end:com.htsc.mdc.insight.model.MDFxBestQuote)
+  return target;
+}
+
+size_t MDFxBestQuote::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:com.htsc.mdc.insight.model.MDFxBestQuote)
+  size_t total_size = 0;
+
+  // optional int32 Side = 1;
+  if (this->side() != 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::Int32Size(
+        this->side());
+  }
+
+  // optional int64 Price = 2;
+  if (this->price() != 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::Int64Size(
+        this->price());
+  }
+
+  // optional string Tenor = 3;
+  if (this->tenor().size() > 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::StringSize(
+        this->tenor());
+  }
+
+  // optional string Date = 4;
+  if (this->date().size() > 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::StringSize(
+        this->date());
+  }
+
+  // optional string Time = 5;
+  if (this->time().size() > 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::StringSize(
+        this->time());
+  }
+
+  // optional string LegSign = 7;
+  if (this->legsign().size() > 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::StringSize(
+        this->legsign());
+  }
+
+  // repeated string LiquidProviders = 6;
+  total_size += 1 *
+      ::google::protobuf::internal::FromIntSize(this->liquidproviders_size());
+  for (int i = 0; i < this->liquidproviders_size(); i++) {
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+      this->liquidproviders(i));
+  }
+
+  int cached_size = ::google::protobuf::internal::ToCachedSize(total_size);
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = cached_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void MDFxBestQuote::MergeFrom(const ::google::protobuf::Message& from) {
+// @@protoc_insertion_point(generalized_merge_from_start:com.htsc.mdc.insight.model.MDFxBestQuote)
+  if (GOOGLE_PREDICT_FALSE(&from == this)) MergeFromFail(__LINE__);
+  const MDFxBestQuote* source =
+      ::google::protobuf::internal::DynamicCastToGenerated<const MDFxBestQuote>(
+          &from);
+  if (source == NULL) {
+  // @@protoc_insertion_point(generalized_merge_from_cast_fail:com.htsc.mdc.insight.model.MDFxBestQuote)
+    ::google::protobuf::internal::ReflectionOps::Merge(from, this);
+  } else {
+  // @@protoc_insertion_point(generalized_merge_from_cast_success:com.htsc.mdc.insight.model.MDFxBestQuote)
+    UnsafeMergeFrom(*source);
+  }
+}
+
+void MDFxBestQuote::MergeFrom(const MDFxBestQuote& from) {
+// @@protoc_insertion_point(class_specific_merge_from_start:com.htsc.mdc.insight.model.MDFxBestQuote)
+  if (GOOGLE_PREDICT_TRUE(&from != this)) {
+    UnsafeMergeFrom(from);
+  } else {
+    MergeFromFail(__LINE__);
+  }
+}
+
+void MDFxBestQuote::UnsafeMergeFrom(const MDFxBestQuote& from) {
+  GOOGLE_DCHECK(&from != this);
+  liquidproviders_.UnsafeMergeFrom(from.liquidproviders_);
+  if (from.side() != 0) {
+    set_side(from.side());
+  }
+  if (from.price() != 0) {
+    set_price(from.price());
+  }
+  if (from.tenor().size() > 0) {
+
+    tenor_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.tenor_);
+  }
+  if (from.date().size() > 0) {
+
+    date_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.date_);
+  }
+  if (from.time().size() > 0) {
+
+    time_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.time_);
+  }
+  if (from.legsign().size() > 0) {
+
+    legsign_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.legsign_);
+  }
+}
+
+void MDFxBestQuote::CopyFrom(const ::google::protobuf::Message& from) {
+// @@protoc_insertion_point(generalized_copy_from_start:com.htsc.mdc.insight.model.MDFxBestQuote)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+void MDFxBestQuote::CopyFrom(const MDFxBestQuote& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:com.htsc.mdc.insight.model.MDFxBestQuote)
+  if (&from == this) return;
+  Clear();
+  UnsafeMergeFrom(from);
+}
+
+bool MDFxBestQuote::IsInitialized() const {
+
+  return true;
+}
+
+void MDFxBestQuote::Swap(MDFxBestQuote* other) {
+  if (other == this) return;
+  InternalSwap(other);
+}
+void MDFxBestQuote::InternalSwap(MDFxBestQuote* other) {
+  std::swap(side_, other->side_);
+  std::swap(price_, other->price_);
+  tenor_.Swap(&other->tenor_);
+  date_.Swap(&other->date_);
+  time_.Swap(&other->time_);
+  liquidproviders_.UnsafeArenaSwap(&other->liquidproviders_);
+  legsign_.Swap(&other->legsign_);
+  _internal_metadata_.Swap(&other->_internal_metadata_);
+  std::swap(_cached_size_, other->_cached_size_);
+}
+
+::google::protobuf::Metadata MDFxBestQuote::GetMetadata() const {
+  protobuf_AssignDescriptorsOnce();
+  ::google::protobuf::Metadata metadata;
+  metadata.descriptor = MDFxBestQuote_descriptor_;
+  metadata.reflection = MDFxBestQuote_reflection_;
+  return metadata;
+}
+
+#if PROTOBUF_INLINE_NOT_IN_HEADERS
+// MDFxBestQuote
+
+// optional int32 Side = 1;
+void MDFxBestQuote::clear_side() {
+  side_ = 0;
+}
+::google::protobuf::int32 MDFxBestQuote::side() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDFxBestQuote.Side)
+  return side_;
+}
+void MDFxBestQuote::set_side(::google::protobuf::int32 value) {
+  
+  side_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFxBestQuote.Side)
+}
+
+// optional int64 Price = 2;
+void MDFxBestQuote::clear_price() {
+  price_ = GOOGLE_LONGLONG(0);
+}
+::google::protobuf::int64 MDFxBestQuote::price() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDFxBestQuote.Price)
+  return price_;
+}
+void MDFxBestQuote::set_price(::google::protobuf::int64 value) {
+  
+  price_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFxBestQuote.Price)
+}
+
+// optional string Tenor = 3;
+void MDFxBestQuote::clear_tenor() {
+  tenor_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+const ::std::string& MDFxBestQuote::tenor() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDFxBestQuote.Tenor)
+  return tenor_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+void MDFxBestQuote::set_tenor(const ::std::string& value) {
+  
+  tenor_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFxBestQuote.Tenor)
+}
+void MDFxBestQuote::set_tenor(const char* value) {
+  
+  tenor_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDFxBestQuote.Tenor)
+}
+void MDFxBestQuote::set_tenor(const char* value, size_t size) {
+  
+  tenor_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDFxBestQuote.Tenor)
+}
+::std::string* MDFxBestQuote::mutable_tenor() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDFxBestQuote.Tenor)
+  return tenor_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+::std::string* MDFxBestQuote::release_tenor() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MDFxBestQuote.Tenor)
+  
+  return tenor_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+void MDFxBestQuote::set_allocated_tenor(::std::string* tenor) {
+  if (tenor != NULL) {
+    
+  } else {
+    
+  }
+  tenor_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), tenor);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDFxBestQuote.Tenor)
+}
+
+// optional string Date = 4;
+void MDFxBestQuote::clear_date() {
+  date_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+const ::std::string& MDFxBestQuote::date() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDFxBestQuote.Date)
+  return date_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+void MDFxBestQuote::set_date(const ::std::string& value) {
+  
+  date_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFxBestQuote.Date)
+}
+void MDFxBestQuote::set_date(const char* value) {
+  
+  date_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDFxBestQuote.Date)
+}
+void MDFxBestQuote::set_date(const char* value, size_t size) {
+  
+  date_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDFxBestQuote.Date)
+}
+::std::string* MDFxBestQuote::mutable_date() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDFxBestQuote.Date)
+  return date_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+::std::string* MDFxBestQuote::release_date() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MDFxBestQuote.Date)
+  
+  return date_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+void MDFxBestQuote::set_allocated_date(::std::string* date) {
+  if (date != NULL) {
+    
+  } else {
+    
+  }
+  date_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), date);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDFxBestQuote.Date)
+}
+
+// optional string Time = 5;
+void MDFxBestQuote::clear_time() {
+  time_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+const ::std::string& MDFxBestQuote::time() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDFxBestQuote.Time)
+  return time_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+void MDFxBestQuote::set_time(const ::std::string& value) {
+  
+  time_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFxBestQuote.Time)
+}
+void MDFxBestQuote::set_time(const char* value) {
+  
+  time_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDFxBestQuote.Time)
+}
+void MDFxBestQuote::set_time(const char* value, size_t size) {
+  
+  time_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDFxBestQuote.Time)
+}
+::std::string* MDFxBestQuote::mutable_time() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDFxBestQuote.Time)
+  return time_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+::std::string* MDFxBestQuote::release_time() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MDFxBestQuote.Time)
+  
+  return time_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+void MDFxBestQuote::set_allocated_time(::std::string* time) {
+  if (time != NULL) {
+    
+  } else {
+    
+  }
+  time_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), time);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDFxBestQuote.Time)
+}
+
+// repeated string LiquidProviders = 6;
+int MDFxBestQuote::liquidproviders_size() const {
+  return liquidproviders_.size();
+}
+void MDFxBestQuote::clear_liquidproviders() {
+  liquidproviders_.Clear();
+}
+const ::std::string& MDFxBestQuote::liquidproviders(int index) const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+  return liquidproviders_.Get(index);
+}
+::std::string* MDFxBestQuote::mutable_liquidproviders(int index) {
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+  return liquidproviders_.Mutable(index);
+}
+void MDFxBestQuote::set_liquidproviders(int index, const ::std::string& value) {
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+  liquidproviders_.Mutable(index)->assign(value);
+}
+void MDFxBestQuote::set_liquidproviders(int index, const char* value) {
+  liquidproviders_.Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+}
+void MDFxBestQuote::set_liquidproviders(int index, const char* value, size_t size) {
+  liquidproviders_.Mutable(index)->assign(
+    reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+}
+::std::string* MDFxBestQuote::add_liquidproviders() {
+  // @@protoc_insertion_point(field_add_mutable:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+  return liquidproviders_.Add();
+}
+void MDFxBestQuote::add_liquidproviders(const ::std::string& value) {
+  liquidproviders_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+}
+void MDFxBestQuote::add_liquidproviders(const char* value) {
+  liquidproviders_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+}
+void MDFxBestQuote::add_liquidproviders(const char* value, size_t size) {
+  liquidproviders_.Add()->assign(reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+}
+const ::google::protobuf::RepeatedPtrField< ::std::string>&
+MDFxBestQuote::liquidproviders() const {
+  // @@protoc_insertion_point(field_list:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+  return liquidproviders_;
+}
+::google::protobuf::RepeatedPtrField< ::std::string>*
+MDFxBestQuote::mutable_liquidproviders() {
+  // @@protoc_insertion_point(field_mutable_list:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+  return &liquidproviders_;
+}
+
+// optional string LegSign = 7;
+void MDFxBestQuote::clear_legsign() {
+  legsign_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+const ::std::string& MDFxBestQuote::legsign() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDFxBestQuote.LegSign)
+  return legsign_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+void MDFxBestQuote::set_legsign(const ::std::string& value) {
+  
+  legsign_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFxBestQuote.LegSign)
+}
+void MDFxBestQuote::set_legsign(const char* value) {
+  
+  legsign_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDFxBestQuote.LegSign)
+}
+void MDFxBestQuote::set_legsign(const char* value, size_t size) {
+  
+  legsign_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDFxBestQuote.LegSign)
+}
+::std::string* MDFxBestQuote::mutable_legsign() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDFxBestQuote.LegSign)
+  return legsign_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+::std::string* MDFxBestQuote::release_legsign() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MDFxBestQuote.LegSign)
+  
+  return legsign_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+void MDFxBestQuote::set_allocated_legsign(::std::string* legsign) {
+  if (legsign != NULL) {
+    
+  } else {
+    
+  }
+  legsign_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), legsign);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDFxBestQuote.LegSign)
+}
+
+inline const MDFxBestQuote* MDFxBestQuote::internal_default_instance() {
+  return &MDFxBestQuote_default_instance_.get();
 }
 #endif  // PROTOBUF_INLINE_NOT_IN_HEADERS
 

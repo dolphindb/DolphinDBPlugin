@@ -670,6 +670,18 @@ class MDFund : public ::google::protobuf::Message /* @@protoc_insertion_point(cl
   ::google::protobuf::int64 qtyatbestsellprice() const;
   void set_qtyatbestsellprice(::google::protobuf::int64 value);
 
+  // optional int64 HighAccuracyIOPV = 86;
+  void clear_highaccuracyiopv();
+  static const int kHighAccuracyIOPVFieldNumber = 86;
+  ::google::protobuf::int64 highaccuracyiopv() const;
+  void set_highaccuracyiopv(::google::protobuf::int64 value);
+
+  // optional int64 HighAccuracyPreIOPV = 87;
+  void clear_highaccuracypreiopv();
+  static const int kHighAccuracyPreIOPVFieldNumber = 87;
+  ::google::protobuf::int64 highaccuracypreiopv() const;
+  void set_highaccuracypreiopv(::google::protobuf::int64 value);
+
   // @@protoc_insertion_point(class_scope:com.htsc.mdc.insight.model.MDFund)
  private:
 
@@ -764,6 +776,8 @@ class MDFund : public ::google::protobuf::Message /* @@protoc_insertion_point(cl
   ::google::protobuf::int64 qtyatbestbuyprice_;
   ::google::protobuf::int64 bestsellprice_;
   ::google::protobuf::int64 qtyatbestsellprice_;
+  ::google::protobuf::int64 highaccuracyiopv_;
+  ::google::protobuf::int64 highaccuracypreiopv_;
   mutable int _cached_size_;
   friend void  protobuf_InitDefaults_MDFund_2eproto_impl();
   friend void  protobuf_AddDesc_MDFund_2eproto_impl();
@@ -2176,6 +2190,34 @@ inline void MDFund::set_qtyatbestsellprice(::google::protobuf::int64 value) {
   
   qtyatbestsellprice_ = value;
   // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFund.QtyAtBestSellPrice)
+}
+
+// optional int64 HighAccuracyIOPV = 86;
+inline void MDFund::clear_highaccuracyiopv() {
+  highaccuracyiopv_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 MDFund::highaccuracyiopv() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDFund.HighAccuracyIOPV)
+  return highaccuracyiopv_;
+}
+inline void MDFund::set_highaccuracyiopv(::google::protobuf::int64 value) {
+  
+  highaccuracyiopv_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFund.HighAccuracyIOPV)
+}
+
+// optional int64 HighAccuracyPreIOPV = 87;
+inline void MDFund::clear_highaccuracypreiopv() {
+  highaccuracypreiopv_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 MDFund::highaccuracypreiopv() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDFund.HighAccuracyPreIOPV)
+  return highaccuracypreiopv_;
+}
+inline void MDFund::set_highaccuracypreiopv(::google::protobuf::int64 value) {
+  
+  highaccuracypreiopv_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFund.HighAccuracyPreIOPV)
 }
 
 inline const MDFund* MDFund::internal_default_instance() {

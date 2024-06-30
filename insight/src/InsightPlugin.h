@@ -4,9 +4,8 @@
 #include <vector>
 
 #include "CoreConcept.h"
-#include "Util.h"
-#include <vector>
 #include "InsightType.h"
+#include "Util.h"
 
 extern "C" ConstantSP connectInsight(Heap *heap, std::vector<ConstantSP> &arguments);
 extern "C" void subscribe(Heap *heap, std::vector<ConstantSP> &arguments);

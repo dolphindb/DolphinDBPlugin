@@ -62,6 +62,7 @@ enum ESecurityIDSource {
   CNEX = 503,
   XDCE = 601,
   XZCE = 602,
+  XGFE = 603,
   SWS = 701,
   CNI = 702,
   CSI = 703,
@@ -113,12 +114,25 @@ enum ESecurityIDSource {
   BATS = 939,
   IEX = 940,
   OPRA = 941,
+  REFINITIV = 942,
+  OTCM = 943,
+  EURONEXT = 944,
+  FSI = 945,
+  DBDX = 946,
+  SAO = 947,
+  XASX = 948,
+  XCBO = 949,
+  XMIL = 950,
+  XMOD = 951,
+  XMEF = 952,
+  XOME = 953,
+  UST = 954,
   ESecurityIDSource_INT_MIN_SENTINEL_DO_NOT_USE_ = ::google::protobuf::kint32min,
   ESecurityIDSource_INT_MAX_SENTINEL_DO_NOT_USE_ = ::google::protobuf::kint32max
 };
 bool ESecurityIDSource_IsValid(int value);
 const ESecurityIDSource ESecurityIDSource_MIN = DefaultSecurityIDSource;
-const ESecurityIDSource ESecurityIDSource_MAX = OPRA;
+const ESecurityIDSource ESecurityIDSource_MAX = UST;
 const int ESecurityIDSource_ARRAYSIZE = ESecurityIDSource_MAX + 1;
 
 const ::google::protobuf::EnumDescriptor* ESecurityIDSource_descriptor();

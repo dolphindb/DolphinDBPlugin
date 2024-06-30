@@ -40,6 +40,9 @@ const ::google::protobuf::internal::GeneratedMessageReflection*
 const ::google::protobuf::Descriptor* ADRelatedPerson_descriptor_ = NULL;
 const ::google::protobuf::internal::GeneratedMessageReflection*
   ADRelatedPerson_reflection_ = NULL;
+const ::google::protobuf::Descriptor* ADNewsDataEntry_descriptor_ = NULL;
+const ::google::protobuf::internal::GeneratedMessageReflection*
+  ADNewsDataEntry_reflection_ = NULL;
 
 }  // namespace
 
@@ -52,7 +55,7 @@ void protobuf_AssignDesc_ADNews_2eproto() {
       "ADNews.proto");
   GOOGLE_CHECK(file != NULL);
   ADNews_descriptor_ = file->message_type(0);
-  static const int ADNews_offsets_[24] = {
+  static const int ADNews_offsets_[25] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADNews, htscsecurityid_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADNews, mddate_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADNews, mdtime_),
@@ -77,6 +80,7 @@ void protobuf_AssignDesc_ADNews_2eproto() {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADNews, peremlist_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADNews, comemlist_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADNews, datamultiplepowerof10_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADNews, sentimentcontent_),
   };
   ADNews_reflection_ =
     ::google::protobuf::internal::GeneratedMessageReflection::NewGeneratedMessageReflection(
@@ -158,6 +162,21 @@ void protobuf_AssignDesc_ADNews_2eproto() {
       -1,
       sizeof(ADRelatedPerson),
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADRelatedPerson, _internal_metadata_));
+  ADNewsDataEntry_descriptor_ = file->message_type(5);
+  static const int ADNewsDataEntry_offsets_[2] = {
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADNewsDataEntry, key_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADNewsDataEntry, value_),
+  };
+  ADNewsDataEntry_reflection_ =
+    ::google::protobuf::internal::GeneratedMessageReflection::NewGeneratedMessageReflection(
+      ADNewsDataEntry_descriptor_,
+      ADNewsDataEntry::internal_default_instance(),
+      ADNewsDataEntry_offsets_,
+      -1,
+      -1,
+      -1,
+      sizeof(ADNewsDataEntry),
+      GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADNewsDataEntry, _internal_metadata_));
 }
 
 namespace {
@@ -181,6 +200,8 @@ void protobuf_RegisterTypes(const ::std::string&) {
       ADRelatedCompany_descriptor_, ADRelatedCompany::internal_default_instance());
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedMessage(
       ADRelatedPerson_descriptor_, ADRelatedPerson::internal_default_instance());
+  ::google::protobuf::MessageFactory::InternalRegisterGeneratedMessage(
+      ADNewsDataEntry_descriptor_, ADNewsDataEntry::internal_default_instance());
 }
 
 }  // namespace
@@ -196,6 +217,8 @@ void protobuf_ShutdownFile_ADNews_2eproto() {
   delete ADRelatedCompany_reflection_;
   ADRelatedPerson_default_instance_.Shutdown();
   delete ADRelatedPerson_reflection_;
+  ADNewsDataEntry_default_instance_.Shutdown();
+  delete ADNewsDataEntry_reflection_;
 }
 
 void protobuf_InitDefaults_ADNews_2eproto_impl() {
@@ -212,11 +235,14 @@ void protobuf_InitDefaults_ADNews_2eproto_impl() {
   ADRelatedCompany_default_instance_.DefaultConstruct();
   ::google::protobuf::internal::GetEmptyString();
   ADRelatedPerson_default_instance_.DefaultConstruct();
+  ::google::protobuf::internal::GetEmptyString();
+  ADNewsDataEntry_default_instance_.DefaultConstruct();
   ADNews_default_instance_.get_mutable()->InitAsDefaultInstance();
   ADNewsEmotion_default_instance_.get_mutable()->InitAsDefaultInstance();
   ADInvolvedSecurity_default_instance_.get_mutable()->InitAsDefaultInstance();
   ADRelatedCompany_default_instance_.get_mutable()->InitAsDefaultInstance();
   ADRelatedPerson_default_instance_.get_mutable()->InitAsDefaultInstance();
+  ADNewsDataEntry_default_instance_.get_mutable()->InitAsDefaultInstance();
 }
 
 GOOGLE_PROTOBUF_DECLARE_ONCE(protobuf_InitDefaults_ADNews_2eproto_once_);
@@ -231,7 +257,7 @@ void protobuf_AddDesc_ADNews_2eproto_impl() {
   ::google::protobuf::DescriptorPool::InternalAddGeneratedFile(
     "\n\014ADNews.proto\022\032com.htsc.mdc.insight.mod"
     "el\032\023ESecurityType.proto\032\027ESecurityIDSour"
-    "ce.proto\"\320\005\n\006ADNews\022\026\n\016HTSCSecurityID\030\001 "
+    "ce.proto\"\227\006\n\006ADNews\022\026\n\016HTSCSecurityID\030\001 "
     "\001(\t\022\016\n\006MDDate\030\002 \001(\005\022\016\n\006MDTime\030\003 \001(\005\022\025\n\rD"
     "ataTimestamp\030\004 \001(\003\022\030\n\020TradingPhaseCode\030\005"
     " \001(\t\022\?\n\020securityIDSource\030\006 \001(\0162%.com.hts"
@@ -249,18 +275,21 @@ void protobuf_AddDesc_ADNews_2eproto_impl() {
     "c.mdc.insight.model.ADRelatedPerson\022\?\n\tc"
     "omEmList\030\027 \003(\0132,.com.htsc.mdc.insight.mo"
     "del.ADRelatedCompany\022\035\n\025DataMultiplePowe"
-    "rOf10\030\030 \001(\005\"Q\n\rADNewsEmotion\022\020\n\010negative"
-    "\030\001 \001(\001\022\017\n\007neutral\030\002 \001(\001\022\013\n\003pos\030\003 \001(\005\022\020\n\010"
-    "positive\030\004 \001(\001\"a\n\022ADInvolvedSecurity\022\017\n\007"
-    "comCode\030\001 \001(\t\022\020\n\010secuCode\030\002 \001(\t\022\020\n\010secuN"
-    "ame\030\003 \001(\t\022\026\n\016HTSCSecurityID\030\004 \001(\t\"\177\n\020ADR"
-    "elatedCompany\022\017\n\007chiname\030\001 \001(\t\022\017\n\007comCod"
-    "e\030\002 \001(\t\022\013\n\003com\030\003 \001(\t\022\022\n\ngeneralPos\030\004 \001(\005"
-    "\022\020\n\010secuCode\030\005 \001(\t\022\026\n\016HTSCSecurityID\030\006 \001"
-    "(\t\"P\n\017ADRelatedPerson\022\013\n\003per\030\001 \001(\t\022\017\n\007co"
-    "mCode\030\002 \001(\t\022\013\n\003com\030\003 \001(\t\022\022\n\ngeneralPos\030\004"
-    " \001(\005B/\n\032com.htsc.mdc.insight.modelB\014ADNe"
-    "wsProtosH\001\240\001\001b\006proto3", 1261);
+    "rOf10\030\030 \001(\005\022E\n\020sentimentContent\030\031 \003(\0132+."
+    "com.htsc.mdc.insight.model.ADNewsDataEnt"
+    "ry\"Q\n\rADNewsEmotion\022\020\n\010negative\030\001 \001(\001\022\017\n"
+    "\007neutral\030\002 \001(\001\022\013\n\003pos\030\003 \001(\005\022\020\n\010positive\030"
+    "\004 \001(\001\"a\n\022ADInvolvedSecurity\022\017\n\007comCode\030\001"
+    " \001(\t\022\020\n\010secuCode\030\002 \001(\t\022\020\n\010secuName\030\003 \001(\t"
+    "\022\026\n\016HTSCSecurityID\030\004 \001(\t\"\177\n\020ADRelatedCom"
+    "pany\022\017\n\007chiname\030\001 \001(\t\022\017\n\007comCode\030\002 \001(\t\022\013"
+    "\n\003com\030\003 \001(\t\022\022\n\ngeneralPos\030\004 \001(\005\022\020\n\010secuC"
+    "ode\030\005 \001(\t\022\026\n\016HTSCSecurityID\030\006 \001(\t\"P\n\017ADR"
+    "elatedPerson\022\013\n\003per\030\001 \001(\t\022\017\n\007comCode\030\002 \001"
+    "(\t\022\013\n\003com\030\003 \001(\t\022\022\n\ngeneralPos\030\004 \001(\005\"-\n\017A"
+    "DNewsDataEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001"
+    "(\tB/\n\032com.htsc.mdc.insight.modelB\014ADNews"
+    "ProtosH\001\240\001\001b\006proto3", 1379);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "ADNews.proto", &protobuf_RegisterTypes);
   ::com::htsc::mdc::model::protobuf_AddDesc_ESecurityType_2eproto();
@@ -317,6 +346,7 @@ const int ADNews::kSecuListFieldNumber;
 const int ADNews::kPerEmListFieldNumber;
 const int ADNews::kComEmListFieldNumber;
 const int ADNews::kDataMultiplePowerOf10FieldNumber;
+const int ADNews::kSentimentContentFieldNumber;
 #endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
 
 ADNews::ADNews()
@@ -448,6 +478,7 @@ void ADNews::Clear() {
   seculist_.Clear();
   peremlist_.Clear();
   comemlist_.Clear();
+  sentimentcontent_.Clear();
 }
 
 bool ADNews::MergePartialFromCodedStream(
@@ -843,6 +874,23 @@ bool ADNews::MergePartialFromCodedStream(
         } else {
           goto handle_unusual;
         }
+        if (input->ExpectTag(202)) goto parse_sentimentContent;
+        break;
+      }
+
+      // repeated .com.htsc.mdc.insight.model.ADNewsDataEntry sentimentContent = 25;
+      case 25: {
+        if (tag == 202) {
+         parse_sentimentContent:
+          DO_(input->IncrementRecursionDepth());
+         parse_loop_sentimentContent:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtualNoRecursionDepth(
+                input, add_sentimentcontent()));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(202)) goto parse_loop_sentimentContent;
+        input->UnsafeDecrementRecursionDepth();
         if (input->ExpectAtEnd()) goto success;
         break;
       }
@@ -1057,6 +1105,12 @@ void ADNews::SerializeWithCachedSizes(
     ::google::protobuf::internal::WireFormatLite::WriteInt32(24, this->datamultiplepowerof10(), output);
   }
 
+  // repeated .com.htsc.mdc.insight.model.ADNewsDataEntry sentimentContent = 25;
+  for (unsigned int i = 0, n = this->sentimentcontent_size(); i < n; i++) {
+    ::google::protobuf::internal::WireFormatLite::WriteMessageMaybeToArray(
+      25, this->sentimentcontent(i), output);
+  }
+
   // @@protoc_insertion_point(serialize_end:com.htsc.mdc.insight.model.ADNews)
 }
 
@@ -1266,6 +1320,13 @@ void ADNews::SerializeWithCachedSizes(
     target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(24, this->datamultiplepowerof10(), target);
   }
 
+  // repeated .com.htsc.mdc.insight.model.ADNewsDataEntry sentimentContent = 25;
+  for (unsigned int i = 0, n = this->sentimentcontent_size(); i < n; i++) {
+    target = ::google::protobuf::internal::WireFormatLite::
+      InternalWriteMessageNoVirtualToArray(
+        25, this->sentimentcontent(i), false, target);
+  }
+
   // @@protoc_insertion_point(serialize_to_array_end:com.htsc.mdc.insight.model.ADNews)
   return target;
 }
@@ -1450,6 +1511,17 @@ size_t ADNews::ByteSizeLong() const {
     }
   }
 
+  // repeated .com.htsc.mdc.insight.model.ADNewsDataEntry sentimentContent = 25;
+  {
+    unsigned int count = this->sentimentcontent_size();
+    total_size += 2UL * count;
+    for (unsigned int i = 0; i < count; i++) {
+      total_size +=
+        ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
+          this->sentimentcontent(i));
+    }
+  }
+
   int cached_size = ::google::protobuf::internal::ToCachedSize(total_size);
   GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
   _cached_size_ = cached_size;
@@ -1486,6 +1558,7 @@ void ADNews::UnsafeMergeFrom(const ADNews& from) {
   seculist_.MergeFrom(from.seculist_);
   peremlist_.MergeFrom(from.peremlist_);
   comemlist_.MergeFrom(from.comemlist_);
+  sentimentcontent_.MergeFrom(from.sentimentcontent_);
   if (from.htscsecurityid().size() > 0) {
 
     htscsecurityid_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.htscsecurityid_);
@@ -1611,6 +1684,7 @@ void ADNews::InternalSwap(ADNews* other) {
   peremlist_.UnsafeArenaSwap(&other->peremlist_);
   comemlist_.UnsafeArenaSwap(&other->comemlist_);
   std::swap(datamultiplepowerof10_, other->datamultiplepowerof10_);
+  sentimentcontent_.UnsafeArenaSwap(&other->sentimentcontent_);
   _internal_metadata_.Swap(&other->_internal_metadata_);
   std::swap(_cached_size_, other->_cached_size_);
 }
@@ -2393,6 +2467,36 @@ void ADNews::set_datamultiplepowerof10(::google::protobuf::int32 value) {
   
   datamultiplepowerof10_ = value;
   // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADNews.DataMultiplePowerOf10)
+}
+
+// repeated .com.htsc.mdc.insight.model.ADNewsDataEntry sentimentContent = 25;
+int ADNews::sentimentcontent_size() const {
+  return sentimentcontent_.size();
+}
+void ADNews::clear_sentimentcontent() {
+  sentimentcontent_.Clear();
+}
+const ::com::htsc::mdc::insight::model::ADNewsDataEntry& ADNews::sentimentcontent(int index) const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADNews.sentimentContent)
+  return sentimentcontent_.Get(index);
+}
+::com::htsc::mdc::insight::model::ADNewsDataEntry* ADNews::mutable_sentimentcontent(int index) {
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.ADNews.sentimentContent)
+  return sentimentcontent_.Mutable(index);
+}
+::com::htsc::mdc::insight::model::ADNewsDataEntry* ADNews::add_sentimentcontent() {
+  // @@protoc_insertion_point(field_add:com.htsc.mdc.insight.model.ADNews.sentimentContent)
+  return sentimentcontent_.Add();
+}
+::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADNewsDataEntry >*
+ADNews::mutable_sentimentcontent() {
+  // @@protoc_insertion_point(field_mutable_list:com.htsc.mdc.insight.model.ADNews.sentimentContent)
+  return &sentimentcontent_;
+}
+const ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADNewsDataEntry >&
+ADNews::sentimentcontent() const {
+  // @@protoc_insertion_point(field_list:com.htsc.mdc.insight.model.ADNews.sentimentContent)
+  return sentimentcontent_;
 }
 
 inline const ADNews* ADNews::internal_default_instance() {
@@ -4664,6 +4768,393 @@ void ADRelatedPerson::set_generalpos(::google::protobuf::int32 value) {
 
 inline const ADRelatedPerson* ADRelatedPerson::internal_default_instance() {
   return &ADRelatedPerson_default_instance_.get();
+}
+#endif  // PROTOBUF_INLINE_NOT_IN_HEADERS
+
+// ===================================================================
+
+#if !defined(_MSC_VER) || _MSC_VER >= 1900
+const int ADNewsDataEntry::kKeyFieldNumber;
+const int ADNewsDataEntry::kValueFieldNumber;
+#endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
+
+ADNewsDataEntry::ADNewsDataEntry()
+  : ::google::protobuf::Message(), _internal_metadata_(NULL) {
+  if (this != internal_default_instance()) protobuf_InitDefaults_ADNews_2eproto();
+  SharedCtor();
+  // @@protoc_insertion_point(constructor:com.htsc.mdc.insight.model.ADNewsDataEntry)
+}
+
+void ADNewsDataEntry::InitAsDefaultInstance() {
+}
+
+ADNewsDataEntry::ADNewsDataEntry(const ADNewsDataEntry& from)
+  : ::google::protobuf::Message(),
+    _internal_metadata_(NULL) {
+  SharedCtor();
+  UnsafeMergeFrom(from);
+  // @@protoc_insertion_point(copy_constructor:com.htsc.mdc.insight.model.ADNewsDataEntry)
+}
+
+void ADNewsDataEntry::SharedCtor() {
+  key_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  value_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  _cached_size_ = 0;
+}
+
+ADNewsDataEntry::~ADNewsDataEntry() {
+  // @@protoc_insertion_point(destructor:com.htsc.mdc.insight.model.ADNewsDataEntry)
+  SharedDtor();
+}
+
+void ADNewsDataEntry::SharedDtor() {
+  key_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  value_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+
+void ADNewsDataEntry::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const ::google::protobuf::Descriptor* ADNewsDataEntry::descriptor() {
+  protobuf_AssignDescriptorsOnce();
+  return ADNewsDataEntry_descriptor_;
+}
+
+const ADNewsDataEntry& ADNewsDataEntry::default_instance() {
+  protobuf_InitDefaults_ADNews_2eproto();
+  return *internal_default_instance();
+}
+
+::google::protobuf::internal::ExplicitlyConstructed<ADNewsDataEntry> ADNewsDataEntry_default_instance_;
+
+ADNewsDataEntry* ADNewsDataEntry::New(::google::protobuf::Arena* arena) const {
+  ADNewsDataEntry* n = new ADNewsDataEntry;
+  if (arena != NULL) {
+    arena->Own(n);
+  }
+  return n;
+}
+
+void ADNewsDataEntry::Clear() {
+// @@protoc_insertion_point(message_clear_start:com.htsc.mdc.insight.model.ADNewsDataEntry)
+  key_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  value_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+
+bool ADNewsDataEntry::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!GOOGLE_PREDICT_TRUE(EXPRESSION)) goto failure
+  ::google::protobuf::uint32 tag;
+  // @@protoc_insertion_point(parse_start:com.htsc.mdc.insight.model.ADNewsDataEntry)
+  for (;;) {
+    ::std::pair< ::google::protobuf::uint32, bool> p = input->ReadTagWithCutoff(127);
+    tag = p.first;
+    if (!p.second) goto handle_unusual;
+    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
+      // optional string key = 1;
+      case 1: {
+        if (tag == 10) {
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_key()));
+          DO_(::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+            this->key().data(), this->key().length(),
+            ::google::protobuf::internal::WireFormatLite::PARSE,
+            "com.htsc.mdc.insight.model.ADNewsDataEntry.key"));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(18)) goto parse_value;
+        break;
+      }
+
+      // optional string value = 2;
+      case 2: {
+        if (tag == 18) {
+         parse_value:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_value()));
+          DO_(::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+            this->value().data(), this->value().length(),
+            ::google::protobuf::internal::WireFormatLite::PARSE,
+            "com.htsc.mdc.insight.model.ADNewsDataEntry.value"));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectAtEnd()) goto success;
+        break;
+      }
+
+      default: {
+      handle_unusual:
+        if (tag == 0 ||
+            ::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+          goto success;
+        }
+        DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+        break;
+      }
+    }
+  }
+success:
+  // @@protoc_insertion_point(parse_success:com.htsc.mdc.insight.model.ADNewsDataEntry)
+  return true;
+failure:
+  // @@protoc_insertion_point(parse_failure:com.htsc.mdc.insight.model.ADNewsDataEntry)
+  return false;
+#undef DO_
+}
+
+void ADNewsDataEntry::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+  // @@protoc_insertion_point(serialize_start:com.htsc.mdc.insight.model.ADNewsDataEntry)
+  // optional string key = 1;
+  if (this->key().size() > 0) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->key().data(), this->key().length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.ADNewsDataEntry.key");
+    ::google::protobuf::internal::WireFormatLite::WriteStringMaybeAliased(
+      1, this->key(), output);
+  }
+
+  // optional string value = 2;
+  if (this->value().size() > 0) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->value().data(), this->value().length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.ADNewsDataEntry.value");
+    ::google::protobuf::internal::WireFormatLite::WriteStringMaybeAliased(
+      2, this->value(), output);
+  }
+
+  // @@protoc_insertion_point(serialize_end:com.htsc.mdc.insight.model.ADNewsDataEntry)
+}
+
+::google::protobuf::uint8* ADNewsDataEntry::InternalSerializeWithCachedSizesToArray(
+    bool deterministic, ::google::protobuf::uint8* target) const {
+  (void)deterministic; // Unused
+  // @@protoc_insertion_point(serialize_to_array_start:com.htsc.mdc.insight.model.ADNewsDataEntry)
+  // optional string key = 1;
+  if (this->key().size() > 0) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->key().data(), this->key().length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.ADNewsDataEntry.key");
+    target =
+      ::google::protobuf::internal::WireFormatLite::WriteStringToArray(
+        1, this->key(), target);
+  }
+
+  // optional string value = 2;
+  if (this->value().size() > 0) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->value().data(), this->value().length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.ADNewsDataEntry.value");
+    target =
+      ::google::protobuf::internal::WireFormatLite::WriteStringToArray(
+        2, this->value(), target);
+  }
+
+  // @@protoc_insertion_point(serialize_to_array_end:com.htsc.mdc.insight.model.ADNewsDataEntry)
+  return target;
+}
+
+size_t ADNewsDataEntry::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:com.htsc.mdc.insight.model.ADNewsDataEntry)
+  size_t total_size = 0;
+
+  // optional string key = 1;
+  if (this->key().size() > 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::StringSize(
+        this->key());
+  }
+
+  // optional string value = 2;
+  if (this->value().size() > 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::StringSize(
+        this->value());
+  }
+
+  int cached_size = ::google::protobuf::internal::ToCachedSize(total_size);
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = cached_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void ADNewsDataEntry::MergeFrom(const ::google::protobuf::Message& from) {
+// @@protoc_insertion_point(generalized_merge_from_start:com.htsc.mdc.insight.model.ADNewsDataEntry)
+  if (GOOGLE_PREDICT_FALSE(&from == this)) MergeFromFail(__LINE__);
+  const ADNewsDataEntry* source =
+      ::google::protobuf::internal::DynamicCastToGenerated<const ADNewsDataEntry>(
+          &from);
+  if (source == NULL) {
+  // @@protoc_insertion_point(generalized_merge_from_cast_fail:com.htsc.mdc.insight.model.ADNewsDataEntry)
+    ::google::protobuf::internal::ReflectionOps::Merge(from, this);
+  } else {
+  // @@protoc_insertion_point(generalized_merge_from_cast_success:com.htsc.mdc.insight.model.ADNewsDataEntry)
+    UnsafeMergeFrom(*source);
+  }
+}
+
+void ADNewsDataEntry::MergeFrom(const ADNewsDataEntry& from) {
+// @@protoc_insertion_point(class_specific_merge_from_start:com.htsc.mdc.insight.model.ADNewsDataEntry)
+  if (GOOGLE_PREDICT_TRUE(&from != this)) {
+    UnsafeMergeFrom(from);
+  } else {
+    MergeFromFail(__LINE__);
+  }
+}
+
+void ADNewsDataEntry::UnsafeMergeFrom(const ADNewsDataEntry& from) {
+  GOOGLE_DCHECK(&from != this);
+  if (from.key().size() > 0) {
+
+    key_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.key_);
+  }
+  if (from.value().size() > 0) {
+
+    value_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.value_);
+  }
+}
+
+void ADNewsDataEntry::CopyFrom(const ::google::protobuf::Message& from) {
+// @@protoc_insertion_point(generalized_copy_from_start:com.htsc.mdc.insight.model.ADNewsDataEntry)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+void ADNewsDataEntry::CopyFrom(const ADNewsDataEntry& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:com.htsc.mdc.insight.model.ADNewsDataEntry)
+  if (&from == this) return;
+  Clear();
+  UnsafeMergeFrom(from);
+}
+
+bool ADNewsDataEntry::IsInitialized() const {
+
+  return true;
+}
+
+void ADNewsDataEntry::Swap(ADNewsDataEntry* other) {
+  if (other == this) return;
+  InternalSwap(other);
+}
+void ADNewsDataEntry::InternalSwap(ADNewsDataEntry* other) {
+  key_.Swap(&other->key_);
+  value_.Swap(&other->value_);
+  _internal_metadata_.Swap(&other->_internal_metadata_);
+  std::swap(_cached_size_, other->_cached_size_);
+}
+
+::google::protobuf::Metadata ADNewsDataEntry::GetMetadata() const {
+  protobuf_AssignDescriptorsOnce();
+  ::google::protobuf::Metadata metadata;
+  metadata.descriptor = ADNewsDataEntry_descriptor_;
+  metadata.reflection = ADNewsDataEntry_reflection_;
+  return metadata;
+}
+
+#if PROTOBUF_INLINE_NOT_IN_HEADERS
+// ADNewsDataEntry
+
+// optional string key = 1;
+void ADNewsDataEntry::clear_key() {
+  key_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+const ::std::string& ADNewsDataEntry::key() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADNewsDataEntry.key)
+  return key_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+void ADNewsDataEntry::set_key(const ::std::string& value) {
+  
+  key_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADNewsDataEntry.key)
+}
+void ADNewsDataEntry::set_key(const char* value) {
+  
+  key_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.ADNewsDataEntry.key)
+}
+void ADNewsDataEntry::set_key(const char* value, size_t size) {
+  
+  key_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.ADNewsDataEntry.key)
+}
+::std::string* ADNewsDataEntry::mutable_key() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.ADNewsDataEntry.key)
+  return key_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+::std::string* ADNewsDataEntry::release_key() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.ADNewsDataEntry.key)
+  
+  return key_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+void ADNewsDataEntry::set_allocated_key(::std::string* key) {
+  if (key != NULL) {
+    
+  } else {
+    
+  }
+  key_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), key);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.ADNewsDataEntry.key)
+}
+
+// optional string value = 2;
+void ADNewsDataEntry::clear_value() {
+  value_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+const ::std::string& ADNewsDataEntry::value() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADNewsDataEntry.value)
+  return value_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+void ADNewsDataEntry::set_value(const ::std::string& value) {
+  
+  value_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADNewsDataEntry.value)
+}
+void ADNewsDataEntry::set_value(const char* value) {
+  
+  value_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.ADNewsDataEntry.value)
+}
+void ADNewsDataEntry::set_value(const char* value, size_t size) {
+  
+  value_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.ADNewsDataEntry.value)
+}
+::std::string* ADNewsDataEntry::mutable_value() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.ADNewsDataEntry.value)
+  return value_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+::std::string* ADNewsDataEntry::release_value() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.ADNewsDataEntry.value)
+  
+  return value_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+void ADNewsDataEntry::set_allocated_value(::std::string* value) {
+  if (value != NULL) {
+    
+  } else {
+    
+  }
+  value_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.ADNewsDataEntry.value)
+}
+
+inline const ADNewsDataEntry* ADNewsDataEntry::internal_default_instance() {
+  return &ADNewsDataEntry_default_instance_.get();
 }
 #endif  // PROTOBUF_INLINE_NOT_IN_HEADERS
 

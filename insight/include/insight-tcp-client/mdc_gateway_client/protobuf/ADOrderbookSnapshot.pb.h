@@ -355,6 +355,60 @@ class ADOrderbookSnapshot : public ::google::protobuf::Message /* @@protoc_inser
   ::google::protobuf::int32 datamultiplepowerof10() const;
   void set_datamultiplepowerof10(::google::protobuf::int32 value);
 
+  // optional int64 MaxPx = 37;
+  void clear_maxpx();
+  static const int kMaxPxFieldNumber = 37;
+  ::google::protobuf::int64 maxpx() const;
+  void set_maxpx(::google::protobuf::int64 value);
+
+  // optional int64 MinPx = 38;
+  void clear_minpx();
+  static const int kMinPxFieldNumber = 38;
+  ::google::protobuf::int64 minpx() const;
+  void set_minpx(::google::protobuf::int64 value);
+
+  // optional int64 PreClosePx = 39;
+  void clear_preclosepx();
+  static const int kPreClosePxFieldNumber = 39;
+  ::google::protobuf::int64 preclosepx() const;
+  void set_preclosepx(::google::protobuf::int64 value);
+
+  // optional int64 OpenPx = 40;
+  void clear_openpx();
+  static const int kOpenPxFieldNumber = 40;
+  ::google::protobuf::int64 openpx() const;
+  void set_openpx(::google::protobuf::int64 value);
+
+  // optional int64 ClosePx = 41;
+  void clear_closepx();
+  static const int kClosePxFieldNumber = 41;
+  ::google::protobuf::int64 closepx() const;
+  void set_closepx(::google::protobuf::int64 value);
+
+  // optional int64 IOPV = 42;
+  void clear_iopv();
+  static const int kIOPVFieldNumber = 42;
+  ::google::protobuf::int64 iopv() const;
+  void set_iopv(::google::protobuf::int64 value);
+
+  // optional int64 PreIOPV = 43;
+  void clear_preiopv();
+  static const int kPreIOPVFieldNumber = 43;
+  ::google::protobuf::int64 preiopv() const;
+  void set_preiopv(::google::protobuf::int64 value);
+
+  // optional int32 DataSource = 44;
+  void clear_datasource();
+  static const int kDataSourceFieldNumber = 44;
+  ::google::protobuf::int32 datasource() const;
+  void set_datasource(::google::protobuf::int32 value);
+
+  // optional int32 Period = 45;
+  void clear_period();
+  static const int kPeriodFieldNumber = 45;
+  ::google::protobuf::int32 period() const;
+  void set_period(::google::protobuf::int32 value);
+
   // @@protoc_insertion_point(class_scope:com.htsc.mdc.insight.model.ADOrderbookSnapshot)
  private:
 
@@ -394,6 +448,15 @@ class ADOrderbookSnapshot : public ::google::protobuf::Message /* @@protoc_inser
   ::google::protobuf::int32 exchangedate_;
   ::google::protobuf::int32 exchangetime_;
   ::google::protobuf::int32 datamultiplepowerof10_;
+  ::google::protobuf::int64 maxpx_;
+  ::google::protobuf::int64 minpx_;
+  ::google::protobuf::int64 preclosepx_;
+  ::google::protobuf::int64 openpx_;
+  ::google::protobuf::int64 closepx_;
+  ::google::protobuf::int64 iopv_;
+  ::google::protobuf::int64 preiopv_;
+  ::google::protobuf::int32 datasource_;
+  ::google::protobuf::int32 period_;
   mutable int _cached_size_;
   friend void  protobuf_InitDefaults_ADOrderbookSnapshot_2eproto_impl();
   friend void  protobuf_AddDesc_ADOrderbookSnapshot_2eproto_impl();
@@ -1149,6 +1212,132 @@ inline void ADOrderbookSnapshot::set_datamultiplepowerof10(::google::protobuf::i
   
   datamultiplepowerof10_ = value;
   // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADOrderbookSnapshot.DataMultiplePowerOf10)
+}
+
+// optional int64 MaxPx = 37;
+inline void ADOrderbookSnapshot::clear_maxpx() {
+  maxpx_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 ADOrderbookSnapshot::maxpx() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADOrderbookSnapshot.MaxPx)
+  return maxpx_;
+}
+inline void ADOrderbookSnapshot::set_maxpx(::google::protobuf::int64 value) {
+  
+  maxpx_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADOrderbookSnapshot.MaxPx)
+}
+
+// optional int64 MinPx = 38;
+inline void ADOrderbookSnapshot::clear_minpx() {
+  minpx_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 ADOrderbookSnapshot::minpx() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADOrderbookSnapshot.MinPx)
+  return minpx_;
+}
+inline void ADOrderbookSnapshot::set_minpx(::google::protobuf::int64 value) {
+  
+  minpx_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADOrderbookSnapshot.MinPx)
+}
+
+// optional int64 PreClosePx = 39;
+inline void ADOrderbookSnapshot::clear_preclosepx() {
+  preclosepx_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 ADOrderbookSnapshot::preclosepx() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADOrderbookSnapshot.PreClosePx)
+  return preclosepx_;
+}
+inline void ADOrderbookSnapshot::set_preclosepx(::google::protobuf::int64 value) {
+  
+  preclosepx_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADOrderbookSnapshot.PreClosePx)
+}
+
+// optional int64 OpenPx = 40;
+inline void ADOrderbookSnapshot::clear_openpx() {
+  openpx_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 ADOrderbookSnapshot::openpx() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADOrderbookSnapshot.OpenPx)
+  return openpx_;
+}
+inline void ADOrderbookSnapshot::set_openpx(::google::protobuf::int64 value) {
+  
+  openpx_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADOrderbookSnapshot.OpenPx)
+}
+
+// optional int64 ClosePx = 41;
+inline void ADOrderbookSnapshot::clear_closepx() {
+  closepx_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 ADOrderbookSnapshot::closepx() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADOrderbookSnapshot.ClosePx)
+  return closepx_;
+}
+inline void ADOrderbookSnapshot::set_closepx(::google::protobuf::int64 value) {
+  
+  closepx_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADOrderbookSnapshot.ClosePx)
+}
+
+// optional int64 IOPV = 42;
+inline void ADOrderbookSnapshot::clear_iopv() {
+  iopv_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 ADOrderbookSnapshot::iopv() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADOrderbookSnapshot.IOPV)
+  return iopv_;
+}
+inline void ADOrderbookSnapshot::set_iopv(::google::protobuf::int64 value) {
+  
+  iopv_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADOrderbookSnapshot.IOPV)
+}
+
+// optional int64 PreIOPV = 43;
+inline void ADOrderbookSnapshot::clear_preiopv() {
+  preiopv_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 ADOrderbookSnapshot::preiopv() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADOrderbookSnapshot.PreIOPV)
+  return preiopv_;
+}
+inline void ADOrderbookSnapshot::set_preiopv(::google::protobuf::int64 value) {
+  
+  preiopv_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADOrderbookSnapshot.PreIOPV)
+}
+
+// optional int32 DataSource = 44;
+inline void ADOrderbookSnapshot::clear_datasource() {
+  datasource_ = 0;
+}
+inline ::google::protobuf::int32 ADOrderbookSnapshot::datasource() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADOrderbookSnapshot.DataSource)
+  return datasource_;
+}
+inline void ADOrderbookSnapshot::set_datasource(::google::protobuf::int32 value) {
+  
+  datasource_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADOrderbookSnapshot.DataSource)
+}
+
+// optional int32 Period = 45;
+inline void ADOrderbookSnapshot::clear_period() {
+  period_ = 0;
+}
+inline ::google::protobuf::int32 ADOrderbookSnapshot::period() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADOrderbookSnapshot.Period)
+  return period_;
+}
+inline void ADOrderbookSnapshot::set_period(::google::protobuf::int32 value) {
+  
+  period_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADOrderbookSnapshot.Period)
 }
 
 inline const ADOrderbookSnapshot* ADOrderbookSnapshot::internal_default_instance() {

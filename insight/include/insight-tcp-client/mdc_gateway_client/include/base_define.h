@@ -1,7 +1,7 @@
 //======================================================================================================
 // base_define.h
-// å¯¼å‡ºå®šä¹‰ã€æ—¥å¿—å‡½æ•°ç­‰å¸¸ç”¨å‡½æ•°å®šä¹‰å¤´æ–‡ä»¶
-// ç‰ˆæœ¬ï¼šv1.0  
+// µ¼³ö¶¨Òå¡¢ÈÕÖ¾º¯ÊıµÈ³£ÓÃº¯Êı¶¨ÒåÍ·ÎÄ¼ş
+// °æ±¾£ºv1.0  
 // lujun
 //======================================================================================================
 
@@ -35,84 +35,84 @@ namespace gateway {
 } \
 } 
 
-//ç¦ç”¨æ‹·è´æ„é€ å‡½æ•°å’Œèµ‹å€¼æ“ä½œ
+//½ûÓÃ¿½±´¹¹Ôìº¯ÊıºÍ¸³Öµ²Ù×÷
 #define DISALLOW_COPY_AND_ASSIGN(TypeName) \
     TypeName(const TypeName&);                \
     TypeName& operator=(const TypeName&)
 
-//å®šä¹‰å•ä¸ªå¯¹è±¡åŠå¯¹è±¡æ•°ç»„é‡Šæ”¾å®
+//¶¨Òåµ¥¸ö¶ÔÏó¼°¶ÔÏóÊı×éÊÍ·Åºê
 #define DELETE_P(buf) if (buf) { delete buf; buf = NULL;}
 #define DELETE_P_ARRAY(buf) if (buf) { delete[] buf; buf = NULL;}
 
 NAMESPACE_BEGIN
-//messageClassificationæ¶ˆæ¯åˆ†ç±» 
-const int MESSAGE_CLASSIFICATION_SYSTEM = 1001;	   //ç³»ç»Ÿæ¶ˆæ¯åˆ†ç±»	å¿ƒè·³æ¶ˆæ¯ï¼Œç™»å½•æ¶ˆæ¯ï¼Œé€šç”¨è­¦å‘Šæ¶ˆæ¯
-const int MESSAGE_CLASSIFICATION_REALTIME = 2001;	   //å®æ—¶è¡Œæƒ…æ¶ˆæ¯åˆ†ç±»	å®æ—¶è¡Œæƒ…ç›¸å…³çš„æ¶ˆæ¯
-const int MESSAGE_CLASSIFICATION_PLAYBACK = 2002;	   //å›æ”¾ä»»åŠ¡æ¶ˆæ¯åˆ†ç±»	å›æ”¾ç›¸å…³çš„æ¶ˆæ¯
-const int MESSAGE_CLASSIFICATION_QUERY = 2003;	   //æŸ¥è¯¢æ¶ˆæ¯åˆ†ç±»	æŸ¥è¯¢é¡¹çš„æ¶ˆæ¯
+//messageClassificationÏûÏ¢·ÖÀà 
+const int MESSAGE_CLASSIFICATION_SYSTEM = 1001;	   //ÏµÍ³ÏûÏ¢·ÖÀà	ĞÄÌøÏûÏ¢£¬µÇÂ¼ÏûÏ¢£¬Í¨ÓÃ¾¯¸æÏûÏ¢
+const int MESSAGE_CLASSIFICATION_REALTIME = 2001;	   //ÊµÊ±ĞĞÇéÏûÏ¢·ÖÀà	ÊµÊ±ĞĞÇéÏà¹ØµÄÏûÏ¢
+const int MESSAGE_CLASSIFICATION_PLAYBACK = 2002;	   //»Ø·ÅÈÎÎñÏûÏ¢·ÖÀà	»Ø·ÅÏà¹ØµÄÏûÏ¢
+const int MESSAGE_CLASSIFICATION_QUERY = 2003;	   //²éÑ¯ÏûÏ¢·ÖÀà	²éÑ¯ÏîµÄÏûÏ¢
 
-//queryTypeè¯´æ˜
-const int QUERY_TYPE_BASE_INFORMATION = 1011;        //æŸ¥è¯¢è¯åˆ¸åŸºç¡€ä¿¡æ¯	åŒ…å«åˆ°å½“æ—¥ä¸ºæ­¢è¡Œæƒ…ä¸­å¿ƒå¯¹åº”ç±»å‹çš„æ‰€ä»¥åŸºç¡€ä¿¡æ¯ï¼Œä¸éœ€è¦ç‰¹åˆ«çš„QueryParam
-const int QUERY_TYPE_LATEST_BASE_INFORMATION = 1012; //æŸ¥è¯¢æœ€æ–°è¯åˆ¸åŸºç¡€ä¿¡æ¯	ä»…åŒ…å«å½“æ—¥æœ‰çš„è¯åˆ¸åŸºç¡€ä¿¡æ¯ï¼Œä¸éœ€è¦ç‰¹åˆ«çš„QueryParam
-const int QUERY_TYPE_ETF_BASE_INFORMATION = 1013;    //æŸ¥è¯¢ETFçš„åŸºç¡€ä¿¡æ¯
-const int QUERY_TYPE_STATUS = 1021;	                 //æŸ¥è¯¢è¯åˆ¸æœ€æ–°çŠ¶æ€	ä¸éœ€è¦ç‰¹åˆ«çš„QueryParam
-const int QUERY_TYPE_SUBSCRIBE_ANSWER = 1031;        //è®¢é˜…çš„è¿”å›å€¼
+//queryTypeËµÃ÷
+const int QUERY_TYPE_BASE_INFORMATION = 1011;        //²éÑ¯Ö¤È¯»ù´¡ĞÅÏ¢	°üº¬µ½µ±ÈÕÎªÖ¹ĞĞÇéÖĞĞÄ¶ÔÓ¦ÀàĞÍµÄËùÒÔ»ù´¡ĞÅÏ¢£¬²»ĞèÒªÌØ±ğµÄQueryParam
+const int QUERY_TYPE_LATEST_BASE_INFORMATION = 1012; //²éÑ¯×îĞÂÖ¤È¯»ù´¡ĞÅÏ¢	½ö°üº¬µ±ÈÕÓĞµÄÖ¤È¯»ù´¡ĞÅÏ¢£¬²»ĞèÒªÌØ±ğµÄQueryParam
+const int QUERY_TYPE_ETF_BASE_INFORMATION = 1013;    //²éÑ¯ETFµÄ»ù´¡ĞÅÏ¢
+const int QUERY_TYPE_STATUS = 1021;	                 //²éÑ¯Ö¤È¯×îĞÂ×´Ì¬	²»ĞèÒªÌØ±ğµÄQueryParam
+const int QUERY_TYPE_SUBSCRIBE_ANSWER = 1031;        //¶©ÔÄµÄ·µ»ØÖµ
 
-//appTypeè¯´æ˜
-const int APP_TYPE_INSIGHT = 101;	//insightè‡ªæœ‰ç”¨æˆ·
-const int APP_TYPE_XTRADER = 201;	//XTraderç³»ç»Ÿ
+//appTypeËµÃ÷
+const int APP_TYPE_INSIGHT = 101;	//insight×ÔÓĞÓÃ»§
+const int APP_TYPE_XTRADER = 201;	//XTraderÏµÍ³
 
 /**
-* ç¯å¢ƒåˆå§‹åŒ–ã€å…³é—­å‡½æ•°
-* å¯¹äºMFCç”¨æˆ·(émainå‡½æ•°å…¥å£)ï¼Œéœ€è¦åœ¨å…¥å£èµ·å§‹å’Œç»“å°¾å¤„è°ƒç”¨InitEnvå’ŒFiniEnvï¼Œç”¨äºåˆå§‹åŒ–ACEç¯å¢ƒ
+* »·¾³³õÊ¼»¯¡¢¹Ø±Õº¯Êı
+* ¶ÔÓÚMFCÓÃ»§(·Çmainº¯ÊıÈë¿Ú)£¬ĞèÒªÔÚÈë¿ÚÆğÊ¼ºÍ½áÎ²´¦µ÷ÓÃInitEnvºÍFiniEnv£¬ÓÃÓÚ³õÊ¼»¯ACE»·¾³
 */
 LIB_EXPORT void init_env();
 LIB_EXPORT void fini_env();
 
 /**
-* æ‰“å¼€å…³é—­g_traceæ—¥å¿—
+* ´ò¿ª¹Ø±Õg_traceÈÕÖ¾
 */
 LIB_EXPORT void open_trace();
 LIB_EXPORT void close_trace();
 LIB_EXPORT bool is_trace();
 
 /**
-* æ‰“å¼€å…³é—­g_heartbeat_traceæ—¥å¿—
+* ´ò¿ª¹Ø±Õg_heartbeat_traceÈÕÖ¾
 */
 LIB_EXPORT void open_heartbeat_trace();
 LIB_EXPORT void close_heartbeat_trace();
 LIB_EXPORT bool is_heartbeat_trace();
 
 /**
-* æ ¹æ®æ˜¯å¦ä¸ºå‹ç¼©æ•°æ®é€‰æ‹©çº¿ç¨‹
+* ¸ù¾İÊÇ·ñÎªÑ¹ËõÊı¾İÑ¡ÔñÏß³Ì
 */
 LIB_EXPORT void open_compress();
 LIB_EXPORT void close_compress();
 LIB_EXPORT bool is_compress();
 
 /**
-* æ‰“å¼€å…³é—­g_response_callbackå¼€å…³
-* æ‰“å¼€g_response_callbackå¼€å…³åï¼Œéœ€è¦è‡ªè¡Œå¤„ç†responseæ¶ˆæ¯
+* ´ò¿ª¹Ø±Õg_response_callback¿ª¹Ø
+* ´ò¿ªg_response_callback¿ª¹Øºó£¬ĞèÒª×ÔĞĞ´¦ÀíresponseÏûÏ¢
 */
 LIB_EXPORT void open_response_callback();
 LIB_EXPORT void close_response_callback();
 LIB_EXPORT bool is_response_callback();
 
 /**
-* æœåŠ¡ç½‘å…³åœ°å€è‡ªåŠ¨é€‰æ‹©å¼€å…³ï¼Œopen:æ ¹æ®æœåŠ¡ç«¯é…ç½®é€‰æ‹©ï¼Œclose:æ ¹æ®å®¢æˆ·ç«¯é…ç½®é€‰æ‹©
+* ·şÎñÍø¹ØµØÖ·×Ô¶¯Ñ¡Ôñ¿ª¹Ø£¬open:¸ù¾İ·şÎñ¶ËÅäÖÃÑ¡Ôñ£¬close:¸ù¾İ¿Í»§¶ËÅäÖÃÑ¡Ôñ
 */
 LIB_EXPORT void open_node_auto();
 LIB_EXPORT void close_node_auto();
 LIB_EXPORT bool is_node_auto();
 
 /**
-* åˆ¤æ–­æ˜¯å¦ç¦æ­¢ææ„
+* ÅĞ¶ÏÊÇ·ñ½ûÖ¹Îö¹¹
 */
 LIB_EXPORT bool is_forbid_destruct();
 
 
 /**
-* åˆ¤æ–­æ˜¯å¦å‡ºç°æ¥æ”¶è¶…æ—¶å°±é‡è¿
+* ÅĞ¶ÏÊÇ·ñ³öÏÖ½ÓÊÕ³¬Ê±¾ÍÖØÁ¬
 */
 LIB_EXPORT bool is_etime_reconnect();
 
@@ -123,7 +123,7 @@ LIB_EXPORT uint32_t get_start_port();
 LIB_EXPORT uint32_t get_end_port();
 
 /**
-* æ—¥å¿—çº§åˆ«å®šä¹‰
+* ÈÕÖ¾¼¶±ğ¶¨Òå
 */
 typedef enum mdc_log_severity {
 	MDC_LOG_SEVERITY_DEBUG,
@@ -131,103 +131,103 @@ typedef enum mdc_log_severity {
 	MDC_LOG_SEVERITY_ERROR
 } mdc_log_severity;
 
-//æ‰“å¼€ã€å…³é—­æ—¥å¿—åˆ°æ–‡ä»¶ï¼Œæ—¥å¿—æ–‡ä»¶å­˜æ”¾åœ¨å‘½ä»¤è¿è¡Œç›®å½•ï¼Œæ ¼å¼ä¸ºï¼špid_è¿›ç¨‹id.log
+//´ò¿ª¡¢¹Ø±ÕÈÕÖ¾µ½ÎÄ¼ş£¬ÈÕÖ¾ÎÄ¼ş´æ·ÅÔÚÃüÁîÔËĞĞÄ¿Â¼£¬¸ñÊ½Îª£ºpid_½ø³Ìid.log
 LIB_EXPORT void open_file_log();
 LIB_EXPORT void close_file_log();
 
-//æ‰“å¼€ã€å…³é—­æ—¥å¿—åˆ°æ ‡å‡†è¾“å‡º
+//´ò¿ª¡¢¹Ø±ÕÈÕÖ¾µ½±ê×¼Êä³ö
 LIB_EXPORT void open_cout_log();
 LIB_EXPORT void close_cout_log();
 
 /**
-* æ‰“å°æ—¥å¿—ï¼Œé»˜è®¤æ‰“å°åˆ°æ—¥å¿—å’Œæ ‡å‡†è¾“å‡ºä¸­
-* å¦‚æœéœ€è¦æ§åˆ¶ï¼Œä½¿ç”¨éšåçš„open/closeæ¥å£
-* ä½¿ç”¨æ–¹å¼ï¼šä¸printfç±»ä¼¼ï¼Œä»…æ”¯æŒ%sã€%dç­‰å¸¸ç”¨ç±»å‹
+* ´òÓ¡ÈÕÖ¾£¬Ä¬ÈÏ´òÓ¡µ½ÈÕÖ¾ºÍ±ê×¼Êä³öÖĞ
+* Èç¹ûĞèÒª¿ØÖÆ£¬Ê¹ÓÃËæºóµÄopen/close½Ó¿Ú
+* Ê¹ÓÃ·½Ê½£ºÓëprintfÀàËÆ£¬½öÖ§³Ö%s¡¢%dµÈ³£ÓÃÀàĞÍ
 */
 LIB_EXPORT void debug_print(const char* format, ...);
 LIB_EXPORT void warning_print(const char* format, ...);
 LIB_EXPORT void error_print(const char* format, ...);
 
 /**
-* è·å–é”™è¯¯å·å«ä¹‰
-* @param[in] code é”™è¯¯å·
-* @return é”™è¯¯å«ä¹‰
+* »ñÈ¡´íÎóºÅº¬Òå
+* @param[in] code ´íÎóºÅ
+* @return ´íÎóº¬Òå
 */
 LIB_EXPORT std::string get_error_code_value(int code);
 
 /**
-* è·å–åŠ¨æ€åº“ç‰ˆæœ¬ï¼Œæœ€é•¿15ä¸ªå­—ç¬¦
+* »ñÈ¡¶¯Ì¬¿â°æ±¾£¬×î³¤15¸ö×Ö·û
 */
 LIB_EXPORT const char* get_dll_version();
 
 /**
-* è®¾ç½®åŠ¨æ€åº“ç‰ˆæœ¬
+* ÉèÖÃ¶¯Ì¬¿â°æ±¾
 */
 LIB_EXPORT void set_dll_version(const char* version);
 
 /**
-* è·å–taskidï¼Œè§„åˆ™ä¸ºï¼šèŠ‚ç‚¹å+pid+å½“å‰æ—¶é—´ï¼ˆç²¾ç¡®åˆ°å¾®ç§’ï¼‰+è‡ªå®šä¹‰å†…å®¹åç¼€
-* å¦‚ï¼šhostname_13323_20170728T1500.0132_suffix
-* @param[in] suffix åç¼€
-* @return ä»»åŠ¡idå­—ç¬¦ä¸²
+* »ñÈ¡taskid£¬¹æÔòÎª£º½ÚµãÃû+pid+µ±Ç°Ê±¼ä£¨¾«È·µ½Î¢Ãë£©+×Ô¶¨ÒåÄÚÈİºó×º
+* Èç£ºhostname_13323_20170728T1500.0132_suffix
+* @param[in] suffix ºó×º
+* @return ÈÎÎñid×Ö·û´®
 */
 LIB_EXPORT std::string get_task_id(const std::string& suffix = "");
 
 /**
-* å°†utf8ç¼–ç çš„å­—ç¬¦ä¸²è½¬æ¢ä¸ºgb2312çš„å­—ç¬¦ä¸²
-* @param[in] str utf8ç¼–ç çš„å­—ç¬¦ä¸²
-* @return gb2312çš„å­—ç¬¦ä¸²
+* ½«utf8±àÂëµÄ×Ö·û´®×ª»»Îªgb2312µÄ×Ö·û´®
+* @param[in] str utf8±àÂëµÄ×Ö·û´®
+* @return gb2312µÄ×Ö·û´®
 */
 LIB_EXPORT std::string utf8_to_gb2312(const std::string& str);
 /**
-* å°†gb2312ç¼–ç çš„bufè½¬æ¢ä¸ºutf8çš„å­—ç¬¦ä¸²
-* @param[in] str gb2312ç¼–ç çš„å­—ç¬¦ä¸²
-* @return utf8çš„å­—ç¬¦ä¸²
+* ½«gb2312±àÂëµÄbuf×ª»»Îªutf8µÄ×Ö·û´®
+* @param[in] str gb2312±àÂëµÄ×Ö·û´®
+* @return utf8µÄ×Ö·û´®
 */
 LIB_EXPORT std::string gb2312_to_utf8(const std::string& str);
 
-//å±æ€§è·å–åŠè®¾ç½®ï¼Œå¿…é¡»è°ƒç”¨init_envåˆå§‹åŒ–
+//ÊôĞÔ»ñÈ¡¼°ÉèÖÃ£¬±ØĞëµ÷ÓÃinit_env³õÊ¼»¯
 LIB_EXPORT int get_int_property_value(const char* key);
 LIB_EXPORT int set_int_property_value(const char* key, int value);
 
 /**
-* AESåŠ å¯†ï¼Œå—å¤§å°å¿…é¡»ä¸º128ä½ï¼ˆ16å­—èŠ‚ï¼‰
-* å¦‚æœä¸æ˜¯ï¼Œåˆ™è¦è¡¥é½ï¼Œå¯†é’¥é•¿åº¦å¯ä»¥é€‰æ‹©128ä½ã€192ä½ã€256ä½ã€‚
-* @param[in] key å¯†é’¥
-* @param[in] data æ•°æ®
+* AES¼ÓÃÜ£¬¿é´óĞ¡±ØĞëÎª128Î»£¨16×Ö½Ú£©
+* Èç¹û²»ÊÇ£¬ÔòÒª²¹Æë£¬ÃÜÔ¿³¤¶È¿ÉÒÔÑ¡Ôñ128Î»¡¢192Î»¡¢256Î»¡£
+* @param[in] key ÃÜÔ¿
+* @param[in] data Êı¾İ
 */
 LIB_EXPORT std::string encode(const std::string& key, const std::string& data);
 
 /**
-* AESè§£å¯†ï¼Œå¯†é’¥é•¿åº¦å¯ä»¥é€‰æ‹©128ä½ã€192ä½ã€256ä½ã€‚
-* @param[in] key å¯†é’¥
-* @param[in] encode_data æ•°æ®
+* AES½âÃÜ£¬ÃÜÔ¿³¤¶È¿ÉÒÔÑ¡Ôñ128Î»¡¢192Î»¡¢256Î»¡£
+* @param[in] key ÃÜÔ¿
+* @param[in] encode_data Êı¾İ
 */
 LIB_EXPORT std::string decode(const std::string& key, const std::string& encode_data);
 
 /**
-* åˆ é™¤åœ°å€æ˜ å°„è¡¨ä¸­çš„æŸä¸ªåœ°å€
-* @param[in] original_ip å¾…åˆ é™¤çš„åŸåœ°å€
+* É¾³ıµØÖ·Ó³Éä±íÖĞµÄÄ³¸öµØÖ·
+* @param[in] original_ip ´ıÉ¾³ıµÄÔ­µØÖ·
 */
 LIB_EXPORT void delete_ip_map(std::string original_ip);
 
 /**
-* æ–°å¢åœ°å€æ˜ å°„è¡¨ä¸­çš„æ˜ å°„é€»è¾‘
-* @param[in] original_ip åŸåœ°å€
-* @param[in] mapped_ip   æ˜ å°„åœ°å€
+* ĞÂÔöµØÖ·Ó³Éä±íÖĞµÄÓ³ÉäÂß¼­
+* @param[in] original_ip Ô­µØÖ·
+* @param[in] mapped_ip   Ó³ÉäµØÖ·
 */
 LIB_EXPORT void add_ip_map(std::string original_ip, std::string mapped_ip);
 
 /**
-* åˆ é™¤ç«¯å£æ˜ å°„è¡¨ä¸­çš„æŸä¸ªç«¯å£
-* @param[in] original_port å¾…åˆ é™¤çš„åŸç«¯å£
+* É¾³ı¶Ë¿ÚÓ³Éä±íÖĞµÄÄ³¸ö¶Ë¿Ú
+* @param[in] original_port ´ıÉ¾³ıµÄÔ­¶Ë¿Ú
 */
 LIB_EXPORT void delete_port_map(int original_port);
 
 /**
-* æ–°å¢ç«¯å£æ˜ å°„è¡¨ä¸­çš„æ˜ å°„é€»è¾‘
-* @param[in] original_port åŸç«¯å£
-* @param[in] mapped_port   æ˜ å°„ç«¯å£
+* ĞÂÔö¶Ë¿ÚÓ³Éä±íÖĞµÄÓ³ÉäÂß¼­
+* @param[in] original_port Ô­¶Ë¿Ú
+* @param[in] mapped_port   Ó³Éä¶Ë¿Ú
 */
 LIB_EXPORT void add_port_map(int original_port, int mapped_port);
 

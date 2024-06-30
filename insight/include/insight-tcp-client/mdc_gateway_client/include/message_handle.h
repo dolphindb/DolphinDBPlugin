@@ -1,11 +1,11 @@
 //======================================================================================================
 // message_handle.h
-// æ¶ˆæ¯å¤„ç†handleå¤´æ–‡ä»¶
+// ÏûÏ¢´¦ÀíhandleÍ·ÎÄ¼ş
 // panhao 2019-01-16
-// ç‰ˆæœ¬ï¼š
-//    v0.1å®ç°handleå®šä¹‰ç±» 
-//    v1.1.2 è¡¥å……OnLoginSuccessã€OnLoginFailedã€OnReconnectå›è°ƒå‡½æ•°ï¼Œç”¨äºå¤„ç†ç™»å½•å’Œé‡è¿æ—¶çš„é€šçŸ¥
-//    v2.1.0 è¡¥å……OnPlaybackResponseã€OnPlaybackControlResponse
+// °æ±¾£º
+//    v0.1ÊµÏÖhandle¶¨ÒåÀà 
+//    v1.1.2 ²¹³äOnLoginSuccess¡¢OnLoginFailed¡¢OnReconnect»Øµ÷º¯Êı£¬ÓÃÓÚ´¦ÀíµÇÂ¼ºÍÖØÁ¬Ê±µÄÍ¨Öª
+//    v2.1.0 ²¹³äOnPlaybackResponse¡¢OnPlaybackControlResponse
 //======================================================================================================
 
 #ifndef HTSC_MD_GATEWAY_MESSAGE_HANDLE_H
@@ -20,9 +20,9 @@
 NAMESPACE_BEGIN
 
 /**
-* æ¶ˆæ¯å¤„ç†å®šä¹‰ç±»
-* è¯·æ ¹æ®éœ€æ±‚å®ç°ä¸‹åˆ—è™šå‡½æ•°ï¼Œé»˜è®¤æ–¹å¼æ˜¯ä¸åšä»»ä½•å¤„ç†
-* è¦æ±‚æ”¯æŒå¤šçº¿ç¨‹å¹¶å‘ï¼Œä¸è¦ä½¿ç”¨å¯¹è±¡æˆå‘˜
+* ÏûÏ¢´¦Àí¶¨ÒåÀà
+* Çë¸ù¾İĞèÇóÊµÏÖÏÂÁĞĞéº¯Êı£¬Ä¬ÈÏ·½Ê½ÊÇ²»×öÈÎºÎ´¦Àí
+* ÒªÇóÖ§³Ö¶àÏß³Ì²¢·¢£¬²»ÒªÊ¹ÓÃ¶ÔÏó³ÉÔ±
 */
 class LIB_EXPORT MessageHandle {
 public:
@@ -31,104 +31,104 @@ public:
 
 public:
 	/**
-	* å¤„ç†InsightMessage
-	* @param[in] header æ¶ˆæ¯å¤´
-	* @param[in] body æ¶ˆæ¯ä½“
+	* ´¦ÀíInsightMessage
+	* @param[in] header ÏûÏ¢Í·
+	* @param[in] body ÏûÏ¢Ìå
 	*/
 	void ProcessMessage(
 		const com::htsc::mdc::insight::model::MessageHeader* header,
 		const com::htsc::mdc::insight::model::MessageBody* body);
 
 	//=============================================================================================
-	// ä»¥ä¸‹ä¸ºä¸šåŠ¡é€»è¾‘å¤„ç†å›è°ƒå‡½æ•°
+	// ÒÔÏÂÎªÒµÎñÂß¼­´¦Àí»Øµ÷º¯Êı
 	//=============================================================================================
 
 	/**
-	* å¤„ç†MDSecurityRecord
-	* @param[in] MarketData æ•°æ®ä½“
+	* ´¦ÀíMDSecurityRecord
+	* @param[in] MarketData Êı¾İÌå
 	*/
 	virtual void OnMarketData(const com::htsc::mdc::insight::model::MarketData& data);
 
 	/**
-	* å¤„ç†å›æ”¾æ¶ˆæ¯
-	* @param[in] PlaybackPayload å›æ”¾æ•°æ®
+	* ´¦Àí»Ø·ÅÏûÏ¢
+	* @param[in] PlaybackPayload »Ø·ÅÊı¾İ
 	*/
 	virtual void OnPlaybackPayload(const com::htsc::mdc::insight::model::PlaybackPayload& payload);
 
 	/**
-	* å¤„ç†å›æ”¾çŠ¶æ€æ¶ˆæ¯
-	* @param[in] PlaybackStatus å›æ”¾çŠ¶æ€
+	* ´¦Àí»Ø·Å×´Ì¬ÏûÏ¢
+	* @param[in] PlaybackStatus »Ø·Å×´Ì¬
 	*/
 	virtual void OnPlaybackStatus(const com::htsc::mdc::insight::model::PlaybackStatus& status);
 
 	/**
-	* å¤„ç†å›æ”¾è¯·æ±‚è¿”å›ç»“æœ
-	* @param[in] PlaybackResponse å›æ”¾è¯·æ±‚ç»“æœ
+	* ´¦Àí»Ø·ÅÇëÇó·µ»Ø½á¹û
+	* @param[in] PlaybackResponse »Ø·ÅÇëÇó½á¹û
 	*/
 	virtual void OnPlaybackResponse(const com::htsc::mdc::insight::model::PlaybackResponse& response);
 
 	/**
-	* å¤„ç†å›æ”¾æ§åˆ¶è¯·æ±‚è¿”å›ç»“æœ
-	* @param[in] PlaybackControlResponse å›æ”¾æ§åˆ¶è¯·æ±‚ç»“æœ
+	* ´¦Àí»Ø·Å¿ØÖÆÇëÇó·µ»Ø½á¹û
+	* @param[in] PlaybackControlResponse »Ø·Å¿ØÖÆÇëÇó½á¹û
 	*/
 	virtual void OnPlaybackControlResponse(const com::htsc::mdc::insight::model::PlaybackControlResponse& control_response);
 
 	/**
-	* å¤„ç†è¯åˆ¸æœ€æ–°çŠ¶æ€è¿”å›ç»“æœï¼Œè®¢é˜…åè¿”å›
-	* @param[in] MarketDataStream çŠ¶æ€æ•°æ®
+	* ´¦ÀíÖ¤È¯×îĞÂ×´Ì¬·µ»Ø½á¹û£¬¶©ÔÄºó·µ»Ø
+	* @param[in] MarketDataStream ×´Ì¬Êı¾İ
 	*/
 	virtual void OnServiceMessage(const ::com::htsc::mdc::insight::model::MarketDataStream& data_stream);
 
 	/**
-	* å¤„ç†è®¢é˜…è¯·æ±‚è¿”å›ç»“æœ
-	* @param[in] MDSubscribeResponse è®¢é˜…è¯·æ±‚ç»“æœ
+	* ´¦Àí¶©ÔÄÇëÇó·µ»Ø½á¹û
+	* @param[in] MDSubscribeResponse ¶©ÔÄÇëÇó½á¹û
 	*/
 	virtual void OnSubscribeResponse(const ::com::htsc::mdc::insight::model::MDSubscribeResponse& response);
 
 	/**
-	* å¤„ç†æŸ¥è¯¢è¯·æ±‚è¿”å›ç»“æœ
-	* @param[in] MDQueryResponse æŸ¥è¯¢è¯·æ±‚è¿”å›ç»“æœ
+	* ´¦Àí²éÑ¯ÇëÇó·µ»Ø½á¹û
+	* @param[in] MDQueryResponse ²éÑ¯ÇëÇó·µ»Ø½á¹û
 	*/
 	virtual void OnQueryResponse(const ::com::htsc::mdc::insight::model::MDQueryResponse& response);
 
 	/**
-	* å¤„ç†å‘Šè­¦æ¶ˆæ¯
-	* ä¸ºé¿å…å½±å“åç»­å¤„ç†é€»è¾‘ï¼Œè¯·ä¸è¦åœ¨æ­¤å¤„è¿›è¡Œå¤æ‚çš„ä¸šåŠ¡é€»è¾‘
-	* @param[in] context é”™è¯¯å†…å®¹
+	* ´¦Àí¸æ¾¯ÏûÏ¢
+	* Îª±ÜÃâÓ°ÏìºóĞø´¦ÀíÂß¼­£¬Çë²»ÒªÔÚ´Ë´¦½øĞĞ¸´ÔÓµÄÒµÎñÂß¼­
+	* @param[in] context ´íÎóÄÚÈİ
 	*/
 	virtual void OnGeneralError(const com::htsc::mdc::insight::model::InsightErrorContext& context);
 
 	//=============================================================================================
-	// ä»¥ä¸‹ä¸ºçŠ¶æ€ä¿¡æ¯å¤„ç†å›è°ƒå‡½æ•°
-	// ä¸»è¦ä¸ºå½±å“ä¸šåŠ¡é€»è¾‘çš„é‡è¿æä¾›å…¥å£
+	// ÒÔÏÂÎª×´Ì¬ĞÅÏ¢´¦Àí»Øµ÷º¯Êı
+	// Ö÷ÒªÎªÓ°ÏìÒµÎñÂß¼­µÄÖØÁ¬Ìá¹©Èë¿Ú
 	//=============================================================================================
 	/**
-	* ç™»å½•æˆåŠŸå›è°ƒï¼Œåœ¨é‡è¿æˆåŠŸæ—¶ä¼šè§¦å‘
-	* æœ¬å‡½æ•°åœ¨ç™»å½•æˆåŠŸåå›è°ƒï¼Œä¸ºé¿å…å½±å“åç»­å¤„ç†é€»è¾‘ï¼Œè¯·ä¸è¦åœ¨æ­¤å¤„è¿›è¡Œå¤æ‚çš„ä¸šåŠ¡é€»è¾‘
-	* @param[in] server_name æœåŠ¡
+	* µÇÂ¼³É¹¦»Øµ÷£¬ÔÚÖØÁ¬³É¹¦Ê±»á´¥·¢
+	* ±¾º¯ÊıÔÚµÇÂ¼³É¹¦ºó»Øµ÷£¬Îª±ÜÃâÓ°ÏìºóĞø´¦ÀíÂß¼­£¬Çë²»ÒªÔÚ´Ë´¦½øĞĞ¸´ÔÓµÄÒµÎñÂß¼­
+	* @param[in] server_name ·şÎñ
 	*/
 	virtual void OnLoginSuccess();
 
 	/**
-	* ç™»å½•å¤±è´¥ï¼Œåœ¨é‡è¿æ—¶ä¼šå¤šæ¬¡è§¦å‘
-	* æœ¬å‡½æ•°åœ¨ç™»å½•å¤±è´¥åå›è°ƒï¼Œä¸ºé¿å…å½±å“åç»­å¤„ç†é€»è¾‘ï¼Œè¯·ä¸è¦åœ¨æ­¤å¤„è¿›è¡Œå¤æ‚çš„ä¸šåŠ¡é€»è¾‘
-	* å¸¸è§çš„å¤„ç†æ–¹å¼æ˜¯è®°å½•ä¸‹ç™»å½•é”™è¯¯ä¿¡æ¯ï¼Œæ£€æŸ¥ç™»å½•éªŒè¯ä¿¡æ¯æ­£ç¡®æ€§åï¼Œåœ¨å¤–éƒ¨å…³é—­å®¢æˆ·ç«¯å¹¶è¿›è¡Œé‡è¿
-	* @param[in] error_no é”™è¯¯å·
-	* @param[in] message é”™è¯¯æ¶ˆæ¯
+	* µÇÂ¼Ê§°Ü£¬ÔÚÖØÁ¬Ê±»á¶à´Î´¥·¢
+	* ±¾º¯ÊıÔÚµÇÂ¼Ê§°Üºó»Øµ÷£¬Îª±ÜÃâÓ°ÏìºóĞø´¦ÀíÂß¼­£¬Çë²»ÒªÔÚ´Ë´¦½øĞĞ¸´ÔÓµÄÒµÎñÂß¼­
+	* ³£¼ûµÄ´¦Àí·½Ê½ÊÇ¼ÇÂ¼ÏÂµÇÂ¼´íÎóĞÅÏ¢£¬¼ì²éµÇÂ¼ÑéÖ¤ĞÅÏ¢ÕıÈ·ĞÔºó£¬ÔÚÍâ²¿¹Ø±Õ¿Í»§¶Ë²¢½øĞĞÖØÁ¬
+	* @param[in] error_no ´íÎóºÅ
+	* @param[in] message ´íÎóÏûÏ¢
 	*/
 	virtual void OnLoginFailed(int error_no, const std::string& message);
 
 
 	/**
-	* åœ¨é‡è¿å¤±è´¥æ—¶å›è°ƒï¼Œè¡¨ç¤ºæ‰€æœ‰æœåŠ¡å™¨éƒ½æ— æ³•è¿æ¥
-	* ä»…é€šçŸ¥ï¼Œä¸è¦åœ¨æ­¤å¤„å¯¹Mdcå®¢æˆ·ç«¯å¯¹è±¡çš„è¿›è¡Œå¤„ç†
-	* å»ºè®®çš„ä½¿ç”¨æ–¹å¼ï¼šåœ¨è¿›è¡Œå›æ”¾æ“ä½œæ—¶è®°å½•OnReconnectçš„å‘ç”Ÿæ—¶é—´ï¼Œå¦‚æœåœ¨å›è®¿æ“ä½œè¿›è¡Œæ—¶ï¼Œåˆ™æœ¬æ¬¡å›æ”¾å¤±è´¥ã€‚
+	* ÔÚÖØÁ¬Ê§°ÜÊ±»Øµ÷£¬±íÊ¾ËùÓĞ·şÎñÆ÷¶¼ÎŞ·¨Á¬½Ó
+	* ½öÍ¨Öª£¬²»ÒªÔÚ´Ë´¦¶ÔMdc¿Í»§¶Ë¶ÔÏóµÄ½øĞĞ´¦Àí
+	* ½¨ÒéµÄÊ¹ÓÃ·½Ê½£ºÔÚ½øĞĞ»Ø·Å²Ù×÷Ê±¼ÇÂ¼OnReconnectµÄ·¢ÉúÊ±¼ä£¬Èç¹ûÔÚ»Ø·Ã²Ù×÷½øĞĞÊ±£¬Ôò±¾´Î»Ø·ÅÊ§°Ü¡£
 	*/
 	virtual void OnNoConnections();
 
 	/**
-	* é‡è¿æˆåŠŸæ—¶ï¼Œä¸ºé¿å…å½±å“åç»­å¤„ç†é€»è¾‘ï¼Œè¯·ä¸è¦åœ¨æ­¤å¤„è¿›è¡Œå¤æ‚çš„ä¸šåŠ¡é€»è¾‘å¤„ç†
-	* å»ºè®®çš„ä½¿ç”¨æ–¹å¼ï¼šåœ¨è¿›è¡Œå›æ”¾æ“ä½œæ—¶è®°å½•OnReconnectå‘ç”Ÿæ—¶é—´ï¼Œå¦‚æœæ­¤æ—¶æ­£åœ¨å›æ”¾ï¼Œåˆ™å›æ”¾åº”å¤±è´¥ï¼ˆå›æ”¾ä¸æ”¯æŒç»­ä¼ ï¼‰ã€‚
+	* ÖØÁ¬³É¹¦Ê±£¬Îª±ÜÃâÓ°ÏìºóĞø´¦ÀíÂß¼­£¬Çë²»ÒªÔÚ´Ë´¦½øĞĞ¸´ÔÓµÄÒµÎñÂß¼­´¦Àí
+	* ½¨ÒéµÄÊ¹ÓÃ·½Ê½£ºÔÚ½øĞĞ»Ø·Å²Ù×÷Ê±¼ÇÂ¼OnReconnect·¢ÉúÊ±¼ä£¬Èç¹û´ËÊ±ÕıÔÚ»Ø·Å£¬Ôò»Ø·ÅÓ¦Ê§°Ü£¨»Ø·Å²»Ö§³ÖĞø´«£©¡£
 	*/
 	virtual void OnReconnect();
 

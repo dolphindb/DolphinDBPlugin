@@ -74,7 +74,7 @@ void protobuf_AssignDesc_ADUpsDownsAnalysis_2eproto() {
       sizeof(ADUpsDownsAnalysis),
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADUpsDownsAnalysis, _internal_metadata_));
   ADUpsDownsCount_descriptor_ = file->message_type(1);
-  static const int ADUpsDownsCount_offsets_[8] = {
+  static const int ADUpsDownsCount_offsets_[9] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADUpsDownsCount, ups_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADUpsDownsCount, downs_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADUpsDownsCount, equals_),
@@ -83,6 +83,7 @@ void protobuf_AssignDesc_ADUpsDownsAnalysis_2eproto() {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADUpsDownsCount, preequals_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADUpsDownsCount, upspercent_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADUpsDownsCount, preupspercent_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADUpsDownsCount, leadingupids_),
   };
   ADUpsDownsCount_reflection_ =
     ::google::protobuf::internal::GeneratedMessageReflection::NewGeneratedMessageReflection(
@@ -173,6 +174,7 @@ void protobuf_InitDefaults_ADUpsDownsAnalysis_2eproto_impl() {
   ::com::htsc::mdc::model::protobuf_InitDefaults_ESecurityIDSource_2eproto();
   ::google::protobuf::internal::GetEmptyString();
   ADUpsDownsAnalysis_default_instance_.DefaultConstruct();
+  ::google::protobuf::internal::GetEmptyString();
   ADUpsDownsCount_default_instance_.DefaultConstruct();
   ADUpsDownsLimitCount_default_instance_.DefaultConstruct();
   ADUpsDownsPartitionDetail_default_instance_.DefaultConstruct();
@@ -207,21 +209,21 @@ void protobuf_AddDesc_ADUpsDownsAnalysis_2eproto_impl() {
     "nsPartitionDetail\030\t \003(\01325.com.htsc.mdc.i"
     "nsight.model.ADUpsDownsPartitionDetail\022\024"
     "\n\014ExchangeDate\030\n \001(\005\022\024\n\014ExchangeTime\030\013 \001"
-    "(\005\022\035\n\025DataMultiplePowerOf10\030\014 \001(\005\"\235\001\n\017AD"
+    "(\005\022\035\n\025DataMultiplePowerOf10\030\014 \001(\005\"\263\001\n\017AD"
     "UpsDownsCount\022\013\n\003Ups\030\001 \001(\005\022\r\n\005Downs\030\002 \001("
     "\005\022\016\n\006Equals\030\003 \001(\005\022\016\n\006PreUps\030\004 \001(\005\022\020\n\010Pre"
     "Downs\030\005 \001(\005\022\021\n\tPreEquals\030\006 \001(\005\022\022\n\nUpsPer"
-    "cent\030\007 \001(\001\022\025\n\rPreUpsPercent\030\010 \001(\001\"\341\001\n\024AD"
-    "UpsDownsLimitCount\022\030\n\020NoReachedLimitPx\030\001"
-    " \001(\005\022\020\n\010UpLimits\030\002 \001(\005\022\022\n\nDownLimits\030\003 \001"
-    "(\005\022\033\n\023PreNoReachedLimitPx\030\004 \001(\005\022\023\n\013PreUp"
-    "Limits\030\005 \001(\005\022\025\n\rPreDownLimits\030\006 \001(\005\022\'\n\037P"
-    "reUpLimitsAverageChangePercent\030\007 \001(\001\022\027\n\017"
-    "UpLimitsPercent\030\010 \001(\001\"L\n\031ADUpsDownsParti"
-    "tionDetail\022\017\n\007Numbers\030\001 \001(\005\022\036\n\026Partition"
-    "ChangePercent\030\002 \001(\005B;\n\032com.htsc.mdc.insi"
-    "ght.modelB\030ADUpsDownsAnalysisProtosH\001\240\001\001"
-    "b\006proto3", 1168);
+    "cent\030\007 \001(\001\022\025\n\rPreUpsPercent\030\010 \001(\001\022\024\n\014Lea"
+    "dingUpIds\030\t \003(\t\"\341\001\n\024ADUpsDownsLimitCount"
+    "\022\030\n\020NoReachedLimitPx\030\001 \001(\005\022\020\n\010UpLimits\030\002"
+    " \001(\005\022\022\n\nDownLimits\030\003 \001(\005\022\033\n\023PreNoReached"
+    "LimitPx\030\004 \001(\005\022\023\n\013PreUpLimits\030\005 \001(\005\022\025\n\rPr"
+    "eDownLimits\030\006 \001(\005\022\'\n\037PreUpLimitsAverageC"
+    "hangePercent\030\007 \001(\001\022\027\n\017UpLimitsPercent\030\010 "
+    "\001(\001\"L\n\031ADUpsDownsPartitionDetail\022\017\n\007Numb"
+    "ers\030\001 \001(\005\022\036\n\026PartitionChangePercent\030\002 \001("
+    "\005B;\n\032com.htsc.mdc.insight.modelB\030ADUpsDo"
+    "wnsAnalysisProtosH\001\240\001\001b\006proto3", 1190);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "ADUpsDownsAnalysis.proto", &protobuf_RegisterTypes);
   ::com::htsc::mdc::model::protobuf_AddDesc_ESecurityType_2eproto();
@@ -1230,6 +1232,7 @@ const int ADUpsDownsCount::kPreDownsFieldNumber;
 const int ADUpsDownsCount::kPreEqualsFieldNumber;
 const int ADUpsDownsCount::kUpsPercentFieldNumber;
 const int ADUpsDownsCount::kPreUpsPercentFieldNumber;
+const int ADUpsDownsCount::kLeadingUpIdsFieldNumber;
 #endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
 
 ADUpsDownsCount::ADUpsDownsCount()
@@ -1312,6 +1315,7 @@ void ADUpsDownsCount::Clear() {
 #undef ZR_HELPER_
 #undef ZR_
 
+  leadingupids_.Clear();
 }
 
 bool ADUpsDownsCount::MergePartialFromCodedStream(
@@ -1439,6 +1443,25 @@ bool ADUpsDownsCount::MergePartialFromCodedStream(
         } else {
           goto handle_unusual;
         }
+        if (input->ExpectTag(74)) goto parse_LeadingUpIds;
+        break;
+      }
+
+      // repeated string LeadingUpIds = 9;
+      case 9: {
+        if (tag == 74) {
+         parse_LeadingUpIds:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->add_leadingupids()));
+          DO_(::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+            this->leadingupids(this->leadingupids_size() - 1).data(),
+            this->leadingupids(this->leadingupids_size() - 1).length(),
+            ::google::protobuf::internal::WireFormatLite::PARSE,
+            "com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds"));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(74)) goto parse_LeadingUpIds;
         if (input->ExpectAtEnd()) goto success;
         break;
       }
@@ -1507,6 +1530,16 @@ void ADUpsDownsCount::SerializeWithCachedSizes(
     ::google::protobuf::internal::WireFormatLite::WriteDouble(8, this->preupspercent(), output);
   }
 
+  // repeated string LeadingUpIds = 9;
+  for (int i = 0; i < this->leadingupids_size(); i++) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->leadingupids(i).data(), this->leadingupids(i).length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds");
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      9, this->leadingupids(i), output);
+  }
+
   // @@protoc_insertion_point(serialize_end:com.htsc.mdc.insight.model.ADUpsDownsCount)
 }
 
@@ -1552,6 +1585,16 @@ void ADUpsDownsCount::SerializeWithCachedSizes(
   // optional double PreUpsPercent = 8;
   if (this->preupspercent() != 0) {
     target = ::google::protobuf::internal::WireFormatLite::WriteDoubleToArray(8, this->preupspercent(), target);
+  }
+
+  // repeated string LeadingUpIds = 9;
+  for (int i = 0; i < this->leadingupids_size(); i++) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->leadingupids(i).data(), this->leadingupids(i).length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds");
+    target = ::google::protobuf::internal::WireFormatLite::
+      WriteStringToArray(9, this->leadingupids(i), target);
   }
 
   // @@protoc_insertion_point(serialize_to_array_end:com.htsc.mdc.insight.model.ADUpsDownsCount)
@@ -1614,6 +1657,14 @@ size_t ADUpsDownsCount::ByteSizeLong() const {
     total_size += 1 + 8;
   }
 
+  // repeated string LeadingUpIds = 9;
+  total_size += 1 *
+      ::google::protobuf::internal::FromIntSize(this->leadingupids_size());
+  for (int i = 0; i < this->leadingupids_size(); i++) {
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+      this->leadingupids(i));
+  }
+
   int cached_size = ::google::protobuf::internal::ToCachedSize(total_size);
   GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
   _cached_size_ = cached_size;
@@ -1647,6 +1698,7 @@ void ADUpsDownsCount::MergeFrom(const ADUpsDownsCount& from) {
 
 void ADUpsDownsCount::UnsafeMergeFrom(const ADUpsDownsCount& from) {
   GOOGLE_DCHECK(&from != this);
+  leadingupids_.UnsafeMergeFrom(from.leadingupids_);
   if (from.ups() != 0) {
     set_ups(from.ups());
   }
@@ -1705,6 +1757,7 @@ void ADUpsDownsCount::InternalSwap(ADUpsDownsCount* other) {
   std::swap(preequals_, other->preequals_);
   std::swap(upspercent_, other->upspercent_);
   std::swap(preupspercent_, other->preupspercent_);
+  leadingupids_.UnsafeArenaSwap(&other->leadingupids_);
   _internal_metadata_.Swap(&other->_internal_metadata_);
   std::swap(_cached_size_, other->_cached_size_);
 }
@@ -1830,6 +1883,61 @@ void ADUpsDownsCount::set_preupspercent(double value) {
   
   preupspercent_ = value;
   // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADUpsDownsCount.PreUpsPercent)
+}
+
+// repeated string LeadingUpIds = 9;
+int ADUpsDownsCount::leadingupids_size() const {
+  return leadingupids_.size();
+}
+void ADUpsDownsCount::clear_leadingupids() {
+  leadingupids_.Clear();
+}
+const ::std::string& ADUpsDownsCount::leadingupids(int index) const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+  return leadingupids_.Get(index);
+}
+::std::string* ADUpsDownsCount::mutable_leadingupids(int index) {
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+  return leadingupids_.Mutable(index);
+}
+void ADUpsDownsCount::set_leadingupids(int index, const ::std::string& value) {
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+  leadingupids_.Mutable(index)->assign(value);
+}
+void ADUpsDownsCount::set_leadingupids(int index, const char* value) {
+  leadingupids_.Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+}
+void ADUpsDownsCount::set_leadingupids(int index, const char* value, size_t size) {
+  leadingupids_.Mutable(index)->assign(
+    reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+}
+::std::string* ADUpsDownsCount::add_leadingupids() {
+  // @@protoc_insertion_point(field_add_mutable:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+  return leadingupids_.Add();
+}
+void ADUpsDownsCount::add_leadingupids(const ::std::string& value) {
+  leadingupids_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+}
+void ADUpsDownsCount::add_leadingupids(const char* value) {
+  leadingupids_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+}
+void ADUpsDownsCount::add_leadingupids(const char* value, size_t size) {
+  leadingupids_.Add()->assign(reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+}
+const ::google::protobuf::RepeatedPtrField< ::std::string>&
+ADUpsDownsCount::leadingupids() const {
+  // @@protoc_insertion_point(field_list:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+  return leadingupids_;
+}
+::google::protobuf::RepeatedPtrField< ::std::string>*
+ADUpsDownsCount::mutable_leadingupids() {
+  // @@protoc_insertion_point(field_mutable_list:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+  return &leadingupids_;
 }
 
 inline const ADUpsDownsCount* ADUpsDownsCount::internal_default_instance() {

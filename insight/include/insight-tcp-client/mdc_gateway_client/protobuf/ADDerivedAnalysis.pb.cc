@@ -194,10 +194,11 @@ void protobuf_AssignDesc_ADDerivedAnalysis_2eproto() {
       sizeof(ADCr),
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADCr, _internal_metadata_));
   ADVmaMa_descriptor_ = file->message_type(6);
-  static const int ADVmaMa_offsets_[3] = {
+  static const int ADVmaMa_offsets_[4] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADVmaMa, nvalue_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADVmaMa, vma_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADVmaMa, ma_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADVmaMa, periodtype_),
   };
   ADVmaMa_reflection_ =
     ::google::protobuf::internal::GeneratedMessageReflection::NewGeneratedMessageReflection(
@@ -372,14 +373,14 @@ void protobuf_AddDesc_ADDerivedAnalysis_2eproto_impl() {
     "ue\030\001 \001(\005\022\016\n\006PValue\030\002 \001(\005\022\013\n\003Mid\030\003 \001(\003\022\r\n"
     "\005Upper\030\004 \001(\003\022\r\n\005Lower\030\005 \001(\003\"F\n\004ADCr\022\016\n\006N"
     "Value\030\001 \001(\005\022\n\n\002Cr\030\002 \001(\003\022\n\n\002P1\030\003 \001(\003\022\n\n\002P"
-    "2\030\004 \001(\003\022\n\n\002YM\030\005 \001(\003\"2\n\007ADVmaMa\022\016\n\006NValue"
-    "\030\001 \001(\003\022\013\n\003Vma\030\002 \001(\003\022\n\n\002Ma\030\003 \001(\003\"I\n\004ADVr\022"
-    "\016\n\006NValue\030\001 \001(\005\022\n\n\002VR\030\002 \001(\003\022\013\n\003AVS\030\003 \001(\003"
-    "\022\013\n\003BVS\030\004 \001(\003\022\013\n\003CVS\030\005 \001(\003\"T\n\004ADWr\022\016\n\006NV"
-    "alue\030\001 \001(\005\022\n\n\002Wr\030\002 \001(\003\022\017\n\007ClosePx\030\003 \001(\003\022"
-    "\017\n\007NHighPx\030\004 \001(\003\022\016\n\006NLowPx\030\005 \001(\003B:\n\032com."
-    "htsc.mdc.insight.modelB\027ADDerivedAnalysi"
-    "sProtosH\001\240\001\001b\006proto3", 1700);
+    "2\030\004 \001(\003\022\n\n\002YM\030\005 \001(\003\"F\n\007ADVmaMa\022\016\n\006NValue"
+    "\030\001 \001(\003\022\013\n\003Vma\030\002 \001(\003\022\n\n\002Ma\030\003 \001(\003\022\022\n\nPerio"
+    "dType\030\004 \001(\005\"I\n\004ADVr\022\016\n\006NValue\030\001 \001(\005\022\n\n\002V"
+    "R\030\002 \001(\003\022\013\n\003AVS\030\003 \001(\003\022\013\n\003BVS\030\004 \001(\003\022\013\n\003CVS"
+    "\030\005 \001(\003\"T\n\004ADWr\022\016\n\006NValue\030\001 \001(\005\022\n\n\002Wr\030\002 \001"
+    "(\003\022\017\n\007ClosePx\030\003 \001(\003\022\017\n\007NHighPx\030\004 \001(\003\022\016\n\006"
+    "NLowPx\030\005 \001(\003B:\n\032com.htsc.mdc.insight.mod"
+    "elB\027ADDerivedAnalysisProtosH\001\240\001\001b\006proto3", 1720);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "ADDerivedAnalysis.proto", &protobuf_RegisterTypes);
   ::com::htsc::mdc::model::protobuf_AddDesc_ESecurityType_2eproto();
@@ -4638,6 +4639,7 @@ inline const ADCr* ADCr::internal_default_instance() {
 const int ADVmaMa::kNValueFieldNumber;
 const int ADVmaMa::kVmaFieldNumber;
 const int ADVmaMa::kMaFieldNumber;
+const int ADVmaMa::kPeriodTypeFieldNumber;
 #endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
 
 ADVmaMa::ADVmaMa()
@@ -4659,8 +4661,8 @@ ADVmaMa::ADVmaMa(const ADVmaMa& from)
 }
 
 void ADVmaMa::SharedCtor() {
-  ::memset(&nvalue_, 0, reinterpret_cast<char*>(&ma_) -
-    reinterpret_cast<char*>(&nvalue_) + sizeof(ma_));
+  ::memset(&nvalue_, 0, reinterpret_cast<char*>(&periodtype_) -
+    reinterpret_cast<char*>(&nvalue_) + sizeof(periodtype_));
   _cached_size_ = 0;
 }
 
@@ -4715,7 +4717,7 @@ void ADVmaMa::Clear() {
            ZR_HELPER_(last) - ZR_HELPER_(first) + sizeof(last));\
 } while (0)
 
-  ZR_(nvalue_, ma_);
+  ZR_(nvalue_, periodtype_);
 
 #undef ZR_HELPER_
 #undef ZR_
@@ -4772,6 +4774,21 @@ bool ADVmaMa::MergePartialFromCodedStream(
         } else {
           goto handle_unusual;
         }
+        if (input->ExpectTag(32)) goto parse_PeriodType;
+        break;
+      }
+
+      // optional int32 PeriodType = 4;
+      case 4: {
+        if (tag == 32) {
+         parse_PeriodType:
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
+                 input, &periodtype_)));
+        } else {
+          goto handle_unusual;
+        }
         if (input->ExpectAtEnd()) goto success;
         break;
       }
@@ -4815,6 +4832,11 @@ void ADVmaMa::SerializeWithCachedSizes(
     ::google::protobuf::internal::WireFormatLite::WriteInt64(3, this->ma(), output);
   }
 
+  // optional int32 PeriodType = 4;
+  if (this->periodtype() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt32(4, this->periodtype(), output);
+  }
+
   // @@protoc_insertion_point(serialize_end:com.htsc.mdc.insight.model.ADVmaMa)
 }
 
@@ -4835,6 +4857,11 @@ void ADVmaMa::SerializeWithCachedSizes(
   // optional int64 Ma = 3;
   if (this->ma() != 0) {
     target = ::google::protobuf::internal::WireFormatLite::WriteInt64ToArray(3, this->ma(), target);
+  }
+
+  // optional int32 PeriodType = 4;
+  if (this->periodtype() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(4, this->periodtype(), target);
   }
 
   // @@protoc_insertion_point(serialize_to_array_end:com.htsc.mdc.insight.model.ADVmaMa)
@@ -4864,6 +4891,13 @@ size_t ADVmaMa::ByteSizeLong() const {
     total_size += 1 +
       ::google::protobuf::internal::WireFormatLite::Int64Size(
         this->ma());
+  }
+
+  // optional int32 PeriodType = 4;
+  if (this->periodtype() != 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::Int32Size(
+        this->periodtype());
   }
 
   int cached_size = ::google::protobuf::internal::ToCachedSize(total_size);
@@ -4908,6 +4942,9 @@ void ADVmaMa::UnsafeMergeFrom(const ADVmaMa& from) {
   if (from.ma() != 0) {
     set_ma(from.ma());
   }
+  if (from.periodtype() != 0) {
+    set_periodtype(from.periodtype());
+  }
 }
 
 void ADVmaMa::CopyFrom(const ::google::protobuf::Message& from) {
@@ -4937,6 +4974,7 @@ void ADVmaMa::InternalSwap(ADVmaMa* other) {
   std::swap(nvalue_, other->nvalue_);
   std::swap(vma_, other->vma_);
   std::swap(ma_, other->ma_);
+  std::swap(periodtype_, other->periodtype_);
   _internal_metadata_.Swap(&other->_internal_metadata_);
   std::swap(_cached_size_, other->_cached_size_);
 }
@@ -4992,6 +5030,20 @@ void ADVmaMa::set_ma(::google::protobuf::int64 value) {
   
   ma_ = value;
   // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADVmaMa.Ma)
+}
+
+// optional int32 PeriodType = 4;
+void ADVmaMa::clear_periodtype() {
+  periodtype_ = 0;
+}
+::google::protobuf::int32 ADVmaMa::periodtype() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADVmaMa.PeriodType)
+  return periodtype_;
+}
+void ADVmaMa::set_periodtype(::google::protobuf::int32 value) {
+  
+  periodtype_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADVmaMa.PeriodType)
 }
 
 inline const ADVmaMa* ADVmaMa::internal_default_instance() {

@@ -43,6 +43,9 @@ const ::google::protobuf::internal::GeneratedMessageReflection*
 const ::google::protobuf::Descriptor* AccountInfo_descriptor_ = NULL;
 const ::google::protobuf::internal::GeneratedMessageReflection*
   AccountInfo_reflection_ = NULL;
+const ::google::protobuf::Descriptor* LinkInfo_descriptor_ = NULL;
+const ::google::protobuf::internal::GeneratedMessageReflection*
+  LinkInfo_reflection_ = NULL;
 const ::google::protobuf::EnumDescriptor* ELoginType_descriptor_ = NULL;
 
 }  // namespace
@@ -56,7 +59,7 @@ void protobuf_AssignDesc_Login_2eproto() {
       "Login.proto");
   GOOGLE_CHECK(file != NULL);
   LoginRequest_descriptor_ = file->message_type(0);
-  static const int LoginRequest_offsets_[8] = {
+  static const int LoginRequest_offsets_[9] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(LoginRequest, apptype_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(LoginRequest, appversion_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(LoginRequest, logintype_),
@@ -65,6 +68,7 @@ void protobuf_AssignDesc_Login_2eproto() {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(LoginRequest, deviceinfo_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(LoginRequest, issupportcompressed_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(LoginRequest, connectserverip_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(LoginRequest, linkinfo_),
   };
   LoginRequest_reflection_ =
     ::google::protobuf::internal::GeneratedMessageReflection::NewGeneratedMessageReflection(
@@ -172,6 +176,22 @@ void protobuf_AssignDesc_Login_2eproto() {
       -1,
       sizeof(AccountInfo),
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(AccountInfo, _internal_metadata_));
+  LinkInfo_descriptor_ = file->message_type(6);
+  static const int LinkInfo_offsets_[3] = {
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(LinkInfo, linkprocessid_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(LinkInfo, linktotalnum_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(LinkInfo, linkseq_),
+  };
+  LinkInfo_reflection_ =
+    ::google::protobuf::internal::GeneratedMessageReflection::NewGeneratedMessageReflection(
+      LinkInfo_descriptor_,
+      LinkInfo::internal_default_instance(),
+      LinkInfo_offsets_,
+      -1,
+      -1,
+      -1,
+      sizeof(LinkInfo),
+      GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(LinkInfo, _internal_metadata_));
   ELoginType_descriptor_ = file->enum_type(0);
 }
 
@@ -198,6 +218,8 @@ void protobuf_RegisterTypes(const ::std::string&) {
       DeviceInfo_descriptor_, DeviceInfo::internal_default_instance());
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedMessage(
       AccountInfo_descriptor_, AccountInfo::internal_default_instance());
+  ::google::protobuf::MessageFactory::InternalRegisterGeneratedMessage(
+      LinkInfo_descriptor_, LinkInfo::internal_default_instance());
 }
 
 }  // namespace
@@ -215,6 +237,8 @@ void protobuf_ShutdownFile_Login_2eproto() {
   delete DeviceInfo_reflection_;
   AccountInfo_default_instance_.Shutdown();
   delete AccountInfo_reflection_;
+  LinkInfo_default_instance_.Shutdown();
+  delete LinkInfo_reflection_;
 }
 
 void protobuf_InitDefaults_Login_2eproto_impl() {
@@ -234,12 +258,15 @@ void protobuf_InitDefaults_Login_2eproto_impl() {
   DeviceInfo_default_instance_.DefaultConstruct();
   ::google::protobuf::internal::GetEmptyString();
   AccountInfo_default_instance_.DefaultConstruct();
+  ::google::protobuf::internal::GetEmptyString();
+  LinkInfo_default_instance_.DefaultConstruct();
   LoginRequest_default_instance_.get_mutable()->InitAsDefaultInstance();
   LoginResponse_default_instance_.get_mutable()->InitAsDefaultInstance();
   UserWithPassword_default_instance_.get_mutable()->InitAsDefaultInstance();
   UserWithToken_default_instance_.get_mutable()->InitAsDefaultInstance();
   DeviceInfo_default_instance_.get_mutable()->InitAsDefaultInstance();
   AccountInfo_default_instance_.get_mutable()->InitAsDefaultInstance();
+  LinkInfo_default_instance_.get_mutable()->InitAsDefaultInstance();
 }
 
 GOOGLE_PROTOBUF_DECLARE_ONCE(protobuf_InitDefaults_Login_2eproto_once_);
@@ -254,7 +281,7 @@ void protobuf_AddDesc_Login_2eproto_impl() {
   ::google::protobuf::DescriptorPool::InternalAddGeneratedFile(
     "\n\013Login.proto\022\032com.htsc.mdc.insight.mode"
     "l\032\026ServiceDiscovery.proto\032\031InsightErrorC"
-    "ontext.proto\"\323\002\n\014LoginRequest\022\017\n\007appType"
+    "ontext.proto\"\213\003\n\014LoginRequest\022\017\n\007appType"
     "\030\001 \001(\005\022\022\n\nappVersion\030\002 \001(\t\0229\n\tloginType\030"
     "\003 \001(\0162&.com.htsc.mdc.insight.model.ELogi"
     "nType\0229\n\003uwp\030\004 \001(\0132,.com.htsc.mdc.insigh"
@@ -262,33 +289,36 @@ void protobuf_AddDesc_Login_2eproto_impl() {
     "com.htsc.mdc.insight.model.UserWithToken"
     "\022:\n\ndeviceInfo\030\006 \001(\0132&.com.htsc.mdc.insi"
     "ght.model.DeviceInfo\022\033\n\023isSupportCompres"
-    "sed\030\007 \001(\010\022\027\n\017connectServerIP\030\010 \001(\t\"\362\002\n\rL"
-    "oginResponse\022\021\n\tisSuccess\030\001 \001(\010\022E\n\014error"
-    "Context\030\002 \001(\0132/.com.htsc.mdc.insight.mod"
-    "el.InsightErrorContext\022\r\n\005token\030\003 \001(\t\022\025\n"
-    "\rlastLoginTime\030\004 \001(\003\022\023\n\013lastLoginIp\030\005 \001("
-    "\t\022\024\n\014reservedInfo\030\006 \001(\t\022\022\n\ndataSource\030\007 "
-    "\001(\t\022\014\n\004site\030\010 \001(\t\022V\n\030serviceDiscoveryRes"
-    "ponse\030\t \001(\01324.com.htsc.mdc.insight.model"
-    ".ServiceDiscoveryResponse\022<\n\013accountInfo"
-    "\030\n \001(\0132\'.com.htsc.mdc.insight.model.Acco"
-    "untInfo\"a\n\020UserWithPassword\022\020\n\010userName\030"
-    "\001 \001(\t\022\020\n\010password\030\002 \001(\t\022\013\n\003otp\030\003 \001(\t\022\017\n\007"
-    "captcha\030\004 \001(\t\022\013\n\003sms\030\005 \001(\t\"0\n\rUserWithTo"
-    "ken\022\020\n\010userName\030\001 \001(\t\022\r\n\005token\030\002 \001(\t\"\214\001\n"
-    "\nDeviceInfo\022\020\n\010deviceId\030\001 \001(\t\022\021\n\tdeviceM"
-    "ac\030\002 \001(\t\022\026\n\016deviceHarddisk\030\003 \001(\t\022\021\n\tdevi"
-    "ceCPU\030\004 \001(\t\022\027\n\017cellphoneNumber\030\005 \001(\t\022\025\n\r"
-    "cellphoneImei\030\006 \001(\t\"\263\001\n\013AccountInfo\022\020\n\010u"
-    "serName\030\001 \001(\t\022\021\n\tstartDate\030\002 \001(\t\022\020\n\010stop"
-    "Date\030\003 \001(\t\022\024\n\014customerName\030\004 \001(\t\022\025\n\rcont"
-    "actPerson\030\005 \001(\t\022\026\n\016contactAddress\030\006 \001(\t\022"
-    "\022\n\ncontactTel\030\007 \001(\t\022\024\n\014contactEmail\030\010 \001("
-    "\t*\201\001\n\nELoginType\022\026\n\022DEFAULT_LOGIN_TYPE\020\000"
-    "\022\037\n\033INSIGHT_LOGIN_FOR_DISCOVERY\020\001\022#\n\037THR"
-    "ID_PARTY_LOGIN_FOR_DISCOVERY\020\002\022\025\n\021LOGIN_"
-    "FOR_SERVICE\020\003B-\n\032com.htsc.mdc.insight.mo"
-    "delB\nLoginProtoH\001\240\001\001b\006proto3", 1468);
+    "sed\030\007 \001(\010\022\027\n\017connectServerIP\030\010 \001(\t\0226\n\010li"
+    "nkInfo\030\t \001(\0132$.com.htsc.mdc.insight.mode"
+    "l.LinkInfo\"\362\002\n\rLoginResponse\022\021\n\tisSucces"
+    "s\030\001 \001(\010\022E\n\014errorContext\030\002 \001(\0132/.com.htsc"
+    ".mdc.insight.model.InsightErrorContext\022\r"
+    "\n\005token\030\003 \001(\t\022\025\n\rlastLoginTime\030\004 \001(\003\022\023\n\013"
+    "lastLoginIp\030\005 \001(\t\022\024\n\014reservedInfo\030\006 \001(\t\022"
+    "\022\n\ndataSource\030\007 \001(\t\022\014\n\004site\030\010 \001(\t\022V\n\030ser"
+    "viceDiscoveryResponse\030\t \001(\01324.com.htsc.m"
+    "dc.insight.model.ServiceDiscoveryRespons"
+    "e\022<\n\013accountInfo\030\n \001(\0132\'.com.htsc.mdc.in"
+    "sight.model.AccountInfo\"a\n\020UserWithPassw"
+    "ord\022\020\n\010userName\030\001 \001(\t\022\020\n\010password\030\002 \001(\t\022"
+    "\013\n\003otp\030\003 \001(\t\022\017\n\007captcha\030\004 \001(\t\022\013\n\003sms\030\005 \001"
+    "(\t\"0\n\rUserWithToken\022\020\n\010userName\030\001 \001(\t\022\r\n"
+    "\005token\030\002 \001(\t\"\214\001\n\nDeviceInfo\022\020\n\010deviceId\030"
+    "\001 \001(\t\022\021\n\tdeviceMac\030\002 \001(\t\022\026\n\016deviceHarddi"
+    "sk\030\003 \001(\t\022\021\n\tdeviceCPU\030\004 \001(\t\022\027\n\017cellphone"
+    "Number\030\005 \001(\t\022\025\n\rcellphoneImei\030\006 \001(\t\"\263\001\n\013"
+    "AccountInfo\022\020\n\010userName\030\001 \001(\t\022\021\n\tstartDa"
+    "te\030\002 \001(\t\022\020\n\010stopDate\030\003 \001(\t\022\024\n\014customerNa"
+    "me\030\004 \001(\t\022\025\n\rcontactPerson\030\005 \001(\t\022\026\n\016conta"
+    "ctAddress\030\006 \001(\t\022\022\n\ncontactTel\030\007 \001(\t\022\024\n\014c"
+    "ontactEmail\030\010 \001(\t\"H\n\010LinkInfo\022\025\n\rLinkPro"
+    "cessId\030\001 \001(\t\022\024\n\014LinkTotalNum\030\002 \001(\005\022\017\n\007Li"
+    "nkSeq\030\003 \001(\005*\201\001\n\nELoginType\022\026\n\022DEFAULT_LO"
+    "GIN_TYPE\020\000\022\037\n\033INSIGHT_LOGIN_FOR_DISCOVER"
+    "Y\020\001\022#\n\037THRID_PARTY_LOGIN_FOR_DISCOVERY\020\002"
+    "\022\025\n\021LOGIN_FOR_SERVICE\020\003B-\n\032com.htsc.mdc."
+    "insight.modelB\nLoginProtoH\001\240\001\001b\006proto3", 1598);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "Login.proto", &protobuf_RegisterTypes);
   ::com::htsc::mdc::insight::model::protobuf_AddDesc_ServiceDiscovery_2eproto();
@@ -345,6 +375,7 @@ const int LoginRequest::kUwtFieldNumber;
 const int LoginRequest::kDeviceInfoFieldNumber;
 const int LoginRequest::kIsSupportCompressedFieldNumber;
 const int LoginRequest::kConnectServerIPFieldNumber;
+const int LoginRequest::kLinkInfoFieldNumber;
 #endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
 
 LoginRequest::LoginRequest()
@@ -361,6 +392,8 @@ void LoginRequest::InitAsDefaultInstance() {
       ::com::htsc::mdc::insight::model::UserWithToken::internal_default_instance());
   deviceinfo_ = const_cast< ::com::htsc::mdc::insight::model::DeviceInfo*>(
       ::com::htsc::mdc::insight::model::DeviceInfo::internal_default_instance());
+  linkinfo_ = const_cast< ::com::htsc::mdc::insight::model::LinkInfo*>(
+      ::com::htsc::mdc::insight::model::LinkInfo::internal_default_instance());
 }
 
 LoginRequest::LoginRequest(const LoginRequest& from)
@@ -377,6 +410,7 @@ void LoginRequest::SharedCtor() {
   uwp_ = NULL;
   uwt_ = NULL;
   deviceinfo_ = NULL;
+  linkinfo_ = NULL;
   ::memset(&apptype_, 0, reinterpret_cast<char*>(&issupportcompressed_) -
     reinterpret_cast<char*>(&apptype_) + sizeof(issupportcompressed_));
   _cached_size_ = 0;
@@ -394,6 +428,7 @@ void LoginRequest::SharedDtor() {
     delete uwp_;
     delete uwt_;
     delete deviceinfo_;
+    delete linkinfo_;
   }
 }
 
@@ -449,6 +484,8 @@ void LoginRequest::Clear() {
   if (GetArenaNoVirtual() == NULL && deviceinfo_ != NULL) delete deviceinfo_;
   deviceinfo_ = NULL;
   connectserverip_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  if (GetArenaNoVirtual() == NULL && linkinfo_ != NULL) delete linkinfo_;
+  linkinfo_ = NULL;
 
 #undef ZR_HELPER_
 #undef ZR_
@@ -579,6 +616,19 @@ bool LoginRequest::MergePartialFromCodedStream(
         } else {
           goto handle_unusual;
         }
+        if (input->ExpectTag(74)) goto parse_linkInfo;
+        break;
+      }
+
+      // optional .com.htsc.mdc.insight.model.LinkInfo linkInfo = 9;
+      case 9: {
+        if (tag == 74) {
+         parse_linkInfo:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtual(
+               input, mutable_linkinfo()));
+        } else {
+          goto handle_unusual;
+        }
         if (input->ExpectAtEnd()) goto success;
         break;
       }
@@ -661,6 +711,12 @@ void LoginRequest::SerializeWithCachedSizes(
       8, this->connectserverip(), output);
   }
 
+  // optional .com.htsc.mdc.insight.model.LinkInfo linkInfo = 9;
+  if (this->has_linkinfo()) {
+    ::google::protobuf::internal::WireFormatLite::WriteMessageMaybeToArray(
+      9, *this->linkinfo_, output);
+  }
+
   // @@protoc_insertion_point(serialize_end:com.htsc.mdc.insight.model.LoginRequest)
 }
 
@@ -727,6 +783,13 @@ void LoginRequest::SerializeWithCachedSizes(
         8, this->connectserverip(), target);
   }
 
+  // optional .com.htsc.mdc.insight.model.LinkInfo linkInfo = 9;
+  if (this->has_linkinfo()) {
+    target = ::google::protobuf::internal::WireFormatLite::
+      InternalWriteMessageNoVirtualToArray(
+        9, *this->linkinfo_, false, target);
+  }
+
   // @@protoc_insertion_point(serialize_to_array_end:com.htsc.mdc.insight.model.LoginRequest)
   return target;
 }
@@ -788,6 +851,13 @@ size_t LoginRequest::ByteSizeLong() const {
         this->connectserverip());
   }
 
+  // optional .com.htsc.mdc.insight.model.LinkInfo linkInfo = 9;
+  if (this->has_linkinfo()) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
+        *this->linkinfo_);
+  }
+
   int cached_size = ::google::protobuf::internal::ToCachedSize(total_size);
   GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
   _cached_size_ = cached_size;
@@ -847,6 +917,9 @@ void LoginRequest::UnsafeMergeFrom(const LoginRequest& from) {
 
     connectserverip_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.connectserverip_);
   }
+  if (from.has_linkinfo()) {
+    mutable_linkinfo()->::com::htsc::mdc::insight::model::LinkInfo::MergeFrom(from.linkinfo());
+  }
 }
 
 void LoginRequest::CopyFrom(const ::google::protobuf::Message& from) {
@@ -881,6 +954,7 @@ void LoginRequest::InternalSwap(LoginRequest* other) {
   std::swap(deviceinfo_, other->deviceinfo_);
   std::swap(issupportcompressed_, other->issupportcompressed_);
   connectserverip_.Swap(&other->connectserverip_);
+  std::swap(linkinfo_, other->linkinfo_);
   _internal_metadata_.Swap(&other->_internal_metadata_);
   std::swap(_cached_size_, other->_cached_size_);
 }
@@ -1141,6 +1215,45 @@ void LoginRequest::set_allocated_connectserverip(::std::string* connectserverip)
   }
   connectserverip_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), connectserverip);
   // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.LoginRequest.connectServerIP)
+}
+
+// optional .com.htsc.mdc.insight.model.LinkInfo linkInfo = 9;
+bool LoginRequest::has_linkinfo() const {
+  return this != internal_default_instance() && linkinfo_ != NULL;
+}
+void LoginRequest::clear_linkinfo() {
+  if (GetArenaNoVirtual() == NULL && linkinfo_ != NULL) delete linkinfo_;
+  linkinfo_ = NULL;
+}
+const ::com::htsc::mdc::insight::model::LinkInfo& LoginRequest::linkinfo() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.LoginRequest.linkInfo)
+  return linkinfo_ != NULL ? *linkinfo_
+                         : *::com::htsc::mdc::insight::model::LinkInfo::internal_default_instance();
+}
+::com::htsc::mdc::insight::model::LinkInfo* LoginRequest::mutable_linkinfo() {
+  
+  if (linkinfo_ == NULL) {
+    linkinfo_ = new ::com::htsc::mdc::insight::model::LinkInfo;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.LoginRequest.linkInfo)
+  return linkinfo_;
+}
+::com::htsc::mdc::insight::model::LinkInfo* LoginRequest::release_linkinfo() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.LoginRequest.linkInfo)
+  
+  ::com::htsc::mdc::insight::model::LinkInfo* temp = linkinfo_;
+  linkinfo_ = NULL;
+  return temp;
+}
+void LoginRequest::set_allocated_linkinfo(::com::htsc::mdc::insight::model::LinkInfo* linkinfo) {
+  delete linkinfo_;
+  linkinfo_ = linkinfo;
+  if (linkinfo) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.LoginRequest.linkInfo)
 }
 
 inline const LoginRequest* LoginRequest::internal_default_instance() {
@@ -5022,6 +5135,420 @@ void AccountInfo::set_allocated_contactemail(::std::string* contactemail) {
 
 inline const AccountInfo* AccountInfo::internal_default_instance() {
   return &AccountInfo_default_instance_.get();
+}
+#endif  // PROTOBUF_INLINE_NOT_IN_HEADERS
+
+// ===================================================================
+
+#if !defined(_MSC_VER) || _MSC_VER >= 1900
+const int LinkInfo::kLinkProcessIdFieldNumber;
+const int LinkInfo::kLinkTotalNumFieldNumber;
+const int LinkInfo::kLinkSeqFieldNumber;
+#endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
+
+LinkInfo::LinkInfo()
+  : ::google::protobuf::Message(), _internal_metadata_(NULL) {
+  if (this != internal_default_instance()) protobuf_InitDefaults_Login_2eproto();
+  SharedCtor();
+  // @@protoc_insertion_point(constructor:com.htsc.mdc.insight.model.LinkInfo)
+}
+
+void LinkInfo::InitAsDefaultInstance() {
+}
+
+LinkInfo::LinkInfo(const LinkInfo& from)
+  : ::google::protobuf::Message(),
+    _internal_metadata_(NULL) {
+  SharedCtor();
+  UnsafeMergeFrom(from);
+  // @@protoc_insertion_point(copy_constructor:com.htsc.mdc.insight.model.LinkInfo)
+}
+
+void LinkInfo::SharedCtor() {
+  linkprocessid_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  ::memset(&linktotalnum_, 0, reinterpret_cast<char*>(&linkseq_) -
+    reinterpret_cast<char*>(&linktotalnum_) + sizeof(linkseq_));
+  _cached_size_ = 0;
+}
+
+LinkInfo::~LinkInfo() {
+  // @@protoc_insertion_point(destructor:com.htsc.mdc.insight.model.LinkInfo)
+  SharedDtor();
+}
+
+void LinkInfo::SharedDtor() {
+  linkprocessid_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+
+void LinkInfo::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const ::google::protobuf::Descriptor* LinkInfo::descriptor() {
+  protobuf_AssignDescriptorsOnce();
+  return LinkInfo_descriptor_;
+}
+
+const LinkInfo& LinkInfo::default_instance() {
+  protobuf_InitDefaults_Login_2eproto();
+  return *internal_default_instance();
+}
+
+::google::protobuf::internal::ExplicitlyConstructed<LinkInfo> LinkInfo_default_instance_;
+
+LinkInfo* LinkInfo::New(::google::protobuf::Arena* arena) const {
+  LinkInfo* n = new LinkInfo;
+  if (arena != NULL) {
+    arena->Own(n);
+  }
+  return n;
+}
+
+void LinkInfo::Clear() {
+// @@protoc_insertion_point(message_clear_start:com.htsc.mdc.insight.model.LinkInfo)
+#if defined(__clang__)
+#define ZR_HELPER_(f) \
+  _Pragma("clang diagnostic push") \
+  _Pragma("clang diagnostic ignored \"-Winvalid-offsetof\"") \
+  __builtin_offsetof(LinkInfo, f) \
+  _Pragma("clang diagnostic pop")
+#else
+#define ZR_HELPER_(f) reinterpret_cast<char*>(\
+  &reinterpret_cast<LinkInfo*>(16)->f)
+#endif
+
+#define ZR_(first, last) do {\
+  ::memset(&(first), 0,\
+           ZR_HELPER_(last) - ZR_HELPER_(first) + sizeof(last));\
+} while (0)
+
+  ZR_(linktotalnum_, linkseq_);
+  linkprocessid_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+
+#undef ZR_HELPER_
+#undef ZR_
+
+}
+
+bool LinkInfo::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!GOOGLE_PREDICT_TRUE(EXPRESSION)) goto failure
+  ::google::protobuf::uint32 tag;
+  // @@protoc_insertion_point(parse_start:com.htsc.mdc.insight.model.LinkInfo)
+  for (;;) {
+    ::std::pair< ::google::protobuf::uint32, bool> p = input->ReadTagWithCutoff(127);
+    tag = p.first;
+    if (!p.second) goto handle_unusual;
+    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
+      // optional string LinkProcessId = 1;
+      case 1: {
+        if (tag == 10) {
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_linkprocessid()));
+          DO_(::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+            this->linkprocessid().data(), this->linkprocessid().length(),
+            ::google::protobuf::internal::WireFormatLite::PARSE,
+            "com.htsc.mdc.insight.model.LinkInfo.LinkProcessId"));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(16)) goto parse_LinkTotalNum;
+        break;
+      }
+
+      // optional int32 LinkTotalNum = 2;
+      case 2: {
+        if (tag == 16) {
+         parse_LinkTotalNum:
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
+                 input, &linktotalnum_)));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(24)) goto parse_LinkSeq;
+        break;
+      }
+
+      // optional int32 LinkSeq = 3;
+      case 3: {
+        if (tag == 24) {
+         parse_LinkSeq:
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
+                 input, &linkseq_)));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectAtEnd()) goto success;
+        break;
+      }
+
+      default: {
+      handle_unusual:
+        if (tag == 0 ||
+            ::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+          goto success;
+        }
+        DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+        break;
+      }
+    }
+  }
+success:
+  // @@protoc_insertion_point(parse_success:com.htsc.mdc.insight.model.LinkInfo)
+  return true;
+failure:
+  // @@protoc_insertion_point(parse_failure:com.htsc.mdc.insight.model.LinkInfo)
+  return false;
+#undef DO_
+}
+
+void LinkInfo::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+  // @@protoc_insertion_point(serialize_start:com.htsc.mdc.insight.model.LinkInfo)
+  // optional string LinkProcessId = 1;
+  if (this->linkprocessid().size() > 0) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->linkprocessid().data(), this->linkprocessid().length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.LinkInfo.LinkProcessId");
+    ::google::protobuf::internal::WireFormatLite::WriteStringMaybeAliased(
+      1, this->linkprocessid(), output);
+  }
+
+  // optional int32 LinkTotalNum = 2;
+  if (this->linktotalnum() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt32(2, this->linktotalnum(), output);
+  }
+
+  // optional int32 LinkSeq = 3;
+  if (this->linkseq() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt32(3, this->linkseq(), output);
+  }
+
+  // @@protoc_insertion_point(serialize_end:com.htsc.mdc.insight.model.LinkInfo)
+}
+
+::google::protobuf::uint8* LinkInfo::InternalSerializeWithCachedSizesToArray(
+    bool deterministic, ::google::protobuf::uint8* target) const {
+  (void)deterministic; // Unused
+  // @@protoc_insertion_point(serialize_to_array_start:com.htsc.mdc.insight.model.LinkInfo)
+  // optional string LinkProcessId = 1;
+  if (this->linkprocessid().size() > 0) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->linkprocessid().data(), this->linkprocessid().length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.LinkInfo.LinkProcessId");
+    target =
+      ::google::protobuf::internal::WireFormatLite::WriteStringToArray(
+        1, this->linkprocessid(), target);
+  }
+
+  // optional int32 LinkTotalNum = 2;
+  if (this->linktotalnum() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(2, this->linktotalnum(), target);
+  }
+
+  // optional int32 LinkSeq = 3;
+  if (this->linkseq() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(3, this->linkseq(), target);
+  }
+
+  // @@protoc_insertion_point(serialize_to_array_end:com.htsc.mdc.insight.model.LinkInfo)
+  return target;
+}
+
+size_t LinkInfo::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:com.htsc.mdc.insight.model.LinkInfo)
+  size_t total_size = 0;
+
+  // optional string LinkProcessId = 1;
+  if (this->linkprocessid().size() > 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::StringSize(
+        this->linkprocessid());
+  }
+
+  // optional int32 LinkTotalNum = 2;
+  if (this->linktotalnum() != 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::Int32Size(
+        this->linktotalnum());
+  }
+
+  // optional int32 LinkSeq = 3;
+  if (this->linkseq() != 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::Int32Size(
+        this->linkseq());
+  }
+
+  int cached_size = ::google::protobuf::internal::ToCachedSize(total_size);
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = cached_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void LinkInfo::MergeFrom(const ::google::protobuf::Message& from) {
+// @@protoc_insertion_point(generalized_merge_from_start:com.htsc.mdc.insight.model.LinkInfo)
+  if (GOOGLE_PREDICT_FALSE(&from == this)) MergeFromFail(__LINE__);
+  const LinkInfo* source =
+      ::google::protobuf::internal::DynamicCastToGenerated<const LinkInfo>(
+          &from);
+  if (source == NULL) {
+  // @@protoc_insertion_point(generalized_merge_from_cast_fail:com.htsc.mdc.insight.model.LinkInfo)
+    ::google::protobuf::internal::ReflectionOps::Merge(from, this);
+  } else {
+  // @@protoc_insertion_point(generalized_merge_from_cast_success:com.htsc.mdc.insight.model.LinkInfo)
+    UnsafeMergeFrom(*source);
+  }
+}
+
+void LinkInfo::MergeFrom(const LinkInfo& from) {
+// @@protoc_insertion_point(class_specific_merge_from_start:com.htsc.mdc.insight.model.LinkInfo)
+  if (GOOGLE_PREDICT_TRUE(&from != this)) {
+    UnsafeMergeFrom(from);
+  } else {
+    MergeFromFail(__LINE__);
+  }
+}
+
+void LinkInfo::UnsafeMergeFrom(const LinkInfo& from) {
+  GOOGLE_DCHECK(&from != this);
+  if (from.linkprocessid().size() > 0) {
+
+    linkprocessid_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.linkprocessid_);
+  }
+  if (from.linktotalnum() != 0) {
+    set_linktotalnum(from.linktotalnum());
+  }
+  if (from.linkseq() != 0) {
+    set_linkseq(from.linkseq());
+  }
+}
+
+void LinkInfo::CopyFrom(const ::google::protobuf::Message& from) {
+// @@protoc_insertion_point(generalized_copy_from_start:com.htsc.mdc.insight.model.LinkInfo)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+void LinkInfo::CopyFrom(const LinkInfo& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:com.htsc.mdc.insight.model.LinkInfo)
+  if (&from == this) return;
+  Clear();
+  UnsafeMergeFrom(from);
+}
+
+bool LinkInfo::IsInitialized() const {
+
+  return true;
+}
+
+void LinkInfo::Swap(LinkInfo* other) {
+  if (other == this) return;
+  InternalSwap(other);
+}
+void LinkInfo::InternalSwap(LinkInfo* other) {
+  linkprocessid_.Swap(&other->linkprocessid_);
+  std::swap(linktotalnum_, other->linktotalnum_);
+  std::swap(linkseq_, other->linkseq_);
+  _internal_metadata_.Swap(&other->_internal_metadata_);
+  std::swap(_cached_size_, other->_cached_size_);
+}
+
+::google::protobuf::Metadata LinkInfo::GetMetadata() const {
+  protobuf_AssignDescriptorsOnce();
+  ::google::protobuf::Metadata metadata;
+  metadata.descriptor = LinkInfo_descriptor_;
+  metadata.reflection = LinkInfo_reflection_;
+  return metadata;
+}
+
+#if PROTOBUF_INLINE_NOT_IN_HEADERS
+// LinkInfo
+
+// optional string LinkProcessId = 1;
+void LinkInfo::clear_linkprocessid() {
+  linkprocessid_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+const ::std::string& LinkInfo::linkprocessid() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.LinkInfo.LinkProcessId)
+  return linkprocessid_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+void LinkInfo::set_linkprocessid(const ::std::string& value) {
+  
+  linkprocessid_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.LinkInfo.LinkProcessId)
+}
+void LinkInfo::set_linkprocessid(const char* value) {
+  
+  linkprocessid_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.LinkInfo.LinkProcessId)
+}
+void LinkInfo::set_linkprocessid(const char* value, size_t size) {
+  
+  linkprocessid_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.LinkInfo.LinkProcessId)
+}
+::std::string* LinkInfo::mutable_linkprocessid() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.LinkInfo.LinkProcessId)
+  return linkprocessid_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+::std::string* LinkInfo::release_linkprocessid() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.LinkInfo.LinkProcessId)
+  
+  return linkprocessid_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+void LinkInfo::set_allocated_linkprocessid(::std::string* linkprocessid) {
+  if (linkprocessid != NULL) {
+    
+  } else {
+    
+  }
+  linkprocessid_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), linkprocessid);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.LinkInfo.LinkProcessId)
+}
+
+// optional int32 LinkTotalNum = 2;
+void LinkInfo::clear_linktotalnum() {
+  linktotalnum_ = 0;
+}
+::google::protobuf::int32 LinkInfo::linktotalnum() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.LinkInfo.LinkTotalNum)
+  return linktotalnum_;
+}
+void LinkInfo::set_linktotalnum(::google::protobuf::int32 value) {
+  
+  linktotalnum_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.LinkInfo.LinkTotalNum)
+}
+
+// optional int32 LinkSeq = 3;
+void LinkInfo::clear_linkseq() {
+  linkseq_ = 0;
+}
+::google::protobuf::int32 LinkInfo::linkseq() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.LinkInfo.LinkSeq)
+  return linkseq_;
+}
+void LinkInfo::set_linkseq(::google::protobuf::int32 value) {
+  
+  linkseq_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.LinkInfo.LinkSeq)
+}
+
+inline const LinkInfo* LinkInfo::internal_default_instance() {
+  return &LinkInfo_default_instance_.get();
 }
 #endif  // PROTOBUF_INLINE_NOT_IN_HEADERS
 

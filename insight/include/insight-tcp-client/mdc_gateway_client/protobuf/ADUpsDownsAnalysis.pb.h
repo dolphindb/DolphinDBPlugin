@@ -341,10 +341,27 @@ class ADUpsDownsCount : public ::google::protobuf::Message /* @@protoc_insertion
   double preupspercent() const;
   void set_preupspercent(double value);
 
+  // repeated string LeadingUpIds = 9;
+  int leadingupids_size() const;
+  void clear_leadingupids();
+  static const int kLeadingUpIdsFieldNumber = 9;
+  const ::std::string& leadingupids(int index) const;
+  ::std::string* mutable_leadingupids(int index);
+  void set_leadingupids(int index, const ::std::string& value);
+  void set_leadingupids(int index, const char* value);
+  void set_leadingupids(int index, const char* value, size_t size);
+  ::std::string* add_leadingupids();
+  void add_leadingupids(const ::std::string& value);
+  void add_leadingupids(const char* value);
+  void add_leadingupids(const char* value, size_t size);
+  const ::google::protobuf::RepeatedPtrField< ::std::string>& leadingupids() const;
+  ::google::protobuf::RepeatedPtrField< ::std::string>* mutable_leadingupids();
+
   // @@protoc_insertion_point(class_scope:com.htsc.mdc.insight.model.ADUpsDownsCount)
  private:
 
   ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
+  ::google::protobuf::RepeatedPtrField< ::std::string> leadingupids_;
   ::google::protobuf::int32 ups_;
   ::google::protobuf::int32 downs_;
   ::google::protobuf::int32 equals_;
@@ -980,6 +997,61 @@ inline void ADUpsDownsCount::set_preupspercent(double value) {
   
   preupspercent_ = value;
   // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADUpsDownsCount.PreUpsPercent)
+}
+
+// repeated string LeadingUpIds = 9;
+inline int ADUpsDownsCount::leadingupids_size() const {
+  return leadingupids_.size();
+}
+inline void ADUpsDownsCount::clear_leadingupids() {
+  leadingupids_.Clear();
+}
+inline const ::std::string& ADUpsDownsCount::leadingupids(int index) const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+  return leadingupids_.Get(index);
+}
+inline ::std::string* ADUpsDownsCount::mutable_leadingupids(int index) {
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+  return leadingupids_.Mutable(index);
+}
+inline void ADUpsDownsCount::set_leadingupids(int index, const ::std::string& value) {
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+  leadingupids_.Mutable(index)->assign(value);
+}
+inline void ADUpsDownsCount::set_leadingupids(int index, const char* value) {
+  leadingupids_.Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+}
+inline void ADUpsDownsCount::set_leadingupids(int index, const char* value, size_t size) {
+  leadingupids_.Mutable(index)->assign(
+    reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+}
+inline ::std::string* ADUpsDownsCount::add_leadingupids() {
+  // @@protoc_insertion_point(field_add_mutable:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+  return leadingupids_.Add();
+}
+inline void ADUpsDownsCount::add_leadingupids(const ::std::string& value) {
+  leadingupids_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+}
+inline void ADUpsDownsCount::add_leadingupids(const char* value) {
+  leadingupids_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+}
+inline void ADUpsDownsCount::add_leadingupids(const char* value, size_t size) {
+  leadingupids_.Add()->assign(reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+}
+inline const ::google::protobuf::RepeatedPtrField< ::std::string>&
+ADUpsDownsCount::leadingupids() const {
+  // @@protoc_insertion_point(field_list:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+  return leadingupids_;
+}
+inline ::google::protobuf::RepeatedPtrField< ::std::string>*
+ADUpsDownsCount::mutable_leadingupids() {
+  // @@protoc_insertion_point(field_mutable_list:com.htsc.mdc.insight.model.ADUpsDownsCount.LeadingUpIds)
+  return &leadingupids_;
 }
 
 inline const ADUpsDownsCount* ADUpsDownsCount::internal_default_instance() {

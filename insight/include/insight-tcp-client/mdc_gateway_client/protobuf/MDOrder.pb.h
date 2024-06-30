@@ -369,6 +369,12 @@ class MDOrder : public ::google::protobuf::Message /* @@protoc_insertion_point(c
   ::std::string* release_tradedate();
   void set_allocated_tradedate(::std::string* tradedate);
 
+  // optional int64 TradedQty = 35;
+  void clear_tradedqty();
+  static const int kTradedQtyFieldNumber = 35;
+  ::google::protobuf::int64 tradedqty() const;
+  void set_tradedqty(::google::protobuf::int64 value);
+
   // @@protoc_insertion_point(class_scope:com.htsc.mdc.insight.model.MDOrder)
  private:
 
@@ -407,6 +413,7 @@ class MDOrder : public ::google::protobuf::Message /* @@protoc_insertion_point(c
   ::google::protobuf::int64 lowlimitprice_;
   ::google::protobuf::int64 highlimitprice_;
   ::google::protobuf::int64 minqty_;
+  ::google::protobuf::int64 tradedqty_;
   mutable int _cached_size_;
   friend void  protobuf_InitDefaults_MDOrder_2eproto_impl();
   friend void  protobuf_AddDesc_MDOrder_2eproto_impl();
@@ -1229,6 +1236,20 @@ inline void MDOrder::set_allocated_tradedate(::std::string* tradedate) {
   }
   tradedate_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), tradedate);
   // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDOrder.TradeDate)
+}
+
+// optional int64 TradedQty = 35;
+inline void MDOrder::clear_tradedqty() {
+  tradedqty_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 MDOrder::tradedqty() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDOrder.TradedQty)
+  return tradedqty_;
+}
+inline void MDOrder::set_tradedqty(::google::protobuf::int64 value) {
+  
+  tradedqty_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDOrder.TradedQty)
 }
 
 inline const MDOrder* MDOrder::internal_default_instance() {

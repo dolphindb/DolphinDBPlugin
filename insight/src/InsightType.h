@@ -14,6 +14,7 @@
 #include "Util.h"
 #include "base_define.h"
 #include "client_interface.h"
+#include "ddbplugin/ThreadedQueue.h"
 #include "mdc_client_factory.h"
 #include "message_handle.h"
 
@@ -24,9 +25,14 @@ using namespace com::htsc::mdc::model;
 
 static string PLUGIN_INSIGHT_PREFIX = "[PLUGIN::INSIGHT]: ";
 
+using namespace ThreadedQueueUtil;
+
 enum INSIGHT_DATA_TYPE {
     INSIGHT_DT_VOID,
     INSIGHT_DT_StockTick,
+    INSIGHT_DT_FundTick,
+    INSIGHT_DT_BondTick,
+    INSIGHT_DT_OptionTick,
     INSIGHT_DT_IndexTick,
     INSIGHT_DT_FuturesTick,
     INSIGHT_DT_StockTransaction,
@@ -40,56 +46,37 @@ struct InsightOrderTransaction {
     MDTransaction transaction;
 };
 
-struct InsightOrder {
-    long long reachTime;
-    MDOrder order;
-};
-
-struct InsightTransaction {
-    long long reachTime;
-    MDTransaction transaction;
-};
-
-struct InsightIndexTick {
-    long long reachTime;
-    MDIndex indexTick;
-};
-
-struct InsightFutureTick {
-    long long reachTime;
-    MDFuture futureTick;
-};
-
-struct InsightStockTick {
-    long long reachTime;
-    MDStock stockTick;
-};
-
 class MarketTypeContainer;
-void initTypeContainer(MarketTypeContainer &container);
+void initTypeContainer(MarketTypeContainer &container, const string &dataVersion);
 
-void orderReader(vector<ConstantSP> &buffer, InsightOrder &data);
-void transactionReader(vector<ConstantSP> &buffer, InsightTransaction &data);
-void orderTransactionReader(vector<ConstantSP> &buffer, InsightOrderTransaction &data, bool ignoreApplSeq,
-                            std::unordered_map<int, int64_t> &lastSeqNum, std::unordered_map<int, int64_t> &tradeSeqNum,
-                            std::unordered_map<int, int64_t> &orderSeqNum);
+void orderReader(vector<ConstantSP> &buffer, TimedWrapper<MDOrder> &data);
+void orderReader_3_2_11(vector<ConstantSP> &buffer, TimedWrapper<MDOrder> &data);
+void transactionReader(vector<ConstantSP> &buffer, TimedWrapper<MDTransaction> &data);
+void orderTransactionReader(vector<ConstantSP> &buffer, InsightOrderTransaction &data, int seqCheckMode,
+                            std::unordered_map<int, long long> &szLastSeqNum,
+                            std::unordered_map<int, long long> &shLastSeqNum);
 
 class orderTransactionReaderFunction {
   public:
-    orderTransactionReaderFunction(bool ignoreApplSeq) : ignoreApplSeq_(ignoreApplSeq) {}
+    orderTransactionReaderFunction(int seqCheckMode) : seqCheckMode_(seqCheckMode) {}
     void operator()(vector<ConstantSP> &buffer, InsightOrderTransaction &data) {
-        orderTransactionReader(buffer, data, ignoreApplSeq_, lastSeqNum_, tradeSeqNum_, orderSeqNum_);
+        orderTransactionReader(buffer, data, seqCheckMode_, shLastSeqNum_, szLastSeqNum_);
     }
 
   private:
-    bool ignoreApplSeq_ = false;
-    std::unordered_map<int, int64_t> lastSeqNum_;
-    std::unordered_map<int, int64_t> tradeSeqNum_;
-    std::unordered_map<int, int64_t> orderSeqNum_;
+    int seqCheckMode_;
+    std::unordered_map<int, long long> shLastSeqNum_;
+    std::unordered_map<int, long long> szLastSeqNum_;
 };
 
-void indexTickReader(vector<ConstantSP> &buffer, InsightIndexTick &data);
-void futureTickReader(vector<ConstantSP> &buffer, InsightFutureTick &data);
-void stockTickReader(vector<ConstantSP> &buffer, InsightStockTick &data);
+void indexTickReader(vector<ConstantSP> &buffer, TimedWrapper<MDIndex> &data);
+void futureTickReader(vector<ConstantSP> &buffer, TimedWrapper<MDFuture> &data);
+void stockTickReader(vector<ConstantSP> &buffer, TimedWrapper<MDStock> &data);
+
+void fundTickReader(vector<ConstantSP> &buffer, TimedWrapper<MDFund> &data);
+void bondTickReader(vector<ConstantSP> &buffer, TimedWrapper<MDBond> &data);
+void optionTickReader(vector<ConstantSP> &buffer, TimedWrapper<MDOption> &data);
+
+void securityLendingTickReader(vector<ConstantSP> &buffer, TimedWrapper<MDSecurityLending> &data);
 
 #endif
