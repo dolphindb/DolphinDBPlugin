@@ -129,6 +129,7 @@ public:
 	static Constant* createConstant(DATA_TYPE dataType, int extraParam = 0);
 	static Constant* createNullConstant(DATA_TYPE dataType, int extraParam = 0);
 	static VectorSP prepareCleanDoubleVector(const VectorSP& x, int isFastMode);
+	static ConstantSP asContiguous(const ConstantSP& x);
 
 	static DataInputStreamSP createBlockFileInputStream(const string& filename, int devId, long long fileLength, int bufSize, long long offset, long long length);
 	static Constant* createResource(long long handle, const string& desc, const FunctionDefSP& onClose, Session* session);

@@ -975,7 +975,7 @@ public:
     }
 
     void clear() {
-        bool needFree = size_ > 0 ? true : false;
+        bool needFree = capacity_ > 0 ? true : false;
 
         for (size_t i = 0; i < capacity_; ++i) {
             if (!IsFull(ctrl_[i])){

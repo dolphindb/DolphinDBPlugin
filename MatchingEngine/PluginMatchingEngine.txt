@@ -1,3 +1,3 @@
-MatchingEngine,libPluginMatchingEngine.so,2.00.12
+MatchingEngine,libPluginMatchingEngine.so,2.00.13
 setupGlobalConfig,setupGlobalConfig,system,2,4,0
 createExchange,createExchange,system,3,3,0

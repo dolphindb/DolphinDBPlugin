@@ -102,7 +102,7 @@ public:
 	void releaseRead();
 	void releaseWrite();
 	bool tryAcquireRead();
-	bool tryAcqurieWrite();
+	bool tryAcquireWrite();
 private:
 #ifdef WINDOWS
 	SRWLOCK lock_;
@@ -301,6 +301,11 @@ public:
 				res_->releaseRead();
 		}
 	}
+
+	bool isLocked() {
+		return locked_;
+	}
+
 private:
 	T* res_;
 	bool exclusive_;
@@ -502,6 +507,21 @@ public:
 			--count;
 		}
 	}
+
+	void blockingPop(std::vector<T>& container, int n, int milliSeconds){
+		LockGuard<Mutex> guard(&mutex_);
+		while(items_.empty()) {
+			if(!empty_.wait(mutex_, milliSeconds))
+				return;
+		}
+
+		int count = std::min((int)items_.size(), n);
+		while(count > 0) {
+			container.push_back(items_.front());
+			items_.pop();
+			--count;
+		}
+ 	}
 
 	int size(){
 		LockGuard<Mutex> guard(&mutex_);

@@ -632,6 +632,7 @@ public:
 	VectorSP getSourceVector() const { return source_;}
 	INDEX getSubVectorStart() const { return offset_;}
 	INDEX getSubVectorLength() const { return size_;}
+	virtual int getSegmentSizeInBit() const override { return source_->getSegmentSizeInBit(); }
 	virtual bool copyable() const {return true;}
 	virtual bool isView() const {return true;}
 	virtual DATA_TYPE getRawType() const {return source_->getRawType();}

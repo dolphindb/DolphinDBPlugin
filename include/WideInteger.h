@@ -1,7 +1,9 @@
 ///
 /// ref: https://github.com/abseil/abseil-cpp/blob/master/absl/numeric/int128.h
 ///
-#pragma once
+#ifndef WIDEINTEGER_H_
+#define WIDEINTEGER_H_
+
 #include <functional>
 #include <limits>
 #include <iosfwd>
@@ -10,7 +12,6 @@
 #include <stdint.h>
 
 namespace wide_integer {
-
 #ifndef __SIZEOF_INT128__
     #error "Current compiler does not support __int128"
 #endif
@@ -20,16 +21,6 @@ using uint128 = unsigned __int128;
 
 static_assert(sizeof(int128) == 16, "");
 static_assert(sizeof(uint128) == 16, "");
-
-constexpr uint128 makeUint128(uint64_t high, uint64_t low);
-constexpr int128 makeInt128(int64_t high, uint64_t low);
-
-constexpr uint128 uint128MaxValue();
-constexpr uint128 uint128MinValue();
-
-constexpr int128 int128MaxValue();
-constexpr int128 int128MinValue();
-
 }  // namespace wide_integer
 
 
@@ -37,7 +28,7 @@ namespace wide_integer {
 namespace internal {
 // Casts from unsigned to signed while preserving the underlying binary
 // representation.
-constexpr int64_t BitCastToSigned(uint64_t v) {
+constexpr inline int64_t BitCastToSigned(uint64_t v) {
     // Casting an unsigned integer to a signed integer of the same
     // width is implementation defined behavior if the source value would not fit
     // in the destination type. We step around it with a roundtrip bitwise not
@@ -46,7 +37,7 @@ constexpr int64_t BitCastToSigned(uint64_t v) {
     return v & (uint64_t{1} << 63) ? ~static_cast<int64_t>(~v)
                                     : static_cast<int64_t>(v);
 }
-constexpr __int128_t BitCastToSigned(__uint128_t v) {
+constexpr inline __int128_t BitCastToSigned(__uint128_t v) {
     return v & (static_cast<__uint128_t>(1) << 127)
                 ? ~static_cast<__int128_t>(~v)
                 : static_cast<__int128_t>(v);
@@ -58,10 +49,10 @@ constexpr inline uint64_t Uint128High64(uint128 v) {
 constexpr inline uint64_t Uint128Low64(uint128 v) {
     return static_cast<uint64_t>(v);
 }
-constexpr uint64_t Int128Low64(int128 v) {
+constexpr inline uint64_t Int128Low64(int128 v) {
     return static_cast<uint64_t>(v & ~uint64_t{0});
 }
-constexpr int64_t Int128High64(int128 v) {
+constexpr inline int64_t Int128High64(int128 v) {
     // Initially cast to unsigned to prevent a right shift on a negative value.
     return wide_integer::internal::BitCastToSigned(
             static_cast<uint64_t>(static_cast<uint128>(v) >> 64));
@@ -75,33 +66,33 @@ inline void hash_combine(std::size_t &seed, const T &v) {
 }
 }  // namespace internal
 
-constexpr uint128 makeUint128(uint64_t high, uint64_t low) {
+constexpr inline uint128 makeUint128(uint64_t high, uint64_t low) {
     return uint128((static_cast<__uint128_t>(high) << 64) | low);
 }
 
-constexpr int128 makeInt128(int64_t high, uint64_t low) {
+constexpr inline int128 makeInt128(int64_t high, uint64_t low) {
     return int128(internal::BitCastToSigned(static_cast<__uint128_t>(high) << 64) | low);
 }
 
-constexpr uint128 uint128MaxValue() {
+constexpr inline uint128 uint128MaxValue() {
     return makeUint128(std::numeric_limits<uint64_t>::max(),
                        std::numeric_limits<uint64_t>::max());
 }
 
-constexpr uint128 uint128MinValue() {
+constexpr inline uint128 uint128MinValue() {
     return uint128(0);
 }
 
-constexpr int128 int128MaxValue() {
+constexpr inline int128 int128MaxValue() {
     return makeInt128(std::numeric_limits<int64_t>::max(),
                       std::numeric_limits<uint64_t>::max());
 }
 
-constexpr int128 int128MinValue() {
+constexpr inline int128 int128MinValue() {
     return makeInt128(std::numeric_limits<int64_t>::min(), 0);
 }
 
-constexpr int128 INT128_MIN = int128MinValue();
+static constexpr int128 INT128_MIN = int128MinValue();
 
 static_assert(int128MinValue() == (-int128MaxValue() - 1), "");
 static_assert(uint128(int128MinValue() | int128MaxValue()) == uint128MaxValue(), "");
@@ -273,3 +264,5 @@ namespace std {
 wide_integer::int128 pow(wide_integer::int128 x, size_t y);
 wide_integer::int128 trunc(wide_integer::int128 x);
 };  // namespace std
+
+#endif  // WIDEINTEGER_H_
