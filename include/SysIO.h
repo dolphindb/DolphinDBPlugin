@@ -10,9 +10,11 @@
 
 #include <string>
 #include <iostream>
+
 #include "SmartPointer.h"
 #include "Types.h"
 #include "DolphinString.h"
+
 
 #define MAX_CAPACITY 262144
 #define MAX_PACKET_SIZE 1400
@@ -33,6 +35,29 @@ using std::string;
 
 struct ssl_st;
 typedef struct ssl_st SSL;
+#ifndef WINDOWS
+namespace rdma {
+
+class QPHandle;
+class QPSocket;
+
+using QPSocketSP = SmartPointer<QPSocket>;
+
+class QPSocket {
+  public:
+    QPSocket(QPHandle *qph) : qph_(qph) {}
+
+    ssize_t read(void *buf, size_t count, bool peek);
+
+    ssize_t write(const void *buf, size_t count);
+
+  private:
+    QPHandle *qph_;
+};
+
+}  // namespace rdma
+#endif // ifndef WINDOWS
+
 class Constant;
 class Socket;
 class UdpSocket;
@@ -84,6 +109,15 @@ private:
 	bool blocking_;
 	bool autoClose_;
 	SSL* ssl_;
+
+#ifndef WINDOWS
+public:
+	Socket(rdma::QPSocketSP& qpsock) :  handle_(INVALID_SOCKET), blocking_(false), autoClose_(true), ssl_(nullptr), enableRdma_(true) , qpsock_(qpsock) {}
+	bool enableRDMA() { return enableRdma_; }
+private:
+	bool enableRdma_ = false;
+	rdma::QPSocketSP qpsock_;
+#endif // ifndef WINDOWS
 };
 
 class UdpSocket{
@@ -185,6 +219,8 @@ public:
 	 */
 	bool reset(int size);
 
+	size_t capacity() const { return capacity_; }
+
 protected:
 	/**
 	 * Read up to number of bytes specified by the length. If the underlying device doesn't have even one byte
@@ -239,6 +275,7 @@ public:
 	FILE* getFile() const { return file_;}
 	const char * getBuffer() const { return buf_;}
 	size_t size() const { return size_;}
+    void setSize(size_t size) { assert(source_==STREAM_TYPE::ARRAY_STREAM); size_ = size;}
 	IO_ERR flush(bool sync = false);
 	IO_ERR close();
 	inline long long writtenBytes() const { return writtenBytes_;}

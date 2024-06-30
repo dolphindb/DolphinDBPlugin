@@ -640,6 +640,7 @@ public:
 	VectorSP getSourceVector() const { return source_;}
 	INDEX getSubVectorStart() const { return offset_;}
 	INDEX getSubVectorLength() const { return size_;}
+	virtual int getSegmentSizeInBit() const override { return source_->getSegmentSizeInBit(); }
 	virtual bool copyable() const {return true;}
 	virtual bool isView() const {return true;}
 	virtual DATA_TYPE getRawType() const {return source_->getRawType();}
@@ -1033,7 +1034,7 @@ public:
 			}
 		}
 		return originalBuf;
-	
+
 	}
 	virtual char* getCharBuffer(INDEX start, int len, char* buf) const {return source_->getCharBuffer(offset_ + start, len, buf);}
 	virtual bool getShort(INDEX start, int len, short* buf) const {
@@ -1342,7 +1343,7 @@ public:
 				buf[i] = INDEX_MIN;
 			}
 		}
-		return originalBuf;	
+		return originalBuf;
 	}
 	virtual INDEX* getIndexBuffer(INDEX start, int len, INDEX* buf) const {return source_->getIndexBuffer(offset_ + start, len, buf);}
 	virtual bool getFloat(INDEX start, int len, float* buf) const {
@@ -2461,6 +2462,7 @@ public:
 	virtual float getFloat() const {throw RuntimeException("Array vector doesn't support method getFloat");}
 	virtual double getDouble() const {throw RuntimeException("Array vector doesn't support method getDouble");}
 	virtual ConstantSP get(INDEX index) const;
+	virtual ConstantSP getRef(INDEX index) const;
 	virtual ConstantSP get(const ConstantSP& index) const;
 	virtual ConstantSP get(INDEX offset, const ConstantSP& index) const;
 	virtual ConstantSP getSlice(const ConstantSP& rowIndex, const ConstantSP& colIndex) const;

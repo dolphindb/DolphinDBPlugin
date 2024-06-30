@@ -102,7 +102,7 @@ public:
 	void releaseRead();
 	void releaseWrite();
 	bool tryAcquireRead();
-	bool tryAcqurieWrite();
+	bool tryAcquireWrite();
 private:
 #ifdef WINDOWS
 	SRWLOCK lock_;
@@ -301,6 +301,11 @@ public:
 				res_->releaseRead();
 		}
 	}
+
+	bool isLocked() {
+		return locked_;
+	}
+
 private:
 	T* res_;
 	bool exclusive_;

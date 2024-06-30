@@ -10,6 +10,9 @@
 
 #include "CoreConcept.h"
 
+#include <cstddef>
+#include <cstdint>
+
 #define MARSHALL_BUFFER_SIZE 4096
 
 class CodeMarshal;
@@ -220,6 +223,20 @@ private:
 	VectorMarshal vectorMarshal_;
 };
 
+class TensorMarshal : public ConstantMarshalImp {
+public:
+	TensorMarshal(const DataOutputStreamSP &out) : ConstantMarshalImp(out) {
+	}
+	virtual ~TensorMarshal() = default;
+
+	virtual bool start(const char* requestHeader, size_t headerSize, const ConstantSP& target, bool blocking, IO_ERR& ret);
+	virtual bool resume(IO_ERR& ret);
+	virtual void reset();
+
+private:
+	int64_t nextStart_{};
+};
+
 class TableMarshal: public ConstantMarshalImp{
 public:
 	TableMarshal(const DataOutputStreamSP& out) : ConstantMarshalImp(out) ,columnNamesSent_(0), wideColumnMapSent_(-1), nextColumn_(0),
@@ -355,6 +372,42 @@ private:
 	ConstantSP rowLabel_;
 	ConstantSP columnLabel_;
 	VectorUnmarshal vectorUnmarshal_;
+};
+
+class TensorUnmarshal: public ConstantUnmarshalImp{
+public:
+	TensorUnmarshal(const DataInputStreamSP& in, Session* session) : ConstantUnmarshalImp(in, session) {}
+	virtual ~TensorUnmarshal() = default;
+
+	virtual bool start(short flag, bool blocking, IO_ERR& ret);
+	virtual bool resume(IO_ERR& ret);
+	virtual void reset();
+
+private:
+	short flag_{};
+
+	struct {
+		bool tensorType : 1;
+		bool deviceType : 1;
+		bool tensorFlags : 1;
+		bool dimensions : 1;
+		bool reserved : 1;
+		bool elementCount : 1;
+	} received_{};
+
+	uint8_t tensorType_;
+	uint8_t deviceType_;
+	uint32_t tensorFlags_;
+	int32_t dimensions_;
+
+	std::vector<int64_t> shape_;
+	std::vector<int64_t> strides_;
+	size_t shape_n_{};
+	size_t stride_n_{};
+
+	int64_t reserved_;
+	int64_t elementCount_;
+	size_t element_n_{};
 };
 
 class TableUnmarshal: public ConstantUnmarshalImp{

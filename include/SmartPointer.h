@@ -9,10 +9,13 @@
 #define SMARTPOINTER_H_
 
 #include <atomic>
-#include <typeinfo>
+#include <cassert>
+#include <memory>
 #include <type_traits>
+#include <typeinfo>
+#include <utility>
+
 #include "Exceptions.h"
-#include <assert.h>
 
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define LIKELY(x) (__builtin_expect((x), 1))
@@ -24,11 +27,11 @@
 
 class Counter {
 public:
-	Counter(void* p): p_(p), obj_(nullptr), count_(0){}
+	constexpr Counter(void* p) noexcept: p_(p), obj_(nullptr), count_(0){}
 	// reference: https://github.com/llvm/llvm-project/blob/release/15.x/libcxx/include/__memory/shared_ptr.h#L105
-	int addRef(){ return atomic_fetch_add_explicit(&count_,1,std::memory_order_relaxed)+1;} //atomic operation
-	int release(){return atomic_fetch_sub_explicit(&count_,1,std::memory_order_acq_rel)-1;} //atomic operation
-	int getCount() const {return count_.load();}
+	int addRef() noexcept{ return atomic_fetch_add_explicit(&count_,1,std::memory_order_relaxed)+1;} //atomic operation
+	int release() noexcept{return atomic_fetch_sub_explicit(&count_,1,std::memory_order_acq_rel)-1;} //atomic operation
+	int getCount() const noexcept{return count_.load();}
 	void* p_;
 	void* obj_;
 
@@ -46,10 +49,39 @@ public:
 	static RefCountHelper* inst_;
 };
 
+template <class T>
+using UniquePointer = std::unique_ptr<T>;
+
+namespace Detail {
+template<class>
+struct IsUnboundedArray : std::false_type {};
+template<class T>
+struct IsUnboundedArray<T[]> : std::true_type {};
+
+template<class>
+struct IsBoundedArray : std::false_type {};
+template<class T, std::size_t N>
+struct IsBoundedArray<T[N]> : std::true_type {};
+}  // namespace Detail
+ 
+template<class T, class... Args>
+typename std::enable_if<!std::is_array<T>::value, UniquePointer<T>>::type makeUnique(Args&&... args) {
+    return UniquePointer<T>(new T(std::forward<Args>(args)...));
+}
+ 
+template<class T>
+typename std::enable_if<Detail::IsUnboundedArray<T>::value, UniquePointer<T>>::type makeUnique(std::size_t n) {
+    return UniquePointer<T>(new typename std::remove_extent<T>::type[n]());
+}
+ 
+template<class T, class... Args>
+typename std::enable_if<Detail::IsBoundedArray<T>::value>::type makeUnique(Args&&...) = delete;
 
 template <class T>
 class SmartPointer {
 public:
+	SmartPointer(UniquePointer<T> ptr) : SmartPointer(ptr.release()) {}
+
 	SmartPointer(T* p=0): counterP_(nullptr){
 		if (UNLIKELY(p == nullptr)) return;
 		counterP_ = new Counter(p);
@@ -71,18 +103,16 @@ public:
 		return counterP_;
 	}
 
-        Counter* getCounter() const {
-                return counterP_;
-	}
+	Counter* getCounter() const noexcept{return counterP_;}
 
-	SmartPointer(const SmartPointer<T>& sp){
+	SmartPointer(const SmartPointer& sp) noexcept{
 		counterP_=sp.counterP_;
 		if (UNLIKELY(counterP_ == nullptr)) return;
 		counterP_->addRef();
 	}
 
 	template <class U>
-	SmartPointer(const SmartPointer<U>& sp){
+	SmartPointer(const SmartPointer<U>& sp) noexcept{
 		static_assert(std::is_convertible<U*, T*>::value || std::is_base_of<U, T>::value, "U must be implicitly convertible to T or T must be a subclass of U");
 		counterP_=sp.counterP_;
 		if (UNLIKELY(counterP_ == nullptr)) return;
@@ -91,73 +121,54 @@ public:
 		counterP_->addRef();
 	}
 
-	T& operator *() const{
+	template <class U>
+	SmartPointer(SmartPointer<U> &&sp) noexcept {
+		static_assert(std::is_convertible<U *, T *>::value || std::is_base_of<U, T>::value, "U must be implicitly convertible to T or T must be a subclass of U");
+		counterP_=sp.counterP_;
+		sp.counterP_=nullptr;
+		if (UNLIKELY(counterP_ == nullptr)) return;
+		// multi-inheritance is not supported in SmartPointer
+		assert(static_cast<T *>((U *)(counterP_->p_)) == (T *)(counterP_->p_));
+	}
+
+	T& operator *() const noexcept{
 		if (UNLIKELY(counterP_ == nullptr)) return *((T*)nullptr);
 		return *((T*)counterP_->p_);
 	}
 
-	T* operator ->() const{
+	T* operator ->() const noexcept{
 		if (UNLIKELY(counterP_ == nullptr)) return nullptr;
 		return (T*)counterP_->p_;
 	}
 
-	T& operator =(const SmartPointer<T>& sp){
-		if(this==&sp)
-			return *((T*)counterP_->p_);
+	void swap(SmartPointer& sp) noexcept{std::swap(counterP_, sp.counterP_);}
 
-		Counter* tmp = sp.counterP_;
-		if (UNLIKELY(counterP_ == nullptr && tmp == nullptr))
-			return *((T*)nullptr);
-		if(counterP_ == tmp)
-			return *((T*)tmp->p_);
-		if (LIKELY(tmp != nullptr))
-			tmp->addRef();
-
-		Counter* oldCounter = counterP_;
-		counterP_= tmp;
-
-		if(LIKELY(oldCounter != nullptr) && oldCounter->release()==0){
-			if (oldCounter->obj_) {
-				RefCountHelper::inst_->zeroHandler((void*)oldCounter);
-			}
-			delete (T*)oldCounter->p_;
-			delete oldCounter;
-		}
-		if (UNLIKELY(tmp == nullptr))
-			return *((T*)nullptr);
-		return *((T*)tmp->p_);
+	SmartPointer& operator =(SmartPointer sp) noexcept{
+		// copy and swap idiom
+		swap(sp);
+		return *this;
 	}
 
-	bool operator ==(const SmartPointer<T>& sp) const{
+	bool operator ==(const SmartPointer<T>& sp) const noexcept{
 		return counterP_ == sp.counterP_;
 	}
 
-	bool operator !=(const SmartPointer<T>& sp) const{
-		return counterP_ != sp.counterP_;
+	bool operator !=(const SmartPointer<T>& sp) const noexcept{
+		return !(*this == sp);
 	}
 
-	void clear(){
-		Counter* oldCounter = counterP_;
-		if(LIKELY(oldCounter != nullptr) && oldCounter->release()==0){
-			if (oldCounter->obj_) {
-                RefCountHelper::inst_->zeroHandler((void*)oldCounter);
-            }
-			delete (T*)oldCounter->p_;
-			delete oldCounter;
-		}
-		counterP_ = nullptr;
-	}
+	void clear(){*this = SmartPointer();}
 
-	bool isNull() const{
+	bool isNull() const noexcept{
 		return counterP_ == nullptr || counterP_->p_ == nullptr;
 	}
 
-	int count() const{
+	int count() const noexcept{
 		if (counterP_ == nullptr) return 0;
 		return counterP_->getCount();
 	}
 
-	T* get() const{
+	T* get() const noexcept{
 		if (UNLIKELY(counterP_ == nullptr)) return nullptr;
 		return (T*)counterP_->p_;
 	}
@@ -180,22 +191,6 @@ public:
 			delete counterP_;
 			counterP_=0;
 		}
-	}
-
-    T& operator =(T* p){
-        if(LIKELY(counterP_ != nullptr) && p == counterP_->p_)
-            return *p;
-
-        if(LIKELY(counterP_ != nullptr) && counterP_->release()==0) {
-            delete static_cast<T *>(counterP_->p_);
-            counterP_->p_ = p;
-            counterP_->addRef();
-        }
-        else{
-            counterP_ = new Counter(p);
-            counterP_->addRef();
-        }
-        return *p;
     }
 
 private:

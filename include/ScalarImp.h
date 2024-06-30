@@ -711,7 +711,7 @@ public:
 		}
 		ConstantSP vec = Util::createVector(getType(), index->size());
 		((Vector*)vec.get())->fill(0, vec->size(), getValue());
-
+		
 		if (((Vector*)index.get())->min()->getInt() >= 0) {
 			return vec;
 		}
