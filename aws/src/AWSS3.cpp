@@ -768,7 +768,11 @@ ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
     std::string tempFolder;
     {
         static std::atomic<long long> lastTmpFileIndex(Util::getEpochTime());
+#ifdef LINUX
         tempFolder = "/tmp/DDB_S3Plugin_loadS3Object_"+std::to_string(lastTmpFileIndex.fetch_add(1));
+#else
+        tempFolder = Util::getExecutableDirectory() + "/DDB_S3Plugin_loadS3Object_"+std::to_string(lastTmpFileIndex.fetch_add(1));
+#endif
         std::string msg;
         if(!Util::createDirectory(tempFolder, msg)){
             throw RuntimeException("Create temp directory "+tempFolder+" error "+msg);
