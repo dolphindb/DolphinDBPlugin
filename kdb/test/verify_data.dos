@@ -1,0 +1,208 @@
+login("admin","123456")
+setLogLevel(DEBUG)	//在dolphindb.log中核对[PLUGIN::KDB]日志项
+
+//============================================================================
+BASE_DIR="E:/DEV/DolphinDBPlugin/kdb"
+DATA_DIR=BASE_DIR + "/test/data"		//测试数据由generate_data.q生成
+HDB_DIR="Q:/tdb"		//kdb+ hDB包含数据量巨大的高频数据
+TEST_PAR=2023.09.15
+//============================================================================
+
+loadPlugin(BASE_DIR + "/bin/win/PluginKDB.txt")
+
+//////////////////////////////////////////////////////////////////////////////
+// 测试从kdb+远程加载数据表
+kh = kdb::connect("localhost", 5000, "admin:123456")
+     kdb::connect("localhost", 5555, "admin:123456")		//> 错误端口
+     kdb::connect("128.0.0.0", 5000, "admin:123456")		//> 错误IP
+     kdb::connect("localhost", 5000, "admin:wrong")		//> 错误密码
+     kdb::connect("localhost", 5000, "dolphindb:123456")	//> 错误用户
+
+// 测试各种数据类型是否支持
+remote_Types_no_sym = kdb::loadTable(kh, DATA_DIR + "/Types_no_sym", "")
+remote_Types_no_sym = kdb::loadTable(kh, DATA_DIR + "/Types_no_sym", DATA_DIR + "/sym")
+remote_Types_no_sym.schema()
+
+remote_Types = kdb::loadTable(kh, DATA_DIR + "/Types", DATA_DIR + "/sym")
+remote_Types = kdb::loadTable(kh, DATA_DIR + "/Types/", DATA_DIR + "/sym")	//结尾的‘/’不影响加载splayed table
+remote_Types = kdb::loadTable(kh, DATA_DIR + "/Types", "")		//> 未加载enum sym
+remote_Types = kdb::loadTable(kh, DATA_DIR + "/Types", DATA_DIR + "/alt_sym")		//> 错误的enum sym
+remote_Types = kdb::loadTable(kh, DATA_DIR + "/Types", DATA_DIR + "/no_sym")		//> 不存在的enum sym
+remote_Types.schema()
+
+remote_Types_any = kdb::loadTable(kh, DATA_DIR + "/Types_any", "")
+remote_Types_any = kdb::loadTable(kh, DATA_DIR + "/Types_any", DATA_DIR + "/sym")
+remote_Types_any.schema()
+
+remote_Types0 = kdb::loadTable(kh, DATA_DIR + "/Types0", DATA_DIR + "/sym")
+remote_Types0 = kdb::loadTable(kh, DATA_DIR + "/Types0", "")		//> 未加载enum sym
+remote_Types0 = kdb::loadTable(kh, DATA_DIR + "/Types0", DATA_DIR + "/alt_sym")		//> 错误的enum sym
+remote_Types0 = kdb::loadTable(kh, DATA_DIR + "/Types0", DATA_DIR + "/no_sym")		//> 不存在的enum sym
+remote_Types0.schema()		//空白表，特别检查表结构是否正确
+
+remote_Arrays_no_sym = kdb::loadTable(kh, DATA_DIR + "/Arrays_no_sym", "")
+remote_Arrays_no_sym = kdb::loadTable(kh, DATA_DIR + "/Arrays_no_sym", DATA_DIR + "/sym")
+remote_Arrays_no_sym.schema()
+
+remote_Arrays = kdb::loadTable(kh, DATA_DIR + "/Arrays", DATA_DIR + "/sym")
+remote_Arrays = kdb::loadTable(kh, DATA_DIR + "/Arrays", "")		//> 未加载enum sym
+remote_Arrays = kdb::loadTable(kh, DATA_DIR + "/Arrays", DATA_DIR + "/alt_sym")		//> 错误的enum sym
+remote_Arrays = kdb::loadTable(kh, DATA_DIR + "/Arrays", DATA_DIR + "/no_sym")		//> 不存在的enum sym
+remote_Arrays.schema()
+
+remote_Arrays_any = kdb::loadTable(kh, DATA_DIR + "/Arrays_any", "")
+remote_Arrays_any = kdb::loadTable(kh, DATA_DIR + "/Arrays_any", DATA_DIR + "/sym")
+remote_Arrays_any.schema()
+
+// 测试各类压缩级别能否支持
+remote_Types_16_2_6 = kdb::loadTable(kh, DATA_DIR + "/Types_16_2_6", DATA_DIR + "/sym")
+remote_Types_17_2_6 = kdb::loadTable(kh, DATA_DIR + "/Types_17_2_6", DATA_DIR + "/sym")
+remote_Types_18_2_6 = kdb::loadTable(kh, DATA_DIR + "/Types_18_2_6", DATA_DIR + "/sym")
+remote_Types_19_2_6 = kdb::loadTable(kh, DATA_DIR + "/Types_19_2_6", DATA_DIR + "/sym")
+remote_Types_20_2_6 = kdb::loadTable(kh, DATA_DIR + "/Types_20_2_6", DATA_DIR + "/sym")
+
+remote_Types_17_2_0 = kdb::loadTable(kh, DATA_DIR + "/Types_17_2_0", DATA_DIR + "/sym")
+remote_Types_17_2_1 = kdb::loadTable(kh, DATA_DIR + "/Types_17_2_1", DATA_DIR + "/sym")
+remote_Types_17_2_2 = kdb::loadTable(kh, DATA_DIR + "/Types_17_2_2", DATA_DIR + "/sym")
+remote_Types_17_2_3 = kdb::loadTable(kh, DATA_DIR + "/Types_17_2_3", DATA_DIR + "/sym")
+remote_Types_17_2_4 = kdb::loadTable(kh, DATA_DIR + "/Types_17_2_4", DATA_DIR + "/sym")
+remote_Types_17_2_5 = kdb::loadTable(kh, DATA_DIR + "/Types_17_2_5", DATA_DIR + "/sym")
+remote_Types_17_2_7 = kdb::loadTable(kh, DATA_DIR + "/Types_17_2_7", DATA_DIR + "/sym")
+remote_Types_17_2_8 = kdb::loadTable(kh, DATA_DIR + "/Types_17_2_8", DATA_DIR + "/sym")
+remote_Types_17_2_9 = kdb::loadTable(kh, DATA_DIR + "/Types_17_2_9", DATA_DIR + "/sym")
+
+remote_Types0_16_2_6 = kdb::loadTable(kh, DATA_DIR + "/Types0_16_2_6", DATA_DIR + "/sym")
+remote_Types0_17_2_6 = kdb::loadTable(kh, DATA_DIR + "/Types0_17_2_6", DATA_DIR + "/sym")
+remote_Types0_18_2_6 = kdb::loadTable(kh, DATA_DIR + "/Types0_18_2_6", DATA_DIR + "/sym")
+remote_Types0_19_2_6 = kdb::loadTable(kh, DATA_DIR + "/Types0_19_2_6", DATA_DIR + "/sym")
+remote_Types0_20_2_6 = kdb::loadTable(kh, DATA_DIR + "/Types0_20_2_6", DATA_DIR + "/sym")
+
+remote_Types0_17_2_0 = kdb::loadTable(kh, DATA_DIR + "/Types0_17_2_0", DATA_DIR + "/sym")
+remote_Types0_17_2_1 = kdb::loadTable(kh, DATA_DIR + "/Types0_17_2_1", DATA_DIR + "/sym")
+remote_Types0_17_2_2 = kdb::loadTable(kh, DATA_DIR + "/Types0_17_2_2", DATA_DIR + "/sym")
+remote_Types0_17_2_3 = kdb::loadTable(kh, DATA_DIR + "/Types0_17_2_3", DATA_DIR + "/sym")
+remote_Types0_17_2_4 = kdb::loadTable(kh, DATA_DIR + "/Types0_17_2_4", DATA_DIR + "/sym")
+remote_Types0_17_2_5 = kdb::loadTable(kh, DATA_DIR + "/Types0_17_2_5", DATA_DIR + "/sym")
+remote_Types0_17_2_7 = kdb::loadTable(kh, DATA_DIR + "/Types0_17_2_7", DATA_DIR + "/sym")
+remote_Types0_17_2_8 = kdb::loadTable(kh, DATA_DIR + "/Types0_17_2_8", DATA_DIR + "/sym")
+remote_Types0_17_2_9 = kdb::loadTable(kh, DATA_DIR + "/Types0_17_2_9", DATA_DIR + "/sym")
+
+remote_Arrays_16_2_6 = kdb::loadTable(kh, DATA_DIR + "/Arrays_16_2_6", DATA_DIR + "/sym")
+remote_Arrays_17_2_6 = kdb::loadTable(kh, DATA_DIR + "/Arrays_17_2_6", DATA_DIR + "/sym")
+remote_Arrays_18_2_6 = kdb::loadTable(kh, DATA_DIR + "/Arrays_18_2_6", DATA_DIR + "/sym")
+remote_Arrays_19_2_6 = kdb::loadTable(kh, DATA_DIR + "/Arrays_19_2_6", DATA_DIR + "/sym")
+remote_Arrays_20_2_6 = kdb::loadTable(kh, DATA_DIR + "/Arrays_20_2_6", DATA_DIR + "/sym")
+
+remote_Arrays_17_2_0 = kdb::loadTable(kh, DATA_DIR + "/Arrays_17_2_0", DATA_DIR + "/sym")
+remote_Arrays_17_2_1 = kdb::loadTable(kh, DATA_DIR + "/Arrays_17_2_1", DATA_DIR + "/sym")
+remote_Arrays_17_2_2 = kdb::loadTable(kh, DATA_DIR + "/Arrays_17_2_2", DATA_DIR + "/sym")
+remote_Arrays_17_2_3 = kdb::loadTable(kh, DATA_DIR + "/Arrays_17_2_3", DATA_DIR + "/sym")
+remote_Arrays_17_2_4 = kdb::loadTable(kh, DATA_DIR + "/Arrays_17_2_4", DATA_DIR + "/sym")
+remote_Arrays_17_2_5 = kdb::loadTable(kh, DATA_DIR + "/Arrays_17_2_5", DATA_DIR + "/sym")
+remote_Arrays_17_2_7 = kdb::loadTable(kh, DATA_DIR + "/Arrays_17_2_7", DATA_DIR + "/sym")
+remote_Arrays_17_2_8 = kdb::loadTable(kh, DATA_DIR + "/Arrays_17_2_8", DATA_DIR + "/sym")
+local_Arrays_17_2_9 = kdb::loadTable(kh, DATA_DIR + "/Arrays_17_2_9", DATA_DIR + "/sym")
+
+// 测试数据量大的hDB是否支持（解压后表的大小从小到大）
+kdb::loadTable(kh, HDB_DIR + "/" + TEST_PAR + "/Syms", HDB_DIR + "/sym")
+kdb::loadTable(kh, HDB_DIR + "/" + TEST_PAR + "/Daily", HDB_DIR + "/sym")
+kdb::loadTable(kh, HDB_DIR + "/" + TEST_PAR + "/Minute", HDB_DIR + "/sym")
+kdb::loadTable(kh, HDB_DIR + "/" + TEST_PAR + "/Ticks", HDB_DIR + "/sym")
+kdb::loadTable(kh, HDB_DIR + "/" + TEST_PAR + "/TxnsSZ", HDB_DIR + "/sym")
+
+kdb::close(kh)
+
+//////////////////////////////////////////////////////////////////////////////
+// 测试从本地解析、加载数据表
+
+// 测试各种数据类型是否支持
+local_Types_no_sym = kdb::loadFile(DATA_DIR + "/Types_no_sym", "")
+local_Types_no_sym = kdb::loadFile(DATA_DIR + "/Types_no_sym", DATA_DIR + "/sym")
+local_Types_no_sym.schema()
+
+local_Types = kdb::loadFile(DATA_DIR + "/Types", DATA_DIR + "/sym")
+local_Types = kdb::loadFile(DATA_DIR + "/Types/", DATA_DIR + "/sym")	//结尾的‘/’不影响加载splayed table
+local_Types = kdb::loadFile(DATA_DIR + "/Types", "")		//> 未加载enum sym
+local_Types = kdb::loadFile(DATA_DIR + "/Types", DATA_DIR + "/alt_sym")		//> 错误的enum sym
+local_Types = kdb::loadFile(DATA_DIR + "/Types", DATA_DIR + "/no_sym")		//> 不存在的enum sym
+local_Types.schema()
+
+local_Types_any = kdb::loadFile(DATA_DIR + "/Types_any", "")
+local_Types_any = kdb::loadFile(DATA_DIR + "/Types_any", DATA_DIR + "/sym")
+local_Types_any.schema()
+
+local_Types0 = kdb::loadFile(DATA_DIR + "/Types0", DATA_DIR + "/sym")
+local_Types0 = kdb::loadFile(DATA_DIR + "/Types0", "")		//> 未加载enum sym
+local_Types0 = kdb::loadFile(DATA_DIR + "/Types0", DATA_DIR + "/alt_sym")		//> 错误的enum sym
+local_Types0 = kdb::loadFile(DATA_DIR + "/Types0", DATA_DIR + "/no_sym")		//> 不存在的enum sym
+local_Types0.schema()		//空白表，特别检查表结构是否正确
+
+local_Arrays_no_sym = kdb::loadFile(DATA_DIR + "/Arrays_no_sym", "")
+local_Arrays_no_sym = kdb::loadFile(DATA_DIR + "/Arrays_no_sym", DATA_DIR + "/sym")
+local_Arrays_no_sym.schema()
+
+local_Arrays = kdb::loadFile(DATA_DIR + "/Arrays", DATA_DIR + "/sym")
+local_Arrays = kdb::loadFile(DATA_DIR + "/Arrays", "")		//> 未加载enum sym
+local_Arrays = kdb::loadFile(DATA_DIR + "/Arrays", DATA_DIR + "/alt_sym")		//> 错误的enum sym
+local_Arrays = kdb::loadFile(DATA_DIR + "/Arrays", DATA_DIR + "/no_sym")		//> 不存在的enum sym
+local_Arrays.schema()
+
+local_Arrays_any = kdb::loadFile(DATA_DIR + "/Arrays_any", "")
+local_Arrays_any = kdb::loadFile(DATA_DIR + "/Arrays_any", DATA_DIR + "/sym")
+local_Arrays_any.schema()
+
+// 测试各类压缩级别能否支持
+local_Types_16_2_6 = kdb::loadFile(DATA_DIR + "/Types_16_2_6", DATA_DIR + "/sym")
+local_Types_17_2_6 = kdb::loadFile(DATA_DIR + "/Types_17_2_6", DATA_DIR + "/sym")
+local_Types_18_2_6 = kdb::loadFile(DATA_DIR + "/Types_18_2_6", DATA_DIR + "/sym")
+local_Types_19_2_6 = kdb::loadFile(DATA_DIR + "/Types_19_2_6", DATA_DIR + "/sym")
+local_Types_20_2_6 = kdb::loadFile(DATA_DIR + "/Types_20_2_6", DATA_DIR + "/sym")
+
+local_Types_17_2_0 = kdb::loadFile(DATA_DIR + "/Types_17_2_0", DATA_DIR + "/sym")
+local_Types_17_2_1 = kdb::loadFile(DATA_DIR + "/Types_17_2_1", DATA_DIR + "/sym")
+local_Types_17_2_2 = kdb::loadFile(DATA_DIR + "/Types_17_2_2", DATA_DIR + "/sym")
+local_Types_17_2_3 = kdb::loadFile(DATA_DIR + "/Types_17_2_3", DATA_DIR + "/sym")
+local_Types_17_2_4 = kdb::loadFile(DATA_DIR + "/Types_17_2_4", DATA_DIR + "/sym")
+local_Types_17_2_5 = kdb::loadFile(DATA_DIR + "/Types_17_2_5", DATA_DIR + "/sym")
+local_Types_17_2_7 = kdb::loadFile(DATA_DIR + "/Types_17_2_7", DATA_DIR + "/sym")
+local_Types_17_2_8 = kdb::loadFile(DATA_DIR + "/Types_17_2_8", DATA_DIR + "/sym")
+local_Types_17_2_9 = kdb::loadFile(DATA_DIR + "/Types_17_2_9", DATA_DIR + "/sym")
+
+local_Types0_16_2_6 = kdb::loadFile(DATA_DIR + "/Types0_16_2_6", DATA_DIR + "/sym")
+local_Types0_17_2_6 = kdb::loadFile(DATA_DIR + "/Types0_17_2_6", DATA_DIR + "/sym")
+local_Types0_18_2_6 = kdb::loadFile(DATA_DIR + "/Types0_18_2_6", DATA_DIR + "/sym")
+local_Types0_19_2_6 = kdb::loadFile(DATA_DIR + "/Types0_19_2_6", DATA_DIR + "/sym")
+local_Types0_20_2_6 = kdb::loadFile(DATA_DIR + "/Types0_20_2_6", DATA_DIR + "/sym")
+
+local_Types0_17_2_0 = kdb::loadFile(DATA_DIR + "/Types0_17_2_0", DATA_DIR + "/sym")
+local_Types0_17_2_1 = kdb::loadFile(DATA_DIR + "/Types0_17_2_1", DATA_DIR + "/sym")
+local_Types0_17_2_2 = kdb::loadFile(DATA_DIR + "/Types0_17_2_2", DATA_DIR + "/sym")
+local_Types0_17_2_3 = kdb::loadFile(DATA_DIR + "/Types0_17_2_3", DATA_DIR + "/sym")
+local_Types0_17_2_4 = kdb::loadFile(DATA_DIR + "/Types0_17_2_4", DATA_DIR + "/sym")
+local_Types0_17_2_5 = kdb::loadFile(DATA_DIR + "/Types0_17_2_5", DATA_DIR + "/sym")
+local_Types0_17_2_7 = kdb::loadFile(DATA_DIR + "/Types0_17_2_7", DATA_DIR + "/sym")
+local_Types0_17_2_8 = kdb::loadFile(DATA_DIR + "/Types0_17_2_8", DATA_DIR + "/sym")
+local_Types0_17_2_9 = kdb::loadFile(DATA_DIR + "/Types0_17_2_9", DATA_DIR + "/sym")
+
+local_Arrays_16_2_6 = kdb::loadFile(DATA_DIR + "/Arrays_16_2_6", DATA_DIR + "/sym")
+local_Arrays_17_2_6 = kdb::loadFile(DATA_DIR + "/Arrays_17_2_6", DATA_DIR + "/sym")
+local_Arrays_18_2_6 = kdb::loadFile(DATA_DIR + "/Arrays_18_2_6", DATA_DIR + "/sym")
+local_Arrays_19_2_6 = kdb::loadFile(DATA_DIR + "/Arrays_19_2_6", DATA_DIR + "/sym")
+local_Arrays_20_2_6 = kdb::loadFile(DATA_DIR + "/Arrays_20_2_6", DATA_DIR + "/sym")
+
+local_Arrays_17_2_0 = kdb::loadFile(DATA_DIR + "/Arrays_17_2_0", DATA_DIR + "/sym")
+local_Arrays_17_2_1 = kdb::loadFile(DATA_DIR + "/Arrays_17_2_1", DATA_DIR + "/sym")
+local_Arrays_17_2_2 = kdb::loadFile(DATA_DIR + "/Arrays_17_2_2", DATA_DIR + "/sym")
+local_Arrays_17_2_3 = kdb::loadFile(DATA_DIR + "/Arrays_17_2_3", DATA_DIR + "/sym")
+local_Arrays_17_2_4 = kdb::loadFile(DATA_DIR + "/Arrays_17_2_4", DATA_DIR + "/sym")
+local_Arrays_17_2_5 = kdb::loadFile(DATA_DIR + "/Arrays_17_2_5", DATA_DIR + "/sym")
+local_Arrays_17_2_7 = kdb::loadFile(DATA_DIR + "/Arrays_17_2_7", DATA_DIR + "/sym")
+local_Arrays_17_2_8 = kdb::loadFile(DATA_DIR + "/Arrays_17_2_8", DATA_DIR + "/sym")
+local_Arrays_17_2_9 = kdb::loadFile(DATA_DIR + "/Arrays_17_2_9", DATA_DIR + "/sym")
+
+// 测试数据量大的hDB是否支持（解压后表的大小从小到大）
+kdb::loadFile(HDB_DIR + "/" + TEST_PAR + "/Syms", HDB_DIR + "/sym")
+kdb::loadFile(HDB_DIR + "/" + TEST_PAR + "/Daily", HDB_DIR + "/sym")
+kdb::loadFile(HDB_DIR + "/" + TEST_PAR + "/Minute", HDB_DIR + "/sym")
+kdb::loadFile(HDB_DIR + "/" + TEST_PAR + "/Ticks", HDB_DIR + "/sym")
+kdb::loadFile(HDB_DIR + "/" + TEST_PAR + "/TxnsSZ", HDB_DIR + "/sym")

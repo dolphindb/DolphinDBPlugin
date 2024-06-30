@@ -34,14 +34,13 @@ yum install -y zlib zlib-devel
 
 ### 2.1 预编译安装
 
-可以直接使用已编译好的插件，在 `bin/` 文件夹中根据服务器操作系统选择适合的插件。
+可以直接使用已编译好的插件，在 bin/ 文件夹中根据服务器操作系统选择适合的插件。
 
 请注意插件的版本应与 DolphinDB 客户端版本相同，通过切换分支获取相应版本。
 
-### 2.2 编译安装
+### 2.3 编译安装
 
 用户也可以自行编译，方法如下：
-
 #### Linux 系统编译
 
 ```linux shell
@@ -68,7 +67,6 @@ cmake  ../ -G "MinGW Makefiles"
 mingw32-make -j4
 ```
 -->
-
 ### 2.3 加载插件
 在 DolphinDB 客户端运行以下命令加载插件，需要将目录替换为 PluginKDB 文本文件所在的位置：
 
@@ -88,11 +86,11 @@ connect(host, port, usernamePassword)
 
 **参数**
 
-- `host` 是要连接的 kdb+ 数据库所在的主机地址
+- 'host' 是要连接的 kdb+ 数据库所在的主机地址
 
-- `port` 是要连接的 kdb+ 数据库所在的监听端口
+- 'port' 是要连接的 kdb+ 数据库所在的监听端口
 
-- `usernamePassword` 是一个字符串，表示所要连接的 kdb+ 数据库的登录用户名和密码，格式为："username:password"
+- 'usernamePassword' 是一个字符串，表示所要连接的 kdb+ 数据库的登录用户名和密码，格式为："username:password"
 
    该参数可以为空。若启动 kdb+ 时没有指定用户名和密码，则该参数为空或任意字符串。
 
@@ -106,7 +104,7 @@ connect(host, port, usernamePassword)
 3. 超时异常，建立连接超时
 
 **示例：**
-假设登录 kdb+ 数据库的用户名和密码（admin:123456）存储在 `../passwordfiles/usrs` 中，且 kdb+ 服务器和 DolphinDB server 都位于同一个主机上。
+假设登录 kdb+ 数据库的用户名和密码（admin:123456）存储在 ../passwordfiles/usrs 中，且 kdb+ 服务器和 DolphinDB server 都位于同一个主机上。
 
 kdb+ 终端执行：
 ```
@@ -132,11 +130,11 @@ loadTable(handle, tablePath, symPath)
 
 **参数**
 
-- `handle` 是 `connect` 返回的连接句柄
+- 'handle' 是 `connect` 返回的连接句柄
 
-- `tablePath` 是一个字符串，表示需要读取的表文件路径。如果是 splayed table, partitioned table 或 segmented table，则指定为表文件目录；如果是 single object，则指定为表文件
+- 'tablePath' 是一个字符串，表示需要读取的表文件路径。如果是 splayed table, partitioned table 或 segmented table，则指定为表文件目录；如果是 single object，则指定为表文件
 
-- `symPath` 是一个字符串，表示表文件对应的 sym 文件路径
+- 'symPath' 是一个字符串，表示表文件对应的 sym 文件路径
 
   该参数可以为空，此时必须保证表内不包含被枚举的 symbol 列。
 
@@ -146,7 +144,7 @@ loadTable(handle, tablePath, symPath)
 
 连接 kdb+ 数据库，通过 kdb+ 数据库加载数据，再将数据导入 DolphinDB 内存表。
 
-> 在 kdb+ 数据库中，symbol 类型可以通过枚举存入 sym 文件，在表中使用 int 类型代替字符串进行存储，以减少字符串重复存储所占的空间，因此如果需要读取的表包含了枚举的 symbol 列，则需要读入 sym 文件才能正确读取表内的 symbol 列。
+>在 kdb+ 数据库中，symbol 类型可以通过枚举存入 sym 文件，在表中使用 int 类型代替字符串进行存储，以减少字符串重复存储所占的空间，因此如果需要读取的表包含了枚举的 symbol 列，则需要读入 sym 文件才能正确读取表内的 symbol 列。
 
 **例子**
 
@@ -170,9 +168,9 @@ loadFile(tablePath, symPath)
 
 **参数**
 
-- `tablePath` 是一个字符串，表示需要读取的表文件路径。只能是 splayed table, partitioned table 或 segmented table 的表文件目录
+- 'tablePath' 是一个字符串，表示需要读取的表文件路径。只能是 splayed table, partitioned table 或 segmented table 的表文件目录
 
-- `symPath` 是表文件对应的 sym 文件路径
+- 'symPath' 是表文件对应的 sym 文件路径
 
   该参数可以为空，此时必须保证表内不包含被枚举的 symbol 列。
 
@@ -182,7 +180,7 @@ loadFile(tablePath, symPath)
 
 直接读取磁盘上的 kdb+ 数据文件，将其存入 DolphinDB 内存表。
 
-> 在 kdb+ 数据库中，symbol 类型可以通过枚举存入 sym 文件，在表中使用 int 类型代替字符串进行存储，以减少字符串重复存储所占的空间，因此如果需要读取的表包含了被枚举的 symbol 列，则需要读入 sym 文件才能正确读取表内的 symbol 列。
+>在 kdb+ 数据库中，symbol 类型可以通过枚举存入 sym 文件，在表中使用 int 类型代替字符串进行存储，以减少字符串重复存储所占的空间，因此如果需要读取的表包含了被枚举的 symbol 列，则需要读入 sym 文件才能正确读取表内的 symbol 列。
 
 **例子**
 
@@ -207,7 +205,7 @@ close(handle)
 
 **参数**
 
-- `handle` 是连接句柄
+- 'handle' 是连接句柄
 
 **详情**
 
@@ -249,7 +247,6 @@ Txns2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Txns/", DATA_DIR + "/sym")
 ```
 
 ## 4 导入方法说明
-
 ### 4.1 通过 loadTable 导入
 
 操作顺序：connect() -> loadTable() -> close()
@@ -266,7 +263,7 @@ Txns2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Txns/", DATA_DIR + "/sym")
 注意事项：
 
 1. 无法读取单个表（single object）。
-2. 能读取采用 gzip, snappy, lz4hc 压缩方法持久化的数据，无法读取 q IPC 方式压缩的数据。
+2. 只能读取采用 gzip 压缩方法持久化的数据。
 3. 待导入的表中不应包含除 char 类型以外的 nested column。
 4. loadFile 指定的加载路径分区下的表路径。
 5. 如果导入的表中存在 sorted、unique 、partitioned 、true index 等列属性，建议使用loadTable，减少出错的可能
@@ -296,7 +293,7 @@ Txns2 = kdb::loadFile(DATA_DIR + "/2022.06.17/Txns/", DATA_DIR + "/sym")
 
   `loadTable()` 或 `loadFile()`
 
-  如果未压缩，或者使用 gzip, snappy, lz4hc 压缩，则推荐使用第二种方法，导入效率会更高。
+  如果未压缩或使用 gzip 压缩，则推荐使用第二种方法，导入效率会更高。
 
   举例：
   ```
@@ -409,64 +406,15 @@ for (file in files) {
 | char nested list   | STRING        | 不超过65535 |                                                                                  |
 
 
-## 7. 测试方法
 
-为方便开发者进行自测，kdb 插件自2.00.11版本起提供自行测试的数据、脚本。以下将介绍测试文件和测试方法。
+# ReleaseNotes:
 
-**测试文件的组成**
+## 新功能
 
-测试必需的文件在本插件文件夹下 test 文件夹中。以下为详细说明：
+* 新增支持读取 kdb+ char 型 nested list。（**2.00.10**）
 
-``` shell
-kdb
-├── lib
-├── src
-├── test                  // 插件目录下 test 文件夹，包含所有测试需要的文件
-│   ├── data              // 测试时需要用到的一些数据文件，包括 kdb 持久化文件和一些验证文件
-│   │   └── ...
-│   ├── setup             // 配置参数存放文件夹
-│   │   └── settings.txt  // 具体存放配置参数的 txt 文件，在运行测试命令前需要修改
-│   └── test_kdb.txt      // dolphindb kdb 插件测试脚本文件
-├── CMakeLists.txt
-└── ...
-```
+# 故障修复
 
-**测试方法**
-
-1. 修改 `test/setup/settings.txt` 文件下的参数。以下是 kdb 测试脚本运行的一些必要配置：
-    - DATA_DIR： kdb 测试数据，在 `/test/data` 目录下提供，需修改测试时所放目录前缀。
-    - HOST：启动的 kdb+ 数据库的 IP 地址。
-    - PORT：启动的 kdb+ 数据库设置的监听端口。
-    - usernamePassword：连接启动的 kdb+ 数据库的用户名和密码。
-    - pluginTxtPath：编译后的插件 txt 文件路径，需在同目录下有对应的插件动态库文件。
-
-2. 启动一个可以连接的 kdb+ 数据库，启动方法参考 [connecting-to-a-kdb-process](https://code.kx.com/q/wp/capi/#connecting-to-a-kdb-process)。
-
-3. 运行 dolphindb。
-
-4. 运行以下 dolphindb 脚本：
-    ``` dolphindb
-    login(`admin,`123456);
-    test("<plugin_src_path>/test/test_kdb.txt");
-    ```
-    测试结果将会显示在屏幕上。其他 test 函数的使用方法与配置可以参考 DolphinDB 的 `test` 函数。
-
-# Release Notes:
-
-## v2.00.10
-
-### 新增功能
-
-1. 新增对 char 类型的 nested list 列读取的支持。
-
-### bug修复
-
-1. 修复loadTable不指定symPath会crash的问题。
-2. 修复sym文件的文件名不为sym时，不生效的问题。
-3. 修复关闭kdb进程再执行kdb::loadTable()会造成dolphindb宕机的问题。
-
-## v2.00.11
-
-### 新增功能
-
-1. 提供了开发者自测数据与脚本。
+* 修复调用 loadTable 时不指定参数 *symPath* 导致 server 宕机的问题。（**2.00.10**）
+* 修复 loadTable 无法正确解析用户自定义 sym 文件名的问题。（**2.00.10**）
+* 修复在关闭插件 kdb+的进程后，再次执行 loadTable 导致 server 宕机的问题。（**2.00.10**）

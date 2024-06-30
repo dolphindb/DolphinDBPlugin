@@ -2,13 +2,11 @@
 
 With the DolphinDB kdb+ plugin, you can load the kdb+ tables on your disk into DolphinDB as in-memory tables. This plugin can be used to load all types of Q data structures in DolphinDB. There are two load options: through the `loadTable` method or the `loadFile` method.
 
-The DolphinDB kdb+ plugin has different branches, such as release200 and release130. Each branch corresponds to a DolphinDB server version. Please make sure you are in the correct branch of the plugin documentation.
-
-Before you use this plugin, please read [DolphinDB Plugin](../README.md) first.
+The DolphinDB kdb+ plugin has the branches [release 200](https://github.com/dolphindb/DolphinDBPlugin/tree/release200/kdb) and [release130](https://github.com/dolphindb/DolphinDBPlugin/tree/release130/kdb). Each plugin version corresponds to a DolphinDB server version. You're looking at the plugin documentation for release200. If you use a different DolphinDB server version, please refer to the corresponding branch of the plugin documentation.
 
 - [DolphinDB kdb+ Plugin](#dolphindb-kdb-plugin)
   - [1. Install Precompiled Plugin](#1-install-precompiled-plugin)
-    - [1.1 Configure the Environment](#11-configure-the-environment)
+    - [1. Configure the Environment](#1-configure-the-environment)
     - [1.2 Load Plugin](#12-load-plugin)
   - [2. (Optional) Manually Compile Plugin](#2-optional-manually-compile-plugin)
     - [Linux](#linux)
@@ -23,11 +21,10 @@ Before you use this plugin, please read [DolphinDB Plugin](../README.md) first.
     - [4.2 `loadFile`](#42-loadfile)
   - [5. Loading Different Types of kdb+ Tables](#5-loading-different-types-of-kdb-tables)
   - [6. Data Type Conversion](#6-data-type-conversion)
-  - [7. (Contributors) Testing Your Code](#7-contributors-testing-your-code)
 
 ## 1. Install Precompiled Plugin
 
-### 1.1 Configure the Environment
+### 1. Configure the Environment
 
 **Install kdb+** 
 
@@ -53,13 +50,11 @@ yum install -y zlib zlib-devel
 
 ### 1.2 Load Plugin
 
-Download the precompiled plugin and library files from the `bin/` directory. Enter the following command in DolphinDB to load the plugin:
+Download the precompiled plugin and library files at [DolphinDBPlugin/kdb/](https://github.com/dolphindb/DolphinDBPlugin/tree/release200/kdb). Enter the following command in DolphinDB to load the plugin:
 
 ```
 loadPlugin("/path/to/plugin/PluginKDB.txt")
 ```
-
-Please note that the plugin version must be consistent with your DolphinDB server version. 
 
 ## 2. (Optional) Manually Compile Plugin
 
@@ -85,9 +80,9 @@ connect(host, port, usernamePassword)
 
 **Arguments**
 
-- host: the IP address where the kdb+ server is running.
-- port: the port that the kdb+ server is listening on.
-- usernamePassword: a STRING indicating the username and password for the kdb+ database you're connecting to. Specify the value in this format: "username:password". If the kdb+ server does not require authentication, leave this parameter empty or specify an arbitrary string.
+- host: the IP address where the kdb+ database is running.
+- port: the port that the kdb+ database is listening on.
+- usernamePassword: a STRING indicating the username and password for the kdb+ database you're connecting to. Specify the value in this format: "username:password". If the kdb+ database does not require authentication, leave this parameter empty or specify an arbitrary string.
 
 **Details**
 
@@ -108,7 +103,7 @@ kdb shell:         q -p 5000 -U ../passwordfiles/usrs   // note that "-U" must b
 DolphinDB shell:   handle = kdb::connect("127.0.0.1", 5000, "admin:123456")
 ```
 
-If the kdb+ server you're connecting to does not require authentication:
+If the kdb+ database you're connecting to does not require authentication:
 
 ```
 handle = kdb::connect("127.0.0.1", 5000)
@@ -378,49 +373,3 @@ A segmented table can be loaded to DolphinDB in the same way as a partitioned ta
 | minute    | MINUTE        | 4    |                                                              |
 | second    | SECOND        | 4    |                                                              |
 | time      | TIME          | 4    |                                                              |
-
-## 7. (Contributors) Testing Your Code
-
-Starting from version 1.30.23/2.00.11, the kdb+ plugin provides test data and test script to help developers validate their code.
-
-**Testing Files**
-
-Files required for testing are placed under the `test` directory of the plugin. Below are the details:
-
-``` shell
-kdb
-├── lib
-├── src
-├── test                  // includes all files required for testing
-│   ├── data              // data files used in testing, including files for persistence and authentication
-│   │   └── ...
-│   ├── setup             // folder for configuration parameters
-│   │   └── settings.txt  // TXT files containing configuration parameters. Must be updated before running the test.
-│   └── test_kdb.txt      // test script for dolphindb kdb+ plugin
-├── CMakeLists.txt
-└── ...
-```
-
-**Testing Steps**
-1. Change the parameters in the `test/setup/settings.txt` file. Below are the required parameters for the test script to run: 
-
-    - DATA_DIR: kdb test data which is located under `/test/data`. Specify the correct directory path.
-    - HOST: the IP address where the kdb+ server is running.
-    - PORT: the port that the kdb+ server is listening on.
-    - usernamePasswor: the username and password for the kdb+ server.
-    - pluginTxtPath：path to the compiled plugin file in TXT format. Plugin library files must be saved under the same directory.
-
-2. Start a kdb+ server. For details, refer to kdb+ official documentation: [connecting-to-a-kdb-process](https://code.kx.com/q/wp/capi/#connecting-to-a-kdb-process)
-
-3. Start the DolphinDB server.
-
-4. Run the following script in DolphinDB:
-
-    ``` dolphindb
-    login(`admin,`123456);
-    test("<plugin_src_path>/test/test_kdb.txt");
-    ```
-
-The test result will be printed. 
-
-For more information on the use of the `test` function, please refer to the DolphinDB server manual.
