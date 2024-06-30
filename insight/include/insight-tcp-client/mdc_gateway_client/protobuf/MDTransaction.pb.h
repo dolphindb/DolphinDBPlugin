@@ -329,6 +329,115 @@ class MDTransaction : public ::google::protobuf::Message /* @@protoc_insertion_p
   ::google::protobuf::int64 marginprice() const;
   void set_marginprice(::google::protobuf::int64 value);
 
+  // optional string DealDate = 35;
+  void clear_dealdate();
+  static const int kDealDateFieldNumber = 35;
+  const ::std::string& dealdate() const;
+  void set_dealdate(const ::std::string& value);
+  void set_dealdate(const char* value);
+  void set_dealdate(const char* value, size_t size);
+  ::std::string* mutable_dealdate();
+  ::std::string* release_dealdate();
+  void set_allocated_dealdate(::std::string* dealdate);
+
+  // optional string DealTime = 36;
+  void clear_dealtime();
+  static const int kDealTimeFieldNumber = 36;
+  const ::std::string& dealtime() const;
+  void set_dealtime(const ::std::string& value);
+  void set_dealtime(const char* value);
+  void set_dealtime(const char* value, size_t size);
+  ::std::string* mutable_dealtime();
+  ::std::string* release_dealtime();
+  void set_allocated_dealtime(::std::string* dealtime);
+
+  // optional string DealNumber = 37;
+  void clear_dealnumber();
+  static const int kDealNumberFieldNumber = 37;
+  const ::std::string& dealnumber() const;
+  void set_dealnumber(const ::std::string& value);
+  void set_dealnumber(const char* value);
+  void set_dealnumber(const char* value, size_t size);
+  ::std::string* mutable_dealnumber();
+  ::std::string* release_dealnumber();
+  void set_allocated_dealnumber(::std::string* dealnumber);
+
+  // optional int32 MarketIndicator = 38;
+  void clear_marketindicator();
+  static const int kMarketIndicatorFieldNumber = 38;
+  ::google::protobuf::int32 marketindicator() const;
+  void set_marketindicator(::google::protobuf::int32 value);
+
+  // optional int32 RepoTerm = 39;
+  void clear_repoterm();
+  static const int kRepoTermFieldNumber = 39;
+  ::google::protobuf::int32 repoterm() const;
+  void set_repoterm(::google::protobuf::int32 value);
+
+  // optional int64 LegSettlementAmount1st = 40;
+  void clear_legsettlementamount1st();
+  static const int kLegSettlementAmount1StFieldNumber = 40;
+  ::google::protobuf::int64 legsettlementamount1st() const;
+  void set_legsettlementamount1st(::google::protobuf::int64 value);
+
+  // optional int64 LegSettlementAmount2nd = 41;
+  void clear_legsettlementamount2nd();
+  static const int kLegSettlementAmount2NdFieldNumber = 41;
+  ::google::protobuf::int64 legsettlementamount2nd() const;
+  void set_legsettlementamount2nd(::google::protobuf::int64 value);
+
+  // optional string BondCode = 42;
+  void clear_bondcode();
+  static const int kBondCodeFieldNumber = 42;
+  const ::std::string& bondcode() const;
+  void set_bondcode(const ::std::string& value);
+  void set_bondcode(const char* value);
+  void set_bondcode(const char* value, size_t size);
+  ::std::string* mutable_bondcode();
+  ::std::string* release_bondcode();
+  void set_allocated_bondcode(::std::string* bondcode);
+
+  // optional string BondName = 43;
+  void clear_bondname();
+  static const int kBondNameFieldNumber = 43;
+  const ::std::string& bondname() const;
+  void set_bondname(const ::std::string& value);
+  void set_bondname(const char* value);
+  void set_bondname(const char* value, size_t size);
+  ::std::string* mutable_bondname();
+  ::std::string* release_bondname();
+  void set_allocated_bondname(::std::string* bondname);
+
+  // optional int64 TotalFacevalue = 44;
+  void clear_totalfacevalue();
+  static const int kTotalFacevalueFieldNumber = 44;
+  ::google::protobuf::int64 totalfacevalue() const;
+  void set_totalfacevalue(::google::protobuf::int64 value);
+
+  // optional int64 LegCleanPrice1st = 45;
+  void clear_legcleanprice1st();
+  static const int kLegCleanPrice1StFieldNumber = 45;
+  ::google::protobuf::int64 legcleanprice1st() const;
+  void set_legcleanprice1st(::google::protobuf::int64 value);
+
+  // optional int64 LegCleanPrice2nd = 46;
+  void clear_legcleanprice2nd();
+  static const int kLegCleanPrice2NdFieldNumber = 46;
+  ::google::protobuf::int64 legcleanprice2nd() const;
+  void set_legcleanprice2nd(::google::protobuf::int64 value);
+
+  // optional int64 LegYield1st = 47;
+  void clear_legyield1st();
+  static const int kLegYield1StFieldNumber = 47;
+  ::google::protobuf::int64 legyield1st() const;
+  void set_legyield1st(::google::protobuf::int64 value);
+
+  // optional int64 LegYield2nd = 48;
+  void clear_legyield2nd();
+  static const int kLegYield2NdFieldNumber = 48;
+  ::google::protobuf::int64 legyield2nd() const;
+  void set_legyield2nd(::google::protobuf::int64 value);
+
   // @@protoc_insertion_point(class_scope:com.htsc.mdc.insight.model.MDTransaction)
  private:
 
@@ -336,6 +445,11 @@ class MDTransaction : public ::google::protobuf::Message /* @@protoc_insertion_p
   ::google::protobuf::internal::ArenaStringPtr htscsecurityid_;
   ::google::protobuf::internal::ArenaStringPtr fitradingmethod_;
   ::google::protobuf::internal::ArenaStringPtr secondaryorderid_;
+  ::google::protobuf::internal::ArenaStringPtr dealdate_;
+  ::google::protobuf::internal::ArenaStringPtr dealtime_;
+  ::google::protobuf::internal::ArenaStringPtr dealnumber_;
+  ::google::protobuf::internal::ArenaStringPtr bondcode_;
+  ::google::protobuf::internal::ArenaStringPtr bondname_;
   ::google::protobuf::int32 mddate_;
   ::google::protobuf::int32 mdtime_;
   ::google::protobuf::int64 datatimestamp_;
@@ -367,6 +481,15 @@ class MDTransaction : public ::google::protobuf::Message /* @@protoc_insertion_p
   ::google::protobuf::int32 datamultiplepowerof10_;
   ::google::protobuf::int32 bidexecinsttype_;
   ::google::protobuf::int64 marginprice_;
+  ::google::protobuf::int32 marketindicator_;
+  ::google::protobuf::int32 repoterm_;
+  ::google::protobuf::int64 legsettlementamount1st_;
+  ::google::protobuf::int64 legsettlementamount2nd_;
+  ::google::protobuf::int64 totalfacevalue_;
+  ::google::protobuf::int64 legcleanprice1st_;
+  ::google::protobuf::int64 legcleanprice2nd_;
+  ::google::protobuf::int64 legyield1st_;
+  ::google::protobuf::int64 legyield2nd_;
   mutable int _cached_size_;
   friend void  protobuf_InitDefaults_MDTransaction_2eproto_impl();
   friend void  protobuf_AddDesc_MDTransaction_2eproto_impl();
@@ -949,6 +1072,352 @@ inline void MDTransaction::set_marginprice(::google::protobuf::int64 value) {
   
   marginprice_ = value;
   // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDTransaction.MarginPrice)
+}
+
+// optional string DealDate = 35;
+inline void MDTransaction::clear_dealdate() {
+  dealdate_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& MDTransaction::dealdate() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDTransaction.DealDate)
+  return dealdate_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDTransaction::set_dealdate(const ::std::string& value) {
+  
+  dealdate_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDTransaction.DealDate)
+}
+inline void MDTransaction::set_dealdate(const char* value) {
+  
+  dealdate_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDTransaction.DealDate)
+}
+inline void MDTransaction::set_dealdate(const char* value, size_t size) {
+  
+  dealdate_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDTransaction.DealDate)
+}
+inline ::std::string* MDTransaction::mutable_dealdate() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDTransaction.DealDate)
+  return dealdate_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* MDTransaction::release_dealdate() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MDTransaction.DealDate)
+  
+  return dealdate_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDTransaction::set_allocated_dealdate(::std::string* dealdate) {
+  if (dealdate != NULL) {
+    
+  } else {
+    
+  }
+  dealdate_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), dealdate);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDTransaction.DealDate)
+}
+
+// optional string DealTime = 36;
+inline void MDTransaction::clear_dealtime() {
+  dealtime_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& MDTransaction::dealtime() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDTransaction.DealTime)
+  return dealtime_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDTransaction::set_dealtime(const ::std::string& value) {
+  
+  dealtime_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDTransaction.DealTime)
+}
+inline void MDTransaction::set_dealtime(const char* value) {
+  
+  dealtime_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDTransaction.DealTime)
+}
+inline void MDTransaction::set_dealtime(const char* value, size_t size) {
+  
+  dealtime_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDTransaction.DealTime)
+}
+inline ::std::string* MDTransaction::mutable_dealtime() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDTransaction.DealTime)
+  return dealtime_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* MDTransaction::release_dealtime() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MDTransaction.DealTime)
+  
+  return dealtime_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDTransaction::set_allocated_dealtime(::std::string* dealtime) {
+  if (dealtime != NULL) {
+    
+  } else {
+    
+  }
+  dealtime_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), dealtime);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDTransaction.DealTime)
+}
+
+// optional string DealNumber = 37;
+inline void MDTransaction::clear_dealnumber() {
+  dealnumber_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& MDTransaction::dealnumber() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDTransaction.DealNumber)
+  return dealnumber_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDTransaction::set_dealnumber(const ::std::string& value) {
+  
+  dealnumber_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDTransaction.DealNumber)
+}
+inline void MDTransaction::set_dealnumber(const char* value) {
+  
+  dealnumber_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDTransaction.DealNumber)
+}
+inline void MDTransaction::set_dealnumber(const char* value, size_t size) {
+  
+  dealnumber_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDTransaction.DealNumber)
+}
+inline ::std::string* MDTransaction::mutable_dealnumber() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDTransaction.DealNumber)
+  return dealnumber_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* MDTransaction::release_dealnumber() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MDTransaction.DealNumber)
+  
+  return dealnumber_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDTransaction::set_allocated_dealnumber(::std::string* dealnumber) {
+  if (dealnumber != NULL) {
+    
+  } else {
+    
+  }
+  dealnumber_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), dealnumber);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDTransaction.DealNumber)
+}
+
+// optional int32 MarketIndicator = 38;
+inline void MDTransaction::clear_marketindicator() {
+  marketindicator_ = 0;
+}
+inline ::google::protobuf::int32 MDTransaction::marketindicator() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDTransaction.MarketIndicator)
+  return marketindicator_;
+}
+inline void MDTransaction::set_marketindicator(::google::protobuf::int32 value) {
+  
+  marketindicator_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDTransaction.MarketIndicator)
+}
+
+// optional int32 RepoTerm = 39;
+inline void MDTransaction::clear_repoterm() {
+  repoterm_ = 0;
+}
+inline ::google::protobuf::int32 MDTransaction::repoterm() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDTransaction.RepoTerm)
+  return repoterm_;
+}
+inline void MDTransaction::set_repoterm(::google::protobuf::int32 value) {
+  
+  repoterm_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDTransaction.RepoTerm)
+}
+
+// optional int64 LegSettlementAmount1st = 40;
+inline void MDTransaction::clear_legsettlementamount1st() {
+  legsettlementamount1st_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 MDTransaction::legsettlementamount1st() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDTransaction.LegSettlementAmount1st)
+  return legsettlementamount1st_;
+}
+inline void MDTransaction::set_legsettlementamount1st(::google::protobuf::int64 value) {
+  
+  legsettlementamount1st_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDTransaction.LegSettlementAmount1st)
+}
+
+// optional int64 LegSettlementAmount2nd = 41;
+inline void MDTransaction::clear_legsettlementamount2nd() {
+  legsettlementamount2nd_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 MDTransaction::legsettlementamount2nd() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDTransaction.LegSettlementAmount2nd)
+  return legsettlementamount2nd_;
+}
+inline void MDTransaction::set_legsettlementamount2nd(::google::protobuf::int64 value) {
+  
+  legsettlementamount2nd_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDTransaction.LegSettlementAmount2nd)
+}
+
+// optional string BondCode = 42;
+inline void MDTransaction::clear_bondcode() {
+  bondcode_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& MDTransaction::bondcode() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDTransaction.BondCode)
+  return bondcode_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDTransaction::set_bondcode(const ::std::string& value) {
+  
+  bondcode_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDTransaction.BondCode)
+}
+inline void MDTransaction::set_bondcode(const char* value) {
+  
+  bondcode_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDTransaction.BondCode)
+}
+inline void MDTransaction::set_bondcode(const char* value, size_t size) {
+  
+  bondcode_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDTransaction.BondCode)
+}
+inline ::std::string* MDTransaction::mutable_bondcode() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDTransaction.BondCode)
+  return bondcode_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* MDTransaction::release_bondcode() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MDTransaction.BondCode)
+  
+  return bondcode_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDTransaction::set_allocated_bondcode(::std::string* bondcode) {
+  if (bondcode != NULL) {
+    
+  } else {
+    
+  }
+  bondcode_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), bondcode);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDTransaction.BondCode)
+}
+
+// optional string BondName = 43;
+inline void MDTransaction::clear_bondname() {
+  bondname_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& MDTransaction::bondname() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDTransaction.BondName)
+  return bondname_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDTransaction::set_bondname(const ::std::string& value) {
+  
+  bondname_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDTransaction.BondName)
+}
+inline void MDTransaction::set_bondname(const char* value) {
+  
+  bondname_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDTransaction.BondName)
+}
+inline void MDTransaction::set_bondname(const char* value, size_t size) {
+  
+  bondname_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDTransaction.BondName)
+}
+inline ::std::string* MDTransaction::mutable_bondname() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDTransaction.BondName)
+  return bondname_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* MDTransaction::release_bondname() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MDTransaction.BondName)
+  
+  return bondname_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDTransaction::set_allocated_bondname(::std::string* bondname) {
+  if (bondname != NULL) {
+    
+  } else {
+    
+  }
+  bondname_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), bondname);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDTransaction.BondName)
+}
+
+// optional int64 TotalFacevalue = 44;
+inline void MDTransaction::clear_totalfacevalue() {
+  totalfacevalue_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 MDTransaction::totalfacevalue() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDTransaction.TotalFacevalue)
+  return totalfacevalue_;
+}
+inline void MDTransaction::set_totalfacevalue(::google::protobuf::int64 value) {
+  
+  totalfacevalue_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDTransaction.TotalFacevalue)
+}
+
+// optional int64 LegCleanPrice1st = 45;
+inline void MDTransaction::clear_legcleanprice1st() {
+  legcleanprice1st_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 MDTransaction::legcleanprice1st() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDTransaction.LegCleanPrice1st)
+  return legcleanprice1st_;
+}
+inline void MDTransaction::set_legcleanprice1st(::google::protobuf::int64 value) {
+  
+  legcleanprice1st_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDTransaction.LegCleanPrice1st)
+}
+
+// optional int64 LegCleanPrice2nd = 46;
+inline void MDTransaction::clear_legcleanprice2nd() {
+  legcleanprice2nd_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 MDTransaction::legcleanprice2nd() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDTransaction.LegCleanPrice2nd)
+  return legcleanprice2nd_;
+}
+inline void MDTransaction::set_legcleanprice2nd(::google::protobuf::int64 value) {
+  
+  legcleanprice2nd_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDTransaction.LegCleanPrice2nd)
+}
+
+// optional int64 LegYield1st = 47;
+inline void MDTransaction::clear_legyield1st() {
+  legyield1st_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 MDTransaction::legyield1st() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDTransaction.LegYield1st)
+  return legyield1st_;
+}
+inline void MDTransaction::set_legyield1st(::google::protobuf::int64 value) {
+  
+  legyield1st_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDTransaction.LegYield1st)
+}
+
+// optional int64 LegYield2nd = 48;
+inline void MDTransaction::clear_legyield2nd() {
+  legyield2nd_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 MDTransaction::legyield2nd() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDTransaction.LegYield2nd)
+  return legyield2nd_;
+}
+inline void MDTransaction::set_legyield2nd(::google::protobuf::int64 value) {
+  
+  legyield2nd_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDTransaction.LegYield2nd)
 }
 
 inline const MDTransaction* MDTransaction::internal_default_instance() {

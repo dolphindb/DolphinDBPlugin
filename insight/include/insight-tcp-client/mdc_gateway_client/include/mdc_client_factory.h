@@ -1,7 +1,7 @@
 //======================================================================================================
 // mdc_client_factory.h
-// å®¢æˆ·ç«¯ç”Ÿæˆå·¥å‚å¤´æ–‡ä»¶
-// ç‰ˆæœ¬ï¼šv1.0 å¢åŠ discovery service sslåŠ å¯†
+// ¿Í»§¶ËÉú³É¹¤³§Í·ÎÄ¼ş
+// °æ±¾£ºv1.0 Ôö¼Ódiscovery service ssl¼ÓÃÜ
 // lujun 
 //======================================================================================================
 
@@ -14,13 +14,13 @@
 NAMESPACE_BEGIN
 
 /**
-* gatewayå®¢æˆ·ç«¯æ¥å£åˆ›å»ºå·¥å‚ç±»
+* gateway¿Í»§¶Ë½Ó¿Ú´´½¨¹¤³§Àà
 */
 class LIB_EXPORT ClientFactory {
 public:
 	virtual ~ClientFactory();
 
-	//å•ä¾‹
+	//µ¥Àı
 	static ClientFactory* Instance();
 	static void Uninstance();
 
@@ -29,7 +29,7 @@ private:
 
 private:
 	ClientFactory();
-	//åˆå§‹åŒ–é…ç½®ï¼ŒåŒ…æ‹¬è¯»å–é»˜è®¤å€¼å’Œä»é…ç½®æ–‡ä»¶ä¸­æ›´æ–°
+	//³õÊ¼»¯ÅäÖÃ£¬°üÀ¨¶ÁÈ¡Ä¬ÈÏÖµºÍ´ÓÅäÖÃÎÄ¼şÖĞ¸üĞÂ
 	void InitConfig();
 
 private:
@@ -38,30 +38,30 @@ private:
 
 public:
 	/**
-	* åˆ›å»ºå®¢æˆ·ç«¯ï¼Œå…¨å±€å”¯ä¸€
-	* @param[in] discovery_service_using_ssl æ˜¯å¦ä½¿ç”¨åŠ å¯†
-	* @param[in] folder è¯ä¹¦æ‰€åœ¨çš„ç›®å½•ï¼Œå…¶ä¸‹å…·å¤‡è¯ä¹¦ï¼ˆFacadeClientCert.pemï¼‰å’Œç§é’¥ï¼ˆFacadeClientKeyPkcs8.pemï¼‰
-	* @return å®¢æˆ·ç«¯æŒ‡é’ˆ
+	* ´´½¨¿Í»§¶Ë£¬È«¾ÖÎ¨Ò»
+	* @param[in] discovery_service_using_ssl ÊÇ·ñÊ¹ÓÃ¼ÓÃÜ
+	* @param[in] folder Ö¤ÊéËùÔÚµÄÄ¿Â¼£¬ÆäÏÂ¾ß±¸Ö¤Êé£¨FacadeClientCert.pem£©ºÍË½Ô¿£¨FacadeClientKeyPkcs8.pem£©
+	* @return ¿Í»§¶ËÖ¸Õë
 	*/
 	ClientInterface* CreateClient(bool discovery_service_using_ssl = false, const char* folder = "./cert");
 
 	/**
-	* è·å–æ•´å½¢å±æ€§
-	* @param[in] key å¥
-	* @return è¿”å›å€¼ >= 0 æ­£ç¡® < 0 é”™è¯¯å·
+	* »ñÈ¡ÕûĞÎÊôĞÔ
+	* @param[in] key ½¡
+	* @return ·µ»ØÖµ >= 0 ÕıÈ· < 0 ´íÎóºÅ
 	*/
 	int GetIntPropertyValue(const char* key);
 
 	/**
-	* è®¾ç½®æ•´å½¢å±æ€§
-	* @param[in] key å¥
-	* @param[in] value å€¼
-	* @return è¿”å›å€¼ < 0 é”™è¯¯å· >=0 æ­£ç¡®å€¼
+	* ÉèÖÃÕûĞÎÊôĞÔ
+	* @param[in] key ½¡
+	* @param[in] value Öµ
+	* @return ·µ»ØÖµ < 0 ´íÎóºÅ >=0 ÕıÈ·Öµ
 	*/
 	int SetIntPropertyValue(const char* key, int value);
 
 	/**
-	* è®¾ç½®åŠ å¯†å¯†ç çš„ç§˜é’¥
+	* ÉèÖÃ¼ÓÃÜÃÜÂëµÄÃØÔ¿
 	*/
 	void SetEncodeKey(const unsigned char* key);
 

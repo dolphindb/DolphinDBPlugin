@@ -40,7 +40,7 @@ void protobuf_AssignDesc_MDOrder_2eproto() {
       "MDOrder.proto");
   GOOGLE_CHECK(file != NULL);
   MDOrder_descriptor_ = file->message_type(0);
-  static const int MDOrder_offsets_[34] = {
+  static const int MDOrder_offsets_[35] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDOrder, htscsecurityid_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDOrder, mddate_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDOrder, mdtime_),
@@ -75,6 +75,7 @@ void protobuf_AssignDesc_MDOrder_2eproto() {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDOrder, highlimitprice_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDOrder, minqty_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDOrder, tradedate_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDOrder, tradedqty_),
   };
   MDOrder_reflection_ =
     ::google::protobuf::internal::GeneratedMessageReflection::NewGeneratedMessageReflection(
@@ -132,7 +133,7 @@ void protobuf_AddDesc_MDOrder_2eproto_impl() {
   ::google::protobuf::DescriptorPool::InternalAddGeneratedFile(
     "\n\rMDOrder.proto\022\032com.htsc.mdc.insight.mo"
     "del\032\027ESecurityIDSource.proto\032\023ESecurityT"
-    "ype.proto\"\227\006\n\007MDOrder\022\026\n\016HTSCSecurityID\030"
+    "ype.proto\"\252\006\n\007MDOrder\022\026\n\016HTSCSecurityID\030"
     "\001 \001(\t\022\016\n\006MDDate\030\002 \001(\005\022\016\n\006MDTime\030\003 \001(\005\022\025\n"
     "\rDataTimestamp\030\004 \001(\003\022\?\n\020securityIDSource"
     "\030\005 \001(\0162%.com.htsc.mdc.model.ESecurityIDS"
@@ -152,8 +153,8 @@ void protobuf_AddDesc_MDOrder_2eproto_impl() {
     "dTransType\030\035 \001(\005\022\027\n\017BidExecInstType\030\036 \001("
     "\005\022\025\n\rLowLimitPrice\030\037 \001(\003\022\026\n\016HighLimitPri"
     "ce\030  \001(\003\022\016\n\006MinQty\030! \001(\003\022\021\n\tTradeDate\030\" "
-    "\001(\tB0\n\032com.htsc.mdc.insight.modelB\rMDOrd"
-    "erProtosH\001\240\001\001b\006proto3", 941);
+    "\001(\t\022\021\n\tTradedQty\030# \001(\003B0\n\032com.htsc.mdc.i"
+    "nsight.modelB\rMDOrderProtosH\001\240\001\001b\006proto3", 960);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "MDOrder.proto", &protobuf_RegisterTypes);
   ::com::htsc::mdc::model::protobuf_AddDesc_ESecurityIDSource_2eproto();
@@ -220,6 +221,7 @@ const int MDOrder::kLowLimitPriceFieldNumber;
 const int MDOrder::kHighLimitPriceFieldNumber;
 const int MDOrder::kMinQtyFieldNumber;
 const int MDOrder::kTradeDateFieldNumber;
+const int MDOrder::kTradedQtyFieldNumber;
 #endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
 
 MDOrder::MDOrder()
@@ -252,8 +254,8 @@ void MDOrder::SharedCtor() {
   memo_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   secondaryorderid_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   tradedate_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-  ::memset(&mddate_, 0, reinterpret_cast<char*>(&minqty_) -
-    reinterpret_cast<char*>(&mddate_) + sizeof(minqty_));
+  ::memset(&mddate_, 0, reinterpret_cast<char*>(&tradedqty_) -
+    reinterpret_cast<char*>(&mddate_) + sizeof(tradedqty_));
   _cached_size_ = 0;
 }
 
@@ -335,7 +337,7 @@ void MDOrder::Clear() {
   ZR_(settltype_, highlimitprice_);
   memo_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   secondaryorderid_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-  minqty_ = GOOGLE_LONGLONG(0);
+  ZR_(minqty_, tradedqty_);
   tradedate_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
 
 #undef ZR_HELPER_
@@ -882,6 +884,21 @@ bool MDOrder::MergePartialFromCodedStream(
         } else {
           goto handle_unusual;
         }
+        if (input->ExpectTag(280)) goto parse_TradedQty;
+        break;
+      }
+
+      // optional int64 TradedQty = 35;
+      case 35: {
+        if (tag == 280) {
+         parse_TradedQty:
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &tradedqty_)));
+        } else {
+          goto handle_unusual;
+        }
         if (input->ExpectAtEnd()) goto success;
         break;
       }
@@ -1137,6 +1154,11 @@ void MDOrder::SerializeWithCachedSizes(
       34, this->tradedate(), output);
   }
 
+  // optional int64 TradedQty = 35;
+  if (this->tradedqty() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(35, this->tradedqty(), output);
+  }
+
   // @@protoc_insertion_point(serialize_end:com.htsc.mdc.insight.model.MDOrder)
 }
 
@@ -1380,6 +1402,11 @@ void MDOrder::SerializeWithCachedSizes(
     target =
       ::google::protobuf::internal::WireFormatLite::WriteStringToArray(
         34, this->tradedate(), target);
+  }
+
+  // optional int64 TradedQty = 35;
+  if (this->tradedqty() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt64ToArray(35, this->tradedqty(), target);
   }
 
   // @@protoc_insertion_point(serialize_to_array_end:com.htsc.mdc.insight.model.MDOrder)
@@ -1626,6 +1653,13 @@ size_t MDOrder::ByteSizeLong() const {
         this->tradedate());
   }
 
+  // optional int64 TradedQty = 35;
+  if (this->tradedqty() != 0) {
+    total_size += 2 +
+      ::google::protobuf::internal::WireFormatLite::Int64Size(
+        this->tradedqty());
+  }
+
   int cached_size = ::google::protobuf::internal::ToCachedSize(total_size);
   GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
   _cached_size_ = cached_size;
@@ -1772,6 +1806,9 @@ void MDOrder::UnsafeMergeFrom(const MDOrder& from) {
 
     tradedate_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.tradedate_);
   }
+  if (from.tradedqty() != 0) {
+    set_tradedqty(from.tradedqty());
+  }
 }
 
 void MDOrder::CopyFrom(const ::google::protobuf::Message& from) {
@@ -1832,6 +1869,7 @@ void MDOrder::InternalSwap(MDOrder* other) {
   std::swap(highlimitprice_, other->highlimitprice_);
   std::swap(minqty_, other->minqty_);
   tradedate_.Swap(&other->tradedate_);
+  std::swap(tradedqty_, other->tradedqty_);
   _internal_metadata_.Swap(&other->_internal_metadata_);
   std::swap(_cached_size_, other->_cached_size_);
 }
@@ -2651,6 +2689,20 @@ void MDOrder::set_allocated_tradedate(::std::string* tradedate) {
   }
   tradedate_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), tradedate);
   // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDOrder.TradeDate)
+}
+
+// optional int64 TradedQty = 35;
+void MDOrder::clear_tradedqty() {
+  tradedqty_ = GOOGLE_LONGLONG(0);
+}
+::google::protobuf::int64 MDOrder::tradedqty() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDOrder.TradedQty)
+  return tradedqty_;
+}
+void MDOrder::set_tradedqty(::google::protobuf::int64 value) {
+  
+  tradedqty_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDOrder.TradedQty)
 }
 
 inline const MDOrder* MDOrder::internal_default_instance() {

@@ -40,7 +40,7 @@ void protobuf_AssignDesc_MDQBQuote_2eproto() {
       "MDQBQuote.proto");
   GOOGLE_CHECK(file != NULL);
   MDQBQuote_descriptor_ = file->message_type(0);
-  static const int MDQBQuote_offsets_[33] = {
+  static const int MDQBQuote_offsets_[37] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDQBQuote, htscsecurityid_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDQBQuote, mddate_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDQBQuote, mdtime_),
@@ -74,6 +74,10 @@ void protobuf_AssignDesc_MDQBQuote_2eproto() {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDQBQuote, bidexerciseflag_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDQBQuote, ofrexerciseflag_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDQBQuote, datamultiplepowerof10_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDQBQuote, bidfullprice_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDQBQuote, ofrfullprice_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDQBQuote, bidpricetype_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDQBQuote, ofrpricetype_),
   };
   MDQBQuote_reflection_ =
     ::google::protobuf::internal::GeneratedMessageReflection::NewGeneratedMessageReflection(
@@ -131,7 +135,7 @@ void protobuf_AddDesc_MDQBQuote_2eproto_impl() {
   ::google::protobuf::DescriptorPool::InternalAddGeneratedFile(
     "\n\017MDQBQuote.proto\022\032com.htsc.mdc.insight."
     "model\032\027ESecurityIDSource.proto\032\023ESecurit"
-    "yType.proto\"\234\006\n\tMDQBQuote\022\026\n\016HTSCSecurit"
+    "yType.proto\"\364\006\n\tMDQBQuote\022\026\n\016HTSCSecurit"
     "yID\030\001 \001(\t\022\016\n\006MDDate\030\002 \001(\005\022\016\n\006MDTime\030\003 \001("
     "\005\022\025\n\rDataTimestamp\030\004 \001(\003\022\030\n\020TradingPhase"
     "Code\030\005 \001(\t\022\?\n\020securityIDSource\030\006 \001(\0162%.c"
@@ -151,8 +155,10 @@ void protobuf_AddDesc_MDQBQuote_2eproto_impl() {
     "(\t\022\025\n\rOfferSsDetect\030\035 \001(\005\022\026\n\016BrokerDataT"
     "ype\030\036 \001(\005\022\027\n\017BidExerciseFlag\030\037 \001(\005\022\027\n\017Of"
     "rExerciseFlag\030  \001(\005\022\035\n\025DataMultiplePower"
-    "Of10\030! \001(\005B2\n\032com.htsc.mdc.insight.model"
-    "B\017MDQBQuoteProtosH\001\240\001\001b\006proto3", 950);
+    "Of10\030! \001(\005\022\024\n\014BidFullPrice\030\" \001(\003\022\024\n\014OfrF"
+    "ullPrice\030# \001(\003\022\024\n\014BidPriceType\030$ \001(\005\022\024\n\014"
+    "OfrPriceType\030% \001(\005B2\n\032com.htsc.mdc.insig"
+    "ht.modelB\017MDQBQuoteProtosH\001\240\001\001b\006proto3", 1038);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "MDQBQuote.proto", &protobuf_RegisterTypes);
   ::com::htsc::mdc::model::protobuf_AddDesc_ESecurityIDSource_2eproto();
@@ -218,6 +224,10 @@ const int MDQBQuote::kBrokerDataTypeFieldNumber;
 const int MDQBQuote::kBidExerciseFlagFieldNumber;
 const int MDQBQuote::kOfrExerciseFlagFieldNumber;
 const int MDQBQuote::kDataMultiplePowerOf10FieldNumber;
+const int MDQBQuote::kBidFullPriceFieldNumber;
+const int MDQBQuote::kOfrFullPriceFieldNumber;
+const int MDQBQuote::kBidPriceTypeFieldNumber;
+const int MDQBQuote::kOfrPriceTypeFieldNumber;
 #endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
 
 MDQBQuote::MDQBQuote()
@@ -245,8 +255,8 @@ void MDQBQuote::SharedCtor() {
   bidid_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   offercomment_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   offerid_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-  ::memset(&mddate_, 0, reinterpret_cast<char*>(&datamultiplepowerof10_) -
-    reinterpret_cast<char*>(&mddate_) + sizeof(datamultiplepowerof10_));
+  ::memset(&mddate_, 0, reinterpret_cast<char*>(&ofrpricetype_) -
+    reinterpret_cast<char*>(&mddate_) + sizeof(ofrpricetype_));
   _cached_size_ = 0;
 }
 
@@ -317,7 +327,7 @@ void MDQBQuote::Clear() {
   ZR_(offerbargainflag_, ofrexerciseflag_);
   offercomment_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   offerid_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-  datamultiplepowerof10_ = 0;
+  ZR_(bidfullprice_, ofrpricetype_);
 
 #undef ZR_HELPER_
 #undef ZR_
@@ -838,6 +848,66 @@ bool MDQBQuote::MergePartialFromCodedStream(
         } else {
           goto handle_unusual;
         }
+        if (input->ExpectTag(272)) goto parse_BidFullPrice;
+        break;
+      }
+
+      // optional int64 BidFullPrice = 34;
+      case 34: {
+        if (tag == 272) {
+         parse_BidFullPrice:
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &bidfullprice_)));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(280)) goto parse_OfrFullPrice;
+        break;
+      }
+
+      // optional int64 OfrFullPrice = 35;
+      case 35: {
+        if (tag == 280) {
+         parse_OfrFullPrice:
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &ofrfullprice_)));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(288)) goto parse_BidPriceType;
+        break;
+      }
+
+      // optional int32 BidPriceType = 36;
+      case 36: {
+        if (tag == 288) {
+         parse_BidPriceType:
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
+                 input, &bidpricetype_)));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(296)) goto parse_OfrPriceType;
+        break;
+      }
+
+      // optional int32 OfrPriceType = 37;
+      case 37: {
+        if (tag == 296) {
+         parse_OfrPriceType:
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
+                 input, &ofrpricetype_)));
+        } else {
+          goto handle_unusual;
+        }
         if (input->ExpectAtEnd()) goto success;
         break;
       }
@@ -1063,6 +1133,26 @@ void MDQBQuote::SerializeWithCachedSizes(
     ::google::protobuf::internal::WireFormatLite::WriteInt32(33, this->datamultiplepowerof10(), output);
   }
 
+  // optional int64 BidFullPrice = 34;
+  if (this->bidfullprice() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(34, this->bidfullprice(), output);
+  }
+
+  // optional int64 OfrFullPrice = 35;
+  if (this->ofrfullprice() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(35, this->ofrfullprice(), output);
+  }
+
+  // optional int32 BidPriceType = 36;
+  if (this->bidpricetype() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt32(36, this->bidpricetype(), output);
+  }
+
+  // optional int32 OfrPriceType = 37;
+  if (this->ofrpricetype() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt32(37, this->ofrpricetype(), output);
+  }
+
   // @@protoc_insertion_point(serialize_end:com.htsc.mdc.insight.model.MDQBQuote)
 }
 
@@ -1271,6 +1361,26 @@ void MDQBQuote::SerializeWithCachedSizes(
   // optional int32 DataMultiplePowerOf10 = 33;
   if (this->datamultiplepowerof10() != 0) {
     target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(33, this->datamultiplepowerof10(), target);
+  }
+
+  // optional int64 BidFullPrice = 34;
+  if (this->bidfullprice() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt64ToArray(34, this->bidfullprice(), target);
+  }
+
+  // optional int64 OfrFullPrice = 35;
+  if (this->ofrfullprice() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt64ToArray(35, this->ofrfullprice(), target);
+  }
+
+  // optional int32 BidPriceType = 36;
+  if (this->bidpricetype() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(36, this->bidpricetype(), target);
+  }
+
+  // optional int32 OfrPriceType = 37;
+  if (this->ofrpricetype() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(37, this->ofrpricetype(), target);
   }
 
   // @@protoc_insertion_point(serialize_to_array_end:com.htsc.mdc.insight.model.MDQBQuote)
@@ -1510,6 +1620,34 @@ size_t MDQBQuote::ByteSizeLong() const {
         this->datamultiplepowerof10());
   }
 
+  // optional int64 BidFullPrice = 34;
+  if (this->bidfullprice() != 0) {
+    total_size += 2 +
+      ::google::protobuf::internal::WireFormatLite::Int64Size(
+        this->bidfullprice());
+  }
+
+  // optional int64 OfrFullPrice = 35;
+  if (this->ofrfullprice() != 0) {
+    total_size += 2 +
+      ::google::protobuf::internal::WireFormatLite::Int64Size(
+        this->ofrfullprice());
+  }
+
+  // optional int32 BidPriceType = 36;
+  if (this->bidpricetype() != 0) {
+    total_size += 2 +
+      ::google::protobuf::internal::WireFormatLite::Int32Size(
+        this->bidpricetype());
+  }
+
+  // optional int32 OfrPriceType = 37;
+  if (this->ofrpricetype() != 0) {
+    total_size += 2 +
+      ::google::protobuf::internal::WireFormatLite::Int32Size(
+        this->ofrpricetype());
+  }
+
   int cached_size = ::google::protobuf::internal::ToCachedSize(total_size);
   GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
   _cached_size_ = cached_size;
@@ -1648,6 +1786,18 @@ void MDQBQuote::UnsafeMergeFrom(const MDQBQuote& from) {
   if (from.datamultiplepowerof10() != 0) {
     set_datamultiplepowerof10(from.datamultiplepowerof10());
   }
+  if (from.bidfullprice() != 0) {
+    set_bidfullprice(from.bidfullprice());
+  }
+  if (from.ofrfullprice() != 0) {
+    set_ofrfullprice(from.ofrfullprice());
+  }
+  if (from.bidpricetype() != 0) {
+    set_bidpricetype(from.bidpricetype());
+  }
+  if (from.ofrpricetype() != 0) {
+    set_ofrpricetype(from.ofrpricetype());
+  }
 }
 
 void MDQBQuote::CopyFrom(const ::google::protobuf::Message& from) {
@@ -1707,6 +1857,10 @@ void MDQBQuote::InternalSwap(MDQBQuote* other) {
   std::swap(bidexerciseflag_, other->bidexerciseflag_);
   std::swap(ofrexerciseflag_, other->ofrexerciseflag_);
   std::swap(datamultiplepowerof10_, other->datamultiplepowerof10_);
+  std::swap(bidfullprice_, other->bidfullprice_);
+  std::swap(ofrfullprice_, other->ofrfullprice_);
+  std::swap(bidpricetype_, other->bidpricetype_);
+  std::swap(ofrpricetype_, other->ofrpricetype_);
   _internal_metadata_.Swap(&other->_internal_metadata_);
   std::swap(_cached_size_, other->_cached_size_);
 }
@@ -2362,6 +2516,62 @@ void MDQBQuote::set_datamultiplepowerof10(::google::protobuf::int32 value) {
   
   datamultiplepowerof10_ = value;
   // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDQBQuote.DataMultiplePowerOf10)
+}
+
+// optional int64 BidFullPrice = 34;
+void MDQBQuote::clear_bidfullprice() {
+  bidfullprice_ = GOOGLE_LONGLONG(0);
+}
+::google::protobuf::int64 MDQBQuote::bidfullprice() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDQBQuote.BidFullPrice)
+  return bidfullprice_;
+}
+void MDQBQuote::set_bidfullprice(::google::protobuf::int64 value) {
+  
+  bidfullprice_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDQBQuote.BidFullPrice)
+}
+
+// optional int64 OfrFullPrice = 35;
+void MDQBQuote::clear_ofrfullprice() {
+  ofrfullprice_ = GOOGLE_LONGLONG(0);
+}
+::google::protobuf::int64 MDQBQuote::ofrfullprice() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDQBQuote.OfrFullPrice)
+  return ofrfullprice_;
+}
+void MDQBQuote::set_ofrfullprice(::google::protobuf::int64 value) {
+  
+  ofrfullprice_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDQBQuote.OfrFullPrice)
+}
+
+// optional int32 BidPriceType = 36;
+void MDQBQuote::clear_bidpricetype() {
+  bidpricetype_ = 0;
+}
+::google::protobuf::int32 MDQBQuote::bidpricetype() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDQBQuote.BidPriceType)
+  return bidpricetype_;
+}
+void MDQBQuote::set_bidpricetype(::google::protobuf::int32 value) {
+  
+  bidpricetype_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDQBQuote.BidPriceType)
+}
+
+// optional int32 OfrPriceType = 37;
+void MDQBQuote::clear_ofrpricetype() {
+  ofrpricetype_ = 0;
+}
+::google::protobuf::int32 MDQBQuote::ofrpricetype() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDQBQuote.OfrPriceType)
+  return ofrpricetype_;
+}
+void MDQBQuote::set_ofrpricetype(::google::protobuf::int32 value) {
+  
+  ofrpricetype_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDQBQuote.OfrPriceType)
 }
 
 inline const MDQBQuote* MDQBQuote::internal_default_instance() {

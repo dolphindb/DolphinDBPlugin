@@ -45,6 +45,7 @@ void protobuf_ShutdownFile_ADNews_2eproto();
 
 class ADInvolvedSecurity;
 class ADNews;
+class ADNewsDataEntry;
 class ADNewsEmotion;
 class ADRelatedCompany;
 class ADRelatedPerson;
@@ -339,6 +340,18 @@ class ADNews : public ::google::protobuf::Message /* @@protoc_insertion_point(cl
   ::google::protobuf::int32 datamultiplepowerof10() const;
   void set_datamultiplepowerof10(::google::protobuf::int32 value);
 
+  // repeated .com.htsc.mdc.insight.model.ADNewsDataEntry sentimentContent = 25;
+  int sentimentcontent_size() const;
+  void clear_sentimentcontent();
+  static const int kSentimentContentFieldNumber = 25;
+  const ::com::htsc::mdc::insight::model::ADNewsDataEntry& sentimentcontent(int index) const;
+  ::com::htsc::mdc::insight::model::ADNewsDataEntry* mutable_sentimentcontent(int index);
+  ::com::htsc::mdc::insight::model::ADNewsDataEntry* add_sentimentcontent();
+  ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADNewsDataEntry >*
+      mutable_sentimentcontent();
+  const ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADNewsDataEntry >&
+      sentimentcontent() const;
+
   // @@protoc_insertion_point(class_scope:com.htsc.mdc.insight.model.ADNews)
  private:
 
@@ -346,6 +359,7 @@ class ADNews : public ::google::protobuf::Message /* @@protoc_insertion_point(cl
   ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADInvolvedSecurity > seculist_;
   ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADRelatedPerson > peremlist_;
   ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADRelatedCompany > comemlist_;
+  ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADNewsDataEntry > sentimentcontent_;
   ::google::protobuf::internal::ArenaStringPtr htscsecurityid_;
   ::google::protobuf::internal::ArenaStringPtr tradingphasecode_;
   ::google::protobuf::internal::ArenaStringPtr author_;
@@ -878,6 +892,109 @@ class ADRelatedPerson : public ::google::protobuf::Message /* @@protoc_insertion
   void InitAsDefaultInstance();
 };
 extern ::google::protobuf::internal::ExplicitlyConstructed<ADRelatedPerson> ADRelatedPerson_default_instance_;
+
+// -------------------------------------------------------------------
+
+class ADNewsDataEntry : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:com.htsc.mdc.insight.model.ADNewsDataEntry) */ {
+ public:
+  ADNewsDataEntry();
+  virtual ~ADNewsDataEntry();
+
+  ADNewsDataEntry(const ADNewsDataEntry& from);
+
+  inline ADNewsDataEntry& operator=(const ADNewsDataEntry& from) {
+    CopyFrom(from);
+    return *this;
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor();
+  static const ADNewsDataEntry& default_instance();
+
+  static const ADNewsDataEntry* internal_default_instance();
+
+  void Swap(ADNewsDataEntry* other);
+
+  // implements Message ----------------------------------------------
+
+  inline ADNewsDataEntry* New() const { return New(NULL); }
+
+  ADNewsDataEntry* New(::google::protobuf::Arena* arena) const;
+  void CopyFrom(const ::google::protobuf::Message& from);
+  void MergeFrom(const ::google::protobuf::Message& from);
+  void CopyFrom(const ADNewsDataEntry& from);
+  void MergeFrom(const ADNewsDataEntry& from);
+  void Clear();
+  bool IsInitialized() const;
+
+  size_t ByteSizeLong() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
+      bool deterministic, ::google::protobuf::uint8* output) const;
+  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const {
+    return InternalSerializeWithCachedSizesToArray(false, output);
+  }
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  void InternalSwap(ADNewsDataEntry* other);
+  void UnsafeMergeFrom(const ADNewsDataEntry& from);
+  private:
+  inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
+    return _internal_metadata_.arena();
+  }
+  inline void* MaybeArenaPtr() const {
+    return _internal_metadata_.raw_arena_ptr();
+  }
+  public:
+
+  ::google::protobuf::Metadata GetMetadata() const;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // optional string key = 1;
+  void clear_key();
+  static const int kKeyFieldNumber = 1;
+  const ::std::string& key() const;
+  void set_key(const ::std::string& value);
+  void set_key(const char* value);
+  void set_key(const char* value, size_t size);
+  ::std::string* mutable_key();
+  ::std::string* release_key();
+  void set_allocated_key(::std::string* key);
+
+  // optional string value = 2;
+  void clear_value();
+  static const int kValueFieldNumber = 2;
+  const ::std::string& value() const;
+  void set_value(const ::std::string& value);
+  void set_value(const char* value);
+  void set_value(const char* value, size_t size);
+  ::std::string* mutable_value();
+  ::std::string* release_value();
+  void set_allocated_value(::std::string* value);
+
+  // @@protoc_insertion_point(class_scope:com.htsc.mdc.insight.model.ADNewsDataEntry)
+ private:
+
+  ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
+  ::google::protobuf::internal::ArenaStringPtr key_;
+  ::google::protobuf::internal::ArenaStringPtr value_;
+  mutable int _cached_size_;
+  friend void  protobuf_InitDefaults_ADNews_2eproto_impl();
+  friend void  protobuf_AddDesc_ADNews_2eproto_impl();
+  friend void protobuf_AssignDesc_ADNews_2eproto();
+  friend void protobuf_ShutdownFile_ADNews_2eproto();
+
+  void InitAsDefaultInstance();
+};
+extern ::google::protobuf::internal::ExplicitlyConstructed<ADNewsDataEntry> ADNewsDataEntry_default_instance_;
 
 // ===================================================================
 
@@ -1656,6 +1773,36 @@ inline void ADNews::set_datamultiplepowerof10(::google::protobuf::int32 value) {
   // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADNews.DataMultiplePowerOf10)
 }
 
+// repeated .com.htsc.mdc.insight.model.ADNewsDataEntry sentimentContent = 25;
+inline int ADNews::sentimentcontent_size() const {
+  return sentimentcontent_.size();
+}
+inline void ADNews::clear_sentimentcontent() {
+  sentimentcontent_.Clear();
+}
+inline const ::com::htsc::mdc::insight::model::ADNewsDataEntry& ADNews::sentimentcontent(int index) const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADNews.sentimentContent)
+  return sentimentcontent_.Get(index);
+}
+inline ::com::htsc::mdc::insight::model::ADNewsDataEntry* ADNews::mutable_sentimentcontent(int index) {
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.ADNews.sentimentContent)
+  return sentimentcontent_.Mutable(index);
+}
+inline ::com::htsc::mdc::insight::model::ADNewsDataEntry* ADNews::add_sentimentcontent() {
+  // @@protoc_insertion_point(field_add:com.htsc.mdc.insight.model.ADNews.sentimentContent)
+  return sentimentcontent_.Add();
+}
+inline ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADNewsDataEntry >*
+ADNews::mutable_sentimentcontent() {
+  // @@protoc_insertion_point(field_mutable_list:com.htsc.mdc.insight.model.ADNews.sentimentContent)
+  return &sentimentcontent_;
+}
+inline const ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADNewsDataEntry >&
+ADNews::sentimentcontent() const {
+  // @@protoc_insertion_point(field_list:com.htsc.mdc.insight.model.ADNews.sentimentContent)
+  return sentimentcontent_;
+}
+
 inline const ADNews* ADNews::internal_default_instance() {
   return &ADNews_default_instance_.get();
 }
@@ -2299,7 +2446,104 @@ inline void ADRelatedPerson::set_generalpos(::google::protobuf::int32 value) {
 inline const ADRelatedPerson* ADRelatedPerson::internal_default_instance() {
   return &ADRelatedPerson_default_instance_.get();
 }
+// -------------------------------------------------------------------
+
+// ADNewsDataEntry
+
+// optional string key = 1;
+inline void ADNewsDataEntry::clear_key() {
+  key_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& ADNewsDataEntry::key() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADNewsDataEntry.key)
+  return key_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ADNewsDataEntry::set_key(const ::std::string& value) {
+  
+  key_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADNewsDataEntry.key)
+}
+inline void ADNewsDataEntry::set_key(const char* value) {
+  
+  key_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.ADNewsDataEntry.key)
+}
+inline void ADNewsDataEntry::set_key(const char* value, size_t size) {
+  
+  key_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.ADNewsDataEntry.key)
+}
+inline ::std::string* ADNewsDataEntry::mutable_key() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.ADNewsDataEntry.key)
+  return key_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* ADNewsDataEntry::release_key() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.ADNewsDataEntry.key)
+  
+  return key_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ADNewsDataEntry::set_allocated_key(::std::string* key) {
+  if (key != NULL) {
+    
+  } else {
+    
+  }
+  key_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), key);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.ADNewsDataEntry.key)
+}
+
+// optional string value = 2;
+inline void ADNewsDataEntry::clear_value() {
+  value_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& ADNewsDataEntry::value() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADNewsDataEntry.value)
+  return value_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ADNewsDataEntry::set_value(const ::std::string& value) {
+  
+  value_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADNewsDataEntry.value)
+}
+inline void ADNewsDataEntry::set_value(const char* value) {
+  
+  value_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.ADNewsDataEntry.value)
+}
+inline void ADNewsDataEntry::set_value(const char* value, size_t size) {
+  
+  value_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.ADNewsDataEntry.value)
+}
+inline ::std::string* ADNewsDataEntry::mutable_value() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.ADNewsDataEntry.value)
+  return value_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* ADNewsDataEntry::release_value() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.ADNewsDataEntry.value)
+  
+  return value_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ADNewsDataEntry::set_allocated_value(::std::string* value) {
+  if (value != NULL) {
+    
+  } else {
+    
+  }
+  value_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.ADNewsDataEntry.value)
+}
+
+inline const ADNewsDataEntry* ADNewsDataEntry::internal_default_instance() {
+  return &ADNewsDataEntry_default_instance_.get();
+}
 #endif  // !PROTOBUF_INLINE_NOT_IN_HEADERS
+// -------------------------------------------------------------------
+
 // -------------------------------------------------------------------
 
 // -------------------------------------------------------------------

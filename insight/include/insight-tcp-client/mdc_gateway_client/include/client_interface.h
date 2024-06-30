@@ -1,7 +1,7 @@
 //======================================================================================================
 // client_interface.h
-// å®¢æˆ·ç«¯æ¥å£å®šä¹‰å¤´æ–‡ä»¶
-// ç‰ˆæœ¬ï¼šv1.0 20170821
+// ¿Í»§¶Ë½Ó¿Ú¶¨ÒåÍ·ÎÄ¼ş
+// °æ±¾£ºv1.0 20170821
 // lujun
 //======================================================================================================
 
@@ -23,7 +23,7 @@ NAMESPACE_BEGIN
 class MessageHandle;
 
 /**
-* gatewayå®¢æˆ·ç«¯æ¥å£ç±»
+* gateway¿Í»§¶Ë½Ó¿ÚÀà
 */
 class LIB_EXPORT ClientInterface {
 public:
@@ -32,143 +32,143 @@ public:
 
 public:
 	/**
-	* æ³¨å†Œå¤„ç†å¯¹è±¡ï¼Œå¿…é¡»åœ¨loginä¹‹å‰è®¾ç½®
-	* @param[in] handle å¤„ç†å¯¹è±¡
-	* @param[in] env ç¯å¢ƒ
+	* ×¢²á´¦Àí¶ÔÏó£¬±ØĞëÔÚloginÖ®Ç°ÉèÖÃ
+	* @param[in] handle ´¦Àí¶ÔÏó
+	* @param[in] env »·¾³
 	*/
 	virtual void RegistHandle(MessageHandle* handle) = 0;
 
 	/**
-	* æ³¨å†Œæ—¥å¿—å›è°ƒæ¥å£
+	* ×¢²áÈÕÖ¾»Øµ÷½Ó¿Ú
 	*/
 	virtual void RegistLogHandle(LogInterface* handle) = 0;
 
 	/**
-	* ä½¿ç”¨æœåŠ¡å‘ç°æ–¹å¼ï¼Œé€šè¿‡ç½‘å…³è·å–æœåŠ¡åˆ—è¡¨è¿›è¡Œé“¾æ¥ï¼ŒæŒ‰ç…§å¢åŠ çš„å…ˆåé¡ºåºè¿æ¥
-	* æœ¬å‡½æ•°ç¦æ­¢å¤šçº¿ç¨‹å¹¶å‘è°ƒç”¨
-	* @param[in] ip æœåŠ¡ç½‘å…³åœ°å€
-	* @param[in] port æœåŠ¡ç½‘å…³ç«¯å£
-	* @param[in] user ç”¨æˆ·å
-	* @param[in] value ç™»å½•å€¼ï¼ˆå¯†ç æˆ–token)
-	* @param[in] is_token æ˜¯å¦ä¸ºtoken true token false å¯†ç 
-	* @return 0 æˆåŠŸ < 0 å¤±è´¥ï¼Œé”™è¯¯ä¿¡æ¯è§é”™è¯¯å·
+	* Ê¹ÓÃ·şÎñ·¢ÏÖ·½Ê½£¬Í¨¹ıÍø¹Ø»ñÈ¡·şÎñÁĞ±í½øĞĞÁ´½Ó£¬°´ÕÕÔö¼ÓµÄÏÈºóË³ĞòÁ¬½Ó
+	* ±¾º¯Êı½ûÖ¹¶àÏß³Ì²¢·¢µ÷ÓÃ
+	* @param[in] ip ·şÎñÍø¹ØµØÖ·
+	* @param[in] port ·şÎñÍø¹Ø¶Ë¿Ú
+	* @param[in] user ÓÃ»§Ãû
+	* @param[in] value µÇÂ¼Öµ£¨ÃÜÂë»òtoken)
+	* @param[in] is_token ÊÇ·ñÎªtoken true token false ÃÜÂë
+	* @return 0 ³É¹¦ < 0 Ê§°Ü£¬´íÎóĞÅÏ¢¼û´íÎóºÅ
 	*/
 	virtual int LoginByServiceDiscovery(const std::string& ip, int port,
 		const std::string& user, const std::string& value, bool is_token) = 0;
 
 	/**
-	* ä½¿ç”¨æœåŠ¡å‘ç°æ–¹å¼ï¼Œé€šè¿‡ç½‘å…³è·å–æœåŠ¡åˆ—è¡¨è¿›è¡Œé“¾æ¥ï¼ŒæŒ‰ç…§å¢åŠ çš„å…ˆåé¡ºåºè¿æ¥
-	* @param[in] ip æœåŠ¡ç½‘å…³åœ°å€
-	* @param[in] port æœåŠ¡ç½‘å…³ç«¯å£
-	* @param[in] user ç”¨æˆ·å
-	* @param[in] value ç™»å½•å€¼ï¼ˆå¯†ç æˆ–token)
-	* @param[in] password_is_token æ˜¯å¦ä¸ºtoken
-	* @param[in] backup_list æœåŠ¡ç½‘å…³å¤‡é€‰åœ°å€åˆ—è¡¨
-	* @return 0 æˆåŠŸ < 0 å¤±è´¥ï¼Œé”™è¯¯ä¿¡æ¯è§é”™è¯¯å·
+	* Ê¹ÓÃ·şÎñ·¢ÏÖ·½Ê½£¬Í¨¹ıÍø¹Ø»ñÈ¡·şÎñÁĞ±í½øĞĞÁ´½Ó£¬°´ÕÕÔö¼ÓµÄÏÈºóË³ĞòÁ¬½Ó
+	* @param[in] ip ·şÎñÍø¹ØµØÖ·
+	* @param[in] port ·şÎñÍø¹Ø¶Ë¿Ú
+	* @param[in] user ÓÃ»§Ãû
+	* @param[in] value µÇÂ¼Öµ£¨ÃÜÂë»òtoken)
+	* @param[in] password_is_token ÊÇ·ñÎªtoken
+	* @param[in] backup_list ·şÎñÍø¹Ø±¸Ñ¡µØÖ·ÁĞ±í
+	* @return 0 ³É¹¦ < 0 Ê§°Ü£¬´íÎóĞÅÏ¢¼û´íÎóºÅ
 	*/
 	virtual int LoginByServiceDiscovery(const std::string& ip, int port,
 		const std::string& user, const std::string& value, bool password_is_token,
 		std::vector<std::string>backup_list) = 0;
 
 	/**
-	* è®¢é˜…å…¨å¸‚åœºæ•°æ®ï¼Œæœ¬å‡½æ•°ç¦æ­¢å¤šçº¿ç¨‹å¹¶å‘è°ƒç”¨
-	* @input[in] action_type æ“ä½œç±»å‹
-	* @input[in] data_types æ•°æ®ç±»å‹åˆ—è¡¨ï¼Œç”±è°ƒç”¨æ–¹é‡Šæ”¾
-	* @return 0 æˆåŠŸ < 0 é”™è¯¯å·
+	* ¶©ÔÄÈ«ÊĞ³¡Êı¾İ£¬±¾º¯Êı½ûÖ¹¶àÏß³Ì²¢·¢µ÷ÓÃ
+	* @input[in] action_type ²Ù×÷ÀàĞÍ
+	* @input[in] data_types Êı¾İÀàĞÍÁĞ±í£¬ÓÉµ÷ÓÃ·½ÊÍ·Å
+	* @return 0 ³É¹¦ < 0 ´íÎóºÅ
 	*/
 	virtual int SubscribeAll(
 		::com::htsc::mdc::insight::model::ESubscribeActionType action_type,
 		::com::htsc::mdc::insight::model::SubscribeAll* subscribe_all) = 0;
 
 	/**
-	* æ ¹æ®è¯åˆ¸ç±»å‹è®¢é˜…ï¼Œæœ¬å‡½æ•°ç¦æ­¢å¤šçº¿ç¨‹å¹¶å‘è°ƒç”¨
-	* @input[in] action_type æ“ä½œç±»å‹
-	* @input[in] type_details ç±»å‹åˆ—è¡¨ï¼Œç”±è°ƒç”¨æ–¹é‡Šæ”¾
-	* @return 0 æˆåŠŸ < 0 é”™è¯¯å·
+	* ¸ù¾İÖ¤È¯ÀàĞÍ¶©ÔÄ£¬±¾º¯Êı½ûÖ¹¶àÏß³Ì²¢·¢µ÷ÓÃ
+	* @input[in] action_type ²Ù×÷ÀàĞÍ
+	* @input[in] type_details ÀàĞÍÁĞ±í£¬ÓÉµ÷ÓÃ·½ÊÍ·Å
+	* @return 0 ³É¹¦ < 0 ´íÎóºÅ
 	*/
 	virtual int SubscribeBySourceType(
 		::com::htsc::mdc::insight::model::ESubscribeActionType action_type,
 		::com::htsc::mdc::insight::model::SubscribeBySourceType* source_type) = 0;
 
 	/**
-	* æ ¹æ®è¯åˆ¸ç¼–å·è®¢é˜…ï¼Œæœ¬å‡½æ•°ç¦æ­¢å¤šçº¿ç¨‹å¹¶å‘è°ƒç”¨
-	* @input[in] action_type æ“ä½œç±»å‹
-	* @input[in] id è®¢é˜…idæŒ‡é’ˆï¼Œç”±è°ƒç”¨æ–¹é‡Šæ”¾
-	* @return 0 æˆåŠŸ < 0 é”™è¯¯å·
+	* ¸ù¾İÖ¤È¯±àºÅ¶©ÔÄ£¬±¾º¯Êı½ûÖ¹¶àÏß³Ì²¢·¢µ÷ÓÃ
+	* @input[in] action_type ²Ù×÷ÀàĞÍ
+	* @input[in] id ¶©ÔÄidÖ¸Õë£¬ÓÉµ÷ÓÃ·½ÊÍ·Å
+	* @return 0 ³É¹¦ < 0 ´íÎóºÅ
 	*/
 	virtual int SubscribeByID(
 		::com::htsc::mdc::insight::model::ESubscribeActionType action_type,
 		::com::htsc::mdc::insight::model::SubscribeByID* id) = 0;
 
 	/**
-	* è®¢é˜…æ•°æ®ï¼Œæœ¬å‡½æ•°ç¦æ­¢å¤šçº¿ç¨‹å¹¶å‘è°ƒç”¨
-	* @param[in] sub_request è®¢é˜…è¯·æ±‚ï¼Œç”±è°ƒç”¨æ–¹é‡Šæ”¾
-	* @return 0 æˆåŠŸ < 0 é”™è¯¯å·
+	* ¶©ÔÄÊı¾İ£¬±¾º¯Êı½ûÖ¹¶àÏß³Ì²¢·¢µ÷ÓÃ
+	* @param[in] sub_request ¶©ÔÄÇëÇó£¬ÓÉµ÷ÓÃ·½ÊÍ·Å
+	* @return 0 ³É¹¦ < 0 ´íÎóºÅ
 	*/
 	virtual int Subscribe(::com::htsc::mdc::insight::model::MDSubscribeRequest* request) = 0;
 
 	/**
-	* è¯·æ±‚å›æ”¾ï¼Œæœ¬å‡½æ•°ç¦æ­¢å¤šçº¿ç¨‹å¹¶å‘è°ƒç”¨
-	* @param[in] request å·²åˆ†é…å¥½ç©ºé—´çš„å›æ”¾è¯·æ±‚ï¼Œç”±è°ƒç”¨æ–¹é‡Šæ”¾
-	* @return 0 æˆåŠŸ < 0 é”™è¯¯å·
+	* ÇëÇó»Ø·Å£¬±¾º¯Êı½ûÖ¹¶àÏß³Ì²¢·¢µ÷ÓÃ
+	* @param[in] request ÒÑ·ÖÅäºÃ¿Õ¼äµÄ»Ø·ÅÇëÇó£¬ÓÉµ÷ÓÃ·½ÊÍ·Å
+	* @return 0 ³É¹¦ < 0 ´íÎóºÅ
 	*/
 	virtual int RequestPlayback(::com::htsc::mdc::insight::model::PlaybackRequest* request) = 0;
 
 	/**
-	* è¯·æ±‚å›æ”¾
-	* @param[in] idList å›æ”¾çš„è¯åˆ¸åˆ—è¡¨
-	* @param[in] startTime å›æ”¾çš„å¼€å§‹æ—¶é—´
-	* @param[in] endTime å›æ”¾çš„ç»“æŸæ—¶é—´
-	* @param[in] replayDataType å›æ”¾çš„æ•°æ®ç±»å‹
-	* @param[in] exrightsType é™¤å¤æƒç±»å‹
-	* @param[in] sortByMDTime = true æŒ‰ç…§MDTimeæ’åº, = false æŒ‰ç…§RecivedTimeæ’åº
-	* @return 0 æˆåŠŸ < 0 é”™è¯¯å·
+	* ÇëÇó»Ø·Å
+	* @param[in] idList »Ø·ÅµÄÖ¤È¯ÁĞ±í
+	* @param[in] startTime »Ø·ÅµÄ¿ªÊ¼Ê±¼ä
+	* @param[in] endTime »Ø·ÅµÄ½áÊøÊ±¼ä
+	* @param[in] replayDataType »Ø·ÅµÄÊı¾İÀàĞÍ
+	* @param[in] exrightsType ³ı¸´È¨ÀàĞÍ
+	* @param[in] sortByMDTime = true °´ÕÕMDTimeÅÅĞò, = false °´ÕÕRecivedTimeÅÅĞò
+	* @return 0 ³É¹¦ < 0 ´íÎóºÅ
 	*/
 	virtual int RequestPlayback(std::vector<std::string> idList, std::string startTime,
 		std::string endTime, ::com::htsc::mdc::insight::model::EMarketDataType replayDataType,
 		::com::htsc::mdc::insight::model::EPlaybackExrightsType exrightsType, bool sortByMDTime = true) = 0;
 
 	/**
-	* è¡Œæƒ…æŸ¥è¯¢è¯·æ±‚ï¼Œæœ¬å‡½æ•°ç¦æ­¢å¤šçº¿ç¨‹å¹¶å‘è°ƒç”¨ï¼Œå›å¤æ•°æ®é€šè¿‡å¼•ç”¨è·å¾—ï¼Œéœ€è¦å…³é—­response_callbackå¼€å…³
-	* @param[in] request å·²åˆ†é…å¥½ç©ºé—´çš„æŸ¥è¯¢è¯·æ±‚ï¼Œç”±è°ƒç”¨æ–¹é‡Šæ”¾
-	* @param[out] responses å†…éƒ¨åˆ†é…ç©ºé—´ï¼Œç”±è°ƒç”¨æ–¹è°ƒç”¨ReleaseMdQueryResponsesé‡Šæ”¾
-	* @return 0 æˆåŠŸ < 0 é”™è¯¯å·
+	* ĞĞÇé²éÑ¯ÇëÇó£¬±¾º¯Êı½ûÖ¹¶àÏß³Ì²¢·¢µ÷ÓÃ£¬»Ø¸´Êı¾İÍ¨¹ıÒıÓÃ»ñµÃ£¬ĞèÒª¹Ø±Õresponse_callback¿ª¹Ø
+	* @param[in] request ÒÑ·ÖÅäºÃ¿Õ¼äµÄ²éÑ¯ÇëÇó£¬ÓÉµ÷ÓÃ·½ÊÍ·Å
+	* @param[out] responses ÄÚ²¿·ÖÅä¿Õ¼ä£¬ÓÉµ÷ÓÃ·½µ÷ÓÃReleaseMdQueryResponsesÊÍ·Å
+	* @return 0 ³É¹¦ < 0 ´íÎóºÅ
 	*/
 	virtual int RequestMDQuery(::com::htsc::mdc::insight::model::MDQueryRequest* request,
 		std::vector< ::com::htsc::mdc::insight::model::MDQueryResponse* >*& mdresponses) = 0;
 
 	/**
-	* è¡Œæƒ…æŸ¥è¯¢è¯·æ±‚ï¼Œæœ¬å‡½æ•°ç¦æ­¢å¤šçº¿ç¨‹å¹¶å‘è°ƒç”¨ï¼Œå›å¤æ•°æ®é€šè¿‡å›è°ƒæ¥å£è·å¾—ï¼Œéœ€è¦æ‰“å¼€response_callbackå¼€å…³
-	* @param[in] request å·²åˆ†é…å¥½ç©ºé—´çš„æŸ¥è¯¢è¯·æ±‚ï¼Œç”±è°ƒç”¨æ–¹é‡Šæ”¾
-	* @return 0 æˆåŠŸ < 0 é”™è¯¯å·
+	* ĞĞÇé²éÑ¯ÇëÇó£¬±¾º¯Êı½ûÖ¹¶àÏß³Ì²¢·¢µ÷ÓÃ£¬»Ø¸´Êı¾İÍ¨¹ı»Øµ÷½Ó¿Ú»ñµÃ£¬ĞèÒª´ò¿ªresponse_callback¿ª¹Ø
+	* @param[in] request ÒÑ·ÖÅäºÃ¿Õ¼äµÄ²éÑ¯ÇëÇó£¬ÓÉµ÷ÓÃ·½ÊÍ·Å
+	* @return 0 ³É¹¦ < 0 ´íÎóºÅ
 	*/
 	virtual int RequestMDQuery(::com::htsc::mdc::insight::model::MDQueryRequest* request) = 0;
 
 	/**
-	* é‡Šæ”¾è¡Œæƒ…æŸ¥è¯¢ç»“æœ
-	* @param[in] mdresponses æŸ¥è¯¢ç»“æœ
+	* ÊÍ·ÅĞĞÇé²éÑ¯½á¹û
+	* @param[in] mdresponses ²éÑ¯½á¹û
 	*/
 	virtual void ReleaseQueryResult(
 		std::vector< ::com::htsc::mdc::insight::model::MDQueryResponse* >*& mdresponses);
 
 	/**
-	* å…³é—­ï¼Œç­‰å¾…çº¿ç¨‹é€€å‡º
-	* @param[in] clear_members æ˜¯å¦æ¸…ç†æˆå‘˜ï¼Œåœ¨reconnectæ—¶ä¸èƒ½æ¸…ç†
-	* @param[in] wait_threads_quit ç­‰å¾…çº¿ç¨‹é€€å‡º
+	* ¹Ø±Õ£¬µÈ´ıÏß³ÌÍË³ö
+	* @param[in] clear_members ÊÇ·ñÇåÀí³ÉÔ±£¬ÔÚreconnectÊ±²»ÄÜÇåÀí
+	* @param[in] wait_threads_quit µÈ´ıÏß³ÌÍË³ö
 	*/
 	virtual void Close() = 0;
 
 	/**
-	* è®¾ç½®å¤„ç†çº¿ç¨‹æ± çº¿ç¨‹æ•°ï¼Œåœ¨ç™»å½•ä¹‹å‰è°ƒç”¨
-	* å½“æ¶ˆæ¯çš„å¤„ç†é€»è¾‘æ¯”è¾ƒå¤æ‚ï¼Œéœ€è¦æ›´å¤šçº¿ç¨‹å¹¶å‘å¤„ç†æ—¶ï¼Œ
-	* å¯ä»¥åœ¨è°ƒç”¨LoginByServiceDiscoveryç™»å½•æœåŠ¡ç«¯ä¹‹å‰è®¾ç½®
-	* @param[in] count çº¿ç¨‹æ•°
+	* ÉèÖÃ´¦ÀíÏß³Ì³ØÏß³ÌÊı£¬ÔÚµÇÂ¼Ö®Ç°µ÷ÓÃ
+	* µ±ÏûÏ¢µÄ´¦ÀíÂß¼­±È½Ï¸´ÔÓ£¬ĞèÒª¸ü¶àÏß³Ì²¢·¢´¦ÀíÊ±£¬
+	* ¿ÉÒÔÔÚµ÷ÓÃLoginByServiceDiscoveryµÇÂ¼·şÎñ¶ËÖ®Ç°ÉèÖÃ
+	* @param[in] count Ïß³ÌÊı
 	*/
 	virtual void set_handle_pool_thread_count(short count) = 0;
 
 	/**
-	* è·å¾—å¤„ç†çº¿ç¨‹æ•°
-	* @return çº¿ç¨‹æ•°
+	* »ñµÃ´¦ÀíÏß³ÌÊı
+	* @return Ïß³ÌÊı
 	*/
 	virtual short handle_pool_thread_count() const = 0;
 

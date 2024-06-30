@@ -336,6 +336,40 @@ class MDForex : public ::google::protobuf::Message /* @@protoc_insertion_point(c
   ::google::protobuf::int32 datamultiplepowerof10() const;
   void set_datamultiplepowerof10(::google::protobuf::int32 value);
 
+  // optional int64 MidPx = 60;
+  void clear_midpx();
+  static const int kMidPxFieldNumber = 60;
+  ::google::protobuf::int64 midpx() const;
+  void set_midpx(::google::protobuf::int64 value);
+
+  // optional string BuyCurrency = 61;
+  void clear_buycurrency();
+  static const int kBuyCurrencyFieldNumber = 61;
+  const ::std::string& buycurrency() const;
+  void set_buycurrency(const ::std::string& value);
+  void set_buycurrency(const char* value);
+  void set_buycurrency(const char* value, size_t size);
+  ::std::string* mutable_buycurrency();
+  ::std::string* release_buycurrency();
+  void set_allocated_buycurrency(::std::string* buycurrency);
+
+  // optional string SellCurrency = 62;
+  void clear_sellcurrency();
+  static const int kSellCurrencyFieldNumber = 62;
+  const ::std::string& sellcurrency() const;
+  void set_sellcurrency(const ::std::string& value);
+  void set_sellcurrency(const char* value);
+  void set_sellcurrency(const char* value, size_t size);
+  ::std::string* mutable_sellcurrency();
+  ::std::string* release_sellcurrency();
+  void set_allocated_sellcurrency(::std::string* sellcurrency);
+
+  // optional int32 Tenor = 63;
+  void clear_tenor();
+  static const int kTenorFieldNumber = 63;
+  ::google::protobuf::int32 tenor() const;
+  void set_tenor(::google::protobuf::int32 value);
+
   // @@protoc_insertion_point(class_scope:com.htsc.mdc.insight.model.MDForex)
  private:
 
@@ -358,6 +392,8 @@ class MDForex : public ::google::protobuf::Message /* @@protoc_insertion_point(c
   mutable int _sellnumordersqueue_cached_byte_size_;
   ::google::protobuf::internal::ArenaStringPtr htscsecurityid_;
   ::google::protobuf::internal::ArenaStringPtr tradingphasecode_;
+  ::google::protobuf::internal::ArenaStringPtr buycurrency_;
+  ::google::protobuf::internal::ArenaStringPtr sellcurrency_;
   ::google::protobuf::int32 mddate_;
   ::google::protobuf::int32 mdtime_;
   ::google::protobuf::int64 datatimestamp_;
@@ -375,7 +411,9 @@ class MDForex : public ::google::protobuf::Message /* @@protoc_insertion_point(c
   ::google::protobuf::int64 lowpx_;
   ::google::protobuf::int32 exchangedate_;
   ::google::protobuf::int32 exchangetime_;
+  ::google::protobuf::int64 midpx_;
   ::google::protobuf::int32 datamultiplepowerof10_;
+  ::google::protobuf::int32 tenor_;
   mutable int _cached_size_;
   friend void  protobuf_InitDefaults_MDForex_2eproto_impl();
   friend void  protobuf_AddDesc_MDForex_2eproto_impl();
@@ -972,6 +1010,122 @@ inline void MDForex::set_datamultiplepowerof10(::google::protobuf::int32 value) 
   
   datamultiplepowerof10_ = value;
   // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDForex.DataMultiplePowerOf10)
+}
+
+// optional int64 MidPx = 60;
+inline void MDForex::clear_midpx() {
+  midpx_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 MDForex::midpx() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDForex.MidPx)
+  return midpx_;
+}
+inline void MDForex::set_midpx(::google::protobuf::int64 value) {
+  
+  midpx_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDForex.MidPx)
+}
+
+// optional string BuyCurrency = 61;
+inline void MDForex::clear_buycurrency() {
+  buycurrency_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& MDForex::buycurrency() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDForex.BuyCurrency)
+  return buycurrency_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDForex::set_buycurrency(const ::std::string& value) {
+  
+  buycurrency_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDForex.BuyCurrency)
+}
+inline void MDForex::set_buycurrency(const char* value) {
+  
+  buycurrency_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDForex.BuyCurrency)
+}
+inline void MDForex::set_buycurrency(const char* value, size_t size) {
+  
+  buycurrency_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDForex.BuyCurrency)
+}
+inline ::std::string* MDForex::mutable_buycurrency() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDForex.BuyCurrency)
+  return buycurrency_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* MDForex::release_buycurrency() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MDForex.BuyCurrency)
+  
+  return buycurrency_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDForex::set_allocated_buycurrency(::std::string* buycurrency) {
+  if (buycurrency != NULL) {
+    
+  } else {
+    
+  }
+  buycurrency_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), buycurrency);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDForex.BuyCurrency)
+}
+
+// optional string SellCurrency = 62;
+inline void MDForex::clear_sellcurrency() {
+  sellcurrency_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& MDForex::sellcurrency() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDForex.SellCurrency)
+  return sellcurrency_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDForex::set_sellcurrency(const ::std::string& value) {
+  
+  sellcurrency_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDForex.SellCurrency)
+}
+inline void MDForex::set_sellcurrency(const char* value) {
+  
+  sellcurrency_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDForex.SellCurrency)
+}
+inline void MDForex::set_sellcurrency(const char* value, size_t size) {
+  
+  sellcurrency_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDForex.SellCurrency)
+}
+inline ::std::string* MDForex::mutable_sellcurrency() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDForex.SellCurrency)
+  return sellcurrency_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* MDForex::release_sellcurrency() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MDForex.SellCurrency)
+  
+  return sellcurrency_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDForex::set_allocated_sellcurrency(::std::string* sellcurrency) {
+  if (sellcurrency != NULL) {
+    
+  } else {
+    
+  }
+  sellcurrency_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), sellcurrency);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDForex.SellCurrency)
+}
+
+// optional int32 Tenor = 63;
+inline void MDForex::clear_tenor() {
+  tenor_ = 0;
+}
+inline ::google::protobuf::int32 MDForex::tenor() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDForex.Tenor)
+  return tenor_;
+}
+inline void MDForex::set_tenor(::google::protobuf::int32 value) {
+  
+  tenor_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDForex.Tenor)
 }
 
 inline const MDForex* MDForex::internal_default_instance() {

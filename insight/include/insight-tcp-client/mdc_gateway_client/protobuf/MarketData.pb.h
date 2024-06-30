@@ -70,6 +70,26 @@
 #include "MDSLIndicativeQuote.pb.h"
 #include "MDSLStatistics.pb.h"
 #include "MDUSAQuote.pb.h"
+#include "MDSLEstimation.pb.h"
+#include "MDCnexDeal.pb.h"
+#include "MDCnexQuote.pb.h"
+#include "MDDelaySnapshot.pb.h"
+#include "MDHighAccuracyFuture.pb.h"
+#include "MDCfetsForex.pb.h"
+#include "MDCfetsFxSnapshot.pb.h"
+#include "MDCfetsFxQuote.pb.h"
+#include "SPFuture.pb.h"
+#include "MDCfetsBenchmark.pb.h"
+#include "MDCfetsBondDeal.pb.h"
+#include "MDCfetsBondSnapshot.pb.h"
+#include "MDCfetsCurrencyDeal.pb.h"
+#include "MDCfetsCurrencySnapshot.pb.h"
+#include "MDCfetsODMSnapshot.pb.h"
+#include "MDCfetsQDMQuote.pb.h"
+#include "MDCfetsRateDeal.pb.h"
+#include "MDCfetsRateSnapshot.pb.h"
+#include "MDCfetsFxCnyMiddlePrice.pb.h"
+#include "MDIopvSnapshot.pb.h"
 // @@protoc_insertion_point(includes)
 
 namespace com {
@@ -158,6 +178,12 @@ class MarketData : public ::google::protobuf::Message /* @@protoc_insertion_poin
   static const int kMarketDataTypeFieldNumber = 1;
   ::com::htsc::mdc::insight::model::EMarketDataType marketdatatype() const;
   void set_marketdatatype(::com::htsc::mdc::insight::model::EMarketDataType value);
+
+  // optional int64 MessageChannelNumber = 2;
+  void clear_messagechannelnumber();
+  static const int kMessageChannelNumberFieldNumber = 2;
+  ::google::protobuf::int64 messagechannelnumber() const;
+  void set_messagechannelnumber(::google::protobuf::int64 value);
 
   // optional .com.htsc.mdc.insight.model.MDStock mdStock = 10;
   bool has_mdstock() const;
@@ -537,6 +563,186 @@ class MarketData : public ::google::protobuf::Message /* @@protoc_insertion_poin
   ::com::htsc::mdc::insight::model::MDUSAQuote* release_mdusaquote();
   void set_allocated_mdusaquote(::com::htsc::mdc::insight::model::MDUSAQuote* mdusaquote);
 
+  // optional .com.htsc.mdc.insight.model.MDSLEstimation mdSLEstimation = 52;
+  bool has_mdslestimation() const;
+  void clear_mdslestimation();
+  static const int kMdSLEstimationFieldNumber = 52;
+  const ::com::htsc::mdc::insight::model::MDSLEstimation& mdslestimation() const;
+  ::com::htsc::mdc::insight::model::MDSLEstimation* mutable_mdslestimation();
+  ::com::htsc::mdc::insight::model::MDSLEstimation* release_mdslestimation();
+  void set_allocated_mdslestimation(::com::htsc::mdc::insight::model::MDSLEstimation* mdslestimation);
+
+  // optional .com.htsc.mdc.insight.model.MDCnexDeal mdCnexDeal = 53;
+  bool has_mdcnexdeal() const;
+  void clear_mdcnexdeal();
+  static const int kMdCnexDealFieldNumber = 53;
+  const ::com::htsc::mdc::insight::model::MDCnexDeal& mdcnexdeal() const;
+  ::com::htsc::mdc::insight::model::MDCnexDeal* mutable_mdcnexdeal();
+  ::com::htsc::mdc::insight::model::MDCnexDeal* release_mdcnexdeal();
+  void set_allocated_mdcnexdeal(::com::htsc::mdc::insight::model::MDCnexDeal* mdcnexdeal);
+
+  // optional .com.htsc.mdc.insight.model.MDCnexQuote mdCnexQuote = 54;
+  bool has_mdcnexquote() const;
+  void clear_mdcnexquote();
+  static const int kMdCnexQuoteFieldNumber = 54;
+  const ::com::htsc::mdc::insight::model::MDCnexQuote& mdcnexquote() const;
+  ::com::htsc::mdc::insight::model::MDCnexQuote* mutable_mdcnexquote();
+  ::com::htsc::mdc::insight::model::MDCnexQuote* release_mdcnexquote();
+  void set_allocated_mdcnexquote(::com::htsc::mdc::insight::model::MDCnexQuote* mdcnexquote);
+
+  // optional .com.htsc.mdc.insight.model.MDDelaySnapshot mdDelaySnapshot = 55;
+  bool has_mddelaysnapshot() const;
+  void clear_mddelaysnapshot();
+  static const int kMdDelaySnapshotFieldNumber = 55;
+  const ::com::htsc::mdc::insight::model::MDDelaySnapshot& mddelaysnapshot() const;
+  ::com::htsc::mdc::insight::model::MDDelaySnapshot* mutable_mddelaysnapshot();
+  ::com::htsc::mdc::insight::model::MDDelaySnapshot* release_mddelaysnapshot();
+  void set_allocated_mddelaysnapshot(::com::htsc::mdc::insight::model::MDDelaySnapshot* mddelaysnapshot);
+
+  // optional .com.htsc.mdc.insight.model.MDHighAccuracyFuture mdHighAccuracyFuture = 56;
+  bool has_mdhighaccuracyfuture() const;
+  void clear_mdhighaccuracyfuture();
+  static const int kMdHighAccuracyFutureFieldNumber = 56;
+  const ::com::htsc::mdc::insight::model::MDHighAccuracyFuture& mdhighaccuracyfuture() const;
+  ::com::htsc::mdc::insight::model::MDHighAccuracyFuture* mutable_mdhighaccuracyfuture();
+  ::com::htsc::mdc::insight::model::MDHighAccuracyFuture* release_mdhighaccuracyfuture();
+  void set_allocated_mdhighaccuracyfuture(::com::htsc::mdc::insight::model::MDHighAccuracyFuture* mdhighaccuracyfuture);
+
+  // optional .com.htsc.mdc.insight.model.MDCfetsForex mdCfetsForex = 57;
+  bool has_mdcfetsforex() const;
+  void clear_mdcfetsforex();
+  static const int kMdCfetsForexFieldNumber = 57;
+  const ::com::htsc::mdc::insight::model::MDCfetsForex& mdcfetsforex() const;
+  ::com::htsc::mdc::insight::model::MDCfetsForex* mutable_mdcfetsforex();
+  ::com::htsc::mdc::insight::model::MDCfetsForex* release_mdcfetsforex();
+  void set_allocated_mdcfetsforex(::com::htsc::mdc::insight::model::MDCfetsForex* mdcfetsforex);
+
+  // optional .com.htsc.mdc.insight.model.MDCfetsFxSnapshot mdCfetsFxSnapshot = 58;
+  bool has_mdcfetsfxsnapshot() const;
+  void clear_mdcfetsfxsnapshot();
+  static const int kMdCfetsFxSnapshotFieldNumber = 58;
+  const ::com::htsc::mdc::insight::model::MDCfetsFxSnapshot& mdcfetsfxsnapshot() const;
+  ::com::htsc::mdc::insight::model::MDCfetsFxSnapshot* mutable_mdcfetsfxsnapshot();
+  ::com::htsc::mdc::insight::model::MDCfetsFxSnapshot* release_mdcfetsfxsnapshot();
+  void set_allocated_mdcfetsfxsnapshot(::com::htsc::mdc::insight::model::MDCfetsFxSnapshot* mdcfetsfxsnapshot);
+
+  // optional .com.htsc.mdc.insight.model.MDCfetsFxQuote mdCfetsFxQuote = 59;
+  bool has_mdcfetsfxquote() const;
+  void clear_mdcfetsfxquote();
+  static const int kMdCfetsFxQuoteFieldNumber = 59;
+  const ::com::htsc::mdc::insight::model::MDCfetsFxQuote& mdcfetsfxquote() const;
+  ::com::htsc::mdc::insight::model::MDCfetsFxQuote* mutable_mdcfetsfxquote();
+  ::com::htsc::mdc::insight::model::MDCfetsFxQuote* release_mdcfetsfxquote();
+  void set_allocated_mdcfetsfxquote(::com::htsc::mdc::insight::model::MDCfetsFxQuote* mdcfetsfxquote);
+
+  // optional .com.htsc.mdc.insight.model.SPFuture spFuture = 60;
+  bool has_spfuture() const;
+  void clear_spfuture();
+  static const int kSpFutureFieldNumber = 60;
+  const ::com::htsc::mdc::insight::model::SPFuture& spfuture() const;
+  ::com::htsc::mdc::insight::model::SPFuture* mutable_spfuture();
+  ::com::htsc::mdc::insight::model::SPFuture* release_spfuture();
+  void set_allocated_spfuture(::com::htsc::mdc::insight::model::SPFuture* spfuture);
+
+  // optional .com.htsc.mdc.insight.model.MDCfetsBenchmark mdCfetsBenchmark = 61;
+  bool has_mdcfetsbenchmark() const;
+  void clear_mdcfetsbenchmark();
+  static const int kMdCfetsBenchmarkFieldNumber = 61;
+  const ::com::htsc::mdc::insight::model::MDCfetsBenchmark& mdcfetsbenchmark() const;
+  ::com::htsc::mdc::insight::model::MDCfetsBenchmark* mutable_mdcfetsbenchmark();
+  ::com::htsc::mdc::insight::model::MDCfetsBenchmark* release_mdcfetsbenchmark();
+  void set_allocated_mdcfetsbenchmark(::com::htsc::mdc::insight::model::MDCfetsBenchmark* mdcfetsbenchmark);
+
+  // optional .com.htsc.mdc.insight.model.MDCfetsBondDeal mdCfetsBondDeal = 62;
+  bool has_mdcfetsbonddeal() const;
+  void clear_mdcfetsbonddeal();
+  static const int kMdCfetsBondDealFieldNumber = 62;
+  const ::com::htsc::mdc::insight::model::MDCfetsBondDeal& mdcfetsbonddeal() const;
+  ::com::htsc::mdc::insight::model::MDCfetsBondDeal* mutable_mdcfetsbonddeal();
+  ::com::htsc::mdc::insight::model::MDCfetsBondDeal* release_mdcfetsbonddeal();
+  void set_allocated_mdcfetsbonddeal(::com::htsc::mdc::insight::model::MDCfetsBondDeal* mdcfetsbonddeal);
+
+  // optional .com.htsc.mdc.insight.model.MDCfetsBondSnapshot mdCfetsBondSnapshot = 63;
+  bool has_mdcfetsbondsnapshot() const;
+  void clear_mdcfetsbondsnapshot();
+  static const int kMdCfetsBondSnapshotFieldNumber = 63;
+  const ::com::htsc::mdc::insight::model::MDCfetsBondSnapshot& mdcfetsbondsnapshot() const;
+  ::com::htsc::mdc::insight::model::MDCfetsBondSnapshot* mutable_mdcfetsbondsnapshot();
+  ::com::htsc::mdc::insight::model::MDCfetsBondSnapshot* release_mdcfetsbondsnapshot();
+  void set_allocated_mdcfetsbondsnapshot(::com::htsc::mdc::insight::model::MDCfetsBondSnapshot* mdcfetsbondsnapshot);
+
+  // optional .com.htsc.mdc.insight.model.MDCfetsCurrencyDeal mdCfetsCurrencyDeal = 64;
+  bool has_mdcfetscurrencydeal() const;
+  void clear_mdcfetscurrencydeal();
+  static const int kMdCfetsCurrencyDealFieldNumber = 64;
+  const ::com::htsc::mdc::insight::model::MDCfetsCurrencyDeal& mdcfetscurrencydeal() const;
+  ::com::htsc::mdc::insight::model::MDCfetsCurrencyDeal* mutable_mdcfetscurrencydeal();
+  ::com::htsc::mdc::insight::model::MDCfetsCurrencyDeal* release_mdcfetscurrencydeal();
+  void set_allocated_mdcfetscurrencydeal(::com::htsc::mdc::insight::model::MDCfetsCurrencyDeal* mdcfetscurrencydeal);
+
+  // optional .com.htsc.mdc.insight.model.MDCfetsCurrencySnapshot mdCfetsCurrencySnapshot = 65;
+  bool has_mdcfetscurrencysnapshot() const;
+  void clear_mdcfetscurrencysnapshot();
+  static const int kMdCfetsCurrencySnapshotFieldNumber = 65;
+  const ::com::htsc::mdc::insight::model::MDCfetsCurrencySnapshot& mdcfetscurrencysnapshot() const;
+  ::com::htsc::mdc::insight::model::MDCfetsCurrencySnapshot* mutable_mdcfetscurrencysnapshot();
+  ::com::htsc::mdc::insight::model::MDCfetsCurrencySnapshot* release_mdcfetscurrencysnapshot();
+  void set_allocated_mdcfetscurrencysnapshot(::com::htsc::mdc::insight::model::MDCfetsCurrencySnapshot* mdcfetscurrencysnapshot);
+
+  // optional .com.htsc.mdc.insight.model.MDCfetsODMSnapshot mdCfetsODMSnapshot = 66;
+  bool has_mdcfetsodmsnapshot() const;
+  void clear_mdcfetsodmsnapshot();
+  static const int kMdCfetsODMSnapshotFieldNumber = 66;
+  const ::com::htsc::mdc::insight::model::MDCfetsODMSnapshot& mdcfetsodmsnapshot() const;
+  ::com::htsc::mdc::insight::model::MDCfetsODMSnapshot* mutable_mdcfetsodmsnapshot();
+  ::com::htsc::mdc::insight::model::MDCfetsODMSnapshot* release_mdcfetsodmsnapshot();
+  void set_allocated_mdcfetsodmsnapshot(::com::htsc::mdc::insight::model::MDCfetsODMSnapshot* mdcfetsodmsnapshot);
+
+  // optional .com.htsc.mdc.insight.model.MDCfetsQDMQuote mdCfetsQDMQuote = 67;
+  bool has_mdcfetsqdmquote() const;
+  void clear_mdcfetsqdmquote();
+  static const int kMdCfetsQDMQuoteFieldNumber = 67;
+  const ::com::htsc::mdc::insight::model::MDCfetsQDMQuote& mdcfetsqdmquote() const;
+  ::com::htsc::mdc::insight::model::MDCfetsQDMQuote* mutable_mdcfetsqdmquote();
+  ::com::htsc::mdc::insight::model::MDCfetsQDMQuote* release_mdcfetsqdmquote();
+  void set_allocated_mdcfetsqdmquote(::com::htsc::mdc::insight::model::MDCfetsQDMQuote* mdcfetsqdmquote);
+
+  // optional .com.htsc.mdc.insight.model.MDCfetsRateDeal mdCfetsRateDeal = 68;
+  bool has_mdcfetsratedeal() const;
+  void clear_mdcfetsratedeal();
+  static const int kMdCfetsRateDealFieldNumber = 68;
+  const ::com::htsc::mdc::insight::model::MDCfetsRateDeal& mdcfetsratedeal() const;
+  ::com::htsc::mdc::insight::model::MDCfetsRateDeal* mutable_mdcfetsratedeal();
+  ::com::htsc::mdc::insight::model::MDCfetsRateDeal* release_mdcfetsratedeal();
+  void set_allocated_mdcfetsratedeal(::com::htsc::mdc::insight::model::MDCfetsRateDeal* mdcfetsratedeal);
+
+  // optional .com.htsc.mdc.insight.model.MDCfetsRateSnapshot mdCfetsRateSnapshot = 69;
+  bool has_mdcfetsratesnapshot() const;
+  void clear_mdcfetsratesnapshot();
+  static const int kMdCfetsRateSnapshotFieldNumber = 69;
+  const ::com::htsc::mdc::insight::model::MDCfetsRateSnapshot& mdcfetsratesnapshot() const;
+  ::com::htsc::mdc::insight::model::MDCfetsRateSnapshot* mutable_mdcfetsratesnapshot();
+  ::com::htsc::mdc::insight::model::MDCfetsRateSnapshot* release_mdcfetsratesnapshot();
+  void set_allocated_mdcfetsratesnapshot(::com::htsc::mdc::insight::model::MDCfetsRateSnapshot* mdcfetsratesnapshot);
+
+  // optional .com.htsc.mdc.insight.model.MDCfetsFxCnyMiddlePrice mdCfetsFxCnyMiddlePrice = 70;
+  bool has_mdcfetsfxcnymiddleprice() const;
+  void clear_mdcfetsfxcnymiddleprice();
+  static const int kMdCfetsFxCnyMiddlePriceFieldNumber = 70;
+  const ::com::htsc::mdc::insight::model::MDCfetsFxCnyMiddlePrice& mdcfetsfxcnymiddleprice() const;
+  ::com::htsc::mdc::insight::model::MDCfetsFxCnyMiddlePrice* mutable_mdcfetsfxcnymiddleprice();
+  ::com::htsc::mdc::insight::model::MDCfetsFxCnyMiddlePrice* release_mdcfetsfxcnymiddleprice();
+  void set_allocated_mdcfetsfxcnymiddleprice(::com::htsc::mdc::insight::model::MDCfetsFxCnyMiddlePrice* mdcfetsfxcnymiddleprice);
+
+  // optional .com.htsc.mdc.insight.model.MDIopvSnapshot mdIopvSnapshot = 71;
+  bool has_mdiopvsnapshot() const;
+  void clear_mdiopvsnapshot();
+  static const int kMdIopvSnapshotFieldNumber = 71;
+  const ::com::htsc::mdc::insight::model::MDIopvSnapshot& mdiopvsnapshot() const;
+  ::com::htsc::mdc::insight::model::MDIopvSnapshot* mutable_mdiopvsnapshot();
+  ::com::htsc::mdc::insight::model::MDIopvSnapshot* release_mdiopvsnapshot();
+  void set_allocated_mdiopvsnapshot(::com::htsc::mdc::insight::model::MDIopvSnapshot* mdiopvsnapshot);
+
   // @@protoc_insertion_point(class_scope:com.htsc.mdc.insight.model.MarketData)
  private:
 
@@ -583,6 +789,27 @@ class MarketData : public ::google::protobuf::Message /* @@protoc_insertion_poin
   ::com::htsc::mdc::insight::model::MDSLIndicativeQuote* mdslindicativequote_;
   ::com::htsc::mdc::insight::model::MDSLStatistics* mdslstatistics_;
   ::com::htsc::mdc::insight::model::MDUSAQuote* mdusaquote_;
+  ::com::htsc::mdc::insight::model::MDSLEstimation* mdslestimation_;
+  ::com::htsc::mdc::insight::model::MDCnexDeal* mdcnexdeal_;
+  ::com::htsc::mdc::insight::model::MDCnexQuote* mdcnexquote_;
+  ::com::htsc::mdc::insight::model::MDDelaySnapshot* mddelaysnapshot_;
+  ::com::htsc::mdc::insight::model::MDHighAccuracyFuture* mdhighaccuracyfuture_;
+  ::com::htsc::mdc::insight::model::MDCfetsForex* mdcfetsforex_;
+  ::com::htsc::mdc::insight::model::MDCfetsFxSnapshot* mdcfetsfxsnapshot_;
+  ::com::htsc::mdc::insight::model::MDCfetsFxQuote* mdcfetsfxquote_;
+  ::com::htsc::mdc::insight::model::SPFuture* spfuture_;
+  ::com::htsc::mdc::insight::model::MDCfetsBenchmark* mdcfetsbenchmark_;
+  ::com::htsc::mdc::insight::model::MDCfetsBondDeal* mdcfetsbonddeal_;
+  ::com::htsc::mdc::insight::model::MDCfetsBondSnapshot* mdcfetsbondsnapshot_;
+  ::com::htsc::mdc::insight::model::MDCfetsCurrencyDeal* mdcfetscurrencydeal_;
+  ::com::htsc::mdc::insight::model::MDCfetsCurrencySnapshot* mdcfetscurrencysnapshot_;
+  ::com::htsc::mdc::insight::model::MDCfetsODMSnapshot* mdcfetsodmsnapshot_;
+  ::com::htsc::mdc::insight::model::MDCfetsQDMQuote* mdcfetsqdmquote_;
+  ::com::htsc::mdc::insight::model::MDCfetsRateDeal* mdcfetsratedeal_;
+  ::com::htsc::mdc::insight::model::MDCfetsRateSnapshot* mdcfetsratesnapshot_;
+  ::com::htsc::mdc::insight::model::MDCfetsFxCnyMiddlePrice* mdcfetsfxcnymiddleprice_;
+  ::com::htsc::mdc::insight::model::MDIopvSnapshot* mdiopvsnapshot_;
+  ::google::protobuf::int64 messagechannelnumber_;
   int marketdatatype_;
   mutable int _cached_size_;
   friend void  protobuf_InitDefaults_MarketData_2eproto_impl();
@@ -842,6 +1069,20 @@ inline void MarketData::set_marketdatatype(::com::htsc::mdc::insight::model::EMa
   
   marketdatatype_ = value;
   // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MarketData.marketDataType)
+}
+
+// optional int64 MessageChannelNumber = 2;
+inline void MarketData::clear_messagechannelnumber() {
+  messagechannelnumber_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 MarketData::messagechannelnumber() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.MessageChannelNumber)
+  return messagechannelnumber_;
+}
+inline void MarketData::set_messagechannelnumber(::google::protobuf::int64 value) {
+  
+  messagechannelnumber_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MarketData.MessageChannelNumber)
 }
 
 // optional .com.htsc.mdc.insight.model.MDStock mdStock = 10;
@@ -2480,6 +2721,786 @@ inline void MarketData::set_allocated_mdusaquote(::com::htsc::mdc::insight::mode
     
   }
   // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.mdUSAQuote)
+}
+
+// optional .com.htsc.mdc.insight.model.MDSLEstimation mdSLEstimation = 52;
+inline bool MarketData::has_mdslestimation() const {
+  return this != internal_default_instance() && mdslestimation_ != NULL;
+}
+inline void MarketData::clear_mdslestimation() {
+  if (GetArenaNoVirtual() == NULL && mdslestimation_ != NULL) delete mdslestimation_;
+  mdslestimation_ = NULL;
+}
+inline const ::com::htsc::mdc::insight::model::MDSLEstimation& MarketData::mdslestimation() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.mdSLEstimation)
+  return mdslestimation_ != NULL ? *mdslestimation_
+                         : *::com::htsc::mdc::insight::model::MDSLEstimation::internal_default_instance();
+}
+inline ::com::htsc::mdc::insight::model::MDSLEstimation* MarketData::mutable_mdslestimation() {
+  
+  if (mdslestimation_ == NULL) {
+    mdslestimation_ = new ::com::htsc::mdc::insight::model::MDSLEstimation;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MarketData.mdSLEstimation)
+  return mdslestimation_;
+}
+inline ::com::htsc::mdc::insight::model::MDSLEstimation* MarketData::release_mdslestimation() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MarketData.mdSLEstimation)
+  
+  ::com::htsc::mdc::insight::model::MDSLEstimation* temp = mdslestimation_;
+  mdslestimation_ = NULL;
+  return temp;
+}
+inline void MarketData::set_allocated_mdslestimation(::com::htsc::mdc::insight::model::MDSLEstimation* mdslestimation) {
+  delete mdslestimation_;
+  mdslestimation_ = mdslestimation;
+  if (mdslestimation) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.mdSLEstimation)
+}
+
+// optional .com.htsc.mdc.insight.model.MDCnexDeal mdCnexDeal = 53;
+inline bool MarketData::has_mdcnexdeal() const {
+  return this != internal_default_instance() && mdcnexdeal_ != NULL;
+}
+inline void MarketData::clear_mdcnexdeal() {
+  if (GetArenaNoVirtual() == NULL && mdcnexdeal_ != NULL) delete mdcnexdeal_;
+  mdcnexdeal_ = NULL;
+}
+inline const ::com::htsc::mdc::insight::model::MDCnexDeal& MarketData::mdcnexdeal() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.mdCnexDeal)
+  return mdcnexdeal_ != NULL ? *mdcnexdeal_
+                         : *::com::htsc::mdc::insight::model::MDCnexDeal::internal_default_instance();
+}
+inline ::com::htsc::mdc::insight::model::MDCnexDeal* MarketData::mutable_mdcnexdeal() {
+  
+  if (mdcnexdeal_ == NULL) {
+    mdcnexdeal_ = new ::com::htsc::mdc::insight::model::MDCnexDeal;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MarketData.mdCnexDeal)
+  return mdcnexdeal_;
+}
+inline ::com::htsc::mdc::insight::model::MDCnexDeal* MarketData::release_mdcnexdeal() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MarketData.mdCnexDeal)
+  
+  ::com::htsc::mdc::insight::model::MDCnexDeal* temp = mdcnexdeal_;
+  mdcnexdeal_ = NULL;
+  return temp;
+}
+inline void MarketData::set_allocated_mdcnexdeal(::com::htsc::mdc::insight::model::MDCnexDeal* mdcnexdeal) {
+  delete mdcnexdeal_;
+  mdcnexdeal_ = mdcnexdeal;
+  if (mdcnexdeal) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.mdCnexDeal)
+}
+
+// optional .com.htsc.mdc.insight.model.MDCnexQuote mdCnexQuote = 54;
+inline bool MarketData::has_mdcnexquote() const {
+  return this != internal_default_instance() && mdcnexquote_ != NULL;
+}
+inline void MarketData::clear_mdcnexquote() {
+  if (GetArenaNoVirtual() == NULL && mdcnexquote_ != NULL) delete mdcnexquote_;
+  mdcnexquote_ = NULL;
+}
+inline const ::com::htsc::mdc::insight::model::MDCnexQuote& MarketData::mdcnexquote() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.mdCnexQuote)
+  return mdcnexquote_ != NULL ? *mdcnexquote_
+                         : *::com::htsc::mdc::insight::model::MDCnexQuote::internal_default_instance();
+}
+inline ::com::htsc::mdc::insight::model::MDCnexQuote* MarketData::mutable_mdcnexquote() {
+  
+  if (mdcnexquote_ == NULL) {
+    mdcnexquote_ = new ::com::htsc::mdc::insight::model::MDCnexQuote;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MarketData.mdCnexQuote)
+  return mdcnexquote_;
+}
+inline ::com::htsc::mdc::insight::model::MDCnexQuote* MarketData::release_mdcnexquote() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MarketData.mdCnexQuote)
+  
+  ::com::htsc::mdc::insight::model::MDCnexQuote* temp = mdcnexquote_;
+  mdcnexquote_ = NULL;
+  return temp;
+}
+inline void MarketData::set_allocated_mdcnexquote(::com::htsc::mdc::insight::model::MDCnexQuote* mdcnexquote) {
+  delete mdcnexquote_;
+  mdcnexquote_ = mdcnexquote;
+  if (mdcnexquote) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.mdCnexQuote)
+}
+
+// optional .com.htsc.mdc.insight.model.MDDelaySnapshot mdDelaySnapshot = 55;
+inline bool MarketData::has_mddelaysnapshot() const {
+  return this != internal_default_instance() && mddelaysnapshot_ != NULL;
+}
+inline void MarketData::clear_mddelaysnapshot() {
+  if (GetArenaNoVirtual() == NULL && mddelaysnapshot_ != NULL) delete mddelaysnapshot_;
+  mddelaysnapshot_ = NULL;
+}
+inline const ::com::htsc::mdc::insight::model::MDDelaySnapshot& MarketData::mddelaysnapshot() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.mdDelaySnapshot)
+  return mddelaysnapshot_ != NULL ? *mddelaysnapshot_
+                         : *::com::htsc::mdc::insight::model::MDDelaySnapshot::internal_default_instance();
+}
+inline ::com::htsc::mdc::insight::model::MDDelaySnapshot* MarketData::mutable_mddelaysnapshot() {
+  
+  if (mddelaysnapshot_ == NULL) {
+    mddelaysnapshot_ = new ::com::htsc::mdc::insight::model::MDDelaySnapshot;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MarketData.mdDelaySnapshot)
+  return mddelaysnapshot_;
+}
+inline ::com::htsc::mdc::insight::model::MDDelaySnapshot* MarketData::release_mddelaysnapshot() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MarketData.mdDelaySnapshot)
+  
+  ::com::htsc::mdc::insight::model::MDDelaySnapshot* temp = mddelaysnapshot_;
+  mddelaysnapshot_ = NULL;
+  return temp;
+}
+inline void MarketData::set_allocated_mddelaysnapshot(::com::htsc::mdc::insight::model::MDDelaySnapshot* mddelaysnapshot) {
+  delete mddelaysnapshot_;
+  mddelaysnapshot_ = mddelaysnapshot;
+  if (mddelaysnapshot) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.mdDelaySnapshot)
+}
+
+// optional .com.htsc.mdc.insight.model.MDHighAccuracyFuture mdHighAccuracyFuture = 56;
+inline bool MarketData::has_mdhighaccuracyfuture() const {
+  return this != internal_default_instance() && mdhighaccuracyfuture_ != NULL;
+}
+inline void MarketData::clear_mdhighaccuracyfuture() {
+  if (GetArenaNoVirtual() == NULL && mdhighaccuracyfuture_ != NULL) delete mdhighaccuracyfuture_;
+  mdhighaccuracyfuture_ = NULL;
+}
+inline const ::com::htsc::mdc::insight::model::MDHighAccuracyFuture& MarketData::mdhighaccuracyfuture() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.mdHighAccuracyFuture)
+  return mdhighaccuracyfuture_ != NULL ? *mdhighaccuracyfuture_
+                         : *::com::htsc::mdc::insight::model::MDHighAccuracyFuture::internal_default_instance();
+}
+inline ::com::htsc::mdc::insight::model::MDHighAccuracyFuture* MarketData::mutable_mdhighaccuracyfuture() {
+  
+  if (mdhighaccuracyfuture_ == NULL) {
+    mdhighaccuracyfuture_ = new ::com::htsc::mdc::insight::model::MDHighAccuracyFuture;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MarketData.mdHighAccuracyFuture)
+  return mdhighaccuracyfuture_;
+}
+inline ::com::htsc::mdc::insight::model::MDHighAccuracyFuture* MarketData::release_mdhighaccuracyfuture() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MarketData.mdHighAccuracyFuture)
+  
+  ::com::htsc::mdc::insight::model::MDHighAccuracyFuture* temp = mdhighaccuracyfuture_;
+  mdhighaccuracyfuture_ = NULL;
+  return temp;
+}
+inline void MarketData::set_allocated_mdhighaccuracyfuture(::com::htsc::mdc::insight::model::MDHighAccuracyFuture* mdhighaccuracyfuture) {
+  delete mdhighaccuracyfuture_;
+  mdhighaccuracyfuture_ = mdhighaccuracyfuture;
+  if (mdhighaccuracyfuture) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.mdHighAccuracyFuture)
+}
+
+// optional .com.htsc.mdc.insight.model.MDCfetsForex mdCfetsForex = 57;
+inline bool MarketData::has_mdcfetsforex() const {
+  return this != internal_default_instance() && mdcfetsforex_ != NULL;
+}
+inline void MarketData::clear_mdcfetsforex() {
+  if (GetArenaNoVirtual() == NULL && mdcfetsforex_ != NULL) delete mdcfetsforex_;
+  mdcfetsforex_ = NULL;
+}
+inline const ::com::htsc::mdc::insight::model::MDCfetsForex& MarketData::mdcfetsforex() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.mdCfetsForex)
+  return mdcfetsforex_ != NULL ? *mdcfetsforex_
+                         : *::com::htsc::mdc::insight::model::MDCfetsForex::internal_default_instance();
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsForex* MarketData::mutable_mdcfetsforex() {
+  
+  if (mdcfetsforex_ == NULL) {
+    mdcfetsforex_ = new ::com::htsc::mdc::insight::model::MDCfetsForex;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MarketData.mdCfetsForex)
+  return mdcfetsforex_;
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsForex* MarketData::release_mdcfetsforex() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MarketData.mdCfetsForex)
+  
+  ::com::htsc::mdc::insight::model::MDCfetsForex* temp = mdcfetsforex_;
+  mdcfetsforex_ = NULL;
+  return temp;
+}
+inline void MarketData::set_allocated_mdcfetsforex(::com::htsc::mdc::insight::model::MDCfetsForex* mdcfetsforex) {
+  delete mdcfetsforex_;
+  mdcfetsforex_ = mdcfetsforex;
+  if (mdcfetsforex) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.mdCfetsForex)
+}
+
+// optional .com.htsc.mdc.insight.model.MDCfetsFxSnapshot mdCfetsFxSnapshot = 58;
+inline bool MarketData::has_mdcfetsfxsnapshot() const {
+  return this != internal_default_instance() && mdcfetsfxsnapshot_ != NULL;
+}
+inline void MarketData::clear_mdcfetsfxsnapshot() {
+  if (GetArenaNoVirtual() == NULL && mdcfetsfxsnapshot_ != NULL) delete mdcfetsfxsnapshot_;
+  mdcfetsfxsnapshot_ = NULL;
+}
+inline const ::com::htsc::mdc::insight::model::MDCfetsFxSnapshot& MarketData::mdcfetsfxsnapshot() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.mdCfetsFxSnapshot)
+  return mdcfetsfxsnapshot_ != NULL ? *mdcfetsfxsnapshot_
+                         : *::com::htsc::mdc::insight::model::MDCfetsFxSnapshot::internal_default_instance();
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsFxSnapshot* MarketData::mutable_mdcfetsfxsnapshot() {
+  
+  if (mdcfetsfxsnapshot_ == NULL) {
+    mdcfetsfxsnapshot_ = new ::com::htsc::mdc::insight::model::MDCfetsFxSnapshot;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MarketData.mdCfetsFxSnapshot)
+  return mdcfetsfxsnapshot_;
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsFxSnapshot* MarketData::release_mdcfetsfxsnapshot() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MarketData.mdCfetsFxSnapshot)
+  
+  ::com::htsc::mdc::insight::model::MDCfetsFxSnapshot* temp = mdcfetsfxsnapshot_;
+  mdcfetsfxsnapshot_ = NULL;
+  return temp;
+}
+inline void MarketData::set_allocated_mdcfetsfxsnapshot(::com::htsc::mdc::insight::model::MDCfetsFxSnapshot* mdcfetsfxsnapshot) {
+  delete mdcfetsfxsnapshot_;
+  mdcfetsfxsnapshot_ = mdcfetsfxsnapshot;
+  if (mdcfetsfxsnapshot) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.mdCfetsFxSnapshot)
+}
+
+// optional .com.htsc.mdc.insight.model.MDCfetsFxQuote mdCfetsFxQuote = 59;
+inline bool MarketData::has_mdcfetsfxquote() const {
+  return this != internal_default_instance() && mdcfetsfxquote_ != NULL;
+}
+inline void MarketData::clear_mdcfetsfxquote() {
+  if (GetArenaNoVirtual() == NULL && mdcfetsfxquote_ != NULL) delete mdcfetsfxquote_;
+  mdcfetsfxquote_ = NULL;
+}
+inline const ::com::htsc::mdc::insight::model::MDCfetsFxQuote& MarketData::mdcfetsfxquote() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.mdCfetsFxQuote)
+  return mdcfetsfxquote_ != NULL ? *mdcfetsfxquote_
+                         : *::com::htsc::mdc::insight::model::MDCfetsFxQuote::internal_default_instance();
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsFxQuote* MarketData::mutable_mdcfetsfxquote() {
+  
+  if (mdcfetsfxquote_ == NULL) {
+    mdcfetsfxquote_ = new ::com::htsc::mdc::insight::model::MDCfetsFxQuote;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MarketData.mdCfetsFxQuote)
+  return mdcfetsfxquote_;
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsFxQuote* MarketData::release_mdcfetsfxquote() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MarketData.mdCfetsFxQuote)
+  
+  ::com::htsc::mdc::insight::model::MDCfetsFxQuote* temp = mdcfetsfxquote_;
+  mdcfetsfxquote_ = NULL;
+  return temp;
+}
+inline void MarketData::set_allocated_mdcfetsfxquote(::com::htsc::mdc::insight::model::MDCfetsFxQuote* mdcfetsfxquote) {
+  delete mdcfetsfxquote_;
+  mdcfetsfxquote_ = mdcfetsfxquote;
+  if (mdcfetsfxquote) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.mdCfetsFxQuote)
+}
+
+// optional .com.htsc.mdc.insight.model.SPFuture spFuture = 60;
+inline bool MarketData::has_spfuture() const {
+  return this != internal_default_instance() && spfuture_ != NULL;
+}
+inline void MarketData::clear_spfuture() {
+  if (GetArenaNoVirtual() == NULL && spfuture_ != NULL) delete spfuture_;
+  spfuture_ = NULL;
+}
+inline const ::com::htsc::mdc::insight::model::SPFuture& MarketData::spfuture() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.spFuture)
+  return spfuture_ != NULL ? *spfuture_
+                         : *::com::htsc::mdc::insight::model::SPFuture::internal_default_instance();
+}
+inline ::com::htsc::mdc::insight::model::SPFuture* MarketData::mutable_spfuture() {
+  
+  if (spfuture_ == NULL) {
+    spfuture_ = new ::com::htsc::mdc::insight::model::SPFuture;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MarketData.spFuture)
+  return spfuture_;
+}
+inline ::com::htsc::mdc::insight::model::SPFuture* MarketData::release_spfuture() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MarketData.spFuture)
+  
+  ::com::htsc::mdc::insight::model::SPFuture* temp = spfuture_;
+  spfuture_ = NULL;
+  return temp;
+}
+inline void MarketData::set_allocated_spfuture(::com::htsc::mdc::insight::model::SPFuture* spfuture) {
+  delete spfuture_;
+  spfuture_ = spfuture;
+  if (spfuture) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.spFuture)
+}
+
+// optional .com.htsc.mdc.insight.model.MDCfetsBenchmark mdCfetsBenchmark = 61;
+inline bool MarketData::has_mdcfetsbenchmark() const {
+  return this != internal_default_instance() && mdcfetsbenchmark_ != NULL;
+}
+inline void MarketData::clear_mdcfetsbenchmark() {
+  if (GetArenaNoVirtual() == NULL && mdcfetsbenchmark_ != NULL) delete mdcfetsbenchmark_;
+  mdcfetsbenchmark_ = NULL;
+}
+inline const ::com::htsc::mdc::insight::model::MDCfetsBenchmark& MarketData::mdcfetsbenchmark() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.mdCfetsBenchmark)
+  return mdcfetsbenchmark_ != NULL ? *mdcfetsbenchmark_
+                         : *::com::htsc::mdc::insight::model::MDCfetsBenchmark::internal_default_instance();
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsBenchmark* MarketData::mutable_mdcfetsbenchmark() {
+  
+  if (mdcfetsbenchmark_ == NULL) {
+    mdcfetsbenchmark_ = new ::com::htsc::mdc::insight::model::MDCfetsBenchmark;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MarketData.mdCfetsBenchmark)
+  return mdcfetsbenchmark_;
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsBenchmark* MarketData::release_mdcfetsbenchmark() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MarketData.mdCfetsBenchmark)
+  
+  ::com::htsc::mdc::insight::model::MDCfetsBenchmark* temp = mdcfetsbenchmark_;
+  mdcfetsbenchmark_ = NULL;
+  return temp;
+}
+inline void MarketData::set_allocated_mdcfetsbenchmark(::com::htsc::mdc::insight::model::MDCfetsBenchmark* mdcfetsbenchmark) {
+  delete mdcfetsbenchmark_;
+  mdcfetsbenchmark_ = mdcfetsbenchmark;
+  if (mdcfetsbenchmark) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.mdCfetsBenchmark)
+}
+
+// optional .com.htsc.mdc.insight.model.MDCfetsBondDeal mdCfetsBondDeal = 62;
+inline bool MarketData::has_mdcfetsbonddeal() const {
+  return this != internal_default_instance() && mdcfetsbonddeal_ != NULL;
+}
+inline void MarketData::clear_mdcfetsbonddeal() {
+  if (GetArenaNoVirtual() == NULL && mdcfetsbonddeal_ != NULL) delete mdcfetsbonddeal_;
+  mdcfetsbonddeal_ = NULL;
+}
+inline const ::com::htsc::mdc::insight::model::MDCfetsBondDeal& MarketData::mdcfetsbonddeal() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.mdCfetsBondDeal)
+  return mdcfetsbonddeal_ != NULL ? *mdcfetsbonddeal_
+                         : *::com::htsc::mdc::insight::model::MDCfetsBondDeal::internal_default_instance();
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsBondDeal* MarketData::mutable_mdcfetsbonddeal() {
+  
+  if (mdcfetsbonddeal_ == NULL) {
+    mdcfetsbonddeal_ = new ::com::htsc::mdc::insight::model::MDCfetsBondDeal;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MarketData.mdCfetsBondDeal)
+  return mdcfetsbonddeal_;
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsBondDeal* MarketData::release_mdcfetsbonddeal() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MarketData.mdCfetsBondDeal)
+  
+  ::com::htsc::mdc::insight::model::MDCfetsBondDeal* temp = mdcfetsbonddeal_;
+  mdcfetsbonddeal_ = NULL;
+  return temp;
+}
+inline void MarketData::set_allocated_mdcfetsbonddeal(::com::htsc::mdc::insight::model::MDCfetsBondDeal* mdcfetsbonddeal) {
+  delete mdcfetsbonddeal_;
+  mdcfetsbonddeal_ = mdcfetsbonddeal;
+  if (mdcfetsbonddeal) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.mdCfetsBondDeal)
+}
+
+// optional .com.htsc.mdc.insight.model.MDCfetsBondSnapshot mdCfetsBondSnapshot = 63;
+inline bool MarketData::has_mdcfetsbondsnapshot() const {
+  return this != internal_default_instance() && mdcfetsbondsnapshot_ != NULL;
+}
+inline void MarketData::clear_mdcfetsbondsnapshot() {
+  if (GetArenaNoVirtual() == NULL && mdcfetsbondsnapshot_ != NULL) delete mdcfetsbondsnapshot_;
+  mdcfetsbondsnapshot_ = NULL;
+}
+inline const ::com::htsc::mdc::insight::model::MDCfetsBondSnapshot& MarketData::mdcfetsbondsnapshot() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.mdCfetsBondSnapshot)
+  return mdcfetsbondsnapshot_ != NULL ? *mdcfetsbondsnapshot_
+                         : *::com::htsc::mdc::insight::model::MDCfetsBondSnapshot::internal_default_instance();
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsBondSnapshot* MarketData::mutable_mdcfetsbondsnapshot() {
+  
+  if (mdcfetsbondsnapshot_ == NULL) {
+    mdcfetsbondsnapshot_ = new ::com::htsc::mdc::insight::model::MDCfetsBondSnapshot;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MarketData.mdCfetsBondSnapshot)
+  return mdcfetsbondsnapshot_;
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsBondSnapshot* MarketData::release_mdcfetsbondsnapshot() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MarketData.mdCfetsBondSnapshot)
+  
+  ::com::htsc::mdc::insight::model::MDCfetsBondSnapshot* temp = mdcfetsbondsnapshot_;
+  mdcfetsbondsnapshot_ = NULL;
+  return temp;
+}
+inline void MarketData::set_allocated_mdcfetsbondsnapshot(::com::htsc::mdc::insight::model::MDCfetsBondSnapshot* mdcfetsbondsnapshot) {
+  delete mdcfetsbondsnapshot_;
+  mdcfetsbondsnapshot_ = mdcfetsbondsnapshot;
+  if (mdcfetsbondsnapshot) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.mdCfetsBondSnapshot)
+}
+
+// optional .com.htsc.mdc.insight.model.MDCfetsCurrencyDeal mdCfetsCurrencyDeal = 64;
+inline bool MarketData::has_mdcfetscurrencydeal() const {
+  return this != internal_default_instance() && mdcfetscurrencydeal_ != NULL;
+}
+inline void MarketData::clear_mdcfetscurrencydeal() {
+  if (GetArenaNoVirtual() == NULL && mdcfetscurrencydeal_ != NULL) delete mdcfetscurrencydeal_;
+  mdcfetscurrencydeal_ = NULL;
+}
+inline const ::com::htsc::mdc::insight::model::MDCfetsCurrencyDeal& MarketData::mdcfetscurrencydeal() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.mdCfetsCurrencyDeal)
+  return mdcfetscurrencydeal_ != NULL ? *mdcfetscurrencydeal_
+                         : *::com::htsc::mdc::insight::model::MDCfetsCurrencyDeal::internal_default_instance();
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsCurrencyDeal* MarketData::mutable_mdcfetscurrencydeal() {
+  
+  if (mdcfetscurrencydeal_ == NULL) {
+    mdcfetscurrencydeal_ = new ::com::htsc::mdc::insight::model::MDCfetsCurrencyDeal;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MarketData.mdCfetsCurrencyDeal)
+  return mdcfetscurrencydeal_;
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsCurrencyDeal* MarketData::release_mdcfetscurrencydeal() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MarketData.mdCfetsCurrencyDeal)
+  
+  ::com::htsc::mdc::insight::model::MDCfetsCurrencyDeal* temp = mdcfetscurrencydeal_;
+  mdcfetscurrencydeal_ = NULL;
+  return temp;
+}
+inline void MarketData::set_allocated_mdcfetscurrencydeal(::com::htsc::mdc::insight::model::MDCfetsCurrencyDeal* mdcfetscurrencydeal) {
+  delete mdcfetscurrencydeal_;
+  mdcfetscurrencydeal_ = mdcfetscurrencydeal;
+  if (mdcfetscurrencydeal) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.mdCfetsCurrencyDeal)
+}
+
+// optional .com.htsc.mdc.insight.model.MDCfetsCurrencySnapshot mdCfetsCurrencySnapshot = 65;
+inline bool MarketData::has_mdcfetscurrencysnapshot() const {
+  return this != internal_default_instance() && mdcfetscurrencysnapshot_ != NULL;
+}
+inline void MarketData::clear_mdcfetscurrencysnapshot() {
+  if (GetArenaNoVirtual() == NULL && mdcfetscurrencysnapshot_ != NULL) delete mdcfetscurrencysnapshot_;
+  mdcfetscurrencysnapshot_ = NULL;
+}
+inline const ::com::htsc::mdc::insight::model::MDCfetsCurrencySnapshot& MarketData::mdcfetscurrencysnapshot() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.mdCfetsCurrencySnapshot)
+  return mdcfetscurrencysnapshot_ != NULL ? *mdcfetscurrencysnapshot_
+                         : *::com::htsc::mdc::insight::model::MDCfetsCurrencySnapshot::internal_default_instance();
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsCurrencySnapshot* MarketData::mutable_mdcfetscurrencysnapshot() {
+  
+  if (mdcfetscurrencysnapshot_ == NULL) {
+    mdcfetscurrencysnapshot_ = new ::com::htsc::mdc::insight::model::MDCfetsCurrencySnapshot;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MarketData.mdCfetsCurrencySnapshot)
+  return mdcfetscurrencysnapshot_;
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsCurrencySnapshot* MarketData::release_mdcfetscurrencysnapshot() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MarketData.mdCfetsCurrencySnapshot)
+  
+  ::com::htsc::mdc::insight::model::MDCfetsCurrencySnapshot* temp = mdcfetscurrencysnapshot_;
+  mdcfetscurrencysnapshot_ = NULL;
+  return temp;
+}
+inline void MarketData::set_allocated_mdcfetscurrencysnapshot(::com::htsc::mdc::insight::model::MDCfetsCurrencySnapshot* mdcfetscurrencysnapshot) {
+  delete mdcfetscurrencysnapshot_;
+  mdcfetscurrencysnapshot_ = mdcfetscurrencysnapshot;
+  if (mdcfetscurrencysnapshot) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.mdCfetsCurrencySnapshot)
+}
+
+// optional .com.htsc.mdc.insight.model.MDCfetsODMSnapshot mdCfetsODMSnapshot = 66;
+inline bool MarketData::has_mdcfetsodmsnapshot() const {
+  return this != internal_default_instance() && mdcfetsodmsnapshot_ != NULL;
+}
+inline void MarketData::clear_mdcfetsodmsnapshot() {
+  if (GetArenaNoVirtual() == NULL && mdcfetsodmsnapshot_ != NULL) delete mdcfetsodmsnapshot_;
+  mdcfetsodmsnapshot_ = NULL;
+}
+inline const ::com::htsc::mdc::insight::model::MDCfetsODMSnapshot& MarketData::mdcfetsodmsnapshot() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.mdCfetsODMSnapshot)
+  return mdcfetsodmsnapshot_ != NULL ? *mdcfetsodmsnapshot_
+                         : *::com::htsc::mdc::insight::model::MDCfetsODMSnapshot::internal_default_instance();
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsODMSnapshot* MarketData::mutable_mdcfetsodmsnapshot() {
+  
+  if (mdcfetsodmsnapshot_ == NULL) {
+    mdcfetsodmsnapshot_ = new ::com::htsc::mdc::insight::model::MDCfetsODMSnapshot;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MarketData.mdCfetsODMSnapshot)
+  return mdcfetsodmsnapshot_;
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsODMSnapshot* MarketData::release_mdcfetsodmsnapshot() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MarketData.mdCfetsODMSnapshot)
+  
+  ::com::htsc::mdc::insight::model::MDCfetsODMSnapshot* temp = mdcfetsodmsnapshot_;
+  mdcfetsodmsnapshot_ = NULL;
+  return temp;
+}
+inline void MarketData::set_allocated_mdcfetsodmsnapshot(::com::htsc::mdc::insight::model::MDCfetsODMSnapshot* mdcfetsodmsnapshot) {
+  delete mdcfetsodmsnapshot_;
+  mdcfetsodmsnapshot_ = mdcfetsodmsnapshot;
+  if (mdcfetsodmsnapshot) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.mdCfetsODMSnapshot)
+}
+
+// optional .com.htsc.mdc.insight.model.MDCfetsQDMQuote mdCfetsQDMQuote = 67;
+inline bool MarketData::has_mdcfetsqdmquote() const {
+  return this != internal_default_instance() && mdcfetsqdmquote_ != NULL;
+}
+inline void MarketData::clear_mdcfetsqdmquote() {
+  if (GetArenaNoVirtual() == NULL && mdcfetsqdmquote_ != NULL) delete mdcfetsqdmquote_;
+  mdcfetsqdmquote_ = NULL;
+}
+inline const ::com::htsc::mdc::insight::model::MDCfetsQDMQuote& MarketData::mdcfetsqdmquote() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.mdCfetsQDMQuote)
+  return mdcfetsqdmquote_ != NULL ? *mdcfetsqdmquote_
+                         : *::com::htsc::mdc::insight::model::MDCfetsQDMQuote::internal_default_instance();
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsQDMQuote* MarketData::mutable_mdcfetsqdmquote() {
+  
+  if (mdcfetsqdmquote_ == NULL) {
+    mdcfetsqdmquote_ = new ::com::htsc::mdc::insight::model::MDCfetsQDMQuote;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MarketData.mdCfetsQDMQuote)
+  return mdcfetsqdmquote_;
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsQDMQuote* MarketData::release_mdcfetsqdmquote() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MarketData.mdCfetsQDMQuote)
+  
+  ::com::htsc::mdc::insight::model::MDCfetsQDMQuote* temp = mdcfetsqdmquote_;
+  mdcfetsqdmquote_ = NULL;
+  return temp;
+}
+inline void MarketData::set_allocated_mdcfetsqdmquote(::com::htsc::mdc::insight::model::MDCfetsQDMQuote* mdcfetsqdmquote) {
+  delete mdcfetsqdmquote_;
+  mdcfetsqdmquote_ = mdcfetsqdmquote;
+  if (mdcfetsqdmquote) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.mdCfetsQDMQuote)
+}
+
+// optional .com.htsc.mdc.insight.model.MDCfetsRateDeal mdCfetsRateDeal = 68;
+inline bool MarketData::has_mdcfetsratedeal() const {
+  return this != internal_default_instance() && mdcfetsratedeal_ != NULL;
+}
+inline void MarketData::clear_mdcfetsratedeal() {
+  if (GetArenaNoVirtual() == NULL && mdcfetsratedeal_ != NULL) delete mdcfetsratedeal_;
+  mdcfetsratedeal_ = NULL;
+}
+inline const ::com::htsc::mdc::insight::model::MDCfetsRateDeal& MarketData::mdcfetsratedeal() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.mdCfetsRateDeal)
+  return mdcfetsratedeal_ != NULL ? *mdcfetsratedeal_
+                         : *::com::htsc::mdc::insight::model::MDCfetsRateDeal::internal_default_instance();
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsRateDeal* MarketData::mutable_mdcfetsratedeal() {
+  
+  if (mdcfetsratedeal_ == NULL) {
+    mdcfetsratedeal_ = new ::com::htsc::mdc::insight::model::MDCfetsRateDeal;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MarketData.mdCfetsRateDeal)
+  return mdcfetsratedeal_;
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsRateDeal* MarketData::release_mdcfetsratedeal() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MarketData.mdCfetsRateDeal)
+  
+  ::com::htsc::mdc::insight::model::MDCfetsRateDeal* temp = mdcfetsratedeal_;
+  mdcfetsratedeal_ = NULL;
+  return temp;
+}
+inline void MarketData::set_allocated_mdcfetsratedeal(::com::htsc::mdc::insight::model::MDCfetsRateDeal* mdcfetsratedeal) {
+  delete mdcfetsratedeal_;
+  mdcfetsratedeal_ = mdcfetsratedeal;
+  if (mdcfetsratedeal) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.mdCfetsRateDeal)
+}
+
+// optional .com.htsc.mdc.insight.model.MDCfetsRateSnapshot mdCfetsRateSnapshot = 69;
+inline bool MarketData::has_mdcfetsratesnapshot() const {
+  return this != internal_default_instance() && mdcfetsratesnapshot_ != NULL;
+}
+inline void MarketData::clear_mdcfetsratesnapshot() {
+  if (GetArenaNoVirtual() == NULL && mdcfetsratesnapshot_ != NULL) delete mdcfetsratesnapshot_;
+  mdcfetsratesnapshot_ = NULL;
+}
+inline const ::com::htsc::mdc::insight::model::MDCfetsRateSnapshot& MarketData::mdcfetsratesnapshot() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.mdCfetsRateSnapshot)
+  return mdcfetsratesnapshot_ != NULL ? *mdcfetsratesnapshot_
+                         : *::com::htsc::mdc::insight::model::MDCfetsRateSnapshot::internal_default_instance();
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsRateSnapshot* MarketData::mutable_mdcfetsratesnapshot() {
+  
+  if (mdcfetsratesnapshot_ == NULL) {
+    mdcfetsratesnapshot_ = new ::com::htsc::mdc::insight::model::MDCfetsRateSnapshot;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MarketData.mdCfetsRateSnapshot)
+  return mdcfetsratesnapshot_;
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsRateSnapshot* MarketData::release_mdcfetsratesnapshot() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MarketData.mdCfetsRateSnapshot)
+  
+  ::com::htsc::mdc::insight::model::MDCfetsRateSnapshot* temp = mdcfetsratesnapshot_;
+  mdcfetsratesnapshot_ = NULL;
+  return temp;
+}
+inline void MarketData::set_allocated_mdcfetsratesnapshot(::com::htsc::mdc::insight::model::MDCfetsRateSnapshot* mdcfetsratesnapshot) {
+  delete mdcfetsratesnapshot_;
+  mdcfetsratesnapshot_ = mdcfetsratesnapshot;
+  if (mdcfetsratesnapshot) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.mdCfetsRateSnapshot)
+}
+
+// optional .com.htsc.mdc.insight.model.MDCfetsFxCnyMiddlePrice mdCfetsFxCnyMiddlePrice = 70;
+inline bool MarketData::has_mdcfetsfxcnymiddleprice() const {
+  return this != internal_default_instance() && mdcfetsfxcnymiddleprice_ != NULL;
+}
+inline void MarketData::clear_mdcfetsfxcnymiddleprice() {
+  if (GetArenaNoVirtual() == NULL && mdcfetsfxcnymiddleprice_ != NULL) delete mdcfetsfxcnymiddleprice_;
+  mdcfetsfxcnymiddleprice_ = NULL;
+}
+inline const ::com::htsc::mdc::insight::model::MDCfetsFxCnyMiddlePrice& MarketData::mdcfetsfxcnymiddleprice() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.mdCfetsFxCnyMiddlePrice)
+  return mdcfetsfxcnymiddleprice_ != NULL ? *mdcfetsfxcnymiddleprice_
+                         : *::com::htsc::mdc::insight::model::MDCfetsFxCnyMiddlePrice::internal_default_instance();
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsFxCnyMiddlePrice* MarketData::mutable_mdcfetsfxcnymiddleprice() {
+  
+  if (mdcfetsfxcnymiddleprice_ == NULL) {
+    mdcfetsfxcnymiddleprice_ = new ::com::htsc::mdc::insight::model::MDCfetsFxCnyMiddlePrice;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MarketData.mdCfetsFxCnyMiddlePrice)
+  return mdcfetsfxcnymiddleprice_;
+}
+inline ::com::htsc::mdc::insight::model::MDCfetsFxCnyMiddlePrice* MarketData::release_mdcfetsfxcnymiddleprice() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MarketData.mdCfetsFxCnyMiddlePrice)
+  
+  ::com::htsc::mdc::insight::model::MDCfetsFxCnyMiddlePrice* temp = mdcfetsfxcnymiddleprice_;
+  mdcfetsfxcnymiddleprice_ = NULL;
+  return temp;
+}
+inline void MarketData::set_allocated_mdcfetsfxcnymiddleprice(::com::htsc::mdc::insight::model::MDCfetsFxCnyMiddlePrice* mdcfetsfxcnymiddleprice) {
+  delete mdcfetsfxcnymiddleprice_;
+  mdcfetsfxcnymiddleprice_ = mdcfetsfxcnymiddleprice;
+  if (mdcfetsfxcnymiddleprice) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.mdCfetsFxCnyMiddlePrice)
+}
+
+// optional .com.htsc.mdc.insight.model.MDIopvSnapshot mdIopvSnapshot = 71;
+inline bool MarketData::has_mdiopvsnapshot() const {
+  return this != internal_default_instance() && mdiopvsnapshot_ != NULL;
+}
+inline void MarketData::clear_mdiopvsnapshot() {
+  if (GetArenaNoVirtual() == NULL && mdiopvsnapshot_ != NULL) delete mdiopvsnapshot_;
+  mdiopvsnapshot_ = NULL;
+}
+inline const ::com::htsc::mdc::insight::model::MDIopvSnapshot& MarketData::mdiopvsnapshot() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MarketData.mdIopvSnapshot)
+  return mdiopvsnapshot_ != NULL ? *mdiopvsnapshot_
+                         : *::com::htsc::mdc::insight::model::MDIopvSnapshot::internal_default_instance();
+}
+inline ::com::htsc::mdc::insight::model::MDIopvSnapshot* MarketData::mutable_mdiopvsnapshot() {
+  
+  if (mdiopvsnapshot_ == NULL) {
+    mdiopvsnapshot_ = new ::com::htsc::mdc::insight::model::MDIopvSnapshot;
+  }
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MarketData.mdIopvSnapshot)
+  return mdiopvsnapshot_;
+}
+inline ::com::htsc::mdc::insight::model::MDIopvSnapshot* MarketData::release_mdiopvsnapshot() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MarketData.mdIopvSnapshot)
+  
+  ::com::htsc::mdc::insight::model::MDIopvSnapshot* temp = mdiopvsnapshot_;
+  mdiopvsnapshot_ = NULL;
+  return temp;
+}
+inline void MarketData::set_allocated_mdiopvsnapshot(::com::htsc::mdc::insight::model::MDIopvSnapshot* mdiopvsnapshot) {
+  delete mdiopvsnapshot_;
+  mdiopvsnapshot_ = mdiopvsnapshot;
+  if (mdiopvsnapshot) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MarketData.mdIopvSnapshot)
 }
 
 inline const MarketData* MarketData::internal_default_instance() {

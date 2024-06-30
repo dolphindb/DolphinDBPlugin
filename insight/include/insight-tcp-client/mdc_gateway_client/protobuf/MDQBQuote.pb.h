@@ -338,6 +338,30 @@ class MDQBQuote : public ::google::protobuf::Message /* @@protoc_insertion_point
   ::google::protobuf::int32 datamultiplepowerof10() const;
   void set_datamultiplepowerof10(::google::protobuf::int32 value);
 
+  // optional int64 BidFullPrice = 34;
+  void clear_bidfullprice();
+  static const int kBidFullPriceFieldNumber = 34;
+  ::google::protobuf::int64 bidfullprice() const;
+  void set_bidfullprice(::google::protobuf::int64 value);
+
+  // optional int64 OfrFullPrice = 35;
+  void clear_ofrfullprice();
+  static const int kOfrFullPriceFieldNumber = 35;
+  ::google::protobuf::int64 ofrfullprice() const;
+  void set_ofrfullprice(::google::protobuf::int64 value);
+
+  // optional int32 BidPriceType = 36;
+  void clear_bidpricetype();
+  static const int kBidPriceTypeFieldNumber = 36;
+  ::google::protobuf::int32 bidpricetype() const;
+  void set_bidpricetype(::google::protobuf::int32 value);
+
+  // optional int32 OfrPriceType = 37;
+  void clear_ofrpricetype();
+  static const int kOfrPriceTypeFieldNumber = 37;
+  ::google::protobuf::int32 ofrpricetype() const;
+  void set_ofrpricetype(::google::protobuf::int32 value);
+
   // @@protoc_insertion_point(class_scope:com.htsc.mdc.insight.model.MDQBQuote)
  private:
 
@@ -374,7 +398,11 @@ class MDQBQuote : public ::google::protobuf::Message /* @@protoc_insertion_point
   ::google::protobuf::int32 brokerdatatype_;
   ::google::protobuf::int32 bidexerciseflag_;
   ::google::protobuf::int32 ofrexerciseflag_;
+  ::google::protobuf::int64 bidfullprice_;
   ::google::protobuf::int32 datamultiplepowerof10_;
+  ::google::protobuf::int32 bidpricetype_;
+  ::google::protobuf::int64 ofrfullprice_;
+  ::google::protobuf::int32 ofrpricetype_;
   mutable int _cached_size_;
   friend void  protobuf_InitDefaults_MDQBQuote_2eproto_impl();
   friend void  protobuf_AddDesc_MDQBQuote_2eproto_impl();
@@ -1033,6 +1061,62 @@ inline void MDQBQuote::set_datamultiplepowerof10(::google::protobuf::int32 value
   
   datamultiplepowerof10_ = value;
   // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDQBQuote.DataMultiplePowerOf10)
+}
+
+// optional int64 BidFullPrice = 34;
+inline void MDQBQuote::clear_bidfullprice() {
+  bidfullprice_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 MDQBQuote::bidfullprice() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDQBQuote.BidFullPrice)
+  return bidfullprice_;
+}
+inline void MDQBQuote::set_bidfullprice(::google::protobuf::int64 value) {
+  
+  bidfullprice_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDQBQuote.BidFullPrice)
+}
+
+// optional int64 OfrFullPrice = 35;
+inline void MDQBQuote::clear_ofrfullprice() {
+  ofrfullprice_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 MDQBQuote::ofrfullprice() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDQBQuote.OfrFullPrice)
+  return ofrfullprice_;
+}
+inline void MDQBQuote::set_ofrfullprice(::google::protobuf::int64 value) {
+  
+  ofrfullprice_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDQBQuote.OfrFullPrice)
+}
+
+// optional int32 BidPriceType = 36;
+inline void MDQBQuote::clear_bidpricetype() {
+  bidpricetype_ = 0;
+}
+inline ::google::protobuf::int32 MDQBQuote::bidpricetype() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDQBQuote.BidPriceType)
+  return bidpricetype_;
+}
+inline void MDQBQuote::set_bidpricetype(::google::protobuf::int32 value) {
+  
+  bidpricetype_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDQBQuote.BidPriceType)
+}
+
+// optional int32 OfrPriceType = 37;
+inline void MDQBQuote::clear_ofrpricetype() {
+  ofrpricetype_ = 0;
+}
+inline ::google::protobuf::int32 MDQBQuote::ofrpricetype() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDQBQuote.OfrPriceType)
+  return ofrpricetype_;
+}
+inline void MDQBQuote::set_ofrpricetype(::google::protobuf::int32 value) {
+  
+  ofrpricetype_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDQBQuote.OfrPriceType)
 }
 
 inline const MDQBQuote* MDQBQuote::internal_default_instance() {

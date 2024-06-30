@@ -43,6 +43,7 @@ void protobuf_InitDefaults_MDFIQuote_2eproto();
 void protobuf_AssignDesc_MDFIQuote_2eproto();
 void protobuf_ShutdownFile_MDFIQuote_2eproto();
 
+class ADFIQuote;
 class MDFIQuote;
 
 // ===================================================================
@@ -373,10 +374,23 @@ class MDFIQuote : public ::google::protobuf::Message /* @@protoc_insertion_point
   ::google::protobuf::int32 datamultiplepowerof10() const;
   void set_datamultiplepowerof10(::google::protobuf::int32 value);
 
+  // repeated .com.htsc.mdc.insight.model.ADFIQuote Quotes = 47;
+  int quotes_size() const;
+  void clear_quotes();
+  static const int kQuotesFieldNumber = 47;
+  const ::com::htsc::mdc::insight::model::ADFIQuote& quotes(int index) const;
+  ::com::htsc::mdc::insight::model::ADFIQuote* mutable_quotes(int index);
+  ::com::htsc::mdc::insight::model::ADFIQuote* add_quotes();
+  ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADFIQuote >*
+      mutable_quotes();
+  const ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADFIQuote >&
+      quotes() const;
+
   // @@protoc_insertion_point(class_scope:com.htsc.mdc.insight.model.MDFIQuote)
  private:
 
   ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
+  ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADFIQuote > quotes_;
   ::google::protobuf::internal::ArenaStringPtr htscsecurityid_;
   ::google::protobuf::internal::ArenaStringPtr buyquoteid_;
   ::google::protobuf::internal::ArenaStringPtr buyquoter_;
@@ -424,6 +438,158 @@ class MDFIQuote : public ::google::protobuf::Message /* @@protoc_insertion_point
   void InitAsDefaultInstance();
 };
 extern ::google::protobuf::internal::ExplicitlyConstructed<MDFIQuote> MDFIQuote_default_instance_;
+
+// -------------------------------------------------------------------
+
+class ADFIQuote : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:com.htsc.mdc.insight.model.ADFIQuote) */ {
+ public:
+  ADFIQuote();
+  virtual ~ADFIQuote();
+
+  ADFIQuote(const ADFIQuote& from);
+
+  inline ADFIQuote& operator=(const ADFIQuote& from) {
+    CopyFrom(from);
+    return *this;
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor();
+  static const ADFIQuote& default_instance();
+
+  static const ADFIQuote* internal_default_instance();
+
+  void Swap(ADFIQuote* other);
+
+  // implements Message ----------------------------------------------
+
+  inline ADFIQuote* New() const { return New(NULL); }
+
+  ADFIQuote* New(::google::protobuf::Arena* arena) const;
+  void CopyFrom(const ::google::protobuf::Message& from);
+  void MergeFrom(const ::google::protobuf::Message& from);
+  void CopyFrom(const ADFIQuote& from);
+  void MergeFrom(const ADFIQuote& from);
+  void Clear();
+  bool IsInitialized() const;
+
+  size_t ByteSizeLong() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
+      bool deterministic, ::google::protobuf::uint8* output) const;
+  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const {
+    return InternalSerializeWithCachedSizesToArray(false, output);
+  }
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  void InternalSwap(ADFIQuote* other);
+  void UnsafeMergeFrom(const ADFIQuote& from);
+  private:
+  inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
+    return _internal_metadata_.arena();
+  }
+  inline void* MaybeArenaPtr() const {
+    return _internal_metadata_.raw_arena_ptr();
+  }
+  public:
+
+  ::google::protobuf::Metadata GetMetadata() const;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // optional int32 QuoteBSFlag = 1;
+  void clear_quotebsflag();
+  static const int kQuoteBSFlagFieldNumber = 1;
+  ::google::protobuf::int32 quotebsflag() const;
+  void set_quotebsflag(::google::protobuf::int32 value);
+
+  // optional int32 QuoteLevel = 2;
+  void clear_quotelevel();
+  static const int kQuoteLevelFieldNumber = 2;
+  ::google::protobuf::int32 quotelevel() const;
+  void set_quotelevel(::google::protobuf::int32 value);
+
+  // optional string QuoteID = 3;
+  void clear_quoteid();
+  static const int kQuoteIDFieldNumber = 3;
+  const ::std::string& quoteid() const;
+  void set_quoteid(const ::std::string& value);
+  void set_quoteid(const char* value);
+  void set_quoteid(const char* value, size_t size);
+  ::std::string* mutable_quoteid();
+  ::std::string* release_quoteid();
+  void set_allocated_quoteid(::std::string* quoteid);
+
+  // optional int32 QuoteTime = 4;
+  void clear_quotetime();
+  static const int kQuoteTimeFieldNumber = 4;
+  ::google::protobuf::int32 quotetime() const;
+  void set_quotetime(::google::protobuf::int32 value);
+
+  // optional string Quoter = 5;
+  void clear_quoter();
+  static const int kQuoterFieldNumber = 5;
+  const ::std::string& quoter() const;
+  void set_quoter(const ::std::string& value);
+  void set_quoter(const char* value);
+  void set_quoter(const char* value, size_t size);
+  ::std::string* mutable_quoter();
+  ::std::string* release_quoter();
+  void set_allocated_quoter(::std::string* quoter);
+
+  // optional int64 CleanPrice = 6;
+  void clear_cleanprice();
+  static const int kCleanPriceFieldNumber = 6;
+  ::google::protobuf::int64 cleanprice() const;
+  void set_cleanprice(::google::protobuf::int64 value);
+
+  // optional int64 Volume = 7;
+  void clear_volume();
+  static const int kVolumeFieldNumber = 7;
+  ::google::protobuf::int64 volume() const;
+  void set_volume(::google::protobuf::int64 value);
+
+  // optional int64 DirtyPrice = 8;
+  void clear_dirtyprice();
+  static const int kDirtyPriceFieldNumber = 8;
+  ::google::protobuf::int64 dirtyprice() const;
+  void set_dirtyprice(::google::protobuf::int64 value);
+
+  // optional int64 MaturityYield = 9;
+  void clear_maturityyield();
+  static const int kMaturityYieldFieldNumber = 9;
+  ::google::protobuf::int64 maturityyield() const;
+  void set_maturityyield(::google::protobuf::int64 value);
+
+  // @@protoc_insertion_point(class_scope:com.htsc.mdc.insight.model.ADFIQuote)
+ private:
+
+  ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
+  ::google::protobuf::internal::ArenaStringPtr quoteid_;
+  ::google::protobuf::internal::ArenaStringPtr quoter_;
+  ::google::protobuf::int32 quotebsflag_;
+  ::google::protobuf::int32 quotelevel_;
+  ::google::protobuf::int64 cleanprice_;
+  ::google::protobuf::int64 volume_;
+  ::google::protobuf::int64 dirtyprice_;
+  ::google::protobuf::int64 maturityyield_;
+  ::google::protobuf::int32 quotetime_;
+  mutable int _cached_size_;
+  friend void  protobuf_InitDefaults_MDFIQuote_2eproto_impl();
+  friend void  protobuf_AddDesc_MDFIQuote_2eproto_impl();
+  friend void protobuf_AssignDesc_MDFIQuote_2eproto();
+  friend void protobuf_ShutdownFile_MDFIQuote_2eproto();
+
+  void InitAsDefaultInstance();
+};
+extern ::google::protobuf::internal::ExplicitlyConstructed<ADFIQuote> ADFIQuote_default_instance_;
 
 // ===================================================================
 
@@ -1175,10 +1341,235 @@ inline void MDFIQuote::set_datamultiplepowerof10(::google::protobuf::int32 value
   // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFIQuote.DataMultiplePowerOf10)
 }
 
+// repeated .com.htsc.mdc.insight.model.ADFIQuote Quotes = 47;
+inline int MDFIQuote::quotes_size() const {
+  return quotes_.size();
+}
+inline void MDFIQuote::clear_quotes() {
+  quotes_.Clear();
+}
+inline const ::com::htsc::mdc::insight::model::ADFIQuote& MDFIQuote::quotes(int index) const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDFIQuote.Quotes)
+  return quotes_.Get(index);
+}
+inline ::com::htsc::mdc::insight::model::ADFIQuote* MDFIQuote::mutable_quotes(int index) {
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDFIQuote.Quotes)
+  return quotes_.Mutable(index);
+}
+inline ::com::htsc::mdc::insight::model::ADFIQuote* MDFIQuote::add_quotes() {
+  // @@protoc_insertion_point(field_add:com.htsc.mdc.insight.model.MDFIQuote.Quotes)
+  return quotes_.Add();
+}
+inline ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADFIQuote >*
+MDFIQuote::mutable_quotes() {
+  // @@protoc_insertion_point(field_mutable_list:com.htsc.mdc.insight.model.MDFIQuote.Quotes)
+  return &quotes_;
+}
+inline const ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADFIQuote >&
+MDFIQuote::quotes() const {
+  // @@protoc_insertion_point(field_list:com.htsc.mdc.insight.model.MDFIQuote.Quotes)
+  return quotes_;
+}
+
 inline const MDFIQuote* MDFIQuote::internal_default_instance() {
   return &MDFIQuote_default_instance_.get();
 }
+// -------------------------------------------------------------------
+
+// ADFIQuote
+
+// optional int32 QuoteBSFlag = 1;
+inline void ADFIQuote::clear_quotebsflag() {
+  quotebsflag_ = 0;
+}
+inline ::google::protobuf::int32 ADFIQuote::quotebsflag() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADFIQuote.QuoteBSFlag)
+  return quotebsflag_;
+}
+inline void ADFIQuote::set_quotebsflag(::google::protobuf::int32 value) {
+  
+  quotebsflag_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADFIQuote.QuoteBSFlag)
+}
+
+// optional int32 QuoteLevel = 2;
+inline void ADFIQuote::clear_quotelevel() {
+  quotelevel_ = 0;
+}
+inline ::google::protobuf::int32 ADFIQuote::quotelevel() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADFIQuote.QuoteLevel)
+  return quotelevel_;
+}
+inline void ADFIQuote::set_quotelevel(::google::protobuf::int32 value) {
+  
+  quotelevel_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADFIQuote.QuoteLevel)
+}
+
+// optional string QuoteID = 3;
+inline void ADFIQuote::clear_quoteid() {
+  quoteid_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& ADFIQuote::quoteid() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADFIQuote.QuoteID)
+  return quoteid_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ADFIQuote::set_quoteid(const ::std::string& value) {
+  
+  quoteid_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADFIQuote.QuoteID)
+}
+inline void ADFIQuote::set_quoteid(const char* value) {
+  
+  quoteid_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.ADFIQuote.QuoteID)
+}
+inline void ADFIQuote::set_quoteid(const char* value, size_t size) {
+  
+  quoteid_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.ADFIQuote.QuoteID)
+}
+inline ::std::string* ADFIQuote::mutable_quoteid() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.ADFIQuote.QuoteID)
+  return quoteid_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* ADFIQuote::release_quoteid() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.ADFIQuote.QuoteID)
+  
+  return quoteid_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ADFIQuote::set_allocated_quoteid(::std::string* quoteid) {
+  if (quoteid != NULL) {
+    
+  } else {
+    
+  }
+  quoteid_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), quoteid);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.ADFIQuote.QuoteID)
+}
+
+// optional int32 QuoteTime = 4;
+inline void ADFIQuote::clear_quotetime() {
+  quotetime_ = 0;
+}
+inline ::google::protobuf::int32 ADFIQuote::quotetime() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADFIQuote.QuoteTime)
+  return quotetime_;
+}
+inline void ADFIQuote::set_quotetime(::google::protobuf::int32 value) {
+  
+  quotetime_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADFIQuote.QuoteTime)
+}
+
+// optional string Quoter = 5;
+inline void ADFIQuote::clear_quoter() {
+  quoter_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& ADFIQuote::quoter() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADFIQuote.Quoter)
+  return quoter_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ADFIQuote::set_quoter(const ::std::string& value) {
+  
+  quoter_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADFIQuote.Quoter)
+}
+inline void ADFIQuote::set_quoter(const char* value) {
+  
+  quoter_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.ADFIQuote.Quoter)
+}
+inline void ADFIQuote::set_quoter(const char* value, size_t size) {
+  
+  quoter_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.ADFIQuote.Quoter)
+}
+inline ::std::string* ADFIQuote::mutable_quoter() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.ADFIQuote.Quoter)
+  return quoter_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* ADFIQuote::release_quoter() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.ADFIQuote.Quoter)
+  
+  return quoter_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void ADFIQuote::set_allocated_quoter(::std::string* quoter) {
+  if (quoter != NULL) {
+    
+  } else {
+    
+  }
+  quoter_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), quoter);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.ADFIQuote.Quoter)
+}
+
+// optional int64 CleanPrice = 6;
+inline void ADFIQuote::clear_cleanprice() {
+  cleanprice_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 ADFIQuote::cleanprice() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADFIQuote.CleanPrice)
+  return cleanprice_;
+}
+inline void ADFIQuote::set_cleanprice(::google::protobuf::int64 value) {
+  
+  cleanprice_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADFIQuote.CleanPrice)
+}
+
+// optional int64 Volume = 7;
+inline void ADFIQuote::clear_volume() {
+  volume_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 ADFIQuote::volume() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADFIQuote.Volume)
+  return volume_;
+}
+inline void ADFIQuote::set_volume(::google::protobuf::int64 value) {
+  
+  volume_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADFIQuote.Volume)
+}
+
+// optional int64 DirtyPrice = 8;
+inline void ADFIQuote::clear_dirtyprice() {
+  dirtyprice_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 ADFIQuote::dirtyprice() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADFIQuote.DirtyPrice)
+  return dirtyprice_;
+}
+inline void ADFIQuote::set_dirtyprice(::google::protobuf::int64 value) {
+  
+  dirtyprice_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADFIQuote.DirtyPrice)
+}
+
+// optional int64 MaturityYield = 9;
+inline void ADFIQuote::clear_maturityyield() {
+  maturityyield_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 ADFIQuote::maturityyield() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADFIQuote.MaturityYield)
+  return maturityyield_;
+}
+inline void ADFIQuote::set_maturityyield(::google::protobuf::int64 value) {
+  
+  maturityyield_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADFIQuote.MaturityYield)
+}
+
+inline const ADFIQuote* ADFIQuote::internal_default_instance() {
+  return &ADFIQuote_default_instance_.get();
+}
 #endif  // !PROTOBUF_INLINE_NOT_IN_HEADERS
+// -------------------------------------------------------------------
+
 
 // @@protoc_insertion_point(namespace_scope)
 

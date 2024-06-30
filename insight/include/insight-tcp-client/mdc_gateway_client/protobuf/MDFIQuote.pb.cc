@@ -28,6 +28,9 @@ namespace {
 const ::google::protobuf::Descriptor* MDFIQuote_descriptor_ = NULL;
 const ::google::protobuf::internal::GeneratedMessageReflection*
   MDFIQuote_reflection_ = NULL;
+const ::google::protobuf::Descriptor* ADFIQuote_descriptor_ = NULL;
+const ::google::protobuf::internal::GeneratedMessageReflection*
+  ADFIQuote_reflection_ = NULL;
 
 }  // namespace
 
@@ -40,7 +43,7 @@ void protobuf_AssignDesc_MDFIQuote_2eproto() {
       "MDFIQuote.proto");
   GOOGLE_CHECK(file != NULL);
   MDFIQuote_descriptor_ = file->message_type(0);
-  static const int MDFIQuote_offsets_[38] = {
+  static const int MDFIQuote_offsets_[39] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFIQuote, htscsecurityid_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFIQuote, mddate_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFIQuote, mdtime_),
@@ -79,6 +82,7 @@ void protobuf_AssignDesc_MDFIQuote_2eproto() {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFIQuote, sellexercisetype_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFIQuote, sellyieldtype_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFIQuote, datamultiplepowerof10_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFIQuote, quotes_),
   };
   MDFIQuote_reflection_ =
     ::google::protobuf::internal::GeneratedMessageReflection::NewGeneratedMessageReflection(
@@ -90,6 +94,28 @@ void protobuf_AssignDesc_MDFIQuote_2eproto() {
       -1,
       sizeof(MDFIQuote),
       GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(MDFIQuote, _internal_metadata_));
+  ADFIQuote_descriptor_ = file->message_type(1);
+  static const int ADFIQuote_offsets_[9] = {
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADFIQuote, quotebsflag_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADFIQuote, quotelevel_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADFIQuote, quoteid_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADFIQuote, quotetime_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADFIQuote, quoter_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADFIQuote, cleanprice_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADFIQuote, volume_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADFIQuote, dirtyprice_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADFIQuote, maturityyield_),
+  };
+  ADFIQuote_reflection_ =
+    ::google::protobuf::internal::GeneratedMessageReflection::NewGeneratedMessageReflection(
+      ADFIQuote_descriptor_,
+      ADFIQuote::internal_default_instance(),
+      ADFIQuote_offsets_,
+      -1,
+      -1,
+      -1,
+      sizeof(ADFIQuote),
+      GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ADFIQuote, _internal_metadata_));
 }
 
 namespace {
@@ -105,6 +131,8 @@ void protobuf_RegisterTypes(const ::std::string&) {
   protobuf_AssignDescriptorsOnce();
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedMessage(
       MDFIQuote_descriptor_, MDFIQuote::internal_default_instance());
+  ::google::protobuf::MessageFactory::InternalRegisterGeneratedMessage(
+      ADFIQuote_descriptor_, ADFIQuote::internal_default_instance());
 }
 
 }  // namespace
@@ -112,6 +140,8 @@ void protobuf_RegisterTypes(const ::std::string&) {
 void protobuf_ShutdownFile_MDFIQuote_2eproto() {
   MDFIQuote_default_instance_.Shutdown();
   delete MDFIQuote_reflection_;
+  ADFIQuote_default_instance_.Shutdown();
+  delete ADFIQuote_reflection_;
 }
 
 void protobuf_InitDefaults_MDFIQuote_2eproto_impl() {
@@ -121,7 +151,10 @@ void protobuf_InitDefaults_MDFIQuote_2eproto_impl() {
   ::com::htsc::mdc::model::protobuf_InitDefaults_ESecurityType_2eproto();
   ::google::protobuf::internal::GetEmptyString();
   MDFIQuote_default_instance_.DefaultConstruct();
+  ::google::protobuf::internal::GetEmptyString();
+  ADFIQuote_default_instance_.DefaultConstruct();
   MDFIQuote_default_instance_.get_mutable()->InitAsDefaultInstance();
+  ADFIQuote_default_instance_.get_mutable()->InitAsDefaultInstance();
 }
 
 GOOGLE_PROTOBUF_DECLARE_ONCE(protobuf_InitDefaults_MDFIQuote_2eproto_once_);
@@ -136,7 +169,7 @@ void protobuf_AddDesc_MDFIQuote_2eproto_impl() {
   ::google::protobuf::DescriptorPool::InternalAddGeneratedFile(
     "\n\017MDFIQuote.proto\022\032com.htsc.mdc.insight."
     "model\032\027ESecurityIDSource.proto\032\023ESecurit"
-    "yType.proto\"\302\007\n\tMDFIQuote\022\026\n\016HTSCSecurit"
+    "yType.proto\"\371\007\n\tMDFIQuote\022\026\n\016HTSCSecurit"
     "yID\030\001 \001(\t\022\016\n\006MDDate\030\002 \001(\005\022\016\n\006MDTime\030\003 \001("
     "\005\022\025\n\rDataTimestamp\030\004 \001(\003\022\?\n\020securityIDSo"
     "urce\030\005 \001(\0162%.com.htsc.mdc.model.ESecurit"
@@ -160,8 +193,14 @@ void protobuf_AddDesc_MDFIQuote_2eproto_impl() {
     ") \001(\005\022\027\n\017SellBargainType\030* \001(\005\022\030\n\020SellRe"
     "lationType\030+ \001(\005\022\030\n\020SellExerciseType\030, \001"
     "(\005\022\025\n\rSellYieldType\030- \001(\005\022\035\n\025DataMultipl"
-    "ePowerOf10\030. \001(\005B2\n\032com.htsc.mdc.insight"
-    ".modelB\017MDFIQuoteProtosH\001\240\001\001b\006proto3", 1116);
+    "ePowerOf10\030. \001(\005\0225\n\006Quotes\030/ \003(\0132%.com.h"
+    "tsc.mdc.insight.model.ADFIQuote\"\267\001\n\tADFI"
+    "Quote\022\023\n\013QuoteBSFlag\030\001 \001(\005\022\022\n\nQuoteLevel"
+    "\030\002 \001(\005\022\017\n\007QuoteID\030\003 \001(\t\022\021\n\tQuoteTime\030\004 \001"
+    "(\005\022\016\n\006Quoter\030\005 \001(\t\022\022\n\nCleanPrice\030\006 \001(\003\022\016"
+    "\n\006Volume\030\007 \001(\003\022\022\n\nDirtyPrice\030\010 \001(\003\022\025\n\rMa"
+    "turityYield\030\t \001(\003B2\n\032com.htsc.mdc.insigh"
+    "t.modelB\017MDFIQuoteProtosH\001\240\001\001b\006proto3", 1357);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "MDFIQuote.proto", &protobuf_RegisterTypes);
   ::com::htsc::mdc::model::protobuf_AddDesc_ESecurityIDSource_2eproto();
@@ -232,6 +271,7 @@ const int MDFIQuote::kSellRelationTypeFieldNumber;
 const int MDFIQuote::kSellExerciseTypeFieldNumber;
 const int MDFIQuote::kSellYieldTypeFieldNumber;
 const int MDFIQuote::kDataMultiplePowerOf10FieldNumber;
+const int MDFIQuote::kQuotesFieldNumber;
 #endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
 
 MDFIQuote::MDFIQuote()
@@ -339,6 +379,7 @@ void MDFIQuote::Clear() {
 #undef ZR_HELPER_
 #undef ZR_
 
+  quotes_.Clear();
 }
 
 bool MDFIQuote::MergePartialFromCodedStream(
@@ -932,6 +973,23 @@ bool MDFIQuote::MergePartialFromCodedStream(
         } else {
           goto handle_unusual;
         }
+        if (input->ExpectTag(378)) goto parse_Quotes;
+        break;
+      }
+
+      // repeated .com.htsc.mdc.insight.model.ADFIQuote Quotes = 47;
+      case 47: {
+        if (tag == 378) {
+         parse_Quotes:
+          DO_(input->IncrementRecursionDepth());
+         parse_loop_Quotes:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadMessageNoVirtualNoRecursionDepth(
+                input, add_quotes()));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(378)) goto parse_loop_Quotes;
+        input->UnsafeDecrementRecursionDepth();
         if (input->ExpectAtEnd()) goto success;
         break;
       }
@@ -1187,6 +1245,12 @@ void MDFIQuote::SerializeWithCachedSizes(
     ::google::protobuf::internal::WireFormatLite::WriteInt32(46, this->datamultiplepowerof10(), output);
   }
 
+  // repeated .com.htsc.mdc.insight.model.ADFIQuote Quotes = 47;
+  for (unsigned int i = 0, n = this->quotes_size(); i < n; i++) {
+    ::google::protobuf::internal::WireFormatLite::WriteMessageMaybeToArray(
+      47, this->quotes(i), output);
+  }
+
   // @@protoc_insertion_point(serialize_end:com.htsc.mdc.insight.model.MDFIQuote)
 }
 
@@ -1426,6 +1490,13 @@ void MDFIQuote::SerializeWithCachedSizes(
   // optional int32 DataMultiplePowerOf10 = 46;
   if (this->datamultiplepowerof10() != 0) {
     target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(46, this->datamultiplepowerof10(), target);
+  }
+
+  // repeated .com.htsc.mdc.insight.model.ADFIQuote Quotes = 47;
+  for (unsigned int i = 0, n = this->quotes_size(); i < n; i++) {
+    target = ::google::protobuf::internal::WireFormatLite::
+      InternalWriteMessageNoVirtualToArray(
+        47, this->quotes(i), false, target);
   }
 
   // @@protoc_insertion_point(serialize_to_array_end:com.htsc.mdc.insight.model.MDFIQuote)
@@ -1700,6 +1771,17 @@ size_t MDFIQuote::ByteSizeLong() const {
         this->datamultiplepowerof10());
   }
 
+  // repeated .com.htsc.mdc.insight.model.ADFIQuote Quotes = 47;
+  {
+    unsigned int count = this->quotes_size();
+    total_size += 2UL * count;
+    for (unsigned int i = 0; i < count; i++) {
+      total_size +=
+        ::google::protobuf::internal::WireFormatLite::MessageSizeNoVirtual(
+          this->quotes(i));
+    }
+  }
+
   int cached_size = ::google::protobuf::internal::ToCachedSize(total_size);
   GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
   _cached_size_ = cached_size;
@@ -1733,6 +1815,7 @@ void MDFIQuote::MergeFrom(const MDFIQuote& from) {
 
 void MDFIQuote::UnsafeMergeFrom(const MDFIQuote& from) {
   GOOGLE_DCHECK(&from != this);
+  quotes_.MergeFrom(from.quotes_);
   if (from.htscsecurityid().size() > 0) {
 
     htscsecurityid_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.htscsecurityid_);
@@ -1918,6 +2001,7 @@ void MDFIQuote::InternalSwap(MDFIQuote* other) {
   std::swap(sellexercisetype_, other->sellexercisetype_);
   std::swap(sellyieldtype_, other->sellyieldtype_);
   std::swap(datamultiplepowerof10_, other->datamultiplepowerof10_);
+  quotes_.UnsafeArenaSwap(&other->quotes_);
   _internal_metadata_.Swap(&other->_internal_metadata_);
   std::swap(_cached_size_, other->_cached_size_);
 }
@@ -2675,8 +2759,807 @@ void MDFIQuote::set_datamultiplepowerof10(::google::protobuf::int32 value) {
   // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFIQuote.DataMultiplePowerOf10)
 }
 
+// repeated .com.htsc.mdc.insight.model.ADFIQuote Quotes = 47;
+int MDFIQuote::quotes_size() const {
+  return quotes_.size();
+}
+void MDFIQuote::clear_quotes() {
+  quotes_.Clear();
+}
+const ::com::htsc::mdc::insight::model::ADFIQuote& MDFIQuote::quotes(int index) const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDFIQuote.Quotes)
+  return quotes_.Get(index);
+}
+::com::htsc::mdc::insight::model::ADFIQuote* MDFIQuote::mutable_quotes(int index) {
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDFIQuote.Quotes)
+  return quotes_.Mutable(index);
+}
+::com::htsc::mdc::insight::model::ADFIQuote* MDFIQuote::add_quotes() {
+  // @@protoc_insertion_point(field_add:com.htsc.mdc.insight.model.MDFIQuote.Quotes)
+  return quotes_.Add();
+}
+::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADFIQuote >*
+MDFIQuote::mutable_quotes() {
+  // @@protoc_insertion_point(field_mutable_list:com.htsc.mdc.insight.model.MDFIQuote.Quotes)
+  return &quotes_;
+}
+const ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::ADFIQuote >&
+MDFIQuote::quotes() const {
+  // @@protoc_insertion_point(field_list:com.htsc.mdc.insight.model.MDFIQuote.Quotes)
+  return quotes_;
+}
+
 inline const MDFIQuote* MDFIQuote::internal_default_instance() {
   return &MDFIQuote_default_instance_.get();
+}
+#endif  // PROTOBUF_INLINE_NOT_IN_HEADERS
+
+// ===================================================================
+
+#if !defined(_MSC_VER) || _MSC_VER >= 1900
+const int ADFIQuote::kQuoteBSFlagFieldNumber;
+const int ADFIQuote::kQuoteLevelFieldNumber;
+const int ADFIQuote::kQuoteIDFieldNumber;
+const int ADFIQuote::kQuoteTimeFieldNumber;
+const int ADFIQuote::kQuoterFieldNumber;
+const int ADFIQuote::kCleanPriceFieldNumber;
+const int ADFIQuote::kVolumeFieldNumber;
+const int ADFIQuote::kDirtyPriceFieldNumber;
+const int ADFIQuote::kMaturityYieldFieldNumber;
+#endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
+
+ADFIQuote::ADFIQuote()
+  : ::google::protobuf::Message(), _internal_metadata_(NULL) {
+  if (this != internal_default_instance()) protobuf_InitDefaults_MDFIQuote_2eproto();
+  SharedCtor();
+  // @@protoc_insertion_point(constructor:com.htsc.mdc.insight.model.ADFIQuote)
+}
+
+void ADFIQuote::InitAsDefaultInstance() {
+}
+
+ADFIQuote::ADFIQuote(const ADFIQuote& from)
+  : ::google::protobuf::Message(),
+    _internal_metadata_(NULL) {
+  SharedCtor();
+  UnsafeMergeFrom(from);
+  // @@protoc_insertion_point(copy_constructor:com.htsc.mdc.insight.model.ADFIQuote)
+}
+
+void ADFIQuote::SharedCtor() {
+  quoteid_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  quoter_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  ::memset(&quotebsflag_, 0, reinterpret_cast<char*>(&quotetime_) -
+    reinterpret_cast<char*>(&quotebsflag_) + sizeof(quotetime_));
+  _cached_size_ = 0;
+}
+
+ADFIQuote::~ADFIQuote() {
+  // @@protoc_insertion_point(destructor:com.htsc.mdc.insight.model.ADFIQuote)
+  SharedDtor();
+}
+
+void ADFIQuote::SharedDtor() {
+  quoteid_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  quoter_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+
+void ADFIQuote::SetCachedSize(int size) const {
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+}
+const ::google::protobuf::Descriptor* ADFIQuote::descriptor() {
+  protobuf_AssignDescriptorsOnce();
+  return ADFIQuote_descriptor_;
+}
+
+const ADFIQuote& ADFIQuote::default_instance() {
+  protobuf_InitDefaults_MDFIQuote_2eproto();
+  return *internal_default_instance();
+}
+
+::google::protobuf::internal::ExplicitlyConstructed<ADFIQuote> ADFIQuote_default_instance_;
+
+ADFIQuote* ADFIQuote::New(::google::protobuf::Arena* arena) const {
+  ADFIQuote* n = new ADFIQuote;
+  if (arena != NULL) {
+    arena->Own(n);
+  }
+  return n;
+}
+
+void ADFIQuote::Clear() {
+// @@protoc_insertion_point(message_clear_start:com.htsc.mdc.insight.model.ADFIQuote)
+#if defined(__clang__)
+#define ZR_HELPER_(f) \
+  _Pragma("clang diagnostic push") \
+  _Pragma("clang diagnostic ignored \"-Winvalid-offsetof\"") \
+  __builtin_offsetof(ADFIQuote, f) \
+  _Pragma("clang diagnostic pop")
+#else
+#define ZR_HELPER_(f) reinterpret_cast<char*>(\
+  &reinterpret_cast<ADFIQuote*>(16)->f)
+#endif
+
+#define ZR_(first, last) do {\
+  ::memset(&(first), 0,\
+           ZR_HELPER_(last) - ZR_HELPER_(first) + sizeof(last));\
+} while (0)
+
+  ZR_(quotebsflag_, dirtyprice_);
+  quoteid_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  quotetime_ = 0;
+  quoter_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  maturityyield_ = GOOGLE_LONGLONG(0);
+
+#undef ZR_HELPER_
+#undef ZR_
+
+}
+
+bool ADFIQuote::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!GOOGLE_PREDICT_TRUE(EXPRESSION)) goto failure
+  ::google::protobuf::uint32 tag;
+  // @@protoc_insertion_point(parse_start:com.htsc.mdc.insight.model.ADFIQuote)
+  for (;;) {
+    ::std::pair< ::google::protobuf::uint32, bool> p = input->ReadTagWithCutoff(127);
+    tag = p.first;
+    if (!p.second) goto handle_unusual;
+    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
+      // optional int32 QuoteBSFlag = 1;
+      case 1: {
+        if (tag == 8) {
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
+                 input, &quotebsflag_)));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(16)) goto parse_QuoteLevel;
+        break;
+      }
+
+      // optional int32 QuoteLevel = 2;
+      case 2: {
+        if (tag == 16) {
+         parse_QuoteLevel:
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
+                 input, &quotelevel_)));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(26)) goto parse_QuoteID;
+        break;
+      }
+
+      // optional string QuoteID = 3;
+      case 3: {
+        if (tag == 26) {
+         parse_QuoteID:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_quoteid()));
+          DO_(::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+            this->quoteid().data(), this->quoteid().length(),
+            ::google::protobuf::internal::WireFormatLite::PARSE,
+            "com.htsc.mdc.insight.model.ADFIQuote.QuoteID"));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(32)) goto parse_QuoteTime;
+        break;
+      }
+
+      // optional int32 QuoteTime = 4;
+      case 4: {
+        if (tag == 32) {
+         parse_QuoteTime:
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int32, ::google::protobuf::internal::WireFormatLite::TYPE_INT32>(
+                 input, &quotetime_)));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(42)) goto parse_Quoter;
+        break;
+      }
+
+      // optional string Quoter = 5;
+      case 5: {
+        if (tag == 42) {
+         parse_Quoter:
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_quoter()));
+          DO_(::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+            this->quoter().data(), this->quoter().length(),
+            ::google::protobuf::internal::WireFormatLite::PARSE,
+            "com.htsc.mdc.insight.model.ADFIQuote.Quoter"));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(48)) goto parse_CleanPrice;
+        break;
+      }
+
+      // optional int64 CleanPrice = 6;
+      case 6: {
+        if (tag == 48) {
+         parse_CleanPrice:
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &cleanprice_)));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(56)) goto parse_Volume;
+        break;
+      }
+
+      // optional int64 Volume = 7;
+      case 7: {
+        if (tag == 56) {
+         parse_Volume:
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &volume_)));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(64)) goto parse_DirtyPrice;
+        break;
+      }
+
+      // optional int64 DirtyPrice = 8;
+      case 8: {
+        if (tag == 64) {
+         parse_DirtyPrice:
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &dirtyprice_)));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectTag(72)) goto parse_MaturityYield;
+        break;
+      }
+
+      // optional int64 MaturityYield = 9;
+      case 9: {
+        if (tag == 72) {
+         parse_MaturityYield:
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
+                 input, &maturityyield_)));
+        } else {
+          goto handle_unusual;
+        }
+        if (input->ExpectAtEnd()) goto success;
+        break;
+      }
+
+      default: {
+      handle_unusual:
+        if (tag == 0 ||
+            ::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP) {
+          goto success;
+        }
+        DO_(::google::protobuf::internal::WireFormatLite::SkipField(input, tag));
+        break;
+      }
+    }
+  }
+success:
+  // @@protoc_insertion_point(parse_success:com.htsc.mdc.insight.model.ADFIQuote)
+  return true;
+failure:
+  // @@protoc_insertion_point(parse_failure:com.htsc.mdc.insight.model.ADFIQuote)
+  return false;
+#undef DO_
+}
+
+void ADFIQuote::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+  // @@protoc_insertion_point(serialize_start:com.htsc.mdc.insight.model.ADFIQuote)
+  // optional int32 QuoteBSFlag = 1;
+  if (this->quotebsflag() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt32(1, this->quotebsflag(), output);
+  }
+
+  // optional int32 QuoteLevel = 2;
+  if (this->quotelevel() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt32(2, this->quotelevel(), output);
+  }
+
+  // optional string QuoteID = 3;
+  if (this->quoteid().size() > 0) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->quoteid().data(), this->quoteid().length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.ADFIQuote.QuoteID");
+    ::google::protobuf::internal::WireFormatLite::WriteStringMaybeAliased(
+      3, this->quoteid(), output);
+  }
+
+  // optional int32 QuoteTime = 4;
+  if (this->quotetime() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt32(4, this->quotetime(), output);
+  }
+
+  // optional string Quoter = 5;
+  if (this->quoter().size() > 0) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->quoter().data(), this->quoter().length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.ADFIQuote.Quoter");
+    ::google::protobuf::internal::WireFormatLite::WriteStringMaybeAliased(
+      5, this->quoter(), output);
+  }
+
+  // optional int64 CleanPrice = 6;
+  if (this->cleanprice() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(6, this->cleanprice(), output);
+  }
+
+  // optional int64 Volume = 7;
+  if (this->volume() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(7, this->volume(), output);
+  }
+
+  // optional int64 DirtyPrice = 8;
+  if (this->dirtyprice() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(8, this->dirtyprice(), output);
+  }
+
+  // optional int64 MaturityYield = 9;
+  if (this->maturityyield() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteInt64(9, this->maturityyield(), output);
+  }
+
+  // @@protoc_insertion_point(serialize_end:com.htsc.mdc.insight.model.ADFIQuote)
+}
+
+::google::protobuf::uint8* ADFIQuote::InternalSerializeWithCachedSizesToArray(
+    bool deterministic, ::google::protobuf::uint8* target) const {
+  (void)deterministic; // Unused
+  // @@protoc_insertion_point(serialize_to_array_start:com.htsc.mdc.insight.model.ADFIQuote)
+  // optional int32 QuoteBSFlag = 1;
+  if (this->quotebsflag() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(1, this->quotebsflag(), target);
+  }
+
+  // optional int32 QuoteLevel = 2;
+  if (this->quotelevel() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(2, this->quotelevel(), target);
+  }
+
+  // optional string QuoteID = 3;
+  if (this->quoteid().size() > 0) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->quoteid().data(), this->quoteid().length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.ADFIQuote.QuoteID");
+    target =
+      ::google::protobuf::internal::WireFormatLite::WriteStringToArray(
+        3, this->quoteid(), target);
+  }
+
+  // optional int32 QuoteTime = 4;
+  if (this->quotetime() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt32ToArray(4, this->quotetime(), target);
+  }
+
+  // optional string Quoter = 5;
+  if (this->quoter().size() > 0) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->quoter().data(), this->quoter().length(),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "com.htsc.mdc.insight.model.ADFIQuote.Quoter");
+    target =
+      ::google::protobuf::internal::WireFormatLite::WriteStringToArray(
+        5, this->quoter(), target);
+  }
+
+  // optional int64 CleanPrice = 6;
+  if (this->cleanprice() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt64ToArray(6, this->cleanprice(), target);
+  }
+
+  // optional int64 Volume = 7;
+  if (this->volume() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt64ToArray(7, this->volume(), target);
+  }
+
+  // optional int64 DirtyPrice = 8;
+  if (this->dirtyprice() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt64ToArray(8, this->dirtyprice(), target);
+  }
+
+  // optional int64 MaturityYield = 9;
+  if (this->maturityyield() != 0) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteInt64ToArray(9, this->maturityyield(), target);
+  }
+
+  // @@protoc_insertion_point(serialize_to_array_end:com.htsc.mdc.insight.model.ADFIQuote)
+  return target;
+}
+
+size_t ADFIQuote::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:com.htsc.mdc.insight.model.ADFIQuote)
+  size_t total_size = 0;
+
+  // optional int32 QuoteBSFlag = 1;
+  if (this->quotebsflag() != 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::Int32Size(
+        this->quotebsflag());
+  }
+
+  // optional int32 QuoteLevel = 2;
+  if (this->quotelevel() != 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::Int32Size(
+        this->quotelevel());
+  }
+
+  // optional string QuoteID = 3;
+  if (this->quoteid().size() > 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::StringSize(
+        this->quoteid());
+  }
+
+  // optional int32 QuoteTime = 4;
+  if (this->quotetime() != 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::Int32Size(
+        this->quotetime());
+  }
+
+  // optional string Quoter = 5;
+  if (this->quoter().size() > 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::StringSize(
+        this->quoter());
+  }
+
+  // optional int64 CleanPrice = 6;
+  if (this->cleanprice() != 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::Int64Size(
+        this->cleanprice());
+  }
+
+  // optional int64 Volume = 7;
+  if (this->volume() != 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::Int64Size(
+        this->volume());
+  }
+
+  // optional int64 DirtyPrice = 8;
+  if (this->dirtyprice() != 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::Int64Size(
+        this->dirtyprice());
+  }
+
+  // optional int64 MaturityYield = 9;
+  if (this->maturityyield() != 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::Int64Size(
+        this->maturityyield());
+  }
+
+  int cached_size = ::google::protobuf::internal::ToCachedSize(total_size);
+  GOOGLE_SAFE_CONCURRENT_WRITES_BEGIN();
+  _cached_size_ = cached_size;
+  GOOGLE_SAFE_CONCURRENT_WRITES_END();
+  return total_size;
+}
+
+void ADFIQuote::MergeFrom(const ::google::protobuf::Message& from) {
+// @@protoc_insertion_point(generalized_merge_from_start:com.htsc.mdc.insight.model.ADFIQuote)
+  if (GOOGLE_PREDICT_FALSE(&from == this)) MergeFromFail(__LINE__);
+  const ADFIQuote* source =
+      ::google::protobuf::internal::DynamicCastToGenerated<const ADFIQuote>(
+          &from);
+  if (source == NULL) {
+  // @@protoc_insertion_point(generalized_merge_from_cast_fail:com.htsc.mdc.insight.model.ADFIQuote)
+    ::google::protobuf::internal::ReflectionOps::Merge(from, this);
+  } else {
+  // @@protoc_insertion_point(generalized_merge_from_cast_success:com.htsc.mdc.insight.model.ADFIQuote)
+    UnsafeMergeFrom(*source);
+  }
+}
+
+void ADFIQuote::MergeFrom(const ADFIQuote& from) {
+// @@protoc_insertion_point(class_specific_merge_from_start:com.htsc.mdc.insight.model.ADFIQuote)
+  if (GOOGLE_PREDICT_TRUE(&from != this)) {
+    UnsafeMergeFrom(from);
+  } else {
+    MergeFromFail(__LINE__);
+  }
+}
+
+void ADFIQuote::UnsafeMergeFrom(const ADFIQuote& from) {
+  GOOGLE_DCHECK(&from != this);
+  if (from.quotebsflag() != 0) {
+    set_quotebsflag(from.quotebsflag());
+  }
+  if (from.quotelevel() != 0) {
+    set_quotelevel(from.quotelevel());
+  }
+  if (from.quoteid().size() > 0) {
+
+    quoteid_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.quoteid_);
+  }
+  if (from.quotetime() != 0) {
+    set_quotetime(from.quotetime());
+  }
+  if (from.quoter().size() > 0) {
+
+    quoter_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.quoter_);
+  }
+  if (from.cleanprice() != 0) {
+    set_cleanprice(from.cleanprice());
+  }
+  if (from.volume() != 0) {
+    set_volume(from.volume());
+  }
+  if (from.dirtyprice() != 0) {
+    set_dirtyprice(from.dirtyprice());
+  }
+  if (from.maturityyield() != 0) {
+    set_maturityyield(from.maturityyield());
+  }
+}
+
+void ADFIQuote::CopyFrom(const ::google::protobuf::Message& from) {
+// @@protoc_insertion_point(generalized_copy_from_start:com.htsc.mdc.insight.model.ADFIQuote)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+void ADFIQuote::CopyFrom(const ADFIQuote& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:com.htsc.mdc.insight.model.ADFIQuote)
+  if (&from == this) return;
+  Clear();
+  UnsafeMergeFrom(from);
+}
+
+bool ADFIQuote::IsInitialized() const {
+
+  return true;
+}
+
+void ADFIQuote::Swap(ADFIQuote* other) {
+  if (other == this) return;
+  InternalSwap(other);
+}
+void ADFIQuote::InternalSwap(ADFIQuote* other) {
+  std::swap(quotebsflag_, other->quotebsflag_);
+  std::swap(quotelevel_, other->quotelevel_);
+  quoteid_.Swap(&other->quoteid_);
+  std::swap(quotetime_, other->quotetime_);
+  quoter_.Swap(&other->quoter_);
+  std::swap(cleanprice_, other->cleanprice_);
+  std::swap(volume_, other->volume_);
+  std::swap(dirtyprice_, other->dirtyprice_);
+  std::swap(maturityyield_, other->maturityyield_);
+  _internal_metadata_.Swap(&other->_internal_metadata_);
+  std::swap(_cached_size_, other->_cached_size_);
+}
+
+::google::protobuf::Metadata ADFIQuote::GetMetadata() const {
+  protobuf_AssignDescriptorsOnce();
+  ::google::protobuf::Metadata metadata;
+  metadata.descriptor = ADFIQuote_descriptor_;
+  metadata.reflection = ADFIQuote_reflection_;
+  return metadata;
+}
+
+#if PROTOBUF_INLINE_NOT_IN_HEADERS
+// ADFIQuote
+
+// optional int32 QuoteBSFlag = 1;
+void ADFIQuote::clear_quotebsflag() {
+  quotebsflag_ = 0;
+}
+::google::protobuf::int32 ADFIQuote::quotebsflag() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADFIQuote.QuoteBSFlag)
+  return quotebsflag_;
+}
+void ADFIQuote::set_quotebsflag(::google::protobuf::int32 value) {
+  
+  quotebsflag_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADFIQuote.QuoteBSFlag)
+}
+
+// optional int32 QuoteLevel = 2;
+void ADFIQuote::clear_quotelevel() {
+  quotelevel_ = 0;
+}
+::google::protobuf::int32 ADFIQuote::quotelevel() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADFIQuote.QuoteLevel)
+  return quotelevel_;
+}
+void ADFIQuote::set_quotelevel(::google::protobuf::int32 value) {
+  
+  quotelevel_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADFIQuote.QuoteLevel)
+}
+
+// optional string QuoteID = 3;
+void ADFIQuote::clear_quoteid() {
+  quoteid_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+const ::std::string& ADFIQuote::quoteid() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADFIQuote.QuoteID)
+  return quoteid_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+void ADFIQuote::set_quoteid(const ::std::string& value) {
+  
+  quoteid_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADFIQuote.QuoteID)
+}
+void ADFIQuote::set_quoteid(const char* value) {
+  
+  quoteid_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.ADFIQuote.QuoteID)
+}
+void ADFIQuote::set_quoteid(const char* value, size_t size) {
+  
+  quoteid_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.ADFIQuote.QuoteID)
+}
+::std::string* ADFIQuote::mutable_quoteid() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.ADFIQuote.QuoteID)
+  return quoteid_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+::std::string* ADFIQuote::release_quoteid() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.ADFIQuote.QuoteID)
+  
+  return quoteid_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+void ADFIQuote::set_allocated_quoteid(::std::string* quoteid) {
+  if (quoteid != NULL) {
+    
+  } else {
+    
+  }
+  quoteid_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), quoteid);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.ADFIQuote.QuoteID)
+}
+
+// optional int32 QuoteTime = 4;
+void ADFIQuote::clear_quotetime() {
+  quotetime_ = 0;
+}
+::google::protobuf::int32 ADFIQuote::quotetime() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADFIQuote.QuoteTime)
+  return quotetime_;
+}
+void ADFIQuote::set_quotetime(::google::protobuf::int32 value) {
+  
+  quotetime_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADFIQuote.QuoteTime)
+}
+
+// optional string Quoter = 5;
+void ADFIQuote::clear_quoter() {
+  quoter_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+const ::std::string& ADFIQuote::quoter() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADFIQuote.Quoter)
+  return quoter_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+void ADFIQuote::set_quoter(const ::std::string& value) {
+  
+  quoter_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADFIQuote.Quoter)
+}
+void ADFIQuote::set_quoter(const char* value) {
+  
+  quoter_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.ADFIQuote.Quoter)
+}
+void ADFIQuote::set_quoter(const char* value, size_t size) {
+  
+  quoter_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.ADFIQuote.Quoter)
+}
+::std::string* ADFIQuote::mutable_quoter() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.ADFIQuote.Quoter)
+  return quoter_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+::std::string* ADFIQuote::release_quoter() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.ADFIQuote.Quoter)
+  
+  return quoter_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+void ADFIQuote::set_allocated_quoter(::std::string* quoter) {
+  if (quoter != NULL) {
+    
+  } else {
+    
+  }
+  quoter_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), quoter);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.ADFIQuote.Quoter)
+}
+
+// optional int64 CleanPrice = 6;
+void ADFIQuote::clear_cleanprice() {
+  cleanprice_ = GOOGLE_LONGLONG(0);
+}
+::google::protobuf::int64 ADFIQuote::cleanprice() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADFIQuote.CleanPrice)
+  return cleanprice_;
+}
+void ADFIQuote::set_cleanprice(::google::protobuf::int64 value) {
+  
+  cleanprice_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADFIQuote.CleanPrice)
+}
+
+// optional int64 Volume = 7;
+void ADFIQuote::clear_volume() {
+  volume_ = GOOGLE_LONGLONG(0);
+}
+::google::protobuf::int64 ADFIQuote::volume() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADFIQuote.Volume)
+  return volume_;
+}
+void ADFIQuote::set_volume(::google::protobuf::int64 value) {
+  
+  volume_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADFIQuote.Volume)
+}
+
+// optional int64 DirtyPrice = 8;
+void ADFIQuote::clear_dirtyprice() {
+  dirtyprice_ = GOOGLE_LONGLONG(0);
+}
+::google::protobuf::int64 ADFIQuote::dirtyprice() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADFIQuote.DirtyPrice)
+  return dirtyprice_;
+}
+void ADFIQuote::set_dirtyprice(::google::protobuf::int64 value) {
+  
+  dirtyprice_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADFIQuote.DirtyPrice)
+}
+
+// optional int64 MaturityYield = 9;
+void ADFIQuote::clear_maturityyield() {
+  maturityyield_ = GOOGLE_LONGLONG(0);
+}
+::google::protobuf::int64 ADFIQuote::maturityyield() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADFIQuote.MaturityYield)
+  return maturityyield_;
+}
+void ADFIQuote::set_maturityyield(::google::protobuf::int64 value) {
+  
+  maturityyield_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADFIQuote.MaturityYield)
+}
+
+inline const ADFIQuote* ADFIQuote::internal_default_instance() {
+  return &ADFIQuote_default_instance_.get();
 }
 #endif  // PROTOBUF_INLINE_NOT_IN_HEADERS
 

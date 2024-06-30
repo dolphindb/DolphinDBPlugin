@@ -44,6 +44,7 @@ void protobuf_AssignDesc_MDQuote_2eproto();
 void protobuf_ShutdownFile_MDQuote_2eproto();
 
 class MDCashBondQuote;
+class MDFxBestQuote;
 class MDQuote;
 
 // ===================================================================
@@ -246,14 +247,39 @@ class MDQuote : public ::google::protobuf::Message /* @@protoc_insertion_point(c
   ::google::protobuf::int32 datamultiplepowerof10() const;
   void set_datamultiplepowerof10(::google::protobuf::int32 value);
 
+  // optional string VolatilitySurface = 20;
+  void clear_volatilitysurface();
+  static const int kVolatilitySurfaceFieldNumber = 20;
+  const ::std::string& volatilitysurface() const;
+  void set_volatilitysurface(const ::std::string& value);
+  void set_volatilitysurface(const char* value);
+  void set_volatilitysurface(const char* value, size_t size);
+  ::std::string* mutable_volatilitysurface();
+  ::std::string* release_volatilitysurface();
+  void set_allocated_volatilitysurface(::std::string* volatilitysurface);
+
+  // repeated .com.htsc.mdc.insight.model.MDFxBestQuote MDFxBestQuotes = 21;
+  int mdfxbestquotes_size() const;
+  void clear_mdfxbestquotes();
+  static const int kMDFxBestQuotesFieldNumber = 21;
+  const ::com::htsc::mdc::insight::model::MDFxBestQuote& mdfxbestquotes(int index) const;
+  ::com::htsc::mdc::insight::model::MDFxBestQuote* mutable_mdfxbestquotes(int index);
+  ::com::htsc::mdc::insight::model::MDFxBestQuote* add_mdfxbestquotes();
+  ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::MDFxBestQuote >*
+      mutable_mdfxbestquotes();
+  const ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::MDFxBestQuote >&
+      mdfxbestquotes() const;
+
   // @@protoc_insertion_point(class_scope:com.htsc.mdc.insight.model.MDQuote)
  private:
 
   ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
   ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::MDCashBondQuote > mdcashbondquotes_;
+  ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::MDFxBestQuote > mdfxbestquotes_;
   ::google::protobuf::internal::ArenaStringPtr htscsecurityid_;
   ::google::protobuf::internal::ArenaStringPtr tradingphasecode_;
   ::google::protobuf::internal::ArenaStringPtr marketindicator_;
+  ::google::protobuf::internal::ArenaStringPtr volatilitysurface_;
   ::google::protobuf::int32 mddate_;
   ::google::protobuf::int32 mdtime_;
   ::google::protobuf::int64 datatimestamp_;
@@ -483,6 +509,12 @@ class MDCashBondQuote : public ::google::protobuf::Message /* @@protoc_insertion
   ::std::string* release_traderaccountid();
   void set_allocated_traderaccountid(::std::string* traderaccountid);
 
+  // optional int32 DataType = 20;
+  void clear_datatype();
+  static const int kDataTypeFieldNumber = 20;
+  ::google::protobuf::int32 datatype() const;
+  void set_datatype(::google::protobuf::int32 value);
+
   // @@protoc_insertion_point(class_scope:com.htsc.mdc.insight.model.MDCashBondQuote)
  private:
 
@@ -506,6 +538,7 @@ class MDCashBondQuote : public ::google::protobuf::Message /* @@protoc_insertion
   ::google::protobuf::int64 settlcurrfxrate_;
   ::google::protobuf::int64 maturityyield_;
   ::google::protobuf::int32 deliverytype_;
+  ::google::protobuf::int32 datatype_;
   mutable int _cached_size_;
   friend void  protobuf_InitDefaults_MDQuote_2eproto_impl();
   friend void  protobuf_AddDesc_MDQuote_2eproto_impl();
@@ -515,6 +548,164 @@ class MDCashBondQuote : public ::google::protobuf::Message /* @@protoc_insertion
   void InitAsDefaultInstance();
 };
 extern ::google::protobuf::internal::ExplicitlyConstructed<MDCashBondQuote> MDCashBondQuote_default_instance_;
+
+// -------------------------------------------------------------------
+
+class MDFxBestQuote : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:com.htsc.mdc.insight.model.MDFxBestQuote) */ {
+ public:
+  MDFxBestQuote();
+  virtual ~MDFxBestQuote();
+
+  MDFxBestQuote(const MDFxBestQuote& from);
+
+  inline MDFxBestQuote& operator=(const MDFxBestQuote& from) {
+    CopyFrom(from);
+    return *this;
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor();
+  static const MDFxBestQuote& default_instance();
+
+  static const MDFxBestQuote* internal_default_instance();
+
+  void Swap(MDFxBestQuote* other);
+
+  // implements Message ----------------------------------------------
+
+  inline MDFxBestQuote* New() const { return New(NULL); }
+
+  MDFxBestQuote* New(::google::protobuf::Arena* arena) const;
+  void CopyFrom(const ::google::protobuf::Message& from);
+  void MergeFrom(const ::google::protobuf::Message& from);
+  void CopyFrom(const MDFxBestQuote& from);
+  void MergeFrom(const MDFxBestQuote& from);
+  void Clear();
+  bool IsInitialized() const;
+
+  size_t ByteSizeLong() const;
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input);
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const;
+  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
+      bool deterministic, ::google::protobuf::uint8* output) const;
+  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const {
+    return InternalSerializeWithCachedSizesToArray(false, output);
+  }
+  int GetCachedSize() const { return _cached_size_; }
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  void InternalSwap(MDFxBestQuote* other);
+  void UnsafeMergeFrom(const MDFxBestQuote& from);
+  private:
+  inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
+    return _internal_metadata_.arena();
+  }
+  inline void* MaybeArenaPtr() const {
+    return _internal_metadata_.raw_arena_ptr();
+  }
+  public:
+
+  ::google::protobuf::Metadata GetMetadata() const;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // optional int32 Side = 1;
+  void clear_side();
+  static const int kSideFieldNumber = 1;
+  ::google::protobuf::int32 side() const;
+  void set_side(::google::protobuf::int32 value);
+
+  // optional int64 Price = 2;
+  void clear_price();
+  static const int kPriceFieldNumber = 2;
+  ::google::protobuf::int64 price() const;
+  void set_price(::google::protobuf::int64 value);
+
+  // optional string Tenor = 3;
+  void clear_tenor();
+  static const int kTenorFieldNumber = 3;
+  const ::std::string& tenor() const;
+  void set_tenor(const ::std::string& value);
+  void set_tenor(const char* value);
+  void set_tenor(const char* value, size_t size);
+  ::std::string* mutable_tenor();
+  ::std::string* release_tenor();
+  void set_allocated_tenor(::std::string* tenor);
+
+  // optional string Date = 4;
+  void clear_date();
+  static const int kDateFieldNumber = 4;
+  const ::std::string& date() const;
+  void set_date(const ::std::string& value);
+  void set_date(const char* value);
+  void set_date(const char* value, size_t size);
+  ::std::string* mutable_date();
+  ::std::string* release_date();
+  void set_allocated_date(::std::string* date);
+
+  // optional string Time = 5;
+  void clear_time();
+  static const int kTimeFieldNumber = 5;
+  const ::std::string& time() const;
+  void set_time(const ::std::string& value);
+  void set_time(const char* value);
+  void set_time(const char* value, size_t size);
+  ::std::string* mutable_time();
+  ::std::string* release_time();
+  void set_allocated_time(::std::string* time);
+
+  // repeated string LiquidProviders = 6;
+  int liquidproviders_size() const;
+  void clear_liquidproviders();
+  static const int kLiquidProvidersFieldNumber = 6;
+  const ::std::string& liquidproviders(int index) const;
+  ::std::string* mutable_liquidproviders(int index);
+  void set_liquidproviders(int index, const ::std::string& value);
+  void set_liquidproviders(int index, const char* value);
+  void set_liquidproviders(int index, const char* value, size_t size);
+  ::std::string* add_liquidproviders();
+  void add_liquidproviders(const ::std::string& value);
+  void add_liquidproviders(const char* value);
+  void add_liquidproviders(const char* value, size_t size);
+  const ::google::protobuf::RepeatedPtrField< ::std::string>& liquidproviders() const;
+  ::google::protobuf::RepeatedPtrField< ::std::string>* mutable_liquidproviders();
+
+  // optional string LegSign = 7;
+  void clear_legsign();
+  static const int kLegSignFieldNumber = 7;
+  const ::std::string& legsign() const;
+  void set_legsign(const ::std::string& value);
+  void set_legsign(const char* value);
+  void set_legsign(const char* value, size_t size);
+  ::std::string* mutable_legsign();
+  ::std::string* release_legsign();
+  void set_allocated_legsign(::std::string* legsign);
+
+  // @@protoc_insertion_point(class_scope:com.htsc.mdc.insight.model.MDFxBestQuote)
+ private:
+
+  ::google::protobuf::internal::InternalMetadataWithArena _internal_metadata_;
+  ::google::protobuf::RepeatedPtrField< ::std::string> liquidproviders_;
+  ::google::protobuf::internal::ArenaStringPtr tenor_;
+  ::google::protobuf::internal::ArenaStringPtr date_;
+  ::google::protobuf::internal::ArenaStringPtr time_;
+  ::google::protobuf::internal::ArenaStringPtr legsign_;
+  ::google::protobuf::int64 price_;
+  ::google::protobuf::int32 side_;
+  mutable int _cached_size_;
+  friend void  protobuf_InitDefaults_MDQuote_2eproto_impl();
+  friend void  protobuf_AddDesc_MDQuote_2eproto_impl();
+  friend void protobuf_AssignDesc_MDQuote_2eproto();
+  friend void protobuf_ShutdownFile_MDQuote_2eproto();
+
+  void InitAsDefaultInstance();
+};
+extern ::google::protobuf::internal::ExplicitlyConstructed<MDFxBestQuote> MDFxBestQuote_default_instance_;
 
 // ===================================================================
 
@@ -894,6 +1085,80 @@ inline void MDQuote::set_datamultiplepowerof10(::google::protobuf::int32 value) 
   
   datamultiplepowerof10_ = value;
   // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDQuote.DataMultiplePowerOf10)
+}
+
+// optional string VolatilitySurface = 20;
+inline void MDQuote::clear_volatilitysurface() {
+  volatilitysurface_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& MDQuote::volatilitysurface() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDQuote.VolatilitySurface)
+  return volatilitysurface_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDQuote::set_volatilitysurface(const ::std::string& value) {
+  
+  volatilitysurface_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDQuote.VolatilitySurface)
+}
+inline void MDQuote::set_volatilitysurface(const char* value) {
+  
+  volatilitysurface_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDQuote.VolatilitySurface)
+}
+inline void MDQuote::set_volatilitysurface(const char* value, size_t size) {
+  
+  volatilitysurface_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDQuote.VolatilitySurface)
+}
+inline ::std::string* MDQuote::mutable_volatilitysurface() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDQuote.VolatilitySurface)
+  return volatilitysurface_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* MDQuote::release_volatilitysurface() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MDQuote.VolatilitySurface)
+  
+  return volatilitysurface_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDQuote::set_allocated_volatilitysurface(::std::string* volatilitysurface) {
+  if (volatilitysurface != NULL) {
+    
+  } else {
+    
+  }
+  volatilitysurface_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), volatilitysurface);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDQuote.VolatilitySurface)
+}
+
+// repeated .com.htsc.mdc.insight.model.MDFxBestQuote MDFxBestQuotes = 21;
+inline int MDQuote::mdfxbestquotes_size() const {
+  return mdfxbestquotes_.size();
+}
+inline void MDQuote::clear_mdfxbestquotes() {
+  mdfxbestquotes_.Clear();
+}
+inline const ::com::htsc::mdc::insight::model::MDFxBestQuote& MDQuote::mdfxbestquotes(int index) const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDQuote.MDFxBestQuotes)
+  return mdfxbestquotes_.Get(index);
+}
+inline ::com::htsc::mdc::insight::model::MDFxBestQuote* MDQuote::mutable_mdfxbestquotes(int index) {
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDQuote.MDFxBestQuotes)
+  return mdfxbestquotes_.Mutable(index);
+}
+inline ::com::htsc::mdc::insight::model::MDFxBestQuote* MDQuote::add_mdfxbestquotes() {
+  // @@protoc_insertion_point(field_add:com.htsc.mdc.insight.model.MDQuote.MDFxBestQuotes)
+  return mdfxbestquotes_.Add();
+}
+inline ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::MDFxBestQuote >*
+MDQuote::mutable_mdfxbestquotes() {
+  // @@protoc_insertion_point(field_mutable_list:com.htsc.mdc.insight.model.MDQuote.MDFxBestQuotes)
+  return &mdfxbestquotes_;
+}
+inline const ::google::protobuf::RepeatedPtrField< ::com::htsc::mdc::insight::model::MDFxBestQuote >&
+MDQuote::mdfxbestquotes() const {
+  // @@protoc_insertion_point(field_list:com.htsc.mdc.insight.model.MDQuote.MDFxBestQuotes)
+  return mdfxbestquotes_;
 }
 
 inline const MDQuote* MDQuote::internal_default_instance() {
@@ -1319,10 +1584,292 @@ inline void MDCashBondQuote::set_allocated_traderaccountid(::std::string* trader
   // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDCashBondQuote.TraderAccountID)
 }
 
+// optional int32 DataType = 20;
+inline void MDCashBondQuote::clear_datatype() {
+  datatype_ = 0;
+}
+inline ::google::protobuf::int32 MDCashBondQuote::datatype() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDCashBondQuote.DataType)
+  return datatype_;
+}
+inline void MDCashBondQuote::set_datatype(::google::protobuf::int32 value) {
+  
+  datatype_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDCashBondQuote.DataType)
+}
+
 inline const MDCashBondQuote* MDCashBondQuote::internal_default_instance() {
   return &MDCashBondQuote_default_instance_.get();
 }
+// -------------------------------------------------------------------
+
+// MDFxBestQuote
+
+// optional int32 Side = 1;
+inline void MDFxBestQuote::clear_side() {
+  side_ = 0;
+}
+inline ::google::protobuf::int32 MDFxBestQuote::side() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDFxBestQuote.Side)
+  return side_;
+}
+inline void MDFxBestQuote::set_side(::google::protobuf::int32 value) {
+  
+  side_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFxBestQuote.Side)
+}
+
+// optional int64 Price = 2;
+inline void MDFxBestQuote::clear_price() {
+  price_ = GOOGLE_LONGLONG(0);
+}
+inline ::google::protobuf::int64 MDFxBestQuote::price() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDFxBestQuote.Price)
+  return price_;
+}
+inline void MDFxBestQuote::set_price(::google::protobuf::int64 value) {
+  
+  price_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFxBestQuote.Price)
+}
+
+// optional string Tenor = 3;
+inline void MDFxBestQuote::clear_tenor() {
+  tenor_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& MDFxBestQuote::tenor() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDFxBestQuote.Tenor)
+  return tenor_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDFxBestQuote::set_tenor(const ::std::string& value) {
+  
+  tenor_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFxBestQuote.Tenor)
+}
+inline void MDFxBestQuote::set_tenor(const char* value) {
+  
+  tenor_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDFxBestQuote.Tenor)
+}
+inline void MDFxBestQuote::set_tenor(const char* value, size_t size) {
+  
+  tenor_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDFxBestQuote.Tenor)
+}
+inline ::std::string* MDFxBestQuote::mutable_tenor() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDFxBestQuote.Tenor)
+  return tenor_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* MDFxBestQuote::release_tenor() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MDFxBestQuote.Tenor)
+  
+  return tenor_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDFxBestQuote::set_allocated_tenor(::std::string* tenor) {
+  if (tenor != NULL) {
+    
+  } else {
+    
+  }
+  tenor_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), tenor);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDFxBestQuote.Tenor)
+}
+
+// optional string Date = 4;
+inline void MDFxBestQuote::clear_date() {
+  date_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& MDFxBestQuote::date() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDFxBestQuote.Date)
+  return date_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDFxBestQuote::set_date(const ::std::string& value) {
+  
+  date_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFxBestQuote.Date)
+}
+inline void MDFxBestQuote::set_date(const char* value) {
+  
+  date_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDFxBestQuote.Date)
+}
+inline void MDFxBestQuote::set_date(const char* value, size_t size) {
+  
+  date_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDFxBestQuote.Date)
+}
+inline ::std::string* MDFxBestQuote::mutable_date() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDFxBestQuote.Date)
+  return date_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* MDFxBestQuote::release_date() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MDFxBestQuote.Date)
+  
+  return date_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDFxBestQuote::set_allocated_date(::std::string* date) {
+  if (date != NULL) {
+    
+  } else {
+    
+  }
+  date_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), date);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDFxBestQuote.Date)
+}
+
+// optional string Time = 5;
+inline void MDFxBestQuote::clear_time() {
+  time_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& MDFxBestQuote::time() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDFxBestQuote.Time)
+  return time_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDFxBestQuote::set_time(const ::std::string& value) {
+  
+  time_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFxBestQuote.Time)
+}
+inline void MDFxBestQuote::set_time(const char* value) {
+  
+  time_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDFxBestQuote.Time)
+}
+inline void MDFxBestQuote::set_time(const char* value, size_t size) {
+  
+  time_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDFxBestQuote.Time)
+}
+inline ::std::string* MDFxBestQuote::mutable_time() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDFxBestQuote.Time)
+  return time_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* MDFxBestQuote::release_time() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MDFxBestQuote.Time)
+  
+  return time_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDFxBestQuote::set_allocated_time(::std::string* time) {
+  if (time != NULL) {
+    
+  } else {
+    
+  }
+  time_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), time);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDFxBestQuote.Time)
+}
+
+// repeated string LiquidProviders = 6;
+inline int MDFxBestQuote::liquidproviders_size() const {
+  return liquidproviders_.size();
+}
+inline void MDFxBestQuote::clear_liquidproviders() {
+  liquidproviders_.Clear();
+}
+inline const ::std::string& MDFxBestQuote::liquidproviders(int index) const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+  return liquidproviders_.Get(index);
+}
+inline ::std::string* MDFxBestQuote::mutable_liquidproviders(int index) {
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+  return liquidproviders_.Mutable(index);
+}
+inline void MDFxBestQuote::set_liquidproviders(int index, const ::std::string& value) {
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+  liquidproviders_.Mutable(index)->assign(value);
+}
+inline void MDFxBestQuote::set_liquidproviders(int index, const char* value) {
+  liquidproviders_.Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+}
+inline void MDFxBestQuote::set_liquidproviders(int index, const char* value, size_t size) {
+  liquidproviders_.Mutable(index)->assign(
+    reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+}
+inline ::std::string* MDFxBestQuote::add_liquidproviders() {
+  // @@protoc_insertion_point(field_add_mutable:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+  return liquidproviders_.Add();
+}
+inline void MDFxBestQuote::add_liquidproviders(const ::std::string& value) {
+  liquidproviders_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+}
+inline void MDFxBestQuote::add_liquidproviders(const char* value) {
+  liquidproviders_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+}
+inline void MDFxBestQuote::add_liquidproviders(const char* value, size_t size) {
+  liquidproviders_.Add()->assign(reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+}
+inline const ::google::protobuf::RepeatedPtrField< ::std::string>&
+MDFxBestQuote::liquidproviders() const {
+  // @@protoc_insertion_point(field_list:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+  return liquidproviders_;
+}
+inline ::google::protobuf::RepeatedPtrField< ::std::string>*
+MDFxBestQuote::mutable_liquidproviders() {
+  // @@protoc_insertion_point(field_mutable_list:com.htsc.mdc.insight.model.MDFxBestQuote.LiquidProviders)
+  return &liquidproviders_;
+}
+
+// optional string LegSign = 7;
+inline void MDFxBestQuote::clear_legsign() {
+  legsign_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string& MDFxBestQuote::legsign() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.MDFxBestQuote.LegSign)
+  return legsign_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDFxBestQuote::set_legsign(const ::std::string& value) {
+  
+  legsign_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.MDFxBestQuote.LegSign)
+}
+inline void MDFxBestQuote::set_legsign(const char* value) {
+  
+  legsign_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:com.htsc.mdc.insight.model.MDFxBestQuote.LegSign)
+}
+inline void MDFxBestQuote::set_legsign(const char* value, size_t size) {
+  
+  legsign_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:com.htsc.mdc.insight.model.MDFxBestQuote.LegSign)
+}
+inline ::std::string* MDFxBestQuote::mutable_legsign() {
+  
+  // @@protoc_insertion_point(field_mutable:com.htsc.mdc.insight.model.MDFxBestQuote.LegSign)
+  return legsign_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string* MDFxBestQuote::release_legsign() {
+  // @@protoc_insertion_point(field_release:com.htsc.mdc.insight.model.MDFxBestQuote.LegSign)
+  
+  return legsign_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void MDFxBestQuote::set_allocated_legsign(::std::string* legsign) {
+  if (legsign != NULL) {
+    
+  } else {
+    
+  }
+  legsign_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), legsign);
+  // @@protoc_insertion_point(field_set_allocated:com.htsc.mdc.insight.model.MDFxBestQuote.LegSign)
+}
+
+inline const MDFxBestQuote* MDFxBestQuote::internal_default_instance() {
+  return &MDFxBestQuote_default_instance_.get();
+}
 #endif  // !PROTOBUF_INLINE_NOT_IN_HEADERS
+// -------------------------------------------------------------------
+
 // -------------------------------------------------------------------
 
 

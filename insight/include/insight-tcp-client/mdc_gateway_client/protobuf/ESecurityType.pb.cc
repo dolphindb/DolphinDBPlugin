@@ -73,15 +73,16 @@ void protobuf_AddDesc_ESecurityType_2eproto_impl() {
   protobuf_InitDefaults_ESecurityType_2eproto();
   ::google::protobuf::DescriptorPool::InternalAddGeneratedFile(
     "\n\023ESecurityType.proto\022\022com.htsc.mdc.mode"
-    "l*\217\002\n\rESecurityType\022\027\n\023DefaultSecurityTy"
+    "l*\307\002\n\rESecurityType\022\027\n\023DefaultSecurityTy"
     "pe\020\000\022\r\n\tIndexType\020\001\022\r\n\tStockType\020\002\022\014\n\010Fu"
     "ndType\020\003\022\014\n\010BondType\020\004\022\014\n\010RepoType\020\005\022\017\n\013"
     "WarrantType\020\006\022\016\n\nOptionType\020\007\022\017\n\013Futures"
     "Type\020\010\022\r\n\tForexType\020\t\022\014\n\010RateType\020\n\022\016\n\nN"
     "metalType\020\013\022\020\n\014CashBondType\020\014\022\014\n\010SpotTyp"
-    "e\020\r\022\017\n\013InsightType\020\024\022\r\n\tOtherType\020cB.\n\022c"
-    "om.htsc.mdc.modelB\023ESecurityTypeProtosH\001"
-    "\240\001\001b\006proto3", 371);
+    "e\020\r\022\021\n\rSPFuturesType\020\016\022\020\n\014CurrencyType\020\017"
+    "\022\021\n\rBenchmarkType\020\020\022\017\n\013InsightType\020\024\022\r\n\t"
+    "OtherType\020cB.\n\022com.htsc.mdc.modelB\023ESecu"
+    "rityTypeProtosH\001\240\001\001b\006proto3", 427);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "ESecurityType.proto", &protobuf_RegisterTypes);
   ::google::protobuf::internal::OnShutdown(&protobuf_ShutdownFile_ESecurityType_2eproto);
@@ -118,6 +119,9 @@ bool ESecurityType_IsValid(int value) {
     case 11:
     case 12:
     case 13:
+    case 14:
+    case 15:
+    case 16:
     case 20:
     case 99:
       return true;

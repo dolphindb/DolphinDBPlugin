@@ -1032,6 +1032,12 @@ class ADVmaMa : public ::google::protobuf::Message /* @@protoc_insertion_point(c
   ::google::protobuf::int64 ma() const;
   void set_ma(::google::protobuf::int64 value);
 
+  // optional int32 PeriodType = 4;
+  void clear_periodtype();
+  static const int kPeriodTypeFieldNumber = 4;
+  ::google::protobuf::int32 periodtype() const;
+  void set_periodtype(::google::protobuf::int32 value);
+
   // @@protoc_insertion_point(class_scope:com.htsc.mdc.insight.model.ADVmaMa)
  private:
 
@@ -1039,6 +1045,7 @@ class ADVmaMa : public ::google::protobuf::Message /* @@protoc_insertion_point(c
   ::google::protobuf::int64 nvalue_;
   ::google::protobuf::int64 vma_;
   ::google::protobuf::int64 ma_;
+  ::google::protobuf::int32 periodtype_;
   mutable int _cached_size_;
   friend void  protobuf_InitDefaults_ADDerivedAnalysis_2eproto_impl();
   friend void  protobuf_AddDesc_ADDerivedAnalysis_2eproto_impl();
@@ -2283,6 +2290,20 @@ inline void ADVmaMa::set_ma(::google::protobuf::int64 value) {
   
   ma_ = value;
   // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADVmaMa.Ma)
+}
+
+// optional int32 PeriodType = 4;
+inline void ADVmaMa::clear_periodtype() {
+  periodtype_ = 0;
+}
+inline ::google::protobuf::int32 ADVmaMa::periodtype() const {
+  // @@protoc_insertion_point(field_get:com.htsc.mdc.insight.model.ADVmaMa.PeriodType)
+  return periodtype_;
+}
+inline void ADVmaMa::set_periodtype(::google::protobuf::int32 value) {
+  
+  periodtype_ = value;
+  // @@protoc_insertion_point(field_set:com.htsc.mdc.insight.model.ADVmaMa.PeriodType)
 }
 
 inline const ADVmaMa* ADVmaMa::internal_default_instance() {
