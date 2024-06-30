@@ -1,4 +1,4 @@
-TCPSocket,libPluginTCPSocket.so,3.00.0
+TCPSocket,libPluginTCPSocket.so,3.00.1
 tcpCreateSubJob,createSubJob,system,3,4,0
 tcpGetSubJobStat,getSubJobStat,system,0,0,0
 tcpCancelSubJob,cancelSubJob,system,1,1,0
