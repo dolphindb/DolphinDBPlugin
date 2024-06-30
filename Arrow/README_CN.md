@@ -1,131 +1,92 @@
-# DolphinDB Arrow 插件使用说明
+# Arrow 插件使用说明
 
-[Apache Arrow](https://arrow.apache.org/) 将列式数据结构的优势与内存计算相结合。DolphinDB 提供的 Arrow 插件支持 API 与 DolphinDB 在进行数据传输时使用 Arrow 数据格式，并自动进行数据类型转换。
+[Apache Arrow](https://arrow.apache.org/) 是一种跨平台的内存数据格式，被设计为一种内存中的列式数据格式，可以高效地存储和传输大规模数据集，同时提供了高性能的数据操作功能。在引入 Arrow 插件之前，DolphinDB 与 API 进行数据交互时可以通过 PICKLE 或者 DDB 协议进行序列化。引入 Arrow 插件后，DolphinDB 数据，可以通过 ARROW 协议转换为 Arrow 格式进行传输，从而使得 DolphinDB 与 API 之间的数据传输更高效。
 
-**注意：自 2.00.11 版本起，formatArrow 插件更名为 Arrow。**
+本文档仅介绍编译构建方法。通过 [文档中心 - Arrow](https://docs.dolphindb.cn/zh/plugins/Arrow/arrow.html) 查看使用介绍；通过 CHANGELOG.md 查看版本发布记录。
 
-请使用 DolphinDB 2.00.X 系列、2.00.11 及以上版本的 server。
+## 编译安装
 
-默认使用 Arrow 版本为 9.0.0。
+如果不通过插件市场安装插件，也可以使用如下方式从源码编译 Arrow 插件。
 
-## 1 安装插件
+### 在 Linux 下编译安装
 
-### 1.1 Linux 编译
+#### 环境准备
 
-#### 初始化环境配置
+- cmake
+- g++ 4.8.5
+- arrow 9.0.0
 
-(1) 编译 Arrow 开发包：
+其中 arrow 可以使用预编译好的 libarrow.so
+
+#### 编译整个项目
 
 ```
-git clone https://github.com/apache/arrow.git
-cd arrow/cpp
+cd DolphinDBPlugin/Arrow
 mkdir build
 cd build
-cmake .. 
+cp /path_to_dolphindb/libDolphinDB.so ./
+cp ../lib/linux_x86_64/libarrow.so.900 ./
+cmake .. -DCMAKE_C_COMPILER=/usr/bin/gcc-4.8 -DCMAKE_CXX_COMPILER=/usr/bin/g++-4.8
 make -j
 ```
 
-(2) 编译完成后，拷贝以下文件到插件文件夹中的相应目录：
+#### 安装
 
-| **文件**                                                   | **目标目录** |
-| ------------------------------------------------------------ | -------------------- |
-| arrow/cpp/src/arrow                                          | ./include            |
-| arrow/cpp/build/release/libarrow.so.900 | ./build          |
+1. 在 DolphinDB 安装目录的 plugins 子目录下新建 arrow 文件夹。
 
-或者直接使用 lib 目录下提供的预编译好的 libarrow.so.900
+2. 将下述文件复制至该文件夹下：
 
-#### 编译插件
+   1. libarrow.so.900
+
+   2.  libPluginArrow.so
+
+   3. PluginArrow.txt
+
+3. 启动 DolphinDB server 并加载插件：
+
 
 ```
-cd /path/to/plugins/Arrow
+login("admin", "123456");
+loadPlugin("arrow");
+```
+
+### 在 Windows 下编译安装
+
+#### 环境准备
+
+- MinGW
+- cmake
+- arrow 9.0.0
+
+其中 arrow 可以使用预编译好的 libarrow.dll
+
+#### 编译整个项目
+
+```
+# MinGW 终端
+cd DolphinDBPlugin/Arrow
 mkdir build
-cd build
-cmake ..
-make
+cp /path_to_dolphindb/libDolphinDB.dll ./
+cp /path_to_dolphindb/libarrow.dll ./
+cmake -G "MinGW Makefiles" ..
+make -j
 ```
 
-注意：编译之前请确保 libDolphinDB.so 和 libarrow.so.900 在 gcc 可搜索的路径中。可使用 LD_LIBRARY_PATH 指定其路径，或者直接将其拷贝到 build 目录下。
+#### 安装
 
-#### DolphinDB 加载插件
+1. 在 DolphinDB 安装目录的 plugins 子目录下新建 arrow 文件夹。
 
-```
-loadFormatPlugin("/path/to/plugin/PluginArrow.txt")
-```
+2. 将下述文件复制至该文件夹下：
 
-## 2 使用示例
+   1. libarrow.dll
 
-#### DolphinDB server
+   2. libPluginArrow.dll
 
-```
-loadFormatPlugin("path/to/Arrow/PluginArrow.txt")
-```
+3. 将 PluginArrow.txt.win 文件重命名为 PluginArrow.txt 后复制到 arrow 文件夹下。
 
-#### Python API：
+4. 启动 DolphinDB server 并加载插件：
 
 ```
-import dolphindb as ddb
-import dolphindb.settings as keys
-s = ddb.session("192.168.1.113", 8848, "admin", "123456", protocol=keys.PROTOCOL_ARROW)
-pat = s.run("table(1..10 as a)")
-
-print(pat)
--------------------------------------------
-pyarrow.Table
-a: int32
-----
-a: [[1,2,3,4,5,6,7,8,9,10]]
+login("admin", "123456");
+loadPlugin("arrow");
 ```
-
-注意：现版本中 DolphinDB 服务器不支持使用 Arrow 协议时开启压缩。
-
-## 3 支持的数据类型
-
-### 3.1 DolphinDB -> Arrow
-
-DolphinDB 向 API 传输数据时，Arrow 与 DolphinDB 数据类型转换关系如下：
-
-| DolphinDB       | Arrow                   |
-| --------------- | :---------------------- |
-| BOOL            | boolean                 |
-| CHAR            | int8                    |
-| SHORT           | int16                   |
-| INT             | int32                   |
-| LONG            | int64                   |
-| DATE            | date32                  |
-| MONTH           | date32                  |
-| TIME            | time32(ms)              |
-| MINUTE          | time32(s)               |
-| SECOND          | time32(s)               |
-| DATETIME        | timestamp(s)            |
-| TIMESTAMP       | timestamp(ms)           |
-| NANOTIME        | time64(ns)              |
-| NANOTIMESTAMP   | timestamp(ns)           |
-| DATEHOUR        | timestamp(s)            |
-| FLOAT           | float32                 |
-| DOUBLE          | float64                 |
-| SYMBOL          | dictionary(int32, utf8) |
-| STRING          | utf8                    |
-| IPADDR          | utf8                    |
-| UUID            | fixed_size_binary(16)   |
-| INT128          | fixed_size_binary(16)   |
-| BLOB            | large_binary            |
-| DECIMAL32(X)    | decimal128(38, X)       |
-| DECIMAL64(X)    | decimal128(38, X)       |
-
-注意：
-
-- 同时支持以上除了 DECIMAL 外的 ArrayVector 类型。
-- 使用 Arrow 数据格式从 DolphinDB Server 获取数据后转换为 pandas.DataFrame 时，DolphinDB 的 NANOTIME 数据类型对应 Arrow 的 time64 数据类型，因此要求进行转换的数值必须为1000的倍数，否则会提示`Value xxxxxxx has non-zero nanoseconds`。
-- 自 2.00.11 版本起，下载 UUID / INT128 后的字节顺序从反转修正为和上传时的顺序保持一致。
-
-# Release Notes 
-
-## 2.00.11
-
-### 功能优化
-
-- 调整插件名称为 Arrow。
-
-### 故障修复
-
-- 修正 UUID / INT128 数据下载后的字节顺序，和上传保持一致。
