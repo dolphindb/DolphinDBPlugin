@@ -12,6 +12,7 @@
 #include <pybind11/numpy.h>
 #include <pybind11/chrono.h>
 #include <iostream>
+#include <dlfcn.h>
 namespace py = pybind11;
 
 #if defined(__GNUC__) && __GNUC__ >= 4
@@ -22,10 +23,44 @@ namespace py = pybind11;
 #define UNLIKELY(x) (x)
 #endif
 
+extern "C" {
+float  cblas_sdot(const int n, const float  *x, const int incx, const float  *y, const int incy);
+}
+
+void addOpenBlas(){
+    cblas_sdot(1, nullptr, 1, nullptr, 1);  
+}
+
+class StaticInitializer {
+  public:
+    StaticInitializer() {
+        hGetProcIDDLL_ = dlopen("libopenblas.so.0", RTLD_NOW | RTLD_GLOBAL);
+        if (!hGetProcIDDLL_) {
+            char *dlMsg = dlerror();
+            string errorMsg = "failed to load py plugin, because couldn't load the dynamic library [libopenblas.so.0]";
+            if (dlMsg != NULL) {
+                errorMsg.append(": ");
+                errorMsg.append(dlMsg);
+            }
+            throw RuntimeException(errorMsg);
+        }
+    }
+    ~StaticInitializer() {
+        if (hGetProcIDDLL_) {
+            dlclose(hGetProcIDDLL_);
+            hGetProcIDDLL_ = nullptr;
+        }
+    }
+
+  private:
+    void *hGetProcIDDLL_ = nullptr;
+};
+
 struct Preserved {
     // instantiation only once for frequently use
 
     // modules and methods
+    const static StaticInitializer initializer;
     const static py::handle numpy_;         // module
     const static py::handle isnan_;         // func
     const static py::handle datetime64_;    // type, equal to np.datetime64
@@ -71,6 +106,7 @@ struct Preserved {
     const static uint64_t npnan_ = 9221120237041090560LL;
 };
 
+const StaticInitializer Preserved::initializer;
 const py::handle Preserved::numpy_ = py::module::import("numpy").inc_ref();
 const py::handle Preserved::isnan_ = numpy_.attr("isnan");
 const py::handle Preserved::datetime64_ = numpy_.attr("datetime64");
@@ -1353,4 +1389,5 @@ ConstantSP py2dolphin(PyObject *input, bool free, bool addIndex) {
     } else {
         return nullptr;
     }
+    return nullptr;
 }
