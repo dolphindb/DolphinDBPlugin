@@ -11,14 +11,14 @@ elseif(UNIX)
     set(platform_macro "-DLINUX")
     if(ENABLEABI MATCHES 1)
         message("ENABLEABI")
-        add_compile_options(${platform_macro} -D_GLIBCXX_USE_CXX11_ABI=1)
+        add_compile_options(${platform_macro} -D_GLIBCXX_USE_CXX11_ABI=1  -fPIC)
     else()
         message("DISENABLEABI")
-        add_compile_options(${platform_macro} -D_GLIBCXX_USE_CXX11_ABI=0)
+        add_compile_options(${platform_macro} -D_GLIBCXX_USE_CXX11_ABI=0  -fPIC)
     endif()
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -fPIC -std=c++11 -Wall -DHAVE_AES")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -std=c++11 -Wall -DHAVE_AES")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${platform_macro} -fPIC -DHAVE_AES")
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "")
@@ -98,6 +98,8 @@ elseif(UNIX)
         # ioapi
     )
 endif()
+
+set_target_properties(PluginZip PROPERTIES LINK_FLAGS "-static-libstdc++")
 
 if (WIN32)
     set(plugin_file "${PROJECT_SOURCE_DIR}/PluginZip_win32.txt")
