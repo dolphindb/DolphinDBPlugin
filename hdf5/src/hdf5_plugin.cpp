@@ -59,9 +59,9 @@ ConstantSP h5lsTable(const ConstantSP &filename) {
 ConstantSP extractHDF5Schema(const ConstantSP& filename, const ConstantSP& datasetName) {
     string syntax{"hdf5::extractHDF5Schema(fileName, datasetName) "};
     LockGuard<Mutex> guard{&hdf5Mutex};
-    if (filename->getType() != DT_STRING || datasetName->getForm() != DF_SCALAR)
+    if (filename->getType() != DT_STRING || filename->getForm() != DF_SCALAR)
         throw IllegalArgumentException(__FUNCTION__, syntax + "fileName must be a string scalar.");
-    if(datasetName->getType() != DT_STRING || filename->getForm() != DF_SCALAR)
+    if(datasetName->getType() != DT_STRING || datasetName->getForm() != DF_SCALAR)
         throw IllegalArgumentException(__FUNCTION__, syntax + "datasetName must be a string scalar.");
 
     H5::Exception::dontPrint();

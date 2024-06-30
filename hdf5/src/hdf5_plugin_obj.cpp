@@ -15,11 +15,10 @@ hid_t H5ReadOnlyFile::open(const std::string &filename) {
     close();
 
     htri_t r = H5Fis_hdf5(filename.c_str());
-    if (r == 0) throw IOException(HDF5_LOG_PREFIX + filename + " is not an HDF5 file", INVALIDDATA);
-    if (r < 0) throw IOException(HDF5_LOG_PREFIX + "check " + filename + " failed,it may not exist");
-
-    if ((id_ = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT)) < 0)
-        throw IOException(HDF5_LOG_PREFIX + "can't open file" + filename);
+    checkFailAndThrowIOException(r == 0, filename + " is not an HDF5 file", INVALIDDATA);
+    checkFailAndThrowIOException(r < 0, "check " + filename + " failed,it may not exist");
+    id_ = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+    checkFailAndThrowIOException(id_ < 0, "can't open file" + filename);
 
     return id_;
 }
@@ -34,8 +33,8 @@ void H5ReadOnlyFile::close() {
 
 hid_t H5DataSet::open(const std::string &dset_name, hid_t loc_id) {
     close();
-    if ((id_ = H5Dopen(loc_id, dset_name.c_str(), H5P_DEFAULT)) <= 0)
-        throw IOException(HDF5_LOG_PREFIX + "can't open dataset " + dset_name, INVALIDDATA);
+    id_ = H5Dopen(loc_id, dset_name.c_str(), H5P_DEFAULT);
+    checkFailAndThrowIOException(id_ <= 0, "can't open dataset " + dset_name, INVALIDDATA);
 
     return id_;
 }
@@ -49,14 +48,15 @@ void H5DataSet::close() {
 // H5DatSpace imp
 
 hid_t H5DataSpace::openFromDataset(hid_t dset_id) {
-    if ((id_ = H5Dget_space(dset_id)) <= 0) throw IOException(HDF5_LOG_PREFIX + "can't open dataspace", INVALIDDATA);
+    id_ = H5Dget_space(dset_id);
+    checkFailAndThrowIOException(id_<=0, "can't open dataspace", INVALIDDATA);
 
     return id_;
 }
 
 hid_t H5DataSpace::create(int rank, const hsize_t *current_dims, const hsize_t *maximum_dims) {
-    if ((id_ = H5Screate_simple(rank, current_dims, maximum_dims)) < 0)
-        throw RuntimeException(HDF5_LOG_PREFIX + HDF5_LOG_PREFIX + "create hdf5 dataspace failed");
+    id_ = H5Screate_simple(rank, current_dims, maximum_dims);
+    checkFailAndThrowRuntimeException(id_<0, "create hdf5 dataspace failed");
 
     return id_;
 }
@@ -71,14 +71,11 @@ int H5DataSpace::rank() const { return H5Sget_simple_extent_ndims(id_); }
 
 int H5DataSpace::currentDims(std::vector<hsize_t> &dims) const {
     int rank = this->rank();
-    if (rank < 0) {
-        throw RuntimeException(HDF5_LOG_PREFIX + HDF5_LOG_PREFIX + "Failed to get the rank in the dataspace.");
-    }
+    checkFailAndThrowRuntimeException(rank < 0, "Failed to get the rank in the dataspace.");
+
     dims.resize(rank);
     int ret = H5Sget_simple_extent_dims(id_, dims.data(), nullptr);
-    if (ret < 0) {
-        throw RuntimeException(HDF5_LOG_PREFIX + HDF5_LOG_PREFIX + "Failed to get the dimensions in the dataspace.");
-    }
+    checkFailAndThrowRuntimeException(ret < 0, "Failed to get the dimensions in the dataspace.");
     return ret;
 }
 
@@ -87,7 +84,8 @@ int H5DataSpace::currentDims(std::vector<hsize_t> &dims) const {
 size_t H5DataType::size() const { return H5Tget_size(id_); }
 
 hid_t H5DataType::openFromDataset(hid_t dset_id) {
-    if ((id_ = H5Dget_type(dset_id)) <= 0) throw IOException(HDF5_LOG_PREFIX + "can't open dataspace", INVALIDDATA);
+    id_ = H5Dget_type(dset_id);
+    checkFailAndThrowIOException(id_ <= 0, "can't open dataspace", INVALIDDATA);
     return id_;
 }
 
