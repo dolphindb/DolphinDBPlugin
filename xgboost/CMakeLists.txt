@@ -39,10 +39,8 @@ set(PLUGIN_INCLUDE_DIRECTORIES
 )
 set(PLUGIN_LINK_DIRECTORIES
     ${CMAKE_BINARY_DIR}
-    ${LIBDOLPHINDB}
 )
 set(PLUGIN_LINK_LIBRARIES
-    DolphinDB
 )
 set(PLUGIN_LINK_FLAGS
     "-L ./ -Wl,-rpath,$ORIGIN"
@@ -102,7 +100,7 @@ elseif (WIN32)
         message(FATAL_ERROR "Xgboost 2.0 version plugin doesn't support windows")
     endif()
     MESSAGE(STATUS "Platform: WINDOWS")
-    list(APPEND PLUGIN_LINK_LIBRARIES
+    list(APPEND PLUGIN_LINK_LIBRARIES DolphinDB
         ${CMAKE_CURRENT_LIST_DIR}/lib/${XGBOOST_VERSION}/xgboost.dll
     )
     list(APPEND PLUGIN_COMPILE_DEFINITIONS "-DWINDOWS")
