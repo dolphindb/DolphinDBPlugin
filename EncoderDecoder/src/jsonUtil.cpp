@@ -755,342 +755,343 @@ string getErrMsg(DATA_TYPE colType, Type jsonType);
 
 ConstantSP parseNestedJson(Heap* heap, vector<ConstantSP>& arguments)
 {
-    /// Arguments processing
-    if (arguments[0]->getForm() != DF_VECTOR || arguments[0]->getType() != DT_STRING) {
-        throw RuntimeException(ENCODERDECODER_PREFIX + " convert colNames must be a string vector. ");
-    }
+    return new Void();
+    // /// Arguments processing
+    // if (arguments[0]->getForm() != DF_VECTOR || arguments[0]->getType() != DT_STRING) {
+    //     throw RuntimeException(ENCODERDECODER_PREFIX + " convert colNames must be a string vector. ");
+    // }
 
-    if (arguments[1]->getForm() != DF_VECTOR || arguments[1]->getType() != DT_INT) {
-        throw RuntimeException(ENCODERDECODER_PREFIX + " types must be a int vector. ");
-    }
+    // if (arguments[1]->getForm() != DF_VECTOR || arguments[1]->getType() != DT_INT) {
+    //     throw RuntimeException(ENCODERDECODER_PREFIX + " types must be a int vector. ");
+    // }
 
-    if (arguments[2]->getForm() != DF_SCALAR || arguments[2]->getType() != DT_BOOL) {
-        throw RuntimeException(ENCODERDECODER_PREFIX + " 3rd argument types must be a bool scalar. ");
-    }
-    bool isMultiJson = arguments[2]->getBool();
+    // if (arguments[2]->getForm() != DF_SCALAR || arguments[2]->getType() != DT_BOOL) {
+    //     throw RuntimeException(ENCODERDECODER_PREFIX + " 3rd argument types must be a bool scalar. ");
+    // }
+    // bool isMultiJson = arguments[2]->getBool();
 
-    VectorSP jsonVec;
-    // Check the form of the fourth argument. Depending on its type, different actions are taken.
-    switch (arguments[3]->getForm()) {
-        case DF_TABLE:
-            // If the fourth argument is a table with only one string column, assign the column to the vec variable.
-            if (arguments[3]->columns() != 1 || arguments[3]->getColumn(0)->getType() != DT_STRING) {
-                throw RuntimeException(ENCODERDECODER_PREFIX + " obj must be one of: table with only one string column, string vector, string scalar.");
-            }
-            jsonVec = arguments[3]->getColumn(0);
-            break;
-        case DF_VECTOR:
-            // If the fourth argument is a string vector, assign it to the vec variable.
-            if (arguments[3]->getType() != DT_STRING) {
-                throw RuntimeException(ENCODERDECODER_PREFIX + " obj must be one of: table with only one string column, string vector, string scalar.");
-            }
-            jsonVec = arguments[3];
-            break;
-        case DF_SCALAR:
-            // If the fourth argument is a string scalar, create a new string vector and append the scalar to it.
-            if (arguments[3]->getType() != DT_STRING) {
-                throw RuntimeException(ENCODERDECODER_PREFIX + " obj must be one of: table with only one string column, string vector, string scalar.");
-            }
-            jsonVec = Util::createVector(DT_STRING, 0, 1);
-            jsonVec->append(arguments[3]);
-            break;
-        default:
-            // If the fourth argument is none of the above, throw an exception.
-            throw RuntimeException(ENCODERDECODER_PREFIX + " obj must be one of: table with only one string column, string vector, string scalar.");
-    }
+    // VectorSP jsonVec;
+    // // Check the form of the fourth argument. Depending on its type, different actions are taken.
+    // switch (arguments[3]->getForm()) {
+    //     case DF_TABLE:
+    //         // If the fourth argument is a table with only one string column, assign the column to the vec variable.
+    //         if (arguments[3]->columns() != 1 || arguments[3]->getColumn(0)->getType() != DT_STRING) {
+    //             throw RuntimeException(ENCODERDECODER_PREFIX + " obj must be one of: table with only one string column, string vector, string scalar.");
+    //         }
+    //         jsonVec = arguments[3]->getColumn(0);
+    //         break;
+    //     case DF_VECTOR:
+    //         // If the fourth argument is a string vector, assign it to the vec variable.
+    //         if (arguments[3]->getType() != DT_STRING) {
+    //             throw RuntimeException(ENCODERDECODER_PREFIX + " obj must be one of: table with only one string column, string vector, string scalar.");
+    //         }
+    //         jsonVec = arguments[3];
+    //         break;
+    //     case DF_SCALAR:
+    //         // If the fourth argument is a string scalar, create a new string vector and append the scalar to it.
+    //         if (arguments[3]->getType() != DT_STRING) {
+    //             throw RuntimeException(ENCODERDECODER_PREFIX + " obj must be one of: table with only one string column, string vector, string scalar.");
+    //         }
+    //         jsonVec = Util::createVector(DT_STRING, 0, 1);
+    //         jsonVec->append(arguments[3]);
+    //         break;
+    //     default:
+    //         // If the fourth argument is none of the above, throw an exception.
+    //         throw RuntimeException(ENCODERDECODER_PREFIX + " obj must be one of: table with only one string column, string vector, string scalar.");
+    // }
 
-    /// Table data structures prep
-    VectorSP argTypes = arguments[1];
-    int numCol = argTypes->size();
+    // /// Table data structures prep
+    // VectorSP argTypes = arguments[1];
+    // int numCol = argTypes->size();
 
-    vector<ConstantSP> cols(numCol);
-    vector<DATA_TYPE> colTypes;
-    vector<string> colNames;
+    // vector<ConstantSP> cols(numCol);
+    // vector<DATA_TYPE> colTypes;
+    // vector<string> colNames;
 
-    // Store original and converted column names.
-    for (int i = 0; i < numCol; i++) {
-        colNames.emplace_back(arguments[0]->getString(i));
-    }
+    // // Store original and converted column names.
+    // for (int i = 0; i < numCol; i++) {
+    //     colNames.emplace_back(arguments[0]->getString(i));
+    // }
 
-    // Iterate over each column, create appropriate data structures for each data type.
-    for (int i = 0; i < numCol; ++i) {
-        auto type = (DATA_TYPE)argTypes->getInt(i);
-        cols[i] = Util::createVector(type, 0);
-        colTypes.push_back(type);
-    }
+    // // Iterate over each column, create appropriate data structures for each data type.
+    // for (int i = 0; i < numCol; ++i) {
+    //     auto type = (DATA_TYPE)argTypes->getInt(i);
+    //     cols[i] = Util::createVector(type, 0);
+    //     colTypes.push_back(type);
+    // }
 
-    /// JSON data prep
-    int numJson = jsonVec->size();
-    // If the JSON is multipart, split it into its constituent parts.
-    if (isMultiJson) {
-        std::vector<std::string> splitJsonVec;
-        for (int k = 0; k < numJson; ++k) {
-            splitJson(jsonVec->getString(k), splitJsonVec);
-        }
-        // After splitting, replace the original vector with a new one containing the split parts.
-        jsonVec = Util::createVector(DT_STRING, 0, (INDEX)splitJsonVec.size());
-        jsonVec->appendString(splitJsonVec.data(), (INDEX)splitJsonVec.size());
-        numJson = jsonVec->size();
-    }
-    vector<string> originData(numJson);
-    int maxBatchSize = 1024;
-    char* buffer[maxBatchSize];
-    int numBatch = numJson / maxBatchSize + 1;
+    // /// JSON data prep
+    // int numJson = jsonVec->size();
+    // // If the JSON is multipart, split it into its constituent parts.
+    // if (isMultiJson) {
+    //     std::vector<std::string> splitJsonVec;
+    //     for (int k = 0; k < numJson; ++k) {
+    //         splitJson(jsonVec->getString(k), splitJsonVec);
+    //     }
+    //     // After splitting, replace the original vector with a new one containing the split parts.
+    //     jsonVec = Util::createVector(DT_STRING, 0, (INDEX)splitJsonVec.size());
+    //     jsonVec->appendString(splitJsonVec.data(), (INDEX)splitJsonVec.size());
+    //     numJson = jsonVec->size();
+    // }
+    // vector<string> originData(numJson);
+    // int maxBatchSize = 1024;
+    // char* buffer[maxBatchSize];
+    // int numBatch = numJson / maxBatchSize + 1;
 
-    /// Iterate over batch
-    for (int batchIndex = 0; batchIndex < numBatch; ++batchIndex) {
+    // /// Iterate over batch
+    // for (int batchIndex = 0; batchIndex < numBatch; ++batchIndex) {
 
-        int batchSize = min(maxBatchSize, numJson - maxBatchSize * batchIndex);
-        char** ptr = jsonVec->getStringConst(maxBatchSize * batchIndex, batchSize, buffer);
-        for (int jsonIndex = 0; jsonIndex < batchSize; ++jsonIndex) {
-            originData[jsonIndex] = ptr[jsonIndex];
-        }
+    //     int batchSize = min(maxBatchSize, numJson - maxBatchSize * batchIndex);
+    //     char** ptr = jsonVec->getStringConst(maxBatchSize * batchIndex, batchSize, buffer);
+    //     for (int jsonIndex = 0; jsonIndex < batchSize; ++jsonIndex) {
+    //         originData[jsonIndex] = ptr[jsonIndex];
+    //     }
 
-        /// Iterate over JSON
-        for (int jsonIndex = 0; jsonIndex < batchSize; ++jsonIndex) {
-            Document doc;
-            // Attempt to parse the JSON data.
-            try {
-                doc.Parse(originData[jsonIndex].c_str());
-            } catch (exception& ex) {
-                // Log any errors that occur during parsing.
-                LOG_ERR(ENCODERDECODER_PREFIX + string(ex.what()));
-                continue; // If an error occurred, skip the rest of this iteration and proceed with the next row.
-            }
+    //     /// Iterate over JSON
+    //     for (int jsonIndex = 0; jsonIndex < batchSize; ++jsonIndex) {
+    //         Document doc;
+    //         // Attempt to parse the JSON data.
+    //         try {
+    //             doc.Parse(originData[jsonIndex].c_str());
+    //         } catch (exception& ex) {
+    //             // Log any errors that occur during parsing.
+    //             LOG_ERR(ENCODERDECODER_PREFIX + string(ex.what()));
+    //             continue; // If an error occurred, skip the rest of this iteration and proceed with the next row.
+    //         }
 
-            // Recursively add columns
-            auto currIndex = 0;
-            flattenRecursively(doc, cols, colTypes, currIndex);
-            if (currIndex != (int)colNames.size()) {
-                throw IllegalArgumentException(__FUNCTION__, "JSON data and colNames must have the same length.");
-            }
-        }
-    }
+    //         // Recursively add columns
+    //         auto currIndex = 0;
+    //         flattenRecursively(doc, cols, colTypes, currIndex);
+    //         if (currIndex != (int)colNames.size()) {
+    //             throw IllegalArgumentException(__FUNCTION__, "JSON data and colNames must have the same length.");
+    //         }
+    //     }
+    // }
 
-    return Util::createTable(colNames, cols);
+    // return Util::createTable(colNames, cols);
 }
 
-int flattenRecursively(const Value &jsonVal, vector<ConstantSP> &cols, vector<DATA_TYPE> &colTypes, int &currIndex) {
+// int flattenRecursively(const Value &jsonVal, vector<ConstantSP> &cols, vector<DATA_TYPE> &colTypes, int &currIndex) {
 
-    vector<int> nonArrayIndexes;
-    auto maxDepth = 0;
-    auto arrayEncountered = false;
+//     vector<int> nonArrayIndexes;
+//     auto maxDepth = 0;
+//     auto arrayEncountered = false;
 
-    try {
-        switch (jsonVal.GetType()) {
-            /// For Object
-            //      1. iterate over items
-            //      2. memoize non-array items indexes, max depth, and if an array is already encountered
-            //      3. if an array is already encountered and another array appears, throw an exception (cannot be flattened)
-            //      4. at the end of the iteration, append same values to the columns with non-array items to match the max depth
-            case rapidjson::kObjectType:
+//     try {
+//         switch (jsonVal.GetType()) {
+//             /// For Object
+//             //      1. iterate over items
+//             //      2. memoize non-array items indexes, max depth, and if an array is already encountered
+//             //      3. if an array is already encountered and another array appears, throw an exception (cannot be flattened)
+//             //      4. at the end of the iteration, append same values to the columns with non-array items to match the max depth
+//             case rapidjson::kObjectType:
 
-                // iterate over items
-                for (Value::ConstMemberIterator itr = jsonVal.MemberBegin(); itr != jsonVal.MemberEnd(); ++itr) {
-                    auto depth = flattenRecursively(itr->value, cols, colTypes, currIndex);
+//                 // iterate over items
+//                 for (Value::ConstMemberIterator itr = jsonVal.MemberBegin(); itr != jsonVal.MemberEnd(); ++itr) {
+//                     auto depth = flattenRecursively(itr->value, cols, colTypes, currIndex);
 
-                    // memoize non-array items indexes, max depth, and if an array is already encountered
-                    maxDepth = depth > maxDepth ? depth : maxDepth;
-                    if (depth == 1) {
-                        nonArrayIndexes.emplace_back(currIndex - 1);
-                    } else {
+//                     // memoize non-array items indexes, max depth, and if an array is already encountered
+//                     maxDepth = depth > maxDepth ? depth : maxDepth;
+//                     if (depth == 1) {
+//                         nonArrayIndexes.emplace_back(currIndex - 1);
+//                     } else {
 
-                        // if an array is already encountered and another array appears, throw an exception (cannot be flattened)
-                        if (arrayEncountered) {
-                            throw IllegalArgumentException(__FUNCTION__, "JSON data must not have parallel arrays.");
-                        } else {
-                            arrayEncountered = true;
-                        }
-                    }
-                }
+//                         // if an array is already encountered and another array appears, throw an exception (cannot be flattened)
+//                         if (arrayEncountered) {
+//                             throw IllegalArgumentException(__FUNCTION__, "JSON data must not have parallel arrays.");
+//                         } else {
+//                             arrayEncountered = true;
+//                         }
+//                     }
+//                 }
 
-                // at the end of the iteration, append same values to the columns with non-array items to match the max depth
-                if (maxDepth > 1) {
-                    for (auto index: nonArrayIndexes) {
-                        auto numAppend = maxDepth - 1;
-                        auto column = (VectorSP) cols.at(index);
-                        auto item = column->get(column->size() - 1);
-                        for (auto i = 0; i < numAppend; i++) {
-                            column->append(item);
-                        }
-                    }
-                }
+//                 // at the end of the iteration, append same values to the columns with non-array items to match the max depth
+//                 if (maxDepth > 1) {
+//                     for (auto index: nonArrayIndexes) {
+//                         auto numAppend = maxDepth - 1;
+//                         auto column = (VectorSP) cols.at(index);
+//                         auto item = column->get(column->size() - 1);
+//                         for (auto i = 0; i < numAppend; i++) {
+//                             column->append(item);
+//                         }
+//                     }
+//                 }
 
-                return maxDepth;
+//                 return maxDepth;
 
-                /// For Array
-                //      1. iterate over elements
-                //      2. memoize max depth during the recursion
-            case rapidjson::kArrayType:
-                // iterate over elements
-                if (jsonVal.Size() > 0) {
-                    auto startingIndex = currIndex;
+//                 /// For Array
+//                 //      1. iterate over elements
+//                 //      2. memoize max depth during the recursion
+//             case rapidjson::kArrayType:
+//                 // iterate over elements
+//                 if (jsonVal.Size() > 0) {
+//                     auto startingIndex = currIndex;
 
-                    for (SizeType i = 0; i < jsonVal.Size(); ++i) {
-                        // reset current index after finishing one element in the array,
-                        // since elements in an array are in the same columns
-                        currIndex = startingIndex;
+//                     for (SizeType i = 0; i < jsonVal.Size(); ++i) {
+//                         // reset current index after finishing one element in the array,
+//                         // since elements in an array are in the same columns
+//                         currIndex = startingIndex;
 
-                        auto depth = flattenRecursively(jsonVal[i], cols, colTypes, currIndex);
-                        // memoize max depth during the recursion
-                        maxDepth += depth;
-#ifdef JSON_PARSER_DEBUG
-                        std::cout << "max_depth: " << maxDepth << std::endl;
-#endif
-                    }
+//                         auto depth = flattenRecursively(jsonVal[i], cols, colTypes, currIndex);
+//                         // memoize max depth during the recursion
+//                         maxDepth += depth;
+// #ifdef JSON_PARSER_DEBUG
+//                         std::cout << "max_depth: " << maxDepth << std::endl;
+// #endif
+//                     }
 
-                    return maxDepth;
-                } else {
-                    throw IllegalArgumentException(__FUNCTION__, "JSON data must not have empty arrays.");
-                }
+//                     return maxDepth;
+//                 } else {
+//                     throw IllegalArgumentException(__FUNCTION__, "JSON data must not have empty arrays.");
+//                 }
 
-                /// For other types
-                //      append its value to columns
-            default:
-#ifdef JSON_PARSER_DEBUG
-                std::cout << std::endl << "currIndex: " << currIndex << std::endl;
-#endif
-                if (currIndex >= (int)colTypes.size()) {
-                    throw IllegalArgumentException(__FUNCTION__, "JSON data and colNames must have the same length.");
-                }
-                auto column = (VectorSP) cols.at(currIndex);
-                appendItemToCol(column, colTypes.at(currIndex), jsonVal);
-                currIndex++;
-                return 1;
-        }
-    } catch (exception &e) {
-        throw RuntimeException(e.what());
-    }
-}
+//                 /// For other types
+//                 //      append its value to columns
+//             default:
+// #ifdef JSON_PARSER_DEBUG
+//                 std::cout << std::endl << "currIndex: " << currIndex << std::endl;
+// #endif
+//                 if (currIndex >= (int)colTypes.size()) {
+//                     throw IllegalArgumentException(__FUNCTION__, "JSON data and colNames must have the same length.");
+//                 }
+//                 auto column = (VectorSP) cols.at(currIndex);
+//                 appendItemToCol(column, colTypes.at(currIndex), jsonVal);
+//                 currIndex++;
+//                 return 1;
+//         }
+//     } catch (exception &e) {
+//         throw RuntimeException(e.what());
+//     }
+// }
 
-void appendItemToCol(VectorSP &column, DATA_TYPE colType, const Value &jsonVal) {
-    auto jsonType = jsonVal.GetType();
+// void appendItemToCol(VectorSP &column, DATA_TYPE colType, const Value &jsonVal) {
+//     auto jsonType = jsonVal.GetType();
 
-#ifdef JSON_PARSER_DEBUG
-    std::cout << jsonType << std::endl;
-#endif
+// #ifdef JSON_PARSER_DEBUG
+//     std::cout << jsonType << std::endl;
+// #endif
 
-    /// Function to check if the jsonVal is Null
-    auto isNull = [](Type jsonType, const Value &jsonVal) {
-        string nullStr;
-        return jsonType == kNullType || (jsonType == kStringType && jsonVal.GetString() == nullStr);
-    };
+//     /// Function to check if the jsonVal is Null
+//     auto isNull = [](Type jsonType, const Value &jsonVal) {
+//         string nullStr;
+//         return jsonType == kNullType || (jsonType == kStringType && jsonVal.GetString() == nullStr);
+//     };
 
-    /// Append item to column
-    try {
-        switch (colType) {
-            case DT_BOOL:
-                if (isNull(jsonType, jsonVal)) {
-                    column->append(new Char(CHAR_MIN));
-                } else if (jsonType == kTrueType) {
-                    column->append(new Char(true));
-#ifdef JSON_PARSER_DEBUG
-                    std::cout << jsonVal.GetBool() << std::endl;
-#endif
-                } else if (jsonType == kFalseType) {
-                    column->append(new Char(false));
-#ifdef JSON_PARSER_DEBUG
-                    std::cout << jsonVal.GetBool() << std::endl;
-#endif
-                } else if (jsonType == kNumberType && (jsonVal.GetInt() == 0 || jsonVal.GetInt() == 1)) {
-                    column->append(new Char(jsonVal.GetInt()));
-                } else {
-                    throw RuntimeException(getErrMsg(colType, jsonType));
-                }
-                break;
-            case DT_INT:
-                if (isNull(jsonType, jsonVal)) {
-                    column->append(new Int(INT_MIN));
-                } else if (jsonType == kNumberType) {
-#ifdef JSON_PARSER_DEBUG
-                    std::cout << jsonVal.GetInt() << std::endl;
-#endif
-                    column->append(new Int(jsonVal.GetInt()));
-                } else {
-                    throw RuntimeException(getErrMsg(colType, jsonType));
-                }
-                break;
-            case DT_LONG:
-                if (isNull(jsonType, jsonVal)) {
-                    column->append(new Long(LONG_MIN));
-                } else if (jsonType == kNumberType) {
-#ifdef JSON_PARSER_DEBUG
-                    std::cout << jsonVal.GetInt64() << std::endl;
-#endif
-                    column->append(new Long(jsonVal.GetInt64()));
-                } else {
-                    throw RuntimeException(getErrMsg(colType, jsonType));
-                }
-                break;
-            case DT_FLOAT:
-                if (isNull(jsonType, jsonVal)) {
-                    column->append(new Float(FLT_MIN));
-                } else if (jsonType == kNumberType) {
-#ifdef JSON_PARSER_DEBUG
-                    std::cout << jsonVal.GetFloat() << std::endl;
-#endif
-                    column->append(new Float(jsonVal.GetFloat()));
-                } else {
-                    throw RuntimeException(getErrMsg(colType, jsonType));
-                }
-                break;
-            case DT_DOUBLE:
-                if (isNull(jsonType, jsonVal)) {
-                    column->append(new Double(DBL_MIN));
-                } else if (jsonType == kNumberType) {
-#ifdef JSON_PARSER_DEBUG
-                    std::cout << jsonVal.GetDouble() << std::endl;
-#endif
-                    column->append(new Double(jsonVal.GetDouble()));
-                } else {
-                    throw RuntimeException(getErrMsg(colType, jsonType));
-                }
-                break;
-            case DT_STRING:
-            case DT_SYMBOL:
-                if (isNull(jsonType, jsonVal)) {
-                    column->append(new String(""));
-                } else if (jsonType == kStringType) {
-#ifdef JSON_PARSER_DEBUG
-                    std::cout << jsonVal.GetString() << std::endl;
-#endif
-                    column->append(new String(jsonVal.GetString()));
-                } else {
-                    throw RuntimeException(getErrMsg(colType, jsonType));
-                }
-                break;
-            default:
-                throw RuntimeException(
-                        ENCODERDECODER_PREFIX + " The dolphindb type " + Util::getDataTypeString(colType) +
-                        " is not supported to append");
-        }
-    } catch (exception &e) {
-        throw RuntimeException(e.what());
-    }
-}
+//     /// Append item to column
+//     try {
+//         switch (colType) {
+//             case DT_BOOL:
+//                 if (isNull(jsonType, jsonVal)) {
+//                     column->append(new Char(CHAR_MIN));
+//                 } else if (jsonType == kTrueType) {
+//                     column->append(new Char(true));
+// #ifdef JSON_PARSER_DEBUG
+//                     std::cout << jsonVal.GetBool() << std::endl;
+// #endif
+//                 } else if (jsonType == kFalseType) {
+//                     column->append(new Char(false));
+// #ifdef JSON_PARSER_DEBUG
+//                     std::cout << jsonVal.GetBool() << std::endl;
+// #endif
+//                 } else if (jsonType == kNumberType && (jsonVal.GetInt() == 0 || jsonVal.GetInt() == 1)) {
+//                     column->append(new Char(jsonVal.GetInt()));
+//                 } else {
+//                     throw RuntimeException(getErrMsg(colType, jsonType));
+//                 }
+//                 break;
+//             case DT_INT:
+//                 if (isNull(jsonType, jsonVal)) {
+//                     column->append(new Int(INT_MIN));
+//                 } else if (jsonType == kNumberType) {
+// #ifdef JSON_PARSER_DEBUG
+//                     std::cout << jsonVal.GetInt() << std::endl;
+// #endif
+//                     column->append(new Int(jsonVal.GetInt()));
+//                 } else {
+//                     throw RuntimeException(getErrMsg(colType, jsonType));
+//                 }
+//                 break;
+//             case DT_LONG:
+//                 if (isNull(jsonType, jsonVal)) {
+//                     column->append(new Long(LONG_MIN));
+//                 } else if (jsonType == kNumberType) {
+// #ifdef JSON_PARSER_DEBUG
+//                     std::cout << jsonVal.GetInt64() << std::endl;
+// #endif
+//                     column->append(new Long(jsonVal.GetInt64()));
+//                 } else {
+//                     throw RuntimeException(getErrMsg(colType, jsonType));
+//                 }
+//                 break;
+//             case DT_FLOAT:
+//                 if (isNull(jsonType, jsonVal)) {
+//                     column->append(new Float(FLT_MIN));
+//                 } else if (jsonType == kNumberType) {
+// #ifdef JSON_PARSER_DEBUG
+//                     std::cout << jsonVal.GetFloat() << std::endl;
+// #endif
+//                     column->append(new Float(jsonVal.GetFloat()));
+//                 } else {
+//                     throw RuntimeException(getErrMsg(colType, jsonType));
+//                 }
+//                 break;
+//             case DT_DOUBLE:
+//                 if (isNull(jsonType, jsonVal)) {
+//                     column->append(new Double(DBL_MIN));
+//                 } else if (jsonType == kNumberType) {
+// #ifdef JSON_PARSER_DEBUG
+//                     std::cout << jsonVal.GetDouble() << std::endl;
+// #endif
+//                     column->append(new Double(jsonVal.GetDouble()));
+//                 } else {
+//                     throw RuntimeException(getErrMsg(colType, jsonType));
+//                 }
+//                 break;
+//             case DT_STRING:
+//             case DT_SYMBOL:
+//                 if (isNull(jsonType, jsonVal)) {
+//                     column->append(new String(""));
+//                 } else if (jsonType == kStringType) {
+// #ifdef JSON_PARSER_DEBUG
+//                     std::cout << jsonVal.GetString() << std::endl;
+// #endif
+//                     column->append(new String(jsonVal.GetString()));
+//                 } else {
+//                     throw RuntimeException(getErrMsg(colType, jsonType));
+//                 }
+//                 break;
+//             default:
+//                 throw RuntimeException(
+//                         ENCODERDECODER_PREFIX + " The dolphindb type " + Util::getDataTypeString(colType) +
+//                         " is not supported to append");
+//         }
+//     } catch (exception &e) {
+//         throw RuntimeException(e.what());
+//     }
+// }
 
-string getErrMsg(DATA_TYPE colType, Type jsonType) {
-    string errType;
-    switch (jsonType) {
-        case kNullType:
-            errType = "Null";
-            break;
-        case kFalseType:
-        case kTrueType:
-            errType = "Bool";
-            break;
-        case kObjectType:
-            errType = "Object";
-            break;
-        case kArrayType:
-            errType = "Array";
-            break;
-        case kStringType:
-            errType = "String";
-            break;
-        case kNumberType:
-            errType = "Number";
-            break;
-    }
-    return ENCODERDECODER_PREFIX + " The dolphindb type " + Util::getDataTypeString(colType) + " is not compatible with JSON type " + errType + ".";
-}
+// string getErrMsg(DATA_TYPE colType, Type jsonType) {
+//     string errType;
+//     switch (jsonType) {
+//         case kNullType:
+//             errType = "Null";
+//             break;
+//         case kFalseType:
+//         case kTrueType:
+//             errType = "Bool";
+//             break;
+//         case kObjectType:
+//             errType = "Object";
+//             break;
+//         case kArrayType:
+//             errType = "Array";
+//             break;
+//         case kStringType:
+//             errType = "String";
+//             break;
+//         case kNumberType:
+//             errType = "Number";
+//             break;
+//     }
+//     return ENCODERDECODER_PREFIX + " The dolphindb type " + Util::getDataTypeString(colType) + " is not compatible with JSON type " + errType + ".";
+// }

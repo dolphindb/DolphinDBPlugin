@@ -31,9 +31,5 @@ ConstantSP getProtobufSchemaDynamic(string filePath, bool needArrayVector, const
 ConstantSP parseProtobufDynamic(string filePath, VectorSP data, unordered_map<string, DATA_TYPE>& dict,
                                 bool needArrayVector = false, Heap* heap = nullptr, const string& = "",
                                 bool useZeroAsNull = true);
-ConstantSP formatProtobufDynamic(string filePath, int mode, ConstantSP data);
-// ddb function
-ConstantSP parseProtobufDDB(Heap* heap, VectorSP data);
-ConstantSP formatProtobufDDB(int mode, ConstantSP data);
 
 #endif //PROTOBUF_UTIL_H
