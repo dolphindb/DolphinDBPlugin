@@ -1,4 +1,4 @@
-svm,libPluginSVM.dll,3.00.0
+svm,libPluginSVM.dll,3.00.1
 fit,fit,system,2,3,0
 predict,predict,system,2,2,0
 score,score,system,3,3,0
