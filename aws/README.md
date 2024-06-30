@@ -39,7 +39,7 @@ account['region']=your_region;
 account=dict(STRING,ANY)
 account['id']="minioadmin";
 account['key']="minioadmin"
-account['endpoint'] = "127.0.0.1:9000";
+account['endpoint'] = "127.0.0.1:9000";                //注意，endpoint中不能包含http://以及https://
 account['isHttp'] = true;
 ```
 

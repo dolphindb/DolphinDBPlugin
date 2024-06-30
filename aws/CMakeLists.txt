@@ -5,20 +5,13 @@ add_definitions(-DLOCKFREE_SYMBASE)
 
 set(CMAKE_CXX_STANDARD 11)
 
-set(DOLPHIN_INCLUDE_DIR "../include" CACHE STRING "")
-set(DOLPHIN_LIBRARY_DIR "/usr/local/lib" CACHE STRING "")
-set(AWS_INCLUDE_DIR "/usr/local/include" CACHE STRING "")
-set(AWS_LIBRARY_DIR "/usr/local/lib" CACHE STRING "")
-set(ZLIB_INCLUDE_DIR "/usr/local/include" CACHE STRING "")
-set(ZLIB_LIBRARY_DIR "/usr/local/lib" CACHE STRING "")
-
+include_directories(${PROJECT_SOURCE_DIR}/../include)
+include_directories(${PROJECT_SOURCE_DIR}/thirdParty/aws/windows/include)
+include_directories(src)
+link_directories(${PROJECT_SOURCE_DIR}/thirdParty/aws/windows/lib)
+link_directories(${PROJECT_BINARY_DIR})
 aux_source_directory(src PLUGINAWS_SRC)
 
-include_directories(
-	src
-        ${AWS_INCLUDE_DIR}
-        ${ZLIB_INCLUDE_DIR}
-        ${DOLPHIN_INCLUDE_DIR})
 
 if(WIN32)
     set(platform_macro "-DWINDOWS")
@@ -43,7 +36,7 @@ add_library(
 
 target_link_libraries(
 	${PROJECT_NAME}
-        ${DOLPHIN_LIBRARY_DIR}/libDolphinDB.so
-        ${AWS_LIBRARY_DIR}/libaws-cpp-sdk-s3.so
-        ${AWS_LIBRARY_DIR}/libaws-cpp-sdk-core.so
-        ${ZLIB_LIBRARY_DIR}/libz.so)
+        DolphinDB
+        aws-cpp-sdk-s3
+        aws-cpp-sdk-core
+        )
