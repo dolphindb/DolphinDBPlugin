@@ -2263,6 +2263,8 @@ DictionarySP load(string file, ConstantSP &ConstantSchema)
             throw e;
         }
         string tmp(name);
+        if(!sp.isNull())
+            sp->setNullFlag(sp->hasNull());
         ret->set(tmp, sp);
         mxDestroyArray(var);
     }
