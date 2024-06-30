@@ -78,7 +78,7 @@ else ()
     # add_subdirectory(cppkafka)
 
     add_library(PluginKafka SHARED ${plugin_kafka_src})
-    target_link_libraries(PluginKafka librdkafka.a librdkafka++.a libcppkafka.a libz.a DolphinDB sasl2)
+    target_link_libraries(PluginKafka librdkafka.a librdkafka++.a libcppkafka.a libz.a DolphinDB sasl2 zstd)
     set_target_properties(PluginKafka PROPERTIES LINK_FLAGS "-Wl,-rpath,$ORIGIN:.")
     # target_link_libraries(PluginKafka rdkafka++ cppkafka DolphinDB)
 endif()
