@@ -1,5 +1,0 @@
-DATA_DIR="<plugin_src_path>/test/setup/data"    // kdb test dataset path
-HOST = "<serverIp>"                             // host of kdb+ server
-PORT = <port>                                   // listening port of kdb+ server
-usernamePassword="<username>:<password>"        // username & password string of kdb+
-pluginTxtPath = "<plugin_path>"                 // path of kdb plugin txt to be loaded
