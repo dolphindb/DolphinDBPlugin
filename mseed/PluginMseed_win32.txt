@@ -1,0 +1,7 @@
+mseed,libPluginMseed.dll,2.00.14
+mseedRead,read,system,1,1,0
+mseedWrite,write,system,5,6,0
+mseedParse,parse,system,1,1,0
+mseedStreamize,streamize,system,2,3,0
+mseedParseStream,parseStream,system,1,1,0
+mseedParseStreamInfo,parseStreamInfo,system,1,1,0

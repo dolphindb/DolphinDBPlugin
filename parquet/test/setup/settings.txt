@@ -1,0 +1,2 @@
+DATA_DIR = <your data dir>
+WORK_DIR = <your work dir>

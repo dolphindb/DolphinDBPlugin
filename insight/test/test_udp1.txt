@@ -1,0 +1,275 @@
+#include "config.txt"
+
+//////////////////////////////////////////////////////////////
+
+share table(
+    array(SYMBOL, 0) as HTSCSecurityID,
+    array(DATE, 0) as MDDate,
+    array(TIME, 0) as MDTime,
+    array(SYMBOL, 0) as securityIDSource,
+    array(LONG, 0) as PreClosePx,
+    array(LONG, 0) as TotalVolumeTrade,
+    array(LONG, 0) as TotalValueTrade,
+    array(LONG, 0) as LastPx,
+    array(LONG, 0) as OpenPx,
+    array(LONG, 0) as HighPx,
+    array(LONG, 0) as LowPx,
+    array(LONG, 0) as DiffPx1,
+    array(LONG, 0) as TotalBuyQty,
+    array(LONG, 0) as TotalSellQty,
+    array(LONG, 0) as WeightedAvgBuyPx,
+    array(LONG, 0) as WeightedAvgSellPx,
+    array(LONG, 0) as BuyPrice1,
+    array(LONG, 0) as BuyPrice2,
+    array(LONG, 0) as BuyPrice3,
+    array(LONG, 0) as BuyPrice4,
+    array(LONG, 0) as BuyPrice5,
+    array(LONG, 0) as BuyPrice6,
+    array(LONG, 0) as BuyPrice7,
+    array(LONG, 0) as BuyPrice8,
+    array(LONG, 0) as BuyPrice9,
+    array(LONG, 0) as BuyPrice10,
+    array(LONG, 0) as BuyOrderQty1,
+    array(LONG, 0) as BuyOrderQty2,
+    array(LONG, 0) as BuyOrderQty3,
+    array(LONG, 0) as BuyOrderQty4,
+    array(LONG, 0) as BuyOrderQty5,
+    array(LONG, 0) as BuyOrderQty6,
+    array(LONG, 0) as BuyOrderQty7,
+    array(LONG, 0) as BuyOrderQty8,
+    array(LONG, 0) as BuyOrderQty9,
+    array(LONG, 0) as BuyOrderQty10,
+    array(LONG, 0) as SellPrice1,
+    array(LONG, 0) as SellPrice2,
+    array(LONG, 0) as SellPrice3,
+    array(LONG, 0) as SellPrice4,
+    array(LONG, 0) as SellPrice5,
+    array(LONG, 0) as SellPrice6,
+    array(LONG, 0) as SellPrice7,
+    array(LONG, 0) as SellPrice8,
+    array(LONG, 0) as SellPrice9,
+    array(LONG, 0) as SellPrice10,
+    array(LONG, 0) as SellOrderQty1,
+    array(LONG, 0) as SellOrderQty2,
+    array(LONG, 0) as SellOrderQty3,
+    array(LONG, 0) as SellOrderQty4,
+    array(LONG, 0) as SellOrderQty5,
+    array(LONG, 0) as SellOrderQty6,
+    array(LONG, 0) as SellOrderQty7,
+    array(LONG, 0) as SellOrderQty8,
+    array(LONG, 0) as SellOrderQty9,
+    array(LONG, 0) as SellOrderQty10,
+    array(LONG, 0) as BuyOrder1,
+    array(LONG, 0) as BuyOrder2,
+    array(LONG, 0) as BuyOrder3,
+    array(LONG, 0) as BuyOrder4,
+    array(LONG, 0) as BuyOrder5,
+    array(LONG, 0) as BuyOrder6,
+    array(LONG, 0) as BuyOrder7,
+    array(LONG, 0) as BuyOrder8,
+    array(LONG, 0) as BuyOrder9,
+    array(LONG, 0) as BuyOrder10,
+    array(LONG, 0) as SellOrder1,
+    array(LONG, 0) as SellOrder2,
+    array(LONG, 0) as SellOrder3,
+    array(LONG, 0) as SellOrder4,
+    array(LONG, 0) as SellOrder5,
+    array(LONG, 0) as SellOrder6,
+    array(LONG, 0) as SellOrder7,
+    array(LONG, 0) as SellOrder8,
+    array(LONG, 0) as SellOrder9,
+    array(LONG, 0) as SellOrder10,
+    array(LONG, 0) as BuyNumOrders1,
+    array(LONG, 0) as BuyNumOrders2,
+    array(LONG, 0) as BuyNumOrders3,
+    array(LONG, 0) as BuyNumOrders4,
+    array(LONG, 0) as BuyNumOrders5,
+    array(LONG, 0) as BuyNumOrders6,
+    array(LONG, 0) as BuyNumOrders7,
+    array(LONG, 0) as BuyNumOrders8,
+    array(LONG, 0) as BuyNumOrders9,
+    array(LONG, 0) as BuyNumOrders10,
+    array(LONG, 0) as SellNumOrders1,
+    array(LONG, 0) as SellNumOrders2,
+    array(LONG, 0) as SellNumOrders3,
+    array(LONG, 0) as SellNumOrders4,
+    array(LONG, 0) as SellNumOrders5,
+    array(LONG, 0) as SellNumOrders6,
+    array(LONG, 0) as SellNumOrders7,
+    array(LONG, 0) as SellNumOrders8,
+    array(LONG, 0) as SellNumOrders9,
+    array(LONG, 0) as SellNumOrders10,	
+    array(DOUBLE, 0) as float_shares,	
+    array(TIMESTAMP, 0) as UpdateTime1
+) as t1
+
+share table(
+    array(SYMBOL, 0) as HTSCSecurityID,
+    array(DATE, 0) as MDDate,
+    array(TIME, 0) as MDTime,
+    array(SYMBOL, 0) as securityIDSource,
+    array(LONG, 0) as TradeIndex,
+    array(LONG, 0) as TradeBuyNo,
+    array(LONG, 0) as TradeSellNo,
+    array(INT, 0) as TradeBSFlag,
+    array(LONG, 0) as TradePrice,
+    array(LONG, 0) as TradeQty,	
+    array(LONG, 0) as TradeMoney,	
+    array(LONG, 0) as ApplSeqNum,
+    array(TIMESTAMP, 0) as UpdateTime1
+) as t2
+
+//////////////////////////////////////////////////////////////
+
+StockStreamTempS = streamTable(
+    array(SYMBOL, 0) as HTSCSecurityID,
+    array(DATE, 0) as MDDate,
+    array(TIME, 0) as MDTime,
+    array(SYMBOL, 0) as securityIDSource,
+    array(LONG, 0) as PreClosePx,
+    array(LONG, 0) as TotalVolumeTrade,
+    array(LONG, 0) as TotalValueTrade,
+    array(LONG, 0) as LastPx,
+    array(LONG, 0) as OpenPx,
+    array(LONG, 0) as HighPx,
+    array(LONG, 0) as LowPx,
+    array(LONG, 0) as DiffPx1,
+    array(LONG, 0) as TotalBuyQty,
+    array(LONG, 0) as TotalSellQty,
+    array(LONG, 0) as WeightedAvgBuyPx,
+    array(LONG, 0) as WeightedAvgSellPx,
+    array(LONG, 0) as BuyPrice1,
+    array(LONG, 0) as BuyPrice2,
+    array(LONG, 0) as BuyPrice3,
+    array(LONG, 0) as BuyPrice4,
+    array(LONG, 0) as BuyPrice5,
+    array(LONG, 0) as BuyPrice6,
+    array(LONG, 0) as BuyPrice7,
+    array(LONG, 0) as BuyPrice8,
+    array(LONG, 0) as BuyPrice9,
+    array(LONG, 0) as BuyPrice10,
+    array(LONG, 0) as BuyOrderQty1,
+    array(LONG, 0) as BuyOrderQty2,
+    array(LONG, 0) as BuyOrderQty3,
+    array(LONG, 0) as BuyOrderQty4,
+    array(LONG, 0) as BuyOrderQty5,
+    array(LONG, 0) as BuyOrderQty6,
+    array(LONG, 0) as BuyOrderQty7,
+    array(LONG, 0) as BuyOrderQty8,
+    array(LONG, 0) as BuyOrderQty9,
+    array(LONG, 0) as BuyOrderQty10,
+    array(LONG, 0) as SellPrice1,
+    array(LONG, 0) as SellPrice2,
+    array(LONG, 0) as SellPrice3,
+    array(LONG, 0) as SellPrice4,
+    array(LONG, 0) as SellPrice5,
+    array(LONG, 0) as SellPrice6,
+    array(LONG, 0) as SellPrice7,
+    array(LONG, 0) as SellPrice8,
+    array(LONG, 0) as SellPrice9,
+    array(LONG, 0) as SellPrice10,
+    array(LONG, 0) as SellOrderQty1,
+    array(LONG, 0) as SellOrderQty2,
+    array(LONG, 0) as SellOrderQty3,
+    array(LONG, 0) as SellOrderQty4,
+    array(LONG, 0) as SellOrderQty5,
+    array(LONG, 0) as SellOrderQty6,
+    array(LONG, 0) as SellOrderQty7,
+    array(LONG, 0) as SellOrderQty8,
+    array(LONG, 0) as SellOrderQty9,
+    array(LONG, 0) as SellOrderQty10,
+    array(LONG, 0) as BuyOrder1,
+    array(LONG, 0) as BuyOrder2,
+    array(LONG, 0) as BuyOrder3,
+    array(LONG, 0) as BuyOrder4,
+    array(LONG, 0) as BuyOrder5,
+    array(LONG, 0) as BuyOrder6,
+    array(LONG, 0) as BuyOrder7,
+    array(LONG, 0) as BuyOrder8,
+    array(LONG, 0) as BuyOrder9,
+    array(LONG, 0) as BuyOrder10,
+    array(LONG, 0) as SellOrder1,
+    array(LONG, 0) as SellOrder2,
+    array(LONG, 0) as SellOrder3,
+    array(LONG, 0) as SellOrder4,
+    array(LONG, 0) as SellOrder5,
+    array(LONG, 0) as SellOrder6,
+    array(LONG, 0) as SellOrder7,
+    array(LONG, 0) as SellOrder8,
+    array(LONG, 0) as SellOrder9,
+    array(LONG, 0) as SellOrder10,
+    array(LONG, 0) as BuyNumOrders1,
+    array(LONG, 0) as BuyNumOrders2,
+    array(LONG, 0) as BuyNumOrders3,
+    array(LONG, 0) as BuyNumOrders4,
+    array(LONG, 0) as BuyNumOrders5,
+    array(LONG, 0) as BuyNumOrders6,
+    array(LONG, 0) as BuyNumOrders7,
+    array(LONG, 0) as BuyNumOrders8,
+    array(LONG, 0) as BuyNumOrders9,
+    array(LONG, 0) as BuyNumOrders10,
+    array(LONG, 0) as SellNumOrders1,
+    array(LONG, 0) as SellNumOrders2,
+    array(LONG, 0) as SellNumOrders3,
+    array(LONG, 0) as SellNumOrders4,
+    array(LONG, 0) as SellNumOrders5,
+    array(LONG, 0) as SellNumOrders6,
+    array(LONG, 0) as SellNumOrders7,
+    array(LONG, 0) as SellNumOrders8,
+    array(LONG, 0) as SellNumOrders9,
+    array(LONG, 0) as SellNumOrders10,
+    array(DOUBLE, 0) as float_shares,	
+    array(TIMESTAMP, 0) as UpdateTime1
+)
+enableTableShareAndPersistence(table=StockStreamTempS, tableName="t1", asynWrite=true, compress=true, cacheSize=1000000, retentionMinutes=1440, flushMode=0, preCache=100000)
+
+TransactionStreamTempS = streamTable(
+    array(SYMBOL, 0) as HTSCSecurityID,
+    array(DATE, 0) as MDDate,
+    array(TIME, 0) as MDTime,
+    array(SYMBOL, 0) as securityIDSource,
+    array(LONG, 0) as TradeIndex,
+    array(LONG, 0) as TradeBuyNo,
+    array(LONG, 0) as TradeSellNo,
+    array(INT, 0) as TradeBSFlag,
+    array(LONG, 0) as TradePrice,
+    array(LONG, 0) as TradeQty,	
+    array(LONG, 0) as TradeMoney,	
+    array(LONG, 0) as ApplSeqNum,
+    array(TIMESTAMP, 0) as UpdateTime1
+)
+enableTableShareAndPersistence(table=TransactionStreamTempS, tableName="t2", asynWrite=true, compress=true, cacheSize=50000000, retentionMinutes=2880, flushMode=0, preCache=100000)
+
+//////////////////////////////////////////////////////////////
+
+loadPlugin(pluginPath)
+go
+
+queryClient = insight::queryLoginByPassword(userQuery, passwordQuery, serverQuery)
+filterIC = select HTSCSecurityID, 2536 as FloatShares from insight::queryMDIndex(queryClient, "000905.SH", "20210625")
+filterIF = select HTSCSecurityID, 2536 as FloatShares from insight::queryMDIndex(queryClient, "000300.SH", "20210625")
+filterIH = select HTSCSecurityID, 2536 as FloatShares from insight::queryMDIndex(queryClient, "000016.SH", "20210625")
+tableInsert(filterIC, filterIF)
+tableInsert(filterIC, filterIH)
+queryClient.close()
+
+udpClient = insight::registHandle(dict([`StockType, `StockTypeTransaction], [t1,t2]) , dict([`StockType], [filterIC]), 16)
+insight::loginById(udpClient, ip, port, user, password, backups)
+insight::addSubscribeDetail(udpClient, [`MD_TICK], `XSHE, `StockType)
+insight::addSubscribeDetail(udpClient, [`MD_TICK], `XSHG, `StockType)
+insight::addSubscribeDetail(udpClient, [`MD_TRANSACTION], `XSHG, `StockType)
+insight::addSubscribeDetail(udpClient, [`MD_TRANSACTION], `XSHE, `StockType)
+insight::subscribe(udpClient, interfaceIP)
+
+insight::unSubscribe();
+udpClient.close()
+
+select count(*)  from t1
+select * from t1
+select max(time(localtime(UpdateTime1))-MDTime) from t1 group by MDTime order by max desc
+(exec distinct(HTSCSecurityID) from t1).size()
+
+select count(*) from t2
+select * from t2
+select max(time(localtime(UpdateTime1))-MDTime) from t2 group by MDTime order by max desc
+(exec distinct(HTSCSecurityID) from t2).size()

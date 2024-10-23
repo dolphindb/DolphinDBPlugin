@@ -1,0 +1,551 @@
+login("admin","123456")
+try{loadPlugin(getHomeDir() + "\\plugins\\opc\\PluginOpc.txt") } catch(ex){}//path need to be modified, Windows Path Only
+OPCSERVER="127.0.0.1"
+SUBSCRIBENAME=`Matrikon.OPC.Simulation.1
+
+@testing:case = "opc_get_server" 
+servers=opc::getOpcServerList(OPCSERVER)
+connected=false
+for (server in servers[`progID]){
+	try{
+		conn=opc::connect(OPCSERVER,server,100)
+		connected=true
+		opcServer=server
+	}catch(ex){print ex}
+}
+assert 1,connected==true
+
+@testing:case = "conn"
+conn=opc::connect(OPCSERVER,SUBSCRIBENAME,1000)
+try{
+	conn1=opc::connect(OPCSERVER,"notExistServer",1000)
+}catch(ex){ conn1=NULL}
+assert 1,conn1==NULL
+assert 2,isNull(conn)==false
+
+@testing:case = "write_not_exist_tag"
+try{
+	ret=opc::writeTag(conn,"testwrite.test11111",111)
+}catch(ex){ret=false}
+assert 1, ret == false
+
+@testing:case = "read_not_exist_tag"
+try{
+	ret = opc::readTag(conn, "testwrite.11111")  
+}catch(ex){ret=false}
+assert 1, ret == false
+
+@testing:case = "write_array_real8"
+opc::writeTag(conn,"testwrite.test1",[1.112,0.123,0.1234])
+ret = opc::readTag(conn, "testwrite.test1")  
+assert 1, ret['value'][0] == "1.112000,0.123000,0.123400,"
+opc::writeTag(conn,"testwrite.test1",[0.1234,0.123,0.12])
+ret = opc::readTag(conn, "testwrite.test1")
+assert 2, ret['value'][0] == "0.123400,0.123000,0.120000,"
+
+@testing:case = "write_array_bstr"
+opc::writeTag(conn,"testwrite.test2",["a","b","d"])
+ret = opc::readTag(conn, "testwrite.test2")
+assert 1, ret['value'][0] == "a,b,d,"
+opc::writeTag(conn,"testwrite.test2",["a","b","c"])
+ret = opc::readTag(conn, "testwrite.test2")
+assert 2, ret['value'][0] == "a,b,c,"
+
+@testing:case = "write_bool"
+opc::writeTag(conn,"testwrite.test3",false)
+ret = opc::readTag(conn, "testwrite.test3")
+assert 1, ret['value'][0] == false
+opc::writeTag(conn,"testwrite.test3",true)
+ret = opc::readTag(conn, "testwrite.test3")
+assert 2, ret['value'][0] == true
+
+@testing:case = "write_int1"
+opc::writeTag(conn,"testwrite.test4",3)
+ret = opc::readTag(conn, "testwrite.test4")
+assert 1, ret['value'][0] == 3
+opc::writeTag(conn,"testwrite.test4",-3)
+ret = opc::readTag(conn, "testwrite.test4")
+assert 2, ret['value'][0] == -3
+
+@testing:case = "write_int2"
+opc::writeTag(conn,"testwrite.test5",300)
+ret = opc::readTag(conn, "testwrite.test5")
+assert 1, ret['value'][0] == 300
+opc::writeTag(conn,"testwrite.test5",-300)
+ret = opc::readTag(conn, "testwrite.test5")
+assert 2, ret['value'][0] == -300
+
+@testing:case = "write_int4"
+opc::writeTag(conn,"testwrite.test6",300000)
+ret = opc::readTag(conn, "testwrite.test6")
+assert 1, ret['value'][0] == 300000
+opc::writeTag(conn,"testwrite.test6",-300000)
+ret = opc::readTag(conn, "testwrite.test6")
+assert 2, ret['value'][0] == -300000
+
+
+@testing:case = "write_money"
+opc::writeTag(conn,"testwrite.test7",300.01)
+ret = opc::readTag(conn, "testwrite.test7")
+assert 1, ret['value'][0] == 300.01
+opc::writeTag(conn,"testwrite.test7",-300.01)
+ret = opc::readTag(conn, "testwrite.test7")
+assert 2, ret['value'][0] == -300.01
+
+@testing:case = "write_real4"
+opc::writeTag(conn,"testwrite.test8",1.0)
+ret = opc::readTag(conn, "testwrite.test8")
+assert 1, ret['value'][0] == 1.0
+opc::writeTag(conn,"testwrite.test8",-1.0)
+ret = opc::readTag(conn, "testwrite.test8")
+assert 2, ret['value'][0] == -1.0
+
+@testing:case = "write_real8"
+opc::writeTag(conn,"testwrite.test9",1123.0)
+ret = opc::readTag(conn, "testwrite.test9")
+assert 1, ret['value'][0] == 1123.0
+opc::writeTag(conn,"testwrite.test9",-1123.0)
+ret = opc::readTag(conn, "testwrite.test9")
+assert 2, ret['value'][0] == -1123.0
+
+@testing:case = "write_string"
+opc::writeTag(conn,"testwrite.test10","hello")
+ret = opc::readTag(conn, "testwrite.test10")
+assert 1, ret['value'][0] == "hello"
+opc::writeTag(conn,"testwrite.test10","world")
+ret = opc::readTag(conn, "testwrite.test10")
+assert 2, ret['value'][0] == "world"
+
+@testing:case = "write_time"
+opc::writeTag(conn,"testwrite.test11",2017.06.28T02:02:02)
+ret = opc::readTag(conn, "testwrite.test11")
+assert 1, ret['value'][0] == 2017.06.28T02:02:02
+opc::writeTag(conn,"testwrite.test11",2018.07.17T02:02:02)
+ret = opc::readTag(conn, "testwrite.test11")
+assert 2, ret['value'][0] == 2018.07.17T02:02:02
+
+@testing:case = "write_uint1"
+opc::writeTag(conn,"testwrite.test12", 255)
+ret = opc::readTag(conn, "testwrite.test12")
+assert 1, ret['value'][0] == 255
+opc::writeTag(conn,"testwrite.test12",-2)
+ret = opc::readTag(conn, "testwrite.test12")
+assert 2, ret['value'][0] == 254
+
+@testing:case = "write_uint2"
+opc::writeTag(conn,"testwrite.test13", 1234)
+ret = opc::readTag(conn, "testwrite.test13")
+assert 1, ret['value'][0] == 1234
+opc::writeTag(conn,"testwrite.test13",-2)
+ret = opc::readTag(conn, "testwrite.test13")
+assert 2, ret['value'][0] == 65534
+
+@testing:case = "write_uint4"
+opc::writeTag(conn,"testwrite.test14", 123456789)
+ret = opc::readTag(conn, "testwrite.test14")
+assert 1, ret['value'][0] == 123456789
+opc::writeTag(conn,"testwrite.test14",-2)
+ret = opc::readTag(conn, "testwrite.test14")
+assert 2, ret['value'][0] == 4294967294
+
+@testing:case = "read_multi_tag"
+opc::writeTag(conn,"testwrite.test10","world")
+t=opc::readTag(conn, ["testwrite.test1","testwrite.test2","testwrite.test3","testwrite.test4",
+	"testwrite.test5","testwrite.test6","testwrite.test7","testwrite.test8","testwrite.test9","testwrite.test10"])
+assert 1, t[`value][9]== "world"
+
+@testing:case = "read_to_table"
+t = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+opc::writeTag(conn,"testwrite.test9",-1123.0)
+opc::readTag(conn, "testwrite.test9",t)
+assert 1, t[`value][0] == -1123
+
+@testing:case = "read_to_multi_value_table"  
+opc::writeTag(conn,"testwrite.test4",5)
+tm = table(200:0,`time`tag1`quality1`tag2`quality2, [TIMESTAMP,STRING, INT,INT,INT])
+opc::readTag(conn, ["testwrite.test1","testwrite.test4"],tm) 
+assert 1, tm[`tag2][0] == 5
+
+@testing:case = "read_to_single_value_table"  
+opc::writeTag(conn,"testwrite.test4",5)
+opc::writeTag(conn,"testwrite.test5",6)
+opc::writeTag(conn,"testwrite.test8",5.1)
+opc::writeTag(conn,"testwrite.test9",5.2)
+opc::writeTag(conn,"testwrite.test3",false)
+t = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP,DOUBLE,INT])
+opc::readTag(conn, ["testwrite.test9","testwrite.test4"],t) 
+assert 1, t[`value][0] == 5.2
+assert 2, t[`value][1] == 5
+opc::readTag(conn, ["testwrite.test5","testwrite.test8", "testwrite.test9"],t) 
+assert 3,t.size() ==5
+t1 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP,BOOL,INT])
+opc::readTag(conn, ["testwrite.test3","testwrite.test3"],t1) 
+opc::writeTag(conn,"testwrite.test3",true)
+opc::readTag(conn, ["testwrite.test3","testwrite.test3"],t1) 
+assert 3,t1.size() == 4
+assert 4,t1[`value][3]==true
+ 
+@testing:case = "write_multi_tag"  
+opc::writeTag(conn,["testwrite.test5","testwrite.test6"],[33,11])    
+ret = opc::readTag(conn, "testwrite.test6")
+assert 2, ret['value'][0] == 11
+
+@testing:case = "opc_sub_close" 
+conn1=opc::connect(OPCSERVER,SUBSCRIBENAME,100)
+t = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+opc::writeTag(conn1,"testwrite.test9",115.30)
+opc::subscribe(conn1,"testwrite.test9",t)
+sleep(1000)
+assert 1,t.size()>0
+opc::writeTag(conn1,"testwrite.test9",115.20)
+sleep(1000)
+assert 2,t.size()==2
+opc::close(conn1)
+conn1=opc::connect(OPCSERVER,SUBSCRIBENAME,100)
+try{
+ret=opc::writeTag(conn1,"testwrite.test9",115.10)
+}catch(ex){
+	ret=false
+	print ex
+}
+opc::close(conn1)
+assert 3,t.size()==2
+
+@testing:case = "opc_resub" 
+conn=opc::connect(OPCSERVER,SUBSCRIBENAME,100)
+t9 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+opc::subscribe(conn,"testwrite.test9",t9)
+try{
+opc::subscribe(conn,"testwrite.test9",t9)
+}catch(ex){	print ex }
+sleep(1000)
+opc::close(conn)
+assert 1,t9.size()==1
+
+@testing:case = "opc_sub_handler_is_a_table" 
+t1 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, INT, INT])
+t2 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, INT, INT])
+t3 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, INT, INT])
+t4 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, STRING, INT])
+t5 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+t6 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+t7 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, BOOL, INT])
+t8 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DATETIME, INT])
+t9 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+conn1=opc::connect(OPCSERVER,SUBSCRIBENAME,100)
+opc::subscribe(conn1,".testString",  t4)
+sleep(1000)
+sz1=t4.size()
+sleep(1000)
+assert 1,t4.size()>0
+assert 2,t4.size()>sz1
+conn2 = opc::connect(OPCSERVER,SUBSCRIBENAME,10)
+opc::subscribe(conn2,".testReal8",  t6)
+sleep(1000)
+sz2=t6.size()
+sleep(1000)
+opc::unsubscribe(conn1)
+opc::close(conn1)
+opc::unsubscribe(conn2)
+opc::close(conn2)
+assert 3,t6.size()>0
+assert 4,t6.size()>sz2
+
+@testing:case = "opc_sub_table_array"
+conn20 = opc::connect(OPCSERVER,SUBSCRIBENAME,10)
+opc::subscribe(conn20,[".testINT2",".testReal8"], t5)
+conn21 = opc::connect(OPCSERVER,SUBSCRIBENAME,10)
+opc::subscribe(conn21,[".testTime",".testMoney"], t8)
+sleep(2000)
+opc::close(conn20)
+opc::close(conn21)
+t5cnt=exec count(*) from t5 group by tag
+
+assert 1,t5cnt.size()==2  && t5cnt[`count][0]>0
+assert 2,t8.size()>1
+
+@testing:case = "opc_sub_handler_function"//
+def callback1(mutable t1, d) {
+	t1.append!(d)
+}
+conn10 = opc::connect(OPCSERVER,SUBSCRIBENAME,10)
+opc::subscribe(conn10,".testBool",   callback1{t7})
+sleep(2000)
+opc::close(conn10)
+assert 1,t7.size()>1
+
+@testing:case = "opc_sub_write_to_dfs"
+login("admin", "123456")
+dbName="dfs://test_opc"
+if(existsDatabase(dbName)){
+	dropDatabase(dbName)
+}
+db=database(dbName, VALUE, [".testString"])
+t=table(1:0, `tag`time`value`quality, [SYMBOL,TIMESTAMP, STRING, INT])
+pt=db.createPartitionedTable(t, `pt, `tag)
+
+conn1=opc::connect(OPCSERVER,SUBSCRIBENAME,100)
+opc::subscribe(conn1,".testString",  append!{pt})
+sleep(2000)
+num=exec count(*) from pt
+assert 1, num>0
+opc::unsubscribe(conn1)
+
+@testing:case="test_opc_subscribe_handler_partial_application"
+def callback1(mutable t, d) {
+	t.append!(d)
+}
+t3 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+conn10 = opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,10)
+opc::subscribe(conn10,"testwrite.test9",   callback1{t3})
+opc::writeTag(conn10,"testwrite.test9",115.40)
+sleep(1000)
+assert 1,eqFloat(t3[`value][0],115.40,6)  
+opc::unsubscribe(conn10)
+
+@testing:case="test_opc_subscribe_handler_input_error",exception=1
+def callback1(mutable t, d) {
+	t.append!(d)
+}
+t3 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+conn10 = opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,10)
+opc::subscribe(conn10,"testwrite.test9",   callback1{t3,2})
+
+@testing:case="test_opc_subscribe_handler_throw"
+def callback1(mutable t, d) {
+	throw "exception"
+	t.append!(d)
+}
+t3 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+conn10 = opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,10)
+opc::subscribe(conn10,"testwrite.test9",   callback1{t3})
+opc::writeTag(conn10,"testwrite.test9",115.40)
+sleep(1000)
+res = exec errorMsg from opc::getSubscriberStat() order by createTimestamp desc limit 1
+opc::unsubscribe(conn10)
+assert 1,res[0] == "exception"
+
+def callback2(mutable t, d) {
+	throw "exception"
+	t.append!(d)
+}
+t3 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+conn10 = opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,10)
+opc::subscribe(conn10,"testwrite.test1",   callback2{t3})
+opc::writeTag(conn10,"testwrite.test1",[1.112,0.123,0.1234])
+sleep(1000)
+res = exec errorMsg from opc::getSubscriberStat() order by createTimestamp desc limit 1
+opc::unsubscribe(conn10)
+assert 2,res[0] == "exception"
+
+@testing:case="test_opc_getOpcServerList_host_not_exist",exception=1
+opc::getOpcServerList("not_exist")
+
+@testing:case="test_opc_getOpcServerList_NULL",exception=1
+opc::getOpcServerList()
+
+@testing:case="test_opc_getOpcServerList_1",exception=1
+opc::getOpcServerList(1)
+
+@testing:case="test_opc_getOpcServerList_string(NULL)",exception=1
+opc::getOpcServerList(string(NULL))
+
+@testing:case="test_opc_getOpcServerList_empty_string",exception=1
+opc::getOpcServerList("")
+
+@testing:case="test_opc_getOpcServerList_args_more",syntaxError=1
+opc::getOpcServerList(OPCSERVER,1)
+
+@testing:case="test_opc_conn_arg_less",syntaxError=1
+opc::connect(`127.0.0.1)
+
+@testing:case="test_opc_conn_arg_more",syntaxError=1
+opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,100,100)
+
+@testing:case="test_opc_conn_1",exception=1
+opc::connect("","",100)
+
+@testing:case="test_opc_conn_2",exception=1
+opc::connect(OPCSERVER,,100)
+
+@testing:case="test_opc_conn_3",exception=1
+opc::connect(OPCSERVER,1,100)
+
+@testing:case="test_opc_conn_4",exception=1
+opc::connect(OPCSERVER,1,"1")
+
+@testing:case="test_opc_conn_5",exception=1
+opc::connect(OPCSERVER,SUBSCRIBENAME,-1)
+
+@testing:case="test_opc_conn_6",exception=1
+opc::connect(OPCSERVER,SUBSCRIBENAME,NULL)
+
+@testing:case="test_opc_conn_7",exception=1
+opc::connect(OPCSERVER,SUBSCRIBENAME,int(NULL))
+
+@testing:case="test_opc_readTag_connection_NULL",exception=1
+opc::readTag(NULL, "")
+
+@testing:case="test_opc_readTag_connection_closed_connection",exception=1
+conn1=opc::connect(OPCSERVER,SUBSCRIBENAME)
+opc::close(conn1)
+opc::readTag(conn1, "testwrite.test1")
+
+@testing:case="test_opc_readTag_connection_close_connect"
+conn1=opc::connect(OPCSERVER,SUBSCRIBENAME)
+opc::close(conn1)
+conn1=opc::connect(OPCSERVER,SUBSCRIBENAME)
+assert 1, size(opc::readTag(conn1, "testwrite.test1")) > 0
+
+@testing:case="test_opc_readTag_tagName_empty_string",exception=1
+conn1=opc::connect(OPCSERVER,SUBSCRIBENAME)
+opc::readTag(conn1, "")
+
+@testing:case="test_opc_readTag_tagName_NULL",exception=1
+conn1=opc::connect(OPCSERVER,SUBSCRIBENAME)
+opc::readTag(conn1, NULL)
+
+@testing:case="test_opc_readTag_tagName_string(NULL)",exception=1
+conn1=opc::connect(OPCSERVER,SUBSCRIBENAME)
+opc::readTag(conn1, string(NULL))
+
+@testing:case="test_opc_readTag_tagName_vector",exception=1
+conn1=opc::connect(OPCSERVER,SUBSCRIBENAME)
+opc::readTag(conn1, ["testwrite.test1",1])
+
+@testing:case="test_opc_readTag_tagName_int",exception=1
+opc::readTag(conn1, 1)
+
+@testing:case="test_opc_readTag_table_string",exception=1
+opc::readTag(conn1,".testBool","" )
+
+@testing:case="test_opc_readTag_table_NULL",exception=1
+opc::readTag(conn1,".testBool", )
+
+@testing:case="test_opc_readTag_table_col_less",exception=1
+t = table(200:0,`tag`time`value, [SYMBOL,TIMESTAMP, DOUBLE])
+opc::readTag(conn1,".testBool", t)
+
+@testing:case="test_opc_readTag_table_col_more",exception=1
+t = table(200:0,`tag`time`value`quality`temp, [SYMBOL,TIMESTAMP, DOUBLE, INT,INT])
+opc::readTag(conn1,".testBool", t)
+
+@testing:case="test_opc_readTag_table_vector",exception=1
+t = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+opc::readTag(conn1,".testBool", [t,t])
+
+@testing:case="test_opc_writeTag_connection_NULL",exception=1
+opc::writeTag(NULL,"testwrite.test1",[1.112,0.123,0.1234])
+
+@testing:case="test_opc_writeTag_connection_closed_connection",exception=1
+conn1=opc::connect(OPCSERVER,SUBSCRIBENAME)
+opc::close(conn1)
+opc::writeTag(conn1,"testwrite.test1",[1.112,0.123,0.1234])
+
+@testing:case="test_opc_writeTag_connection_twice"
+conn1=opc::connect(OPCSERVER,SUBSCRIBENAME)
+opc::close(conn1)
+conn1=opc::connect(OPCSERVER,SUBSCRIBENAME)
+assert 1, opc::writeTag(conn1,"testwrite.test1",[1.112,0.123,0.1234])
+
+@testing:case="test_opc_writeTag_args_less",syntaxError=1
+conn1=opc::connect(OPCSERVER,SUBSCRIBENAME)
+opc::writeTag(conn1, "")
+
+@testing:case="test_opc_writeTag_args_more",syntaxError=1
+conn1=opc::connect(OPCSERVER,SUBSCRIBENAME)
+opc::writeTag(conn1,"testwrite.test1",[1.112,0.123,0.1234],1)
+
+@testing:case="test_opc_writeTag_tagName_int",exception=1
+opc::writeTag(conn1, 1,1)
+
+@testing:case="test_opc_writeTag_tagName_NULL",exception=1
+opc::writeTag(conn1, NULL,1)
+
+@testing:case="test_opc_writeTag_value_NULL",exception=1
+opc::writeTag(conn1, "testwrite.test1",NULL)
+
+@testing:case="test_opc_writeTag_value_scalar",exception=1
+opc::writeTag(conn1, "testwrite.test1",1)
+
+@testing:case="test_opc_writeTag_value_vector",exception=1
+opc::writeTag(conn1, "testwrite.test1",[1.112,0.123,"dwa"])
+
+@testing:case="test_opc_writeTag_NULL",exception=1
+opc::writeTag(conn1,".testBool", )
+
+@testing:case="test_opc_subscribe_args_less",syntaxError=1
+conn1=opc::connect(OPCSERVER,SUBSCRIBENAME)
+opc::subscribe(conn1)
+
+@testing:case="test_opc_subscribe_args_more",syntaxError=1
+conn1=opc::connect(OPCSERVER,SUBSCRIBENAME)
+t2 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+opc::subscribe(conn1,".testBool",t2,1)
+
+@testing:case="test_opc_subscribe_closed_connection",exception=1
+t2 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+conn1=opc::connect(OPCSERVER,SUBSCRIBENAME)
+opc::close(conn1)
+opc::subscribe(conn1,".testBool",t2)
+
+@testing:case="test_opc_subscribe_NULL_connection",exception=1
+t2 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+opc::subscribe(NULL, ".testBool",t2)
+
+@testing:case="test_opc_subscribe_2",exception=1
+opc::subscribe(conn1, 1,"")
+
+@testing:case="test_opc_subscribe_3",exception=1
+opc::subscribe(conn1,".testBool","" )
+
+@testing:case="test_opc_subscribe_4",exception=1
+opc::subscribe(conn1,".testBool", )
+
+@testing:case="test_opc_subscribe_5",exception=1
+opc::subscribe(conn1,NULL, )
+
+@testing:case="test_opc_subscribe_connection_multiplex",exception=1
+conn10 = opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,10)
+t3 = table(200:0,`tag`time`value`quality, [SYMBOL,TIMESTAMP, DOUBLE, INT])
+opc::subscribe(conn10,"testwrite.test1",   t3)
+opc::subscribe(conn10,"testwrite.test1",   t3)
+
+@testing:case="test_opc_subscribe_close"
+opc::unsubscribe(conn10)
+
+@testing:case="test_opc_unsubscribe_NULL",exception=1
+opc::unsubscribe()
+
+@testing:case="test_opc_unsubscribe_args_more",syntaxError=1
+opc::unsubscribe(1,1)
+
+@testing:case="test_opc_unsubscribe_unsubscribed",exception=1
+conn10 = opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,10)
+opc::unsubscribe(conn10)
+
+@testing:case="test_opc_close_NULL",exception=1
+opc::close(NULL)
+
+@testing:case="test_opc_close_args_less",exception=1
+opc::close()
+
+@testing:case="test_opc_close_args_more",syntaxError=1
+conn10 = opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,10)
+opc::close(conn10,1,2)
+
+@testing:case="test_opc_close_closed",exception=1
+conn10 = opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,10)
+opc::close(conn10)
+opc::close(conn10)
+
+@testing:case="test_opc_connect_close"
+for(i in 0..10){
+	conn10 = opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,10)
+	opc::close(conn10)
+}
+conn10 = opc::connect(`127.0.0.1,`Matrikon.OPC.Simulation.1,10)
+assert 1, opc::writeTag(conn10,"testwrite.test9",115.40)
+
+@testing:case="test_opc_getSubscriberStat_args_more",syntaxError=1
+opc::getSubscriberStat(1)

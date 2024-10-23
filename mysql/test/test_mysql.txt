@@ -1,0 +1,409 @@
+#include "setup/settings.txt"
+loadPlugin(PLUGIN_DIR)
+
+@testing:case="load_plugin"
+use mysql
+
+@testing:case="connect_mysql_fail_1", exception=1
+conn = connect(host, port, user, "DolphinDB1234", dbname)
+
+@testing:case="connect_mysql_fail_2", exception=1
+conn = connect("invalid_host", port, user, pwd, dbname)
+
+@testing:case="connect_mysql_fail_3", exception=1
+conn = connect(host, port, user, pwd, `invalidTable)
+
+@testing:case="connect_mysql_fail_4", exception=1
+conn = connect(host, port, "dolphindb1", pwd, dbname)
+
+@testing:case="connect_mysql_fail_5", exception=1
+conn = connect(host, 8700, user, pwd, dbname)
+
+@testing:case="connect_mysql_fail_6", exception=1
+conn = connect(host, port, "nopassword", "", `noPriv)
+
+@testing:case="connect_mysql_args_ex_1", exception=1
+conn = connect(115, user, port, pwd, dbname)
+
+@testing:case="connect_mysql_args_ex_2", exception=1
+conn = connect(host, port, 123, pwd, dbname)
+
+@testing:case="connect_mysql_args_ex_3", exception=1
+conn = connect(host, port, user, 123, dbname)
+
+@testing:case="connect_mysql_args_ex_4", exception=1
+conn = connect(host, 8709.9, user, pwd, dbname)
+
+@testing:case="connect_mysql_args_ex_5", exception=1
+conn = connect(host, port, user, pwd, 123)
+
+@testing:case="connect"
+conn = connect(host, port, user, pwd, dbname)
+undef(`conn)
+
+@testing:case="showTables"
+conn = connect(host, port, user, pwd, dbname)
+tables = showTables(conn)
+assert 1, tables.Tables_in_DolphinDB.size()>0
+assert 2, 'employees' in  tables.Tables_in_DolphinDB 
+
+@testing:case="extractSchema"
+scm = extractSchema(conn, `allType)
+assert 1, scm.name == `dint`dtint`dsint`dmint`dbint`dfloat`ddouble`ddecimal`ddate`ddatetime`dtimestamp`dtime`dyear`dchar`dvarchar`dblob`dtext`dtblob`dttext`dmblob`dmtext`dlblob`dltext`denum
+assert 2, scm.type == `INT`CHAR`SHORT`INT`LONG`FLOAT`DOUBLE`DOUBLE`DATE`DATETIME`TIMESTAMP`TIME`INT`SYMBOL`SYMBOL`STRING`STRING`STRING`STRING`STRING`STRING`STRING`STRING`SYMBOL
+
+@testing:case="extractSchema_2"
+scm=extractSchema(conn,`testNew)
+assert 1,scm.name==`dint`duint`dtint`dutint`dsint`dusint`dmint`dumint`dbint`dubint`dchar9`dchar10`dchar11`dvarchar10`dvarchar11`denum
+assert 2,scm.type==`INT`LONG`CHAR`SHORT`SHORT`INT`INT`INT`LONG`LONG`SYMBOL`SYMBOL`SYMBOL`SYMBOL`SYMBOL`SYMBOL
+/*
+ * add more cases
+ */
+
+@testing:case="load_without_schema"
+t = load(conn, `noBlobNoNull)
+assert 1, size(t)==2
+assert 2, t.dint == -2147483647 0
+
+
+/*
+ * add more cases
+ */
+@testing:case="load_without_schema_large"
+t=load(conn,`int_year_large)
+result=select avg(dint) as avg_int,avg(dtint) as avg_tinyint,avg(dsint) as avg_smallint,avg(dmint) as avg_mediumint,avg(dbint) as avg_bigint,max(dfloat) as max_float,max(ddouble) as max_double,min(ddecimal) as min_ddecimal,ddate,ddatetime,dtimestamp,dtime from t
+tt=select count(*)  as cnt,count(dsint) as dsint_cnt,count(ddecimal) as decimal_cnt,count(dyear) as year_cnt from t
+assert 1, result.avg_int==1500000.5
+assert 2, result.avg_tinyint==49.5
+assert 3, result.avg_smallint==500
+assert 4, result.avg_mediumint==1500000.5
+assert 5, result.avg_bigint==3000001
+assert 6, abs(result.max_float-1.23)<0.000001   
+assert 7, result.max_double==4.56
+assert 8, result.min_ddecimal==7.890
+assert 9, result.ddate==take(2019.01.18,3000000)
+assert 10, result.ddatetime==take(2019.01.18T10:45:23,3000000)  
+assert 11, result.dtimestamp==take(2018.01.18T10:46:37,3000000)
+assert 12, result.dtime==take(10:46:57,3000000)
+assert 13, tt.cnt==3000000
+assert 14, tt.dsint_cnt == 2970000
+assert 15, tt.decimal_cnt==2970000
+assert 16, tt.year_cnt== 2970000
+
+@testing:case="load_without_schema_large2"
+t=load(conn,`char_enum_large)
+result=select avg(dint) as avg_dint,dvarchar,dblob,dtblob,dttext,dmblob,dmtext,denum from t
+result1=select top 2900000:2900002 dchar from t
+result2=select top 2900000:2900002 dblob from t
+tt=select count(*) as cnt,count(dchar) as char_cnt,count(dtext) as text_cnt from t
+assert 1, result.avg_dint==1500000.5
+assert 2, result.dvarchar==take(`varchar_10,3000000)
+assert 3, result.dblob==take(`blob_test,3000000)
+assert 4, result.dtblob==take(`tinyblob_test,3000000)
+assert 5, result.dttext==take(`tinytext_test,3000000)
+assert 6, result.dmblob==take(`mediumblob_test,3000000)
+assert 7, result.dmtext==take(`mediumtext_test,3000000)
+assert 8, result.denum==take(`e1,3000000)
+assert 9, result1.dchar==`ch4
+assert 10, result2.dblob==`blob_test
+assert 11, tt.cnt==3000000
+assert 12, tt.char_cnt==2970000
+assert 13, tt.text_cnt==2970000
+
+@testing:case="load_without_schema_largenonull"
+t=load(conn,`int_year_largeNoNull)
+select count(*) from t
+result=select avg(dint) as avg_int,avg(dtint) as avg_tinyint,avg(dsint) as avg_smallint,avg(dmint) as avg_mediumint,avg(dbint) as avg_bigint,max(dfloat) as max_float,max(ddouble) as max_double,min(ddecimal) as min_ddecimal,ddate,ddatetime,dtimestamp,dtime from t
+tt=select count(*)  as cnt,count(dsint) as dsint_cnt,count(ddecimal) as decimal_cnt,count(dyear) as year_cnt from t
+assert 1, result.avg_int==1500000.5
+assert 2, result.avg_tinyint==49.5
+assert 3, result.avg_smallint==499.5
+assert 4, result.avg_mediumint==1500000.5
+assert 5, result.avg_bigint==3000001
+assert 6, abs(result.max_float-1.23)<0.000001 
+assert 7, result.max_double==4.56
+assert 8, result.min_ddecimal==7.890
+assert 9, result.ddate==take(2019.01.18,3000000)
+assert 10, result.ddatetime==take(2019.01.18T10:45:23,3000000)  
+assert 11, result.dtimestamp==take(2018.01.18T10:46:37,3000000)
+assert 12, result.dtime==take(10:46:57,3000000)
+assert 13, tt.cnt==3000000
+assert 14, tt.dsint_cnt == 3000000
+assert 15, tt.decimal_cnt==3000000
+assert 16, tt.year_cnt== 3000000
+
+@testing:case="load_without_schema_largenonull_dfs_inmem_ex1", exception=1
+db = database("", RANGE, 0 50000 1000000 1500000 2000000 2500000 3000001)
+t=loadEx(conn, db, "",`dint,`int_year_largeNoNull,,-1)
+
+@testing:case="load_without_schema_largenonull_dfs_inmem_ex2", exception=1
+db = database("", RANGE, 0 50000 1000000 1500000 2000000 2500000 3000001)
+t=loadEx(conn, db, "",`dint,`int_year_largeNoNull,,0,-1)
+
+@testing:case="load_without_schema_largenonull_dfs_inmem_ex3", exception=1
+db = database("", RANGE, 0 50000 1000000 1500000 2000000 2500000 3000001)
+t=loadEx(conn, db, "",`dint,`int_year_largeNoNull,,"",10)
+
+@testing:case="load_without_schema_largenonull_dfs_inmem_ex4", exception=1
+db = database("", RANGE, 0 50000 1000000 1500000 2000000 2500000 3000001)
+t=loadEx(conn, db, "",`dint,`int_year_largeNoNull,,"","")
+
+@testing:case="load_without_schema_largenonull_dfs_inmem_ex5", exception=1
+t=load(conn, `int_year_largeNoNull,,"",1)
+
+@testing:case="load_without_schema_largenonull_dfs_inmem_ex6", exception=1
+t=load(conn, `int_year_largeNoNull,,"","")
+
+
+@testing:case="load_without_schema_largenonull_in_mem_partitioned_import_just_table_frame" 
+db = database("", RANGE, 0 50000 1000000 1500000 2000000 2500000 3000001)
+t=loadEx(conn, db, "",`dint,`int_year_largeNoNull,,0,0)
+assert 1, size(t)==0
+
+@testing:case="load_without_schema_largenonull_in_mem_partitioned_import"
+db = database("", RANGE, 0 50000 1000000 1500000 2000000 2500000 3000001)
+t=loadEx(conn, db, "",`dint,`int_year_largeNoNull)
+assert 1, size(t)==3000000
+t=loadEx(conn, db, "",`dint, 'select  * from int_year_largeNoNull')
+assert 2, size(t)==3000000
+t=loadEx(conn, db, "",`dint, 'select  * from int_year_largeNoNull limit 100000')
+assert 3, size(t)==100000
+t=loadEx(conn, db, "",`dint, 'select  * from int_year_largeNoNull where dint<=1000000')
+assert 4, size(t)==1000000
+
+@testing:case="load_with_schema_largenonull_in_mem_partitioned_import"
+db = database("", RANGE, 0 50000 1000000 1500000 2000000 2500000 3000001)
+scm = table(`dint`dtint`dsint`dmint`dbint`dfloat`ddouble`ddecimal`ddate`ddatetime`dtimestamp`dtime`dyear as name, `INT`SHORT`SHORT`INT`LONG`FLOAT`DOUBLE`DOUBLE`DATE`DATETIME`TIMESTAMP`TIME`STRING as type)
+t = loadEx(conn, db, "", `dint, `int_year_large, scm)
+assert 1, size(t)==3000000
+t = loadEx(conn, db, "", `dint, 'select * from int_year_large limit 100000', scm,0,100000)
+assert 2, size(t)==100000
+t = loadEx(conn, db, "", `dint, 'select * from int_year_large limit 100000', scm,10000,10)
+assert 3,size(t)==10
+t = loadEx(conn, db, "", `dint,`int_year_large, scm,10000,100000)
+assert 4, (exec min(dint) from t)==10001
+
+@testing:case="load_with_schema_largenonull_dfs"
+db = database("dfs://test_mysql_range", RANGE, 0 50000 1000000 1500000 2000000 2500000 3000001)
+scm = table(`dint`dtint`dsint`dmint`dbint`dfloat`ddouble`ddecimal`ddate`ddatetime`dtimestamp`dtime`dyear as name, `INT`SHORT`SHORT`INT`LONG`FLOAT`DOUBLE`DOUBLE`DATE`DATETIME`TIMESTAMP`TIME`STRING as type)
+loadEx(conn, db, `pt, `dint, `int_year_large, scm)
+pt=db.loadTable(`pt)
+assert 1, (exec count(*) from pt)==3000000
+loadEx(conn, db, `pt, `dint, `int_year_large, scm,10000,100000)
+pt=db.loadTable(`pt)
+assert 2, (exec count(*) from pt)==3100000
+loadEx(conn, db, `pt2, `dint, `int_year_large, scm,10000,100000)
+t2 = select top 10 * from db.loadTable(`pt2)
+assert 3, (exec min(dint) from t2)==10001
+
+
+@testing:case="load_without_schema_largenonull2"
+t=load(conn,`char_enum_largeNoNull)
+result=select avg(dint) as avg_dint,dvarchar,dblob,dtblob,dttext,dmblob,dmtext,denum from t
+result1=select top 2900000:2900002 dchar from t
+result2=select top 2900000:2900002 dblob from t
+tt=select count(*) as cnt,count(dchar) as char_cnt,count(dtext) as text_cnt from t
+assert 1, result.avg_dint==1500000.5
+assert 2, result.dvarchar==take(`varchar_10,3000000)
+assert 3, result.dblob==take(`blob_test,3000000)
+assert 4, result.dtblob==take(`tinyblob_test,3000000)
+assert 5, result.dttext==take(`tinytext_test,3000000)
+assert 6, result.dmblob==take(`mediumblob_test,3000000)
+assert 7, result.dmtext==take(`mediumtext_test,3000000)
+assert 8, result.denum==take(`e1,3000000)
+assert 9, result1.dchar==`ch4`ch4
+assert 10, result2.dblob==`blob_test`blob_test
+assert 11, tt.cnt==3000000
+assert 12, tt.char_cnt==3000000
+assert 13, tt.text_cnt==3000000
+
+
+@testing:case="load_without_schema_small"
+t=load(conn,`int_year_small)
+result=select avg(dint) as avg_int,avg(dtint) as avg_tinyint,avg(dsint) as avg_smallint,avg(dmint) as avg_mediumint,avg(dbint) as avg_bigint,max(dfloat) as max_float,max(ddouble) as max_double,min(ddecimal) as min_ddecimal,ddate,ddatetime,dtimestamp,dtime from t
+tt=select count(*)  as cnt,count(dsint) as dsint_cnt,count(ddecimal) as decimal_cnt,count(dyear) as year_cnt from t
+assert 1, result.avg_int==50000.5
+assert 2, result.avg_tinyint==49.5
+assert 3, result.avg_smallint==500
+assert 4, result.avg_mediumint==50000.5
+assert 5, result.avg_bigint==100001
+assert 6, abs(result.max_float-1.23)<0.000001    
+assert 7, result.max_double==4.56
+assert 8, result.min_ddecimal==7.890
+assert 9, result.ddate==take(2019.01.18,100000)
+assert 10, result.ddatetime==take(2019.01.18T10:45:23,100000)  
+assert 11, result.dtimestamp==take(2018.01.18T10:46:37,100000)
+assert 12, result.dtime==take(10:46:57,100000)
+assert 13, tt.cnt==100000
+assert 14, tt.dsint_cnt == 99000
+assert 15, tt.decimal_cnt==99000
+assert 16, tt.year_cnt== 99000
+
+@testing:case="load_without_schema_small2"
+t=load(conn,`char_enum_small)
+result=select avg(dint) as avg_dint,dvarchar,dblob,dtblob,dttext,dmblob,dmtext,denum from t
+result1=select top 9000:9002 dchar from t
+result2=select top 9000:9002 dblob from t
+tt=select count(*) as cnt,count(dchar) as char_cnt,count(dtext) as text_cnt from t
+assert 1, result.avg_dint==50000.5
+assert 2, result.dvarchar==take(`varchar_10,100000)
+assert 3, result.dblob==take(`blob_test,100000)
+assert 4, result.dtblob==take(`tinyblob_test,100000)
+assert 5, result.dttext==take(`tinytext_test,100000)
+assert 6, result.dmblob==take(`mediumblob_test,100000)
+assert 7, result.dmtext==take(`mediumtext_test,100000)
+assert 8, result.denum==take(`e1,100000)
+assert 9, result1.dchar==`ch4
+assert 10, result2.dblob==`blob_test
+assert 11, tt.cnt==100000
+assert 12, tt.char_cnt==99000
+assert 13, tt.text_cnt==99000
+
+
+@testing:case="load_without_schema_smallnonull"
+t=load(conn,`int_year_smallNoNull)
+result=select avg(dint) as avg_int,avg(dtint) as avg_tinyint,avg(dsint) as avg_smallint,avg(dmint) as avg_mediumint,avg(dbint) as avg_bigint,max(dfloat) as max_float,max(ddouble) as max_double,min(ddecimal) as min_ddecimal,ddate,ddatetime,dtimestamp,dtime from t
+tt=select count(*)  as cnt,count(dsint) as dsint_cnt,count(ddecimal) as decimal_cnt,count(dyear) as year_cnt from t
+assert 1, result.avg_int==50000.5
+assert 2, result.avg_tinyint==49.5
+assert 3, result.avg_smallint==499.5
+assert 4, result.avg_mediumint==50000.5
+assert 5, result.avg_bigint==100001
+assert 6, abs(result.max_float-1.23)<0.000001   
+assert 7, result.max_double==4.56
+assert 8, result.min_ddecimal==7.890
+assert 9, result.ddate==take(2019.01.18,100000)
+assert 10, result.ddatetime==take(2019.01.18T10:45:23,100000)  
+assert 11, result.dtimestamp==take(2018.01.18T10:46:37,100000)
+assert 12, result.dtime==take(10:46:57,100000)
+assert 13, tt.cnt==100000
+assert 14, tt.dsint_cnt == 100000
+assert 15, tt.decimal_cnt==100000
+assert 16, tt.year_cnt== 100000
+
+
+
+@testing:case="load_without_schema_smallnonull2"
+t=load(conn,`char_enum_smallNoNull)
+result=select avg(dint) as avg_dint,dvarchar,dblob,dtblob,dttext,dmblob,dmtext,denum from t
+result1=select top 90000:90002 dchar from t
+result2=select top 90000:90002 dblob from t
+tt=select count(*) as cnt,count(dchar) as char_cnt,count(dtext) as text_cnt from t
+assert 1, result.avg_dint==50000.5
+assert 2, result.dvarchar==take(`varchar_10,100000)
+assert 3, result.dblob==take(`blob_test,100000)
+assert 4, result.dtblob==take(`tinyblob_test,100000)
+assert 5, result.dttext==take(`tinytext_test,100000)
+assert 6, result.dmblob==take(`mediumblob_test,100000)
+assert 7, result.dmtext==take(`mediumtext_test,100000)
+assert 8, result.denum==take(`e1,100000)
+assert 9, result1.dchar==`ch4`ch4
+assert 10, result2.dblob==`blob_test`blob_test
+assert 11, tt.cnt==100000
+assert 12, tt.char_cnt==100000
+assert 13, tt.text_cnt==100000
+
+@testing:case="load_with_schema"
+scm = table(`dint`dtint`dsint`dmint`dbint`dfloat`ddouble`ddecimal`ddate`ddatetime`dtimestamp`dtime`dyear`dchar`dvarchar`dtext`dttext`denum as name, `INT`SHORT`SHORT`INT`LONG`FLOAT`DOUBLE`DOUBLE`DATE`DATETIME`TIMESTAMP`TIME`STRING`STRING`STRING`STRING`STRING`STRING as type)
+t = load(conn, `noBlobNoNull, scm)
+assert 1, t.dint == -2147483647 0
+
+@testing:case="load_with_schema_large"
+scm = table(`dint`dtint`dsint`dmint`dbint`dfloat`ddouble`ddecimal`ddate`ddatetime`dtimestamp`dtime`dyear as name, `INT`SHORT`SHORT`INT`LONG`FLOAT`DOUBLE`DOUBLE`DATE`DATETIME`TIMESTAMP`TIME`STRING as type)
+t = load(conn, `int_year_large, scm)
+result=select avg(dint) as avg_int,avg(dtint) as avg_tinyint,avg(dsint) as avg_smallint,avg(dmint) as avg_mediumint,avg(dbint) as avg_bigint,max(dfloat) as max_float,max(ddouble) as max_double,min(ddecimal) as min_ddecimal,ddate,ddatetime,dtimestamp,dtime from t
+tt=select count(*)  as cnt,count(dsint) as dsint_cnt,count(ddecimal) as decimal_cnt,count(dyear) as year_cnt from t
+assert 1, result.avg_int==1500000.5
+assert 2, result.avg_tinyint==49.5
+assert 3, result.avg_smallint==500
+assert 4, result.avg_mediumint==1500000.5
+assert 5, result.avg_bigint==3000001
+assert 6, abs(result.max_float-1.23)<0.000001 
+assert 7, result.max_double==4.56
+assert 8, result.min_ddecimal==7.890
+assert 9, result.ddate==take(2019.01.18,3000000)
+assert 10, result.ddatetime==take(2019.01.18T10:45:23,3000000)  
+assert 11, result.dtimestamp==take(2018.01.18T10:46:37,3000000)
+assert 12, result.dtime==take(10:46:57,3000000)
+assert 13, tt.cnt==3000000
+assert 14, tt.dsint_cnt == 2970000
+assert 15, tt.decimal_cnt==2970000
+assert 16, tt.year_cnt== 2970000
+
+
+
+@testing:case="load_with_schema_large2"
+scm = table(`dint`dchar`dvarchar`dblob`dtext`dtblob`dttext`dmblob`dmtext`denum as name, `INT`STRING`STRING`STRING`STRING`STRING`STRING`STRING`STRING`STRING as type)
+t = load(conn, `char_enum_large, scm)
+result=select avg(dint) as avg_dint,dvarchar,dblob,dtblob,dttext,dmblob,dmtext,denum from t
+result1=select top 2900000:2900002 dchar from t
+result2=select top 2900000:2900002 dblob from t
+tt=select count(*) as cnt,count(dchar) as char_cnt,count(dtext) as text_cnt from t
+assert 1, result.avg_dint==1500000.5
+assert 2, result.dvarchar==take(`varchar_10,3000000)
+assert 3, result.dblob==take(`blob_test,3000000)
+assert 4, result.dtblob==take(`tinyblob_test,3000000)
+assert 5, result.dttext==take(`tinytext_test,3000000)
+assert 6, result.dmblob==take(`mediumblob_test,3000000)
+assert 7, result.dmtext==take(`mediumtext_test,3000000)
+assert 8, result.denum==take(`e1,3000000)
+assert 9, result1.dchar==`ch4
+assert 10, result2.dblob==`blob_test
+assert 11, tt.cnt==3000000
+assert 12, tt.char_cnt==2970000
+assert 13, tt.text_cnt==2970000
+
+/*
+ * add more cases
+ */
+
+@testing:case="load_with_startRow"
+t = load(conn, `noBlobNoNull, , 1)
+assert 1, size(t)==1
+assert 2, t.dint == 0
+
+@testing:case="load_with_startRow_large"
+t = load(conn, `int_year_large, , 100)
+result=select avg(dint) as avg_int,avg(dtint) as avg_tinyint,avg(dsint) as avg_smallint,avg(dmint) as avg_mediumint,avg(dbint) as avg_bigint,max(dfloat) as max_float,max(ddouble) as max_double,min(ddecimal) as min_ddecimal,ddate,ddatetime,dtimestamp,dtime from t
+tt=select count(*)  as cnt,count(dsint) as dsint_cnt,count(ddecimal) as decimal_cnt,count(dyear) as year_cnt from t
+assert 1, result.avg_int==1500050.5
+assert 2, result.avg_tinyint==49.5
+assert 3, (result.avg_smallint-500.015)<0.000001
+assert 4, result.avg_mediumint==1500050.5
+assert 5, result.avg_bigint==3000101
+assert 6, abs(result.max_float-1.23)<0.000001   
+assert 7, result.max_double==4.56
+assert 8, result.min_ddecimal==7.890
+assert 9, result.ddate==take(2019.01.18,2999900)
+assert 10, result.ddatetime==take(2019.01.18T10:45:23,2999900)  
+assert 11, result.dtimestamp==take(2018.01.18T10:46:37,2999900)
+assert 12, result.dtime==take(10:46:57,2999900)
+assert 13, tt.cnt==2999900
+assert 14, tt.dsint_cnt == 2969901
+assert 15, tt.decimal_cnt==2969901
+assert 16, tt.year_cnt== 2969901
+
+@testing:case="load_with_startRow_large2"
+t = load(conn, `char_enum_large, , 1000)
+result=select avg(dint) as avg_dint,dvarchar,dblob,dtblob,dttext,dmblob,dmtext,denum from t
+result1=select top 2900000:2900002 dchar from t
+result2=select top 2900000:2900002 dblob from t
+tt=select count(*) as cnt,count(dchar) as char_cnt,count(dtext) as text_cnt from t
+assert 1, result.avg_dint==1500500.5
+assert 2, result.dvarchar==take(`varchar_10,2999000)
+assert 3, result.dblob==take(`blob_test,2999000)
+assert 4, result.dtblob==take(`tinyblob_test,2999000)
+assert 5, result.dttext==take(`tinytext_test,2999000)
+assert 6, result.dmblob==take(`mediumblob_test,2999000)
+assert 7, result.dmtext==take(`mediumtext_test,2999000)
+assert 8, result.denum==take(`e1,2999000)
+assert 9, result1.dchar==`ch4`ch4
+assert 10, result2.dblob==`blob_test`blob_test
+assert 11, tt.cnt==2999000
+assert 12, tt.char_cnt==2969010
+assert 13, tt.text_cnt==2969010
+
+@testing:case="load_with_Insufficient_memory_to_load_even_one_row"
+t=load(conn,"select * from medicine_invite_tender limit 100")//should import data to mysql firstly,csv can be found at https://basecamp.com/3616762/projects/14256594/todos/418088834#comment_763837515
+assert 1,t.size()==10
+

@@ -1,0 +1,71 @@
+try{
+	loadPlugin("/home/slshen/DolphinDBPlugin/feather/build/PluginFeather.txt")
+}catch(ex){}
+
+go
+
+bool=1b  0b  true  false NULL
+char='a' 97c '\\' '0' NULL
+short=122h -9h 0h 1h NULL
+int=2200 1900  0 6800 NULL
+long=2200l 1900l 0 6800l NULL
+date=2013.06.13 2000.06.13 2063.06.13 1970.01.01 NULL
+month=2013.06M 2000.06M 2063.06M 1970.01M NULL
+time=20:30:10.008 00:30:10.008 00:00:00.008 23:30:10.008 NULL
+minute=13:30m 13:30m 13:30m 13:30m NULL
+second=13:30:10 00:00:01 13:30:10 13:30:10 NULL
+datetime= 2012.06.13T13:30:10  2092.06.13T13:30:10  1970.06.13T13:30:10  2012.06.13T13:30:10 NULL
+timestamp=2000.06.13T13:30:10.008 1970.01.01T00:00:10.008 2092.06.13T13:30:10.008 2012.06.13T13:30:10.008 NULL
+//nanotime=13:30:10.008007006 13:30:10.008007006 00:00:00.008007006 13:30:10.008007006 NULL
+nanotime = 00:12:10.008000000 00:00:10.008000000 00:00:10.008000000 20:00:10.008000000 NULL
+nanotimestamp=2000.06.13T13:30:10.008007006 1970.01.01T00:00:10.008007006 2092.06.13T13:30:10.008007006 2012.06.13T13:30:10.008007006 NULL
+float= 49.6f 29.46f 29.52f 30.02f NULL 
+double= 49.6 29.46 29.52 30.02 NULL
+sym = array(SYMBOL, 0); sym.append!(`C`MS "sdf" `MS NULL);
+string = `C`MS`MS`MS NULL
+uuid = [uuid("5d212a78-cc48-e3b1-4235-b4d91473ee87"), uuid("5d212a78-cc48-e3b1-4235-b4d91473ee87"), uuid("5d212a78-cc48-e3b1-4235-b4d91473ee87"), uuid("5d212a78-cc48-e3b1-4235-b4d91473ee87"), NULL]
+
+t_all = table(bool,char,short,int,long,date,month,time,minute,second,datetime,timestamp,nanotime,nanotimestamp,float,double,sym,string,uuid);
+t_support = table(bool,char,short,int,long,date,time,second,timestamp,nanotime,nanotimestamp,float,double,string);
+t_basic = table(bool,char,short,int,long,float,double,string);
+t_time = table(date,time,second,timestamp,nanotime,nanotimestamp);
+
+t_support_no_null = select top 4 * from t_support
+feather::save(t_support_no_null, DATA_DIR + "tmp/all_supportnonull_type.feather");
+f_support_no_null = feather::load(DATA_DIR + "tmp/all_supportnonull_type.feather");
+
+
+// -------------------------------------------------------------------
+
+//date=2013.06.13 2000.06.13 2063.06.13 1970.01.01
+//month=2013.06M 2000.06M 2063.06M 1970.01M
+//time=13:30:10.008 00:30:10.008 00:00:00.008 23:30:10.008
+//minute=13:30m 13:30m 13:30m 13:30m
+//second=13:30:10 00:00:01 20:30:10 13:30:10
+//datetime= 2012.06.13T13:30:10  2092.06.13T13:30:10  1970.06.13T13:30:10  2012.06.13T13:30:10
+//timestamp=2000.06.13T13:30:10.008 1970.01.01T00:00:10.008 2092.06.13T13:30:10.008 2012.06.13T13:30:10.008
+//nanotime=13:12:10.008000000 00:00:10.008000000 20:00:10.008000000 00:00:10.008007000
+////nanotime=13:30:10.008007006 13:30:10.008007006 00:00:00.008007006 13:30:10.008007006 NULL
+//nanotimestamp=2000.06.13T13:30:10.008007006 1970.01.01T00:00:10.008007006 2092.06.13T13:30:10.008007006 2012.06.13T13:30:10.008007006
+//
+//t_time = table(date,time,second,timestamp,nanotime,nanotimestamp);
+//feather::save(t_time, DATA_DIR + "tmp/all_time_type.feather");
+//feather::load(DATA_DIR + "tmp/all_time_type.feather");
+
+// -------------------------------------------------------------------
+
+DATA_DIR="/home/slshen/feather/data/";
+
+//feather::save(t_all, DATA_DIR + "tmp/all_type.feather");
+feather::save(t_support, DATA_DIR + "tmp/all_support_type.feather");
+feather::save(t_basic, DATA_DIR + "tmp/all_basic_type.feather");
+feather::save(t_time, DATA_DIR + "tmp/all_time_type.feather");
+
+f_support = feather::load(DATA_DIR + "tmp/all_support_type.feather");
+f_basic = feather::load(DATA_DIR + "tmp/all_basic_type.feather");
+f_time = feather::load(DATA_DIR + "tmp/all_time_type.feather");
+f_time.schema()
+df_time_type = feather::load(DATA_DIR+"df_time_type.feather");
+df_time_type.schema()
+pa_time_type = feather::load(DATA_DIR+"pa_time_type.feather");
+pa_time_type.schema()

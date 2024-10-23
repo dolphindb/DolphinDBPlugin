@@ -1,0 +1,117 @@
+pluginPath='/home/zmx/worker/DolphinDBPlugin/gp/cmake-build-debug/PluginGp.txt';
+try{loadPlugin(pluginPath)}catch(ex){print ex};  
+go
+
+
+//vector DT_ANY -vector
+data=rand(1000.0,10)
+a=array(ANY,2)
+data1=rand(1000.0,10)
+a[0]=data
+a[1]=data1
+gp::plot(a,"circles","/home/zmx/precipitation.eps")
+
+//vector DT_ANY -table
+tabledata1=table(rand(1000.0,10) as col1,rand(1000.0,10) as col2)
+tabledata2=table(rand(1000.0,10) as col1,rand(1000.0,10) as col2)
+a=array(ANY,2)
+a[0]=tabledata1
+a[1]=tabledata2
+gp::plot(a,"line","/home/zmx/precipitation.eps")
+
+//vector DT_ANY -vector
+data=rand(1000.0,1)
+gp::plot(data,"point","/home/zmx/precipitation.eps")
+
+//vector DT_ANY -table
+tabledata=table(rand(1000.0,100) as col1,rand(1000.0,100) as col2)
+title=[`col1,`col2]
+prop=dict(STRING,ANY)
+prop[`title]=title
+gp::plot(tabledata,"point","/home/zmx/precipitation.eps",prop)
+
+//title
+title=[`col1,`col2]
+prop=dict(STRING,ANY)
+prop[`title]=title
+tabledata1=table(rand(1000.0,10) as col1,rand(1000.0,10) as col2)
+tabledata2=table(rand(1000.0,10) as col1,rand(1000.0,10) as col2)
+a=array(ANY,2)
+a[0]=tabledata1
+a[1]=tabledata2
+gp::plot(a,"point","/home/zmx/precipitation.eps",prop)
+
+//xrange yrange
+data=rand(1000.0,10)
+xrange=[-1,1]
+prop=dict(STRING,ANY)
+prop[`xRange]=xrange
+prop[`yRange]=xrange
+gp::plot(data,"point","/home/zmx/precipitation.eps",prop)
+
+//size
+data=rand(1000.0,10000)
+xrange=[10,10]
+prop=dict(STRING,ANY)
+prop[`size]=xrange
+gp::plot(data,"line","/home/zmx/precipitation.eps",prop)
+
+//label
+data=rand(1000.0,1)
+prop=dict(STRING,ANY)
+prop[`xLabel]=`xl
+prop[`yLabel]=`yl
+gp::plot(data,"point","/home/zmx/precipitation.eps",prop)
+
+//xtics                      ytics
+data=rand(1000.0,1)
+prop=dict(STRING,ANY)
+prop[`xTics]=10
+prop[`yTics]=10
+gp::plot(data,"point","/home/zmx/precipitation.eps",prop)
+
+
+//lineColor
+tabledata=table(rand(1000.0,10) as col1,rand(1000.0,10) as col2)
+prop=dict(STRING,ANY)
+prop[`lineColor]=`red
+gp::plot(tabledata,"linespoint","/home/zmx/precipitation.eps",prop)
+
+colorVec=`black`red`green`blue`cyan`magenta`yellow`navy`purple`olive`orange`violet`pink`white`gray
+for(i in 1..size(colorVec)){
+	prop[`lineColor]=colorVec[i-1]
+	gp::plot(tabledata,"linespoint","/home/zmx/precipitation.eps",prop)
+}
+
+//pointType
+tabledata=table(rand(1000.0,10) as col1,rand(1000.0,10) as col2)
+prop=dict(STRING,ANY)
+prop[`pointType]=0
+gp::plot(tabledata,"linespoint","/home/zmx/precipitation.eps",prop)
+
+pointTypeVec=0..13
+for(i in 1..size(pointTypeVec)){
+	prop[`pointType]=pointTypeVec[i-1]
+	gp::plot(tabledata,"linespoint","/home/zmx/precipitation.eps",prop)
+}
+
+//lineWidth
+tabledata=table(rand(1000.0,10) as col1,rand(1000.0,10) as col2)
+prop=dict(STRING,ANY)
+prop[`lineWidth]=1
+gp::plot(tabledata,"linespoint","/home/zmx/precipitation.eps",prop)
+
+//pointsize
+tabledata=table(rand(1000.0,10) as col1,rand(1000.0,10) as col2)
+prop=dict(STRING,ANY)
+prop[`pointSize]=2
+gp::plot(tabledata,"linespoint","/home/zmx/precipitation.eps",prop)
+
+//smooth
+tabledata=table(rand(1000.0,10) as col1,rand(1000.0,10) as col2)
+prop=dict(STRING,ANY)
+prop[`smooth]=`bezier
+gp::plot(tabledata,"linespoint","/home/zmx/precipitation.eps",prop)
+prop[`smooth]=`csplines
+gp::plot(tabledata,"linespoint","/home/zmx/precipitation.eps",prop)
+

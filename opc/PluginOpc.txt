@@ -1,0 +1,9 @@
+opc,libPluginOPC.dll,2.00.14
+getOpcServerList,getOpcServerList,system,1,1,0
+connectOpcServer,connect,system,2,3,0
+readTag,readTag,system,2,3,0
+writeTag,writeTag,system,3,3,0
+subscribeTag,subscribe,system,3,3,0
+disconnect,close,operator,1,1,0
+endSub,unsubscribe,operator,1,1,0
+getSubscriberStat,getSubscriberStat,operator,0,0,0

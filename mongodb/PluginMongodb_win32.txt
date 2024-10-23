@@ -1,0 +1,7 @@
+mongodb,libPluginMongodb.dll,2.00.14
+mongodbConnect,connect,system,4,5,0
+mongodbLoad,load,system,4,5,0
+mongodbAggregate,aggregate,system,4,5,0
+mongodbClose,close,operator,1,1,0
+mongodbParseJson,parseJson,system,4,4,0
+mongodbGetCollections,getCollections,system,1,2,0

@@ -1,0 +1,1656 @@
+
+#include "setup/settings.txt"
+
+login("admin","123456")
+try{loadPlugin(getHomeDir() + "/plugins/zmq/PluginZmq.txt")}catch(ex){print ex};
+go
+
+@testing:case = "test_prepare"
+def judgeReceive(jobId,old_receive){
+	for(i in 1:100){
+		rece = exec recvPackets from zmq::getSubJobStat() where subscriptionId == jobId
+		if(rece>old_receive){
+			break;
+		}
+		sleep(1000)
+	}
+}
+
+def renew(socket){
+jobs = exec subscriptionId from zmq::getSubJobStat() order by createTimestamp limit 300
+for (id in jobs){
+	zmq::cancelSubJob(id)
+}
+zmq::close(socket)
+
+}
+
+def clearAgg(){
+	aggType=getAggregatorStat().keys()
+	for(x in aggType){
+	loop(dropAggregator,getAggregatorStat()[x].name)
+		}
+	if(getAggregatorStat().keys().size()==0){
+		print "clear all aggregators successfully !!!"
+		}
+	}
+
+def getAllShare(){
+	return select name from objs(true) where shared=1
+	}
+
+def clearShare(){
+	allShare=exec name from pnodeRun(getAllShare)
+	for(i in allShare){
+		try{
+			rpc((exec node from pnodeRun(getAllShare) where name =i)[0],clearTablePersistence,objByName(i))
+			}catch(ex1){}
+		rpc((exec node from pnodeRun(getAllShare) where name =i)[0],undef,i,SHARED)
+	}
+	try{
+		if((exec name from pnodeRun(getAllShare)).size()==0){
+			print "clear all shared variables successfully !!! "
+		}
+		PST_DIR=rpc(getControllerAlias(),getDataNodeConfig{getNodeAlias()})['persistenceDir']
+		if((exec filename from files(PST_DIR) where isDir=true).size()==0){
+			print "clear all table persistence successfully !!!"
+		}
+	}catch(ex1){}
+}
+
+def wait_data(table_name,except_rows){
+	for(i in 1:100){
+		now_rows = exec count(*) from objByName(table_name)
+		if(now_rows==except_rows){
+			return true
+		}
+		sleep(1000)
+	}
+	throw("transport data fail.....")
+}
+
+
+@testing:case="test_zmq_socket_args_empty", exception=1
+socket = zmq::socket()
+
+@testing:case="test_zmq_socket_args_over", syntaxError=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter,1,"d",1)
+
+@testing:case="test_zmq_socket_type_empty", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket(, formatter)
+
+@testing:case="test_zmq_socket_type_error", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("not_exists", formatter)
+
+@testing:case="test_zmq_socket_type_int", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket(1, formatter)
+
+@testing:case="test_zmq_socket_type_vector", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket(["ZMQ_PUB", "ZMQ_PUB"], formatter)
+
+@testing:case="test_zmq_socket_formatter_empty", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", )
+
+@testing:case="test_zmq_socket_formatter_int", exception=1
+socket = zmq::socket("ZMQ_PUB", 1)
+
+@testing:case="test_zmq_socket_formatter_vector", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", [formatter])
+
+@testing:case="test_zmq_socket_batchSize_string", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter, "1")
+
+@testing:case="test_zmq_socket_batchSize_vector", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter,  [1])
+
+@testing:case="test_zmq_socket_batchSize_0", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter,  0)
+
+@testing:case="test_zmq_socket_batchSize_lt_0", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter,  -10)
+
+@testing:case="test_zmq_socket_batchSize_float", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter,  float(1))
+
+
+@testing:case="test_zmq_socket_prefix_NULL", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter,  1, NULL)
+
+@testing:case="test_zmq_socket_prefix_int", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter,  1, 1)
+
+@testing:case="test_zmq_socket_prefix_vector", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter,  1, ["aa"])
+
+@testing:case="test_zmq_connect_args_empty", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect()
+
+@testing:case="test_zmq_connect_args_over", syntaxError=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:"+addr, "aa", 1)
+
+@testing:case="test_zmq_connect_socket_empty", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(, "tcp://localhost:"+addr)
+
+@testing:case="test_zmq_connect_socket_int", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(1, "tcp://localhost:"+addr)
+
+@testing:case="test_zmq_connect_socket_vector", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect([socket, socket], "tcp://localhost:"+addr)
+
+@testing:case="test_zmq_connect_addr_empty", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, )
+
+@testing:case="test_zmq_connect_addr_error", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:"+"errorport")
+
+@testing:case="test_zmq_connect_addr_int", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, 1)
+
+@testing:case="test_zmq_connect_addr_vector", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, ["tcp://localhost:"+addr, "tcp://localhost:"+addr])
+
+@testing:case="test_zmq_connect_prefix_int", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:"+addr, 1)
+
+@testing:case="test_zmq_connect_prefix_vector", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:"+addr, ["aa"])
+
+@testing:case="test_zmq_bind_args_empty", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::bind()
+
+@testing:case="test_zmq_bind_args_over", syntaxError=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::bind(socket,"tcp://*:55631", "prefix1", 1)
+
+@testing:case="test_zmq_bind_socket_empyt", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::bind(, "tcp://*:55631", "prefix1")
+
+@testing:case="test_zmq_bind_socket_int", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::bind(1, "tcp://*:55631", "prefix1")
+
+@testing:case="test_zmq_bind_socket_vector", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::bind([socket], "tcp://*:55631", "prefix1")
+
+
+@testing:case="test_zmq_bind_addr_empty", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::bind(socket, , "prefix1")
+
+@testing:case="test_zmq_bind_addr_int", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::bind(socket, 1, "prefix1")
+
+@testing:case="test_zmq_bind_addr_vector", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::bind(socket, ["tcp://*:55631"], "prefix1")
+
+@testing:case="test_zmq_bind_prefix_int", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::bind(socket, "tcp://*:55631", 1)
+
+@testing:case="test_zmq_bind_prefix_vector", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::bind(socket, "tcp://*:55631", ["aa"])
+
+@testing:case="test_zmq_send_args_empty", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:55632", "prefix1")
+zmq::send()
+
+@testing:case="test_zmq_send_args_over", syntaxError=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:55632", "prefix1")
+zmq::send(socket, table(1..10 as id), "aa", 1)
+
+@testing:case="test_zmq_send_socket_empty", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:55632", "prefix1")
+zmq::send(, table(1..10 as id))
+
+
+@testing:case="test_zmq_send_socket_int", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:55632", "prefix1")
+zmq::send(1, table(1..10 as id))
+
+@testing:case="test_zmq_send_socket_vector", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:55632", "prefix1")
+zmq::send([socket], table(1..10 as id))
+
+@testing:case="test_zmq_send_data_empty", exception=1
+MyFormat = take("", 5)
+MyFormat[2] = "0.000"
+formatter = zmq::createCSVFormatter(MyFormat, ',', ';')
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:55632", "prefix1")
+zmq::send(socket, )
+
+@testing:case="test_zmq_send_data_int", exception=1
+MyFormat = take("", 5)
+MyFormat[2] = "0.000"
+formatter = zmq::createCSVFormatter(MyFormat, ',', ';')
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:55632", "prefix1")
+zmq::send(socket, 1)
+
+@testing:case="test_zmq_send_data_vector", exception=1
+MyFormat = take("", 5)
+MyFormat[2] = "0.000"
+formatter = zmq::createCSVFormatter(MyFormat, ',', ';')
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:55632", "prefix1")
+zmq::send(socket, [1,2])
+
+@testing:case="test_zmq_send_prefix_int", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:55632", "prefix1")
+zmq::send(socket, table(1..10 as id), 1)
+
+@testing:case="test_zmq_send_prefix_vector", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:55632", "prefix1")
+zmq::send(socket, table(1..10 as id), ["aa"])
+
+@testing:case="test_zmq_close_args_empty", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:55632", "prefix1")
+zmq::close()
+
+@testing:case="test_zmq_close_args_over", syntaxError=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:55632", "prefix1")
+zmq::close(socket,1)
+
+
+@testing:case="test_zmq_close_socket_int", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:55632", "prefix1")
+zmq::close(1)
+
+@testing:case="test_zmq_close_socket_vector", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:55632", "prefix1")
+zmq::close([socket])
+
+@testing:case="test_zmq_createSubJob_args_empty", exception=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob()
+
+@testing:case="test_zmq_createSubJob_args_over", syntaxError=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,jsonHandle, parser, "aaa",11)
+
+@testing:case="test_zmq_createSubJob_addr_empty", exception=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob(, "ZMQ_SUB", true,jsonHandle, parser)
+
+@testing:case="test_zmq_createSubJob_addr_int", exception=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob(1, "ZMQ_SUB", true,jsonHandle, parser)
+
+@testing:case="test_zmq_createSubJob_addr_vector", exception=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob(["tcp://localhost:"+addr], "ZMQ_SUB", true,jsonHandle, parser)
+
+@testing:case="test_zmq_createSubJob_addr_error_1", exception=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob("error://localhost:"+addr, "ZMQ_SUB", true,jsonHandle, parser)
+
+@testing:case="test_zmq_createSubJob_type_empty", exception=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob("tcp://localhost:"+addr, , true,jsonHandle, parser)
+
+@testing:case="test_zmq_createSubJob_type_error", exception=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob("tcp://localhost:"+addr,"ZMQ_SUBB" , true,jsonHandle, parser)
+
+
+@testing:case="test_zmq_createSubJob_type_int", exception=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob("tcp://localhost:"+addr,1 , true,jsonHandle, parser)
+
+@testing:case="test_zmq_createSubJob_type_vector", exception=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob("tcp://localhost:"+addr,["ZMQ_SUB"] , true,jsonHandle, parser)
+
+@testing:case="test_zmq_createSubJob_isConnect_empty", exception=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob("tcp://localhost:"+addr,"ZMQ_SUB" , ,jsonHandle, parser)
+
+@testing:case="test_zmq_createSubJob_isConnect_int", exception=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob("tcp://localhost:"+addr,"ZMQ_SUB" , 1,jsonHandle, parser)
+
+@testing:case="test_zmq_createSubJob_isConnect_vector", exception=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob("tcp://localhost:"+addr,"ZMQ_SUB" , [true],jsonHandle, parser)
+
+@testing:case="test_zmq_createSubJob_handle_empty", exception=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob("tcp://localhost:"+addr,"ZMQ_SUB" , true,, parser)
+
+@testing:case="test_zmq_createSubJob_handle_int", exception=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob("tcp://localhost:"+addr,"ZMQ_SUB" , true, 1, parser)
+
+@testing:case="test_zmq_createSubJob_handle_vector", exception=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob("tcp://localhost:"+addr,"ZMQ_SUB" , true, [sum], parser)
+
+
+@testing:case="test_zmq_createSubJob_parser_empty", exception=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob("tcp://localhost:"+addr,"ZMQ_SUB" , true, jsonHandle, )
+
+@testing:case="test_zmq_createSubJob_paser_int", exception=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob("tcp://localhost:"+addr,"ZMQ_SUB" , true, jsonHandle, 1)
+
+@testing:case="test_zmq_createSubJob_paser_vector", exception=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob("tcp://localhost:"+addr,"ZMQ_SUB" , true, jsonHandle, [parser])
+
+@testing:case="test_zmq_createSubJob_prefix_int", exception=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob("tcp://localhost:"+addr,"ZMQ_SUB" , true, jsonHandle, parser, 1)
+
+@testing:case="test_zmq_createSubJob_prefix_vector", exception=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+zmq::createSubJob("tcp://localhost:"+addr,"ZMQ_SUB" , true, jsonHandle, parser, ["aa"])
+
+@testing:case="test_zmq_getSubJobStat_args_over", syntaxError=1
+zmq::getSubJobStat(1)
+
+@testing:case="test_zmq_cancelSubJob_args_empty", exception=1
+zmq::cancelSubJob()
+
+@testing:case="test_zmq_cancelSubJob_args_over", syntaxError=1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+sub = zmq::createSubJob("tcp://localhost:"+addr,"ZMQ_SUB" , true, jsonHandle, parser)
+zmq::cancelSubJob(sub, 1)
+
+
+@testing:case="test_zmq_cancelSubJob_args_error", exception=1
+zmq::cancelSubJob(-1)
+
+
+@testing:case="test_zmq_cancelSubJob_args_float", exception=1
+zmq::cancelSubJob("aa")
+
+@testing:case="test_zmq_cancelSubJob_args_vector_two", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+renew(socket)
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+sub1 = zmq::createSubJob("tcp://localhost:"+addr,"ZMQ_SUB" , true, jsonHandle, parser, "kkkk")
+sub2 = zmq::createSubJob("tcp://localhost:"+addr,"ZMQ_SUB" , true, jsonHandle, parser, "kkkk")
+ans = exec  subscriptionId from zmq::getSubJobStat()  
+zmq::cancelSubJob(int(ans))
+
+@testing:case="test_zmq_cancelSubJob_args_vector_one", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+renew(socket)
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+sub1 = zmq::createSubJob("tcp://localhost:"+addr,"ZMQ_SUB" , true, jsonHandle, parser, "kkkk")
+ans = exec  subscriptionId from zmq::getSubJobStat()  
+zmq::cancelSubJob(int(ans))
+
+@testing:case="test_zmq_Createpusher"
+share streamTable(1000:0, `time`sym`volume, [TIMESTAMP, SYMBOL, INT]) as trades
+share streamTable(1000:0, `time`sym`volume, [TIMESTAMP, SYMBOL, INT]) as handle
+output1 = table(10000:0, `time`sym`sumVolume, [TIMESTAMP, SYMBOL, INT])
+
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:"+addr)
+pusher = zmq::createPusher(socket, output1)
+
+sub_pusher = zmq::createJSONParser([TIMESTAMP, SYMBOL, INT], `time`sym`sumVolume)
+zmq::createSubJob("tcp://*:"+addr, "ZMQ_SUB", false, handle, sub_pusher)
+
+engine1 = createTimeSeriesEngine(name="engine1", windowSize=60000, step=60000, metrics=<[sum(volume)]>, dummyTable=trades, outputTable=pusher, timeColumn=`time, useSystemTime=false, keyColumn=`sym, garbageSize=50, useWindowStartTime=false)
+subscribeTable(tableName="trades", actionName="engine1", offset=0, handler=append!{engine1}, msgAsTable=true);
+
+sleep(5000)
+insert into trades values(2018.10.08T01:01:01.785,`A,10)
+insert into trades values(2018.10.08T01:01:02.125,`B,26)
+insert into trades values(2018.10.08T01:01:10.263,`B,14)
+insert into trades values(2018.10.08T01:01:12.457,`A,28)
+insert into trades values(2018.10.08T01:02:10.789,`A,15)
+insert into trades values(2018.10.08T01:02:12.005,`B,9)
+insert into trades values(2018.10.08T01:02:30.021,`A,10)
+insert into trades values(2018.10.08T01:04:02.236,`A,29)
+insert into trades values(2018.10.08T01:04:04.412,`B,32)
+insert into trades values(2018.10.08T01:04:05.152,`B,23)
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+judgeReceive(jobId[0],old_packet[0])
+ans  = select * from handle
+assert 1, eqObj(ans.size(), 4)
+assert 2, eqObj(ans[`time], [2018.10.08T01:02:00.000, 2018.10.08T01:02:00.000, 2018.10.08T01:03:00.000, 2018.10.08T01:03:00.000])
+assert 3, eqObj(ans[`sym], `A`B`A`B)
+assert 4, eqObj(ans[`volume], 38 40 25 9)
+unsubscribeTable(, tableName="trades", actionName="engine1")
+undef(`trades, SHARED)
+undef(`handle, SHARED)
+dropAggregator("engine1")
+renew(socket)
+
+
+@testing:case="test_zmq_createCSVFormatter_args_empty", exception=1
+zmq::createCSVFormatter()
+
+@testing:case="test_zmq_createCSVFormatter_args_over", syntaxError=1
+zmq::createCSVFormatter([""], "", "",1)
+
+@testing:case="test_zmq_createCSVFormatter_format_string", exception=1
+zmq::createCSVFormatter("")
+
+@testing:case="test_zmq_createCSVFormatter_delimiter_not_char_string", exception=1
+zmq::createCSVFormatter([""], '')
+
+@testing:case="test_zmq_createCSVFormatter_delimiter_not_char_vector", exception=1
+zmq::createCSVFormatter([""], [','])
+
+
+@testing:case="test_zmq_createCSVFormatter_rowDelimiter_not_char_string", exception=1
+zmq::createCSVFormatter([""], ',', '')
+
+
+@testing:case="test_zmq_createCSVFormatter_drowDelimiter_not_char_vector", exception=1
+zmq::createCSVFormatter([""], ',', [';'])
+
+
+@testing:case="test_zmq_createCSVParser_args_empty", exception=1
+zmq::createCSVParser()
+
+@testing:case="test_zmq_createCSVParser_args_over", syntaxError=1
+zmq::createCSVParser([BOOL], ,,1)
+
+@testing:case="test_zmq_createCSVParser_scheme_error", exception=1
+parser = zmq::createCSVParser(["aa"])
+
+@testing:case="test_zmq_createCSVParser_scheme_int", exception=1
+parser = zmq::createCSVParser(1)
+
+@testing:case="test_zmq_createCSVParser_delimiter_string", exception=1
+parser = zmq::createCSVParser([BOOL], ",")
+
+@testing:case="test_zmq_createCSVParser_rowDelimiter_string", exception=1
+parser = zmq::createCSVParser([BOOL], ',', ",")
+
+@testing:case="test_zmq_createJSONFormatter_args_over", syntaxError=1
+zmq::createJSONFormatter(1)
+
+@testing:case="test_zmq_createJSONParse_args_empty", exception=1
+zmq::createJSONParser()
+
+@testing:case="test_zmq_createJSONParser_args_over", syntaxError=1
+zmq::createJSONParser([BOOL], [`bool], 1)
+
+@testing:case="test_zmq_createJSONParser_schema_int", exception=1
+zmq::createJSONParser(1, [`bool])
+
+@testing:case="test_zmq_createJSONParser_colNames_int", exception=1
+zmq::createJSONParser([BOOL], 1)
+
+
+@testing:case = "test_zmq_createSubJob_JsonFormatter"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::bind(socket, "tcp://*:"+addr)
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+sub1 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,jsonHandle, parser)
+sleep(100)
+assert 1,zmq::getSubJobStat().size() == 1 
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+n = 1000
+t1 = table(rand(100,n) as id,rand(2021.01.01..2022.01.01,n) as date,rand(`a`b`c`d`e,n) as sym,take(3.111,n) as val)
+assert 2,zmq::send(socket, t1)
+
+judgeReceive(jobId[0],old_packet[0])
+assert 3,each(eqObj,t1.values(),jsonHandle.values())
+
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc limit 1
+zmq::send(socket, NULL)
+judgeReceive(jobId[0],old_packet[0])
+assert 4,each(eqObj,t1.values(),jsonHandle.values())
+
+zmq::cancelSubJob(jobId[0])
+zmq::close(socket)
+assert 5,(zmq::getSubJobStat()).size() == 0
+renew(socket)
+
+
+@testing:case = "test_zmq_createSubJob_CsvFormatter"
+formatter = zmq::createCSVFormatter(["","","",""])
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::bind(socket, "tcp://*:"+addr)
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as csvHandle
+parser = zmq::createCSVParser([INT,DATE,SYMBOL,DOUBLE])
+sub1 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,csvHandle, parser)
+sleep(100)
+assert 1,zmq::getSubJobStat().size() == 1 
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+n = 1000
+t1 = table(rand(100,n) as id,rand(2021.01.01..2022.01.01,n) as date,rand(`a`b`c`d`e,n) as sym,take(3.111,n) as val)
+assert 2,zmq::send(socket, t1)
+
+judgeReceive(jobId[0],old_packet[0])
+assert 3,each(eqObj,t1.values(),csvHandle.values())
+
+zmq::cancelSubJob(jobId[0])
+zmq::close(socket)
+assert 4,(zmq::getSubJobStat()).size() == 0
+renew(socket)
+
+@testing:case = "test_zmq_createSubJob_connect"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:"+addr)
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+//sub1 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,jsonHandle, parser)
+sub1 = zmq::createSubJob("tcp://*:"+addr, "ZMQ_SUB", false,jsonHandle, parser)
+sleep(1000)
+assert 1,zmq::getSubJobStat().size() == 1 
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+n = 1000
+t1 = table(rand(100,n) as id,rand(2021.01.01..2022.01.01,n) as date,rand(`a`b`c`d`e,n) as sym,take(3.111,n) as val)
+assert 2,zmq::send(socket, t1)
+
+judgeReceive(jobId[0],old_packet[0])
+assert 3,each(eqObj,t1.values(),jsonHandle.values())
+
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc limit 1
+zmq::send(socket, NULL)
+judgeReceive(jobId[0],old_packet[0])
+assert 4,each(eqObj,t1.values(),jsonHandle.values())
+
+zmq::cancelSubJob(jobId[0])
+zmq::close(socket)
+assert 5,(zmq::getSubJobStat()).size() == 0
+renew(socket)
+
+@testing:case = "test_zmq_cover_all_type"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::bind(socket, "tcp://*:"+addr)
+share streamTable(10:0, `bool`char`short`int`long`date`month`time`minute`second`datetime`timestamp`nanotime`nanotimestamp`float`double`string`symbol`uuid`ipaddr`int128, [BOOL,CHAR,SHORT,INT,LONG,DATE,MONTH,TIME,MINUTE,SECOND,DATETIME,TIMESTAMP,NANOTIME,NANOTIMESTAMP,FLOAT,DOUBLE,STRING,SYMBOL,UUID,IPADDR,INT128]) as handle1
+parser = zmq::createJSONParser([BOOL,CHAR,SHORT,INT,LONG,DATE,MONTH,TIME,MINUTE,SECOND,DATETIME,TIMESTAMP,NANOTIME,NANOTIMESTAMP,FLOAT,DOUBLE,STRING,SYMBOL,UUID,IPADDR,INT128],`bool`char`short`int`long`date`month`time`minute`second`datetime`timestamp`nanotime`nanotimestamp`float`double`string`symbol`uuid`ipaddr`int128)
+sub1 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,handle1, parser)
+sleep(1000)
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+
+def createT(n) {
+    return table(take([false, true], n) as bool, take('a'..'z', n) as char, take(short(-5..5), n) as short, take(-5..5, n) as int, take(-5..5, n) as long, take(2001.01.01..2010.01.01, n) as date, take(2001.01M..2010.01M, n) as month, take(time(now()), n) as time, take(minute(now()), n) as minute, take(second(now()), n) as second, take(datetime(now()), n) as datetime, take(now(), n) as timestamp, take(nanotime(now()), n) as nanotime, take(nanotimestamp(now()), n) as nanotimestamp, take(3.1415f, n) as float, take(3.1415, n) as double, take(`AAPL`IBM, n) as string, take(`AAPL`IBM, n) as symbol,take(uuid("5d212a78-cc48-e3b1-4235-b4d91473ee87"),n) as uuid,take(ipaddr("192.168.1.1"),n) as ipaddr,take(int128("e1671797c52e15f763380b45e841ec32"),n) as int128)
+}
+t = createT(100)
+zmq::send(socket, t)
+except = t
+judgeReceive(jobId[0],old_packet[0])
+assert 1,each(eqObj,t.values(),handle1.values())
+
+for(i in 1:1000){
+	t = createT(1)
+	zmq::send(socket, t)
+	except.append!(t)
+	sleep(100)
+	assert 2,each(eqObj,except.values(),handle1.values())
+	
+}
+
+renew(socket)
+
+
+@testing:case = "test_zmq_cover_all_type_csv"
+MyFormat = take("", 18)
+MyFormat[2] = "0.000"
+MyFormat[5] = "yyyy.MM.dd"
+formatter = zmq::createCSVFormatter(MyFormat)
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::bind(socket, "tcp://*:"+addr)
+share streamTable(10:0, `bool`char`short`int`long`date`month`time`minute`second`datetime`timestamp`nanotime`nanotimestamp`float`double`string`symbol, [BOOL,CHAR,SHORT,INT,LONG,DATE,MONTH,TIME,MINUTE,SECOND,DATETIME,TIMESTAMP,NANOTIME,NANOTIMESTAMP,FLOAT,DOUBLE,STRING,SYMBOL]) as handle1
+parser = zmq::createCSVParser([BOOL,CHAR,SHORT,INT,LONG,DATE,MONTH,TIME,MINUTE,SECOND,DATETIME,TIMESTAMP,NANOTIME,NANOTIMESTAMP,FLOAT,DOUBLE,STRING,SYMBOL])
+sub1 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,handle1, parser)
+sleep(1000)
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+
+def createT(n) {
+    return table(take([false, true], n) as bool, take('a'..'z', n) as char, take(short(-5..5), n) as short, take(-5..5, n) as int, take(-5..5, n) as long, take(2001.01.01..2010.01.01, n) as date, take(2001.01M..2010.01M, n) as month, take(time(now()), n) as time, take(minute(now()), n) as minute, take(second(now()), n) as second, take(datetime(now()), n) as datetime, take(now(), n) as timestamp, take(nanotime(now()), n) as nanotime, take(nanotimestamp(now()), n) as nanotimestamp, take(3.1415f, n) as float, take(3.1415, n) as double, take(`AAPL`IBM, n) as string, take(`AAPL`IBM, n) as symbol)
+}
+t = createT(100)
+zmq::send(socket, t)
+except = t
+judgeReceive(jobId[0],old_packet[0])
+assert 1,each(eqObj,t.values(),handle1.values())
+
+for(i in 1:1000){
+	t = createT(1)
+	zmq::send(socket, t)
+	except.append!(t)
+	sleep(100)
+	assert 2,each(eqObj,except.values(),handle1.values())
+	
+}
+
+renew(socket)
+
+
+
+@testing:case = "test_zmq_createSubJob_table"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::bind(socket, "tcp://*:"+addr)
+handle = table(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) 
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+sub1 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,handle, parser)
+sleep(100)
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+n = 10000
+t1 = table(rand(100,n) as id,rand(2021.01.01..2022.01.01,n) as date,rand(`a`b`c`d`e,n) as sym,take(3.111,n) as val)
+zmq::send(socket, t1)
+
+judgeReceive(jobId[0],old_packet[0])
+assert 1,each(eqObj,t1.values(),handle.values())
+renew(socket)
+
+@testing:case = "test_zmq_createSubJob_streaming_table"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::bind(socket, "tcp://*:"+addr)
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as stream_handle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+sub1 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,stream_handle, parser)
+sleep(100)
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+n = 1000
+t1 = table(rand(100,n) as id,rand(2021.01.01..2022.01.01,n) as date,rand(`a`b`c`d`e,n) as sym,take(3.111,n) as val)
+zmq::send(socket, t1)
+
+judgeReceive(jobId[0],old_packet[0])
+assert 1,each(eqObj,t1.values(),stream_handle.values())
+renew(socket)
+
+@testing:case = "test_zmq_createSubJob_partation_table"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::bind(socket, "tcp://*:"+addr)
+handle = table(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) 
+dbName = "dfs://test_zmq"
+if(existsDatabase(dbName)){
+	dropDB(dbName)
+}
+db = database(dbName,HASH,[INT,4])
+pt = createPartitionedTable(db,handle,`pt,`id)
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+sub1 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,pt ,parser)
+sleep(100)
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+n = 10000
+t1 = table(rand(100,n) as id,rand(2021.01.01..2022.01.01,n) as date,rand(`a`b`c`d`e,n) as sym,take(3.111,n) as val)
+zmq::send(socket, t1)
+
+judgeReceive(jobId[0],old_packet[0])
+handle = select * from pt order by id 
+t1 = select * from t1 order by id
+assert 1,each(eqObj,t1.values(),handle.values())
+
+renew(socket)
+
+@testing:case = "test_zmq_connect_mul_socket"
+formatter = zmq::createJSONFormatter()
+socket1 = zmq::socket( "ZMQ_PUB", formatter)
+zmq::connect(socket1, "tcp://localhost:"+addr)
+
+socket2 = zmq::socket( "ZMQ_PUB", formatter)
+zmq::connect(socket2, "tcp://localhost:"+addr)
+
+socket3 = zmq::socket( "ZMQ_PUB", formatter)
+zmq::connect(socket3, "tcp://localhost:"+addr)
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+expect = table(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) 
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+//sub1 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,jsonHandle, parser)
+sub1 = zmq::createSubJob("tcp://*:"+addr, "ZMQ_SUB", false,jsonHandle, parser)
+sleep(1000)
+assert 1,zmq::getSubJobStat().size() == 1 
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+n = 1000
+t1 = table(rand(100,n) as id,rand(2021.01.01..2022.01.01,n) as date,rand(`a`b`c`d`e,n) as sym,take(3.111,n) as val)
+zmq::send(socket1, t1)
+expect.append!(t1)
+zmq::send(socket2, t1)
+expect.append!(t1)
+zmq::send(socket3, t1)
+expect.append!(t1)
+judgeReceive(jobId[0],old_packet[0])
+
+assert 3,each(eqObj,expect.values(),jsonHandle.values())
+
+
+zmq::close(socket1)
+zmq::close(socket2)
+zmq::close(socket3)
+renew(socket)
+assert 5,(zmq::getSubJobStat()).size() == 0
+
+
+@testing:case = "test_zmq_mul_bind"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::bind(socket,"tcp://*:"+11234)
+formatter = zmq::createJSONFormatter()
+//socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::bind(socket,"tcp://*:"+11235)
+formatter = zmq::createJSONFormatter()
+//socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::bind(socket,"tcp://*:"+11236)
+
+t1 =  table(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) 
+t2 =  table(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) 
+t3 =  table(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) 
+
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+
+sub1 =  zmq::createSubJob("tcp://localhost:"+11234, "ZMQ_SUB", true,t1, parser)
+sub2 =  zmq::createSubJob("tcp://localhost:"+11235, "ZMQ_SUB", true,t2, parser)
+sub3 =  zmq::createSubJob("tcp://localhost:"+11236, "ZMQ_SUB", true,t3, parser)
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packets =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+n = 1000
+send_1 = table(rand(100,n) as id,rand(2021.01.01..2022.01.01,n) as date,rand(`a`b`c`d`e,n) as sym,take(3.111,n) as val)
+zmq::send(socket,send_1)
+
+judgeReceive(jobId[0],old_packets[0])
+
+assert 1,each(eqObj,send_1.values(),t1.values())
+assert 2,each(eqObj,send_1.values(),t2.values())
+assert 3,each(eqObj,send_1.values(),t3.values())
+renew(socket)
+
+
+@testing:case = "test_zmq_bind_mul_createSubJob"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::bind(socket,"tcp://*:"+addr)
+
+t1 =  table(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) 
+t2 =  table(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) 
+t3 =  table(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) 
+t4 =  table(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) 
+t5 =  table(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) 
+
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+
+sub1 =  zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,t1, parser)
+sub2 =  zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,t2, parser)
+sub3 =  zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,t3, parser)
+sub4 =  zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,t4, parser)
+sub5 =  zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,t5, parser)
+
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packets =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+n = 1000
+send_1 = table(rand(100,n) as id,rand(2021.01.01..2022.01.01,n) as date,rand(`a`b`c`d`e,n) as sym,take(3.111,n) as val)
+zmq::send(socket,send_1)
+
+judgeReceive(jobId[0],old_packets[0])
+
+assert 1,each(eqObj,send_1.values(),t1.values())
+assert 2,each(eqObj,send_1.values(),t2.values())
+assert 3,each(eqObj,send_1.values(),t3.values())
+assert 4,each(eqObj,send_1.values(),t4.values())
+assert 5,each(eqObj,send_1.values(),t5.values())
+
+jobs = exec subscriptionId from zmq::getSubJobStat() order by createTimestamp limit 5
+for (id in jobs){
+	zmq::cancelSubJob(id)
+}
+zmq::close(socket)
+assert 6,zmq::getSubJobStat().size() == 0 
+
+
+@testing:case = "test_zmq_bind_frequently_cancel_sub_job"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::bind(socket, "tcp://*:"+addr)
+
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE])  as handle2
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE], `id`date`sym`val)
+for (i in 1:300){
+	print("subjob"+ i )
+	sub1 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB",true, handle2, parser)
+	zmq::cancelSubJob(sub1)
+} 
+sub2 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB",true, handle2, parser)
+sleep(200)
+n =1000
+t1 = table(rand(100,n) as id,rand(2021.01.01..2022.01.01,n) as date,rand(`a`b`c`d`e,n) as sym,take(3.111,n) as val)
+zmq::send(socket,t1)
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+
+judgeReceive(jobId[0],old_packet[0])
+assert 1,each(eqObj,t1.values(),handle2.values())
+renew(socket)
+
+@testing:case = "test_zmq_bind_frequently_close"
+formatter = zmq::createJSONFormatter()
+for (i in 1:300){
+	//print("subjob"+ i )
+	socket = zmq::socket( "ZMQ_PUB", formatter)
+	zmq::bind(socket, "tcp://*:"+addr)
+	zmq::close(socket)
+} 
+
+
+@testing:case = "test_zmq_connect_frequently_close"
+formatter = zmq::createJSONFormatter()
+for (i in 1:300){
+	//print("subjob"+ i )
+	socket = zmq::socket( "ZMQ_PUB", formatter)
+	zmq::connect(socket, "tcp://localhost:"+addr)
+	zmq::close(socket)
+} 
+renew(socket)
+
+@testing:case = "test_zmq_connect_frequently_cancel_sub_job"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:"+addr)
+
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE])  as handle_connect
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE], `id`date`sym`val)
+for (i in 1:300){
+	print("subjob"+ i )
+	sub1 = zmq::createSubJob("tcp://*:"+addr, "ZMQ_SUB",false, handle_connect, parser)
+	zmq::cancelSubJob(sub1)
+	sleep(20)
+} 
+sub2 = zmq::createSubJob("tcp://*:"+addr, "ZMQ_SUB",false, handle_connect, parser)
+sleep(200)
+n =1000
+t1 = table(rand(100,n) as id,rand(2021.01.01..2022.01.01,n) as date,rand(`a`b`c`d`e,n) as sym,take(3.111,n) as val)
+zmq::send(socket,t1)
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+
+judgeReceive(jobId[0],old_packet[0])
+assert 1,each(eqObj,t1.values(),handle_connect.values())
+renew(socket)
+
+@testing:case = "test_zmq_createSubJob_JsonFormatter_prefix"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::bind(socket, "tcp://*:"+addr,"prefix1")
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle2
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle3
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+sub1 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,jsonHandle, parser,"prefix1")
+sub2 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,jsonHandle2, parser)
+sub3 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,jsonHandle3, parser,"A")
+sleep(100)
+assert 1,zmq::getSubJobStat().size() == 3 
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+n = 1000
+t1 = table(rand(100,n) as id,rand(2021.01.01..2022.01.01,n) as date,rand(`a`b`c`d`e,n) as sym,take(3.111,n) as val)
+assert 2,zmq::send(socket, t1)
+
+judgeReceive(jobId[0],old_packet[0])
+assert 3,each(eqObj,t1.values(),jsonHandle.values())
+assert 4,each(eqObj,t1.values(),jsonHandle2.values())
+assert 5,jsonHandle3.size() ==0
+
+jobs = exec subscriptionId from zmq::getSubJobStat() order by createTimestamp limit 3
+for (id in jobs){
+	zmq::cancelSubJob(id)
+}
+zmq::close(socket)
+assert 6,(zmq::getSubJobStat()).size() == 0
+renew(socket)
+ 
+@testing:case = "test_zmq_cover_all_type_frequent_not_cancelSub"
+for(i in 1:20){
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::bind(socket, "tcp://*:"+addr)
+share streamTable(10:0, `bool`char`short`int`long`date`month`time`minute`second`datetime`timestamp`nanotime`nanotimestamp`float`double`string`symbol`uuid`ipaddr`int128, [BOOL,CHAR,SHORT,INT,LONG,DATE,MONTH,TIME,MINUTE,SECOND,DATETIME,TIMESTAMP,NANOTIME,NANOTIMESTAMP,FLOAT,DOUBLE,STRING,SYMBOL,UUID,IPADDR,INT128]) as handle1
+parser = zmq::createJSONParser([BOOL,CHAR,SHORT,INT,LONG,DATE,MONTH,TIME,MINUTE,SECOND,DATETIME,TIMESTAMP,NANOTIME,NANOTIMESTAMP,FLOAT,DOUBLE,STRING,SYMBOL,UUID,IPADDR,INT128],`bool`char`short`int`long`date`month`time`minute`second`datetime`timestamp`nanotime`nanotimestamp`float`double`string`symbol`uuid`ipaddr`int128)
+sub1 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,handle1, parser)
+sleep(1000)
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+
+def createT(n) {
+    return table(take([false, true], n) as bool, take('a'..'z', n) as char, take(short(-5..5), n) as short, take(-5..5, n) as int, take(-5..5, n) as long, take(2001.01.01..2010.01.01, n) as date, take(2001.01M..2010.01M, n) as month, take(time(now()), n) as time, take(minute(now()), n) as minute, take(second(now()), n) as second, take(datetime(now()), n) as datetime, take(now(), n) as timestamp, take(nanotime(now()), n) as nanotime, take(nanotimestamp(now()), n) as nanotimestamp, take(3.1415f, n) as float, take(3.1415, n) as double, take(`AAPL`IBM, n) as string, take(`AAPL`IBM, n) as symbol,take(uuid("5d212a78-cc48-e3b1-4235-b4d91473ee87"),n) as uuid,take(ipaddr("192.168.1.1"),n) as ipaddr,take(int128("e1671797c52e15f763380b45e841ec32"),n) as int128)
+}
+t = createT(10000)
+zmq::send(socket, t)
+zmq::getSubJobStat() 
+
+judgeReceive(jobId[0],old_packet[0])
+assert 1,each(eqObj,t.values(),handle1.values())
+print("complete"+ i )
+}
+renew(socket)
+
+@testing:case = "test_zmq_createJSONParser_only_col_names", exception=1
+parser = zmq::createJSONParser(,`da`id`date`sym`val)
+
+@testing:case = "test_zmq_createJSONParser_only_col_types", exception=1
+parser = zmq::createJSONParser([INT,DATE,SYMBOL],)
+
+@testing:case = "test_zmq_createJSONParser_types_names_not_same", exception=1
+parser = zmq::createJSONParser([INT,DATE,SYMBOL],`da`id`date`sym`val)
+
+@testing:case = "test_zmq_createJSONParser_other_type", exception=1
+parser = zmq::createJSONParser(1,1)
+
+@testing:case = "test_zmq_createCSVFormatter_NULL", exception=1
+formatter = zmq::createCSVFormatter()
+
+@testing:case = "test_zmq_createCSVParser_NULL", exception=1
+parser = zmq::createCSVParser()
+
+@testing:case = "test_zmq_bind_localhost", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::bind(socket, "tcp://localhsot:"+addr,"prefix1")
+
+@testing:case = "test_zmq_connect_*:addr", exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://*:"+addr,"prefix1")
+
+@testing:case = "test_zmq_socket_batchSize<0", exception=1
+socket = zmq::socket( "ZMQ_PUB", formatter,-1)
+
+@testing:case = "test_zmq_socket_batchSize_is_char", exception=1
+socket = zmq::socket( "ZMQ_PUB", formatter,`a)
+
+@testing:case = "test_zmq_socket_batchSize"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter,10000)
+zmq::bind(socket, "tcp://*:"+addr)
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+sub1 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,jsonHandle, parser)
+sleep(100)
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+n = 1000000
+t1 = table(rand(100,n) as id,rand(2021.01.01..2022.01.01,n) as date,rand(`a`b`c`d`e,n) as sym,take(3.111,n) as val)
+assert 1,zmq::send(socket, t1)
+
+
+for(i in 1:1000){
+	rece = exec recvPackets from zmq::getSubJobStat() where subscriptionId == jobId
+	if(rece>=100){
+		break;
+	}
+	sleep(1000)
+}
+
+assert 2,(exec recvPackets from zmq::getSubJobStat() where subscriptionId == jobId) == 100
+assert 3,each(eqObj,t1.values(),jsonHandle.values())
+
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc limit 1
+zmq::send(socket, NULL)
+judgeReceive(jobId[0],old_packet[0])
+assert 4,each(eqObj,t1.values(),jsonHandle.values())
+
+zmq::cancelSubJob(jobId[0])
+zmq::close(socket)
+assert 5,(zmq::getSubJobStat()).size() == 0
+renew(socket)
+
+@testing:case = "test_zmq_socket_ZMQ_PUSH_sub_PULL"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUSH", formatter,100)
+zmq::bind(socket, "tcp://*:"+addr)
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+sub1 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_PULL", true,jsonHandle, parser)
+sleep(100)
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+n = 1000
+t1 = table(rand(100,n) as id,rand(2021.01.01..2022.01.01,n) as date,rand(`a`b`c`d`e,n) as sym,take(3.111,n) as val)
+assert 1,zmq::send(socket, t1)
+
+sleep(2000)
+assert 2,each(eqObj,t1.values(),jsonHandle.values())
+
+zmq::cancelSubJob(jobId[0])
+assert 3,(zmq::getSubJobStat()).size() == 0
+
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle2
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle3
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle4
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle5
+sub2 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_PULL", true,jsonHandle2, parser)
+sub3 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_PULL", true,jsonHandle3, parser)
+sub4 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_PULL", true,jsonHandle4, parser)
+sub5 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_PULL", true,jsonHandle5, parser)
+sleep(100)
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+n = 1000
+t1 = table(rand(100,n) as id,rand(2021.01.01..2022.01.01,n) as date,rand(`a`b`c`d`e,n) as sym,take(3.111,n) as val)
+assert 5,zmq::send(socket, t1)
+sleep(2000)
+assert 6,jsonHandle2.size()+jsonHandle3.size()+jsonHandle4.size()+jsonHandle5.size() == t1.size()
+renew(socket)
+
+
+@testing:case = "test_zmq_socket_ZMQ_PUSH_sub_PULL&&SUB"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUSH", formatter,1000)
+zmq::bind(socket, "tcp://*:"+addr)
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle2
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+sub1 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_PULL", true,jsonHandle, parser)
+sub1 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,jsonHandle2, parser)
+sleep(100)
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+n = 100000
+t1 = table(rand(100,n) as id,rand(2021.01.01..2022.01.01,n) as date,rand(`a`b`c`d`e,n) as sym,take(3.111,n) as val)
+assert 1,zmq::send(socket, t1)
+sleep(10000)
+assert 2,each(eqObj,t1.values(),jsonHandle.values())
+assert 3,jsonHandle2.size() == 0
+renew(socket)
+
+
+@testing:case = "test_zmq_createSubJob_send_single_data"
+def f1(mutable t,message) {
+	try {
+		insert into t values(message,now()) 
+		print(message)
+	}catch(ex) {
+		print ex
+	}
+}
+
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::bind(socket, "tcp://*:"+addr)
+share streamTable(10000:0,`message`recv_time ,[STRING,TIMESTAMP]) as receiveTable
+parser = zmq::createJSONParser([STRING, TIMESTAMP] ,`message`recv_time)
+sub1 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,f1{receiveTable}, parser)
+sleep(100)
+assert 1,zmq::getSubJobStat().size() == 1 
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+
+assert 2,zmq::send(socket, "Hello")
+
+judgeReceive(jobId[0],old_packet[0])
+re = exec count(*) from receiveTable
+assert 3,re==0
+//zmq::createJSONFormatter() only support array json,if send single message,log will display error:The given json data must be a array
+
+renew(socket)
+
+
+@testing:case = "test_zmq_old_send_new_send_parallel"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUSH", formatter,1000)
+zmq::bind(socket, "tcp://*:"+addr)
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle1
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle2
+
+n = 100000
+t1 = table(take(1..1000,n) as id,take(2021.01.01..2021.10.01,n) as date,take(`a`b`c`d`e`f,n) as sym,take(1..10,n) as val)
+
+sub1 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_PULL", true,jsonHandle1, parser)
+zmq::send(socket,t1)
+sleep(100)
+sub2 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_PULL", true,jsonHandle2, parser)
+zmq::send(socket,t1)
+sleep(5000)
+packet1 =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1,1
+packet2 =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+assert 1, packet1 == 150
+assert 2, packet2 == 50
+renew(socket)
+
+@testing:case = "test_zmq_createPusher_socket_error",exception = 1
+tmp = table(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE])
+pusher = zmq::createPusher("1", tmp)
+
+@testing:case = "test_zmq_createPusher_table_error",exception = 1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:"+addr)
+pusher = zmq::createPusher(socket, 1)
+
+@testing:case = "test_zmq_output_streaming_table_JSON_formatter"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:"+addr)
+tmp = table(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE])
+pusher = zmq::createPusher(socket, tmp)
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+sub1 = zmq::createSubJob("tcp://*:"+addr, "ZMQ_SUB", false,jsonHandle, parser)
+sleep(1000)
+n = 10000
+t1 = table(int(rand(100,n)) as id,rand(2021.01.01..2022.01.01,n) as date,symbol(rand(`a`b`c`d`e,n)) as sym,take(3.111,n) as val)
+pusher.append!(t1)
+
+wait_data("jsonHandle",10000)
+assert 1,each(eqObj,jsonHandle.values(),t1.values())
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+zmq::cancelSubJob(jobId[0])
+zmq::close(socket)
+renew(socket)
+
+@testing:case = "test_zmq_output_streaming_table_CSV_formatter"
+formatter = zmq::createCSVFormatter(["","","",""])
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:"+addr)
+tmp = table(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE])
+pusher = zmq::createPusher(socket, tmp)
+parser = zmq::createCSVParser([INT,DATE,SYMBOL,DOUBLE])
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+sub1 = zmq::createSubJob("tcp://*:"+addr, "ZMQ_SUB", false,jsonHandle, parser)
+sleep(1000)
+n = 10000
+t1 = table(int(rand(100,n)) as id,rand(2021.01.01..2022.01.01,n) as date,symbol(rand(`a`b`c`d`e,n)) as sym,take(3.111,n) as val)
+pusher.append!(t1)
+
+wait_data("jsonHandle",10000)
+assert 1,each(eqObj,jsonHandle.values(),t1.values())
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+zmq::cancelSubJob(jobId[0])
+zmq::close(socket)
+renew(socket)
+
+@testing:case = "test_zmq_output_streaming_table_JSON_formatter_streamingEngine"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:"+addr)
+tmp = table(10:0,`sym`date`factor1,[SYMBOL,DATE,DOUBLE])
+pusher = zmq::createPusher(socket, tmp)
+parser = zmq::createJSONParser([SYMBOL,DATE,DOUBLE] ,`sym`date`factor1)
+share streamTable(10:0,`sym`date`factor1,[SYMBOL,DATE,DOUBLE]) as jsonHandle
+sub1 = zmq::createSubJob("tcp://*:"+addr, "ZMQ_SUB", false,jsonHandle, parser)
+sleep(1000)
+
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as trades
+rse = createReactiveStateEngine(name="engine1", metrics =[<date>,<cumcount(date)>], dummyTable=trades, outputTable=pusher, keyColumn="sym")
+subscribeTable(tableName=`trades, actionName = "test1",msgAsTable=true, handler=tableInsert{rse})
+
+share streamTable(10:0,`sym`date`factor1,[SYMBOL,DATE,DOUBLE]) as ex_table
+rse2 = createReactiveStateEngine(name="engine2", metrics =[<date>,<cumcount(date)>], dummyTable=trades, outputTable=ex_table, keyColumn="sym")
+subscribeTable(tableName=`trades, actionName = "test2",msgAsTable=true, handler=tableInsert{rse2})
+
+n = 10000
+t1 = table(int(rand(100,n)) as id,rand(2021.01.01..2022.01.01,n) as date,symbol(rand(`a`b`c`d`e,n)) as sym,take(3.111,n) as val)
+trades.append!(t1)
+
+wait_data("jsonHandle",10000)
+wait_data("ex_table",10000)
+assert 1,each(eqObj,jsonHandle.values(),ex_table.values())
+
+unsubscribeTable(tableName=`trades, actionName = "test1")
+unsubscribeTable(tableName=`trades, actionName = "test2")
+clearAgg()
+clearShare()
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+zmq::cancelSubJob(jobId[0])
+zmq::close(socket)
+renew(socket)
+
+@testing:case = "test_zmq_output_streaming_table_CSV_formatter_streamingEngine"
+formatter = zmq::createCSVFormatter(["","",""])
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:"+addr)
+tmp = table(10:0,`sym`date`factor1,[SYMBOL,DATE,DOUBLE])
+pusher = zmq::createPusher(socket, tmp)
+parser = zmq::createCSVParser([SYMBOL,DATE,DOUBLE])
+share streamTable(10:0,`sym`date`factor1,[SYMBOL,DATE,DOUBLE]) as jsonHandle
+sub1 = zmq::createSubJob("tcp://*:"+addr, "ZMQ_SUB", false,jsonHandle, parser)
+sleep(1000)
+
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as trades
+rse = createReactiveStateEngine(name="engine1", metrics =[<date>,<cumcount(date)>], dummyTable=trades, outputTable=pusher, keyColumn="sym")
+subscribeTable(tableName=`trades, actionName = "test1",msgAsTable=true, handler=tableInsert{rse})
+
+share streamTable(10:0,`sym`date`factor1,[SYMBOL,DATE,DOUBLE]) as ex_table
+rse2 = createReactiveStateEngine(name="engine2", metrics =[<date>,<cumcount(date)>], dummyTable=trades, outputTable=ex_table, keyColumn="sym")
+subscribeTable(tableName=`trades, actionName = "test2",msgAsTable=true, handler=tableInsert{rse2})
+
+n = 10000
+t1 = table(int(rand(100,n)) as id,rand(2021.01.01..2022.01.01,n) as date,symbol(rand(`a`b`c`d`e,n)) as sym,take(3.111,n) as val)
+trades.append!(t1)
+
+wait_data("jsonHandle",10000)
+wait_data("ex_table",10000)
+assert 1,each(eqObj,jsonHandle.values(),ex_table.values())
+
+unsubscribeTable(tableName=`trades, actionName = "test1")
+unsubscribeTable(tableName=`trades, actionName = "test2")
+clearAgg()
+clearShare()
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+zmq::cancelSubJob(jobId[0])
+zmq::close(socket)
+renew(socket)
+
+@testing:case = "test_zmq_output_streaming_table_streamingEngine_PUSH_PULL"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUSH", formatter)
+zmq::connect(socket, "tcp://localhost:"+addr)
+tmp = table(10:0,`sym`date`factor1,[SYMBOL,DATE,DOUBLE])
+pusher = zmq::createPusher(socket, tmp)
+parser = zmq::createJSONParser([SYMBOL,DATE,DOUBLE] ,`sym`date`factor1)
+share streamTable(10:0,`sym`date`factor1,[SYMBOL,DATE,DOUBLE]) as jsonHandle
+sub1 = zmq::createSubJob("tcp://*:"+addr, "ZMQ_PULL", false,jsonHandle, parser)
+sleep(1000)
+
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as trades
+rse = createReactiveStateEngine(name="engine1", metrics =[<date>,<cumcount(date)>], dummyTable=trades, outputTable=pusher, keyColumn="sym")
+subscribeTable(tableName=`trades, actionName = "test1",msgAsTable=true, handler=tableInsert{rse})
+
+share streamTable(10:0,`sym`date`factor1,[SYMBOL,DATE,DOUBLE]) as ex_table
+rse2 = createReactiveStateEngine(name="engine2", metrics =[<date>,<cumcount(date)>], dummyTable=trades, outputTable=ex_table, keyColumn="sym")
+subscribeTable(tableName=`trades, actionName = "test2",msgAsTable=true, handler=tableInsert{rse2})
+
+n = 10000
+t1 = table(int(rand(100,n)) as id,rand(2021.01.01..2022.01.01,n) as date,symbol(rand(`a`b`c`d`e,n)) as sym,take(3.111,n) as val)
+trades.append!(t1)
+
+wait_data("jsonHandle",10000)
+wait_data("ex_table",10000)
+assert 1,each(eqObj,jsonHandle.values(),ex_table.values())
+
+unsubscribeTable(tableName=`trades, actionName = "test1")
+unsubscribeTable(tableName=`trades, actionName = "test2")
+clearAgg()
+clearShare()
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+zmq::cancelSubJob(jobId[0])
+zmq::close(socket)
+renew(socket)
+
+@testing:case = "test_zmq_output_streaming_table_streamingEngine_bind"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::bind(socket, "tcp://*:"+addr)
+tmp = table(10:0,`sym`date`factor1,[SYMBOL,DATE,DOUBLE])
+pusher = zmq::createPusher(socket, tmp)
+parser = zmq::createJSONParser([SYMBOL,DATE,DOUBLE] ,`sym`date`factor1)
+share streamTable(10:0,`sym`date`factor1,[SYMBOL,DATE,DOUBLE]) as jsonHandle
+sub1 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,jsonHandle, parser)
+sleep(1000)
+
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as trades
+rse = createReactiveStateEngine(name="engine1", metrics =[<date>,<cumcount(date)>], dummyTable=trades, outputTable=pusher, keyColumn="sym")
+subscribeTable(tableName=`trades, actionName = "test1",msgAsTable=true, handler=tableInsert{rse})
+
+share streamTable(10:0,`sym`date`factor1,[SYMBOL,DATE,DOUBLE]) as ex_table
+rse2 = createReactiveStateEngine(name="engine2", metrics =[<date>,<cumcount(date)>], dummyTable=trades, outputTable=ex_table, keyColumn="sym")
+subscribeTable(tableName=`trades, actionName = "test2",msgAsTable=true, handler=tableInsert{rse2})
+
+n = 10000
+t1 = table(int(rand(100,n)) as id,rand(2021.01.01..2022.01.01,n) as date,symbol(rand(`a`b`c`d`e,n)) as sym,take(3.111,n) as val)
+trades.append!(t1)
+
+wait_data("jsonHandle",10000)
+wait_data("ex_table",10000)
+assert 1,each(eqObj,jsonHandle.values(),ex_table.values())
+
+unsubscribeTable(tableName=`trades, actionName = "test1")
+unsubscribeTable(tableName=`trades, actionName = "test2")
+clearAgg()
+clearShare()
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+zmq::cancelSubJob(jobId[0])
+zmq::close(socket)
+renew(socket)
+
+@testing:case = "test_zmq_createPusher_streaming_table"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:"+addr)
+tmp = streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE])
+pusher = zmq::createPusher(socket, tmp)
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+sub1 = zmq::createSubJob("tcp://*:"+addr, "ZMQ_SUB", false,jsonHandle, parser)
+sleep(1000)
+n = 10000
+t1 = table(int(rand(100,n)) as id,rand(2021.01.01..2022.01.01,n) as date,symbol(rand(`a`b`c`d`e,n)) as sym,take(3.111,n) as val)
+pusher.append!(t1)
+
+wait_data("jsonHandle",10000)
+assert 1,each(eqObj,jsonHandle.values(),t1.values())
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+zmq::cancelSubJob(jobId[0])
+zmq::close(socket)
+renew(socket)
+clearAgg()
+clearShare()
+
+@testing:case = "test_zmq_createPusher_shared_streaming_table"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:"+addr)
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as tmp2
+go
+pusher = zmq::createPusher(socket, tmp2)
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+sub1 = zmq::createSubJob("tcp://*:"+addr, "ZMQ_SUB", false,jsonHandle, parser)
+sleep(1000)
+n = 10000
+t1 = table(int(rand(100,n)) as id,rand(2021.01.01..2022.01.01,n) as date,symbol(rand(`a`b`c`d`e,n)) as sym,take(3.111,n) as val)
+pusher.append!(t1)
+
+wait_data("jsonHandle",10000)
+assert 1,each(eqObj,jsonHandle.values(),t1.values())
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+zmq::cancelSubJob(jobId[0])
+zmq::close(socket)
+renew(socket)
+
+@testing:case = "test_zmq_createPusher_partition_table"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:"+addr)
+dbName = "dfs://test_zmq"
+if(existsDatabase(dbName)){
+	dropDB(dbName)
+}
+db = database(dbName,HASH,[INT,10])
+t = table(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE])
+pt = createPartitionedTable(db,t,`pt,`id)
+pusher = zmq::createPusher(socket, tmp2)
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+sub1 = zmq::createSubJob("tcp://*:"+addr, "ZMQ_SUB", false,jsonHandle, parser)
+sleep(1000)
+n = 10000
+t1 = table(int(rand(100,n)) as id,rand(2021.01.01..2022.01.01,n) as date,symbol(rand(`a`b`c`d`e,n)) as sym,take(3.111,n) as val)
+pusher.append!(t1)
+
+wait_data("jsonHandle",10000)
+assert 1,each(eqObj,jsonHandle.values(),t1.values())
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+zmq::cancelSubJob(jobId[0])
+zmq::close(socket)
+renew(socket)
+
+
+@testing:case="test_zmq_socket_execute_multiple_times"
+for(i in 1..100){
+	formatter = zmq::createJSONFormatter()
+	socket = zmq::socket( "ZMQ_PUB", formatter)	
+}
+ans =  zmq::connect(socket, "tcp://localhost:"+addr)
+assert 1, ans==true
+renew(socket)
+
+@testing:case="test_zmq_connect_execute_multiple_times"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)	
+for(i in 1..100){
+	ans = zmq::connect(socket, "tcp://localhost:"+addr)
+	assert 1, ans==true
+}
+renew(socket)
+
+
+@testing:case="test_zmq_send_execute_multiple_times"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:"+addr)
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+sub1 = zmq::createSubJob("tcp://*:"+addr, "ZMQ_SUB", false,jsonHandle, parser)
+sleep(1000)
+assert 1,zmq::getSubJobStat().size() == 1 
+n=100
+t1 = table(take(100,n) as id,take(2021.01.01,n) as date,take(`a,n) as sym,take(3.111,n) as val)
+for(i in 1..100){
+	zmq::send(socket, t1)
+}
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+judgeReceive(jobId[0],old_packet[0])
+
+ans = exec count(*) from jsonHandle
+assert 1, eqObj(ans, 10000)
+renew(socket)
+clearShare()
+
+@testing:case="test_zmq_close_execute_multiple_times"
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:"+addr)
+for(i in 1..100){
+	assert 1, zmq::close(socket)
+}
+
+@testing:case="test_zmq_after_close_send",  exception=1
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket( "ZMQ_PUB", formatter)
+zmq::connect(socket, "tcp://localhost:"+addr)
+zmq::close(socket)
+n=100
+t1 = table(take(100,n) as id,take(2021.01.01,n) as date,take(`a,n) as sym,take(3.111,n) as val)
+zmq::send(socket, t1)
+
+
+@testing:case = "test_zmq_multi_job_connect_send_close_mul_socket"
+def submit_job_send(socket, t){
+	for(i in 1..100){
+		zmq::send(socket, t)
+		objByName(`expect1).append!(t)
+	}			
+}
+
+def submit_job_close(socket){
+	for(i in 1..100){
+		zmq::close(socket)
+	}	
+}
+
+formatter = zmq::createJSONFormatter()
+socket1 = zmq::socket( "ZMQ_PUB", formatter)
+zmq::connect(socket1, "tcp://localhost:"+addr)
+socket2 = zmq::socket( "ZMQ_PUB", formatter)
+zmq::connect(socket2, "tcp://localhost:"+addr)
+socket3 = zmq::socket( "ZMQ_PUB", formatter)
+zmq::connect(socket3, "tcp://localhost:"+addr)
+
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+ex = table(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE])
+share ex as expect1 
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+//sub1 = zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,jsonHandle, parser)
+sub1 = zmq::createSubJob("tcp://*:"+addr, "ZMQ_SUB", false,jsonHandle, parser)
+sleep(1000)
+assert 1,zmq::getSubJobStat().size() == 1 
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packet =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+n = 1000
+t1 = table(take(100,n) as id,take(2021.01.01,n) as date,take(`a,n) as sym,take(3.111,n) as val)
+jobID_1 = submitJob("jobSend", "jobSend", submit_job_send, socket1, t1)
+jobID_2 = submitJob("jobSend", "jobSend", submit_job_send, socket2, t1)
+jobID_3 = submitJob("jobSend", "jobSend", submit_job_send, socket3, t1)
+getJobReturn(jobID_1, true)
+getJobReturn(jobID_2, true)
+getJobReturn(jobID_3, true)
+judgeReceive(jobId[0],old_packet[0])
+wait_data(`jsonHandle,300000)
+assert 3,each(eqObj,expect1.values(),jsonHandle.values())
+
+jobID_1 = submitJob("jobSend", "jobSend", submit_job_close, socket1)
+jobID_2 = submitJob("jobSend", "jobSend", submit_job_close, socket2)
+jobID_3 = submitJob("jobSend", "jobSend", submit_job_close, socket3)
+getJobReturn(jobID_1, true)
+getJobReturn(jobID_2, true)
+getJobReturn(jobID_3, true)
+renew(socket1)
+renew(socket2)
+renew(socket3)
+assert 5,(zmq::getSubJobStat()).size() == 0
+clearShare()
+
+
+@testing:case = "test_zmq_multi_job_bind_mul_createSubJob"
+def submit_job_createSubJob(addr, t, parser){
+	for(i in 1..100){
+		zmq::createSubJob("tcp://localhost:"+addr, "ZMQ_SUB", true,t, parser)		
+		sleep(20)
+	}
+}
+
+formatter = zmq::createJSONFormatter()
+socket = zmq::socket("ZMQ_PUB", formatter)
+zmq::bind(socket,"tcp://*:"+addr)
+
+
+share streamTable(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) as jsonHandle
+t1 =  table(10:0,`id`date`sym`val,[INT,DATE,SYMBOL,DOUBLE]) 
+parser = zmq::createJSONParser([INT,DATE,SYMBOL,DOUBLE] ,`id`date`sym`val)
+
+job1 = submitJob("jobCreate", "job Create", submit_job_createSubJob,  addr, jsonHandle, parser)
+job2 = submitJob("jobCreate", "job Create", submit_job_createSubJob,  addr, jsonHandle, parser)
+job3 = submitJob("jobCreate", "job Create", submit_job_createSubJob,  addr, jsonHandle, parser)
+
+getJobReturn(job1, true)
+getJobReturn(job2, true)
+getJobReturn(job3, true)
+
+
+jobId = exec subscriptionId from zmq::getSubJobStat() order by  createTimestamp desc limit 1
+old_packets =  exec recvPackets from zmq::getSubJobStat() order by createTimestamp desc  limit 1
+n = 1000
+send_1 = table(take(100,n) as id,take(2021.01.01,n) as date,take(`a,n) as sym,take(3.111,n) as val)
+zmq::send(socket,send_1)
+judgeReceive(jobId[0],old_packets[0])
+wait_data(`jsonHandle,300000)
+ex = table(take(100,300000) as id,take(2021.01.01,300000) as date,take(`a,300000) as sym,take(3.111,300000) as val)
+assert 1,  eqObj(jsonHandle.values(), ex.values())
+
+jobs = exec subscriptionId from zmq::getSubJobStat() order by createTimestamp limit 100
+for (id in jobs){
+	zmq::cancelSubJob(id)
+	sleep(20)
+}
+renew(socket)
+assert 6,zmq::getSubJobStat().size() == 0 
+clearShare()
+
+
+
+
+

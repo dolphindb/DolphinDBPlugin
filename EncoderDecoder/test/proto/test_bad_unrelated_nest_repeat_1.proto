@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+// 两个不相关联的 多层 nested repeated
+message test_bad_unrelated_nest_repeat_1{
+    double double = 1;
+    message repeatMsg {
+        repeated float float = 1;
+    }
+    repeated repeatMsg r1 = 2;
+    repeated repeatMsg r2 = 3;
+}

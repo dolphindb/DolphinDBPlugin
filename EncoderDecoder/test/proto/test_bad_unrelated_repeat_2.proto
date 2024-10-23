@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+// 开启toArrayVector可解析，不开启toArrayVector则不能解析
+// 不相关联的，在嵌套字段中的单层repeated字段
+message test_bad_unrelated_repeat_2 {
+    string string = 1;
+    repeated repeatMsg1 r1 = 2;
+    repeated repeatMsg2 r2 = 3;
+    message repeatMsg1 {
+        int32 int32 = 1;
+    }
+    message repeatMsg2 {
+        double double = 1;
+    }
+}

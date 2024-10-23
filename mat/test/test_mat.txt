@@ -1,0 +1,1046 @@
+WORK_DIR="/home/wtxu/Documents/test/mat/workplace"  // path for save model
+DATA_DIR="/home/wtxu/Documents/test/mat/dataset"   // path for dataset
+login("admin","123456")
+try{loadPlugin(getHomeDir()+"/plugins/mat/PluginMat.txt")}catch(ex){print ex}
+go
+try{rmdir(WORK_DIR,1)}catch(ex){print ex}
+try{mkdir(WORK_DIR)}catch(ex){print ex}
+
+@testing:case="test_mat_extractMatSchema_file_csv",exception=1
+saveText(table(1..10 as id),WORK_DIR+"/test.csv")
+schema=mat::extractMatSchema(WORK_DIR+"/test.csv")
+
+@testing:case="test_mat_extractMatSchema_file_txt",exception=1
+saveText(table(1..10 as id),WORK_DIR+"/test.txt")
+schema=mat::extractMatSchema(WORK_DIR+"/test.txt")
+
+@testing:case="test_mat_extractMatSchema_file_error_mat",exception=1
+saveText(table(1..10 as id),WORK_DIR+"/test.mat")
+schema=mat::extractMatSchema(WORK_DIR+"/test.mat")
+
+@testing:case="test_mat_extractMatSchema_file_donot_exist",exception=1
+schema=mat::extractMatSchema(DATA_DIR+"/mytest.mat")
+
+@testing:case="test_mat_extractMatSchema_file_error_string",exception=1
+schema=mat::extractMatSchema("DATA_DIR")
+
+@testing:case="test_mat_extractMatSchema_file_number",exception=1
+schema=mat::extractMatSchema(1)
+
+@testing:case="test_mat_extractMatSchema_file_NULL",exception=1
+schema=mat::extractMatSchema(NULL)
+
+@testing:case="test_mat_extractMatSchema_file_stirng_NULL",exception=1
+schema=mat::extractMatSchema(string(NULL))
+
+@testing:case="test_mat_extractMatSchema_file_stirng_vector",exception=1
+schema=mat::extractMatSchema([DATA_DIR+"/scint8.mat"])
+
+@testing:case="test_mat_loadMat_file_error_mat",exception=1
+schema=mat::extractMatSchema(DATA_DIR+"/scint8.mat")
+ret=mat::loadMat(WORK_DIR+"/test.mat",schema);
+
+@testing:case="test_mat_loadMat_file_donot_exist",exception=1
+mat::loadMat(DATA_DIR+"/mytest.mat",schema)
+
+@testing:case="test_mat_loadMat_file_error_string",exception=1
+mat::loadMat("DATA_DIR",schema)
+
+@testing:case="test_mat_loadMat_file_number",exception=1
+mat::loadMat(1,schema)
+
+@testing:case="test_mat_loadMat_file_empty",exception=1
+mat::loadMat(,schema)
+
+@testing:case="test_mat_loadMat_file_NULL",exception=1
+mat::loadMat(NULL,schema)
+
+@testing:case="test_mat_loadMat_file_stirng_NULL",exception=1
+mat::loadMat(string(NULL),schema)
+
+@testing:case="test_mat_loadMat_file_stirng_vector",exception=1
+mat::loadMat([DATA_DIR+"/scint8.mat"],schema)
+
+@testing:case="test_mat_loadMat_schema_empty"
+ret=mat::loadMat(DATA_DIR+"/scint8.mat",)
+assert 1,ret[`scint8]==0
+
+@testing:case="test_mat_loadMat_schema_null"
+ret=mat::loadMat(DATA_DIR+"/scint8.mat",NULL)
+assert 1,ret[`scint8]==0
+
+@testing:case="test_mat_loadMat_schema_string",exception=1
+mat::loadMat(DATA_DIR+"/scint8.mat",`NULL)
+
+@testing:case="test_mat_loadMat_schema_number",exception=1
+mat::loadMat(DATA_DIR+"/scint8.mat",1)
+
+@testing:case="test_mat_loadMat_schema_without_name",exception=1
+mat::loadMat(DATA_DIR+"/scint8.mat",table(`scint as name1,`CHAR as type))
+
+@testing:case="test_mat_loadMat_schema_without_type",exception=1
+mat::loadMat(DATA_DIR+"/scint8.mat",table(`scint as name,`CHAR as type1))
+
+@testing:case="test_mat_loadMat_schema_dict",exception=1
+mat::loadMat(DATA_DIR+"/scint8.mat",dict(`name`type,`scint`CHAR))
+
+@testing:case="test_mat_loadMat_schema_error_name"
+assert 1,eqObj(mat::loadMat(DATA_DIR+"/scint8.mat",table(`scint as name,`STRING as type)).keys(),dict(STRING,ANY).keys())
+assert 2,eqObj(mat::loadMat(DATA_DIR+"/scint8.mat",table(`scint as name,`STRING as type)).values(),dict(STRING,ANY).values())
+
+@testing:case="test_mat_loadMat_schema_error_type_CHAR to STRING",exception=1
+mat::loadMat(DATA_DIR+"/scint8.mat",table(`scint8 as name,`STRING as type))
+
+@testing:case="test_mat_loadMat_schema_error_type_CHAR to SYMBOL",exception=1
+mat::loadMat(DATA_DIR+"/scint8.mat",table(`scint8 as name,`SYMBOL as type))
+
+@testing:case="test_mat_loadMat_schema_error_type_INT to STRING",exception=1
+mat::loadMat(DATA_DIR+"/scint32.mat",table(`scint32 as name,`STRING as type))
+
+@testing:case="test_mat_loadMat_schema_error_type_SHORT to STRING",exception=1
+mat::loadMat(DATA_DIR+"/scuint8.mat",table(`scuint8 as name,`STRING as type))
+
+@testing:case="test_mat_loadMat_schema_error_type_LONG to STRING",exception=1
+mat::loadMat(DATA_DIR+"/scint64.mat",table(`scint64 as name,`STRING as type))
+
+@testing:case="test_mat_convertToDatetime_data_INT",exception=1                                
+ret=mat::convertToDatetime(int(738105));
+
+@testing:case="test_mat_convertToDatetime_data_SHORT",exception=1                                
+ret=mat::convertToDatetime(short(738105));
+
+@testing:case="test_mat_convertToDatetime_data_LONG",exception=1                                
+ret=mat::convertToDatetime(long(738105));
+
+@testing:case="test_mat_convertToDatetime_data_FLOAT",exception=1                                
+ret=mat::convertToDatetime(float(738105));
+
+@testing:case="test_mat_convertToDatetime_data_STRING",exception=1                                
+ret=mat::convertToDatetime(`738105);
+
+@testing:case="test_mat_convertToDatetime_data_date",exception=1                                
+ret=mat::convertToDatetime(1970.01.01);
+
+@testing:case="test_mat_convertToDatetime_data_table",exception=1                                
+ret=mat::convertToDatetime(table(738105.6 738105.6  as val));
+
+@testing:case="test_mat_convertToDatetime_data_dict",exception=1                                
+ret=mat::convertToDatetime(dict(`DOUBLE1`DOUBLE2,1.0 2.9));
+
+@testing:case="test_mat_convertToDatetime_data_less than 1970.01.01",exception=1                                
+ret=mat::convertToDatetime(719528.0);
+
+@testing:case="test_mat_convertToDatetime_data_0",exception=1                                
+ret=mat::convertToDatetime(0.0);
+
+@testing:case="test_mat_convertToDatetime_data<0",exception=1                                
+ret=mat::convertToDatetime(-10.0);
+
+@testing:case="test_mat_writeMat_file_empty",exception=1                   
+data=matrix(1..3)                  
+mat::writeMat(,`data,data);
+
+@testing:case="test_mat_writeMat_file_NULL",exception=1                   
+data=matrix(1..3)                  
+mat::writeMat(NULL,`data,data);
+
+@testing:case="test_mat_writeMat_file_string_NULL",exception=1                   
+data=matrix(1..3)                  
+mat::writeMat(string(NULL),`data,data);
+
+@testing:case="test_mat_writeMat_file_string_vector",exception=1                   
+data=matrix(1..3)                  
+mat::writeMat(["mattest.mat"],`data,data);
+
+@testing:case="test_mat_writeMat_file_number",exception=1                   
+data=matrix(1..3)                  
+mat::writeMat(1,`data,data);
+
+@testing:case="test_mat_writeMat_varName_empty",exception=1                   
+data=matrix(1..3)                  
+mat::writeMat("testmat",,data);
+
+@testing:case="test_mat_writeMat_varName_NULL",exception=1                   
+data=matrix(1..3)                  
+mat::writeMat("testmat",NULL,data);
+
+@testing:case="test_mat_writeMat_varName_string_NULL",exception=1                   
+data=matrix(1..3)                  
+mat::writeMat(WORK_DIR+"/testmat.mat",string(NULL),data);
+
+@testing:case="test_mat_writeMat_varName_number_ahead" ,exception=1      
+mat::writeMat(WORK_DIR+"/testmat.mat",`1p,data); 
+
+@testing:case="test_mat_writeMat_varName_char_ahead" ,exception=1      
+mat::writeMat(WORK_DIR+"/testmat.mat","%p",data); 
+
+@testing:case="test_mat_writeMat_varName_string_vector",exception=1                   
+data=matrix(1..3)                  
+mat::writeMat("testmat",["mat"],data);
+
+@testing:case="test_mat_writeMat_varName_number",exception=1                   
+data=matrix(1..3)                  
+mat::writeMat("testmat",1,data);
+
+@testing:case="test_mat_writeMat_data_empty",exception=1                   
+mat::writeMat(WORK_DIR+"/testmat.mat",`date,);
+
+@testing:case="test_mat_writeMat_data_NULL",exception=1                   
+mat::writeMat(WORK_DIR+"/testmat.mat",`date,NULL);
+
+@testing:case="test_mat_writeMat_data_date",exception=1                   
+data=matrix(date(1..3))                  
+mat::writeMat(WORK_DIR+"/testmat.mat",`date,data);
+
+@testing:case="test_mat_writeMat_2_args",syntaxError=1                              
+mat::writeMat(WORK_DIR+"/testmat.mat",`date);
+
+@testing:case="test_mat_writeMat_4_args",syntaxError=1                   
+data=matrix(1..3)                  
+mat::writeMat(WORK_DIR+"/testmat.mat",`date,data,data);
+
+@testing:case="test_mat_extractMatSchema&loadMat_scalar_dataTypes"
+file=DATA_DIR+"/scint8.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 1,schema.name==[`scint8]
+assert 2,schema.type==[`CHAR]
+assert 3,ret[`scint8]==ret1[`scint8]==0
+
+file=DATA_DIR+"/scuint8.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 4,schema.name==[`scuint8]
+assert 5,schema.type==[`SHORT]
+assert 6,ret[`scuint8]==ret1[`scuint8]==255
+
+file=DATA_DIR+"/scint16.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 7,schema.name==[`scint16]
+assert 8,schema.type==[`SHORT]
+assert 9,ret[`scint16]==ret1[`scint16]==32767
+
+file=DATA_DIR+"/scuint16.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 10,schema.name==[`scuint16]
+assert 11,schema.type==[`INT]
+assert 12,ret[`scuint16]==ret1[`scuint16]==0
+
+file=DATA_DIR+"/scint32.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 13,schema.name==[`scint32]
+assert 14,schema.type==[`INT]
+assert 15,ret[`scint32]==ret1[`scint32]==-2147483648
+
+file=DATA_DIR+"/scuint32.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 16,schema.name==[`scuint32]
+assert 17,schema.type==[`LONG]
+assert 18,ret[`scuint32]==ret1[`scuint32]==0
+
+file=DATA_DIR+"/scint64.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 19,schema.name==[`scint64]
+assert 20,schema.type==[`LONG]
+assert 21,ret[`scint64]==ret1[`scint64]==18446744073709551615
+
+file=DATA_DIR+"/scsingle.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 22,schema.name==[`scsingle]
+assert 23,schema.type==[`FLOAT]
+assert 24,eqObj(ret[`scsingle][0][0],56.45f,2)
+assert 124,eqObj(ret1[`scsingle][0][0],56.45f,2)
+
+file=DATA_DIR+"/scdouble.mat";
+schema=mat::extractMatSchema(file);
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 25,schema.name==[`scdouble]
+assert 26,schema.type==[`DOUBLE]
+assert 27,ret[`scdouble]==ret1[`scdouble]==NULL
+
+file=DATA_DIR+"/scchar.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 28,schema.name==[`scchar]
+assert 29,schema.type==[`STRING]
+assert 30,ret[`scchar]==ret1[`scchar]==`A
+
+file=DATA_DIR+"/single.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 31,schema.name==[`single]
+assert 32,schema.type==[`FLOAT]
+assert 33,eq(ret[`single],NULL)
+assert 34,eq(ret1[`single],NULL)
+
+file=DATA_DIR+"/inf8.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 35,schema.name==[`inf8]
+assert 36,schema.type==[`CHAR]
+assert 37,eq(ret[`inf8],NULL)
+assert 38,eq(ret1[`inf8],NULL)
+
+file=DATA_DIR+"/inf16.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 39,schema.name==[`inf16]
+assert 42,schema.type==[`SHORT]
+assert 43,eq(ret[`inf16],NULL)
+assert 44,eq(ret1[`inf16],NULL)
+
+file=DATA_DIR+"/inf64.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 45,schema.name==[`inf64]
+assert 46,schema.type==[`LONG]
+assert 47,eq(ret[`inf64],NULL)
+assert 48,eq(ret1[`inf64],NULL)
+
+@testing:case="test_mat_extractMatSchema&loadMat_matrix_dataTypes"
+file=DATA_DIR+"/Mint8.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 1,schema.name==[`Mint8]
+assert 2,schema.type==[`CHAR]
+assert 3,ret[`Mint8]==ret1[`Mint8]==eye(3)
+
+file=DATA_DIR+"/Muint8.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 4,schema.name==[`Muint8]
+assert 5,schema.type==[`SHORT]
+assert 6,ret[`Muint8]==ret1[`Muint8]==matrix(INT,5,5)+1
+
+file=DATA_DIR+"/Mint16.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 7,schema.name==[`Mint16]
+assert 8,schema.type==[`SHORT]
+assert 9,ret[`Mint16]==ret1[`Mint16]==matrix([10 0 0 0 0,0 45 0 0 0,0 0 841 0 0 ,0 0 0 3594 0,0 0 0 0 484])
+
+file=DATA_DIR+"/Muint16.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 10,schema.name==[`Muint16]
+assert 11,schema.type==[`INT]
+assert 12,ret[`Muint16]==ret1[`Muint16]==matrix(INT,4,5)
+
+file=DATA_DIR+"/Mint32.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 13,schema.name==[`Mint32]
+assert 14,schema.type==[`INT]
+assert 15,ret[`Mint32]==ret1[`Mint32]==matrix([1 0 0 0 0 ,2 2 0 0 0,3 3 3 0 0 ,4 4 4 4 0,5 5 5 5 5])
+
+file=DATA_DIR+"/Muint32.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 16,schema.name==[`Muint32]
+assert 17,schema.type==[`LONG]
+assert 18,ret[`Muint32]==ret1[`Muint32]==matrix([0 0 0 0 4,0 0 0 45 6,0 0 2 7 7 ,0 4 76 6 8,1 5 5 6 4])
+
+file=DATA_DIR+"/Mint64.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 19,schema.name==[`Mint64]
+assert 20,schema.type==[`LONG]
+assert 21,ret[`Mint64]==ret1[`Mint64]==matrix([2 -1 -1,-1 2 -1,-1 -1 2])
+
+file=DATA_DIR+"/Msingle.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 22,schema.name==[`Msingle]
+assert 23,schema.type==[`FLOAT]
+assert 24,ret[`Msingle]==ret1[`Msingle]==matrix(INT,4,5)
+
+file=DATA_DIR+"/Mdouble.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 25,schema.name==[`Mdouble]
+assert 26,schema.type==[`DOUBLE]
+assert 27,ret[`Mdouble]==ret1[`Mdouble]==matrix(INT,4,5)
+
+file=DATA_DIR+"/charArray.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 28,schema.name==[`C]
+assert 29,schema.type==[`STRING]
+assert 30,ret[`C]==ret1[`C]==["AB"+"  ","CD"+"  ",`abcd]
+
+
+@testing:case="test_mat_extractMatSchema&loadMat_series_dataTypes"
+file=DATA_DIR+"/Sint8.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 1,schema.name==[`Sint8]
+assert 2,schema.type==[`CHAR]
+assert 3,ret[`Sint8]==ret1[`Sint8]==[1,5,6,9,4,32,127]
+
+file=DATA_DIR+"/Suint8.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 4,schema.name==[`Suint8]
+assert 5,schema.type==[`SHORT]
+assert 6,ret[`Suint8]==ret1[`Suint8]==[255,154,15,0]
+
+file=DATA_DIR+"/Sint16.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 7,schema.name==[`Sint16]
+assert 8,schema.type==[`SHORT]
+assert 9,ret[`Sint16]==ret1[`Sint16]==[2,594,15,8,1,0]
+
+file=DATA_DIR+"/Suint16.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 10,schema.name==[`Suint16]
+assert 11,schema.type==[`INT]
+assert 12,ret[`Suint16]==ret1[`Suint16]==[65535,1564,1,0]
+
+file=DATA_DIR+"/Sint32.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 13,schema.name==[`Sint32]
+assert 14,schema.type==[`INT]
+assert 15,ret[`Sint32]==ret1[`Sint32]==[-914,8041,550,5446]
+
+file=DATA_DIR+"/Suint32.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 16,schema.name==[`Suint32]
+assert 17,schema.type==[`LONG]
+assert 18,ret[`Suint32]==ret1[`Suint32]==[4294967295,498498,10,0]
+
+file=DATA_DIR+"/Sint64.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 19,schema.name==[`Sint64]
+assert 20,schema.type==[`LONG]
+assert 21,ret[`Sint64]==ret1[`Sint64]==[0,154,4154,0]
+
+file=DATA_DIR+"/Ssingle.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 22,schema.name==[`Ssingle]
+assert 23,schema.type==[`FLOAT]
+assert 24,ret[`Ssingle]==ret1[`Ssingle]==1..100
+
+file=DATA_DIR+"/Sdouble.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 25,schema.name==[`Sdouble]
+assert 26,schema.type==[`DOUBLE]
+res=ret[`Sdouble].flatten()
+assert 27, eqObj(res,[56.25,464,10.1,  0,  0.25,-58])
+assert 127,eqObj(ret1[`Sdouble].flatten(),[56.25,464, 10.1,  0,  0.25,-58])
+
+file=DATA_DIR+"/Schar.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 28,schema.name==[`C]
+assert 29,schema.type==[`STRING]
+assert 30,ret[`C]==ret1[`C]==`ABSDFS
+
+@testing:case="test_mat_extractMatSchema&loadMat_dataTypes_include_null"
+file=DATA_DIR+"/Mnsingle.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 22,schema.name==[`Mnsingle]
+assert 23,schema.type==[`FLOAT]
+assert 24,ret[`Mnsingle]==ret1[`Mnsingle]==matrix([8 NULL 4,1 5 9,NULL 7 2])
+
+file=DATA_DIR+"/Mndouble.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 25,schema.name==[`Mndouble]
+assert 26,schema.type==[`DOUBLE]
+assert 27,ret[`Mndouble]==ret1[`Mndouble]==matrix([8 NULL 4,1 5 9,NULL 7 2])
+
+file=DATA_DIR+"/emptycharArray.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 28,schema.name==[`c]
+assert 29,schema.type==[`STRING]
+assert 30,ret[`c].size()==ret1[`c].size()==0
+
+@testing:case="test_mat_extractMatSchema_Sstring",exception=1
+file=DATA_DIR+"/Sstring.mat"
+schema=mat::extractMatSchema(file)
+
+@testing:case="test_mat_extractMatSchema_Suint64",exception=1
+file=DATA_DIR+"/Suint64.mat"
+schema=mat::extractMatSchema(file)
+
+@testing:case="test_mat_extractMatSchema_Muint64",exception=1
+file=DATA_DIR+"/Muint64.mat"
+schema=mat::extractMatSchema(file)
+
+@testing:case="test_mat_extractMatSchema_Muint64_has_null",exception=1
+file=DATA_DIR+"/Mnuint64.mat"
+schema=mat::extractMatSchema(file)
+
+@testing:case="test_mat_extractMatSchema_scuint64",exception=1
+file=DATA_DIR+"/scuint64.mat"
+schema=mat::extractMatSchema(file)
+
+@testing:case="test_mat_loadMat_Suint64",exception=1
+file=DATA_DIR+"/Suint64.mat"
+ret1=mat::loadMat(file);
+
+@testing:case="test_mat_loadMat_Muint64",exception=1
+file=DATA_DIR+"/Muint64.mat"
+ret1=mat::loadMat(file);
+
+@testing:case="test_mat_loadMat_Muint64_has_null",exception=1
+file=DATA_DIR+"/Mnuint64.mat"
+ret1=mat::loadMat(file);
+
+@testing:case="test_mat_loadMat_scuint64",exception=1
+file=DATA_DIR+"/scuint64.mat"
+ret1=mat::loadMat(file);
+
+@testing:case="test_mat_extractMatSchema&loadMat_Multiple_elements"
+file=DATA_DIR+"/MSeries.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 1,schema.name==`Sint16`Sint32`Sint64`Sint8`Suint16`Suint32`Suint8
+assert 2,schema.type==`SHORT`INT`LONG`CHAR`INT`LONG`SHORT
+assert 3,ret[`Sint8]==ret1[`Sint8]==[1,5,6,9,4,32,127]
+assert 4,ret[`Suint8]==ret1[`Suint8]==[255,154,15,0]
+assert 5,ret[`Sint16]==ret1[`Sint16]==[2,594,15,8,1,0]
+assert 6,ret[`Suint16]==ret1[`Suint16]==[65535,1564,1,0]
+assert 7,ret[`Sint32]==ret1[`Sint32]==[-914,8041,550,5446]
+assert 8,ret[`Suint32]==ret1[`Suint32]==[4294967295,498498,10,0]
+assert 9,ret[`Sint64]==ret1[`Sint64]==[0,154,4154,0]
+
+file=DATA_DIR+"/000001.SZ_1min.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+assert 10,schema.name==`Data`Time
+assert 11,schema.type==`DOUBLE`DOUBLE
+tdata=table(ret[`Data])
+tdata1=table(ret1[`Data])
+re=loadText(DATA_DIR+"/000001.SZ_1minData.txt")
+assert 12, each(eqObj,tdata.values(),re.values())
+assert 112, each(eqObj,tdata1.values(),re.values())
+tTime=table(ret[`Time])
+tTime1=table(ret[`Time])
+re=loadText(DATA_DIR+"/000001.SZ_1minTime.txt")
+assert 13, each(eqObj,tTime.values(),re.values(),1)
+assert 113, each(eqObj,tTime1.values(),re.values(),1)
+
+@testing:case="test_mat_convertToDatetime"
+//vector
+ret=mat::convertToDatetime(ret[`Time]).flatten();
+ret1=mat::convertToDatetime(ret1[`Time]).flatten();
+rest =loadText(DATA_DIR+"/datetime.txt")
+assert 1,eqObj(ret,rest[`col0])
+assert 11,eqObj(ret1,rest[`col0])
+//matrix
+file=DATA_DIR+"/mdatetime.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+ret=mat::convertToDatetime(ret[`m]);
+rest = loadText(DATA_DIR+"/mdatetime.txt")
+rest = rest[`col0]$3:101
+assert 2,eq(ret,rest)
+ret1=mat::convertToDatetime(ret1[`m]);
+assert 21,eq(ret1,rest)
+//scalar
+file=DATA_DIR+"/sctime.mat"
+schema=mat::extractMatSchema(file)
+ret=mat::loadMat(file,schema);                                   
+ret1=mat::loadMat(file);
+ret=mat::convertToDatetime(ret[`t]);
+ret1=mat::convertToDatetime(ret1[`t]);
+assert 3,ret==ret1==2020.11.27 14:34:37
+
+@testing:case="test_mat_load_parallel"
+def parallel(file){
+	try{
+		schema=mat::extractMatSchema(file)
+			for(i in 0:10){
+				ret=mat::loadMat(file,schema); 
+				ret1=mat::loadMat(file);
+				sleep(1000)
+				}
+	}catch(ex){print ex}
+}
+file=DATA_DIR+"/bigData.mat"
+submitJob("job_parallel","job load",parallel,file)
+file=DATA_DIR+"/000001.SZ_1min.mat"
+submitJob("job_parallel","job load",parallel,file)
+file=DATA_DIR+"/MSeries.mat"
+submitJob("job_parallel","job load",parallel,file)
+file=DATA_DIR+"/Msingle.mat"
+submitJob("job_parallel","job load",parallel,file)
+getRecentJobs()
+
+@testing:case="test_mat_types_convert"
+types=[`CHAR,`SHORT,`INT,`LONG,`FLOAT,`DOUBLE,`BOOL]
+dateTypes=[char,short,int,long,float,double,bool]
+def convertTypes(type,dateType,file,colName,expection){
+	schema = table(colName as name,type as type)
+	ret=mat::loadMat(file,schema);
+	return ret[colName]==dateType(expection)
+}
+file=DATA_DIR+"/scint8.mat"
+colName="scint8"
+expection=0
+assert 1,loop(convertTypes{,,file,colName,expection},types,dateTypes).flatten()
+file=DATA_DIR+"/scuint8.mat"
+colName="scuint8"
+expection=255
+assert 2,loop(convertTypes{,,file,colName,expection},types,dateTypes).flatten()
+file=DATA_DIR+"/scint16.mat"
+colName="scint16"
+expection=32767
+assert 3,loop(convertTypes{,,file,colName,expection},types,dateTypes).flatten()
+file=DATA_DIR+"/scuint16.mat"
+colName="scuint16"
+expection=0
+assert 4,loop(convertTypes{,,file,colName,expection},types,dateTypes).flatten()
+file=DATA_DIR+"/scint32.mat"
+colName="scint32"
+expection=-2147483648
+assert 5,loop(convertTypes{,,file,colName,expection},types,dateTypes).flatten()
+file=DATA_DIR+"/scuint32.mat"
+colName="scuint32"
+expection=0
+assert 6,loop(convertTypes{,,file,colName,expection},types,dateTypes).flatten()
+file=DATA_DIR+"/scint64.mat"
+colName="scint64"
+expection=18446744073709551615
+assert 7,loop(convertTypes{,,file,colName,expection},types,dateTypes).flatten()
+file=DATA_DIR+"/scsingle.mat"
+colName="scsingle"
+expection=56.45f
+assert 9,loop(convertTypes{,,file,colName,expection},types,dateTypes).flatten()
+file=DATA_DIR+"/scdouble.mat"
+colName="scdouble"
+expection=NULL
+assert 10,loop(convertTypes{,,file,colName,expection},types,dateTypes).flatten()
+file=DATA_DIR+"/Sint8.mat"
+colName="Sint8"
+expection=[1,5,6,9,4,32,127]
+assert 11,loop(convertTypes{,,file,colName,expection},types,dateTypes).flatten()
+file=DATA_DIR+"/Suint8.mat"
+colName="Suint8"
+expection=[255,154,15,0]
+assert 12,loop(convertTypes{,,file,colName,expection},types,dateTypes).flatten()
+file=DATA_DIR+"/Sint16.mat"
+colName="Sint16"
+expection=[2,594,15,8,1,0]
+assert 13,loop(convertTypes{,,file,colName,expection},types,dateTypes).flatten()
+file=DATA_DIR+"/Suint16.mat"
+colName="Suint16"
+expection=[65535,1564,1,0]
+assert 14,loop(convertTypes{,,file,colName,expection},types,dateTypes).flatten()
+file=DATA_DIR+"/Sint32.mat"
+colName="Sint32"
+expection=[-914,8041,550,5446]
+assert 15,loop(convertTypes{,,file,colName,expection},types,dateTypes).flatten()
+file=DATA_DIR+"/Suint32.mat"
+colName="Suint32"
+expection=[4294967295,498498,10,0]
+assert 16,loop(convertTypes{,,file,colName,expection},types,dateTypes).flatten()
+file=DATA_DIR+"/Sint64.mat"
+colName="Sint64"
+expection=[0,154,4154,0]
+assert 17,loop(convertTypes{,,file,colName,expection},types,dateTypes).flatten()
+file=DATA_DIR+"/Ssingle.mat"
+colName="Ssingle"
+expection=1..100
+assert 18,loop(convertTypes{,,file,colName,expection},types,dateTypes).flatten()
+file=DATA_DIR+"/Sdouble.mat"
+colName="Sdouble"
+expection=[56.25,464,10.1,  0,  0.25,-58]
+assert 19,loop(convertTypes{,,file,colName,expection},types,dateTypes).flatten()
+file=DATA_DIR+"/Mint8.mat"
+colName="Mint8"
+expection=eye(3)
+assert 20,loop(convertTypes{,,file,colName,expection},types,dateTypes)
+file=DATA_DIR+"/Muint8.mat"
+colName="Muint8"
+expection=matrix(INT,5,5)+1
+assert 21,loop(convertTypes{,,file,colName,expection},types,dateTypes)
+file=DATA_DIR+"/Mint16.mat"
+colName="Mint16"
+expection=matrix([10 0 0 0 0,0 45 0 0 0,0 0 841 0 0 ,0 0 0 3594 0,0 0 0 0 484])
+assert 22,loop(convertTypes{,,file,colName,expection},types,dateTypes)
+file=DATA_DIR+"/Muint16.mat"
+colName="Muint16"
+expection=matrix(INT,4,5)
+assert 23,loop(convertTypes{,,file,colName,expection},types,dateTypes)
+file=DATA_DIR+"/Mint32.mat"
+colName="Mint32"
+expection=matrix([1 0 0 0 0 ,2 2 0 0 0,3 3 3 0 0 ,4 4 4 4 0,5 5 5 5 5])
+assert 24,loop(convertTypes{,,file,colName,expection},types,dateTypes)
+file=DATA_DIR+"/Muint32.mat"
+colName="Muint32"
+expection=matrix([0 0 0 0 4,0 0 0 45 6,0 0 2 7 7 ,0 4 76 6 8,1 5 5 6 4])
+assert 25,loop(convertTypes{,,file,colName,expection},types,dateTypes)
+file=DATA_DIR+"/Mint64.mat"
+colName="Mint64"
+expection=matrix([2 -1 -1,-1 2 -1,-1 -1 2])
+assert 26,loop(convertTypes{,,file,colName,expection},types,dateTypes)
+file=DATA_DIR+"/Mnsingle.mat"
+colName="Mnsingle"
+expection=matrix([8 NULL 4,1 5 9,NULL 7 2])
+assert 27,loop(convertTypes{,,file,colName,expection},types,dateTypes)
+file=DATA_DIR+"/Mndouble.mat"
+colName="Mndouble"
+expection=matrix([8 NULL 4,1 5 9,NULL 7 2])
+assert 28,loop(convertTypes{,,file,colName,expection},types,dateTypes)
+/*file=DATA_DIR+"/bigData.mat"
+colName="A"
+expection=matrix([1..5000000,1..5000000,1..5000000]).transpose()
+assert 29,loop(convertTypes{,,file,colName,expection},types,dateTypes)
+colName="B"
+expection=1..50000000
+assert 30,loop(convertTypes{,,file,colName,expection},types,dateTypes)*/
+types=[`CHAR,`SHORT,`INT,`LONG]
+dateTypes=[char,short,int,long]
+
+def convertTypesf(type,dateType,file,colName,expection){
+	schema = table(colName as name,type as type)
+	ret=mat::loadMat(file,schema);
+	return eqObj(ret[colName],dateType(expection),0)
+}
+
+file=DATA_DIR+"/000001.SZ_1min.mat"
+colName="Data"
+re=loadText(DATA_DIR+"/000001.SZ_1minData.txt")
+expection=matrix(re)
+assert 31,loop(convertTypesf{,,file,colName,expection},[`FLOAT,`DOUBLE,`BOOL],[float,double,bool])
+assert 32,loop(convertTypes{,,file,colName,expection},types,dateTypes).flatten()
+colName="Time"
+re=loadText(DATA_DIR+"/000001.SZ_1minTime.txt")
+expection=matrix(re)
+assert 33,loop(convertTypesf{,,file,colName,expection},[`FLOAT,`DOUBLE,`BOOL],[float,double,bool])
+assert 34,loop(convertTypes{,,file,colName,expection},types,dateTypes)
+file=DATA_DIR+"/inf8.mat"
+colName="inf8"
+expection=NULL
+assert 35,loop(convertTypes{,,file,colName,expection},types,dateTypes)
+file=DATA_DIR+"/inf16.mat"
+colName="inf16"
+expection=NULL
+assert 36,loop(convertTypes{,,file,colName,expection},types,dateTypes)
+file=DATA_DIR+"/inf64.mat"
+colName="inf64"
+expection=NULL
+assert 37,loop(convertTypes{,,file,colName,expection},types,dateTypes)
+
+@testing:case="test_mat_char_convert_char",exception=1
+file=DATA_DIR+"/charArray.mat"
+schema = table(`C as name,`CHAR as type)
+ret=mat::loadMat(file,schema);
+
+@testing:case="test_mat_char_convert_int",exception=1
+file=DATA_DIR+"/charArray.mat"
+schema = table(`C as name,`INT as type)
+ret=mat::loadMat(file,schema);
+
+@testing:case="test_mat_char_convert_long",exception=1
+file=DATA_DIR+"/charArray.mat"
+schema = table(`C as name,`LONT as type)
+ret=mat::loadMat(file,schema);
+
+@testing:case="test_mat_char_convert_short",exception=1
+file=DATA_DIR+"/charArray.mat"
+schema = table(`C as name,`SHORT as type)
+ret=mat::loadMat(file,schema);
+
+@testing:case="test_mat_char_convert_bool",exception=1
+file=DATA_DIR+"/charArray.mat"
+schema = table(`C as name,`BOOL as type)
+ret=mat::loadMat(file,schema);
+
+@testing:case="test_mat_char_convert_float",exception=1
+file=DATA_DIR+"/charArray.mat"
+schema = table(`C as name,`FLOAT as type)
+ret=mat::loadMat(file,schema);
+
+@testing:case="test_mat_char_convert_double",exception=1
+file=DATA_DIR+"/charArray.mat"
+schema = table(`C as name,`DOUBLE as type)
+ret=mat::loadMat(file,schema);
+
+@testing:case="test_mat_writeMat_scalar",exception=1
+a=1
+mat::writeMat(WORK_DIR+"/scalar.mat",`a,a)
+
+@testing:case="test_mat_writeMat_table",exception=1
+a=table(1..10 as id)
+mat::writeMat(WORK_DIR+"/table.mat",`a,a)
+
+@testing:case="test_mat_writeMat_vector",exception=1
+a=1..10
+mat::writeMat(WORK_DIR+"/v.mat",`a,a)
+
+@testing:case="test_mat_writeMat_pair",exception=1
+a=pair(1,10)
+mat::writeMat(WORK_DIR+"/a.mat",`a,a)
+
+@testing:case="test_mat_writeMat_set",exception=1
+a=set(1 1)
+mat::writeMat(WORK_DIR+"/a.mat",`a,a)
+
+@testing:case="test_mat_writeMat_dict",exception=1
+a=dict([`TEST],[1]);
+mat::writeMat(WORK_DIR+"/a.mat",`a,a)
+
+@testing:case="test_mat_writeMat_file_csv"
+data=matrix(1..3)                  
+mat::writeMat(WORK_DIR+"/mattest.csv",`data,data);
+schema=mat::extractMatSchema(WORK_DIR+"/mattest.csv")
+res=mat::loadMat(WORK_DIR+"/mattest.csv").data
+assert 1,eqObj(data,res)
+
+@testing:case="test_mat_writeMat_file_txt"
+data=matrix(1..3)                  
+mat::writeMat(WORK_DIR+"/mattest.txt",`data,data);
+schema=mat::extractMatSchema(WORK_DIR+"/mattest.txt")
+res=mat::loadMat(WORK_DIR+"/mattest.txt").data
+assert 1,eqObj(data,res)
+
+@testing:case="test_mat_writeMat_file_jpg"
+data=matrix(1..3)                  
+mat::writeMat(WORK_DIR+"/mattest.jpg",`data,data);
+schema=mat::extractMatSchema(WORK_DIR+"/mattest.jpg")
+res=mat::loadMat(WORK_DIR+"/mattest.jpg").data
+assert 1,eqObj(data,res)
+
+@testing:case="test_mat_writeMat_file_No_suffix"
+data=matrix(1..3)                  
+mat::writeMat(WORK_DIR+"/mattest",`data,data);
+schema=mat::extractMatSchema(WORK_DIR+"/mattest")
+res=mat::loadMat(WORK_DIR+"/mattest").data
+assert 1,eqObj(data,res)
+
+@testing:case="test_mat_writeMat_matrix_empty"
+file=WORK_DIR+"/mat.mat"
+data=matrix(array(INT,0),array(INT,0))
+mat::writeMat(file, `remat, data)
+data=matrix(array(DOUBLE,0),array(DOUBLE,0))
+mat::writeMat(file, `remat, data)
+ret=mat::loadMat(file).remat;
+
+@testing:case="test_mat_writeMat_matrix_one_col"
+dataType=[int,short,long,float,double,bool,char]
+def checktype(type,data,file){
+	datas=type(data)
+	mat::writeMat(file, `remat, datas)
+	ret=mat::loadMat(file).remat;
+	return eqObj(datas,type(ret),1)
+}
+data=matrix(1..3)
+file=WORK_DIR+"/mat.mat"
+assert 1,loop(checktype{,data,file},dataType)
+
+@testing:case="test_mat_writeMat_matrix_one_line"
+dataType=[int,short,long,float,double,bool,char]
+def checktype(type,data,file){
+	datas=type(data)
+	mat::writeMat(file, `remat, datas)
+	ret=mat::loadMat(file).remat;
+	return eqObj(datas,ret)
+}
+data=matrix([1],[2],[3])
+file=WORK_DIR+"/mat.mat"
+assert 1,loop(checktype{,data,file},dataType)
+
+@testing:case="test_mat_writeMat_matrix_bigdata"
+dataType=[int,short,long,float,double,bool,char]
+def checktypes(type,data,file){
+	datas=type(data)
+	mat::writeMat(file, `remat, datas)
+	ret=mat::loadMat(file).remat;
+	return eqObj(datas,ret)
+}
+data=matrix([1..5000000,1..5000000,1..5000000,1..5000000,1..5000000,1..5000000,1..5000000]).transpose()
+file=WORK_DIR+"/mat.mat"
+assert 1,loop(checktypes{,data,file},[int])
+//float
+n=5000000
+data=matrix(rand(1000,n),rand(1000,n),rand(100.0,n),rand(10.00,n),rand(10.00,n),rand(1000,n),rand(1.000,n)).transpose()
+mat::writeMat(file, `remat, float(data))
+ret=mat::loadMat(file).remat;
+assert 2, eqObj(data,ret,1)
+//double
+mat::writeMat(file, `remat, double(data))
+ret=mat::loadMat(file).remat;
+assert 3, eqObj(data,ret)
+//include null
+data=matrix(rand(1..100 join NULL,n),rand(1..100 join NULL,n),rand(rand(100.0,n/2) join NULL ,n),take(double(),n),rand(1.000,n)).transpose()
+mat::writeMat(file, `remat, data)
+ret=mat::loadMat(file).remat;
+assert 4, eqObj(data,ret,1)
+//include negative number	
+data=matrix(rand(-1..100 join NULL,n),rand(1..100 join NULL,n),rand(((rand(100.0,n/2)-50) join NULL),n),take(double(),n),rand(1.000,n)).transpose()
+mat::writeMat(file, `remat, data)
+ret=mat::loadMat(file).remat;
+assert 5, eqObj(data,ret)
+
+@testing:case="test_mat_writeMat_matrix_Many_times"
+for(i in 0:100){
+data=eye(100)
+file=WORK_DIR+"/mat.mat"
+mat::writeMat(file, `remat, data)
+ret=mat::loadMat(file).remat
+assert 1,eqObj(data,ret)
+}
+
+@testing:case="test_mat_extractMatSchema_multiple_Threads"
+def testThread(file,exception){
+	for(i in 0:10){
+		schema=mat::extractMatSchema(file)
+		assert 1,each(eqObj,schema.values(),exception.values())
+	}
+}
+jobs=array(STRING)
+for(i in 0:10){
+	jobs.append!(submitJob("conn","",testThread,DATA_DIR+"/Suint32.mat",mat::extractMatSchema(DATA_DIR+"/Suint32.mat")))
+	jobs.append!(submitJob("conn","",testThread,DATA_DIR+"/Sint32.mat",mat::extractMatSchema(DATA_DIR+"/Sint32.mat")))
+}
+for(job in jobs){
+	getJobReturn(job,1)
+}
+
+
+@testing:case="test_mat_loadMat_multiple_Threads"
+def testThread(file,col,exception){
+	for(i in 0:100){
+		ret=table(mat::loadMat(file)[col])
+		assert 1,each(eqObj,ret.values(),exception.values())
+	}
+}
+jobs=array(STRING)
+for(i in 0:3){
+	jobs.append!(submitJob("conn","",testThread,DATA_DIR+"/Suint32.mat",`Suint32,table(mat::loadMat(DATA_DIR+"/Suint32.mat")[`Suint32])))
+}
+for(job in jobs){
+	getJobReturn(job,1)
+}
+
+@testing:case="test_mat_convertToDatetime_multiple_Threads"
+def testconvertToDatetime1(DATA_DIR){
+	for(i in 0:10){            				
+		file=DATA_DIR+"/sctime.mat"
+		schema=mat::extractMatSchema(file)
+		ret=mat::loadMat(file,schema);                                   
+		ret1=mat::loadMat(file);
+		ret=mat::convertToDatetime(ret[`t]);
+		ret1=mat::convertToDatetime(ret1[`t]);
+		assert 3,ret==ret1==2020.11.27 14:34:37
+	}
+}
+def testconvertToDatetime2(DATA_DIR){
+	for(i in 0:10){            				
+		file=DATA_DIR+"/mdatetime.mat"
+		schema=mat::extractMatSchema(file)
+		ret=mat::loadMat(file,schema);                                   
+		ret1=mat::loadMat(file);
+		ret=mat::convertToDatetime(ret[`m]);
+		rest = loadText(DATA_DIR+"/mdatetime.txt")
+		rest = rest[`col0]$3:101
+		assert 2,eq(ret,rest)
+		ret1=mat::convertToDatetime(ret1[`m]);
+		assert 21,eq(ret1,rest)
+	}
+}
+
+jobs=array(STRING)
+for(i in 0:10){
+	jobs.append!(submitJob("conn","",testconvertToDatetime2{DATA_DIR}))
+	jobs.append!(submitJob("conn","",testconvertToDatetime1{DATA_DIR}))
+}
+for(job in jobs){
+	getJobReturn(job,1)
+}
+
+@testing:case="test_mat_writeMat_multiple_Threads_sameFile"
+def testThread(WORK_DIR,mat){
+	for(i in 0:100){
+		data=eye(100)
+		file=WORK_DIR+mat
+		mat::writeMat(file, `remat, data)
+	}
+}
+jobs=array(STRING)
+for(i in 0:3){
+	jobs.append!(submitJob("conn","",testThread{WORK_DIR,"/mat1.mat"}))
+}
+for(job in jobs){
+	getJobReturn(job,1)
+}
+assert 1,eq((mat::loadMat(WORK_DIR+"/mat1.mat").remat),eye(100))
+
+
+@testing:case="test_mat_writeMat_multiple_Threads_differntFile"
+def testThread(WORK_DIR,mat){
+	for(i in 0:100){
+		data=eye(100)
+		file=WORK_DIR+mat
+		print(file)
+		mat::writeMat(file, `remat, data)
+		ret=mat::loadMat(file).remat
+		assert 1,eqObj(data,ret)
+	}
+}
+jobs=array(STRING)
+for(mat in "/mat"+string(1..10)+".mat"){
+	jobs.append!(submitJob("conn","",testThread{WORK_DIR,mat}))
+}
+
+for(job in jobs){
+	getJobReturn(job,1)
+}

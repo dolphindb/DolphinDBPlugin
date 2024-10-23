@@ -1,0 +1,10 @@
+gurobi,libPluginGurobi.so,2.00.14
+gurobiModel,model,system,0,1,0
+gurobiAddVars,addVars,system,6,6,0
+gurobiLinExpr,linExpr,system,3,3,0
+gurobiQuadExpr,quadExpr,system,3,4,0
+gurobiAddConstr,addConstr,system,4,4,0
+gurobiSetObjective,setObjective,system,3,3,0
+gurobiOptimize,optimize,system,1,1,0
+gurobiGetResult,getResult,system,1,1,0
+gurobiGetObjective,getObjective,system,1,1,0

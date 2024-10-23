@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.5)
+
+include_directories("${aws_sdk_install}/include")
+
+include_directories("${dolphindb_include_path}")
+link_directories("${dolphindb_lib_path}")
+
+add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
+add_compile_options( "-std=c++11" "-fPIC" "-DLINUX" "-Wall")
+
+add_library(PluginAWSS3 SHARED AWSS3.cpp)
+target_link_libraries(PluginAWSS3 ${aws_sdk_install}/lib/libaws-cpp-sdk-s3.so ${aws_sdk_install}/lib/libaws-cpp-sdk-core.so ${dolphindb_lib})
+
+install(TARGETS PluginAWSS3 DESTINATION ./)
+install(FILES ${PROJECT_SOURCE_DIR}/PluginAWSS3.txt DESTINATION ./)
