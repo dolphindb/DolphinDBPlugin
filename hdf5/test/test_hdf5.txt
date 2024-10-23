@@ -1,0 +1,956 @@
+#include "setup/setting.txt"
+@testing:case="test_fixed_string"
+t=hdf5::loadHDF5(H5_FILE_PATH+"/float.h5","fs")
+assert 1,(size t.keys())==4
+assert 2,(size t) == 1
+assert 3,t[0,0]==`asd
+assert 4,t[0,1]==`fds
+assert 5,t[0,2]==`sdf
+assert 6,t[0,3]==`eee
+assert 7,(typestr t.values()[0])== "STRING VECTOR"
+assert 8,(typestr t.values()[1])== "STRING VECTOR"
+assert 9,(typestr t.values()[2])== "STRING VECTOR"
+assert 10,(typestr t.values()[3])== "STRING VECTOR"
+
+@testing:case="test_fixed_string_to_symbol"
+scm=table(`a`b`c`d as name, `STRING`STRING`STRING`STRING as type)
+t=hdf5::loadHDF5(H5_FILE_PATH+"/float.h5","fs",scm)
+assert 1,(size t.keys())==4
+assert 2,(size t) == 1
+assert 3,t.values()[0]==`asd
+assert 4,t.values()[1]==`fds
+assert 5,t.values()[2]==`sdf
+assert 6,t.values()[3]==`eee
+assert 7,(typestr t.values()[0])== "STRING VECTOR"
+assert 8,(typestr t.values()[1])== "STRING VECTOR"
+assert 9,(typestr t.values()[2])== "STRING VECTOR"
+assert 10,(typestr t.values()[3])== "STRING VECTOR"
+
+@testing:case="test_fixed_string_with_symbol_describe"
+scm=table(`a`b`c`d as name, `SYMBOL`STRING`STRING`STRING as type)
+t=hdf5::loadHDF5(H5_FILE_PATH+"/float.h5","fs",scm)
+assert 1,(size t.keys())==4
+assert 2,(size t) == 1
+assert 3,t.values()[0]==`asd
+assert 4,t.values()[1]==`fds
+assert 5,t.values()[2]==`sdf
+assert 6,t.values()[3]==`eee
+assert 7,(typestr t.values()[0])== "FAST SYMBOL VECTOR"//string -> symbol
+assert 8,(typestr t.values()[1])== "STRING VECTOR"
+assert 9,(typestr t.values()[2])== "STRING VECTOR"
+assert 10,(typestr t.values()[3])== "STRING VECTOR"
+
+@testing:case="test_fixed_string_with_unsupported_describe" ,exception=1
+scm=table(`a`b`c`d as name, `INT`STRING`STRING`STRING as type)
+t=hdf5::loadHDF5(H5_FILE_PATH+"/float.h5","fs",scm)
+
+@testing:case="test_fixed_string_with_null"
+scm=table(`a`b`c`d`e`f`g`h`t`u as name, `SYMBOL`STRING`STRING`STRING`STRING`STRING`STRING`STRING`STRING`STRING as type)
+t=hdf5::loadHDF5(H5_FILE_PATH+"/float.h5","float_str",scm)
+assert 1,(size t.keys())==10
+assert 2,(size t) == 10
+assert 3,t.values()[0,0] == `44444444444444444444
+assert 4,t.values()[0,0:(t.columns())] ==`44444444444444444444`````````
+assert 5,t.values()[1]==`5`````````
+assert 6,t.values()[2]==`5`````````
+assert 7,t.values()[3]==`6`````````
+assert 8,t.values()[4]==`7`````````
+assert 9,t.values()[5]==``````````
+assert 10,(typestr t.values()[0])== "FAST SYMBOL VECTOR"//string -> symbol
+assert 11,(typestr t.values()[1])== "STRING VECTOR"
+assert 12,(typestr t.values()[2])== "STRING VECTOR"
+assert 13,(typestr t.values()[3])== "STRING VECTOR"
+
+//test enum
+
+@testing:case="test_enum"
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_enum.h5","enum3")
+assert 1,(size t.keys())==5
+assert 2,(size t) == 5
+assert 3,t.values()[0]==`R`R`R`R`R
+assert 4,t.values()[1]==`R`R`R`G`R
+assert 5,t.values()[2]==`B`R`B`R`R
+assert 6,t.values()[3]==`R`G`R`R`R
+assert 7,t.values()[4]==`R`R`R`R`R
+assert 8,(typestr t.values()[0])== "FAST SYMBOL VECTOR"
+assert 9,(typestr t.values()[1])== "FAST SYMBOL VECTOR"
+assert 10,(typestr t.values()[2])== "FAST SYMBOL VECTOR"
+assert 11,(typestr t.values()[3])== "FAST SYMBOL VECTOR"
+assert 12,(typestr t.values()[4])== "FAST SYMBOL VECTOR"
+
+@testing:case="test_enum_to_string"
+scm=table(`a`b`c`d`e as name, `SYMBOL`STRING`STRING`STRING`STRING as type)
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_enum.h5","enum3",scm)
+assert 1,(size t.keys())==5
+assert 2,(size t) == 5
+assert 3,t.values()[0]==`R`R`R`R`R
+assert 4,t.values()[1]==`R`R`R`G`R
+assert 5,t.values()[2]==`B`R`B`R`R
+assert 6,t.values()[3]==`R`G`R`R`R
+assert 7,t.values()[4]==`R`R`R`R`R
+assert 8,(typestr t.values()[0])== "FAST SYMBOL VECTOR"
+assert 9,(typestr t.values()[1])== "STRING VECTOR"
+assert 10,(typestr t.values()[2])== "STRING VECTOR"
+assert 11,(typestr t.values()[3])== "STRING VECTOR"
+assert 12,(typestr t.values()[4])== "STRING VECTOR"
+
+@testing:case="test_enum_with_null_to_string"
+scm=table(`a`b`c as name, `SYMBOL`STRING`STRING as type)
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_enum.h5","enum4",scm)
+assert 1,(size t.keys())==3
+assert 2,(size t) == 3
+assert 3,t.values()[0]==`a``c
+assert 4,t.values()[1]==``b`
+assert 5,t.values()[2]==`a``c
+assert 6,(typestr t.values()[0])== "FAST SYMBOL VECTOR"
+assert 7,(typestr t.values()[1])== "STRING VECTOR"
+assert 8,(typestr t.values()[2])== "STRING VECTOR"
+
+//test vlen_str
+
+@testing:case="test_vlen_str"
+t=hdf5::loadHDF5(H5_FILE_PATH+"/vlen_str.h5","vstr")
+assert 1,(size t.keys())==4
+assert 2,(size t) == 3
+assert 3,t.values()[0]==["AA","1","~"]
+assert 4,t.values()[1]==`BBB``gg
+assert 5,t.values()[2]==["CCC","333","*&^"]
+assert 6,t.values()[3]==`DDDD`9080`wwww
+assert 7,(typestr t.values()[0])== "STRING VECTOR"
+assert 8,(typestr t.values()[1])== "STRING VECTOR"
+assert 9,(typestr t.values()[2])== "STRING VECTOR"
+assert 10,(typestr t.values()[2])== "STRING VECTOR"
+
+@testing:case="test_vlen_str_to_symbol"
+scm=table(`a`b`c`d as name, `SYMBOL`STRING`STRING`STRING as type)
+t=hdf5::loadHDF5(H5_FILE_PATH+"/vlen_str.h5","vstr",scm)
+assert 1,(size t.keys())==4
+assert 2,(size t) == 3
+assert 3,t.values()[0]==["AA","1","~"]
+assert 4,t.values()[1]==`BBB``gg
+assert 5,t.values()[2]==["CCC","333","*&^"]
+assert 6,t.values()[3]==`DDDD`9080`wwww
+assert 7,(typestr t.values()[0])== "FAST SYMBOL VECTOR"
+assert 8,(typestr t.values()[1])== "STRING VECTOR"
+assert 9,(typestr t.values()[2])== "STRING VECTOR"
+assert 10,(typestr t.values()[2])== "STRING VECTOR"
+
+
+//testing char
+@testing:case="test_char"
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_numeric.h5","schar")
+assert 1,(size t.keys())==7
+assert 2,(size t) == 3
+assert 3,t.values()[0]==[45,-120,74]
+assert 4,t.values()[1]==[77,-56,0]
+assert 5,(typestr t.values()[0])== "FAST CHAR VECTOR"
+assert 6,(typestr t.values()[1])== "FAST CHAR VECTOR"
+
+@testing:case="test_char_to_numericl"
+scm=table(`a`b`c`d`e`f`g as name, `CHAR`BOOL`SHORT`INT`LONG`FLOAT`DOUBLE as type)
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_numeric.h5","schar",scm)
+assert 1,(size t.keys())==7
+assert 2,(size t) == 3
+assert 3,t.values()[0]==[45,-120,74]
+assert 4,t.values()[1]==[true,true,false]
+assert 5,t.values()[2]==[23,98,-93]
+assert 6,t.values()[3]==[54,59,-45]
+assert 7,t.values()[4]==[67,-77,11]
+assert 8,t.values()[5]==[89,53,-67]
+assert 9,t.values()[6]==[-98,26,0]
+assert 10,(typestr t.values()[0])== "FAST CHAR VECTOR"
+assert 11,(typestr t.values()[1])== "FAST BOOL VECTOR"
+assert 12,(typestr t.values()[2])== "FAST SHORT VECTOR"
+assert 13,(typestr t.values()[3])== "FAST INT VECTOR"
+assert 14,(typestr t.values()[4])== "FAST LONG VECTOR"
+assert 15,(typestr t.values()[5])== "FAST FLOAT VECTOR"
+assert 16,(typestr t.values()[6])== "FAST DOUBLE VECTOR"
+
+@testing:case="test_uchar"
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_numeric.h5","uchar")
+assert 1,(size t.keys())==7
+assert 2,(size t) == 3
+assert 3,t.values()[0]==[0,57,237]
+assert 4,t.values()[1]==[255,42,0]
+assert 5,(typestr t.values()[0])== "FAST SHORT VECTOR"
+assert 6,(typestr t.values()[1])== "FAST SHORT VECTOR"
+
+@testing:case="test_uchar_to_numericl"
+scm=table(`a`b`c`d`e`f`g as name, `CHAR`BOOL`SHORT`INT`LONG`FLOAT`DOUBLE as type)
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_numeric.h5","uchar",scm)
+assert 1,(size t.keys())==7
+assert 2,(size t) == 3
+assert 3,t.values()[0]==[0,57,127]
+assert 4,t.values()[1]==[true,true,false]
+assert 5,t.values()[2]==[128,96,86]
+assert 6,t.values()[3]==[250,32,54]
+assert 7,t.values()[4]==[26,150,28]
+assert 8,t.values()[5]==[15,85,6]
+assert 9,t.values()[6]==[89,96,7]
+assert 10,(typestr t.values()[0])== "FAST CHAR VECTOR"
+assert 11,(typestr t.values()[1])== "FAST BOOL VECTOR"
+assert 12,(typestr t.values()[2])== "FAST SHORT VECTOR"
+assert 13,(typestr t.values()[3])== "FAST INT VECTOR"
+assert 14,(typestr t.values()[4])== "FAST LONG VECTOR"
+assert 15,(typestr t.values()[5])== "FAST FLOAT VECTOR"
+assert 16,(typestr t.values()[6])== "FAST DOUBLE VECTOR"
+
+@testing:case="test_sshort"
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_numeric.h5","sshort")
+assert 1,(size t.keys())==7
+assert 2,(size t) == 3
+assert 3,t.values()[0]==[-9834,-987,967]
+assert 4,t.values()[1]==[2343,0,54]
+assert 5,(typestr t.values()[0])== "FAST SHORT VECTOR"
+assert 6,(typestr t.values()[1])== "FAST SHORT VECTOR"
+
+@testing:case="test_sshort_to_numericl"
+scm=table(`a`b`c`d`e`f`g as name, `CHAR`BOOL`SHORT`INT`LONG`FLOAT`DOUBLE as type)
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_numeric.h5","sshort",scm)
+assert 1,(size t.keys())==7
+assert 2,(size t) == 3
+assert 3,t.values()[0]==[-127,-127,127]
+assert 4,t.values()[1]==[true,false,true]
+assert 5,t.values()[2]==[123,567,789]
+assert 6,t.values()[3]==[87,77,678]
+assert 7,t.values()[4]==[687,546,90]
+assert 8,t.values()[5]==[45,789,54]
+assert 9,t.values()[6]==[90,45,0]
+assert 10,(typestr t.values()[0])== "FAST CHAR VECTOR"
+assert 11,(typestr t.values()[1])== "FAST BOOL VECTOR"
+assert 12,(typestr t.values()[2])== "FAST SHORT VECTOR"
+assert 13,(typestr t.values()[3])== "FAST INT VECTOR"
+assert 14,(typestr t.values()[4])== "FAST LONG VECTOR"
+assert 15,(typestr t.values()[5])== "FAST FLOAT VECTOR"
+assert 16,(typestr t.values()[6])== "FAST DOUBLE VECTOR"
+
+@testing:case="test_ushort"
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_numeric.h5","ushort")
+assert 1,(size t.keys())==7
+assert 2,(size t) == 3
+assert 3,t.values()[0]==[9834,987,63357]
+assert 4,t.values()[1]==[2343,0,65234]
+assert 5,(typestr t.values()[0])== "FAST INT VECTOR"
+assert 6,(typestr t.values()[1])== "FAST INT VECTOR"
+
+@testing:case="test_ushort_to_numericl"
+scm=table(`a`b`c`d`e`f`g as name, `CHAR`BOOL`SHORT`INT`LONG`FLOAT`DOUBLE as type)
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_numeric.h5","ushort",scm)
+assert 1,(size t.keys())==7
+assert 2,(size t) == 3
+assert 3,t.values()[0]==[127,127,127]
+assert 4,t.values()[1]==[true,false,true]
+assert 5,t.values()[2]==[123,567,32767]
+assert 6,t.values()[3]==[87,77,678]
+assert 7,t.values()[4]==[687,546,90]
+assert 8,t.values()[5]==[45,789,54]
+assert 9,t.values()[6]==[90,45,0]
+assert 10,(typestr t.values()[0])== "FAST CHAR VECTOR"
+assert 11,(typestr t.values()[1])== "FAST BOOL VECTOR"
+assert 12,(typestr t.values()[2])== "FAST SHORT VECTOR"
+assert 13,(typestr t.values()[3])== "FAST INT VECTOR"
+assert 14,(typestr t.values()[4])== "FAST LONG VECTOR"
+assert 15,(typestr t.values()[5])== "FAST FLOAT VECTOR"
+assert 16,(typestr t.values()[6])== "FAST DOUBLE VECTOR"
+
+@testing:case="test_sint"
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_numeric.h5","sint")
+assert 1,(size t.keys())==7
+assert 2,(size t) == 3
+assert 3,t.values()[0]==[-758,61,799]
+assert 4,t.values()[1]==[8,0,5444]
+assert 5,(typestr t.values()[0])== "FAST INT VECTOR"
+assert 6,(typestr t.values()[1])== "FAST INT VECTOR"
+
+@testing:case="test_sint_to_numericl"
+scm=table(`a`b`c`d`e`f`g as name, `CHAR`BOOL`SHORT`INT`LONG`FLOAT`DOUBLE as type)
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_numeric.h5","sint",scm)
+assert 1,(size t.keys())==7
+assert 2,(size t) == 3
+assert 3,t.values()[0]==[-127,61,127]
+assert 4,t.values()[1]==[true,false,true]
+assert 5,t.values()[2]==[-32767,28,32767]
+assert 6,t.values()[3]==[87,77,678]
+assert 7,t.values()[4]==[687,546,90]
+assert 8,t.values()[5]==[45,789,54]
+assert 9,t.values()[6]==[90,45,0]
+assert 10,(typestr t.values()[0])== "FAST CHAR VECTOR"
+assert 11,(typestr t.values()[1])== "FAST BOOL VECTOR"
+assert 12,(typestr t.values()[2])== "FAST SHORT VECTOR"
+assert 13,(typestr t.values()[3])== "FAST INT VECTOR"
+assert 14,(typestr t.values()[4])== "FAST LONG VECTOR"
+assert 15,(typestr t.values()[5])== "FAST FLOAT VECTOR"
+assert 16,(typestr t.values()[6])== "FAST DOUBLE VECTOR"
+
+@testing:case="test_uint"
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_numeric.h5","uint")
+assert 1,(size t.keys())==7
+assert 2,(size t) == 3
+assert 3,t.values()[0]==[758,61,799]
+assert 4,t.values()[2]==[325847,28,325847]
+assert 5,(typestr t.values()[0])== "FAST LONG VECTOR"
+assert 6,(typestr t.values()[1])== "FAST LONG VECTOR"
+
+@testing:case="test_uint_to_numericl"
+scm=table(`a`b`c`d`e`f`g as name, `CHAR`BOOL`SHORT`INT`LONG`FLOAT`DOUBLE as type)
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_numeric.h5","uint",scm)
+assert 1,(size t.keys())==7
+assert 2,(size t) == 3
+assert 3,t.values()[0]==[127,61,127]
+assert 4,t.values()[1]==[true,false,true]
+assert 5,t.values()[2]==[32767,28,32767]
+assert 6,t.values()[3]==[87,77,678]
+assert 7,t.values()[4]==[687,546,90]
+assert 8,t.values()[5]==[45,789,54]
+assert 9,t.values()[6]==[90,45,0]
+assert 10,(typestr t.values()[0])== "FAST CHAR VECTOR"
+assert 11,(typestr t.values()[1])== "FAST BOOL VECTOR"
+assert 12,(typestr t.values()[2])== "FAST SHORT VECTOR"
+assert 13,(typestr t.values()[3])== "FAST INT VECTOR"
+assert 14,(typestr t.values()[4])== "FAST LONG VECTOR"
+assert 15,(typestr t.values()[5])== "FAST FLOAT VECTOR"
+assert 16,(typestr t.values()[6])== "FAST DOUBLE VECTOR"
+
+@testing:case="test_slong"
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_numeric.h5","slong")
+assert 1,(size t.keys())==7
+assert 2,(size t) == 3
+assert 3,t.values()[0]==[-758,61,799]
+assert 4,t.values()[1]==[2345678910,0,5444]
+assert 5,(typestr t.values()[0])== "FAST LONG VECTOR"
+assert 6,(typestr t.values()[1])== "FAST LONG VECTOR"
+
+@testing:case="test_slong_to_numericl"
+scm=table(`a`b`c`d`e`f`g as name, `CHAR`BOOL`SHORT`INT`LONG`FLOAT`DOUBLE as type)
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_numeric.h5","slong",scm)
+assert 1,(size t.keys())==7
+assert 2,(size t) == 3
+assert 3,t.values()[0]==[-127,61,127]
+assert 4,t.values()[1]==[true,false,true]
+assert 5,t.values()[2]==[-32767,28,32767]
+assert 6,t.values()[3]==[-2147483647,23,2147483647]
+assert 7,t.values()[4]==[687,546,90]
+assert 8,t.values()[5]==[45,789,54]
+assert 9,t.values()[6]==[90,45,0]
+assert 10,(typestr t.values()[0])== "FAST CHAR VECTOR"
+assert 11,(typestr t.values()[1])== "FAST BOOL VECTOR"
+assert 12,(typestr t.values()[2])== "FAST SHORT VECTOR"
+assert 13,(typestr t.values()[3])== "FAST INT VECTOR"
+assert 14,(typestr t.values()[4])== "FAST LONG VECTOR"
+assert 15,(typestr t.values()[5])== "FAST FLOAT VECTOR"
+assert 16,(typestr t.values()[6])== "FAST DOUBLE VECTOR"
+
+@testing:case="test_ulong",exception = 1
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_numeric.h5","ulong")
+
+@testing:case="test_float"
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_numeric.h5","float")
+assert 1,(size t.keys())==7
+assert 2,(size t) == 3
+assert 3,t.values()[0]==[-758,61,758]
+assert 4,t.values()[1]==[1.0,0,1.0]
+assert 5,(typestr t.values()[0])== "FAST FLOAT VECTOR"
+assert 6,(typestr t.values()[1])== "FAST FLOAT VECTOR"
+
+@testing:case="test_float_to_numeric"
+scm=table(`a`b`c`d`e`f`g as name, `CHAR`BOOL`SHORT`INT`LONG`FLOAT`DOUBLE as type)
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_numeric.h5","float",scm)
+assert 1,(size t.keys())==7
+assert 2,(size t) == 3
+assert 3,t.values()[0]==[-127,61,127]
+assert 4,t.values()[1]==[true,false,true]
+assert 5,t.values()[2]==[-32767,28,32767]
+assert 6,t.values()[3]==[-2147483647,23,2147483647]
+assert 7,t.values()[4]==[9223372036854775807l,159876,-9223372036854775807l]
+assert 8,t.values()[5]==[9.2854f,72.85f,5.896f]
+assert 9,t.values()[6]==[90,45,0]
+assert 10,(typestr t.values()[0])== "FAST CHAR VECTOR"
+assert 11,(typestr t.values()[1])== "FAST BOOL VECTOR"
+assert 12,(typestr t.values()[2])== "FAST SHORT VECTOR"
+assert 13,(typestr t.values()[3])== "FAST INT VECTOR"
+assert 14,(typestr t.values()[4])== "FAST LONG VECTOR"
+assert 15,(typestr t.values()[5])== "FAST FLOAT VECTOR"
+assert 16,(typestr t.values()[6])== "FAST DOUBLE VECTOR"
+
+@testing:case="test_double"
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_numeric.h5","double")
+assert 1,(size t.keys())==7
+assert 2,(size t) == 3
+assert 3,t.values()[0]==[-758,61,758]
+assert 4,t.values()[1]==[1.0,0,1.0]
+assert 5,(typestr t.values()[0])== "FAST DOUBLE VECTOR"
+assert 6,(typestr t.values()[1])== "FAST DOUBLE VECTOR"
+
+@testing:case="test_double_to_numericl"
+scm=table(`a`b`c`d`e`f`g as name, `CHAR`BOOL`SHORT`INT`LONG`FLOAT`DOUBLE as type)
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_numeric.h5","double",scm)
+assert 1,(size t.keys())==7
+assert 2,(size t) == 3
+assert 3,t.values()[0]==[-127,61,127]
+assert 4,t.values()[1]==[true,false,true]
+assert 5,t.values()[2]==[-32767,28,32767]
+assert 6,t.values()[3]==[-2147483647,23,2147483647]
+assert 7,t.values()[4]==[9223372036854775807l,159876,-9223372036854775807l]
+assert 8,t.values()[5]==[340282346638528860000000000000000000000f,72.85f,-340282326638528860000000000000000000000f]
+assert 9,t.values()[6]==[8.8888e92,45.8,-8.8888e92]
+assert 10,(typestr t.values()[0])== "FAST CHAR VECTOR"
+assert 11,(typestr t.values()[1])== "FAST BOOL VECTOR"
+assert 12,(typestr t.values()[2])== "FAST SHORT VECTOR"
+assert 13,(typestr t.values()[3])== "FAST INT VECTOR"
+assert 14,(typestr t.values()[4])== "FAST LONG VECTOR"
+assert 15,(typestr t.values()[5])== "FAST FLOAT VECTOR"
+assert 16,(typestr t.values()[6])== "FAST DOUBLE VECTOR"
+
+
+@testing:case="test_timestamp64"
+t=hdf5::loadHDF5(H5_FILE_PATH+"/timestamp.h5","ts64")
+t2=hdf5::loadHDF5(H5_FILE_PATH+"/timestamp.h5","ts64_in_llong")
+assert 1,(size t.keys())==9
+assert 2,(size t2.keys())==9
+assert 3,(size t)==3
+assert 4,(size t2)==3
+assert 5,cast(t.values()[0],LONG)==t2.values()[0]
+assert 6,cast(t.values()[1],LONG)==t2.values()[1]
+assert 7,cast(t.values()[2],LONG)==t2.values()[2]
+assert 8,cast(t.values()[3],LONG)==t2.values()[3]
+assert 9,cast(t.values()[4],LONG)==t2.values()[4]
+assert 10,(typestr t.values()[0])== "FAST TIMESTAMP VECTOR"
+assert 11,(typestr t.values()[1])== "FAST TIMESTAMP VECTOR"
+assert 12,(typestr t.values()[2])== "FAST TIMESTAMP VECTOR"
+assert 13,(typestr t.values()[3])== "FAST TIMESTAMP VECTOR"
+assert 14,(typestr t.values()[4])== "FAST TIMESTAMP VECTOR"
+assert 15,(typestr t.values()[5])== "FAST TIMESTAMP VECTOR"
+assert 16,(typestr t.values()[6])== "FAST TIMESTAMP VECTOR"
+
+@testing:case="test_timestamp64_convert"
+scm=table(`c_date`c_month`c_time`c_minute`c_second`c_datetime`c_timestamp`c_nanotime`c_nanotimestamp as name,
+	`DATE`MONTH`TIME`MINUTE`SECOND`DATETIME`TIMESTAMP`NANOTIME`NANOTIMESTAMP as type)
+t=hdf5::loadHDF5(H5_FILE_PATH+"/timestamp.h5","ts64",scm)
+assert 1,(size t.keys())==9
+assert 2,(size t)==3
+assert 3,t.values()[0]==[2017.11.28,2017.11.28,2017.11.28]
+assert 4,t.values()[1]==[2017.11M,2017.11M,2017.11M]
+assert 5,cast(t.values()[2],MINUTE)==[09:59m,09:59m,09:59m]
+assert 6,t.values()[3]==[09:59m,09:59m,09:59m]
+assert 5,cast(t.values()[4],MINUTE)==[09:59m,09:59m,09:59m]
+assert 10,(typestr t.values()[0])== "FAST DATE VECTOR"
+assert 11,(typestr t.values()[1])== "FAST MONTH VECTOR"
+assert 12,(typestr t.values()[2])== "FAST TIME VECTOR"
+assert 13,(typestr t.values()[3])== "FAST MINUTE VECTOR"
+assert 14,(typestr t.values()[4])== "FAST SECOND VECTOR"
+assert 15,(typestr t.values()[5])== "FAST DATETIME VECTOR"
+assert 16,(typestr t.values()[6])== "FAST TIMESTAMP VECTOR"
+assert 17,(typestr t.values()[7])== "FAST NANOTIME VECTOR"
+assert 18,(typestr t.values()[8])== "FAST NANOTIMESTAMP VECTOR"
+
+@testing:case="test_timestamp32"
+t=hdf5::loadHDF5(H5_FILE_PATH+"/timestamp.h5","ts32")
+t2=hdf5::loadHDF5(H5_FILE_PATH+"/timestamp.h5","ts32_in_int")
+assert 1,(size t.keys())==9
+assert 2,(size t2.keys())==9
+assert 3,(size t)==3
+assert 4,(size t2)==3
+assert 5,cast(t.values()[0],LONG)==cast(t2.values()[0],LONG)*1000
+assert 6,cast(t.values()[1],LONG)==cast(t2.values()[1],LONG)*1000
+assert 7,cast(t.values()[2],LONG)==cast(t2.values()[2],LONG)*1000
+assert 8,cast(t.values()[3],LONG)==cast(t2.values()[3],LONG)*1000
+assert 9,cast(t.values()[4],LONG)==cast(t2.values()[4],LONG)*1000
+assert 10,(typestr t.values()[0])== "FAST TIMESTAMP VECTOR"
+assert 11,(typestr t.values()[1])== "FAST TIMESTAMP VECTOR"
+assert 12,(typestr t.values()[2])== "FAST TIMESTAMP VECTOR"
+assert 13,(typestr t.values()[3])== "FAST TIMESTAMP VECTOR"
+assert 14,(typestr t.values()[4])== "FAST TIMESTAMP VECTOR"
+assert 15,(typestr t.values()[5])== "FAST TIMESTAMP VECTOR"
+assert 16,(typestr t.values()[6])== "FAST TIMESTAMP VECTOR"
+
+@testing:case="test_timestamp32_convert"
+scm=table(`c_date`c_month`c_time`c_minute`c_second`c_datetime`c_timestamp`c_nanotime`c_nanotimestamp as name,
+	`DATE`MONTH`TIME`MINUTE`SECOND`DATETIME`TIMESTAMP`NANOTIME`NANOTIMESTAMP as type)
+t=hdf5::loadHDF5(H5_FILE_PATH+"/timestamp.h5","ts32",scm)
+assert 1,(size t.keys())==9
+assert 2,(size t)==3
+assert 3,t.values()[0]==[2017.11.28,2017.11.28,2017.11.28]
+assert 4,t.values()[1]==[2017.11M,2017.11M,2017.11M]
+assert 5,cast(t.values()[2],MINUTE)==[12:29m,12:29m,12:29m]
+assert 6,t.values()[3]==[12:29m,12:29m,12:29m]
+assert 5,cast(t.values()[4],MINUTE)==[12:29m,12:29m,12:29m]
+assert 10,(typestr t.values()[0])== "FAST DATE VECTOR"
+assert 11,(typestr t.values()[1])== "FAST MONTH VECTOR"
+assert 12,(typestr t.values()[2])== "FAST TIME VECTOR"
+assert 13,(typestr t.values()[3])== "FAST MINUTE VECTOR"
+assert 14,(typestr t.values()[4])== "FAST SECOND VECTOR"
+assert 15,(typestr t.values()[5])== "FAST DATETIME VECTOR"
+assert 16,(typestr t.values()[6])== "FAST TIMESTAMP VECTOR"
+assert 17,(typestr t.values()[7])== "FAST NANOTIME VECTOR"
+assert 18,(typestr t.values()[8])== "FAST NANOTIMESTAMP VECTOR"
+
+//loadPlugin("/home/swang/dolphin_workspace/DolphinDBPlugin/build/PluginHdf5.txt");
+@testing:case="test_compound"
+t=hdf5::loadHDF5(H5_FILE_PATH+"/compound.h5","com")
+assert 1,(size t.keys())==9
+assert 2,(size t)==27
+assert 3,t.values()[0][0]==`abcdefgh
+assert 4,t.values()[1][0]=="this is a variable string"
+assert 5,t.values()[2][0]==7.5
+assert 6,t.values()[3][0]==2017.11.28T15:47:21.000
+assert 7,t.values()[4][0]==23456789
+assert 8,t.values()[5][0]==8.45f
+assert 9,t.values()[6][0]==7
+assert 10,t.values()[7][0]==23
+assert 11,t.values()[8][0]=='w'
+assert 12,(typestr t.values()[0])== "STRING VECTOR"
+assert 13,(typestr t.values()[1])== "STRING VECTOR"
+assert 14,(typestr t.values()[2])== "FAST DOUBLE VECTOR"
+assert 15,(typestr t.values()[3])== "FAST TIMESTAMP VECTOR"
+assert 16,(typestr t.values()[4])== "FAST LONG VECTOR"
+assert 17,(typestr t.values()[5])== "FAST FLOAT VECTOR"
+assert 18,(typestr t.values()[6])== "FAST INT VECTOR"
+assert 19,(typestr t.values()[7])== "FAST SHORT VECTOR"
+assert 20,(typestr t.values()[8])== "FAST CHAR VECTOR"
+
+@testing:case="test_nested_compound"
+t=hdf5::loadHDF5(H5_FILE_PATH+"/vlen_str.h5","compound_vstr")
+assert 1,(size t.keys())==7
+assert 2,(size t)==4
+assert 3,t.values()[0]==[1,1,1,1]
+assert 4,t.values()[1]==[9.8,9.8,9.8,9.8]
+assert 5,t.values()[3]==["nest vlen 1","nest vlen 2","nest vlen 3","nest vlen 4"];
+assert 6,t.values()[6]==[ 9223372036854775807, 9223372036854775807, 9223372036854775807, 9223372036854775807]
+assert 7,(typestr t.values()[0])== "FAST INT VECTOR"
+assert 8,(typestr t.values()[1])== "FAST DOUBLE VECTOR"
+assert 9,(typestr t.values()[2])== "FAST FLOAT VECTOR"
+assert 10,(typestr t.values()[3])== "STRING VECTOR"
+assert 11,(typestr t.values()[4])== "FAST LONG VECTOR"
+assert 12,(typestr t.values()[5])== "STRING VECTOR"
+assert 13,(typestr t.values()[6])== "FAST LONG VECTOR"
+
+@testing:case="test_array"
+t=hdf5::loadHDF5(H5_FILE_PATH+"/array_mdatom.h5","array_int_3_dims")
+assert 1,(size t.keys())==24
+assert 2,(size t)==6
+assert 3,t.values()[0]==[0,24,48,72,96,120]
+assert 4,t.values()[1]==[1,25,49,73,97,121]
+assert 5,t.values()[2]==[2,26,50,74,98,122];
+assert 6,t.values()[3]==[3,27,51,75,99,123]
+assert 7,(typestr t.values()[0])== "FAST INT VECTOR"
+assert 8,(typestr t.values()[1])== "FAST INT VECTOR"
+assert 9,(typestr t.values()[2])== "FAST INT VECTOR"
+assert 10,(typestr t.values()[3])== "FAST INT VECTOR"
+
+@testing:case="test scalar"
+t=hdf5::loadHDF5(H5_FILE_PATH+"/scalar.h5","variable length string")
+assert 1,(size t.keys())==1
+assert 2,(size t)==1
+assert 3,t.values()[0]=="Some string"
+
+//----------------------------------------------------------
+// Test other APIs
+//----------------------------------------------------------
+
+
+fileDir = WORK_DIR + DATA_DIR + "/array_mdatom.h5"
+
+@testing: case = "ls"
+tb = hdf5::ls(fileDir)
+assert 1, cell(tb, 1 ,0) == "/arr"
+assert 2, cell(tb, 2, 0) == "/array_int_3_dims"
+
+@testing: case = "lsTable"
+tb = hdf5::lsTable(fileDir)
+assert 1, cell(tb, 0, 1) == "5,5,5"
+assert 2, cell(tb, 1, 1) == "3,2"
+
+fileDir = WORK_DIR + DATA_DIR + "/smpl_numeric.h5"
+
+dataSet = "/double"
+@testing: case = "hdf5_type_F64LE"
+tb = hdf5::extractHdf5Schema(fileDir, dataSet)
+assert 1, cell(tb, 0, 1) == "DOUBLE"
+tb = hdf5::loadHdf5(fileDir, dataSet, , 0, 1)
+assert 2, eqObj(cell(tb, 0, 5), 3.50282e+38)
+
+dataSet = "/float"
+@testing: case = "hdf5_type_F32LE"
+tb = hdf5::extractHdf5Schema(fileDir, dataSet)
+assert 1, cell(tb, 0, 1) == "FLOAT"
+tb = hdf5::loadHdf5(fileDir, dataSet, , 0, 1)
+assert 2, eqObj( cell(tb, 0, 5), 9.2854f )
+
+dataSet = "/schar"
+@testing: case = "hdf5_type_I8LE"
+tb = hdf5::extractHdf5Schema(fileDir, dataSet)
+assert 1, cell(tb, 0, 1) == "CHAR"
+tb = hdf5::loadHdf5(fileDir, dataSet)
+assert 2, cell(tb, 0, 3) == '6' 
+
+dataSet = "/sint"
+@testing: case = "hdf5_type_I32LE"
+tb = hdf5::extractHdf5Schema(fileDir, dataSet)
+assert 1, cell(tb, 0, 1) == "INT"
+tb = hdf5::loadHdf5(fileDir, dataSet)
+assert 2, cell(tb, 0, 0) == -758
+
+dataSet = "/slong"
+@testing: case = "hdf5_type_I64LE"
+tb = hdf5::extractHdf5Schema(fileDir, dataSet)
+assert 1, cell(tb, 0, 1) == "LONG"
+tb = hdf5::loadHdf5(fileDir, dataSet)
+assert 2, cell(tb, 0, 1) == 2345678910
+
+dataSet = "/sshort"
+@testing: case = "hdf5_type_I16LE"
+tb = hdf5::extractHdf5Schema(fileDir, dataSet)
+assert 1, cell(tb, 0, 1) == "SHORT"
+tb = hdf5::loadHdf5(fileDir, dataSet)
+assert 2, cell(tb, 0, 0) == -9834
+
+dataSet = "/uchar"
+@testing: case = "hdf5_type_U8LE"
+tb = hdf5::extractHdf5Schema(fileDir, dataSet)
+assert 1, cell(tb, 0, 1) == "SHORT"
+tb = hdf5::loadHdf5(fileDir, dataSet)
+assert 2, cell(tb, 0, 1) == 255
+
+dataSet = "/uint"
+@testing: case = "hdf5_type_U32LE"
+tb = hdf5::extractHdf5Schema(fileDir, dataSet)
+assert 1, cell(tb, 0, 1) == "LONG"
+tb = hdf5::loadHdf5(fileDir, dataSet)
+assert 2, cell(tb, 0, 2) == 325847
+
+dataSet = "/ushort"
+@testing: case = "hdf5_type_U16LE"
+tb = hdf5::extractHdf5Schema(fileDir, dataSet)
+assert 1, cell(tb, 0, 1) == "INT"
+tb = hdf5::loadHdf5(fileDir, dataSet)
+assert 2, cell(tb, 2, 0) == 63357
+
+dataSet = "/double"
+@testing: case = "hdf5_schema_cast"
+scm = table(`a`b`c`d`e`f`g as name, `CHAR`BOOL`SHORT`INT`LONG`DOUBLE`FLOAT as type)
+tb = hdf5::loadHdf5(fileDir, dataSet, scm)
+assert 1, eqObj(cell(tb, 0, 0), -127)
+assert 2, eqObj(cell(tb, 2, 0), 127)
+assert 3, eqObj(cell(tb, 0, 1), true)
+assert 4, eqObj(cell(tb, 2, 1), true)
+assert 5, eqObj(cell(tb, 0, 2), -32767)
+assert 6, eqObj(cell(tb, 2, 2), 32767)
+assert 7, eqObj(cell(tb, 0, 3), -2147483647)
+assert 8, eqObj(cell(tb, 2, 3), 2147483647)
+assert 9, eqObj(cell(tb, 0, 4), 9223372036854775807)
+assert 10, eqObj(cell(tb, 2, 4), -9223372036854775807)
+//assert 11, eqObj(cell(tb, 0, 6), 3.402823e+38)
+//assert 12, eqObj(cell(tb, 2, 6), -3.402823e+38)
+
+fileDir = WORK_DIR + DATA_DIR + "/float.h5"
+
+dataSet = "/enum"
+@testing: case = "hdf5_ENUM"
+tb = hdf5::loadHdf5(fileDir, dataSet)
+assert 1, cell(tb, 0, 2) == "R"
+
+dataSet = "/fs"
+@testing: case = "hdf5_STRING"
+tb = hdf5::loadHdf5(fileDir, dataSet)
+assert 1, cell(tb, 0, 2) == "sdf"
+
+fileDir = WORK_DIR + DATA_DIR + "/compound.h5"
+
+dataSet = "/com"
+@testing: case = "hdf5_COMPOUND"
+tb = hdf5::loadHdf5(fileDir, dataSet)
+assert 1, size(tb) == 27
+
+fileDir = WORK_DIR + DATA_DIR + "/SDScompound.h5"
+
+dataSet = "/ArrayOfStructures"
+@testing: case = "hdf5_ARRAY_STRUCTURES"
+tb = hdf5::loadHdf5(fileDir, dataSet)
+assert 1, eqObj(cell(tb, 2, 1), 0.333333, 6)
+assert 2, eqObj(cell(tb, 3, 2), 9f)
+
+fileDir = WORK_DIR + DATA_DIR + "/vlen_str.h5"
+
+dataSet = "/compound_vstr"
+@testing: case = "hdf5_COMPOUND_inside_COMPOUND"
+tb = hdf5::loadHdf5(fileDir, dataSet)
+assert 1, eqObj(cell(tb, 0, 3), "nest vlen 1")
+
+fileDir = WORK_DIR + DATA_DIR + "/largefile.h5"
+dataSet = "/large"
+@testing: case = "hdf5_large_size"
+tb = hdf5::loadHdf5(fileDir, dataSet)
+assert 1, size(tb) == 1000000
+tb = hdf5::loadHdf5(fileDir, dataSet, , 0, 2)
+assert 2, size(tb) == 2
+
+fileDir = WORK_DIR + DATA_DIR + "/smpl_numeric.h5"
+dataSet = "/double"
+@testing: case = "hdf5_data_source"
+ds = hdf5::hdf5DS(fileDir, dataSet)
+res = mr(ds, def(x) : x)
+assert 1, size(ds) == 1
+assert 2, size(res[0][0]) == 3
+ds = hdf5::hdf5DS(fileDir, dataSet, ,5)
+res = mr(ds, def(x) : x)
+assert 3, size(ds) == 5
+assert 4, size(res[0][0]) == 1
+assert 5, size(res[0][4]) == 0
+scm = table(`a`b`c`d`e`f`g as name, `CHAR`TIMESTAMP`SHORT`INT`LONG`DOUBLE`FLOAT as type)
+ds = hdf5::hdf5DS(fileDir, dataSet, scm, 3)
+assert 6, size(ds) == 3
+
+fileDir = WORK_DIR + DATA_DIR + "/largefile.h5"
+dataSet = "/large"
+
+@testing: case = "hdf5_loadEx_SEQ_DISK"
+if (existsDatabase(WORK_DIR + "/seq_on_disk")) {
+	dropDatabase(WORK_DIR + "/seq_on_disk")
+}
+db = database(WORK_DIR + "/seq_on_disk", SEQ, 4)
+tbl = hdf5::loadHdf5Ex(db, `tb, , fileDir, dataSet)
+assert 1, size(tbl) == 1000000
+dropDatabase(WORK_DIR + "/seq_on_disk")
+db = database(WORK_DIR + "/seq_on_disk", SEQ, 4)
+tbl = hdf5::loadHdf5Ex(db, `tb, , fileDir, dataSet, , 0, 500000)
+assert 2, size(tbl) == 500000
+dropDatabase(WORK_DIR + "/seq_on_disk")
+
+@testing: case = "hdf5_loadEx_SEQ_MEM"
+db = database("", SEQ, 8)
+tbl = hdf5::loadHdf5Ex(db, `tb, , fileDir, dataSet)
+assert 1, size(tbl) == 1000000
+db = database("", SEQ, 4)
+tbl = hdf5::loadHdf5Ex(db, `tb, , fileDir, dataSet, , 10, 500000)
+assert 2, size(tbl) == 500000
+
+fileDir = WORK_DIR + DATA_DIR + "/smpl_numeric.h5"
+dataSet = "/schar"
+
+@testing:case = "hdf5_loadEx_RANGE_DISK"
+if (existsDatabase(WORK_DIR + "/non_seq_on_disk")) {
+	dropDatabase(WORK_DIR + "/non_seq_on_disk")
+}
+db = database(WORK_DIR + "/non_seq_on_disk", RANGE, -120 45 74)
+tbl = hdf5::loadHdf5Ex(db, `tb, `col_0, fileDir, dataSet)
+assert 1, size(tbl) == 2
+dropDatabase(WORK_DIR + "/non_seq_on_disk")
+db = database(WORK_DIR + "/non_seq_on_disk", RANGE, -120 45 75)
+tbl = hdf5::loadHdf5Ex(db, `tb, `col_0, fileDir, dataSet)
+assert 2, size(tbl) == 3
+
+@testing:case = "hdf5_loadEx_RANGE_MEM"
+db = database("", RANGE, -120 45 74)
+tbl = hdf5::loadHdf5Ex(db, `tb, `col_0, fileDir, dataSet)
+assert 1, size(tbl) == 2
+db = database("", RANGE, -120 45 75)
+tbl = hdf5::loadHdf5Ex(db, `tb, `col_0, fileDir, dataSet)
+assert 2, size(tbl) == 3
+
+fileDir = WORK_DIR + DATA_DIR + "/smpl_numeric.h5"
+dataSet = "/ushort"
+
+@testing:case = "hdf5_loadEx_VALUE_DISK"
+if (existsDatabase(WORK_DIR + "/non_seq_on_disk")) {
+	dropDatabase(WORK_DIR + "/non_seq_on_disk")
+}
+db = database(WORK_DIR + "/non_seq_on_disk", VALUE, 0..90)
+tbl = hdf5::loadHdf5Ex(db, `tb, `col_6, fileDir, dataSet)
+assert 1, size(tbl) == 3
+dropDatabase(WORK_DIR + "/non_seq_on_disk")
+db = database(WORK_DIR + "/non_seq_on_disk", VALUE, 1..90)
+tbl = hdf5::loadHdf5Ex(db, `tb, `col_6, fileDir, dataSet)
+assert 2, size(tbl) == 2
+dropDatabase(WORK_DIR + "/non_seq_on_disk")
+db = database(WORK_DIR + "/non_seq_on_disk", VALUE, 0..89)
+tbl = hdf5::loadHdf5Ex(db, `tb, `col_6, fileDir, dataSet)
+assert 3, size(tbl) == 2
+
+@testing:case = "hdf5_loadEx_VALUE_MEM"
+db = database("", VALUE, 0..90)
+tbl = hdf5::loadHdf5Ex(db, `tb, `col_6, fileDir, dataSet)
+assert 1, size(tbl) == 3
+db = database("", VALUE, 1..90)
+tbl = hdf5::loadHdf5Ex(db, `tb, `col_6, fileDir, dataSet)
+assert 2, size(tbl) == 2    // err
+db = database("", VALUE, 0..89)
+tbl = hdf5::loadHdf5Ex(db, `tb, `col_6, fileDir, dataSet)
+assert 3, size(tbl) == 2
+
+fileDir = WORK_DIR + DATA_DIR + "/smpl_numeric.h5"
+dataSet = "/uint"
+
+@testing:case = "hdf5_loadEx_LIST_DISK"
+if (existsDatabase(WORK_DIR + "/non_seq_on_disk")) {
+	dropDatabase(WORK_DIR + "/non_seq_on_disk")
+}
+db = database(WORK_DIR + "/non_seq_on_disk", LIST, [0..90, 91..760, 761..1000])
+tbl = hdf5::loadHdf5Ex(db, `tb, `col_0, fileDir, dataSet)
+assert 1, size(tbl) == 3
+dropDatabase(WORK_DIR + "/non_seq_on_disk")
+db = database(WORK_DIR + "/non_seq_on_disk", LIST, [0..60, 91..760, 761..1000])
+tbl = hdf5::loadHdf5Ex(db, `tb, `col_0, fileDir, dataSet)
+assert 2, size(tbl) == 2
+dropDatabase(WORK_DIR + "/non_seq_on_disk")
+db = database(WORK_DIR + "/non_seq_on_disk", LIST, [0..90, 91..757, 761..1000])
+tbl = hdf5::loadHdf5Ex(db, `tb, `col_0, fileDir, dataSet)
+assert 3, size(tbl) == 2
+dropDatabase(WORK_DIR + "/non_seq_on_disk")
+
+@testing:case = "hdf5_loadEx_LIST_MEM"
+db = database("", LIST, [0..90, 91..760, 761..1000])
+tbl = hdf5::loadHdf5Ex(db, `tb, `col_0, fileDir, dataSet)
+assert 1, size(tbl) == 3
+db = database("", LIST, [0..60, 91..760, 761..1000])
+tbl = hdf5::loadHdf5Ex(db, `tb, `col_0, fileDir, dataSet)
+assert 2, size(tbl) == 2
+db = database("", LIST, [0..90, 91..757, 761..1000])
+tbl = hdf5::loadHdf5Ex(db, `tb, `col_0, fileDir, dataSet)
+assert 3, size(tbl) == 2
+
+
+// test_ols.h5 can be get from FTP /Data/
+/*
+@testing:case = "hdf5_loadEx_BIG_DATA_LIST"
+fileDir = WORK_DIR + DATA_DIR + "/test_ols.h5"
+dataSet = "/test_ols"
+
+if (existsDatabase(WORK_DIR + "/seq_on_disk")) {
+	dropDatabase(WORK_DIR + "/seq_on_disk")
+}
+db = database(WORK_DIR + "/seq_on_disk", SEQ, 100)
+tbl = hdf5::loadHdf5Ex(db, `tb, , fileDir, dataSet)
+
+assert 1, size(tbl) == 60000000
+*/
+
+// ------------------------------------- exception -----------------------------------------
+
+fileDir = WORK_DIR + DATA_DIR + "/array_mdatom.h5"
+dataSet = "/arr"
+@testing:case="extractHdf5Scheme_ex", exception=1
+tbl = hdf5::extractHdf5Schema(fileDir, dataSet)
+
+fileDir = WORK_DIR + DATA_DIR + "/smpl_numeric.h5"
+dataSet = "/ulong"
+@testing: case = "hdf5_type_U64LE", exception = 1
+tbl = hdf5::extractHdf5Schema(fileDir, dataSet)
+
+@testing: case = "hdf5_ls_ex", exception = 1
+tbl = hdf5::ls("dasfd")
+
+@testing: case = "hdf5_lsTable_ex", exception = 1
+tbl = hdf5::ls("dasfd")
+
+fileDir = WORK_DIR + DATA_DIR + "/largefile.h5"
+dataSet = "/large"
+@testing: case = "hdf5_loadHdf5Ex_ex1", exception = 1
+db = database("", SEQ, 4)
+tbl = hdf5::loadHdf5Ex(db, `tb, , fileDir, dataSet, 10, 500000)
+
+@testing: case = "hdf5_hdf5DS_ex1", exception = 1
+ds = hdf5::hdf5DS(fileDir, dataSet, 1)
+
+@testing:case="hdf5_loadDHF5Ex_transform_not_function",exception=1
+t=hdf5::loadHDF5(H5_FILE_PATH+"/float.h5","fs")
+db=database("", VALUE, [`asd])
+pt =hdf5::loadHDF5Ex(db, "pt", `col_0, H5_FILE_PATH+"/float.h5","fs", , , , 1)
+
+@testing:case="hdf5_loadHDF5Ex_transform_input_not_table",exception=1
+t=hdf5::loadHDF5(H5_FILE_PATH+"/float.h5","fs")
+db=database("", VALUE, [`asd])
+def f1(x){
+	return x+1
+}
+pt =hdf5::loadHDF5Ex(db, "pt", `col_0, H5_FILE_PATH+"/float.h5","fs", , , , f1)
+
+@testing:case="hdf5_loadHDF5Ex_transform"
+t=hdf5::loadHDF5(H5_FILE_PATH+"/float.h5","fs")
+db=database("", VALUE, [`asd])
+pt =hdf5::loadHDF5Ex(db, "pt", `col_0, H5_FILE_PATH+"/float.h5","fs", , , , reorderColumns!{, `col_0`col_1`col_3`col_2})
+re = select * from pt
+assert 1, t[`col_2]==exec col_3 from pt
+assert 2, t[`col_3]==exec col_2 from pt
+
+scm=table(`a`b`c`d`e`f`g as name, `CHAR`BOOL`SHORT`INT`LONG`FLOAT`DOUBLE as type)
+t=hdf5::loadHDF5(H5_FILE_PATH+"/smpl_numeric.h5","schar"),scm)
+login("admin", "123456")
+dbName="dfs://test_hdf5"
+if(existsDatabase(dbName)){
+	dropDatabase(dbName)
+}
+db=database(dbName, VALUE, [1970.01.24,1970.04.09,1969.09.30])
+tb=table(1:0, `a`b`c`d`e`f`g, [CHAR, CHAR, DATE, INT, INT, DOUBLE, DOUBLE])
+pt=db.createPartitionedTable(tb, `pt, `c)
+
+def f1(mutable t){
+	return t.replaceColumn!(`col_2, date(t.col_2))
+}
+hdf5::loadHDF5Ex(db, "pt", `col_2, H5_FILE_PATH+"/smpl_numeric.h5","schar", , , ,f1)
+re=select * from pt
+assert 1, re[`c]==[1970.01.24,1970.04.09,1969.09.30]
+
+@testing:case="hdf5_loadHDF5Ex_oom"
+DATA_DIR="/hdd/hdd1/h5"
+dataFilePath = DATA_DIR+"/20200708.h5"
+hdf5::lsTable(dataFilePath)
+datasetName = "/StockTransaction/20200708"
+schema=hdf5::extractHDF5Schema(dataFilePath,datasetName)
+
+login(`admin,`123456)
+try{
+dropDatabase("dfs://dataImportTrans")
+}catch(ex){print ex}
+db1 = database("", VALUE, 2020.01.01..2020.12.31)
+db2 = database("", HASH,[SYMBOL,20])
+db = database("dfs://dataImportTrans",COMPO, [db1,db2])
+colNames=`TradeDate`Type`Seq`ExchID`SecID`ExTime`LocalTime`TradeTime`TradePrice`Volumn`Turnover`TradeBuyNo`TradeSellNo`TradeFlag
+colTypes=[DATE,INT,INT,SYMBOL,SYMBOL,TIME,TIME,TIME,LONG,LONG,DOUBLE,INT,INT,SYMBOL]
+t=table(1:0,colNames,colTypes)
+transpt=db.createPartitionedTable(t,`transpt,`TradeDate`SecID)
+
+def d2m(mutable t){
+	return t.replaceColumn!(`TradeDate,datetimeParse(string(t.TradeDate),"yyyyMMdd")).replaceColumn!(`LocalTime,datetimeParse(string(t.LocalTime),"HmmssSSS")).replaceColumn!(`TradeTime,datetimeParse(string(t.TradeTime),"HmmssSSS")).replaceColumn!(`ExTime,datetimeParse(string(t.ExTime),"HmmssSSS"))
+}
+
+lst=hdf5::lsTable(dataFilePath)
+
+for(datasetName in lst[`tableName]){
+	hdf5::loadHDF5Ex(db,`transpt,`TradeDate`SecID,dataFilePath,datasetName,,,,d2m)
+}
+transpt=loadTable("dfs://dataImportTrans","transpt")
+re=select count(*) from transpt
+assert 1, re==74802474
+
+use hdf5
+dataFilePath = DATA_DIR+"/110042.h5"
+hdf5::lsTable(dataFilePath)
+login(`admin,`123456)
+datasetName = "/Tick/20200219"
+schema=hdf5::extractHDF5Schema(dataFilePath,datasetName)
+a=strReplace(schema.name,"[","")
+colnames=strReplace(a,"]","")
+
+fileName = DATA_DIR+"/110042.h5"
+datasetName="/Tick/20180827"
+def d2m(mutable t){
+    return t.replaceColumn!(`LocalTime,datetimeParse(string(t.LocalTime),"HmmssSSS")).replaceColumn!(`TradeDate,datetimeParse(string(t.TradeDate),"yyyyMMdd")).replaceColumn!(`ExTime,datetimeParse(string(t.ExTime),"HmmssSSS"))
+}
+try{
+dropDatabase("dfs://hdf5")
+}catch(ex){print ex}
+db1 = database("", VALUE, 2020.01.01..2020.12.31)
+db2 = database("", VALUE,`SH`SZ)
+db3 = database("", HASH,[SYMBOL,10])
+db = database("dfs://hdf5",COMPO, [db1,db2,db3])
+t=table(1:0,colnames,  [DATE,INT,INT,SYMBOL,SYMBOL,TIME,TIME,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,LONG,DOUBLE,LONG,LONG,LONG,LONG,LONG,INT,INT,INT,LONG,INT,LONG,INT,INT,STRING]);
+db.createPartitionedTable(t,`tick,`TradeDate`ExID`SecID)
+
+lst=hdf5::lsTable(dataFilePath)
+for(datasetName in lst[`tableName]){
+   hdf5::loadHDF5Ex(db,`tick,`TradeDate`ExID`SecID,fileName,datasetName,,,,d2m)
+}
+tick=loadTable("dfs://hdf5","tick")
+re=select count(*) from tick
+assert 2, re==866757
+

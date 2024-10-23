@@ -1,0 +1,42 @@
+st=streamTable(1000000:0,`deviceID`ts`temperature,[INT,DATETIME,FLOAT])
+enableTableShareAndPersistence(table=st,tableName=`sensor,asynWrite=false,compress=true, cacheSize=1000000)
+share streamTable(1000:0, `time`deviceID`anomalyType`anomalyString, [DATETIME,INT,INT, SYMBOL]) as warningTable
+
+engine = createAnomalyDetectionEngine(name="engine1", metrics=<[sum(temperature > 40) > 2 && sum(temperature > 30) > 3  ]>,dummyTable=sensor, outputTable=warningTable, timeColumn=`ts, keyColumn=`deviceID, windowSize = 180, step = 30)
+subscribeTable(tableName="sensor", actionName="sensorAnomalyDetection", offset=0, handler= append!{engine}, msgAsTable=true)
+
+t=keyedTable(`deviceID,100:0,`deviceID`time,[INT,DATETIME])
+deviceNum=3
+insert into t values(1..deviceNum,take(now().datetime(),deviceNum))
+def checkNoData (mutable keyedTable, mutable outputTable, msg) {
+	keyedTable.append!(select deviceID, ts from msg)
+	warning = select now().datetime(), deviceID, 1 as anomalyType, "" as anomalyString from keyedTable where time < datetimeAdd(now().datetime(), -5, "m")
+	if(warning.size() > 0) outputTable.append!(warning)
+}
+subscribeTable(tableName="sensor", actionName="noData", offset=0,handler=checkNoData{t, warningTable}, msgAsTable=true, batchSize=1000000, throttle=1)
+
+def writeData(){
+	deviceNum = 3
+	for (i in 0:60) {
+		data = table(take(1..deviceNum, deviceNum) as deviceID, take(now().datetime(), deviceNum) as ts, rand(10..41, deviceNum) as temperature)
+		sensor.append!(data)
+		sleep(1000)
+	}
+	deviceNum = 2
+	for (i in 0:600) {
+		data = table(take(1..deviceNum, deviceNum) as deviceID ,take(now().datetime(), deviceNum) as ts, rand(10..45,deviceNum) as temperature)
+		sensor.append!(data)
+		sleep(1000)
+	}	
+}
+
+submitJob("simulateData", "simulate sensor data", writeData)
+pnodeRun(getRecentJobs)
+select * from warningTable
+
+dropAggregator("engine1")
+unsubscribeTable(, "sensor", "sensorAnomalyDetection")
+unsubscribeTable(, "sensor", "noData")
+dropStreamTable(`sensor)
+undef(`st, VAR)
+

@@ -1,0 +1,3 @@
+demo,libPluginDemo.so,3.00.2
+minmax,minmax,operator,1,1,0
+echo,echo,system,1,1,0

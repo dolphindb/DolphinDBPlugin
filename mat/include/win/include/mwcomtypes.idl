@@ -1,0 +1,445 @@
+// mwcomtypes.idl - Contains types used by compiler generated com objects
+import "oaidl.idl";
+import "ocidl.idl";
+// Enum of array formatting options
+[
+	uuid("9E8F9403-92FE-4ab2-B133-C15107442932"),
+	helpstring("Array formatting options used in data conversion")
+]
+typedef enum mwArrayFormat
+{
+	mwArrayFormatAsIs   = 0,
+	mwArrayFormatMatrix = 1,
+	mwArrayFormatCell   = 2
+} mwArrayFormat;
+// Enum of basic data types
+[
+	uuid("E47B19A6-F1A5-4ec5-A517-BAD4413BC880"),
+	helpstring("Basic data type codes used in data conversion")
+]
+typedef enum mwDataType
+{
+	mwTypeDefault = 0,
+	mwTypeLogical = 3,
+	mwTypeChar    = 4,
+	mwTypeDouble  = 6,
+	mwTypeSingle  = 7,
+	mwTypeInt8    = 8,
+	mwTypeUint8   = 9,
+	mwTypeInt16   = 10,
+	mwTypeUint16  = 11,
+	mwTypeInt32   = 12,
+	mwTypeUint32  = 13
+} mwDataType;
+// Enum of Date formatting options
+[
+	uuid("A2B29D15-C4D3-4d4b-BC7E-92A22873491E"),
+	helpstring("Format for date types used in data conversion")
+]
+typedef enum mwDateFormat
+{
+	mwDateFormatNumeric = 0,
+	mwDateFormatString  = 1
+	
+} mwDateFormat;
+// Enum of missing data options
+[
+	uuid("9FF4FA38-500F-47ba-8F89-F7E3500A26DC"),
+	helpstring("Missing data options used in data conversion")
+]
+typedef enum mwReplaceMissingData
+{
+	mwReplaceZero = 0,
+	mwReplaceNaN  = 1
+	
+} mwReplaceMissingData;
+// Enum of replace matlab NaN options
+[
+    uuid("986FBAFF-1938-440b-9611-B03F5C651EEA"),
+	helpstring("Treating MATLAB NaN options used in data conversion")
+]
+typedef enum mwReplaceMatlabNaN
+{
+	mwReplaceWithEmptyCell = 0,
+	mwReplaceWithZero = 1,
+	mwReplaceWithExcelNaN  = 2
+	
+} mwReplaceMatlabNaN;
+// IRangeInfo Interface
+[
+	object,
+	uuid("92EA75F7-994E-4925-8C88-2F9C56F87756"),
+	hidden,
+	helpstring("IObjectInfo Interface"),
+	pointer_default(unique)
+]
+interface IObjectInfo : IUnknown
+{
+	HRESULT GetIsRange([in] long n, [out] VARIANT_BOOL* pbIsRange);
+	HRESULT GetIsObject([in] long n, [out] VARIANT_BOOL* pbIsObject);
+};
+// IMWArrayFormatFlags interface for setting/getting array formatting properties
+[
+	object,
+	uuid("30C8EBCB-1A50-4dee-A5E8-0C6F7DD52D4C"),
+	dual,
+	hidden,
+	helpstring("IMWArrayFormatFlags Interface"),
+	pointer_default(unique)
+]
+interface IMWArrayFormatFlags : IDispatch
+{
+	[propget, id(1), helpstring("property InputArrayFormat")] 
+	HRESULT InputArrayFormat([out, retval] mwArrayFormat* pInputFmt);
+	[propput, id(1), helpstring("property InputArrayFormat")] 
+	HRESULT InputArrayFormat([in] mwArrayFormat InputFmt);
+	[propget, id(2), helpstring("property InputArrayIndFlag")] 
+	HRESULT InputArrayIndFlag([out, retval] long* pnInputInd);
+	[propput, id(2), helpstring("property InputArrayIndFlag")] 
+	HRESULT InputArrayIndFlag([in] long nInputInd);
+	[propget, id(3), helpstring("property OutputArrayFormat")] 
+	HRESULT OutputArrayFormat([out, retval] mwArrayFormat* pOutputFmt);
+	[propput, id(3), helpstring("property OutputArrayFormat")] 
+	HRESULT OutputArrayFormat([in] mwArrayFormat OutputFmt);
+	[propget, id(4), helpstring("property OutputArrayIndFlag")] 
+	HRESULT OutputArrayIndFlag([out, retval] long* pnOutputInd);
+	[propput, id(4), helpstring("property OutputArrayIndFlag")] 
+	HRESULT OutputArrayIndFlag([in] long nOutputInd);
+	[propget, id(5), helpstring("property AutoResizeOutput")] 
+	HRESULT AutoResizeOutput([out, retval] VARIANT_BOOL* pbResize);
+	[propput, id(5), helpstring("property AutoResizeOutput")] 
+	HRESULT AutoResizeOutput([in] VARIANT_BOOL bResize);
+	[propget, id(6), helpstring("property TransposeOutput")]
+	HRESULT TransposeOutput([out, retval] VARIANT_BOOL* pbTranspose);
+	[propput, id(6), helpstring("property TransposeOutput")]
+	HRESULT TransposeOutput([in] VARIANT_BOOL bTranspose);
+};
+// IMWDataConversionFlags interface for setting/getting data conversion properties
+[
+	object,
+	uuid("5E0BBECB-CE72-4461-ADB8-0446AB32CF51"),
+	dual,
+	hidden,
+	helpstring("IMWDataConversionFlags Interface"),
+	pointer_default(unique)
+]
+interface IMWDataConversionFlags : IDispatch
+{
+	[propget, id(1), helpstring("property LogicalDataType")]
+	HRESULT CoerceNumericToType([out, retval] mwDataType* pType);
+	[propput, id(1), helpstring("property LogicalDataType")]
+	HRESULT CoerceNumericToType([in] mwDataType Type);
+	[propget, id(2), helpstring("property InputDateFormat")]
+	HRESULT InputDateFormat([out, retval] mwDateFormat* pDateFmt);
+	[propput, id(2), helpstring("property InputDateFormat")]
+	HRESULT InputDateFormat([in] mwDateFormat DateFmt);
+	[propget, id(3), helpstring("property OutputAsDate")]
+	HRESULT OutputAsDate([out, retval] VARIANT_BOOL* pbDate);
+	[propput, id(3), helpstring("property OutputAsDate")]
+	HRESULT OutputAsDate([in] VARIANT_BOOL bDate);
+	[propget, id(4), helpstring("property DateBias")]
+	HRESULT DateBias([out, retval] long* pnBias);
+	[propput, id(4), helpstring("property DateBias")]
+	HRESULT DateBias([in] long nBias);
+    [propget, id(5), helpstring("ReplaceMissing")]
+    HRESULT ReplaceMissing([out, retval] mwReplaceMissingData* pnReplace);
+    [propput, id(5), helpstring("ReplaceMissing")]
+    HRESULT ReplaceMissing([in] mwReplaceMissingData nReplace);
+    [propget, id(6), helpstring("ReplaceMatlabNaN")]
+    HRESULT ReplaceMatlabNaN([out, retval] mwReplaceMatlabNaN* pnReplace);
+    [propput, id(6), helpstring("ReplaceMatlabNaN")]
+    HRESULT ReplaceMatlabNaN([in] mwReplaceMatlabNaN nReplace);
+};
+// IMWFlags interface - Base interface implemented by all compiler generated com objects
+[
+	object,
+	uuid("0A295776-23A1-410a-94BD-0C6C61B891B7"),
+	dual,
+	hidden,
+	helpstring("IMWFlags Interface"),
+	pointer_default(unique)
+]
+interface IMWFlags : IDispatch
+{
+	[propget, id(1), helpstring("property ArrayFormatFlags")] 
+	HRESULT ArrayFormatFlags([out, retval] IMWArrayFormatFlags** ppFlags);
+	[propput, id(1), helpstring("property ArrayFormatFlags")]
+	HRESULT ArrayFormatFlags([in] IMWArrayFormatFlags* pFlags);
+	[propget, id(2), helpstring("property DataConversionFlags")] 
+	HRESULT DataConversionFlags([out, retval] IMWDataConversionFlags** ppFlags);
+	[propput, id(2), helpstring("property DataConversionFlags")]
+	HRESULT DataConversionFlags([in] IMWDataConversionFlags* pFlags);
+	[id(3), helpstring("Method Clone")]
+	HRESULT Clone(IMWFlags** ppFlags);
+};
+// IMWField interface
+[
+	object,
+	uuid("0AEC9FFB-AB0D-4a09-BE9C-78857A1B8580"),
+	dual,
+	hidden,
+	helpstring("IMWField interface"),
+	pointer_default(unique)
+]
+interface IMWField : IDispatch
+{
+	[propget, id(0), helpstring("property Value")]
+	HRESULT Value([out, retval] VARIANT* pvarValue);
+	[propput, id(0), helpstring("property Value")]
+	HRESULT Value([in] VARIANT varValue);
+	[propget, id(1), helpstring("property Name")]
+	HRESULT Name([out, retval] BSTR* pbstrName);
+	[propget, id(2), helpstring("property MWFlags")]
+	HRESULT MWFlags([out, retval] IMWFlags** ppFlags);
+	[propput, id(2), helpstring("property MWFlags")]
+	HRESULT MWFlags([in] IMWFlags* pFlags);
+	[id(3), helpstring("Method Clone")]
+	HRESULT Clone([out] IMWField** ppField);
+};
+// IMWStruct interface.
+[
+    object,
+    uuid("6C70BB67-3F76-4176-8809-C66393B1FA23"),
+    dual,
+    helpstring("IMWStruct Interface"),
+    pointer_default(unique)
+]
+interface IMWStruct : IDispatch
+{
+	[propget, id(0), helpstring("property Item")]
+	HRESULT Item([in,optional] VARIANT i0,  [in,optional] VARIANT i1,  [in,optional] VARIANT i2,  
+				 [in,optional] VARIANT i3,  [in,optional] VARIANT i4,  [in,optional] VARIANT i5,  
+				 [in,optional] VARIANT i6,  [in,optional] VARIANT i7,  [in,optional] VARIANT i8,  
+				 [in,optional] VARIANT i9,  [in,optional] VARIANT i10, [in,optional] VARIANT i11,
+				 [in,optional] VARIANT i12, [in,optional] VARIANT i13, [in,optional] VARIANT i14, 
+				 [in,optional] VARIANT i15, [in,optional] VARIANT i16, [in,optional] VARIANT i17, 
+				 [in,optional] VARIANT i18, [in,optional] VARIANT i19, [in,optional] VARIANT i20, 
+				 [in,optional] VARIANT i21, [in,optional] VARIANT i22, [in,optional] VARIANT i23, 
+				 [in,optional] VARIANT i24, [in,optional] VARIANT i25, [in,optional] VARIANT i26, 
+				 [in,optional] VARIANT i27, [in,optional] VARIANT i28, [in,optional] VARIANT i29, 
+				 [in,optional] VARIANT i30, [in,optional] VARIANT i31, [out, retval] IMWField** ppField);
+	[id(1), helpstring("Method Initialize")]
+	HRESULT Initialize([in, optional] VARIANT varDims, [in, optional] VARIANT varFieldNames);
+	[propget, id(2), helpstring("property NumberOfFields")]
+	HRESULT NumberOfFields([out, retval] long* pnFields);
+	[propget, id(3), helpstring("property NumberOfDims")]
+	HRESULT NumberOfDims([out, retval] long* pnDims);
+	[propget, id(4), helpstring("property Dims")]
+	HRESULT Dims([out, retval] VARIANT* pvarDims);
+	[propget, id(5), helpstring("property FieldNames")]
+	HRESULT FieldNames([out, retval] VARIANT* pvarFieldNames);
+	[id(6), helpstring("Method Clone")]
+	HRESULT Clone([out] IMWStruct** ppStruct);
+};
+// IMWComplex interface.
+[
+    object,
+    uuid("8CDD4BBF-A84C-4C50-B600-F5E90008491D"),
+    dual,
+    helpstring("IMWComplex Interface"),
+    pointer_default(unique)
+]
+interface IMWComplex : IDispatch
+{
+	[propget, id(0), helpstring("property Real")]
+	HRESULT Real([out, retval] VARIANT* pvarValue);
+	[propput, id(0), helpstring("property Field")]
+	HRESULT Real([in] VARIANT varValue);
+	[propget, id(1), helpstring("property Imag")]
+	HRESULT Imag([out, retval] VARIANT* pvarValue);
+	[propput, id(1), helpstring("property Imag")]
+	HRESULT Imag([in] VARIANT varValue);
+	[propget, id(2), helpstring("property MWFlags")]
+	HRESULT MWFlags([out, retval] IMWFlags** ppFlags);
+	[propput, id(2), helpstring("property MWFlags")]
+	HRESULT MWFlags([in] IMWFlags* pFlags);
+	[id(3), helpstring("Method Clone")]
+	HRESULT Clone([out] IMWComplex** ppComplex);
+};
+// IMWSparse interface.
+[
+    object,
+    uuid("6D4874AD-38A1-4676-A191-BAA75F01D216"),
+    dual,
+    helpstring("IMWSparse Interface"),
+    pointer_default(unique)
+]
+interface IMWSparse : IDispatch
+{
+	[propget, id(1), helpstring("property Array")]
+	HRESULT Array([out, retval] VARIANT* pvarArray);
+	[propput, id(1), helpstring("property Array")]
+	HRESULT Array([in] VARIANT varArray);
+	[propget, id(2), helpstring("NumRows")]
+	HRESULT NumRows([out, retval] long* pnRows);
+	[propput, id(2), helpstring("NumRows")]
+	HRESULT NumRows([in] long nRows);
+	[propget, id(3), helpstring("NumColumns")]
+	HRESULT NumColumns([out, retval] long* pnColumns);
+	[propput, id(3), helpstring("NumColumns")]
+	HRESULT NumColumns([in] long nColumns);
+	[propget, id(4), helpstring("RowIndex")]
+	HRESULT RowIndex([out, retval] VARIANT* pIndex);
+	[propput, id(4), helpstring("RowIndex")]
+	HRESULT RowIndex([in] VARIANT Index);
+	[propget, id(5), helpstring("RowIndex")]
+	HRESULT ColumnIndex([out, retval] VARIANT* pIndex);
+	[propput, id(5), helpstring("RowIndex")]
+	HRESULT ColumnIndex([in] VARIANT Index);
+	[propget, id(6), helpstring("property MWFlags")]
+	HRESULT MWFlags([out, retval] IMWFlags** ppFlags);
+	[propput, id(6), helpstring("property MWFlags")]
+	HRESULT MWFlags([in] IMWFlags* pFlags);
+	[id(7), helpstring("Method Clone")]
+	HRESULT Clone([out] IMWSparse** ppSparse);
+};
+// IMWArg interface
+[
+	object,
+	uuid("9C77EA62-6498-4CF5-AF36-35886B2F0570"),
+	dual,
+	hidden,
+	helpstring("IMWArg interface"),
+	pointer_default(unique)
+]
+interface IMWArg : IDispatch
+{
+	[propget, id(0), helpstring("property Value")]
+	HRESULT Value([out, retval] VARIANT* pvarValue);
+	[propput, id(0), helpstring("property Value")]
+	HRESULT Value([in] VARIANT varValue);
+	[propget, id(1), helpstring("property MWFlags")]
+	HRESULT MWFlags([out, retval] IMWFlags** ppFlags);
+	[propput, id(1), helpstring("property MWFlags")]
+	HRESULT MWFlags([in] IMWFlags* pFlags);
+	[id(2), helpstring("Method Clone")]
+	HRESULT Clone([out] IMWArg** ppArg);
+};
+interface IMWMethodArgInfo;
+// IMWEnumVararg interface
+[
+	object,
+	uuid("D4D229FA-87A2-4a22-B58D-DB5898B4D92F"),
+	dual,
+	hidden,
+	helpstring("IMWEnumVararg interface"),
+	pointer_default(unique)
+]
+interface IMWEnumVararg : IDispatch
+{
+	[propget, id(0), helpstring("property Item")]
+	HRESULT Item([in] long nIndex, [out, retval] IMWMethodArgInfo** ppInfo);
+	[propget, id(1), helpstring("property Name")]
+	HRESULT Name([out, retval] BSTR* pbstrName);
+	[propput, id(1), helpstring("property Name")]
+	HRESULT Name([in] BSTR bstrName);
+	[propget, id(2), helpstring("property Value")]
+	HRESULT Value([out, retval] VARIANT* pvarValue);
+	[propput, id(2), helpstring("property Value")]
+	HRESULT Value([in] VARIANT varValue);
+	[propget, id(3), helpstring("Method Count")]
+	HRESULT Count([out, retval] long* pnCount);
+	[id(4), helpstring("Method Reset")]
+	HRESULT Reset();
+	[id(5), helpstring("Method Skip")]
+	HRESULT Skip([in] long nSkipElms);
+	[id(6), helpstring("Method Next")]
+	HRESULT Next([out] IMWMethodArgInfo** ppInfo, [out] long* pnRetElms);
+	[id(7), helpstring("Method Add")]
+	HRESULT Add([in] VARIANT varValue);
+	[id(8), helpstring("Method Remove")]
+	HRESULT Remove([in] long nIndex);
+	[id(9), helpstring("Method Clear")]
+	HRESULT Clear();
+	[id(10), helpstring("Method SetAt")]
+	HRESULT SetAt([in] long nIndex, [in] VARIANT varValue);
+	[propput, id(11), helpstring("property CopyToRange")]
+	HRESULT CopyToRange([in] VARIANT_BOOL bToRange);
+	[propget, id(11), helpstring("property CopyToRange")]
+	HRESULT CopyToRange([out, retval] VARIANT_BOOL* pbToRange);
+	[id(12), helpstring("Method Clone")]
+	HRESULT Clone([out] IMWEnumVararg** ppEnum);
+};
+// IMWMethodArgInfo interface
+[
+	object,
+	uuid("6D9F6760-7A70-4524-882D-E8E56A21E4D5"),
+	dual,
+	hidden,
+	helpstring("IMWMethodArgInfo interface"),
+	pointer_default(unique)
+]
+interface IMWMethodArgInfo : IDispatch
+{
+	[propget, id(0), helpstring("property Value")]
+	HRESULT Value([out, retval] VARIANT* pvarValue);
+	[propput, id(0), helpstring("property Value")]
+	HRESULT Value([in] VARIANT varValue);
+	[propget, id(1), helpstring("property Name")]
+	HRESULT Name([out, retval] BSTR* pbstrName);
+	[propput, id(1), helpstring("property Name")]
+	HRESULT Name([in] BSTR bstrName);
+	[propget, id(2), helpstring("property Type")]
+	HRESULT Type([out, retval] short* pnType);
+	[propget, id(3), helpstring("property Flags")]
+	HRESULT Flags([out, retval] short* pnFlags);
+	[propget, id(4), helpstring("property Indirection")]
+	HRESULT Indirection([out, retval] long* pnInd);
+	[propget, id(5), helpstring("property IsRange")]
+	HRESULT IsRange([out, retval] VARIANT_BOOL* pbRange);
+	[propget, id(6), helpstring("property IsVararg")]
+	HRESULT IsVararg([out, retval] VARIANT_BOOL* pbVararg);
+	[propget, id(7), helpstring("property MWFlags")]
+	HRESULT MWFlags([out, retval] IMWFlags** ppFlags);
+	[propput, id(7), helpstring("property MWFlags")]
+	HRESULT MWFlags([in] IMWFlags* pFlags);
+	[propget, id(8), helpstring("property Selected")]
+	HRESULT Selected([out, retval] VARIANT_BOOL* pbSelected);
+	[propget, id(9), helpstring("property MWFlags")]
+	HRESULT Vararg([out, retval] IMWEnumVararg** ppVararg);
+	[propput, id(9), helpstring("property MWFlags")]
+	HRESULT Vararg([in] IMWEnumVararg* pVararg);
+	[propput, id(10), helpstring("property CopyToRange")]
+	HRESULT CopyToRange([in] VARIANT_BOOL bToRange);
+	[propget, id(10), helpstring("property CopyToRange")]
+	HRESULT CopyToRange([out, retval] VARIANT_BOOL* pbToRange);
+	[id(11), helpstring("Method Select")]
+	HRESULT Select();
+	[propget, id(12), helpstring("property IsListening")]
+	HRESULT IsListening([out, retval] VARIANT_BOOL* pbListen);
+	[propput, id(12), helpstring("property IsListening")]
+	HRESULT IsListening([in] VARIANT_BOOL bListen);
+	[id(13), helpstring("Method Offset")]
+	HRESULT Offset([in] long nRows, [in] long nColumns, [in] VARIANT_BOOL bCopyContents, [in] VARIANT_BOOL bDeleteOriginal);
+	[id(14), helpstring("Method Clone")]
+	HRESULT Clone([out] IMWMethodArgInfo** ppInfo);
+	[propget, id(15), helpstring("property Index")]
+	HRESULT Index([out ,retval] long* pnIndex);
+	[propget, id(16), helpstring("property IsStruct")]
+	HRESULT IsStruct([out, retval] VARIANT_BOOL* pbStruct);
+	[propput, id(16), helpstring("property IsStruct")]
+	HRESULT IsStruct([in] VARIANT_BOOL bStruct);
+	[id(17), helpstring("Method ClearStruct")]
+	HRESULT ClearStruct();
+	[id(18), helpstring("Method AddNewField")]
+	HRESULT AddNewField([in] BSTR bstrName);
+	[id(19), helpstring("Method AddField")]
+	HRESULT SetField([in] BSTR bstrName, [in] long row, [in] long column, [in] IMWMethodArgInfo* pInfo);
+	[id(20), helpstring("Method GetField")]
+	HRESULT GetField([in] BSTR bstrName, [in] long row, [in] long column, [out, retval] IMWMethodArgInfo** pInfo);	
+	[propget, id(21), helpstring("property NumberOfFields")]
+	HRESULT NumberOfFields([out, retval] long* pCount);
+	[propget, id(22), helpstring("property IsField")]
+	HRESULT IsField([in] BSTR bstrName, [out, retval] VARIANT_BOOL* pbField);
+	[id(23), helpstring("Method GetFieldNames")]
+	HRESULT GetFieldNames([out, retval] VARIANT* pNames);
+	[propget, id(24), helpstring("property NumberOfDims")]
+	HRESULT NumberOfDims([out, retval] long* pnDims);
+	[propget, id(25), helpstring("property Dims")]
+	HRESULT Dims([out, retval] VARIANT* pvarDims);
+	[propget, id(26), helpstring("property IsPlaneOrganization")]
+	HRESULT IsPlaneOrganization([out, retval] VARIANT_BOOL* pbStruct);
+	[propput, id(26), helpstring("property IsPlaneOrganization")]
+	HRESULT IsPlaneOrganization([in] VARIANT_BOOL bStruct);
+
+};

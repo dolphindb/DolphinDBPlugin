@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+// 名字重复
+message test_bad_invalid_name {
+    double double = 1;
+    msg1 m1 = 2;
+    message msg1 {
+        double m2_double = 1;
+        msg2 m2 = 2;
+        message msg2 {
+            double double = 1;
+        }
+    }
+}

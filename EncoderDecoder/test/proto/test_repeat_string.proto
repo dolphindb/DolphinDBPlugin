@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+// repeated结构中，有普通字段时，再套一个repeated 结构，这个repeated结构中既有普通也有repeated字段
+// 同时最外层有普通的repeated 字段
+message test_repeat_string{
+    double double1 = 1;
+    repeated repeatMsg r1 = 2;
+
+    message repeatMsg {
+        string int0 = 1;
+        string long0 = 2;
+        string float0 = 3;
+        string double0 = 4;
+    }
+}

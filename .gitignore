@@ -1,0 +1,12 @@
+.vscode
+.workspace
+.clangd
+.idea
+bin
+cmake-build-debug
+build
+.cache
+__pycache__
+*.pyc
+compile_commands.json
+.history

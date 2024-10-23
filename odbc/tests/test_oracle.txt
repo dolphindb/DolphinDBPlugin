@@ -1,0 +1,623 @@
+
+#include "setup/settings.txt"
+login("admin", "123456")
+
+try{
+	loadPlugin(getHomeDir()+"/plugins/odbc/PluginODBC.txt")
+}catch(ex){print ex}
+go
+
+//ODBC_ORACLE_CONNECT_STR="Driver=ORAC21c;Server=ORAC;Database=test;User=system;Password=oracle;"
+connect_str = ODBC_ORACLE_CONNECT_STR.split(";")
+
+@testing:case="test_oracle_odbc_connect_dirver_error", exception=1
+conn1 = odbc::connect(connect_str[0]+"error;"+connect_str[1]+";"+connect_str[2]+";"+connect_str[3]+";"+connect_str[4]+";", `oracle)
+conn1 = odbc::connect(connect_str[0])
+
+@testing:case="test_oracle_odbc_connect_server_error", exception=1
+conn1 = odbc::connect(connect_str[0]+";"+connect_str[1]+"error;"+connect_str[2]+";"+connect_str[3]+";"+connect_str[4]+";", `oracle)
+
+@testing:case="test_oracle_odbc_connect_database_error", exception=1
+conn1 = odbc::connect(connect_str[0]+";"+connect_str[1]+";"+connect_str[2]+"error;"+connect_str[3]+";"+connect_str[4]+";", `oracle)
+
+@testing:case="test_oracle_odbc_connect_user_error", exception=1
+conn1 = odbc::connect(connect_str[0]+";"+connect_str[1]+";"+connect_str[2]+";"+connect_str[3]+"error;"+connect_str[4]+";", `oracle)
+
+@testing:case="test_oracle_odbc_connect_password_error", exception=1
+conn1 = odbc::connect(connect_str[0]+";"+connect_str[1]+";"+connect_str[2]+";"+connect_str[3]+";"+connect_str[4]+"error;", `oracle)
+
+@testing:case="test_oracle_odbc_query_connStr_error",exception=1
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::execute(conn1,"alter session set container=test;")
+odbc::query("aaaa", "select count(*) from test_datatype;", `oracle)
+
+
+@testing:case="test_oracle_odbc_query_sql_error",exception=1
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::execute(conn1,"alter session set container=test;")
+odbc::query(conn1, "select ab from test_datatype;")
+
+@testing:case="test_oracle_odbc_query_sql_error_not_select",exception=1
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::query(conn1, "create table AAA;")
+
+@testing:case="test_oracle_odbc_query_t_data_type_error",exception=1
+t = table(100:0, [`type_data], [INT])
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::execute(conn1,"alter session set container=test;")
+odbc::query(conn1,  "select type_char from test_datatype;",t)
+
+@testing:case="test_oracle_odbc_query_t_data_count_error",exception=1
+t = table(100:0, [`a, `b], [STRING, STRING])
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::execute(conn1,"alter session set container=test;")
+odbc::query(conn1,  "select type_char from test_datatype;",t)
+
+@testing:case="test_oracle_odbc_execute_connstr_error",exception=1
+odbc::execute("Driver=ORAC21c;Server=dd;Database=test;User=dd;Password=dd;",  "select 1 from dual;")
+
+@testing:case="test_oracle_odbc_execute_sql_error",exception=1
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::execute(conn1,"alter session set container=test;")
+odbc::execute(conn1,  "tt * from test_datatype;")
+
+@testing:case="test_oracle_odbc_append_connHandle_error",exception=1
+t = table(1..10 as id)
+odbc::append("1", t, "test_oracle_append", true)
+
+@testing:case="test_oracle_odbc_append_tableData_error",exception=1
+t = table(1..10 as id)
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::execute(conn1,"alter session set container=test;")
+odbc::append(conn1, "d", "test_oracle_append", true)
+
+@testing:case="test_oracle_odbc_append_tablename_error",exception=1
+t = table(1..10 as id)
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::execute(conn1,"alter session set container=test;")
+odbc::append(conn1, t, 1, true)
+
+@testing:case="test_oracle_odbc_append_tablename_string_vector_error",exception=1
+t = table(1..10 as id)
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::execute(conn1,"alter session set container=test;")
+odbc::append(conn1, t, `a`b, true)
+
+@testing:case="test_oracle_odbc_append_createTablelfNotExist_error",exception=1
+t = table(1..10 as id)
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::execute(conn1,"alter session set container=test;")
+odbc::append(conn1, t, `a, "aa")
+
+@testing:case="test_oracle_odbc_append_insertIgnore_error",exception=1
+t = table(1..10 as id)
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::execute(conn1,"alter session set container=test;")
+odbc::append(conn1, t, `a, true, 1)
+
+@testing:case="test_oracle_odbc_append_connect_without_oracle_error",exception=1
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_oracle_append;")
+}catch(ex){print ex}
+t = table(1..10 as id)
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle")
+odbc::append(conn1, t, `TEST_ORACLE_APPEND, true)
+
+
+@testing:case="test_oracle_odbc_append_datatype_month_error",exception=1
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_oracle_append;")
+}catch(ex){print ex}
+t = table(month(1..10) as id)
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::append(conn1, t, `TEST_ORACLE_APPEND, true)
+
+@testing:case="test_oracle_odbc_append_datatype_time_error",exception=1
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_oracle_append;")
+}catch(ex){print ex}
+t = table(time(1..10) as id)
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::append(conn1, t, `TEST_ORACLE_APPEND, true)
+
+@testing:case="test_oracle_odbc_append_datatype_minute_error",exception=1
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_oracle_append;")
+}catch(ex){print ex}
+t = table(minute(1..10) as id)
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::append(conn1, t, `TEST_ORACLE_APPEND, true)
+
+@testing:case="test_oracle_odbc_append_datatype_second_error",exception=1
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_oracle_append;")
+}catch(ex){print ex}
+t = table(second(1..10) as id)
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::append(conn1, t, `TEST_ORACLE_APPEND, true)
+
+@testing:case="test_oracle_odbc_append_datatype_nanotime_error",exception=1
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_oracle_append;")
+}catch(ex){print ex}
+t = table(nanotime(1..10) as id)
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::append(conn1, t, `TEST_ORACLE_APPEND, true)
+
+@testing:case="test_oracle_odbc_append_datatype_datehour_error",exception=1
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_oracle_append;")
+}catch(ex){print ex}
+t = table(datehour(1..10) as id)
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::append(conn1, t, `TEST_ORACLE_APPEND, true)
+
+@testing:case="test_oracle_odbc_append_t_colnames_same_as_oracle_datatype", exception=1
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_oracle_append;")
+}catch(ex){print ex}
+t = table(1..10 as char)
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::append(conn1, t, `TEST_ORACLE_APPEND, true)
+
+@testing:case="test_oracle_odbc_append_new_createTablelfNotExist_true_insertLgnore_true", exception=1
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_oracle_append;")
+}catch(ex){print ex}
+t = table(true NULL true as type_bool, char(1 NULL 1) as type_char,short(1 NULL 1) as type_short,int(1 NULL 1) as type_int,long(1 NULL 1) as type_long, date(1 NULL 1) as type_date, datetime(1 NULL 1) as type_datetime, timestamp(1 NULL 1) as type_timestamp, nanotimestamp(1 NULL 1) as type_nanotimestamp, float(1.1 NULL 1.1) as type_float, double(1.1 NULL 1.1) as type_double )
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::append(conn1, t, `TEST_ORACLE_APPEND, true, true)
+
+@testing:case="test_oracle_odbc_append_new_createTablelfNotExist_false_insertLgnore_true", exception=1
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_oracle_append;")
+}catch(ex){print ex}
+t = table(date(1 NULL 2) as type_date, datetime(1 NULL 2) as type_datetime, timestamp(1 NULL 2) as type_timestamp, nanotimestamp(1 NULL 2) as type_nanotimestamp)
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::execute(conn1,"create table TEST_ORACLE_APPEND(type_date date, type_datetime date, type_timestamp timestamp, type_nanotimestamp timestamp);")
+odbc::execute(conn1,"commit;")
+odbc::append(conn1, t, `TEST_ORACLE_APPEND, false, true)
+
+
+@testing:case="test_oracle_odbc_append_createTablelfNotExist_false_too_many_values", exception=1
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_oracle_append;")
+}catch(ex){print ex}
+t = table(true NULL false as type_bool, char(1 NULL 2) as type_char,short(1 NULL 2) as type_short,int(1 NULL 2) as type_int,long(1 NULL 2) as type_long, date(1 NULL 2) as type_date, datetime(1 NULL 2) as type_datetime, timestamp(1 NULL 2) as type_timestamp, nanotimestamp(1 NULL 2) as type_nanotimestamp, float(1.1 NULL 2.2) as type_float, double(1.1 NULL 2.2) as type_double )
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::execute(conn1,"create table TEST_ORACLE_APPEND(type_bool varchar2(10), type_char varchar2(10), type_short number, type_int number, type_long number, type_date timestamp, type_timestamp timestamp, type_float number, type_double number);")
+odbc::execute(conn1,"commit;")
+odbc::append(conn1, t, `TEST_ORACLE_APPEND, false)
+
+@testing:case="test_oracle_decode2_diff_type", exception=1
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_decode;")
+}catch(ex){print ex}
+data = table((1..10).string() as id)
+odbc::append(conn1, data, `test_decode, true)
+odbc::query(conn1, "select * from test_decode")
+sql_query = "select decode(test_decode.ID, 1, 1.111, 2, to_date('2001-05-07 13:23:44','yyyy-mm-dd hh24:mi:ss'), 'cc') as id1 from test_decode"
+odbc::query(conn1, sql_query)
+
+@testing:case="test_oracle_odbc_execute_create_table"
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_oracle_execute;")
+}catch(ex){print ex}
+
+odbc::execute(conn1,"create table TEST_ORACLE_EXECUTE(type_number number,type_varchar2 varchar2(20));")
+odbc::execute(conn1,"commit;")
+t=odbc::query(conn1,"select * from test_oracle_execute")
+assert 1, t.colNames() == ["TYPE_NUMBER", "TYPE_VARCHAR2"]
+assert 2, rows(t) == 0
+
+@testing:case="test_oracle_odbc_execute_drop_table"
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_oracle_execute;")
+}catch(ex){print ex}
+
+odbc::execute(conn1,"create table TEST_ORACLE_EXECUTE(type_number number,type_varchar2 varchar2(20));")
+odbc::execute(conn1,"commit;")
+t=odbc::query(conn1,"select count(*) from user_tables where table_name = 'TEST_ORACLE_EXECUTE';")
+assert 1, t.values()[0][0]==1
+odbc::execute(conn1,"drop table test_oracle_execute;")
+t=odbc::query(conn1,"select count(*) from user_tables where table_name = 'TEST_ORACLE_EXECUTE';")
+assert 2, t.values()[0][0]==0
+
+
+@testing:case="test_oracle_odbc_execute_insert"
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_oracle_execute;")
+}catch(ex){print ex}
+
+odbc::execute(conn1,"create table TEST_ORACLE_EXECUTE(type_number number,type_varchar2 varchar2(20));")
+odbc::execute(conn1,"commit;")
+odbc::execute(conn1,"insert into TEST_ORACLE_EXECUTE values(1, 'ab');")
+t=odbc::query(conn1,"select * from test_oracle_execute;")
+assert 1, t.colNames() == ["TYPE_NUMBER", "TYPE_VARCHAR2"]
+assert 2, t[`TYPE_NUMBER] == [1]
+assert 3, t[`TYPE_VARCHAR2] == ['ab']
+assert 4, schema(t).colDefs[`typeString] == `DOUBLE`STRING
+
+
+@testing:case="test_oracle_odbc_execute_insert_delete"
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_oracle_execute;")
+}catch(ex){print ex}
+
+odbc::execute(conn1,"create table TEST_ORACLE_EXECUTE(type_number number,type_varchar2 varchar2(20));")
+odbc::execute(conn1,"commit;")
+odbc::execute(conn1,"insert into TEST_ORACLE_EXECUTE values(1, 'ab');")
+odbc::execute(conn1,"insert into TEST_ORACLE_EXECUTE values(2, 'dd');")
+t=odbc::query(conn1,"select * from test_oracle_execute order by type_number;")
+assert 1, t.colNames() == ["TYPE_NUMBER", "TYPE_VARCHAR2"]
+assert 2, t[`TYPE_NUMBER] == [1, 2]
+assert 3, t[`TYPE_VARCHAR2] == ['ab', 'dd']
+assert 4, schema(t).colDefs[`typeString] == `DOUBLE`STRING
+odbc::execute(conn1,"delete from TEST_ORACLE_EXECUTE where TYPE_NUMBER=1;")
+t=odbc::query(conn1,"select * from test_oracle_execute;")
+assert 5, t.colNames() == ["TYPE_NUMBER", "TYPE_VARCHAR2"]
+assert 6, t[`TYPE_NUMBER] == [ 2]
+assert 7, t[`TYPE_VARCHAR2] == ['dd']
+assert 8, schema(t).colDefs[`typeString] == `DOUBLE`STRING
+
+
+
+@testing:case="test_oracle_odbc_execute_insert_update"
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_oracle_execute;")
+}catch(ex){print ex}
+
+odbc::execute(conn1,"create table TEST_ORACLE_EXECUTE(type_number number,type_varchar2 varchar2(20));")
+odbc::execute(conn1,"commit;")
+odbc::execute(conn1,"insert into TEST_ORACLE_EXECUTE values(1, 'ab');")
+odbc::execute(conn1,"insert into TEST_ORACLE_EXECUTE values(2, 'dd');")
+t=odbc::query(conn1,"select * from test_oracle_execute order by type_number;")
+assert 1, t.colNames() == ["TYPE_NUMBER", "TYPE_VARCHAR2"]
+assert 2, t[`TYPE_NUMBER] == [1, 2]
+assert 3, t[`TYPE_VARCHAR2] == ['ab', 'dd']
+assert 4, schema(t).colDefs[`typeString] == `DOUBLE`STRING
+odbc::execute(conn1,"update TEST_ORACLE_EXECUTE set TYPE_NUMBER=100 where TYPE_NUMBER=1;")
+t=odbc::query(conn1,"select * from test_oracle_execute order by type_number;")
+assert 5, t.colNames() == ["TYPE_NUMBER", "TYPE_VARCHAR2"]
+assert 6, t[`TYPE_NUMBER] == [2, 100]
+assert 7, t[`TYPE_VARCHAR2] == ['dd', 'ab']
+assert 8, schema(t).colDefs[`typeString] == `DOUBLE`STRING
+
+@testing:case="test_oracle_odbc_append_new_table_all_datatype"
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_oracle_append;")
+}catch(ex){print ex}
+t = table(1 2 3 as type_number, true NULL false as type_bool, char(1 NULL 2) as type_char,short(1 NULL 2) as type_short,int(1 NULL 2) as type_int,long(1 NULL 2) as type_long, date(1 NULL 2) as type_date, datetime(1 NULL 2) as type_datetime, timestamp(1 NULL 2) as type_timestamp, nanotimestamp(1 NULL 2) as type_nanotimestamp, float(1.1 NULL 2.2) as type_float, double(1.1 NULL 2.2) as type_double, string(1 NULL 2) as type_string)
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::append(conn1, t, `TEST_ORACLE_APPEND, true)
+ans = odbc::query(conn1, "select * from TEST_ORACLE_APPEND order by type_number")
+assert 1, schema(ans).colDefs[`typeString]==`DOUBLE`CHAR`CHAR`DOUBLE`DOUBLE`DOUBLE`NANOTIMESTAMP`NANOTIMESTAMP`NANOTIMESTAMP`NANOTIMESTAMP`DOUBLE`DOUBLE`STRING
+assert 2, ans[`TYPE_BOOL] == ["1", char(NULL), "0"]
+assert 3, ans[`TYPE_CHAR] == ["1", char(NULL), "2"]
+assert 4, ans[`TYPE_SHORT] == [1, double(NULL), 2]
+assert 5, ans[`TYPE_INT] == [1, double(NULL), 2]
+assert 6, ans[`TYPE_LONG] == [1, double(NULL), 2]
+assert 7, ans[`TYPE_DATE] == [1970.01.02T00:00:00.000000000, nanotimestamp(NULL), 1970.01.03T00:00:00.000000000]
+assert 8, ans[`TYPE_DATETIME] == [1970.01.01T00:00:01.000000000, nanotimestamp(NULL), 1970.01.01T00:00:02.000000000]
+assert 9, ans[`TYPE_TIMESTAMP] == [1970.01.01T00:00:00.001000000, nanotimestamp(NULL), 1970.01.01T00:00:00.002000000]
+assert 10, ans[`TYPE_NANOTIMESTAMP] == [1970.01.01T00:00:00.000000001, nanotimestamp(NULL), 1970.01.01T00:00:00.000000002]
+assert 11, eqObj(ans[`TYPE_FLOAT] , [1.1, double(NULL), 2.2], 6)
+assert 12, ans[`TYPE_DOUBLE] == [1.1, double(NULL), 2.2]
+assert 13, ans[`TYPE_STRING] == ["1", string(NULL), "2"]
+
+
+@testing:case="test_oracle_odbc_append_old_table_bool_char_short_int_long_float_double_string"
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_oracle_append;")
+}catch(ex){print ex}
+t = table(1 2 3 as type_number, true NULL false as type_bool, char(1 NULL 2) as type_char,short(1 NULL 2) as type_short,int(1 NULL 2) as type_int,long(1 NULL 2) as type_long, float(1.1 NULL 2.2) as type_float, double(1.1 NULL 2.2) as type_double, string(1 NULL 2) as type_string)
+odbc::execute(conn1,"create table TEST_ORACLE_APPEND(type_number number, type_bool char, type_char char, type_short number, type_int number, type_long number, type_float number, type_double number, type_string varchar2(10));")
+odbc::append(conn1, t, `TEST_ORACLE_APPEND, false)
+ans = odbc::query(conn1, "select * from TEST_ORACLE_APPEND order by type_number")
+assert 1, schema(ans).colDefs[`typeString]==`DOUBLE`CHAR`CHAR`DOUBLE`DOUBLE`DOUBLE`DOUBLE`DOUBLE`STRING
+assert 2, ans[`TYPE_BOOL] == ["1", char(NULL), "0"]
+assert 3, ans[`TYPE_CHAR] == ["1", char(NULL), "2"]
+assert 4, ans[`TYPE_SHORT] == [1, double(NULL), 2]
+assert 5, ans[`TYPE_INT] == [1, double(NULL), 2]
+assert 6, ans[`TYPE_LONG] == [1, double(NULL), 2]
+assert 7, eqObj(ans[`TYPE_FLOAT] , [1.1, double(NULL), 2.2], 6)
+assert 8, ans[`TYPE_DOUBLE] == [1.1, double(NULL), 2.2]
+assert 9, ans[`TYPE_STRING] == ["1", string(NULL), "2"]
+
+@testing:case="test_oracle_odbc_append_old_table_date_datetime_timestamp_nanotimestamp"
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_oracle_append;")
+}catch(ex){print ex}
+t = table(1 2 3 as type_number, date(1 NULL 2) as type_date, datetime(1 NULL 2) as type_datetime, timestamp(1 NULL 2) as type_timestamp, nanotimestamp(1 NULL 2) as type_nanotimestamp)
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::execute(conn1,"create table TEST_ORACLE_APPEND(type_number number, type_date date, type_datetime date, type_timestamp timestamp, type_nanotimestamp timestamp(9));")
+odbc::execute(conn1,"commit;")
+odbc::append(conn1, t, `TEST_ORACLE_APPEND, false)
+ans = odbc::query(conn1, "select * from TEST_ORACLE_APPEND order by type_number")
+assert 1, schema(ans).colDefs[`typeString]==`DOUBLE`NANOTIMESTAMP`NANOTIMESTAMP`NANOTIMESTAMP`NANOTIMESTAMP
+assert 2, ans[`TYPE_DATE] == [1970.01.02T00:00:00.000000000, nanotimestamp(NULL), 1970.01.03T00:00:00.000000000]
+assert 3, ans[`TYPE_DATETIME] == [1970.01.01T00:00:01.000000000, nanotimestamp(NULL), 1970.01.01T00:00:02.000000000]
+assert 4, ans[`TYPE_TIMESTAMP] == [1970.01.01T00:00:00.001000000, nanotimestamp(NULL), 1970.01.01T00:00:00.002000000]
+assert 5, ans[`TYPE_NANOTIMESTAMP] == [1970.01.01T00:00:00.000000001, nanotimestamp(NULL), 1970.01.01T00:00:00.000000002]
+
+
+@testing:case="test_oracle_odbc_chinese_contain_comma"
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::execute(conn1, "alter session set container=test;")
+try{
+	odbc::execute(conn1,"drop table test_chinease;")
+}catch(ex){print ex}
+odbc::execute(conn1, "create table test_chinease(type_char char(14), type_varchar2 varchar2(14),type_nchar nchar(14), type_nvarchar2 nvarchar2(14));");
+odbc::execute(conn1, "insert into test_chinease values('地,方聿', '地,方聿', '地,方聿', '地,方聿');")
+odbc::execute(conn1, "insert into test_chinease values('start智end', '智，聿方', 'start智end', '智');")
+odbc::execute(conn1, "insert into test_chinease values('start智end', '智，聿方', 'start智end', '智');")
+
+ans = odbc::query(conn1,"select * from test_chinease;")
+assert 1, ans[`TYPE_CHAR] == ["地,方聿    ", "start智end   ", "start智end   "]
+assert 2, ans[`TYPE_VARCHAR2] == ["地,方聿", "智，聿方", "智，聿方"]
+assert 3, ans[`TYPE_NCHAR] == ["地,方聿          ", "start智end     ", "start智end     "]
+assert 4, ans[`TYPE_NVARCHAR2] == ["地,方聿", "智", "智"]
+
+@testing:case="test_oracle_odbc_support_append_month"
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+t = table(2023.03M+1..10 as cMonth, 1..10 as x)
+try{
+	odbc::execute(conn1,"drop table test_month;")
+}catch(ex){print ex}
+odbc::append(conn1, t, "test_month", true)
+ans = odbc::query(conn1,"select * from test_month;")
+assert 1, eqObj(ans[`CMONTH], temporalAdd(2023.03.01T00:00:00.000000000, 1..10, "M"))
+assert 2,eqObj(ans[`X],  double(1..10), 3)
+
+@testing:case="test_oracle_odbc_support_append_month_append_createTableIfNotExist_false"
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+t = table(2023.03M+1..10 as cMonth, 1..10 as x)
+try{
+	odbc::execute(conn1,"drop table test_month;")
+}catch(ex){print ex}
+odbc::append(conn1, t, "test_month", true)
+ans = odbc::query(conn1,"select * from test_month;")
+assert 1, eqObj(ans[`CMONTH], temporalAdd(2023.03.01T00:00:00.000000000, 1..10, "M"))
+assert 2,eqObj(ans[`X],  double(1..10), 3)
+odbc::append(conn1, t, "test_month", false)
+ans = odbc::query(conn1,"select * from test_month;")
+assert 1, eqObj(ans[`CMONTH], take(temporalAdd(2023.03.01T00:00:00.000000000, 1..10, "M"), 20))
+assert 2,eqObj(ans[`X],  take(double(1..10),20), 3)
+
+@testing:case="test_oracle_decode1_chinese_string"
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_decode;")
+}catch(ex){print ex}
+data = table((1..10).string() as id)
+odbc::append(conn1, data, `test_decode, true)
+odbc::query(conn1, "select * from test_decode")
+ans1 = odbc::query(conn1, "select decode(test_decode.ID, 1, '浮动', 2, '股东', '其他') as id1 from test_decode")
+ex = table([`浮动, `股东, `其他, `其他, `其他, `其他, `其他, `其他, `其他, `其他] as col1)
+assert 1,  eqObj(ans1.values(), ex.values())
+
+@testing:case="test_oracle_decode2_string"
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_decode;")
+}catch(ex){print ex}
+data = table((1..10).string() as id)
+odbc::append(conn1, data, `test_decode, true)
+odbc::query(conn1, "select * from test_decode")
+ans1 = odbc::query(conn1, "select decode(test_decode.ID, 1, 'aa', 2, 'bb', 'cc') as id1 from test_decode")
+ex = table([`aa, `bb, `cc, `cc, `cc, `cc, `cc, `cc, `cc, `cc] as col1)
+assert 1,  eqObj(ans1.values(), ex.values())
+
+@testing:case="test_oracle_decode2_string_more_than301"
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_decode;")
+}catch(ex){print ex}
+data = table((1..10).string() as id)
+odbc::append(conn1, data, `test_decode, true)
+odbc::query(conn1, "select * from test_decode")
+sql_query = "select decode(test_decode.ID, 1, '"+repeat("哈", 1000)+"', 2, 'bb', 'cc') as id1 from test_decode"
+ans1 = odbc::query(conn1, sql_query)
+ex = table([repeat("哈", 1000), `bb, `cc, `cc, `cc, `cc, `cc, `cc, `cc, `cc] as col1)
+assert 1,  eqObj(ans1.values(), ex.values())
+
+@testing:case="test_oracle_decode2_number"
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_decode;")
+}catch(ex){print ex}
+data = table((1..10).string() as id)
+odbc::append(conn1, data, `test_decode, true)
+odbc::query(conn1, "select * from test_decode")
+sql_query = "select decode(test_decode.ID, 1, 1.111, 2, 2.222, 3.333) as id1 from test_decode"
+ans1 = odbc::query(conn1, sql_query)
+ex = table(1.111 2.222 3.333 3.333 3.333 3.333 3.333 3.333 3.333 3.333 as col1)
+assert 1,  eqObj(ans1.values(), ex.values(),4)
+
+@testing:case="test_oracle_decode2_time"
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_decode;")
+}catch(ex){print ex}
+data = table((1..10).string() as id)
+odbc::append(conn1, data, `test_decode, true)
+odbc::query(conn1, "select * from test_decode")
+sql_query = "select decode(test_decode.ID, 1, to_date('2000-05-07 13:23:44','yyyy-mm-dd hh24:mi:ss'), 2,to_date('2001-05-07 13:23:44','yyyy-mm-dd hh24:mi:ss'),to_date('2002-05-07 13:23:44','yyyy-mm-dd hh24:mi:ss')) as id1 from test_decode"
+ans1 = odbc::query(conn1, sql_query)
+ex = table(2000.05.07T13:23:44.000000000 2001.05.07T13:23:44.000000000 join take(2002.05.07T13:23:44.000000000, 8) as col1)
+assert 1,  eqObj(ans1.values(), ex.values(),4)
+
+@testing:case="test_oracle_append_big_data"
+conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+try{
+	odbc::execute(conn1,"drop table test_append;")
+}catch(ex){print ex}
+col0 = take(timestamp(1000000000001 NULL 1000000000002 NULL 1000000000003), 6800000)
+col1 = symbol(take(["symbol1", NULL, "symbol2"] , 6800000))
+col2 = symbol(take("symbol2", 6800000))
+col3 = take(rand(1.0, 100) join NULL, 6800000)
+data = table(col0 as c0, col1 as c1, col2 as c2, col3 as c3)
+odbc::append(conn1, data, `test_append, true)
+ans = odbc::query(conn1, "select * from test_append")
+assert 1, schema(ans).colDefs[`typeString]==`NANOTIMESTAMP`STRING`STRING`DOUBLE
+assert 2, eqObj(ans[`c0], nanotimestamp(col0))
+assert 3, eqObj(ans[`c1], col1)
+assert 4, eqObj(ans[`c2], col2)
+assert 5, eqObj(ans[`c3], col3)
+
+@testing:case="test_oracle_connect_multiThread"
+def test_connect(){
+	for(i in 1..100){
+		conn1 = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+	}
+}
+
+arr = array(STRING, 0, 10)
+for(i in 1..10){
+	arr.append!(submitJob("job"+string(i), "", test_connect))
+}
+
+for (jobName in arr){
+	getJobReturn(jobName, true)
+}
+
+re = exec errorMsg from getRecentJobs() where jobId in arr
+assert 1, re == take("", 10)
+
+@testing:case="test_oracle_close_multiThread"
+def testClose(){
+	for(i in 1..100){
+		conn = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+        odbc::close(conn)
+	}
+}
+
+arr = array(STRING, 0, 10)
+for(i in 1..10){
+	arr.append!(submitJob("job"+string(i), "", testClose))
+}
+
+for (jobName in arr){
+	getJobReturn(jobName, true)
+}
+
+re = exec errorMsg from getRecentJobs() where jobId in arr
+assert 1, re == take("", 10)
+
+@testing:case="test_oracle_execute_multiThread"
+conn = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::execute(conn, "alter session set container=test;")
+try{
+	odbc::execute(conn,"drop table test_chinease;")
+}catch(ex){print ex}
+odbc::execute(conn, "create table test_chinease(type_char char(14), type_varchar2 varchar2(14),type_nchar nchar(14), type_nvarchar2 nvarchar2(14));");
+
+def test_execute(conn){
+	for(i in 1..100){
+		odbc::execute(conn, "insert into test_chinease values('地,方聿', '地,方聿', '地,方聿', '地,方聿');")
+        odbc::execute(conn, "insert into test_chinease values('start智end', '智，聿方', 'start智end', '智');")
+        odbc::execute(conn, "insert into test_chinease values('start智end', '智，聿方', 'start智end', '智');")
+	}
+}
+
+arr = array(STRING, 0, 10)
+for(i in 1..10){
+	arr.append!(submitJob("job"+string(i), "", test_execute, conn))
+}
+
+for (jobName in arr){
+	getJobReturn(jobName, true)
+}
+
+re = exec errorMsg from getRecentJobs() where jobId in arr
+assert 1, re == take("", 10)
+ans = odbc::query(conn,"select count(*) from test_chinease;")
+assert 2, ans["COUNT(*)"][0] == 3000
+odbc::close(conn)
+
+@testing:case="test_oracle_query_multiThread"
+conn = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+odbc::execute(conn, "alter session set container=test;")
+try{
+	odbc::execute(conn,"drop table test_chinease;")
+}catch(ex){print ex}
+odbc::execute(conn, "create table test_chinease(type_char char(14), type_varchar2 varchar2(14),type_nchar nchar(14), type_nvarchar2 nvarchar2(14));");
+for(i in 1..1000){
+    odbc::execute(conn, "insert into test_chinease values('地,方聿', '地,方聿', '地,方聿', '地,方聿');")
+    odbc::execute(conn, "insert into test_chinease values('start智end', '智，聿方', 'start智end', '智');")
+    odbc::execute(conn, "insert into test_chinease values('start智end', '智，聿方', 'start智end', '智');")
+}
+
+def test_query(conn){
+	for(i in 1..1000){
+		ans = odbc::query(conn,"select count(*) from test_chinease;")
+	}
+    return ans
+}
+
+arr = array(STRING, 0, 10)
+for(i in 1..10){
+	arr.append!(submitJob("job"+string(i), "", test_query, conn))
+}
+
+for (jobName in arr){
+	getJobReturn(jobName, true)
+}
+
+re = exec errorMsg from getRecentJobs() where jobId in arr
+assert 1, re == take("", 10)
+ans = getJobReturn(jobName, true)
+assert 2, ans["COUNT(*)"][0] == 3000
+odbc::close(conn)
+
+@testing:case="test_oracle_append_multiThread"
+conn = odbc::connect("Dsn=orac;Pwd=oracle", `oracle)
+t = table(2023.03M+1..10 as cMonth, 1..10 as x)
+try{
+	odbc::execute(conn,"drop table test_month;")
+}catch(ex){print ex}
+odbc::append(conn, t, "test_month", true)
+ans = odbc::query(conn,"select * from test_month;")
+assert 1, eqObj(ans[`CMONTH], temporalAdd(2023.03.01T00:00:00.000000000, 1..10, "M"))
+assert 2,eqObj(ans[`X],  double(1..10), 3)
+def test_append(conn, t){
+    for(i in 1..100){
+        odbc::append(conn, t, "test_month", false)
+        ans = odbc::query(conn,"select count(*) from test_month;")
+    }
+    return ans 
+}
+arr = array(STRING, 0, 10)
+for(i in 1..10){
+	arr.append!(submitJob("job"+string(i), "", test_append, conn, t))
+}
+
+for (jobName in arr){
+	getJobReturn(jobName, true)
+}
+
+re = exec errorMsg from getRecentJobs() where jobId in arr
+assert 1, re == take("", 10)
+ans = getJobReturn(jobName, true)
+assert 2, ans["COUNT(*)"][0] == 10010
+odbc::close(conn)

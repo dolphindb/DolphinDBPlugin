@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+// 一个普通repeat，一个nested repeat
+message test_repeat_3{
+    double double = 1;
+    repeated int32 int= 2;
+    message repeatMsg {
+        repeated float float = 1;
+    }
+    repeated repeatMsg r1 = 3;
+}

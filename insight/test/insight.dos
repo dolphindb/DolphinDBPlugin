@@ -1,0 +1,69 @@
+pluginFile = "/home/ruibinhuang/projects/DolphinDBPlugin/insight/build/PluginInsight.txt";
+
+loadPlugin(pluginFile);
+go
+stockSchema = insight::getSchema(`StockTick);
+indexSchema = insight::getSchema(`IndexType);
+futuresSchema = insight::getSchema(`FuturesType);
+transactionSchema = insight::getSchema(`StockTypeTransaction);
+orderSchema = insight::getSchema(`StockTypeOrder);
+
+share streamTable(1000:0, stockSchema[`name], stockSchema[`type]) as stockTable;
+share streamTable(10000:0, indexSchema[`name], indexSchema[`type]) as indexTable;
+share streamTable(100:0, futuresSchema[`name], futuresSchema[`type]) as futuresTable;
+share streamTable(100:0, transactionSchema[`name], transactionSchema[`type]) as transactionTable;
+share streamTable(100:0, orderSchema[`name], orderSchema[`type]) as orderTable;
+
+stockTable = streamTable(100:0, stockSchema[`name], stockSchema[`type])
+indexTable = streamTable(100:0, indexSchema[`name], indexSchema[`type])
+futuresTable = streamTable(100:0, futuresSchema[`name], futuresSchema[`type])  
+transactionTable = streamTable(100:0, transactionSchema[`name], transactionSchema[`type])  
+orderTable = streamTable(100:0, orderSchema[`name], orderSchema[`type])  
+enableTableShareAndPersistence(table=stockTable, tableName=`stockTable1, cacheSize=10000)
+enableTableShareAndPersistence(table=indexTable, tableName=`indexTable1, cacheSize=10000)
+enableTableShareAndPersistence(table=futuresTable, tableName=`futuresTable1, cacheSize=10000)
+enableTableShareAndPersistence(table=transactionTable, tableName=`transactionTable1, cacheSize=10000)
+enableTableShareAndPersistence(table=orderTable, tableName=`orderTable1, cacheSize=10000)
+
+handles = dict([`StockTick], [stockTable]);
+handles = dict([`IndexType], [indexTable]);
+handles = dict([`FuturesType], [futuresTable]);
+handles = dict([`StockTypeTransaction], [transactionTable]);
+handles = dict([`StockTypeOrder], [orderTable]);
+
+handles = dict([`StockType, `IndexType, `FuturesType, `StockTypeTransaction, `StockTypeOrder], [stockTable, indexTable, futuresTable, transactionTable, orderTable]);
+
+ip = "221.6.6.131";
+port = 9242;
+user = "MDCBETA2000260";
+password = "W._5+vUJFxMS";
+
+tcpClient = insight::connect(handles, ip, port, user, password, 10);
+
+insight::subscribe(tcpClient, [`MD_TICK] , `XSHE, `StockType);
+
+insight::subscribe(tcpClient, [`MD_ORDER], `XSHE, `StockType);
+
+insight::subscribe(tcpClient, `MD_TICK`MD_ORDER`MD_TRANSACTION, `XSHE, `StockType);
+
+insight::subscribe(tcpClient, `MD_TICK `MD_ORDER `MD_TRANSACTION, `XSHG, `IndexType);
+
+insight::subscribe(tcpClient, `MD_TICK `MD_ORDER `MD_TRANSACTION, `CSI, `IndexType);
+
+insight::subscribe(tcpClient, `MD_TICK `MD_ORDER `MD_TRANSACTION, `CCFX, `FuturesType);
+
+insight::getStatus(tcpClient);
+
+exec count(*) from stockTable
+exec count(*) from indexTable
+exec count(*) from futuresTable
+exec count(*) from orderTable
+exec count(*) from transactionTable
+
+insight::unsubscribe(tcpClient);
+
+insight::close(tcpClient);
+
+getSessionMemoryStat();
+closeSessions(getSessionMemoryStat().sessionId[0]);
+

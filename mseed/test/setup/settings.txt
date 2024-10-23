@@ -1,0 +1,3 @@
+// Set the path of DATA_DIR and WORK_DIR
+// DATA_DIR = "$pwd/DolphinDBPlugin/zip/test/setup/data"
+// WORK_DIR = "$pwd/DolphinDBPlugin/zip/test/setup/work_dir"

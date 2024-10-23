@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+// 有repeated字段，repeated 结构而不是field
+message test_repeat_2{
+    double double = 1;
+    message repeatMsg {
+        double double = 1;
+        float float = 2;
+        int32 int32 = 3;
+        int64 int64 = 4;
+        bool bool = 5;
+        string string = 6;
+    }
+    repeated repeatMsg r1 = 2;
+}

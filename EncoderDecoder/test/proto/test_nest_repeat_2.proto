@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+// 嵌套的nested repeated，但是更多
+message test_nest_repeat_2 {
+    repeated repeatMsg r1 = 1;
+    message repeatMsg {
+        double double = 1;
+        repeated nestedMsg1 l1 = 2;
+        message nestedMsg1 {
+            float float = 1;
+            repeated nestedMsg2 l2 = 2;
+            message nestedMsg2 {
+                int32 int32 = 1;
+                repeated nestedMsg3 l3 = 2;
+                message nestedMsg3 {
+                    int64 int64 = 1;
+                    repeated nestedMsg4 l4 = 2;
+                    message nestedMsg4 {
+                        bool bool = 1;
+                        repeated nestedMsg5 l5 = 2;
+                        message nestedMsg5 {
+                            string string = 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

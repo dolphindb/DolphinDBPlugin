@@ -1,0 +1,111 @@
+login("admin", "123456")
+pluginTxtPath = "/mnt/DolphinDBPlugin/redis/build/PluginRedis.txt"
+loadPlugin(pluginTxtPath)
+go
+conn = redis::connect("127.0.0.1",6379)
+
+assert redis::run(conn, "SET", "the answer to the ultimate question", 42) == "OK"
+assert redis::run(conn, "GET", "the answer to the ultimate question") == "42"
+
+redis::run(conn, "del", "abc")
+redis::run(conn, "SET", "abc", "vabc")
+assert redis::run(conn, "GET", "abc") == "vabc"
+
+redis::run(conn, "del", "counter1")
+assert redis::run(conn, "INCR", "counter1") == 1
+assert redis::run(conn, "GET", "counter1")  == "1"
+assert redis::run(conn, "INCR", "counter1")  == 2
+assert redis::run(conn, "GET", "counter1")  == "2"
+
+
+redis::run(conn, "del", "mlist1")
+assert redis::run(conn, "lpush", "mlist1", "1", "2") == 2
+assert redis::run(conn, "lpush", "mlist1", "3", "4") == 4
+assert eqObj(redis::run(conn, "lrange", "mlist1", "0", "-1") , ("4","3","2","1"))
+
+
+
+redis::run(conn, "del", "mhash1")
+assert eqObj( redis::run(conn, "hmget", "mhash1","ab","c") , (NULL,NULL))
+redis::run(conn, "hset", "mhash1","ab", "v1") 
+assert redis::run(conn, "hget", "mhash1","ab") == "v1"
+assert eqObj( redis::run(conn, "hmget", "mhash1","ab","c") , ("v1",NULL))
+
+//test one conn per job(thread)
+def runredisInOwnConn(total){
+    conn = redis::connect("127.0.0.1",6379)
+    for (i in 1..total){
+        k = concat(char(rand(256,rand(100,1)[0])))
+        v = concat(char(rand(256,rand(100,1)[0])))
+
+        redis::run(conn, "SET", k, v)
+        assert( redis::run(conn, "GET", k) == v)
+        assert( redis::run(conn, "del", k) == 1)
+    }
+}
+for (i in 1..100){
+    submitJob("runredisInOwnConn","runredisInOwnConn",runredisInOwnConn, 100)
+}
+getRecentJobs()
+
+// test one conn for all jobs(threads)
+def runredisSingleConn(conn){
+    for (i in 1..100){
+        k = concat(char(rand(256,rand(100,1)[0])))
+        v = concat(char(rand(256,rand(100,1)[0])))
+
+        redis::run(conn, "SET", k, v)
+        assert( redis::run(conn, "GET", k) == v)
+        assert( redis::run(conn, "del", k) == 1)
+    }
+}
+conn = redis::connect("127.0.0.1",6379)
+for (i in 1..100){
+    submitJob("testsingleconnredisjobs","testsingleconnredisjobs",runredisSingleConn,conn)
+}
+getRecentJobs()
+
+assert redis::release(conn) == true
+assert long(conn) == 0
+
+def runredisWrongConn(conn){
+    do {
+        k = concat(char(rand(256,rand(100,1)[0])))
+        v = concat(char(rand(256,rand(100,1)[0])))
+
+        redis::run(conn, "SET", k, v)
+        res = redis::run(conn, "GET", k)
+        res = redis::run(conn, "DEL", k)
+
+    } while(true)
+}
+submitJob("runredisWrongConn","runredisWrongConn",runredisWrongConn,conn)
+def testUseConnAfterreleaseAllSingle(){
+    conn = redis::connect("127.0.0.1",6379)
+    redis::releaseAll()
+    try{
+        redis::run(conn, "del", "abc")
+    } catch (ex){
+        print(ex)
+    }
+}
+testUseConnAfterreleaseAllSingle()
+def testReleaseAfterreleaseAllSingle(){
+    conn = redis::connect("127.0.0.1",6379)
+    redis::releaseAll()
+    try{
+        redis::release(conn)
+    } catch (ex){
+        print(ex)
+    }
+}
+testReleaseAfterreleaseAllSingle()
+def testUseAfterreleaseAllMulti(){
+    for (i in 1..100){
+        submitJob("runredisInOwnConnAndreleaseAll","runredisInOwnConnAndreleaseAll",runredisInOwnConn, 10000)
+    }
+    sleep(1)
+    redis::releaseAll()
+}
+testUseAfterreleaseAllMulti()
+select errorMsg from  getRecentJobs() where jobDesc = "runredisInOwnConnAndreleaseAll"

@@ -1,0 +1,849 @@
+#include "setup/settings.txt"
+login("admin","123456")
+try{
+loadPlugin(getHomeDir()+"/plugins/parquet/PluginParquet.txt")
+}catch(ex){print ex}
+
+
+@testing:case="test_parquet_extractParquetSchema_file_not_exist", exception=1
+parquet::extractParquetSchema(DATA_DIR+"/not_exist")
+
+@testing:case="test_parquet_extractParquetSchema_file_no_arg", exception=1
+re = parquet::extractParquetSchema()
+
+@testing:case="test_parquet_extractParquetSchema_file_string_null", exception=1
+parquet::extractParquetSchema(string())
+
+@testing:case="test_parquet_extractParquetSchema_file_over_arg", syntaxError=1
+re = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet", 1)
+
+@testing:case="test_parquet_extractParquetSchema_file_vector", exception=1
+re = parquet::extractParquetSchema(["a", "b"])
+
+@testing:case="test_parquet_extractParquetSchema_file_pair", exception=1
+re = parquet::extractParquetSchema(1:2)
+
+@testing:case="test_parquet_extractParquetSchema_file_string_null", exception=1
+re = parquet::extractParquetSchema(string(NULL))
+
+@testing:case="test_parquet_extractParquetSchema_file_matrix", exception=1
+re = parquet::extractParquetSchema(1..6$2:3)
+
+@testing:case="test_parquet_extractParquetSchema_file_dict", exception=1
+re = parquet::extractParquetSchema(dict([`1],  3))
+
+@testing:case="test_parquet_extractParquetSchema_file_set", exception=1
+re = parquet::extractParquetSchema(set(2 3 5))
+
+@testing:case="test_parquet_extractParquetSchema_file_table", exception=1
+re = parquet::extractParquetSchema(table(`1 `2 `3 as x))
+
+@testing:case="test_parquet_loadParquet_file_vector", exception=1
+re = parquet::loadParquet([DATA_DIR+"/spark.parquet", DATA_DIR+"/spark.parquet"])
+
+@testing:case="test_parquet_loadParquet_file_pair", exception=1
+re = parquet::loadParquet(1:2)
+
+@testing:case="test_parquet_loadParquet_no_arg", exception=1
+parquet::loadParquet()
+
+@testing:case="test_parquet_loadParquet_file_not_exist", exception=1
+parquet::loadParquet(DATA_DIR+"/not_exist")
+
+@testing:case="test_parquet_loadParquet_schema_not_table",exception=1
+parquet::loadParquet(DATA_DIR+"/spark.parquet", 1)
+
+@testing:case="test_parquet_loadParquet_column_scalar",exception=1
+parquet::loadParquet(DATA_DIR+"/spark.parquet", , 1)
+
+@testing:case="test_parquet_loadParquet_column_string_vector",exception=1
+parquet::loadParquet(DATA_DIR+"/spark.parquet", , `open`close)
+
+@testing:case="test_parquet_loadParquet_column_include_negative",exception=1
+parquet::loadParquet(DATA_DIR+"/spark.parquet", , [-1, -2])
+
+@testing:case="test_parquet_loadParquet_column_double",exception=1
+parquet::loadParquet(DATA_DIR+"/spark.parquet", , [1.5, 2.5])
+
+@testing:case="test_parquet_loadParquet_rowGroupStart_negative",exception=1
+parquet::loadParquet(DATA_DIR+"/spark.parquet", , , -1)
+
+@testing:case="test_parquet_loadParquetEx_no_arg",exception=1
+db=database("", VALUE, 2019.01.01..2019.12.31)
+parquet::loadParquetEx()
+
+@testing:case="test_parquet_loadParquetEx_dbHandle_null",exception=1
+db=database("", VALUE, 2019.01.01..2019.12.31)
+pt=parquet::loadParquetEx(NULL, "pt", "成交时间", DATA_DIR+"/spark.parquet")
+
+@testing:case="test_parquet_loadParquetEx_dbHandle_int",exception=1
+db=database("", VALUE, 2019.01.01..2019.12.31)
+pt=parquet::loadParquetEx(1, "pt", "成交时间", DATA_DIR+"/spark.parquet")
+
+@testing:case="test_parquet_loadParquetEx_dbHandle_vector",exception=1
+db=database("", VALUE, 2019.01.01..2019.12.31)
+pt=parquet::loadParquetEx([1,2], "pt", "成交时间", DATA_DIR+"/spark.parquet")
+
+@testing:case="test_parquet_loadParquetEx_tableName_null",exception=1
+db=database("", VALUE, 2019.01.01..2019.12.31)
+pt=parquet::loadParquetEx(db,  , "成交时间", DATA_DIR+"/spark.parquet")
+
+@testing:case="test_parquet_loadParquetEx_tableName_vector",exception=1
+db=database("", VALUE, 2019.01.01..2019.12.31)
+pt=parquet::loadParquetEx(db,  [`a, `b], "成交时间", DATA_DIR+"/spark.parquet")
+
+@testing:case="test_parquet_loadParquetEx_partitionColumns_NULL",exception=1
+db=database("", VALUE, 2019.01.01..2019.12.31)
+pt=parquet::loadParquetEx(db, `pt, string(), DATA_DIR+"/spark.parquet")
+
+@testing:case="test_parquet_loadParquetEx_partitionColumns_not_exists",exception=1
+db=database("", VALUE, 2019.01.01..2019.12.31)
+pt=parquet::loadParquetEx(db, `pt,  `aaa, DATA_DIR+"/spark.parquet")
+
+@testing:case="test_parquet_loadParquetEx_partitionColumns_vector_simple_partition",exception=1
+db=database("", VALUE, 2019.01.01..2019.12.31)
+pt=parquet::loadParquetEx(db, `pt, ["成交时间", `open], DATA_DIR+"/spark.parquet")
+
+
+@testing:case="test_parquet_loadParquetEx_fileName_NULL",exception=1
+db=database("", VALUE, 2019.01.01..2019.12.31)
+pt=parquet::loadParquetEx(db, `pt, "成交时间", string(NULL))
+
+@testing:case="test_parquet_loadParquetEx_fileName_int",exception=1
+db=database("", VALUE, 2019.01.01..2019.12.31)
+pt=parquet::loadParquetEx(db, `pt, "成交时间", 1)
+
+@testing:case="test_parquet_loadParquetEx_fileName_vector",exception=1
+db=database("", VALUE, 2019.01.01..2019.12.31)
+pt=parquet::loadParquetEx(db, `pt, "成交时间", [`a, `b])
+
+@testing:case="test_parquet_loadParquetEx_schema_empty",exception=1
+scm = table(100:0, `name`type, [STRING, STRING])
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", scm)
+
+@testing:case="test_parquet_loadParquetEx_schema_not_match",exception=1
+scm = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+insert into scm values(`aaa, DOUBLE)
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", scm)
+
+@testing:case="test_parquet_loadParquetEx_schema_int", exception=1
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", 1)
+
+@testing:case="test_parquet_loadParquetEx_schema_vector", exception=1
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", [1,2])
+
+@testing:case="test_parquet_loadParquetEx_column_string", exception=1
+scm = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", ,`a)
+
+@testing:case="test_parquet_loadParquetEx_column_int", exception=1
+scm = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", ,6)
+
+
+@testing:case="test_parquet_loadParquetEx_column_with_schema", exception=1
+scm = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet",scm ,[5,6])
+
+@testing:case="test_parquet_loadParquetEx_column_with_schema_ex_2", exception=1
+scm = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+scm2 = scm[3:6]
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet",scm2 ,[3,4,5])
+
+
+@testing:case="test_parquet_loadParquetEx_column_string_vector", exception=1
+scm = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", ,[`a,`b,`c])
+
+@testing:case="test_parquet_loadParquetEx_column_duplicate_column", exception=1
+scm = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", ,[6,6,6])
+
+@testing:case="test_parquet_loadParquetEx_column_not_contain_partitionColumns", exception=1
+scm = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", ,[5,2,3])
+
+@testing:case="test_parquet_loadParquetEx_column_not_exist", exception=1
+scm = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", ,[5,2,8])
+
+@testing:case="test_parquet_loadParquetEx_rowGroupStar_string", exception=1
+scm = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", , , `a)
+
+@testing:case="test_parquet_loadParquetEx_rowGroupStar_vector", exception=1
+scm = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", , , [0,0])
+
+@testing:case="test_parquet_loadParquetEx_rowGroupStar_negative_num", exception=1
+scm = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", , , -1)
+
+@testing:case="test_parquet_loadParquetEx_rowGroupStar_float", exception=1
+scm = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", , , 0.1)
+
+@testing:case="test_parquet_loadParquetEx_rowGroupStar_out_of_range", exception=1
+scm = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", , , 1)
+
+@testing:case="test_parquet_loadParquetEx_rowGroupNum_string", exception=1
+scm = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", , , 0,`a)
+
+@testing:case="test_parquet_loadParquetEx_rowGroupNum_vector", exception=1
+scm = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", , , 0,[1,1])
+
+@testing:case="test_parquet_loadParquetEx_rowGroupNum_negative_num", exception=1
+scm = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", , , ,-1)
+
+@testing:case="test_parquet_loadParquetEx_rowGroupNum_0", exception=1
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", , , ,0)
+
+@testing:case="test_parquet_loadParquetEx_transfrom_int", exception=1
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", , , , , 1)
+
+@testing:case="test_parquet_loadParquetEx_transfrom_vector", exception=1
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", , , , , [1,2])
+
+
+@testing:case="test_parquet_loadParquetEx_transfrom_error_func", exception=1
+def f1(mutable t){
+	return t.replaceColumn!(`amount, t[`amount]/`0)
+}
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", , , , , f1)
+
+@testing:case="test_parquet_loadParquetEx_transfrom_sum"
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", , , , , sum)
+ans = select * from pt
+assert 1, ans.size()==0
+
+@testing:case="test_parquet_parquetDS_empty_arg", exception=1
+ds = parquet::parquetDS()
+
+@testing:case="test_parquet_parquetDS_over_arg", syntaxError=1
+scm = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+ds = parquet::parquetDS(DATA_DIR+"/spark.parquet", scm,1)
+
+@testing:case="test_parquet_parquetDS_filename_int", exception=1
+ds = parquet::parquetDS(1)
+
+@testing:case="test_parquet_parquetDS_filename_vector", exception=1
+ds=parquet::parquetDS([DATA_DIR+"/spark.parquet", DATA_DIR+"/spark.parquet"])
+
+@testing:case="test_parquet_parquetDS_schema_int", exception=1
+ds=parquet::parquetDS(DATA_DIR+"/spark.parquet", 1)
+
+@testing:case="test_parquet_parquetDS_schema_vector", exception=1
+ds=parquet::parquetDS(DATA_DIR+"/spark.parquet", [1,2])
+
+
+@testing:case="test_parquet_parquetDS_error_schema", exception=1 
+scm = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+update scm set type =`KK where type=`LONG
+ds=parquet::parquetDS(DATA_DIR+"/spark.parquet", scm)
+select * from ds[0]
+
+@testing:case="test_parquet_saveParquet_args_empty", exception=1 
+parquet::saveParquet()
+
+@testing:case="test_parquet_saveParquet_args_over", syntaxError=1 
+parquet::saveParquet(table(1..10 as x), WORK_DIR+"/aa.parquet", 1)
+
+
+@testing:case="test_parquet_saveParquet_table_int", exception=1 
+parquet::saveParquet(1, WORK_DIR+"/aa.parquet")
+
+@testing:case="test_parquet_saveParquet_table_vector", exception=1 
+parquet::saveParquet([1,2], WORK_DIR+"/aa.parquet")
+
+@testing:case="test_parquet_saveParquet_filename_int", exception=1 
+parquet::saveParquet(table(1..10 as x), 1)
+
+@testing:case="test_parquet_saveParquet_filename_vector", exception=1 
+parquet::saveParquet(table(1..10 as x), [WORK_DIR+"/aa.parquet", WORK_DIR+"/aa.parquet"])
+
+
+@testing:case="test_parquet_extractParquetSchema"
+re = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+assert 1, re[`name]==`open`high`low`close`amount`volume`成交时间
+assert 2, re[`type]==`DOUBLE`DOUBLE`DOUBLE`DOUBLE`DOUBLE`LONG`TIMESTAMP
+
+re=parquet::extractParquetSchema(DATA_DIR+"/machine.parquet/machine.parquet/part-00199-35e8f243-c1a8-4e65-9420-4628f812bd54-c000.snappy.parquet")
+assert 3, re[`name]==["candle_end_time", "code", "open", "high", "low", "close", "volume", "total_volume_2T", "total_volume_1D", "stock_volume_1D"]
+assert 4, re[`type]==`NANOTIMESTAMP`STRING`DOUBLE`DOUBLE`DOUBLE`DOUBLE`LONG`LONG`LONG`LONG
+
+
+@testing:case="test_parquet_loadParquetEx"
+db=database("", VALUE, 2019.01.01..2019.12.31)
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet")
+assert 1, (exec count(*) from pt)==687480
+
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet")
+assert 2, (exec count(*) from pt)==687480
+
+//schema
+scm = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")
+update scm set type="DOUBLE" where name=`volume
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", scm)
+assert 3, (exec count(*) from pt)==687480
+
+//column
+db=database("", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", , [6, 5, 4, 3])
+assert 4, (exec count(*) from pt)==687480
+assert 5, schema(pt).colDefs[`name]==["成交时间", "volume", "amount", "close"]
+
+//transform
+db=database("", RANGE, date(2019.01M..2020.01M))
+t=table(1:0, `open`high`low`close`amount`volume`成交时间, [DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, LONG, TIMESTAMP])
+pt = db.createPartitionedTable(t, "pt", "成交时间")
+
+def f1(mutable t){
+	return t.replaceColumn!(`amount, t[`amount]/10)
+}
+
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet", , , , , f1)
+re=select * from parquet::loadParquet(DATA_DIR+"/spark.parquet") order by 成交时间
+assert 6, eqObj((exec amount from pt), (exec amount from re)/10, 6)
+
+//load into exist table
+db=database("", RANGE, date(2019.01M..2020.01M))
+t=table(1:0, `open`high`low`close`amount`volume`成交时间, [DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, LONG, TIMESTAMP])
+pt = db.createPartitionedTable(t, "pt", "成交时间")
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet")
+assert 7, (exec count(*) from pt)==687480
+
+//dfs
+login("admin", "123456")
+try{
+	dropDatabase("dfs://test_parquet")
+}catch(ex){print ex}
+db=database("dfs://test_parquet", VALUE, 2019.01.01..2019.12.31)
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet")
+assert 8, (exec count(*) from pt)==687480
+
+try{
+	dropDatabase("dfs://test_parquet")
+}catch(ex){print ex}
+db=database("dfs://test_parquet", RANGE, date(2019.01M..2020.01M))
+pt=parquet::loadParquetEx(db, "pt", "成交时间", DATA_DIR+"/spark.parquet")
+assert 9, (exec count(*) from pt)==687480
+
+@testing:case="test_parquet_loadParquetEx_one_group_not_support_SEQ", exception=1
+db=database("", SEQ, 4)
+pt=parquet::loadParquetEx(db, "pt", , DATA_DIR+"/spark.parquet")
+
+@testing:case="test_parquet_parquetDS"
+ds = parquet::parquetDS(DATA_DIR+"/spark.parquet")
+re = mr(ds, x->x)[0][0]
+assert 1, re.size()==687480
+
+@testing:case="test_parquet_more_datasets"
+scm = parquet::extractParquetSchema(DATA_DIR+"/userdata1.parquet")
+re = parquet::loadParquet(DATA_DIR+"/userdata1.parquet")
+assert 1, re.size()==1000
+nscm = table(`col0 as name, `INT as type)
+nscm.append!(scm)
+update nscm set type="DATETIME" where name="registration_dttm"
+expected = loadText(DATA_DIR+"/userdata1.csv", , nscm)
+expected.drop!(`col0)
+expected.replaceColumn!("registration_dttm", nanotimestamp(expected["registration_dttm"]))
+assert 2, each(eqObj, re.values(), expected.values())
+
+login("admin", "123456")
+try{
+	dropDatabase("dfs://test_parquet")
+}catch(ex){print ex}
+db=database("dfs://test_parquet", VALUE, [2016.02.03])
+pt = parquet::loadParquetEx(db, "pt", "registration_dttm", DATA_DIR+"/userdata1.parquet")
+assert 2, (exec count(*) from pt)==1000
+
+
+@testing:case="test_parquet_saveParquet"
+//empty table
+t1=table(100:0, `cbool`cchar`cshort`cint`clong`cdate`cmonth`ctime`cminute`csecond`cdatetime`ctimestamp`cnanotime`cnanotimestamp`cfloat`cdouble`cstring`csymbol, [BOOL, CHAR, SHORT, INT, LONG, DATE, MONTH, TIME, MINUTE, SECOND, DATETIME, TIMESTAMP, NANOTIME, NANOTIMESTAMP, FLOAT, DOUBLE, STRING, SYMBOL])
+parquet::saveParquet(t1, WORK_DIR+"/t1.parquet")
+assert 1, exists(WORK_DIR+"/t1.parquet")==true
+scm=parquet::extractParquetSchema(WORK_DIR+"/t1.parquet")
+assert 2, scm.size()==t1.colNames().size()
+re=parquet::loadParquet(WORK_DIR+"/t1.parquet")
+assert 3, re.size()==0
+
+
+//all nulls
+t2 = table(100:0, `cbool`cchar`cshort`cint`clong`cdate`cmonth`ctime`cminute`csecond`cdatetime`ctimestamp`cnanotime`cnanotimestamp`cfloat`cdouble`cstring`csymbol, [BOOL, CHAR, SHORT, INT, LONG, DATE, MONTH, TIME, MINUTE, SECOND, DATETIME, TIMESTAMP, NANOTIME, NANOTIMESTAMP, FLOAT, DOUBLE, STRING, SYMBOL])
+for(i in 1..100){
+	insert into t2 values(bool(), char(), short(), int(), long(), date(), month(), time(), minute(), second(), datetime(), timestamp(), nanotime(), nanotimestamp(), float(), double(), string(), string())
+}
+parquet::saveParquet(t2, WORK_DIR+"/t2.parquet")
+assert 4, exists(WORK_DIR+"/t2.parquet")==true
+scm=parquet::extractParquetSchema(WORK_DIR+"/t2.parquet")
+assert 5, scm.size()==t2.colNames().size()
+re=parquet::loadParquet(WORK_DIR+"/t2.parquet")
+for(col in re.colNames()){
+	assert 6, isNull(re[col])==true
+}
+
+//no nulls
+n=2000
+t3 = table(n:n, `cbool`cchar`cshort`cint`clong`cdate`cmonth`ctime`cminute`csecond`cdatetime`ctimestamp`cnanotime`cnanotimestamp`cfloat`cdouble`cstring`csymbol, [BOOL, CHAR, SHORT, INT, LONG, DATE, MONTH, TIME, MINUTE, SECOND, DATETIME, TIMESTAMP, NANOTIME, NANOTIMESTAMP, FLOAT, DOUBLE, STRING, SYMBOL])
+t3[`cbool]=take([true, false], n)
+t3[`cchar]=take(char(97..106), n)
+t3[`cshort]=1..2000
+t3[`cint]=1..2000
+t3[`clong]=1..2000
+t3[`cdate]=1960.01.01+0..1999
+t3[`cmonth]=1960.01M+0..1999
+t3[`ctime]=00:00:00.000+0..1999
+t3[`cminute]=take(00:00m+0..9, n)
+t3[`csecond]=00:00:00+0..1999
+t3[`cdatetime]=temporalAdd(1960.01.01T12:30:00, 0..1999, "d")
+t3[`ctimestamp]=temporalAdd(1960.01.01T12:30:00.008, 0..1999, "d")
+t3[`cnanotime]=temporalAdd(13:30:10.008007006, 0..1999, "s")
+t3[`cnanotimestamp]=temporalAdd(1960.01.01T13:30:10.008007006, 0..1999, "s")
+t3[`cfloat]=1..2000+0.25
+t3[`cdouble]=1..2000+0.25
+t3[`cstring]="A"+string(1..n)
+t3[`csymbol]=take("BBB"+string(1..100), n)
+parquet::saveParquet(t3, WORK_DIR+"/t3.parquet")
+assert 7, exists(WORK_DIR+"/t3.parquet")==true
+scm=parquet::extractParquetSchema(WORK_DIR+"/t3.parquet")
+assert 8, scm.size()==t3.colNames().size()
+re=parquet::loadParquet(WORK_DIR+"/t3.parquet")
+assert 9, re[`cbool]==t3[`cbool]
+assert 10, re[`cchar]==int(t3[`cchar])
+assert 11, re[`cshort]==t3[`cshort]
+assert 12, re[`cint]==t3[`cint]
+assert 13, re[`clong]==t3[`clong]
+assert 14, re[`cdate]==t3[`cdate]
+assert 15, re[`cmonth]==date(t3[`cmonth])
+assert 16, re[`ctime]==t3[`ctime]
+assert 17, re[`cminute]==time(t3[`cminute])
+assert 18, re[`csecond]==time(t3[`csecond])
+assert 19, re[`cdatetime]==timestamp(t3[`cdatetime])
+assert 20, re[`ctimestamp]==t3[`ctimestamp]
+assert 21, re[`cnanotime]==t3[`cnanotime]
+assert 22, re[`cnanotimestamp]==t3[`cnanotimestamp]
+assert 23, eqObj(re[`cfloat], t3[`cfloat])
+assert 24, eqObj(re[`cdouble], t3[`cdouble])
+assert 25, eqObj(re[`cstring], t3[`cstring])
+assert 26, eqObj(re[`csymbol], t3[`csymbol])
+
+//some nulls
+n=2000
+t4 = table(n:n, `cbool`cchar`cshort`cint`clong`cdate`cmonth`ctime`cminute`csecond`cdatetime`ctimestamp`cnanotime`cnanotimestamp`cfloat`cdouble`cstring`csymbol, [BOOL, CHAR, SHORT, INT, LONG, DATE, MONTH, TIME, MINUTE, SECOND, DATETIME, TIMESTAMP, NANOTIME, NANOTIMESTAMP, FLOAT, DOUBLE, STRING, SYMBOL])
+t4[`cbool]=rand([true, false, NULL], n)
+t4[`cchar]=rand(char(97..106) join NULL, n)
+t4[`cshort]=rand(-100..100 join NULL, n)
+t4[`cint]=rand(-100..100 join NULL, n)
+t4[`clong]=rand(-100..100 join NULL, n)
+t4[`cdate]=rand(1960.01.01+0..100 join NULL, n)
+t4[`cmonth]=rand(1960.01M+0..100 join NULL, n)
+t4[`ctime]=rand(00:00:00.000+0..100 join NULL, n)
+t4[`cminute]=rand(00:00m+0..9 join NULL, n)
+t4[`csecond]=rand(00:00:00+0..100 join NULL, n)
+t4[`cdatetime]=rand(temporalAdd(1960.01.01T12:30:00, 0..100, "d") join NULL, n)
+t4[`ctimestamp]=rand(temporalAdd(1960.01.01T12:30:00.008, 0..100, "d") join NULL, n)
+t4[`cnanotime]=rand(temporalAdd(13:30:10.008007006, 0..100, "s") join NULL, n)
+t4[`cnanotimestamp]=rand(temporalAdd(1960.01.01T13:30:10.008007006, 0..1999, "s") join NULL, n)
+t4[`cfloat]=rand(-100..100, n)+0.25
+t4[`cdouble]=rand(-100..100, n)+0.25
+t4[`cstring]=rand("A"+string(1..100) join NULL, n)
+t4[`csymbol]=rand("BBB"+string(1..100) join NULL, n)
+parquet::saveParquet(t4, WORK_DIR+"/t4.parquet")
+assert 27, exists(WORK_DIR+"/t4.parquet")==true
+scm=parquet::extractParquetSchema(WORK_DIR+"/t4.parquet")
+assert 28, scm.size()==t4.colNames().size()
+re=parquet::loadParquet(WORK_DIR+"/t4.parquet")
+assert 29, re[`cbool]==t4[`cbool]
+assert 30, re[`cchar]==int(t4[`cchar])
+assert 31, re[`cshort]==t4[`cshort]
+assert 32, re[`cint]==t4[`cint]
+assert 33, re[`clong]==t4[`clong]
+assert 34, re[`cdate]==t4[`cdate]
+assert 35, re[`cmonth]==date(t4[`cmonth])
+assert 36, re[`ctime]==t4[`ctime]
+assert 37, re[`cminute]==time(t4[`cminute])
+assert 38, re[`csecond]==time(t4[`csecond])
+assert 39, re[`cdatetime]==timestamp(t4[`cdatetime])
+assert 40, re[`ctimestamp]==t4[`ctimestamp]
+assert 41, re[`cnanotime]==t4[`cnanotime]
+assert 42, re[`cnanotimestamp]==t4[`cnanotimestamp]
+assert 43, eqObj(re[`cfloat], t4[`cfloat])
+assert 44, eqObj(re[`cdouble], t4[`cdouble])
+assert 45, eqObj(re[`cstring], t4[`cstring])
+assert 46, eqObj(re[`csymbol], t4[`csymbol])
+
+//huge data
+n=5000000
+t5 = table(n:n, `cbool`cchar`cshort`cint`clong`cdate`cmonth`ctime`cminute`csecond`cdatetime`ctimestamp`cnanotime`cnanotimestamp`cfloat`cdouble`cstring`csymbol, [BOOL, CHAR, SHORT, INT, LONG, DATE, MONTH, TIME, MINUTE, SECOND, DATETIME, TIMESTAMP, NANOTIME, NANOTIMESTAMP, FLOAT, DOUBLE, STRING, SYMBOL])
+t5[`cbool]=rand([true, false, NULL], n)
+t5[`cchar]=rand(char(97..106) join NULL, n)
+t5[`cshort]=rand(-100..100 join NULL, n)
+t5[`cint]=rand(-100..100 join NULL, n)
+t5[`clong]=rand(-100..100 join NULL, n)
+t5[`cdate]=rand(1960.01.01+0..100 join NULL, n)
+t5[`cmonth]=rand(1960.01M+0..100 join NULL, n)
+t5[`ctime]=rand(00:00:00.000+0..100 join NULL, n)
+t5[`cminute]=rand(00:00m+0..9 join NULL, n)
+t5[`csecond]=rand(00:00:00+0..100 join NULL, n)
+t5[`cdatetime]=rand(temporalAdd(1960.01.01T12:30:00, 0..100, "d") join NULL, n)
+t5[`ctimestamp]=rand(temporalAdd(1960.01.01T12:30:00.008, 0..100, "d") join NULL, n)
+t5[`cnanotime]=rand(temporalAdd(13:30:10.008007006, 0..100, "s") join NULL, n)
+t5[`cnanotimestamp]=rand(temporalAdd(1960.01.01T13:30:10.008007006, 0..1999, "s") join NULL, n)
+t5[`cfloat]=rand(-100..100, n)+0.25
+t5[`cdouble]=rand(-100..100, n)+0.25
+t5[`cstring]=rand("A"+string(1..100) join NULL, n)
+t5[`csymbol]=rand("BBB"+string(1..100) join NULL, n)
+parquet::saveParquet(t5, WORK_DIR+"/t5.parquet")
+assert 47, exists(WORK_DIR+"/t5.parquet")==true
+scm=parquet::extractParquetSchema(WORK_DIR+"/t5.parquet")
+assert 48, scm.size()==t5.colNames().size()
+re=parquet::loadParquet(WORK_DIR+"/t5.parquet")
+assert 49, re[`cbool]==t5[`cbool]
+assert 50, re[`cchar]==int(t5[`cchar])
+assert 51, re[`cshort]==t5[`cshort]
+assert 52, re[`cint]==t5[`cint]
+assert 53, re[`clong]==t5[`clong]
+assert 54, re[`cdate]==t5[`cdate]
+assert 55, re[`cmonth]==date(t5[`cmonth])
+assert 56, re[`ctime]==t5[`ctime]
+assert 57, re[`cminute]==time(t5[`cminute])
+assert 58, re[`csecond]==time(t5[`csecond])
+assert 59, re[`cdatetime]==timestamp(t5[`cdatetime])
+assert 60, re[`ctimestamp]==t5[`ctimestamp]
+assert 61, re[`cnanotime]==t5[`cnanotime]
+assert 62, re[`cnanotimestamp]==t5[`cnanotimestamp]
+assert 63, eqObj(re[`cfloat], t5[`cfloat])
+assert 64, eqObj(re[`cdouble], t5[`cdouble])
+assert 65, eqObj(re[`cstring], t5[`cstring])
+assert 66, eqObj(re[`csymbol], t5[`csymbol])
+
+//append true
+//n = 10000
+//t6 = table(rand(temporalAdd(2012.01.01T12:30:00, 1..100, "d"), n) as time, rand("A"+string(1..100), n) as sym, round(rand(100.0, n), 4) as price, rand(1000, n) as volume)
+//parquet::saveParquet(t6, WORK_DIR+"/t6.parquet")
+//assert 67, exists(WORK_DIR+"/t6.parquet")==true
+//t7 = table(rand(temporalAdd(2012.01.01T12:30:00, 1..100, "d"), n) as time, rand("A"+string(1..100), n) as sym, round(rand(100.0, n), 4) as price, rand(1000, n) as volume)
+//parquet::saveParquet(t7, WORK_DIR+"/t6.parquet", true)
+//re = parquet::loadParquet(WORK_DIR+"/t6.parquet")
+//expected = unionAll(t6, t7)
+//assert 68, re[`time]==expected[`time]
+//assert 69, re[`sym]==expected[`sym]
+//assert 70, eqObj(re[`price], expected[`price])
+//assert 71, re[`volume]==expected[`volume]
+
+@testing:case="test_parquet_loadParquet_schema_data_conversion"
+//all nulls
+t1 = table(100:0, `cbool`cchar`cshort`cint`clong`cdate`cmonth`ctime`cminute`csecond`cdatetime`ctimestamp`cnanotime`cnanotimestamp`cfloat`cdouble`cstring`csymbol, [BOOL, CHAR, SHORT, INT, LONG, DATE, MONTH, TIME, MINUTE, SECOND, DATETIME, TIMESTAMP, NANOTIME, NANOTIMESTAMP, FLOAT, DOUBLE, STRING, SYMBOL])
+for(i in 1..100){
+	insert into t1 values(bool(), char(), short(), int(), long(), date(), month(), time(), minute(), second(), datetime(), timestamp(), nanotime(), nanotimestamp(), float(), double(), string(), string())
+}
+parquet::saveParquet(t1, WORK_DIR+"/t1.parquet")
+scm = parquet::extractParquetSchema(WORK_DIR+"/t1.parquet")
+update scm set type="SYMBOL" where name="csymbol"
+re = parquet::loadParquet(WORK_DIR+"/t1.parquet", scm)
+for(col in re.colNames()){
+	assert 1, isNull(re[col])==true
+}
+
+n=2000
+t2 = table(n:n, `cbool`cchar`cshort`cint`clong`cdate`cmonth`ctime`cminute`csecond`cdatetime`ctimestamp`cnanotime`cnanotimestamp`cfloat`cdouble`cstring`csymbol, [BOOL, CHAR, SHORT, INT, LONG, DATE, MONTH, TIME, MINUTE, SECOND, DATETIME, TIMESTAMP, NANOTIME, NANOTIMESTAMP, FLOAT, DOUBLE, STRING, SYMBOL])
+t2[`cbool]=rand([true, false, NULL], n)
+t2[`cchar]=rand(char(97..106) join NULL, n)
+t2[`cshort]=rand(-100..100 join NULL, n)
+t2[`cint]=rand(-100..100 join NULL, n)
+t2[`clong]=rand(-100..100 join NULL, n)
+t2[`cdate]=rand(1960.01.01+0..100 join NULL, n)
+t2[`cmonth]=rand(1960.01M+0..100 join NULL, n)
+t2[`ctime]=rand(00:00:00.000+0..100 join NULL, n)
+t2[`cminute]=rand(00:00m+0..9 join NULL, n)
+t2[`csecond]=rand(00:00:00+0..100 join NULL, n)
+t2[`cdatetime]=rand(temporalAdd(1960.01.01T12:30:00, 0..100, "d") join NULL, n)
+t2[`ctimestamp]=rand(temporalAdd(1960.01.01T12:30:00.008, 0..100, "d") join NULL, n)
+t2[`cnanotime]=rand(temporalAdd(13:30:10.008007006, 0..100, "s") join NULL, n)
+t2[`cnanotimestamp]=rand(temporalAdd(1960.01.01T13:30:10.008007006, 0..1999, "s") join NULL, n)
+t2[`cfloat]=rand(-100..100, n)+0.25
+t2[`cdouble]=rand(-100..100, n)+0.25
+t2[`cstring]=rand("A"+string(1..100) join NULL, n)
+t2[`csymbol]=rand("BBB"+string(1..100) join NULL, n)
+parquet::saveParquet(t2, WORK_DIR+"/t2.parquet")
+
+//convert string to char
+scm = parquet::extractParquetSchema(WORK_DIR+"/t2.parquet")
+update scm set type="CHAR" where name="cchar"
+re = parquet::loadParquet(WORK_DIR+"/t2.parquet", scm)
+assert 1, re[`cchar]==t2[`cchar]
+
+//convert int to short
+scm = parquet::extractParquetSchema(WORK_DIR+"/t2.parquet")
+update scm set type="SHORT" where name="cshort"
+re = parquet::loadParquet(WORK_DIR+"/t2.parquet", scm)
+assert 2, re[`cshort]==t2[`cshort]
+
+//convert date to month
+scm = parquet::extractParquetSchema(WORK_DIR+"/t2.parquet")
+update scm set type="MONTH" where name="cmonth"
+re = parquet::loadParquet(WORK_DIR+"/t2.parquet", scm)
+assert 3, re[`cmonth]==t2[`cmonth]
+
+//convert string to symbol
+scm = parquet::extractParquetSchema(WORK_DIR+"/t2.parquet")
+update scm set type="SYMBOL" where name="cstring"
+update scm set type="SYMBOL" where name="csymbol"
+re = parquet::loadParquet(WORK_DIR+"/t2.parquet", scm)
+assert 4, re[`cstring]==t2[`cstring]
+assert 5, re[`csymbol]==t2[`csymbol]
+
+//support uint64
+@testing:case="test_parquet_support_int64"
+scm = parquet::extractParquetSchema(DATA_DIR+"/quotademo.parquet")
+update scm set type=`INT  where name="Type"
+update scm set name=strReplace(name, "[", "_")
+update scm set name=strReplace(name, "]", "_")
+update scm set name="c"+name where startsWith(name, "_")
+nscm = table(`col0 as name, `INT as type)
+nscm.append!(scm)
+delete from nscm where name=`c__index_level_0__
+update nscm set type="SHORT" where name=`ExID
+expected = loadText(DATA_DIR+"/quotademo.csv", , nscm)
+replaceColumn!(expected, `ExID, char(expected[`ExID]))
+
+re = parquet::loadParquet(DATA_DIR+"/quotademo.parquet", scm)
+re.reorderColumns!(`c__index_level_0__)
+assert 1, each(eqObj, re.values(), expected.values())
+
+ds = parquet::parquetDS(DATA_DIR+"/quotademo.parquet")
+re = mr(ds, x->x)[0][0]
+re.reorderColumns!(`__index_level_0__)
+assert 2, each(eqObj, re.values(), expected.values())
+
+
+@testing:case="test_parquet_loadParquet_fixed_len_byte_array"
+scm = parquet::extractParquetSchema(DATA_DIR+"/part-00000-a7992322-17b0-49fd-b0e6-c777e47df6aa-c000.snappy.parquet")
+out_type = exec type from scm where name = `_c3
+assert 1,out_type[0] == "DOUBLE"
+re_0 = parquet::loadParquet(DATA_DIR+"/part-00000-a7992322-17b0-49fd-b0e6-c777e47df6aa-c000.snappy.parquet")
+size = re_0.size()
+re = select * from re_0 limit 1,size
+assert 2,typestr(re[`_c3][0]) == `DOUBLE
+ex = loadText(DATA_DIR+"/test_fixed_len_byte_array.csv")
+assert 3,each(eqObj,re[`_c3],ex[`Age])
+assert 5,each(eqObj,re[`_c1],ex[`Site])
+
+
+@testing:case="test_parquet_loadParquet_fixed_len_byte_array_null"
+scm = parquet::extractParquetSchema(DATA_DIR+"/part-00000-5efd7b9b-8617-413f-b341-fe8ab1894e34-c000.snappy.parquet")
+out_type = exec type from scm where name = `_c3
+assert 1,out_type[0] == "DOUBLE"
+re_0 = parquet::loadParquet(DATA_DIR+"/part-00000-5efd7b9b-8617-413f-b341-fe8ab1894e34-c000.snappy.parquet")
+size = re_0.size()
+re = select * from re_0 limit 1,size
+assert 2,typestr(re[`_c3][0]) == `DOUBLE
+ex = loadText(DATA_DIR+"/test_fixed_len_byte_array.csv")
+assert 3,each(isNull,re[`_c3])
+
+@testing:case="test_parquet_extractParquetSchema_execute_multi_times"
+for(i in 1..100){
+	re = parquet::extractParquetSchema(DATA_DIR+"/spark.parquet")	
+}
+assert 1, re[`name]==`open`high`low`close`amount`volume`成交时间
+assert 2, re[`type]==`DOUBLE`DOUBLE`DOUBLE`DOUBLE`DOUBLE`LONG`TIMESTAMP
+
+@testing:case="test_parquet_loadParquet_execute_multi_times"
+for(i in 1..100){
+	re = parquet::loadParquet(DATA_DIR+"/part-00000-5efd7b9b-8617-413f-b341-fe8ab1894e34-c000.snappy.parquet")
+}
+assert 1,  eqObj(re[`_c0], [NULL, "0", "1", "2"])
+assert 2,  eqObj(re[`_c1], ["Site",  "Google",  "Runoob", "Wiki"])
+assert 3,  eqObj(re[`_c2], ["Age",  "10.0",  NULL,  "13.0"])
+assert 4,  eqObj(re[`_c3], take(double(), 4))
+
+@testing:case="test_parquet_loadParquetEx_execute_multi_times"
+re = parquet::loadParquet(DATA_DIR+"/part-00000-5efd7b9b-8617-413f-b341-fe8ab1894e34-c000.snappy.parquet")
+dbName = "dfs://test_parquet_multi_thread"
+if(existsDatabase(dbName)){
+	dropDatabase(dbName)	
+}
+db = database(dbName, VALUE,  ["Site",  "Google",  "Runoob", "Wiki"])
+pt = createPartitionedTable(db, re, `pt, `_c1)
+for(i in 1..100){
+	parquet::loadParquetEx(db, `pt, `_c1,DATA_DIR+"/part-00000-5efd7b9b-8617-413f-b341-fe8ab1894e34-c000.snappy.parquet")
+}
+ans = select * from pt order by `_c2
+assert 1,  eqObj(ans[`_c0], take(`0, 100) join take(`1, 100) join take(string(), 100) join take(`2, 100))
+assert 2,  eqObj(ans[`_c1], take("Google", 100) join take("Runoob", 100) join take("Site", 100) join take("Wiki", 100))
+assert 3,  eqObj(ans[`_c2], take("10.0", 100) join take(string(), 100) join take("Age", 100) join take("13.0", 100))
+assert 4,  eqObj(ans[`_c3], take(double(), 400))
+
+@testing:case="test_parquet_parquetDS_execute_multi_times"
+for(i in 1..100){
+	ds = parquet::parquetDS(DATA_DIR+"/part-00000-5efd7b9b-8617-413f-b341-fe8ab1894e34-c000.snappy.parquet")
+}
+re = mr(ds, x->x)[0][0]
+assert 1,  eqObj(re[`_c0], [NULL, "0", "1", "2"])
+assert 2,  eqObj(re[`_c1], ["Site",  "Google",  "Runoob", "Wiki"])
+assert 3,  eqObj(re[`_c2], ["Age",  "10.0",  NULL,  "13.0"])
+assert 4,  eqObj(re[`_c3], take(double(), 4))
+
+@testing:case="test_parquet_saveParquet_execute_multi_times"
+t_mul= table(1..10 as x, 1..10 as y)
+for(i in 1..100){
+	parquet::saveParquet(t_mul, WORK_DIR+"/t_mul.parquet")
+}
+re = parquet::loadParquet(WORK_DIR+"/t_mul.parquet")
+assert 1, re[`x] == 1..10
+assert 2, re[`y] == 1..10
+
+
+@testing:case="test_parquet_mutli_Job_extractParquetSchema"
+t = table(100:0, `name`type, [STRING, STRING])
+share t as multiJob_shareT
+def submit_job_extractParquetSchema(WORK_DIR){
+	for(i in 1..100){
+		multiJob_shareT.append!(parquet::extractParquetSchema( WORK_DIR+"/t_mul.parquet"))
+	}
+}
+
+jobs = []
+for(i in 1..3){
+	jobs.append!(submitJob("job_extractParquetSchema", "job extractParquetSchema", submit_job_extractParquetSchema, WORK_DIR))
+}
+for(job in jobs){
+	getJobReturn(job, true)	
+}
+
+ans = select * from multiJob_shareT order by name
+assert 1, ans[`name] == take(`x, 300) join take(`y, 300)
+assert 2, ans[`type] == take(`INT, 600)
+undef(`multiJob_shareT, SHARED)
+
+
+@testing:case="test_parquet_mutli_Job_loadParquet"
+t = table(100:0, `x`y, [INT, INT])
+share t as multiJob_shareT
+def submit_job_loadParquet(WORK_DIR){
+	for(i in 1..100){
+		multiJob_shareT.append!(parquet::loadParquet( WORK_DIR+"/t_mul.parquet"))
+	}
+}
+jobs = []
+for(i in 1..3){
+	jobs.append!(submitJob("job_loadParquet", "job loadParquet", submit_job_loadParquet, WORK_DIR))
+}
+for(job in jobs){
+	getJobReturn(job, true)	
+}
+
+re = select * from multiJob_shareT order by x 
+ex = select * from table(take(1..10, 3000) as x, take(1..10, 3000) as y) order by x
+assert 1, eqObj(re.values(), ex.values())
+undef(`multiJob_shareT, SHARED)
+
+
+@testing:case="test_parquet_mutli_Job_loadParquetEx"
+re =parquet::loadParquet( WORK_DIR+"/t_mul.parquet")
+t_mul1= table(1..3 as x, 1..3 as y)
+parquet::saveParquet(t_mul1, WORK_DIR+"/t_mul1.parquet")
+t_mul2= table(4..6 as x, 4..6 as y)
+parquet::saveParquet(t_mul2, WORK_DIR+"/t_mul2.parquet")
+t_mul3= table(7..10 as x, 7..10 as y)
+parquet::saveParquet(t_mul3, WORK_DIR+"/t_mul3.parquet")
+
+dbName = "dfs://test_parquet_multi_thread"
+if(existsDatabase(dbName)){
+	dropDatabase(dbName)	
+}
+db = database(dbName, VALUE,  1..10)
+pt = createPartitionedTable(db, re, `pt, `x)
+def submit_job_loadParquetEx(db, ptName, parColName, WORK_DIR, fileName){
+	for(i in 1..100){
+		parquet::loadParquetEx(db, ptName, parColName, WORK_DIR+ fileName)
+	}
+}
+job1 = submitJob("job_loadParquetEx", "job loadParquet", submit_job_loadParquetEx, db, `pt, `x, WORK_DIR, "/t_mul1.parquet")
+job2 = submitJob("job_loadParquetEx", "job loadParquet", submit_job_loadParquetEx, db, `pt, `x, WORK_DIR, "/t_mul2.parquet")
+job3 = submitJob("job_loadParquetEx", "job loadParquet", submit_job_loadParquetEx, db, `pt, `x, WORK_DIR, "/t_mul3.parquet")
+getJobReturn(job1, true)
+getJobReturn(job2, true)
+getJobReturn(job3, true)
+
+ans = select * from pt order by x
+ex = select * from table(take(1..10, 1000) as x, take(1..10, 1000) as y) order by x
+assert 1, eqObj(ans.values(), ex.values())
+
+
+@testing:case="test_parquet_mutli_Job_parquetDS"
+t = table(100:0, `x`y, [INT, INT])
+share t as multiJob_shareT
+def submitJob_parquetDs(WORK_DIR, ans){
+	for(i in 1..100){
+		ds = parquet::parquetDS(WORK_DIR+"/t_mul.parquet")
+		re = mr(ds, x->x)[0][0]
+		multiJob_shareT.append!(re)
+	}
+}
+
+jobs = []
+for(i in 1..3){
+	jobs.append!(submitJob("job_parquetDS", "job parquetDS", submitJob_parquetDs, WORK_DIR, ans))
+}
+for(job in jobs){
+	getJobReturn(job, true)	
+}
+re = select * from multiJob_shareT order by x 
+ex = select * from table(take(1..10, 3000) as x, take(1..10, 3000) as y) order by x
+assert 1, eqObj(re.values(), ex.values())
+undef(`multiJob_shareT, SHARED)
+
+
+@testing:case="test_parquet_mutli_Job_saveParquet"
+t_mul= table(`a as x, `b as y)
+def submitJob_saveParquet(t, WORK_DIR){
+	for(i in 1..100){
+		parquet::saveParquet(t, WORK_DIR+"/t_mul_saveParquet.parquet")
+	}
+}
+
+jobs = []
+for(i in 1..3){
+	jobs.append!(submitJob("job_saveParquet", "job saveParquet", submitJob_saveParquet, t_mul, WORK_DIR))
+}
+for(job in jobs){
+	getJobReturn(job, true)	
+}
+
+ans = parquet::loadParquet(WORK_DIR+"/t_mul_saveParquet.parquet")
+ex = table(`a as x, `b as y)
+assert 1, eqObj(ans.values(), ex.values())
+

@@ -1,0 +1,5 @@
+EncoderDecoder,libPluginEncoderDecoder.so,3.00.2
+createJsonDecoder,jsonDecoder,system,2,7,0
+getProtobufSchema,getProtobufSchema,system,1,3,0
+getProtobufSchema,extractProtobufSchema,system,1,3,0
+createProtobufDecoder,protobufDecoder,system,1,9,0
