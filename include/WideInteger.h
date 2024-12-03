@@ -6,116 +6,45 @@
 #include <limits>
 #include <iosfwd>
 #include <type_traits>
-
 #include <stdint.h>
 
-namespace wide_integer {
+#include "Types.h"
+#include "Util.h"
+
 
 #ifndef __SIZEOF_INT128__
     #error "Current compiler does not support __int128"
 #endif
 
-using int128 = __int128;
-using uint128 = unsigned __int128;
 
-static_assert(sizeof(int128) == 16, "");
-static_assert(sizeof(uint128) == 16, "");
-
-constexpr uint128 makeUint128(uint64_t high, uint64_t low);
-constexpr int128 makeInt128(int64_t high, uint64_t low);
-
-constexpr uint128 uint128MaxValue();
-constexpr uint128 uint128MinValue();
-
-constexpr int128 int128MaxValue();
-constexpr int128 int128MinValue();
-
-}  // namespace wide_integer
-
-
-namespace wide_integer {
-namespace internal {
-// Casts from unsigned to signed while preserving the underlying binary
-// representation.
-constexpr int64_t BitCastToSigned(uint64_t v) {
+constexpr long long bitCastToSigned(unsigned long long v) {
     // Casting an unsigned integer to a signed integer of the same
     // width is implementation defined behavior if the source value would not fit
     // in the destination type. We step around it with a roundtrip bitwise not
     // operation to make sure this function remains constexpr. Clang, GCC, and
     // MSVC optimize this to a no-op on x86-64.
-    return v & (uint64_t{1} << 63) ? ~static_cast<int64_t>(~v)
-                                    : static_cast<int64_t>(v);
-}
-constexpr __int128_t BitCastToSigned(__uint128_t v) {
-    return v & (static_cast<__uint128_t>(1) << 127)
-                ? ~static_cast<__int128_t>(~v)
-                : static_cast<__int128_t>(v);
+    return v & (((unsigned long long)1) << 63) ? ~static_cast<long long>(~v) : static_cast<long long>(v);
 }
 
-constexpr inline uint64_t Uint128High64(uint128 v) {
-    return static_cast<uint64_t>(v >> 64);
+constexpr inline unsigned long long uint128High64(uint128 v) {
+    return static_cast<unsigned long long>(v >> 64);
 }
-constexpr inline uint64_t Uint128Low64(uint128 v) {
-    return static_cast<uint64_t>(v);
+constexpr inline unsigned long long uint128Low64(uint128 v) {
+    return static_cast<unsigned long long>(v);
 }
-constexpr uint64_t Int128Low64(int128 v) {
-    return static_cast<uint64_t>(v & ~uint64_t{0});
+constexpr unsigned long long int128Low64(int128 v) {
+    return static_cast<unsigned long long>(v & ~((unsigned long long)0));
 }
-constexpr int64_t Int128High64(int128 v) {
+constexpr long long int128High64(int128 v) {
     // Initially cast to unsigned to prevent a right shift on a negative value.
-    return wide_integer::internal::BitCastToSigned(
-            static_cast<uint64_t>(static_cast<uint128>(v) >> 64));
+    return bitCastToSigned(static_cast<unsigned long long>(static_cast<uint128>(v) >> 64));
 }
 
-// ref: https://www.boost.org/doc/libs/1_35_0/doc/html/boost/hash_combine_id241013.html
-template <class T>
-inline void hash_combine(std::size_t &seed, const T &v) {
-    std::hash<T> hasher;
-    seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
-}
-}  // namespace internal
-
-constexpr uint128 makeUint128(uint64_t high, uint64_t low) {
-    return uint128((static_cast<__uint128_t>(high) << 64) | low);
-}
-
-constexpr int128 makeInt128(int64_t high, uint64_t low) {
-    return int128(internal::BitCastToSigned(static_cast<__uint128_t>(high) << 64) | low);
-}
-
-constexpr uint128 uint128MaxValue() {
-    return makeUint128(std::numeric_limits<uint64_t>::max(),
-                       std::numeric_limits<uint64_t>::max());
-}
-
-constexpr uint128 uint128MinValue() {
-    return uint128(0);
-}
-
-constexpr int128 int128MaxValue() {
-    return makeInt128(std::numeric_limits<int64_t>::max(),
-                      std::numeric_limits<uint64_t>::max());
-}
-
-constexpr int128 int128MinValue() {
-    return makeInt128(std::numeric_limits<int64_t>::min(), 0);
-}
-
-constexpr int128 INT128_MIN = int128MinValue();
-
-static_assert(int128MinValue() == (-int128MaxValue() - 1), "");
-static_assert(uint128(int128MinValue() | int128MaxValue()) == uint128MaxValue(), "");
-}  // namespace wide_integer
-
-
-std::ostream& operator<<(std::ostream &os, wide_integer::uint128 v);
-std::ostream& operator<<(std::ostream &os, wide_integer::int128 v);
+std::ostream& operator<<(std::ostream &os, uint128 v);
+std::ostream& operator<<(std::ostream &os, int128 v);
 
 /*
-    -std=c++11 && (
-        (clang < 12) ||
-        (gcc < 10.3)
-    )
+    -std=c++11 && ((clang < 12) ||(gcc < 10.3))
 */
 #if !(!defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_INT128)) && \
         ( \
@@ -125,7 +54,7 @@ std::ostream& operator<<(std::ostream &os, wide_integer::int128 v);
 // Specialized numeric_limits for uint128 and int128.
 namespace std {
 template <>
-class numeric_limits<wide_integer::uint128> {
+class numeric_limits<uint128> {
 public:
     static constexpr bool is_specialized = true;
     static constexpr bool is_signed = false;
@@ -150,19 +79,19 @@ public:
     static constexpr int max_exponent10 = 0;
     static constexpr bool tinyness_before = false;
 
-    static constexpr wide_integer::uint128 min() { return 0; }
-    static constexpr wide_integer::uint128 lowest() { return 0; }
-    static constexpr wide_integer::uint128 max() { return wide_integer::uint128MaxValue(); }
-    static constexpr wide_integer::uint128 epsilon() { return 0; }
-    static constexpr wide_integer::uint128 round_error() { return 0; }
-    static constexpr wide_integer::uint128 infinity() { return 0; }
-    static constexpr wide_integer::uint128 quiet_NaN() { return 0; }
-    static constexpr wide_integer::uint128 signaling_NaN() { return 0; }
-    static constexpr wide_integer::uint128 denorm_min() { return 0; }
+    static constexpr uint128 min() { return 0; }
+    static constexpr uint128 lowest() { return 0; }
+    static constexpr uint128 max() { return uint128MaxValue(); }
+    static constexpr uint128 epsilon() { return 0; }
+    static constexpr uint128 round_error() { return 0; }
+    static constexpr uint128 infinity() { return 0; }
+    static constexpr uint128 quiet_NaN() { return 0; }
+    static constexpr uint128 signaling_NaN() { return 0; }
+    static constexpr uint128 denorm_min() { return 0; }
 };
 
 template <>
-class numeric_limits<wide_integer::int128> {
+class numeric_limits<int128> {
 public:
     static constexpr bool is_specialized = true;
     static constexpr bool is_signed = true;
@@ -187,40 +116,35 @@ public:
     static constexpr int max_exponent10 = 0;
     static constexpr bool tinyness_before = false;
 
-    static constexpr wide_integer::int128 min() { return wide_integer::int128MinValue(); }
-    static constexpr wide_integer::int128 lowest() { return wide_integer::int128MinValue(); }
-    static constexpr wide_integer::int128 max() { return wide_integer::int128MaxValue(); }
-    static constexpr wide_integer::int128 epsilon() { return 0; }
-    static constexpr wide_integer::int128 round_error() { return 0; }
-    static constexpr wide_integer::int128 infinity() { return 0; }
-    static constexpr wide_integer::int128 quiet_NaN() { return 0; }
-    static constexpr wide_integer::int128 signaling_NaN() { return 0; }
-    static constexpr wide_integer::int128 denorm_min() { return 0; }
+    static constexpr int128 min() { return int128MinValue(); }
+    static constexpr int128 lowest() { return int128MinValue(); }
+    static constexpr int128 max() { return int128MaxValue(); }
+    static constexpr int128 epsilon() { return 0; }
+    static constexpr int128 round_error() { return 0; }
+    static constexpr int128 infinity() { return 0; }
+    static constexpr int128 quiet_NaN() { return 0; }
+    static constexpr int128 signaling_NaN() { return 0; }
+    static constexpr int128 denorm_min() { return 0; }
 };
 
 template <>
-struct make_unsigned<wide_integer::int128> {
-    typedef wide_integer::uint128 type;
+struct make_unsigned<int128> {
+    typedef uint128 type;
 };
 
 template <>
-struct add_pointer<wide_integer::uint128> {
-    typedef wide_integer::uint128* type;
+struct add_pointer<uint128> {
+    typedef uint128* type;
 };
 
 template <>
-struct is_integral<wide_integer::int128> : public true_type {};
+struct is_integral<int128> : public true_type {};
 
 template <>
-struct is_integral<wide_integer::uint128> : public true_type {};
+struct is_integral<uint128> : public true_type {};
+
 }  // namespace std
 #endif
-
-static_assert(std::numeric_limits<wide_integer::int128>::min() ==
-        (-std::numeric_limits<wide_integer::int128>::max() - 1), "");
-static_assert(wide_integer::uint128(std::numeric_limits<wide_integer::int128>::min() |
-        std::numeric_limits<wide_integer::int128>::max()) == std::numeric_limits<wide_integer::uint128>::max(), "");
-
 
 /*
     clang && (
@@ -238,38 +162,36 @@ static_assert(wide_integer::uint128(std::numeric_limits<wide_integer::int128>::m
             (!(!defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_INT128)) && __clang_major__ < 15) \
         ) \
     ) || \
-    (!defined(__clang__) && \
-        ( \
-            (defined(__STRICT_ANSI__)) || \
-            (__GNUC__ < 6) \
-        ) \
-    )
+	(!defined(__clang__) && ( (defined(__STRICT_ANSI__) ) || (__GNUC__ < 6) ) )
+
 namespace std {
 // Specialized std::hash for uint128 and int128.
 template <>
-struct hash<wide_integer::int128> {
-    size_t operator()(wide_integer::int128 v) const noexcept {
+struct hash<int128> {
+    size_t operator()(int128 v) const noexcept {
         size_t seed = 0;
-        wide_integer::internal::hash_combine(seed, wide_integer::internal::Int128High64(v));
-        wide_integer::internal::hash_combine(seed, wide_integer::internal::Int128Low64(v));
+        hashCombine(seed, int128High64(v));
+        hashCombine(seed, int128Low64(v));
         return seed;
     }
 };
 
 template <>
-struct hash<wide_integer::uint128> {
-    size_t operator()(wide_integer::uint128 v) const noexcept {
+struct hash<uint128> {
+    size_t operator()(uint128 v) const noexcept {
         size_t seed = 0;
-        wide_integer::internal::hash_combine(seed, wide_integer::internal::Uint128High64(v));
-        wide_integer::internal::hash_combine(seed, wide_integer::internal::Uint128Low64(v));
+        hashCombine(seed, uint128High64(v));
+        hashCombine(seed, uint128Low64(v));
         return seed;
     }
 };
+
 }  // namespace std
 #endif
 
 namespace std {
-// FIXME: ???
-wide_integer::int128 pow(wide_integer::int128 x, size_t y);
-wide_integer::int128 trunc(wide_integer::int128 x);
+
+int128 pow(int128 x, size_t y);
+int128 trunc(int128 x);
+
 };  // namespace std

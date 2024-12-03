@@ -15,7 +15,7 @@
 using std::exception;
 using std::string;
 
-class TraceableException : public exception {
+class SWORDFISH_API SWORDFISH_API TraceableException : public exception {
 public:
 	void addPath(const string& path);
 	const string& getPath() const {return  path_;}
@@ -27,7 +27,7 @@ protected:
 	string lastThrow_;
 };
 
-class IncompatibleTypeException: public TraceableException{
+class SWORDFISH_API IncompatibleTypeException: public TraceableException{
 public:
 	IncompatibleTypeException(DATA_TYPE expected, DATA_TYPE actual);
 	virtual ~IncompatibleTypeException() throw(){}
@@ -40,7 +40,7 @@ private:
 	string errMsg_;
 };
 
-class IllegalArgumentException : public TraceableException{
+class SWORDFISH_API IllegalArgumentException : public TraceableException{
 public:
 	IllegalArgumentException(const string& functionName, const string& errMsg): functionName_(functionName), errMsg_(errMsg){}
 	virtual const char* what() const throw(){
@@ -54,7 +54,7 @@ private:
 	const string errMsg_;
 };
 
-class RuntimeException: public TraceableException{
+class SWORDFISH_API RuntimeException: public TraceableException{
 public:
 	RuntimeException(const string& errMsg):errMsg_(errMsg){}
 	virtual const char* what() const throw(){
@@ -66,7 +66,7 @@ private:
 	const string errMsg_;
 };
 
-class OperatorRuntimeException: public TraceableException{
+class SWORDFISH_API OperatorRuntimeException: public TraceableException{
 public:
 	OperatorRuntimeException(const string& optr,const string& errMsg): operator_(optr),errMsg_(errMsg){}
 	virtual const char* what() const throw(){
@@ -80,7 +80,7 @@ private:
 	const string errMsg_;
 };
 
-class TableRuntimeException: public TraceableException{
+class SWORDFISH_API TableRuntimeException: public TraceableException{
 public:
 	TableRuntimeException(const string& errMsg): errMsg_(errMsg){}
 	virtual const char* what() const throw(){
@@ -92,7 +92,7 @@ private:
 	const string errMsg_;
 };
 
-class MemoryException: public TraceableException{
+class SWORDFISH_API MemoryException: public TraceableException{
 public:
 	MemoryException():errMsg_("Out of memory"){}
 	virtual const char* what() const throw(){
@@ -104,7 +104,7 @@ private:
 	const string errMsg_;
 };
 
-class IOException: public TraceableException{
+class SWORDFISH_API IOException: public TraceableException{
 public:
 	IOException(const string& errMsg): errMsg_(errMsg), errCode_(OTHERERR){}
 	IOException(const string& errMsg, IO_ERR errCode): errMsg_(errMsg + ". " + getCodeDescription(errCode)), errCode_(errCode){}
@@ -122,7 +122,7 @@ private:
 	const IO_ERR errCode_;
 };
 
-class FileChunkVersionCheckException : public exception{
+class SWORDFISH_API FileChunkVersionCheckException : public exception{
 public:
     FileChunkVersionCheckException(const string& errMsg) : errMsg_(errMsg){}
     virtual const char* what() const throw(){
@@ -134,7 +134,7 @@ private:
     const string errMsg_;
 };
 
-class DataCorruptionException: public exception {
+class SWORDFISH_API DataCorruptionException: public exception {
 public:
 	DataCorruptionException(const string& errMsg) : errMsg_("<DataCorruption>" + errMsg){}
 	virtual const char* what() const throw(){
@@ -146,7 +146,7 @@ private:
 	const string errMsg_;
 };
 
-class NotLeaderException: public exception {
+class SWORDFISH_API NotLeaderException: public exception {
 public:
 	//Electing a leader. Wait for a while to retry.
 	NotLeaderException() : errMsg_("<NotLeader>"){}
@@ -163,7 +163,7 @@ private:
 	const string newLeader_;
 };
 
-class ChunkInTransactionException: public exception {
+class SWORDFISH_API ChunkInTransactionException: public exception {
 public:
 	ChunkInTransactionException(const string& errMsg) : errMsg_("<ChunkInTransaction>" + errMsg){}
 	virtual const char* what() const throw(){
@@ -175,7 +175,7 @@ private:
 	const string errMsg_;
 };
 
-class ChunkInRecoveryException: public exception {
+class SWORDFISH_API ChunkInRecoveryException: public exception {
 public:
 	ChunkInRecoveryException(const string& errMsg) : errMsg_("<ChunkInRecovery>" + errMsg){}
 	virtual const char* what() const throw(){
@@ -187,7 +187,7 @@ private:
 	const string errMsg_;
 };
 
-class DataNodeNotAvailException : public exception {
+class SWORDFISH_API DataNodeNotAvailException : public exception {
 public:
 	DataNodeNotAvailException(const string& errMsg) : errMsg_("<DataNodeNotAvail>" + errMsg){}
 	virtual const char* what() const throw(){
@@ -199,7 +199,7 @@ private:
 	const string errMsg_;
 };
 
-class ControllerNotAvailException : public exception {
+class SWORDFISH_API ControllerNotAvailException : public exception {
 public:
 	ControllerNotAvailException(const string& errMsg) : errMsg_("<ControllerNotAvail>" + errMsg){}
 	virtual const char* what() const throw(){
@@ -211,7 +211,7 @@ private:
 	const string errMsg_;
 };
 
-class ControllerNotReadyException : public exception {
+class SWORDFISH_API ControllerNotReadyException : public exception {
 public:
 	ControllerNotReadyException() : errMsg_("<ControllerNotReady>"){}
 	virtual const char* what() const throw(){
@@ -223,7 +223,7 @@ private:
 	const string errMsg_;
 };
 
-class MathException: public TraceableException {
+class SWORDFISH_API MathException: public TraceableException {
 public:
 	MathException(const string& errMsg) : errMsg_(errMsg){}
 	virtual const char* what() const throw(){
@@ -235,7 +235,7 @@ private:
 	const string errMsg_;
 };
 
-class DataNodeNotReadyException: public TraceableException{
+class SWORDFISH_API DataNodeNotReadyException: public TraceableException{
 public:
     DataNodeNotReadyException(const string& errMsg) : errMsg_("<DataNodeNotReady>" + errMsg){}
     virtual const char* what() const throw(){
@@ -247,7 +247,7 @@ private:
     const string errMsg_;
 };
 
-class NoPrivilegeException: public TraceableException{
+class SWORDFISH_API NoPrivilegeException: public TraceableException{
 public:
 	NoPrivilegeException(const string& errMsg, bool notAuthenticated) : errMsg_((notAuthenticated ? "<NotAuthenticated>" : "<NoPrivilege>") + errMsg){}
     virtual const char* what() const throw(){
@@ -259,7 +259,7 @@ private:
     const string errMsg_;
 };
 
-class UserException: public TraceableException{
+class SWORDFISH_API UserException: public TraceableException{
 public:
 	UserException(const string exceptionType, const string& msg) : exceptionType_(exceptionType), msg_(msg){}
 	virtual const char* what() const throw(){
@@ -273,7 +273,7 @@ private:
 	string msg_;
 };
 
-class SyntaxException: public exception{
+class SWORDFISH_API SyntaxException: public exception{
 public:
 	SyntaxException(const string& errMsg): errMsg_(errMsg){}
 	virtual const char* what() const throw(){
@@ -285,7 +285,7 @@ private:
 	const string errMsg_;
 };
 
-class TestingException: public exception{
+class SWORDFISH_API TestingException: public exception{
 public:
 	TestingException(const string& caseName,const string& subCaseName): name_(caseName),subName_(subCaseName){
 		if(subName_.empty())
@@ -312,7 +312,7 @@ private:
  * @brief When execute a "rollback" or "commit" statement,
  *		  should throw this exception.
  */
-class TransactionFinishException : public exception {
+class SWORDFISH_API TransactionFinishException : public exception {
 public:
 	TransactionFinishException(bool abort) : abort_(abort) {}
 
@@ -330,5 +330,20 @@ private:
 	const bool abort_;
 };
 
+/** Used by compute nodes to invalidate cached data. */
+class SWORDFISH_API CacheInvalidException : public TraceableException {
+public:
+	CacheInvalidException(const string &errMsg) : errMsg_("<CacheInvalid>" + errMsg) {
+	}
+	virtual ~CacheInvalidException() throw() {
+	}
+
+	virtual const char* what() const throw() {
+		return errMsg_.c_str();
+	}
+
+private:
+	const string errMsg_;
+};
 
 #endif /* EXCEPTIONS_H_ */

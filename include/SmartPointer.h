@@ -16,6 +16,7 @@
 #include <utility>
 
 #include "Exceptions.h"
+#include "Types.h"
 
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define LIKELY(x) (__builtin_expect((x), 1))
@@ -25,7 +26,7 @@
 #define UNLIKELY(x) (x)
 #endif
 
-class Counter {
+class SWORDFISH_API Counter {
 public:
 	constexpr Counter(void* p) noexcept: p_(p), obj_(nullptr), count_(0){}
 	// reference: https://github.com/llvm/llvm-project/blob/release/15.x/libcxx/include/__memory/shared_ptr.h#L105
@@ -78,7 +79,7 @@ template<class T, class... Args>
 typename std::enable_if<Detail::IsBoundedArray<T>::value>::type makeUnique(Args&&...) = delete;
 
 template <class T>
-class SmartPointer {
+class SWORDFISH_API SmartPointer {
 public:
 	SmartPointer(UniquePointer<T> ptr) : SmartPointer(ptr.release()) {}
 

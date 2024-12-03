@@ -142,7 +142,7 @@ private:
 	struct sockaddr_in addrRemote_;
 };
 
-class DataInputStream{
+class SWORDFISH_API DataInputStream{
 public:
 	DataInputStream(STREAM_TYPE type, int bufSize = 2048);
 	DataInputStream(const char* data, int size, bool copy = true);
@@ -248,7 +248,7 @@ protected:
 	size_t cursor_;
 };
 
-class DataOutputStream {
+class SWORDFISH_API DataOutputStream {
 public:
 	DataOutputStream(const SocketSP& socket, size_t flushThreshold = 4096);
 	DataOutputStream(FILE* file, bool autoClose = false);

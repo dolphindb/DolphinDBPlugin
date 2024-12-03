@@ -44,6 +44,8 @@ template <>
 inline string getNullValue<string>() { return ""; }
 template <>
 inline Guid getNullValue<Guid>() { return Guid(); }
+template <>
+inline int128 getNullValue<int128>() { return INT128_MIN; }
 
 template <class T>
 class DdbVector {
@@ -768,7 +770,7 @@ class BackgroundResourceMap {
             throw RuntimeException(prefix_ + "Handle already exists in the map.");
         }
         if (nameMap_.findKey(name, ptrResult)) {
-            throw RuntimeException(prefix_ + "[" + name + "] has already used by another " + keyword_ + "handle.");
+            throw RuntimeException(prefix_ + "'" + name + "' has already used by another " + keyword_ + "handle.");
         }
         resourceMap_[ptrValue] = std::make_pair(handle, handlePtr);
         string errMsg;
@@ -822,10 +824,10 @@ class BackgroundResourceMap {
         }
         long long ptrValue;
         if (!nameMap_.findKey(name, ptrValue)) {
-            throw RuntimeException(prefix_ + "Unknown handle name [" + name + "].");
+            throw RuntimeException(prefix_ + "Unknown handle name '" + name + "'.");
         }
         if (resourceMap_.find(ptrValue) == resourceMap_.end()) {
-            throw RuntimeException(prefix_ + "Unable to find handle corresponding to name [" + name + "].");
+            throw RuntimeException(prefix_ + "Unable to find handle corresponding to name '" + name + "'.");
         }
         return resourceMap_[ptrValue].first;
     }

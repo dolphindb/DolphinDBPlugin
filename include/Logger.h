@@ -21,6 +21,7 @@
 #include "Exceptions.h"
 #include "LocklessContainer.h"
 #include "SysIO.h"
+#include "Types.h"
 
 using std::string;
 using std::ofstream;
@@ -58,7 +59,7 @@ inline uint16_t shortThreadId() {
 	return tid & 0xffff;
 }
 
-class Logger {
+class SWORDFISH_API Logger {
 public:
 	Logger() :  level_(severity_type::INFO){}
 	~Logger(){}
@@ -116,7 +117,7 @@ template <> struct Logger::SeverityTypeToString<severity_type::ERR> {
 	static constexpr const char *const value = " <ERROR> :";
 };
 
-extern Logger log_inst;
+extern SWORDFISH_API Logger log_inst;
 
 #ifdef VERBOSE_LOGGING
 #include <cstring>

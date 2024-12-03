@@ -30,7 +30,7 @@ class CodeFactory;
 #define ASSERT(x) assert(x)
 #endif
 
-class Util{
+class SWORDFISH_API Util{
 public:
 	static string HOME_DIR;
 	static string WORKING_DIR;
@@ -77,6 +77,8 @@ private:
 	static int monthDays[12];
 	static int cumLeapMonthDays[13];
 	static int leapMonthDays[12];
+	static bool isLeapYear[231];
+	static int yearOffset[231];
 	static char escapes[128];
 	static string duSyms[10];
 	static long long tmporalDurationRatioMatrix[11][10];
@@ -107,6 +109,7 @@ public:
 		void* data=0, void** dataSegment=0, int segmentSizeInBit=0, bool containNull=false);
 	static Vector* createSymbolVector(const SymbolBaseSP& symbolBase, INDEX size, INDEX capacity=0, bool fast=true,
 		void* data=0, void** dataSegment=0, int segmentSizeInBit=0, bool containNull=false);
+	static Vector* createStringNoInitVector(INDEX size, INDEX capacity=0);
 	static Vector* createCompressedVector(long long estimatedSize);
 	static Vector* createRepeatingVector(const ConstantSP& scalar, INDEX length, int extraParam=0);
 	static Vector* createRepeatingSymbolVector(const ConstantSP& scalar, INDEX length, const SymbolBaseSP& symbolBase);
@@ -267,6 +270,7 @@ public:
 	static void parseDate(int days, int& year, int& month, int& day);
 	static int getMonthEnd(int days);
 	static int getMonthStart(int days);
+	static int getDayOfYear(int days);
 	static long long getNanoBenchmark();
 	static long long getEpochTime();
 	static long long getNanoEpochTime();
@@ -384,5 +388,57 @@ inline IO_ERR serializeCode(Heap* pHeap, const ObjectSP& obj, const ByteArrayCod
 	else
 		return buffer->write(obj);
 }
+
+template <class T>
+inline void hashCombine(std::size_t &seed, const T &v) {
+    std::hash<T> hasher;
+    seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
+}
+
+
+// Simple base type that the templatized, derived class containing
+// an arbitrary functor can be converted to and called.
+struct State {
+	inline virtual ~State() = default;
+
+	virtual void run() = 0;
+};
+
+template <typename Callable>
+struct StateImpl : public State {
+	explicit StateImpl(Callable&& f) : func(std::forward<Callable>(f)) {}
+
+	void run() override { func(); }
+
+private:
+	Callable func;
+};
+
+template <typename Callable>
+SmartPointer<StateImpl<Callable>> make_routine(Callable&& f) {
+	// Create and allocate full data structure, not base.
+	using S = StateImpl<Callable>;
+	return SmartPointer<S>{new S{std::forward<Callable>(f)}};
+}
+
+class LambdaTask : public Object {
+public:
+	template <typename Callable, typename... Args>
+	explicit LambdaTask(Callable&& f, Args&&... args) : Object(MAX_OBJECT_TYPES), func_(make_routine(std::bind(f, args...))) {}
+
+	void run() { func_->run(); }
+
+	ConstantSP getValue(Heap* pHeap) override { return getReference(pHeap); }
+	ConstantSP getReference(Heap* /*pHeap*/) override {
+		func_->run();
+		return {};
+	}
+
+	string getScript() const override { return "LambdaTask"; }
+	IO_ERR serialize(Heap* /*pHeap*/, const ByteArrayCodeBufferSP& /*buffer*/) const override { return OTHERERR; }
+
+private:
+	SmartPointer<State> func_;
+};
 
 #endif /* UTIL_H_ */

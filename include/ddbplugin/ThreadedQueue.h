@@ -72,12 +72,25 @@ typedef struct StreamStatus {
     }
 } MarketStatus;
 
+namespace std {
+inline static std::string to_string(const std::string &str) { return str; }
+}  // namespace std
+
+namespace ThreadedQueueUtil {
+template <typename T>
+class StringConvertor {
+  public:
+    string operator()(const T &element) { return std::to_string(element); }
+};
+}  // namespace ThreadedQueueUtil
+
+template <typename T = string, typename F = ThreadedQueueUtil::StringConvertor<T>>
 class MarketTypeContainer {
   public:
     MarketTypeContainer() = default;
-    explicit MarketTypeContainer(const string &prefix) : prefix_(prefix) {}
-    explicit MarketTypeContainer(const string &prefix, const vector<string> &name, const vector<MetaTable> &meta)
-        : prefix_(prefix) {
+    explicit MarketTypeContainer(const string &prefix) : prefix_(prefix), toStringFunc_(F()) {}
+    explicit MarketTypeContainer(const string &prefix, const vector<T> &name, const vector<MetaTable> &meta)
+        : prefix_(prefix), toStringFunc_(F()) {
         if (name.size() != meta.size()) {
             throw RuntimeException(prefix_ + "name & meta is not the same length.");
         }
@@ -86,18 +99,25 @@ class MarketTypeContainer {
         }
     }
 
-    void add(const string &type, const MetaTable &meta) { metaMap_[type] = meta; }
+    void add(const T &type, const MetaTable &meta) { metaMap_[type] = meta; }
 
-    MetaTable get(const string &type) {
+    MetaTable get(const T &type) {
         if (metaMap_.find(type) == metaMap_.end()) {
-            throw RuntimeException(prefix_ + "unknown Type: " + type);
+            throw RuntimeException(prefix_ + "unknown Type: " + toStringFunc_(type));
         }
         return metaMap_[type];
     }
 
-    ConstantSP getSchema(const string &type, int flag) {
+    bool contain(const T &type) {
         if (metaMap_.find(type) == metaMap_.end()) {
-            throw RuntimeException(prefix_ + "unknown type: " + type);
+            return false;
+        }
+        return true;
+    }
+
+    ConstantSP getSchema(const T &type, int flag) {
+        if (metaMap_.find(type) == metaMap_.end()) {
+            throw RuntimeException(prefix_ + "unknown type: " + toStringFunc_(type));
         }
 
         string receiveTimeColName = "receivedTime";
@@ -160,29 +180,33 @@ class MarketTypeContainer {
 
   private:
     string prefix_;
-    unordered_map<string, MetaTable> metaMap_;
+    unordered_map<T, MetaTable> metaMap_;
+    F toStringFunc_;
 };
 
+namespace ThreadedQueueUtil {
+template <class T>
+struct Sizer {
+    int operator()(const T &obj) { return 1; }
+};
+
+template <class T>
+struct Mandatory {
+    bool operator()(const T &obj) { return false; }
+};
+}  // namespace ThreadedQueueUtil
+
+using ThreadedQueueUtil::Sizer;
+using ThreadedQueueUtil::Mandatory;
 /**
  * @brief  An Asynchronous Struct Conversion Framework
  * transform struct into dolphindb table asynchronously
  *
  * @tparam DataStruct Type of Struct to be Converted
  */
-template <typename DataStruct>
+template <typename DataStruct,
+          typename InnerQueue = GenericBoundedQueue<DataStruct, Sizer<DataStruct>, Mandatory<DataStruct>>>
 class ThreadedQueue {
-    template <class T>
-    struct Sizer {
-        int operator()(const T &obj) { return 1; }
-    };
-
-    template <class T>
-    struct Mandatory {
-        bool operator()(const T &obj) { return false; }
-    };
-
-    typedef GenericBoundedQueue<DataStruct, Sizer<DataStruct>, Mandatory<DataStruct>> InnerQueue;
-
   public:
     ThreadedQueue() = delete;
     ThreadedQueue operator=(const ThreadedQueue &queue) = delete;
@@ -291,14 +315,19 @@ class ThreadedQueue {
 #ifdef AMD_USE_THREADED_QUEUE
     void setDailyIndex(long long timestamp) { dailyIndex_ = DailyIndex(timestamp); }
 #endif
-    // set outputTable or transform of ThreadedQueue
     void setTable(TableSP table) { insertedTable_ = table; }
     void setTransform(FunctionDefSP func) { transform_ = func; }
+    void setFinalizer(std::function<void(vector<DataStruct> &)> finalizer) { finalizer_ = finalizer; }
+
+    // if set true, timeout would act like throttle
+    void setTimeoutAsThrottle(bool flag) { timeoutAsThrottle_ = flag; }
+    // use to ignore table insert
+    void ignoreTableInsert() { ignoreTableInsert_ = true; }
 
     // use push function to input the struct data.
     void push(DataStruct &&data) {
         if (LIKELY(!stopFlag_)) {
-            queue_.blockingPush(data);
+            queue_.blockingPush(std::move(data));
         }
     }
     void push(const DataStruct &data) {
@@ -409,9 +438,12 @@ class ThreadedQueue {
             throw RuntimeException("call transform error: " + string(e.what()));
         }
         if (originData->getForm() != DF_TABLE) {
-            throw RuntimeException(prefix_ + "transform result must be a TABLE");
+            throw RuntimeException("transform result must be a TABLE");
         }
 
+        if (UNLIKELY(ignoreTableInsert_)) {
+            return;
+        }
         if (UNLIKELY(insertedTable_.isNull())) throw RuntimeException("insertedTable is null");
         if (UNLIKELY(insertedTable_->columns() != originData->columns()))
             throw RuntimeException("data append failed: The number of columns (" +
@@ -439,7 +471,6 @@ class ThreadedQueue {
         if (UNLIKELY(errMsg != "")) {
             throw RuntimeException("data append failed, " + errMsg);
         }
-        clearQueueBuffer();
     }
 
     void initQueueBuffer() {
@@ -483,37 +514,70 @@ class ThreadedQueue {
             int popSize = 0;
             DataStruct item;
             vector<DataStruct> items;
+            items.reserve(bufferSize_);
             while (LIKELY(!stopFlag_)) {
                 items.clear();
                 long long size = 0;
                 try {
-                    ret = queue_.blockingPop(item, timeout_);
-                    if (!ret) {
-                        if (UNLIKELY(stopFlag_)) {
-                            break;
-                        } else {
+                    if (UNLIKELY(timeoutAsThrottle_)) {
+                        long long startTime = Util::getEpochTime();
+                        long long currentTime = startTime;
+                        popSize = 0;
+                        do {
+                            dolphindb::PluginDefer([&]() { currentTime = Util::getEpochTime(); });
+                            int timeout = timeout_ - (currentTime - startTime);
+                            ret = queue_.blockingPop(item, timeout);
+                            if (UNLIKELY(!ret)) {
+                                if (UNLIKELY(stopFlag_)) {
+                                    break;
+                                } else {
+                                    continue;
+                                }
+                            }
+                            items.emplace_back(std::move(item));
+                            long long count = bufferSize_ - items.size();
+                            size = std::min(queue_.size(), count);
+                            if (LIKELY(size > 0)) queue_.pop(items, size);
+                            popSize = items.size();
+                        } while (currentTime - startTime < timeout_ && popSize < bufferSize_);
+
+                        if (UNLIKELY(popSize == 0)) {
+                            if (UNLIKELY(stopFlag_)) {
+                                break;
+                            }
                             LOG(prefix_, info_, " async thread pop size (0)");
-                            continue;
                         }
+                    } else {
+                        ret = queue_.blockingPop(item, timeout_);
+                        if (UNLIKELY(!ret)) {
+                            if (UNLIKELY(stopFlag_)) {
+                                break;
+                            } else {
+                                LOG(prefix_, info_, " async thread pop size (0)");
+                                continue;
+                            }
+                        }
+                        size = std::min(queue_.size(), (long long)bufferSize_ - 1);
+                        items.emplace_back(std::move(item));
+                        if (LIKELY(size > 0)) queue_.pop(items, size);
+                        popSize = items.size();
                     }
-                    size = std::min(queue_.size(), (long long)bufferSize_ - 1);
-                    items.reserve(size + 1);
-                    items.emplace_back(std::move(item));
-                    if (LIKELY(size > 0)) queue_.pop(items, size);
-                    popSize = items.size();
                     status_.processedMsgCount_ += popSize;
                     LOG(prefix_, info_, " async thread pop size (", items.size(), ")");
                     dealFunc(items);
+                    if (finalizer_) {
+                        finalizer_(items);
+                    }
                     items.clear();
                 } catch (exception &e) {
                     string errMsg = e.what();
                     status_.failedMsgCount_ += popSize;
-                    status_.lastErrMsg_ = errMsg;
+                    status_.lastErrMsg_ = "topic=" + info_ + " length=" + std::to_string(popSize) + " exception=" + errMsg;
                     status_.lastFailedTimestamp_ = Util::getNanoEpochTime() + localTimeGap_;
-                    LOG_ERR(prefix_, info_, " Failed to process ", size, " lines of data due to ", errMsg);
+                    LOG_ERR(prefix_, info_, " Failed to process ", popSize, " lines of data due to ", errMsg);
                 }
             }
-            LOG_INFO(prefix_, info_, " async thread end ");
+            LOG_INFO(prefix_, info_, " async thread end.");
         };
 
         SmartPointer<dolphindb::Executor> executor = new dolphindb::Executor(f);
@@ -525,6 +589,8 @@ class ThreadedQueue {
     bool stopFlag_ = true;
     bool receivedTimeFlag_;
     bool outputElapsedFlag_;
+    bool timeoutAsThrottle_ = false;
+    bool ignoreTableInsert_ = false;
 #ifdef AMD_USE_THREADED_QUEUE
     bool dailyIndexFlag_;
     DailyIndex dailyIndex_;
@@ -549,6 +615,7 @@ class ThreadedQueue {
     vector<string> resultColNames_;
     std::function<void(vector<ConstantSP> &, DataStruct &)> structReader_;
     vector<ConstantSP> buffer_;
+    std::function<void(vector<DataStruct> &)> finalizer_;
 };
 
 namespace ThreadedQueueUtil {
@@ -569,7 +636,8 @@ template <typename T>
 class orderbookReaderWrapper {
   public:
     typedef std::function<void(vector<ConstantSP> &, T &, int, std::unordered_map<int, long long> &,
-                               std::unordered_map<int, long long> &)> FuncTrait;
+                               std::unordered_map<int, long long> &)>
+        FuncTrait;
     orderbookReaderWrapper(FuncTrait reader, int seqCheckMode) : seqCheckMode_(seqCheckMode), reader_(reader) {}
     void operator()(vector<ConstantSP> &buffer, T &data) {
         reader_(buffer, data, seqCheckMode_, shLastSeqNum_, szLastSeqNum_);
@@ -601,11 +669,11 @@ struct SeqCheckMode {
     enum {
         CHECK = 0,
         IGNORE_WITH_LOG,
-# ifdef WIN32
+#ifdef WIN32
         IGNORE_ALL,
-# else
+#else
         IGNORE,
-# endif
+#endif
     };
 };
 
@@ -659,7 +727,7 @@ static inline void checkSeqNum(const string &prefix, const string &tag, std::uno
             }
         }
         if (seqCheckMode == SeqCheckMode::IGNORE_WITH_LOG) {
-            LOG_INFO(prefix + errMsg);
+            LOG_INFO(prefix, errMsg);
         }
     }
     lastSeqNum[channelNo] = seqNum;

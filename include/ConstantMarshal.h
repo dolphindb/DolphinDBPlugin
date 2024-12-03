@@ -9,6 +9,7 @@
 #define CONSTANTMARSHAL_H_
 
 #include "CoreConcept.h"
+#include "Types.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -234,7 +235,7 @@ public:
 	virtual void reset();
 
 private:
-	int64_t nextStart_{};
+	long long nextStart_{};
 };
 
 class TableMarshal: public ConstantMarshalImp{
@@ -384,30 +385,30 @@ public:
 	virtual void reset();
 
 private:
-	short flag_{};
+	short flag_ = 0;
 
 	struct {
-		bool tensorType : 1;
-		bool deviceType : 1;
-		bool tensorFlags : 1;
-		bool dimensions : 1;
-		bool reserved : 1;
-		bool elementCount : 1;
+		bool tensorType = 1;
+		bool deviceType = 1;
+		bool tensorFlags = 1;
+		bool dimensions = 1;
+		bool reserved = 1;
+		bool elementCount = 1;
 	} received_{};
 
-	uint8_t tensorType_;
-	uint8_t deviceType_;
-	uint32_t tensorFlags_;
-	int32_t dimensions_;
+	unsigned char tensorType_ = 0;
+	unsigned char deviceType_ = 0;
+	unsigned int tensorFlags_ = 0;
+	int dimensions_{};
 
-	std::vector<int64_t> shape_;
-	std::vector<int64_t> strides_;
-	size_t shape_n_{};
-	size_t stride_n_{};
+	std::vector<long long > shape_;
+	std::vector<long long> strides_;
+	long long shape_n_ = 0;
+	long long stride_n_ = 0;
 
-	int64_t reserved_;
-	int64_t elementCount_;
-	size_t element_n_{};
+	long long reserved_ = 0;
+	long long elementCount_ = 0;
+	long long element_n_ = 0;
 };
 
 class TableUnmarshal: public ConstantUnmarshalImp{
@@ -498,7 +499,7 @@ private:
 	ConstantUnmarshalSP unmarshal_;
 };
 
-class ConstantMarshalFactory{
+class SWORDFISH_API ConstantMarshalFactory{
 public:
 	ConstantMarshalFactory(const DataOutputStreamSP& out);
 	~ConstantMarshalFactory();
@@ -509,7 +510,7 @@ private:
 	ConstantMarshal* arrMarshal[MAX_DATA_FORMS];
 };
 
-class ConstantUnmarshalFactory{
+class SWORDFISH_API ConstantUnmarshalFactory{
 public:
 	ConstantUnmarshalFactory(const DataInputStreamSP& in, Session* session);
 	~ConstantUnmarshalFactory();

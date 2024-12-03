@@ -13,11 +13,45 @@
 #include "Util.h"
 #include "WideInteger.h"
 
-//========================================================================
-// Decimal implementation details
-//========================================================================
-namespace decimal_util {
 
+namespace decimal_util {
+// Operations
+ConstantSP decimalScalarAdd(const ConstantSP &lhs, const ConstantSP &rhs);
+void decimalScalarAddInplace(const ConstantSP &lhs, const ConstantSP &rhs, const ConstantSP &result,
+                             const INDEX outputStart, bool validate);
+ConstantSP decimalScalarSub(const ConstantSP &lhs, const ConstantSP &rhs);
+void decimalScalarSubInplace(const ConstantSP &lhs, const ConstantSP &rhs, const ConstantSP &result,
+                             const INDEX outputStart, bool validate);
+ConstantSP decimalScalarMultiply(const ConstantSP &lhs, const ConstantSP &rhs);
+void decimalScalarMultiplyInplace(const ConstantSP &lhs, const ConstantSP &rhs, const ConstantSP &result,
+                                 const INDEX outputStart, bool validate);
+ConstantSP decimalScalarDivide(const ConstantSP &lhs, const ConstantSP &rhs);
+void decimalScalarDivideInplace(const ConstantSP &lhs, const ConstantSP &rhs, const ConstantSP &result,
+                                const INDEX outputStart, bool validate);
+ConstantSP decimalVectorAdd(const ConstantSP &lhs, const ConstantSP &rhs);
+void decimalVectorAddInplace(const ConstantSP &lhs, const ConstantSP &rhs, const ConstantSP &result,
+                             const INDEX outputStart, bool validate, const INDEX inputStart, const INDEX inputLen);
+ConstantSP decimalVectorSub(const ConstantSP &lhs, const ConstantSP &rhs);
+void decimalVectorSubInplace(const ConstantSP &lhs, const ConstantSP &rhs, const ConstantSP &result,
+                             const INDEX outputStart, bool validate, const INDEX inputStart, const INDEX inputLen);
+ConstantSP decimalVectorMultiply(const ConstantSP &lhs, const ConstantSP &rhs);
+void decimalVectorMultiplyInplace(const ConstantSP &lhs, const ConstantSP &rhs, const ConstantSP &result,
+                                  const INDEX outputStart, bool validate, const INDEX inputStart,
+                                  const INDEX inputLen);
+ConstantSP decimalVectorDivide(const ConstantSP &lhs, const ConstantSP &rhs);
+void decimalVectorDivideInplace(const ConstantSP &lhs, const ConstantSP &rhs, const ConstantSP &result,
+                                const INDEX outputStart, bool validate, const INDEX inputStart, const INDEX inputLen);
+ConstantSP decimalScalarFloorDivide(const ConstantSP &lhs, const ConstantSP &rhs);
+ConstantSP decimalVectorFloorDivide(const ConstantSP &lhs, const ConstantSP &rhs);
+ConstantSP contextSum(const ConstantSP &a, const ConstantSP &b);
+ConstantSP round(const ConstantSP &obj, const int new_scale);
+ConstantSP ceil(const ConstantSP &obj);
+ConstantSP floor(const ConstantSP &obj);
+ConstantSP decimalScalarMultiply(const ConstantSP &lhs, const ConstantSP &rhs, int resultScale);
+ConstantSP decimalVectorMultiply(const ConstantSP &lhs, const ConstantSP &rhs, int resultScale);
+
+
+// Decimal implementation details
 template <typename T>
 struct RawDecimal {
     /// Determines how many decimal digits fraction can have.
@@ -43,13 +77,13 @@ template <typename T>
 struct MaxPrecision;
 template <> struct MaxPrecision<int> { static constexpr int value = 9; };
 template <> struct MaxPrecision<long long> { static constexpr int value = 18; };
-template <> struct MaxPrecision<wide_integer::int128> { static constexpr int value = 38; };
+template <> struct MaxPrecision<int128> { static constexpr int value = 38; };
 
 template <typename T>
 struct DecimalType;
 template <> struct DecimalType<int> { static constexpr DATA_TYPE value = DT_DECIMAL32; };
 template <> struct DecimalType<long long> { static constexpr DATA_TYPE value = DT_DECIMAL64; };
-template <> struct DecimalType<wide_integer::int128> { static constexpr DATA_TYPE value = DT_DECIMAL128; };
+template <> struct DecimalType<int128> { static constexpr DATA_TYPE value = DT_DECIMAL128; };
 
 inline int exp10_i32(int x) {
     constexpr int values[] = {
@@ -94,8 +128,8 @@ inline long long exp10_i64(int x) {
     return values[x];
 }
 
-inline wide_integer::int128 exp10_i128(int x) {
-    using int128 = wide_integer::int128;
+inline int128 exp10_i128(int x) {
+    using int128 = int128;
     constexpr int128 values[] =
     {
         static_cast<int128>(1LL),
@@ -156,7 +190,7 @@ inline long long scaleMultiplier<long long>(int scale) {
 }
 
 template <>
-inline wide_integer::int128 scaleMultiplier<wide_integer::int128>(int scale) {
+inline int128 scaleMultiplier<int128>(int scale) {
     return exp10_i128(scale);
 }
 
@@ -261,14 +295,8 @@ inline bool mulDivOverflow(T value1, T value2, T divisor, T &result) {
     return overflow;
 }
 
-} // namespace decimal_util
 
-
-//========================================================================
 // Decimal <=> String
-//========================================================================
-namespace decimal_util {
-
 template <typename T>
 inline std::string toString(int scale, T rawData) {
     std::stringstream ss;
@@ -584,22 +612,16 @@ inline Decimal<T> toDecimal(const ConstantSP &obj, int scale) {
     return ret;
 }
 
-}  // namespace decimal_util
 
-
-//========================================================================
 // Misc
-//========================================================================
-namespace decimal_util {
-
 template <typename T> inline long double to_long_double(T v) {
     return static_cast<long double>(v);
 }
 
 // Ref: https://github.com/abseil/abseil-cpp/blob/master/absl/numeric/int128_no_intrinsic.inc#L135-L146
-inline long double to_long_double(wide_integer::int128 v) {
+inline long double to_long_double(int128 v) {
 #ifdef WINDOWS
-    assert(v != wide_integer::INT128_MIN);
+    assert(v != INT128_MIN);
     return (v < 0 ? -static_cast<long double>(-v) : static_cast<long double>(v));
 #else
     return static_cast<long double>(v);
@@ -839,10 +861,7 @@ inline int getScaleFromExtraParam(int extra) {
     return extra & 0x00ffffff;
 }
 
-} // namespace decimal_util
 
-
-namespace decimal_util {
 /**
  * trunc(1.236, 3, 1) => 1.2
  * trunc(1.236, 3, 2) => 1.23
@@ -968,10 +987,7 @@ T floor(const T old_raw_data, const int old_scale) {
 
     return new_raw_data;
 }
-}  // namespace decimal_util
 
-
-namespace decimal_util {
 
 #define ENABLE_FOR_DECIMAL(bits, T, return_type_t)                                                          \
     template <typename U = T>                                                                               \
@@ -996,7 +1012,7 @@ namespace decimal_util {
  *      decimal_util::wrapper<T>::getDecimalBuffer(value, ...);  // Will call value->getDecimal64Buffer(...).
  * }
  * {
- *      using T = Decimal128::raw_data_t;                  // T is `wide_integer::int128`.
+ *      using T = Decimal128::raw_data_t;                  // T is `int128`.
  *      decimal_util::wrapper<T>::setDecimal(value, ...);  // Will call value->setDecimal128(...).
  * }
  * @endcode

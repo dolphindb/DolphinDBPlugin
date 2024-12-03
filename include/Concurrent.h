@@ -9,6 +9,7 @@
 #define CONCURRENT_H_
 
 #include "SmartPointer.h"
+#include "Types.h"
 #include <vector>
 #include <queue>
 #include <cassert>
@@ -54,7 +55,7 @@ public:
 	virtual void execute() = 0;
 };
 
-class Mutex{
+class SWORDFISH_API Mutex{
 public:
 	Mutex();
 	~Mutex();
@@ -93,7 +94,7 @@ private:
 	// TimedMutex CANNOT be used with condition variable
 };
 
-class RWLock{
+class SWORDFISH_API RWLock{
 public:
 	RWLock(bool preferWrite=false);
 	~RWLock();
@@ -124,7 +125,7 @@ private:
 
 };
 
-class ConditionalVariable{
+class SWORDFISH_API ConditionalVariable{
 public:
 	ConditionalVariable();
 	~ConditionalVariable();

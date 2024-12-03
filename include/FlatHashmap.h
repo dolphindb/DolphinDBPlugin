@@ -1367,7 +1367,7 @@ public:
         return endIterator;
     }
 
-private:
+protected:
     iterator endIterator;
     static key_hasher key_hasher_;
     static key_equal key_equal_;
@@ -3168,8 +3168,8 @@ template<> struct equal_to<prefix##bytes##BKey> { \
 } \
 //======
 
-DEF_MULTI_COMBINED_KEY(2, wide_integer::int128, Double, 16);  // Double16BKey
-DEF_MULTI_COMBINED_KEY(3, wide_integer::int128, Triple, 16);  // Triple16BKey
+DEF_MULTI_COMBINED_KEY(2, int128, Double, 16);  // Double16BKey
+DEF_MULTI_COMBINED_KEY(3, int128, Triple, 16);  // Triple16BKey
 
 #undef DEF_MULTI_COMBINED_KEY
 

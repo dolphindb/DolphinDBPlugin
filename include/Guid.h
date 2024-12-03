@@ -11,9 +11,11 @@
 #include <string>
 #include <string.h>
 
+#include "Types.h"
+
 using std::string;
 
-class Guid {
+class SWORDFISH_API Guid {
 public:
 	Guid(bool newGuid = false);
 	Guid(unsigned char* guid){

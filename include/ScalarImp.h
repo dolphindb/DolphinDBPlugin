@@ -12,7 +12,6 @@
 
 #include "CoreConcept.h"
 #include "Util.h"
-#include "WideInteger.h"
 
 using std::ostringstream;
 
@@ -25,7 +24,7 @@ typedef SmartPointer<Resource> ResourceSP;
 
 void initFormatters();
 
-class Void: public Constant{
+class SWORDFISH_API Void: public Constant{
 public:
 	Void(bool explicitNull = false, bool isDefault = false);
 	inline bool isDefault() const { return isDefault_;}
@@ -101,8 +100,8 @@ public:  /// {get,set}Decimal{32,64}
 	virtual long long getDecimal64(int scale) const override {
 		return LLONG_MIN;
 	}
-	virtual wide_integer::int128 getDecimal128(int scale) const override {
-		return wide_integer::int128MinValue();
+	virtual int128 getDecimal128(int scale) const override {
+		return int128MinValue();
 	}
 
 	virtual int getDecimal32(INDEX index, int scale) const override {
@@ -115,8 +114,8 @@ public:  /// {get,set}Decimal{32,64}
 		getDecimal64(index, /*len*/1, scale, &result);
 		return result;
 	}
-	virtual wide_integer::int128 getDecimal128(INDEX index, int scale) const override {
-		wide_integer::int128 result = 0;
+	virtual int128 getDecimal128(INDEX index, int scale) const override {
+		int128 result = 0;
 		getDecimal128(index, /*len*/1, scale, &result);
 		return result;
 	}
@@ -127,7 +126,7 @@ public:  /// {get,set}Decimal{32,64}
 	virtual bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override {
 		return getDecimal(start, len, scale, buf);
 	}
-	virtual bool getDecimal128(INDEX start, int len, int scale, wide_integer::int128 *buf) const override {
+	virtual bool getDecimal128(INDEX start, int len, int scale, int128 *buf) const override {
 		return getDecimal(start, len, scale, buf);
 	}
 
@@ -139,8 +138,8 @@ public:  /// {get,set}Decimal{32,64}
 		getDecimal(start, len, scale, buf);
 		return buf;
 	}
-	virtual const wide_integer::int128* getDecimal128Const(INDEX start, int len, int scale,
-			wide_integer::int128 *buf) const override {
+	virtual const int128* getDecimal128Const(INDEX start, int len, int scale,
+			int128 *buf) const override {
 		getDecimal(start, len, scale, buf);
 		return buf;
 	}
@@ -151,7 +150,7 @@ public:  /// {get,set}Decimal{32,64}
 	virtual bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const override {
 		return getDecimal(0, len, scale, buf);
 	}
-	virtual bool getDecimal128(INDEX *indices, int len, int scale, wide_integer::int128 *buf) const override {
+	virtual bool getDecimal128(INDEX *indices, int len, int scale, int128 *buf) const override {
 		return getDecimal(0, len, scale, buf);
 	}
 
@@ -163,7 +162,7 @@ private:
 	bool isDefault_;
 };
 
-class ObjectPool: public Void {
+class SWORDFISH_API ObjectPool: public Void {
 public:
 	void cacheObject(long long sessionId, long long id, const ConstantSP& obj);
 	ConstantSP getCache(long long sessionId, long long id);
@@ -189,7 +188,7 @@ private:
 	long long cacheSeed_;
 };
 
-class Int128: public Constant{
+class SWORDFISH_API Int128: public Constant{
 public:
 	Int128();
 	Int128(const unsigned char* data);
@@ -260,7 +259,7 @@ protected:
 	mutable unsigned char uuid_[16];
 };
 
-class Uuid : public Int128 {
+class SWORDFISH_API Uuid : public Int128 {
 public:
 	Uuid(bool newUuid = false);
 	Uuid(const unsigned char* uuid);
@@ -276,7 +275,7 @@ public:
 };
 
 # ifndef OPCUA
-class IPAddr : public Int128 {
+class SWORDFISH_API IPAddr : public Int128 {
 public:
 	IPAddr();
 	IPAddr(const char* ip, int len);
@@ -296,7 +295,7 @@ private:
 };
 # endif
 
-class DoublePair {
+class SWORDFISH_API DoublePair {
 public:
 	DoublePair(bool null = true);
 	DoublePair(double x, double y);
@@ -345,7 +344,7 @@ private:
 	U16 data_;
 };
 
-class Double2 : public Int128 {
+class SWORDFISH_API Double2 : public Int128 {
 public:
 	virtual bool isNull() const;
 	virtual void setNull();
@@ -356,7 +355,7 @@ protected:
 	Double2(const unsigned char* data);
 };
 
-class Complex : public Double2 {
+class SWORDFISH_API Complex : public Double2 {
 public:
 	Complex() : Double2(){setType(DT_COMPLEX);}
 	Complex(double real, double image) : Double2(real, image){setType(DT_COMPLEX);}
@@ -371,7 +370,7 @@ public:
 	static string toString(const unsigned char* data);
 };
 
-class Point : public Double2 {
+class SWORDFISH_API Point : public Double2 {
 public:
 	Point() : Double2(){setType(DT_POINT);}
 	Point(double x, double y) : Double2(x, y){setType(DT_POINT);}
@@ -386,7 +385,7 @@ public:
 	static string toString(const unsigned char* data);
 };
 
-class String: public Constant{
+class SWORDFISH_API String: public Constant{
 public:
 	String(DolphinString val=""): Constant(DF_SCALAR, DT_STRING, LITERAL), blob_(false), val_(val){}
 	String(DolphinString val, bool blob): Constant(DF_SCALAR, blob ? DT_BLOB : DT_STRING, LITERAL), blob_(blob), val_(val){}
@@ -407,7 +406,7 @@ public:
 	virtual long long getDecimal64(int scale) const override {
 		throw IncompatibleTypeException(DT_DECIMAL64, internalType());
 	}
-	virtual wide_integer::int128 getDecimal128(int scale) const override {
+	virtual int128 getDecimal128(int scale) const override {
 		throw IncompatibleTypeException(DT_DECIMAL128, internalType());
 	}
 	virtual int getDecimal32(INDEX index, int scale) const override {
@@ -416,7 +415,7 @@ public:
 	virtual long long getDecimal64(INDEX index, int scale) const override {
 		throw IncompatibleTypeException(DT_DECIMAL64, internalType());
 	}
-	virtual wide_integer::int128 getDecimal128(INDEX index, int scale) const override {
+	virtual int128 getDecimal128(INDEX index, int scale) const override {
 		throw IncompatibleTypeException(DT_DECIMAL128, internalType());
 	}
 	virtual bool getDecimal32(INDEX start, int len, int scale, int *buf) const override {
@@ -425,7 +424,7 @@ public:
 	virtual bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override {
 		throw IncompatibleTypeException(DT_DECIMAL64, internalType());
 	}
-	virtual bool getDecimal128(INDEX start, int len, int scale, wide_integer::int128 *buf) const override {
+	virtual bool getDecimal128(INDEX start, int len, int scale, int128 *buf) const override {
 		throw IncompatibleTypeException(DT_DECIMAL128, internalType());
 	}
 	virtual bool getDecimal32(INDEX *indices, int len, int scale, int *buf) const override {
@@ -434,7 +433,7 @@ public:
 	virtual bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const override {
 		throw IncompatibleTypeException(DT_DECIMAL64, internalType());
 	}
-	virtual bool getDecimal128(INDEX *indices, int len, int scale, wide_integer::int128 *buf) const override {
+	virtual bool getDecimal128(INDEX *indices, int len, int scale, int128 *buf) const override {
 		throw IncompatibleTypeException(DT_DECIMAL128, internalType());
 	}
 	virtual const int* getDecimal32Const(INDEX start, int len, int scale, int *buf) const override {
@@ -443,8 +442,8 @@ public:
 	virtual const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const override {
 		throw IncompatibleTypeException(DT_DECIMAL64, internalType());
 	}
-	virtual const wide_integer::int128* getDecimal128Const(INDEX start, int len, int scale,
-			wide_integer::int128 *buf) const override {
+	virtual const int128* getDecimal128Const(INDEX start, int len, int scale,
+			int128 *buf) const override {
 		throw IncompatibleTypeException(DT_DECIMAL128, internalType());
 	}
 
@@ -537,7 +536,7 @@ private:
 	mutable DolphinString val_;
 };
 
-class MetaCode : public String {
+class SWORDFISH_API MetaCode : public String {
 public:
 	MetaCode(const ObjectSP& code) : String("< " + code->getScript() +" >"), code_(code) {
 		setTypeAndCategory(DT_CODE, SYSTEM);
@@ -559,7 +558,7 @@ private:
 	ObjectSP code_;
 };
 
-class DataSource : public String {
+class SWORDFISH_API DataSource : public String {
 public:
 	DataSource(const ObjectSP& code, long long cacheId = -1, bool isTable = true, bool localMode = false) : String("DataSource< " + code->getScript() +" >"), code_(1, code),
 		parentId_(-1), id_(cacheId), action_(-1), isTable_(isTable), localMode_(localMode){setTypeAndCategory(DT_DATASOURCE, SYSTEM);}
@@ -603,7 +602,7 @@ private:
 };
 
 
-class SystemHandle : public String{
+class SWORDFISH_API SystemHandle : public String{
 public:
 	SystemHandle(SOCKET handle, bool isLittleEndian, const string& sessionID, const string& host, int port, const string& userId, const string& pwd) : String("Conn[" + host + ":" +Util::convert(port) + ":" +sessionID + "]"),
 		type_(REMOTE_HANDLE), socket_(handle), flag_(isLittleEndian ? 1 : 0), sessionID_(sessionID), userId_(userId), pwd_(pwd), tables_(0){setTypeAndCategory(DT_HANDLE, SYSTEM);}
@@ -656,7 +655,7 @@ private:
 	mutable Mutex mutex_;
 };
 
-class Resource : public String{
+class SWORDFISH_API Resource : public String{
 public:
 	Resource(long long handle, const string& desc, const FunctionDefSP& onClose, Session* session) : String(desc), handle_(handle), onClose_(onClose), session_(session){setTypeAndCategory(DT_RESOURCE, SYSTEM);}
 	virtual ~Resource();
@@ -677,7 +676,7 @@ private:
 };
 
 template <class T>
-class AbstractScalar: public Constant{
+class SWORDFISH_API AbstractScalar: public Constant{
 public:
 	AbstractScalar(DATA_TYPE dt, DATA_CATEGORY dc, T val=0): Constant(DF_SCALAR, dt, dc), val_(val){}
 	virtual ~AbstractScalar(){}
@@ -750,7 +749,7 @@ public:  /// {get,set}Decimal{32,64,128}
 	virtual long long getDecimal64(int scale) const override {
 		return getDecimal64(/*index*/0, scale);
 	}
-	virtual wide_integer::int128 getDecimal128(int scale) const override {
+	virtual int128 getDecimal128(int scale) const override {
 		return getDecimal128(/*index*/0, scale);
 	}
 
@@ -764,8 +763,8 @@ public:  /// {get,set}Decimal{32,64,128}
 		getDecimal64(index, /*len*/1, scale, &result);
 		return result;
 	}
-	virtual wide_integer::int128 getDecimal128(INDEX index, int scale) const override {
-		wide_integer::int128 result = 0;
+	virtual int128 getDecimal128(INDEX index, int scale) const override {
+		int128 result = 0;
 		getDecimal128(index, /*len*/1, scale, &result);
 		return result;
 	}
@@ -776,7 +775,7 @@ public:  /// {get,set}Decimal{32,64,128}
 	virtual bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override {
 		return getDecimal(start, len, scale, buf);
 	}
-	virtual bool getDecimal128(INDEX start, int len, int scale, wide_integer::int128 *buf) const override {
+	virtual bool getDecimal128(INDEX start, int len, int scale, int128 *buf) const override {
 		return getDecimal(start, len, scale, buf);
 	}
 
@@ -786,7 +785,7 @@ public:  /// {get,set}Decimal{32,64,128}
 	virtual bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const override {
 		return getDecimal(/*start*/0, len, scale, buf);
 	}
-	virtual bool getDecimal128(INDEX *indices, int len, int scale, wide_integer::int128 *buf) const override {
+	virtual bool getDecimal128(INDEX *indices, int len, int scale, int128 *buf) const override {
 		return getDecimal(/*start*/0, len, scale, buf);
 	}
 
@@ -796,8 +795,8 @@ public:  /// {get,set}Decimal{32,64,128}
 	virtual const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const override {
 		return getDecimal64Buffer(start, len, scale, buf);
 	}
-	virtual const wide_integer::int128* getDecimal128Const(INDEX start, int len, int scale,
-			wide_integer::int128 *buf) const override {
+	virtual const int128* getDecimal128Const(INDEX start, int len, int scale,
+			int128 *buf) const override {
 		return getDecimal128Buffer(start, len, scale, buf);
 	}
 
@@ -809,8 +808,8 @@ public:  /// {get,set}Decimal{32,64,128}
 		getDecimal(start, len, scale, buf);
 		return buf;
 	}
-	virtual wide_integer::int128* getDecimal128Buffer(INDEX start, int len, int scale,
-			wide_integer::int128 *buf) const override {
+	virtual int128* getDecimal128Buffer(INDEX start, int len, int scale,
+			int128 *buf) const override {
 		getDecimal(start, len, scale, buf);
 		return buf;
 	}
@@ -821,7 +820,7 @@ public:  /// {get,set}Decimal{32,64,128}
 	virtual void setDecimal64(INDEX index, int scale, long long val) override {
 		setDecimal64(index, /*len*/1, scale, &val);
 	}
-	virtual void setDecimal128(INDEX index, int scale, wide_integer::int128 val) override {
+	virtual void setDecimal128(INDEX index, int scale, int128 val) override {
 		setDecimal128(index, /*len*/1, scale, &val);
 	}
 
@@ -831,16 +830,16 @@ public:  /// {get,set}Decimal{32,64,128}
 	virtual bool setDecimal64(INDEX start, int len, int scale, const long long *buf) override {
 		return setDecimal(start, len, scale, buf);
 	}
-	virtual bool setDecimal128(INDEX start, int len, int scale, const wide_integer::int128 *buf) override {
+	virtual bool setDecimal128(INDEX start, int len, int scale, const int128 *buf) override {
 		return setDecimal(start, len, scale, buf);
 	}
 
 private:
 	template <typename R>
-	bool getDecimal(INDEX /*start*/, int len, int scale, R *buf) const;
+	bool SWORDFISH_API getDecimal(INDEX /*start*/, int len, int scale, R *buf) const;
 
 	template <typename R>
-	bool setDecimal(INDEX /*start*/, int len, int scale, const R *buf);
+	bool SWORDFISH_API setDecimal(INDEX /*start*/, int len, int scale, const R *buf);
 
 public:
 	virtual string getScript() const {
@@ -1116,7 +1115,7 @@ protected:
 	T val_;
 };
 
-class Bool: public AbstractScalar<char>{
+class SWORDFISH_API Bool: public AbstractScalar<char>{
 public:
 	Bool(char val=0):AbstractScalar(DT_BOOL, LOGICAL, val){}
 	virtual ~Bool(){}
@@ -1145,7 +1144,7 @@ public:
 	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getBool(valueIndex);return true;}
 };
 
-class Char: public AbstractScalar<char>{
+class SWORDFISH_API Char: public AbstractScalar<char>{
 public:
 	Char(char val=0):AbstractScalar(DT_CHAR, INTEGRAL, val){}
 	virtual ~Char(){}
@@ -1166,7 +1165,7 @@ public:
 	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getChar(valueIndex);return true;}
 };
 
-class Short: public AbstractScalar<short>{
+class SWORDFISH_API Short: public AbstractScalar<short>{
 public:
 	Short(short val=0):AbstractScalar(DT_SHORT, INTEGRAL, val){}
 	virtual ~Short(){}
@@ -1186,7 +1185,7 @@ public:
 	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getShort(valueIndex);return true;}
 };
 
-class Int: public AbstractScalar<int>{
+class SWORDFISH_API Int: public AbstractScalar<int>{
 public:
 	Int(int val=0):AbstractScalar(DT_INT, INTEGRAL, val){}
 	virtual ~Int(){}
@@ -1206,7 +1205,7 @@ public:
 	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getInt(valueIndex);return true;}
 };
 
-class EnumInt : public Int {
+class SWORDFISH_API EnumInt : public Int {
 public:
 	EnumInt(const string& desc, int val):Int(val), desc_(desc){}
 	virtual ~EnumInt(){}
@@ -1219,11 +1218,12 @@ private:
 	string desc_;
 };
 
-class Duration : public Int {
+class SWORDFISH_API Duration : public Int {
 public:
 	Duration(DURATION unit, int val);
 	Duration(int exchange, int val);
 	Duration(const string& exchange, int val);
+	Duration(FREQUENCY freq);
 	virtual ~Duration(){}
 	virtual DATA_TYPE getRawType() const { return DT_DURATION;}
 	virtual long long getLong() const;
@@ -1233,17 +1233,30 @@ public:
 	virtual string getString() const;
 	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
 	IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
-	DURATION getUnit() const { return unit_;}
+	inline DURATION getUnit() const { return unit_;}
+	inline DURATION unit() const { return unit_; }
 	string getExchangeName() const;
-	int getExchangeInt() const { return exchange_;}
-	int getDuration() const { return val_;}
+	inline int getExchangeInt() const { return exchange_;}
+	inline int getDuration() const { return val_;}
+    inline int length() const { return val_; }
+    double years() const;
+    double months() const;
+    double weeks() const;
+    double days() const;
+    FREQUENCY frequency() const;
+    Duration& operator+=(const Duration&);
+    Duration& operator-=(const Duration& d);
+    Duration& operator*=(int n);
+    Duration& operator/=(int);
 	long long toDuration(DURATION newDuration) const;
 	bool convertibleTo(DURATION to) const { return convertible(unit_, to);}
 	static bool convertible(DURATION from, DURATION to);
+	static long long convertRatio(DURATION from, DURATION to);
 	static Duration* parseDuration(const string& str);
 	static string toString(long long val);
 	static DURATION getDuration(DATA_TYPE type);
 	static DURATION getDuration(const string& unit);
+	static string getExchangeName(int exchange);
 	virtual uint64_t hash() const;
 	virtual bool equal(const ConstantSP& other) const;
 
@@ -1252,10 +1265,63 @@ private:
 	static const long long durationRatios_[12][12];
 	DURATION unit_;
 	int exchange_;
-
 };
 
-class Long: public AbstractScalar<long long>{
+template <typename T>
+inline Duration operator*(T n, DURATION unit){
+	return Duration(unit, n);
+}
+
+template <typename T>
+inline Duration operator*(DURATION unit, T n){
+	return Duration(unit, n);
+}
+
+inline Duration operator-(const Duration& d) { return Duration(d.unit(), -d.length());}
+
+inline Duration operator*(int n, const Duration& d) { return Duration(d.unit(), d.length() * n);}
+
+inline Duration operator*(const Duration& d, int n) { return Duration(d.unit(), d.length() * n);}
+
+inline Duration operator/(const Duration& d, int n){
+	Duration result = d;
+	result /= n;
+	return result;
+}
+
+inline Duration operator+(const Duration& d1, const Duration& d2){
+	Duration result = d1;
+	result += d2;
+	return result;
+}
+
+inline Duration operator-(const Duration& d1, const Duration& d2) {
+	Duration result = d1;
+	result -= d2;
+	return result;
+}
+
+bool operator<(const Duration&, const Duration&);
+
+bool operator==(const Duration&, const Duration&);
+
+inline bool operator!=(const Duration& p1, const Duration& p2){
+	return !(p1 == p2);
+}
+
+inline bool operator>(const Duration& p1, const Duration& p2){
+	return p2 < p1;
+}
+
+inline bool operator<=(const Duration& p1, const Duration& p2) {
+	return !(p2 < p1);
+}
+
+inline bool operator>=(const Duration& p1, const Duration& p2) {
+	return !(p1 < p2);
+}
+
+class SWORDFISH_API Long: public AbstractScalar<long long>{
 public:
 	Long(long long val=0):AbstractScalar(DT_LONG, INTEGRAL, val){}
 	virtual ~Long(){}
@@ -1275,7 +1341,7 @@ public:
 	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getLong(valueIndex);return true;}
 };
 
-class Float: public AbstractScalar<float>{
+class SWORDFISH_API Float: public AbstractScalar<float>{
 public:
 	Float(float val=0):AbstractScalar(DT_FLOAT, FLOATING, val){}
 	virtual ~Float(){}
@@ -1307,7 +1373,7 @@ public:
 	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getFloat(valueIndex);return true;}
 };
 
-class Double: public AbstractScalar<double>{
+class SWORDFISH_API Double: public AbstractScalar<double>{
 public:
 	Double(double val=0):AbstractScalar(DT_DOUBLE, FLOATING, (std::isnan(val)|| std::isinf(val)) ? DBL_NMIN : val){}
 	virtual ~Double(){}
@@ -1339,7 +1405,7 @@ public:
 	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getDouble(valueIndex);return true;}
 };
 
-class EnumDouble : public Double {
+class SWORDFISH_API EnumDouble : public Double {
 public:
 	EnumDouble(const string& desc, double val):Double(val), desc_(desc){}
 	virtual ~EnumDouble(){}
@@ -1352,14 +1418,14 @@ private:
 	string desc_;
 };
 
-class TemporalScalar:public Int{
+class SWORDFISH_API TemporalScalar:public Int{
 public:
 	TemporalScalar(DATA_TYPE type, int val=0):Int(val){setTypeAndCategory(type, TEMPORAL);}
 	virtual ~TemporalScalar(){}
 	virtual bool equal(const ConstantSP& other) const { return getType() == other->getType() && val_ == other->getInt();}
 };
 
-class Date:public TemporalScalar{
+class SWORDFISH_API Date:public TemporalScalar{
 public:
 	Date(int val=0):TemporalScalar(DT_DATE, val){}
 	Date(int year, int month, int day):TemporalScalar(DT_DATE, Util::countDays(year,month,day)){}
@@ -1369,9 +1435,174 @@ public:
 	virtual string getString() const { return toString(val_);}
 	static Date* parseDate(const string& str);
 	static string toString(int val);
+
+    inline WEEKDAY weekday() const {
+    	return WEEKDAY(Util::mod<int>(val_+4,7));
+    }
+
+    inline int dayOfMonth() const {
+    	int y, m, d;
+    	Util::parseDate(val_, y, m, d);
+    	return d;
+    }
+
+    inline int dayOfYear() const {
+    	return Util::getDayOfYear(val_);
+    }
+
+    inline int month() const {
+    	int y, m, d;
+    	Util::parseDate(val_, y, m, d);
+    	return m;
+    }
+
+    inline int year() const{
+    	return Util::parseYear(val_);
+    }
+
+    inline int serialNumber() const { return val_;}
+
+    inline Date& operator+=(int days) {
+    	val_ += days;
+    	return *this;
+    }
+	// increments date by the given period
+	inline Date& operator+=(const Duration& duration){
+		DURATION unit = duration.getUnit();
+		val_ = advance(*this, duration.getDuration(),
+				unit < DURATION::TDAY ? unit : ((DURATION)(duration.getExchangeInt()))).serialNumber();
+		return *this;
+	}
+
+	// decrement date by the given number of days
+	inline Date& operator-=(int days) {
+		val_ -= days;
+		return *this;
+	}
+
+	//! decrements date by the given period
+	inline Date& operator-=(const Duration& duration){
+		DURATION unit = duration.getUnit();
+		val_ = advance(*this, -duration.getDuration(),
+				unit < DURATION::TDAY ? unit : ((DURATION)(duration.getExchangeInt()))).serialNumber();
+		return *this;
+	}
+
+	// 1-day pre-increment
+	inline Date& operator++(){
+		++val_;
+		return *this;
+	}
+
+	// 1-day post-increment
+	inline Date operator++(int ) {
+		return Date(val_++);
+	}
+
+	// 1-day pre-decrement
+	inline Date& operator--(){
+		--val_;
+		return *this;
+	}
+
+	// 1-day post-decrement
+	inline Date operator--(int ){
+		return Date(val_--);
+	}
+
+	// returns a new date incremented by the given number of days
+	inline Date operator+(int days) const {
+		return Date(serialNumber() + days);
+	}
+
+	// returns a new date incremented by the given period
+	inline Date operator+(const Duration& duration) const {
+		DURATION unit = duration.getUnit();
+		return advance(*this, duration.getDuration(),
+				unit < DURATION::TDAY ? unit : ((DURATION)(duration.getExchangeInt())));
+	}
+
+	// returns a new date decremented by the given number of days
+	Date operator-(int days) const {
+		return Date(serialNumber() - days);
+	}
+
+	// returns a new date decremented by the given period
+	inline Date operator-(const Duration& duration) const {
+		DURATION unit = duration.getUnit();
+		return advance(*this, -duration.getDuration(),
+				unit < DURATION::TDAY ? unit : ((DURATION)(duration.getExchangeInt())));
+	}
+
+    static Date todaysDate(){
+    	struct tm lt;
+    	Util::getLocalTime(lt);
+    	return Date(1900+lt.tm_year, lt.tm_mon+1, lt.tm_mday);
+    }
+
+    // whether the given year is a leap one
+    static bool isLeap(int year) {
+    	return (year%4==0 && year%100!=0) || year%400==0;
+    }
+
+    // last day of the month to which the given date belongs
+    static Date endOfMonth(const Date &d) {
+    	return Date(Util::getMonthEnd(d.serialNumber()));
+    }
+
+    // whether a date is the last day of its month
+    static bool isEndOfMonth(const Date &d) {
+    	return Util::getMonthEnd(d.serialNumber()) == d.serialNumber();
+    }
+
+    // next given weekday following or equal to the given date
+    static Date nextWeekday(const Date &d, WEEKDAY w) {
+    	WEEKDAY wd = d.weekday();
+    	return d + ((wd>w ? 7 : 0) - (int)wd + (int)w);
+    }
+
+    // n-th given weekday in the given month and year
+    // E.g., the 4th Thursday of March, 1998 was March 26th, 1998.
+    static Date nthWeekday(int n, WEEKDAY w, int m, int y);
+
+private:
+    static Date advance(const Date &d, int n, DURATION unit);
 };
 
-class Month:public TemporalScalar{
+inline int operator-(const Date& d1, const Date& d2) {
+	return d1.serialNumber() - d2.serialNumber();
+}
+
+inline int daysBetween(const Date& d1, const Date& d2) {
+	return d2-d1;
+}
+
+inline bool operator==(const Date& d1, const Date& d2) {
+	return (d1.serialNumber() == d2.serialNumber());
+}
+
+inline bool operator!=(const Date& d1, const Date& d2) {
+	return (d1.serialNumber() != d2.serialNumber());
+}
+
+inline bool operator<(const Date& d1, const Date& d2) {
+	return (d1.serialNumber() < d2.serialNumber());
+}
+
+inline bool operator<=(const Date& d1, const Date& d2) {
+	return (d1.serialNumber() <= d2.serialNumber());
+}
+
+inline bool operator>(const Date& d1, const Date& d2) {
+	return (d1.serialNumber() > d2.serialNumber());
+}
+
+inline bool operator>=(const Date& d1, const Date& d2) {
+	return (d1.serialNumber() >= d2.serialNumber());
+}
+
+
+class SWORDFISH_API Month:public TemporalScalar{
 public:
 	Month():TemporalScalar(DT_MONTH, 1999*12+11){}
 	Month(int val):TemporalScalar(DT_MONTH, val){}
@@ -1384,7 +1615,7 @@ public:
 	static string toString(int val);
 };
 
-class Time:public TemporalScalar{
+class SWORDFISH_API Time:public TemporalScalar{
 public:
 	Time(int val=0):TemporalScalar(DT_TIME, val){}
 	Time(int hour, int minute, int second, int milliSecond):TemporalScalar(DT_TIME, ((hour*60+minute)*60+second)*1000+milliSecond){}
@@ -1397,7 +1628,7 @@ public:
 	static string toString(int val);
 };
 
-class NanoTime:public Long{
+class SWORDFISH_API NanoTime:public Long{
 public:
 	NanoTime(long long val=0):Long(val){setTypeAndCategory(DT_NANOTIME, TEMPORAL);}
 	NanoTime(int hour, int minute, int second, int nanoSecond):Long(((hour*60+minute)*60+second)*1000000000ll+ nanoSecond){setTypeAndCategory(DT_NANOTIME, TEMPORAL);}
@@ -1411,7 +1642,7 @@ public:
 	virtual bool equal(const ConstantSP& other) const { return DT_NANOTIME == other->getType() && val_ == other->getLong();}
 };
 
-class Timestamp:public Long{
+class SWORDFISH_API Timestamp:public Long{
 public:
 	Timestamp(long long val=0):Long(val){setTypeAndCategory(DT_TIMESTAMP, TEMPORAL);}
 	Timestamp(int year, int month, int day,int hour, int minute, int second, int milliSecond);
@@ -1424,7 +1655,7 @@ public:
 	virtual bool equal(const ConstantSP& other) const { return DT_TIMESTAMP == other->getType() && val_ == other->getLong();}
 };
 
-class NanoTimestamp:public Long{
+class SWORDFISH_API NanoTimestamp:public Long{
 public:
 	NanoTimestamp(long long val=0):Long(val){setTypeAndCategory(DT_NANOTIMESTAMP, TEMPORAL);}
 	NanoTimestamp(int year, int month, int day,int hour, int minute, int second, int nanoSecond);
@@ -1437,7 +1668,7 @@ public:
 	virtual bool equal(const ConstantSP& other) const { return DT_NANOTIMESTAMP == other->getType() && val_ == other->getLong();}
 };
 
-class Minute:public TemporalScalar{
+class SWORDFISH_API Minute:public TemporalScalar{
 public:
 	Minute(int val=0):TemporalScalar(DT_MINUTE, val){}
 	Minute(int hour, int minute):TemporalScalar(DT_MINUTE, hour*60+minute){}
@@ -1450,7 +1681,7 @@ public:
 	static string toString(int val);
 };
 
-class Second:public TemporalScalar{
+class SWORDFISH_API Second:public TemporalScalar{
 public:
 	Second(int val=0):TemporalScalar(DT_SECOND, val){}
 	Second(int hour, int minute,int second):TemporalScalar(DT_SECOND, (hour*60+minute)*60+second){}
@@ -1463,7 +1694,7 @@ public:
 	static string toString(int val);
 };
 
-class DateTime:public TemporalScalar{
+class SWORDFISH_API DateTime:public TemporalScalar{
 public:
 	DateTime(int val=0):TemporalScalar(DT_DATETIME, val){}
 	DateTime(int year, int month, int day, int hour, int minute,int second);
@@ -1475,7 +1706,7 @@ public:
 	static string toString(int val);
 };
 
-class DateHour:public TemporalScalar{
+class SWORDFISH_API DateHour:public TemporalScalar{
 public:
 	DateHour(int val=0):TemporalScalar(DT_DATEHOUR, val){}
 	DateHour(int year, int month, int day, int hour);
@@ -1489,9 +1720,7 @@ public:
 
 
 template <typename T>
-class Decimal : public Constant {
-    using int128 = wide_integer::int128;
-    using uint128 = wide_integer::uint128;
+class SWORDFISH_API Decimal : public Constant {
     static_assert(std::is_same<T, int>::value || std::is_same<T, long long>::value ||
                   std::is_same<T, int128>::value,
                   "only allow to instantiate Decimal<int>, Decimal<long long> and Decimal<int128>");
@@ -1543,6 +1772,8 @@ public:  /// Interface of Constant
     virtual bool set(INDEX index, const ConstantSP &value, INDEX valueIndex) override;
 
     virtual void nullFill(const ConstantSP &val) override;
+
+    virtual uint64_t hash() const override;
 
 public:  /// decimal to float
     virtual float getFloat() const override;
@@ -1601,7 +1832,7 @@ public:  /// {get,set}Decimal{32,64,128}
     virtual long long getDecimal64(int scale) const override {
         return getDecimal64(/*index*/0, scale);
     }
-    virtual wide_integer::int128 getDecimal128(int scale) const override {
+    virtual int128 getDecimal128(int scale) const override {
         return getDecimal128(/*index*/0, scale);
     }
 
@@ -1615,8 +1846,8 @@ public:  /// {get,set}Decimal{32,64,128}
         getDecimal64(index, /*len*/1, scale, &result);
         return result;
     }
-    virtual wide_integer::int128 getDecimal128(INDEX index, int scale) const override {
-        wide_integer::int128 result = 0;
+    virtual int128 getDecimal128(INDEX index, int scale) const override {
+        int128 result = 0;
         getDecimal128(index, /*len*/1, scale, &result);
         return result;
     }
@@ -1627,7 +1858,7 @@ public:  /// {get,set}Decimal{32,64,128}
     virtual bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override {
         return getDecimal(start, len, scale, buf);
     }
-    virtual bool getDecimal128(INDEX start, int len, int scale, wide_integer::int128 *buf) const override {
+    virtual bool getDecimal128(INDEX start, int len, int scale, int128 *buf) const override {
         return getDecimal(start, len, scale, buf);
     }
 
@@ -1637,7 +1868,7 @@ public:  /// {get,set}Decimal{32,64,128}
     virtual bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const override {
         return getDecimal(/*start*/0, len, scale, buf);
     }
-    virtual bool getDecimal128(INDEX *indices, int len, int scale, wide_integer::int128 *buf) const override {
+    virtual bool getDecimal128(INDEX *indices, int len, int scale, int128 *buf) const override {
         return getDecimal(/*start*/0, len, scale, buf);
     }
 
@@ -1647,8 +1878,8 @@ public:  /// {get,set}Decimal{32,64,128}
     virtual const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const override {
         return getDecimal64Buffer(start, len, scale, buf);
     }
-    virtual const wide_integer::int128* getDecimal128Const(INDEX start, int len, int scale,
-                                                           wide_integer::int128 *buf) const override {
+    virtual const int128* getDecimal128Const(INDEX start, int len, int scale,
+                                                           int128 *buf) const override {
         return getDecimal128Buffer(start, len, scale, buf);
     }
 
@@ -1660,8 +1891,8 @@ public:  /// {get,set}Decimal{32,64,128}
         getDecimal(start, len, scale, buf);
         return buf;
     }
-    virtual wide_integer::int128* getDecimal128Buffer(INDEX start, int len, int scale,
-                                                      wide_integer::int128 *buf) const override {
+    virtual int128* getDecimal128Buffer(INDEX start, int len, int scale,
+                                                      int128 *buf) const override {
         getDecimal(start, len, scale, buf);
         return buf;
     }
@@ -1672,7 +1903,7 @@ public:  /// {get,set}Decimal{32,64,128}
     virtual void setDecimal64(INDEX index, int scale, long long val) override {
         setDecimal64(index, /*len*/1, scale, &val);
     }
-    virtual void setDecimal128(INDEX index, int scale, wide_integer::int128 val) override {
+    virtual void setDecimal128(INDEX index, int scale, int128 val) override {
         setDecimal128(index, /*len*/1, scale, &val);
     }
 
@@ -1682,7 +1913,7 @@ public:  /// {get,set}Decimal{32,64,128}
     virtual bool setDecimal64(INDEX start, int len, int scale, const long long *buf) override {
         return setDecimal(start, len, scale, buf);
     }
-    virtual bool setDecimal128(INDEX start, int len, int scale, const wide_integer::int128 *buf) override {
+    virtual bool setDecimal128(INDEX start, int len, int scale, const int128 *buf) override {
         return setDecimal(start, len, scale, buf);
     }
 
@@ -1748,7 +1979,7 @@ private:
 
 using Decimal32 = Decimal<int>;        // int32_t
 using Decimal64 = Decimal<long long>;  // int64_t
-using Decimal128 = Decimal<wide_integer::int128>;
+using Decimal128 = Decimal<int128>;
 
 
 #endif /* SCALARIMP_H_ */

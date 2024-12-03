@@ -8,7 +8,11 @@
 #ifndef SPECIALCONSTANT_H_
 #define SPECIALCONSTANT_H_
 
+#include <string>
 #include "CoreConcept.h"
+#include "Exceptions.h"
+#include "SysIO.h"
+#include "Types.h"
 #include "Util.h"
 
 class AnyVector:public Vector{
@@ -47,6 +51,7 @@ public:
 	virtual bool set(const ConstantSP& index, const ConstantSP& value);
 	virtual bool set(Heap* heap, const ConstantSP& index, const ConstantSP& value, int dim);
 	virtual bool setItem(INDEX index, const ConstantSP& value);
+	virtual bool modifyMember(Heap* heap, const FunctionDefSP& func, const ConstantSP& index, const ConstantSP& parameters, int dim);
 	virtual bool assign(const ConstantSP& value);
 	virtual ConstantSP get(INDEX index) const {return data_[index];}
 	virtual ConstantSP get(const ConstantSP& index) const;
@@ -67,6 +72,7 @@ public:
 	virtual ConstantSP getInstance(INDEX size) const {return ConstantSP(new AnyVector(size, isTableColumn_, dt_, decimalExtra_));}
 	virtual ConstantSP getValue() const;
 	virtual ConstantSP getValue(INDEX capacity) const {return ConstantSP(new AnyVector(data_, containNull_, isTableColumn_, dt_, decimalExtra_));}
+	bool append(const ConstantSP& value, bool wholistic);
 	virtual bool append(const ConstantSP& value);
 	virtual bool append(const ConstantSP& value, INDEX appendSize);
 	virtual bool remove(INDEX count);
@@ -139,20 +145,20 @@ public:
 public:  /// getDecimal{32,64,128}
 	virtual int getDecimal32(int scale) const override;
 	virtual long long getDecimal64(int scale) const override;
-	virtual wide_integer::int128 getDecimal128(int scale) const override;
+	virtual int128 getDecimal128(int scale) const override;
 
 	virtual int getDecimal32(INDEX index, int scale) const override;
 	virtual long long getDecimal64(INDEX index, int scale) const override;
-	virtual wide_integer::int128 getDecimal128(INDEX index, int scale) const override;
+	virtual int128 getDecimal128(INDEX index, int scale) const override;
 
 	virtual bool getDecimal32(INDEX start, int len, int scale, int *buf) const override;
 	virtual bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override;
-	virtual bool getDecimal128(INDEX start, int len, int scale, wide_integer::int128 *buf) const override;
+	virtual bool getDecimal128(INDEX start, int len, int scale, int128 *buf) const override;
 
 	virtual const int* getDecimal32Const(INDEX start, int len, int scale, int *buf) const override;
 	virtual const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const override;
-	virtual const wide_integer::int128* getDecimal128Const(INDEX start, int len, int scale,
-			wide_integer::int128 *buf) const override;
+	virtual const int128* getDecimal128Const(INDEX start, int len, int scale,
+			int128 *buf) const override;
 
 public:
 	virtual INDEX size() const {return data_.size();}
@@ -915,6 +921,17 @@ public:
 		}
 		return true;
 	}
+
+    virtual bool getBool(INDEX *indices, int len, char *buf) const override;
+    virtual bool getChar(INDEX *indices, int len, char *buf) const override;
+    virtual bool getShort(INDEX *indices, int len, short *buf) const override;
+    virtual bool getInt(INDEX *indices, int len, int *buf) const override;
+    virtual bool getIndex(INDEX *indices, int len, INDEX *buf) const override;
+    virtual bool getLong(INDEX *indices, int len, long long *buf) const override;
+    virtual bool getFloat(INDEX *indices, int len, float *buf) const override;
+    virtual bool getDouble(INDEX *indices, int len, double *buf) const override;
+    virtual bool getDecimal32(INDEX *indices, int len, int scale, int *buf) const override;
+
 	virtual bool getBool(INDEX start, int len, char* buf) const {
 		if (start < 0 || offset_ + start < 0) {
 			INDEX cur = 0;
@@ -1034,7 +1051,7 @@ public:
 			}
 		}
 		return originalBuf;
-
+	
 	}
 	virtual char* getCharBuffer(INDEX start, int len, char* buf) const {return source_->getCharBuffer(offset_ + start, len, buf);}
 	virtual bool getShort(INDEX start, int len, short* buf) const {
@@ -1343,7 +1360,7 @@ public:
 				buf[i] = INDEX_MIN;
 			}
 		}
-		return originalBuf;
+		return originalBuf;	
 	}
 	virtual INDEX* getIndexBuffer(INDEX start, int len, INDEX* buf) const {return source_->getIndexBuffer(offset_ + start, len, buf);}
 	virtual bool getFloat(INDEX start, int len, float* buf) const {
@@ -1739,7 +1756,7 @@ public:  /// {get,set}Decimal{32,64,128}
 	virtual long long getDecimal64(int scale) const override {
 		return getDecimal64(/*index*/0, scale);
 	}
-	virtual wide_integer::int128 getDecimal128(int scale) const override {
+	virtual int128 getDecimal128(int scale) const override {
 		return getDecimal128(/*index*/0, scale);
 	}
 
@@ -1755,9 +1772,9 @@ public:  /// {get,set}Decimal{32,64,128}
 		}
 		return source_->getDecimal64(offset_ + index, scale);
 	}
-	virtual wide_integer::int128 getDecimal128(INDEX index, int scale) const override {
+	virtual int128 getDecimal128(INDEX index, int scale) const override {
 		if (index < 0 || index >= size_ || offset_ + index < 0 || offset_ + index >= source_->size()) {
-			return std::numeric_limits<wide_integer::int128>::min();
+			return INT128_MIN;
 		}
 		return source_->getDecimal128(offset_ + index, scale);
 	}
@@ -1818,7 +1835,7 @@ public:  /// {get,set}Decimal{32,64,128}
 		}
 		return true;
 	}
-	virtual bool getDecimal128(INDEX start, int len, int scale, wide_integer::int128 *buf) const override {
+	virtual bool getDecimal128(INDEX start, int len, int scale, int128 *buf) const override {
 		if (start < 0 || offset_ + start < 0) {
 			INDEX cur = 0;
 			if (start < 0) {
@@ -1829,7 +1846,7 @@ public:  /// {get,set}Decimal{32,64,128}
 			}
 			cur = std::min(len, cur);
 			for (INDEX i = 0; i < cur; ++i) {
-				buf[i] = std::numeric_limits<wide_integer::int128>::min();
+				buf[i] = INT128_MIN;
 			}
 			start += cur;
 			len -= cur;
@@ -1841,7 +1858,7 @@ public:  /// {get,set}Decimal{32,64,128}
 		}
 		if (validLen < len) {
 			for (int i = validLen; i < len; ++i) {
-				buf[i] = std::numeric_limits<wide_integer::int128>::min();
+				buf[i] = INT128_MIN;
 			}
 		}
 		return true;
@@ -1910,12 +1927,12 @@ public:  /// {get,set}Decimal{32,64,128}
 		}
 		return originalBuf;
 	}
-	virtual const wide_integer::int128* getDecimal128Const(INDEX start, int len, int scale,
-			wide_integer::int128 *buf) const override {
+	virtual const int128* getDecimal128Const(INDEX start, int len, int scale,
+			int128 *buf) const override {
 		if (start >= 0 && start + len <= size_ && offset_ + start >= 0 && offset_ + start + len <= source_->size()) {
 			return source_->getDecimal128Const(offset_ + start, len, scale, buf);
 		}
-		wide_integer::int128* originalBuf = buf;
+		int128* originalBuf = buf;
 		if (start < 0 || offset_ + start < 0) {
 			INDEX cur = 0;
 			if (start < 0) {
@@ -1927,7 +1944,7 @@ public:  /// {get,set}Decimal{32,64,128}
 			cur = std::min(len, cur);
 			std::min(len, std::max(std::abs(start), std::abs(offset_ + start)));
 			for (INDEX i = 0; i < cur; ++i) {
-				buf[i] = std::numeric_limits<wide_integer::int128>::min();
+				buf[i] = INT128_MIN;
 			}
 			start += cur;
 			len -= cur;
@@ -1938,7 +1955,7 @@ public:  /// {get,set}Decimal{32,64,128}
 			source_->getDecimal128(offset_ + start, validLen, scale, buf);
 		if (validLen < len) {
 			for (int i = validLen; i < len; ++i) {
-				buf[i] = std::numeric_limits<wide_integer::int128>::min();
+				buf[i] = INT128_MIN;
 			}
 		}
 		return originalBuf;
@@ -1950,8 +1967,8 @@ public:  /// {get,set}Decimal{32,64,128}
 	virtual long long* getDecimal64Buffer(INDEX start, int len, int scale, long long *buf) const override {
 		return source_->getDecimal64Buffer(offset_ + start, len, scale, buf);
 	}
-	virtual wide_integer::int128* getDecimal128Buffer(INDEX start, int len, int scale,
-			wide_integer::int128 *buf) const override {
+	virtual int128* getDecimal128Buffer(INDEX start, int len, int scale,
+			int128 *buf) const override {
 		return source_->getDecimal128Buffer(offset_ + start, len, scale, buf);
 	}
 
@@ -1969,7 +1986,7 @@ public:  /// {get,set}Decimal{32,64,128}
 			source_->setDecimal64(offset_ + index, scale, val);
 		}
 	}
-	virtual void setDecimal128(INDEX index, int scale, wide_integer::int128 val) override {
+	virtual void setDecimal128(INDEX index, int scale, int128 val) override {
 		if (!updatable_) {
 			throw RuntimeException("Immutable sub vector doesn't support method setDecimal128");
 		} else {
@@ -1991,7 +2008,7 @@ public:  /// {get,set}Decimal{32,64,128}
 			return source_->setDecimal64(offset_ + start, len, scale, buf);
 		}
 	}
-	virtual bool setDecimal128(INDEX start, int len, int scale, const wide_integer::int128 *buf) override {
+	virtual bool setDecimal128(INDEX start, int len, int scale, const int128 *buf) override {
 		if (!updatable_) {
 			throw RuntimeException("Immutable sub vector doesn't support method setDecimal128");
 		} else {
@@ -2395,14 +2412,19 @@ private:
 
 	static void fillWithNullForDecimal(void *buf, int length, int unitLength) {
 		if (unitLength == 4) {
-			int32_t *dst = reinterpret_cast<int32_t *>(buf);
+			int *dst = reinterpret_cast<int *>(buf);
 			for (int i = 0; i < length; ++i) {
-				dst[i] = std::numeric_limits<int32_t>::min();
+				dst[i] = INT_MIN;
 			}
 		} else if (unitLength == 8) {
-			int64_t *dst = reinterpret_cast<int64_t *>(buf);
+			long long *dst = reinterpret_cast<long long *>(buf);
 			for (int i = 0; i < length; ++i) {
-				dst[i] = std::numeric_limits<int64_t>::min();
+				dst[i] = LLONG_MIN;
+			}
+		} else if (unitLength == 16) {
+			int128 *dst = reinterpret_cast<int128 *>(buf);
+			for (int i = 0; i < length; ++i) {
+				dst[i] = INT128_MIN;
 			}
 		} else {
 			throw RuntimeException("Unknown decimal type: unitLength = " + std::to_string(unitLength));
@@ -2764,5 +2786,381 @@ private:
 	int sign_;
 };
 
+class IotAnyVector : public Vector {
+public:
+	using Vector::getType;
+	IotAnyVector(): Vector(DT_IOTANY, MIXED) {}
+	IotAnyVector(size_t capacity): Vector(DT_IOTANY, MIXED) { index_.reserve(capacity); types_.reserve(capacity); }
+	IotAnyVector(const IotAnyVector& rhs): Vector(DT_IOTANY, MIXED), types_(rhs.types_), index_(rhs.index_), containNull_(rhs.containNull_) {
+		for (const auto& v: rhs.subVec_) {
+			ConstantSP newVec = v.second->getValue(v.second->size());
+			subVec_.insert({v.first, newVec});
+		}
+	}
+	~IotAnyVector() = default;
+
+	VECTOR_TYPE getVectorType() const override {return VECTOR_TYPE::IOT_ANYVECTOR;}
+
+	static bool supportType(DATA_TYPE t) {
+		switch (t) {
+		case DT_BOOL:
+		case DT_CHAR:
+		case DT_SHORT:
+		case DT_INT:
+		case DT_LONG:
+		case DT_FLOAT:
+		case DT_DOUBLE:
+		case DT_STRING:
+			return true;
+		default:
+			return false;
+		}
+	}
+
+	static void checkSupportType(const ConstantSP& t) {
+		if (!supportType(t->getType())) {
+			throw RuntimeException("Unsupported data type " + std::to_string((int) t->getType()) + " for IotAnyVector.");
+		}
+	}
+
+	virtual bool equal(const ConstantSP& other) const;
+	virtual bool containNotMarshallableObject() const {
+		for (const auto& vec: subVec_) {
+			if (!vec.second->containNotMarshallableObject()) {
+				return false;
+			}
+		}
+		return true;
+	}
+	virtual bool isLargeConstant() const {return !isStatic() && !containNotMarshallableObject();}
+	virtual bool getNullFlag() const {return containNull_;}
+	virtual void setNullFlag(bool containNull){containNull_=containNull;}
+	virtual INDEX getCapacity() const {return 0;}
+	virtual bool isFastMode() const {return false;}
+	virtual short getUnitLength() const {return 0;}
+	virtual void clear() {
+		subVec_.clear();
+		index_.clear();
+		containNull_ = false;
+	}
+	virtual bool sizeable() const {return true;}
+	virtual DATA_TYPE getRawType() const { return DT_ANY;}
+	virtual string getString(INDEX index) const { return get(index)->getString(); }
+	virtual string getString(Heap* heap, INDEX index) const { return get(index)->getString(heap); }
+	virtual const DolphinString& getStringRef(INDEX index) const { throw RuntimeException("getStringRef method not supported for AnyVector");}
+	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex);
+	virtual bool set(INDEX index, const ConstantSP& value);
+	virtual bool set(const ConstantSP& index, const ConstantSP& value);
+	virtual bool setItem(INDEX index, const ConstantSP& value);
+	virtual bool assign(const ConstantSP& value);
+	virtual ConstantSP get(INDEX index) const {
+		assert(index >= 0 && index < (INDEX) index_.size());
+		return subVec_.at(types_[index])->get(index_[index]);
+	}
+	virtual ConstantSP get(const ConstantSP& index) const;
+	virtual ConstantSP get(INDEX offset, const ConstantSP& index) const override;
+	virtual bool hasNull() { return hasNull(0, size()); }
+	virtual bool hasNull(INDEX start, INDEX length);
+	virtual bool isNull(INDEX index) const;
+	virtual bool isNull() const {return false;}
+	virtual void setNull(INDEX index) { throw RuntimeException("setNull method not supported for IotAnyVector"); }
+	virtual void setNull(){}
+	virtual bool setNonNull(const ConstantSP& index, const ConstantSP& value) override { throw RuntimeException("setNonNull method not supported for IotAnyVector"); }
+	virtual void fill(INDEX start, INDEX length, const ConstantSP& value, INDEX valueOffset = 0) override;
+	virtual void nullFill(const ConstantSP& val);
+	virtual bool isNull(INDEX start, int len, char* buf) const override;
+	virtual bool isNull(INDEX* indices, int len, char* buf) const override;
+	virtual bool isValid(INDEX start, int len, char* buf) const override;
+	virtual bool isValid(INDEX* indices, int len, char* buf) const override;
+	virtual ConstantSP getSubVector(INDEX start, INDEX length) const;
+	virtual ConstantSP getInstance(INDEX size) const { throw RuntimeException("getInstance method not supported for IotAnyVector"); }
+	virtual ConstantSP getValue() const;
+	virtual ConstantSP getValue(INDEX capacity) const { return getValue(); }
+	virtual bool append(const ConstantSP& value, INDEX start, INDEX len) override;
+	virtual bool append(const ConstantSP& value) override {return append(value, 0, value->size());}
+	virtual bool append(const ConstantSP& value, INDEX count) override {return append(value, 0, count);}
+	virtual bool append(const ConstantSP& value, const ConstantSP& index) override {return append(value->get(index), 0, index->size());}
+
+	virtual bool remove(INDEX count);
+	virtual void find(INDEX start, INDEX length, const ConstantSP& targetSP, const ConstantSP& resultSP){
+		throw RuntimeException("find method not supported for AnyVector");
+	}
+	virtual char getBool() const;
+	virtual char getChar() const;
+	virtual short getShort() const;
+	virtual int getInt() const;
+	virtual long long getLong() const;
+	virtual INDEX getIndex() const;
+	virtual float getFloat() const;
+	virtual double getDouble() const;
+	virtual char getBool(INDEX index) const {return get(index)->getBool();}
+	virtual char getChar(INDEX index) const { return get(index)->getChar();}
+	virtual short getShort(INDEX index) const { return get(index)->getShort();}
+	virtual int getInt(INDEX index) const {return get(index)->getInt();}
+	virtual long long getLong(INDEX index) const {return get(index)->getLong();}
+	virtual INDEX getIndex(INDEX index) const {return get(index)->getIndex();}
+	virtual float getFloat(INDEX index) const {return get(index)->getFloat();}
+	virtual double getDouble(INDEX index) const {return get(index)->getDouble();}
+	virtual bool getBool(INDEX start, int len, char* buf) const;
+	virtual bool getChar(INDEX start, int len,char* buf) const;
+	virtual bool getShort(INDEX start, int len, short* buf) const;
+	virtual bool getInt(INDEX start, int len, int* buf) const;
+	virtual bool getLong(INDEX start, int len, long long* buf) const;
+	virtual bool getIndex(INDEX start, int len, INDEX* buf) const;
+	virtual bool getFloat(INDEX start, int len, float* buf) const;
+	virtual bool getDouble(INDEX start, int len, double* buf) const;
+	virtual const char* getBoolConst(INDEX start, int len, char* buf) const;
+	virtual const char* getCharConst(INDEX start, int len,char* buf) const;
+	virtual const short* getShortConst(INDEX start, int len, short* buf) const;
+	virtual const int* getIntConst(INDEX start, int len, int* buf) const;
+	virtual const long long* getLongConst(INDEX start, int len, long long* buf) const;
+	virtual const INDEX* getIndexConst(INDEX start, int len, INDEX* buf) const;
+	virtual const float* getFloatConst(INDEX start, int len, float* buf) const;
+	virtual const double* getDoubleConst(INDEX start, int len, double* buf) const;
+	virtual bool getSymbol(INDEX start, int len, int* buf, SymbolBase* symBase, bool insertIfNotThere) const {
+		throw RuntimeException("getSymbol method not supported for AnyVector");
+	}
+	virtual const int* getSymbolConst(INDEX start, int len, int* buf, SymbolBase* symBase, bool insertIfNotThere) const {
+		throw RuntimeException("getSymbolConst method not supported for AnyVector");
+	}
+	virtual bool getString(INDEX start, int len, DolphinString** buf) const {
+		throw RuntimeException("getString method not supported for AnyVector");
+	}
+
+	virtual bool getString(INDEX start, int len, char** buf) const {
+		throw RuntimeException("getString method not supported for AnyVector");
+	}
+
+	virtual DolphinString** getStringConst(INDEX start, int len, DolphinString** buf) const {
+		throw RuntimeException("getStringConst method not supported for AnyVector");
+	}
+
+	virtual char** getStringConst(INDEX start, int len, char** buf) const {
+		throw RuntimeException("getStringConst method not supported for AnyVector");
+	}
+
+	virtual	INDEX reserve(INDEX capacity) override {
+		index_.reserve(capacity);
+		types_.reserve(capacity);
+		return capacity;
+	}
+
+public:  /// getDecimal{32,64,128}
+	// virtual int getDecimal32(int scale) const override;
+	// virtual long long getDecimal64(int scale) const override;
+	// virtual int128 getDecimal128(int scale) const override;
+
+	// virtual int getDecimal32(INDEX index, int scale) const override;
+	// virtual long long getDecimal64(INDEX index, int scale) const override;
+	// virtual int128 getDecimal128(INDEX index, int scale) const override;
+
+	// virtual bool getDecimal32(INDEX start, int len, int scale, int *buf) const override;
+	// virtual bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override;
+	// virtual bool getDecimal128(INDEX start, int len, int scale, int128 *buf) const override;
+
+	// virtual const int* getDecimal32Const(INDEX start, int len, int scale, int *buf) const override;
+	// virtual const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const override;
+	// virtual const int128* getDecimal128Const(INDEX start, int len, int scale,
+	// 		int128 *buf) const override;
+
+public:
+	virtual INDEX size() const {return index_.size();}
+	virtual long long count() const{
+		return count(0, size());
+	}
+	virtual long long count(INDEX start, INDEX length) const;
+	/**
+	 * @param rightMost If there are multiple maximum/minimum values, choose the last one if `rightMost` is true.
+	 */
+	virtual INDEX imax(bool rightMost = false) const override {throw RuntimeException("imax method not supported for AnyVector");}
+	virtual INDEX imin(bool rightMost = false) const override {throw RuntimeException("imin method not supported for AnyVector");}
+	virtual INDEX imax(INDEX start, INDEX length, bool rightMost = false) const override {throw RuntimeException("imax method not supported for AnyVector");}
+	virtual INDEX imin(INDEX start, INDEX length, bool rightMost = false) const override {throw RuntimeException("imin method not supported for AnyVector");}
+
+	virtual void prev(INDEX steps) {throw RuntimeException("prev method not supported for IotAnyVector");}
+	virtual void next(INDEX steps) {throw RuntimeException("next method not supported for IotAnyVector");}
+
+	virtual ConstantSP avg() const {throw RuntimeException("avg method not supported for IotAnyVector");}
+	virtual ConstantSP avg(INDEX start, INDEX length) const {throw RuntimeException("avg method not supported for IotAnyVector");}
+	virtual void avg(INDEX start, INDEX length, const ConstantSP& out, INDEX outputStart = 0) const {throw RuntimeException("avg method not supported for IotAnyVector");}
+	virtual ConstantSP sum() const {throw RuntimeException("sum method not supported for IotAnyVector");}
+	virtual ConstantSP sum(INDEX start, INDEX length) const {throw RuntimeException("sum method not supported for IotAnyVector");}
+	virtual void sum(INDEX start, INDEX length, const ConstantSP& out, INDEX outputStart = 0) const {throw RuntimeException("sum method not supported for IotAnyVector");}
+	virtual ConstantSP sum2() const {throw RuntimeException("sum2 method not supported for IotAnyVector");}
+	virtual ConstantSP sum2(INDEX start, INDEX length) const {throw RuntimeException("sum2 method not supported for IotAnyVector");}
+	virtual void sum2(INDEX start, INDEX length, const ConstantSP& out, INDEX outputStart = 0) const {throw RuntimeException("sum2 method not supported for IotAnyVector");}
+	virtual ConstantSP prd() const {throw RuntimeException("prd method not supported for IotAnyVector");}
+	virtual ConstantSP prd(INDEX start, INDEX length) const {throw RuntimeException("prd method not supported for IotAnyVector");}
+	virtual void prd(INDEX start, INDEX length, const ConstantSP& out, INDEX outputStart = 0) const {throw RuntimeException("prd method not supported for IotAnyVector");}
+	virtual ConstantSP var() const {throw RuntimeException("var method not supported for IotAnyVector");}
+	virtual ConstantSP var(INDEX start, INDEX length) const {throw RuntimeException("var method not supported for IotAnyVector");}
+	virtual void var(INDEX start, INDEX length, const ConstantSP& out, INDEX outputStart = 0) const {throw RuntimeException("var method not supported for IotAnyVector");}
+	virtual ConstantSP std() const {throw RuntimeException("std method not supported for IotAnyVector");}
+	virtual ConstantSP std(INDEX start, INDEX length) const {throw RuntimeException("std method not supported for IotAnyVector");}
+	virtual void std(INDEX start, INDEX length, const ConstantSP& out, INDEX outputStart = 0) const {throw RuntimeException("std method not supported for IotAnyVector");}
+	virtual ConstantSP median() const {throw RuntimeException("median method not supported for IotAnyVector");}
+	virtual ConstantSP median(INDEX start, INDEX length) const {throw RuntimeException("median method not supported for IotAnyVector");}
+	virtual void median(INDEX start, INDEX length, const ConstantSP& out, INDEX outputStart=0) const {throw RuntimeException("median method not supported for IotAnyVector");}
+
+	virtual ConstantSP firstNot(const ConstantSP& exclude) const {throw RuntimeException("firstNot method not supported for IotAnyVector");}
+	virtual ConstantSP firstNot(INDEX start, INDEX length, const ConstantSP& exclude) const {throw RuntimeException("firstNot method not supported for IotAnyVector");}
+	virtual void firstNot(INDEX start, INDEX length, const ConstantSP& exclude, const ConstantSP& out, INDEX outputStart = 0) const {throw RuntimeException("firstNot method not supported for IotAnyVector");}
+	virtual ConstantSP lastNot(const ConstantSP& exclude) const {throw RuntimeException("lastNot method not supported for IotAnyVector");}
+	virtual ConstantSP lastNot(INDEX start, INDEX length, const ConstantSP& exclude) const {throw RuntimeException("lastNot method not supported for IotAnyVector");}
+	virtual void lastNot(INDEX start, INDEX length, const ConstantSP& exclude, const ConstantSP& out, INDEX outputStart = 0) const {throw RuntimeException("lastNot method not supported for IotAnyVector");}
+	virtual ConstantSP searchK(INDEX k) const {throw RuntimeException("searchK method not supported for AnyVector");}
+	virtual ConstantSP searchK(INDEX start, INDEX length, INDEX k) const {throw RuntimeException("searchK method not supported for IotAnyVector");}
+	virtual void searchK(INDEX start, INDEX length, INDEX k, const ConstantSP& out, INDEX outputStart=0) const {throw RuntimeException("searchK method not supported for IotAnyVector");}
+	virtual ConstantSP mode() const {throw RuntimeException("mode method not supported for AnyVector");}
+	virtual ConstantSP mode(INDEX start, INDEX length) const {throw RuntimeException("mode method not supported for IotAnyVector");}
+	virtual void mode(INDEX start, INDEX length, const ConstantSP& out, INDEX outputStart=0) const {
+		throw RuntimeException("mode method not supported for AnyVector");
+	}
+	virtual ConstantSP min() const {throw RuntimeException("min method not supported for IotAnyVector");}
+	virtual ConstantSP min(INDEX start, INDEX length) const {throw RuntimeException("min method not supported for IotAnyVector");}
+	virtual void min(INDEX start, INDEX length, const ConstantSP& out, INDEX outputStart=0) const {throw RuntimeException("min method not supported for IotAnyVector");}
+	virtual ConstantSP max() const {throw RuntimeException("max method not supported for IotAnyVector");}
+	virtual ConstantSP max(INDEX start, INDEX length) const {throw RuntimeException("max method not supported for IotAnyVector");}
+	virtual void max(INDEX start, INDEX length, const ConstantSP& out, INDEX outputStart=0) const {throw RuntimeException("max method not supported for IotAnyVector");}
+	virtual void neg(){throw RuntimeException("neg method not supported for IotAnyVector");}
+	virtual void reverse(){std::reverse(index_.begin(),index_.end());}
+	virtual void reverse(INDEX start, INDEX length){
+		std::reverse(index_.begin()+start,index_.begin()+ start + length);
+	}
+	virtual void replace(const ConstantSP& oldVal, const ConstantSP& newVal) { throw RuntimeException("replace method not supported for IotAnyVector"); }
+	virtual void shuffle();
+	virtual bool findDuplicatedElements(Vector* indices, INDEX start, INDEX length, vector<pair<INDEX,INDEX> >& duplicates){return false;}
+	virtual bool findDuplicatedElements(INDEX start, INDEX length, vector<pair<INDEX,INDEX> >& duplicates){return false;}
+	virtual bool findUniqueElements(INDEX start, INDEX length, vector<pair<INDEX,INDEX> >& uniques){return false;}
+	virtual bool findRange(INDEX* ascIndices,const ConstantSP& target,INDEX* targetIndices,vector<pair<INDEX,INDEX> >& ranges){return false;}
+	virtual bool findRange(const ConstantSP& target,INDEX* targetIndices,vector<pair<INDEX,INDEX> >& ranges){return false;}
+	virtual INDEX lowerBound(INDEX start, const ConstantSP& target){
+		throw RuntimeException("lowerBound method not supported for AnyVector");
+	}
+	virtual bool rank(bool sorted, INDEX* indices, INDEX* ranking){return false;}
+	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc, char nullsOrder){	return false;}
+	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict, char nullsOrder) const { return false;}
+	virtual bool sort(bool asc, char nullsOrder){return false;}
+	virtual bool sort(bool asc, Vector* indices, char nullsOrder){ return false;}
+	virtual INDEX sortTop(bool asc, Vector* indices, INDEX top, char nullsOrder){ return -1;}
+	virtual long long getAllocatedMemory() const override;
+	// virtual int getExtraParamForType() const override { return dt_; }
+
+	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const override;
+
+	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const override {
+		throw RuntimeException("the vector doesn't support that serialize method, use ConstantMarshal to serialize");
+	}
+	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const override {
+		return serialize(nullptr, buffer);
+	}
+
+	void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
+	ConstantSP convertToRegularVector() const;
+
+	// group elements by type
+	struct TypeGroup {
+		size_t start;
+		size_t length;
+		DATA_TYPE type;
+	};
+	vector<TypeGroup> findUniqueTypesElements(INDEX start, INDEX length){
+		if (start >= (INDEX) index_.size() || start < 0 || length == 0) {
+			return {};
+		}
+		length = std::min(length, size() - start);
+		vector<TypeGroup> ret;
+		ret.reserve(index_.size());
+		size_t groupCnt = 1;
+		for (INDEX i = start + 1; i < start + length; ++i) {
+			if (types_[i] == types_[i - 1]) {
+				++groupCnt;
+				continue;
+			}
+
+			ret.push_back({i - groupCnt, groupCnt, types_[i - 1]});
+			groupCnt = 1;
+		}
+		assert(groupCnt > 0);
+		ret.push_back({start + length - groupCnt, groupCnt, types_[start + length - 1]});
+		return ret;
+	}
+
+    static SmartPointer<IotAnyVector> cast(const VectorSP& vec) {
+        if (vec->getType() != DT_IOTANY) {
+            return nullptr;
+        }
+        if (vec->getVectorType() != VECTOR_TYPE::IOT_ANYVECTOR) {
+            return ((Constant *) vec.get())->getValue();
+        }
+        return vec;
+    }
+
+	DATA_TYPE getType(INDEX i) const {
+		return types_[i];
+	}
+
+	ConstantSP getSerializedObject() const;
+	IO_ERR fromSerializedObject(const ConstantSP& object);
+
+protected:
+	bool isMixedType(INDEX start, INDEX length) const {
+		if (start >= (INDEX) index_.size() || start < 0 || start + length >= (INDEX) index_.size()) {
+			throw RuntimeException("Invalid anyVector Index");
+		}
+
+		for (INDEX i = start + 1; i < start + length; ++i) {
+			if (types_[i] != types_[i - 1]) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	bool isContinuousRange(INDEX start, INDEX length, DATA_TYPE type) const {
+		if (start >= (INDEX) index_.size() || start < 0 || start + length >= (INDEX) index_.size()) {
+			throw RuntimeException("Invalid anyVector Index");
+		}
+		for (INDEX i = start; i < start + length; ++i) {
+			if (types_[i] != type || (i > start && index_[i] != index_[i - 1] + 1)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	bool isContinuousRange(INDEX start, INDEX length) const {
+		if (start >= (INDEX) index_.size() || start < 0 || start + length >= (INDEX) index_.size()) {
+			throw RuntimeException("Invalid anyVector Index");
+		}
+		for (INDEX i = start + 1; i < start + length; ++i) {
+			if (types_[i] != types_[i - 1] || index_[i] != index_[i - 1] + 1) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	void getByIndex(INDEX* idx, size_t len, INDEX idxOffset, IotAnyVector* output) const ;
+
+	// get or insert sub vector
+	VectorSP getSubVec(DATA_TYPE t) {
+		auto it = subVec_.find(t);
+		if (it == subVec_.end()) {
+			VectorSP newVec = Util::createVector(t, 0);
+			subVec_.insert({t, newVec});
+			return newVec;
+		} else {
+			return it->second;
+		}
+	}
+
+	std::map<DATA_TYPE, VectorSP> subVec_;
+	std::vector<DATA_TYPE> types_;
+	std::vector<INDEX> index_;
+	bool containNull_ = false;
+	SymbolBaseSP sym_;
+};
 
 #endif /* SPECIALCONSTANT_H_ */

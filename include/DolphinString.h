@@ -8,7 +8,9 @@
 #include <cassert>
 #include <stdexcept>
 
-class DolphinString {
+#include "Types.h"
+
+class SWORDFISH_API DolphinString {
 public:
     DolphinString() {
         constructInlineString(nullptr, 0);

@@ -27,6 +27,7 @@ public:
     void remove(const string &name);
     AbstractStreamEngineSP find(const string &name);
     ConstantSP getStat();
+    ConstantSP getBasicStat();
     void registerEngineFactory(const string& engineType, StreamEngineFactory factory);
     StreamEngineFactory getEngineFactory(const string& engineType) const;
     AbstractStreamEngineSP createStreamEngine(Heap* heap, const DataInputStreamSP& in) const;

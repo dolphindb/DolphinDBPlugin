@@ -13,13 +13,12 @@
 #include "Concurrent.h"
 #include "DolphinString.h"
 #include "Guid.h"
-#include "WideInteger.h"
 
-void* myAlloc(size_t size);
-void myFree(void * ptr);
+void* SWORDFISH_API myAlloc(size_t size);
+void SWORDFISH_API myFree(void * ptr);
 
-void* mySmallAlloc(size_t size);
-void mySmallFree(void * ptr);
+void* SWORDFISH_API mySmallAlloc(size_t size);
+void SWORDFISH_API mySmallFree(void * ptr);
 
 //-----------------------------------------------------------------------------
 // MurmurHash2, by Austin Appleby
@@ -319,12 +318,12 @@ struct murmur_hasher<double> {
     uint64_t operator()(const double & val);
 };
 template<>
-struct murmur_hasher<wide_integer::int128> {
-    uint64_t operator()(const wide_integer::int128 & val);
+struct murmur_hasher<int128> {
+    uint64_t operator()(const int128 & val);
 };
 template<>
-struct murmur_hasher<wide_integer::uint128> {
-    uint64_t operator()(const wide_integer::uint128 & val);
+struct murmur_hasher<uint128> {
+    uint64_t operator()(const uint128 & val);
 };
 template<class T>
 struct murmur_hasher<T*> {
@@ -423,12 +422,12 @@ struct XXHasher<double> {
     uint64_t operator()(const double & val);
 };
 template<>
-struct XXHasher<wide_integer::int128> {
-    uint64_t operator()(const wide_integer::int128 & val);
+struct XXHasher<int128> {
+    uint64_t operator()(const int128 & val);
 };
 template<>
-struct XXHasher<wide_integer::uint128> {
-    uint64_t operator()(const wide_integer::uint128 & val);
+struct XXHasher<uint128> {
+    uint64_t operator()(const uint128 & val);
 };
 template<class T>
 struct XXHasher<T*> {

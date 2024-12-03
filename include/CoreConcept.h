@@ -28,7 +28,6 @@
 #include "FlatHashmap.h"
 #include "SysIO.h"
 #include "DolphinString.h"
-#include "WideInteger.h"
 
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define LIKELY(x) (__builtin_expect((x), 1))
@@ -175,6 +174,7 @@ typedef Statement*(*StatementFunc)(Session* session, const DataInputStreamSP& bu
 typedef ObjectSP(*ObjectFunc)(const SQLContextSP& context, Session* session, const DataInputStreamSP& buffer);
 typedef ConstantSP(*SysObjFunc)(Session* session, const DataInputStreamSP& buffer);
 typedef OOClassSP(*ClassFunc)(const string& qualifier, const string& name);
+typedef bool (*JitOptimizedFunc)(ConstantSP &ret, Heap* heap, std::vector<ConstantSP> &arguments);
 
 
 class AuthenticatedUser{
@@ -188,7 +188,8 @@ public:
 			bool dbobjCreate, const set<string>& createDBs, const set<string>& deniedCreateDBs, bool dbobjDelete,
 			const set<string>& deleteDBs, const set<string>& deniedDeleteDBs, bool dbOwner,
 			const set<string>& dbOwnerPattern, bool dbManage, const set<string>& allowDbManage, const set<string>& deniedDbManage,
-			long long queryResultMemLimit, long long taskGroupMemLimit, bool isViewOwner);
+			long long queryResultMemLimit, long long taskGroupMemLimit, bool isViewOwner,
+			bool globalExecComputeGroup, const set<string>& execGroup, const set<string>& deniedExecGroup);
     AuthenticatedUser(const ConstantSP& userObj);
     ConstantSP toTuple() const ;
     void setLoginNanoTimeStamp(long long t){loginNanoTimestamp_ = t;}
@@ -210,7 +211,7 @@ public:
 	inline bool canUseView() const { return permissionFlag_ & 128;}
 	inline bool canCreateDBObject() const { return permissionFlag_ & 256;}
 	inline bool canDeleteDBObject() const { return permissionFlag_ & 512;}
-	inline bool isDBOwner() const { return permissionFlag_ & 1024 || !dbOwnerPatterns_.empty(); }
+	inline bool isDBOwner() const { return (permissionFlag_ & 1024) || !dbOwnerPatterns_.empty(); }
 	bool isViewOwner() const { return permissionFlag_ & (1 << 14); }
 	bool matchViewOwner(const string& owner) const { return isViewOwner() && getUserId() == owner; }
 	bool matchDBOwner(const string& obj) const { return matchPattern(permissionFlag_ & 1024, dbOwnerPatterns_, obj); }
@@ -226,6 +227,7 @@ public:
 	bool canReadView(const string& viewName) const { return accessViewRule(canUseView(), viewName); }
 	bool canCreateDBObject(const string& name) const { return accessDBRule(canCreateDBObject(), "CD_", "DCD_", name, ""); }
 	bool canDeleteDBObject(const string& name) const { return accessDBRule(canDeleteDBObject(), "DD_", "DDD_", name, ""); }
+	bool canExecGroup(const string& group) const;
 	// return 0 if no limit
 	long long queryResultMemLimit() { return queryResultMemLimit_; }
 	long long taskGroupMemLimit() { return taskGroupMemLimit_; }
@@ -374,7 +376,7 @@ private:
 	int sizeInSegment_;
 };
 
-class ByteArrayCodeBuffer{
+class SWORDFISH_API ByteArrayCodeBuffer{
 public:
 	ByteArrayCodeBuffer(size_t capacity) : buf_(new char[capacity]), capacity_(capacity), size_(0), constantMap_(0), constants_(0){}
 	ByteArrayCodeBuffer() : buf_(new char[2048]), capacity_(2048), size_(0), constantMap_(0), constants_(0){}
@@ -407,7 +409,7 @@ private:
 	vector<ConstantSP>* constants_;
 };
 
-class SymbolBase{
+class SWORDFISH_API SymbolBase{
 public:
 	SymbolBase(bool supportOrder = false);
 	SymbolBase(const vector<DolphinString>& symbols, bool supportOrder = false);
@@ -492,7 +494,7 @@ private:
     bool readOnly_ = false;
 };
 
-class SymbolBaseManager{
+class SWORDFISH_API SymbolBaseManager{
 public:
 	SymbolBaseManager(const string& symbolBaseDir);
 	SymbolBaseSP findAndLoad(int symBaseID);
@@ -574,44 +576,64 @@ namespace std {
 	};
 }
 
-class Object {
+class SWORDFISH_API Object {
 public:
-	bool isConstant() const {return getObjectType()==CONSTOBJ;}
-	bool isVariable() const {return getObjectType()==VAR;}
+	Object(OBJECT_TYPE type) : objType_(type){}
+	inline OBJECT_TYPE getObjectType() const { return objType_;}
+	bool isConstant() const {return objType_ == CONSTOBJ;}
+	bool isVariable() const {return objType_ ==VAR;}
 	virtual ConstantSP getValue(Heap* pHeap) = 0;
 	virtual ConstantSP getReference(Heap* pHeap) = 0;
-	virtual OBJECT_TYPE getObjectType() const = 0;
 	virtual ~Object(){}
 	virtual string getScript() const = 0;
 	virtual string getScript(Heap* pHeap) const { return getScript();}
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const = 0;
+	virtual bool isLargeConstant() const {return false;}
 	/**
 	 * @brief Get the components of the object in the form of a dictionary.
 	 *
 	 * @return If the object doesn't support this method, return an empty dictionary.
 	 */
 	virtual ConstantSP getComponent() const;
+
 	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const {}
-	virtual void collectVariables(vector<int>& vars, int minIndex, int maxIndex) const {}
-	virtual bool isLargeConstant() const {return false;}
+	virtual void collectUserDefinedFunctionsAndClasses(Heap* pHeap, unordered_map<string,FunctionDef*>& functionDefs, unordered_map<string,OOClass*>& classes) const {
+		collectUserDefinedFunctions(functionDefs);
+	}
+	void collectVariables(vector<int>& vars, int minIndex, int maxIndex) const;
+
 	/**
 	 * @biref Retrieve all ColumnRef objects contained in the currrent object.
 	 *
 	 * @param table: Use the given table to judge if a column reference is a variable in the case the name is ambiguous.
 	 * @param columns: in & out parameter, pair<string, string> represents a column's quanlifier and name.
 	 */
-	virtual void retrieveColumns(const TableSP& table, vector<pair<string,string>>& columns) const{}
+	void retrieveColumns(const TableSP& table, vector<pair<string,string>>& columns) const;
+	/**
+	 * @brief Whether the object or its sub components contains column reference.
+	 */
+	bool containColumnRef() const;
+	/**
+	 * @brief Whether the object or its sub components contains analytic function.
+	 */
+	bool containAnalyticFunction() const;
 	/**
 	 * @brief Check if the current object contains special functions.
 	 *
 	 * @param aggrOnly: if only check aggregate functions.
 	 *
-	 * @return 0 (no aggregate function or order sensitive function), 1 (aggregate function only), or 2 (order sensitive function).
+	 * @return an indicator -1, 0, 1 or 2
+	 * -1: the object doesn't contain any column or variable
+	 *  0: transform function only
+	 *  1: aggregate function
+	 *  2: order sensitive function)
+	 *  3: other type function
 	 */
-	virtual int checkSpecicalFunction(bool aggrOnly) const { return 0;}
+	int checkSpecialFunction(bool aggrOnly, bool sqlMode=true) const;
 	/**
 	 * @brief Replace the SQLContext of any ColumnRef within the current object with the given new context.
 	 *
+	 * @param context: context can't be null.
 	 * @param localize: replace the variable with the concrete object and detach the link of any column
 	 * reference to a variable if this parameter is set to true.
 	 *
@@ -623,16 +645,74 @@ public:
 	 * @brief Replace the SQLContext of any ColumnRef within the current object with the given new context, and materialize
 	 * all variables.
 	 *
+	 * @param context: if context is null, materialize the object only, otherwise copy and materialize the object.
 	 * @param table: Use the given table to judge if a column reference is a variable in the case the name is ambiguous.
 	 *
 	 * @return If the returned pointer is null, the object doesn't contain any column reference or variable.
 	 */
 	virtual ObjectSP copyAndMaterialize(Heap* pHeap, const SQLContextSP& context, const TableSP& table) const { return nullptr;}
-	virtual bool containAnalyticFunction() const { return false;}
+
+	/**
+	 * @brief Whether the object or its sub components contains column reference or variable.
+	 */
 	virtual bool mayContainColumnRefOrVariable() const { return false;}
-	virtual void collectUserDefinedFunctionsAndClasses(Heap* pHeap, unordered_map<string,FunctionDef*>& functionDefs, unordered_map<string,OOClass*>& classes) const {
-		collectUserDefinedFunctions(functionDefs);
+
+	/**
+	 * @brief collect objects from the current object and its sub component.
+	 */
+	virtual void collectObjects(vector<const Object*>& vec) const {}
+
+	/**
+	 * @brief judge if the given object should be collected by collectObjects function.
+	 *
+	 * Now we only collect non-constant object and dynamic function
+	 *
+	 */
+	static bool isCollectibleObject(const Object* obj);
+
+	/**
+	 * @brief Traverse all sub components of the given objects.
+	 * @param objStack: objects to traverse. The container is also used as the buffer to collect sub
+	 * 		components.
+	 * @param func: func is an function with the signature bool func(Object*). The return value could
+	 * 		be false (collecting sub components) or true (not collecting sub components).
+	 * @param offset: Objects at or after the offset will be traversed.
+	 *
+	 */
+	template<class T>
+	static void traverse(vector<const Object*>& objStack, T& func, int offset = 0){
+		while (static_cast<int>(objStack.size()) > offset) {
+			const Object* cur = objStack.back();
+			objStack.pop_back();
+			if(!func(cur))
+				cur->collectObjects(objStack);
+		}
 	}
+
+	/**
+	 * @brief Traverse all sub components of the given objects with short circuit evaluation.
+	 * @param objStack: objects to traverse. The container is also used as the buffer to collect sub
+	 * 		components.
+	 * @param func: func is an function with the signature int func(Object*). The return value could
+	 * 		be 0 (collecting sub components), 1 (not collecting sub components), or 2 (finish traversal).
+	 * @param offset: Objects at or after the offset will be traversed.
+	 *
+	 */
+	template<class T>
+	static void traverseShortCircuit(vector<const Object*>& objStack, T& func, int offset = 0) {
+		while (static_cast<int>(objStack.size()) > offset) {
+			const Object* cur = objStack.back();
+			objStack.pop_back();
+			int ret = func(cur);
+			if(ret == 2)
+				return;
+			else if(ret == 0)
+				cur->collectObjects(objStack);
+		}
+	}
+
+protected:
+	OBJECT_TYPE objType_;
 };
 
 #define NOT_IMPLEMENT \
@@ -640,7 +720,7 @@ public:
 			std::to_string(static_cast<int>(getForm())) + "] does not implement `" + __func__ + "`"); \
 //======
 
-class Constant: public Object{
+class SWORDFISH_API Constant: public Object{
 public:
 	/**
 	 * @brief An empty DolphinString.
@@ -655,9 +735,9 @@ public:
 	 */
 	static string NULL_STR;
 
-	Constant() : flag_(3){}
-	Constant(unsigned short flag) :  flag_(flag){}
-	Constant(DATA_FORM df, DATA_TYPE dt, DATA_CATEGORY dc) : flag_(3 + (df<<8) + (dt<<16) + (dc<<24)){}
+	Constant() : Object(CONSTOBJ), flag_(3){}
+	Constant(unsigned short flag) : Object(CONSTOBJ), flag_(flag){}
+	Constant(DATA_FORM df, DATA_TYPE dt, DATA_CATEGORY dc) : Object(CONSTOBJ), flag_(3 + (df<<8) + (dt<<16) + (dc<<24)){}
 	virtual ~Constant(){}
 	/**
 	 * @brief Return whether this constant is temporary or not.
@@ -940,7 +1020,7 @@ public:
 
 	virtual int getDecimal32(int scale) const { NOT_IMPLEMENT; }
 	virtual long long getDecimal64(int scale) const { NOT_IMPLEMENT; }
-	virtual wide_integer::int128 getDecimal128(int scale) const { NOT_IMPLEMENT; }
+	virtual int128 getDecimal128(int scale) const { NOT_IMPLEMENT; }
 
 	/**
 	 * @brief Set the bool value to this constant.
@@ -1117,7 +1197,7 @@ public:
 	 * @return Integer representation of decimal64.
 	 */
 	virtual long long getDecimal64(INDEX index, int scale) const { NOT_IMPLEMENT; }
-	virtual wide_integer::int128 getDecimal128(INDEX index, int scale) const { NOT_IMPLEMENT; }
+	virtual int128 getDecimal128(INDEX index, int scale) const { NOT_IMPLEMENT; }
 
 	/**
 	 * @brief Get the data of index-th element in this constant.
@@ -1365,7 +1445,7 @@ public:
 	 * @return True if the function call succeed, else false.
 	 */
 	virtual bool getDecimal64(INDEX start, int len, int scale, long long *buf) const { NOT_IMPLEMENT; }
-	virtual bool getDecimal128(INDEX start, int len, int scale, wide_integer::int128 *buf) const { NOT_IMPLEMENT; }
+	virtual bool getDecimal128(INDEX start, int len, int scale, int128 *buf) const { NOT_IMPLEMENT; }
 
 	/**
 	 * @brief Judge the data according to indices is null or not.
@@ -1517,7 +1597,7 @@ public:
 	 * @return True if the function call succeed, else false.
 	 */
 	virtual bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const { NOT_IMPLEMENT; }
-	virtual bool getDecimal128(INDEX *indices, int len, int scale, wide_integer::int128 *buf) const { NOT_IMPLEMENT; }
+	virtual bool getDecimal128(INDEX *indices, int len, int scale, int128 *buf) const { NOT_IMPLEMENT; }
 
 	/**
 	 * @brief Get the boolean data from start to (start + len - 1).
@@ -1707,8 +1787,8 @@ public:
 	 * @return A buffer with the data required.
 	 */
 	virtual const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const { NOT_IMPLEMENT; }
-	virtual const wide_integer::int128* getDecimal128Const(INDEX start, int len, int scale,
-			wide_integer::int128 *buf) const {
+	virtual const int128* getDecimal128Const(INDEX start, int len, int scale,
+			int128 *buf) const {
 		NOT_IMPLEMENT;
 	}
 
@@ -1884,8 +1964,8 @@ public:
 	 * @return A buffer to write data.
 	 */
 	virtual long long* getDecimal64Buffer(INDEX start, int len, int scale, long long *buf) const { NOT_IMPLEMENT; }
-	virtual wide_integer::int128* getDecimal128Buffer(INDEX start, int len, int scale,
-			wide_integer::int128 *buf) const {
+	virtual int128* getDecimal128Buffer(INDEX start, int len, int scale,
+			int128 *buf) const {
 		NOT_IMPLEMENT;
 	}
 
@@ -2044,7 +2124,7 @@ public:
 	 * @param val: The value to be set.
 	 */
 	virtual void setDecimal64(INDEX index, int scale, long long val) { NOT_IMPLEMENT; }
-	virtual void setDecimal128(INDEX index, int scale, wide_integer::int128 val) { NOT_IMPLEMENT; }
+	virtual void setDecimal128(INDEX index, int scale, int128 val) { NOT_IMPLEMENT; }
 
 	/**
 	 * @brief Replace the cell value specified by the index with the new value specified by valueIndex.
@@ -2364,7 +2444,7 @@ public:
 	 * @return True if set succeed, else false.
 	 */
 	virtual bool setDecimal64(INDEX start, int len, int scale, const long long *buf) { NOT_IMPLEMENT; }
-	virtual bool setDecimal128(INDEX start, int len, int scale, const wide_integer::int128 *buf) { NOT_IMPLEMENT; }
+	virtual bool setDecimal128(INDEX start, int len, int scale, const int128 *buf) { NOT_IMPLEMENT; }
 
 	/**
 	 * @brief Add inc to the underlying data from start to (start + length - 1).
@@ -2600,6 +2680,18 @@ public:
 	 * @brief Return whether this constant contain not marshallable object.
 	*/
 	virtual bool containNotMarshallableObject() const {return false;}
+	/**
+	 * @brief Modify the member specified by the index using the given function and the parameters. Usually the current object
+	 * is a tuple or an any dictionary.
+	 *
+	 * @param heap: the heap of the execution context.
+	 * @param index: index must be a scalar, regular vector, or tuple.
+	 * @param func: the mutable function that can manipulate the member object.
+	 * @param parameters: the extra parameters for the function.
+	 * @param dim: dim is a zero-based index. The index's dim-th element is the index of the current object to update.
+	 * @return true if set succeed, false else.
+	 */
+	virtual bool modifyMember(Heap* heap, const FunctionDefSP& func, const ConstantSP& index, const ConstantSP& parameters, int dim){return false;}
 
 protected:
 	inline void setType(DATA_TYPE dt){ flag_ = (flag_ & 4278255615U) + (dt << 16);}
@@ -2612,7 +2704,7 @@ private:
 
 #undef NOT_IMPLEMENT
 
-class Vector : public Constant {
+class SWORDFISH_API Vector : public Constant {
 public:
 	/// Once you overload a function (virtual function or normal function) from Base class
 	/// in Derived class all functions with the same name in the Base class get hidden in
@@ -3994,7 +4086,7 @@ private:
 	string name_;
 };
 
-class Matrix{
+class SWORDFISH_API Matrix{
 public:
 	Matrix(int cols, int rows);
 	virtual ~Matrix(){}
@@ -4017,14 +4109,8 @@ protected:
 	ConstantSP colLabel_;
 };
 
-class Tensor : public Constant {
-	using Constant::reshape;
+class SWORDFISH_API Tensor : public Constant {
 public:
-	enum class TensorType : uint8_t { Basic = 0 };
-	enum class DeviceType : uint8_t { CPU = 0 };
-
-	// Default constructor.
-	Tensor() = default;
 	// Copy constructor.
 	Tensor(const Tensor &) = default;
 	// Move constructor.
@@ -4034,58 +4120,64 @@ public:
 	// Move assignment.
 	Tensor &operator=(Tensor &&) = default;
 
-	Tensor(DATA_TYPE dataType, TensorType tensorType, const std::vector<int64_t> &shape,
-			const std::vector<int64_t> &strides = {}, DeviceType deviceType = DeviceType::CPU);
+	Tensor(DATA_TYPE dataType, TensorType tensorType, const std::vector<long long> &shape,
+			const std::vector<long long> &strides = {}, DeviceType deviceType = DeviceType::CPU);
 
 	virtual ~Tensor() override;
 
 	TensorType getTensorType() const noexcept { return tensorType_; }
 	DeviceType getDeviceType() const noexcept { return deviceType_; }
-
-	uint32_t getTensorFlags() const noexcept { return tensorFlags_; }
-
-	int64_t ndim() const noexcept { return static_cast<int64_t>(shape_.size()); }
-
-	const std::vector<int64_t> & shape() const noexcept { return shape_; }
-	const std::vector<int64_t> & strides() const noexcept { return strides_; }
-
-	/// Return index of the last element, calculated with the following formula:
-	///   index = (shape[0]-1) * strides[0] + (shape[1]-1) * strides[1] + ...
-	int64_t indexOfLastElement() const;
-
-	/// Check if this tensor is contiguous.
+	unsigned int getTensorFlags() const noexcept { return tensorFlags_; }
+	long long ndim() const noexcept { return shape_.size(); }
+	const vector<long long> & shape() const noexcept { return shape_; }
+	const vector<long long> & strides() const noexcept { return strides_; }
+	/**
+	 * @brief Return index of the last element, calculated with the following formula:
+	 * index = (shape[0]-1) * strides[0] + (shape[1]-1) * strides[1] + ...
+	 */
+	long long indexOfLastElement() const;
+	/**
+	 * @brief Check if this tensor is contiguous.
+	 */
 	bool isContiguous() const;
-
-	/// Create a NEW contiguous tensor base on this tensor.
-	/// @note This tensor remain unaffected.
+	/**
+	 * @brief Create a NEW contiguous tensor base on this tensor.
+	 * @note This tensor remain unaffected.
+	 */
 	virtual TensorSP contiguous() const = 0;
-
-	/// @note This tensor remain unaffected.
-	virtual TensorSP reshape(const std::vector<int64_t> &shape) const = 0;
-
-	/// Deep copy this tensor.
+	virtual TensorSP reshape(const vector<long long>& shape) const = 0;
+	/**
+	 * @brief Deep copy this tensor.
+	 */
 	virtual TensorSP clone() const = 0;
 
-public:  //====== Override virtual interface of Constant ======//
 	virtual string getScript() const override;
+
+public:
+	static vector<long long> makeContiguousStrides(const std::vector<long long> &shape);
+	static bool isContiguous(const std::vector<long long> &shape, const std::vector<long long> &strides);
+	static bool eqObj(const Tensor &lhs, const Tensor &rhs, double precision);
+	static bool isDataTypeSupported(DATA_TYPE type);
+	static long long computeSize(const std::vector<long long> &shape);
+	static Tensor * makeTensor(DATA_TYPE dataType, void *ptr, const std::vector<long long> &shape, const std::vector<long long> &strides = {},
+							   TensorType tensorType = TensorType::Basic, DeviceType deviceType = DeviceType::CPU);
 
 protected:
 	TensorType tensorType_;
 	DeviceType deviceType_;
+	unsigned int tensorFlags_ = 0;
 
-	/// Reserved for future use.
-	uint32_t tensorFlags_{};
-
-	/// E.g., a tensor with shape [D, H, W] means:
-	///   1. It is 3-dimensional.
-	///   2. Its depth is D, height (or rows) is H, width (or columns) is W.
-	///
-	/// If this tensor is contiguous, its strides are [H*W, W, 1].
-	std::vector<int64_t> shape_;
-	std::vector<int64_t> strides_;
+	/**
+	 * E.g., a tensor with shape [D, H, W] means:
+	 * 1. It is 3-dimensional.
+	 * 2. Its depth is D, height (or rows) is H, width (or columns) is W.
+	 * If this tensor is contiguous, its strides are [H*W, W, 1].
+	 */
+	vector<long long> shape_;
+	vector<long long> strides_;
 };
 
-class Set: public Constant {
+class SWORDFISH_API Set: public Constant {
 public:
 	Set(DATA_TYPE dt, DATA_CATEGORY dc) : Constant(DF_SET, dt, dc){}
 	virtual ~Set() {}
@@ -4102,7 +4194,7 @@ public:
 	virtual void* getRawSet() const = 0;
 };
 
-class Dictionary:public Constant{
+class SWORDFISH_API Dictionary:public Constant{
 public:
 	Dictionary(DATA_TYPE dt, DATA_CATEGORY dc) : Constant(DF_DICTIONARY, dt, dc), lock_(0){}
 	virtual ~Dictionary();
@@ -4194,6 +4286,7 @@ public:
 	 * @return True if reduce succeed, else false.
 	 */
 	virtual bool reduce(Heap* heap, const FunctionDefSP& optr, const FunctionDefSP& initOptr, const ConstantSP& key, const ConstantSP& value)=0;
+	virtual bool modifyMember(Heap* heap, const FunctionDefSP& func, const ConstantSP& index, const ConstantSP& parameters, int dim){return false;}
 	/**
 	 * @brief Get specified elements according to key.
 	 *
@@ -4230,7 +4323,7 @@ private:
 	Mutex* lock_;
 };
 
-class Table: public Constant{
+class SWORDFISH_API Table: public Constant{
 public:
 	/// Once you overload a function (virtual function or normal function) from Base class
 	/// in Derived class all functions with the same name in the Base class get hidden in
@@ -4611,9 +4704,14 @@ public:
 	 * @param guard: The memory of the returned table will not be released until the guard destructed.
 	 * @param limit: The number of rows to read, positive means from the start, negative means from the end, zero means all.
 	 * @param byKey: Whether the limit is by key.
+	 * @param extraMap: A helper map containing index and query info
 	 * @return An in-memory table containing the specified data.
 	 */
-	virtual TableSP getSegment(Heap* heap, const DomainPartitionSP& partition, vector<ObjectSP>& filters, const vector<string>& colNames, PartitionGuard* guard = 0, INDEX limit = 0, bool byKey=false) { throw RuntimeException("Table::getSegment() not supported");}
+	virtual TableSP getSegment(Heap *heap, const DomainPartitionSP &partition, vector<ObjectSP> &filters,
+							const vector<string> &colNames, PartitionGuard *guard = 0, INDEX limit = 0,
+							bool byKey = false, const unordered_map<int, void*> &extraMap = unordered_map<int, void*>{}) {
+		throw RuntimeException("Table::getSegment() not supported");
+	}
 	/**
 	 * @brief Return a empty table with the same schema as this table.
 	 */
@@ -4827,8 +4925,8 @@ private:
 
 class DFSChunkMeta : public Constant{
 public:
-	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const vector<string>& sites, long long cid, long long term = -1);
-	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const string* sites, int siteCount, long long cid, long long term = -1);
+	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const vector<string>& sites, long long cid, long long term = -1, bool prefetchComputeNodeData = false);
+	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const string* sites, int siteCount, long long cid, long long term = -1, bool prefetchComputeNodeData = false);
 	DFSChunkMeta(const DataInputStreamSP& in);
 	virtual ~DFSChunkMeta();
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
@@ -4841,7 +4939,7 @@ public:
 	virtual ConstantSP values() const;
 	virtual DATA_TYPE getRawType() const {return DT_DICTIONARY;}
 	virtual ConstantSP getInstance() const {return getValue();}
-	virtual ConstantSP getValue() const {return new DFSChunkMeta(path_, id_, version_, size_, (CHUNK_TYPE)type_, sites_, replicaCount_, cid_, term_);}
+	virtual ConstantSP getValue() const {return new DFSChunkMeta(path_, id_, version_, size_, (CHUNK_TYPE)type_, sites_, replicaCount_, cid_, term_, prefetchComputeNodeData_);}
 	inline const string& getPath() const {return path_;}
 	inline const Guid& getId() const {return id_;}
 	inline long long getCommitId() const {return cid_;}
@@ -4858,6 +4956,8 @@ public:
 	inline bool isSmallFileBlock() const {return type_ == SMALLFILE_CHUNK;}
 	inline CHUNK_TYPE getChunkType() const {return (CHUNK_TYPE)type_;}
 	inline long long getTerm() const { return term_; }
+	inline void setPrefetchComputeNodeData(bool v) { prefetchComputeNodeData_ = v;}
+	inline bool getPrefetchComputeNodeData() const { return prefetchComputeNodeData_;  }
 
 protected:
 	ConstantSP getAttribute(const string& attr) const;
@@ -4873,6 +4973,7 @@ private:
 	long long cid_;
 	Guid id_;
 	long long term_;
+	bool prefetchComputeNodeData_ = false;
 };
 
 class SysObj : public Constant {
@@ -4955,7 +5056,7 @@ protected:
 	OOClassSP class_;
 };
 
-class Param{
+class SWORDFISH_API Param{
 public:
 	Param(const string& name, bool readOnly, const ConstantSP& defaultValue = nullptr);
 	Param(Session* session, const DataInputStreamSP& in);
@@ -4976,10 +5077,12 @@ private:
 	ConstantSP defaultValue_;
 };
 
-class FunctionDef : public Constant{
+class SWORDFISH_API FunctionDef : public Constant{
 public:
-	FunctionDef(FUNCTIONDEF_TYPE defType, const string& name, const vector<ParamSP>& params, bool hasReturnValue=true, bool aggregation=false, bool sequential=false);
-	FunctionDef(FUNCTIONDEF_TYPE defType, const string& name, int minParamNum, int maxParamNum, bool hasReturnValue, bool aggregation=false, bool sequential=false);
+	using JitFunc = void (*)(char*, char*, char*);
+	using TurboJetFunc = void (*)(char *, Heap *, char *, int);
+	FunctionDef(FUNCTIONDEF_TYPE defType, const string& name, const vector<ParamSP>& params, bool hasReturnValue=true, bool aggregation=false, bool sequential=false, bool transform=false);
+	FunctionDef(FUNCTIONDEF_TYPE defType, const string& name, int minParamNum, int maxParamNum, bool hasReturnValue, bool aggregation=false, bool sequential=false, bool transform=false);
 	inline const string& getName() const { return name_;}
 	inline const string& getModule() const { return module_;}
 	inline string getFullName() const { return module_.empty() ? name_ : module_ + "::" + name_;}
@@ -5023,6 +5126,8 @@ public:
 	inline bool isStaticMember() const { return extraFlag_ & 1024;}
 	inline void setPrimitiveOperator(bool option){ if(option) extraFlag_ |= 2048; else extraFlag_ &= ~2048;}
 	inline bool isPrimitiveOperator() const { return extraFlag_ & 2048;}
+	inline bool isTransformFunction() const { return extraFlag_ & 4096;}
+	inline void setTransformFunction(bool option){ if(option) extraFlag_ |= 4096; else extraFlag_ &= ~4096;}
 	inline bool variableParamNum() const {	return minParamNum_<maxParamNum_;}
 	inline int getMaxParamCount() const { return maxParamNum_;}
 	inline int getMinParamCount() const {	return minParamNum_;}
@@ -5051,12 +5156,18 @@ public:
 	virtual ConstantSP call(Heap* pHeap,vector<ObjectSP>& arguments) = 0;
 	virtual bool containNotMarshallableObject() const {return defType_ >= USERDEFFUNC ;}
 	virtual FastFunc getFastImplementation() const {return nullptr;}
+	virtual std::tuple<DATA_FORM, DATA_TYPE, JitFunc> getJitFuncPtr(Heap *heap, std::vector<ConstantSP> testArgs) { return std::make_tuple(DF_SCALAR, DT_VOID, nullptr); }
+	virtual void registerTurboJetImplementation(TurboJetFunc funcPtr) { throw RuntimeException("registerTurboJetImplementation not implemented."); }
+	virtual TurboJetFunc getTurboJetJitFuncPtr() const { throw RuntimeException(getScript() + " is not a function that have a JIT-compatible implementation or can be JIT-compiled."); }
+	virtual ConstantSP getTurboJetReturnType() const { return nullptr; }
+	virtual void registerTurboJetReturnType(ConstantSP type) {}
 
 protected:
 	void setConstantParameterFlag();
 	void setReturnValueFlag(bool val);
 	void setAggregationFlag(bool val);
 	void setSequentialFlag(bool val);
+	void setTransformFlag(bool val);
 
 protected:
 	static ParamSP constParam_;
@@ -5157,17 +5268,16 @@ private:
 
 class ColumnRef: public Object{
 public:
-	ColumnRef(const SQLContextSP& contextSP, const string& name):contextSP_(contextSP),name_(name),index_(-1),acceptFunctionDef_(true){}
-	ColumnRef(const SQLContextSP& contextSP, const string& qualifier, const string& name):contextSP_(contextSP),
+	ColumnRef(const SQLContextSP& contextSP, const string& name): Object(COLUMN), contextSP_(contextSP),name_(name),index_(-1),acceptFunctionDef_(true){}
+	ColumnRef(const SQLContextSP& contextSP, const string& qualifier, const string& name): Object(COLUMN), contextSP_(contextSP),
 			qualifier_(qualifier),name_(name),index_(-1),acceptFunctionDef_(true){}
-	ColumnRef(const SQLContextSP& contextSP, const string& name, int index):contextSP_(contextSP),name_(name),index_(index),acceptFunctionDef_(true){}
-	ColumnRef(const SQLContextSP& contextSP, const string& qualifier, const string& name, int index):contextSP_(contextSP),
+	ColumnRef(const SQLContextSP& contextSP, const string& name, int index): Object(COLUMN), contextSP_(contextSP),name_(name),index_(index),acceptFunctionDef_(true){}
+	ColumnRef(const SQLContextSP& contextSP, const string& qualifier, const string& name, int index): Object(COLUMN), contextSP_(contextSP),
 				qualifier_(qualifier),name_(name),index_(index),acceptFunctionDef_(true){}
 	ColumnRef(const SQLContextSP& context, const DataInputStreamSP& in);
 	virtual ~ColumnRef(){}
 	virtual ConstantSP getValue(Heap* pHeap);
 	virtual ConstantSP getReference(Heap* pHeap);
-	virtual OBJECT_TYPE getObjectType() const {return COLUMN;}
 	virtual ConstantSP getComponent() const;
 	const SQLContextSP getSQLContext() const {return contextSP_;}
 	const string& getQualifier() const { return qualifier_;}
@@ -5187,8 +5297,6 @@ public:
 	ColumnRef* localize() const{ return new ColumnRef(contextSP_, qualifier_, name_);}
 	bool operator ==(const ColumnRef& target);
 	bool operator ==(const ColumnRef& target) const;
-	virtual void collectVariables(vector<int>& vars, int minIndex, int maxIndex) const { if(index_<=maxIndex && index_>=minIndex) vars.push_back(index_);}
-	virtual void retrieveColumns(const TableSP& table, vector<pair<string,string>>& columns) const;
 	virtual ObjectSP copy(Heap* pHeap, const SQLContextSP& context, bool localize) const;
 	virtual ObjectSP copyAndMaterialize(Heap* pHeap, const SQLContextSP& context, const TableSP& table) const;
 	virtual bool mayContainColumnRefOrVariable() const { return true;}
@@ -5229,7 +5337,7 @@ private:
 	bool unary_;
 };
 
-class Output {
+class SWORDFISH_API Output {
 public:
 	virtual bool timeElapsed(long long nanoSeconds) = 0;
 	virtual bool write(const ConstantSP& obj) = 0;
@@ -5247,7 +5355,7 @@ public:
 	virtual IO_ERR flush() = 0;
 };
 
-class Session {
+class SWORDFISH_API Session {
 public:
 	Session(const HeapSP& heap, PARSER_TYPE parserType = PARSER_TYPE::DDB);
 	Session(const HeapSP& heap, bool systemSession, PARSER_TYPE parserType = PARSER_TYPE::DDB);
@@ -5326,6 +5434,7 @@ public:
 	virtual void addFunctionalView(const FunctionDefSP& funcDef) = 0;
 	virtual bool removeFunctionalView(const string& name) = 0;
 	virtual void completePendingFunctions(bool commit) = 0;
+	virtual void completePendingClasses(bool commit) = 0;
 	virtual void getFunctions(vector<pair<string,FunctionDefSP> >& functions) = 0;
 	virtual void undefine(const string& objectName, OBJECT_TYPE objectType, void* objAddr = 0) = 0;
 	virtual bool isEnum(const string& word, int& value) const = 0;
@@ -5385,6 +5494,7 @@ private:
 	PARSER_TYPE parserType_;
     Guid clientId_;
     long long seqNo_;
+    Mutex userMutex_;
 };
 
 class Transaction {
@@ -5481,7 +5591,7 @@ protected:
     Guid parentSpanId_;
 };
 
-class ConstantMarshal {
+class SWORDFISH_API ConstantMarshal {
 public:
 	virtual ~ConstantMarshal(){}
 	virtual bool start(const ConstantSP& target, bool blocking, IO_ERR& ret)=0;
@@ -5491,7 +5601,7 @@ public:
 	virtual IO_ERR flush() = 0;
 };
 
-class ConstantUnmarshal{
+class SWORDFISH_API ConstantUnmarshal{
 public:
 	virtual ~ConstantUnmarshal(){}
 	virtual bool start(short flag, bool blocking, IO_ERR& ret)=0;
@@ -5502,7 +5612,7 @@ public:
 protected:
 	ConstantSP obj_;
 };
-class Heap{
+class SWORDFISH_API Heap{
 public:
 	Heap():meta_(0), session_(0), size_(0), status_(0){}
 	Heap(Session* session);
@@ -5529,7 +5639,7 @@ public:
 	bool set(unsigned int index,const ConstantSP& value);
 	void setConstant(int index, bool constant);
 	inline bool isConstant(int index) const {return index>= MAX_SHARED_OBJ_INDEX && (flags_[index - MAX_SHARED_OBJ_INDEX] & 1);}
-	inline bool isInitialized(int index) const {return index>= MAX_SHARED_OBJ_INDEX ? flags_[index - MAX_SHARED_OBJ_INDEX] & 2 : true;}
+	bool isInitialized(int index) const;
 	inline bool isMetaInitalized() const { return meta_ != nullptr;}
 	bool isSameObject(int index, Constant* obj) const;
 	void rollback();
@@ -5551,6 +5661,9 @@ public:
 	// For OOP
 	ConstantSP getSelf() { return self_; }
 	void setSelf(ConstantSP &self) { self_ = self; }
+
+	/** Do NOT call this method! */
+	void initMetaWithDummyItemInUdfContext();
 
 private:
 	struct HeapMeta{
@@ -5671,11 +5784,15 @@ class DomainSite{
 public:
 	DomainSite(const string& host, int port, int index);
 	DomainSite(const string& host, int port, int index, const string& alias) ;
+	DomainSite(const string& host, int port, int index, const string& alias, const string & computeGroupName)
+			: host_(host), port_(port), index_(index), alias_(alias), computeGroupName_(computeGroupName) {}
 	const string& getHost() const {return host_;}
 	int getPort() const {return port_;}
 	int getIndex() const {return index_;}
 	string getString() const;
 	const string& getAlias() const {return alias_;}
+	const string& getComputeGroupName() const { return computeGroupName_; }
+	void setComputeGroupName(const string& name) { computeGroupName_ = name; }
 	inline bool operator ==(const DomainSite& target) const { return  host_ == target.host_ && port_ == target.port_;}
 	static DomainSite emptySite_;
 private:
@@ -5683,12 +5800,16 @@ private:
 	int port_;
 	int index_;
 	string alias_;
+	// Empty string for datanodes and compute nodes that do not have a group
+	// For compute nodes that do not have a group, all computations are pushed down to the data nodes
+	string computeGroupName_;
 };
 
 class DomainSitePool {
 public:
 	DomainSitePool() : lastSuccessfulSiteIndex_(-1), lastSiteIndex_(-1), nextSiteIndex_(-1), startSiteIndex_(-1), localSiteIndex_(-1){}
 	DomainSitePool(const DomainPartitionSP& partition);
+	void setDisabled(int index, bool v);
 	void addSite(int siteIndex);
 	int getLastSite() const;
 	inline int getSiteCount() const { return sites_.size();}
@@ -5702,9 +5823,13 @@ public:
 	void resetInitialSite();
 	void setLastSuccessfulSite();
 	void markUsed(int siteIndex);
+	inline bool isDisabled(int index) { return disabled_[index]; }
 
+	void disableAllComputeNode();
+    string getScript() const;
 private:
 	vector<pair<int, bool>> sites_;
+	vector<bool> disabled_;
 	int lastSuccessfulSiteIndex_;
 	mutable int lastSiteIndex_;
 	mutable int nextSiteIndex_;
@@ -5726,6 +5851,7 @@ public:
 	virtual int getSiteIndex(int index) const { throw RuntimeException("DomainPartition::getSiteIndex method not supported.");}
 	virtual bool isLocalPartition() const { return true;}
 	virtual bool containLocalCopy() const { return true;}
+	virtual bool getPrefetchComputeNodeData()  const { return true; }
 	string getString() const;
 	inline const string& getPath() const {return path_;}
 	inline const Guid& getId() const {return id_;}
@@ -5848,11 +5974,11 @@ struct TableHeader {
 			const vector<int>& partitionKeys, const vector<pair<int, bool>>& sortKeys,
 			DUPLICATE_POLICY rowDuplicatePolicy, const vector<pair<int, FunctionDefSP>>& sortKeyMappingFunction,
 			bool appendForDelete, const string& tableComment, const vector<FunctionDefSP>& partitionFunc,
-            const vector<int> &primaryKeys, const IndexMap &indexes) :
+            const vector<int> &primaryKeys, const IndexMap &indexes, bool latestKeyCache, bool compressHashSortKey):
 			rowDuplicatePolicy(rowDuplicatePolicy), owner(owner), physicalIndex(physicalIndex), colDescs(tablesType),
 			partitionKeys(partitionKeys), sortKeys(sortKeys), sortKeyMappingFunction(sortKeyMappingFunction),
 			appendForDelete(appendForDelete), tableComment(tableComment), partitionFunction(partitionFunc),
-            primaryKeys(primaryKeys), indexes(indexes) {}
+            primaryKeys(primaryKeys), indexes(indexes), latestKeyCache(latestKeyCache), compressHashSortKey(compressHashSortKey) {}
 	DUPLICATE_POLICY rowDuplicatePolicy = DUPLICATE_POLICY::KEEP_ALL;
 	string owner;
 	string physicalIndex;
@@ -5865,6 +5991,17 @@ struct TableHeader {
 	vector<FunctionDefSP> partitionFunction;
     vector<int> primaryKeys;
     IndexMap indexes;
+
+	/**
+	 * The following two fields are used by the compute node to verify
+	 * whether the cached data has become invalid due to DDL:
+	 * - `chunkId`: used to detect table creation and deletion.
+	 * - `chunkCid`: used to detect schema changes.
+	 */
+	Guid chunkId;
+	long long chunkCid;
+	bool latestKeyCache = false;
+	bool compressHashSortKey = false;
 };
 
 class Domain{
@@ -5921,6 +6058,7 @@ public:
 	inline int getFlag() const { return flag_; }
 	void setRentionPeriod(int retentionPeriod, int retentionDimension, int tzOffset, int hoursToColdVolume);
 	string getOwner() const { return owner_;}
+	void setOwner(const string& owner) { owner_ = owner; }
 	bool isOwner(const string& owner) const { return owner == owner_;}
 	void setEngineType(DBENGINE_TYPE type) { engineType_ = type;}
 	DBENGINE_TYPE getEngineType() const { return engineType_;}
@@ -5932,6 +6070,8 @@ public:
 	void setReplication(bool enable) { if (enable) flag_ |= ((unsigned long)1) << 1; else flag_ &= ~(((unsigned long)1) << 1); }
 	bool isRemoveSpecialChar() const { return flag_ & (1 << 2); }
 	void setRemoveSpecialChar(bool enable) { if (enable) flag_ |= ((unsigned long)1) << 2; else flag_ &= ~(((unsigned long)1) << 2); }
+	bool enableIOTDB() const { return flag_ & (1 << 3); }
+	void setIOTDB(bool enable) { if (enable) flag_ |= ((unsigned long)1) << 3; else flag_ &= ~(((unsigned long)1) << 3); }
 	void setTableIndependentChunk(bool option) { tableIndependentChunk_ = option;}
 	bool isTableIndependentChunk() const { return tableIndependentChunk_;}
     static string getUniqueIndex(long long id);
@@ -5979,6 +6119,7 @@ protected:
 		bit0: isSingleTablet
 		bit1: enableReplication
 		bit2: removeSpecialChar
+		bit3: isIOTDB
 	*/
     int flag_;
 	SymbolBaseManagerSP symbaseManager_;
@@ -6243,10 +6384,12 @@ public:
     bool getMonitorProcessAndMemory() const {return monitorProcessAndMemory_;}
 
 private:
-    void groupRemoteCalls(const vector<vector<DistributedCallSP>>& tasks, vector<DistributedCallSP>& groupedCalls, const ClusterNodesSP& clusterNodes, int groupSize);
+    void groupRemoteCalls(const unordered_map<int, vector<DistributedCallSP>>& tasks,
+                          vector<DistributedCallSP>& groupedCalls, const ClusterNodesSP& clusterNodes, int groupSize);
 
-    bool probingGroupSize(bool& groupCall, const vector<DistributedCallSP>& tasks, const ClusterNodesSP& clusterNodes, vector<vector<DistributedCallSP >>& siteCalls,
-                            vector<std::pair<int,DistributedCallSP>>& needCheckTasks);
+    bool probingGroupSize(bool& groupCall, const vector<DistributedCallSP>& tasks, const ClusterNodesSP& clusterNodes,
+                          unordered_map<int, vector<DistributedCallSP>>& siteCalls,
+                          vector<std::pair<int,DistributedCallSP>>& needCheckTasks);
 private:
     const int MIN_TASK_COUNT_FOR_PROBING_GROUP_SIZE = 4; // if all site's task count is less or equal than it, will group call directly and won't prob group size
     const int TASK_LIMIT_OF_A_GROUP = 1024; // the max task size of a group
@@ -6440,7 +6583,7 @@ private:
 
 class Tuple : public Object {
 public:
-	Tuple(const vector<ObjectSP>& arguments, bool isFunctionArgument = false, bool isDynamicVector = false, bool readonly=false): arguments_(arguments),
+	Tuple(const vector<ObjectSP>& arguments, bool isFunctionArgument = false, bool isDynamicVector = false, bool readonly=false): Object(TUPLE), arguments_(arguments),
 		isFunctionArgument_(isFunctionArgument), isDynamicVector_(isDynamicVector), readonly_(readonly){}
 	Tuple(Session* session, const DataInputStreamSP& in);
 	inline bool isFunctionArgument() const { return isFunctionArgument_;}
@@ -6450,18 +6593,15 @@ public:
 	int getElementCount() const { return arguments_.size();}
 	virtual ConstantSP getValue(Heap* pHeap) { return getReference(pHeap);}
 	virtual ConstantSP getReference(Heap* pHeap);
-	virtual OBJECT_TYPE getObjectType() const {return TUPLE;}
 	virtual ConstantSP getComponent() const;
 	virtual string getScript() const;
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
 	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
 	virtual void collectUserDefinedFunctionsAndClasses(Heap* pHeap, unordered_map<string,FunctionDef*>& functionDefs, unordered_map<string,OOClass*>& classes) const;
-	virtual void collectVariables(vector<int>& vars, int minIndex, int maxIndex) const;
-	virtual void retrieveColumns(const TableSP& table, vector<pair<string,string>>& columns) const;
-	virtual int checkSpecicalFunction(bool aggrOnly) const;
 	virtual ObjectSP copy(Heap* pHeap, const SQLContextSP& context, bool localize) const;
 	virtual ObjectSP copyAndMaterialize(Heap* pHeap, const SQLContextSP& context, const TableSP& table) const;
 	virtual bool mayContainColumnRefOrVariable() const { return true;}
+	virtual void collectObjects(vector<const Object*>& vec) const;
 
 private:
 	vector<ObjectSP> arguments_;
@@ -6473,13 +6613,12 @@ private:
 
 class Expression: public Object{
 public:
-	Expression(const vector<ObjectSP> & objs, const vector<OperatorSP>&  optrs):
+	Expression(const vector<ObjectSP> & objs, const vector<OperatorSP>&  optrs): Object(EXPRESSION),
 		objs_(objs),optrs_(optrs), annotation_(0){}
-	Expression(const vector<ObjectSP> & objs, const vector<OperatorSP>&  optrs, int annotation):
+	Expression(const vector<ObjectSP> & objs, const vector<OperatorSP>&  optrs, int annotation): Object(EXPRESSION),
 		objs_(objs),optrs_(optrs), annotation_(annotation){}
 	Expression(const SQLContextSP& context, Session* session, const DataInputStreamSP& in);
 	virtual ~Expression(){}
-	virtual OBJECT_TYPE getObjectType() const {return EXPRESSION;}
 	virtual ConstantSP getComponent() const;
 	virtual ConstantSP getReference(Heap* pHeap);
 	virtual ConstantSP getValue(Heap* pHeap);
@@ -6493,7 +6632,6 @@ public:
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
 	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
 	virtual void collectUserDefinedFunctionsAndClasses(Heap* pHeap, unordered_map<string,FunctionDef*>& functionDefs, unordered_map<string,OOClass*>& classes) const;
-	virtual void collectVariables(vector<int>& vars, int minIndex, int maxIndex) const;
 	ObjectSP realizeNonColumnExpression(Heap* pHeap, unordered_set<string>& colNames);
 	ObjectSP realizeNonColumnExpression(Heap* pHeap, const TableSP& table);
 	//Assume all local variables in the expression has been materialized
@@ -6504,19 +6642,17 @@ public:
 	virtual ObjectSP copy(Heap* pHeap, const SQLContextSP& context, bool localize) const;
 	virtual ObjectSP copyAndMaterialize(Heap* pHeap, const SQLContextSP& context, const TableSP& table) const;
 	virtual bool mayContainColumnRefOrVariable() const { return true;}
-	virtual void retrieveColumns(const TableSP& table, vector<pair<string,string>>& columns) const;
-	virtual int checkSpecicalFunction(bool aggrOnly) const;
-	virtual bool containAnalyticFunction() const;
+	void collectObjects(vector<const Object*>& vec) const override;
 
-	static ConstantSP void_;
-	static ConstantSP null_;
-	static ConstantSP default_;
-	static ConstantSP true_;
-	static ConstantSP false_;
-	static ConstantSP one_;
-	static ConstantSP zero_;
-	static ConstantSP voidDouble2_;
-	static OperatorSP logicAnd_;
+	SWORDFISH_API static ConstantSP void_;
+	SWORDFISH_API static ConstantSP null_;
+	SWORDFISH_API static ConstantSP default_;
+	SWORDFISH_API static ConstantSP true_;
+	SWORDFISH_API static ConstantSP false_;
+	SWORDFISH_API static ConstantSP one_;
+	SWORDFISH_API static ConstantSP zero_;
+	SWORDFISH_API static ConstantSP voidDouble2_;
+	SWORDFISH_API static OperatorSP logicAnd_;
 	static SQLContextSP context_;
 
 private:
@@ -6834,10 +6970,10 @@ struct GuidReader {
 
 class AbstractFunctionDef : public FunctionDef{
 public:
-	AbstractFunctionDef(FUNCTIONDEF_TYPE defType, const string& name, const vector<ParamSP>& params, bool hasReturnValue=true, bool aggregation=false, bool sequential=false): FunctionDef(defType, name, params,
-		hasReturnValue, aggregation, sequential), val_(name){}
-	AbstractFunctionDef(FUNCTIONDEF_TYPE defType, const string& name, int minParamNum, int maxParamNum, bool hasReturnValue, bool aggregation=false, bool sequential=false) : FunctionDef(defType, name, minParamNum,
-		maxParamNum, hasReturnValue, aggregation, sequential), val_(name){}
+	AbstractFunctionDef(FUNCTIONDEF_TYPE defType, const string& name, const vector<ParamSP>& params, bool hasReturnValue=true, bool aggregation=false, bool sequential=false, bool transform=false): FunctionDef(defType, name, params,
+		hasReturnValue, aggregation, sequential, transform), val_(name){}
+	AbstractFunctionDef(FUNCTIONDEF_TYPE defType, const string& name, int minParamNum, int maxParamNum, bool hasReturnValue, bool aggregation=false, bool sequential=false, bool transform=false) : FunctionDef(defType, name, minParamNum,
+		maxParamNum, hasReturnValue, aggregation, sequential, transform), val_(name){}
 	virtual ~AbstractFunctionDef(){}
 	virtual char getBool() const {throw IncompatibleTypeException(DT_BOOL,DT_FUNCTIONDEF);}
 	virtual char getChar() const {throw IncompatibleTypeException(DT_CHAR,DT_FUNCTIONDEF);}
@@ -6883,21 +7019,26 @@ public:
 			return val_.compare(target->getString());
 	}
 	virtual FunctionDefSP createAlias(const string& alias) const { throw RuntimeException("AbstractFunctionDef::createAlias method not supported.");}
+	virtual void registerTurboJetImplementation(TurboJetFunc funcPtr) override { tjImp_ = funcPtr; }
+	virtual TurboJetFunc getTurboJetJitFuncPtr() const override { return tjImp_; }
+	virtual ConstantSP getTurboJetReturnType() const { return tjTypeObj_; }
+	virtual void registerTurboJetReturnType(ConstantSP type) { tjTypeObj_ = type; }
 
 protected:
 	mutable string val_;
+private:
+	TurboJetFunc tjImp_ = nullptr;
+	ConstantSP tjTypeObj_ = Expression::void_;
 };
 
 class PartialFunction : public AbstractFunctionDef{
 public:
-	PartialFunction(Function* pFuncCall);
 	PartialFunction(FunctionDefSP funcDef, const vector<ConstantSP>& arguments);
 	PartialFunction(Session* session, const DataInputStreamSP& buffer);
 	virtual ~PartialFunction();
 	virtual ConstantSP call(Heap* heap, vector<ConstantSP>& arguments);
 	virtual ConstantSP call(Heap* heap, const ConstantSP& a, const ConstantSP& b);
 	virtual ConstantSP call(Heap* heap,vector<ObjectSP>& arguments);
-	virtual FunctionDefSP materializeFunctionDef(Heap* pHeap);
 	virtual string getScript() const {return getString();}
 	long long getAllocatedMemory() const override;
 	int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const override;
@@ -6912,18 +7053,24 @@ public:
 	virtual string getString() const;
 	virtual int compare(int index, const ConstantSP& target) const;
 	string generateScript() const;
+	inline bool isStaticPartialFunction() const { return static_;}
+	virtual void registerTurboJetImplementation(TurboJetFunc) override {
+		throw RuntimeException("registerTurboJetImplementation not supported for PartialFunction.");
+	}
 
 private:
 	inline void checkRepr() const;
 
 private:
 	FunctionDefSP funcDef_;
-	FunctionDefSP materializedFuncDef_;
 	vector<ObjectSP> args_;
-	vector<ConstantSP> objs_;
 	vector<int> missingArgs_;
-	bool ready_;
-	Mutex* mutex_;
+	/**
+	 * The attribute static is created for version compatibility.
+	 * Before version 2.00.14 and 3.00.2, static_ could be false
+	 * or true. Since version 2.00.14 and 3.00.2, static_ always true.
+	 */
+	bool static_;
 };
 
 class ReactiveState;
@@ -7083,6 +7230,11 @@ public:
 	virtual FunctionDefSP getOperator(const string& name) const;
 	virtual void getMethods(vector<FunctionDefSP>& methods) const;
 	virtual ConstantSP getMember(const string& key) const;
+	INDEX getMemberIndex(const string& key) const {
+		auto it = dict_.find(key);
+		if (it == dict_.end()) return -1;
+		return it->second;
+	}
 	virtual IO_ERR serializeClass(const ByteArrayCodeBufferSP& buffer) const;
 	virtual IO_ERR deserializeClass(Session* session, const DataInputStreamSP& in);
 
@@ -7104,6 +7256,9 @@ public:
 	void setBaseClass(DolphinClassSP &baseCls) { baseCls_ = baseCls; }
 	void setJit(bool isJit) { isJit_ = isJit; }
 	bool isJit() { return isJit_; }
+	void setJitClassId(int id) { jitClassId_ = id; }
+	int getJitClassId() { return jitClassId_; }
+	static int genClsId() { return clsIdCnt_.fetch_add(1, std::memory_order_relaxed); }
 
 protected:
 	DolphinClass(const string& qualifier, const string& name, int flag, const vector<pair<string, char> >& attributes, const vector<FunctionDefSP>& methods);
@@ -7117,6 +7272,8 @@ private:
 	FunctionDefSP constructor_;
 	DolphinClassSP baseCls_;
 	bool isJit_ = false;
+	int jitClassId_ = 0;
+	static std::atomic<int> clsIdCnt_;
 };
 
 class DolphinInstance : public OOInstance{
@@ -7133,6 +7290,14 @@ public:
 	virtual ConstantSP getMember(const string& key) const;
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
 	virtual string getString() const;
+	virtual bool set(const ConstantSP &index, const ConstantSP &val) override {
+		try {
+        	setAttribute(index->getString(), val);
+			return true;
+		} catch (...) {
+			return false;
+		}
+	}
 
 	static ConstantSP createDolphinInstance(Session* session, const DataInputStreamSP& in){
 		return new DolphinInstance(session, in);
@@ -7171,6 +7336,7 @@ public:
 	 * @param rtext output decrypted text
 	 */
 	static bool aesDecrypt(string key, const string& iv, const string& ctext, string& rtext);
+	static bool hmac(const char* key, size_t keyLen, const char* data, size_t dataLen, const string& digest, string& output);
 
 private:
 	static size_t calcDecodeLength(const char* b64input);
