@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+// 开启toArrayVector可解析，不开启toArrayVector则不能解析
+// 不相关联的单层repeated字段
+message test_bad_unrelated_repeat_1 {
+    repeated int32 int = 1;
+    repeated string string = 2;
+    repeated bool bool = 3;
+}

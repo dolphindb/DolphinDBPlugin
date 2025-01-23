@@ -1,0 +1,10 @@
+kdb,libPluginKDB.so,2.00.15
+kdbConnect,connect,system,2,3,0
+kdbLoadTable,loadTable,system,2,3,0
+kdbLoadFile,loadFile,system,1,2,0
+kdbClose,close,system,1,1,0
+kdbExecute,execute,system,2,2,0
+kdbLoadTableEx,loadTableEx,system,5,10,0
+kdbLoadFileEx,loadFileEx,system,4,9,0
+kdbExtractTableSchema,extractTableSchema,system,2,3,0
+kdbExtractFileSchema,extractFileSchema,system,1,2,0

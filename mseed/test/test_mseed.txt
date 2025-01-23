@@ -1,0 +1,1784 @@
+
+#include "setup/settings.txt"
+login("admin","123456")
+WORK_DIR=DATA_DIR
+try{loadPlugin("plugins/mseed/PluginMseed.txt")}catch(ex){print ex};
+go
+
+@testing:case="test_plugin_mseed_read_file_not_string",exception=1
+mseed::read(123)
+
+@testing:case="test_plugin_mseed_read_file_string_null",exception=1
+mseed::read("")
+
+@testing:case="test_plugin_mseed_read_file_null",exception=1
+mseed::read(NULL)
+
+@testing:case="test_plugin_mseed_read_file_string_null_vector",exception=1
+mseed::read([""])
+
+@testing:case="test_plugin_mseed_read_file_string_vector",exception=1
+mseed::read([""])
+
+@testing:case="test_plugin_mseed_read_file_float",exception=1
+mseed::read(1.2)
+
+@testing:case="test_plugin_mseed_read_file_date",exception=1
+mseed::read(date())
+
+@testing:case="test_plugin_mseed_read_file_blob",exception=1
+mseed::read(blob(""))
+
+@testing:case="test_plugin_mseed_read_file_end_with_/",exception=1
+mseed::read(DATA_DIR+"/SC.JZG.00.BHZ.D.2013.001/")
+
+@testing:case="test_plugin_mseed_read_file_folder",exception=1
+mseed::read(DATA_DIR)
+
+@testing:case="test_plugin_mseed_read_file_pair",exception=1
+mseed::read(DATA_DIR+"/SC.JZG.00.BHZ.D.2013.001":"")
+
+@testing:case="test_plugin_mseed_read_file_vector",exception=1
+mseed::read([DATA_DIR+"/SC.JZG.00.BHZ.D.2013.001"])
+
+@testing:case="test_plugin_mseed_read_file_not_existed",exception=1
+mseed::read()
+
+@testing:case="test_plugin_mseed_param_more_than_design",syntaxError=1
+mseed::read(DATA_DIR+"/SC.JZG.00.BHZ.D.2013.001", DATA_DIR+"/SC.JZG.00.BHZ.D.2013.001")
+
+@testing:case="test_plugin_mseed_write_file_not_string",exception=1
+mseed::write(123,"XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),100.0,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_file_string_vector",exception=1
+mseed::write(["a","b"],"XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),100.0,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_file_null",exception=1
+mseed::write(NULL,"XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),100.0,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_file_empty_vector",exception=1
+mseed::write([],"XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),100.0,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_file_string_null",exception=1
+mseed::write("","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),100.0,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_file_uuid",exception=1
+mseed::write(rand(uuid(), 1)[0],"XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),100.0,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_file_name_end_with_/",exception=1
+mseed::write(DATA_DIR+"test/","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),100.0,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_sid_not_string",exception=1
+mseed::write(DATA_DIR+"test.",11,timestamp(2013.01.01),100.0,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_sid_string_vector",exception=1
+mseed::write(DATA_DIR+"test.",11,timestamp(2013.01.01),100.0,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_sid_string_null",exception=1
+mseed::write(DATA_DIR+"test.","",timestamp(2013.01.01),100.0,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_sid_null",exception=1
+mseed::write(DATA_DIR+"test.",NULL,timestamp(2013.01.01),100.0,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_sid_float",exception=1
+mseed::write(DATA_DIR+"test.",1.2,timestamp(2013.01.01),100.0,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_sid_string_null_vector",exception=1
+mseed::write(DATA_DIR+"test.",[""],timestamp(2013.01.01),100.0,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_sid_wrong_string",exception=1
+mseed::write(DATA_DIR+"test.","12",timestamp(2013.01.01),100.0,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_startTime_not_timestamp",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",12,100,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_startTime_timestamp_vector",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01 2013.01.02),100,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_startTime_null",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N", NULL,100,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_startTime_timestamp_null",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N", timestamp(),100,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_startTime_not_existed",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N", ,100,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_startTime_null_vector",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N", take(timestamp(), 1),100,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_startTime_datetime",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N", datetime(),100,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_startTime_nanotimestamp",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N", nanotimestamp(),100,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_startTime_empty_vector",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",[],100,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_sampleRate_double_vector",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),[100.0 100.0],rand(100,100))
+
+@testing:case="test_plugin_mseed_write_sampleRate_null",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),NULL,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_sampleRate_int_null",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),00i,rand(100,100))
+
+@testing:case="test_plugin_mseed_write_sampleRate_string_null",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),"",rand(100,100))
+
+@testing:case="test_plugin_mseed_write_sampleRate_decimal32",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),decimal32(1.23, 3),rand(100,100))
+
+@testing:case="test_plugin_mseed_write_sampleRate_empty_vector",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),[],rand(100,100))
+
+@testing:case="test_plugin_mseed_write_value_not_int_float_double",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),100.0,string(rand(`IBN`GTYU`FHU,100)))
+
+@testing:case="test_plugin_mseed_write_value_null",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),100.0,NULL)
+
+@testing:case="test_plugin_mseed_write_value_int_null",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),100.0,int())
+
+@testing:case="test_plugin_mseed_write_value_double_scalar",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),100.0,1.0)
+
+@testing:case="test_plugin_mseed_write_value_empty_vector",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),100.0,[])
+
+@testing:case="test_plugin_mseed_write_overwrite_not_bool",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),100.0,rand(100,100),12)
+
+@testing:case="test_plugin_mseed_write_overwrite_bool_vector",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),100.0,rand(100,100),[true,true])
+
+@testing:case="test_plugin_mseed_write_overwrite_null",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),100.0,rand(100,100),NULL)
+
+@testing:case="test_plugin_mseed_write_overwrite_bool_null_vector",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),100.0,rand(100,100),[bool()])
+
+@testing:case="test_plugin_mseed_write_overwrite_int",exception=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),100.0,rand(100,100),1)
+
+@testing:case="test_plugin_mseed_write_param_ex1",syntaxError=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),100.0,rand(100,100),true, 2)
+
+@testing:case="test_plugin_mseed_write_param_ex2",syntaxError=1
+mseed::write(DATA_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",timestamp(2013.01.01),100.0)
+
+@testing:case="test_plugin_mseed_write_param_ex3",exception=1
+mseed::write()
+
+@testing:case="test_plugin_mseed_parse_data_not_string_or_char",exception=1
+mseed::parse(123)
+
+@testing:case="test_plugin_mseed_parse_data_string_vector",exception=1
+mseed::parse(["a","b"])
+
+@testing:case="test_plugin_mseed_parse_data_char_scalar",exception=1
+mseed::parse(char(`a))
+
+@testing:case="test_plugin_mseed_parse_data_string_scalar_null",exception=1
+mseed::parse("")
+
+@testing:case="test_plugin_mseed_parse_vector_size_cannot_be_zero",exception=1
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=1..10
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin=file(WORK_DIR+"/test")
+buf=fin.readBytes(0)
+t=mseed::parse(buf)
+
+@testing:case="test_plugin_mseed_parse_data_char_vector_null",exception=1
+mseed::parse(char(""""))
+
+@testing:case="test_plugin_mseed_parse_param_ex1",exception=1
+mseed::parse()
+
+@testing:case="test_plugin_mseed_parse_param_ex2",syntaxError=1
+mseed::parse(1, 2)
+
+@testing:case="test_plugin_mseed_parseStream_data_not_string_or_char",exception=1
+mseed::parseStream(123)
+
+@testing:case="test_plugin_mseed_parseStream_data_data_string_vector",exception=1
+mseed::parseStream(["a","b"])
+
+@testing:case="test_plugin_mseed_parseStream_data_char_scalar",exception=1
+mseed::parseStream(char(`a))
+
+@testing:case="test_plugin_mseed_parseStream_param_ex1",exception=1
+mseed::parseStream()
+
+@testing:case="test_plugin_mseed_parseStream_param_ex2",syntaxError=1
+mseed::parseStream(1, 2)
+
+@testing:case="test_plugin_mseed_parseStream_vector_size_cannot_be_zero",exception=1
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=1..10
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin=file(WORK_DIR+"/test")
+buf=fin.readBytes(0)
+t=mseed::parseStream(buf)
+
+@testing:case="test_plugin_mseed_parseStreamInfo_wrong_data", exception=1
+n = 100
+sidVec = take("////", n).string()
+tsVec = 2020.01.01T00:00:00.000+1..n
+dataVec = (1..n)
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+saveText(data, WORK_DIR+"/test")
+fin = file(WORK_DIR+"/test")
+buf = fin.readBytes(4204)
+ret = mseed::parseStreamInfo(buf)
+
+@testing:case="test_plugin_mseed_read_file"
+t = loadText(DATA_DIR+"/BHZ1.csv")
+t1 = mseed::read(DATA_DIR+"/SC.JZG.00.BHZ.D.2013.001")
+t1 = slice(t1,0..(size(t)-1))
+t1.drop!("id")
+assert 1,each(eqObj,t.values(),t1.values())
+t = loadText(DATA_DIR+"/BHE2.csv")
+t1 = mseed::read(DATA_DIR+"/SC.JZG.00.BHE.D.2013.002")
+t1 = slice(t1,0..(size(t)-1))
+t1.drop!("id")
+assert 2,each(eqObj,t.values(),t1.values())
+t = loadText(DATA_DIR+"/BHN4.csv")
+t1 = mseed::read(DATA_DIR+"/SC.JZG.00.BHN.D.2013.004")
+t1 = slice(t1,0..(size(t)-1))
+t1.drop!("id")
+assert 3,each(eqObj,t.values(),t1.values())
+
+@testing:case="test_plugin_mseed_read_write_int_cover_true"
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=rand(100,100)
+ret=mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+assert 1,eqObj(res[`count][0],100)
+
+@testing:case="test_plugin_mseed_read_write_int_append_cover_default"
+ret=mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+assert 1,eqObj(res[`count][0],200)
+vec=take(1.1,100).join!(take(2.1,100))
+ret=mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec)
+t = mseed::read(WORK_DIR+"/test")
+schema(t)
+res = select count(*) from t
+assert 2,eqObj(res[`count][0],400)
+vec=float(take(1.1,100).join!(take(2.1,100)))
+ret=mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec)
+t = mseed::read(WORK_DIR+"/test")
+schema(t)
+res = select count(*) from t
+assert 3,eqObj(res[`count][0],600)
+try{rm(WORK_DIR+"/test")}catch(ex){print ex}
+
+@testing:case="test_plugin_mseed_read_write_int_append_cover_false"
+vec=rand(100,100)
+ret=mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+ret=mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,false)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+assert 1,eqObj(res[`count][0],200)
+vec=take(1.1,100).join!(take(2.1,100))
+ret=mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,false)
+t = mseed::read(WORK_DIR+"/test")
+schema(t)
+res = select count(*) from t
+assert 2,eqObj(res[`count][0],400)
+vec=float(take(1.1,100).join!(take(2.1,100)))
+ret=mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,false)
+t = mseed::read(WORK_DIR+"/test")
+schema(t)
+res = select count(*) from t
+assert 3,eqObj(res[`count][0],600)
+try{rm(WORK_DIR+"/test")}catch(ex){print ex}
+
+@testing:case="test_plugin_mseed_read_write_double"
+vec=take(1.1,5000).join!(take(2.1,5000))
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+schema(t)
+assert 1,eqObj(res[`count][0],10000)
+try{rm(WORK_DIR+"/test")}catch(ex){print ex}
+
+@testing:case="test_plugin_mseed_read_write_double_append_cover_default"
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+schema(t)
+assert 1,eqObj(res[`count][0],20000)
+vec=rand(100,10000)
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+schema(t)
+assert 2,eqObj(res[`count][0],30000)
+vec=float(take(1.1,5000).join!(take(2.1,5000)))
+ret=mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec)
+t = mseed::read(WORK_DIR+"/test")
+schema(t)
+res = select count(*) from t
+assert 3,eqObj(res[`count][0],40000)
+try{rm(WORK_DIR+"/test")}catch(ex){print ex}
+
+@testing:case="test_plugin_mseed_read_write_double_append_cover_false"
+vec=take(1.1,5000).join!(take(2.1,5000))
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,false)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+schema(t)
+assert 1,eqObj(res[`count][0],20000)
+vec=rand(100,10000)
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,false)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+schema(t)
+assert 2,eqObj(res[`count][0],30000)
+vec=float(take(1.1,5000).join!(take(2.1,5000)))
+ret=mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,false)
+t = mseed::read(WORK_DIR+"/test")
+schema(t)
+res = select count(*) from t
+assert 3,eqObj(res[`count][0],40000)
+try{rm(WORK_DIR+"/test")}catch(ex){print ex}
+
+@testing:case="test_plugin_mseed_read_write_float"
+vec=float(take(1.1,5000).join!(take(2.1,5000)))
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+schema(t)
+assert 1,eqObj(res[`count][0],10000)
+try{rm(WORK_DIR+"/test")}catch(ex){print ex}
+
+@testing:case="test_plugin_mseed_read_write_float_append_cover_default"
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+schema(t)
+assert 1,eqObj(res[`count][0],20000)
+vec=rand(100,10000)
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+schema(t)
+assert 2,eqObj(res[`count][0],30000)
+vec=take(1.1,5000).join!(take(2.1,5000))
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+schema(t)
+assert 3,eqObj(res[`count][0],40000)
+try{rm(WORK_DIR+"/test")}catch(ex){print ex}
+
+@testing:case="test_plugin_mseed_read_write_int_big_data"
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=rand(100,80000000)
+ret=mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+assert 1,eqObj(res[`count][0],80000000)
+vec=rand(100,8000000)
+ret=mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+assert 1,eqObj(res[`count][0],88000000)
+try{rm(WORK_DIR+"/test")}catch(ex){print ex}
+
+@testing:case="test_plugin_mseed_read_write_double_big_data"
+vec=take(1.1,30000000).join!(take(2.1,30000000))
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+schema(t)
+assert 1,eqObj(res[`count][0],60000000)
+vec=take(1.1,400000).join!(take(2.1,400000))
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+assert 2,eqObj(res[`count][0],60800000)
+try{rm(WORK_DIR+"/test")}catch(ex){print ex}
+
+@testing:case="test_plugin_mseed_read_write_float_big_data"
+vec=take(float(1.1),40000000).join!(take(float(2.1),40000000))
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+schema(t)
+assert 1,eqObj(res[`count][0],80000000)
+vec=float(take(1.1,4000000).join!(take(2.1,4000000)))
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+schema(t)
+assert 2,eqObj(res[`count][0],88000000)
+try{rm(WORK_DIR+"/test")}catch(ex){print ex}
+
+@testing:case="test_plugin_mseed_read_file_multiTimes"
+t = loadText(DATA_DIR+"/BHZ1.csv")
+for(i in 1..10){t1=mseed::read(DATA_DIR+"/SC.JZG.00.BHZ.D.2013.001")}
+t1 = slice(t1,0..(size(t)-1))
+t1.drop!("id")
+assert 1,each(eqObj,t.values(),t1.values())
+
+@testing:case="test_plugin_mseed_read_write_int_cover_true_multiTimes"
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=rand(100, 100)
+for(i in 1..10){
+	ret=mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+}
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+assert 1,eqObj(res[`count][0],100)
+try{rm(WORK_DIR+"/test")}catch(ex){print ex}
+
+@testing:case="test_plugin_mseed_read_write_int_cover_false_multiTimes"
+if(exists(WORK_DIR+"/test")){
+	rm(WORK_DIR+"/test")
+}
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=rand(100, 100)
+for(i in 1..10){
+	ret=mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,false)
+}
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+assert 1,eqObj(res[`count][0],1000)
+try{rm(WORK_DIR+"/test")}catch(ex){print ex}
+
+@testing:case="test_plugin_mseed_parse_readBytes_char_vector"
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=1..80000000
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin=file(WORK_DIR+"/test")
+buf=fin.readBytes(60000256)
+t=mseed::parse(buf)
+res = select count(*) from t
+assert 1,eqObj(res[`count][0],80000000)
+vec=take(1.1,30000000).join!(take(2.1,30000000))
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin=file(WORK_DIR+"/test")
+buf=fin.readBytes(540000256)
+t=mseed::parse(buf)
+res = select count(*) from t
+assert 2,eqObj(res[`count][0],60000000)
+vec=take(float(1.1),40000000).join!(take(float(2.1),40000000))
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin=file(WORK_DIR+"/test")
+buf=fin.readBytes(360000000 )
+t=mseed::parse(buf)
+res = select count(*) from t
+assert 3,eqObj(res[`count][0],80000000)
+try{rm(WORK_DIR+"/test")}catch(ex){print ex}
+
+@testing:case="test_plugin_mseed_parse_readBytes_string_scalar"
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=1..20000
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin=file(WORK_DIR+"/test")
+buf=fin.readBytes(15360)
+str = concat(buf)
+str = string(str)
+t=mseed::parse(str)
+res = select count(*) from t
+assert 1,eqObj(res[`count][0],20000)
+vec=take(1.1,3000000).join!(take(2.1,3000000))
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin=file(WORK_DIR+"/test")
+buf=fin.readBytes(54000128)
+str = concat(buf)
+str = string(str)
+t=mseed::parse(str)
+res = select count(*) from t
+assert 2,eqObj(res[`count][0],6000000)
+vec=take(float(1.1),40000000).join!(take(float(2.1),40000000))
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin=file(WORK_DIR+"/test")
+buf=fin.readBytes(360000000)
+str = concat(buf)
+str = string(str)
+t=mseed::parse(str)
+res = select count(*) from t
+assert 3,eqObj(res[`count][0],80000000)
+try{rm(WORK_DIR+"/test")}catch(ex){print ex}
+
+@testing:case="test_plugin_mseed_parse_Multithreading_same_file"
+n = 80000000
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=1..n
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin=file(WORK_DIR+"/test")
+buf=fin.readBytes(60000256)
+t = mseed::parse(buf)
+output1 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output2 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output3 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+def parse(mutable t,b){
+	res= mseed::parse(b)
+	t.append!(res)
+}
+job1 = submitJob("job1","parse1",parse,output1,buf)
+job2 = submitJob("job2","parse2",parse,output2,buf)
+job3 = submitJob("job3","parse2",parse,output3,buf)
+getJobReturn(job1,true)
+getJobReturn(job2,true)
+getJobReturn(job3,true)
+res = exec count(*) from output1
+assert 1,eqObj(res,n)
+res = exec count(*) from output2
+assert 2,eqObj(res,n)
+res = exec count(*) from output3
+assert 3,eqObj(res,n)
+re1 = exec errorMsg from getRecentJobs() where jobid = job1
+assert 4, re1 == ""
+re2 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 5, re2 == ""
+re3 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 6, re3 == ""
+
+@testing:case="test_plugin_mseed_parse_Multithreading_diff_file"
+n = 80000000
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=1..n
+mseed::write(WORK_DIR+"/test1","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+mseed::write(WORK_DIR+"/test2","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+mseed::write(WORK_DIR+"/test3","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin1=file(WORK_DIR+"/test1")
+buf1=fin1.readBytes(60000256)
+fin2=file(WORK_DIR+"/test2")
+buf2=fin2.readBytes(60000256)
+fin3=file(WORK_DIR+"/test3")
+buf3=fin3.readBytes(60000256)
+output1 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output2 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output3 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+def parse(mutable t,b){
+	res= mseed::parse(b)
+	t.append!(res)
+}
+job1 = submitJob("job1","parse1",parse,output1,buf1)
+job2 = submitJob("job2","parse2",parse,output2,buf2)
+job3 = submitJob("job3","parse3",parse,output3,buf3)
+getJobReturn(job1,true)
+getJobReturn(job2,true)
+getJobReturn(job3,true)
+res = exec count(*) from output1
+assert 1,eqObj(res,n)
+res = exec count(*) from output2
+assert 2,eqObj(res,n)
+res = exec count(*) from output3
+assert 3,eqObj(res,n)
+re1 = exec errorMsg from getRecentJobs() where jobid = job1
+assert 4, re1 == ""
+re2 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 5, re2 == ""
+re3 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 6, re3 == ""
+
+@testing:case="test_plugin_mseed_read_Multithreading_same_file"
+output1 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output2 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output3 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+def read(mutable t,file){
+	res= mseed::read(file)
+	t.append!(res)
+}
+job1 = submitJob("job1","read1",read,output1,WORK_DIR+"/test")
+job2 = submitJob("job2","read2",read,output2,WORK_DIR+"/test")
+job3 = submitJob("job3","read2",read,output3,WORK_DIR+"/test")
+getJobReturn(job1,true)
+getJobReturn(job2,true)
+getJobReturn(job3,true)
+res = exec count(*) from output1
+assert 1,eqObj(res,n)
+res = exec count(*) from output2
+assert 2,eqObj(res,n)
+res = exec count(*) from output3
+assert 3,eqObj(res,n)
+re1 = exec errorMsg from getRecentJobs() where jobid = job1
+assert 4, re1 == ""
+re2 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 5, re2 == ""
+re3 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 6, re3 == ""
+
+@testing:case="test_plugin_mseed_read_Multithreading_diff_file"
+output1 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output2 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output3 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+def read(mutable t,file){
+	res= mseed::read(file)
+	t.append!(res)
+}
+job1 = submitJob("job1","read1",read,output1,WORK_DIR+"/test1")
+job2 = submitJob("job2","read2",read,output2,WORK_DIR+"/test2")
+job3 = submitJob("job3","read2",read,output3,WORK_DIR+"/test3")
+getJobReturn(job1,true)
+getJobReturn(job2,true)
+getJobReturn(job3,true)
+res = exec count(*) from output1
+assert 1,eqObj(res,n)
+res = exec count(*) from output2
+assert 2,eqObj(res,n)
+res = exec count(*) from output3
+assert 3,eqObj(res,n)
+re1 = exec errorMsg from getRecentJobs() where jobid = job1
+assert 4, re1 == ""
+re2 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 5, re2 == ""
+re3 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 6, re3 == ""
+
+@testing:case="test_plugin_mseed_write_Multithreading_diff_file"
+n = 80000000
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=1..n
+job1 = submitJob("job1","write1",mseed::write,WORK_DIR+"/test1","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+job2 = submitJob("job2","write2",mseed::write,WORK_DIR+"/test2","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+job3 = submitJob("job3","write3",mseed::write,WORK_DIR+"/test3","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+getJobReturn(job1,true)
+getJobReturn(job2,true)
+getJobReturn(job3,true)
+t1 = mseed::read(WORK_DIR+"/test1")
+res = exec count(*) from t1
+assert 1,eqObj(res,n)
+t2 = mseed::read(WORK_DIR+"/test2")
+res = exec count(*) from t2
+assert 2,eqObj(res,n)
+t3 = mseed::read(WORK_DIR+"/test3")
+res = exec count(*) from t3
+assert 3,eqObj(res,n)
+re1 = exec errorMsg from getRecentJobs() where jobid = job1
+assert 4, re1 == ""
+re2 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 5, re2 == ""
+re3 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 6, re3 == ""
+
+@testing:case="test_plugin_mseed_parseStream_readBytes_char_vector_success"
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=1..80000000
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin=file(WORK_DIR+"/test")
+buf=fin.readBytes(60000256)
+dic=mseed::parseStream(buf)
+data= select count(*) from dic[`data]
+assert 1,eqObj(data[`count][0],80000000)
+assert 2,eqObj(dic[`size],60000256)
+vec=take(1.1,30000000).join!(take(2.1,30000000))
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin=file(WORK_DIR+"/test")
+buf=fin.readBytes(540000256)
+dic=mseed::parseStream(buf)
+res = select count(*) from dic[`data]
+assert 3,eqObj(res[`count][0],60000000)
+assert 4,eqObj(dic[`size],540000256)
+vec=take(float(1.1),40000000).join!(take(2.1,40000000))
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin=file(WORK_DIR+"/test")
+buf=fin.readBytes(360000000)
+dic=mseed::parseStream(buf)
+res = select count(*) from dic[`data]
+assert 5,eqObj(res[`count][0],80000000)
+assert 6,eqObj(dic[`size],360000000)
+
+@testing:case="test_plugin_mseed_parseStream_readBytes_char_vector_fail"
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=1..800
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin=file(WORK_DIR+"/test")
+buf=fin.readBytes(200)
+dic=mseed::parseStream(buf)
+assert 1,eqObj(dic[`size],0)
+buf=fin.readBytes(312)
+dic=mseed::parseStream(buf)
+assert 2,eqObj(dic[`size],0)
+buf=fin.readBytes(512)
+dic=mseed::parseStream(buf)
+assert 3,eqObj(dic[`size],512)
+
+@testing:case="test_plugin_mseed_parseStream_readBytes_string_scalar"
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=1..20000
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin=file(WORK_DIR+"/test")
+buf=fin.readBytes(15360)
+str = concat(buf)
+str = string(str)
+dic = mseed::parseStream(str)
+data= select count(*) from dic[`data]
+assert 1,eqObj(data[`count][0],20000)
+assert 2,eqObj(dic[`size],15360)
+
+@testing:case="test_plugin_mseed_parseStream_Multithreading_same_file"
+n = 80000000
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=1..n
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin=file(WORK_DIR+"/test")
+buf=fin.readBytes(60000256)
+t = mseed::parse(buf)
+output1 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output2 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output3 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+def parseStream(mutable t,b){
+	res= mseed::parseStream(b)
+	t.append!(res[`data])
+}
+job1 = submitJob("job1","parse1",parseStream,output1,buf)
+job2 = submitJob("job2","parse2",parseStream,output2,buf)
+job3 = submitJob("job3","parse2",parseStream,output3,buf)
+getJobReturn(job1,true)
+getJobReturn(job2,true)
+getJobReturn(job3,true)
+res = exec count(*) from output1
+assert 1,eqObj(res,n)
+res = exec count(*) from output2
+assert 2,eqObj(res,n)
+res = exec count(*) from output3
+assert 3,eqObj(res,n)
+re1 = exec errorMsg from getRecentJobs() where jobid = job1
+assert 4, re1 == ""
+re2 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 5, re2 == ""
+re3 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 6, re3 == ""
+try{rm(WORK_DIR+"/test")}catch(ex){print ex}
+
+@testing:case="test_plugin_mseed_parseStream_Multithreading_diff_file"
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=1..n
+mseed::write(WORK_DIR+"/test1","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+mseed::write(WORK_DIR+"/test2","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+mseed::write(WORK_DIR+"/test3","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin1=file(WORK_DIR+"/test1")
+buf1=fin1.readBytes(60000256)
+fin2=file(WORK_DIR+"/test2")
+buf2=fin2.readBytes(60000256)
+fin3=file(WORK_DIR+"/test3")
+buf3=fin3.readBytes(60000256)
+output1 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output2 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output3 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+def parseStream(mutable t,b){
+	res= mseed::parseStream(b)
+	t.append!(res[`data])
+}
+job1 = submitJob("job1","parse1",parseStream,output1,buf1)
+job2 = submitJob("job2","parse2",parseStream,output2,buf2)
+job3 = submitJob("job3","parse2",parseStream,output3,buf3)
+getJobReturn(job1,true)
+getJobReturn(job2,true)
+getJobReturn(job3,true)
+res = exec count(*) from output1
+assert 1,eqObj(res,n)
+res = exec count(*) from output2
+assert 2,eqObj(res,n)
+res = exec count(*) from output3
+assert 3,eqObj(res,n)
+re1 = exec errorMsg from getRecentJobs() where jobid = job1
+assert 4, re1 == ""
+re2 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 5, re2 == ""
+re3 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 6, re3 == ""
+try{rm(WORK_DIR+"/test1")}catch(ex){print ex}
+try{rm(WORK_DIR+"/test2")}catch(ex){print ex}
+try{rm(WORK_DIR+"/test3")}catch(ex){print ex}
+
+@testing:case="test_plugin_mseed_parseStream_metaData"
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=1..80000
+mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+mseed::write(WORK_DIR+"/test","XFDSN:GS_NXT_00_B_H_E",time,sampleRate,vec,false)
+fin=file(WORK_DIR+"/test")
+buf=fin.readBytes(119808)
+dic=mseed::parseStream(buf)
+data= select count(*) from dic[`data]
+assert 1,eqObj(data[`count][0],160000)
+assert 2,eqObj(dic[`size],119808)
+t = dic[`metaData]
+count = exec sum(actualCount) from t
+assert 3,eqObj(count,160000)
+select count(*) from t group by id
+time1 = [2013.01.01T00:00:00.000]
+for(i in  0..116){
+	for(j in 1..t[`actualCount][i]){
+	time1.append!(time1[time1.size()-1]+10)
+	}
+}
+time1 = time1[0:(time1.size()-1)]
+time2 = [2013.01.01T00:00:00.000]
+for(i in  117..234){
+	for(j in 1..t[`actualCount][i]){
+	time2.append!(time2[time2.size()-1]+10)
+	}
+}
+time2 = time2[0:(time2.size()-1)]
+time = time1.join(time2)
+assert 4,eqObj(dic[`data][`time],time)
+try{rm(WORK_DIR+"/test")}catch(ex){print ex}
+
+@testing:case="test_plugin_mseed_write_8192_multiple"
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=1..16384
+ret=mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+assert 1,eqObj(res[`count][0],16384)
+vec=take(1.1,8192).join!(take(2.1,8192))
+ret=mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+assert 2,eqObj(res[`count][0],16384)
+vec=float(take(1.1,8192).join!(take(2.1,8192)))
+ret=mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+t = mseed::read(WORK_DIR+"/test")
+res = select count(*) from t
+assert 3,eqObj(res[`count][0],16384)
+try{rm(WORK_DIR+"/test")}catch(ex){print ex}
+
+@testing:case="test_plugin_mseed_parse_more_than_1024"
+fin=file(DATA_DIR+"/block2048")
+buf=fin.readBytes(124928)
+pt = mseed::parse(buf)
+t = mseed::read(DATA_DIR+"/block2048")
+assert 1,eqObj(pt.values(),t.values())
+str = concat(buf)
+str = string(str)
+pt = mseed::parse(str)
+assert 2,eqObj(pt.values(),t.values())
+
+@testing:case="test_plugin_mseed_parseStream_more_than_1024"
+fin=file(DATA_DIR+"/block2048")
+buf=fin.readBytes(124928)
+dic = mseed::parseStream(buf)
+data= select count(*) from dic[`data]
+assert 1,eqObj(data[`count][0],100000)
+assert 2,eqObj(dic[`size],124928)
+str = concat(buf)
+str = string(str)
+dic = mseed::parseStream(str)
+data= select count(*) from dic[`data]
+assert 3,eqObj(data[`count][0],100000)
+assert 4,eqObj(dic[`size],124928)
+
+@testing:case="test_plugin_mseed_stream_data_number",exception=1
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000).symbol()
+tsVec = now() + 1..1000
+dataVec = 1..1000
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+ret = mseed::streamize(123,100.0)
+
+@testing:case="test_plugin_mseed_stream_data_null",exception=1
+ret = mseed::streamize(NULL,100.0)
+
+@testing:case="test_plugin_mseed_stream_sampleRate_null",exception=1
+ret = mseed::streamize(data,,512)
+
+@testing:case="test_plugin_mseed_stream_sampleRate_error",exception=1
+ret = mseed::streamize(data,"a",512)
+
+@testing:case="test_plugin_mseed_stream_sampleRate_vector",exception=1
+ret = mseed::streamize(data,[100.0],512)
+
+@testing:case="test_plugin_mseed_stream_blockSize_null",exception=1
+ret = mseed::streamize(data,100.0,NULL)
+
+@testing:case="test_plugin_mseed_stream_blockSize_vector",exception=1
+ret = mseed::streamize(data,100.0,[12])
+
+@testing:case="test_plugin_mseed_stream_blockSize_error",exception=1
+ret = mseed::streamize(data,100.0,1.0)
+
+@testing:case="test_plugin_mseed_stream_blockSize_not_less_then_128",exception=1
+ret = mseed::streamize(data,100.0,127)
+
+@testing:case="test_plugin_mseed_stream_blockSize_not_power_of_2",exception=1
+ret = mseed::streamize(data,100.0,129)
+
+@testing:case="test_plugin_mseed_stream_data_error_sid_type",exception=1
+tem = table(1..1000 as sid,tsVec as ts, dataVec as data)
+ret = mseed::streamize(tem,100.0)
+
+@testing:case="test_plugin_mseed_stream_data_error_time_type",exception=1
+tem = table(sidVec as sid, 1..1000 as ts, dataVec as data)
+ret = mseed::streamize(tem,100.0)
+
+@testing:case="test_plugin_mseed_stream_data_error_value_type",exception=1
+tem = table(sidVec as sid, tsVec as ts, long(1..1000) as data)
+ret = mseed::streamize(tem,100.0)
+
+@testing:case="test_plugin_mseed_stream_data_error_schema",exception=1
+tem = table(sidVec as sid,  tsVec as ts)
+ret = mseed::streamize(tem,100.0)
+
+@testing:case="test_plugin_mseed_stream_data_sid_include_null",exception=1
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 10) join take(string(),10) join take("XFDSN:SN_C0059_40_N_B_N", 980) as sid
+tsVec = 2020.01.01T00:00:00.000+1..1000
+dataVec = 1..1000
+data = table(sidVec as sid,tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+
+@testing:case="test_plugin_mseed_stream_data_sid_all_null",exception=1
+sidVec = take(string(),1000) as sid
+tsVec = 2020.01.01T00:00:00.000+1..1000
+dataVec = 1..1000
+data = table(sidVec as sid,tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+
+@testing:case="test_plugin_mseed_stream_data_sid_all_null_and_sid_int",exception=1
+sidVec = take(00i,1000) as sid
+tsVec = 2020.01.01T00:00:00.000+1..1000
+dataVec = 1..1000
+data = table(sidVec as sid,tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+
+@testing:case="test_plugin_mseed_stream_data_time_include_null",exception=1
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000)
+tsVec = 2020.01.01T00:00:00.000 join take(timestamp(),999)
+dataVec = 1..1000
+data = table(sidVec as sid,tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+
+@testing:case="test_plugin_mseed_stream_data_time_all_null",exception=1
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000)
+tsVec = take(timestamp(),1000)
+dataVec = 1..1000
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+
+@testing:case="test_plugin_mseed_stream_data_time_all_int_null",exception=1
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000)
+tsVec = take(00i,1000)
+dataVec = 1..1000
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+
+@testing:case="test_plugin_mseed_streamize_data_value_int_include_null",exception=1
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000)
+tsVec = 2020.01.01T00:00:00.000+1..1000
+dataVec = rand(1..100 join NULL,1000)
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+
+@testing:case="test_plugin_mseed_streamize_data_sid_string_value_all_null",exception=1
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000)
+tsVec = 2020.01.01T00:00:00.000+1..1000
+dataVec = take(int(),1000)
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+schema(data)
+buf = mseed::streamize(data,1000.0)
+
+@testing:case="test_plugin_mseed_streamize_data_sid_not_standard",exception=1
+sidVec = take("aa", 500) join take("XFDSN:SN_C0059_40_N_B_N", 500) 
+tsVec = 2020.01.01T00:00:00.000+1..1000
+dataVec = rand(1..100,1000)
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+
+@testing:case="test_plugin_mseed_streamize_data_is_min_int",exception=1
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000)
+tsVec = 2020.01.01T00:00:00.000+1..1000
+dataVec = take(-2147483648,1000)
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+
+@testing:case="test_plugin_mseed_streamize_data_is_min_float",exception=1
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000)
+tsVec = 2020.01.01T00:00:00.000+1..1000
+dataVec = take(float(),1000)
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+
+@testing:case="test_plugin_mseed_streamize_data_is_min_double",exception=1
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000)
+tsVec = 2020.01.01T00:00:00.000+1..1000
+dataVec = take(double(),1000)
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+
+@testing:case="test_plugin_mseed_streamize_data_contain_min_float",exception=1
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000)
+tsVec = 2020.01.01T00:00:00.000+1..1000
+dataVec = take(1.23f,999) join float()
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+
+@testing:case="test_plugin_mseed_streamize_data_contain_min_double",exception=1
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000)
+tsVec = 2020.01.01T00:00:00.000+1..1000
+dataVec = take(1.23,999) join double()
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+
+@testing:case="test_plugin_mseed_streamize_data_contain_min_int",exception=1
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000)
+tsVec = 2020.01.01T00:00:00.000+1..1000
+dataVec = take(154,999) join int()
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+
+@testing:case="test_plugin_mseed_streamize_data_contain_min_int",exception=1
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000)
+tsVec = timestamp(take(long(), 1000))
+dataVec = take(154, 1000)
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+
+@testing:case="test_plugin_mseed_stream_data_empty"
+data = table(10:0,`sid`ts`value,[symbol,timestamp,int])
+buf = mseed::streamize(data,1000.0)
+assert 1,eqObj(buf.size(),0)
+
+@testing:case="test_plugin_mseed_streamize_data_sid_string_value_int_continuous_time_blockSize_default"
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000)
+tsVec = 2020.01.01T00:00:00.000+1..1000
+dataVec = rand(1..100,1000)
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+re = mseed::parse(buf)
+assert 1,eqObj(re.values(),data.values())
+
+@testing:case="test_plugin_mseed_streamize_data_sid_string_value_double_continuous_time_blockSize_default"
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000)
+tsVec = 2020.01.01T00:00:00.000+1..1000
+dataVec = round(rand(100.0,1000),3)
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+re = mseed::parse(buf)
+assert 1,eqObj(re.values(),data.values())
+
+@testing:case="test_plugin_mseed_streamize_data_sid_string_value_float_continuous_time_blockSize_default"
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000)
+tsVec = 2020.01.01T00:00:00.000+1..1000
+dataVec = float(round(rand(100.0,1000),3))
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+re = mseed::parse(buf)
+schema(re)
+schema(data)
+assert 1,eqObj(re.values(),data.values())
+
+@testing:case="test_plugin_mseed_streamize_data_sid_symbol_value_int_continuous_time_blockSize_default"
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000).symbol()
+tsVec = 2020.01.01T00:00:00.000+1..1000
+dataVec = 1..1000
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+re = mseed::parse(buf)
+assert 1,eqObj(re.values(),data.values())
+
+@testing:case="test_plugin_mseed_streamize_data_sid_symbol_value_double_continuous_time_blockSize_default"
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000).symbol()
+tsVec = 2020.01.01T00:00:00.000+1..1000
+dataVec = round(rand(100.0,1000),3)
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+re = mseed::parse(buf)
+assert 1,eqObj(re.values(),data.values())
+
+@testing:case="test_plugin_mseed_streamize_data_sid_symbol_value_float_continuous_time_blockSize_default"
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000).symbol()
+tsVec = 2020.01.01T00:00:00.000+1..1000
+dataVec = float(round(rand(100.0,1000),3))
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+re = mseed::parse(buf)
+assert 1,eqObj(re.values(),data.values())
+
+@testing:case="test_plugin_mseed_streamize_data_value_all_datatype_blockSize_default_big_data"
+dtype = [int,float,double]
+for(d in dtype){
+	print(d)
+	n = 30000000
+	m = 1000
+	sidVec = take("XFDSN:SN_C0059_40_E_I_E", n).symbol()
+	tsVec = 2020.01.01T00:00:00.000+1..n
+	dataVec = d(1..n)
+	data = table(sidVec as sid, tsVec as ts, dataVec as data)
+	buf = mseed::streamize(data,1000.0)
+	re = mseed::parse(buf)
+	assert 1,eqObj(re.values(),data.values())
+}
+
+@testing:case="test_plugin_mseed_streamize_data_time_not_continuous"
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 100).symbol()
+tsVec = (2020.01.01T00:00:00.000+1..50) join (2020.01.01T00:00:00.060+rand(1000,50))
+dataVec = 1..100
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+re = mseed::parse(buf)
+assert 1,eqObj(re.values(),data.values())
+
+@testing:case="test_plugin_mseed_streamize_data_time_not_in_order"
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 100).symbol()
+tsVec = 2020.01.01T00:00:00.000+rand(100,100)
+dataVec = 1..100
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+re = mseed::parse(buf)
+assert 1,eqObj(re.values(),data.values())
+
+@testing:case="test_plugin_mseed_streamize_samleRate_diff_with_data_time"
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000).symbol()
+tsVec = 2020.01.01T00:00:00.000+1..1000
+dataVec = rand(1..100,1000)
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,100.0)
+re = mseed::parse(buf)
+assert 1,eqObj(re.values(),data.values())
+buf = mseed::streamize(data,99.0)
+re = mseed::parse(buf)
+assert 2,eqObj(re.values(),data.values())
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 100)
+tsVec = (2020.01.01T00:00:00.000+1..50) join (2020.01.01T00:00:00.060+1..50)
+dataVec = 1..100
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,100.0)
+re = mseed::parse(buf)
+assert 3,eqObj(re.values(),data.values())
+
+@testing:case="test_plugin_mseed_streamize_data_sid_diff"
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 300) join take("XFDSN:SN_C0059_40_N_B_N", 400) join take("XFDSN:SN_C0059_40_S_B_S", 300)
+tsVec = 2020.01.01T00:00:00.000+1..1000
+dataVec = rand(1..100,1000)
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+re = mseed::parse(buf)
+assert 1,eqObj(re.values(),data.values())
+tsVec = 2020.01.01T00:00:00.000+rand(100,1000)
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+re = mseed::parse(buf)
+assert 2,eqObj(re.values(),data.values())
+
+@testing:case="test_plugin_mseed_streamize_data_large_interval"
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 100).symbol()
+tsVec = 2020.01.01T00:00:00.000+rand(100,100)
+dataVec = 1..50 join 90000000001..90000000050
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+buf = mseed::streamize(data,1000.0)
+re = mseed::parse(buf)
+assert 1,eqObj(re.values(),data.values())
+
+@testing:case="test_plugin_mseed_streamize_sampleRate_all_types"
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 100).symbol()
+tsVec = 2020.01.01T00:00:00.000+rand(100,100)
+dataVec = 1..100
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+dtypes = [int,long,float,double]
+for(d in dtypes){
+	buf = mseed::streamize(data,d(1000))
+	re = mseed::parse(buf)
+	assert 1,eqObj(re.values(),data.values())
+}
+
+@testing:case="test_plugin_mseed_write_sampleRate_all_types"
+time=timestamp(2013.01.01)
+vec=rand(100,100)
+dtypes = [int,long,float,double]
+for(d in dtypes){
+	ret=mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,d(1000),vec,true)
+	t = mseed::read(WORK_DIR+"/test")
+	res = select count(*) from t
+	assert 1,eqObj(res[`count][0],100)
+}
+
+/*
+ * mseed about parseStreamInfo
+*/
+@testing:case="test_plugin_mseed_parseStreamInfo_not_para", exception=1
+ret = mseed::parseStreamInfo()
+
+@testing:case="test_plugin_mseed_parseStreamInfo_string_vector", exception=1
+s = take(`A`B`E, 10000)
+ret = mseed::parseStreamInfo(s)
+
+@testing:case="test_plugin_mseed_parseStreamInfo_int_vector", exception=1
+s = take(1 2 3 4 5, 10000)
+ret = mseed::parseStreamInfo(s)
+
+@testing:case="test_plugin_mseed_parseStreamInfo_symbol_vector", exception=1
+s = symbol(string(take(1 2 3 4 5, 10000)))
+ret = mseed::parseStreamInfo(s)
+
+@testing:case="test_plugin_mseed_parseStreamInfo_char_scalar", exception=1
+ret = mseed::parseStreamInfo(char(`a))
+
+@testing:case="test_plugin_mseed_parseStreamInfo_string_array", exception=1
+ret = mseed::parseStreamInfo([`a, `B,`S])
+
+@testing:case="test_plugin_mseed_parseStreamInfo_vector_size_zero", exception=1
+fin = file(DATA_DIR+"/a2")
+buf = fin.readBytes(0)
+ret = mseed::parseStreamInfo(buf)
+
+@testing:case="test_plugin_mseed_parseStreamInfo_string_null"
+ret = mseed::parseStreamInfo("")
+
+
+@testing:case="test_plugin_mseed_parseStreamInfo_complete_block"
+fin = file(DATA_DIR+"/a2")
+buf = fin.readBytes(1024)
+ret = mseed::parseStreamInfo(buf)
+assert 1, ret[`data].sid ==  take("XFDSN:SC_JZG_01_B_H_Z", 2)
+assert 2, ret[`data].blockLen == take(512, 2)
+assert 3, ret[`size] == 1024
+
+ret2 = mseed::parseStreamInfo(string(concat(buf)))
+assert 4, ret2[`data].sid ==  take("XFDSN:SC_JZG_01_B_H_Z", 2)
+assert 5, ret2[`data].blockLen == take(512, 2)
+assert 6, ret2[`size] == 1024
+
+@testing:case="test_plugin_messed_parseStreamInfor_incomplete_block"
+fin = file(DATA_DIR+"/a2")
+buf = fin.readBytes(1150)
+ret = mseed::parseStreamInfo(buf)
+assert 1, ret[`data].sid ==  take("XFDSN:SC_JZG_01_B_H_Z", 2)
+assert 2, ret[`data].blockLen == take(512, 2)
+assert 3, ret[`size] == 1024
+
+ret2 = mseed::parseStreamInfo(string(concat(buf)))
+assert 4, ret2[`data].sid ==  take("XFDSN:SC_JZG_01_B_H_Z", 2)
+assert 5, ret2[`data].blockLen == take(512, 2)
+assert 6, ret2[`size] == 1024
+
+@testing:case="test_plugin_messed_parseStreamInfor_all_file"
+fin = file(DATA_DIR+"/SC")
+buf = fin.readBytes(1000000000)
+ret1 = mseed::parseStreamInfo(buf)
+ret2 = mseed::parseStream(buf)
+n = ret2[`size] / 512
+assert 1, ret1[`data].sid ==  take("XFDSN:SC_JZG_00_B_H_E", n)
+assert 2, ret1[`data].blockLen == take(512, n)
+assert 3, ret1[`size] == ret2[`size]
+
+@testing:case="test_plugin_mseed_parseStreamInfo_diff_block"
+sidVec = take("XFDSN:SN_C0059_40_E_I_E", 1000).symbol()
+tsVec = now() +1..1000
+dataVec = 1..1000
+data = table(sidVec as sid, tsVec as ts, dataVec as data)
+ret_new = mseed::streamize(data, 1000, 1024)
+ret2 = mseed::parseStreamInfo(ret_new)
+assert 1, ret2[`data].blockLen[0] == 1024
+
+ret_new = mseed::streamize(data, 1000, 2048)
+ret2 = mseed::parseStreamInfo(ret_new)
+assert 2, ret2[`data].blockLen[0] == 2048
+
+ret_new = mseed::streamize(data, 1000, 256)
+ret2 = mseed::parseStreamInfo(ret_new)
+assert 2, ret2[`data].blockLen[0] == 256
+
+
+@testing:case="test_plugin_mseed_parseStreamInfo_Multithreading_same_file"
+n =80000000
+time = now()
+sampleRate = 100.0
+vec = 1..n
+mseed::write(WORK_DIR+"/test", "XFDSN:SC_JZG_00_B_H_N", time,sampleRate, vec, true)
+fin = file(WORK_DIR+"/test")
+buf = fin.readBytes(60000256)
+number= 60000256 / 512
+t = mseed::parse(buf)
+output1 = streamTable(10000:0,`id`blockLen, [SYMBOL,INT])
+output2 = streamTable(10000:0,`id`blockLen, [SYMBOL,INT])
+output3 =streamTable(10000:0,`id`blockLen, [SYMBOL,INT])
+def parseStreamInfo(mutable t, b){
+	res = mseed::parseStreamInfo(b)
+	t.append!(res[`data])
+}
+job1 = submitJob("job1", "parse1", parseStreamInfo, output1, buf)
+job2 = submitJob("job2", "parse2", parseStreamInfo, output2, buf)
+job3 = submitJob("job3", "parse3", parseStreamInfo, output3, buf)
+getJobReturn(job1, true)
+getJobReturn(job2, true)
+getJobReturn(job3, true)
+res = exec  count(*) from output1
+assert 1, eqObj(res,number)
+res = exec  count(*) from output2
+assert 2, eqObj(res,number)
+res = exec  count(*) from output1
+assert 3, eqObj(res,number)
+re1 = exec errorMsg from getRecentJobs() where jobid = job1
+assert 4, re1 == ""
+re2 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 5, re2 == ""
+re3 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 6, re3 == ""
+
+@testing:case="test_plugin_mseed_parseStreamInfo_Multithreading_diff_file"
+time=now()
+sampleRate=100.0
+vec=1..n
+mseed::write(WORK_DIR+"/test1","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+mseed::write(WORK_DIR+"/test2","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+mseed::write(WORK_DIR+"/test3","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin1=file(WORK_DIR+"/test1")
+buf1=fin1.readBytes(60000256)
+fin2=file(WORK_DIR+"/test2")
+buf2=fin2.readBytes(60000256)
+fin3=file(WORK_DIR+"/test3")
+buf3=fin3.readBytes(60000256)
+output1 = streamTable(10000:0,`id`blockLen, [SYMBOL,INT])
+output2 = streamTable(10000:0,`id`blockLen, [SYMBOL,INT])
+output3 =streamTable(10000:0,`id`blockLen, [SYMBOL,INT])
+def parseStreamInfo(mutable t, b){
+	res = mseed::parseStreamInfo(b)
+	t.append!(res[`data])
+}
+job1 = submitJob("job1", "parse1", parseStreamInfo, output1, buf1)
+job2 = submitJob("job2", "parse2", parseStreamInfo, output2, buf2)
+job3 = submitJob("job3", "parse3", parseStreamInfo, output3, buf3)
+getJobReturn(job1, true)
+getJobReturn(job2, true)
+getJobReturn(job3, true)
+number= 60000256 / 512
+res = exec  count(*) from output1
+assert 1, eqObj(res,number)
+res = exec  count(*) from output2
+assert 2, eqObj(res,number)
+res = exec  count(*) from output1
+assert 3, eqObj(res,number)
+re1 = exec errorMsg from getRecentJobs() where jobid = job1
+assert 4, re1 == ""
+re2 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 5, re2 == ""
+re3 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 6, re3 == ""
+
+@testing:case="test_plugin_mseed_read_write_parseStream_parse_streamize_multiTimes"
+for (i in 1..10){
+	time=timestamp(2013.01.01)
+	sampleRate=100.0
+	vec=rand(100,100)
+	ret=mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+	t = mseed::read(WORK_DIR+"/test")
+	res = select count(*) from t
+	assert 1,eqObj(res[`count][0],100)
+	time=timestamp(2013.01.01)
+	sampleRate=100.0
+	vec=1..800
+	mseed::write(WORK_DIR+"/test","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+	fin=file(WORK_DIR+"/test")
+	buf=fin.readBytes(200)
+	dic=mseed::parseStream(buf)
+	assert 2,eqObj(dic[`size],0)
+	sidVec = take("XFDSN:SN_C0059_40_E_I_E", 100)
+	tsVec = (2020.01.01T00:00:00.000+1..50) join (2020.01.01T00:00:00.060+1..50)
+	dataVec = 1..100
+	data = table(sidVec as sid, tsVec as ts, dataVec as data)
+	buf = mseed::streamize(data,100.0)
+	re = mseed::parse(buf)
+	assert 3,eqObj(re.values(),data.values())
+}
+
+@testing:case="test_plugin_mseed_parse_Multithreading_same_file_multi_parse"
+try{rm(WORK_DIR+"/testMulti")}catch(ex){print(ex)}
+try{rm(WORK_DIR+"/testMulti1")}catch(ex){print(ex)}
+try{rm(WORK_DIR+"/testMulti2")}catch(ex){print(ex)}
+try{rm(WORK_DIR+"/testMulti3")}catch(ex){print(ex)}
+m = 80000000
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=1..m
+mseed::write(WORK_DIR+"/testMulti","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin=file(WORK_DIR+"/testMulti")
+buf=fin.readBytes(60000256)
+t = mseed::parse(buf)
+arr=array(STRING, 0)
+output1 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output2 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output3 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+def parse(mutable t,b){
+	for(i in 1..3){
+		print(i)
+		res=mseed::parse(b)
+		t.append!(res)
+	}
+}
+arr.append!(submitJob("job1","parse1",parse,output1,buf))
+arr.append!(submitJob("job2","parse1",parse,output2,buf))
+arr.append!(submitJob("job3","parse1",parse,output3,buf))
+
+for (jobName in arr){
+	getJobReturn(jobName, true)
+}
+
+re = exec errorMsg from getRecentJobs() where jobId in arr
+assert 1, re == string(take(00i, size(arr)))
+res1 = exec count(*) from output1
+assert 2,eqObj(res1,m*3)
+res2 = exec count(*) from output2
+assert 3,eqObj(res2,m*3)
+res3 = exec count(*) from output3
+assert 4,eqObj(res3,m*3)
+
+@testing:case="test_plugin_mseed_parse_Multithreading_diff_file_multi_parse"
+try{rm(WORK_DIR+"/testMulti1")}catch(ex){}
+try{rm(WORK_DIR+"/testMulti2")}catch(ex){}
+try{rm(WORK_DIR+"/testMulti3")}catch(ex){}
+
+m = 80000000
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=1..m
+mseed::write(WORK_DIR+"/testMulti1","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+mseed::write(WORK_DIR+"/testMulti2","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+mseed::write(WORK_DIR+"/testMulti3","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin1=file(WORK_DIR+"/testMulti1")
+buf1=fin1.readBytes(60000256)
+fin2=file(WORK_DIR+"/testMulti2")
+buf2=fin2.readBytes(60000256)
+fin3=file(WORK_DIR+"/testMulti3")
+buf3=fin3.readBytes(60000256)
+output1 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output2 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output3 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+def parse(mutable t,b){
+	for(i in 1..3){
+		res= mseed::parse(b)
+		t.append!(res)
+	}
+}
+arr=array(STRING, 0)
+arr.append!(submitJob("job1","parse1",parse,output1,buf1))
+arr.append!(submitJob("job2","parse2",parse,output2,buf2))
+arr.append!(submitJob("job3","parse3",parse,output3,buf3))
+
+for (jobName in arr){
+	getJobReturn(jobName, true)
+}
+
+res = exec count(*) from output1
+assert 1,eqObj(res,m*3)
+res = exec count(*) from output2
+assert 2,eqObj(res,m*3)
+res = exec count(*) from output3
+assert 3,eqObj(res,m*3)
+re = exec errorMsg from getRecentJobs() where jobId in arr
+assert 4, re == string(take(00i, size(arr)))
+
+@testing:case="test_plugin_mseed_read_Multithreading_same_file_multi_read"
+output1 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output2 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output3 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+def read(mutable t,file){
+	for(i in 1..3){
+		res= mseed::read(file)
+		t.append!(res)
+	}
+}
+arr=array(STRING, 0)
+arr.append!(submitJob("job1","read1",read,output1,WORK_DIR+"/testMulti"))
+arr.append!(submitJob("job2","read2",read,output2,WORK_DIR+"/testMulti"))
+arr.append!(submitJob("job3","read2",read,output3,WORK_DIR+"/testMulti"))
+for (jobName in arr){
+	getJobReturn(jobName, true)
+}
+res = exec count(*) from output1
+assert 1,eqObj(res,m*3)
+res = exec count(*) from output2
+assert 2,eqObj(res,m*3)
+res = exec count(*) from output3
+assert 3,eqObj(res,m*3)
+re = exec errorMsg from getRecentJobs() where jobId in arr
+assert 4, re == string(take(00i, size(arr)))
+
+@testing:case="test_plugin_mseed_read_Multithreading_diff_file_multi_read"
+output1 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output2 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output3 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+def read(mutable t,file){
+	for(i in 1..3){
+		res= mseed::read(file)
+		t.append!(res)
+	}
+}
+arr=array(STRING, 0)
+arr.append!(submitJob("job1","read1",read,output1,WORK_DIR+"/testMulti1"))
+arr.append!(submitJob("job2","read2",read,output2,WORK_DIR+"/testMulti2"))
+arr.append!(submitJob("job3","read2",read,output3,WORK_DIR+"/testMulti3"))
+for (jobName in arr){
+	getJobReturn(jobName, true)
+}
+res = exec count(*) from output1
+assert 1,eqObj(res,m*3)
+res = exec count(*) from output2
+assert 2,eqObj(res,m*3)
+res = exec count(*) from output3
+assert 3,eqObj(res,m*3)
+re = exec errorMsg from getRecentJobs() where jobId in arr
+assert 4, re == string(take(00i, size(arr)))
+
+@testing:case="test_plugin_mseed_write_Multithreading_diff_file_multi_write"
+try{rm(WORK_DIR+"/testMulti1")}catch(ex){}
+try{rm(WORK_DIR+"/testMulti2")}catch(ex){}
+try{rm(WORK_DIR+"/testMulti3")}catch(ex){}
+m = 80000000
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=1..m
+def testWrite(file, sid, time, sampleRate, value, overwrite){
+	for(i in 1..3){
+		res= mseed::write(file, sid, time, sampleRate, value, overwrite)
+	}
+}
+arr=array(STRING, 0)
+arr.append!(submitJob("job1","write1",testWrite,WORK_DIR+"/testMulti1","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true))
+arr.append!(submitJob("job2","write2",testWrite,WORK_DIR+"/testMulti2","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true))
+arr.append!(submitJob("job3","write3",testWrite,WORK_DIR+"/testMulti3","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true))
+for (jobName in arr){
+	getJobReturn(jobName, true)
+}
+t1 = mseed::read(WORK_DIR+"/testMulti1")
+res = exec count(*) from t1
+assert 1,eqObj(res,m)
+t2 = mseed::read(WORK_DIR+"/testMulti2")
+res = exec count(*) from t2
+assert 2,eqObj(res,m)
+t3 = mseed::read(WORK_DIR+"/testMulti3")
+res = exec count(*) from t3
+assert 3,eqObj(res,m)
+re = exec errorMsg from getRecentJobs() where jobId in arr
+assert 4, re == string(take(00i, size(arr)))
+
+@testing:case="test_plugin_mseed_parseStream_Multithreading_same_file_multi_parseStream"
+try{rm(WORK_DIR+"/testMulti")}catch(ex){}
+m = 80000000
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=1..m
+mseed::write(WORK_DIR+"/testMulti","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin=file(WORK_DIR+"/testMulti")
+buf=fin.readBytes(60000256)
+t = mseed::parse(buf)
+output1 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output2 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output3 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+def parseStream(mutable t,b){
+	for(i in 1..3){
+		res= mseed::parseStream(b)
+		t.append!(res[`data])
+	}
+}
+job1 = submitJob("job1","parse1",parseStream,output1,buf)
+job2 = submitJob("job2","parse2",parseStream,output2,buf)
+job3 = submitJob("job3","parse2",parseStream,output3,buf)
+getJobReturn(job1,true)
+getJobReturn(job2,true)
+getJobReturn(job3,true)
+res = exec count(*) from output1
+assert 1,eqObj(res,m*3)
+res = exec count(*) from output2
+assert 2,eqObj(res,m*3)
+res = exec count(*) from output3
+assert 3,eqObj(res,m*3)
+re1 = exec errorMsg from getRecentJobs() where jobid = job1
+assert 4, re1 == ""
+re2 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 5, re2 == ""
+re3 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 6, re3 == ""
+
+@testing:case="test_plugin_mseed_parseStream_Multithreading_diff_file_multi_parseStream"
+try{rm(WORK_DIR+"/testMulti1")}catch(ex){}
+try{rm(WORK_DIR+"/testMulti2")}catch(ex){}
+try{rm(WORK_DIR+"/testMulti3")}catch(ex){}
+m = 80000000
+time=timestamp(2013.01.01)
+sampleRate=100.0
+vec=1..m
+mseed::write(WORK_DIR+"/testMulti1","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+mseed::write(WORK_DIR+"/testMulti2","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+mseed::write(WORK_DIR+"/testMulti3","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin1=file(WORK_DIR+"/testMulti1")
+buf1=fin1.readBytes(60000256)
+fin2=file(WORK_DIR+"/testMulti2")
+buf2=fin2.readBytes(60000256)
+fin3=file(WORK_DIR+"/testMulti3")
+buf3=fin3.readBytes(60000256)
+output1 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output2 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+output3 = streamTable(10000:0,`id`time`val, [SYMBOL,TIMESTAMP,INT])
+def parseStream(mutable t,b){
+	for(i in 1..3){
+		res= mseed::parseStream(b)
+		t.append!(res[`data])
+	}
+}
+job1 = submitJob("job1","parse1",parseStream,output1,buf1)
+job2 = submitJob("job2","parse2",parseStream,output2,buf2)
+job3 = submitJob("job3","parse2",parseStream,output3,buf3)
+getJobReturn(job1,true)
+getJobReturn(job2,true)
+getJobReturn(job3,true)
+res1 = exec count(*) from output1
+assert 1,eqObj(res1,m*3)
+res2 = exec count(*) from output2
+assert 2,eqObj(res2,m*3)
+res3 = exec count(*) from output3
+assert 3,eqObj(res3,m*3)
+re1 = exec errorMsg from getRecentJobs() where jobid = job1
+assert 4, re1 == ""
+re2 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 5, re2 == ""
+re3 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 6, re3 == ""
+
+@testing:case="test_plugin_mseed_parseStreamInfo_Multithreading_same_file_multi_parseStreamInfo"
+try{rm(WORK_DIR+"/testMulti")}catch(ex){}
+m=80000000
+time=now()
+sampleRate=100.0
+vec=1..m
+mseed::write(WORK_DIR+"/testMulti", "XFDSN:SC_JZG_00_B_H_N", time,sampleRate, vec, true)
+fin = file(WORK_DIR+"/testMulti")
+buf = fin.readBytes(60000256)
+number=60000256 / 512
+t = mseed::parse(buf)
+output1 = streamTable(10000:0,`id`blockLen, [SYMBOL,INT])
+output2 = streamTable(10000:0,`id`blockLen, [SYMBOL,INT])
+output3 =streamTable(10000:0,`id`blockLen, [SYMBOL,INT])
+def parseStreamInfo(mutable t, b){
+	for(i in 1..3){
+		res = mseed::parseStreamInfo(b)
+		t.append!(res[`data])
+	}
+}
+job1 = submitJob("job1", "parse1", parseStreamInfo, output1, buf)
+job2 = submitJob("job2", "parse2", parseStreamInfo, output2, buf)
+job3 = submitJob("job3", "parse3", parseStreamInfo, output3, buf)
+getJobReturn(job1, true)
+getJobReturn(job2, true)
+getJobReturn(job3, true)
+res = exec count(*) from output1
+assert 1, eqObj(res,number*3)
+res = exec  count(*) from output2
+assert 2, eqObj(res,number*3)
+res = exec  count(*) from output1
+assert 3, eqObj(res,number*3)
+re1 = exec errorMsg from getRecentJobs() where jobid = job1
+assert 4, re1 == ""
+re2 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 5, re2 == ""
+re3 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 6, re3 == ""
+
+@testing:case="test_plugin_mseed_parseStreamInfo_Multithreading_diff_file_multi_parseStreamInfo"
+try{rm(WORK_DIR+"/testMulti1")}catch(ex){}
+try{rm(WORK_DIR+"/testMulti2")}catch(ex){}
+try{rm(WORK_DIR+"/testMulti3")}catch(ex){}
+time=now()
+sampleRate=100.0
+vec=1..m
+mseed::write(WORK_DIR+"/testMulti1","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+mseed::write(WORK_DIR+"/testMulti2","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+mseed::write(WORK_DIR+"/testMulti3","XFDSN:SC_JZG_00_B_H_N",time,sampleRate,vec,true)
+fin1=file(WORK_DIR+"/testMulti1")
+buf1=fin1.readBytes(60000256)
+fin2=file(WORK_DIR+"/testMulti2")
+buf2=fin2.readBytes(60000256)
+fin3=file(WORK_DIR+"/testMulti3")
+buf3=fin3.readBytes(60000256)
+output1 = streamTable(10000:0,`id`blockLen, [SYMBOL,INT])
+output2 = streamTable(10000:0,`id`blockLen, [SYMBOL,INT])
+output3 = streamTable(10000:0,`id`blockLen, [SYMBOL,INT])
+def parseStreamInfo(mutable t, b){
+	for(i in 1..3){
+		res = mseed::parseStreamInfo(b)
+		t.append!(res[`data])
+	}
+}
+job1 = submitJob("job1", "parse1", parseStreamInfo, output1, buf1)
+job2 = submitJob("job2", "parse2", parseStreamInfo, output2, buf2)
+job3 = submitJob("job3", "parse3", parseStreamInfo, output3, buf3)
+getJobReturn(job1, true)
+getJobReturn(job2, true)
+getJobReturn(job3, true)
+number=60000256 / 512
+res = exec count(*) from output1
+assert 1, eqObj(res,number*3)
+res = exec count(*) from output2
+assert 2, eqObj(res,number*3)
+res = exec count(*) from output1
+assert 3, eqObj(res,number*3)
+re1 = exec errorMsg from getRecentJobs() where jobid = job1
+assert 4, re1 == ""
+re2 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 5, re2 == ""
+re3 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 6, re3 == ""
+
+@testing:case="test_plugin_mseed_streamize_Multithreading"
+dtype = [int,float,double]
+def teststreamize(dtype){
+	for(d in dtype){
+		print(d)
+		n = 30000000
+		m = 1000
+		sidVec = take("XFDSN:SN_C0059_40_E_I_E", n).symbol()
+		tsVec = 2020.01.01T00:00:00.000+1..n
+		dataVec = d(1..n)
+		data = table(sidVec as sid, tsVec as ts, dataVec as data)
+		buf = mseed::streamize(data,1000.0)
+		re = mseed::parse(buf)
+		assert 1, eqObj(re.values(),data.values())
+	}
+}
+
+job1 = submitJob("job1", "parse1", teststreamize, dtype)
+job2 = submitJob("job2", "parse2", teststreamize, dtype)
+job3 = submitJob("job3", "parse3", teststreamize, dtype)
+getJobReturn(job1, true)
+getJobReturn(job2, true)
+getJobReturn(job3, true)
+
+re1 = exec errorMsg from getRecentJobs() where jobid = job1
+assert 1, re1 == ""
+re2 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 2, re2 == ""
+re3 = exec errorMsg from getRecentJobs() where jobid = job2
+assert 3, re3 == ""
+
+@testing:case="test_plugin_mseed_clear"
+try{rm(WORK_DIR+"/test")}catch(ex){print ex}
+try{rm(WORK_DIR+"/test1")}catch(ex){print ex}
+try{rm(WORK_DIR+"/test2")}catch(ex){print ex}
+try{rm(WORK_DIR+"/test3")}catch(ex){print ex}
+try{rm(WORK_DIR+"/testMulti")}catch(ex){}
+try{rm(WORK_DIR+"/testMulti1")}catch(ex){}
+try{rm(WORK_DIR+"/testMulti2")}catch(ex){}
+try{rm(WORK_DIR+"/testMulti3")}catch(ex){}

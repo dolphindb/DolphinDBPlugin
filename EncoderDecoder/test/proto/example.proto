@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+// 中金最早给的格式文件
+message Pb_CfetsTradeMarketDataSubscribeReceiveMessage {
+  Pb_MessageHeader header = 1;
+  Pb_CfetsTradeMarketDataSubscribeReceiveMessageBody body = 2;
+  message Pb_MessageHeader {
+    string action = 1;
+    string clientID = 2;
+    string serialNo = 3;
+    string version = 4;
+    string msgType = 5;
+    string sendingTime = 6;
+    string from = 7;
+    string operator = 8;
+    string errorCode = 9;
+    string errorMsg = 10;
+  };
+  message Pb_CfetsTradeMarketDataSubscribeReceiveMessageBody {
+    int32 qid = 1;
+    int32 mdBookType = 2;
+    string marketIndicator = 3;
+    string clOrdID = 4;
+    string transactTime = 5;
+    string securityType = 6;
+    string securityID = 7;
+    string symbol = 8;
+    int32 marketDepth = 9;
+    Pb_CfetsTradeMarketDataList pbMarketDataList = 10;
+    string mdSubBookType = 11;
+    string realTimeUndertakeFlag = 12;
+    string subjectPartyType = 13;
+    string sendingTime = 14;
+    string repoMethod = 15;
+    string transactionMethod = 16;
+    string tradeMethod = 17;
+    string bridgeDealIndic = 18;
+    string splitIndicator = 19;
+  };
+  message Pb_CfetsTradeMarketDataList {
+    repeated Pb_CfetsTradeMarketData marketData = 1;
+  };
+
+  message Pb_CfetsTradeMarketData {
+    string mdEntryType = 1;
+    int32 mdPriceLevel = 2;
+    int32 mdQuoteType = 3;
+    string quoteEntryID = 4;
+    string mdEntryDate = 5;
+    string mdEntryTime = 6;
+    string minQty = 7;
+    string lastPx = 8;
+    string mdEntryPx = 9;
+    string mdEntrySize = 10;
+    int32 clearingMethod = 11;
+    string settlType = 12;
+    string settlDate = 13;
+    string b_DeliveryType = 14;
+    string s_DeliveryType = 15;
+    string settlCurrency = 16;
+    string settlCurrFxRate = 17;
+    string maturityYield = 18;
+    string partyID = 19;
+    string traderID = 20;
+    string traderName = 21;
+    string tradingAcctNumber = 22;
+    string tradeVolume = 23;
+    string unMatchQty = 24;
+    string increasePositionValue = 25;
+  };
+}
+
+

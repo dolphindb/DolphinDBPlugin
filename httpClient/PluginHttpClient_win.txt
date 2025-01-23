@@ -1,0 +1,7 @@
+httpClient,libPluginHttpClient.dll,2.00.15
+httpGet,httpGet,system,1,5,0,0,(url, [params], [timeout], [headers], [config])
+httpPost,httpPost,system,1,5,0,0,(url, [params], [timeout], [headers], [config])
+httpPut,httpPut,system,1,5,0,0,(url, [params], [timeout], [headers], [config])
+httpDelete,httpDelete,system,1,5,0,0,(url, [params], [timeout], [headers], [config])
+sendEmail,sendEmail,system,5,6,0,0,(userId, pwd, recipient, subject, body, [msg])
+emailSmtpConfig,emailSmtpConfig,system,2,3,0,0,(domain,host,[port=25])

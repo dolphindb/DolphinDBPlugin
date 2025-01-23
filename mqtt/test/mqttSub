@@ -1,0 +1,136 @@
+loadPlugin("/root/release100/DolphinDBPlugin/mqtt/cmake-build-debug/PluginMQTTClient.txt"); 
+
+host="127.0.0.1"
+
+@testing:case="subscribe_handler_is_a_table"
+//1.using createCsvParser
+p = mqtt::createCsvParser([INT, TIMESTAMP, DOUBLE, DOUBLE,DOUBLE], ',', ';' )
+sensorInfoTable1 = table( 10000:0,`deviceID`send_time`temperature`humidity`voltage ,[INT, TIMESTAMP, DOUBLE, DOUBLE,DOUBLE])
+conn1 = mqtt::subscribe(host,1883,"dolphindb/csv",p,sensorInfoTable1)
+
+MyFormat = take("", 5)
+MyFormat[2] = "0.000"
+f = mqtt::createCsvFormatter(MyFormat, ',', ';')
+//create a record for every device
+def writeData(hardwareVector){
+	hardwareNumber = size(hardwareVector)
+	return table(take(hardwareVector,hardwareNumber) as hardwareId ,take(now(),
+		hardwareNumber) as ts,rand(20..41,hardwareNumber) as temperature,
+		rand(50,hardwareNumber) as humidity,rand(500..1000,
+		hardwareNumber) as voltage)
+}
+
+def publishTableData(server,topic,iterations,hardwareVector,interval,f){
+	conn=mqtt::connect(server,1883,0,f,100)
+	for(i in 0:iterations){
+		t=writeData(hardwareVector)
+		mqtt::publish(conn,topic,t)
+	}
+	sleep(interval)
+	mqtt::close(conn)
+}
+publishTableData(host,"dolphindb/csv",10,1..50,100,f)
+assert 1, sensorInfoTable1.size()==500
+
+//2.using createJsonParser
+p = mqtt::createJsonParser([INT, TIMESTAMP, DOUBLE, DOUBLE,DOUBLE],`hardwareId`ts`temperature`humidity`voltage )
+sensorInfoTable2 = table( 10000:0,`hardwareId`ts`temperature`humidity`voltage ,[INT, TIMESTAMP, DOUBLE, DOUBLE,DOUBLE])
+conn = mqtt::subscribe(host,1883,"dolphindb/json",p,sensorInfoTable2)
+f=mqtt::createJsonFormatter()
+publishTableData(host,"dolphindb/json",10,100..149,100,f)
+assert 2, sensorInfoTable2.size()==500
+
+
+@testing:case = "subscriber_handler_functionr" 
+t = table( 10000:0,`message`topic`recv_time ,[STRING,SYMBOL, TIMESTAMP])
+def callback1(mutable t, topic,message) {//received string 
+    try {
+        insert into t values(message,topic,now()) 
+    }
+    catch(ex) {
+    	print ex
+    };  
+}
+try {      
+     conn01 = mqtt::subscribe(host,1883,"dolphindb/#",,callback1{t})
+}
+catch(ex)
+{
+    print ex
+};
+
+sensorInfoTable = table( 10000:0,`deviceID`send_time`recv_time`temperature`humidity`voltage ,[INT, TIMESTAMP,TIMESTAMP, DOUBLE, DOUBLE,DOUBLE])
+def callback2(mutable t, topic,message) {//received string 
+    try {
+           val=split(message,",")
+           insert into t values(int(val[0]), timestamp(val[1]),now(), double(val[2]),double(val[3]),double(val[4])) 
+    }
+    catch(ex) {
+    	print ex
+    };  
+}
+conn02 = mqtt::subscribe(host,1883,"devStr/#",,callback2{sensorInfoTable})
+
+
+def simulatePubString(server,topic,deviceIds,interval,count){
+	conn= mqtt::connect(server,1883,0, ,)
+	for(i in 0:count){
+		pubstr=string(deviceIds)+ "," + string(now())+"," + string(rand(100.0,1)[0] )+"," + string(rand(100.0,1)[0] )+"," + string(i)
+		mqtt::publish(conn,topic,pubstr)
+		sleep(interval)
+	}
+	mqtt::close(conn)
+}
+submitJob("submit_pubstr1", "submit_pub_string", simulatePubString{host,"devStr/string",1, 50, 500})
+
+conn1=mqtt::connect(host,1883,0,,)
+mqtt::publish(conn1,"dolphindb/test_array",["hello world","welcome"])
+mqtt::publish(conn1,"dolphindb/test","testing")
+sleep(1000)
+message=["hello world","welcome","testing"]
+topic=["dolphindb/test_array","dolphindb/test_array","dolphindb/test"]
+assert 1,t.size()==3
+assert 2,eqObj(t[`topic],topic)==true
+assert 3,eqObj(t[`message],message)==true
+for(i in 1..800){
+	mqtt::publish(conn1,"dolphindb/test","testing"+i)
+	sleep(200)
+}
+assert 4,t.size()>800
+assert 5,sensorInfoTable.size()==500
+ 
+
+//*******************************formatter&parser************************************************//
+@testing:case = "Jsong_formatter_parser"
+use mqtt;
+p = createJsonParser([BOOL,CHAR,SHORT,INT,LONG,DATE,MONTH,TIME,MINUTE,SECOND,DATETIME,TIMESTAMP,NANOTIME,NANOTIMESTAMP,FLOAT,DOUBLE,STRING,SYMBOL],
+`bool`char`short`int`long`date`month`time`minute`second`datetime`timestamp`nanotime`nanotimestamp`float`double`string`symbol)
+def createT(n) {
+ return table(take([false, true], n) as bool, take('a'..'z', n) as char, take(short(-5..5), n) as short, take(-5..5, n) as int, take(-5..5, n) as long, take(2001.01.01..2010.12.30, n) as date, take(2001.01M..2010.01M, n) as month, take(time(now()), n) as time, take(minute(now()), n) as minute, take(second(now()), n) as second, take(datetime(now()), n) as datetime, take(now(), n) as timestamp, take(nanotime(now()), n) as nanotime, take(nanotimestamp(now()), n) as nanotimestamp, take(3.1415, n) as float, take(3.1415, n) as double, take(`AAPL`IBM, n) as string, take(`AAPL`IBM, n) as symbol)
+}
+t = createT(100)
+f = mqtt::createJsonFormatter()
+p = createJsonParser([BOOL,CHAR,SHORT,INT,LONG,DATE,MONTH,TIME,MINUTE,SECOND,DATETIME,TIMESTAMP,NANOTIME,NANOTIMESTAMP,FLOAT,DOUBLE,STRING,SYMBOL],
+`bool`char`short`int`long`date`month`time`minute`second`datetime`timestamp`nanotime`nanotimestamp`float`double`string`symbol)
+s=f(t)
+x=p(s)
+assert 1,all(each(eqObj, t.values(), x.values(),3))==true
+p = createJsonParser([BOOL,CHAR],`bool`char)
+s=f(t)
+try{x1=p(s)}catch(ex){x1=NULL}
+assert isNull(x1) ==true
+
+@testing:case = "csv_formatter_parser"
+p = createCsvParser([BOOL,CHAR,SHORT,INT,LONG,DATE,MONTH,TIME,MINUTE,SECOND,DATETIME,TIMESTAMP,NANOTIME,NANOTIMESTAMP,FLOAT,DOUBLE,STRING,SYMBOL])
+MyFormat = take("", 18)
+MyFormat[2] = "0.000"
+MyFormat[5] = "yyyy.MM.dd"
+f = createCsvFormatter(MyFormat)
+t = createT(100)
+s=f(t)
+x=p(s)
+assert 1,all(each(eqObj, t.values(), x.values(),3))==true
+
+
+
+

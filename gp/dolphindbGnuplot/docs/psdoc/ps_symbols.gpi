@@ -1,0 +1,19 @@
+set size 0.67,1
+set terminal postscript lw 1.5; set output 'ps_symbols.ps'
+set title 'Symbols and dashtypes of the {/Courier postscript} terminal'
+unset border; unset zeroaxis; unset xtics; unset ytics
+unset xlabel; unset ylabel; unset key; set size square;
+set xrange [-1.2:1.2]; set yrange [-1.2:1.2]; set parametric; set samples 2
+set angle radian
+f(x)=cos(pi*x/38.0); g(x)=sin(pi*x/38.0)
+set label '(#70--75 are opaque)' at 0,0 center
+set for [i=0:75:5] label sprintf("%i", i) at  1.07*f(i),  1.07*g(i) center
+
+unset arrow
+f1(x)=0.45 *cos(pi*x/38.0); g1(x)=0.45 *sin(pi*x/38.0)
+f2(x)=0.97*cos(pi*x/38.0); g2(x)=0.97*sin(pi*x/38.0)
+set for [i=0:75] arrow from f1(i),g1(i) to f2(i),g2(i) nohead dt i
+
+plot for [i=0:75] f(i),g(i) w p lt 0 pt i
+
+unset output

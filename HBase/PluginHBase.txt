@@ -1,0 +1,6 @@
+hbase,libPluginHBase.so,2.00.15
+connectH,connect,system,2,4,0,0,(host, port, [isFramed=false], [timeout=5000])
+showTablesH,showTables,system,1,1,0,0,(hbaseConnection)
+getRowH,getRow,system,3,4,0,0,(hbaseConnection, tableName, rowKey, [columnName])
+loadH,load,system,2,3,0,0,(hbaseConnection, tableName, [schema])
+deleteTableH,deleteTable,system,2,2,0,0,(hbaseConnection, tableName)

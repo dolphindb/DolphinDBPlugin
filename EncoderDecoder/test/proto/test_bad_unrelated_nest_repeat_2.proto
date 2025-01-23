@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+// 两个不相关联的 多层 nested repeated，repeated的层次不同
+message test_bad_unrelated_nest_repeat_2{
+    double double = 1;
+    repeated repeatMsg r1 = 2;
+    innerNestRepeatMsg r2 = 3;
+
+    message repeatMsg {
+        repeated float float = 1;
+    }
+    message innerNestRepeatMsg {
+        repeated repeatMsg inside = 1;
+    }
+}

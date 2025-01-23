@@ -1,0 +1,10 @@
+try{
+	loadPlugin("/home/slshen/DolphinDBPlugin/feather/build/PluginFeather.txt")
+}catch(ex){}
+
+loadText("/home/slshen/feather/data/index_two.csv")
+t1 = feather::load("/home/slshen/feather/data/index_two.feather");
+
+
+loadText("/home/slshen/feather/data/nest_list.csv")
+t1 = feather::load("/home/slshen/feather/data/nest_list.feather");

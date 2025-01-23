@@ -1,0 +1,7 @@
+mysql,libPluginMySQL.so,2.00.15
+mysqlConnect,connect,system,5,5,0,0,(host, port, user, password, db)
+mysqlClose,close,system,1,1,0,0,(conn)
+mysqlLoad,load,system,2,6,0,0,(conn, table|query, [schema], [startRow], [rowNum], [allowEmptyTable])
+mysqlLoadEx,loadEx,system,5,12,0,0,(conn, dbHandle, tableName, partitionColumns, table|query, [schema], [startRow], [rowNum], [transform], [sortColumns], [keepDuplicates], [sortKeyMappingFunction])
+mysqlSchema,extractSchema,system,2,2,0,0,(conn, tableName)
+mysqlTables,showTables,system,1,1,0,0,(conn)

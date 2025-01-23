@@ -1,0 +1,3 @@
+MatchingEngine,libPluginMatchingEngine.so,2.00.15
+setupGlobalConfig,setupGlobalConfig,system,2,4,0,0,(inputScheme, mapping, [pricePrecision=3], [bookDepth=10])
+createExchange,createExchange,system,3,3,0,0,(sym, output,depthOutput)

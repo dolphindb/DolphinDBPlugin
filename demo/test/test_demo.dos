@@ -1,0 +1,20 @@
+
+try { loadPlugin("/path_to_demo/PluginDemo.txt"); }catch(x) { print(x) }
+
+@testing:case="test_demo_minmax_table", exception=1
+demo::minmax(table([1] as c1))
+
+@testing:case="test_demo_minmax_scalar"
+ret = demo::minmax(1);
+assert 1, eqObj([1,1], ret)
+
+@testing:case="test_demo_minmax_vector"
+ret = demo::minmax([12,3,4]);
+assert 1, eqObj([3,12], ret)
+
+@testing:case="test_demo_echo_no_input", syntaxError=1
+demo::echo(1,2,3);
+
+@testing:case="test_demo_echo_string"
+ret = demo::echo("foo");
+assert 1, eqObj("foo",ret)

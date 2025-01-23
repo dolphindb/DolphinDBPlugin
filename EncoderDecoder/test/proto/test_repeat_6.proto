@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+// repeated结构中，有普通字段时，再套一个repeated 结构
+message test_repeat_6{
+    double double = 1;
+    repeated repeatMsg r1 = 2;
+
+    message repeatMsg {
+        double double = 1;
+        float float = 2;
+        NestRepeatMsg n1 = 3;
+    }
+    message NestRepeatMsg {
+        int32 int = 1;
+        int64 long = 2;
+    }
+}

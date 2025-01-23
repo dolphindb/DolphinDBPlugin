@@ -1,0 +1,10 @@
+redis,libPluginRedis.so,2.00.15
+redisPluginConnect,connect,system,2,2,0
+redisPluginRun,run,system,2,10,0
+redisPluginBatchSet,batchSet,system,3,3,0
+redisPluginBatchHashSet,batchHashSet,system,3,3,0
+redisPluginRelease,release,operator,1,1,0
+redisPluginReleaseAll,releaseAll,operator,0,0,0
+redisGetHandle,getHandle,system,1,1,0
+redisGetHandleStaus,getHandleStatus,operator,0,0,0
+redisBatchPush,batchPush,system,3,4,0

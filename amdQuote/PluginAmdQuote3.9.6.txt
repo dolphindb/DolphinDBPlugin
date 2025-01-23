@@ -1,0 +1,9 @@
+amdQuote,libPluginAmdQuote.so,2.00.15
+amdConnect,connect,system,4,5,0,0,(username, password, ip, port, [option])
+subscribe,subscribe,system,4,8,0,0,(handle, dataType, outputTable, market, [codeList], [transform], [seqCheckMode=1], [queueDepth=100000])
+unsubscribe,unsubscribe,system,2,4,0,0,(handle, dataType, [market], [codeList])
+getSchema,getSchema,system,1,1,0,0,(dataType)
+getStatus,getStatus,system,1,1,0,0,(handle)
+getHandle,getHandle,system,0,0,0,0,()
+amdClose,close,system,1,1,0,0,(handle)
+setErrorLog,setErrorLog,system,1,1,0,0,(flag)
