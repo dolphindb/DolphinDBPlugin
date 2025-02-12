@@ -12,6 +12,8 @@ using namespace std;
 
 static Mutex mutex;
 
+Mutex HDFS_MUTEX;
+
 string getErrorMsgWithPrefix(const string &defaultString)
 {
     if(errno != 0)
@@ -66,6 +68,7 @@ static void hdfsOnCloseForConnect(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_Connect(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lock(&HDFS_MUTEX);
     const auto usage = string("Usage: connect(nameMode, [port], [userName], [kerbTicketCachePath])\n");
     struct hdfsBuilder *pbld = hdfsNewBuilder();
     hdfsBuilderSetForceNewInstance(pbld);
@@ -129,6 +132,7 @@ ConstantSP hdfs_Connect(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_Disconnect(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lock(&HDFS_MUTEX);
     const auto usage = string("Usage: disconnect(hdfsFS).\n");
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != "hdfsFS connection")
         throw IllegalArgumentException(__FUNCTION__, PLUGIN_HDFS_LOG_PREFIX + usage + "hdfsFS should be a hdfsFS handle.");
@@ -144,6 +148,7 @@ ConstantSP hdfs_Disconnect(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_Exists(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lock(&HDFS_MUTEX);
     const auto usage = string("Usage: exists(hdfsFS, path).\n");
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != "hdfsFS connection")
         throw IllegalArgumentException(__FUNCTION__, PLUGIN_HDFS_LOG_PREFIX + usage + "hdfsFS should be a hdfsFS handle.");
@@ -157,6 +162,7 @@ ConstantSP hdfs_Exists(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_Copy(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lock(&HDFS_MUTEX);
     const auto usage = string("Usage: copy(hdfsFS1,src,hdfsFS2,dst).\n");
 
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != "hdfsFS connection")
@@ -175,6 +181,7 @@ ConstantSP hdfs_Copy(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_Move(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lock(&HDFS_MUTEX);
     const auto usage = string("Usage: move(hdfsFS1, src, hdfsFS2, dst).\n");
 
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != "hdfsFS connection")
@@ -196,6 +203,7 @@ ConstantSP hdfs_Move(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_Delete(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lock(&HDFS_MUTEX);
     const auto usage = string("Usage: delete(hdfsFS, path, recursive).\n");
 
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != "hdfsFS connection")
@@ -212,6 +220,7 @@ ConstantSP hdfs_Delete(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_Rename(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lock(&HDFS_MUTEX);
     const auto usage = string("Usage: rename(hdfsFS, oldPath, newPath).\n");
 
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != "hdfsFS connection")
@@ -228,6 +237,7 @@ ConstantSP hdfs_Rename(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_CreateDirectory(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lock(&HDFS_MUTEX);
     const auto usage = string("Usage: createDirectory(hdfsFS, path).\n");
 
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != "hdfsFS connection")
@@ -270,6 +280,7 @@ static short decodeMode(short mode) {
 
 ConstantSP hdfs_Chmod(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lock(&HDFS_MUTEX);
     const auto usage = string("Usage: chmod(hdfsFS, path, mode).\n");
 
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != "hdfsFS connection")
@@ -286,6 +297,7 @@ ConstantSP hdfs_Chmod(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_getListDirectory(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lock(&HDFS_MUTEX);
     const auto usage = string("Usage: getListDirectory(hdfsFS, path).\n");
 
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != "hdfsFS connection")
@@ -310,6 +322,7 @@ ConstantSP hdfs_getListDirectory(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_listDirectory(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lock(&HDFS_MUTEX);
     const auto usage = string("Usage: listDirectory(fileInfo).\n");
 
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != "FileInfo connection")
@@ -347,6 +360,7 @@ ConstantSP hdfs_listDirectory(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_freeFileInfo(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lock(&HDFS_MUTEX);
     const auto usage = string("Usage: freeFileInfo(fileInfo).\n");
 
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != "FileInfo connection")
@@ -360,6 +374,7 @@ ConstantSP hdfs_freeFileInfo(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_readFile(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lock(&HDFS_MUTEX);
     const auto usage = string("Usage: readFile(hdfsFS, path, handler).\n");
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != "hdfsFS connection")
         throw IllegalArgumentException(__FUNCTION__, PLUGIN_HDFS_LOG_PREFIX + usage + "hdfsFS should be a hdfsFS handle.");
@@ -403,6 +418,7 @@ ConstantSP hdfs_readFile(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_writeFile(Heap *heap, vector<ConstantSP> &args)
 {
+    LockGuard<Mutex> lock(&HDFS_MUTEX);
     const auto usage = string("Usage: writeFile(hdfsFS, path, tb, handler).\n");
 
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != "hdfsFS connection")

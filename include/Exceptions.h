@@ -329,4 +329,20 @@ private:
 	const bool abort_;
 };
 
+/** Used by compute nodes to invalidate cached data. */
+class CacheInvalidException : public TraceableException {
+public:
+	CacheInvalidException(const string &errMsg) : errMsg_("<CacheInvalid>" + errMsg) {
+	}
+	virtual ~CacheInvalidException() throw() {
+	}
+
+	virtual const char* what() const throw() {
+		return errMsg_.c_str();
+	}
+
+private:
+	const string errMsg_;
+};
+
 #endif /* EXCEPTIONS_H_ */

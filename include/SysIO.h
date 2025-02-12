@@ -35,6 +35,30 @@ struct ssl_st;
 struct ssl_ctx_st;
 typedef struct ssl_st SSL;
 typedef struct ssl_ctx_st SSL_CTX;
+
+#ifndef WINDOWS
+namespace rdma {
+
+class QPHandle;
+class QPSocket;
+
+using QPSocketSP = SmartPointer<QPSocket>;
+
+class QPSocket {
+  public:
+    QPSocket(QPHandle *qph) : qph_(qph) {}
+
+    ssize_t read(void *buf, size_t count, bool peek);
+
+    ssize_t write(const void *buf, size_t count);
+
+  private:
+    QPHandle *qph_;
+};
+
+}  // namespace rdma
+#endif // ifndef WINDOWS
+
 class Constant;
 class Socket;
 class UdpSocket;
@@ -89,6 +113,15 @@ private:
 	SSL_CTX* ctx_ = NULL; // client side only
 	SSL* ssl_ = NULL;
 	bool sslEstablished_ = false; // client side only
+
+#ifndef WINDOWS
+public:
+	Socket(rdma::QPSocketSP& qpsock) :  handle_(INVALID_SOCKET), blocking_(false), autoClose_(true), ssl_(nullptr), enableRdma_(true) , qpsock_(qpsock) {}
+	bool enableRDMA() { return enableRdma_; }
+private:
+	bool enableRdma_ = false;
+	rdma::QPSocketSP qpsock_;
+#endif // ifndef WINDOWS
 };
 
 class UdpSocket{

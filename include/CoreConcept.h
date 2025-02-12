@@ -172,6 +172,7 @@ public:
 			const set<string>& deleteDBs, const set<string>& deniedDeleteDBs, bool dbOwner,
 			const set<string>& dbOwnerPattern, bool dbManage, const set<string>& allowDbManage, const set<string>& deniedDbManage,
 			long long queryResultMemLimit, long long taskGroupMemLimit, bool isViewOwner,
+			bool globalExecComputeGroup, const set<string>& execGroup, const set<string>& deniedExecGroup,
 			bool globalSensitiveView, const set<string>& sensitiveCol, const set<string>& deniedSensitiveCol);
     AuthenticatedUser(const ConstantSP& userObj);
     ConstantSP toTuple() const ;
@@ -206,6 +207,7 @@ public:
 	bool canCreateDBObject(const string& name) const { return accessObjectRule(canCreateDBObject(), "CD_", "DCD_", name, ""); }
 	bool canDeleteDBObject(const string& name) const { return accessObjectRule(canDeleteDBObject(), "DD_", "DDD_", name, ""); }
 	bool canAccessSensitiveCol(const string& tableUrl, const string& colName) const;
+	bool canExecGroup(const string& group) const;
 	// return 0 if no limit
 	long long queryResultMemLimit() { return queryResultMemLimit_; }
 	long long taskGroupMemLimit() { return taskGroupMemLimit_; }
@@ -1511,6 +1513,7 @@ public:
 	virtual bool findRange(INDEX* ascIndices,const ConstantSP& target,INDEX* targetIndices,vector<pair<INDEX,INDEX> >& ranges)=0;
 	virtual bool findRange(const ConstantSP& target,INDEX* targetIndices,vector<pair<INDEX,INDEX> >& ranges)=0;
 	virtual long long getAllocatedMemory(INDEX size) const {return Constant::getAllocatedMemory();}
+	virtual long long getAllocatedMemory() const {return getAllocatedMemory(size());}
 	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const {throw RuntimeException("serialize method not supported");}
 	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int targetNumElement, int& numElement, int& partial) const;
 
@@ -1891,8 +1894,8 @@ private:
 
 class DFSChunkMeta : public Constant{
 public:
-	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const vector<string>& sites, long long cid, long long term = -1);
-	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const string* sites, int siteCount, long long cid, long long term = -1);
+	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const vector<string>& sites, long long cid, long long term = -1, bool prefetchComputeNodeData = false);
+	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const string* sites, int siteCount, long long cid, long long term = -1, bool prefetchComputeNodeData = false);
 	DFSChunkMeta(const DataInputStreamSP& in);
 	virtual ~DFSChunkMeta();
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
@@ -1905,7 +1908,7 @@ public:
 	virtual ConstantSP values() const;
 	virtual DATA_TYPE getRawType() const {return DT_DICTIONARY;}
 	virtual ConstantSP getInstance() const {return getValue();}
-	virtual ConstantSP getValue() const {return new DFSChunkMeta(path_, id_, version_, size_, (CHUNK_TYPE)type_, sites_, replicaCount_, cid_, term_);}
+	virtual ConstantSP getValue() const {return new DFSChunkMeta(path_, id_, version_, size_, (CHUNK_TYPE)type_, sites_, replicaCount_, cid_, term_, prefetchComputeNodeData_);}
 	inline const string& getPath() const {return path_;}
 	inline const Guid& getId() const {return id_;}
 	inline long long getCommitId() const {return cid_;}
@@ -1922,6 +1925,8 @@ public:
 	inline bool isSmallFileBlock() const {return type_ == SMALLFILE_CHUNK;}
 	inline CHUNK_TYPE getChunkType() const {return (CHUNK_TYPE)type_;}
 	inline long long getTerm() const { return term_; }
+	inline void setPrefetchComputeNodeData(bool v) { prefetchComputeNodeData_ = v;}
+	inline bool getPrefetchComputeNodeData() const { return prefetchComputeNodeData_;  }
 
 protected:
 	ConstantSP getAttribute(const string& attr) const;
@@ -1937,6 +1942,7 @@ private:
 	long long cid_;
 	Guid id_;
 	long long term_;
+	bool prefetchComputeNodeData_ = false;
 };
 
 class Param{
@@ -2635,11 +2641,15 @@ class DomainSite{
 public:
 	DomainSite(const string& host, int port, int index);
 	DomainSite(const string& host, int port, int index, const string& alias) ;
+	DomainSite(const string& host, int port, int index, const string& alias, const string & computeGroupName)
+			: host_(host), port_(port), index_(index), alias_(alias), computeGroupName_(computeGroupName) {}
 	const string& getHost() const {return host_;}
 	int getPort() const {return port_;}
 	int getIndex() const {return index_;}
 	string getString() const;
 	const string& getAlias() const {return alias_;}
+	const string& getComputeGroupName() const { return computeGroupName_; }
+	void setComputeGroupName(const string& name) { computeGroupName_ = name; }
 	inline bool operator ==(const DomainSite& target) const { return  host_ == target.host_ && port_ == target.port_;}
 	static DomainSite emptySite_;
 private:
@@ -2647,12 +2657,16 @@ private:
 	int port_;
 	int index_;
 	string alias_;
+	// Empty string for datanodes and compute nodes that do not have a group
+	// For compute nodes that do not have a group, all computations are pushed down to the data nodes
+	string computeGroupName_;
 };
 
 class DomainSitePool {
 public:
 	DomainSitePool() : lastSuccessfulSiteIndex_(-1), lastSiteIndex_(-1), nextSiteIndex_(-1), startSiteIndex_(-1), localSiteIndex_(-1){}
 	DomainSitePool(const DomainPartitionSP& partition);
+	void setDisabled(int index, bool v);
 	void addSite(int siteIndex);
 	int getLastSite() const;
 	inline int getSiteCount() const { return sites_.size();}
@@ -2666,9 +2680,13 @@ public:
 	void resetInitialSite();
 	void setLastSuccessfulSite();
 	void markUsed(int siteIndex);
+	inline bool isDisabled(int index) { return disabled_[index]; }
 
+	void disableAllComputeNode();
+    string getScript() const;
 private:
 	vector<pair<int, bool>> sites_;
+	vector<bool> disabled_;
 	int lastSuccessfulSiteIndex_;
 	mutable int lastSiteIndex_;
 	mutable int nextSiteIndex_;
@@ -2690,6 +2708,7 @@ public:
 	virtual int getSiteIndex(int index) const { throw RuntimeException("DomainPartition::getSiteIndex method not supported.");}
 	virtual bool isLocalPartition() const { return true;}
 	virtual bool containLocalCopy() const { return true;}
+	virtual bool getPrefetchComputeNodeData()  const { return true; }
 	string getString() const;
 	inline const string& getPath() const {return path_;}
 	inline const Guid& getId() const {return id_;}
@@ -2831,9 +2850,6 @@ struct TableHeader {
 	vector<pair<int, FunctionDefSP>> sortKeyMappingFunction;
 	bool appendForDelete = false;
 	string tableComment;
-	// vector<FunctionDefSP> partitionFunction;
-    // vector<int> primaryKeys;
-    // IndexMap indexes;
 
 	/**
 	 * The following two fields are used by the compute node to verify
@@ -2843,6 +2859,7 @@ struct TableHeader {
 	 */
 	Guid chunkId;
 	long long chunkCid;
+
 	bool latestKeyCache = false;
 	bool compressHashSortKey = false;
 	CIPHER_MODE mode = CIPHER_MODE::PLAIN_TEXT;
@@ -3309,10 +3326,12 @@ public:
     bool getMonitorProcessAndMemory() const {return monitorProcessAndMemory_;}
 
 private:
-    void groupRemoteCalls(const vector<vector<DistributedCallSP>>& tasks, vector<DistributedCallSP>& groupedCalls, const ClusterNodesSP& clusterNodes, int groupSize);
+    void groupRemoteCalls(const unordered_map<int, vector<DistributedCallSP>>& tasks,
+                          vector<DistributedCallSP>& groupedCalls, const ClusterNodesSP& clusterNodes, int groupSize);
 
-    bool probingGroupSize(bool& groupCall, const vector<DistributedCallSP>& tasks, const ClusterNodesSP& clusterNodes, vector<vector<DistributedCallSP >>& siteCalls,
-                            vector<std::pair<int,DistributedCallSP>>& needCheckTasks);
+    bool probingGroupSize(bool& groupCall, const vector<DistributedCallSP>& tasks, const ClusterNodesSP& clusterNodes,
+                          unordered_map<int, vector<DistributedCallSP>>& siteCalls,
+                          vector<std::pair<int,DistributedCallSP>>& needCheckTasks);
 private:
     const int MIN_TASK_COUNT_FOR_PROBING_GROUP_SIZE = 4; // if all site's task count is less or equal than it, will group call directly and won't prob group size
     const int TASK_LIMIT_OF_A_GROUP = 1024; // the max task size of a group

@@ -911,6 +911,17 @@ public:
 		}
 		return true;
 	}
+
+    virtual bool getBool(INDEX *indices, int len, char *buf) const override;
+    virtual bool getChar(INDEX *indices, int len, char *buf) const override;
+    virtual bool getShort(INDEX *indices, int len, short *buf) const override;
+    virtual bool getInt(INDEX *indices, int len, int *buf) const override;
+    virtual bool getIndex(INDEX *indices, int len, INDEX *buf) const override;
+    virtual bool getLong(INDEX *indices, int len, long long *buf) const override;
+    virtual bool getFloat(INDEX *indices, int len, float *buf) const override;
+    virtual bool getDouble(INDEX *indices, int len, double *buf) const override;
+    virtual bool getDecimal32(INDEX *indices, int len, int scale, int *buf) const override;
+
 	virtual bool getBool(INDEX start, int len, char* buf) const {
 		if (start < 0 || offset_ + start < 0) {
 			INDEX cur = 0;
