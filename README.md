@@ -147,7 +147,7 @@ foo
    1. Make sure that the [include](https://github.com/dolphindb/DolphinDBPlugin/tree/release200/include) headers are consistent with the libDolphinDB.so implementation.
    2. Make sure that the version of gcc used to compile the plugin is consistent with the version of `libBoardDB.so` in order to avoid the incompatibilities between different versions of the compiler ABI.
    3. The plugin and DolphinDB server run in the same process. If a plugin crashes, then the whole system will crash. Therefore, efforts should be made to improve the error detection mechanism. Only the thread where the plugin is located can throw an exception which is captured by the server. Except for the thread, all threads cannot throw exceptions and they must capture exceptions by themselves.
-   4. Please make sure LOCKFREE_SYMBASE has been added.
+   4. Please make sure that the appropriate compilation macros are defined. Refer to Section 5.1.2 for details.
 * If an undefined reference occurs when compiling the plugin and the error message contains std::__cxx11, please check the g++ version and `_GLIBCXX_USE_CXX11_ABI option`.
 * Select a compatible g++ version based on the DolphinDB feature and version. See the compiler version requirements table for details.
 * If undefined references occur when loading the plugin, try linking libDolphinDB.so during compilation. Then use the ld command to check for undefined symbol. If ld also reports errors, the plugin cannot be correctly loaded by DolphinDB.
