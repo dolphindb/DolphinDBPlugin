@@ -9,6 +9,7 @@
 #include <open62541/plugin/securitypolicy_default.h>
 #include <open62541/types.h>
 #include <open62541/types_generated_handling.h>
+#include "ddbplugin/PluginLogger.h"
 
 #include "CoreConcept.h"
 #include "Logger.h"
@@ -73,7 +74,7 @@ class OPCUASub {
                 stopThread();
             }
         } catch (std::exception &e) {
-            LOG_ERR(OPCUA_PREFIX, "destruction of OPCUASub failed due to ", e.what());
+            PLUGIN_LOG_ERR(OPCUA_PREFIX, "destruction of OPCUASub failed due to ", e.what());
         }
     }
     void subs();

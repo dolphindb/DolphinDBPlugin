@@ -7,10 +7,10 @@
 
 extern "C" ConstantSP getOpcServerList(Heap* heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP connectOpcServer(Heap* heap, vector<ConstantSP>& arguments);
-extern "C" ConstantSP disconnect(const ConstantSP& handle, const ConstantSP& b );
-extern "C" ConstantSP readTag(Heap* heap, vector<ConstantSP>& arguments );
-extern "C" ConstantSP writeTag(Heap* heap, vector<ConstantSP>& arguments );
-extern "C" ConstantSP subscribeTag(Heap* heap, vector<ConstantSP>& arguments );
-extern "C" ConstantSP endSub(const ConstantSP& handle, const ConstantSP& b );
-extern "C" ConstantSP getSubscriberStat(const ConstantSP& handle, const ConstantSP& b );
+extern "C" ConstantSP disconnect(Heap* heap, vector<ConstantSP>& arguments );
+extern "C" ConstantSP readTag(Heap* heap, vector<ConstantSP>& arguments);
+extern "C" ConstantSP writeTag(Heap* heap, vector<ConstantSP>& arguments);
+extern "C" ConstantSP subscribeTag(Heap* heap, vector<ConstantSP>& arguments);
+extern "C" ConstantSP endSub(Heap* heap, vector<ConstantSP>& arguments);
+extern "C" ConstantSP getSubscriberStat(Heap* heap, vector<ConstantSP>& arguments);
 #endif /* DEMO_H_ */

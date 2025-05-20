@@ -144,7 +144,7 @@ ConstantSP gurobiAddVars(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP gurobiLinExpr(Heap *heap, vector<ConstantSP> &args) {
-    string usage = GUROBI_PREFIX + " linExpr(model, coefficient, varName): ";
+    string usage = GUROBI_PREFIX + " linExpr(model, coefficient, var): ";
     auto numVars = args[2]->size();
 
     /// args
@@ -154,7 +154,7 @@ ConstantSP gurobiLinExpr(Heap *heap, vector<ConstantSP> &args) {
     // coefficient
     auto coefficient = getNumVector(args[1], __FUNCTION__, usage, "coefficient", numVars);
     // varName
-    auto varName = getStringVector(args[2], __FUNCTION__, usage, "varName", numVars);
+    auto varName = getStringVector(args[2], __FUNCTION__, usage, "var", numVars);
 
     /// create linear expression
     GRBLinExpr expr = 0;
@@ -182,7 +182,7 @@ ConstantSP gurobiLinExpr(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP gurobiQuadExpr(Heap *heap, vector<ConstantSP> &args) {
-    string usage = GUROBI_PREFIX + " quadExpr(model, quadMatrix, varNames, [linExpr]): ";
+    string usage = GUROBI_PREFIX + " quadExpr(model, quadMatrix, var, [linExpr]): ";
     auto numVars = args[2]->size();
 
     /// args
@@ -192,7 +192,7 @@ ConstantSP gurobiQuadExpr(Heap *heap, vector<ConstantSP> &args) {
     // optimization: other forms or types - table, vector, etc.
     auto quadMatrix = getQuadMatrix(args[1], __FUNCTION__, usage, "quadMatrix", numVars);
     // varName
-    auto varName = getStringVector(args[2], __FUNCTION__, usage, "varName", numVars);
+    auto varName = getStringVector(args[2], __FUNCTION__, usage, "var", numVars);
     // linExpr
     SmartPointer<GRBLinExpr> linExpr;
     if (args.size() == 4) {

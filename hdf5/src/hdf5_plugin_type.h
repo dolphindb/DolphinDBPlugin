@@ -154,6 +154,7 @@ class SymbolColumn : public StringColumn {
   private:
     FlatHashmap<long long, string> enumMap_;
     FlatHashmap<long long, int> symbolMap_;
+    vector<string> dataVec_;
     int baseSize_;
 };
 

@@ -1,4 +1,4 @@
-mysql,libPluginMySQL.dll,2.00.15
+mysql,libPluginMySQL.dll,2.00.16
 mysqlConnect,connect,system,5,5,0,0,(host, port, user, password, db)
 mysqlClose,close,system,1,1,0,0,(conn)
 mysqlLoad,load,system,2,6,0,0,(conn, table|query, [schema], [startRow], [rowNum], [allowEmptyTable])

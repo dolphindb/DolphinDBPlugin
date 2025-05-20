@@ -1,5 +1,7 @@
 #include "parquet_plugin.h"
 #include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/Plugin.h"
+#include "SpecialConstant.h"
 
 ConstantSP extractParquetSchema(Heap *heap, vector<ConstantSP> &arguments)
 {
@@ -271,7 +273,7 @@ std::string getDafaultColumnType(parquet::Type::type physical_t)
     case parquet::Type::type::INT96:
         return "NANOTIMESTAMP";
     default:
-        throw RuntimeException("unsupported data type " + std::to_string(physical_t));
+        throw RuntimeException("unsupported parquet physical type " + std::to_string(physical_t));
     }
 }
 
@@ -323,20 +325,20 @@ std::string getLayoutColumnType(std::shared_ptr<const parquet::LogicalType> &log
     case parquet::LogicalType::Type::STRING:
     {
         if (physical_t != parquet::Type::BYTE_ARRAY)
-            throw RuntimeException("unsupported data type");
+            throw RuntimeException("unsupported logical type STRING when physical type is not BYTE_ARRAY");
         return "STRING";
     }
 
     case parquet::LogicalType::Type::ENUM:
     {
         if (physical_t != parquet::Type::BYTE_ARRAY)
-            throw RuntimeException("unsupported data type");
+            throw RuntimeException("unsupported logical type ENUM when physical type is not BYTE_ARRAY");
         return "SYMBOL";
     }
     case parquet::LogicalType::Type::DATE:
     {
         if (physical_t != parquet::Type::INT32)
-            throw RuntimeException("unsupported data type");
+            throw RuntimeException("unsupported logical type DATE when physical type is not INT32");
         return "DATE";
     }
     case parquet::LogicalType::Type::TIME:
@@ -352,7 +354,7 @@ std::string getLayoutColumnType(std::shared_ptr<const parquet::LogicalType> &log
     case parquet::LogicalType::Type::TIMESTAMP:{
         parquet::LogicalType::TimeUnit::unit timeUnit = (std::dynamic_pointer_cast<const parquet::TimestampLogicalType>(logical_t))->time_unit();
         if (physical_t != parquet::Type::INT64)
-            throw RuntimeException("unsupported data type");
+            throw RuntimeException("unsupported logical type TIMESTAMP when physical type is not INT64");
         if (timeUnit==parquet::LogicalType::TimeUnit::unit::UNKNOWN)
             throw RuntimeException("unknown TIMESTAMP precision");
         else if(timeUnit==parquet::LogicalType::TimeUnit::unit::MILLIS)
@@ -361,11 +363,32 @@ std::string getLayoutColumnType(std::shared_ptr<const parquet::LogicalType> &log
             return "NANOTIMESTAMP";
     }
     case parquet::LogicalType::Type::UUID:
-        throw RuntimeException("unsupported data type UUID");
+        throw RuntimeException("unsupported logical type UUID");
     case parquet::LogicalType::Type::DECIMAL:
         return "DOUBLE";
+    case parquet::LogicalType::Type::NIL:{
+        switch (physical_t){
+            case parquet::Type::type::BOOLEAN:
+                return "BOOL";
+            case parquet::Type::type::INT32:
+                return "INT";
+            case parquet::Type::type::INT64:
+            case parquet::Type::type::INT96:
+                return "LONG";
+            case parquet::Type::type::FLOAT:
+                return "FLOAT";
+            case parquet::Type::type::DOUBLE:
+                return "DOUBLE";
+            case parquet::Type::type::BYTE_ARRAY:
+                return "STRING";
+            case parquet::Type::type::FIXED_LEN_BYTE_ARRAY:
+                return "STRING";
+            default:
+                throw RuntimeException("unsupported logical type NIL when physical type is " + std::to_string(physical_t));
+        }
+    }
     default:
-        throw RuntimeException("unsupported data type " + std::to_string(logi_t));
+        throw RuntimeException("unsupported logical type " + std::to_string(logi_t));
     }
     return "";
 }
@@ -407,7 +430,7 @@ std::string getLayoutColumnType(parquet::ConvertedType::type converted_t, parque
     case parquet::ConvertedType::type::UTF8:
         return "STRING";
     default:
-        throw RuntimeException("unsupported data type " + std::to_string(converted_t));
+        throw RuntimeException("unsupported parquet converted type " + std::to_string(converted_t));
     }
     return "";
 }
@@ -430,8 +453,8 @@ bool getSchemaCol(const parquet::SchemaDescriptor *schema_descr, const ConstantS
     for (int i = 0; i < col_num; i++)
     {
         const parquet::ColumnDescriptor *col = schema_descr->Column(col_idx->getInt(i));
-        if (!col || col->max_repetition_level() != 0)
-            throw RuntimeException("not support parquet repeated field yet.");
+        if (!col)
+            throw RuntimeException("columnsToLoad index out of range");
         string path = col->path()->ToDotString();
         string name = path;
         auto lt = col->converted_type();
@@ -439,9 +462,11 @@ bool getSchemaCol(const parquet::SchemaDescriptor *schema_descr, const ConstantS
         auto lp = col->physical_type();
         string type;
         type = (la && la->is_valid()) ? getLayoutColumnType(la, lp, col->sort_order()) : getLayoutColumnType(lt, lp, col->sort_order());
+        if (col->max_repetition_level() != 0){
+            type = type + "[]";
+        }
         ConstantSP col_name = new String(name);
         ConstantSP col_type = new String(type);
-
         dolpindbCol[0]->set(i, col_name);
         dolpindbCol[1]->set(i, col_type);
     }
@@ -477,10 +502,14 @@ void createNewVectorSP(vector<ConstantSP> &dolpindb_v, const TableSP &tb, int to
         throw RuntimeException("the size of column schema not match");
     for (int i = 0; i < col_num; i++)
     {
-        if(tb->getColumnType(i) == DT_SYMBOL)
+        DATA_TYPE dt = tb->getColumnType(i);
+        if(dt >= 64){
+            dt = static_cast<DATA_TYPE>(dt - 64);
+        }
+        if(dt == DT_SYMBOL)
             dolpindb_v[i] = Util::createVector(DT_STRING, totalRows);
         else
-            dolpindb_v[i] = Util::createVector(tb->getColumnType(i), totalRows);
+            dolpindb_v[i] = Util::createVector(dt, totalRows);
     }
 }
 
@@ -909,7 +938,140 @@ parquetTime convertParquetTimes(const std::shared_ptr<const parquet::LogicalType
     return parquetTime::None;
 }
 
-int convertParquetToDolphindbChar(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, char* buffer, size_t batchSize, bool& containNull)
+template <typename ReaderType, typename StoreType>
+int64_t ReadBatchFunc(ReaderType* reader, size_t batchSize, short* def_level, short* rep_level, StoreType* value, int64_t& values_read){
+    return reader->ReadBatch(batchSize, def_level, rep_level, value, &values_read);
+}
+template<typename ValueType, typename StoreType>
+struct ValueGetter {
+    inline static ValueType getValue(StoreType& value, int scale) {
+        return static_cast<ValueType>(value) / scale;
+    }
+    inline static ValueType getValueNoScale(StoreType& value) {
+        return value;
+    }
+};
+
+template<typename ValueType>
+struct ValueGetter<ValueType, parquet::Int96> {
+    inline static ValueType getValue(parquet::Int96& value, int scale) {
+        int128 v = value.value[2] + (int128(value.value[1]) << 32) + (int128(value.value[0]) << 64);
+        return v / scale;
+    }
+    inline static ValueType getValueNoScale(parquet::Int96& value) {
+        int128 v = value.value[2] + (int128(value.value[1]) << 32) + (int128(value.value[0]) << 64);
+        return v;
+    }
+};
+
+template<typename StoreType>
+struct ValueGetter<std::string, StoreType> {
+    inline static std::string getValue(StoreType& value, int scale) {
+        return std::to_string(value / scale);
+    }
+    inline static std::string getValueNoScale(StoreType& value) {
+        return std::to_string(value);
+    }
+};
+
+template<typename ValueType, typename StoreType, typename DDBStoreType>
+struct SetVectorData{
+    inline static void set(DDBStoreType* buffer, int len, StoreType* value, int scale, vector<short>& def_level, bool containNull, const parquet::ColumnDescriptor *col_descr){
+        int index = 0;
+        if(scale != 1){
+            for(int i = 0; i < len; ++i){
+                if (def_level[i] >= col_descr->max_definition_level())
+                {
+                    buffer[i] = ValueGetter<ValueType, StoreType>::getValue(value[index++], scale);
+                }
+                else
+                {
+                    buffer[i] = dolphindb::getNullValue<DDBStoreType>();
+                }
+            }
+        }else{
+            for(int i = 0; i < len; ++i){
+                if (def_level[i] >= col_descr->max_definition_level())
+                {
+                    buffer[i] = ValueGetter<ValueType, StoreType>::getValueNoScale(value[index++]);
+                }
+                else
+                {
+                    buffer[i] = dolphindb::getNullValue<DDBStoreType>();
+                }
+            }
+        }
+    }
+};
+
+template<typename ValueType, typename DDBStoreType>
+struct SetVectorData<ValueType, ValueType, DDBStoreType>{
+    inline static void set(DDBStoreType* buffer, int len, ValueType* value, int scale, vector<short>& def_level, bool containNull, const parquet::ColumnDescriptor *col_descr){
+        if(scale != 1){
+            for(int i = 0; i < len; i++){
+                value[i] = value[i] / scale;
+            }
+        }
+        if(!containNull){
+            memcpy(buffer, value, len * sizeof(ValueType));
+        }else{
+            int index = 0;
+            for(int i = 0; i < len; i++){
+                if (def_level[i] >= col_descr->max_definition_level())
+                {
+                    buffer[i] = value[index++];
+                }
+                else
+                {
+                    buffer[i] = dolphindb::getNullValue<DDBStoreType>();
+                }
+            }
+        }
+    }
+};
+
+void getIndex(vector<short> rep_level, int readCount, IndexArgs& indexArgs){
+    if(indexArgs.isArray_){
+        for(int i = 0; i < readCount; ++i){
+            if(rep_level[i] == 0 && !(indexArgs.index_.size() == 0 && indexArgs.cumSum_ == 0)){
+                indexArgs.lastIndex_ += indexArgs.cumSum_;
+                indexArgs.index_.push_back(indexArgs.lastIndex_);
+                indexArgs.cumSum_ = 1;
+            }else{
+                indexArgs.cumSum_++;
+            }
+        }
+    }
+}
+
+template<typename StoreType, typename DDBStoreType, typename ValueType = DDBStoreType, typename ReaderType>
+int convertParquetToDolphindbInternal(int col_idx, ReaderType* column_reader, const parquet::ColumnDescriptor *col_descr, DDBStoreType* buffer, size_t batchSize, bool& containNull, IndexArgs& indexArgs)
+{
+    int64_t values_read = 0;
+    vector<short> def_level(batchSize);
+    vector<short> rep_level(batchSize);
+    int64_t rows_read = 0;
+    StoreType* value = new StoreType[batchSize];
+    dolphindb::PluginDefer defer([&](){delete[] value;});
+    while(column_reader->HasNext() && rows_read < (int64_t)batchSize){
+        int64_t valuesRead = 0;
+        rows_read += ReadBatchFunc(column_reader, batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, value + values_read, valuesRead);
+        values_read += valuesRead;
+    }
+    int scale = 1;
+    if(col_descr->logical_type()->is_decimal() || col_descr->converted_type()==parquet::ConvertedType::DECIMAL)
+    {
+        scale=std::pow(10, col_descr->type_scale());
+        if (!scale)
+            throw RuntimeException("Dividend scale can't be zero.");
+    }
+    containNull = containNull | (rows_read != values_read);
+    SetVectorData<ValueType, StoreType, DDBStoreType>::set(buffer, rows_read, value, scale, def_level, containNull, col_descr);
+    getIndex(rep_level, rows_read, indexArgs);
+    return rows_read;
+}
+
+int convertParquetToDolphindbChar(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, char* buffer, size_t batchSize, bool& containNull, IndexArgs& indexArgs)
 {
     int64_t values_read = 0;
     vector<short> def_level(batchSize);
@@ -919,115 +1081,19 @@ int convertParquetToDolphindbChar(int col_idx, std::shared_ptr<parquet::ColumnRe
     {
     case parquet::Type::BOOLEAN:
     {
-        parquet::BoolReader *bool_reader = static_cast<parquet::BoolReader *>(column_reader.get());
-		if (!bool_reader)
-			throw RuntimeException("bool_reader can't be null");
-        vector<char> bool_value(batchSize);
-        while(bool_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += bool_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (bool*)bool_value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        if (rows_read == values_read && rows_read != 0)
-        {
-            memcpy(buffer, bool_value.data(), rows_read * sizeof(char));
-        }
-        else if (rows_read != 0)
-        {
-            int index = 0;
-            for (int64_t le = 0; le < rows_read; le++)
-            {
-                if (def_level[le] >= col_descr->max_definition_level())
-                {
-                    buffer[le] = bool_value[index++];
-                }
-                else
-                {
-                    buffer[le] = CHAR_MIN;
-                }
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<bool>(col_idx, static_cast<parquet::BoolReader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::INT32:
     {
-        parquet::Int32Reader *int32_reader = static_cast<parquet::Int32Reader *>(column_reader.get());
-		if (!int32_reader)
-			throw RuntimeException("int32_reader can't be null");
-        // Read all the rows in the column
-        vector<int32_t> value(batchSize);
-        while(int32_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += int32_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int32_t*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = value[index++];
-            }
-            else
-            {
-                buffer[le] = CHAR_MIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<int>(col_idx, static_cast<parquet::Int32Reader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::INT64:
     {
-        parquet::Int64Reader *int64_reader = static_cast<parquet::Int64Reader *>(column_reader.get());
-		if (!int64_reader)
-			throw RuntimeException("int64_reader can't be null");
-        vector<int64_t> value(batchSize);
-        while(int64_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += int64_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int64_t*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = value[index++];
-            }
-            else
-            {
-                buffer[le] = CHAR_MIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<int64_t>(col_idx, static_cast<parquet::Int64Reader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::INT96:
     {
-        parquet::Int96Reader *int96_reader = static_cast<parquet::Int96Reader *>(column_reader.get());
-		if (!int96_reader)
-			throw RuntimeException("int96_reader can't be null");
-        vector<parquet::Int96> value(batchSize);
-        while(int96_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += int96_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::Int96*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = value[index++].value[2];
-            }
-            else
-            {
-                buffer[le] = CHAR_MIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<parquet::Int96>(col_idx, static_cast<parquet::Int96Reader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::DOUBLE:
         throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:DOUBLE" + "->" + Util::getDataTypeString(DT_CHAR));
@@ -1060,6 +1126,7 @@ int convertParquetToDolphindbChar(int col_idx, std::shared_ptr<parquet::ColumnRe
                 }
             }
         }
+        getIndex(rep_level, rows_read, indexArgs);
         return rows_read;
     }
     case parquet::Type::BYTE_ARRAY:
@@ -1089,6 +1156,7 @@ int convertParquetToDolphindbChar(int col_idx, std::shared_ptr<parquet::ColumnRe
                 }
             }
         }
+        getIndex(rep_level, rows_read, indexArgs);
         return rows_read;
     }
     default:
@@ -1097,170 +1165,35 @@ int convertParquetToDolphindbChar(int col_idx, std::shared_ptr<parquet::ColumnRe
     return 0;
 }
 
-int convertParquetToDolphindbBool(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, char* buffer, size_t batchSize, bool& containNull)
+int convertParquetToDolphindbBool(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, char* buffer, size_t batchSize, bool& containNull, IndexArgs& indexArgs)
 {
-    int64_t values_read = 0;
-    vector<short> def_level(batchSize);
-    vector<short> rep_level(batchSize);
-    int64_t rows_read = 0;
 	if (!col_descr)
 		throw RuntimeException("col_descr can't be null");
     switch (col_descr->physical_type())
     {
     case parquet::Type::BOOLEAN:
     {
-        parquet::BoolReader *bool_reader = static_cast<parquet::BoolReader *>(column_reader.get());
-		if (!bool_reader)
-			throw RuntimeException("bool_reader can't be null");
-        vector<char> bool_value(batchSize);
-        while(bool_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += bool_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (bool*)bool_value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        if (rows_read == values_read && rows_read != 0)
-        {
-            memcpy(buffer, bool_value.data(), rows_read * sizeof(char));
-        }
-        else if (rows_read != 0)
-        {
-            int index = 0;
-            for (int64_t le = 0; le < rows_read; le++)
-            {
-                if (def_level[le] >= col_descr->max_definition_level())
-                {
-                    buffer[le] = bool_value[index++];
-                }
-                else
-                {
-                    buffer[le] = CHAR_MIN;
-                }
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<bool, char, bool>(col_idx, static_cast<parquet::BoolReader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::INT32:
     {
-        parquet::Int32Reader *int32_reader = static_cast<parquet::Int32Reader *>(column_reader.get());
-        // Read all the rows in the column
-        vector<int32_t> value(batchSize);
-        while(int32_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += int32_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int32_t*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = (value[index++] != 0);
-            }
-            else
-            {
-                buffer[le] = CHAR_MIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<int, char, bool>(col_idx, static_cast<parquet::Int32Reader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::INT64:
     {
-        parquet::Int64Reader *int64_reader = static_cast<parquet::Int64Reader *>(column_reader.get());
-        vector<int64_t> value(batchSize);
-        while(int64_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += int64_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int64_t*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = (value[index++] != 0);
-            }
-            else
-            {
-                buffer[le] = CHAR_MIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<int64_t, char, bool>(col_idx, static_cast<parquet::Int64Reader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::INT96:
     {
-        parquet::Int96Reader *int96_reader = static_cast<parquet::Int96Reader *>(column_reader.get());
-        vector<parquet::Int96> value(batchSize);
-        while(int96_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += int96_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::Int96*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = (value[index].value[0] != 0 && value[index].value[1] && value[index].value[2]);
-                index ++;
-            }
-            else
-            {
-                buffer[le] = CHAR_MIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<parquet::Int96, char, bool>(col_idx, static_cast<parquet::Int96Reader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::DOUBLE:
     {
-        parquet::DoubleReader *double_reader = static_cast<parquet::DoubleReader *>(column_reader.get());
-        vector<double> value(batchSize);
-        while(double_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += double_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (double*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = (value[index++] != 0);
-            }
-            else
-            {
-                buffer[le] = CHAR_MIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<double, char, bool>(col_idx, static_cast<parquet::DoubleReader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::FLOAT:
     {
-        parquet::FloatReader *float_reader = static_cast<parquet::FloatReader *>(column_reader.get());
-        vector<float> value(batchSize);
-        while(float_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += float_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (float*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = (value[index++] != 0);
-            }
-            else
-            {
-                buffer[le] = CHAR_MIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<float, char, bool>(col_idx, static_cast<parquet::FloatReader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::FIXED_LEN_BYTE_ARRAY:
         throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FIXED_LEN_BYTE_ARRAY" + "->" + Util::getDataTypeString(DT_BOOL));
@@ -1273,7 +1206,7 @@ int convertParquetToDolphindbBool(int col_idx, std::shared_ptr<parquet::ColumnRe
     return 0;
 }
 
-int convertParquetToDolphindbInt(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, int* buffer, DATA_TYPE times_t, size_t batchSize, bool& containNull)
+int convertParquetToDolphindbInt(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, int* buffer, DATA_TYPE times_t, size_t batchSize, bool& containNull, IndexArgs& indexArgs)
 {
     int64_t values_read = 0;
     vector<short> def_level(batchSize);
@@ -1287,29 +1220,7 @@ int convertParquetToDolphindbInt(int col_idx, std::shared_ptr<parquet::ColumnRea
     {
         if (times_t != DT_INT)
             throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:BOOLEAN" + "->" + Util::getDataTypeString(times_t));
-        parquet::BoolReader *bool_reader = static_cast<parquet::BoolReader *>(column_reader.get());
-		if (!bool_reader)
-			throw RuntimeException("bool_reader can't be null");
-        vector<char> value(batchSize);
-        while(bool_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += bool_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (bool*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = value[index++];
-            }
-            else
-            {
-                buffer[le] = INT_MIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<bool>(col_idx, (parquet::BoolReader *)(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::INT32:
     {
@@ -1323,6 +1234,7 @@ int convertParquetToDolphindbInt(int col_idx, std::shared_ptr<parquet::ColumnRea
             rows_read += int32_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int32_t*)value.data() + values_read, &valuesRead);
             values_read += valuesRead;
         }
+        getIndex(rep_level, rows_read, indexArgs);
         containNull = rows_read != values_read;
         if(col_descr->logical_type()->is_decimal() || col_descr->converted_type()==parquet::ConvertedType::DECIMAL)
         {
@@ -1374,6 +1286,7 @@ int convertParquetToDolphindbInt(int col_idx, std::shared_ptr<parquet::ColumnRea
                 }
                 else
                 {
+                    containNull = true;
                     buffer[le] = INT_MIN;
                 }
             }
@@ -1391,6 +1304,7 @@ int convertParquetToDolphindbInt(int col_idx, std::shared_ptr<parquet::ColumnRea
             rows_read += int64_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int64_t*)value.data() + values_read, &valuesRead);
             values_read += valuesRead;
         }
+        getIndex(rep_level, rows_read, indexArgs);
         containNull = rows_read != values_read;
         if(col_descr->logical_type()->is_decimal() || col_descr->converted_type()==parquet::ConvertedType::DECIMAL)
         {
@@ -1438,6 +1352,7 @@ int convertParquetToDolphindbInt(int col_idx, std::shared_ptr<parquet::ColumnRea
             }
             else
             {
+                containNull = true;
                 buffer[le] = INT_MIN;
             }
         }
@@ -1455,6 +1370,7 @@ int convertParquetToDolphindbInt(int col_idx, std::shared_ptr<parquet::ColumnRea
             rows_read += int96_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::Int96*)value.data() + values_read, &valuesRead);
             values_read += valuesRead;
         }
+        getIndex(rep_level, rows_read, indexArgs);
         containNull = rows_read != values_read;
         if(times_t == DT_INT){
             int index = 0;
@@ -1466,6 +1382,7 @@ int convertParquetToDolphindbInt(int col_idx, std::shared_ptr<parquet::ColumnRea
                 }
                 else
                 {
+                    containNull = true;
                     buffer[le] = INT_MIN;
                 }
             }
@@ -1507,6 +1424,7 @@ int convertParquetToDolphindbInt(int col_idx, std::shared_ptr<parquet::ColumnRea
                 }
                 else
                 {
+                    containNull = true;
                     buffer[le] = INT_MIN;
                 }
             }
@@ -1517,57 +1435,13 @@ int convertParquetToDolphindbInt(int col_idx, std::shared_ptr<parquet::ColumnRea
     {
         if (times_t != DT_INT)
             throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:DOUBLE" + "->" + Util::getDataTypeString(times_t));
-        parquet::DoubleReader *double_reader = static_cast<parquet::DoubleReader *>(column_reader.get());
-		if (!double_reader)
-			throw RuntimeException("double_reader can't be null");
-        vector<double> value(batchSize);
-        while(double_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += double_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (double*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = value[index++];
-            }
-            else
-            {
-                buffer[le] = INT_MIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<double>(col_idx, static_cast<parquet::DoubleReader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::FLOAT:
     {
         if (times_t != DT_INT)
             throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FLOAT" + "->" + Util::getDataTypeString(times_t));
-        parquet::FloatReader *float_reader = static_cast<parquet::FloatReader *>(column_reader.get());
-		if (!float_reader)
-			throw RuntimeException("float_reader can't be null");
-        vector<float> value(batchSize);
-        while(float_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += float_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (float*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = value[index++];
-            }
-            else
-            {
-                buffer[le] = INT_MIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<float>(col_idx, static_cast<parquet::FloatReader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::FIXED_LEN_BYTE_ARRAY:
         throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FIXED_LEN_BYTE_ARRAY" + "->" + Util::getDataTypeString(DT_INT));
@@ -1580,41 +1454,17 @@ int convertParquetToDolphindbInt(int col_idx, std::shared_ptr<parquet::ColumnRea
     return 0;
 }
 
-int convertParquetToDolphindbShort(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, short* buffer, size_t batchSize, bool& containNull)
+int convertParquetToDolphindbShort(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, short* buffer, size_t batchSize, bool& containNull, IndexArgs& indexArgs)
 {
-    int64_t values_read = 0;
     vector<short> def_level(batchSize);
     vector<short> rep_level(batchSize);
-    int64_t rows_read = 0;
 	if (!col_descr)
 		throw RuntimeException("col_descr can't be null");
     switch (col_descr->physical_type())
     {
     case parquet::Type::BOOLEAN:
     {
-        parquet::BoolReader *bool_reader = static_cast<parquet::BoolReader *>(column_reader.get());
-		if (!bool_reader)
-			throw RuntimeException("bool_reader can't be null");
-        vector<char> value(batchSize);
-        while(bool_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += bool_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (bool*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = value[index++];
-            }
-            else
-            {
-                buffer[le] = SHRT_MIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<bool>(col_idx, static_cast<parquet::BoolReader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::INT32:
     {
@@ -1627,7 +1477,7 @@ int convertParquetToDolphindbShort(int col_idx, std::shared_ptr<parquet::ColumnR
             case parquet::LogicalType::Type::TIME:
                 break;
             default:
-                throw RuntimeException("unsupported data type");
+                throw RuntimeException("uncompatible type in column " + std::to_string(col_idx)  + " Parquet:" + col_descr->logical_type()->ToString() + "->" + Util::getDataTypeString(DT_SHORT));
             }
         }
         if (col_descr->converted_type() && col_descr->converted_type() != parquet::ConvertedType::type::NONE)
@@ -1643,33 +1493,10 @@ int convertParquetToDolphindbShort(int col_idx, std::shared_ptr<parquet::ColumnR
             case parquet::ConvertedType::UINT_32:
                 break;
             default:
-                throw RuntimeException("unsupported data type");
+                throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " Parquet:" + std::to_string(col_descr->converted_type()) + "->" + Util::getDataTypeString(DT_SHORT));
             }
         }
-        parquet::Int32Reader *int32_reader = static_cast<parquet::Int32Reader *>(column_reader.get());
-        if (!int32_reader)
-			throw RuntimeException("int32_reader can't be null");
-        // Read all the rows in the column
-        vector<int32_t> value(batchSize);
-        while(int32_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += int32_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int32_t*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = value[index++];
-            }
-            else
-            {
-                buffer[le] = SHRT_MIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<int>(col_idx, static_cast<parquet::Int32Reader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::INT64:
     {
@@ -1682,7 +1509,7 @@ int convertParquetToDolphindbShort(int col_idx, std::shared_ptr<parquet::ColumnR
             case parquet::LogicalType::Type::TIME:
                 break;
             default:
-                throw RuntimeException("unsupported data type");
+                throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " Parquet:" + col_descr->logical_type()->ToString() + "->" + Util::getDataTypeString(DT_SHORT));
             }
         }
         if (col_descr->converted_type() && col_descr->converted_type() != parquet::ConvertedType::type::NONE)
@@ -1696,110 +1523,22 @@ int convertParquetToDolphindbShort(int col_idx, std::shared_ptr<parquet::ColumnR
             case parquet::ConvertedType::UINT_64:
                 break;
             default:
-                throw RuntimeException("unsupported data type");
+                throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " Parquet:" + std::to_string(col_descr->converted_type()) + "->" + Util::getDataTypeString(DT_SHORT));
             }
         }
-        parquet::Int64Reader *int64_reader = static_cast<parquet::Int64Reader *>(column_reader.get());
-		if (!int64_reader)
-			throw RuntimeException("int64_reader can't be null");
-        vector<int64_t> value(batchSize);
-        while(int64_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += int64_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int64_t*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = value[index++];
-            }
-            else
-            {
-                buffer[le] = SHRT_MIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<int64_t>(col_idx, static_cast<parquet::Int64Reader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::INT96:
     {
-        parquet::Int96Reader *int96_reader = static_cast<parquet::Int96Reader *>(column_reader.get());
-		if (!int96_reader)
-			throw RuntimeException("int96_reader can't be null");
-        vector<parquet::Int96> value(batchSize);
-        while(int96_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += int96_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::Int96*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = value[index++].value[2];
-            }
-            else
-            {
-                buffer[le] = SHRT_MIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<parquet::Int96>(col_idx, static_cast<parquet::Int96Reader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::DOUBLE:
     {
-        parquet::DoubleReader *double_reader = static_cast<parquet::DoubleReader *>(column_reader.get());
-		if (!double_reader)
-			throw RuntimeException("double_reader can't be null");
-        vector<double> value(batchSize);
-        while(double_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += double_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (double*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = value[index++];
-            }
-            else
-            {
-                buffer[le] = SHRT_MIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<double>(col_idx, static_cast<parquet::DoubleReader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::FLOAT:
     {
-        parquet::FloatReader *float_reader = static_cast<parquet::FloatReader *>(column_reader.get());
-		if (!float_reader)
-			throw RuntimeException("float_reader can't be null");
-        vector<float> value(batchSize);
-        while(float_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += float_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (float*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = value[index++];
-            }
-            else
-            {
-                buffer[le] = SHRT_MIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<float>(col_idx, static_cast<parquet::FloatReader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::FIXED_LEN_BYTE_ARRAY:
         throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:INT32" + "->" + Util::getDataTypeString(DT_SHORT));
@@ -1812,7 +1551,7 @@ int convertParquetToDolphindbShort(int col_idx, std::shared_ptr<parquet::ColumnR
     return 0;
 }
 
-int convertParquetToDolphindbLong(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, long long* buffer, DATA_TYPE times_t, size_t batchSize, bool& containNull)
+int convertParquetToDolphindbLong(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, long long* buffer, DATA_TYPE times_t, size_t batchSize, bool& containNull, IndexArgs& indexArgs)
 {
     int64_t values_read = 0;
     vector<short> def_level(batchSize);
@@ -1824,29 +1563,7 @@ int convertParquetToDolphindbLong(int col_idx, std::shared_ptr<parquet::ColumnRe
     {
     case parquet::Type::BOOLEAN:
     {
-        parquet::BoolReader *bool_reader = static_cast<parquet::BoolReader *>(column_reader.get());
-		if (!bool_reader)
-			throw RuntimeException("bool_reader can't be null");
-        vector<char> value(batchSize);
-        while(bool_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += bool_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (bool*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = value[index++];
-            }
-            else
-            {
-                buffer[le] = LLONG_MIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<bool>(col_idx, static_cast<parquet::BoolReader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::INT32:
     {
@@ -1861,6 +1578,7 @@ int convertParquetToDolphindbLong(int col_idx, std::shared_ptr<parquet::ColumnRe
             rows_read += int32_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int32_t*)value.data() + values_read, &valuesRead);
             values_read += valuesRead;
         }
+        getIndex(rep_level, rows_read, indexArgs);
         containNull = rows_read != values_read;
         if(col_descr->logical_type()->is_decimal() || col_descr->converted_type()==parquet::ConvertedType::DECIMAL)
         {
@@ -1897,6 +1615,7 @@ int convertParquetToDolphindbLong(int col_idx, std::shared_ptr<parquet::ColumnRe
                 }
                 else
                 {
+                    containNull = true;
                     buffer[le] = LLONG_MIN;
                 }
             }
@@ -1911,6 +1630,7 @@ int convertParquetToDolphindbLong(int col_idx, std::shared_ptr<parquet::ColumnRe
             }
             else
             {
+                containNull = true;
                 buffer[le] = LLONG_MIN;
             }
         }
@@ -1928,6 +1648,7 @@ int convertParquetToDolphindbLong(int col_idx, std::shared_ptr<parquet::ColumnRe
             rows_read += int64_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int64_t*)value.data() + values_read, &valuesRead);
             values_read += valuesRead;
         }
+        getIndex(rep_level, rows_read, indexArgs);
         containNull = rows_read != values_read;
         if(col_descr->logical_type()->is_decimal() || col_descr->converted_type()==parquet::ConvertedType::DECIMAL)
         {
@@ -1961,8 +1682,10 @@ int convertParquetToDolphindbLong(int col_idx, std::shared_ptr<parquet::ColumnRe
         if(col_descr->sort_order() == parquet::SortOrder::UNSIGNED)
         {
             for (size_t i = 0; i < value.size(); i++)
-                if(value[i] < 0)
+                if(value[i] < 0){
                     value[i] = LLONG_MIN;
+                    containNull = true;
+                }
         }
         if (rows_read == values_read && rows_read != 0)
         {
@@ -1977,6 +1700,7 @@ int convertParquetToDolphindbLong(int col_idx, std::shared_ptr<parquet::ColumnRe
                 }
                 else
                 {
+                    containNull = true;
                     buffer[le] = LLONG_MIN;
                 }
             }
@@ -1995,6 +1719,7 @@ int convertParquetToDolphindbLong(int col_idx, std::shared_ptr<parquet::ColumnRe
             rows_read += int96_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::Int96*)value.data() + values_read, &valuesRead);
             values_read += valuesRead;
         }
+        getIndex(rep_level, rows_read, indexArgs);
         containNull = rows_read != values_read;
         if(times_t == DT_LONG){
             int index = 0;
@@ -2009,6 +1734,7 @@ int convertParquetToDolphindbLong(int col_idx, std::shared_ptr<parquet::ColumnRe
                 }
                 else
                 {
+                    containNull = true;
                     buffer[le] = LLONG_MIN;
                 }
             }
@@ -2042,6 +1768,7 @@ int convertParquetToDolphindbLong(int col_idx, std::shared_ptr<parquet::ColumnRe
                 }
                 else
                 {
+                    containNull = true;
                     buffer[le] = LLONG_MIN;
                 }
             }
@@ -2052,57 +1779,13 @@ int convertParquetToDolphindbLong(int col_idx, std::shared_ptr<parquet::ColumnRe
     {
         if (times_t != DT_LONG)
             throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:DOUBLE" + "->" + Util::getDataTypeString(times_t));
-        parquet::DoubleReader *double_reader = static_cast<parquet::DoubleReader *>(column_reader.get());
-		if (!double_reader)
-			throw RuntimeException("double_reader can't be null");
-        vector<double> value(batchSize);
-        while(double_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += double_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (double*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = value[index++];
-            }
-            else
-            {
-                buffer[le] = LLONG_MIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<double>(col_idx, static_cast<parquet::DoubleReader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::FLOAT:
     {
         if (times_t != DT_LONG)
             throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FLOAT" + "->" + Util::getDataTypeString(times_t));
-        parquet::FloatReader *float_reader = static_cast<parquet::FloatReader *>(column_reader.get());
-		if (!float_reader)
-			throw RuntimeException("float_reader can't be null");
-        vector<float> value(batchSize);
-        while(float_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += float_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (float*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = value[index++];
-            }
-            else
-            {
-                buffer[le] = LLONG_MIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<float>(col_idx, static_cast<parquet::FloatReader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::FIXED_LEN_BYTE_ARRAY:
         throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FIXED_LEN_BYTE_ARRAY" + "->" + Util::getDataTypeString(DT_LONG));
@@ -2115,9 +1798,8 @@ int convertParquetToDolphindbLong(int col_idx, std::shared_ptr<parquet::ColumnRe
     return 0;
 }
 
-int convertParquetToDolphindbFloat(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, float* buffer, size_t batchSize, bool& containNull)
+int convertParquetToDolphindbFloat(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, float* buffer, size_t batchSize, bool& containNull, IndexArgs& indexArgs)
 {
-    int64_t values_read = 0;
     vector<short> def_level(batchSize);
     vector<short> rep_level(batchSize);
     int64_t rows_read = 0;
@@ -2127,202 +1809,27 @@ int convertParquetToDolphindbFloat(int col_idx, std::shared_ptr<parquet::ColumnR
     {
     case parquet::Type::BOOLEAN:
     {
-        parquet::BoolReader *bool_reader = static_cast<parquet::BoolReader *>(column_reader.get());
-		if (!bool_reader)
-			throw RuntimeException("bool_reader can't be null");
-        vector<char> value(batchSize);
-        while(bool_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += bool_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (bool*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = value[index++];
-            }
-            else
-            {
-                buffer[le] = FLT_NMIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<bool>(col_idx, static_cast<parquet::BoolReader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::INT32:
     {
-        parquet::Int32Reader *int32_reader = static_cast<parquet::Int32Reader *>(column_reader.get());
-		if (!int32_reader)
-			throw RuntimeException("int32_reader can't be null");
-        // Read all the rows in the column
-        bool Decimal=isDecimal(col_descr);
-        int scale=std::pow(10, col_descr->type_scale());
-        vector<int32_t> value(batchSize);
-        while(int32_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += int32_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int32_t*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        if(Decimal){
-            for (int64_t le = 0; le < rows_read; le++)
-            {
-                if (def_level[le] >= col_descr->max_definition_level())
-                {
-                    buffer[le] = ((double)value[index++])/scale;
-                }
-                else
-                {
-                    buffer[le] = FLT_NMIN;
-                }
-            }
-
-        }else{
-            for (int64_t le = 0; le < rows_read; le++)
-            {
-                if (def_level[le] >= col_descr->max_definition_level())
-                {
-                    buffer[le] = value[index++];
-                }
-                else
-                {
-                    buffer[le] = FLT_NMIN;
-                }
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<int>(col_idx, static_cast<parquet::Int32Reader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::INT64:
     {
-        long long scale=std::pow(10, col_descr->type_scale());
-        bool Decimal=isDecimal(col_descr);
-        parquet::Int64Reader *int64_reader = static_cast<parquet::Int64Reader *>(column_reader.get());
-		if (!int64_reader)
-			throw RuntimeException("int64_reader can't be null");
-        vector<int64_t> value(batchSize);
-        while(int64_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += int64_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int64_t*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        if(Decimal){
-            for (int64_t le = 0; le < rows_read; le++)
-            {
-                if (def_level[le] >= col_descr->max_definition_level())
-                {
-                    buffer[le] = ((double)value[index++])/scale;
-                }
-                else
-                {
-                    buffer[le] = FLT_NMIN;
-                }
-            }
-
-        }else{
-            for (int64_t le = 0; le < rows_read; le++)
-            {
-                if (def_level[le] >= col_descr->max_definition_level())
-                {
-                    buffer[le] = value[index++];
-                }
-                else
-                {
-                    buffer[le] = FLT_NMIN;
-                }
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<int64_t>(col_idx, static_cast<parquet::Int64Reader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::INT96:
     {
-        parquet::Int96Reader *int96_reader = static_cast<parquet::Int96Reader *>(column_reader.get());
-		if (!int96_reader)
-			throw RuntimeException("int96_reader can't be null");
-        vector<parquet::Int96> value(batchSize);
-        while(int96_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += int96_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::Int96*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                int64_t v = value[index].value[1];
-                v = v << 32;
-                v += value[index++].value[2];
-                buffer[le] = v;
-            }
-            else
-            {
-                buffer[le] = FLT_NMIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<parquet::Int96>(col_idx, static_cast<parquet::Int96Reader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::DOUBLE:
     {
-        parquet::DoubleReader *double_reader = static_cast<parquet::DoubleReader *>(column_reader.get());
-		if (!double_reader)
-			throw RuntimeException("double_reader can't be null");
-        vector<double> value(batchSize);
-        while(double_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += double_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (double*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = value[index++];
-            }
-            else
-            {
-                buffer[le] = FLT_NMIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<double>(col_idx, static_cast<parquet::DoubleReader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::FLOAT:
     {
-        parquet::FloatReader *float_reader = static_cast<parquet::FloatReader *>(column_reader.get());
-		if (!float_reader)
-			throw RuntimeException("float_reader can't be null");
-        vector<float> value(batchSize);
-        while(float_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += float_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (float*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        if(rows_read == values_read){
-            memcpy(buffer, value.data(), sizeof(float) * rows_read);
-        }
-        else{
-            for (int64_t le = 0; le < rows_read; le++)
-            {
-                if (def_level[le] >= col_descr->max_definition_level())
-                {
-                    buffer[le] = value[index++];
-                }
-                else
-                {
-                    buffer[le] = FLT_NMIN;
-                }
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<float>(col_idx, static_cast<parquet::FloatReader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::FIXED_LEN_BYTE_ARRAY:
     {
@@ -2349,9 +1856,11 @@ int convertParquetToDolphindbFloat(int col_idx, std::shared_ptr<parquet::ColumnR
                 else
                 {
                     buffer[le] = FLT_NMIN;
+                    containNull = true;
                 }
             }
         }
+        getIndex(rep_level, rows_read, indexArgs);
         return rows_read;
     }
     case parquet::Type::BYTE_ARRAY:
@@ -2363,9 +1872,8 @@ int convertParquetToDolphindbFloat(int col_idx, std::shared_ptr<parquet::ColumnR
     return 0;
 }
 
-int convertParquetToDolphindbDouble(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, double* buffer, size_t batchSize, bool& containNull)
+int convertParquetToDolphindbDouble(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, double* buffer, size_t batchSize, bool& containNull, IndexArgs& indexArgs)
 {
-    int64_t values_read = 0;
     vector<short> def_level(batchSize);
     vector<short> rep_level(batchSize);
     int64_t rows_read = 0;
@@ -2375,210 +1883,27 @@ int convertParquetToDolphindbDouble(int col_idx, std::shared_ptr<parquet::Column
     {
     case parquet::Type::BOOLEAN:
     {
-        parquet::BoolReader *bool_reader = static_cast<parquet::BoolReader *>(column_reader.get());
-		if (!bool_reader)
-			throw RuntimeException("bool_reader can't be null");
-        vector<char> value(batchSize);
-        while(bool_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += bool_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (bool*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = value[index++];
-            }
-            else
-            {
-                buffer[le] = DBL_NMIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<bool>(col_idx, static_cast<parquet::BoolReader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::INT32:
     {
-        parquet::Int32Reader *int32_reader = static_cast<parquet::Int32Reader *>(column_reader.get());
-		if (!int32_reader)
-			throw RuntimeException("int32_reader can't be null");
-        // Read all the rows in the column
-        bool Decimal=isDecimal(col_descr);
-        int scale=std::pow(10, col_descr->type_scale());
-        vector<int32_t> value(batchSize);
-        while(int32_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += int32_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int32_t*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        if(Decimal){
-            for (int64_t le = 0; le < rows_read; le++)
-            {
-                if (def_level[le] >= col_descr->max_definition_level())
-                {
-                    buffer[le] = ((double)value[index++])/scale;
-                }
-                else
-                {
-                    buffer[le] = DBL_NMIN;
-                }
-            }
-
-        }else{
-            for (int64_t le = 0; le < rows_read; le++)
-            {
-                if (def_level[le] >= col_descr->max_definition_level())
-                {
-                    buffer[le] = value[index++];
-                }
-                else
-                {
-                    buffer[le] = DBL_NMIN;
-                }
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<int>(col_idx, static_cast<parquet::Int32Reader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::INT64:
     {
-        long long scale=std::pow(10, col_descr->type_scale());
-        bool Decimal=isDecimal(col_descr);
-        parquet::Int64Reader *int64_reader = static_cast<parquet::Int64Reader *>(column_reader.get());
-		if (!int64_reader)
-			throw RuntimeException("int64_reader can't be null");
-        vector<int64_t> value(batchSize);
-        while(int64_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += int64_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int64_t*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        if(Decimal){
-            for (int64_t le = 0; le < rows_read; le++)
-            {
-                if (def_level[le] >= col_descr->max_definition_level())
-                {
-                    buffer[le] = ((double)value[index++])/scale;
-                }
-                else
-                {
-                    buffer[le] = DBL_NMIN;
-                }
-            }
-
-        }else{
-            for (int64_t le = 0; le < rows_read; le++)
-            {
-                if (def_level[le] >= col_descr->max_definition_level())
-                {
-                    buffer[le] = value[index++];
-                }
-                else
-                {
-                    buffer[le] = DBL_NMIN;
-                }
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<int64_t>(col_idx, static_cast<parquet::Int64Reader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::INT96:
     {
-        parquet::Int96Reader *int96_reader = static_cast<parquet::Int96Reader *>(column_reader.get());
-		if (!int96_reader)
-			throw RuntimeException("int96_reader can't be null");
-        vector<parquet::Int96> value(batchSize);
-        while(int96_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += int96_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::Int96*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                int64_t v = value[index].value[1];
-                v = v << 32;
-                v += value[index++].value[2];
-                buffer[le] = v;
-            }
-            else
-            {
-                buffer[le] = DBL_NMIN;
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<parquet::Int96>(col_idx, static_cast<parquet::Int96Reader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::DOUBLE:
     {
-        parquet::DoubleReader *double_reader = static_cast<parquet::DoubleReader *>(column_reader.get());
-		if (!double_reader)
-			throw RuntimeException("double_reader can't be null");
-        vector<double> value(batchSize);
-        while(double_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += double_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (double*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        if(rows_read == values_read){
-            memcpy(buffer, value.data(), sizeof(double) * rows_read);
-        }
-        else{
-            for (int64_t le = 0; le < rows_read; le++)
-            {
-                if (def_level[le] >= col_descr->max_definition_level())
-                {
-                    buffer[le] = value[index++];
-                }
-                else
-                {
-                    buffer[le] = DBL_NMIN;
-                }
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<double>(col_idx, static_cast<parquet::DoubleReader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::FLOAT:
     {
-        parquet::FloatReader *float_reader = static_cast<parquet::FloatReader *>(column_reader.get());
-		if (!float_reader)
-			throw RuntimeException("float_reader can't be null");
-        vector<float> value(batchSize);
-        while(float_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += float_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (float*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        if(rows_read == values_read){
-            for (int64_t le = 0; le < rows_read; le++)
-            {
-                buffer[le] = value[le];
-            }
-        }
-        else{
-            for (int64_t le = 0; le < rows_read; le++)
-            {
-                if (def_level[le] >= col_descr->max_definition_level())
-                {
-                    buffer[le] = value[index++];
-                }
-                else
-                {
-                    buffer[le] = FLT_NMIN;
-                }
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<float>(col_idx, static_cast<parquet::FloatReader *>(column_reader.get()), col_descr, buffer, batchSize, containNull, indexArgs);
     }
     case parquet::Type::FIXED_LEN_BYTE_ARRAY:
     {
@@ -2604,10 +1929,12 @@ int convertParquetToDolphindbDouble(int col_idx, std::shared_ptr<parquet::Column
                 }
                 else
                 {
+                    containNull = true;
                     buffer[le] = DBL_NMIN;
                 }
             }
         }
+        getIndex(rep_level, rows_read, indexArgs);
         return rows_read;
     }
     case parquet::Type::BYTE_ARRAY:
@@ -2619,7 +1946,7 @@ int convertParquetToDolphindbDouble(int col_idx, std::shared_ptr<parquet::Column
     return 0;
 }
 
-int convertParquetToDolphindbString(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, vector<string> &buffer, DATA_TYPE string_t, size_t batchSize, bool& containNull)
+int convertParquetToDolphindbString(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, vector<string> &buffer, DATA_TYPE string_t, size_t batchSize, bool& containNull, IndexArgs& indexArgs)
 {
     int64_t values_read = 0;
     vector<short> def_level(batchSize);
@@ -2627,91 +1954,36 @@ int convertParquetToDolphindbString(int col_idx, std::shared_ptr<parquet::Column
     int64_t rows_read = 0;
 	if (!col_descr)
 		throw RuntimeException("col_descr can't be null");
+    switch(col_descr->physical_type()){
+        case parquet::Type::BOOLEAN:
+        case parquet::Type::INT32:
+        case parquet::Type::INT64:
+        case parquet::Type::DOUBLE:
+        case parquet::Type::FLOAT:{
+            if(string_t == DT_UUID || string_t == DT_INT128)
+            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:" + parquet::TypeToString(col_descr->physical_type()) + "->" + Util::getDataTypeString(string_t));
+        }
+        default: break;
+    }
     switch (col_descr->physical_type())
     {
     case parquet::Type::BOOLEAN:
     {
         if (string_t == DT_UUID || string_t == DT_INT128)
             throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:BOOLEAN" + "->" + Util::getDataTypeString(string_t));
-        parquet::BoolReader *bool_reader = static_cast<parquet::BoolReader *>(column_reader.get());
-		if (!bool_reader)
-			throw RuntimeException("bool_reader can't be null");
-        vector<char> value(batchSize);
-        while(bool_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += bool_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (bool*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = value[index++]? "true":"false";
-            }
-            else
-            {
-                buffer[le] = "";
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<bool>(col_idx, static_cast<parquet::BoolReader *>(column_reader.get()), col_descr, buffer.data(), batchSize, containNull, indexArgs);
     }
     case parquet::Type::INT32:
     {
         if (string_t == DT_UUID || string_t == DT_INT128)
             throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:INT32" + "->" + Util::getDataTypeString(string_t));
-        parquet::Int32Reader *int32_reader = static_cast<parquet::Int32Reader *>(column_reader.get());
-		if (!int32_reader)
-			throw RuntimeException("int32_reader can't be null");
-        vector<int32_t> value(batchSize);
-        while(int32_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += int32_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int32_t*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = std::to_string(value[index++]);
-            }
-            else
-            {
-                buffer[le] = "";
-            }
-        }
-        return rows_read;
+        return convertParquetToDolphindbInternal<int>(col_idx, static_cast<parquet::Int32Reader *>(column_reader.get()), col_descr, buffer.data(), batchSize, containNull, indexArgs);
     }
     case parquet::Type::INT64:
     {
         if (string_t == DT_UUID || string_t == DT_INT128)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:INT32" + "->" + Util::getDataTypeString(string_t));
-        parquet::Int64Reader *int64_reader = static_cast<parquet::Int64Reader *>(column_reader.get());
-		if (!int64_reader)
-			throw RuntimeException("int64_reader can't be null");
-        vector<int64_t> value(batchSize);
-        while(int64_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += int64_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (int64_t*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = std::to_string(value[index++]);
-            }
-            else
-            {
-                buffer[le] = "";
-            }
-        }
-        return rows_read;
+            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:INT64" + "->" + Util::getDataTypeString(string_t));
+        return convertParquetToDolphindbInternal<int64_t>(col_idx, static_cast<parquet::Int64Reader *>(column_reader.get()), col_descr, buffer.data(), batchSize, containNull, indexArgs);
     }
     case parquet::Type::INT96:
     {
@@ -2726,6 +1998,7 @@ int convertParquetToDolphindbString(int col_idx, std::shared_ptr<parquet::Column
             rows_read += int96_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::Int96*)value.data() + values_read, &valuesRead);
             values_read += valuesRead;
         }
+        getIndex(rep_level, rows_read, indexArgs);
         containNull = rows_read != values_read;
         int index = 0;
         if(string_t == DT_INT128){
@@ -2746,6 +2019,7 @@ int convertParquetToDolphindbString(int col_idx, std::shared_ptr<parquet::Column
                 }
                 else
                 {
+                    containNull = true;
                     buffer[le] = "";
                 }
             }
@@ -2758,6 +2032,7 @@ int convertParquetToDolphindbString(int col_idx, std::shared_ptr<parquet::Column
                 }
                 else
                 {
+                    containNull = true;
                     buffer[le] = "";
                 }
             }
@@ -2766,58 +2041,14 @@ int convertParquetToDolphindbString(int col_idx, std::shared_ptr<parquet::Column
     case parquet::Type::DOUBLE:
     {
         if (string_t == DT_UUID || string_t == DT_INT128)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:INT32" + "->" + Util::getDataTypeString(string_t));
-        parquet::DoubleReader *double_reader = static_cast<parquet::DoubleReader *>(column_reader.get());
-		if (!double_reader)
-			throw RuntimeException("double_reader can't be null");
-        vector<double> value(batchSize);
-        while(double_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += double_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (double*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = std::to_string(value[index++]);
-            }
-            else
-            {
-                buffer[le] = "";
-            }
-        }
-        return rows_read;
+            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:DOUBLE" + "->" + Util::getDataTypeString(string_t));
+        return convertParquetToDolphindbInternal<double>(col_idx, static_cast<parquet::DoubleReader *>(column_reader.get()), col_descr, buffer.data(), batchSize, containNull, indexArgs);
     }
     case parquet::Type::FLOAT:
     {
         if (string_t == DT_UUID || string_t == DT_INT128)
-            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:INT32" + "->" + Util::getDataTypeString(string_t));
-        parquet::FloatReader *float_reader = static_cast<parquet::FloatReader *>(column_reader.get());
-		if (!float_reader)
-			throw RuntimeException("float_reader can't be null");
-        vector<float> value(batchSize);
-        while(float_reader->HasNext() && rows_read < (int64_t)batchSize){
-            int64_t valuesRead = 0;
-            rows_read += float_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (float*)value.data() + values_read, &valuesRead);
-            values_read += valuesRead;
-        }
-        containNull = rows_read != values_read;
-        int index = 0;
-        for (int64_t le = 0; le < rows_read; le++)
-        {
-            if (def_level[le] >= col_descr->max_definition_level())
-            {
-                buffer[le] = std::to_string(value[index++]);
-            }
-            else
-            {
-                buffer[le] = "";
-            }
-        }
-        return rows_read;
+            throw RuntimeException("uncompatible type in column " + std::to_string(col_idx) + " " + "Parquet:FLOAT" + "->" + Util::getDataTypeString(string_t));
+        return convertParquetToDolphindbInternal<float>(col_idx, static_cast<parquet::FloatReader *>(column_reader.get()), col_descr, buffer.data(), batchSize, containNull, indexArgs);
     }
     case parquet::Type::FIXED_LEN_BYTE_ARRAY:
     {
@@ -2850,6 +2081,7 @@ int convertParquetToDolphindbString(int col_idx, std::shared_ptr<parquet::Column
                 }
             }
         }
+        getIndex(rep_level, rows_read, indexArgs);
         return rows_read;
     }
     case parquet::Type::BYTE_ARRAY:
@@ -2879,6 +2111,7 @@ int convertParquetToDolphindbString(int col_idx, std::shared_ptr<parquet::Column
                 }
             }
         }
+        getIndex(rep_level, rows_read, indexArgs);
         return rows_read;
     }
     default:
@@ -3013,19 +2246,24 @@ ConstantSP loadParquetByFilePtr(ParquetReadOnlyFile *file, Heap *heap, string fi
     }
 
     vector<ConstantSP> dolphindbCol(col_num);
+    vector<ConstantSP> indexDolphindbCol(col_num);
     createNewVectorSP(dolphindbCol, tableWithSchema, totalRows);
+    int columns = column->size();
+    for(int i = 0; i < columns; ++i){
+        indexDolphindbCol[i] = Util::createVector(DT_INDEX, 0, totalRows);
+    }
 
-    size_t batchRow = totalRows > 1024 * 64 ? 1024 * 64 : totalRows;
+    size_t batchRow = 1024 * 64;
 
     int readThreadNum = READ_THREAD_NUM;
     if(fileName.empty() || readThreadNum == 1){
-        int writeOffset = 0;
+        vector<int> writeOffset(col_num, 0);
         int rowCount = 0;
         for(int row = rowGroupStart; row < rowGroupEnd; ++row){
             for(int i = 0; i < col_num; ++i){
-                loadParquetColumn(file, batchRow, dolphindbCol[i], row, i, column->getInt(i), writeOffset, rowCount);
+                loadParquetColumn(file, batchRow, dolphindbCol[i], row, i, column->getInt(i), writeOffset[i], rowCount, indexDolphindbCol[i]);
+                writeOffset[i] += rowCount;
             }
-            writeOffset += rowCount;
         }
     }else{
         FunctionDefSP func = Util::createSystemFunction("pipeLoadParquet", loadParquetPloopFunc, 2, 2, false);
@@ -3041,7 +2279,7 @@ ConstantSP loadParquetByFilePtr(ParquetReadOnlyFile *file, Heap *heap, string fi
             arrowIndexArgs.push_back(column->getInt(i));
             dolphindbCols.push_back(dolphindbCol[i]);
         }
-        SmartPointer<ParquetPloopArgs> ploopArgs = new ParquetPloopArgs(fileName, batchRow, dolphindbCols, rowGroupStart, arrowIndexArgs, rowGroupEnd);
+        SmartPointer<ParquetPloopArgs> ploopArgs = new ParquetPloopArgs(fileName, batchRow, dolphindbCols, rowGroupStart, arrowIndexArgs, rowGroupEnd, indexDolphindbCol);
         vector<ConstantSP> partialArgs{ploopArgs};
         FunctionDefSP partialFunction = Util::createPartialFunction(func, partialArgs);
         int threadCount = readThreadNum == 0 ? col_num : readThreadNum; 
@@ -3056,6 +2294,18 @@ ConstantSP loadParquetByFilePtr(ParquetReadOnlyFile *file, Heap *heap, string fi
     for(int i = 0; i < col_num; ++i){
         dolphindbCol[i]->setTemporary(true);
         colNames.push_back(tableWithSchema->getColumnName(i));
+        if(tableWithSchema->getColumnType(i) >= 64){
+            if(indexDolphindbCol[i]->rows() == 0){
+                if(dolphindbCol[i]->rows() != 0){
+                    throw RuntimeException("the size of value must be 0 when the size of index is 0. ");
+                }
+            }else{
+                if(dolphindbCol[i]->rows() != indexDolphindbCol[i]->getIndex(indexDolphindbCol[i]->rows() - 1)){
+                    throw RuntimeException("index value is not suitable for value. ");
+                }
+            }
+            dolphindbCol[i] = new FastArrayVector(indexDolphindbCol[i], dolphindbCol[i]);
+        }
     }
     return Util::createTable(colNames, dolphindbCol);
 }
@@ -3331,6 +2581,231 @@ ConstantSP parquetDS(const ConstantSP &filename, const ConstantSP &schema)
 const int16_t ONE = 1;
 const int16_t ZERO = 0;
 
+template<typename DDBStoreType>
+void getDDBData(const VectorSP& valueCol, int offset, int size, vector<DDBStoreType>& buffer);
+template<>
+void getDDBData<char>(const VectorSP& valueCol, int offset, int size, vector<char>& buffer){
+    valueCol->getChar(offset, size, buffer.data());
+}
+template<>
+void getDDBData<int>(const VectorSP& valueCol, int offset, int size, vector<int>& buffer){
+    valueCol->getInt(offset, size, buffer.data());
+}
+template<>
+void getDDBData<long long>(const VectorSP& valueCol, int offset, int size, vector<long long>& buffer){
+    valueCol->getLong(offset, size, buffer.data());
+}
+template<>
+void getDDBData<float>(const VectorSP& valueCol, int offset, int size, vector<float>& buffer){
+    valueCol->getFloat(offset, size, buffer.data());
+}
+template<>
+void getDDBData<double>(const VectorSP& valueCol, int offset, int size, vector<double>& buffer){
+    valueCol->getDouble(offset, size, buffer.data());
+}
+template<>
+void getDDBData<string>(const VectorSP& valueCol, int offset, int size, vector<string>& buffer){
+    vector<DolphinString*> storeBuffer;
+    storeBuffer.resize(size);
+    DolphinString** constPtr = valueCol->getStringConst(offset, size, storeBuffer.data());
+    for(int i = 0; i < size; ++i){
+        buffer[i] = (*(constPtr[i])).getString();
+    }
+}
+
+template<typename ParquetType, typename DDBStoreType>
+inline ParquetType convertToParquet(const DDBStoreType& value){
+    return value;
+}
+template<>
+inline parquet::ByteArray convertToParquet<parquet::ByteArray, string>(const string& value){
+    parquet::ByteArray byteArray;
+    byteArray.len = value.size();
+    byteArray.ptr = reinterpret_cast<const uint8_t*>(value.c_str());
+    return byteArray;
+}
+
+
+template<typename WriterType, typename ParquetType, typename DDBStoreType>
+void writeToParquet(WriterType* writer, const VectorSP& valueCol, const VectorSP& IndexCol, const std::function<void(vector<DDBStoreType>&, size_t)>& transfrom){
+    vector<DDBStoreType> ddbBuffer(Util::BUF_SIZE);
+    vector<short> defLevel(Util::BUF_SIZE);
+    vector<short> repLevel(Util::BUF_SIZE);
+    vector<INDEX> IndexBuffer;
+    ParquetType* buffer = new ParquetType[Util::BUF_SIZE];
+    dolphindb::PluginDefer defer([&](){delete[] buffer;});
+    
+    const INDEX* indexPtr = nullptr;
+    INDEX indexOffset = 0;
+    bool isArrayVector = !IndexCol.isNull();
+    if(isArrayVector){
+        int rows = IndexCol->rows();
+        IndexBuffer.resize(IndexCol->rows());
+        indexPtr = IndexCol->getIndexConst(0, rows, IndexBuffer.data());
+    }
+    int valueRows = valueCol->rows();
+    INDEX totalOffset = 0;
+    while(totalOffset < valueRows){
+        int size = std::min(valueRows - totalOffset, Util::BUF_SIZE);
+        getDDBData(valueCol, totalOffset, size, ddbBuffer);
+        int valueOffset = 0;
+        if(transfrom){
+            transfrom(ddbBuffer, size);
+        }
+        for(int i = 0; i < size; ++i){
+            if(ddbBuffer[i] == dolphindb::getNullValue<DDBStoreType>()){
+                defLevel[i] = ZERO;
+            }else{
+                defLevel[i] = ONE;
+                buffer[valueOffset++] = convertToParquet<ParquetType, DDBStoreType>(ddbBuffer[i]);
+            }
+            if(isArrayVector){
+                if(totalOffset + i == 0){
+                    repLevel[i] = ZERO;
+                }
+                else if(indexOffset < static_cast<INDEX>(IndexBuffer.size()) && indexPtr[indexOffset] == totalOffset + i){
+                    repLevel[i] = ZERO;
+                    indexOffset++;
+                }else{
+                    repLevel[i] = ONE;
+                }
+            }
+        } 
+        writer->WriteBatch(size, defLevel.data(), repLevel.data(), buffer);
+        totalOffset += size;
+    }
+}
+
+void writeToParquetRowGroup(parquet::RowGroupWriter *rowGroupWriter, ConstantSP &table){
+    int colNum = table->columns();
+    for(int i = 0; i < colNum; ++i)
+    {
+        parquet::ColumnWriter *columnWriter = rowGroupWriter->NextColumn();
+        VectorSP dolphinCol = table->getColumn(i);
+        VectorSP IndexCol;
+        if(dolphinCol->getType() >= 64){
+            IndexCol = dynamic_cast<FastArrayVector*>(dolphinCol.get())->getSourceIndex();
+            dolphinCol = dynamic_cast<FastArrayVector*>(dolphinCol.get())->getSourceValue();
+        }
+        if(dolphinCol->size() == 0){
+            continue;
+        }
+        switch(dolphinCol->getType())
+        {
+        case DT_BOOL:
+        {
+            parquet::BoolWriter *parquetCol = dynamic_cast<parquet::BoolWriter*>(columnWriter);
+            writeToParquet<parquet::BoolWriter, bool, char>(parquetCol, dolphinCol, IndexCol, nullptr);
+            break;
+        }
+        case DT_CHAR:
+        {
+            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
+            writeToParquet<parquet::Int32Writer, int, char>(parquetCol, dolphinCol, IndexCol, nullptr);
+            break;
+        }
+        case DT_SHORT:
+        case DT_INT:
+        case DT_DATE:
+        case DT_TIME:
+        {
+            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
+            writeToParquet<parquet::Int32Writer, int, int>(parquetCol, dolphinCol, IndexCol, nullptr);
+            break;
+        }
+        case DT_LONG:
+        case DT_TIMESTAMP:
+        case DT_NANOTIME:
+        case DT_NANOTIMESTAMP:
+        {
+            parquet::Int64Writer *parquetCol = dynamic_cast<parquet::Int64Writer*>(columnWriter);
+            writeToParquet<parquet::Int64Writer, int64_t, long long>(parquetCol, dolphinCol, IndexCol, nullptr);
+            break;
+        }
+        case DT_MONTH:
+        {
+            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
+            auto transform = [](vector<int>& data, size_t size){
+                for(size_t i = 0; i < size; ++i){
+                    if(data[i] == dolphindb::getNullValue<int>()){
+                        continue;
+                    }
+                    using months = std::chrono::duration<int, std::ratio<2629746> >;
+                    using days = std::chrono::duration<int, std::ratio<86400> >;
+                    data[i] = std::chrono::duration_cast<days>(months(data[i])).count();
+                    data[i] = Util::getMonthStart(data[i] - 719514);
+                }
+            };
+            writeToParquet<parquet::Int32Writer, int, int>(parquetCol, dolphinCol, IndexCol, transform);
+            break;
+        }
+        case DT_MINUTE:
+        {
+            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
+            auto transform = [](vector<int>& data, size_t size){
+                for(size_t i = 0; i < size; ++i){
+                    if(data[i] == dolphindb::getNullValue<int>()){
+                        continue;
+                    }
+                    data[i] = data[i] * 60 * 1000;
+                }
+            };
+            writeToParquet<parquet::Int32Writer, int, int>(parquetCol, dolphinCol, IndexCol, transform);
+            break;
+        }
+        case DT_SECOND:
+        {
+            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
+            auto transform = [](vector<int>& data, size_t size){
+                for(size_t i = 0; i < size; ++i){
+                    if(data[i] == dolphindb::getNullValue<int>()){
+                        continue;
+                    }
+                    data[i] = data[i] * 1000;
+                }
+            };
+            writeToParquet<parquet::Int32Writer, int, int>(parquetCol, dolphinCol, IndexCol, transform);
+            break;
+        }
+        case DT_DATETIME:
+        {
+            parquet::Int64Writer *parquetCol = dynamic_cast<parquet::Int64Writer*>(columnWriter);
+            auto transform = [](vector<long long>& data, size_t size){
+                for(size_t i = 0; i < size; ++i){
+                    if(data[i] == dolphindb::getNullValue<long long>()){
+                        continue;
+                    }
+                    data[i] = data[i] * 1000;
+                }
+            };
+            writeToParquet<parquet::Int64Writer, int64_t, long long>(parquetCol, dolphinCol, IndexCol, transform);
+            break;
+        }
+        case DT_FLOAT:
+        {
+            parquet::FloatWriter *parquetCol = dynamic_cast<parquet::FloatWriter*>(columnWriter);
+            writeToParquet<parquet::FloatWriter, float, float>(parquetCol, dolphinCol, IndexCol, nullptr);
+            break;
+        }
+        case DT_DOUBLE:
+        {
+            parquet::DoubleWriter *parquetCol = dynamic_cast<parquet::DoubleWriter*>(columnWriter);
+            writeToParquet<parquet::DoubleWriter, double, double>(parquetCol, dolphinCol, IndexCol, nullptr);
+            break;
+        }
+        case DT_SYMBOL:
+        case DT_STRING:
+        {
+            parquet::ByteArrayWriter *parquetCol = dynamic_cast<parquet::ByteArrayWriter*>(columnWriter);
+            writeToParquet<parquet::ByteArrayWriter, parquet::ByteArray, string>(parquetCol, dolphinCol, IndexCol, nullptr);
+            break;
+        }
+        default:
+            throw RuntimeException("unsupported type: " + Util::getDataTypeString(dolphinCol->getType()));
+        }
+    }
+}
+
 ConstantSP saveParquet(ConstantSP &table, const string &filename, const string &compression)
 {
     std::shared_ptr<arrow::io::FileOutputStream> outfile;
@@ -3353,113 +2828,8 @@ ConstantSP saveParquet(ConstantSP &table, const string &filename, const string &
         schema,
         builder.build()
     );
-
-    int colNum = table->columns();
     parquet::RowGroupWriter *rowGroupWriter = writer->AppendRowGroup();
-    for(int i = 0; i < colNum; ++i)
-    {
-        parquet::ColumnWriter *columnWriter = rowGroupWriter->NextColumn();
-        VectorSP dolphinCol = table->getColumn(i);
-        if(dolphinCol->size() == 0){
-            continue;
-        }
-        ConstantSP front = dolphinCol->get(0);
-        switch(front->getType())
-        {
-        case DT_BOOL:
-        {
-            parquet::BoolWriter *parquetCol = dynamic_cast<parquet::BoolWriter*>(columnWriter);
-            writeBoolToParquet(parquetCol, dolphinCol);
-            break;
-        }
-        case DT_CHAR:
-        {
-            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
-            writeIntToParquet(parquetCol, dolphinCol);
-            break;
-        }
-        case DT_SHORT:
-        case DT_INT:
-        case DT_DATE:
-        case DT_TIME:
-        {
-            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
-            writeIntToParquet(parquetCol, dolphinCol);
-            break;
-        }
-        case DT_LONG:
-        case DT_TIMESTAMP:
-        case DT_NANOTIME:
-        case DT_NANOTIMESTAMP:
-        {
-            parquet::Int64Writer *parquetCol = dynamic_cast<parquet::Int64Writer*>(columnWriter);
-            writeLongToParquet(parquetCol, dolphinCol);
-            break;
-        }
-        case DT_MONTH:
-        {
-            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
-            auto transform = [](int v){
-                using months = std::chrono::duration<int, std::ratio<2629746> >;
-                using days = std::chrono::duration<int, std::ratio<86400> >;
-                v = std::chrono::duration_cast<days>(months(v)).count();
-                v = Util::getMonthStart(v - 719514);
-                return v;
-            };
-            writeIntToParquet(parquetCol, dolphinCol, transform);
-            break;
-        }
-        case DT_MINUTE:
-        {
-            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
-            auto transform = [](int v){
-                return v * 60 * 1000;
-            };
-            writeIntToParquet(parquetCol, dolphinCol, transform);
-            break;
-        }
-        case DT_SECOND:
-        {
-            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
-            auto transform = [](int v){
-                return v * 1000;
-            };
-            writeIntToParquet(parquetCol, dolphinCol, transform);
-            break;
-        }
-        case DT_DATETIME:
-        {
-            parquet::Int64Writer *parquetCol = dynamic_cast<parquet::Int64Writer*>(columnWriter);
-            auto transform = [](long long v){
-                return v * 1000;
-            };
-            writeLongToParquet(parquetCol, dolphinCol, transform);
-            break;
-        }
-        case DT_FLOAT:
-        {
-            parquet::FloatWriter *parquetCol = dynamic_cast<parquet::FloatWriter*>(columnWriter);
-            writeFloatToParquet(parquetCol, dolphinCol);
-            break;
-        }
-        case DT_DOUBLE:
-        {
-            parquet::DoubleWriter *parquetCol = dynamic_cast<parquet::DoubleWriter*>(columnWriter);
-            writeDoubleToParquet(parquetCol, dolphinCol);
-            break;
-        }
-        case DT_SYMBOL:
-        case DT_STRING:
-        {
-            parquet::ByteArrayWriter *parquetCol = dynamic_cast<parquet::ByteArrayWriter*>(columnWriter);
-            writeStringToParquet(parquetCol, dolphinCol);
-            break;
-        }
-        default:
-            throw RuntimeException("unsupported type.");
-        }
-    }
-
+    writeToParquetRowGroup(rowGroupWriter, table);
     rowGroupWriter->Close();
     writer->Close();
     outfile->Close();
@@ -3483,114 +2853,8 @@ ConstantSP saveParquetHdfs(ConstantSP &table)
         builder.build()
     );
 
-    int colNum = table->columns();
     parquet::RowGroupWriter *rowGroupWriter = writer->AppendRowGroup();
-    for(int i = 0; i < colNum; ++i)
-    {
-        parquet::ColumnWriter *columnWriter = rowGroupWriter->NextColumn();
-        VectorSP dolphinCol = table->getColumn(i);
-        if(dolphinCol->size() == 0){
-            continue;
-        }
-        ConstantSP front = dolphinCol->get(0);
-        switch(front->getType())
-        {
-        case DT_BOOL:
-        {
-            parquet::BoolWriter *parquetCol = dynamic_cast<parquet::BoolWriter*>(columnWriter);
-            writeBoolToParquet(parquetCol, dolphinCol);
-            break;
-        }
-        case DT_CHAR:
-        {
-            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
-            writeIntToParquet(parquetCol, dolphinCol);
-            break;
-        }
-        case DT_SHORT:
-        case DT_INT:
-        case DT_DATE:
-        case DT_TIME:
-        {
-            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
-            writeIntToParquet(parquetCol, dolphinCol);
-            break;
-        }
-        case DT_LONG:
-        case DT_TIMESTAMP:
-        case DT_NANOTIME:
-        case DT_NANOTIMESTAMP:
-        {
-            parquet::Int64Writer *parquetCol = dynamic_cast<parquet::Int64Writer*>(columnWriter);
-            writeLongToParquet(parquetCol, dolphinCol);
-            break;
-        }
-        case DT_MONTH:
-        {
-            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
-            auto transform = [](int v){
-                using months = std::chrono::duration<int, std::ratio<2629746> >;
-                using days = std::chrono::duration<int, std::ratio<86400> >;
-                v = std::chrono::duration_cast<days>(months(v)).count();
-                v = Util::getMonthStart(v - 719514);
-                return v;
-            };
-            writeIntToParquet(parquetCol, dolphinCol, transform);
-            break;
-        }
-        case DT_MINUTE:
-        {
-            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
-            auto transform = [](int v){
-                return v * 60 * 1000;
-            };
-            writeIntToParquet(parquetCol, dolphinCol, transform);
-            break;
-        }
-        case DT_SECOND:
-        {
-            parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
-            auto transform = [](int v){
-                return v * 1000;
-            };
-            writeIntToParquet(parquetCol, dolphinCol, transform);
-            break;
-        }
-        case DT_DATETIME:
-        {
-            parquet::Int64Writer *parquetCol = dynamic_cast<parquet::Int64Writer*>(columnWriter);
-            auto transform = [](long long v){
-                return v * 1000;
-            };
-            writeLongToParquet(parquetCol, dolphinCol, transform);
-            break;
-        }
-        case DT_FLOAT:
-        {
-            parquet::FloatWriter *parquetCol = dynamic_cast<parquet::FloatWriter*>(columnWriter);
-            writeFloatToParquet(parquetCol, dolphinCol);
-            break;
-        }
-        case DT_DOUBLE:
-        {
-            parquet::DoubleWriter *parquetCol = dynamic_cast<parquet::DoubleWriter*>(columnWriter);
-            writeDoubleToParquet(parquetCol, dolphinCol);
-            break;
-        }
-        case DT_SYMBOL:
-        case DT_STRING:
-        {
-            parquet::ByteArrayWriter *parquetCol = dynamic_cast<parquet::ByteArrayWriter*>(columnWriter);
-            writeStringToParquet(parquetCol, dolphinCol);
-            break;
-        }
-        default:
-		    rowGroupWriter->Close();
-   			writer->Close();
-            throw RuntimeException("unsupported type.");
-        }
-    }
-
+    writeToParquetRowGroup(rowGroupWriter, table);
     rowGroupWriter->Close();
     writer->Close();
     std::shared_ptr<arrow::Buffer> fileBuf;
@@ -3614,13 +2878,17 @@ std::shared_ptr<parquet::schema::GroupNode> getParquetSchemaFromDolphindb(const 
     parquet::schema::NodeVector types;
     for(int i = 0; i < colNum; ++i)
     {
-        switch(table->getColumnType(i))
+        DATA_TYPE type = table->getColumnType(i);
+        bool isArray = type >= 64;
+        parquet::Repetition::type parquetType = isArray ? parquet::Repetition::type::REPEATED : parquet::Repetition::type::OPTIONAL;
+        type = isArray ? static_cast<DATA_TYPE>(type - 64) : type;
+        switch(type)
         {
         case DT_BOOL:
             types.push_back(
                 parquet::schema::PrimitiveNode::Make(
                     table->getColumnName(i),
-                    parquet::Repetition::type::OPTIONAL,
+                    parquetType,
                     nullptr,
                     parquet::Type::type::BOOLEAN
                 )
@@ -3630,7 +2898,7 @@ std::shared_ptr<parquet::schema::GroupNode> getParquetSchemaFromDolphindb(const 
             types.push_back(
                 parquet::schema::PrimitiveNode::Make(
                     table->getColumnName(i),
-                    parquet::Repetition::type::OPTIONAL,
+                    parquetType,
                     parquet::LogicalType::Int(8, true),
                     parquet::Type::type::INT32
                 )
@@ -3640,7 +2908,7 @@ std::shared_ptr<parquet::schema::GroupNode> getParquetSchemaFromDolphindb(const 
             types.push_back(
                 parquet::schema::PrimitiveNode::Make(
                     table->getColumnName(i),
-                    parquet::Repetition::type::OPTIONAL,
+                    parquetType,
                     parquet::LogicalType::Int(16, true),
                     parquet::Type::type::INT32
                 )
@@ -3650,7 +2918,7 @@ std::shared_ptr<parquet::schema::GroupNode> getParquetSchemaFromDolphindb(const 
             types.push_back(
                 parquet::schema::PrimitiveNode::Make(
                     table->getColumnName(i),
-                    parquet::Repetition::type::OPTIONAL,
+                    parquetType,
                     parquet::LogicalType::Int(32, true),
                     parquet::Type::type::INT32
                 )
@@ -3660,7 +2928,7 @@ std::shared_ptr<parquet::schema::GroupNode> getParquetSchemaFromDolphindb(const 
             types.push_back(
                 parquet::schema::PrimitiveNode::Make(
                     table->getColumnName(i),
-                    parquet::Repetition::type::OPTIONAL,
+                    parquetType,
                     parquet::LogicalType::Int(64, true),
                     parquet::Type::type::INT64
                 )
@@ -3671,7 +2939,7 @@ std::shared_ptr<parquet::schema::GroupNode> getParquetSchemaFromDolphindb(const 
             types.push_back(
                 parquet::schema::PrimitiveNode::Make(
                     table->getColumnName(i),
-                    parquet::Repetition::type::OPTIONAL,
+                    parquetType,
                     parquet::LogicalType::Date(),
                     parquet::Type::type::INT32
                 )
@@ -3683,7 +2951,7 @@ std::shared_ptr<parquet::schema::GroupNode> getParquetSchemaFromDolphindb(const 
             types.push_back(
                 parquet::schema::PrimitiveNode::Make(
                     table->getColumnName(i),
-                    parquet::Repetition::type::OPTIONAL,
+                    parquetType,
                     parquet::LogicalType::Time(false, parquet::LogicalType::TimeUnit::unit::MILLIS),
                     parquet::Type::type::INT32
                 )
@@ -3694,7 +2962,7 @@ std::shared_ptr<parquet::schema::GroupNode> getParquetSchemaFromDolphindb(const 
             types.push_back(
                 parquet::schema::PrimitiveNode::Make(
                     table->getColumnName(i),
-                    parquet::Repetition::type::OPTIONAL,
+                    parquetType,
                     parquet::LogicalType::Timestamp(false, parquet::LogicalType::TimeUnit::unit::MILLIS),
                     parquet::Type::type::INT64
                 )
@@ -3704,7 +2972,7 @@ std::shared_ptr<parquet::schema::GroupNode> getParquetSchemaFromDolphindb(const 
             types.push_back(
                 parquet::schema::PrimitiveNode::Make(
                     table->getColumnName(i),
-                    parquet::Repetition::type::OPTIONAL,
+                    parquetType,
                     parquet::LogicalType::Time(false, parquet::LogicalType::TimeUnit::unit::NANOS),
                     parquet::Type::type::INT64
                 )
@@ -3714,7 +2982,7 @@ std::shared_ptr<parquet::schema::GroupNode> getParquetSchemaFromDolphindb(const 
             types.push_back(
                 parquet::schema::PrimitiveNode::Make(
                     table->getColumnName(i),
-                    parquet::Repetition::type::OPTIONAL,
+                    parquetType,
                     parquet::LogicalType::Timestamp(false, parquet::LogicalType::TimeUnit::unit::NANOS),
                     parquet::Type::type::INT64
                 )
@@ -3724,7 +2992,7 @@ std::shared_ptr<parquet::schema::GroupNode> getParquetSchemaFromDolphindb(const 
             types.push_back(
                 parquet::schema::PrimitiveNode::Make(
                     table->getColumnName(i),
-                    parquet::Repetition::type::OPTIONAL,
+                    parquetType,
                     nullptr,
                     parquet::Type::type::FLOAT
                 )
@@ -3734,7 +3002,7 @@ std::shared_ptr<parquet::schema::GroupNode> getParquetSchemaFromDolphindb(const 
             types.push_back(
                 parquet::schema::PrimitiveNode::Make(
                     table->getColumnName(i),
-                    parquet::Repetition::type::OPTIONAL,
+                    parquetType,
                     nullptr,
                     parquet::Type::type::DOUBLE
                 )
@@ -3745,7 +3013,7 @@ std::shared_ptr<parquet::schema::GroupNode> getParquetSchemaFromDolphindb(const 
             types.push_back(
                 parquet::schema::PrimitiveNode::Make(
                     table->getColumnName(i),
-                    parquet::Repetition::type::OPTIONAL,
+                    parquetType,
                     parquet::LogicalType::String(),
                     parquet::Type::type::BYTE_ARRAY
                 )
@@ -3765,132 +3033,8 @@ std::shared_ptr<parquet::schema::GroupNode> getParquetSchemaFromDolphindb(const 
     );
 }
 
-void writeBoolToParquet(parquet::BoolWriter *parquetCol, const VectorSP &dolphinCol){
-    for(int j = 0; j < dolphinCol->size(); ++j){
-        ConstantSP value = dolphinCol->get(j);
-        if(value->isNull()){
-            parquetCol->WriteBatch(1, &ZERO, &ZERO, nullptr);
-        }
-        else{
-            bool v = value->getBool();
-            parquetCol->WriteBatch(1, &ONE, &ZERO, &v);
-        }
-    }
-}
-
-void writeIntToParquet(parquet::Int32Writer *parquetCol, const VectorSP &dolphinCol, int (*transform)(int)){
-    vector<int> buffer;
-    for(int j = 0; j < dolphinCol->size(); ++j){
-        ConstantSP value = dolphinCol->get(j);
-        if(value->isNull()){
-            if(!buffer.empty()){
-                vector<int16_t> ONEs(buffer.size(), ONE);
-                vector<int16_t> ZEROs(buffer.size(), ZERO);
-                parquetCol->WriteBatch(buffer.size(), ONEs.data(), ZEROs.data(), buffer.data());
-                buffer.clear();
-            }
-            parquetCol->WriteBatch(1, &ZERO, &ZERO, nullptr);
-        }
-        else{
-            buffer.push_back(transform(value->getInt()));
-        }
-    }
-    if(!buffer.empty()){
-        vector<int16_t> ONEs(buffer.size(), ONE);
-        vector<int16_t> ZEROs(buffer.size(), ZERO);
-        parquetCol->WriteBatch(buffer.size(), ONEs.data(), ZEROs.data(), buffer.data());
-    }
-}
-
-void writeLongToParquet(parquet::Int64Writer *parquetCol, const VectorSP &dolphinCol, long long (*transform)(long long)){
-    vector<int64_t> buffer;
-    for(int j = 0; j < dolphinCol->size(); ++j){
-        ConstantSP value = dolphinCol->get(j);
-        if(value->isNull()){
-            if(!buffer.empty()){
-                vector<int16_t> ONEs(buffer.size(), ONE);
-                vector<int16_t> ZEROs(buffer.size(), ZERO);
-                parquetCol->WriteBatch(buffer.size(), ONEs.data(), ZEROs.data(), buffer.data());
-                buffer.clear();
-            }
-            parquetCol->WriteBatch(1, &ZERO, &ZERO, nullptr);
-        }
-        else{
-            buffer.push_back(transform(value->getLong()));
-        }
-    }
-    if(!buffer.empty()){
-        vector<int16_t> ONEs(buffer.size(), ONE);
-        vector<int16_t> ZEROs(buffer.size(), ZERO);
-        parquetCol->WriteBatch(buffer.size(), ONEs.data(), ZEROs.data(), buffer.data());
-    }
-}
-
-void writeFloatToParquet(parquet::FloatWriter *parquetCol, const VectorSP &dolphinCol){
-    vector<float> buffer;
-    for(int j = 0; j < dolphinCol->size(); ++j){
-        ConstantSP value = dolphinCol->get(j);
-        if(value->isNull()){
-            if(!buffer.empty()){
-                vector<int16_t> ONEs(buffer.size(), ONE);
-                vector<int16_t> ZEROs(buffer.size(), ZERO);
-                parquetCol->WriteBatch(buffer.size(), ONEs.data(), ZEROs.data(), buffer.data());
-                buffer.clear();
-            }
-            parquetCol->WriteBatch(1, &ZERO, &ZERO, nullptr);
-        }
-        else{
-            buffer.push_back(value->getFloat());
-        }
-    }
-    if(!buffer.empty()){
-        vector<int16_t> ONEs(buffer.size(), ONE);
-        vector<int16_t> ZEROs(buffer.size(), ZERO);
-        parquetCol->WriteBatch(buffer.size(), ONEs.data(), ZEROs.data(), buffer.data());
-    }
-}
-
-void writeDoubleToParquet(parquet::DoubleWriter *parquetCol, const VectorSP &dolphinCol){
-    vector<double> buffer;
-    for(int j = 0; j < dolphinCol->size(); ++j){
-        ConstantSP value = dolphinCol->get(j);
-        if(value->isNull()){
-            if(!buffer.empty()){
-                vector<int16_t> ONEs(buffer.size(), ONE);
-                vector<int16_t> ZEROs(buffer.size(), ZERO);
-                parquetCol->WriteBatch(buffer.size(), ONEs.data(), ZEROs.data(), buffer.data());
-                buffer.clear();
-            }
-            parquetCol->WriteBatch(1, &ZERO, &ZERO, nullptr);
-        }
-        else{
-            buffer.push_back(value->getDouble());
-        }
-    }
-    if(!buffer.empty()){
-        vector<int16_t> ONEs(buffer.size(), ONE);
-        vector<int16_t> ZEROs(buffer.size(), ZERO);
-        parquetCol->WriteBatch(buffer.size(), ONEs.data(), ZEROs.data(), buffer.data());
-    }
-}
-
-void writeStringToParquet(parquet::ByteArrayWriter *parquetCol, const VectorSP &dolphinCol){
-    for(int j = 0; j < dolphinCol->size(); ++j){
-        ConstantSP value = dolphinCol->get(j);
-        if(value->isNull()){
-            parquetCol->WriteBatch(1, &ZERO, &ZERO, nullptr);
-        }else{
-            string v = value->getString();
-            parquet::ByteArray str;
-            str.ptr = reinterpret_cast<const uint8_t*>(v.data());
-            str.len = static_cast<uint32_t>(v.size());
-            parquetCol->WriteBatch(1, &ONE, &ZERO, &str);
-        }
-    }
-}
-
 ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const VectorSP &dolphindbCol, int row,
-                             int dolphinIndex, int arrowIndex, int offsetStart, int& totalRows) {
+                             int dolphinIndex, int arrowIndex, int offsetStart, int& totalRows, ConstantSP& indexCol) {
 
     DATA_TYPE dolphin_t = dolphindbCol->getType();
     char buf[batchRow * 8];
@@ -3900,18 +3044,24 @@ ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const Vect
     std::shared_ptr<parquet::ColumnReader> column_reader = row_reader->Column(arrowIndex);
     const parquet::ColumnDescriptor *col_descr = column_reader->descr();
 
-    if (col_descr->max_repetition_level() != 0)
-        throw RuntimeException("not support parquet repeated field yet.");
-    bool containNull;
-    int subOffect = 0;
+    bool containNull = false;
     int offsetWrite = offsetStart;
-    totalRows = row_reader->metadata()->num_rows();
-    while (subOffect < totalRows && rows_read != 0) {
+    int capicity = row_reader->metadata()->num_rows();
+
+    IndexArgs indexargs;
+    indexargs.lastIndex_ = indexCol->rows() == 0 ? 0 : indexCol->getIndex(indexCol->rows() - 1);
+    indexargs.isArray_ = col_descr->max_repetition_level() != 0;
+    indexargs.index_.reserve(capicity);
+    totalRows = 0;
+    while (column_reader->HasNext()) {
+        if(indexargs.isArray_){
+            dolphindbCol->resize(offsetWrite + batchRow);
+        }
         switch (dolphin_t) {
             case DT_BOOL: {
                 char *ptr = dolphindbCol->getBoolBuffer(offsetWrite, batchRow, buf);
                 rows_read = convertParquetToDolphindbBool(dolphinIndex, column_reader, col_descr, ptr,
-                                                          batchRow, containNull);
+                                                          batchRow, containNull, indexargs);
                 dolphindbCol->setBool(offsetWrite, rows_read, ptr);
                 dolphindbCol->setNullFlag(containNull);
                 break;
@@ -3919,7 +3069,7 @@ ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const Vect
             case DT_CHAR: {
                 char *ptr = dolphindbCol->getCharBuffer(offsetWrite, batchRow, buf);
                 rows_read = convertParquetToDolphindbChar(dolphinIndex, column_reader, col_descr, ptr,
-                                                          batchRow, containNull);
+                                                          batchRow, containNull, indexargs);
                 dolphindbCol->setChar(offsetWrite, rows_read, ptr);
                 dolphindbCol->setNullFlag(containNull);
                 break;
@@ -3933,7 +3083,7 @@ ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const Vect
             case DT_INT: {
                 int *ptr = dolphindbCol->getIntBuffer(offsetWrite, batchRow, (int *)buf);
                 rows_read = convertParquetToDolphindbInt(dolphinIndex, column_reader, col_descr, ptr,
-                                                         dolphin_t, batchRow, containNull);
+                                                         dolphin_t, batchRow, containNull, indexargs);
                 dolphindbCol->setInt(offsetWrite, rows_read, ptr);
                 dolphindbCol->setNullFlag(containNull);
                 break;
@@ -3944,7 +3094,7 @@ ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const Vect
             case DT_TIMESTAMP: {
                 long long *ptr = dolphindbCol->getLongBuffer(offsetWrite, batchRow, (long long *)buf);
                 rows_read = convertParquetToDolphindbLong(dolphinIndex, column_reader, col_descr, ptr,
-                                                          dolphin_t, batchRow, containNull);
+                                                          dolphin_t, batchRow, containNull, indexargs);
                 dolphindbCol->setLong(offsetWrite, rows_read, ptr);
                 dolphindbCol->setNullFlag(containNull);
                 break;
@@ -3952,7 +3102,7 @@ ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const Vect
             case DT_SHORT: {
                 short *ptr = dolphindbCol->getShortBuffer(offsetWrite, batchRow, (short *)buf);
                 rows_read = convertParquetToDolphindbShort(dolphinIndex, column_reader, col_descr, ptr,
-                                                           batchRow, containNull);
+                                                           batchRow, containNull, indexargs);
                 dolphindbCol->setShort(offsetWrite, rows_read, ptr);
                 dolphindbCol->setNullFlag(containNull);
                 break;
@@ -3960,7 +3110,7 @@ ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const Vect
             case DT_FLOAT: {
                 float *ptr = dolphindbCol->getFloatBuffer(offsetWrite, batchRow, (float *)buf);
                 rows_read = convertParquetToDolphindbFloat(dolphinIndex, column_reader, col_descr, ptr,
-                                                           batchRow, containNull);
+                                                           batchRow, containNull, indexargs);
                 dolphindbCol->setFloat(offsetWrite, rows_read, ptr);
                 dolphindbCol->setNullFlag(containNull);
                 break;
@@ -3968,7 +3118,7 @@ ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const Vect
             case DT_DOUBLE: {
                 double *ptr = dolphindbCol->getDoubleBuffer(offsetWrite, batchRow, (double *)buf);
                 rows_read = convertParquetToDolphindbDouble(dolphinIndex, column_reader, col_descr, ptr,
-                                                            batchRow, containNull);
+                                                            batchRow, containNull, indexargs);
                 dolphindbCol->setDouble(offsetWrite, rows_read, ptr);
                 dolphindbCol->setNullFlag(containNull);
                 break;
@@ -3979,16 +3129,23 @@ ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const Vect
             case DT_SYMBOL: {
                 vector<string> buffer(batchRow);
                 rows_read = convertParquetToDolphindbString(dolphinIndex, column_reader, col_descr, buffer,
-                                                            dolphin_t, batchRow, containNull);
+                                                            dolphin_t, batchRow, containNull, indexargs);
                 dolphindbCol->setString(offsetWrite, rows_read, buffer.data());
                 dolphindbCol->setNullFlag(containNull);
                 break;
             }
-            default: throw RuntimeException("unsupported data type."); break;
+            default: throw RuntimeException("unsupported data type.");
         }
-        subOffect += rows_read;
+        if(indexargs.isArray_){
+            dolphindbCol->resize(offsetWrite + rows_read);
+        }
         offsetWrite += rows_read;
+        totalRows += rows_read;
     }
+    if(indexargs.cumSum_ != 0){
+        indexargs.index_.push_back(indexargs.lastIndex_ + indexargs.cumSum_);
+    }
+    reinterpret_cast<Vector*>(indexCol.get())->appendIndex(indexargs.index_.data(), indexargs.index_.size());
     return new Bool(true);
 }
 
@@ -3999,6 +3156,7 @@ ConstantSP loadParquetPloopFunc(Heap *heap, vector<ConstantSP> &arguments) {
     string fileName = ploopArgs->getFileName();
     int batchRow = ploopArgs->getBatchRow();
     const vector<VectorSP>& dolphindbColVec = ploopArgs->getDolphindbColVec();
+    vector<ConstantSP>& indexCol = ploopArgs->getDolphindbIndexColVec();
     int rowGroupStart = ploopArgs->getRowGroupStart();
     const vector<int>& arrowIndexVec = ploopArgs->getArrowIndexVec();
     ParquetReadOnlyFile file(fileName);
@@ -4018,7 +3176,7 @@ ConstantSP loadParquetPloopFunc(Heap *heap, vector<ConstantSP> &arguments) {
         if(dolphinIndex >= arrowIndexVecSize)
             throw RuntimeException("the dolphinIndex must be less than the size of arrowIndexVec");
         for (int row = rowGroupStart; row < rowGroupEnd; row++){
-            loadParquetColumn(&file, batchRow, dolphindbColVec[dolphinIndex], row, dolphinIndex, arrowIndexVec[dolphinIndex], offsetWrite, rowCount);
+            loadParquetColumn(&file, batchRow, dolphindbColVec[dolphinIndex], row, dolphinIndex, arrowIndexVec[dolphinIndex], offsetWrite, rowCount, indexCol[dolphinIndex]);
             offsetWrite += rowCount;
         }
     }

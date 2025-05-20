@@ -3,18 +3,13 @@
 
 #include "CoreConcept.h"
 #include "ddbplugin/CommonInterface.h"
-#ifdef LINUX
-    #define EXPORT_DLL
-#else
-    #define EXPORT_DLL __declspec(dllexport)
-#endif
 
 extern "C" {
-    ConstantSP EXPORT_DLL train(Heap *heap, vector<ConstantSP> &args);
-    ConstantSP EXPORT_DLL predict(Heap *heap, vector<ConstantSP> &args);
-    ConstantSP EXPORT_DLL saveModel(const ConstantSP &model, const ConstantSP &fname);
-    ConstantSP EXPORT_DLL loadModel(Heap *heap, vector<ConstantSP> &args);
-    ConstantSP EXPORT_DLL dumpModel(Heap *heap, vector<ConstantSP> &args);
+    ConstantSP train(Heap *heap, vector<ConstantSP> &args);
+    ConstantSP predict(Heap *heap, vector<ConstantSP> &args);
+    ConstantSP saveModel(Heap *heap, vector<ConstantSP> &args);
+    ConstantSP loadModel(Heap *heap, vector<ConstantSP> &args);
+    ConstantSP dumpModel(Heap *heap, vector<ConstantSP> &args);
 }
 
 #endif

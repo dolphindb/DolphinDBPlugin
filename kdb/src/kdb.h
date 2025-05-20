@@ -39,7 +39,7 @@ public:
     TableSP getTable(const std::string &tablePath, const std::string &symFilePath) const;
     ConstantSP loadTableEx(Heap *heap, ConstantSP dbHandle, ConstantSP tableName, ConstantSP partitionColumns,
                            TableSP schema, long long batchSize, FunctionDefSP transform, ConstantSP sortColumns,
-                           const string &pathOrScript, const string &symPath);
+                           string &pathOrScript, string &symPath);
     ConstantSP execute(const std::string &qScript) const;
     ConstantSP extractSchema(const std::string &tablePath, const std::string &symPath) const;
 

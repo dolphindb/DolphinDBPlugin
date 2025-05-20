@@ -737,8 +737,7 @@ void getDataSetAttribute(const H5::DataSet& dataset, const string& attribute, st
     HDF5_SAFE_EXECUTE(attr.read(type, value));
 }
 
-template <typename T>
-void getGroupAttribute(const H5::Group& group, const string& attribute, T* value){
+void getGroupAttribute(const H5::Group& group, const string& attribute, long long* value){
     checkFailAndThrowRuntimeException(!group.attrExists(attribute), "attribute [" + attribute + "] doesn't exist in group [" +
                                group.getObjName() + "]");
     H5::Attribute attr;
@@ -1881,7 +1880,5 @@ void extractDolphinDBData(const TableSP &table, const size_t &type_size, const s
         return old_idx;
     }
 */
-
-template void getGroupAttribute(const H5::Group& group, const string& attribute, int* value);
 
 } // namespace H5PluginImp

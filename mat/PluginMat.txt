@@ -1,5 +1,5 @@
-mat,libPluginMat.so,2.00.15
-extractMatSchema,extractMatSchema,system,1,1,0
-loadMat,loadMat,system,1,2,0
-convertToDatetime,convertToDatetime,system,1,1,0
-writeMat,writeMat,system,3,3,0
+mat,libPluginMat.so,2.00.16
+extractMatSchema,extractMatSchema,system,1,1,0,0,(filePath)
+loadMat,loadMat,system,1,2,0,0,(filePath, [schema])
+convertToDatetime,convertToDatetime,system,1,1,0,0,(data)
+writeMat,writeMat,system,3,3,0,0,(filePath, varName, data)

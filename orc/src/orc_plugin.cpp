@@ -3,11 +3,14 @@
 #include "Types.h"
 #include <climits>
 #include <exception>
+#include "ddbplugin/PluginLogger.h"
+#include "ddbplugin/PluginLoggerImp.h"
 
-ConstantSP extractORCSchema(const ConstantSP &filename)
+ConstantSP extractORCSchema(Heap *heap, vector<ConstantSP> &arguments)
 {
+    ConstantSP filename = arguments[0];
     if (filename->getType() != DT_STRING)
-        throw IllegalArgumentException(__FUNCTION__, "The filename and dataset must be a string.");
+        throw IllegalArgumentException(__FUNCTION__, "The filePath must be a string.");
 
     ConstantSP schema = ORCPluginImp::extractORCSchema(filename->getString());
 
@@ -16,7 +19,7 @@ ConstantSP extractORCSchema(const ConstantSP &filename)
 
 ConstantSP loadORC(Heap *heap, vector<ConstantSP> &arguments)
 {
-    string usage{"orc::loadORC(filename,[schema],[column],[rowStart],[rowNum])"};
+    string usage{"orc::loadORC(filePath,[schema],[column],[rowStart],[rowNum])"};
     ConstantSP filename = arguments[0];
 
     int rowStart = 0;
@@ -24,7 +27,7 @@ ConstantSP loadORC(Heap *heap, vector<ConstantSP> &arguments)
     ConstantSP schema = ORCPluginImp::nullSP;
     ConstantSP column = new Void();
     if(filename->getForm() != DF_SCALAR || filename->getType() != DT_STRING)
-        throw IllegalArgumentException(__FUNCTION__, usage + "The filename and dataset must be a string.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "The filePath and dataset must be a string.");
     if(arguments.size() >= 2 && !arguments[1]->isNull())
     {
         if(!arguments[1]->isTable())
@@ -66,7 +69,7 @@ ConstantSP loadORC(Heap *heap, vector<ConstantSP> &arguments)
 
 ConstantSP loadORCHdfs(Heap *heap, vector<ConstantSP> &arguments)
 {
-    string usage{"orc::loadORCHdfs(hdfsAddress, hdfsLength)"};
+    string usage{"orc::loadORCHdfs(address, length)"};
     if(arguments[0]->getType() != DT_RESOURCE || arguments[0]->getString() != "hdfs readFile address")
         throw IllegalArgumentException(__FUNCTION__,"The first arguments should be resource");
     if(arguments[1]->getType() != DT_RESOURCE || arguments[1]->getString() != "hdfs readFile length")
@@ -79,7 +82,7 @@ ConstantSP loadORCHdfs(Heap *heap, vector<ConstantSP> &arguments)
 
 ConstantSP loadORCEx(Heap *heap, vector<ConstantSP> &arguments)
 {
-    string usage = "orc::loadORCEx(dbHandle,tableName,[partitionColumns],fileName,[schema],[column],[rowStart],[rowNum],[transform])";
+    string usage = "orc::loadORCEx(dbHandle,tableName,[partitionColumns],filePath,[schema],[column],[rowStart],[rowNum],[transform])";
     ConstantSP db = arguments[0];
     ConstantSP tableName = arguments[1];
     ConstantSP partitionColumnNames = arguments[2];
@@ -97,7 +100,7 @@ ConstantSP loadORCEx(Heap *heap, vector<ConstantSP> &arguments)
     if (!partitionColumnNames->isNull() && (partitionColumnNames->getType() != DT_STRING || (partitionColumnNames->getForm() != DF_SCALAR && partitionColumnNames->getForm() != DF_VECTOR)))
         throw IllegalArgumentException(__FUNCTION__, usage + "The partition columns must be in string or string vector.");
     if (!filename->isScalar() || filename->getType() != DT_STRING)
-        throw IllegalArgumentException(__FUNCTION__, usage + "The filename must be a string scalar.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "The filePath must be a string scalar.");
     if (arguments.size() >= 5 && !arguments[4]->isNull())
     {
         if (!arguments[4]->isTable())
@@ -148,13 +151,13 @@ ConstantSP loadORCEx(Heap *heap, vector<ConstantSP> &arguments)
 
 ConstantSP orcDS(Heap *heap, vector<ConstantSP> &arguments)
 {
-    string usage{"orc::orcDS(fileName,chunkSize,[schema],[skipRows])"};
+    string usage{"orc::orcDS(filePath,chunkSize,[schema],[skipRows])"};
     ConstantSP filename = arguments[0];
     ConstantSP chunkSize = arguments[1];
     int skipRows = 0;
     ConstantSP schema = ORCPluginImp::nullSP;
     if(!filename->isScalar() || filename->getType() != DT_STRING)
-        throw IllegalArgumentException(__FUNCTION__, usage + "filename must be a string vector.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "filePath must be a string vector.");
     if(chunkSize->isNull() || !chunkSize->isScalar() || chunkSize->getCategory() != INTEGRAL || chunkSize->getInt() <= 0){
         throw IllegalArgumentException(__FUNCTION__, usage + "chunkSize must be a positive integer");
     }
@@ -178,14 +181,14 @@ ConstantSP orcDS(Heap *heap, vector<ConstantSP> &arguments)
 
 ConstantSP saveORC(Heap *heap, vector<ConstantSP> &arguments){
 
-    string usage{"`orc::saveORC(table, fileName)"};
+    string usage{"`orc::saveORC(table, filePath)"};
     TableSP table = arguments[0];
     ConstantSP fileName = arguments[1];
     if(table->getForm() != DF_TABLE){
         throw IllegalArgumentException(__FUNCTION__, "table must be a table type.");
     }
     if(!fileName->isScalar() || fileName->getType() != DT_STRING){
-        throw IllegalArgumentException(__FUNCTION__, "fileName must be a string scalar.");
+        throw IllegalArgumentException(__FUNCTION__, "filePath must be a string scalar.");
     }
     return ORCPluginImp::saveORC(table, fileName->getString());
 }

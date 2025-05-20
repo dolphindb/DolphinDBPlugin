@@ -1,4 +1,4 @@
-odbc,libPluginODBC.dll,2.00.15
+odbc,libPluginODBC.dll,2.00.16
 odbcQuery,query,system,2,5,0,0,(conn, sqlQuery, [resultTable], [batchSize], [transform])
 odbcConnect,connect,system,1,2,0,0,(connectionString, [database])
 odbcClose,close,system,1,1,0,0,(conn)

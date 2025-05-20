@@ -8,6 +8,7 @@
 #include <mongoc.h>
 #include "json.hpp"
 #include "cvt.h"
+#include "ddbplugin/PluginLoggerImp.h"
 using namespace std;
 
 string getBsonString(bson_type_t type){
@@ -170,8 +171,9 @@ static void mongoConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
     delete (mongoConnection *)(args[0]->getLong());
 }
 
-ConstantSP mongodbClose(const ConstantSP &handle, const ConstantSP &b){
+ConstantSP mongodbClose(Heap *heap, vector<ConstantSP> &arguments){
     std::string usage = "Usage: close(conn). ";
+    ConstantSP handle = arguments[0];
     mongoConnection *cp = NULL;
     if (handle->getType() == DT_RESOURCE) {
         cp = (mongoConnection *)(handle->getLong());

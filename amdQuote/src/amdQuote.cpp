@@ -50,7 +50,7 @@ long long getRemainingMemory(Heap *heap) {
 }
 
 ConstantSP amdConnect(Heap *heap, vector<ConstantSP> &arguments) {
-    string usage("connect(username, password, ip, port, [option], [dataVersion='ORIGIN']) ");
+    string usage("connect(username, password, host, port, [option], [dataVersion='ORIGIN']) ");
     LockGuard<Mutex> amdLock_(&AMD_MUTEX);
     if (arguments[0]->getForm() != DF_SCALAR || arguments[0]->getType() != DT_STRING) {
         throw IllegalArgumentException("amdQuote::connect", usage + "username should be STRING SCALAR");
@@ -61,13 +61,13 @@ ConstantSP amdConnect(Heap *heap, vector<ConstantSP> &arguments) {
     }
     string password = arguments[1]->getString();
     if (arguments[2]->getForm() != DF_VECTOR || arguments[2]->getType() != DT_STRING) {
-        throw IllegalArgumentException("amdQuote::connect", usage + "ip should be STRING VECTOR");
+        throw IllegalArgumentException("amdQuote::connect", usage + "host should be STRING VECTOR");
     }
     if (arguments[3]->getForm() != DF_VECTOR || arguments[3]->getCategory() != INTEGRAL) {
         throw IllegalArgumentException("amdQuote::connect", usage + "port should be INTEGRAL VECTOR");
     }
     if (arguments[2]->size() != arguments[3]->size()) {
-        throw IllegalArgumentException("amdQuote::connect", usage + "ip and port should be the same length");
+        throw IllegalArgumentException("amdQuote::connect", usage + "host and port should be the same length");
     }
 
     std::vector<string> ips;
@@ -168,6 +168,7 @@ ConstantSP amdConnect(Heap *heap, vector<ConstantSP> &arguments) {
         return AMD_HANDLE_MAP.getHandleByName(AMD_SINGLETON_NAME);
     }
 
+#ifndef AMD_USE_ASAN
     long long bytesAvailable = getRemainingMemory(heap);
     PLUGIN_LOG_INFO(AMDQUOTE_PREFIX + "connecting when system remains available memory [" + std::to_string(bytesAvailable) +
              "]");
@@ -175,6 +176,7 @@ ConstantSP amdConnect(Heap *heap, vector<ConstantSP> &arguments) {
         throw RuntimeException(AMDQUOTE_PREFIX + "The remaining memory [" + std::to_string(bytesAvailable) +
                                " bytes] is not enough to initialize the amdQuote connection");
     }
+#endif
 
     SessionSP session = heap->currentSession()->copy();
     session->setUser(heap->currentSession()->getUser());

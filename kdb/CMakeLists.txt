@@ -1,4 +1,6 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.13)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 #========================================
 if("${CMAKE_BUILD_TYPE}" MATCHES "")
@@ -17,11 +19,12 @@ endif()
 message(STATUS "VCPKG_TARGET_TRIPLET: " ${VCPKG_TARGET_TRIPLET})
 
 #========================================
-project(PluginKDB LANGUAGES CXX)
+set(PluginName PluginKDB)
+project(${PluginName})
 
 #=== Source Code
-file(GLOB PluginKDB_HEADER CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.h  )
-file(GLOB PluginKDB_SOURCE CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.cpp)
+file(GLOB PluginKDB_HEADER CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h  )
+file(GLOB PluginKDB_SOURCE CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 
 #=== Build Target
 add_library(PluginKDB SHARED)
@@ -34,7 +37,11 @@ if    ("${CMAKE_BUILD_TYPE}" MATCHES DEBUG)
     set(optimize_opts -g -O0)
     set(dep_debug_tag "d")
 elseif("${CMAKE_BUILD_TYPE}" MATCHES Release)
-    set(optimize_opts -O3   )
+    if(WIN32)
+        set(optimize_opts -O2) # prevent SIMD unaligned unaligned bug
+    elseif(UNIX)
+        set(optimize_opts -O3)
+    endif()
     set(dep_debug_tag "")
 elseif("${CMAKE_BUILD_TYPE}" MATCHES RelWithDebInfo)
     set(optimize_opts -g -O2)
@@ -47,44 +54,31 @@ target_compile_options(PluginKDB PRIVATE ${optimize_opts})
 if(WIN32)
     set(platform_macro WINDOWS)
     set(install_type   win)
-    set(kdb_lib "${PROJECT_SOURCE_DIR}/lib/w64/c.lib")
-    set(z_lib "${PROJECT_SOURCE_DIR}/lib/win/zlib1.dll")
+    set(kdb_lib "${CMAKE_CURRENT_SOURCE_DIR}/lib/w64/c.lib")
+    set(z_lib "${CMAKE_CURRENT_SOURCE_DIR}/lib/win/zlib1.dll")
     configure_file(
-        "${PROJECT_SOURCE_DIR}/PluginKDB_WIN32.txt"
+        "${CMAKE_CURRENT_SOURCE_DIR}/PluginKDB_WIN32.txt"
         "${PROJECT_BINARY_DIR}/PluginKDB.txt" COPYONLY)
-    target_link_directories (PluginKDB PUBLIC "${PROJECT_SOURCE_DIR}/lib/win")
+    target_link_directories (PluginKDB PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/lib/win")
     target_compile_definitions(PluginKDB PUBLIC ${platform_macro})
 elseif(UNIX)
     set(platform_macro LINUX)
     set(install_type   linux)
-    set(kdb_lib "${PROJECT_SOURCE_DIR}/lib/c.o")
-    set(z_lib "${PROJECT_SOURCE_DIR}/lib/linux/libz.a")
+    set(kdb_lib "${CMAKE_CURRENT_SOURCE_DIR}/lib/c.o")
+    set(z_lib "${CMAKE_CURRENT_SOURCE_DIR}/lib/linux/libz.a")
     configure_file(
-        "${PROJECT_SOURCE_DIR}/PluginKDB.txt"
+        "${CMAKE_CURRENT_SOURCE_DIR}/PluginKDB.txt"
         "${PROJECT_BINARY_DIR}/PluginKDB.txt" COPYONLY)
     set(extra_bin )
-    target_link_directories (PluginKDB PUBLIC "${PROJECT_SOURCE_DIR}/lib/linux")
-    target_compile_definitions(PluginKDB PUBLIC ${platform_macro} "-D_GLIBCXX_USE_CXX11_ABI=0")
+    target_link_directories (PluginKDB PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/lib/linux")
+    target_compile_definitions(PluginKDB PUBLIC ${platform_macro})
 else()
     message(FATAL_ERROR "FIXME: Add build support for this platform!")
 endif()
 
-#=== ASAN or not?
-if (${DDB_USE_ASAN})
-    target_compile_options(PluginKDB PRIVATE
-        -fsanitize=address              # Enable ASAN.
-        -fno-omit-frame-pointer         # Nicer stack traces in error messages.
-        -fno-optimize-sibling-calls     # Disable tail call elimination (perfect stack traces if inlining off).
-    )
-    # target_link_options(PluginKDB PRIVATE
-    #     -fsanitize=address
-    # )
-endif()
-
-target_compile_definitions(PluginKDB PUBLIC  LOCKFREE_SYMBASE)
-target_include_directories(PluginKDB PUBLIC  "${PROJECT_SOURCE_DIR}/../include")
-target_include_directories(PluginKDB PUBLIC  "${PROJECT_SOURCE_DIR}/include")
-target_link_libraries     (PluginKDB PRIVATE DolphinDB)
+target_include_directories(PluginKDB PUBLIC  "${CMAKE_CURRENT_SOURCE_DIR}/../include")
+target_include_directories(PluginKDB PUBLIC  "${CMAKE_CURRENT_SOURCE_DIR}/../include/ddbplugin")
+target_include_directories(PluginKDB PUBLIC  "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 # #== zlib
 # find_package(ZLIB REQUIRED)
@@ -93,4 +87,9 @@ target_link_libraries     (PluginKDB PRIVATE DolphinDB)
 #== kdb+
 target_compile_definitions(PluginKDB PUBLIC  KXVER=3)
 target_link_directories   (PluginKDB PUBLIC  "${CMAKE_BINARY_DIR}")
-target_link_libraries     (PluginKDB PRIVATE ${kdb_lib} ${z_lib} lz4 snappy)
+
+if(WIN32)
+    target_link_libraries     (PluginKDB PRIVATE DolphinDB ${kdb_lib} ${z_lib} lz4 snappy)
+elseif(UNIX)
+    target_link_libraries     (PluginKDB PRIVATE ${kdb_lib} ${z_lib} lz4 snappy)
+endif()

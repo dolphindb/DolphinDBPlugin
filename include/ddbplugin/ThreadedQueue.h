@@ -13,18 +13,7 @@
 #include "Util.h"
 #include "ddbplugin/Plugin.h"
 
-#ifdef USE_PLUGIN_LOGGER
-#include "PluginLogger.h"
-#define COMMON_LOG_DEBUG PLUGIN_LOG
-#define COMMON_LOG_INFO PLUGIN_LOG_INFO
-#define COMMON_LOG_WARN PLUGIN_LOG_WARN
-#define COMMON_LOG_ERR PLUGIN_LOG_ERR
-#else
-#define COMMON_LOG_DEBUG LOG
-#define COMMON_LOG_INFO LOG_INFO
-#define COMMON_LOG_WARN LOG_WARN
-#define COMMON_LOG_ERR LOG_ERR
-#endif
+#include "ddbplugin/PluginLogger.h"
 
 #ifdef AMD_USE_THREADED_QUEUE
 #include "amdQuoteType.h"
@@ -52,10 +41,10 @@ struct MetaTable {
 };
 
 typedef enum StreamOptionFlag {
-    OPT_RECEIVED = 0b01,
-    OPT_ELAPSED = 0b10,
+    OPT_RECEIVED = 1,
+    OPT_ELAPSED = 2,
 #ifdef AMD_USE_THREADED_QUEUE
-    OPT_DAILY_INDEX = 0b100,
+    OPT_DAILY_INDEX = 4,
 #endif
 } MarketOptionFlag;
 
@@ -358,7 +347,7 @@ class ThreadedQueue {
         status_.lastErrMsg_ = errMsg;
         status_.lastFailedTimestamp_ = Util::getNanoEpochTime() + localTimeGap_;
         status_.failedMsgCount_ += failedMsgCount;
-        COMMON_LOG_INFO(prefix_, info_, " Failed to process ", failedMsgCount, " lines of data due to ", errMsg);
+        PLUGIN_LOG_INFO(prefix_, info_, " Failed to process ", failedMsgCount, " lines of data due to ", errMsg);
     }
 
     // get outputTable
@@ -379,7 +368,7 @@ class ThreadedQueue {
         }
 #endif
         clearQueueBuffer();
-        for (uint32_t i = 0; i < cnt; ++i) {
+        for (int i = 0; i < cnt; ++i) {
             structReader_(buffer_, data[i]);
 
 #ifdef AMD_USE_THREADED_QUEUE
@@ -528,7 +517,7 @@ class ThreadedQueue {
         };
 
         std::function<void()> f = [this, dealFunc]() {
-            COMMON_LOG_INFO(prefix_, info_, " async thread start ");
+            PLUGIN_LOG_INFO(prefix_, info_, " async thread start ");
             bool ret;
             int popSize = 0;
             DataStruct item;
@@ -565,7 +554,7 @@ class ThreadedQueue {
                             if (UNLIKELY(stopFlag_)) {
                                 break;
                             }
-                            COMMON_LOG_DEBUG(prefix_, info_, " async thread pop size (0)");
+                            PLUGIN_LOG(prefix_, info_, " async thread pop size (0)");
                         }
                     } else {
                         ret = queue_.blockingPop(item, timeout_);
@@ -573,7 +562,7 @@ class ThreadedQueue {
                             if (UNLIKELY(stopFlag_)) {
                                 break;
                             } else {
-                                COMMON_LOG_DEBUG(prefix_, info_, " async thread pop size (0)");
+                                PLUGIN_LOG(prefix_, info_, " async thread pop size (0)");
                                 continue;
                             }
                         }
@@ -583,7 +572,7 @@ class ThreadedQueue {
                         popSize = items.size();
                     }
                     status_.processedMsgCount_ += popSize;
-                    COMMON_LOG_DEBUG(prefix_, info_, " async thread pop size (", items.size(), ")");
+                    PLUGIN_LOG(prefix_, info_, " async thread pop size (", items.size(), ")");
                     dealFunc(items);
                     if (finalizer_) {
                         finalizer_(items);
@@ -594,10 +583,10 @@ class ThreadedQueue {
                     status_.failedMsgCount_ += popSize;
                     status_.lastErrMsg_ = "topic=" + info_ + " length=" + std::to_string(popSize) + " exception=" + errMsg;
                     status_.lastFailedTimestamp_ = Util::getNanoEpochTime() + localTimeGap_;
-                    COMMON_LOG_ERR(prefix_, info_, " Failed to process ", popSize, " lines of data due to ", errMsg);
+                    PLUGIN_LOG_ERR(prefix_, info_, " Failed to process ", popSize, " lines of data due to ", errMsg);
                 }
             }
-            COMMON_LOG_INFO(prefix_, info_, " async thread end.");
+            PLUGIN_LOG_INFO(prefix_, info_, " async thread end.");
         };
 
         SmartPointer<dolphindb::Executor> executor = new dolphindb::Executor(f);
@@ -748,17 +737,12 @@ static inline void checkSeqNum(const string &prefix, const string &tag, std::uno
             }
         }
         if (seqCheckMode == SeqCheckMode::IGNORE_WITH_LOG) {
-            COMMON_LOG_INFO(prefix, errMsg);
+            PLUGIN_LOG_INFO(prefix, errMsg);
         }
     }
     lastSeqNum[channelNo] = seqNum;
 }
 
 }  // namespace MarketUtil
-
-#undef COMMON_LOG_DEBUG
-#undef COMMON_LOG_INFO
-#undef COMMON_LOG_WARN
-#undef COMMON_LOG_ERR
 
 #endif

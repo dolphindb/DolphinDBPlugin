@@ -11,10 +11,7 @@
 
 #ifndef AMD_USE_THREADED_QUEUE
 #define AMD_USE_THREADED_QUEUE
-#ifndef USE_PLUGIN_LOGGER
-#define USE_PLUGIN_LOGGER
 #include "ddbplugin/ThreadedQueue.h"
-#endif
 #endif
 
 const static int TIMEOUT = 100;
@@ -354,7 +351,7 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
 
         PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        if (UNLIKELY(PLUGIN_LOG_LEVEL == PluginSeverityType::DEBUG)) {
+        if (UNLIKELY(PLUGIN_LOG_LEVEL == severity_type::DEBUG)) {
             for (auto i = 0U; i < cnt; ++i) {
                 PLUGIN_LOG(AMDQUOTE_PREFIX, __FUNCTION__, " securityCode: ", ticks[i].security_code, "; bizIndex: ", ticks[i].appl_seq_num);
             }
@@ -365,7 +362,7 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
 
         PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        if (UNLIKELY(PLUGIN_LOG_LEVEL == PluginSeverityType::DEBUG)) {
+        if (UNLIKELY(PLUGIN_LOG_LEVEL == severity_type::DEBUG)) {
             for (auto i = 0U; i < cnt; ++i) {
                 PLUGIN_LOG(AMDQUOTE_PREFIX, __FUNCTION__, " securityCode: ", ticks[i].security_code, "; bizIndex: ", ticks[i].appl_seq_num);
             }

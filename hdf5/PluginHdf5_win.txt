@@ -1,4 +1,4 @@
-hdf5,libPluginHdf5.dll,2.00.15
+hdf5,libPluginHdf5.dll,2.00.16
 h5ls,ls,system,1,1,0,0,(fileName)
 h5lsTable,lsTable,system,1,1,0,0,(fileName)
 extractHDF5Schema,extractHDF5Schema,system,2,2,0,0,(fileName,datasetName)

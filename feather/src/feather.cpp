@@ -23,6 +23,8 @@
 #include "arrow/io/file.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_binary.h"
+#include "ddbplugin/PluginLogger.h"
+#include "ddbplugin/PluginLoggerImp.h"
 
 using namespace arrow;
 using std::cout;
@@ -368,11 +370,11 @@ class GetColRunnable: public Runnable {
         } catch (std::exception &e) {
             string errMsg = e.what();
             status_ = Status(StatusCode::SerializationError, errMsg);
-            LOG_ERR(errMsg);
+            PLUGIN_LOG_ERR(errMsg);
         } catch (...) {
             string errMsg = "Error occurs when get cols data.";
             status_ = Status(StatusCode::UnknownError, errMsg);
-            LOG_ERR(errMsg);
+            PLUGIN_LOG_ERR(errMsg);
         }
     }
     private:
@@ -878,11 +880,11 @@ class TransColRunnable: public Runnable {
         } catch (std::exception &e) {
             string errMsg = e.what();
             status_ = Status(StatusCode::SerializationError, errMsg);
-            LOG_ERR(errMsg);
+            PLUGIN_LOG_ERR(errMsg);
         } catch (...) {
             string errMsg = "Error occurs when trans cols data.";
             status_ = Status(StatusCode::UnknownError, errMsg);
-            LOG_ERR(errMsg);
+            PLUGIN_LOG_ERR(errMsg);
         }
     }
     private:

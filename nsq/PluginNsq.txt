@@ -1,8 +1,8 @@
-nsq,libPluginNsq.so,2.00.15
-nsqConnect,connect,system,1,5,0
-nsqSubscribe,subscribe,system,3,3,0
-nsqUnsubscribe,unsubscribe,system,2,2,0
-nsqGetSchema,getSchema,system,1,1,0
-nsqClose,close,system,0,0,0
-nsqGetStatus,getSubscriptionStatus,system,0,0,0
-nsqGetStatus,getStatus,system,0,0,0
+nsq,libPluginNsq.so,2.00.16
+nsqConnect,connect,system,1,5,0,0,(fileName, [option], [username], [password], [dataVersion='ORIGIN'])
+nsqSubscribe,subscribe,system,3,3,0,0,(dataType, market, outputTable)
+nsqUnsubscribe,unsubscribe,system,2,2,0,0,(dataType, market)
+nsqGetSchema,getSchema,system,1,1,0,0,(dataType)
+nsqClose,close,system,0,0,0,0,()
+nsqGetStatus,getSubscriptionStatus,system,0,0,0,0,()
+nsqGetStatus,getStatus,system,0,0,0,0,()

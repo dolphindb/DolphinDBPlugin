@@ -1,16 +1,18 @@
 #include"gp.h"
+#include "ddbplugin/PluginLoggerImp.h"
 // # define DEBUG_GP
 using namespace std;
 double *DataPtr[1024][6];
 ConstantSP ConstantData[1024][6];
-extern int dataIndex;
+int dataIndex;
 //data rows
 int dataSize[1024];
 //data cols
 int dataLen[1024];
 int blockIndex;
 int blockSize;
-char commandBuffer[1024];
+constexpr int LEN = 1024;
+char commandBuffer[LEN];
 
 int mIndex = 1024;
 std::unordered_set<std::string> styleSet;
@@ -401,7 +403,7 @@ void gpSetProps(ConstantSP &props) {
 
 void convertData(ConstantSP &data, const string& style, int blockIndex, int colIndex, DATA_TYPE& lastType, const string& axesString) {
     DATA_TYPE currentType = data->getType();
-    if(Util::getCategory(currentType) == DATA_CATEGORY::TEMPORAL && lastType != DT_DOUBLE && currentType != currentType){
+    if(Util::getCategory(currentType) == DATA_CATEGORY::TEMPORAL && lastType != DT_DOUBLE && lastType != currentType){
         throw RuntimeException("Time-type data must be of the same data type.");
     }
     int rows = data->rows();
@@ -564,17 +566,17 @@ Mutex mLock;
 ConstantSP gpPlot(Heap *heap, vector<ConstantSP> &args) {
     LockGuard<Mutex> lock(&mLock);
     if (args[0]->getForm() != DF_VECTOR && args[0]->getForm() != DF_TABLE) {
-        throw RuntimeException("Data must be a  vector or a table");
+        throw RuntimeException("data must be a  vector or a table");
     }
     if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR) {
-        throw RuntimeException("Style must be a string scalar");
+        throw RuntimeException("style must be a string scalar");
     }
     if (args[2]->getType() != DT_STRING || args[2]->getForm() != DF_SCALAR) {
-        throw RuntimeException("Path must be a string scalar");
+        throw RuntimeException("filePath must be a string scalar");
     }
     if (args.size() > 3) {
         if (args[3]->getType() != DT_ANY || args[3]->getForm() != DF_DICTIONARY) {
-            throw RuntimeException("Props must be a dictionary");
+            throw RuntimeException("option must be a dictionary");
         }
     }
     if (needGpInit) {

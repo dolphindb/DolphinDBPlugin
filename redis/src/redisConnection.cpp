@@ -265,7 +265,8 @@ ConstantSP RedisConnection::redisBatchHashSet(const vector<ConstantSP> &args) {
                 redisReply *reply;
                 if (redisGetReply(redisConnect_, (void **)&reply) != REDIS_OK) {
                     throw RuntimeException(
-                        "[Plugin::Redis] Failed to execute HSET command: " + string(redisConnect_->errstr) + ".");
+                        "[Plugin::Redis] Failed to execute HSET command: " + string(redisConnect_->errstr) +
+                        ", this connection cannot be reused and you should release it and create a new connection.");
                 }
                 if (redisConnect_->err) {
                     throw RuntimeException(
@@ -371,8 +372,9 @@ ConstantSP RedisConnection::redisBatchPush(const vector<ConstantSP> &args) {
         for (int i = 0; i < count; ++i) {
             redisReply *reply;
             if (redisGetReply(redisConnect_, (void **)&reply) != REDIS_OK) {
-                throw RuntimeException("[Plugin::Redis] Failed to execute " + command +
-                                       " command: " + string(redisConnect_->errstr) + ".");
+                throw RuntimeException(
+                    "[Plugin::Redis] Failed to execute " + command + " command: " + string(redisConnect_->errstr) +
+                    ", this connection cannot be reused and you should release it and create a new connection");
             }
             if (redisConnect_->err) {
                 throw RuntimeException(

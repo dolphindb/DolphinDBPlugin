@@ -2,6 +2,7 @@
 
 #include "Exceptions.h"
 #include "ddbplugin/Plugin.h"
+#include "ddbplugin/PluginLoggerImp.h"
 
 Mutex OPCUASub::OPCUASub::OPCUA_SUB_MAP_LATCH;
 std::unordered_map<long long, OPCUASubSP> OPCUASub::OPCUA_SUB_MAP;
@@ -303,8 +304,8 @@ bool convertDTToUA(UA_Variant *variant, ConstantSP value) {
         }
         case DT_UUID: {
             if (isScalar) {
-                const unsigned char *s = value->getInt128().bytes();
-                UA_Guid guid = convertUuidToUA_Guid(s);
+                Guid v = value->getInt128();
+                UA_Guid guid = convertUuidToUA_Guid(v.bytes());
                 retval = UA_Variant_setScalarCopy(variant, &guid, &UA_TYPES[UA_TYPES_GUID]);
                 break;
             } else {
@@ -596,7 +597,7 @@ void OPCUASub::reconnect() {
             reconnectTime_ = Util::getNanoEpochTime() + timeGap_;
             isConnected_ = true;
         } catch (std::exception &e) {
-            LOG_INFO(OPCUA_PREFIX, "subscription [" + actionName_ + "] reconnection failed due to ", e.what());
+            PLUGIN_LOG_INFO(OPCUA_PREFIX, "subscription [" + actionName_ + "] reconnection failed due to ", e.what());
         }
     }
 }
@@ -615,13 +616,13 @@ void OPCUASub::startThread() {
                             "subscription [" + actionName_ + "] has been disconnected. Trying to reconnect.";
                         status_.lastErrMsg_ = errMsg;
                         status_.lastFailedTimestamp_ = dataTime;
-                        LOG_WARN(OPCUA_PREFIX, errMsg);
+                        PLUGIN_LOG_WARN(OPCUA_PREFIX, errMsg);
                         reconnect();
                     } else {
                         string errMsg = "Error occurs in OPCUA sub: " + string(UA_StatusCode_name(retVal));
                         status_.lastErrMsg_ = errMsg;
                         status_.lastFailedTimestamp_ = dataTime;
-                        LOG_ERR(OPCUA_PREFIX, errMsg);
+                        PLUGIN_LOG_ERR(OPCUA_PREFIX, errMsg);
                         break;
                     }
                 }
@@ -631,7 +632,7 @@ void OPCUASub::startThread() {
             status_.lastErrMsg_ = errMsg;
             long long dataTime = Util::getNanoEpochTime() + timeGap_;
             status_.lastFailedTimestamp_ = dataTime;
-            LOG_ERR(OPCUA_PREFIX, errMsg);
+            PLUGIN_LOG_ERR(OPCUA_PREFIX, errMsg);
         }
     };
     thread_ = new Thread(new dolphindb::Executor(f));
@@ -710,7 +711,7 @@ static void handlerTheAnswerChanged(UA_Client *client, UA_UInt32 subId, void *su
     long long clientLong = (long long)client;
     auto it = OPCUASub::OPCUA_SUB_MAP.find(clientLong);
     if (it == OPCUASub::OPCUA_SUB_MAP.end()) {
-        LOG_INFO(OPCUA_PREFIX, "invalid client: ", client);
+        PLUGIN_LOG_INFO(OPCUA_PREFIX, "invalid client: ", client);
         return;
     }
     OPCUASubSP sub = it->second;
@@ -762,7 +763,7 @@ static void handlerTheAnswerChanged(UA_Client *client, UA_UInt32 subId, void *su
         }
         sub->getStatus().processedMsgCount_++;
     } catch (std::exception &e) {
-        LOG_ERR(OPCUA_PREFIX, e.what());
+        PLUGIN_LOG_ERR(OPCUA_PREFIX, e.what());
         sub->getStatus().lastErrMsg_ = e.what();
         sub->getStatus().failedMsgCount_++;
         sub->getStatus().lastFailedTimestamp_ = dataTime;
@@ -989,7 +990,7 @@ ConstantSP OPCUAClient::browseNode() {
     browseNode(object, nameSpace, nodeid);
     nameSpaceVec->appendInt(nameSpace.data(), nameSpace.size());
     nodeidVec->appendString(nodeid.data(), nodeid.size());
-    vector<string> colNames = {"nodeNamespace", "nodeidString"};
+    vector<string> colNames = {"nodeNamespace", "nodeIdString"};
     vector<ConstantSP> cols(2);
     cols[0] = {nameSpaceVec};
     cols[1] = {nodeidVec};
@@ -1258,7 +1259,7 @@ static UA_INLINE UA_ByteString loadFile(string path) {
 
 ConstantSP connectOpcUaServer(Heap *heap, vector<ConstantSP> &arguments) {
     std::string usage =
-        "Usage: connect(endPointUrl, clientUri, [userName], [userPassword], [securityMode], [securityPolicy], "
+        "Usage: connect(endPointUrl, clientUri, [username], [password], [securityMode], [securityPolicy], "
         "[certificatePath], [privateKeyPath]) ";
     UA_MessageSecurityMode securityMode = UA_MessageSecurityMode::UA_MESSAGESECURITYMODE_INVALID;
     UA_String securityPolicy = UA_STRING_ALLOC("http://opcfoundation.org/UA/SecurityPolicy#None");
@@ -1276,14 +1277,14 @@ ConstantSP connectOpcUaServer(Heap *heap, vector<ConstantSP> &arguments) {
     string username;
     string password;
     if (arguments.size() == 3) {
-        throw IllegalArgumentException(__FUNCTION__, "the userName and the passWord must be a pair");
+        throw IllegalArgumentException(__FUNCTION__, "the username and the password must be a pair");
     }
     if (arguments.size() >= 4) {
         if (!arguments[2]->isNull() && (arguments[2]->getType() != DT_STRING || !arguments[2]->isScalar())) {
-            throw IllegalArgumentException(__FUNCTION__, usage + "the userName must be string scalar.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "the username must be string scalar.");
         }
         if (!arguments[3]->isNull() && (arguments[3]->getType() != DT_STRING || !arguments[3]->isScalar())) {
-            throw IllegalArgumentException(__FUNCTION__, usage + "the passWord must be string scalar.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "the password must be string scalar.");
         }
         if (!arguments[2]->isNull()) {
             username = arguments[2]->getString();
@@ -1358,7 +1359,7 @@ ConstantSP disconnect(Heap *heap, vector<ConstantSP> &arguments) {
     if (arguments[0]->getType() == DT_RESOURCE && arguments[0]->getString() == OPCUA_CLIENT_DESC) {
         client = arguments[0];
     } else {
-        throw IllegalArgumentException(__FUNCTION__, usage + "Invalid OPCUA connection object.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "Invalid OPCUA conn object.");
     }
     long long clientLong = (long long)client->getClientPtr();
     OPCUASubSP sub = nullptr;
@@ -1381,47 +1382,47 @@ ConstantSP disconnect(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP readNode(Heap *heap, vector<ConstantSP> &arguments) {
-    std::string usage = "Usage: readNode(conn, nodeNamespace, nodeidString, table) ";
+    std::string usage = "Usage: readNode(conn, nodeNamespace, nodeIdString, [table]) ";
 
     vector<int> nodeNamespace;
-    vector<string> nodeidString;
+    vector<string> nodeIdString;
     OPCUAClientSP client;
     if (arguments[0]->getType() == DT_RESOURCE && arguments[0]->getString() == OPCUA_CLIENT_DESC) {
         client = arguments[0];
     } else {
-        throw IllegalArgumentException(__FUNCTION__, usage + "Invalid OPCUA connection object.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "Invalid OPCUA conn object.");
     }
     if (arguments[1]->getType() != DT_INT) {
         throw IllegalArgumentException(__FUNCTION__, usage + "the nodeNamespace must be int scalar or int array");
     }
     if (arguments[2]->getType() != DT_STRING) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "the nodeidString must be string scalar or string array");
+        throw IllegalArgumentException(__FUNCTION__, usage + "the nodeIdString must be string scalar or string array");
     }
     if (arguments[1]->isScalar()) {
         int nodeNamespaceValue = arguments[1]->getInt();
         if (arguments[2]->isArray()) {
             nodeNamespace.resize(arguments[2]->size());
-            nodeidString.resize(arguments[2]->size());
+            nodeIdString.resize(arguments[2]->size());
             for (int i = 0; i < arguments[2]->size(); i++) {
                 nodeNamespace[i] = nodeNamespaceValue;
-                nodeidString[i] = arguments[2]->getString(i);
+                nodeIdString[i] = arguments[2]->getString(i);
             }
         } else if (arguments[2]->isScalar()) {
             nodeNamespace.resize(1);
-            nodeidString.resize(1);
+            nodeIdString.resize(1);
             nodeNamespace[0] = nodeNamespaceValue;
-            nodeidString[0] = arguments[2]->getString();
+            nodeIdString[0] = arguments[2]->getString();
         }
     } else if (arguments[1]->isArray()) {
         if (!arguments[2]->isArray() || arguments[2]->size() != arguments[1]->size()) {
             throw IllegalArgumentException(__FUNCTION__,
-                                           usage + "the nodeNamespace size and the nodeidString size must be same");
+                                           usage + "the nodeNamespace size and the nodeIdString size must be same");
         }
         nodeNamespace.resize(arguments[2]->size());
-        nodeidString.resize(arguments[2]->size());
+        nodeIdString.resize(arguments[2]->size());
         for (int i = 0; i < arguments[2]->size(); i++) {
             nodeNamespace[i] = arguments[1]->getInt(i);
-            nodeidString[i] = arguments[2]->getString(i);
+            nodeIdString[i] = arguments[2]->getString(i);
         }
     } else
         throw IllegalArgumentException(__FUNCTION__, usage + "the nodeNamespace must be int scalar or int array");
@@ -1448,46 +1449,46 @@ ConstantSP readNode(Heap *heap, vector<ConstantSP> &arguments) {
         table = new Void();
     }
 
-    return client->readNode(nodeNamespace, nodeidString, table);
+    return client->readNode(nodeNamespace, nodeIdString, table);
 }
 
 ConstantSP browseNode(Heap *heap, vector<ConstantSP> &arguments) {
     std::string usage = "Usage: browseNode(conn) ";
     vector<int> nodeNamespace;
-    vector<string> nodeidString;
+    vector<string> nodeIdString;
     OPCUAClientSP client;
     if (arguments[0]->getType() == DT_RESOURCE && arguments[0]->getString() == OPCUA_CLIENT_DESC) {
         client = arguments[0];
     } else {
-        throw IllegalArgumentException(__FUNCTION__, usage + "Invalid OPCUA connection object.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "Invalid OPCUA conn object.");
     }
     if (!client->getConnected()) {
-        throw RuntimeException(OPCUA_PREFIX + "OPCUA connection has been closed.");
+        throw RuntimeException(OPCUA_PREFIX + "OPCUA conn has been closed.");
     }
     return client->browseNode();
 }
 
 ConstantSP writeNode(Heap *heap, vector<ConstantSP> &arguments) {
-    std::string usage = "Usage: writeNode(conn, nodeNamespace, nodeidString, value) ";
+    std::string usage = "Usage: writeNode(conn, nodeNamespace, nodeIdString, value) ";
 
     vector<int> nodeNamespace;
-    vector<string> nodeidString;
+    vector<string> nodeIdString;
     OPCUAClientSP client;
     if (arguments[0]->getType() == DT_RESOURCE && arguments[0]->getString() == OPCUA_CLIENT_DESC) {
         client = arguments[0];
     } else {
-        throw IllegalArgumentException(__FUNCTION__, usage + "Invalid OPCUA connection object.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "Invalid OPCUA conn object.");
     }
     if (arguments[1]->getType() != DT_INT) {
         throw IllegalArgumentException(__FUNCTION__, usage + "the nodeNamespace must be int scalar or int array");
     }
     if (arguments[2]->getType() != DT_STRING) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "the nodeidString must be string scalar or string array");
+        throw IllegalArgumentException(__FUNCTION__, usage + "the nodeIdString must be string scalar or string array");
     }
     if (arguments[2]->isArray()) {
         if (!arguments[3]->isArray() || arguments[3]->size() != arguments[1]->size()) {
             throw IllegalArgumentException(__FUNCTION__,
-                                           usage + "the nodeidString size and the value size must be same");
+                                           usage + "the nodeIdString size and the value size must be same");
         }
         if (arguments[1]->isScalar()) {
             int nodeNamespaceValue = arguments[1]->getInt();
@@ -1497,42 +1498,42 @@ ConstantSP writeNode(Heap *heap, vector<ConstantSP> &arguments) {
             }
         } else if (!arguments[2]->isArray() || arguments[2]->size() != arguments[1]->size()) {
             throw IllegalArgumentException(__FUNCTION__,
-                                           usage + "the nodeNamespace size and the nodeidString size must be same");
+                                           usage + "the nodeNamespace size and the nodeIdString size must be same");
         } else {
             nodeNamespace.resize(arguments[2]->size());
             for (int i = 0; i < arguments[2]->size(); i++) {
                 nodeNamespace[i] = arguments[1]->getInt(i);
             }
         }
-        nodeidString.resize(arguments[2]->size());
+        nodeIdString.resize(arguments[2]->size());
         for (int i = 0; i < arguments[2]->size(); i++) {
-            nodeidString[i] = arguments[2]->getString(i);
+            nodeIdString[i] = arguments[2]->getString(i);
         }
     } else if (arguments[2]->isScalar()) {
         if (!arguments[1]->isScalar()) {
             throw IllegalArgumentException(__FUNCTION__,
-                                           usage + "the nodeidString is a scalar but the nodeNamespace is not");
+                                           usage + "the nodeIdString is a scalar but the nodeNamespace is not");
         }
         if (!arguments[3]->isScalar() && !arguments[3]->isArray() && !arguments[3]->isMatrix()) {
             throw IllegalArgumentException(__FUNCTION__, usage + "the value must be scalar or array");
         }
         nodeNamespace.resize(1);
-        nodeidString.resize(1);
+        nodeIdString.resize(1);
         nodeNamespace[0] = arguments[1]->getInt();
-        nodeidString[0] = arguments[2]->getString();
+        nodeIdString[0] = arguments[2]->getString();
     } else {
-        throw IllegalArgumentException(__FUNCTION__, usage + "the nodeidString must be string scalar or string array");
+        throw IllegalArgumentException(__FUNCTION__, usage + "the nodeIdString must be string scalar or string array");
     }
 
-    return client->writeNode(nodeNamespace, nodeidString, arguments[3]);
+    return client->writeNode(nodeNamespace, nodeIdString, arguments[3]);
 }
 
 ConstantSP subscribeNode(Heap *heap, vector<ConstantSP> &arguments) {
     std::string usage =
-        "Usage: subscribe(conn, nodeNamespace, nodeidString, handle, [actionName], [reconnect=false], "
+        "Usage: subscribe(conn, nodeNamespace, nodeIdString, handler, [actionName], [reconnect=false], "
         "[resubscribeInterval=0]) ";
     vector<int> nodeNamespace;
-    vector<string> nodeidString;
+    vector<string> nodeIdString;
     OPCUAClientSP client;
     if (arguments[0]->getType() == DT_RESOURCE && arguments[0]->getString() == OPCUA_CLIENT_DESC) {
         client = arguments[0];
@@ -1543,44 +1544,44 @@ ConstantSP subscribeNode(Heap *heap, vector<ConstantSP> &arguments) {
             }
         }
     } else {
-        throw IllegalArgumentException(__FUNCTION__, usage + "Invalid OPCUA connection object.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "Invalid OPCUA conn object.");
     }
     if (arguments[1]->getType() != DT_INT) {
         throw IllegalArgumentException(__FUNCTION__, usage + "the nodeNamespace must be int scalar or int array");
     }
     if (arguments[2]->getType() != DT_STRING) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "the nodeidString must be string scalar or string array");
+        throw IllegalArgumentException(__FUNCTION__, usage + "the nodeIdString must be string scalar or string array");
     }
     if (arguments[2]->isArray()) {
         if (arguments[1]->isScalar()) {
             nodeNamespace = vector<int>(arguments[2]->size(), arguments[1]->getInt());
         } else if (!arguments[2]->isArray() || arguments[2]->size() != arguments[1]->size()) {
             throw IllegalArgumentException(__FUNCTION__,
-                                           usage + "the nodeNamespace size and the nodeidString size must be same");
+                                           usage + "the nodeNamespace size and the nodeIdString size must be same");
         } else {
             nodeNamespace.resize(arguments[2]->size());
             for (int i = 0; i < arguments[2]->size(); i++) {
                 nodeNamespace[i] = arguments[1]->getInt(i);
             }
         }
-        nodeidString.resize(arguments[2]->size());
+        nodeIdString.resize(arguments[2]->size());
         for (int i = 0; i < arguments[2]->size(); i++) {
-            nodeidString[i] = arguments[2]->getString(i);
+            nodeIdString[i] = arguments[2]->getString(i);
         }
     } else if (arguments[2]->isScalar()) {
         if (!arguments[1]->isScalar()) {
             throw IllegalArgumentException(__FUNCTION__,
-                                           usage + "the nodeidString is a scalar but the nodeNamespace  not");
+                                           usage + "the nodeIdString is a scalar but the nodeNamespace  not");
         }
         nodeNamespace.resize(1);
-        nodeidString.resize(1);
+        nodeIdString.resize(1);
         nodeNamespace[0] = arguments[1]->getInt();
-        nodeidString[0] = arguments[2]->getString();
+        nodeIdString[0] = arguments[2]->getString();
     } else {
-        throw IllegalArgumentException(__FUNCTION__, usage + "the nodeidString must be string scalar or string array");
+        throw IllegalArgumentException(__FUNCTION__, usage + "the nodeIdString must be string scalar or string array");
     }
     if (!arguments[3]->isTable() && (arguments[3]->getType() != DT_FUNCTIONDEF)) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "handle must be a table or function");
+        throw IllegalArgumentException(__FUNCTION__, usage + "handler must be a table or function");
     }
     string actionName;
     if (arguments.size() > 4 && !arguments[4]->isNull()) {
@@ -1615,7 +1616,7 @@ ConstantSP subscribeNode(Heap *heap, vector<ConstantSP> &arguments) {
     }
     OPCUASubSP sub =
         new OPCUASub(client->getSession()->getHeap().get(), client->getConnEndPointUrl(), client->getClientUrl(),
-                     client, nodeNamespace, nodeidString, arguments[3], reconnect, resubTimeout, actionName);
+                     client, nodeNamespace, nodeIdString, arguments[3], reconnect, resubTimeout, actionName);
     sub->subs();
     LockGuard<Mutex> _(&OPCUASub::OPCUA_SUB_MAP_LATCH);
     OPCUASub::OPCUA_SUB_MAP.insert(std::make_pair((long long)client->getClientPtr(), sub));
@@ -1626,7 +1627,7 @@ ConstantSP subscribeNode(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP unsubscribeNode(Heap *heap, vector<ConstantSP> &arguments) {
-    std::string usage = "Usage: unsubscribe(connection|actionName) ";
+    std::string usage = "Usage: unsubscribe(conn|actionName) ";
     ConstantSP handle = arguments[0];
     OPCUASubSP sub = nullptr;
     long long clientLong = 0;
@@ -1635,12 +1636,12 @@ ConstantSP unsubscribeNode(Heap *heap, vector<ConstantSP> &arguments) {
         if (arguments[0]->getType() == DT_RESOURCE && arguments[0]->getString() == OPCUA_CLIENT_DESC) {
             conn = arguments[0];
         } else {
-            throw IllegalArgumentException(__FUNCTION__, usage + "Invalid OPCUA connection object.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "Invalid OPCUA conn object.");
         }
         {
             clientLong = (long long)conn->getClientPtr();
             if (OPCUASub::OPCUA_SUB_MAP.find(clientLong) == OPCUASub::OPCUA_SUB_MAP.end()) {
-                throw RuntimeException(OPCUA_PREFIX + "No subscription on this connection.");
+                throw RuntimeException(OPCUA_PREFIX + "No subscription on this conn.");
             }
             sub = OPCUASub::OPCUA_SUB_MAP[clientLong];
         }
@@ -1699,7 +1700,7 @@ ConstantSP unsubscribeNode(Heap *heap, vector<ConstantSP> &arguments) {
         }
     } else {
         throw IllegalArgumentException(__FUNCTION__,
-                                       usage + "first argument should be OPCUA connection or actionName.");
+                                       usage + "first argument should be OPCUA conn or actionName.");
     }
     return new Void();
 }

@@ -40,14 +40,16 @@ private:
 };
 
 static void pyObjectOnClose(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     ProtectGil proGil;
     PyObject *obj = reinterpret_cast<PyObject *>(args[0]->getLong());
     if (obj != nullptr) {
-        Py_DecRef(obj);
+        Py_XDECREF(obj);
         args[0]->setLong(0);
     }
 }
 static void pyFunctionOnClose(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     PyFunction *obj = reinterpret_cast<PyFunction *>(args[0]->getLong());
     if (obj != nullptr) {
         delete obj;
@@ -56,6 +58,8 @@ static void pyFunctionOnClose(Heap *heap, vector<ConstantSP> &args) {
 }
 
 static void doNothing(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
+    std::ignore = args;
 }
 
 static void init() {
@@ -76,8 +80,9 @@ static void init() {
  * return <void>
 */
 ConstantSP runCommand(Heap* heap, vector<ConstantSP>& arguments) {
+    std::ignore = heap;
     if (arguments[0]->getType() != DT_STRING)
-        throw IllegalArgumentException("runCommand", "Input is not a string");
+        throw IllegalArgumentException("runCommand", "script is not a string");
     if (!initFlag) {
         init();
     }
@@ -98,7 +103,7 @@ ConstantSP runCommand(Heap* heap, vector<ConstantSP>& arguments) {
  */
 ConstantSP importModule(Heap* heap, vector<ConstantSP>& arguments) {
     if (arguments[0]->getType() != DT_STRING)
-        throw IllegalArgumentException("importModule", "Input is not a string");
+        throw IllegalArgumentException("importModule", "module is not a string");
     if (!initFlag) {
         init();
     }
@@ -107,8 +112,16 @@ ConstantSP importModule(Heap* heap, vector<ConstantSP>& arguments) {
     PyObject *pName = PyUnicode_DecodeFSDefault(name.c_str());
     PyObject *pModule = PyImport_Import(pName);
     Py_DECREF(pName);
-    if (pModule == nullptr)
+    if (pModule == nullptr){
+        PyObject *exc, *val, *tb;
+        PyErr_Fetch(&exc, &val, &tb);
+        if(exc){
+            py::str errMsg = py::handle(val).cast<py::str>();
+            string msg = py::handle(errMsg).cast<std::string>();
+            throw RuntimeException("Error when importing module "+ name +": "+ msg);
+        }
         throw RuntimeException("importModule: No such module in your environment");
+    }
     //Pack the module and return
     std::unique_ptr<PyObject> pyobj = (std::unique_ptr<PyObject>)pModule;
     FunctionDefSP onClose(Util::createSystemProcedure("importModule onclose()", pyObjectOnClose, 1, 1));
@@ -118,7 +131,7 @@ ConstantSP importModule(Heap* heap, vector<ConstantSP>& arguments) {
 ConstantSP reloadModule(Heap* heap, vector<ConstantSP>& arguments){
     if (arguments[0]->getType() != DT_RESOURCE
     || (arguments[0]->getString() != "python module" && arguments[0]->getString() != "python object"))
-        throw IllegalArgumentException("getObject", "First argument should be a module or an object!");
+        throw IllegalArgumentException("getObject", "module should be a module or an object!");
     if (!initFlag) {
         init();
     }
@@ -163,9 +176,9 @@ PyObject *getDotNObject(PyObject *obj, string name) {
 ConstantSP getObject(Heap* heap, vector<ConstantSP>& arguments) {
     if (arguments[0]->getType() != DT_RESOURCE
         || (arguments[0]->getString() != "python module"))
-        throw IllegalArgumentException("getObject", "First argument should be a module");
+        throw IllegalArgumentException("getObject", "module argument should be a module");
     if (arguments[1]->getType() != DT_STRING)
-        throw IllegalArgumentException("getObject", "Second argument should be a string");
+        throw IllegalArgumentException("getObject", "objName argument should be a string");
     if (!initFlag) {
         init();
     }
@@ -223,15 +236,16 @@ ConstantSP getFunction(Heap* heap, vector<ConstantSP>& arguments) {
  * if args.size = 2:
  */
 ConstantSP cvtPy2Dol(Heap* heap, vector<ConstantSP>& arguments) {
+    std::ignore = heap;
     string funcName = "fromPy";
-    string syntax = "Usage: fromPy(obj, [addIndex=false]). ";
+    string syntax = "Usage: fromPy(obj, [includeIndex=false]). ";
     if (arguments[0]->isNull() || arguments[0]->getType() != DT_RESOURCE
         || (arguments[0]->getString() != "python object" && arguments[0]->getString() != "python module" && arguments[0]->getString() != "python objectRet"))
         throw IllegalArgumentException(funcName, syntax + "obj must be a python object");
     bool addIndex = false;
     if (arguments.size() >=2 && !arguments[1]->isNothing()){
         if (arguments[1]->getType() != DT_BOOL)
-            throw IllegalArgumentException(funcName, syntax + "addIndex must be a bool indicating whether to add index when obj is a dataframe");
+            throw IllegalArgumentException(funcName, syntax + "includeIndex must be a bool indicating whether to add index when obj is a dataframe");
         addIndex = arguments[1]->getBool();
     }
     if (!initFlag) {
@@ -240,7 +254,7 @@ ConstantSP cvtPy2Dol(Heap* heap, vector<ConstantSP>& arguments) {
     ProtectGil proGil;
     ConstantSP result;
     PyObject *pyObj = reinterpret_cast<PyObject *>(arguments[0]->getLong());
-    result = py2dolphin(pyObj, true, addIndex);
+    result = py2dolphin(pyObj, addIndex);
     if (result.get() == nullptr)
         throw IllegalArgumentException("cvtPyObject", "The object type is not supported");
     return result;
@@ -367,7 +381,7 @@ ConstantSP createObject(Heap* heap, vector<ConstantSP>& arguments) {
     return pyRes;
 }
 
-FunctionDefSP getFunctionDol(Heap* heap, vector<ConstantSP>& arguments) {
+ConstantSP getFunctionDol(Heap* heap, vector<ConstantSP>& arguments) {
     FunctionDefSP callFunc = Util::createSystemFunction("callFunction", callFunction, 1, 32, false);
     ConstantSP pyFunc = getFunction(heap, arguments);
     vector<ConstantSP> args = {pyFunc};
@@ -377,9 +391,9 @@ FunctionDefSP getFunctionDol(Heap* heap, vector<ConstantSP>& arguments) {
 ConstantSP getInstanceByName(Heap* heap, vector<ConstantSP>& arguments) {
     if (arguments[0]->getType() != DT_RESOURCE
         || (arguments[0]->getString() != "python module" && arguments[0]->getString() != "python object"))
-        throw IllegalArgumentException("getInstanceByName", "First argument should be a module or an object!");
+        throw IllegalArgumentException("getInstanceByName", "module should be a module or an object!");
     if (arguments[1]->getType() != DT_STRING)
-        throw IllegalArgumentException("getInstanceByName", "Second argument should be a string");
+        throw IllegalArgumentException("getInstanceByName", "objName should be a string");
     if (!initFlag) {
         init();
     }

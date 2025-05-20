@@ -1,7 +1,7 @@
-orc,libPluginOrc.so,2.00.15
-extractORCSchema,extractORCSchema,operator,1,1,0
-loadORC,loadORC,system,1,5,0
-loadORCHdfs,loadORCHdfs,system,2,2,0
-loadORCEx,loadORCEx,system,4,9,0
-orcDS,orcDS,system,2,4,0
-saveORC,saveORC,system,2,2,0
+orc,libPluginOrc.so,2.00.16
+extractORCSchema,extractORCSchema,system,1,1,0,0,(filePath)
+loadORC,loadORC,system,1,5,0,0,(filePath,[schema],[column],[rowStart],[rowNum])
+loadORCHdfs,loadORCHdfs,system,2,2,0,0,(address, length)
+loadORCEx,loadORCEx,system,4,9,0,0,(dbHandle,tableName,partitionColumns,filePath,[schema],[column],[rowStart],[rowNum],[transform])
+orcDS,orcDS,system,2,4,0,0,(filePath,chunkSize,[schema],[skipRows])
+saveORC,saveORC,system,2,2,0,0,(table, fileName)

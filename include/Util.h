@@ -8,6 +8,7 @@
 #ifndef UTIL_H_
 #define UTIL_H_
 
+#include <atomic>
 #include <string.h>
 #include <vector>
 #include <unordered_set>
@@ -358,7 +359,20 @@ public:
 	static string getErrorMessage(int errCode);
 	static int rand(int x){ return (*Util::m1())() % x;}
 	static std::tr1::mt19937* m1();
-	static unsigned int checksum(FILE* fp, long long offset, long long len);
+    static unsigned int checksum(FILE *fp, long long offset, long long len);
+
+    /**
+     * @brief Update the seed for the random number generator. The seedVersion is used for a thread
+	 * to tell whether it needs to update its thread-local random number generator.
+     */
+    static std::atomic<long long int> randomSeed;
+    static std::atomic<unsigned int> seedVersion;
+    static void updateRandomSeed(long long int seed) {
+        randomSeed.store(seed, std::memory_order_release);
+        if (seedVersion.fetch_add(1, std::memory_order_release) == std::numeric_limits<unsigned int>::max()) {
+            seedVersion.store(1, std::memory_order_release);
+        }
+	}
 
 	/**
 	 * @brief Get the current license type of server
@@ -366,7 +380,10 @@ public:
 	 * @return One of 'free', 'commercial' or 'trial'
 	 */
 	static string getLicenseType();
-	static int getLicenseExpiration();
+    static int getLicenseExpiration();
+    static ConstantSP deepCopyUDF(Heap *heap, const ConstantSP &udfFunc);
+    static string marshall(const ConstantSP &value);
+    static ConstantSP unmarshall(Session *session, const string &content);
 
 private:
 	static bool readScriptFile(const string& parentPath,const string& filename, unordered_set<string> scriptAlias, vector<string>& lines, string& errMsg);

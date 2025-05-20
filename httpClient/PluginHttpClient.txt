@@ -1,4 +1,4 @@
-httpClient,libPluginHttpClient.so,2.00.15
+httpClient,libPluginHttpClient.so,2.00.16
 httpGet,httpGet,system,1,5,0,0,(url, [params], [timeout], [headers], [config])
 httpPost,httpPost,system,1,5,0,0,(url, [params], [timeout], [headers], [config])
 httpPut,httpPut,system,1,5,0,0,(url, [params], [timeout], [headers], [config])

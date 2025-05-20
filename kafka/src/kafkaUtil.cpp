@@ -151,13 +151,12 @@ void produceMsg(SmartPointer<Producer> producer, const string &topic, const stri
     if (force || valueSize * 2 < MESSAGE_SIZE || (value->getForm() != DF_TABLE && value->getForm() != DF_VECTOR)) {
         string valueStr = kafkaSerialize(value, marshalType);
         try {
-            auto &&msg = MessageBuilder(topic).key(key).payload(valueStr);
+            MessageBuilder msg = MessageBuilder(topic);
+            msg.key(key).payload(valueStr);
             if (partition != -1) {
                 msg.partition(partition);
             }
-            producer->produce(msg);
-        } catch (IllegalArgumentException &e) {
-            throw e;
+            producer->produce(std::move(msg));
         } catch (std::exception &e) {
             throw RuntimeException(KAFKA_PREFIX + e.what());
         }

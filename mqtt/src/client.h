@@ -9,7 +9,7 @@
 #define MQTT_H_
 
 #include "CoreConcept.h"
-#include "Logger.h"
+#include "ddbplugin/PluginLogger.h"
 #include "Util.h"
 #include "mqtt.h"
 
@@ -65,7 +65,7 @@ class Connection : public ConnctionBase {
         sockfd_ = new Socket(host_, port_, false);
         IO_ERR ret = sockfd_->connect();
         if (ret != OK && ret != INPROGRESS) {
-            LOG_ERR("[PluginMQTT]: Failed to connect. ");
+            PLUGIN_LOG_ERR("[PluginMQTT]: Failed to connect. ");
             return;
         }
         mqtt_reinit(&client_, sockfd_->getHandle(), sendbuf_.get(), sendbufSize_, recvbuf_.get(), recvbufSize_);

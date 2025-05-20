@@ -1,7 +1,7 @@
-signal,libPluginSignal.so,2.00.15
+signal,libPluginSignal.so,2.00.16
 dct,dct,operator,1,1,0,1,(X)
 dst,dst,operator,1,1,0,1,(X)
-dwt,dwt,operator,1,1,0,0,(X)
+dwt,dwt,operator,1,2,0,0,(X)
 idwt,idwt,operator,2,2,0,1,(X,Y)
 dctMap,dctMap,system,2,2,0,0,(table, size)
 dctNumMap,dctNumMap,system,1,1,0,0,(table)

@@ -2,10 +2,7 @@
 #include "Types.h"
 #ifndef AMD_USE_THREADED_QUEUE
 #define AMD_USE_THREADED_QUEUE
-#ifndef USE_PLUGIN_LOGGER
-#define USE_PLUGIN_LOGGER
 #include "ddbplugin/ThreadedQueue.h"
-#endif
 #endif
 
 using namespace ThreadedQueueUtil;

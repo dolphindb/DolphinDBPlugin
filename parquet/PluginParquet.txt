@@ -1,4 +1,4 @@
-parquet,libPluginParquet.so,2.00.15
+parquet,libPluginParquet.so,2.00.16
 extractParquetSchema,extractParquetSchema,system,1,1,0,0,(fileName)
 loadParquet,loadParquet,system,1,5,0,0,(fileName,[schema],[columnsToLoad],[startRowGroup],[rowGroupNum])
 loadParquetHdfs,loadParquetHdfs,system,2,2,0,0

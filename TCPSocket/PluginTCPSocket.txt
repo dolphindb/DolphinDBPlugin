@@ -1,8 +1,8 @@
-TCPSocket,libPluginTCPSocket.so,2.00.15
-tcpCreateSubJob,createSubJob,system,3,4,0
-tcpGetSubJobStat,getSubJobStat,system,0,0,0
-tcpCancelSubJob,cancelSubJob,system,1,1,0
-tcpConnect,connect,system,2,2,0
-tcpRead,read,system,1,2,0
-tcpWrite,write,system,2,2,0
-tcpClose,close,system,1,1,0
+TCPSocket,libPluginTCPSocket.so,2.00.16
+tcpCreateSubJob,createSubJob,system,3,4,0,0,(host, port, handler, [config])
+tcpGetSubJobStat,getSubJobStat,system,0,0,0,0,()
+tcpCancelSubJob,cancelSubJob,system,1,1,0,0,(tag)
+tcpConnect,connect,system,2,2,0,0,(host, port)
+tcpRead,read,system,1,2,0,0,(socket, [maxBytes])
+tcpWrite,write,system,2,2,0,0,(socket, data)
+tcpClose,close,system,1,1,0,0,(socket)

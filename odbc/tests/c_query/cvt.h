@@ -2,7 +2,7 @@
 #define CVT_H_
 #include <stdexcept>
 #include <string>
-#ifdef WINDOWS
+#ifdef _WIN32
 #include <windows.h>
 #endif
 
@@ -157,7 +157,7 @@ int gb2312_to_utf8(const char* src, char* utf8);
 template <Encoding E>
 int bytesToUTF8(const char* src, char* utf8);
 
-#ifdef WINDOWS
+#ifdef _WIN32
 template <>
 inline int bytesToUTF8<Encoding::GB2312>(const char* src, char* utf8) {
     return gb2312_to_utf8(src, utf8);

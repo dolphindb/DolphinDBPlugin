@@ -4,10 +4,7 @@
 #include "Exceptions.h"
 #include "ddbplugin/CommonInterface.h"
 #include "ddbplugin/Plugin.h"
-#ifndef USE_PLUGIN_LOGGER
-#define USE_PLUGIN_LOGGER
 #include "ddbplugin/ThreadedQueue.h"
-#endif
 #include "kafkaWrapper.h"
 #include "librdkafka/rdkafkacpp.h"
 #include "ddbplugin/PluginLogger.h"

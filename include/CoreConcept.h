@@ -28,6 +28,8 @@
 #include "SysIO.h"
 #include "DolphinString.h"
 
+#define serverVersion "2.00.16"
+
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define LIKELY(x) (__builtin_expect((x), 1))
 #define UNLIKELY(x) (__builtin_expect((x), 0))
@@ -173,7 +175,8 @@ public:
 			const set<string>& dbOwnerPattern, bool dbManage, const set<string>& allowDbManage, const set<string>& deniedDbManage,
 			long long queryResultMemLimit, long long taskGroupMemLimit, bool isViewOwner,
 			bool globalExecComputeGroup, const set<string>& execGroup, const set<string>& deniedExecGroup,
-			bool globalSensitiveView, const set<string>& sensitiveCol, const set<string>& deniedSensitiveCol);
+			bool globalSensitiveView, const set<string>& sensitiveCol, const set<string>& deniedSensitiveCol,
+			long long maxPartitionPerQuery);
     AuthenticatedUser(const ConstantSP& userObj);
     ConstantSP toTuple() const ;
     void setLoginNanoTimeStamp(long long t){loginNanoTimestamp_ = t;}
@@ -211,6 +214,7 @@ public:
 	// return 0 if no limit
 	long long queryResultMemLimit() { return queryResultMemLimit_; }
 	long long taskGroupMemLimit() { return taskGroupMemLimit_; }
+	long long maxPartitionPerQuery() { return maxPartitionPerQuery_; }
 	bool isExpired() const {return expired_;}
 	void expire();
 
@@ -254,6 +258,7 @@ private:
     unordered_set<string> dbOwnerPatterns_;
     long long queryResultMemLimit_;
     long long taskGroupMemLimit_;
+	long long maxPartitionPerQuery_;
 };
 
 template<class T>
@@ -401,9 +406,6 @@ public:
 	IO_ERR serialize(int offset, int length, Buffer& buf);
 	inline bool lastSaveSynchronized() const { return lastSaveSynchronized_;}
 	inline int find(const DolphinString& symbol){
-#ifndef LOCKFREE_SYMBASE
-		LockGuard<Mutex> guard(&keyMutex_);
-#endif
 		int index = -1;
 		keyMap_.find(symbol, index);
 		return index;
@@ -463,12 +465,7 @@ private:
 	bool supportOrder_;
 	DynamicArray<DolphinString> key_;
 	SmartPointer<Array<int> > ordinal_;
-#ifndef LOCKFREE_SYMBASE
-	Mutex keyMutex_;
-	IrremovableFlatHashmap<DolphinString, int> keyMap_;
-#else
 	IrremovableLocklessFlatHashmap<DolphinString, int> keyMap_;
-#endif
 	deque<int> sortedIndices_;
 	mutable RWLock writeMutex_;
 	mutable Mutex versionMutex_;
@@ -565,6 +562,7 @@ public:
 	bool isVariable() const {return objType_ ==VAR;}
 	virtual ConstantSP getValue(Heap* pHeap) = 0;
 	virtual ConstantSP getReference(Heap* pHeap) = 0;
+    virtual void getReference(Heap* pHeap, Constant*& ptr, ConstantSP& ref) {ptr = nullptr; ref = getReference(pHeap);}
 	virtual ~Object(){}
 	virtual string getScript() const = 0;
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const = 0;
@@ -1060,6 +1058,7 @@ public:
 	 */
 	virtual bool setNonNull(const ConstantSP& index, const ConstantSP& value) {return false;}
 	virtual bool setItem(INDEX index, const ConstantSP& value){return set(index,value);}
+	virtual void setItemToHeap(Heap* pHeap, INDEX heapIndex, INDEX itemIndex, const string& name);
 	virtual bool setColumn(INDEX index, const ConstantSP& value){return assign(value);}
 	virtual void setRowLabel(const ConstantSP& label){}
 	virtual void setColumnLabel(const ConstantSP& label){}
@@ -2486,7 +2485,8 @@ public:
 	ConstantSP getValue(int index) const;
 	ConstantSP getReference(int index) const;
 	ConstantSP getReference(const string& name) const;
-	inline int size() const {return size_;}
+    void getReference(INDEX index, Constant*& ptr, ConstantSP& ref);
+    inline int size() const {return size_;}
 	inline bool isViewMode() const { return status_ & 1;}
 	inline void setViewMode(bool enabled = true) { if(enabled) status_ |= 1; else status_ &= ~1;}
 	inline bool isDefMode() const { return status_ & 2;}
@@ -2519,6 +2519,8 @@ public:
 	inline void setLocalVariable(int index, const ConstantSP& value){
 		values_[index] = value;
 		flags_[index] = 2;
+        if(index != 0 && value->isTemporary())
+            value->setTemporary(false);
 	}
 	bool copyMeta(Heap *heap);
 	bool setMetaName(const string &name, int index);
@@ -2641,8 +2643,9 @@ class DomainSite{
 public:
 	DomainSite(const string& host, int port, int index);
 	DomainSite(const string& host, int port, int index, const string& alias) ;
-	DomainSite(const string& host, int port, int index, const string& alias, const string & computeGroupName)
-			: host_(host), port_(port), index_(index), alias_(alias), computeGroupName_(computeGroupName) {}
+	DomainSite(const string& host, int port, int index, const string& alias, const string & computeGroupName,
+		const string& zoneName)
+			: host_(host), port_(port), index_(index), alias_(alias), computeGroupName_(computeGroupName), zoneName_(zoneName) {}
 	const string& getHost() const {return host_;}
 	int getPort() const {return port_;}
 	int getIndex() const {return index_;}
@@ -2650,6 +2653,8 @@ public:
 	const string& getAlias() const {return alias_;}
 	const string& getComputeGroupName() const { return computeGroupName_; }
 	void setComputeGroupName(const string& name) { computeGroupName_ = name; }
+	const string& getZoneName() const { return zoneName_; }
+	void setZoneName(const string& zoneName) { zoneName_ = zoneName; }
 	inline bool operator ==(const DomainSite& target) const { return  host_ == target.host_ && port_ == target.port_;}
 	static DomainSite emptySite_;
 private:
@@ -2660,6 +2665,7 @@ private:
 	// Empty string for datanodes and compute nodes that do not have a group
 	// For compute nodes that do not have a group, all computations are pushed down to the data nodes
 	string computeGroupName_;
+	string zoneName_;
 };
 
 class DomainSitePool {
@@ -3132,8 +3138,8 @@ public:
     inline void setSpanId(const Guid &spanId) { spanId_ = spanId; }
     inline const Guid &getParentSpanId() const { return parentSpanId_; }
     inline void setParentSpanId(const Guid &spanId) { parentSpanId_ = spanId; }
-	void set(Heap* heap, const SessionSP& session, const Guid& jobId, const CountDownLatchSP& latch, bool addDepth = true);
-	void set(Heap* heap, const SessionSP& session);
+	void set(Heap* heap, const SessionSP& session, const Guid& jobId, const CountDownLatchSP& latch, bool addDepth = true, bool setViewMode = false);
+	void set(Heap* heap, const SessionSP& session, bool setViewMode = false);
 	void done(const ConstantSP& result);
 	void done(const string& errMsg);
 	inline const string& getErrorMessage() const {return errMsg_;}
@@ -3226,10 +3232,12 @@ private:
 	int index_;
 };
 
-#ifndef WINDOWS
+
 namespace SSLWrapper {
 	void OPENSSL_cleanse(void *ptr, size_t len);
 }
+
+#ifndef _WIN32
 
 template <typename T>
 struct zallocator
@@ -3287,6 +3295,7 @@ public:
     }
 #endif
 };
+
 template <class T>
 inline bool operator==(const zallocator<T>&, const zallocator<T>&) {
     return true;
@@ -3296,6 +3305,7 @@ template <class T>
 inline bool operator!=(const zallocator<T>&, const zallocator<T>&) {
     return false;
 }
+
 
 typedef unsigned char byte;
 typedef std::basic_string<char, std::char_traits<char>, zallocator<char> > secure_string;
@@ -3318,7 +3328,8 @@ public:
 	virtual ~StaticStageExecutor(){}
 	vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks, const JobProperty& jobProp, bool forceParallel = false);
 	vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks, bool forceParallel = false);
-	void execute(Heap* heap, const vector<DistributedCallSP>& tasks, const std::function<void(const vector<DistributedCallSP>&, int)>& callback);
+	void execute(Heap* heap, const vector<DistributedCallSP>& tasks, const std::function<void(const vector<DistributedCallSP>&, int)>& callback,
+        long long batchTaskSize = -1);
     void setForbidProbingGroupSize(bool flag){forbidProbingGroupSize_ = flag;}
     void setWaitRunningTaskFinishedOnError(bool flag){waitRunningTaskFinishedOnError_ = flag;}
     bool getForbidProbingGroupSize() const {return forbidProbingGroupSize_;}
@@ -3619,7 +3630,7 @@ private:
 
 class InternalUtil {
 public:
-    static IO_ERR readBytes(const DataInputStreamSP& in, char* buf, int length);
+	static IO_ERR readBytes(const DataInputStreamSP& in, char* buf, int length);
 	static Vector* createArrayVector(DATA_TYPE type, INDEX size, INDEX valueSize=0, INDEX capacity=0, INDEX valueCapacity=0, bool fastMode=true, int extraParam=0);
 };
 template<class T>

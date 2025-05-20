@@ -315,7 +315,7 @@ inline void convert(char const* beg, size_t n, wide_string& out)
     out.assign(p, p + s.size());
 #else
 
-#ifdef WINDOWS
+#ifdef _WIN32
     if (GetACP() == 936)
     { //default codepage is gbk
         char *utf8 = new char[n * 2];
@@ -3092,7 +3092,7 @@ private:
             }
             else
             {
-                #ifdef WINDOWS
+                #ifdef _WIN32
                 if(col.ctype_ == SQL_C_CHAR)
                     col.clen_ *= sizeof(wchar_t);
                 #endif

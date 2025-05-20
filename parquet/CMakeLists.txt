@@ -1,12 +1,14 @@
-cmake_minimum_required(VERSION 3.0)
-project(parquet)
-add_definitions(-DLOCKFREE_SYMBASE)
+cmake_minimum_required(VERSION 3.13)
+set(PluginName PluginParquet)
+project(${PluginName})
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 if (WIN32 OR MINGW)
     set (platform_macro "-DWINDOWS")
     set (plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginParquet_win.txt")
 elseif (UNIX)
     set (platform_macro "-DLINUX")
-    add_compile_options("-D_GLIBCXX_USE_CXX11_ABI=0")
     set (plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginParquet.txt")
 endif ()
 message("platform: ${platform_macro}")
@@ -17,6 +19,21 @@ macro(replace_cxx_release_flag src_flag dest_flag)
 endmacro(replace_cxx_release_flag flag)
 
 replace_cxx_release_flag("-O3" "-O2")
+if (${DDB_USE_ASAN})
+    message("enable asan")
+    add_compile_options(
+        "-fsanitize=address"                # Enable ASAN.
+        "-fno-omit-frame-pointer"           # Nicer stack traces in error messages.
+        "-fno-optimize-sibling-calls"       # Disable tail call elimination (perfect stack traces if inlining off).
+        )
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "8")
+            add_compile_options("-fsanitize-recover=address")
+            message("enable asan recover")
+        endif()
+    endif()
+    set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS} "-fsanitize=address")
+endif ()
 include_directories("./parquetApi/include" "../include")
 link_directories(./parquetApi/lib/linux)
 # link_directories(/mnt/data/zsy/thriftLib/lib)
@@ -41,3 +58,8 @@ target_link_libraries(PluginParquet
 add_custom_command( TARGET PluginParquet POST_BUILD
                     COMMAND cp ${plugin_file} "${CMAKE_BINARY_DIR}/PluginParquet.txt"
                     COMMENT "copy PluginParquet.txt")
+
+
+cmake_path(GET CMAKE_CURRENT_SOURCE_DIR FILENAME INSTALL_DIR)
+install(TARGETS ${PluginName} DESTINATION ${INSTALL_DIR})
+install(FILES ${CMAKE_BINARY_DIR}/${PluginName}.txt DESTINATION ${INSTALL_DIR})

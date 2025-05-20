@@ -19,6 +19,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <ScalarImp.h>
+#include "ddbplugin/PluginLoggerImp.h"
 
 #ifdef _WIN32
 // Windows doesn't have symbolic links.

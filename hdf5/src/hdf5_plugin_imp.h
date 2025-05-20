@@ -254,8 +254,8 @@ const char *getHdf5NativeTypeStr(H5DataType &type);
 
 TableSP readSimpleDataset(const hid_t set, H5DataType &type, const TableSP& tb, size_t startRow, size_t readRowNum, GroupInfo &groupInfo);
 TableSP readComplexDataset(const hid_t set, H5DataType &type, const TableSP& tb, size_t startRow, size_t readRowNum, GroupInfo &groupInfo);
-template <typename T>
-void getGroupAttribute(const H5::Group& group, const string& attribute, T* value);
+
+void getGroupAttribute(const H5::Group& group, const string& attribute, long long* value);
 void getGroupAttribute(const H5::Group& group, const string& attribute, string& value);
 void getDataSetAttribute(const H5::DataSet& dataset, const string& attribute, string& value);
 void getRowAndColNum(const hid_t set, vector<size_t> &rowAndColNum);

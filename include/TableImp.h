@@ -276,6 +276,10 @@ public:
 	void setTable(const BasicTableSP& table);
 	void setSize(INDEX size) { size_ = size; }
 
+    bool isKeyTable() const {
+        return keyTable_ != nullptr;
+    }
+
 protected:
 	const vector<ConstantSP>& getCols() const { return cols_; }
 
@@ -333,7 +337,7 @@ private:
 		ConstantSP newRowIndices;
 	};
 	vector<ConstantSP> cols_;
-	KeyTable* keyTable_;
+	KeyTable* keyTable_{nullptr};
 	bool readOnly_;
 	INDEX size_;
 	long long offset_;

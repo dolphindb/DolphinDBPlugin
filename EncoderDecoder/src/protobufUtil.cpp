@@ -16,6 +16,8 @@
 #include "Exceptions.h"
 #include "Types.h"
 
+#include <ddbplugin/PluginLogger.h>
+
 static unsigned int FLOAT_NAN = 0x7f800000;
 static unsigned long long DOUBLE_NAN = 0x7ff0000000000000;
 static int ARRAY_VECTOR_TYPE_BASE = 64;
@@ -1678,7 +1680,7 @@ ConstantSP parseProtobufDynamic(string schemaPath, VectorSP data, unordered_map<
     vector<MessageSP> msgList;
     msgList.reserve(vecSize);
 
-    LOG_INFO(ENCODERDECODER_PREFIX + "Size of messages: ", vecSize);
+    PLUGIN_LOG_INFO(ENCODERDECODER_PREFIX + "Size of messages: ", vecSize);
     if (vecSize == 0) {
         throw RuntimeException(ENCODERDECODER_PREFIX + "input is empty.");
     }
@@ -1705,9 +1707,9 @@ ConstantSP parseProtobufDynamic(string schemaPath, VectorSP data, unordered_map<
         } catch (exception &ex) {
             string errMsg = ex.what();
             if (errMsg.find(ENCODERDECODER_PREFIX) == string::npos) {
-                LOG_ERR(ENCODERDECODER_PREFIX + "", errMsg);
+                PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + "", errMsg);
             } else {
-                LOG_ERR(errMsg);
+                PLUGIN_LOG_ERR(errMsg);
             }
             continue;
         }

@@ -4,6 +4,7 @@
 
 #include "Exceptions.h"
 #include "ddbplugin/ThreadedQueue.h"
+#include "ddbplugin/PluginLogger.h"
 
 using namespace ThreadedQueueUtil;
 
@@ -35,7 +36,7 @@ static int parseDays(const string &day) {
     try {
         return OperatorImp::temporalParse(new String(day), new String("yyyyMMdd"))->getInt();
     } catch (...) {
-        LOG_WARN(PLUGIN_INSIGHT_PREFIX, "parse day '" + day + "' failed.");
+        PLUGIN_LOG_WARN(PLUGIN_INSIGHT_PREFIX, "parse day '" + day + "' failed.");
         return INT_MIN;
     }
 }
@@ -43,7 +44,7 @@ static int parseTime(const string &time) {
     try {
         return OperatorImp::temporalParse(new String(time), new String("HHmmssSSS"))->getInt();
     } catch (...) {
-        LOG_WARN(PLUGIN_INSIGHT_PREFIX, "parse day '" + time + "' failed.");
+        PLUGIN_LOG_WARN(PLUGIN_INSIGHT_PREFIX, "parse day '" + time + "' failed.");
         return INT_MIN;
     }
 }

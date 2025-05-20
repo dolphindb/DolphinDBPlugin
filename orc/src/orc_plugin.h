@@ -11,7 +11,7 @@
 #include <ScalarImp.h>
 #include <Util.h>
 #include <orc/OrcFile.hh>
-extern "C" ConstantSP extractORCSchema(const ConstantSP &filename);
+extern "C" ConstantSP extractORCSchema(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP loadORC(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP loadORCEx(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP orcDS(Heap *heap, vector<ConstantSP> &arguments);

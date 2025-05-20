@@ -82,9 +82,9 @@ ConstantSP redisPluginBatchHashSet(Heap *heap, const vector<ConstantSP> &args) {
     return redisHandler->redisBatchHashSet(args);
 }
 
-ConstantSP redisPluginRelease(const ConstantSP &handle) {
-    checkHandle(handle);
-    REDIS_HANDLE_MAP.safeRemove(handle);
+ConstantSP redisPluginRelease(Heap *heap, const vector<ConstantSP> &args) {
+    checkHandle(args[0]);
+    REDIS_HANDLE_MAP.safeRemove(args[0]);
     return new String("release finish.");
 }
 

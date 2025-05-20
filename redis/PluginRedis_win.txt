@@ -1,10 +1,10 @@
-redis,libPluginRedis.dll,2.00.15
-redisPluginConnect,connect,system,2,2,0
-redisPluginRun,run,system,2,10,0
-redisPluginBatchSet,batchSet,system,3,3,0
-redisPluginBatchHashSet,batchHashSet,system,3,3,0
-redisPluginRelease,release,operator,1,1,0
-redisPluginReleaseAll,releaseAll,operator,0,0,0
-redisGetHandle,getHandle,system,1,1,0
-redisGetHandleStaus,getHandleStatus,operator,0,0,0
-redisBatchPush,batchPush,system,3,4,0
+redis,libPluginRedis.dll,2.00.16
+redisPluginConnect,connect,system,2,2,0,0,(host, port)
+redisPluginRun,run,system,2,10,0,0,(conn, arg1, [arg2], [arg3], [arg4], [arg5], [arg6], [arg7], [arg8], [arg9])
+redisPluginBatchSet,batchSet,system,3,3,0,0,(conn, key, value)
+redisPluginBatchHashSet,batchHashSet,system,3,3,0,0,(conn, key, fieldData)
+redisPluginRelease,release,system,1,1,0,0,(conn)
+redisPluginReleaseAll,releaseAll,operator,0,0,0,0,()
+redisGetHandle,getHandle,system,1,1,0,0,(token)
+redisGetHandleStaus,getHandleStatus,operator,0,0,0,0,()
+redisBatchPush,batchPush,system,3,4,0,0,(conn, key, value, [rightPush=true])

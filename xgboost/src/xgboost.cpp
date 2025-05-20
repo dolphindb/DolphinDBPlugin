@@ -8,6 +8,8 @@
 #include "Logger.h"
 
 #include "xgboost/c_api.h"
+#include "ddbplugin/PluginLogger.h"
+#include "ddbplugin/PluginLoggerImp.h"
 
 #include <iostream>
 #include <vector>
@@ -249,7 +251,7 @@ ConstantSP trainEx(Heap *heap, vector<ConstantSP> &args) {
 
 ConstantSP train(Heap *heap, vector<ConstantSP> &args) {
     string funcName = "xgboost::train";
-    string syntax = "Usage: " + funcName + "(Y, X, [params], [numBoostRound=10], [xgbModel]). ";
+    string syntax = "Usage: " + funcName + "(Y, X, [params], [numBoostRound=10], [model]). ";
     if (args[0]->getForm() != DF_VECTOR || !args[0]->isNumber() || args[0]->size() == 0) {
         throw IllegalArgumentException(funcName, syntax + "Y must be a numeric vector.");
     }
@@ -310,7 +312,7 @@ ConstantSP train(Heap *heap, vector<ConstantSP> &args) {
     bool hasXgbModel = false;
     if (args.size() >= 5 && !args[4]->isNull()) {
         if (args[4]->getType() != DT_RESOURCE || args[4]->getString() != XGBOOST_BOOSTER) {
-            throw IllegalArgumentException(funcName, syntax + "xgbModel must be an xgboost Booster resource.");
+            throw IllegalArgumentException(funcName, syntax + "model must be an xgboost Booster resource.");
         }
         hasXgbModel = true;
         xgbModel = args[4];
@@ -503,7 +505,7 @@ static ConstantSP predictImpl2(Heap *heap, const BoosterHandle hBooster, const D
 
 ConstantSP predict(Heap *heap, vector<ConstantSP> &args) {
     string funcName = "xgboost::predict";
-    string syntax = "Usage: " + funcName + "(model, X, [type=0], [iterationPair], [strictShape=false], [training=false]). ";
+    string syntax = "Usage: " + funcName + "(model, X, [type=0], [iterationRange], [strictShape=false], [training=false]). ";
 
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != XGBOOST_BOOSTER) {
         throw IllegalArgumentException(funcName, syntax + "model must be an xgboost Booster resource.");
@@ -571,7 +573,7 @@ ConstantSP predict(Heap *heap, vector<ConstantSP> &args) {
                 iterationEnd = bestIteration + 1;
             }
         } catch(...) {
-            LOG_ERR("[PLUGIN::XGBOOST] parse best_iteration failed.");
+            PLUGIN_LOG_ERR("[PLUGIN::XGBOOST] parse best_iteration failed.");
         }
     }
 
@@ -694,26 +696,26 @@ ConstantSP predict(Heap *heap, vector<ConstantSP> &args) {
 }
 #endif
 
-ConstantSP saveModel(const ConstantSP& model, const ConstantSP &fname) {
+ConstantSP saveModel(Heap *heap, vector<ConstantSP> &args) {
     string funcName = "xgboost::saveModel";
-    string syntax = "Usage: " + funcName + "(model, fname). ";
+    string syntax = "Usage: " + funcName + "(model, filePath). ";
 
-    if (model->getType() != DT_RESOURCE || model->getString() != XGBOOST_BOOSTER) {
+    if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != XGBOOST_BOOSTER) {
         throw IllegalArgumentException(funcName, syntax + "model must be an xgboost Booster resource.");
     }
-    BoosterHandle hBooster = (BoosterHandle) model->getLong();
+    BoosterHandle hBooster = (BoosterHandle) args[0]->getLong();
 
-    if (!fname->isScalar() || fname->getType() != DT_STRING) {
+    if (!args[1]->isScalar() || args[1]->getType() != DT_STRING) {
         throw IllegalArgumentException(funcName, syntax + "fname must be a string.");
     }
 
-    safe_xgboost(XGBoosterSaveModel(hBooster, fname->getString().c_str()));
+    safe_xgboost(XGBoosterSaveModel(hBooster, args[1]->getString().c_str()));
     return new Void();
 }
 
 ConstantSP loadModel(Heap *heap, vector<ConstantSP> &args) {
     string funcName = "xgboost::loadModel";
-    string syntax = "Usage: " + funcName + "(fname). ";
+    string syntax = "Usage: " + funcName + "(filePath). ";
 
     if (!args[0]->isScalar() || args[0]->getType() != DT_STRING) {
         throw IllegalArgumentException(funcName, syntax + "fname must be a string.");

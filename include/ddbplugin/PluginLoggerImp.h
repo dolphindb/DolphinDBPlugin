@@ -4,7 +4,7 @@
 #include "ddbplugin/PluginLogger.h"
 
 extern Logger log_inst;
-PluginSeverityType PLUGIN_LOG_LEVEL = PluginSeverityType(log_inst.getLogLevel());
+severity_type PLUGIN_LOG_LEVEL = log_inst.getLogLevel();
 
 extern "C" {
 void setLogLevel(Heap *heap, vector<ConstantSP> &args) {
@@ -21,7 +21,7 @@ void setLogLevel(Heap *heap, vector<ConstantSP> &args) {
     }
     int level = args[0]->getInt();
     if (level >= 0 && level <= 3) {
-        PLUGIN_LOG_LEVEL = PluginSeverityType(level);
+        PLUGIN_LOG_LEVEL = severity_type(level);
         return;
     }
     throw IllegalArgumentException("setLogLevel", usage + errMsg);
@@ -36,13 +36,13 @@ ConstantSP getLogLevel(Heap *heap, vector<ConstantSP> &args) {
                                std::to_string(args.size()));
     }
     switch (PLUGIN_LOG_LEVEL) {
-        case PluginSeverityType::DEBUG:
+        case severity_type::DEBUG:
             return new String("DEBUG");
-        case PluginSeverityType::INFO:
+        case severity_type::INFO:
             return new String("INFO");
-        case PluginSeverityType::WARNING:
+        case severity_type::WARNING:
             return new String("WARNING");
-        case PluginSeverityType::ERR:
+        case severity_type::ERR:
         default:
             return new String("ERROR");
     }

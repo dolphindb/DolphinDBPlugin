@@ -1,5 +1,5 @@
-amdQuote,libPluginAmdQuote.so,2.00.15
-amdConnect,connect,system,4,6,0,0,(username, password, ip, port, [option], [dataVersion='ORIGIN'])
+amdQuote,libPluginAmdQuote.so,2.00.16
+amdConnect,connect,system,4,6,0,0,(username, password, host, port, [option], [dataVersion='ORIGIN'])
 subscribe,subscribe,system,4,8,0,0,(handle, dataType, outputTable, market, [codeList], [transform], [seqCheckMode=1], [queueDepth=100000])
 unsubscribe,unsubscribe,system,2,4,0,0,(handle, dataType, [market], [codeList])
 getSchema,getSchema,system,1,1,0,0,(dataType)

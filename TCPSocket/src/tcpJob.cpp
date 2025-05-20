@@ -1,4 +1,5 @@
 #include "tcpSocket.h"
+#include "ddbplugin/PluginLoggerImp.h"
 
 struct TcpData
 {
@@ -52,16 +53,16 @@ public:
                                 isHeadData = false;
                             }
                             string errMsg = PLUGIN_TCP_PREFIX + "tcp connection is disconnect. ";
-                            LOG_ERR(errMsg);
+                            PLUGIN_LOG_ERR(errMsg);
                             queue_->setError(errMsg);
                         }else{
                             string errMsg = PLUGIN_TCP_PREFIX + "failed to connect to " + host + ":" + std::to_string(port);
-                            LOG_ERR(errMsg);
+                            PLUGIN_LOG_ERR(errMsg);
                             queue_->setError(errMsg);
                         }
                     }catch(exception& e){
                         string errMsg = PLUGIN_TCP_PREFIX + "failed to receive data: " + e.what();
-                        LOG_ERR(errMsg);
+                        PLUGIN_LOG_ERR(errMsg);
                         queue_->setError(errMsg);
                     }
                     Util::sleep(1000);
@@ -111,7 +112,7 @@ static int getOptionInt(const DictionarySP& options, const string& tag){
                     tag + " must be an int scalar");
             }
             value = data->getInt();
-            LOG_INFO(PLUGIN_TCP_PREFIX, "get options ", tag, ": ", value);
+            PLUGIN_LOG_INFO(PLUGIN_TCP_PREFIX, "get options ", tag, ": ", value);
             if(value < 0){
                 throw RuntimeException(PLUGIN_TCP_PREFIX + "the value of the dictionary option's key as the " + 
                     tag + " must not be less than 0");

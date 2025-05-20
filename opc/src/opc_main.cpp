@@ -5,6 +5,7 @@
 #include <utility>
 #include "opcimp.h"
 #include "ddbplugin/Plugin.h"
+#include "ddbplugin/PluginLoggerImp.h"
 
 typedef SmartPointer<OPCClient> OPCClientSP;
 static void opcConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {}
@@ -126,7 +127,7 @@ public:
                     try{
                         ((FunctionDefSP)_handler)->call(_session->getHeap().get(), args);
                     } catch (exception &e) {
-                        LOG_ERR("Plugin OPC: Failed to append data: " + string(e.what()));
+                        PLUGIN_LOG_ERR("Plugin OPC: Failed to append data: " + string(e.what()));
                         LockGuard<Mutex> guard(_conn->getLock());
                         this->_conn->setErrorMsg(e.what());
                     }
@@ -159,7 +160,7 @@ public:
                 ConstantSP v = toConstant(*itemData, name);
                 _queue.push(v);
             } catch (exception &e) {
-                LOG_ERR("Plugin OPC: Failed to convert data: " + string(e.what()));
+                PLUGIN_LOG_ERR("Plugin OPC: Failed to convert data: " + string(e.what()));
                 _conn->setErrorMsg(e.what());
             }
         }
@@ -251,7 +252,7 @@ public:
                         }
                     } catch (exception &e) {
                         // cout <<"Failed to work:"<< e.what() << endl;
-                        LOG_ERR("Plugin OPC: " + string(e.what()));
+                        PLUGIN_LOG_ERR("Plugin OPC: " + string(e.what()));
                         t->errMsg = e.what();
                         //*t.retTable = 0;
                         t->latch->countDown();
@@ -268,13 +269,13 @@ public:
                 Sleep(1);    // todo: is this needed?
             }
             catch(bad_alloc &e){
-                LOG_ERR("Plugin OPC: Out of Memory. ");
+                PLUGIN_LOG_ERR("Plugin OPC: Out of Memory. ");
             }
             catch (exception &e){
-                LOG_ERR("Plugin OPC: Fail to work: ", e.what());
+                PLUGIN_LOG_ERR("Plugin OPC: Fail to work: ", e.what());
             }
             catch(...){
-                LOG_ERR("Plugin OPC: Fail to work. ");
+                PLUGIN_LOG_ERR("Plugin OPC: Fail to work. ");
             }
         }
     }
@@ -327,9 +328,9 @@ private:
     static void subInternal(SmartPointer<Task> &task) {
         auto &conn = task->conn;
         if(!conn->getSubFlag())
-            throw OPCException("client is subscribed");
+            throw OPCException("conn is subscribed");
         if(!conn->getConnected())
-            throw OPCException("client is not connected");
+            throw OPCException("conn is not connected");
         auto &heap = task->heap;
         auto &callback = task->callback;
         auto &tagName = task->tagName;
@@ -376,9 +377,9 @@ private:
     static void unsubInternal(const SmartPointer<Task>& task) {
         auto &conn = task->conn;
         if(conn->getSubFlag())
-            throw OPCException("client is not subscribed");
+            throw OPCException("conn is not subscribed");
         if(!conn->getConnected())
-            throw OPCException("client is not connected");
+            throw OPCException("conn is not connected");
         auto group = conn->group;
         conn->setSubFlag(true);
         // group->removeItems();
@@ -490,13 +491,13 @@ ConstantSP getOpcServerList(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP connectOpcServer(Heap *heap, vector<ConstantSP> &arguments) {
-    std::string usage = "Usage: connect(host,server,[reqUpdateRate_ms=100]). ";
+    std::string usage = "Usage: connect(host,serverName,[reqUpdateRateMs=100]). ";
 
     if ((arguments[0]->getType() != DT_STRING) || !arguments[0]->isScalar()) {
-        throw IllegalArgumentException(__FUNCTION__, "the hostname must be string scalar");
+        throw IllegalArgumentException(__FUNCTION__, "the host must be string scalar");
     }
     if ((arguments[0]->getType() != DT_STRING) || !arguments[0]->isScalar()) {
-        throw IllegalArgumentException(__FUNCTION__, "the server name must be string scalar");
+        throw IllegalArgumentException(__FUNCTION__, "the serverName name must be string scalar");
     }
     // create server
     auto host = arguments[0]->getString();
@@ -505,12 +506,12 @@ ConstantSP connectOpcServer(Heap *heap, vector<ConstantSP> &arguments) {
 
     if (arguments.size() > 2) {
         if (arguments[2]->getType() != DT_INT || arguments[2]->getForm() != DF_SCALAR) {
-            throw IllegalArgumentException(__FUNCTION__, usage + "reqUpdateRate_ms must be a integer");
+            throw IllegalArgumentException(__FUNCTION__, usage + "reqUpdateRateMs must be a integer");
         }
         if (arguments[2]->getInt() < 0 || arguments[2]->getInt() > 65536)
-            throw IllegalArgumentException(__FUNCTION__, usage + "reqUpdateRate_ms must be a integer(0-65536)");
+            throw IllegalArgumentException(__FUNCTION__, usage + "reqUpdateRateMs must be a integer(0-65536)");
         reqUpdateRate_ms = arguments[2]->getInt();
-        cout << "reqUpdateRate_ms is " << reqUpdateRate_ms << endl;
+        cout << "reqUpdateRateMs is " << reqUpdateRate_ms << endl;
     }
 
     OPCClientSP cup(pool.connect(heap, host, serverName, reqUpdateRate_ms));
@@ -518,7 +519,8 @@ ConstantSP connectOpcServer(Heap *heap, vector<ConstantSP> &arguments) {
     return cup;
 }
 
-ConstantSP disconnect(const ConstantSP &handle, const ConstantSP &b) {
+ConstantSP disconnect(Heap* heap, vector<ConstantSP>& arguments) {
+    ConstantSP handle = arguments[0];
     std::string usage = "Usage: close(conn). ";
     OPCClientSP conn;
     if (handle->getType() == DT_RESOURCE && handle->getString() == "opc connection") {
@@ -539,7 +541,8 @@ ConstantSP disconnect(const ConstantSP &handle, const ConstantSP &b) {
     return new Bool(true);
 }
 
-ConstantSP endSub(const ConstantSP &handle, const ConstantSP &b) {
+ConstantSP endSub(Heap* heap, vector<ConstantSP>& arguments) {
+    ConstantSP handle = arguments[0];
     std::string usage = "Usage: unsubscribe(subscription). ";
     OPCClientSP conn;
     if (handle->getType() == DT_RESOURCE && handle->getString() == "opc connection") {
@@ -573,7 +576,7 @@ ConstantSP endSub(const ConstantSP &handle, const ConstantSP &b) {
     OPCPluginImp::SUB_MAP.erase(reinterpret_cast<long long>(conn.get()));
     return new Void();
 }
-ConstantSP getSubscriberStat(const ConstantSP &handle, const ConstantSP &b) {
+ConstantSP getSubscriberStat(Heap* heap, vector<ConstantSP>& arguments) {
     LockGuard<Mutex> lk(&OPCPluginImp::LOCK);
     int size = OPCPluginImp::SUB_MAP.size();
     ConstantSP connectionIdVec = Util::createVector(DT_STRING, size);
@@ -840,36 +843,36 @@ TableSP readTagInternal(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP readTag(Heap *heap, vector<ConstantSP> &arguments) {
-    std::string usage = "Usage: readTag(conn,tag).";
+    std::string usage = "Usage: readTag(conn, tagNames, [outputTables]).";
 
     OPCClientSP conn;
     if (arguments[0]->getType() == DT_RESOURCE && arguments[0]->getString() == "opc connection") {
         conn = arguments[0];
         if (!conn->getConnected()) {
-            throw IllegalArgumentException(__FUNCTION__, usage + "client is not connected.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "conn is not connected.");
         }
     } else {
         throw IllegalArgumentException(__FUNCTION__, usage + "Invalid connection object.");
     }
 
     if ((arguments[1]->getType() != DT_STRING)) {
-        throw IllegalArgumentException(__FUNCTION__, "the tag must be string scalar or string array");
+        throw IllegalArgumentException(__FUNCTION__, "The tagNames must be string scalar or string array");
     }
 
     if (arguments.size() > 2) {
         if (!arguments[2]->isTable()) {
             if (arguments[2]->isArray()) {
                 if (!arguments[1]->isArray()) {
-                    throw IllegalArgumentException(__FUNCTION__, "the table is a array but the tag  not");
+                    throw IllegalArgumentException(__FUNCTION__, "The outputTables is a array but the tag not");
                 } else if (arguments[2]->size() != arguments[1]->size()) {
-                    throw IllegalArgumentException(__FUNCTION__, "the tag size and the table size must be same");
+                    throw IllegalArgumentException(__FUNCTION__, "The tagNames and the table size must be same");
                 }
                 for (int i = 0; i < arguments[2]->size(); i++) {
                     if (!arguments[2]->get(i)->isTable())
-                        throw IllegalArgumentException(__FUNCTION__, "the table array must be all table");
+                        throw IllegalArgumentException(__FUNCTION__, "The outputTables must be all table");
                 }
             } else {
-                throw IllegalArgumentException(__FUNCTION__, "the table must be table scalar or table array");
+                throw IllegalArgumentException(__FUNCTION__, "The outputTables must be table scalar or table array");
             }
         } else {
             // cout<<"table.cols"<<arguments[2]->columns()<<endl;
@@ -1035,27 +1038,27 @@ TableSP writeTagInternal(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP writeTag(Heap *heap, vector<ConstantSP> &arguments) {
-    std::string usage = "Usage: writeTag(conn,tag,value).";
+    std::string usage = "Usage: writeTag(conn, tagNames, values).";
     OPCClientSP conn;
     if (arguments[0]->getType() == DT_RESOURCE && arguments[0]->getString() == "opc connection") {
         conn = arguments[0];
         if (!conn->getConnected()) {
-            throw IllegalArgumentException(__FUNCTION__, usage + "client is not connected.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "conn is not connected.");
         }
     } else {
         throw IllegalArgumentException(__FUNCTION__, usage + "Invalid connection object.");
     }
 
     if (arguments[1]->getType() != DT_STRING) {
-        throw IllegalArgumentException(__FUNCTION__, "the tag must be string scalar or string array");
+        throw IllegalArgumentException(__FUNCTION__, "The tagNames must be string scalar or string array");
     }
     // multiple tags
     if (arguments[1]->isArray()) {
         if (!arguments[2]->isArray()) {
-            throw IllegalArgumentException(__FUNCTION__, "the tag is an array but the value not");
+            throw IllegalArgumentException(__FUNCTION__, "The tagNames is an array but the value not");
         } else if (arguments[2]->size() != arguments[1]->size()) {
             throw IllegalArgumentException(__FUNCTION__,
-                                           "the tag array size and the value array size must be the same");
+                                           "The size of tagNames and the size of values must be the same");
         }
         for (int i = 0; i < arguments[2]->size(); i++) {
             vector<ConstantSP> args1 = {arguments[0], arguments[1]->get(i), arguments[2]->get(i)};
@@ -1075,22 +1078,22 @@ ConstantSP writeTag(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP subscribeTag(Heap *heap, vector<ConstantSP> &arguments) {
-    std::string usage = "Usage: subscribe(conn,Tag,handler). ";
+    std::string usage = "Usage: subscribe(conn, tagNames, handler). ";
     OPCClientSP conn;
     if (arguments[0]->getType() == DT_RESOURCE && arguments[0]->getString() == "opc connection") {
         conn = arguments[0];
         if (!conn->getConnected()) {
-            throw IllegalArgumentException(__FUNCTION__, usage + "client is not connected.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "conn is not connected.");
         }
         if (!conn->getSubFlag()) {
-            throw IllegalArgumentException(__FUNCTION__, usage + "client is subscribed.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "conn is subscribed.");
         }
     } else {
         throw IllegalArgumentException(__FUNCTION__, usage + "Invalid connection object.");
     }
 
     if ((arguments[1]->getType() != DT_STRING)) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "the tag must be string scalar or string array");
+        throw IllegalArgumentException(__FUNCTION__, usage + "The tagNames must be string scalar or string array");
     }
     if (!arguments[2]->isTable() && (arguments[2]->getType() != DT_FUNCTIONDEF)) {
         throw IllegalArgumentException(__FUNCTION__, usage + "handler must be a  table or a unary function.");

@@ -6,6 +6,8 @@
 #include "Exceptions.h"
 #include "Logger.h"
 #include "Types.h"
+#include "ddbplugin/PluginLogger.h"
+#include "ddbplugin/PluginLoggerImp.h"
 
 using namespace std;
 
@@ -186,7 +188,7 @@ void InsightHandle::stopAll() {
 void InsightHandle::OnMarketData(const com::htsc::mdc::insight::model::MarketData &record) {
     try {
         long long receiveTime = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        LOG(PLUGIN_INSIGHT_PREFIX, "<OnMarketData> receive ", EMarketDataType_Name(record.marketdatatype()),
+        PLUGIN_LOG(PLUGIN_INSIGHT_PREFIX, "<OnMarketData> receive ", EMarketDataType_Name(record.marketdatatype()),
             " data, timestamp: ", receiveTime, ", transaction: ", record.has_mdtransaction(),
             ", order: ", record.has_mdorder(), ", stock: ", record.has_mdstock(), ", index: ", record.has_mdindex(),
             ", future: ", record.has_mdfuture(), ", fund: ", record.has_mdfund(), ", bond: ", record.has_mdbond(),
@@ -271,19 +273,19 @@ void InsightHandle::OnMarketData(const com::htsc::mdc::insight::model::MarketDat
             }
         }
     } catch (exception &e) {
-        LOG_ERR(PLUGIN_INSIGHT_PREFIX + "Failed to received market data: " + string(e.what()));
+        PLUGIN_LOG_ERR(PLUGIN_INSIGHT_PREFIX + "Failed to received market data: " + string(e.what()));
     } catch (...) {
-        LOG_ERR(PLUGIN_INSIGHT_PREFIX + "Failed to received market data.");
+        PLUGIN_LOG_ERR(PLUGIN_INSIGHT_PREFIX + "Failed to received market data.");
     }
 }
 
-void InsightHandle::OnLoginSuccess() { LOG_INFO(PLUGIN_INSIGHT_PREFIX, "Login Success"); }
+void InsightHandle::OnLoginSuccess() { PLUGIN_LOG_INFO(PLUGIN_INSIGHT_PREFIX, "Login Success"); }
 
 void InsightHandle::OnLoginFailed(int errorNo, const string &message) {
-    LOG_ERR(PLUGIN_INSIGHT_PREFIX, "Login Failed. Error number: ", errorNo, ". Error message: ", message);
+    PLUGIN_LOG_ERR(PLUGIN_INSIGHT_PREFIX, "Login Failed. Error number: ", errorNo, ". Error message: ", message);
 }
 
-void InsightHandle::OnNoConnections() { LOG_ERR(PLUGIN_INSIGHT_PREFIX, "No Connections"); }
+void InsightHandle::OnNoConnections() { PLUGIN_LOG_ERR(PLUGIN_INSIGHT_PREFIX, "No Connections"); }
 
 void InsightHandle::OnGeneralError(const com::htsc::mdc::insight::model::InsightErrorContext &context) {
     LOG_INFO(PLUGIN_INSIGHT_PREFIX + "PARSE message OnGeneralError: ", context.message());

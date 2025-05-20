@@ -1,5 +1,6 @@
-cmake_minimum_required(VERSION 3.0)
-project(PluginGurobi LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.13)
+set(PluginName PluginGurobi)
+project(${PluginName})
 
 #######################################################################################################################
 # CMake options and global variables.
@@ -23,18 +24,12 @@ project(PluginGurobi LANGUAGES CXX)
 option(DDB_USE_ASAN
         "Enable ASAN, a fast memory error detector. https://clang.llvm.org/docs/AddressSanitizer.html"
         OFF)
-option(USE_CXX11_ABI
-        "Enable _GLIBCXX_USE_CXX11_ABI"
-        OFF)
-set(PLUGIN_COMPILE_DEFINITIONS
-        "-DLOCKFREE_SYMBASE"
-)
 set(PLUGIN_COMPILE_OPTIONS
         "-std=c++11"
         "-Wall"
 )
 set(PLUGIN_INCLUDE_DIRECTORIES
-        ${PROJECT_SOURCE_DIR}/../include
+        ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 set(PLUGIN_LINK_DIRECTORIES
         ${CMAKE_BINARY_DIR}
@@ -45,13 +40,6 @@ set(PLUGIN_LINK_OPTIONS
 )
 
 set(destPluginTxt "PluginGurobi.txt")
-
-# ABI
-if(USE_CXX11_ABI)
-    list(APPEND PLUGIN_COMPILE_DEFINITIONS "-D_GLIBCXX_USE_CXX11_ABI=1")
-else()
-    list(APPEND PLUGIN_COMPILE_DEFINITIONS "-D_GLIBCXX_USE_CXX11_ABI=0")
-endif()
 
 # Platform
 if (UNIX)
@@ -101,8 +89,8 @@ endif ()
 message(STATUS "ASAN: ${DDB_USE_ASAN}")
 
 # Source Code
-file(GLOB PluginGurobi_HEADER CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.h)
-file(GLOB PluginGurobi_SOURCE CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.cpp)
+file(GLOB PluginGurobi_HEADER CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h)
+file(GLOB PluginGurobi_SOURCE CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 
 # Options & Dependencies
 list(APPEND PLUGIN_INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}/contrib/include)
@@ -125,14 +113,14 @@ target_link_libraries(PluginGurobi ${PLUGIN_LINK_OPTIONS} ${PLUGIN_LINK_LIBRARIE
 if (WIN32)
 elseif (UNIX)
     install(TARGETS PluginGurobi
-            DESTINATION "${PROJECT_SOURCE_DIR}/bin/${installType}"
+            DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/bin/${installType}"
     )
     install(FILES ${pluginFileTxt}
-            DESTINATION "${PROJECT_SOURCE_DIR}/bin/${installType}"
+            DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/bin/${installType}"
             RENAME ${destPluginTxt}
     )
     install(FILES "${CMAKE_CURRENT_LIST_DIR}/contrib/lib/libgurobi100.so"
-            DESTINATION "${PROJECT_SOURCE_DIR}/bin/${installType}"
+            DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/bin/${installType}"
     )
-    message(STATUS "Install Destination: ${PROJECT_SOURCE_DIR}/bin/${installType}")
+    message(STATUS "Install Destination: ${CMAKE_CURRENT_SOURCE_DIR}/bin/${installType}")
 endif()

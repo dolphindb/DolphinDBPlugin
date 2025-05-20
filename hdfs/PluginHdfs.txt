@@ -1,15 +1,15 @@
-hdfs,libPluginHdfs.so,2.00.15
-hdfs_Connect,connect,system,1,7,0
-hdfs_Disconnect,disconnect,system,1,1,0
-hdfs_Exists,exists,system,2,2,0
-hdfs_Copy,copy,system,4,4,0
-hdfs_Move,move,system,4,4,0
-hdfs_Delete,delete,system,3,3,0
-hdfs_Rename,rename,system,3,3,0
-hdfs_CreateDirectory,createDirectory,system,2,2,0
-hdfs_Chmod,chmod,system,3,3,0
-hdfs_getListDirectory,getListDirectory,system,2,2,0
-hdfs_listDirectory,listDirectory,system,1,1,0
-hdfs_freeFileInfo,freeFileInfo,system,1,1,0
-hdfs_readFile,readFile,system,3,3,0
-hdfs_writeFile,writeFile,system,4,4,0
+hdfs,libPluginHdfs.so,2.00.16
+hdfs_Connect,connect,system,1,7,0,0,(nameNode, [port], [username], [kerbTicketCachePath], [keytabPath], [principal], [lifetime])
+hdfs_Disconnect,disconnect,system,1,1,0,0,(conn)
+hdfs_Exists,exists,system,2,2,0,0,(conn, path)
+hdfs_Copy,copy,system,4,4,0,0,(sourceConn, sourcePath, targetConn, targetPath)
+hdfs_Move,move,system,4,4,0,0,(sourceConn, sourcePath, targetConn, targetPath)
+hdfs_Delete,delete,system,3,3,0,0,(conn, path, recursive)
+hdfs_Rename,rename,system,3,3,0,0,(conn, sourcePath, targetPath)
+hdfs_CreateDirectory,createDirectory,system,2,2,0,0,(conn, path)
+hdfs_Chmod,chmod,system,3,3,0,0,(conn, path, mode)
+hdfs_getListDirectory,getListDirectory,system,2,2,0,0,(conn, path)
+hdfs_listDirectory,listDirectory,system,1,1,0,0,(dirHandle)
+hdfs_freeFileInfo,freeFileInfo,system,1,1,0,0,(dirHandle)
+hdfs_readFile,readFile,system,3,3,0,0,(conn, path, handler)
+hdfs_writeFile,writeFile,system,4,4,0,0,(conn, path, table, handler)

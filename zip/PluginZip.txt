@@ -1,3 +1,3 @@
-zip,libPluginZip.so,2.00.15
+zip,libPluginZip.so,2.00.16
 unzip,unzip,system,1,5,0,0,(zipFilePath, [outputDir], [callback], [zipEncoding], [password])
 zip,zip,system,2,4,0,0,(zipFilePath, fileOrFolderPath, [compressionLevel], [password])

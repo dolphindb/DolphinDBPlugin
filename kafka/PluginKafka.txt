@@ -1,4 +1,4 @@
-kafka,libPluginKafka.so,2.00.15
+kafka,libPluginKafka.so,2.00.16
 kafkaProducer,producer,system,1,2,0,0,(config, [errCallback])
 kafkaProduce,produce,system,5,6,0,0,(producer, topic, key, value, marshalType, [partition])
 kafkaProducerFlush,producerFlush,system,1,1,0,0,(producer);

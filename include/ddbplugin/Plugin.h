@@ -47,6 +47,24 @@ inline Guid getNullValue<Guid>() { return Guid(); }
 template <>
 inline int128 getNullValue<int128>() { return int128MinValue(); }
 
+template <typename T>
+inline T *allocMemory(int size) {
+	return reinterpret_cast<T*>(malloc(size * sizeof(T)));
+}
+template <>
+inline string *allocMemory<string>(int size) {
+	return new string[size];
+}
+
+template <typename T>
+inline void deallocMemory(T* data) {
+	free(data);
+}
+template <>
+inline void deallocMemory<string>(string* data) {
+	delete[] data;
+}
+
 template <class T>
 class DdbVector {
 public:
@@ -56,7 +74,7 @@ public:
 		if (capacity_ < 1) {
 			throw RuntimeException("can't create empty DdbVector.");
 		}
-		data_ = new T[capacity_];
+		data_ = allocMemory<T>(capacity_);
 	}
 	//DdbVector own data and it will be released, don't delete data in the future.
 	DdbVector(T *data, int size, int capacity = 0) : data_(data), size_(size), capacity_(capacity), dataNeedRelease_(true), containNull_(false) {
@@ -66,7 +84,7 @@ public:
 	DdbVector(const DdbVector &src) = delete;
 	~DdbVector() {
 		if (dataNeedRelease_) {
-			delete[] data_;
+			deallocMemory(data_);
 		}
 	}
 	int size() const {

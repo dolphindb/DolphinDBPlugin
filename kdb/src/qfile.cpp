@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <limits>
 #include "zlib.h"
+#include "ddbplugin/PluginLogger.h"
 
 #include "Logger.h"
 
@@ -216,13 +217,13 @@ std::size_t kdb::BinFile::inflateBody(std::vector<byte>& buffer) {
 
     // read meta data of compressed file
     // read block num of compressed file
-    FILE_BOUNDARY_CHECK(fileLen < LONG_BYTES)
+    FILE_BOUNDARY_CHECK(fileLen < int64_t(LONG_BYTES))
     int64_t blockSize = rl(src, fileLen-int64_t(LONG_BYTES));
     if (blockSize < 0 || fileLen < blockSize) {
         throw RuntimeException(PLUGIN_NAME "invalid kxzipped blockSize " + std::to_string(blockSize));
     }
 
-    FILE_BOUNDARY_CHECK(fileLen < LONG_BYTES * (1+4+blockSize))
+    FILE_BOUNDARY_CHECK(fileLen < int64_t(LONG_BYTES * (1+4+blockSize)))
     int64_t bufPos = fileLen-int64_t(LONG_BYTES) * (1+4+blockSize);
 
     // read compress type&level
@@ -242,7 +243,7 @@ std::size_t kdb::BinFile::inflateBody(std::vector<byte>& buffer) {
     vector<pair<size_t, size_t>> blockVec(blockSize);
     for(int64_t i = 0; i < blockSize; i++) {
         bufPos+=LONG_BYTES;
-        FILE_BOUNDARY_CHECK(bufPos+LONG_BYTES > fileLen)
+        FILE_BOUNDARY_CHECK(bufPos+ int64_t(LONG_BYTES) > fileLen)
         size_t len = ri(src, bufPos);
         size_t type = ri(src, bufPos+4);
         blockVec[i] = pair<size_t, size_t>{len, type};
@@ -279,7 +280,7 @@ std::size_t kdb::BinFile::inflateBody(std::vector<byte>& buffer) {
     }
     buffer.resize(offset);
 
-    LOG_WARN("Expected decompressed file size: ", offset, ", Actually: ", originSize);
+    PLUGIN_LOG_WARN("Expected decompressed file size: ", offset, ", Actually: ", originSize);
 
     assert(buffer.size() >= initLen);
     return buffer.size() - initLen;
@@ -367,7 +368,7 @@ class BatchColumnReader {
             }
             for (int64_t i = 0; i < blockSize; i++) {
                 bufPos += LONG_BYTES;
-                FILE_BOUNDARY_CHECK(bufPos + LONG_BYTES > fileTotalLength_)
+                FILE_BOUNDARY_CHECK(bufPos + int64_t(LONG_BYTES) > fileTotalLength_)
                 size_t len = ri(metaBuffer.data(), bufPos);
                 size_t type = ri(metaBuffer.data(), bufPos + int64_t(INT_BYTES));
                 blockMetaVec_[i] = pair<size_t, size_t>{len, type};
@@ -399,7 +400,7 @@ class BatchColumnReader {
             fseek(fp_, 0, SEEK_END);
             fileTotalLength_ = ftell(fp_);
             int64_t readSize = BASIC_READ_BYTES;
-            if (fileTotalLength_ < BASIC_READ_BYTES) {
+            if (fileTotalLength_ < int64_t(BASIC_READ_BYTES)) {
                 readSize = fileTotalLength_;
             }
             fseek(fp_, 0, SEEK_SET);
@@ -471,7 +472,7 @@ class BatchColumnReader {
                 meetEnd = true;
                 return;
             }
-            if (fileTotalLength_ - offset_ < readSize) {
+            if (fileTotalLength_ - offset_ < int64_t(readSize)) {
                 readSize = fileTotalLength_ - offset_;
             }
             long long originSize = parserBuf.size();
@@ -506,7 +507,7 @@ class BatchColumnReader {
     size_t originBlockSize_{};
     size_t count_ = 0;
     size_t countOffset_ = 0;
-    size_t offset_ = 0;       // for no compress
+    long long offset_ = 0;       // for no compress
     size_t blockOffset_ = 0;  // for compress
     vector<pair<size_t, size_t>> blockMetaVec_;
     int64_t fileTotalLength_=0;

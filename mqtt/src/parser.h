@@ -1,5 +1,6 @@
 #include "CoreConcept.h"
 #include "client.h"
+#include "ddbplugin/PluginLoggerImp.h"
 
 extern "C" {
 ConstantSP createJsonParser(Heap *heap, vector<ConstantSP> &arguments);

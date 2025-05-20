@@ -7,6 +7,7 @@
 
 
 #include <ddbplugin/ThreadedQueue.h>
+
 #include "HSNsqStruct.h"
 
 #include "PluginUtil.h"

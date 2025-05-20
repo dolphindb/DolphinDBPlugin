@@ -18,6 +18,7 @@
 #include "ddbplugin/pluginVersion.h"
 #include "jsonUtil.h"
 #include "protobufUtil.h"
+#include <ddbplugin/PluginLoggerImp.h>
 
 static void doNothing(Heap *heap, vector<ConstantSP> &args) {}
 
@@ -27,9 +28,9 @@ void truncWorkerNum(long long &workerNum) {
 }
 
 ConstantSP getProtobufSchema(Heap *heap, vector<ConstantSP> &arguments) {
-    const string usage = "Usage: extractProtobufSchema(schemaPath, [toArrayVector], [messageName]). ";
+    const string usage = "Usage: extractProtobufSchema(filePath, [toArrayVector], [messageName]). ";
     if (arguments[0]->getType() != DT_STRING || arguments[0]->getForm() != DF_SCALAR) {
-        throw IllegalArgumentException("extractProtobufSchema", usage + "schemaPath must be a string scalar. ");
+        throw IllegalArgumentException("extractProtobufSchema", usage + "filePath must be a string scalar. ");
     }
     string schemaPath = arguments[0]->getString();
 
@@ -74,7 +75,7 @@ namespace OperatorImp {
 
 ConstantSP createProtobufDecoder(Heap *heap, vector<ConstantSP> &arguments) {
     const auto usage = string(
-        "Usage: protobufDecoder(schemaPath, [handler], [workerNum=1], [batchSize=0], [throttle=1.0], [toArrayVector=false], "
+        "Usage: protobufDecoder(filePath, [handler], [workerNum=1], [batchSize=0], [throttle=1.0], [toArrayVector=false], "
         "[schema], [messageName], [useNullAsDefault=false]). ");
     ConstantSP schemaPath, handler, dummyTable;
     long long workerNum = 1;
@@ -83,7 +84,7 @@ ConstantSP createProtobufDecoder(Heap *heap, vector<ConstantSP> &arguments) {
     ConstantSP schema = nullptr;
 
     if (arguments[0]->getType() != DT_STRING || arguments[0]->getForm() != DF_SCALAR) {
-        throw IllegalArgumentException("protobufDecoder", usage + "schemaPath must be a string scalar. ");
+        throw IllegalArgumentException("protobufDecoder", usage + "filePath must be a string scalar. ");
     }
     schemaPath = arguments[0];
     if (!Util::exists(schemaPath->getString())) {

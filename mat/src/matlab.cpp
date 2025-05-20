@@ -6,10 +6,11 @@
 #include <mat.h>
 #include <string>
 #include <map>
+#include "ddbplugin/PluginLoggerImp.h"
 
 std::string wstringToString(const std::wstring &wstrInput, unsigned int uCodePage)
 {
-#ifdef WINDOWS
+#ifdef _WIN32
     std::string strAnsi = "";
     if (wstrInput.length() == 0)
     {
@@ -140,9 +141,9 @@ bool convertToDTString(mxArray *var, ConstantSP &sp)
         {
             for (int j = 0; j < col; ++j)
             {
-                tmp[j + i * col] = data[j * row + i];
+                tmp[j] = data[j * row + i];
             }
-            std::string strTmp = wstringToString(std::wstring(tmp + i * col, col), 0);
+            std::string strTmp = wstringToString(std::wstring(tmp, col), 0);
             ((VectorSP)sp)->appendString(&strTmp, 1);
         }
         break;
@@ -397,7 +398,7 @@ DictionarySP load(string file, ConstantSP &ConstantSchema, Heap* heap)
 ConstantSP extractMatSchema(Heap *heap, vector<ConstantSP> &args)
 {
     if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR)
-        throw IllegalArgumentException(__FUNCTION__, "File must be a string scalar");
+        throw IllegalArgumentException(__FUNCTION__, "filePath must be a string scalar");
 
     auto file = args[0]->getString();
 
@@ -471,7 +472,7 @@ ConstantSP extractMatSchema(Heap *heap, vector<ConstantSP> &args)
 ConstantSP loadMat(Heap *heap, vector<ConstantSP> &args)
 {
     if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR)
-        throw IllegalArgumentException(__FUNCTION__, "File must be a string scalar");
+        throw IllegalArgumentException(__FUNCTION__, "filePath must be a string scalar");
     std::vector<std::string> dataName;
     DictionarySP ret;
 

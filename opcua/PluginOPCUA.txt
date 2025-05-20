@@ -1,11 +1,11 @@
-opcua,libPluginOPCUA.so,2.00.15
-getOpcUaServerList,getOpcServerList,system,1,1,0
-getOpcUaEndPointList,getOpcEndPointList,system,1,1,0
-connectOpcUaServer,connect,system,2,8,0
-readNode,readNode,system,3,4,0
-browseNode,browseNode,system,1,1,0
-writeNode,writeNode,system,4,4,0
-subscribeNode,subscribe,system,4,7,0
-disconnect,close,system,1,1,0
-unsubscribeNode,unsubscribe,system,1,1,0
-getSubscriberStat,getSubscriberStat,system,0,0,0
+opcua,libPluginOPCUA.so,2.00.16
+getOpcUaServerList,getOpcServerList,system,1,1,0,0,(serverUrl)
+getOpcUaEndPointList,getOpcEndPointList,system,1,1,0,0,(serverUrl)
+connectOpcUaServer,connect,system,2,8,0,0,(endPointUrl,clientUri,[username],[password],[securityMode],[securityPolicy],[certificatePath],[privateKeyPath])
+readNode,readNode,system,3,4,0,0,(conn, nodeNamespace, nodeIdString, [table])
+browseNode,browseNode,system,1,1,0,0,(conn)
+writeNode,writeNode,system,4,4,0,0,(conn, nodeNamespace, nodeIdString, value)
+subscribeNode,subscribe,system,4,7,0,0,(conn, nodeNamespace, nodeIdString, handler, [actionName], [reconnect=false], [resubscribeInterval=0])
+disconnect,close,system,1,1,0,0,(conn)
+unsubscribeNode,unsubscribe,system,1,1,0,0,(conn|actionName)
+getSubscriberStat,getSubscriberStat,system,0,0,0,0,()

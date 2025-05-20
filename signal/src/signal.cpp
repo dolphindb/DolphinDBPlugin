@@ -177,14 +177,48 @@ ConstantSP dwt(const ConstantSP &a, const ConstantSP &b)
         throw IllegalArgumentException("dwt", "The argument should be a nonempty integrial or floating vector.");
     if (a->hasNull())
         throw IllegalArgumentException("dwt", "The argument should not contain NULL values");
+    std::string wavelet = "db1";
+    if(!b->isNothing()) {
+        if (b->getType() != DT_STRING || b->getForm() != DF_SCALAR) {
+            throw IllegalArgumentException("dwt", "wavelet must be a string scalar");
+        }
+        wavelet = b->getString();
+    }
     int dataLen = a->size(); //信号序列长度
-    vector<double> FilterLD = {
-        0.7071067811865475244008443621048490392848359376884740365883398,
-        0.7071067811865475244008443621048490392848359376884740365883398}; //基于db1小波函数的滤波器低通序列
-    vector<double> FilterHD = {
-        -0.7071067811865475244008443621048490392848359376884740365883398,
-        0.7071067811865475244008443621048490392848359376884740365883398}; //基于db1小波函数的滤波器通序列
-    const int filterLen = 2;                                              //滤波器序列长度
+    vector<double> FilterLD;
+    vector<double> FilterHD;
+    int filterLen; 
+    if(wavelet == "db1") {
+        FilterLD = {
+            0.7071067811865475244008443621048490392848359376884740365883398,
+            0.7071067811865475244008443621048490392848359376884740365883398}; //基于db1小波函数的滤波器低通序列
+        FilterHD = {
+                -0.7071067811865475244008443621048490392848359376884740365883398,
+                0.7071067811865475244008443621048490392848359376884740365883398}; //基于db1小波函数的滤波器高通序列
+        filterLen = 2;
+    } else if(wavelet == "db4") {
+        FilterLD = {
+            -0.010597401785069032,
+            0.0328830116668852,
+            0.030841381835560764,
+            -0.18703481171909309,
+            -0.027983769416859854,
+            0.6308807679298589,
+            0.7148465705529157,
+            0.2303778133088965}; //基于db4小波函数的滤波器低通序列
+        FilterHD = {
+            -0.2303778133088965,
+            0.7148465705529157,
+            -0.6308807679298589,
+            -0.027983769416859854,
+            0.18703481171909309,
+            0.030841381835560764,
+            -0.0328830116668852,
+            -0.010597401785069032}; //基于db4小波函数的滤波器高通序列
+        filterLen = 8;
+    } else {
+        throw IllegalArgumentException("dwt", "wavelet only support db1 or db4 for now");
+    }
     int decLen = (dataLen + filterLen - 1) / 2;                           //小波变换后的序列长度
     vector<double> xn(dataLen, 0);
     vector<double> cA(decLen, 0);

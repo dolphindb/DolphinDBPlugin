@@ -802,7 +802,7 @@ local int unz64local_GetCurrentFileInfoInternal(unzFile file, unz_file_info64 *p
         lSeek -= (uLong)bytes_to_read;
     }
 
-    #ifdef LINUX
+    #ifdef __linux__
     if(file_info.version >> 8 == 0){
         int i = 0;
         for(; i < filename_size; ++i){

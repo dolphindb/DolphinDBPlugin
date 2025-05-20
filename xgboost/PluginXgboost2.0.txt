@@ -1,0 +1,5 @@
+xgboost,libPluginXgboost.so,2.00.16
+train,train,system,2,5,0,0,(Y, X, [params], [numBoostRound=10], [model])
+predict,predict,system,2,6,0,0,(model, X, [type=0], [iterationRange], [strictShape=false], [training=false])
+saveModel,saveModel,system,2,2,0,0,(model, filePath)
+loadModel,loadModel,system,1,1,0,0,(filePath)

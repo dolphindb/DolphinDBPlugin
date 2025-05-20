@@ -62,6 +62,7 @@ public:
 	virtual ConstantSP getInstance(INDEX size) const {return ConstantSP(new AnyVector(size, isTableColumn_, dt_, decimalExtra_));}
 	virtual ConstantSP getValue() const;
 	virtual ConstantSP getValue(INDEX capacity) const {return ConstantSP(new AnyVector(data_, containNull_, isTableColumn_, dt_, decimalExtra_));}
+	virtual ObjectSP deepCopy() const;
 	bool append(const ConstantSP& value, bool wholistic);
 	virtual bool append(const ConstantSP& value);
 	virtual bool append(const ConstantSP& value, INDEX appendSize);
@@ -110,7 +111,8 @@ public:
 	virtual const INDEX* getIndexConst(INDEX start, int len, INDEX* buf) const;
 	virtual const float* getFloatConst(INDEX start, int len, float* buf) const;
 	virtual const double* getDoubleConst(INDEX start, int len, double* buf) const;
-	virtual bool getSymbol(INDEX start, int len, int* buf, SymbolBase* symBase, bool insertIfNotThere) const {
+    virtual void setItemToHeap(Heap* pHeap,INDEX heapIndex,  INDEX itemIndex, const string& name);
+    virtual bool getSymbol(INDEX start, int len, int* buf, SymbolBase* symBase, bool insertIfNotThere) const {
 		throw RuntimeException("getSymbol method not supported for AnyVector");
 	}
 	virtual const int* getSymbolConst(INDEX start, int len, int* buf, SymbolBase* symBase, bool insertIfNotThere) const {

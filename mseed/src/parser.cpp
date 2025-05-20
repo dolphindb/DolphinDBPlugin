@@ -3,6 +3,8 @@
 #include "Util.h"
 #include "libmseed.h"
 #include "Logger.h"
+#include "ddbplugin/PluginLogger.h"
+#include "ddbplugin/PluginLoggerImp.h"
 
 using namespace std;
 Mutex mutexLock;
@@ -77,7 +79,7 @@ ConstantSP mseedParse(Heap *heap, vector<ConstantSP> &args) {
             buffer = bufferVector.data();
         }
         ((VectorSP) args[0])->getChar(0, size, (char *) buffer);
-        fp = fmemopen((void *) buffer, size, "rw"); 
+        fp = fmemopen((void *) buffer, size, "rw");
         if (fp == NULL)
         {
             throw RuntimeException("Fmemopen fail. Because " + string(strerror(errno)));
@@ -151,13 +153,13 @@ ConstantSP mseedParse(Heap *heap, vector<ConstantSP> &args) {
     }
     catch (RuntimeException &e) {
         ms3_readmsr(&msr, NULL, NULL, NULL, flags, 0, NULL, &dmsfp);
-#ifndef LINUX
+#ifndef __linux__
         mutexLock.unlock();
 #endif
         throw e;
     }
     ms3_readmsr(&msr, NULL, NULL, NULL, flags, 0, NULL, &dmsfp);
-#ifndef LINUX
+#ifndef __linux__
     mutexLock.unlock();
 #endif
 
@@ -199,7 +201,7 @@ ConstantSP mseedParse(Heap *heap, vector<ConstantSP> &args) {
 bool isAvailableType(char type){
     if(type == 'i' || type == 'd' || type == 'f' || type == 'a')
         return true;
-    LOG_WARN(string("MseedPlugin : The mseed data type ") + type + " is not supported. ");
+    PLUGIN_LOG_WARN(string("MseedPlugin : The mseed data type ") + type + " is not supported. ");
     return false;
 }
 
@@ -242,7 +244,7 @@ ConstantSP mseedParseStream(Heap *heap, vector<ConstantSP> &args) {
             buffer = bufferVector.data();
         }
         ((VectorSP) args[0])->getChar(0, size, (char *) buffer);
-        fp = fmemopen((void *) buffer, size, "rw"); 
+        fp = fmemopen((void *) buffer, size, "rw");
         if (fp == NULL)
         {
             throw RuntimeException("Fmemopen fail. Because " + string(strerror(errno)));
@@ -299,7 +301,7 @@ ConstantSP mseedParseStream(Heap *heap, vector<ConstantSP> &args) {
     MS3FileParam dmsfp = {"", 0, 0, 0, 0, NULL, 0, 0, 0, {LMIO::LMIO_NULL, NULL, NULL, 0}};
     ms3_readmsr(&msr, NULL, NULL, NULL, flags, 0, NULL, &dmsfp);
     try {
-        while ((retcode = ms3_readmsr(&msr, "the byte stream", NULL, NULL, flags, 0, fp, &dmsfp)) == MS_NOERROR) { 
+        while ((retcode = ms3_readmsr(&msr, "the byte stream", NULL, NULL, flags, 0, fp, &dmsfp)) == MS_NOERROR) {
             if(!isAvailableType(msr->sampletype))
                 break;
             if (first) {
@@ -322,14 +324,14 @@ ConstantSP mseedParseStream(Heap *heap, vector<ConstantSP> &args) {
     }
     catch (RuntimeException &e) {
         ms3_readmsr(&msr, NULL, NULL, NULL, flags, 0, NULL, &dmsfp);
-#ifndef LINUX
+#ifndef __linux__
         mutexLock.unlock();
 #endif
         throw e;
     }
     ms3_readmsr(&msr, NULL, NULL, NULL, flags, 0, NULL, &dmsfp);
     msr3_free(&msr);
-#ifndef LINUX
+#ifndef __linux__
     mutexLock.unlock();
 #endif
 
@@ -387,7 +389,7 @@ ConstantSP mseedParseStream(Heap *heap, vector<ConstantSP> &args) {
     }
     metaStartTime->appendLong(vecSingleTime.data(), numOfBlock);
 
-    VectorSP metaReceived = Util::createVector(DT_TIMESTAMP, numOfBlock, numOfBlock); 
+    VectorSP metaReceived = Util::createVector(DT_TIMESTAMP, numOfBlock, numOfBlock);
     ConstantSP curentTime = new Long(Util::getEpochTime());
     metaReceived->fill(0, numOfBlock, curentTime);
 
@@ -401,7 +403,7 @@ ConstantSP mseedParseStream(Heap *heap, vector<ConstantSP> &args) {
     vecSampleRate->appendDouble(samprate.data(), numOfBlock);
 
     colName = {"id", "startTime", "receivedTime", "actualCount", "expectedCount", "sampleRate"};
-    cols.clear(); 
+    cols.clear();
     cols.push_back(metaSid);
     cols.push_back(metaStartTime);
     cols.push_back(metaReceived);
