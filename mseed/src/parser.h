@@ -1,5 +1,10 @@
+#include "DolphinDBEverything.h"
 #include "CoreConcept.h"
 #include "unpack.h"
+
+using ddb::ConstantSP;
+using ddb::Heap;
+using std::vector;
 
 extern "C" ConstantSP mseedParse(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP mseedParseStream(Heap *heap, vector<ConstantSP> &args);

@@ -20,14 +20,17 @@
 #include <atomic>
 #include <map>
 
+
 #include "Types.h"
 #include "SmartPointer.h"
 #include "Exceptions.h"
 #include "Concurrent.h"
 #include "LocklessContainer.h"
 #include "FlatHashmap.h"
-#include "SysIO.h"
+#include "SysIOTypes.h"
 #include "DolphinString.h"
+
+#define serverVersion "3.00.3"
 
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define LIKELY(x) (__builtin_expect((x), 1))
@@ -38,6 +41,7 @@
 #endif
 #define TRANSIENT(x) x->isTransient() ? x->getValue() : x
 
+namespace ddb {
 using std::string;
 using std::vector;
 using std::unordered_map;
@@ -93,12 +97,6 @@ class SessionThreadCallGuard;
 class ReducerContainer;
 class DistributedCall;
 class JobProperty;
-class IoTransaction;
-class Decoder;
-class VolumeMapper;
-class SystemHandle;
-typedef SmartPointer<VolumeMapper> VolumeMapperSP;
-typedef SmartPointer<Decoder> DecoderSP;
 struct JITCfgNode;
 struct InferredType;
 struct FunctionSignature;
@@ -106,8 +104,8 @@ class WindowJoinFunction;
 class ColumnContext;
 class Transaction;
 class Parser;
-class DolphinClass;
-class DolphinInstance;
+class ParserData;
+class ColumnDef;
 
 typedef SmartPointer<AuthenticatedUser> AuthenticatedUserSP;
 typedef SmartPointer<ByteArrayCodeBuffer> ByteArrayCodeBufferSP;
@@ -131,6 +129,7 @@ typedef SmartPointer<OOInstance> OOInstanceSP;
 typedef SmartPointer<SQLTransaction> SQLTransactionSP;
 typedef SmartPointer<SQLContext> SQLContextSP;
 typedef SmartPointer<ColumnRef> ColumnRefSP;
+typedef SmartPointer<ColumnDef> ColumnDefSP;
 typedef SmartPointer<SymbolBase> SymbolBaseSP;
 typedef SmartPointer<SymbolBaseManager> SymbolBaseManagerSP;
 typedef SmartPointer<Output> OutputSP;
@@ -159,15 +158,14 @@ typedef SmartPointer<WindowJoinFunction> WindowJoinFunctionSP;
 typedef SmartPointer<ColumnContext> ColumnContextSP;
 typedef SmartPointer<Transaction> TransactionSP;
 typedef SmartPointer<Parser> ParserSP;
-typedef SmartPointer<DolphinClass> DolphinClassSP;
-typedef SmartPointer<DolphinInstance> DolphinInstanceSP;
+typedef SmartPointer<ParserData> ParserDataSP;
 
 typedef ConstantSP(*OptrFunc)(const ConstantSP&, const ConstantSP&);
 typedef ConstantSP(*OptrFunc2)(Heap* heap, const ConstantSP&, const ConstantSP&);
 typedef ConstantSP(*SysFunc)(Heap* heap, vector<ConstantSP>& arguments);
 typedef INDEX(*FastFunc)(vector<ConstantSP>& arguments, const ConstantSP& result, INDEX outputStart, bool validate, INDEX inputStart, INDEX inputLen);
-typedef ConstantSP(*TemplateOptr)(const ConstantSP&,const ConstantSP&,const string&, OptrFunc, FastFunc, bool);
-typedef ConstantSP(*TemplateUserOptr)(Heap* heap, const ConstantSP&,const ConstantSP&, const FunctionDefSP&, bool);
+typedef ConstantSP(*TemplateOptr)(const ConstantSP&,const ConstantSP&,const string&, OptrFunc, FastFunc, int);
+typedef ConstantSP(*TemplateUserOptr)(Heap* heap, const ConstantSP&,const ConstantSP&, const FunctionDefSP&, int);
 typedef void (*SysProc)(Heap* heap,vector<ConstantSP>& arguments);
 typedef std::function<void (StatementSP)> CFGTraversalFunc;
 typedef Statement*(*StatementFunc)(Session* session, const DataInputStreamSP& buffer);
@@ -189,7 +187,9 @@ public:
 			const set<string>& deleteDBs, const set<string>& deniedDeleteDBs, bool dbOwner,
 			const set<string>& dbOwnerPattern, bool dbManage, const set<string>& allowDbManage, const set<string>& deniedDbManage,
 			long long queryResultMemLimit, long long taskGroupMemLimit, bool isViewOwner,
-			bool globalExecComputeGroup, const set<string>& execGroup, const set<string>& deniedExecGroup);
+			bool globalExecComputeGroup, const set<string>& execGroup, const set<string>& deniedExecGroup,
+			bool globalSensitiveView, const set<string>& sensitiveCol, const set<string>& deniedSensitiveCol,
+			long long maxPartitionPerQuery);
     AuthenticatedUser(const ConstantSP& userObj);
     ConstantSP toTuple() const ;
     void setLoginNanoTimeStamp(long long t){loginNanoTimestamp_ = t;}
@@ -228,9 +228,11 @@ public:
 	bool canCreateDBObject(const string& name) const { return accessDBRule(canCreateDBObject(), "CD_", "DCD_", name, ""); }
 	bool canDeleteDBObject(const string& name) const { return accessDBRule(canDeleteDBObject(), "DD_", "DDD_", name, ""); }
 	bool canExecGroup(const string& group) const;
+	bool canAccessSensitiveCol(const string& tableUrl, const string& colName) const;
 	// return 0 if no limit
 	long long queryResultMemLimit() { return queryResultMemLimit_; }
 	long long taskGroupMemLimit() { return taskGroupMemLimit_; }
+	long long maxPartitionPerQuery() { return maxPartitionPerQuery_; }
 	bool isExpired() const {return expired_;}
 	void expire();
 
@@ -265,6 +267,7 @@ private:
      * bit12: global update
      * bit13: global delete
 	 * bit14: view owner
+	 * bit15: sensitive view
      */
     uint32_t permissionFlag_;
 
@@ -273,6 +276,7 @@ private:
     unordered_set<string> dbOwnerPatterns_;
     long long queryResultMemLimit_;
     long long taskGroupMemLimit_;
+	long long maxPartitionPerQuery_;
 };
 
 template<class T>
@@ -394,6 +398,7 @@ public:
 	inline IO_ERR write(long long val){ return write((const char*)&val, 8);}
 	inline IO_ERR write(float val){ return write((const char*)&val, 4);}
 	inline IO_ERR write(double val){ return write((const char*)&val, 8);}
+	inline IO_ERR write(const Guid &val){ return write((const char*)val.bytes(), 16);}
 	size_t size() const { return size_;}
 	size_t capacity() const { return capacity_;}
 	const char * getBuffer() const { return buf_;}
@@ -420,9 +425,6 @@ public:
 	IO_ERR serialize(int offset, int length, Buffer& buf);
 	inline bool lastSaveSynchronized() const { return lastSaveSynchronized_;}
 	inline int find(const DolphinString& symbol){
-#ifndef LOCKFREE_SYMBASE
-		LockGuard<Mutex> guard(&keyMutex_);
-#endif
 		int index = -1;
 		keyMap_.find(symbol, index);
 		return index;
@@ -482,12 +484,7 @@ private:
 	bool supportOrder_;
 	DynamicArray<DolphinString> key_;
 	SmartPointer<Array<int> > ordinal_;
-#ifndef LOCKFREE_SYMBASE
-	Mutex keyMutex_;
-	IrremovableFlatHashmap<DolphinString, int> keyMap_;
-#else
 	IrremovableLocklessFlatHashmap<DolphinString, int> keyMap_;
-#endif
 	deque<int> sortedIndices_;
 	mutable RWLock writeMutex_;
 	mutable Mutex versionMutex_;
@@ -522,19 +519,7 @@ struct ControlFlowEdge {
 		return edgeFrom == rhs.edgeFrom && edgeTo == rhs.edgeTo && varName == rhs.varName;
 	}
 };
-namespace std {
-	template<>
-	struct hash<ControlFlowEdge> {
-		std::size_t operator()(const  ControlFlowEdge & k) const {
-			using std::size_t;
-			using std::hash;
-			using std::string;
-			return hash<void*>{}(k.edgeFrom)
-				   ^ (hash<void*>{}(k.edgeTo) >> 1)
-				   ^ (hash<string>{}(k.varName) << 1);
-		}
-	};
-}
+
 
 struct FunctionSignature {
 	InferredTypeSP returnTy;
@@ -564,31 +549,21 @@ struct InferredType {
     string getString();
 };
 
-namespace std {
-	template<>
-	struct hash<InferredType> {
-		std::size_t operator()(const InferredType & k) const {
-			using std::size_t;
-			using std::hash;
-			using std::string;
-			return hash<int8_t>{}(k.form) ^ hash<int8_t>{}(k.type);
-		}
-	};
-}
-
 class SWORDFISH_API Object {
 public:
 	Object(OBJECT_TYPE type) : objType_(type){}
 	inline OBJECT_TYPE getObjectType() const { return objType_;}
-	bool isConstant() const {return objType_ == CONSTOBJ;}
-	bool isVariable() const {return objType_ ==VAR;}
+	bool isConstant() const {return objType_ == OBJECT_TYPE::CONSTOBJ;}
+	bool isVariable() const {return objType_ == OBJECT_TYPE::VAR;}
 	virtual ConstantSP getValue(Heap* pHeap) = 0;
 	virtual ConstantSP getReference(Heap* pHeap) = 0;
+    virtual void getReference(Heap* pHeap, Constant*& ptr, ConstantSP& ref) {ptr = nullptr; ref = getReference(pHeap);}
 	virtual ~Object(){}
 	virtual string getScript() const = 0;
 	virtual string getScript(Heap* pHeap) const { return getScript();}
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const = 0;
 	virtual bool isLargeConstant() const {return false;}
+	virtual ObjectSP deepCopy() const { throw RuntimeException("Object::deepCopy not implemented yet.");}
 	/**
 	 * @brief Get the components of the object in the form of a dictionary.
 	 *
@@ -735,9 +710,9 @@ public:
 	 */
 	static string NULL_STR;
 
-	Constant() : Object(CONSTOBJ), flag_(3){}
-	Constant(unsigned short flag) : Object(CONSTOBJ), flag_(flag){}
-	Constant(DATA_FORM df, DATA_TYPE dt, DATA_CATEGORY dc) : Object(CONSTOBJ), flag_(3 + (df<<8) + (dt<<16) + (dc<<24)){}
+	Constant() : Object(OBJECT_TYPE::CONSTOBJ), flag_(3){}
+	Constant(unsigned short flag) : Object(OBJECT_TYPE::CONSTOBJ), flag_(flag){}
+	Constant(DATA_FORM df, DATA_TYPE dt, DATA_CATEGORY dc) : Object(OBJECT_TYPE::CONSTOBJ), flag_(3 + (df<<8) + (dt<<16) + (dc<<24)){}
 	virtual ~Constant(){}
 	/**
 	 * @brief Return whether this constant is temporary or not.
@@ -945,6 +920,7 @@ public:
 	 * @brief Return whether this constant is a database handle.
 	 */
 	virtual bool isDatabase() const {return false;}
+	virtual ObjectSP deepCopy() const { return getValue();}
 
 	/**
 	 * @brief Return the bool value of this constant.
@@ -2213,6 +2189,7 @@ public:
 	/**
 	 * @brief Set the row lable from a matrix.
 	 */
+        virtual void setItemToHeap(Heap* pHeap, INDEX heapIndex, INDEX itemIndex, const string& name);
 	virtual void setRowLabel(const ConstantSP& label){}
 	/**
 	 * @brief Set the column lable from a matrix.
@@ -2626,7 +2603,7 @@ public:
 	/**
 	 * @brief Return object type of this constant.
 	*/
-	virtual OBJECT_TYPE getObjectType() const {return CONSTOBJ;}
+	virtual OBJECT_TYPE getObjectType() const {return OBJECT_TYPE::CONSTOBJ;}
 	/**
 	 * @brief Get the SymbolBase from a constant with symbol type.
 	 *
@@ -4081,6 +4058,20 @@ public:
 	 * 		  Note the momery of a vector as external buffer will not be released when destruct.
 	 */
 	virtual bool isExternalBuffer() const { return false;}
+	/**
+	 * @brief Return whether this vector has internal vectors.
+	 */
+    virtual bool hasInternalVector() const { return false; }
+	/**
+	 * @brief Return the internal vector of this vector.
+	 */
+    virtual ConstantSP getInternalVector() { throw RuntimeException("getInternalVector method not supported"); }
+	/**
+	 * @brief Return whether the vector supports getMaterialized.
+	 */
+    virtual bool canGetMaterialized() const { return false; }
+    virtual VectorSP getMaterialized() const { throw RuntimeException("getMaterialized method not supported"); }
+    virtual void materialize() const { throw RuntimeException("materialize method not supported"); }
 
 private:
 	string name_;
@@ -4909,13 +4900,138 @@ public:
 	 * @brief Returns whether the operation on this table requires corresponding permissions.
 	*/
 	virtual bool isAccessControl() const { return flag_ & 16; }
+
+    /**
+     * @brief We may use a random string as the name of tables with no user input names. We also would like to hide this
+	 * internal name from the users. Hence, we set this flag.
+	*/
+    void setTableUsingInternalName() {
+		flag_ |= 32;
+    }
+	/**
+	 * @brief Reset the flag to indicate that the table is going to have a valid input name.
+	*/
+    void unsetTableUsingInternalName() {
+		flag_ &= ~32;
+    }
+
+    string getTableNameForSerialization() const {
+        // only return the getName() when it is not an internal name.
+        // otherwise, there is no user input name, return an empty string.
+        if (flag_ & 32) {
+            return "";
+        } else {
+			return getName();
+		}
+	}
+	/**
+	 * @brief Begin a new query transaction.
+	 *
+	 * @param pHeap: The heap of the related transaction.
+	 * @param originalTable: The smart pointer of the current table.
+	 *
+	 * @return: The new version of the table (optional).
+	 */
+    virtual TableSP beginQueryTransaction(Heap* pHeap, const TableSP& originalTable) { return nullptr; }
+	/**
+	 * @brief Begin a new update transaction.
+	 *
+	 * @param pHeap: The heap of the related transaction.
+	 * @param originalTable: The smart pointer of the current table.
+	 *
+	 * @return: The new version of the table (optional).
+	 */
+    virtual TableSP beginUpdateTransaction(Heap* pHeap, const TableSP& originalTable) { return nullptr; }
+	/**
+	 * @brief Begin a new delete transaction.
+	 *
+	 * @param pHeap: The heap of the related transaction.
+	 * @param originalTable: The smart pointer of the current table.
+	 *
+	 * @return: The new version of the table (optional).
+	 */
+    virtual TableSP beginDeleteTransaction(Heap* pHeap, const TableSP& originalTable) { return nullptr; }
+    /**
+     * @brief Retrieve data.
+     *
+     * @param pHeap: The heap.
+     * @param filters: The filter conditions.
+     * @param colNames: The desired columns.
+     * @param originalTable: The smart pointer of the current table.
+     *
+     * @return: The retrieved data.
+     */
+    virtual TableSP scan(
+            Heap* pHeap,
+            std::vector<ObjectSP> &filters,
+            const std::vector<std::string> &colNames,
+            const TableSP& originalTable
+    ) { return originalTable; }
+    /**
+     * @brief Update data.
+     *
+     * @param pHeap: The heap.
+     * @param filters: The filter conditions.
+     * @param updateCols: The columns to update.
+     */
+    virtual void update(
+            Heap* pHeap,
+            std::vector<ObjectSP> &filters,
+            const std::vector<ColumnDefSP> &updateCols
+    ) { throw RuntimeException("Table::update() not supported"); }
+    /**
+     * @brief Remove data.
+     *
+     * @param pHeap: The heap.
+     * @param filters: The filter conditions.
+     */
+    virtual void remove(
+            Heap* pHeap,
+            std::vector<ObjectSP> &filters
+    ) { throw RuntimeException("Table::remove() not supported"); }
+    /**
+     * @brief Get a filter according to the conditions.
+     *
+     * @param pHeap: The heap.
+     * @param filters: The filter conditions.
+     */
+    virtual ConstantSP getFilter(
+            Heap* pHeap,
+            std::vector<ObjectSP> &filters
+    ) const { throw RuntimeException("Table::getFilter() not supported"); }
+    /**
+     * @brief Get the size of block start indices (for IotTablet).
+     */
+    virtual int getBlockStartIdxsSize() { throw RuntimeException("Table::getBlockStartIdxsSize() not supported"); }
+    /**
+     * @brief Filter top-K vector (for IotTablet)
+     *
+     * @param inputFilter: The input inddex filter.
+     * @param queryVec: The query vector.
+	 * @param k
+	 * @param sorted: is sorted
+     */
+    virtual ConstantSP filterTopKVector(const ConstantSP& inputFilter, const VectorSP & queryVec, int k, bool& sorted) { throw RuntimeException("Table::filterTopKVector() not supported"); }
+    /**
+     * @brief Return whether a column is sorted.
+     *
+     * @param colName: The column name.
+     */
+    virtual bool isSortedOnColumn(const string& colName) const { throw RuntimeException("Table::isSortedOnColumn() not supported"); };
+    /**
+     * @brief set cast iot any column
+     *
+     * @param colName: The column name.
+     */
+	virtual void setCastIotAnyCol(bool option) { throw RuntimeException("Table::setCastIotAnyCol() not supported"); }
 private:
-	/*
-	 * BIT0: shared table
-	 * BIT1: stream table
-	 * BIT2: alias table
-	 * BIT3: expired
-	 * BIT4: access control or not
+    /*
+     * BIT0: shared table
+     * BIT1: stream table
+     * BIT2: alias table
+     * BIT3: expired
+     * BIT4: access control or not
+     * BIT5: user internal name or not
 	 */
 	char flag_;
 	char engineType_;
@@ -5116,8 +5232,10 @@ public:
 	inline bool isHigherOrderFunction() const { return extraFlag_ & 32;}
 	inline void setArrayAggFunction(bool option){ if(option) extraFlag_ |= 64; else extraFlag_ &= ~64;}
 	inline bool isArrayAggFunction() const { return extraFlag_ & 64;}
-	inline void setPythonFunction(bool option){ if(option) extraFlag_ |= 128; else extraFlag_ &= ~128;}
-	inline bool isPythonFunction() const { return extraFlag_ & 128;}
+	inline void setParserType(PARSER_TYPE type) { parserType_ = type;}
+	inline PARSER_TYPE getParserType() const { return parserType_;}
+	inline void setGPU(bool option){ if(option) extraFlag_ |= 128; else extraFlag_ &= ~128;}
+	inline bool isGPU() const { return extraFlag_ & 128;}
 	inline void setOOMethod(bool option){ if(option) extraFlag_ |= 256; else extraFlag_ &= ~256;}
 	inline bool isOOMethod() const { return extraFlag_ & 256;}
 	inline void setOOConstructor(bool option){ if(option) extraFlag_ |= 512; else extraFlag_ &= ~512;}
@@ -5128,6 +5246,8 @@ public:
 	inline bool isPrimitiveOperator() const { return extraFlag_ & 2048;}
 	inline bool isTransformFunction() const { return extraFlag_ & 4096;}
 	inline void setTransformFunction(bool option){ if(option) extraFlag_ |= 4096; else extraFlag_ &= ~4096;}
+	inline bool isDummyFunction() const { return extraFlag_ & 8192;}
+	inline void setDummyFunction(bool option){ if(option) extraFlag_ |= 8192; else extraFlag_ &= ~8192;}
 	inline bool variableParamNum() const {	return minParamNum_<maxParamNum_;}
 	inline int getMaxParamCount() const { return maxParamNum_;}
 	inline int getMinParamCount() const {	return minParamNum_;}
@@ -5173,6 +5293,7 @@ protected:
 	static ParamSP constParam_;
 
 	FUNCTIONDEF_TYPE defType_;
+	PARSER_TYPE parserType_;
 	string name_;
 	string module_;
 	string syntax_;
@@ -5218,8 +5339,10 @@ public:
     INDEX getColumnIndex(const string& qualifier, const string& name);
 	INDEX getColumnIndex(const string& name);
 	void cacheColumn(const string& name,const ConstantSP& col);
+	inline int getFlag() const { return flag_;}
+	inline void setFlag(int flag) { flag_ = flag;}
 	void enableCache();
-	void disableCache(){flag_ &= ~1;}
+	inline void disableCache(){flag_ &= ~1;}
 	inline bool isCacheEnabled() const { return flag_ & 1;}
 	void clear();
 	inline bool isInitialized() const { return !tableSP_.isNull();}
@@ -5246,6 +5369,10 @@ public:
 	inline void setDefinedAnalyticFunction(bool option) { if(option) flag_ |= 64; else flag_ &= ~64;}
 	inline bool isMacroUsed() const {return flag_ & 128;}
 	inline void setMacroUsed(bool option) { if(option) flag_ |= 128; else flag_ &= ~128;}
+	inline bool isWithinWhereClause() const { return flag_ & 256;}
+	inline void setWithinWhereClause(bool option) { if(option) flag_ |= 256; else flag_ &= ~256;}
+	inline bool castIotAny() const { return !(flag_ & 512); }
+	inline void setCastIotAny(bool option) { if (!option) flag_ |= 512; else flag_ &= ~512; }
 
 private:
 	TableSP tableSP_;
@@ -5257,8 +5384,10 @@ private:
 	 * bit3: 0: allow comma as cross join, 1: not allow as cross join
 	 * bit4: 0: out of SQL FROM clause, 1: within SQL FROM clause
 	 * bit5: 0: not within analytic function, 1: within analytic function
-	 * bit6: 0: not define an analytic function, 1: define an analytic funciton
+	 * bit6: 0: not define an analytic function, 1: define an analytic function
 	 * bit7: 0: not use macro object, 1: macro object used.
+	 * bit8: 0: not within SQL WHERE clause, 1: within SQL WHERE clause
+	 * bit9: 0: cast IotAny column, 1: don't cast IotAny column
 	 */
 	int flag_;
 	DictionarySP cachedCols_;
@@ -5268,14 +5397,15 @@ private:
 
 class ColumnRef: public Object{
 public:
-	ColumnRef(const SQLContextSP& contextSP, const string& name): Object(COLUMN), contextSP_(contextSP),name_(name),index_(-1),acceptFunctionDef_(true){}
-	ColumnRef(const SQLContextSP& contextSP, const string& qualifier, const string& name): Object(COLUMN), contextSP_(contextSP),
+	ColumnRef(const SQLContextSP& contextSP, const string& name): Object(OBJECT_TYPE::COLUMN), contextSP_(contextSP),name_(name),index_(-1),acceptFunctionDef_(true){}
+	ColumnRef(const SQLContextSP& contextSP, const string& qualifier, const string& name): Object(OBJECT_TYPE::COLUMN), contextSP_(contextSP),
 			qualifier_(qualifier),name_(name),index_(-1),acceptFunctionDef_(true){}
-	ColumnRef(const SQLContextSP& contextSP, const string& name, int index): Object(COLUMN), contextSP_(contextSP),name_(name),index_(index),acceptFunctionDef_(true){}
-	ColumnRef(const SQLContextSP& contextSP, const string& qualifier, const string& name, int index): Object(COLUMN), contextSP_(contextSP),
+	ColumnRef(const SQLContextSP& contextSP, const string& name, int index): Object(OBJECT_TYPE::COLUMN), contextSP_(contextSP),name_(name),index_(index),acceptFunctionDef_(true){}
+	ColumnRef(const SQLContextSP& contextSP, const string& qualifier, const string& name, int index): Object(OBJECT_TYPE::COLUMN), contextSP_(contextSP),
 				qualifier_(qualifier),name_(name),index_(index),acceptFunctionDef_(true){}
 	ColumnRef(const SQLContextSP& context, const DataInputStreamSP& in);
 	virtual ~ColumnRef(){}
+	virtual ObjectSP deepCopy() const;
 	virtual ConstantSP getValue(Heap* pHeap);
 	virtual ConstantSP getReference(Heap* pHeap);
 	virtual ConstantSP getComponent() const;
@@ -5355,11 +5485,30 @@ public:
 	virtual IO_ERR flush() = 0;
 };
 
+class DummyOutput: public Output {
+public:
+	virtual ~DummyOutput(){}
+    bool timeElapsed(long long nanoSeconds) override {return true;}
+    bool write(const ConstantSP& obj) override {return true;}
+    bool message(const string& msg) override {return true;}
+    void enableIntermediateMessage(bool enabled) override {}
+    bool start() override {return true;}
+    bool start(const string& message) override {return true;}
+    IO_ERR done() override {return OK;}
+    IO_ERR done(const string& errMsg) override {return OK;}
+    IO_ERR writeReady() override {return OK;}
+    OUTPUT_TYPE getOutputType() const override {return STDOUT;}
+    void close() override {}
+    void setWindow(INDEX index,INDEX size) override {};
+    IO_ERR flush() override {return OK;}
+};
+
 class SWORDFISH_API Session {
 public:
 	Session(const HeapSP& heap, PARSER_TYPE parserType = PARSER_TYPE::DDB);
 	Session(const HeapSP& heap, bool systemSession, PARSER_TYPE parserType = PARSER_TYPE::DDB);
 	virtual ~Session(){}
+	virtual SessionSP getValue() = 0;
 	virtual SessionSP copy(bool forComputing = false) = 0;
 	virtual bool run(const vector<string>& source, const string& currentPath = "", int firstLine = 0)=0;
 	virtual bool run(const string& scriptFile)=0;
@@ -5368,6 +5517,14 @@ public:
 	virtual bool run(const string& function, vector<ConstantSP>& params)=0;
 	virtual bool run(const FunctionDefSP& function, vector<ConstantSP>& params)=0;
 	virtual bool run(const vector<string>& variables, vector<ConstantSP>& params)=0;
+
+    /**
+     * @brief Parser inputr for dolphin terminal.
+     * @return Exec flag, if flag == -1, the dolphin terminal will exit.
+     * if flag == 0: do nothing, the dolphin terminal will continue to accept input.
+     * if flag == 1: the dolphin terminal will run the scirpt, and the lines will be clear.
+     */
+	virtual char stdRun(vector<string>& lines, std::istream& sin, std::ostream& sout) = 0;
 	virtual bool test(const string& scriptFile, const string& resultFile, bool testMemoryLeaking)=0;
 	virtual FunctionDefSP parseFunctionDef(const string& script) = 0;
 	virtual vector<string> parseModuleStatement(const string& script) = 0;
@@ -5612,6 +5769,7 @@ public:
 protected:
 	ConstantSP obj_;
 };
+
 class SWORDFISH_API Heap{
 public:
 	Heap():meta_(0), session_(0), size_(0), status_(0){}
@@ -5622,11 +5780,14 @@ public:
 	ConstantSP getValue(int index) const;
 	ConstantSP getReference(int index) const;
 	ConstantSP getReference(const string& name) const;
-	inline int size() const {return size_;}
+    void getReference(INDEX index, Constant*& ptr, ConstantSP& ref);
+    inline int size() const {return size_;}
 	inline bool isViewMode() const { return status_ & 1;}
 	inline void setViewMode(bool enabled = true) { if(enabled) status_ |= 1; else status_ &= ~1;}
 	inline bool isDefMode() const { return status_ & 2;}
 	inline void setDefMode() { status_ |= 2; }
+	inline bool isReturnMode() const { return status_ & 4;}
+	inline void setReturnMode(bool enabled = true) { if(enabled) status_ |= 4; else status_ &= ~4;}
 	int getIndex(const string& name) const;
 	int getLocalIndex(const string& name) const;
 	string getName(int index) const;
@@ -5655,6 +5816,8 @@ public:
 	inline void setLocalVariable(int index, const ConstantSP& value){
 		values_[index] = value;
 		flags_[index] = 2;
+        if(index != 0 && value->isTemporary())
+            value->setTemporary(false);
 	}
 	bool copyMeta(Heap *heap);
 	bool setMetaName(const string &name, int index);
@@ -5778,14 +5941,16 @@ public:
 	virtual ~StatementFactory(){}
 	virtual Statement* readStatement(Session* session, const DataInputStreamSP& buffer) = 0;
 	virtual Statement* createReturnStatement(const ObjectSP& obj) = 0;
+	virtual void registerStatementCreator(STATEMENT_TYPE stType, StatementFunc func) = 0;
 };
 
 class DomainSite{
 public:
 	DomainSite(const string& host, int port, int index);
 	DomainSite(const string& host, int port, int index, const string& alias) ;
-	DomainSite(const string& host, int port, int index, const string& alias, const string & computeGroupName)
-			: host_(host), port_(port), index_(index), alias_(alias), computeGroupName_(computeGroupName) {}
+	DomainSite(const string& host, int port, int index, const string& alias, const string & computeGroupName,
+		const string& zoneName)
+			: host_(host), port_(port), index_(index), alias_(alias), computeGroupName_(computeGroupName), zoneName_(zoneName) {}
 	const string& getHost() const {return host_;}
 	int getPort() const {return port_;}
 	int getIndex() const {return index_;}
@@ -5793,6 +5958,8 @@ public:
 	const string& getAlias() const {return alias_;}
 	const string& getComputeGroupName() const { return computeGroupName_; }
 	void setComputeGroupName(const string& name) { computeGroupName_ = name; }
+	const string& getZoneName() const { return zoneName_; }
+	void setZoneName(const string& zoneName) { zoneName_ = zoneName; }
 	inline bool operator ==(const DomainSite& target) const { return  host_ == target.host_ && port_ == target.port_;}
 	static DomainSite emptySite_;
 private:
@@ -5803,6 +5970,7 @@ private:
 	// Empty string for datanodes and compute nodes that do not have a group
 	// For compute nodes that do not have a group, all computations are pushed down to the data nodes
 	string computeGroupName_;
+	string zoneName_;
 };
 
 class DomainSitePool {
@@ -5962,23 +6130,32 @@ private:
 	int extra_;
 };
 
+struct SensitiveColumn {
+	SensitiveColumn(){}
+	SensitiveColumn(int columnIdx, const FunctionDefSP& func = nullptr): columnIdx(columnIdx), sensitiveFunc(func) {}
+	int columnIdx = -1;
+	FunctionDefSP sensitiveFunc = nullptr;
+};
+
 struct TableHeader {
     using IndexMap = std::map<int, vector<std::pair<string, string>>>;
 
 	TableHeader() = default;
 	TableHeader(const string& owner, const string& physicalIndex, const vector<ColumnDesc>& tablesType,
-		const vector<int>& partitionKeys, const vector<FunctionDefSP>& partitionFunc):
+		const vector<int>& partitionKeys, const vector<FunctionDefSP>& partitionFunc, CIPHER_MODE mo = CIPHER_MODE::PLAIN_TEXT, const int64_t keyVer = 0, const string& encryptKey = ""):
         owner(owner), physicalIndex(physicalIndex), colDescs(tablesType), partitionKeys(partitionKeys),
-        partitionFunction(partitionFunc) {}
+        partitionFunction(partitionFunc), mode(mo), keyVersion(keyVer),encryptedTableKey(encryptKey) {}
 	TableHeader(const string& owner, const string& physicalIndex, const vector<ColumnDesc>& tablesType,
 			const vector<int>& partitionKeys, const vector<pair<int, bool>>& sortKeys,
 			DUPLICATE_POLICY rowDuplicatePolicy, const vector<pair<int, FunctionDefSP>>& sortKeyMappingFunction,
 			bool appendForDelete, const string& tableComment, const vector<FunctionDefSP>& partitionFunc,
-            const vector<int> &primaryKeys, const IndexMap &indexes, bool latestKeyCache, bool compressHashSortKey):
+            const vector<int> &primaryKeys, const IndexMap &indexes, bool latestKeyCache, bool compressHashSortKey, CIPHER_MODE mo = CIPHER_MODE::PLAIN_TEXT,
+			const int64_t keyVer = 0, const string& encryptKey = "", const vector<SensitiveColumn>& scols = {}):
 			rowDuplicatePolicy(rowDuplicatePolicy), owner(owner), physicalIndex(physicalIndex), colDescs(tablesType),
 			partitionKeys(partitionKeys), sortKeys(sortKeys), sortKeyMappingFunction(sortKeyMappingFunction),
 			appendForDelete(appendForDelete), tableComment(tableComment), partitionFunction(partitionFunc),
-            primaryKeys(primaryKeys), indexes(indexes), latestKeyCache(latestKeyCache), compressHashSortKey(compressHashSortKey) {}
+            primaryKeys(primaryKeys), indexes(indexes), latestKeyCache(latestKeyCache), compressHashSortKey(compressHashSortKey), mode(mo),
+			keyVersion(keyVer),encryptedTableKey(encryptKey), sensitiveCol(scols)  {}
 	DUPLICATE_POLICY rowDuplicatePolicy = DUPLICATE_POLICY::KEEP_ALL;
 	string owner;
 	string physicalIndex;
@@ -6002,6 +6179,10 @@ struct TableHeader {
 	long long chunkCid;
 	bool latestKeyCache = false;
 	bool compressHashSortKey = false;
+	CIPHER_MODE mode = CIPHER_MODE::PLAIN_TEXT;
+	int64_t keyVersion;
+	string encryptedTableKey;
+	vector<SensitiveColumn> sensitiveCol;
 };
 
 class Domain{
@@ -6011,7 +6192,7 @@ public:
 	Domain(const string& owner, PARTITION_TYPE partitionType, bool isLocalDomain, const Guid& key, DBENGINE_TYPE engineType = DBENGINE_TYPE::OLAP, ATOMIC atomic = ATOMIC::TRANS, int flag = 0) : partitionType_(partitionType), isLocalDomain_(isLocalDomain),
 			isExpired_(false), tableIndependentChunk_(false), retentionPeriod_(-1), retentionDimension_(-1),  hoursToColdVolume_(-1), tzOffset_(INT_MIN), key_(key), owner_(owner), engineType_(engineType), atomic_(atomic), flag_(flag){}
 	virtual ~Domain(){}
-	int getPartitionCount() const { return partitions_.size();}
+	virtual int getPartitionCount() const { return partitions_.size();}
 	DomainPartitionSP getPartition(int index) const { return partitions_[index];}
 	PARTITION_TYPE getPartitionType() const { return partitionType_;}
 	bool isLocalDomain() const {return isLocalDomain_;}
@@ -6138,20 +6319,25 @@ private:
 };
 
 struct TableUpdate{
-	TableUpdate(const string& topic, long long offset, int length, int flag, const TableSP& table) : topic_(topic), offset_(offset), length_(length), flag_(flag), filter_(0), table_(table){}
-	TableUpdate(const string& topic, long long offset, int length, int flag, const ObjectSP& filter, const TableSP& table) : topic_(topic), offset_(offset), length_(length), flag_(flag), filter_(filter), table_(table){}
-	TableUpdate() : offset_(0), length_(0), flag_(0), filter_(0), table_(0){}
+	TableUpdate(const string& topic, long long offset, int length, int flag, const TableSP& table, const TableSP& logTable) : topic_(topic), offset_(offset), length_(length), flag_(flag), filter_(0), table_(table), logTable_(logTable), isBarrier_(false){}
+	TableUpdate(const string& topic, long long offset, int length, int flag, const ObjectSP& filter, const TableSP& table, const TableSP& logTable) : topic_(topic), offset_(offset), length_(length), flag_(flag), filter_(filter), table_(table), logTable_(logTable), isBarrier_(false){}
+	TableUpdate() : offset_(0), length_(0), flag_(0), filter_(0), table_(0), logTable_(0), isBarrier_(false) {}
 	string topic_;
 	long long offset_;
 	int length_;
 	int flag_;
 	ObjectSP filter_;
 	TableSP table_;
+	// for multicast publish, logTable_ is always nullptr and use table_ for LogRowTable
+	TableSP logTable_;
+	// check barrier info, default value is false
+	bool isBarrier_;
+	string barrierStr_;
 };
 
 struct TableUpdateSizer {
 	inline int operator()(const TableUpdate& update){
-		return update.table_->getTableType() == LOGROWTBL ? 1 : update.length_;
+		return update.length_;
 	}
 };
 
@@ -6173,6 +6359,8 @@ struct TopicSubscribe {
 	bool isUnsubscribed() { return isUnsubscribed_; }
 	void setUnsubscribed() { isUnsubscribed_ = true; }
     void setSubscribed() { isUnsubscribed_ = false; }
+	bool isOrca() const { return isOrcaSubscription_; }
+	void setOrca(bool isOrca) { isOrcaSubscription_ = isOrca; }
 
 	const bool msgAsTable_;
 	const bool persistOffset_;
@@ -6204,6 +6392,7 @@ struct TopicSubscribe {
 	Mutex mutex_;
 	bool isUnsubscribed_ = false;
     bool multicast_ = false;
+	bool isOrcaSubscription_ = false;
 };
 
 class SessionThreadCallGuard {
@@ -6268,8 +6457,8 @@ public:
     inline void setSpanId(const Guid &spanId) { spanId_ = spanId; }
     inline const Guid &getParentSpanId() const { return parentSpanId_; }
     inline void setParentSpanId(const Guid &spanId) { parentSpanId_ = spanId; }
-	void set(Heap* heap, const SessionSP& session, const Guid& jobId, const CountDownLatchSP& latch, bool addDepth = true);
-	void set(Heap* heap, const SessionSP& session);
+	void set(Heap* heap, const SessionSP& session, const Guid& jobId, const CountDownLatchSP& latch, bool addDepth = true, bool setViewMode = false);
+	void set(Heap* heap, const SessionSP& session, bool setViewMode = false);
 	void done(const ConstantSP& result);
 	void done(const string& errMsg);
 	inline const string& getErrorMessage() const {return errMsg_;}
@@ -6361,987 +6550,29 @@ public:
 private:
 	int index_;
 };
+}
 
-class StageExecutor {
-public:
-	virtual ~StageExecutor(){}
-	virtual vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks, bool forceParallel = false) = 0;
-	virtual vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks, const JobProperty& jobProp, bool forceParallel = false) = 0;
-};
-
-class StaticStageExecutor : public StageExecutor{
-public:
-	StaticStageExecutor(bool parallel, bool reExecuteOnOOM, bool trackJobs, bool resumeOnError = false, bool scheduleRemoteSite = true) :  parallel_(parallel),
-		reExecuteOnOOM_(reExecuteOnOOM), trackJobs_(trackJobs),	resumeOnError_(resumeOnError), scheduleRemoteSite_(scheduleRemoteSite){}
-	virtual ~StaticStageExecutor(){}
-	vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks, const JobProperty& jobProp, bool forceParallel = false);
-	vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks, bool forceParallel = false);
-	void execute(Heap* heap, const vector<DistributedCallSP>& tasks, const std::function<void(const vector<DistributedCallSP>&, int)>& callback);
-    void setForbidProbingGroupSize(bool flag){forbidProbingGroupSize_ = flag;}
-    void setWaitRunningTaskFinishedOnError(bool flag){waitRunningTaskFinishedOnError_ = flag;}
-    bool getForbidProbingGroupSize() const {return forbidProbingGroupSize_;}
-    void setMonitorProcessAndMemory(bool flag, const string& script){monitorProcessAndMemory_ = flag; script_ = script;}
-    bool getMonitorProcessAndMemory() const {return monitorProcessAndMemory_;}
-
-private:
-    void groupRemoteCalls(const unordered_map<int, vector<DistributedCallSP>>& tasks,
-                          vector<DistributedCallSP>& groupedCalls, const ClusterNodesSP& clusterNodes, int groupSize);
-
-    bool probingGroupSize(bool& groupCall, const vector<DistributedCallSP>& tasks, const ClusterNodesSP& clusterNodes,
-                          unordered_map<int, vector<DistributedCallSP>>& siteCalls,
-                          vector<std::pair<int,DistributedCallSP>>& needCheckTasks);
-private:
-    const int MIN_TASK_COUNT_FOR_PROBING_GROUP_SIZE = 4; // if all site's task count is less or equal than it, will group call directly and won't prob group size
-    const int TASK_LIMIT_OF_A_GROUP = 1024; // the max task size of a group
-	bool parallel_;
-	bool reExecuteOnOOM_;
-	bool trackJobs_;
-	bool resumeOnError_;
-	bool scheduleRemoteSite_;
-    bool forbidProbingGroupSize_ = true;
-    bool monitorProcessAndMemory_ = false;
-    bool waitRunningTaskFinishedOnError_ = false;
-    long long monitorId_ = 0;
-    string script_;
-};
-
-class PipelineStageExecutor : public StageExecutor {
-public:
-	PipelineStageExecutor(vector<FunctionDefSP>& followingFunctors, bool trackJobs, int queueDepth = 2, int parallel = 1) : followingFunctors_(followingFunctors), trackJobs_(trackJobs),
-		queueDepth_(queueDepth), parallel_(parallel){}
-	virtual ~PipelineStageExecutor(){}
-	virtual vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks, bool forceParallel = false);
-	virtual vector<DistributedCallSP> execute(Heap* heap, const vector<DistributedCallSP>& tasks, const JobProperty& jobProp, bool forceParallel = false);
-
-private:
-	void parallelExecute(Heap* heap, vector<DistributedCallSP>& tasks);
-
-private:
-	vector<FunctionDefSP> followingFunctors_;
-	bool trackJobs_;
-	int queueDepth_;
-	int parallel_;
-};
-
-class Decoder {
-public:
-	Decoder(int id, bool appendable) : id_(id), appendable_(appendable), codeSymbolAsString_(false){}
-	virtual ~Decoder(){}
-	virtual VectorSP code(const VectorSP& vec, bool lsnFlag) = 0;
-	virtual IO_ERR code(const VectorSP& vec, bool lsnFlag, const DataOutputStreamSP& out, int& checksum, int offset = 0) = 0;
-	virtual IO_ERR decode(const VectorSP& vec, INDEX rowOffset, INDEX skipRows, bool fullLoad, int checksum, const DataInputStreamSP& in,
-			long long byteSize, long long byteOffset, INDEX& postRows, INDEX& postRowOffset, long long& postByteOffset, long long& lsn, int& partial) = 0;
-	/**
-	 * Calculate the CRC32 checksum of the first given number of rows of the decompressed vector.
-	 *
-	 * in: the input data stream. The cursor must be pointed to the first row of the vector. If the input column file has a header,
-	 *     the pointer must be after the header.
-	 * type: the data type of the column.
-	 * rows: the number of rows to calculate
-	 * symbase: it is must be provided if the data type is SYMBOL or SYMBOL[].
-	 */
-	virtual int checksum(const DataInputStreamSP& in, DATA_TYPE type, INDEX rows, const SymbolBaseSP& symbase = nullptr) = 0;
-	inline int getID() const {return id_;}
-	inline bool isAppendable() const {return appendable_;}
-	inline bool codeSymbolAsString() const { return codeSymbolAsString_;}
-	void codeSymbolAsString(bool enabled) { codeSymbolAsString_ = enabled;}
-private:
-	int id_;
-	bool appendable_;
-	bool codeSymbolAsString_;
-};
-
-class VolumeMapper {
-public:
-	VolumeMapper(vector<string>& volumes, int workers);
-	int getMappedDeviceId(const string& path);
-
-private:
-	int workers_;
-	unordered_map<int, int> deviceMap_;
-};
-
-struct ColumnHeader{
-	ColumnHeader(const char* header);
-	ColumnHeader();
-	static int getHeaderSize(){ return 20;}
-	void serialize(ByteArrayCodeBuffer& buf);
-	void deserialize(const char* header);
-	inline bool isLittleEndian() const { return flag & 1;}
-	inline bool containChecksum() const {return flag & 2;}
-	inline bool lsnFlag() const{return flag & 4;}
-	inline void setLittleEndian(bool val){ if(val) flag |= 1; else flag &= ~1;}
-	inline void setChecksumOption(bool val){ if(val) flag |= 2; else flag &= ~2;}
-	inline void setLSNFlag(bool val){ if(val) flag |= 4; else flag &= ~4;}
-
-	inline int getScaleForDecimal() const { return reserved & 0xff; }
-	inline void setScaleForDecimal(int scale) { reserved = (reserved & 0xff00) | (scale & 0xff); }
-
-	char version;
-	char flag; //bit0: littleEndian bit1: containChecksum
-	char charCode;
-	char compression;
-	char dataType;
-	char unitLength;
-
-	/**
-	 * 16              8               0
-	 *  +--------------+---------------+
-	 *  |    unused    |     scale     |
-	 *  +--------------+---------------+
-	 *
-	 * Lower 8 bits: scale for decimal data type.
-	 * Higher 8 bits: reserved.
-	 */
-	short reserved;
-
-	int extra;
-	int count;
-	int checksum;
-};
-
-class DBFileIO {
-public:
-	static bool saveBasicTable(Session* session, const string& directory, Table* table, const string& tableName, IoTransaction* tran,  bool append = false, int compressionMode = 0, bool saveSymbolBase = true);
-	static bool saveBasicTable(Session* session, SystemHandle* db, Table* table, const string& tableName, IoTransaction* tran, bool append = false, int compressionMode = 0, bool saveSymbolBase = true);
-	static bool saveBasicTable(Session* session, const string& directory, const string& tableDir, Table* table, const string& tableName, const vector<ColumnDesc>& cols, SymbolBaseSP& symbase, IoTransaction* tran, bool chunkMode, bool append, int compressionMode, bool saveSymbolBase);
-	static bool saveBasicTable(const string& directory, const string& tableName, Table* table, const SymbolBaseSP& symBase, IoTransaction* tran, int compressionMode, const vector<string>& comments);
-	static bool saveBasicTable(Session* session, const string& tableDir, INDEX existingTblSize, Table* table, const vector<ColumnDesc>& cols, const SymbolBaseSP& symBase, IoTransaction* tran, int compressionMode, bool saveSymbolBase, long long lsn, vector<long long>& colsFileOffset);
-	static bool savePartitionedTable(Session* session, const DomainSP& domain, TableSP table, const string& tableName, IoTransaction* tran, int compressionMode = 0, bool saveSymbolBase = true );
-	static bool saveDualPartitionedTable(Session* session, SystemHandle* db, const DomainSP& secDomain, TableSP table, const string& tableName,
-			const string& partitionColName, vector<string>& secPartitionColNames, IoTransaction* tran, int compressionMode = 0);
-	static Table* loadTable(Session* session, const string& directory, const string& tableName, const SymbolBaseManagerSP& symbaseManager, const DomainSP& domain, const ConstantSP& partitions, TABLE_TYPE tableType, bool memoryMode);
-	static Table* loadTable(Session* session, SystemHandle* db, const string& tableName, const ConstantSP& partitions, TABLE_TYPE tableType, bool memoryMode);
-	// This function will load data from both cacheEngine and disk
-	static Table* loadTable(const string& tableName, const string& physicalDir, const Guid& chunkID, const string& chunkPath, const vector<ColumnDesc>& colDescs, INDEX startRows, INDEX endRows);
-	static void removeTable(SystemHandle* db, const string& tableName);
-	static SystemHandle* openDatabase(const string& directory, const DomainSP& localDomain);
-	static bool saveDatabase(SystemHandle* db);
-	static bool removeDatabase(const string& dbDir);
-
-	static ColumnHeader loadColumnHeader(const string& colFile);
-	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseManagerSP& symbaseManager);
-	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseSP& symbase);
-	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseSP& symbase, int rows, long long& postFileOffset, INDEX& rowOffset, bool& isLittleEndian, char& compressType);
-	/**
-	 * colFile: the full path of the column file
-	 * fileOffset: the starting point to read data from the column file.
-	 * isLittleEndian: true if the machine is little endian.
-	 * compressType: 0, no compression; 1, LZ4; 2, Delta of delta. If compressType is -1 and fileOffset  is zero, the system will read the compress type from the column file.
-	 * devId: use DBFileIO::getMappedDeviceId(colFile) to get the devId
-	 * symbase: symbol base if the column is type of SYMBOL.
-	 * skipRows: the number of rows to skip before appending to the given vector.
-	 * rows: the number of rows to append to the given vector.
-	 * col: the in-memory vector to store the data. The vector may already contains data. The new data is appended to the vector.
-	 * rowOffset: the row number (starting from zero) of the file block next to the last read block.
-	 *
-	 * return: the file offset of the file block next to the last read block.
-	 */
-	static long long loadColumn(const string& colFile, long long fileOffset, bool& isLittleEndian, char& compressType, int devId, const SymbolBaseSP& symbase, INDEX skipRows, INDEX rows, const VectorSP& col, INDEX& rowOffset);
-	static Vector* loadTextVector(bool includeHeader, DATA_TYPE type, const string& path);
-	static long long saveColumn(const VectorSP& col, const string& colFile, int devId, INDEX existingTableSize, bool chunkNode, bool append, int compressionMode, IoTransaction* tran = NULL, long long lsn = -1);
-	static bool saveTableHeader(const string& owner, const string& physicalIndex, const vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices, long long rows, const string& tableFile, IoTransaction* tran);
-	static bool saveTableHeader(const string& owner, const string& physicalIndex, const vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices, vector<pair<int, bool>>& sortKeys,
-			DUPLICATE_POLICY rowDuplicatePolicy, long long rows, const string& tableFile, IoTransaction* tran, const vector<int> &primaryKeys, const TableHeader::IndexMap &indexes);
-	static bool loadTableHeader(const DataInputStreamSP& in, string& owner, string& physicalIndex, vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices, DBENGINE_TYPE engineType);
-	static bool loadTableHeader(const DataInputStreamSP& in, TableHeader& header, DBENGINE_TYPE engineType);
-	static void removeBasicTable(const string& directory, const string& tableName);
-	/**
-	 * @param extras extra param for data type (i.e., scale for decimal)
-	 */
-	static TableSP createEmptyTableFromSchema(const TableSP& schema, const std::vector<long long> &extras = {});
-	static long long truncateColumnByLSN(const string& colFile, int devId, long long expectedLSN, bool sync=true);
-	static long long truncateColumnByRows(const string& colFile, int devId, INDEX rows, bool sync=true);
-	static void truncateSymbolBase(const string& symFile, int devId, INDEX rows, bool sync=true);
-
-	static void checkTypeCompatibility(Table* table, vector<string>& partitionColumns, vector<ColumnDesc>& cols, vector<int>& partitionColumnIndices);
-	static bool checkTypeCompatibility(DATA_TYPE type1, DATA_TYPE type2);
-	static bool checkPartitionColumnCompatibility(DATA_TYPE partitionSchemeType, DATA_TYPE partitionDataType);
-	static void saveSymbolBases(const SymbolBaseSP& symbase, IoTransaction* tran);
-	static void collectColumnDesc(Table* table, vector<ColumnDesc>& cols);
-	static void collectColumnDesc(Table* table, vector<ColumnDesc>& cols, vector<int>& compressMethods);
-	static ConstantSP convertColumn(const ConstantSP& col, const ColumnDesc& desiredType, SymbolBaseSP& symbase);
-	static ConstantSP convertColumn(const ConstantSP& col, const ColumnDesc& desiredType, const SymbolBaseSP& symbase);
-	static int getCompressionMethod(const ColumnDesc& col, int defaultMethod);
-	static VectorSP decompress(const VectorSP& col);
-	static VectorSP decompress(const VectorSP& col, const DecoderSP decoder);
-	static TableSP decompressTable(const TableSP& tbl);
-	static VectorSP compress(const VectorSP& col, int compressMode = 1);
-	static TableSP compressTable(const TableSP& table);
-	static TableSP compressTable(const TableSP& table, vector<ColumnDesc>& types);
-	static ConstantSP appendDataToFile(Heap* heap, vector<ConstantSP>& arguments);
-	static int getMappedDeviceId(const string& path);
-	static void setVolumeMapper(const VolumeMapperSP& volumeMapper) { volumeMapper_ = volumeMapper;}
-	static unsigned int checksum(const DataInputStreamSP& in, long long offset, long long length);
-    static long long getColumnLeastLSN(const string& colFile);
-private:
-	static VectorSP loadColumn(const string& colFile, int devId, const SymbolBaseManagerSP& symbaseManager,	const SymbolBaseSP& symbase,
-			int rows, long long& postFileOffset, INDEX& rowOffset, bool& isLittleEndian, char& compressType);
-	static inline DATA_TYPE getCompressedDataType(const VectorSP& vec){return (DATA_TYPE)vec->getChar(4);}
-	static VolumeMapperSP volumeMapper_;
-};
-
-class Tuple : public Object {
-public:
-	Tuple(const vector<ObjectSP>& arguments, bool isFunctionArgument = false, bool isDynamicVector = false, bool readonly=false): Object(TUPLE), arguments_(arguments),
-		isFunctionArgument_(isFunctionArgument), isDynamicVector_(isDynamicVector), readonly_(readonly){}
-	Tuple(Session* session, const DataInputStreamSP& in);
-	inline bool isFunctionArgument() const { return isFunctionArgument_;}
-	inline bool isDynamicVector() const { return isDynamicVector_;}
-	inline bool readonly() const { return readonly_;}
-	ObjectSP getElement(int index) const {return arguments_[index];}
-	int getElementCount() const { return arguments_.size();}
-	virtual ConstantSP getValue(Heap* pHeap) { return getReference(pHeap);}
-	virtual ConstantSP getReference(Heap* pHeap);
-	virtual ConstantSP getComponent() const;
-	virtual string getScript() const;
-	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
-	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
-	virtual void collectUserDefinedFunctionsAndClasses(Heap* pHeap, unordered_map<string,FunctionDef*>& functionDefs, unordered_map<string,OOClass*>& classes) const;
-	virtual ObjectSP copy(Heap* pHeap, const SQLContextSP& context, bool localize) const;
-	virtual ObjectSP copyAndMaterialize(Heap* pHeap, const SQLContextSP& context, const TableSP& table) const;
-	virtual bool mayContainColumnRefOrVariable() const { return true;}
-	virtual void collectObjects(vector<const Object*>& vec) const;
-
-private:
-	vector<ObjectSP> arguments_;
-	bool isFunctionArgument_;
-	bool isDynamicVector_;
-	bool readonly_;
-};
-
-
-class Expression: public Object{
-public:
-	Expression(const vector<ObjectSP> & objs, const vector<OperatorSP>&  optrs): Object(EXPRESSION),
-		objs_(objs),optrs_(optrs), annotation_(0){}
-	Expression(const vector<ObjectSP> & objs, const vector<OperatorSP>&  optrs, int annotation): Object(EXPRESSION),
-		objs_(objs),optrs_(optrs), annotation_(annotation){}
-	Expression(const SQLContextSP& context, Session* session, const DataInputStreamSP& in);
-	virtual ~Expression(){}
-	virtual ConstantSP getComponent() const;
-	virtual ConstantSP getReference(Heap* pHeap);
-	virtual ConstantSP getValue(Heap* pHeap);
-	int getObjectCount() const {return objs_.size();}
-	const ObjectSP& getObject(int index) const {return objs_[index];}
-	const vector<ObjectSP>& getObjects() const {return objs_;}
-	int getOperatorCount() const {return optrs_.size();}
-	const OperatorSP& getOperator(int index) const {return optrs_[index];}
-	const vector<OperatorSP>& getOperators() const {return optrs_;}
-	virtual string getScript() const;
-	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
-	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
-	virtual void collectUserDefinedFunctionsAndClasses(Heap* pHeap, unordered_map<string,FunctionDef*>& functionDefs, unordered_map<string,OOClass*>& classes) const;
-	ObjectSP realizeNonColumnExpression(Heap* pHeap, unordered_set<string>& colNames);
-	ObjectSP realizeNonColumnExpression(Heap* pHeap, const TableSP& table);
-	//Assume all local variables in the expression has been materialized
-	ObjectSP realizeNonColumnExpression(Heap* pHeap);
-	inline int getAnnotation() const {return annotation_;}
-	inline bool getAnnotation(int bitOffset) const {return annotation_ & (bitOffset << 1);}
-	void setAnnotation(int bitOffset, bool bitOn);
-	virtual ObjectSP copy(Heap* pHeap, const SQLContextSP& context, bool localize) const;
-	virtual ObjectSP copyAndMaterialize(Heap* pHeap, const SQLContextSP& context, const TableSP& table) const;
-	virtual bool mayContainColumnRefOrVariable() const { return true;}
-	void collectObjects(vector<const Object*>& vec) const override;
-
-	SWORDFISH_API static ConstantSP void_;
-	SWORDFISH_API static ConstantSP null_;
-	SWORDFISH_API static ConstantSP default_;
-	SWORDFISH_API static ConstantSP true_;
-	SWORDFISH_API static ConstantSP false_;
-	SWORDFISH_API static ConstantSP one_;
-	SWORDFISH_API static ConstantSP zero_;
-	SWORDFISH_API static ConstantSP voidDouble2_;
-	SWORDFISH_API static OperatorSP logicAnd_;
-	static SQLContextSP context_;
-
-private:
-	static ObjectSP realizeNonColumnObject(Heap* pHeap, unordered_set<string>& colNames, const ObjectSP& obj);
-	static ObjectSP realizeNonColumnObject(Heap* pHeap, const TableSP&, const ObjectSP& obj);
-	//Assume all local variables in the expression has been materialized
-	static ObjectSP realizeNonColumnObject(Heap* pHeap, const ObjectSP& obj);
-
-private:
-	vector<ObjectSP> objs_;
-    vector<OperatorSP> optrs_;
-    /**
-     * The field doesn't involve in the calculation of the expression. But it is used to annotate the
-     * expression. For example, expressions in the SQL where clause may help decide which partition is
-     * relevant to the query. In the case of range partition or value partition, this flag can further
-     * tell if one can optimize the where clause, i.e. removal of the whole or part of the expression
-     * from the where clause. In this use case:
-     * 	bit0: 0 the part of the expression is used to decide the relevant partition.
-     * 	      1 the whole expression is used to decide the relevant partition.
-     * 	bit1: value partitioning column is used to decide the relevant partition.
-     * 	bit2: range partitioning column is used to decide the relevant partition.
-     * 	bit3: list partitioning column is used to decide the relevant partition.
-     */
-    int annotation_;
-};
-
-class InternalUtil {
-public:
-    static IO_ERR readBytes(const DataInputStreamSP& in, char* buf, int length);
-	static Vector* createArrayVector(DATA_TYPE type, INDEX size, INDEX valueSize=0, INDEX capacity=0, INDEX valueCapacity=0, bool fastMode=true, int extraParam=0);
-};
-
-template<class T>
-class CircularQueue{
-public:
-	CircularQueue(int capacity = 16) : capacity_(capacity), size_(0), head_(0), tail_(0), buf_(capacity, T{}){}
-	IO_ERR snapshotState(const DataOutputStreamSP& out){
-		int buf[3] = {size_, head_, tail_};
-		IO_ERR ret = out->write((const char*)buf, 12);
-		if(ret != OK) return ret;
-        T *pbuf = &(buf_[0]);
-		return out->write((const char*)pbuf, sizeof(T) * capacity_);
-	}
-	IO_ERR snapshotState(Buffer& out, int offset, int length){
-		int base = head_ + offset;
-		int end = std::min(length, capacity_ - base);
-		for(int i=0; i<end; ++i){
-			IO_ERR ret = out.write(buf_[base + i]);
-			if(ret != OK) return ret;
+namespace std {
+	template<>
+	struct hash<ddb::ControlFlowEdge> {
+		std::size_t operator()(const ddb::ControlFlowEdge & k) const {
+			using std::size_t;
+			using std::hash;
+			using std::string;
+			return hash<void*>{}(k.edgeFrom)
+				   ^ (hash<void*>{}(k.edgeTo) >> 1)
+				   ^ (hash<string>{}(k.varName) << 1);
 		}
+	};
 
-		end = std::max(0, base + length - capacity_);
-		for(int i=0; i<end; ++i){
-			IO_ERR ret = out.write(buf_[i]);
-			if(ret != OK) return ret;
+	template<>
+	struct hash<ddb::InferredType> {
+		std::size_t operator()(const ddb::InferredType & k) const {
+			using std::size_t;
+			using std::hash;
+			using std::string;
+			return hash<int8_t>{}(k.form) ^ hash<int8_t>{}(k.type);
 		}
-		return OK;
-	}
-	IO_ERR restoreState(const DataInputStreamSP& in){
-		IO_ERR ret = in->readInt(size_);
-		if(ret != OK) return ret;
-		in->readInt(head_);
-		in->readInt(tail_);
-		if(head_ > size_ || tail_ > size_)
-			return INVALIDDATA;
-        T *pbuf = &(buf_[0]);
-		return in->readBytes((char*)pbuf, sizeof(T) * capacity_, false);
-	}
-	void push(T& value){
-		if(size_ >= capacity_){
-			// equivalent to head_ = (head_ + 1) % capacity_;
-			int head = (head_ + 1);
-			int cond = -(int)(head < capacity_);
-			head_ = (cond & head) | (~cond & (head - capacity_));
-
-			buf_[tail_] = value;
-			tail_ = head_;
-		}
-		else{
-			buf_[tail_] = value;
-
-			// equivalent to tail_ = (tail_ + 1) % capacity_;
-			int tail = tail_ + 1;
-			int cond = - (int)(tail < capacity_);
-			tail_ = (cond & tail) | (~cond & (tail - capacity_));
-
-			++size_;
-		}
-	}
-	inline int size() const {return size_;}
-	inline const T& get(int index) const {
-		// equivalent to buf_[(head_ + index) % capacity_]
-		index = head_ + index;
-		int cond = - (int)(index < capacity_);
-		return buf_[(cond & index) | (~cond & (index - capacity_))];
-	}
-	inline const T& tail() const {
-		//equivalent to tail_ == 0 ? buf_[capacity_ - 1] : buf_[tail_ - 1]
-		int cond = - (int)(tail_ == 0);
-		return buf_[(cond & (capacity_ - 1)) | (~cond & (tail_ - 1))];
-	}
-	inline const T& head() const { return buf_[head_];}
-
-private:
-	int capacity_;
-	int size_;
-	int head_;
-	int tail_;
-	std::vector<T> buf_;
-};
-
-
-struct DoubleReader {
-	double operator()(Constant* vec, INDEX index) const {
-		return vec->getDouble(index);
-	}
-	double operator()(Constant* x) const {
-		return x->getDouble();
-	}
-	const double* getConst(Constant* x, INDEX start, int count, double* buf) const {
-		return x->getDoubleConst(start, count, buf);
-	}
-	double* getBuffer(Constant* x, INDEX start, int count, double* buf) const {
-		return x->getDoubleBuffer(start, count, buf);
-	}
-	bool operator()(Constant* vec, INDEX start, int count, double* buf) const {
-		return vec->getDouble(start, count, buf);
-	}
-	bool operator()(Constant* vec, INDEX* indices, int count, double* buf) const {
-		return vec->getDouble(indices, count, buf);
-	}
-	bool operator()(Vector* vec, INDEX offset, INDEX* sortedIndices, int count, double* buf) const {
-		return vec->getDoubleSafe(offset, sortedIndices, count, buf);
-	}
-};
-
-struct FloatReader {
-	float operator()(Constant* vec, INDEX index) const {
-		return vec->getFloat(index);
-	}
-	float operator()(Constant* x) const {
-		return x->getFloat();
-	}
-	const float* getConst(Constant* x, INDEX start, int count, float* buf) const {
-		return x->getFloatConst(start, count, buf);
-	}
-	float* getBuffer(Constant* x, INDEX start, int count, float* buf) const {
-		return x->getFloatBuffer(start, count, buf);
-	}
-	bool operator()(Constant* vec, INDEX start, int count, float* buf) const {
-		return vec->getFloat(start, count, buf);
-	}
-	bool operator()(Constant* vec, INDEX* indices, int count, float* buf) const {
-		return vec->getFloat(indices, count, buf);
-	}
-	bool operator()(Vector* vec, INDEX offset, INDEX* sortedIndices, int count, float* buf) const {
-		return vec->getFloatSafe(offset, sortedIndices, count, buf);
-	}
-};
-
-struct LongReader {
-	long long operator()(Constant* vec, INDEX index) const {
-		return vec->getLong(index);
-	}
-	long long operator()(Constant* x) const {
-		return x->getLong();
-	}
-	const long long* getConst(Constant* x, INDEX start, int count, long long* buf) const {
-		return x->getLongConst(start, count, buf);
-	}
-	long long* getBuffer(Constant* x, INDEX start, int count, long long* buf) const {
-		return x->getLongBuffer(start, count, buf);
-	}
-	bool operator()(Constant* vec, INDEX start, int count, uint64_t* buf) const {
-		return vec->getLong(start, count, (long long*)buf);
-	}
-	bool operator()(Constant* vec, INDEX start, int count, long long* buf) const {
-		return vec->getLong(start, count, buf);
-	}
-	bool operator()(Constant* vec, INDEX* indices, int count, long long* buf) const {
-		return vec->getLong(indices, count, buf);
-	}
-	bool operator()(Vector* vec, INDEX offset, INDEX* sortedIndices, int count, long long* buf) const {
-		return vec->getLongSafe(offset, sortedIndices, count, buf);
-	}
-};
-
-struct IntReader {
-	int operator()(Constant* vec, INDEX index) const {
-		return vec->getInt(index);
-	}
-	int operator()(Constant* x) const {
-		return x->getInt();
-	}
-	const int* getConst(Constant* x, INDEX start, int count, int* buf) const {
-		return x->getIntConst(start, count, buf);
-	}
-	int* getBuffer(Constant* x, INDEX start, int count, int* buf) const {
-		return x->getIntBuffer(start, count, buf);
-	}
-	bool operator()(Constant* vec, INDEX start, int count, uint32_t* buf) const{
-		return vec->getInt(start, count, (int*)buf);
-	}
-	bool operator()(Constant* vec, INDEX start, int count, int* buf) const{
-		return vec->getInt(start, count, buf);
-	}
-	bool operator()(Constant* vec, INDEX* indices, int count, int* buf) const{
-		return vec->getInt(indices, count, buf);
-	}
-	bool operator()(Vector* vec, INDEX offset, INDEX* sortedIndices, int count, int* buf) const{
-		return vec->getIntSafe(offset, sortedIndices, count, buf);
-	}
-};
-
-struct ShortReader {
-	short operator()(Constant* vec, INDEX index) const {
-		return vec->getShort(index);
-	}
-	short operator()(Constant* x) const {
-		return x->getShort();
-	}
-	const short* getConst(Constant* x, INDEX start, int count, short* buf) const {
-		return x->getShortConst(start, count, buf);
-	}
-	short* getBuffer(Constant* x, INDEX start, int count, short* buf) const {
-		return x->getShortBuffer(start, count, buf);
-	}
-	bool operator()(Constant* vec, INDEX start, int count, uint16_t* buf) const {
-		return vec->getShort(start, count, (short*)buf);
-	}
-	bool operator()(Constant* vec, INDEX start, int count, short* buf) const {
-		return vec->getShort(start, count, buf);
-	}
-	bool operator()(Constant* vec, INDEX* indices, int count, short* buf) const {
-		return vec->getShort(indices, count, buf);
-	}
-	bool operator()(Vector* vec, INDEX offset, INDEX* sortedIndices, int count, short* buf) const {
-		return vec->getShortSafe(offset, sortedIndices, count, buf);
-	}
-};
-
-struct CharReader {
-	char operator()(Constant* vec, INDEX index) const {
-		return vec->getChar(index);
-	}
-	char operator()(Constant* x) const {
-		return x->getChar();
-	}
-	const char* getConst(Constant* x, INDEX start, int count, char* buf) const {
-		return x->getCharConst(start, count, buf);
-	}
-	char* getBuffer(Constant* x, INDEX start, int count, char* buf) const {
-		return x->getCharBuffer(start, count, buf);
-	}
-	bool operator()(Constant* vec, INDEX start, int count, uint8_t* buf) const {
-		return vec->getChar(start, count, (char*)buf);
-	}
-	bool operator()(Constant* vec, INDEX start, int count, char* buf) const {
-		return vec->getChar(start, count, buf);
-	}
-	bool operator()(Constant* vec, INDEX* indices, int count, char* buf) const {
-		return vec->getChar(indices, count, buf);
-	}
-	bool operator()(Vector* vec, INDEX offset, INDEX* sortedIndices, int count, char* buf) const {
-		return vec->getCharSafe(offset, sortedIndices, count, buf);
-	}
-};
-
-struct BoolReader {
-	char operator()(Constant* vec, INDEX index) const {
-		return vec->getBool(index);
-	}
-	char operator()(Constant* x) const {
-		return x->getBool();
-	}
-	const char* getConst(Constant* x, INDEX start, int count, char* buf) const {
-		return x->getBoolConst(start, count, buf);
-	}
-	char* getBuffer(Constant* x, INDEX start, int count, char* buf) const {
-		return x->getBoolBuffer(start, count, buf);
-	}
-	bool operator()(Constant* vec, INDEX start, int count, char* buf) const {
-		return vec->getBool(start, count, buf);
-	}
-	bool operator()(Constant* vec, INDEX* indices, int count, char* buf) const {
-		return vec->getBool(indices, count, buf);
-	}
-	bool operator()(Vector* vec, INDEX offset, INDEX* sortedIndices, int count, char* buf) const {
-		return vec->getBoolSafe(offset, sortedIndices, count, buf);
-	}
-};
-struct GuidReader {
-	Guid operator()(Constant* x, INDEX index) const {
-		return x->getInt128(index);
-	}
-	Guid operator()(Constant* x) const {
-		return x->getInt128();
-	}
-	const Guid* getConst(Constant* x, INDEX start, int count, Guid* buf) const {
-		return (Guid*)x->getBinaryConst(start, count, 16, (unsigned char*)buf);
-	}
-	Guid* getBuffer(Constant* x, INDEX start, int count, Guid* buf) const {
-		return (Guid*)x->getBinaryBuffer(start, count, 16, (unsigned char*)buf);
-	}
-	bool operator()(Constant* vec, INDEX start, int count, Guid* buf) const {
-		return vec->getBinary(start, count, 16, (unsigned char*)buf);
-	}
-	bool operator()(Constant* vec, INDEX* indices, int count, Guid* buf) const {
-		return vec->getBinary(indices, count, 16, (unsigned char*)buf);
-	}
-	bool operator()(Vector* vec, INDEX offset, INDEX* sortedIndices, int count, Guid* buf) const {
-		return vec->getBinarySafe(offset, sortedIndices, count, 16, (unsigned char*)buf);
-	}
-};
-
-class AbstractFunctionDef : public FunctionDef{
-public:
-	AbstractFunctionDef(FUNCTIONDEF_TYPE defType, const string& name, const vector<ParamSP>& params, bool hasReturnValue=true, bool aggregation=false, bool sequential=false, bool transform=false): FunctionDef(defType, name, params,
-		hasReturnValue, aggregation, sequential, transform), val_(name){}
-	AbstractFunctionDef(FUNCTIONDEF_TYPE defType, const string& name, int minParamNum, int maxParamNum, bool hasReturnValue, bool aggregation=false, bool sequential=false, bool transform=false) : FunctionDef(defType, name, minParamNum,
-		maxParamNum, hasReturnValue, aggregation, sequential, transform), val_(name){}
-	virtual ~AbstractFunctionDef(){}
-	virtual char getBool() const {throw IncompatibleTypeException(DT_BOOL,DT_FUNCTIONDEF);}
-	virtual char getChar() const {throw IncompatibleTypeException(DT_CHAR,DT_FUNCTIONDEF);}
-	virtual short getShort() const {throw IncompatibleTypeException(DT_SHORT,DT_FUNCTIONDEF);}
-	virtual int getInt() const {throw IncompatibleTypeException(DT_INT,DT_FUNCTIONDEF);}
-	virtual long long getLong() const {throw IncompatibleTypeException(DT_LONG,DT_FUNCTIONDEF);}
-	virtual INDEX getIndex() const {throw IncompatibleTypeException(DT_INDEX,DT_FUNCTIONDEF);}
-	virtual float getFloat() const {throw IncompatibleTypeException(DT_FLOAT,DT_FUNCTIONDEF);}
-	virtual double getDouble() const {throw IncompatibleTypeException(DT_DOUBLE,DT_FUNCTIONDEF);}
-	virtual string getString() const {
-		if (isView() || !getModule().empty()) {
-			return getFullName();
-		}
-		else {
-			return val_;
-		}
-	}
-	virtual string getBody() const { return val_; }
-	virtual bool isNull() const {return false;}
-	virtual void setString(const DolphinString& val) {val_ = val.getString();}
-	virtual void setNull(){}
-	virtual void nullFill(const ConstantSP& val){}
-	virtual bool isNull(INDEX start, int len, char* buf) const {
-		for(int i=0;i<len;++i)
-			buf[i]=false;
-		return true;
-	}
-	virtual bool isValid(INDEX start, int len, char* buf) const {
-		for(int i=0;i<len;++i)
-			buf[i]=true;
-		return true;
-	}
-	virtual ConstantSP getInstance() const { throw RuntimeException("FunctionDef::getInstance method not supported.");}
-	virtual ConstantSP getValue() const { throw RuntimeException("Function definition [" + name_ + "] is not copyable and can't serve as an operand in numeric calculation.");}
-	virtual DATA_FORM getForm() const {return DF_SCALAR;}
-	virtual long long getAllocatedMemory() const {return sizeof(string)+val_.size();}
-	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, INDEX& numElement);
-	virtual int compare(int index, const ConstantSP& target) const {
-		if (target->getType() == DT_FUNCTIONDEF) {
-			return val_.compare(((AbstractFunctionDef *) target.get())->getBody());
-		} else
-			return val_.compare(target->getString());
-	}
-	virtual FunctionDefSP createAlias(const string& alias) const { throw RuntimeException("AbstractFunctionDef::createAlias method not supported.");}
-	virtual void registerTurboJetImplementation(TurboJetFunc funcPtr) override { tjImp_ = funcPtr; }
-	virtual TurboJetFunc getTurboJetJitFuncPtr() const override { return tjImp_; }
-	virtual ConstantSP getTurboJetReturnType() const { return tjTypeObj_; }
-	virtual void registerTurboJetReturnType(ConstantSP type) { tjTypeObj_ = type; }
-
-protected:
-	mutable string val_;
-private:
-	TurboJetFunc tjImp_ = nullptr;
-	ConstantSP tjTypeObj_ = Expression::void_;
-};
-
-class PartialFunction : public AbstractFunctionDef{
-public:
-	PartialFunction(FunctionDefSP funcDef, const vector<ConstantSP>& arguments);
-	PartialFunction(Session* session, const DataInputStreamSP& buffer);
-	virtual ~PartialFunction();
-	virtual ConstantSP call(Heap* heap, vector<ConstantSP>& arguments);
-	virtual ConstantSP call(Heap* heap, const ConstantSP& a, const ConstantSP& b);
-	virtual ConstantSP call(Heap* heap,vector<ObjectSP>& arguments);
-	virtual string getScript() const {return getString();}
-	long long getAllocatedMemory() const override;
-	int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const override;
-	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
-	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
-	virtual void collectUserDefinedFunctionsAndClasses(Heap* pHeap, unordered_map<string,FunctionDef*>& functionDefs, unordered_map<string,OOClass*>& classes) const;
-	inline FunctionDefSP getFunctionDef() const { return funcDef_;}
-	inline int getSetArgumentCount() const { return args_.size();}
-	inline ObjectSP getSetArgument(int index) const {return args_[index];}
-	inline int getMissingArgumentCount() const { return missingArgs_.size();}
-	inline int getMissingArgumentIndex(int index) const { return missingArgs_[index];}
-	virtual string getString() const;
-	virtual int compare(int index, const ConstantSP& target) const;
-	string generateScript() const;
-	inline bool isStaticPartialFunction() const { return static_;}
-	virtual void registerTurboJetImplementation(TurboJetFunc) override {
-		throw RuntimeException("registerTurboJetImplementation not supported for PartialFunction.");
-	}
-
-private:
-	inline void checkRepr() const;
-
-private:
-	FunctionDefSP funcDef_;
-	vector<ObjectSP> args_;
-	vector<int> missingArgs_;
-	/**
-	 * The attribute static is created for version compatibility.
-	 * Before version 2.00.14 and 3.00.2, static_ could be false
-	 * or true. Since version 2.00.14 and 3.00.2, static_ always true.
-	 */
-	bool static_;
-};
-
-class ReactiveState;
-
-typedef SmartPointer<ReactiveState> ReactiveStateSP;
-
-typedef ReactiveStateSP(*StateFuncFactory)(const vector<ObjectSP>& args, const vector<int>& inputColIndices, const vector<DATA_TYPE>& inputColTypes, const vector<int>& outputColIndices);
-typedef ReactiveStateSP (*StateFuncFactoryWithContext)(const vector<ObjectSP> &args, const vector<int> &inputColIndices,
-                                                       const vector<DATA_TYPE> &inputColTypes,
-                                                       const vector<int> &outputColIndices, SQLContextSP &context,
-                                                       Heap *heap);
-class ReactiveState {
-public:
-	virtual ~ReactiveState(){}
-	virtual IO_ERR snapshotState(const DataOutputStreamSP& out) = 0;
-	virtual IO_ERR restoreState(const DataInputStreamSP& in) = 0;
-	virtual void append(Heap* heap, const ConstantSP& keyIndex) = 0;
-	virtual void addKeys(int count) = 0;
-	virtual void removeKeys(const vector<int>& keyIndices) = 0;
-	virtual void reserveKeys(int count) = 0;
-	virtual void getMemoryUsed(long long& fixedMemUsed, long long& variableMemUsedPerKey) = 0;
-	// clearkeys() will NOT remove keys, but reset their state to initial state, used in segmentby
-	// add clearKeys for [cumsum, cummax, cummin, cumcount, cumavg, cumstd, cumvar, cumstdp, cumvarp], others not support.
-	// for those ReactiveState which NOT support segmentby, throw an execption
-	virtual void clearKeys(const ConstantSP& keyIndex) {
-		throw RuntimeException("ReactiveState NOT supported clearKeys()");
-	}
-	virtual void setTable(const TableSP& table){
-		table_ = table;
-	}
-	TableSP getTable() const {
-		return table_;
-	}
-	virtual void setSession(const SessionSP& session){
-		session_ = session;
-	}
-
-	virtual long long getAdditionalMemoryUsed(){ return 0; }
-	virtual bool isTimeMovingFunction(){return false;}
-protected:
-	template<class T>
-	void setData(int outputColIndex, INDEX* indices, int count, T* buf){
-		ConstantSP result = table_->getColumn(outputColIndex);
-		if(LIKELY(result->isFastMode())){
-			T* data = (T*)result->getDataArray();
-			for(int i=0; i<count; ++i){
-				data[indices[i]] = buf[i];
-			}
-		}
-		else{
-			T** dataSegment = (T**)result->getDataSegment();
-			int segmentSizeInBit = result->getSegmentSizeInBit();
-			int segmentMask = (1<<segmentSizeInBit) - 1;
-			for(int i=0; i<count; ++i){
-				dataSegment[indices[i] >> segmentSizeInBit][indices[i] & segmentMask] = buf[i];
-			}
-		}
-	}
-
-	template<class T>
-	void setData(int outputColIndex, INDEX* indices, int count, const T& value){
-		ConstantSP result = table_->getColumn(outputColIndex);
-		if(LIKELY(result->isFastMode())){
-			T* data = (T*)result->getDataArray();
-			for(int i=0; i<count; ++i){
-				data[indices[i]] = value;
-			}
-		}
-		else {
-			T** dataSegment = (T**)result->getDataSegment();
-			int segmentSizeInBit = result->getSegmentSizeInBit();
-			int segmentMask = (1<<segmentSizeInBit) - 1;
-			for(int i=0; i<count; ++i){
-				dataSegment[indices[i] >> segmentSizeInBit][indices[i] & segmentMask] = value;
-			}
-		}
-	}
-
-	void setString(int outputColIndex, INDEX* indices, int count, DolphinString* buf);
-	void setString(int outputColIndex, INDEX* indices, int count, const DolphinString& value);
-
-	template<class T>
-	inline void reserveElements(vector<T>& data, int keyIndices) {
-		data.reserve(keyIndices);
-	}
-
-	template<class T>
-	void removeElements(vector<T>& data, const vector<int>& keyIndices){
-		if(data.empty())
-			return;
-	    size_t dstCursor = keyIndices[0];
-	    size_t srcCursor = keyIndices[0] + 1;
-	    size_t indicesCursor = 1;
-	    size_t count = data.size();
-	    size_t indicesCount = keyIndices.size();
-	    while(srcCursor < count){
-	        if (indicesCursor < indicesCount) {
-	            while (srcCursor < (size_t)keyIndices[indicesCursor]) {
-	                data[dstCursor++] = std::move(data[srcCursor++]);
-	            }
-	            ++srcCursor;
-	            ++indicesCursor;
-	        }
-	        else {
-	            while (srcCursor < count) {
-	                data[dstCursor++] = std::move(data[srcCursor++]);
-	            }
-	        }
-	    }
-		data.erase(data.begin() + count - indicesCount, data.end());
-	    //data.resize(count - indicesCount);
-	}
-
-protected:
-	SessionSP session_;
-	TableSP table_;
-};
-
-class DBResource : public Constant {
-public:
-	DBResource(const string& desc) : Constant(DF_SCALAR, DT_RESOURCE, SYSTEM), desc_(desc){}
-	virtual ~DBResource(){}
-	virtual DATA_TYPE getRawType() const { return DT_STRING;}
-	virtual bool copyable() const {return false;}
-	virtual ConstantSP getInstance() const { throw RuntimeException("DBResource is not copyable.");}
-	virtual ConstantSP getValue() const { throw RuntimeException("DBResource is not copyable.");}
-	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const { throw RuntimeException("DBResource is not able to serialize.");}
-	virtual bool containNotMarshallableObject() const {return true;}
-	virtual string getString() const { return desc_;}
-
-protected:
-	string desc_;
-};
-
-class DolphinClass : public OOClass {
-public:
-	DolphinClass(const string& qualifier, const string& name, DolphinClassSP baseCls = nullptr);
-	DolphinClass(const string& qualifier, const string& name, bool builtin);
-	virtual ~DolphinClass(){}
-	int getAttributeIndex(const string& name) const;
-	int getPublicAttributeIndex(const string& name) const;
-	const string& getAttribute(int index) const { return attributes_[index].first;}
-	int getAttributeCount() const { return attributes_.size();}
-	bool addAttributeWithType(const string& string, OO_ACCESS access, const ConstantSP &typeObj);
-	bool addAttribute(const string& string, OO_ACCESS access);
-	bool addAttributes(const vector<string>&, OO_ACCESS access);
-	bool addMethod(const FunctionDefSP& method, OO_ACCESS access);
-	bool addMethods(const vector<FunctionDefSP>& methods, OO_ACCESS access);
-	bool overrideMethod(const std::string &methodName, const FunctionDefSP& method);
-	int getMethodIndex(const string& name) const;
-	virtual void collectInternalUserDefinedFunctionsAndClasses(Heap* pHeap, unordered_map<string,FunctionDef*>& functionDefs, unordered_map<string,OOClass*>& classes) const;
-	virtual ConstantSP getValue() const;
-	virtual bool hasMethod(const string& name) const;
-	virtual bool hasOperator(const string& name) const;
-	virtual FunctionDefSP getMethod(const string& name) const;
-	virtual FunctionDefSP getMethod(INDEX index) const;
-	virtual FunctionDefSP getOperator(const string& name) const;
-	virtual void getMethods(vector<FunctionDefSP>& methods) const;
-	virtual ConstantSP getMember(const string& key) const;
-	INDEX getMemberIndex(const string& key) const {
-		auto it = dict_.find(key);
-		if (it == dict_.end()) return -1;
-		return it->second;
-	}
-	virtual IO_ERR serializeClass(const ByteArrayCodeBufferSP& buffer) const;
-	virtual IO_ERR deserializeClass(Session* session, const DataInputStreamSP& in);
-
-	/** Call class constructor, return an instance of this class. */
-	virtual ConstantSP call(Heap *heap, const ConstantSP &self, vector<ObjectSP> &arguments) override;
-	virtual ConstantSP call(Heap *heap, const ConstantSP &self, vector<ConstantSP> &arguments) override;
-
-	static OOClassSP createDolphinClass(const string& qualifier, const string& name){
-		return new DolphinClass(qualifier, name);
-	}
-	bool isBodyDefined() { return bodyDefined_; }
-	void setBodyDefined(bool b) { bodyDefined_ = b; }
-
-	ConstantSP &getAttributeType(INDEX index);
-	ConstantSP &getAttributeType(const std::string &name);
-	void setConstructor(const FunctionDefSP & constructor) { constructor_ = constructor; }
-	FunctionDefSP getConstructor() { return constructor_; }
-	DolphinClassSP getBaseClass() { return baseCls_; }
-	void setBaseClass(DolphinClassSP &baseCls) { baseCls_ = baseCls; }
-	void setJit(bool isJit) { isJit_ = isJit; }
-	bool isJit() { return isJit_; }
-	void setJitClassId(int id) { jitClassId_ = id; }
-	int getJitClassId() { return jitClassId_; }
-	static int genClsId() { return clsIdCnt_.fetch_add(1, std::memory_order_relaxed); }
-
-protected:
-	DolphinClass(const string& qualifier, const string& name, int flag, const vector<pair<string, char> >& attributes, const vector<FunctionDefSP>& methods);
-
-private:
-	vector<pair<string, char> > attributes_;
-	vector<FunctionDefSP> methods_;
-	unordered_map<string, int> dict_;
-	vector<pair<string, ConstantSP>> types_;
-	bool bodyDefined_ = false;
-	FunctionDefSP constructor_;
-	DolphinClassSP baseCls_;
-	bool isJit_ = false;
-	int jitClassId_ = 0;
-	static std::atomic<int> clsIdCnt_;
-};
-
-class DolphinInstance : public OOInstance{
-public:
-	DolphinInstance(const DolphinClassSP& ddbClass);
-	DolphinInstance(const DolphinClassSP& ddbClass, const vector<ConstantSP>& data);
-	DolphinInstance(Session* session, const DataInputStreamSP& in);
-	virtual ~DolphinInstance(){}
-	inline ConstantSP getAttribute(int index) const { return data_[index];}
-	ConstantSP getAttribute(const string& name) const;
-	void setAttribute(int index, const ConstantSP& attr);
-	void setAttribute(const string& name, const ConstantSP& attr);
-	virtual ConstantSP getValue() const;
-	virtual ConstantSP getMember(const string& key) const;
-	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
-	virtual string getString() const;
-	virtual bool set(const ConstantSP &index, const ConstantSP &val) override {
-		try {
-        	setAttribute(index->getString(), val);
-			return true;
-		} catch (...) {
-			return false;
-		}
-	}
-
-	static ConstantSP createDolphinInstance(Session* session, const DataInputStreamSP& in){
-		return new DolphinInstance(session, in);
-	}
-
-protected:
-	vector<ConstantSP> data_;
-
-private:
-	ConstantSP typeCheck(const std::string &name, const ConstantSP &attr, const ConstantSP &attrType);
-};
-
-class DigitalSign {
-public:
-	bool verifySignature(const string& publicKey, const string& plainText, const char* signatureBase64) const;
-	bool signMessage(const string& privateKey, const string& plainText, string& signature) const;
-	static string sha256(const string& content);
-	static bool sha256(const string& filePath, string& output);
-	static void base64Encode(const unsigned char* buffer, size_t length, string& base64Text, bool noWrap = false);
-	static void base64Decode(const char* b64message, unsigned char** buffer, int& length, bool noWrap = false);
-	/**
-	 * @brief aes-256-cfb encrypt
-	 *
-	 * @param key encrypt key, fill zero if key length < 32 bytes
-	 * @param iv output 16 bytes random vector, it's ok to public it.
-	 * @param ptext text need to be encrypted
-	 * @param ctext output encrypted text
-	 */
-	static bool aesEncrypt(string key, string& iv, const string& ptext, string& ctext);
-	/**
-	 * @brief aes-256-cfb decrypt
-	 *
-	 * @param key decrypt key, fill zero if key length < 32 bytes
-	 * @param iv 16 bytes random vector
-	 * @param ctext encrypted text
-	 * @param rtext output decrypted text
-	 */
-	static bool aesDecrypt(string key, const string& iv, const string& ctext, string& rtext);
-	static bool hmac(const char* key, size_t keyLen, const char* data, size_t dataLen, const string& digest, string& output);
-
-private:
-	static size_t calcDecodeLength(const char* b64input);
-	bool rsaSign(const string& privateKey, const unsigned char* Msg, size_t MsgLen, unsigned char** EncMsg, size_t* MsgLenEnc) const;
-	bool rsaVerifySignature(const string& publicKey, unsigned char* MsgHash, size_t MsgHashLen, const char* Msg, size_t MsgLen, bool* Authentic) const;
-};
-
+	};
+}
 #endif /* CORECONCEPT_H_ */

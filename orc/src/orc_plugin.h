@@ -6,12 +6,20 @@
 #include <memory>
 #include <sstream>
 
+#include "DolphinDBEverything.h"
 #include <CoreConcept.h>
 #include "ddbplugin/CommonInterface.h"
 #include <ScalarImp.h>
+#include "ddbplugin/Plugin.h"
 #include <Util.h>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
 #include <orc/OrcFile.hh>
-extern "C" ConstantSP extractORCSchema(const ConstantSP &filename);
+#pragma GCC diagnostic pop
+
+using namespace ddb;
+
+extern "C" ConstantSP extractORCSchema(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP loadORC(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP loadORCEx(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP orcDS(Heap *heap, vector<ConstantSP> &arguments);
@@ -68,13 +76,13 @@ int getRowNum(const string &filename);
 void getORCReader(Heap *heap, vector<ConstantSP> &arguments);
 ConstantSP loadFromORCToDatabase(Heap *heap, vector<ConstantSP> &arguments);
 vector<DistributedCallSP> generateORCTasks(Heap* heap, const orc::Reader *reader, const TableSP &schema, const ConstantSP &column, const int rowStart, const int rowNum,
-                                          const SystemHandleSP &db, const string &tableName, const ConstantSP &transform);
+                                          DBHandleWrapper &db, const string &tableName, const ConstantSP &transform);
 
-TableSP generateInMemoryPartitionedTable(Heap *heap, const SystemHandleSP &db,
+TableSP generateInMemoryPartitionedTable(Heap *heap, DBHandleWrapper &db,
                                         const ConstantSP &tables, const ConstantSP &partitionNames);
 
 ConstantSP generatePartition(Heap *heap, vector<ConstantSP> &arguments);
-ConstantSP loadORCEx(Heap *heap, const SystemHandleSP &db, const string &tableName, const ConstantSP &partitionColumns,
+ConstantSP loadORCEx(Heap *heap, DBHandleWrapper &db, const string &tableName, const ConstantSP &partitionColumns,
                          const string &filename, const TableSP &schema, const ConstantSP &column, const int rowStart, const int rowNum, const ConstantSP &transform);
 string getORCSchema(const TableSP &table);
 }

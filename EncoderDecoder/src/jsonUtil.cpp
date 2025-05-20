@@ -14,7 +14,9 @@
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/prettywriter.h"
+#include <ddbplugin/PluginLogger.h>
 
+using namespace ddb;
 using namespace rapidjson;
 using std::max;
 using std::min;
@@ -170,7 +172,7 @@ ConstantSP parseJson(Heap* heap, vector<ConstantSP>& arguments)
                 throw RuntimeException(ENCODERDECODER_PREFIX + " The dolphindb type " + Util::getDataTypeString(type) + " is not supported");
             }
         } else {
-            //cols[i] = InternalUtil::createArrayVector((DATA_TYPE)type, 0);
+            //cols[i] = Util::createArrayVector((DATA_TYPE)type, 0);
             switch (type - ARRAY_VECTOR_TYPE_BASE) {
             case DT_BOOL:
                 dataBuffer[i].resize(rows * sizeof(bool));
@@ -216,7 +218,7 @@ ConstantSP parseJson(Heap* heap, vector<ConstantSP>& arguments)
             } catch (std::bad_alloc& me) {
                 throw me;
             } catch (exception& ex) {
-                LOG_ERR(ENCODERDECODER_PREFIX + string(ex.what()));
+                PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + string(ex.what()));
                 continue;
             }
             rapidjson::Value nullValue;
@@ -725,7 +727,7 @@ ConstantSP parseJson(Heap* heap, vector<ConstantSP>& arguments)
             }
             vector<ConstantSP> args { indexVec, vecValue };
             try {
-                vec = heap->currentSession()->getFunctionDef("arrayVector")->call(heap, args);
+                vec = Util::getFuncDefFromHeap(heap, "arrayVector")->call(heap, args);
             } catch (exception& e) {
                 throw RuntimeException(ENCODERDECODER_PREFIX + " Col " + originCol[colIndex] + " data fail to create arrayVector." + e.what());
             }
@@ -846,7 +848,7 @@ ConstantSP parseNestedJson(Heap* heap, vector<ConstantSP>& arguments)
     //             doc.Parse(originData[jsonIndex].c_str());
     //         } catch (exception& ex) {
     //             // Log any errors that occur during parsing.
-    //             LOG_ERR(ENCODERDECODER_PREFIX + string(ex.what()));
+    //             PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + string(ex.what()));
     //             continue; // If an error occurred, skip the rest of this iteration and proceed with the next row.
     //         }
 

@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+message test_enum_repeat{
+
+    enum Direction {
+        BID = 0;
+        ASK = 1;
+    }
+    enum Category {
+        ORDER = 0;
+        TRADE = 100;
+        WITHDRAW = 200;
+    }
+
+    int64 price = 4;
+    Category category = 1;
+    repeated Direction direction = 2;
+    int32 channel = 3;
+
+}

@@ -1,6 +1,6 @@
-svm,libPluginSVM.dll,3.00.2
-fit,fit,system,2,3,0
-predict,predict,system,2,2,0
-score,score,system,3,3,0
-saveModel,saveModel,system,2,2,0
-loadModel,loadModel,system,1,1,0
+svm,libPluginSVM.dll,3.00.3
+fit,fit,system,2,3,0,0,(Y, X, [params=None])
+predict,predict,system,2,2,0,0,(model, X)
+score,score,system,3,3,0,0,(model, Y, X)
+saveModel,saveModel,system,2,2,0,0,(model, filePath)
+loadModel,loadModel,system,1,1,0,0,(filePath)

@@ -9,6 +9,26 @@
 #include "ddbplugin/Plugin.h"
 #include "gurobi_c++.h"
 
+using ddb::DF_DICTIONARY;
+using ddb::DF_MATRIX;
+using ddb::DF_SCALAR;
+using ddb::DF_VECTOR;
+using ddb::DictionarySP;
+using ddb::Double;
+using ddb::DT_ANY;
+using ddb::DT_CHAR;
+using ddb::DT_DOUBLE;
+using ddb::DT_INT;
+using ddb::DT_STRING;
+using ddb::FunctionDefSP;
+using ddb::IllegalArgumentException;
+using ddb::Int;
+using ddb::RuntimeException;
+using ddb::SmartPointer;
+using ddb::Util;
+using ddb::VectorSP;
+using ddb::Void;
+
 /// Resource Related
 
 // descriptions
@@ -18,9 +38,9 @@ const string GUROBI_LIN_EXPRESSION_DESC = "gurobi linear expression";
 const string GUROBI_QUAD_EXPRESSION_DESC = "gurobi quadratic expression";
 
 // maps
-dolphindb::ResourceMap<GRBModel> GRB_MODEL_AMP(GUROBI_PREFIX, GUROBI_MODEL_DESC);
-dolphindb::ResourceMap<GRBLinExpr> GRB_LIN_EXPRESSION_AMP(GUROBI_PREFIX, GUROBI_LIN_EXPRESSION_DESC);
-dolphindb::ResourceMap<GRBQuadExpr> GRB_QUAD_EXPRESSION_AMP(GUROBI_PREFIX, GUROBI_QUAD_EXPRESSION_DESC);
+ddb::ResourceMap<GRBModel> GRB_MODEL_AMP(GUROBI_PREFIX, GUROBI_MODEL_DESC);
+ddb::ResourceMap<GRBLinExpr> GRB_LIN_EXPRESSION_AMP(GUROBI_PREFIX, GUROBI_LIN_EXPRESSION_DESC);
+ddb::ResourceMap<GRBQuadExpr> GRB_QUAD_EXPRESSION_AMP(GUROBI_PREFIX, GUROBI_QUAD_EXPRESSION_DESC);
 
 // close functions
 void modelOnClose(Heap *heap, vector<ConstantSP> &args) {}
@@ -29,16 +49,16 @@ void quadExpressionOnClose(Heap *heap, vector<ConstantSP> &args) {}
 
 /// Helper Declarations
 
-VectorSP getNumVector(const SmartPointer<Constant> &arg, const string &funcName, const string &usage,
+VectorSP getNumVector(const ConstantSP &arg, const string &funcName, const string &usage,
                       const string &argName, int size = 0);
-VectorSP getCharVector(const SmartPointer<Constant> &arg, const string &funcName, const string &usage,
+VectorSP getCharVector(const ConstantSP &arg, const string &funcName, const string &usage,
                        const string &argName, int size = 0);
-VectorSP getStringVector(const SmartPointer<Constant> &arg, const string &funcName, const string &usage,
+VectorSP getStringVector(const ConstantSP &arg, const string &funcName, const string &usage,
                          const string &argName, int size = 0);
-VectorSP getQuadMatrix(const SmartPointer<Constant> &arg, const string &funcName, const string &usage,
+VectorSP getQuadMatrix(const ConstantSP &arg, const string &funcName, const string &usage,
                        const string &argName, int size = 0);
-char getCharScalar(SmartPointer<Constant> &arg, const string &funcName, const string &usage, const string &argName);
-double getDoubleScalar(SmartPointer<Constant> &arg, const string &funcName, const string &usage, const string &argName);
+char getCharScalar(ConstantSP &arg, const string &funcName, const string &usage, const string &argName);
+double getDoubleScalar(ConstantSP &arg, const string &funcName, const string &usage, const string &argName);
 
 /// Interfaces
 
@@ -144,7 +164,7 @@ ConstantSP gurobiAddVars(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP gurobiLinExpr(Heap *heap, vector<ConstantSP> &args) {
-    string usage = GUROBI_PREFIX + " linExpr(model, coefficient, varName): ";
+    string usage = GUROBI_PREFIX + " linExpr(model, coefficient, var): ";
     auto numVars = args[2]->size();
 
     /// args
@@ -154,7 +174,7 @@ ConstantSP gurobiLinExpr(Heap *heap, vector<ConstantSP> &args) {
     // coefficient
     auto coefficient = getNumVector(args[1], __FUNCTION__, usage, "coefficient", numVars);
     // varName
-    auto varName = getStringVector(args[2], __FUNCTION__, usage, "varName", numVars);
+    auto varName = getStringVector(args[2], __FUNCTION__, usage, "var", numVars);
 
     /// create linear expression
     GRBLinExpr expr = 0;
@@ -182,7 +202,7 @@ ConstantSP gurobiLinExpr(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP gurobiQuadExpr(Heap *heap, vector<ConstantSP> &args) {
-    string usage = GUROBI_PREFIX + " quadExpr(model, quadMatrix, varNames, [linExpr]): ";
+    string usage = GUROBI_PREFIX + " quadExpr(model, quadMatrix, var, [linExpr]): ";
     auto numVars = args[2]->size();
 
     /// args
@@ -192,7 +212,7 @@ ConstantSP gurobiQuadExpr(Heap *heap, vector<ConstantSP> &args) {
     // optimization: other forms or types - table, vector, etc.
     auto quadMatrix = getQuadMatrix(args[1], __FUNCTION__, usage, "quadMatrix", numVars);
     // varName
-    auto varName = getStringVector(args[2], __FUNCTION__, usage, "varName", numVars);
+    auto varName = getStringVector(args[2], __FUNCTION__, usage, "var", numVars);
     // linExpr
     SmartPointer<GRBLinExpr> linExpr;
     if (args.size() == 4) {
@@ -352,7 +372,7 @@ ConstantSP gurobiGetObjective(Heap *heap, vector<ConstantSP> &args) {
 
 /// Helper Implementations
 
-VectorSP getNumVector(const SmartPointer<Constant> &arg, const string &funcName, const string &usage,
+VectorSP getNumVector(const ConstantSP &arg, const string &funcName, const string &usage,
                       const string &argName, int size) {
     if (arg.isNull() or arg->getForm() != DF_VECTOR or (arg->getType() != DT_INT and arg->getType() != DT_DOUBLE)) {
         throw IllegalArgumentException(funcName, usage + argName + " should be a vector of int or double.");
@@ -366,7 +386,7 @@ VectorSP getNumVector(const SmartPointer<Constant> &arg, const string &funcName,
     return arg;
 }
 
-VectorSP getCharVector(const SmartPointer<Constant> &arg, const string &funcName, const string &usage,
+VectorSP getCharVector(const ConstantSP &arg, const string &funcName, const string &usage,
                        const string &argName, int size) {
     if (arg.isNull() or arg->getForm() != DF_VECTOR or arg->getType() != DT_CHAR) {
         throw IllegalArgumentException(funcName, usage + argName + " should be a vector of char.");
@@ -380,7 +400,7 @@ VectorSP getCharVector(const SmartPointer<Constant> &arg, const string &funcName
     return arg;
 }
 
-VectorSP getStringVector(const SmartPointer<Constant> &arg, const string &funcName, const string &usage,
+VectorSP getStringVector(const ConstantSP &arg, const string &funcName, const string &usage,
                          const string &argName, int size) {
     if (arg.isNull() or arg->getForm() != DF_VECTOR or arg->getType() != DT_STRING) {
         throw IllegalArgumentException(funcName, usage + argName + " should be a vector of string.");
@@ -394,7 +414,7 @@ VectorSP getStringVector(const SmartPointer<Constant> &arg, const string &funcNa
     return arg;
 }
 
-VectorSP getQuadMatrix(const SmartPointer<Constant> &arg, const string &funcName, const string &usage,
+VectorSP getQuadMatrix(const ConstantSP &arg, const string &funcName, const string &usage,
                        const string &argName, int size) {
     // check form
     auto form = arg->getForm();
@@ -417,14 +437,14 @@ VectorSP getQuadMatrix(const SmartPointer<Constant> &arg, const string &funcName
     return arg;
 }
 
-char getCharScalar(SmartPointer<Constant> &arg, const string &funcName, const string &usage, const string &argName) {
+char getCharScalar(ConstantSP &arg, const string &funcName, const string &usage, const string &argName) {
     if (arg.isNull() or arg->getForm() != DF_SCALAR or arg->getType() != DT_CHAR) {
         throw IllegalArgumentException(funcName, usage + argName + " should be a char.");
     }
     return arg->getChar();
 }
 
-double getDoubleScalar(SmartPointer<Constant> &arg, const string &funcName, const string &usage,
+double getDoubleScalar(ConstantSP &arg, const string &funcName, const string &usage,
                        const string &argName) {
     if (arg.isNull() or arg->getForm() != DF_SCALAR or (arg->getType() != DT_DOUBLE and arg->getType() != DT_INT)) {
         throw IllegalArgumentException(funcName, usage + argName + " should be a double.");

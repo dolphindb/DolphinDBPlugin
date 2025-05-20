@@ -3,11 +3,26 @@
 #include "DecimalUtil.h"
 #include "ddbplugin/Plugin.h"
 
-using dolphindb::Connection;
-using dolphindb::ConnectionSP;
-using dolphindb::messageSP;
-using std::cout;
-using std::endl;
+using ddb::Connection;
+using ddb::ConnectionSP;
+using ddb::messageSP;
+
+using ddb::DF_SCALAR;
+using ddb::DF_VECTOR;
+using ddb::DT_ANY;
+using ddb::DT_BOOL;
+using ddb::DT_FUNCTIONDEF;
+using ddb::DT_INT;
+using ddb::DT_LONG;
+using ddb::DT_RESOURCE;
+using ddb::DT_STRING;
+using ddb::DT_VOID;
+using ddb::FunctionDefSP;
+using ddb::IllegalArgumentException;
+using ddb::RuntimeException;
+using ddb::String;
+using ddb::TableSP;
+using ddb::Util;
 
 ConstantSP safeOp(const ConstantSP &arg, std::function<ConstantSP(Connection *)> &&f) {
     if (arg->getType() == DT_RESOURCE) {
@@ -75,9 +90,9 @@ ConstantSP mysqlConnect(Heap *heap, vector<ConstantSP> &args) {
                                                    args[3]->getString(), args[4]->getString()));
     std::string desc = "mysql connection to [";
     desc.append(cup->str()).append("]");
-    dolphindb::littleEndian = Util::isLittleEndian();
+    ddb::littleEndian = Util::isLittleEndian();
     FunctionDefSP onClose(Util::createSystemProcedure("mysql connection onClose()", mysqlConnectionOnClose, 1, 1));
-    return Util::createResource((long long)cup.release(), desc.data(), onClose, heap->currentSession());
+    return Util::createResource((long long)cup.release(), desc.data(), onClose, heap);
 }
 
 ConstantSP mysqlClose(Heap *heap, vector<ConstantSP> &args) {
@@ -96,14 +111,14 @@ ConstantSP mysqlClose(Heap *heap, vector<ConstantSP> &args) {
     return new String("Connection is closed.");
 }
 
-ConstantSP mysqlTables(const ConstantSP &connection) {
-    return safeOp(connection, [&](Connection *conn) { return conn->doQuery("show tables;"); });
+ConstantSP mysqlTables(Heap *heap, vector<ConstantSP> &args) {
+    return safeOp(args[0], [&](Connection *conn) { return conn->doQuery("show tables;"); });
 }
 
-ConstantSP mysqlSchema(const ConstantSP &connection, const ConstantSP &table) {
-    if (table->getType() != DT_STRING)
+ConstantSP mysqlSchema(Heap *heap, vector<ConstantSP> &args) {
+    if (args[1]->getType() != DT_STRING)
         throw IllegalArgumentException(__FUNCTION__, "Usage：extractScheme(connection, table). table must be a string");
-    return safeOp(connection, [&](Connection *conn) { return conn->extractSchema(table->getString()); });
+    return safeOp(args[0], [&](Connection *conn) { return conn->extractSchema(args[1]->getString()); });
 }
 
 ConstantSP mysqlLoad(Heap *heap, vector<ConstantSP> &arguments) {
@@ -269,7 +284,13 @@ ConstantSP mysqlLoadEx(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 /// Connection
-namespace dolphindb {
+namespace ddb {
+
+class DBFileIO {
+  public:
+    static TableSP createEmptyTableFromSchema(const TableSP &schema, const std::vector<long long> &extras = {});
+};
+
 Connection::~Connection() {}
 
 Connection::Connection(std::string hostname, int port, std::string username, std::string password, std::string database)
@@ -314,29 +335,30 @@ ConstantSP Connection::loadEx(Heap *heap, const ConstantSP &dbHandle, const std:
                               const FunctionDefSP &transform, const ConstantSP &sortColumns,
                               const ConstantSP &keepDuplicates, const ConstantSP &sortKeyMappingFunction) {
     LockGuard<Mutex> lk(&mtx_);
-    DomainSP domain = static_cast<SystemHandleSP>(dbHandle)->getDomain();
-    if (domain.isNull()) {
-        throw IllegalArgumentException(__FUNCTION__, "Only partitioned database is supported");
+    DBHandleWrapper dbWrapper(heap, dbHandle);
+    int partitionType = dbWrapper.getPartitionType();
+    if (partitionType == INT_MIN) {
+        throw IllegalArgumentException(__FUNCTION__, "Only partitioned database is supported.");
     }
-    if (domain->getPartitionType() == SEQ) {
-        throw IllegalArgumentException(__FUNCTION__, "SEQ-based table not supported");
+    if (partitionType == PARTITION_TYPE::SEQ) {
+        throw IllegalArgumentException(__FUNCTION__, "SEQ partition is not supported.");
     }
 
     // check if table exists
-    std::string addr = static_cast<SystemHandleSP>(dbHandle)->getDatabaseDir();
+    std::string addr = dbWrapper.getDatabaseDir();
     TableSP ret = nullptr;
 
     bool tableExists = true;
     {
         vector<ConstantSP> args{new String(addr), new String(tableName)};
-        tableExists &= heap->currentSession()->getFunctionDef("existsTable")->call(heap, args)->getBool();
+        tableExists &= Util::getFuncDefFromHeap(heap, "existsTable")->call(heap, args)->getBool();
     }
 
     if (tableExists) {
         // must use new String(addr) here, otherwise pointer in ConstantSP is
         // freed by someone for whatever reason.
         vector<ConstantSP> args{new String(addr), new String(tableName)};
-        ret = heap->currentSession()->getFunctionDef("loadTable")->call(heap, args);
+        ret = Util::getFuncDefFromHeap(heap, "loadTable")->call(heap, args);
     } else {
         vector<ConstantSP> args;
         if (sortColumns.isNull()) {
@@ -360,7 +382,7 @@ ConstantSP Connection::loadEx(Heap *heap, const ConstantSP &dbHandle, const std:
                 args.push_back(sortKeyMappingFunction);
             }
         }
-        ret = heap->currentSession()->getFunctionDef("createPartitionedTable")->call(heap, args);
+        ret = Util::getFuncDefFromHeap(heap, "createPartitionedTable")->call(heap, args);
     }
 
     if (isQuery(MySQLTableName_or_query)) {
@@ -559,8 +581,8 @@ void MySQLExtractor::realExtract(mysqlxx::UseQueryResult &res, const ConstantSP 
         }
     };
 
-    RunnableSP r1 = new Executor(fetchRow);
-    RunnableSP r2 = new Executor(growTable);
+    RunnableSP r1 = new ddb::Executor(fetchRow);
+    RunnableSP r2 = new ddb::Executor(growTable);
 
     Thread t1(r1), t2(r2);
     t1.start();
@@ -629,7 +651,7 @@ void MySQLExtractor::growTableEx(TableSP &t, Pack &p, Heap *heap, const Function
             tmpTable = transform->call(heap, arg);
         }
         vector<ConstantSP> args{t, tmpTable};
-        heap->currentSession()->getFunctionDef("append!")->call(heap, args);
+        Util::getFuncDefFromHeap(heap, "append!")->call(heap, args);
     });
 }
 
@@ -1418,31 +1440,11 @@ bool parseBit(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char *null
     }
 }
 
-//////////////////////////////////// util
-// const char *getDolphinDBTypeStr(DATA_TYPE type) {
-//     auto str = Util::getDataTypeString(type);
-//     char* ptr = (char *)malloc(str.size()+1);
-//     memcpy(ptr, str.c_str(), str.size()+1);
-//     return (const char*)ptr;
-
-// }
-
 ConstantSP messageSP(const std::string &s) {
     auto message = Util::createConstant(DT_STRING);
     message->setString(s);
     return message;
 }
-
-// vector<ConstantSP> getArgs(vector<ConstantSP> &args, size_t nMaxArgs) {
-//     auto ret = vector<ConstantSP>(nMaxArgs);
-//     for (size_t i = 0; i < nMaxArgs; ++i) {
-//         if (args.size() >= i + 1)
-//             ret[i] = args[i];
-//         else
-//             ret[i] = Util::createNullConstant(DT_VOID);
-//     }
-//     return ret;
-// }
 
 DATA_TYPE getDolphinDBType(mysqlxx::enum_field_types type, bool isUnsigned, bool isEnum, int maxStrLen) {
     using namespace mysqlxx;
@@ -1646,4 +1648,4 @@ void compatible(vector<DATA_TYPE> &dst, vector<DATA_TYPE> &src) {
     }
 }
 
-}  // namespace dolphindb
+}  // namespace ddb

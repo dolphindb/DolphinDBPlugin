@@ -1,5 +1,5 @@
-xgboost,libPluginXgboost.dll,3.00.2
-train,train,system,2,5,0
-predict,predict,system,2,7,0
-saveModel,saveModel,operator,2,2,0
-loadModel,loadModel,system,1,1,0
+xgboost,libPluginXgboost.dll,3.00.3
+train,train,system,2,5,0,0,(Y, X, [params], [numBoostRound=10], [model])
+predict,predict,system,2,7,0,0,(model, X, [outputMargin=false], [ntreeLimit=0], [predLeaf=false], [predContribs=false], [training=false])
+saveModel,saveModel,system,2,2,0,0,(model, filePath)
+loadModel,loadModel,system,1,1,0,0,(filePath)

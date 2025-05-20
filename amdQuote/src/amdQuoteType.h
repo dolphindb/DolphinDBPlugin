@@ -1,10 +1,13 @@
 #ifndef AMD_QUOTE_TYPE_H
 #define AMD_QUOTE_TYPE_H
 
+#include "DolphinDBEverything.h"
 #include "CoreConcept.h"
 #include "Logger.h"
 #include "ama.h"
 #include "ddbplugin/PluginLogger.h"
+
+using namespace ddb;
 
 static const int ORDER_EXECUTION_OFFSET = 1000;
 static const string AMDQUOTE_PREFIX = "[PLUGIN::AMDQUOTE] ";

@@ -26,7 +26,7 @@ Boston, MA  02111-1307, USA.
 #define OPCCLIENTTOOLKITDLL_API __declspec(dllexport)
 #else
 #define OPCCLIENTTOOLKITDLL_API __declspec(dllimport)
-#endif 
+#endif
 
 
 #if _MSC_VER > 1000
@@ -66,7 +66,7 @@ public:
 
 
 /**
-* Data received from the OnDataChange() method of the CAsynchDataCallback instance is delegated to an instance 
+* Data received from the OnDataChange() method of the CAsynchDataCallback instance is delegated to an instance
 * of a child class implementing this interface. The Child class must obviously provide the desired behaviour
 * in the overriden OnDataChange() method. This interface is active only when the corresponding group is active
 * (achieved by the groups enableSynch() method.)
@@ -75,6 +75,7 @@ class IAsynchDataCallback
 {
 public:
 	virtual void OnDataChange(COPCGroup & group, CAtlMap<COPCItem *, OPCItemData *> & changes) = 0;
+	virtual ~IAsynchDataCallback(){};
 };
 
 
@@ -89,21 +90,21 @@ public:
 
 
 /**
-* Starting point for 'everything'. Utility class that creates host objects and handles COM memory management. 
+* Starting point for 'everything'. Utility class that creates host objects and handles COM memory management.
 * Effectively a singleton.
 */
 
 enum OPCOLEInitMode{APARTMENTTHREADED,MULTITHREADED};
-class COPCClient  
+class COPCClient
 {
 private:
-	static ATL::CComPtr<IMalloc> iMalloc; 
+	static ATL::CComPtr<IMalloc> iMalloc;
 
 public:
 	static int count;
 
 	static void init(OPCOLEInitMode mode=APARTMENTTHREADED);
-	
+
 	static void stop();
 
 	static void comFree(void *memory);

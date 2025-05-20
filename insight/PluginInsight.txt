@@ -1,8 +1,8 @@
-insight,libPluginInsight.so,3.00.2
-connectInsight,connect,system,5,11,0
-subscribe,subscribe,command,4,4,0
-unsubscribe,unsubscribe,command,1,1,0
-closeInsight,close,command,1,1,0
-getSchema,getSchema,system,1,3,0
-getStatus,getStatus,system,1,1,0
-getHandle,getHandle,system,0,0,0
+insight,libPluginInsight.so,3.00.3
+connectInsight,connect,system,5,11,0,0,(outputDict, host, port, username, password, [workerNum=5], [option], [seqCheckMode=1], [certDirPath], [dataVersion='3.2.8'], [backupList])
+subscribe,subscribe,command,4,4,0,0,(handle, marketDataTypes, securityIDSource, securityType)
+unsubscribe,unsubscribe,command,1,1,0,0,(handle)
+closeInsight,close,command,1,1,0,0,(handle)
+getSchema,getSchema,system,1,3,0,0,(dataType, [option], [dataVersion='3.2.8'])
+getStatus,getStatus,system,1,1,0,0,(handle)
+getHandle,getHandle,system,0,0,0,0,()

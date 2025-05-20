@@ -12,9 +12,11 @@
 #include <unistd.h>
 #endif // _WIN32
 
-
+#include "DolphinDBEverything.h"
 #include <CoreConcept.h>
 #include "NsqUtil.h"
+
+using namespace ddb;
 
 /**
  * Member variables and methods related to ThreadedQueue

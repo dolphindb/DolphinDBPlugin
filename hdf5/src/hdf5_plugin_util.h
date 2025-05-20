@@ -6,6 +6,16 @@
 #include <H5Cpp.h>
 #include <hdf5_hl.h>
 #include <blosc_filter.h>
+#include "ddbplugin/PluginLogger.h"
+
+using ddb::ConstantSP;
+using ddb::TableSP;
+using ddb::VectorSP;
+using ddb::DATA_TYPE;
+using ddb::IO_ERR;
+using ddb::OTHERERR;
+using ddb::Heap;
+using std::vector;
 /* HELPERS */
 
 const string HDF5_LOG_PREFIX = "[PLUGIN::HDF5] ";
@@ -46,12 +56,12 @@ public:
     InitHdf5Filter(){
         try{
             int r = register_blosc(&version_, &date_);
-            if(r < 0)
-                LOG_ERR(HDF5_LOG_PREFIX + "Failed to register blosc filter. ");
-            else
-                LOG_INFO(HDF5_LOG_PREFIX + "Success to register blosc filter. Blosc version info : " + string(version_) + " " + string(date_));
+            if(r < 0) {
+                PLUGIN_LOG_ERR(HDF5_LOG_PREFIX + "Failed to register blosc filter. ");
+            } else
+                PLUGIN_LOG_INFO(HDF5_LOG_PREFIX + "Success to register blosc filter. Blosc version info : " + string(version_) + " " + string(date_));
         }catch(exception &e){
-            LOG_ERR(e.what());
+            PLUGIN_LOG_ERR(e.what());
         }
     }
     ~InitHdf5Filter() {

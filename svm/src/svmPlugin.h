@@ -3,18 +3,18 @@
 #include <Util.h>
 #include "svm.h"
 
-#ifdef LINUX
-#define EXPORT_DLL
+using namespace ddb;
+
+#ifdef __linux__
 #else
 #include <io.h>
-#define EXPORT_DLL __declspec(dllexport)
 #endif
 
-extern "C" EXPORT_DLL ConstantSP fit(Heap *heap, vector<ConstantSP> &args);
-extern "C" EXPORT_DLL ConstantSP predict(Heap *heap, vector<ConstantSP> &args);
-extern "C" EXPORT_DLL ConstantSP score(Heap *heap, vector<ConstantSP> &args);
-extern "C" EXPORT_DLL ConstantSP saveModel(Heap *heap, vector<ConstantSP> &args);
-extern "C" EXPORT_DLL ConstantSP loadModel(Heap *heap, vector<ConstantSP> &args);
+extern "C" ConstantSP fit(Heap *heap, vector<ConstantSP> &args);
+extern "C" ConstantSP predict(Heap *heap, vector<ConstantSP> &args);
+extern "C" ConstantSP score(Heap *heap, vector<ConstantSP> &args);
+extern "C" ConstantSP saveModel(Heap *heap, vector<ConstantSP> &args);
+extern "C" ConstantSP loadModel(Heap *heap, vector<ConstantSP> &args);
 
 static const string SVM_PLUGIN_PREFIX = "[PLUGIN:SVM] ";
 namespace svm{
@@ -193,7 +193,7 @@ namespace svm{
 
             if (auto_reload){
                 char tmp[32]="llsvmtempXXXXXX";
-#ifdef LINUX
+#ifdef __linux__
                 int fd=mkstemp(tmp);
                 close(fd);
 #else

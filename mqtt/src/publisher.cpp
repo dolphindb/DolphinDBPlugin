@@ -3,6 +3,8 @@
 #include "ScalarImp.h"
 #include "client.h"
 
+namespace ddb {
+
 PublishTable::PublishTable(const vector<ConstantSP> &cols, const vector<string> &colNames, const ConstantSP &resource,
                            const string &topic, Heap *heap)
     : BasicTable(cols, colNames), resource_(resource), topic_(topic), cols_(cols), colNames_(colNames) {
@@ -10,6 +12,7 @@ PublishTable::PublishTable(const vector<ConstantSP> &cols, const vector<string> 
 }
 
 bool PublishTable::append(vector<ConstantSP> &values, INDEX &insertedRows, string &errMsg) {
+    std::ignore = errMsg;
     TableSP table;
     int numCols = colNames_.size();
     if (values.size() == 1 && values[0]->isTable()) {
@@ -37,3 +40,5 @@ bool PublishTable::append(vector<ConstantSP> &values, INDEX &insertedRows, strin
     insertedRows = table->size();
     return true;
 }
+
+}  // namespace ddb

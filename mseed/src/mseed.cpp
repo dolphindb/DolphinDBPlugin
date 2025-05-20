@@ -1,14 +1,15 @@
+#include "mseed.h"
 #include <Exceptions.h>
 #include <ScalarImp.h>
 #include <Util.h>
 #include <string>
 #include <unordered_map>
 #include <fstream>
-#include "mseed.h"
 #include "libmseed.h"
 #include "ddbplugin/CommonInterface.h"
 
 using namespace std;
+using namespace ddb;
 
 void print_stderr(const char *message) {
     //Don't do anything
@@ -141,7 +142,7 @@ void processOneBlock(MS3Record *msr, VectorSP &value, vector<string> &sBuffer, c
 
 ConstantSP mseedRead(Heap *heap, vector<ConstantSP> &args) {
     if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR) {
-        throw IllegalArgumentException(__FUNCTION__, "File must be a string scalar");
+        throw IllegalArgumentException(__FUNCTION__, "filePath must be a string scalar");
     }
     std::string file = args[0]->getString();
     MS3Record *msr = nullptr;
@@ -266,13 +267,13 @@ void procesWrite(VectorSP &value, string &sid, double sampleRate, long long &cur
     msr->datasamples = NULL;
     msr3_free(&msr);
     if (rv < 0) {
-        throw RuntimeException("Failed to write miniSEED formated data to " + file);
+        throw RuntimeException("Failed to write miniSEED formatted data to " + file);
     }
 }
 
 ConstantSP mseedWrite(Heap *heap, vector<ConstantSP> &args) {
     if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR) {
-        throw IllegalArgumentException(__FUNCTION__, "File must be a string scalar");
+        throw IllegalArgumentException(__FUNCTION__, "filePath must be a string scalar");
     }
     if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException(__FUNCTION__, "Sid must be a string scalar");

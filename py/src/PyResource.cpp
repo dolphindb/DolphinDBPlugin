@@ -2,13 +2,16 @@
 // Created by szhang on 2020/8/19.
 //
 
+#include "DolphinDBEverything.h"
 #include "PyResource.h"
 #include "Protect.h"
 #include <pybind11/embed.h>
+#include "ddbplugin/PluginLoggerImp.h"
 
 namespace py = pybind11;
 
 static void pyObjectOnClose(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     ProtectGil proGil;
     PyObject *obj = reinterpret_cast<PyObject *>(args[0]->getLong());
     if (obj != nullptr) {
@@ -48,6 +51,7 @@ bool PyResource::hasMethod(const string& name) const {
 }
 
 ConstantSP PyResource::callMethod(const string &name, Heap* heap, vector<ConstantSP> &arguments) const{
+    std::ignore = heap;
     ProtectGil proGil;
     int argc = arguments.size();
     PyObject *pArgs = PyTuple_New(argc);

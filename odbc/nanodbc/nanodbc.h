@@ -148,20 +148,16 @@ namespace nanodbc
 #ifndef DOXYGEN
 #ifdef NANODBC_ENABLE_UNICODE
 #ifdef NANODBC_USE_IODBC_WIDE_STRINGS
-#define NANODBC_TEXT(s) U##s
 typedef std::u32string string;
 #else
 #ifdef _MSC_VER
 typedef std::wstring string;
-#define NANODBC_TEXT(s) L##s
 #else
 typedef std::u16string string;
-#define NANODBC_TEXT(s) u##s
 #endif
 #endif
 #else
 typedef std::string string;
-#define NANODBC_TEXT(s) s
 #endif
 
 #ifdef NANODBC_USE_IODBC_WIDE_STRINGS
@@ -196,7 +192,7 @@ typedef long null_type;
 /// If only NANODBC_ENABLE_UNICODE=ON is specified, then:
 ///   * If building with Visual Studio, then the macro prefixes a literal with L"...".
 ///   * Otherwise, it prefixes a literal with u"...".
-#define NANODBC_TEXT(s) s
+
 
 /// \c string will be \c std::u16string or \c std::32string if \c NANODBC_ENABLE_UNICODE
 /// defined.
@@ -292,7 +288,7 @@ public:
     /// \param info Additional info that will be appended to the beginning of the error message.
     database_error(void* handle, short handle_type, const std::string& info = "");
     const char* what() const noexcept;
-    const long native() const noexcept;
+    long native() const noexcept;
     const std::string state() const noexcept;
 
 private:

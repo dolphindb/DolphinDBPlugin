@@ -25,6 +25,8 @@ using namespace com::htsc::mdc::model;
 
 static string PLUGIN_INSIGHT_PREFIX = "[PLUGIN::INSIGHT]: ";
 
+using namespace ddb;
+
 using namespace ThreadedQueueUtil;
 
 enum INSIGHT_DATA_TYPE {

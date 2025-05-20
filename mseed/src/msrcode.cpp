@@ -35,6 +35,7 @@ extern "C" {
 }
 #include "msrcode.h"
 using namespace std;
+using namespace ddb;
 
 string
 msr3_code_mseed2 (MS3Record *msr, uint32_t flags, int8_t verbose)

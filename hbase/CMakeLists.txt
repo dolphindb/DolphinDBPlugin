@@ -1,18 +1,11 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.13)
 set(CMAKE_SKIP_RPATH TRUE)
-project(PluginHBase)
-add_definitions(-DLOCKFREE_SYMBASE)
+set(PluginName PluginHBase)
+project(${PluginName})
 
 set(CMAKE_CXX_STANDARD 11)
 
 aux_source_directory(src PLUGINPREDICT_SRC)
-
-if (WIN32)
-    set(platform_macro "-DWINDOWS")
-elseif (UNIX)
-    set(platform_macro "-DLINUX")
-    add_compile_options(${platform_macro} -D_GLIBCXX_USE_CXX11_ABI=0)
-endif ()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -fPIC -std=c++11 -Wall")
 
@@ -45,13 +38,24 @@ if (${DDB_USE_ASAN})
 endif ()
 
 
-include_directories(${PROJECT_SOURCE_DIR})
-include_directories(${PROJECT_SOURCE_DIR}/src)
-include_directories(${PROJECT_SOURCE_DIR}/thrift)
-include_directories(${PROJECT_SOURCE_DIR}/../include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include/ddbplugin)
+if(DEFINED BUILD_ARM)
+    message("building arm")
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/thrift/ARM/include)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/thrift/x86/include/thrift)
+    link_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/thrift/ARM/lib)
+else ()
+    message("building x86")
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/thrift/x86/include)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/thrift/x86/include/thrift)
+    link_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/thrift/x86/lib)
+endif()
 link_directories(${CMAKE_BINARY_DIR})
-link_directories(${PROJECT_SOURCE_DIR}/lib)
+
 
 add_library(
         ${PROJECT_NAME} SHARED
@@ -60,7 +64,7 @@ add_library(
 target_link_libraries(
         ${PROJECT_NAME}
         thrift
-        DolphinDB)
+        )
 
 set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginHBase.txt")
 

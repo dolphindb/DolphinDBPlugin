@@ -263,7 +263,7 @@ public:
     }
 
 #ifndef TEST
-    void flatten(std::vector<ConstantSP> &row, uint32_t precision) {
+    void flatten(std::vector<ddb::ConstantSP> &row, uint32_t precision) {
         row[0]->setString(symbol_);
         row[1]->setLong(id_);
         row[2]->setString(getStateName(currentState().state_));

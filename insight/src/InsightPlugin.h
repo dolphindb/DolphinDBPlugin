@@ -7,6 +7,10 @@
 #include "InsightType.h"
 #include "Util.h"
 
+using ddb::ConstantSP;
+using ddb::Heap;
+using std::vector;
+
 extern "C" ConstantSP connectInsight(Heap *heap, std::vector<ConstantSP> &arguments);
 extern "C" void subscribe(Heap *heap, std::vector<ConstantSP> &arguments);
 extern "C" void unsubscribe(Heap *heap, std::vector<ConstantSP> &arguments);

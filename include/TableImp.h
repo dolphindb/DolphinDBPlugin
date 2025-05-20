@@ -10,8 +10,7 @@
 
 #include <atomic>
 #include "CoreConcept.h"
-#include "ConstantMarshal.h"
-
+namespace ddb {
 class SubTable;
 class BasicTable;
 typedef SmartPointer<SubTable> SubTableSP;
@@ -42,7 +41,7 @@ public:
 	virtual bool contain(const ColumnRef* col) const { return source_->contain(col);}
 	virtual bool contain(const ColumnRefSP& col) const { return source_->contain(col);}
 	virtual bool containAll(const vector<ColumnRefSP>& cols) const { return source_->containAll(cols);}
-	virtual void setName(const string& name) { name_ = name;}
+	virtual void setName(const string& name) { name_ = name; unsetTableUsingInternalName();}
 	virtual const string& getName() const { return name_;}
 	virtual ConstantSP get(INDEX index) const;
 	virtual ConstantSP get(const ConstantSP& index) const;
@@ -138,7 +137,7 @@ public:
 	virtual ConstantSP getColumnLabel() const;
 	virtual ConstantSP values() const;
 	virtual ConstantSP keys() const { return getColumnLabel();}
-	virtual void setName(const string& name){name_=name;}
+	virtual void setName(const string& name){name_=name;unsetTableUsingInternalName();}
 	virtual const string& getName() const { return name_;}
 	virtual bool isTemporary() const {return false;}
 	virtual void setTemporary(bool temp){}
@@ -221,6 +220,7 @@ public:
 	virtual ConstantSP get(INDEX index) const;
 	virtual ConstantSP get(const ConstantSP& index) const;
 	virtual ConstantSP getWindow(INDEX colStart, int colLength, INDEX rowStart, int rowLength) const;
+	virtual const TableSP& getEmptySegment() const override;
 	virtual ConstantSP getSlice(const ConstantSP& rowIndex, const ConstantSP& colIndex) const;
 	virtual ConstantSP getMember(const ConstantSP& key) const;
 	virtual ConstantSP getInstance(int size) const;
@@ -275,6 +275,14 @@ public:
 	}
 	void setTable(const BasicTableSP& table);
 	void setSize(INDEX size) { size_ = size; }
+
+    virtual TableSP beginQueryTransaction(Heap* pHeap, const TableSP& originalTable) override;
+    virtual TableSP beginUpdateTransaction(Heap* pHeap, const TableSP& originalTable) override;
+    virtual TableSP beginDeleteTransaction(Heap* pHeap, const TableSP& originalTable) override;
+
+    bool isKeyTable() const {
+        return keyTable_ != nullptr;
+    }
 
 protected:
 	const vector<ConstantSP>& getCols() const { return cols_; }
@@ -333,7 +341,7 @@ private:
 		ConstantSP newRowIndices;
 	};
 	vector<ConstantSP> cols_;
-	KeyTable* keyTable_;
+	KeyTable* keyTable_{nullptr};
 	bool readOnly_;
 	INDEX size_;
 	long long offset_;
@@ -344,6 +352,7 @@ private:
 	string chunkPath_;
 	int rowUnitLength_;
 	mutable BasicTableSP curVersion_;
+	mutable TableSP emptyTbl_;
 };
-
+} // namespace ddb
 #endif /* TABLE_H_ */

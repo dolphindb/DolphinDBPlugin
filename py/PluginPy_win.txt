@@ -1,0 +1,10 @@
+py,libPluginPy.dll,2.00.13
+runCommand,cmd,system,1,1,0,0,(script)
+importModule,importModule,system,1,1,0,0,(moduleName)
+reloadModule,reloadModule,system,1,1,0,0,(module)
+getObject,getObj,system,2,2,0,0,(module, objName)
+getFunctionDol,getFunc,system,2,3,0,0,(module, funcName, [convert=true])
+cvtPy2Dol,fromPy,system,1,2,0,0,(obj, [includeIndex=false])
+cvtDol2Py,toPy,system,1,2,0,0,toPy(obj)
+createObject,getInstanceFromObj,system,1,32,0,0,(obj, [args])
+getInstanceByName,getInstance,system,2,32,0,0,(module, objName, [args])

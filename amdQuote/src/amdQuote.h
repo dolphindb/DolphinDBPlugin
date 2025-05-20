@@ -1,7 +1,12 @@
 #ifndef AMD_QUOTE_H
 #define AMD_QUOTE_H
 
+#include "DolphinDBEverything.h"
 #include "CoreConcept.h"
+
+using ddb::ConstantSP;
+using ddb::Heap;
+using std::vector;
 
 extern "C" ConstantSP amdConnect(Heap *heap, vector<ConstantSP> &arguments);
 

@@ -15,6 +15,8 @@
 #include "HSNsqApi.h"
 #include "NsqQueues.h"
 
+using namespace ddb;
+
 class CHSNsqSpiImpl : public CHSNsqSpi {
 
     /// Connection

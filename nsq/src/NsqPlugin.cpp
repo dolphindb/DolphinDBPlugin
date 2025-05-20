@@ -8,6 +8,7 @@
 
 #include "PluginUtil.h"
 
+using namespace ddb;
 using namespace pluginUtil;
 
 bool isIniValid(const string &configPath) {
@@ -23,15 +24,15 @@ bool isIniValid(const string &configPath) {
 }
 
 ConstantSP nsqConnect(Heap *heap, vector<ConstantSP> &args) {
-    string usage = "connect(configFilePath, [options], [username], [password], [dataVersion]) ";
+    string usage = "connect(fileName, [option], [username], [password], [dataVersion='ORIGIN']) ";
 
     LockGuard<Mutex> l(NsqConnection::getMutex());
 
     /// parse args
     // configFilePath
-    auto configFilePath = getStringScalar(args[0], "configFilePath", __FUNCTION__, usage);
+    auto configFilePath = getStringScalar(args[0], "fileName", __FUNCTION__, usage);
     if (!Util::exists(configFilePath)) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "configFilePath does not exist.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "configFile '" + configFilePath + "' does not exist.");
     }
     if (!isIniValid(configFilePath)) {
         throw IllegalArgumentException(__FUNCTION__, usage + "invalid configFile, could not find 'service_addr' or 'service_port' in [" + configFilePath + "]");
@@ -39,7 +40,7 @@ ConstantSP nsqConnect(Heap *heap, vector<ConstantSP> &args) {
     // options
     DictionarySP options;
     if (args.size() > 1 && !args[1]->isNull()) {
-        options = getDictionary(args[1], "options", __FUNCTION__, usage);
+        options = getDictionary(args[1], "option", __FUNCTION__, usage);
     }
     string username, password;
     if (args.size() == 3) {
@@ -84,38 +85,38 @@ ConstantSP nsqGetSchema(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP nsqSubscribe(Heap *heap, vector<ConstantSP> &args) {
-    string usage = "subscribe(type, location, streamTable): ";
+    string usage = "subscribe(dataType, market, outputTable): ";
 
     LockGuard<Mutex> l(NsqConnection::getMutex());
 
     /// parse args
-    auto dataType = getStringScalar(args[0], "type", __FUNCTION__, usage);
-    auto marketType = getStringScalar(args[1], "location", __FUNCTION__, usage);
+    auto dataType = getStringScalar(args[0], "dataType", __FUNCTION__, usage);
+    auto marketType = getStringScalar(args[1], "market", __FUNCTION__, usage);
 
     /// check dataType and marketType
     nsqUtil::checkTypes(dataType, marketType);
 
     if (dataType == nsqUtil::TRADE_ENTRUST) {
         /// subscribe tradeOrders
-        DictionarySP tableDict = getDictWithIntKeyAndSharedRealtimeTableValue(args[2], "streamTable", __FUNCTION__, usage);
+        DictionarySP tableDict = getDictWithIntKeyAndSharedRealtimeTableValue(args[2], "outputTable", __FUNCTION__, usage);
         NsqConnection::getInstance()->subscribeTradeEntrust(heap, dataType, marketType, tableDict);
         return new Void();
     } else {
         /// subscribe
-        auto table = getSharedRealtimeTable(args[2], "streamTable", __FUNCTION__, usage);
+        auto table = getSharedRealtimeTable(args[2], "outputTable", __FUNCTION__, usage);
         NsqConnection::getInstance()->subscribe(heap, dataType, marketType, table);
         return new Void();
     }
 }
 
 ConstantSP nsqUnsubscribe(Heap *heap, vector<ConstantSP> &args) {
-    string usage = "unsubscribe(type, location): ";
+    string usage = "unsubscribe(dataType, market): ";
 
     LockGuard<Mutex> l(NsqConnection::getMutex());
 
     /// parse args
-    auto dataType = getStringScalar(args[0], "type", __FUNCTION__, usage);
-    auto marketType = getStringScalar(args[1], "location", __FUNCTION__, usage);
+    auto dataType = getStringScalar(args[0], "dataType", __FUNCTION__, usage);
+    auto marketType = getStringScalar(args[1], "market", __FUNCTION__, usage);
 
     /// check dataType and marketType
     nsqUtil::checkTypes(dataType, marketType);
@@ -125,7 +126,7 @@ ConstantSP nsqUnsubscribe(Heap *heap, vector<ConstantSP> &args) {
     return new Void();
 }
 
-ConstantSP nsqGetStatus(Heap *heap, vector<Constant> &args) {
+ConstantSP nsqGetStatus(Heap *heap, vector<ConstantSP> &args) {
     string usage = "getStatus(): ";
 
     LockGuard<Mutex> l(NsqConnection::getMutex());

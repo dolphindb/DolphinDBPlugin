@@ -8,6 +8,7 @@
 #ifndef ZLIBPLUGIN_H_
 #define ZLIBPLUGIN_H_
 
+#include "DolphinDBEverything.h"
 #include "CoreConcept.h"
 #include "ddbplugin/CommonInterface.h"
 #include "Util.h"
@@ -19,11 +20,11 @@
 #include <stdexcept>
 #define CHUNK 16384
 
-extern "C" ConstantSP compressFile(Heap* heap, vector<ConstantSP>& args);
+using argsT = std::vector<ddb::ConstantSP>;
 
-extern "C" ConstantSP decompressFile(Heap* heap, vector<ConstantSP>& args);
-
-extern "C" ConstantSP createZlibInputStream(Heap* heap, vector<ConstantSP>& args);
+extern "C" ddb::ConstantSP compressFile(ddb::Heap* heap, argsT &arguments);
+extern "C" ddb::ConstantSP decompressFile(ddb::Heap* heap, argsT &arguments);
+extern "C" ddb::ConstantSP createZlibInputStream(ddb::Heap* heap, argsT &arguments);
 
 // class ZlibBuffer
 // {

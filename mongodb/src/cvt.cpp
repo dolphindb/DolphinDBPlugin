@@ -43,7 +43,7 @@ std::string utf16_to_utf8(const std::u16string& utf16) {
     return utf16_to_utf8(utf16.c_str(), utf16.c_str() + utf16.size());
 }
 
-#ifdef WINDOWS
+#ifdef _WIN32
 int gb2312_to_utf8(const char* gb2312, char* utf8) {
     int len = MultiByteToWideChar(CP_ACP, 0, gb2312, -1, NULL, 0);
     wchar_t *wstr = new wchar_t[len + 1];

@@ -1,35 +1,13 @@
-cmake_minimum_required(VERSION 3.0)
-project(PluginMat)
-add_definitions(-DLOCKFREE_SYMBASE)
+cmake_minimum_required(VERSION 3.13)
+set(PluginName PluginMat)
+project(${PluginName})
 
-set(CMAKE_CXX_STANDARD 11)
+include(../template.cmake)
+CreatePlugin(${PluginName})
 
-if (WIN32)
-    set(platform_macro "-DWINDOWS")
-    set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginMat_win32.txt")
-elseif(UNIX)
-    set(platform_macro "-DLINUX")
-    add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
-    set(CMAKE_EXE_LINKER_FLAGS,"-Wl,-rpath,${matlabRoot}/bin/glnxa64")
-    link_directories(${matlabRoot}/bin/glnxa64)
-    set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginMat.txt")
-    add_compile_options("-D_GLIBCXX_USE_CXX11_ABI=0")
-endif()
+find_package(Matlab REQUIRED COMPONENTS MAT_LIBRARY)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -fPIC -O3 ")
-
-include_directories(${PROJECT_SOURCE_DIR}/../include)
-if(WIN32)
-    include_directories(${PROJECT_SOURCE_DIR}/include/win/include)
-elseif(UNIX)
-    include_directories(${matlabRoot}/extern/include)
-endif()
-link_directories("${CMAKE_BINARY_DIR}")
-
-aux_source_directory(${PROJECT_SOURCE_DIR}/src DIR_SRCS)
-
-add_library(PluginMat SHARED ${DIR_SRCS})
-
-target_link_libraries(PluginMat DolphinDB mat mx)
-
-configure_file(${plugin_file} ${CMAKE_BINARY_DIR}/PluginMat.txt COPYONLY)
+target_include_directories(PluginMat PRIVATE ${Matlab_INCLUDE_DIRS})
+# Since matlab libraries are compiled without SONAME (readelf -d libmat.so),
+# linking matlab targets (e.g. Matlab::mat) will generate a full path dependency in libPluginMat.so
+target_link_libraries(PluginMat PRIVATE ${Matlab_MAT_LIBRARY} ${Matlab_MX_LIBRARY})

@@ -15,6 +15,9 @@
 using std::exception;
 using std::string;
 
+
+namespace ddb {
+
 class SWORDFISH_API SWORDFISH_API TraceableException : public exception {
 public:
 	void addPath(const string& path);
@@ -345,5 +348,41 @@ public:
 private:
 	const string errMsg_;
 };
+
+//==============================================================================
+// OLTP Exception
+//==============================================================================
+
+/**
+ * DML operations (query/insert/delete/update) may throw NeedRetryException.
+ * When catch this exception, should rollback current transaction and begin a
+ * new transaction to retry.
+ */
+class SWORDFISH_API OLTPNeedRetryException : public std::exception {
+   public:
+    OLTPNeedRetryException(const string& err) : err_(err) {}
+
+    virtual const char* what() const noexcept override { return err_.c_str(); }
+
+   private:
+    string err_;
+};
+
+/**
+ * DML operations (query/insert/delete/update) may throw NotRetryException
+ * When catch this exception, just rollback current transaction and do NOT
+ * retry.
+ */
+class SWORDFISH_API OLTPNotRetryException : public std::exception {
+   public:
+    OLTPNotRetryException(const string& err) : err_(err) {}
+
+    virtual const char* what() const noexcept override { return err_.c_str(); }
+
+   private:
+    string err_;
+};
+
+}
 
 #endif /* EXCEPTIONS_H_ */

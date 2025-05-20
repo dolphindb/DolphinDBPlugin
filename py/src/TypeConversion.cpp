@@ -2,6 +2,7 @@
 // Created by lin on 2020/9/11.
 //
 
+#include "DolphinDBEverything.h"
 #include "Util.h"
 #include "TypeConversion.h"
 #include "Exceptions.h"
@@ -14,6 +15,7 @@
 #include <iostream>
 #include <dlfcn.h>
 namespace py = pybind11;
+using namespace ddb;
 
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define LIKELY(x) (__builtin_expect((x), 1))
@@ -144,7 +146,8 @@ const py::handle Preserved::pydict_ = py::dict().get_type().inc_ref();
 
 template <typename T>
 void append(const py::array &pyArray, int size, std::function<void(T *, int)> f) {
-    T buf[std::min(1024, size)];
+    std::ignore = size;
+    T buf[1024];
     int i = 0;
     bool isDatetime64 = false;
     bool isInt8 = false;
@@ -927,12 +930,17 @@ static DATA_TYPE numpyToDolphinDBType(py::array array) {
         return DT_ANY;
 }
 
-ConstantSP py2dolphin(PyObject *input, bool free, bool addIndex) {
+ConstantSP py2dolphin(PyObject *input, bool addIndex) {
     ProtectGil pgil;
     PY_TYPE pType = getPyType(input);
     if (pType == PY_STRING) {
-        const char *str;
-        PyArg_Parse(input, "s", &str);
+        const char *str = nullptr;
+        if(PyArg_Parse(input, "s", &str) == 0) {
+            throw RuntimeException("Failed to get the python string. ");
+        }
+        if(str == nullptr) {
+            throw RuntimeException("The python string can not be null pointer. ");
+        }
         return new String(str);
     }
     else if (pType == PY_FLOAT) {
@@ -974,7 +982,7 @@ ConstantSP py2dolphin(PyObject *input, bool free, bool addIndex) {
         int types = 0;
         int forms = 1;
         for (size_t i = 0; i < size; ++i) {
-            _ddbVec.push_back(py2dolphin(tuple[i].ptr(), false));
+            _ddbVec.push_back(py2dolphin(tuple[i].ptr()));
             if (_ddbVec.back()->isNull()) { continue; }
             DATA_TYPE tmpType = _ddbVec.back()->getType();
             DATA_FORM tmpForm = _ddbVec.back()->getForm();
@@ -1002,7 +1010,7 @@ ConstantSP py2dolphin(PyObject *input, bool free, bool addIndex) {
         int types = 0;
         int forms = 1;
         for (size_t i = 0; i < size; ++i) {
-            _ddbVec.push_back(py2dolphin(list[i].ptr(), false));
+            _ddbVec.push_back(py2dolphin(list[i].ptr()));
             if (_ddbVec.back()->isNull()) { continue; }
             DATA_TYPE tmpType = _ddbVec.back()->getType();
             DATA_FORM tmpForm = _ddbVec.back()->getForm();
@@ -1035,8 +1043,8 @@ ConstantSP py2dolphin(PyObject *input, bool free, bool addIndex) {
         int keyForms = 1;
         int valForms = 1;
         for (auto it = pyDict.begin(); it != pyDict.end(); ++it) {
-            _ddbKeyVec.push_back(py2dolphin(py::reinterpret_borrow<py::object>(it->first).ptr(), false));
-            _ddbValVec.push_back(py2dolphin(py::reinterpret_borrow<py::object>(it->second).ptr(), false));
+            _ddbKeyVec.push_back(py2dolphin(py::reinterpret_borrow<py::object>(it->first).ptr()));
+            _ddbValVec.push_back(py2dolphin(py::reinterpret_borrow<py::object>(it->second).ptr()));
             if (_ddbKeyVec.back()->isNull() || _ddbValVec.back()->isNull()) { continue; }
             DATA_TYPE tmpKeyType = _ddbKeyVec.back()->getType();
             DATA_TYPE tmpValType = _ddbValVec.back()->getType();
@@ -1077,7 +1085,7 @@ ConstantSP py2dolphin(PyObject *input, bool free, bool addIndex) {
         int types = 0;
         int forms = 1;
         for (auto it = pySet.begin(); it != pySet.end(); ++it) {
-            _ddbSet.push_back(py2dolphin(py::reinterpret_borrow<py::object>(*it).ptr(), false));
+            _ddbSet.push_back(py2dolphin(py::reinterpret_borrow<py::object>(*it).ptr()));
             if (_ddbSet.back()->isNull()) { continue; }
             DATA_TYPE tmpType = _ddbSet.back()->getType();
             DATA_FORM tmpForm = _ddbSet.back()->getForm();
@@ -1100,7 +1108,7 @@ ConstantSP py2dolphin(PyObject *input, bool free, bool addIndex) {
         py::array pyarray = py::handle(input).cast<py::array>();
         int totalNum = pyarray.size();
         if (totalNum == 0) throw RuntimeException("py2dolphin: Empty matrix is not supported.");
-        return py2dolphin(pyarray.base().ptr(), false);
+        return py2dolphin(pyarray.base().ptr());
     }
     else if (pType == PY_NP_NDARRAY || pType == PY_PD_SERIES) {
         py::array pyVec = py::handle(input).cast<py::array>();
@@ -1263,7 +1271,7 @@ ConstantSP py2dolphin(PyObject *input, bool free, bool addIndex) {
             }
             return ddbMat;
             //py::object pytup = py::handle(input).cast<py::tuple>();
-            //return py2dolphin(pytup.ptr(), false);
+            //return py2dolphin(pytup.ptr());
         }
     }
     else if (pType == PY_PD_DATAFRAME) {

@@ -82,7 +82,7 @@ pacman -S make
 + 开始编译
 ```
 make -j8
-+ make install -j8
+make install -j8
 ```
 
 + 拷贝编译文件到 hdf5 插件文件目录

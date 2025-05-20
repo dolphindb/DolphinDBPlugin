@@ -10,6 +10,8 @@
 
 #include "Types.h"
 
+namespace ddb {
+
 class SWORDFISH_API DolphinString {
 public:
     DolphinString() {
@@ -462,3 +464,5 @@ private:
         char inlineData[INLINE_STR_CAP];
     };
 };
+
+}

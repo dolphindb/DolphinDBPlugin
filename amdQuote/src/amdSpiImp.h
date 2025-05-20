@@ -1,6 +1,7 @@
 #ifndef AMD_SPI_IMP_H
 #define AMD_SPI_IMP_H
 
+#include "DolphinDBEverything.h"
 #include "CoreConcept.h"
 #include "Plugin.h"
 #include "Util.h"
@@ -14,8 +15,9 @@
 #include "ddbplugin/ThreadedQueue.h"
 #endif
 
+using namespace ddb;
+
 const static int TIMEOUT = 100;
-const static int CAPACITY = 100000;
 static std::atomic<bool> ERROR_LOG(false);
 
 class AMDSpiImp : public amd::ama::IAMDSpi {
@@ -36,7 +38,9 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
                                 PROCESSED_MSG_COUNT_STR,
                                 FAILED_MSG_COUNT_STR,
                                 LAST_ERR_MSG_STR,
-                                LAST_FAILED_TIMESTAMP_STR};
+                                LAST_FAILED_TIMESTAMP_STR,
+                                "queueDepthLimit",
+                                "queueDepth"};
         vector<string> topicTypeVec;
         vector<int> marketVec;
         vector<int> channelVec;
@@ -48,22 +52,26 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
         vector<string> lastErrMsgVec;
         vector<long long> failedMsgCountVec;
         vector<long long> lastFailedTimestampVec;
+        vector<long long> queueDepthLimitVec;
+        vector<long long> queueDepthVec;
 
-#define GET_STATISTICS(map, name)                                                                     \
-    for (auto it = map.begin(); it != map.end(); ++it) {                                              \
-        int market = it->first;                                                                       \
-        DictionarySP status = it->second->getStatus();                                                \
-        topicTypeVec.emplace_back(name);                                                              \
-        marketVec.emplace_back(market);                                                               \
-        channelVec.emplace_back(INT_MIN);                                                             \
-        startTimeVec.emplace_back(status->getMember(START_TIME_STR)->getLong());                      \
-        endTimeVec.emplace_back(status->getMember(END_TIME_STR)->getLong());                          \
-        firstMsgTimeVec.emplace_back(status->getMember(FIRST_MSG_TIME_STR)->getLong());               \
-        lastMsgTimeVec.emplace_back(status->getMember(LAST_MSG_TIME_STR)->getLong());                 \
-        processedMsgCountVec.emplace_back(status->getMember(PROCESSED_MSG_COUNT_STR)->getLong());     \
-        failedMsgCountVec.emplace_back(status->getMember(FAILED_MSG_COUNT_STR)->getLong());           \
-        lastErrMsgVec.emplace_back(status->getMember(LAST_ERR_MSG_STR)->getString());                 \
-        lastFailedTimestampVec.emplace_back(status->getMember(LAST_FAILED_TIMESTAMP_STR)->getLong()); \
+#define GET_STATISTICS(map, name)                                                              \
+    for (auto it = map.begin(); it != map.end(); ++it) {                                       \
+        int market = it->first;                                                                \
+        auto status = it->second->getStatusConst();                                            \
+        topicTypeVec.emplace_back(name);                                                       \
+        marketVec.emplace_back(market);                                                        \
+        channelVec.emplace_back(INT_MIN);                                                      \
+        startTimeVec.emplace_back(status.startTime_);                                          \
+        endTimeVec.emplace_back(status.endTime_);                                              \
+        firstMsgTimeVec.emplace_back(status.firstMsgTime_);                                    \
+        lastMsgTimeVec.emplace_back(status.lastMsgTime_);                                      \
+        processedMsgCountVec.emplace_back(status.processedMsgCount_ - status.failedMsgCount_); \
+        failedMsgCountVec.emplace_back(status.failedMsgCount_);                                \
+        lastErrMsgVec.emplace_back(status.lastErrMsg_);                                        \
+        lastFailedTimestampVec.emplace_back(status.lastFailedTimestamp_);                      \
+        queueDepthLimitVec.emplace_back(status.queueDepthLimit_);                              \
+        queueDepthVec.emplace_back(status.queueDepth_);                                        \
     }
         GET_STATISTICS(orderQueueQueueMap_, "orderQueue")
         GET_STATISTICS(indexQueueMap_, "index")
@@ -84,23 +92,25 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
         GET_STATISTICS(bondExecutionQueueMap_, "bondExecution")
 #undef GET_STATISTICS
 
-#define GET_ORDER_EXECUTION_STATISTICS(map, name)                                                     \
-    for (auto it = map.begin(); it != map.end(); ++it) {                                              \
-        int market = it->first;                                                                       \
-        int channel = market / ORDER_EXECUTION_OFFSET;                                                \
-        market %= ORDER_EXECUTION_OFFSET;                                                             \
-        DictionarySP status = it->second->getStatus();                                                \
-        topicTypeVec.emplace_back(name);                                                              \
-        marketVec.emplace_back(market);                                                               \
-        channelVec.emplace_back(channel);                                                             \
-        startTimeVec.emplace_back(status->getMember(START_TIME_STR)->getLong());                      \
-        endTimeVec.emplace_back(status->getMember(END_TIME_STR)->getLong());                          \
-        firstMsgTimeVec.emplace_back(status->getMember(FIRST_MSG_TIME_STR)->getLong());               \
-        lastMsgTimeVec.emplace_back(status->getMember(LAST_MSG_TIME_STR)->getLong());                 \
-        processedMsgCountVec.emplace_back(status->getMember(PROCESSED_MSG_COUNT_STR)->getLong());     \
-        failedMsgCountVec.emplace_back(status->getMember(FAILED_MSG_COUNT_STR)->getLong());           \
-        lastErrMsgVec.emplace_back(status->getMember(LAST_ERR_MSG_STR)->getString());                 \
-        lastFailedTimestampVec.emplace_back(status->getMember(LAST_FAILED_TIMESTAMP_STR)->getLong()); \
+#define GET_ORDER_EXECUTION_STATISTICS(map, name)                                              \
+    for (auto it = map.begin(); it != map.end(); ++it) {                                       \
+        int market = it->first;                                                                \
+        int channel = market / ORDER_EXECUTION_OFFSET;                                         \
+        market %= ORDER_EXECUTION_OFFSET;                                                      \
+        auto status = it->second->getStatusConst();                                            \
+        topicTypeVec.emplace_back(name);                                                       \
+        marketVec.emplace_back(market);                                                        \
+        channelVec.emplace_back(channel);                                                      \
+        startTimeVec.emplace_back(status.startTime_);                                          \
+        endTimeVec.emplace_back(status.endTime_);                                              \
+        firstMsgTimeVec.emplace_back(status.firstMsgTime_);                                    \
+        lastMsgTimeVec.emplace_back(status.lastMsgTime_);                                      \
+        processedMsgCountVec.emplace_back(status.processedMsgCount_ - status.failedMsgCount_); \
+        failedMsgCountVec.emplace_back(status.failedMsgCount_);                                \
+        lastErrMsgVec.emplace_back(status.lastErrMsg_);                                        \
+        lastFailedTimestampVec.emplace_back(status.lastFailedTimestamp_);                      \
+        queueDepthLimitVec.emplace_back(status.queueDepthLimit_);                              \
+        queueDepthVec.emplace_back(status.queueDepth_);                                        \
     }
         GET_ORDER_EXECUTION_STATISTICS(orderExecutionQueueMap_, "orderExecution");
         GET_ORDER_EXECUTION_STATISTICS(bondOrderExecutionQueueMap_, "bondOrderExecution");
@@ -118,29 +128,35 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
         VectorSP lastErrMsgDdbVec = Util::createVector(DT_STRING, 0, size);
         VectorSP failedMsgCountDdbVec = Util::createVector(DT_LONG, 0, size);
         VectorSP lastFailedTimestampDdbVec = Util::createVector(DT_NANOTIMESTAMP, 0, size);
+        VectorSP queueDepthLimitDdbVec = Util::createVector(DT_LONG, 0, size);
+        VectorSP queueDepthDdbVec = Util::createVector(DT_LONG, 0, size);
 
         topicTypeDdbVec->appendString(topicTypeVec.data(), size);
-        topicTypeDdbVec->setNullFlag(true);
+        topicTypeDdbVec->setNullFlag(topicTypeDdbVec->hasNull());
         marketDdbVec->appendInt(marketVec.data(), size);
-        marketDdbVec->setNullFlag(true);
+        marketDdbVec->setNullFlag(marketDdbVec->hasNull());
         channelDdbVec->appendInt(channelVec.data(), size);
-        channelDdbVec->setNullFlag(true);
+        channelDdbVec->setNullFlag(channelDdbVec->hasNull());
         startTimeDdbVec->appendLong(startTimeVec.data(), size);
-        startTimeDdbVec->setNullFlag(true);
+        startTimeDdbVec->setNullFlag(startTimeDdbVec->hasNull());
         firstMsgTimeDdbVec->appendLong(firstMsgTimeVec.data(), size);
-        firstMsgTimeDdbVec->setNullFlag(true);
+        firstMsgTimeDdbVec->setNullFlag(firstMsgTimeDdbVec->hasNull());
         lastMsgTimeDdbVec->appendLong(lastMsgTimeVec.data(), size);
-        lastMsgTimeDdbVec->setNullFlag(true);
+        lastMsgTimeDdbVec->setNullFlag(lastMsgTimeDdbVec->hasNull());
         endTimeDdbVec->appendLong(endTimeVec.data(), size);
-        endTimeDdbVec->setNullFlag(true);
+        endTimeDdbVec->setNullFlag(endTimeDdbVec->hasNull());
         processedMsgCountDdbVec->appendLong(processedMsgCountVec.data(), size);
-        processedMsgCountDdbVec->setNullFlag(true);
+        processedMsgCountDdbVec->setNullFlag(processedMsgCountDdbVec->hasNull());
         lastErrMsgDdbVec->appendString(lastErrMsgVec.data(), size);
-        lastErrMsgDdbVec->setNullFlag(true);
+        lastErrMsgDdbVec->setNullFlag(lastErrMsgDdbVec->hasNull());
         failedMsgCountDdbVec->appendLong(failedMsgCountVec.data(), size);
-        failedMsgCountDdbVec->setNullFlag(true);
+        failedMsgCountDdbVec->setNullFlag(failedMsgCountDdbVec->hasNull());
         lastFailedTimestampDdbVec->appendLong(lastFailedTimestampVec.data(), size);
-        lastFailedTimestampDdbVec->setNullFlag(true);
+        lastFailedTimestampDdbVec->setNullFlag(lastFailedTimestampDdbVec->hasNull());
+        queueDepthLimitDdbVec->appendLong(queueDepthLimitVec.data(), size);
+        queueDepthLimitDdbVec->setNullFlag(queueDepthLimitDdbVec->hasNull());
+        queueDepthDdbVec->appendLong(queueDepthVec.data(), size);
+        queueDepthDdbVec->setNullFlag(queueDepthDdbVec->hasNull());
 
         vector<ConstantSP> cols{topicTypeDdbVec,
                                 marketDdbVec,
@@ -152,7 +168,10 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
                                 processedMsgCountDdbVec,
                                 failedMsgCountDdbVec,
                                 lastErrMsgDdbVec,
-                                lastFailedTimestampDdbVec};
+                                lastFailedTimestampDdbVec,
+                                queueDepthLimitDdbVec,
+                                queueDepthDdbVec
+                                };
         return Util::createTable(colNames, cols);
     }
     template <typename T>
@@ -299,22 +318,26 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
     }
 
     virtual void OnMDNEEQSnapshot(amd::ama::MDNEEQSnapshot* snapshots, uint32_t cnt) override {
+
         PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushNEEQSnapshotData(snapshots, cnt, time);
     }
     virtual void OnMDOptionSnapshot(amd::ama::MDOptionSnapshot *snapshots, uint32_t cnt) override {
+
         PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushOptionData(snapshots, cnt, time);
     }
     virtual void OnMDFutureSnapshot(amd::ama::MDFutureSnapshot *snapshots, uint32_t cnt) override {
+
         PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushFutureData(snapshots, cnt, time);
     }
 #ifndef AMD_3_9_6
     virtual void OnMDIOPVSnapshot(amd::ama::MDIOPVSnapshot *snapshots, uint32_t cnt) override {
+
         PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushIOPVData(snapshots, cnt, time);
@@ -322,14 +345,16 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
 #endif
 
     virtual void OnMDSnapshot(amd::ama::MDSnapshot *snapshot, uint32_t cnt) override {
+
         PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshot); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushSnapshotData(snapshot, cnt, time);
     }
     virtual void OnMDTickOrder(amd::ama::MDTickOrder *ticks, uint32_t cnt) override {
+
         PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        if (UNLIKELY(PLUGIN_LOG_LEVEL == PluginSeverityType::DEBUG)) {
+        if (UNLIKELY(PLUGIN_LOG_LEVEL == severity_type::DEBUG)) {
             for (auto i = 0U; i < cnt; ++i) {
                 PLUGIN_LOG(AMDQUOTE_PREFIX, __FUNCTION__, " securityCode: ", ticks[i].security_code, "; bizIndex: ", ticks[i].appl_seq_num);
             }
@@ -337,9 +362,10 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
         pushOrderData(ticks, cnt, time);
     }
     virtual void OnMDTickExecution(amd::ama::MDTickExecution *ticks, uint32_t cnt) override {
+
         PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        if (UNLIKELY(PLUGIN_LOG_LEVEL == PluginSeverityType::DEBUG)) {
+        if (UNLIKELY(PLUGIN_LOG_LEVEL == severity_type::DEBUG)) {
             for (auto i = 0U; i < cnt; ++i) {
                 PLUGIN_LOG(AMDQUOTE_PREFIX, __FUNCTION__, " securityCode: ", ticks[i].security_code, "; bizIndex: ", ticks[i].appl_seq_num);
             }
@@ -347,26 +373,31 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
         pushExecutionData(ticks, cnt, time);
     }
     virtual void OnMDIndexSnapshot(amd::ama::MDIndexSnapshot *index, uint32_t cnt) override {
+
         PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(index); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushIndexData(index, cnt, time);
     }
     virtual void OnMDOrderQueue(amd::ama::MDOrderQueue *queue, uint32_t cnt) override {
+
         PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(queue); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushOrderQueueData(queue, cnt, time);
     }
     virtual void OnMDBondSnapshot(amd::ama::MDBondSnapshot *snapshots, uint32_t cnt) override {
+
         PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushBondSnapshotData(snapshots, cnt, time);
     }
     virtual void OnMDBondTickOrder(amd::ama::MDBondTickOrder *ticks, uint32_t cnt) override {
+
         PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushBondOrderData(ticks, cnt, time);
     }
     virtual void OnMDBondTickExecution(amd::ama::MDBondTickExecution *ticks, uint32_t cnt) override {
+
         PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushBondExecutionData(ticks, cnt, time);
@@ -380,7 +411,7 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
 
     void addThreadedQueue(Heap *heap, const string &typeName, AMDDataType type, int key, TableSP table,
                           FunctionDefSP transform, MetaTable meta, TableSP schema, int optionFlag,
-                          long long dailyStartTime, bool securityCodeToInt, int seqCheckMode) {
+                          long long dailyStartTime, bool securityCodeToInt, int seqCheckMode, long long capacity) {
         std::function<void(vector<ConstantSP> &, timeMDTickOrder &)> readerParamOrder;
         std::function<void(vector<ConstantSP> &, timeMDBondTickOrder &)> readerParamBondOrder;
         std::function<void(vector<ConstantSP> &, timeMDBondSnapshot &)> readerParamBondSnapshot;
@@ -408,7 +439,7 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
         switch (type) {
 #define ADD_THREADED_QUEUE(type, map, struct, reader)                                                     \
     case type:                                                                                            \
-        map[key] = new ThreadedQueue<struct>(heap, TIMEOUT, CAPACITY, meta, schema, optionFlag, typeName, \
+        map[key] = new ThreadedQueue<struct>(heap, TIMEOUT, capacity, meta, schema, optionFlag, typeName, \
                                                 AMDQUOTE_PREFIX, Util::BUF_SIZE, reader);                 \
         map[key]->setTable(table);                                                                        \
         map[key]->setTransform(transform);                                                                \

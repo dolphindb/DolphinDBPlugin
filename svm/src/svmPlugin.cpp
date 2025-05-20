@@ -3,12 +3,15 @@
 #include <Exceptions.h>
 #include <sstream>
 #include "svm.h"
+#include "ddbplugin/PluginLogger.h"
+#include "ddbplugin/PluginLoggerImp.h"
 
 ConstantSP fit(Heap *heap, vector<ConstantSP> &args){
     LockGuard<Mutex> lk(&svm::mutex);
     ConstantSP X = args[1], y = args[0];
     if(y->getForm() != DF_VECTOR || !y->isNumber())
         throw IllegalArgumentException(__FUNCTION__, "Y must be a numeric vector.");
+    int leny = y->size();
     ConstantSP params = Util::createDictionary(DT_STRING, nullptr, DT_ANY, nullptr);
     if(args.size() == 3){
         params = args[2];
@@ -18,9 +21,15 @@ ConstantSP fit(Heap *heap, vector<ConstantSP> &args){
     if(X->getForm() == DF_MATRIX){
         if(!X->isNumber())
             throw IllegalArgumentException(__FUNCTION__, "X must be a matrix.");
+        if (X->columns() != leny) {
+            throw IllegalArgumentException(__FUNCTION__, "column size of matrix X must be the same as the length of y.");
+        }
 
     }else if(X->getForm() == DF_TABLE){
         const int n = X->columns();
+        if (X->rows() != leny) {
+            throw IllegalArgumentException(__FUNCTION__, "row size of table X must be the same as the length of y.");
+        }
         for(int i = 0;i < n;i++){
             if(!X->getColumn(i)->isNumber()){
                 throw IllegalArgumentException(__FUNCTION__, "All columns of X must be of a number type.");
@@ -94,7 +103,7 @@ ConstantSP saveModel(Heap *heap, vector<ConstantSP> &args){
     if(model->getType() != DT_RESOURCE || model->getString() != "SVM model")
         throw IllegalArgumentException(__FUNCTION__, "model must be a SVM-model.");
     if(location->getType() != DT_STRING || !location->isScalar())
-        throw IllegalArgumentException(__FUNCTION__, "path must be a string.");
+        throw IllegalArgumentException(__FUNCTION__, "filePath must be a string.");
     return svm::saveModel(model, location);
 }
 
@@ -102,7 +111,7 @@ ConstantSP loadModel(Heap *heap, vector<ConstantSP> &args){
     LockGuard<Mutex> lk(&svm::mutex);
     ConstantSP location = args[0];
     if(location->getType() != DT_STRING || !location->isScalar())
-        throw IllegalArgumentException(__FUNCTION__, "path must be a string.");
+        throw IllegalArgumentException(__FUNCTION__, "filePath must be a string.");
     return svm::loadModel(heap, location);
 }
 
@@ -166,7 +175,7 @@ namespace svm{
         }
 
         FunctionDefSP onClose(Util::createSystemProcedure("SVM Object deconstruct", svmObjectClose, 1, 1));
-        return Util::createResource(reinterpret_cast<long long>(psvmObject),"SVM model", onClose, heap->currentSession());
+        return Util::createResource(reinterpret_cast<long long>(psvmObject),"SVM model", onClose, heap);
     }
 
 
@@ -234,6 +243,9 @@ namespace svm{
         double sump = 0, sumt = 0, sumpp = 0, sumtt = 0, sumpt = 0;
 
         ConstantSP predict_labels = predict(model, X, X->getForm());
+        if (predict_labels->size() != n) {
+            throw RuntimeException("Size of the predicted labels is not equal to the size of the true labels.");
+        }
         double bufX[Util::BUF_SIZE],bufy[Util::BUF_SIZE];
         const double * pX = nullptr, * py = nullptr;
         int lenX = 0, startX = 0, preX = 0,leny = 0, starty = 0, prey = 0;
@@ -282,7 +294,7 @@ namespace svm{
         psvmObject->load(spath);
 
         FunctionDefSP onClose(Util::createSystemProcedure("SVM model onClose()", svmObjectClose, 1, 1));
-        return Util::createResource(reinterpret_cast<long long>(psvmObject),"SVM model", onClose, heap->currentSession());
+        return Util::createResource(reinterpret_cast<long long>(psvmObject),"SVM model", onClose, heap);
     }
 
     ConstantSP saveModel(const ConstantSP &model, const ConstantSP &location){

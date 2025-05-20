@@ -9,100 +9,61 @@
 #include "nanodbc/nanodbc.h"
 #include "nanodbcw/nanodbcw.h"
 
-#ifndef LINUX
-static std::string getRegitString(std::string regit, std::string key){
-    HKEY hKey;  
-    LONG lResult;  
-    DWORD dwType; 
-    char buffer[256];  
-    memset(buffer, 0, 256);
-    DWORD dwSize = sizeof(buffer) - 1; 
-    lResult = RegOpenKeyExA(HKEY_LOCAL_MACHINE, regit.c_str(), 0, KEY_READ, &hKey);  
-    if (lResult != ERROR_SUCCESS) {  
-        throw RuntimeException("[PLUGIN::ODBC]: failed to open registry key: " +  regit);
-    }  
-
-    lResult = RegQueryValueExA(hKey, key.c_str(), NULL, &dwType, (LPBYTE)buffer, &dwSize);  
-    if (lResult != ERROR_SUCCESS) {  
-        throw RuntimeException("[PLUGIN::ODBC]: failed to query registry value. ");
-    } 
-    std::string ret = std::string(buffer);
-    return ret;
-}
-#endif
+#ifdef __linux__
 
 static std::string getLibName(std::string connectStr){
     if(connectStr.size() > INI_MAX_PROPERTY_VALUE){
-        throw RuntimeException("[PLUGIN::ODBC]: connectStr is too long. ");
+        throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "ConnectStr is too long. ");
     }
     con_struct con_str;
     __parse_connection_string(&con_str, (char *)connectStr.c_str(), connectStr.size());
     Defer defer([&](){__release_conn(&con_str);});
 
-    char lib_name[ INI_MAX_PROPERTY_VALUE + 1 ];
+    static char lib_name[ INI_MAX_PROPERTY_VALUE + 1 ];
     memset(lib_name, 0, INI_MAX_PROPERTY_VALUE + 1);
 
-    
+
     char* driver = __get_attribute_value( &con_str, (char*)"DRIVER" );
-    #ifdef LINUX
+
     if(driver != nullptr){
         SQLGetPrivateProfileString( driver, (char*)"Driver", "",
                 lib_name, INI_MAX_PROPERTY_VALUE, "ODBCINST.INI" );
         if(lib_name[0] == '\0')
-            throw RuntimeException("[PLUGIN::ODBC]: failed to get lib name. ");
+            throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Failed to get lib name. ");
         return std::string(lib_name);
     }else{
         char* dsn = __get_attribute_value( &con_str, (char*)"DSN" );
         if(!dsn)
-            throw RuntimeException("[PLUGIN::ODBC]: failed to get dsn. ");
+            throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Failed to get dsn. ");
         char driver_name[ INI_MAX_PROPERTY_VALUE + 1 ];
         memset(driver_name, 0, INI_MAX_PROPERTY_VALUE + 1);
-        
+
         char *lib = __find_lib_name(dsn, lib_name, driver_name);
         if(!lib)
-            throw RuntimeException("[PLUGIN::ODBC]: failed to find lib name. ");
+            throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Failed to find lib name. ");
         return std::string(lib);
     }
-    #else
-    std::string libStr;
-    if(driver == nullptr){
-        char* dsn = __get_attribute_value( &con_str, (char*)"DSN" );
-        if(!dsn)
-            throw RuntimeException("[PLUGIN::ODBC]: failed to get dsn. ");
-        std::string regit = "SOFTWARE\\ODBC\\ODBC.INI\\" + std::string(dsn);
-        libStr = getRegitString(regit, "Driver");
-        return libStr;
-    }else{
-        std::string driverString = std::string(driver);
-        std::string ret = getRegitString("SOFTWARE\\ODBC\\ODBCINST.INI\\" + driverString, "Driver");
-        return ret;
-    }
-    #endif
 }
+#endif
 
 static bool isWideODBC(std::string connectStr){
     // static Mutex lock;
-    LockGuard<Mutex> guard(&ODBCBaseConnection::CLICKHOUSE_LOCK);
+    LockGuard<Mutex> guard(&ODBCBaseConnection::CLICK_HOUSE_LOCK);
     bool wideFunc = true;
-
+#ifdef __linux__
     std::string libDir = getLibName(connectStr);
-    LOG_INFO("[PLUGIN::ODBC]: ODBC lib path: ", libDir);
-    #ifdef LINUX
+    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX + "ODBC lib path: ", libDir);
     void * handle = dlopen(libDir.c_str(), RTLD_LAZY);
     if(handle == nullptr)
-        throw RuntimeException("[PLUGIN::ODBC]: Failed to loadLibrary [" + libDir + "].");
+        throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Failed to loadLibrary [" + libDir + "].");
     void * func = dlsym(handle, "SQLDriverConnectW");
     wideFunc = func != nullptr;
     dlclose(handle);
-    #else
-    // HINSTANCE hInstance = LoadLibraryEx(libDir.c_str(), 0, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR|LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
-    // if(hInstance == nullptr)
-    //     throw RuntimeException("[PLUGIN::ODBC]: Failed to loadLibrary [" + libDir + "].");
-    // FARPROC func = GetProcAddress(hInstance, "SQLDriverConnectW");
+#else
+    std::ignore = connectStr;
     wideFunc = true;
-    // FreeLibrary(hInstance);
-    #endif
-    // LOG_INFO(std::string("[PLUGIN::ODBC]: ") + (wideFunc ? "Wide" : "Short") + " ODBC functions are used.");
+#endif
+    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX  + "Using " + (wideFunc ? "wide" : "short") + " character ODBC interface. ");
     return wideFunc;
 }
 
@@ -110,16 +71,16 @@ static bool isWideODBC(std::string connectStr){
 using namespace std;
 
 static void odbcConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     if(args.size() < 1){
-        LOG_ERR("[PLUGIN::ODBC]: ", "the count of param for odbcConnectionOnClose can't be less than 1");
+        PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "The count of param for odbcConnectionOnClose can't be less than 1");
         return;
     }
     LockGuard<Mutex> guard(&ODBCBaseConnection::ODBC_PLUGIN_LOCK);
     long long cp = args[0]->getLong();
     if (cp == 0 || ODBCBaseConnection::ODBC_CONN_MAP.find(cp) == ODBCBaseConnection::ODBC_CONN_MAP.end()){
-        LOG_ERR(args[0]->getString());
-        if(args[0]->getString().find("odbc connection to") == string::npos)
-            LOG_ERR("[PLUGIN::ODBC]: odbcConnectionOnClose handle is not an odbc connection. ");
+        if(args[0]->getString().find("ODBC connection to") == string::npos)
+            PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "odbcConnectionOnClose handle is not an ODBC connection. ");
         return;
     }
     ODBCBaseConnectionSP data = ODBCBaseConnection::ODBC_CONN_MAP[cp];
@@ -127,7 +88,7 @@ static void odbcConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
         data->close(true);
     }
     catch(exception& e){
-        LOG_ERR("[PLUGIN::ODBC]: failed to close odbc connection: ", e.what());
+        PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to close ODBC connection: ", e.what());
     }
     ODBCBaseConnection::ODBC_CONN_MAP.erase(cp);
     args[0]->setLong(0);
@@ -135,6 +96,7 @@ static void odbcConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
 
 
 DATA_TYPE ODBCBaseConnection::sqlType2DataType(int sqlType, long colSize, int cType) {
+    std::ignore = cType;
     // cout << sqlType << " " << colSize << " " << cType << endl;
     // https://docs.microsoft.com/en-us/sql/odbc/reference/appendixes/c-data-types
     switch (sqlType) {
@@ -191,7 +153,7 @@ bool ODBCBaseConnection::compatible(DATA_TYPE dolphinType, int sqlType, int colS
                 case SQL_DECIMAL: return true;
                 case SQL_IS_SMALLINT:
                 case SQL_CHAR:
-                    if (colSize == 1) return true;
+                    return colSize == 1;
                 default: return false;
             }
         case DT_DATE:
@@ -221,7 +183,7 @@ bool ODBCBaseConnection::compatible(DATA_TYPE dolphinType, int sqlType, int colS
 
 ODBCDataBaseType ODBCBaseConnection::getDataBaseType(const string &dataBase) {
     if (DBT_MAP.find(dataBase) == DBT_MAP.end())
-        throw RuntimeException("[PLUGIN::ODBC]: The dataBaseType " + dataBase + "is not supported. ");
+        throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "The dataBaseType " + dataBase + "is not supported. ");
     return DBT_MAP[dataBase];
 }
 
@@ -247,9 +209,9 @@ void OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp, NanD
 string ODBCBaseConnection::sqlTypeName(DATA_TYPE t, ODBCDataBaseType databaseType) {
     switch (t) {
         case DT_BOOL:
-            if (databaseType == ODBC_DBT_POSTGRSQL)
+            if (databaseType == ODBC_DBT_POST_GRE_SQL)
                 return "boolean";
-            else if (databaseType == ODBC_DBT_CLICKHOUSE)
+            else if (databaseType == ODBC_DBT_CLICK_HOUSE)
                 return "Bool";
             else if (databaseType == ODBC_DBT_ORACLE)
                 return "char(1)";
@@ -265,61 +227,61 @@ string ODBCBaseConnection::sqlTypeName(DATA_TYPE t, ODBCDataBaseType databaseTyp
         case DT_MONTH: return "date";
         case DT_TIME:
             if (databaseType == ODBC_DBT_ORACLE)
-                throw RuntimeException("[PLUGIN:ODBC]: Unsupported data type for Oracle: " + Util::getDataTypeString(t));
+                throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Unsupported data type for Oracle: " + Util::getDataTypeString(t));
             return "time";
         case DT_MINUTE:
             if (databaseType == ODBC_DBT_ORACLE)
-                throw RuntimeException("[PLUGIN:ODBC]: Unsupported data type for Oracle: " + Util::getDataTypeString(t));
+                throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Unsupported data type for Oracle: " + Util::getDataTypeString(t));
             return "time";
         case DT_SECOND:
             if (databaseType == ODBC_DBT_ORACLE)
-                throw RuntimeException("[PLUGIN:ODBC]: Unsupported data type for Oracle: " + Util::getDataTypeString(t));
+                throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Unsupported data type for Oracle: " + Util::getDataTypeString(t));
             return "time";
         case DT_DATETIME:
-            if (databaseType == ODBC_DBT_POSTGRSQL)
+            if (databaseType == ODBC_DBT_POST_GRE_SQL)
                 return "timestamp";
             else if (databaseType == ODBC_DBT_ORACLE)
                 return "date";
-            else if (databaseType == ODBC_DBT_CLICKHOUSE)
+            else if (databaseType == ODBC_DBT_CLICK_HOUSE)
                 return "datetime64";
             else
                 return "datetime";
 
         case DT_TIMESTAMP:
-            if (databaseType == ODBC_DBT_POSTGRSQL)
+            if (databaseType == ODBC_DBT_POST_GRE_SQL)
                 return "timestamp";
-            else if (databaseType == ODBC_DBT_CLICKHOUSE)
+            else if (databaseType == ODBC_DBT_CLICK_HOUSE)
                 return "datetime64";
             else if (databaseType == ODBC_DBT_ORACLE)
                 return "timestamp";
-            else if (databaseType == ODBC_DBT_SQLSERVER)
+            else if (databaseType == ODBC_DBT_SQL_SERVER)
                 return "datetime2(3)";
             else
                 return "datetime";
         case DT_NANOTIME:
             if (databaseType == ODBC_DBT_ORACLE)
-                throw RuntimeException("[PLUGIN:ODBC]: Unsupported data type for Oracle: " + Util::getDataTypeString(t));
+                throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Unsupported data type for Oracle: " + Util::getDataTypeString(t));
             return "time";
         case DT_NANOTIMESTAMP:
-            if (databaseType == ODBC_DBT_POSTGRSQL)
+            if (databaseType == ODBC_DBT_POST_GRE_SQL)
                 return "timestamp";
-            else if (databaseType == ODBC_DBT_CLICKHOUSE)
+            else if (databaseType == ODBC_DBT_CLICK_HOUSE)
                 return "datetime64";
             else if (databaseType == ODBC_DBT_ORACLE)
                 return "timestamp(9)";
-            else if (databaseType == ODBC_DBT_SQLSERVER)
+            else if (databaseType == ODBC_DBT_SQL_SERVER)
                 return "datetime2(7)";
             else
                 return "datetime";
         case DT_FLOAT:
-            if (databaseType == ODBC_DBT_SQLSERVER)
+            if (databaseType == ODBC_DBT_SQL_SERVER)
                 return "float(24)";
             else
                 return "float";
         case DT_DOUBLE:
-            if (databaseType == ODBC_DBT_POSTGRSQL)
+            if (databaseType == ODBC_DBT_POST_GRE_SQL)
                 return "double precision";
-            else if (databaseType == ODBC_DBT_SQLSERVER)
+            else if (databaseType == ODBC_DBT_SQL_SERVER)
                 return "float(53)";
             else if (databaseType == ODBC_DBT_ORACLE)
                 return "binary_double";
@@ -329,7 +291,7 @@ string ODBCBaseConnection::sqlTypeName(DATA_TYPE t, ODBCDataBaseType databaseTyp
         case DT_STRING: return "varchar(255)";
 
         default:
-            throw RuntimeException("[PLUGIN:ODBC]: The data type " + Util::getDataTypeString(t) +
+            throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "The data type " + Util::getDataTypeString(t) +
                                    " of DolphinDB is not supported. ");
     }
 }
@@ -338,7 +300,7 @@ string ODBCBaseConnection::getValueStr(string p, DATA_TYPE t, ODBCDataBaseType d
     if (p == "") return "null";
     switch (t) {
         case DT_BOOL:
-            if (databaseType == ODBC_DBT_POSTGRSQL) {
+            if (databaseType == ODBC_DBT_POST_GRE_SQL) {
                 if (p == "1")
                     return "true";
                 else
@@ -395,7 +357,7 @@ string ODBCBaseConnection::getValueStr(string p, DATA_TYPE t, ODBCDataBaseType d
 
         case DT_MINUTE:
             if(p.size() < 5)
-                throw RuntimeException("[PLUGIN::ODBC]: Minute data string size must be granter than 4");
+                throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Minute data string size must be granter than 4");
             p = p.substr(0, 5);
             p += ":00";
             p = "\'" + p + "\'";
@@ -427,7 +389,7 @@ string ODBCBaseConnection::getValueStr(string p, DATA_TYPE t, ODBCDataBaseType d
                 if (p[i] == 'T') p[i] = ' ';
             }
             if(UNLIKELY(p.size() < 23))
-                throw RuntimeException("[PLUGIN::ODBC]: Timestamp data string size must be granter than 22");
+                throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Timestamp data string size must be granter than 22");
             p = p.substr(0, 23);
             string ret;
             ret.clear();
@@ -461,7 +423,7 @@ string ODBCBaseConnection::getValueStr(string p, DATA_TYPE t, ODBCDataBaseType d
                 }
             } else {
                 if(p.size() < 23)
-                    throw RuntimeException("[PLUGIN::ODBC]: NanoTimestamp data string size must be granter than 22");
+                    throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "NanoTimestamp data string size must be granter than 22");
                 p = p.substr(0, 23);
                 for (size_t i = 0; i + 5 < p.length(); i++) {
                     if (p[i] == '.') p[i] = '-';
@@ -480,8 +442,8 @@ string ODBCBaseConnection::getValueStr(string p, DATA_TYPE t, ODBCDataBaseType d
             string ret;
             ret.clear();
             ret += "\'";
-            if (databaseType == ODBC_DBT_POSTGRSQL || databaseType == ODBC_DBT_SQLITE ||
-                databaseType == ODBC_DBT_SQLSERVER) {
+            if (databaseType == ODBC_DBT_POST_GRE_SQL || databaseType == ODBC_DBT_SQLITE ||
+                databaseType == ODBC_DBT_SQL_SERVER) {
                 for (auto i : p) {
                     if (UNLIKELY(i == '\'')) ret += "\'";
                     ret += i;
@@ -503,6 +465,7 @@ string ODBCBaseConnection::getValueStr(string p, DATA_TYPE t, ODBCDataBaseType d
 
 template <typename NanConnection, typename NanTransaction, typename NanResult, typename NanTimestamp, typename NanDate, typename NanTime, typename NanStateMent, typename NanODBCFunc>
 void OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp, NanDate, NanTime, NanStateMent, NanODBCFunc>::odbcExecute(NanTransaction &cp, const string &querySql, Heap *heap) {
+    std::ignore = heap;
     try {
         getODBCFunc().execute(cp, querySql);
     } catch (const runtime_error &e) {
@@ -511,16 +474,24 @@ void OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp, NanD
             errorMsg.find("query, subquery, possibly with UNION, SELECT subquery, SELECT") != string::npos) {
             this->close(false);
         }
-        throw RuntimeException(string("[PLUGIN:ODBC]: ") + e.what());
+        throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + e.what());
     }
 }
 
 template <typename NanConnection, typename NanTransaction, typename NanResult, typename NanTimestamp, typename NanDate, typename NanTime, typename NanStateMent, typename NanODBCFunc>
 void OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp, NanDate, NanTime, NanStateMent, NanODBCFunc>::odbcExecute(const string &querySql, Heap *heap) {
-    LockGuard<Mutex> lockClickhouse(getClickhouseLock());
+    std::ignore = heap;
+    if (dataBaseType_ == ODBC_DBT_CLICK_HOUSE) {
+        PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire global lock for ODBC connection " + std::to_string((long long)this) + ". ");
+    }
+    LockGuard<Mutex> lockClickHouse(getClickHouseLock());
+    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire lock for ODBC connection " + std::to_string((long long)this) + ". ");
     LockGuard<Mutex> lockGuard(&lock);
-    if(closed_)
-        throw RuntimeException("[PLUGIN::ODBC]: odbc connection is closed. ");
+    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Executing SQL statements on ODBC connection " + std::to_string((long long)this) + ". ");
+    if(closed_){
+        PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Cannot execute SQL statements: ODBC connection is closed. ");
+        throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Cannot execute SQL statements: ODBC connection is closed. ");
+    }
     try {
         getODBCFunc().execute(*nanoConn_, querySql);
     } catch (const runtime_error &e) {
@@ -529,8 +500,9 @@ void OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp, NanD
             errorMsg.find("query, subquery, possibly with UNION, SELECT subquery, SELECT") != string::npos) {
             this->close(false);
         }
-        throw RuntimeException(string("[PLUGIN:ODBC]: ") + e.what());
+        throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + e.what());
     }
+    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Execution completed on ODBC connection " + std::to_string((long long)this) + ". ");
 }
 
 struct NanODBCWideFunc {
@@ -725,7 +697,7 @@ struct NanODBCShortFunc {
         return str;
     }
 
-    
+
     inline void getData(vector<vector<U8ForStringPoint>> &buffers, vector<Vector *>& arrCol, nanodbc::result &results,
                         vector<DATA_TYPE> &columnTypes, int columns, int curLine) {
         for (short col = 0; col < columns; ++col) {
@@ -877,24 +849,24 @@ struct NanODBCShortFunc {
 ConstantSP ODBCBaseConnection::odbcGetConnection(Heap *heap, vector<ConstantSP> &args, const std::string &funcName) {
     if (args.size() == 0)
         throw IllegalArgumentException(funcName,
-                                       "[PLUGIN::ODBC]: The first argument must be a connection string "
-                                       "scalar or an odbc connection handle");
+                                       PLUGIN_ODBC_STRING_PREFIX + "The first argument must be a connection string "
+                                       "scalar or an ODBC connection handle");
     if (args[0]->isScalar() && args[0]->getType() == DT_STRING) {
         std::string connStr = args[0]->getString();
         if (connStr == "")
-            throw IllegalArgumentException(funcName, "[PLUGIN::ODBC]: connStr can't be an empty string. ");
+            throw IllegalArgumentException(funcName, PLUGIN_ODBC_STRING_PREFIX + "connStr can't be an empty string. ");
         std::string dataBaseType;
         if (args.size() >= 2) {
             if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR)
                 throw IllegalArgumentException(funcName,
-                                               "[PLUGIN::ODBC]: DataBaseType must be a string scalar. ");
+                                               PLUGIN_ODBC_STRING_PREFIX + "database must be a string scalar. ");
             dataBaseType = args[1]->getString();
             std::transform(dataBaseType.begin(), dataBaseType.end(), dataBaseType.begin(), ::tolower);
 
             if (dataBaseType != "postgresql" && dataBaseType != "mysql" && dataBaseType != "sqlserver" &&
                 dataBaseType != "clickhouse" && dataBaseType != "sqlite" && dataBaseType != "oracle")
                 throw IllegalArgumentException(funcName,
-                                               "[PLUGIN::ODBC]: DataBaseType must be PostgreSQL, SQLServer, "
+                                               PLUGIN_ODBC_STRING_PREFIX + "DataBaseType must be PostgreSQL, SQLServer, "
                                                "MySQL, ClickHouse, SQLite, or Oracle. ");
         }
 
@@ -913,11 +885,11 @@ ConstantSP ODBCBaseConnection::odbcGetConnection(Heap *heap, vector<ConstantSP> 
             std::string sqlString = "select 1";
             cup->odbcExecute(sqlString, heap);
         }
-        std::string desc = "odbc connection to [" + connStr + "]";
+        std::string desc = "ODBC connection to [" + connStr + "]";
         FunctionDefSP onClose(
-            Util::createSystemProcedure("odbc connection onClose()", odbcConnectionOnClose, 1, 1));
+            Util::createSystemProcedure("ODBC connection onClose()", odbcConnectionOnClose, 1, 1));
         ConstantSP res =
-            Util::createResource((long long)cup.get(), desc, onClose, heap->currentSession());
+            Util::createResource((long long)cup.get(), desc, onClose, heap);
         LockGuard<Mutex> guard(&ODBC_PLUGIN_LOCK);
         long long conn = reinterpret_cast<long long>(cup.get());
         ODBC_CONN_MAP[conn] = cup;
@@ -927,18 +899,18 @@ ConstantSP ODBCBaseConnection::odbcGetConnection(Heap *heap, vector<ConstantSP> 
         LockGuard<Mutex> lock(&ODBC_PLUGIN_LOCK);
         long long conn = args[0]->getLong();
         if (ODBC_CONN_MAP.find(conn) == ODBC_CONN_MAP.end()){
-            if(args[0]->getString().find("odbc connection") == 0) {
-                throw RuntimeException("[PLUGIN::ODBC]: The odbc connection has been closed.");
+            if(args[0]->getString().find("ODBC connection") == 0) {
+                throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "The ODBC connection has been closed.");
             }
             else
                 throw IllegalArgumentException(funcName,
-                                            "[PLUGIN::ODBC]: connHandle must be an odbc connection");
+                                            PLUGIN_ODBC_STRING_PREFIX + "conn must be an ODBC connection");
         }
         return args[0];
     } else {
         throw IllegalArgumentException(funcName,
-                                       "[PLUGIN::ODBC]: The first argument must be a connection string "
-                                       "scalar or an odbc connection handle");
+                                       PLUGIN_ODBC_STRING_PREFIX + "The first argument must be a connection string "
+                                       "scalar or an ODBC connection handle");
     }
 }
 
@@ -946,6 +918,7 @@ template <typename NanConnection, typename NanTransaction, typename NanResult, t
 TableSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp, NanDate, NanTime, NanStateMent, NanODBCFunc>::odbcGetOrCreateTable(Heap *heap, const TableSP& schemaTable,
                                     const NanResult &results, vector<ConstantSP> &columnVecs,
                                     vector<std::string> &colNames, bool compatibility) {
+    std::ignore = heap;
     getColNames(results, colNames);
     const short columns = results.columns();
     if (!schemaTable.isNull()) {
@@ -953,15 +926,15 @@ TableSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp, N
         if (compatibility) {
             if (columns != tblSP->columns()) {
                 throw TableRuntimeException(
-                    "[PLUGIN::ODBC]: The given table schema is incompatible with the returned table from "
-                    "ODBC");    
+                    PLUGIN_ODBC_STRING_PREFIX + "The given table schema is incompatible with the returned table from "
+                    "ODBC");
             }
             columnVecs.resize(columns);
             for (INDEX i = 0; i < columns; ++i) {
                 DATA_TYPE dolphinType = tblSP->getColumnType(i);
                 if (!compatible(dolphinType, results.column_datatype(i), results.column_size(i))) {
                     throw TableRuntimeException(
-                        "[PLUGIN::ODBC]: The given table schema is incompatible with the returned table from "
+                        PLUGIN_ODBC_STRING_PREFIX + "The given table schema is incompatible with the returned table from "
                         "ODBC at column " +
                         to_string(i) + "[" + getODBCFunc().getString(results.column_name(i)) + "]");
                 }
@@ -981,14 +954,23 @@ TableSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp, N
 
 template <typename NanConnection, typename NanTransaction, typename NanResult, typename NanTimestamp, typename NanDate, typename NanTime, typename NanStateMent, typename NanODBCFunc>
 ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp, NanDate, NanTime, NanStateMent, NanODBCFunc>::odbcAppend(Heap* heap, TableSP t, const string& tableName, bool createTable, bool insertIgnore){
-    LockGuard<Mutex> lockClickhouse(getClickhouseLock());
+    if (dataBaseType_ == ODBC_DBT_CLICK_HOUSE) {
+        PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire global lock for ODBC connection " + std::to_string((long long)this) + ". ");
+    }
+    LockGuard<Mutex> lockClickHouse(getClickHouseLock());
+    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire lock for ODBC connection " + std::to_string((long long)this) + ". ");
     LockGuard<Mutex> lockGuard(&lock);
-    if(closed_)
-        throw RuntimeException("[PLUGIN::ODBC]: odbc connection is closed. ");
+    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Appending data to ODBC connection " + std::to_string((long long)this) + ". ");
+    if(closed_){
+        PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX, "Cannot append data: ODBC connection is closed. ");
+        throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Cannot append data: ODBC connection is closed. ");
+    }
     NanTransaction tranConn(*nanoConn_);
     ODBCDataBaseType databaseType = getDataBaseType();
-    if (insertIgnore && databaseType != ODBC_DBT_MYSQL)
-        throw IllegalArgumentException("odbc::append", "[PLUGIN:ODBC]: insert ignore can only use in MySQL");
+    if (insertIgnore && databaseType != ODBC_DBT_MYSQL){
+        PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX, "ignoreDuplicates can only use in MySQL");
+        throw IllegalArgumentException("odbc::append", PLUGIN_ODBC_STRING_PREFIX + "ignoreDuplicates can only use in MySQL");
+    }
 
     int inRows = 3000;
     if (databaseType == ODBC_DBT_SQLITE) inRows = 500;
@@ -998,7 +980,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
     for (int i = 0; i < t->columns(); i++) {
         cols.push_back(t->getColumn(i));
         colType.push_back(t->getColumnType(i));
-    }   
+    }
 
     u16string querySql;
 
@@ -1016,21 +998,21 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
 
         if (databaseType == ODBC_DBT_MYSQL) {
             createString += "DEFAULT CHARSET=utf8";
-        } else if (databaseType == ODBC_DBT_CLICKHOUSE) {
+        } else if (databaseType == ODBC_DBT_CLICK_HOUSE) {
             createString += "engine=Log;";
             // std::cout << "use Log as table engine." << std::endl;
         }
-        LOG("[PLUGIN:ODBC]: " + createString);
+        PLUGIN_LOG(PLUGIN_ODBC_STRING_PREFIX, createString);
         odbcExecute(tranConn, createString, heap);
     }
     int rows = t->rows();
     int columns = t->columns();
     string sql;
     if (databaseType == ODBC_DBT_ORACLE) {
-        INDEX batchSize = 1000000;
+        constexpr INDEX batchSize = 1000000;
         INDEX start = 0;
         vector<char> dataNullVec;
-        bool nullPtr[batchSize];
+        static bool nullPtr[batchSize];
         dataNullVec.reserve(batchSize);
 
         vector<char *> dataCharPtrVec;
@@ -1084,7 +1066,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                     dataCharPtrVec.reserve(batchSize);
                     break;
                 default:
-                    throw RuntimeException("[PLUGIN::ODBC]: Unsupported type " +
+                    throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Unsupported type " +
                         Util::getDataTypeString(cols[i]->getType()) + " of column " + to_string(i) +".");
             }
         }
@@ -1134,7 +1116,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
             prepareSql += ") values ";
             prepareSql += questionMarks;
             prepareSql += "";
-            LOG("[PLUGIN:ODBC]: " + prepareSql);
+            PLUGIN_LOG(PLUGIN_ODBC_STRING_PREFIX, prepareSql);
             getODBCFunc().prepare(statement, prepareSql);
 
             const size_t elements = end - start;
@@ -1193,7 +1175,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                             }
                             statement.bind_oracle_time(i, dataStringVec);
                         } else {
-                            NanDate bindData[elements];
+                            std::vector<NanDate> bindData(elements);
                             const int *data = cols[i]->getIntConst(start, elements, dataIntVec.data());
 
                             for (size_t j = 0; j < elements; ++j) {
@@ -1204,7 +1186,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                                 bindData[j].month = month;
                                 bindData[j].day = day;
                             }
-                            statement.bind(i, bindData, elements, nullPtr);
+                            statement.bind(i, bindData.data(), elements, nullPtr);
                         }
                     } break;
 
@@ -1224,7 +1206,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                             }
                             statement.bind_oracle_time(i, dataStringVec);
                         } else {
-                            NanDate bindData[elements];
+                            std::vector<NanDate> bindData(elements);
                             const int *data = cols[i]->getIntConst(start, elements, dataIntVec.data());
 
                             for (size_t j = 0; j < elements; ++j) {
@@ -1235,7 +1217,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                                 bindData[j].month = month;
                                 bindData[j].day = 1;
                             }
-                            statement.bind(i, bindData, elements, nullPtr);
+                            statement.bind(i, bindData.data(), elements, nullPtr);
                         }
                     } break;
 
@@ -1244,7 +1226,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                             // TODO
                         } else {
                             dataIntVec.clear();
-                            NanTime bindData[elements];
+                            std::vector<NanTime> bindData(elements);
                             const int *data = cols[i]->getIntConst(start, elements, dataIntVec.data());
                             for (size_t j = 0; j < elements; ++j) {
                                 int value = data[j] / 1000;
@@ -1254,7 +1236,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                                 value /= 60;
                                 bindData[j].hour = value;
                             }
-                            statement.bind(i, bindData, elements, nullPtr);
+                            statement.bind(i, bindData.data(), elements, nullPtr);
                         }
                     } break;
 
@@ -1262,7 +1244,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                         if (databaseType == ODBC_DBT_ORACLE) {
                             // TODO
                         } else {
-                            NanTime bindData[elements];
+                            std::vector<NanTime> bindData(elements);
                             dataIntVec.clear();
                             const int *data = cols[i]->getIntConst(start, elements, dataIntVec.data());
                             for (size_t j = 0; j < elements; ++j) {
@@ -1273,7 +1255,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                                 value /= 60;
                                 bindData[j].hour = value;
                             }
-                            statement.bind(i, bindData, elements, nullPtr);
+                            statement.bind(i, bindData.data(), elements, nullPtr);
                         }
                     } break;
 
@@ -1281,7 +1263,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                         if (databaseType == ODBC_DBT_ORACLE) {
                             // TODO
                         } else {
-                            NanTime bindData[elements];
+                            std::vector<NanTime> bindData(elements);
                             dataIntVec.clear();
                             const int *data = cols[i]->getIntConst(start, elements, dataIntVec.data());
                             for (size_t j = 0; j < elements; ++j) {
@@ -1292,7 +1274,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                                 value /= 60;
                                 bindData[j].hour = value;
                             }
-                            statement.bind(i, bindData, elements, nullPtr);
+                            statement.bind(i, bindData.data(), elements, nullPtr);
                         }
                     } break;
 
@@ -1309,7 +1291,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                             }
                             statement.bind_oracle_time(i, dataStringVec);
                         } else {
-                            NanTimestamp bindData[elements];
+                            std::vector<NanTimestamp> bindData(elements);
                             dataIntVec.clear();
                             const int *data = cols[i]->getIntConst(start, elements, dataIntVec.data());
 
@@ -1328,7 +1310,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                                 bindData[j].month = month;
                                 bindData[j].day = day;
                             }
-                            statement.bind(i, bindData, elements, nullPtr);
+                            statement.bind(i, bindData.data(), elements, nullPtr);
                         }
                     } break;
 
@@ -1351,7 +1333,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                             }
                             statement.bind_oracle_time(i, dataStringVec);
                         } else {
-                            NanTimestamp bindData[elements];
+                            std::vector<NanTimestamp> bindData(elements);
                             dataLongVec.clear();
                             const long long *data = cols[i]->getLongConst(start, elements, dataLongVec.data());
 
@@ -1371,14 +1353,14 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                                 bindData[j].month = month;
                                 bindData[j].day = day;
                             }
-                            statement.bind(i, bindData, elements, nullPtr);
+                            statement.bind(i, bindData.data(), elements, nullPtr);
                         }
                     } break;
                     case DT_NANOTIME: {
                         if (databaseType == ODBC_DBT_ORACLE) {
                             // TODO
                         } else {
-                            NanTime bindData[elements];
+                            std::vector<NanTime> bindData(elements);
                             const long long *data = cols[i]->getLongConst(start, elements, dataLongVec.data());
                             for (size_t j = 0; j < elements; ++j) {
                                 long long value = data[j] / 1000000000;
@@ -1388,7 +1370,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                                 value /= 60;
                                 bindData[j].hour = value;
                             }
-                            statement.bind(i, bindData, elements, nullPtr);
+                            statement.bind(i, bindData.data(), elements, nullPtr);
                         }
                     } break;
                     case DT_NANOTIMESTAMP: {
@@ -1404,7 +1386,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                             }
                             statement.bind_oracle_time(i, dataStringVec);
                         } else {
-                            NanTimestamp bindData[elements];
+                            std::vector<NanTimestamp> bindData(elements);
                             dataLongVec.clear();
                             const long long *data = cols[i]->getLongConst(start, elements, dataLongVec.data());
 
@@ -1424,7 +1406,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                                 bindData[j].month = month;
                                 bindData[j].day = day;
                             }
-                            statement.bind(i, bindData, elements, nullPtr);
+                            statement.bind(i, bindData.data(), elements, nullPtr);
                         }
                     } break;
                     case DT_FLOAT: {
@@ -1455,7 +1437,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                     } break;
 
                     default:
-                        throw RuntimeException("[PLUGIN::ODBC]: Unsupported type " +
+                        throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Unsupported type " +
                             Util::getDataTypeString(cols[i]->getType()) + " of column " + to_string(i) +".");
                 }
             }
@@ -1502,32 +1484,41 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
     try {
         tranConn.commit();
     } catch (const runtime_error &e) {
-        throw RuntimeException(string("[PLUGIN::ODBC]: Failed to append data : ") + e.what());
+        PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX, "Failed to commit transaction: ", e.what());
+        throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Failed to append data : " + e.what());
     }
+    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Successfully appended data to ODBC connection " + std::to_string((long long)this) + ". ");
     return Util::createConstant(DT_VOID);
 }
 
 template <typename NanConnection, typename NanTransaction, typename NanResult, typename NanTimestamp, typename NanDate, typename NanTime, typename NanStateMent, typename NanODBCFunc>
 ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp, NanDate, NanTime, NanStateMent, NanODBCFunc>::odbcQuery(Heap* heap, const TableSP& schemaTable, const FunctionDefSP& transform, int batchSize, const string& querySql){
-    LockGuard<Mutex> lockClickhouse(getClickhouseLock());
+    if (dataBaseType_ == ODBC_DBT_CLICK_HOUSE) {
+        PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire global lock for ODBC connection " + std::to_string((long long)this) + ". ");
+    }
+    LockGuard<Mutex> lockClickHouse(getClickHouseLock());
+    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire lock for ODBC connection " + std::to_string((long long)this) + ". ");
     LockGuard<Mutex> lockGuard(&lock);
-    if(closed_)
-        throw RuntimeException("[PLUGIN::ODBC]: odbc connection is closed. ");
+    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Querying data on ODBC connection " + std::to_string((long long)this) + ". ");
+    if(closed_){
+        PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX, "Cannot query data: ODBC connection is closed. ");
+        throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Cannot query data: ODBC connection is closed. ");
+    }
     const static int nanodbc_rowset_size = 1;
     if (querySql == "")
-        throw IllegalArgumentException("odbc::query", "[PLUGIN::ODBC]: querySql can't be an empty string.");
+        throw IllegalArgumentException("odbc::query", PLUGIN_ODBC_STRING_PREFIX + "QuerySql can't be an empty string.");
 
     NanResult results;
     NanStateMent hStmt;
     try {
         results = getODBCFunc().execute_direct(*nanoConn_, hStmt, querySql, nanodbc_rowset_size);
     } catch (const runtime_error &e) {
-        string content = "[PLUGIN::ODBC]: Executed query [" + querySql + "]: " + e.what();
+        string content = PLUGIN_ODBC_STRING_PREFIX + "Executed query [" + querySql + "]: " + e.what();
         if (content.find("Syntax error") != string::npos &&
             content.find("query, subquery, possibly with UNION, SELECT subquery, SELECT") != string::npos) {
             this->close(false);
         }
-        throw TableRuntimeException(content);
+        throw TableRuntimeException(PLUGIN_ODBC_STRING_PREFIX + content);
     }
 
     const short columns = results.columns();
@@ -1679,7 +1670,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                         // #endif
                         break;
                     default:
-                        throw RuntimeException("[PLUGIN:ODBC]: The DolphinDB type " +
+                        throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "The DolphinDB type " +
                                             Util::getDataTypeString(rawType) + " is not supported. ");
                 }
             }
@@ -1693,19 +1684,19 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
                     try{
                         tmpTable = transform->call(heap, arg);
                     }catch(exception &e){
-                        throw RuntimeException("[PLUGIN::ODBC]: call transform error: " + string(e.what()));
+                        throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Call transform error: " + string(e.what()));
                     }catch(...){
-                        throw RuntimeException("[PLUGIN::ODBC]: call transform error. ");
+                        throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Call transform error. ");
                     }
                 }
                 vector<ConstantSP> _{appendTable, tmpTable};
-                static const FunctionDefSP func = heap->currentSession()->getFunctionDef("append!");
+                static const FunctionDefSP func = Util::getFuncDefFromHeap(heap, "append!");
                 try{
                         func->call(heap, _);
                 }catch(exception &e){
-                    throw RuntimeException("[PLUGIN::ODBC]: append error: " + string(e.what()));
+                    throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Append error: " + string(e.what()));
                 }catch(...){
-                        throw RuntimeException("[PLUGIN::ODBC]: call transform error. ");
+                        throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Call transform error. ");
                 }
 
             }
@@ -1713,17 +1704,19 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
             for (short i = 0; i < columns; ++i) { arrCol[i]->clear(); }
         }
     }
+    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Query completed on ODBC connection " + std::to_string((long long)this) + ". ");
     return appendTable;
 }
 
 unordered_map<string, ODBCDataBaseType> ODBCBaseConnection::DBT_MAP = {{"", ODBC_DBT_VOID},
                                                                    {"mysql", ODBC_DBT_MYSQL},
-                                                                   {"sqlserver", ODBC_DBT_SQLSERVER},
+                                                                   {"sqlserver", ODBC_DBT_SQL_SERVER},
                                                                    {"sqlite", ODBC_DBT_SQLITE},
-                                                                   {"clickhouse", ODBC_DBT_CLICKHOUSE},
+                                                                   {"clickhouse", ODBC_DBT_CLICK_HOUSE},
                                                                    {"oracle", ODBC_DBT_ORACLE},
-                                                                   {"postgresql", ODBC_DBT_POSTGRSQL}};
+                                                                   {"postgresql", ODBC_DBT_POST_GRE_SQL}};
 
 Mutex ODBCBaseConnection::ODBC_PLUGIN_LOCK;
 unordered_map<long long, ODBCBaseConnectionSP> ODBCBaseConnection::ODBC_CONN_MAP;
-Mutex ODBCBaseConnection::CLICKHOUSE_LOCK;
+Mutex ODBCBaseConnection::CLICK_HOUSE_LOCK;
+std::string PLUGIN_ODBC_STRING_PREFIX = "[PLUGIN::ODBC]: ";

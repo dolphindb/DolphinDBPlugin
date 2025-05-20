@@ -3,47 +3,53 @@
 #include "ScalarImp.h"
 #include "ddbplugin/PluginLogger.h"
 
-PluginSeverityType PLUGIN_LOG_LEVEL = PluginSeverityType::INFO;
+namespace ddb {
+    extern ddb::Logger log_inst;
+}
+
+ddb::severity_type PLUGIN_LOG_LEVEL = ddb::log_inst.getLogLevel();
 
 extern "C" {
-void setLogLevel(Heap *heap, vector<ConstantSP> &args) {
+void setLogLevel(ddb::Heap *heap, std::vector<ddb::ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"setLogLevel(logLevel) "};
     string errMsg{"logLevel must be DEBUG, INFO, WARNING or ERROR"};
     if (args.size() != 1) {
-        throw IllegalArgumentException(
+        throw ddb::IllegalArgumentException(
             "setLogLevel", usage +
                                "function [setLogLevel] expects 1 argument(s), but the actual number of arguments is: " +
                                std::to_string(args.size()));
     }
-    if (!args[0]->isScalar() || args[0]->getType() != DT_INT) {
-        throw IllegalArgumentException("setLogLevel", usage + errMsg);
+    if (!args[0]->isScalar() || args[0]->getType() != ddb::DT_INT) {
+        throw ddb::IllegalArgumentException("setLogLevel", usage + errMsg);
     }
     int level = args[0]->getInt();
     if (level >= 0 && level <= 3) {
-        PLUGIN_LOG_LEVEL = PluginSeverityType(level);
+        PLUGIN_LOG_LEVEL = ddb::severity_type(level);
         return;
     }
-    throw IllegalArgumentException("setLogLevel", usage + errMsg);
+    throw ddb::IllegalArgumentException("setLogLevel", usage + errMsg);
 }
 
-ConstantSP getLogLevel(Heap *heap, vector<ConstantSP> &args) {
+ddb::ConstantSP getLogLevel(ddb::Heap *heap, std::vector<ddb::ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"getLogLevel() "};
     if (args.size() != 0) {
-        throw IllegalArgumentException(
+        throw ddb::IllegalArgumentException(
             "getLogLevel", usage +
                                "function [getLogLevel] expects 0 argument(s), but the actual number of arguments is: " +
                                std::to_string(args.size()));
     }
     switch (PLUGIN_LOG_LEVEL) {
-        case PluginSeverityType::DEBUG:
-            return new String("DEBUG");
-        case PluginSeverityType::INFO:
-            return new String("INFO");
-        case PluginSeverityType::WARNING:
-            return new String("WARNING");
-        case PluginSeverityType::ERR:
+        case ddb::severity_type::DEBUG:
+            return new ddb::String("DEBUG");
+        case ddb::severity_type::INFO:
+            return new ddb::String("INFO");
+        case ddb::severity_type::WARNING:
+            return new ddb::String("WARNING");
+        case ddb::severity_type::ERR:
         default:
-            return new String("ERROR");
+            return new ddb::String("ERROR");
     }
 }
 }

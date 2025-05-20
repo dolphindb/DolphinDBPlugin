@@ -111,7 +111,7 @@ voidpf ZCALLBACK fopen_buf_func (opaque, filename, mode)
 
 voidpf ZCALLBACK fopen64_buf_func (opaque, filename, mode)
    voidpf opaque;
-   const char* filename;
+   const void* filename;
    int mode;
 {
     ourbuffer_t *bufio = (ourbuffer_t *)opaque;

@@ -1,5 +1,6 @@
-cmake_minimum_required(VERSION 3.0)
-project(PluginFeather LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.13)
+set(PluginName PluginFeather)
+project(${PluginName})
 
 #######################################################################################################################
 # CMake options and global variables.
@@ -24,16 +25,13 @@ option(DDB_USE_ASAN
     "Enable ASAN, a fast memory error detector. https://clang.llvm.org/docs/AddressSanitizer.html"
     OFF)
 
-set(PLUGIN_COMPILE_DEFINITIONS
-    "-DLOCKFREE_SYMBASE"
-)
 set(PLUGIN_COMPILE_OPTIONS
     "-std=c++11"
     "-Wall"
     "-fPIC"
 )
 set(PLUGIN_INCLUDE_DIRECTORIES
-    ${PROJECT_SOURCE_DIR}/../include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 set(PLUGIN_LINK_DIRECTORIES
     ${CMAKE_BINARY_DIR}
@@ -52,12 +50,11 @@ if (UNIX)
     list(APPEND PLUGIN_COMPILE_DEFINITIONS "-DLINUX")
     set(installType linux)
     set(pluginFileTxt "${CMAKE_CURRENT_LIST_DIR}/PluginFeather.txt")
-    list(APPEND PLUGIN_COMPILE_DEFINITIONS "-D_GLIBCXX_USE_CXX11_ABI=0")
 elseif (WIN32)
     MESSAGE(STATUS "Platform: WINDOWS")
     list(APPEND PLUGIN_COMPILE_DEFINITIONS "-DWINDOWS")
     set(installType win)
-    set(extraBin ${PROJECT_SOURCE_DIR}/lib/win/)
+    set(extraBin ${CMAKE_CURRENT_SOURCE_DIR}/lib/win/)
     set(pluginFileTxt "${CMAKE_CURRENT_LIST_DIR}/PluginFeather_win.txt")
 else ()
     message(FATAL_ERROR "Unsupported platform.")
@@ -68,8 +65,8 @@ endif ()
 include(../buildSetup.cmake)
 
 # Source Code
-file(GLOB PluginFeather_HEADER CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.h)
-file(GLOB PluginFeather_SOURCE CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.cpp)
+file(GLOB PluginFeather_HEADER CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h)
+file(GLOB PluginFeather_SOURCE CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 
 # Options & Dependencies
 if (UNIX)
@@ -96,23 +93,23 @@ target_link_libraries(PluginFeather ${PLUGIN_LINK_OPTIONS} ${PLUGIN_LINK_LIBRARI
 # Post-build
 if (WIN32)
     install(DIRECTORY ${extraBin}
-        DESTINATION "${PROJECT_SOURCE_DIR}/bin/${installType}"
+        DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/bin/${installType}"
     )
 elseif (UNIX)
 endif()
 
 install(TARGETS PluginFeather
-        DESTINATION "${PROJECT_SOURCE_DIR}/bin/${installType}"
+        DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/bin/${installType}"
 )
 install(FILES ${pluginFileTxt}
-    DESTINATION "${PROJECT_SOURCE_DIR}/bin/${installType}"
+    DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/bin/${installType}"
     RENAME ${destPluginTxt}
 )
-message(STATUS "Install Destination: ${PROJECT_SOURCE_DIR}/bin/${installType}")
+message(STATUS "Install Destination: ${CMAKE_CURRENT_SOURCE_DIR}/bin/${installType}")
 
 # Compatibale with Jenkins
 add_custom_command(
     TARGET PluginFeather POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy ${pluginFileTxt} ${PROJECT_SOURCE_DIR}/build/PluginFeather.txt
+    COMMAND ${CMAKE_COMMAND} -E copy ${pluginFileTxt} ${CMAKE_CURRENT_SOURCE_DIR}/build/PluginFeather.txt
     COMMENT "copy PluginFeather.txt"
 )

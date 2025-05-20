@@ -8,9 +8,10 @@
 #ifndef DOLPHINDBODBC_H_
 #define DOLPHINDBODBC_H_
 
+#include "DolphinDBEverything.h"
 #include "CoreConcept.h"
 #include "Util.h"
-#ifndef LINUX
+#ifdef _WIN32
 #include <windows.h>
 #endif
 #include <sql.h>
@@ -28,6 +29,9 @@
 #include "Logger.h"
 #include "cvt.h"
 #include "nanodbc/nanodbc.h"
+using ddb::ConstantSP;
+using ddb::Heap;
+using std::vector;
 
 extern "C" {
 ConstantSP odbcConnect(Heap* heap, vector<ConstantSP>& args);

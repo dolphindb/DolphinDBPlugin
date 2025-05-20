@@ -11,6 +11,8 @@
 #include "ScalarImp.h"
 #include "SpecialConstant.h"
 #include "Logger.h"
+#include "ddbplugin/PluginLogger.h"
+#include "ddbplugin/PluginLoggerImp.h"
 
 #include "endian.h"
 #include "kdb.h"
@@ -122,7 +124,7 @@ void kdb::fakeEmptyAnyColumn(Vector* colVal,
     const string& tableName, const string& colName, DATA_TYPE dummyType
 ) {
     assert(colVal);
-    LOG(PLUGIN_NAME ": "
+    PLUGIN_LOG(PLUGIN_NAME ": "
             "DolphinDB does not support empty ANY VECTOR in "
         + tableName + "." + colName + " as a table column! "
             "We'll try to fake one instead...");
@@ -685,7 +687,7 @@ VectorSP kdb::toDDB::mapStrings(J* begin, J* end,
         if(0 <= *idx && static_cast<size_t>(*idx) < symList.size()) {
             s = sym(symList[*idx]);
         } else {
-            LOG(PLUGIN_NAME ": " + var + " - "
+            PLUGIN_LOG(PLUGIN_NAME ": " + var + " - "
                 "sym[" + to_string(*idx) + "] not in " + symName + ".");
             s = sym(nullptr);
         }
@@ -798,7 +800,7 @@ VectorSP kdb::toDDB::nestedList(Type type,
             });
             break;
         default:
-            vec = InternalUtil::createArrayVector(
+            vec = Util::createArrayVector(
                 bit_cast<DATA_TYPE>(ARRAY_TYPE_BASE + dbType),
                 0, 0, count, 0);
             for_each(list.begin(), list.end(), [&vec](VectorSP& item) {
@@ -814,11 +816,6 @@ VectorSP kdb::toDDB::nestedList(Type type,
 
 //////////////////////////////////////////////////////////////////////////////
 #pragma pack(push, 1)
-
-// FIXME: assert() cannot be used in constexpr functions in C++11.
-//@see http://ericniebler.com/2014/09/27/assert-and-constexpr-in-cxx11/
-#define CONSTEXPR_ASSERT(check, value)   \
-    (check) ? (value) : throw assert_failure([]{ assert(!#check); });
 
 namespace {
     struct assert_failure {
@@ -838,15 +835,20 @@ namespace {
  *> FIXME: only "format" of value 0x00 or 0x01 is recongized for now.
  *> A null symbol will have "index" value equal to 0Wj in q.
  */
+
+constexpr int64_t ITEM_INDEX_MASK = 0x00FFFFFFFFFFFFFF;
+
 struct kdb::Parser::ItemIndex {
     union {
         struct {        // For nested data map
-            int32_t offset;
-            byte    pad_xxx[3];
+            byte    pad_xxx[7];
             byte    format;
         };
         int64_t index;  // For enumerated symbol
     };
+    constexpr int64_t getOffset() const noexcept {
+        return index & ITEM_INDEX_MASK;
+    }
 };
 static_assert(
     sizeof(kdb::Parser::ItemIndex) == 4+3+1,
@@ -881,11 +883,9 @@ static_assert(
 );
 
 struct kdb::Parser::SymsList : DataBlock<BaseHeader, char> {
-    constexpr size_t getCount() const noexcept {
-        return CONSTEXPR_ASSERT(
-            header.ref_count >= 0,
-            static_cast<size_t>(header.ref_count)
-        );
+    size_t getCount() const noexcept {
+        assert(header.ref_count >= 0);
+        return static_cast<size_t>(header.ref_count);
     }
 
     vector<string> getSyms(const byte* end) const {
@@ -912,7 +912,7 @@ struct kdb::Parser::SymsList : DataBlock<BaseHeader, char> {
             next = eos + 1;
         }
         if(next < eod) {
-            LOG(PLUGIN_NAME ": "
+            PLUGIN_LOG(PLUGIN_NAME ": "
                 "Found syms beyond designated count=" + to_string(count) + ".");
             while(next < eod) {
                 const auto eos = find(next, eod, '\0');
@@ -921,9 +921,8 @@ struct kdb::Parser::SymsList : DataBlock<BaseHeader, char> {
             }
         }
 
-        assert(syms.size() >= count || count == UNKNOWN_SIZE);
         if(syms.size() > count) {
-            LOG(PLUGIN_NAME ": "
+            PLUGIN_LOG(PLUGIN_NAME ": "
                 "Actual syms extracted=" + to_string(syms.size()) + ".");
         }
         return syms;
@@ -957,11 +956,9 @@ static_assert(
 struct kdb::Parser::BaseList : DataBlock<BaseListHeader, byte> {
     using DataBlock::isComplete;
 
-    constexpr size_t getCount() const noexcept {
-        return CONSTEXPR_ASSERT(
-            header.count >= 0,
-            static_cast<size_t>(header.count)
-        );
+    size_t getCount() const noexcept {
+        assert(header.count >= 0);
+        return static_cast<size_t>(header.count);
     }
 };
 
@@ -992,7 +989,7 @@ struct kdb::Parser::ExtList {
         BaseListHeader payload;
     };
 
-    constexpr bool isComplete(const byte* end) const noexcept {
+    bool isComplete(const byte* end) const noexcept {
         return end - reinterpret_cast<const byte*>(this) >= EXT_DATA_SEGMENT;
     }
 
@@ -1029,15 +1026,13 @@ static_assert(
 );
 
 struct kdb::Parser::SimpleList : DataBlock<SimpleListHeader, byte> {
-    bool isComplete(const byte* end) const noexcept {
+    bool isComplete(const byte* end) const {
         return DataBlock::isComplete(getSize(header.type), getCount(), end);
     }
 
-    constexpr size_t getCount() const noexcept {
-        return CONSTEXPR_ASSERT(
-            header.count >= 0,
-            static_cast<size_t>(header.count)
-        );
+    size_t getCount() const noexcept {
+        assert(header.count >= 0);
+        return static_cast<size_t>(header.count);
     }
 
     VectorSP getVector() const {
@@ -1077,15 +1072,13 @@ static_assert(
 );
 
 struct kdb::Parser::EnumSymsList : DataBlock<EnumSymsHeader, ItemIndex> {
-    constexpr bool isComplete(const byte* end) const noexcept {
+    bool isComplete(const byte* end) const {
         return DataBlock::isComplete(getCount(), end);
     }
 
-    constexpr size_t getCount() const noexcept {
-        return CONSTEXPR_ASSERT(
-            header.count >= 0,
-            static_cast<size_t>(header.count)
-        );
+    size_t getCount() const noexcept {
+        assert(header.count >= 0);
+        return static_cast<size_t>(header.count);
     }
 
     vector<S> getSyms(const byte* end,
@@ -1103,7 +1096,7 @@ struct kdb::Parser::EnumSymsList : DataBlock<EnumSymsHeader, ItemIndex> {
         if(length % sizeof(data_t) == 0) {
             const auto real_count = length / sizeof(data_t);
             if(real_count > 0 && count == 0) {
-                LOG(PLUGIN_NAME ": "
+                PLUGIN_LOG(PLUGIN_NAME ": "
                     "Incorrect enum sym count found "
                     "(count=" + to_string(count) + ","
                     " expected=" + to_string(real_count) + ").");
@@ -1123,7 +1116,7 @@ struct kdb::Parser::EnumSymsList : DataBlock<EnumSymsHeader, ItemIndex> {
                 ) {
                     return sym(symList[idx.index]);
                 } else {
-                    LOG(PLUGIN_NAME ": Enumerated sym out of bounds "
+                    PLUGIN_LOG(PLUGIN_NAME ": Enumerated sym out of bounds "
                         + symName + "[" + to_string(idx.index) + "].");
                     return sym(nullptr);
                 }
@@ -1166,15 +1159,13 @@ struct kdb::Parser::NestedList
     using base_type =
         DataBlock<NestedListHeader<Tag0, Tag1, MinRef>, ItemIndex>;
 
-    constexpr bool isComplete(const byte* end) const noexcept {
+    bool isComplete(const byte* end) const {
         return base_type::isComplete(getCount(), end);
     }
 
-    constexpr size_t getCount() const noexcept {
-        return CONSTEXPR_ASSERT(
-            base_type::header.count >= 0,
-            static_cast<size_t>(base_type::header.count)
-        );
+    size_t getCount() const noexcept {
+        assert(base_type::header.count >= 0);
+        return static_cast<size_t>(base_type::header.count);
     }
 
     size_t guessCount(const byte* end) const {
@@ -1233,7 +1224,7 @@ static_assert(
 );
 
 struct kdb::Parser::NestedItem : DataBlock<NestedItemHeader, byte> {
-    bool isComplete(const byte* end) const noexcept {
+    bool isComplete(const byte* end) const {
         const auto itemSize = getSize(header.getType());
         if(itemSize == UNKNOWN_SIZE) {
             throw RuntimeException(PLUGIN_NAME ": "
@@ -1252,11 +1243,9 @@ struct kdb::Parser::NestedItem : DataBlock<NestedItemHeader, byte> {
         return DataBlock::isComplete(itemSize, getCount(), end);
     }
 
-    constexpr size_t getCount() const noexcept {
-        return CONSTEXPR_ASSERT(
-            header.count >= 0,
-            static_cast<size_t>(header.count)
-        );
+    size_t getCount() const noexcept {
+        assert(header.count >= 0);
+        return static_cast<size_t>(header.count);
     }
 };
 
@@ -1291,7 +1280,7 @@ static_assert(
 );
 
 struct kdb::Parser::NestedItemEx : DataBlock<NestedItemExHeader, byte> {
-    bool isComplete(const byte* end) const noexcept {
+    bool isComplete(const byte* end) const {
         const auto itemSize = getSize(header.getType());
         if(itemSize == UNKNOWN_SIZE) {
             throw RuntimeException(PLUGIN_NAME ": "
@@ -1308,11 +1297,9 @@ struct kdb::Parser::NestedItemEx : DataBlock<NestedItemExHeader, byte> {
         return DataBlock::isComplete(itemSize, getCount(), end);
     }
 
-    constexpr size_t getCount() const noexcept {
-        return CONSTEXPR_ASSERT(
-            header.count >= 0,
-            static_cast<size_t>(header.count)
-        );
+    size_t getCount() const noexcept {
+        assert(header.count >= 0);
+        return static_cast<size_t>(header.count);
     }
 };
 
@@ -1347,7 +1334,7 @@ static_assert(
 );
 
 struct kdb::Parser::NestedEnumSyms : DataBlock<NestedEnumSymsHeader, ItemIndex> {
-    bool isComplete(const byte* end) const noexcept {
+    bool isComplete(const byte* end) const {
         if(sizeof(data_t) * getCount() > header_t::MAX_LENGTH) {
             throw RuntimeException(PLUGIN_NAME ": "
                   "Simple nested enum syms overflow "
@@ -1359,11 +1346,9 @@ struct kdb::Parser::NestedEnumSyms : DataBlock<NestedEnumSymsHeader, ItemIndex> 
         return DataBlock::isComplete(getCount(), end);
     }
 
-    constexpr size_t getCount() const noexcept {
-        return CONSTEXPR_ASSERT(
-            header.count_syms >= 0,
-            static_cast<size_t>(header.count_syms)
-        );
+    size_t getCount() const noexcept {
+        assert(header.count_syms >= 0);
+        return static_cast<size_t>(header.count_syms);
     }
 };
 
@@ -1400,22 +1385,21 @@ static_assert(
 struct kdb::Parser::NestedEnumSymsEx
     : DataBlock<NestedEnumSymsExHeader, ItemIndex>
 {
-    bool isComplete(const byte* end) const noexcept {
+    bool isComplete(const byte* end) const {
         if(sizeof(data_t) * getCount() < header_t::MIN_LENGTH) {
             throw RuntimeException(PLUGIN_NAME ": "
                   "Simple nested enum syms overflow "
                   "(type=" + to_string(header.getType())
                 + "|count=" + to_string(getCount()) + ").");
+            return false;
         }
 
         return DataBlock::isComplete(getCount(), end);
     }
 
-    constexpr size_t getCount() const noexcept {
-        return CONSTEXPR_ASSERT(
-            header.count >= 0,
-            static_cast<size_t>(header.count)
-        );
+    size_t getCount() const noexcept {
+        assert(header.count >= 0);
+        return static_cast<size_t>(header.count);
     }
 };
 
@@ -1440,14 +1424,14 @@ static_assert(
 );
 
 struct kdb::Parser::NestedMap : DataBlock<NestedMapHeader, byte> {
-    constexpr bool isComplete(const byte* end) const noexcept {
+    bool isComplete(const byte* end) const {
         return DataBlock::isComplete(0, end);
     }
 
     static string stringize(const ItemIndex& idx) {
         ostringstream msg;
         msg << '<' <<"0x"
-            << hex << uppercase << setfill('0') << setw(8) << idx.offset
+            << hex << uppercase << setfill('0') << setw(16) << idx.getOffset()
             << '|' << setw(2) << unsigned{idx.format} << '>';
         return msg.str();
     }
@@ -1578,20 +1562,20 @@ tuple<ConstantSP, bool> kdb::Parser::NestedMap::getItem(
 
     switch(idx.format) {
         case 0x00:
-            if(getAt<NestedItemExHeader>(idx.offset)->isValid()) {
+            if(getAt<NestedItemExHeader>(idx.getOffset())->isValid()) {
                 return make_tuple(
-                    getItem(getAt<NestedItemEx>(idx.offset), idx, end),
+                    getItem(getAt<NestedItemEx>(idx.getOffset()), idx, end),
                     false);
             } else
-            if(getAt<NestedListHeader<0xFB, 0x00, 1>>(idx.offset)->isValid()) {
+            if(getAt<NestedListHeader<0xFB, 0x00, 1>>(idx.getOffset())->isValid()) {
                 return make_tuple(
                     getItem(getAt<NestedList<0xFB, 0x00, 1>>(
-                        idx.offset), idx, end),
+                        idx.getOffset()), idx, end),
                     false);
             } else
-            if(getAt<NestedEnumSymsExHeader>(idx.offset)->isValid()) {
+            if(getAt<NestedEnumSymsExHeader>(idx.getOffset())->isValid()) {
                 return make_tuple(
-                    getItem(getAt<NestedEnumSymsEx>(idx.offset), idx, end),
+                    getItem(getAt<NestedEnumSymsEx>(idx.getOffset()), idx, end),
                     true);
             } else {
                 throw RuntimeException(PLUGIN_NAME ": "
@@ -1599,14 +1583,14 @@ tuple<ConstantSP, bool> kdb::Parser::NestedMap::getItem(
                     "is not an extended nested item.");
             }
         case 0x01:
-            if(getAt<NestedItemHeader>(idx.offset)->isValid()) {
+            if(getAt<NestedItemHeader>(idx.getOffset())->isValid()) {
                 return make_tuple(
-                    getItem(getAt<NestedItem>(idx.offset), idx, end),
+                    getItem(getAt<NestedItem>(idx.getOffset()), idx, end),
                     false);
             } else
-            if(getAt<NestedEnumSymsHeader>(idx.offset)->isValid()) {
+            if(getAt<NestedEnumSymsHeader>(idx.getOffset())->isValid()) {
                 return make_tuple(
-                    getItem(getAt<NestedEnumSyms>(idx.offset), idx, end),
+                    getItem(getAt<NestedEnumSyms>(idx.getOffset()), idx, end),
                     true);
             } else {
                 throw RuntimeException(PLUGIN_NAME ": "
@@ -1825,7 +1809,7 @@ VectorSP kdb::Parser::getFastVector(const BaseList* data,
     if(length % itemSize == 0) {
         const auto real_count = length / itemSize;
         if(real_count > count) {
-            LOG(PLUGIN_NAME ": "
+            PLUGIN_LOG(PLUGIN_NAME ": "
                 "Incorrect item count found in " + file + " "
                 "(count=" + to_string(count) + ","
                 " expected=" + to_string(real_count) + ").");
@@ -1974,7 +1958,7 @@ VectorSP kdb::Parser::mapNestedLists(
     VectorSP vec, tuple;
     const auto count = end - begin;
     if(isArrayVector) {
-        vec = InternalUtil::createArrayVector(
+        vec = Util::createArrayVector(
             static_cast<DATA_TYPE>(ARRAY_TYPE_BASE + item->getType()),
             0, 0, count, 0);
         tuple = Util::createVector(DT_ANY, 1);
@@ -2048,7 +2032,7 @@ VectorSP kdb::Parser::mapEnumSyms(const VectorSP& indices,
         const_cast<J*>(begin), const_cast<J*>(end), symList, symName, mapFile);
 }
 
-DatabaseUpdater::DatabaseUpdater(Heap *heap, SystemHandleSP dbHandle, ConstantSP tableName, ConstantSP partitionColumns,
+DatabaseUpdater::DatabaseUpdater(Heap *heap, DBHandleWrapper dbHandle, ConstantSP tableName, ConstantSP partitionColumns,
                                  ConstantSP sortColumns, const vector<string> &colNames,
                                  const vector<DATA_TYPE> &colTypes, FunctionDefSP transform)
     : heap_(heap),
@@ -2062,9 +2046,8 @@ DatabaseUpdater::DatabaseUpdater(Heap *heap, SystemHandleSP dbHandle, ConstantSP
     initConvertFuncMap(heap);
 
     owner_ = heap->currentSession()->getUser()->getUserId();
-    domain_ = dbHandle->getDomain();
-    partitionType_ = domain_->getPartitionType();
-    inMemory_ = dbHandle->getDatabaseDir().empty();
+    partitionType_ = dbHandle.getPartitionType();
+    inMemory_ = dbHandle.getDatabaseDir().empty();
     if (partitionType_ == SEQ) {
         throw RuntimeException("SEQ partition is not supported.");
     }
@@ -2072,12 +2055,12 @@ DatabaseUpdater::DatabaseUpdater(Heap *heap, SystemHandleSP dbHandle, ConstantSP
     loadTableFunc_ = heap_->currentSession()->getFunctionDef("loadTable");
     createPartitionedTableFunc_ = heap_->currentSession()->getFunctionDef("createPartitionedTable");
     existsTableFunc_ = heap_->currentSession()->getFunctionDef("existsTable");
-    dbPath_ = dbHandle_->getDatabaseDir();
+    dbPath_ = dbHandle_.getDatabaseDir();
 
     vector<ConstantSP> existsTableArgs = {new String(dbPath_), tableName_};
     bool existsTable = existsTableFunc_->call(heap_, existsTableArgs)->getBool();
     if (existsTable) {
-        vector<ConstantSP> loadTableArgs = {dbHandle_, tableName_};
+        vector<ConstantSP> loadTableArgs = {dbHandle_.getDBHandle(), tableName_};
         destTable_ = loadTableFunc_->call(heap_, loadTableArgs);
     } else {
         if (!transform_.isNull()) {
@@ -2090,8 +2073,8 @@ DatabaseUpdater::DatabaseUpdater(Heap *heap, SystemHandleSP dbHandle, ConstantSP
             if (dummyTable.isNull()) {
                 throw RuntimeException(PLUGIN_NAME "create table failed, invalid schema.");
             }
-            vector<ConstantSP> createTableArgs = {dbHandle_, dummyTable, tableName_, partitionColumns_};
-            auto engineType = dbHandle->getDomain()->getEngineType();
+            vector<ConstantSP> createTableArgs = {dbHandle_.getDBHandle(), dummyTable, tableName_, partitionColumns_};
+            auto engineType = dbHandle.getEngineType();
             if (engineType == DBENGINE_TYPE::IOT) {
                 if (sortColumns.isNull()) {
                     throw RuntimeException(PLUGIN_NAME "sortColumns is needed if database engine is TSDB");
@@ -2112,43 +2095,43 @@ unordered_map<int, FunctionDefSP> DatabaseUpdater::convertFuncMap_;
 
 void DatabaseUpdater::initConvertFuncMap(Heap *heap) {
     LockGuard<Mutex> mutex(&convertMutex_);
-    convertFuncMap_[DT_BOOL] = heap->currentSession()->getFunctionDef("bool");
-    convertFuncMap_[DT_BOOL+ARRAY_TYPE_BASE] = heap->currentSession()->getFunctionDef("bool");
-    convertFuncMap_[DT_UUID] = heap->currentSession()->getFunctionDef("uuid");
-    convertFuncMap_[DT_UUID+ARRAY_TYPE_BASE] = heap->currentSession()->getFunctionDef("uuid");
-    convertFuncMap_[DT_CHAR] = heap->currentSession()->getFunctionDef("char");
-    convertFuncMap_[DT_CHAR+ARRAY_TYPE_BASE] = heap->currentSession()->getFunctionDef("char");
-    convertFuncMap_[DT_SHORT] = heap->currentSession()->getFunctionDef("short");
-    convertFuncMap_[DT_SHORT+ARRAY_TYPE_BASE] = heap->currentSession()->getFunctionDef("short");
-    convertFuncMap_[DT_INT] = heap->currentSession()->getFunctionDef("int");
-    convertFuncMap_[DT_INT+ARRAY_TYPE_BASE] = heap->currentSession()->getFunctionDef("int");
-    convertFuncMap_[DT_LONG] = heap->currentSession()->getFunctionDef("long");
-    convertFuncMap_[DT_LONG+ARRAY_TYPE_BASE] = heap->currentSession()->getFunctionDef("long");
-    convertFuncMap_[DT_FLOAT] = heap->currentSession()->getFunctionDef("float");
-    convertFuncMap_[DT_FLOAT+ARRAY_TYPE_BASE] = heap->currentSession()->getFunctionDef("float");
-    convertFuncMap_[DT_DOUBLE] = heap->currentSession()->getFunctionDef("double");
-    convertFuncMap_[DT_DOUBLE+ARRAY_TYPE_BASE] = heap->currentSession()->getFunctionDef("double");
-    convertFuncMap_[DT_DATE] = heap->currentSession()->getFunctionDef("date");
-    convertFuncMap_[DT_DATE+ARRAY_TYPE_BASE] = heap->currentSession()->getFunctionDef("date");
-    convertFuncMap_[DT_MONTH] = heap->currentSession()->getFunctionDef("month");
-    convertFuncMap_[DT_MONTH+ARRAY_TYPE_BASE] = heap->currentSession()->getFunctionDef("month");
-    convertFuncMap_[DT_TIME] = heap->currentSession()->getFunctionDef("time");
-    convertFuncMap_[DT_TIME+ARRAY_TYPE_BASE] = heap->currentSession()->getFunctionDef("time");
-    convertFuncMap_[DT_MINUTE] = heap->currentSession()->getFunctionDef("minute");
-    convertFuncMap_[DT_MINUTE+ARRAY_TYPE_BASE] = heap->currentSession()->getFunctionDef("minute");
-    convertFuncMap_[DT_SECOND] = heap->currentSession()->getFunctionDef("second");
-    convertFuncMap_[DT_SECOND+ARRAY_TYPE_BASE] = heap->currentSession()->getFunctionDef("second");
-    convertFuncMap_[DT_DATETIME] = heap->currentSession()->getFunctionDef("datetime");
-    convertFuncMap_[DT_DATETIME+ARRAY_TYPE_BASE] = heap->currentSession()->getFunctionDef("datetime");
-    convertFuncMap_[DT_TIMESTAMP] = heap->currentSession()->getFunctionDef("timestamp");
-    convertFuncMap_[DT_TIMESTAMP+ARRAY_TYPE_BASE] = heap->currentSession()->getFunctionDef("timestamp");
-    convertFuncMap_[DT_NANOTIME] = heap->currentSession()->getFunctionDef("nanotime");
-    convertFuncMap_[DT_NANOTIME+ARRAY_TYPE_BASE] = heap->currentSession()->getFunctionDef("nanotime");
-    convertFuncMap_[DT_NANOTIMESTAMP] = heap->currentSession()->getFunctionDef("nanotimestamp");
-    convertFuncMap_[DT_NANOTIMESTAMP+ARRAY_TYPE_BASE] = heap->currentSession()->getFunctionDef("nanotimestamp");
-    convertFuncMap_[DT_SYMBOL] = heap->currentSession()->getFunctionDef("symbol");
-    convertFuncMap_[DT_STRING] = heap->currentSession()->getFunctionDef("string");
-    convertFuncMap_[DT_BLOB] = heap->currentSession()->getFunctionDef("blob");
+    convertFuncMap_[DT_BOOL] = Util::getFuncDefFromHeap(heap, "bool");
+    convertFuncMap_[DT_BOOL+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "bool");
+    convertFuncMap_[DT_UUID] = Util::getFuncDefFromHeap(heap, "uuid");
+    convertFuncMap_[DT_UUID+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "uuid");
+    convertFuncMap_[DT_CHAR] = Util::getFuncDefFromHeap(heap, "char");
+    convertFuncMap_[DT_CHAR+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "char");
+    convertFuncMap_[DT_SHORT] = Util::getFuncDefFromHeap(heap, "short");
+    convertFuncMap_[DT_SHORT+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "short");
+    convertFuncMap_[DT_INT] = Util::getFuncDefFromHeap(heap, "int");
+    convertFuncMap_[DT_INT+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "int");
+    convertFuncMap_[DT_LONG] = Util::getFuncDefFromHeap(heap, "long");
+    convertFuncMap_[DT_LONG+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "long");
+    convertFuncMap_[DT_FLOAT] = Util::getFuncDefFromHeap(heap, "float");
+    convertFuncMap_[DT_FLOAT+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "float");
+    convertFuncMap_[DT_DOUBLE] = Util::getFuncDefFromHeap(heap, "double");
+    convertFuncMap_[DT_DOUBLE+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "double");
+    convertFuncMap_[DT_DATE] = Util::getFuncDefFromHeap(heap, "date");
+    convertFuncMap_[DT_DATE+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "date");
+    convertFuncMap_[DT_MONTH] = Util::getFuncDefFromHeap(heap, "month");
+    convertFuncMap_[DT_MONTH+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "month");
+    convertFuncMap_[DT_TIME] = Util::getFuncDefFromHeap(heap, "time");
+    convertFuncMap_[DT_TIME+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "time");
+    convertFuncMap_[DT_MINUTE] = Util::getFuncDefFromHeap(heap, "minute");
+    convertFuncMap_[DT_MINUTE+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "minute");
+    convertFuncMap_[DT_SECOND] = Util::getFuncDefFromHeap(heap, "second");
+    convertFuncMap_[DT_SECOND+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "second");
+    convertFuncMap_[DT_DATETIME] = Util::getFuncDefFromHeap(heap, "datetime");
+    convertFuncMap_[DT_DATETIME+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "datetime");
+    convertFuncMap_[DT_TIMESTAMP] = Util::getFuncDefFromHeap(heap, "timestamp");
+    convertFuncMap_[DT_TIMESTAMP+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "timestamp");
+    convertFuncMap_[DT_NANOTIME] = Util::getFuncDefFromHeap(heap, "nanotime");
+    convertFuncMap_[DT_NANOTIME+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "nanotime");
+    convertFuncMap_[DT_NANOTIMESTAMP] = Util::getFuncDefFromHeap(heap, "nanotimestamp");
+    convertFuncMap_[DT_NANOTIMESTAMP+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "nanotimestamp");
+    convertFuncMap_[DT_SYMBOL] = Util::getFuncDefFromHeap(heap, "symbol");
+    convertFuncMap_[DT_STRING] = Util::getFuncDefFromHeap(heap, "string");
+    convertFuncMap_[DT_BLOB] = Util::getFuncDefFromHeap(heap, "blob");
 }
 
 // do not support concurrent append
@@ -2202,8 +2185,8 @@ void DatabaseUpdater::append(TableSP table) {
         if (dummyTable.isNull()) {
             throw RuntimeException(PLUGIN_NAME "create table failed, invalid schema.");
         }
-        vector<ConstantSP> createTableArgs = {dbHandle_, dummyTable, tableName_, partitionColumns_};
-        auto engineType = dbHandle_->getDomain()->getEngineType();
+        vector<ConstantSP> createTableArgs = {dbHandle_.getDBHandle(), dummyTable, tableName_, partitionColumns_};
+        auto engineType = dbHandle_.getEngineType();
         if (engineType == DBENGINE_TYPE::IOT) {
             if (sortColumns_.isNull()) {
                 throw RuntimeException(PLUGIN_NAME "sortColumns is needed if database engine is tsdb");
@@ -2348,7 +2331,7 @@ bool kdb::Parser::getBatch(long long batchSize, VectorSP buffer, bool finalBatch
                 } else if (0 <= idx.index && static_cast<size_t>(idx.index) < symList.size()) {
                     return sym(symList[idx.index]);
                 } else {
-                    LOG(PLUGIN_NAME ": Enumerated sym out of bounds " + symName + "[" + to_string(idx.index) + "].");
+                    PLUGIN_LOG(PLUGIN_NAME ": Enumerated sym out of bounds " + symName + "[" + to_string(idx.index) + "].");
                     return sym(nullptr);
                 }
             });
@@ -2437,7 +2420,7 @@ DATA_TYPE kdb::Parser::getStruct(const std::string &file, const std::vector<std:
         // if(length % itemSize == 0) {
         //     const auto real_count = length / itemSize;
         //     if(real_count > count) {
-        //         LOG(PLUGIN_NAME ": "
+        //         PLUGIN_LOG(PLUGIN_NAME ": "
         //             "Incorrect item count found in " + file + " "
         //             "(count=" + to_string(count) + ","
         //             " expected=" + to_string(real_count) + ").");
@@ -2513,7 +2496,7 @@ DATA_TYPE kdb::Parser::getStruct(const std::string &file, const std::vector<std:
             // if(length % sizeof(data_t) == 0) {
             //     const auto real_count = length / sizeof(data_t);
             //     if(real_count > 0 && count == 0) {
-            //         LOG(PLUGIN_NAME ": "
+            //         PLUGIN_LOG(PLUGIN_NAME ": "
             //             "Incorrect enum sym count found "
             //             "(count=" + to_string(count) + ","
             //             " expected=" + to_string(real_count) + ").");
@@ -2537,8 +2520,7 @@ DATA_TYPE kdb::Parser::getStruct(const std::string &file, const std::vector<std:
 
         } else if (data->get<NestedListHeader<0xFD, 0x01>>()->isValid()) {
             const NestedList<0xFD, 0x01> *nestedData = data->get<NestedList<0xFD, 0x01>>();
-            const auto type = nestedData->header.type;
-            assert(isNestedType(type));
+            assert(isNestedType(nestedData->header.type));
 
             const ItemIndex *begin, *end;
             tie(begin, end) = nestedData->getIndices();
@@ -2591,7 +2573,7 @@ DATA_TYPE kdb::Parser::getStruct(const std::string &file, const std::vector<std:
                 auto count = end - begin;
                 // do with first element
                 if (isArrayVector_) {
-                    vec = InternalUtil::createArrayVector(
+                    vec = Util::createArrayVector(
                         static_cast<DATA_TYPE>(ARRAY_TYPE_BASE + firstItem_->getType()), 0, 0, count, 0);
                     tuple = Util::createVector(DT_ANY, 1);
                     tuple->set(0, firstItem_);

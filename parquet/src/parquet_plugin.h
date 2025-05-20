@@ -25,15 +25,21 @@
 #include <arrow/io/file.h>
 #include "arrow/util/decimal.h"
 #include "arrow/result.h"
-extern "C" ConstantSP extractParquetSchema(const ConstantSP &filename);
-extern "C" ConstantSP loadParquet(Heap *heap, vector<ConstantSP> &arguments);
-extern "C" ConstantSP loadParquetHdfs(Heap *heap, vector<ConstantSP> &arguments);
-extern "C" ConstantSP loadParquetEx(Heap *heap, vector<ConstantSP> &arguments);
-extern "C" ConstantSP parquetDS(Heap *heap, vector<ConstantSP>& arguments);
-extern "C" ConstantSP saveParquet(Heap *heap, vector<ConstantSP>& arguments);
-extern "C" ConstantSP saveParquetHdfs(Heap *heap, vector<ConstantSP>& arguments);
-extern "C" ConstantSP setReadThreadNum(Heap *heap, vector<ConstantSP>& arguments);
-extern "C" ConstantSP getReadThreadNum(Heap *heap, vector<ConstantSP>& arguments);
+#include "ddbplugin/Plugin.h"
+
+using argsT = std::vector<ddb::ConstantSP>;
+
+extern "C" ddb::ConstantSP extractParquetSchema(ddb::Heap *heap, argsT &arguments);
+extern "C" ddb::ConstantSP loadParquet(ddb::Heap *heap, argsT &arguments);
+extern "C" ddb::ConstantSP loadParquetHdfs(ddb::Heap *heap, argsT &arguments);
+extern "C" ddb::ConstantSP loadParquetEx(ddb::Heap *heap, argsT &arguments);
+extern "C" ddb::ConstantSP parquetDS(ddb::Heap *heap, argsT& arguments);
+extern "C" ddb::ConstantSP saveParquet(ddb::Heap *heap, argsT& arguments);
+extern "C" ddb::ConstantSP saveParquetHdfs(ddb::Heap *heap, argsT& arguments);
+extern "C" ddb::ConstantSP setReadThreadNum(ddb::Heap *heap, argsT& arguments);
+extern "C" ddb::ConstantSP getReadThreadNum(ddb::Heap *heap, argsT& arguments);
+
+using namespace ddb;
 
 namespace ParquetPluginImp
 {
@@ -78,25 +84,34 @@ std::string getLayoutColumnType(parquet::ConvertedType::type converted_t,parquet
 bool getSchemaCol(const parquet::SchemaDescriptor *schema_descr,const ConstantSP &col_idx,vector<ConstantSP> &dolpindbCol);
 void createNewVectorSP(vector<VectorSP> &dolpindb_v,const TableSP &tb);
 
+struct IndexArgs{
+  vector<INDEX> index_;
+  bool isArray_ = false;
+  INDEX lastIndex_ = 0; // [left, right) last element right range
+  INDEX cumSum_ = 0; // element count
+};
+
+void getIndex(vector<short> rep_level, int readCount, IndexArgs& indexArgs);
+
 TableSP appendColumnVecToTable(TableSP tb, vector<VectorSP> &colVec);
 
 parquetTime convertParquetTimes(const std::shared_ptr<const parquet::LogicalType>& logical_t, parquet::ConvertedType::type converted_t);
 
-int convertParquetToDolphindbChar(int col_idx,std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, char* buffer, size_t batchSize, bool& containNull);
+int convertParquetToDolphindbChar(int col_idx,std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, char* buffer, size_t batchSize, bool& containNull, IndexArgs& indexArgs);
 
-int convertParquetToDolphindbBool(int col_idx,std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, char* buffer, size_t batchSize, bool& containNull);
+int convertParquetToDolphindbBool(int col_idx,std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, char* buffer, size_t batchSize, bool& containNull, IndexArgs& indexArgs);
 
-int convertParquetToDolphindbInt(int col_idx,std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, int* buffer,DATA_TYPE times_t, size_t batchSize, bool& containNull);
+int convertParquetToDolphindbInt(int col_idx,std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, int* buffer,DATA_TYPE times_t, size_t batchSize, bool& containNull, IndexArgs& indexArgs);
 
-int convertParquetToDolphindbShort(int col_idx,std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr,short* buffer, size_t batchSize, bool& containNull);
+int convertParquetToDolphindbShort(int col_idx,std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr,short* buffer, size_t batchSize, bool& containNull, IndexArgs& indexArgs);
 
-int convertParquetToDolphindbLong(int col_idx,std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr,long long* buffer,DATA_TYPE times_t, size_t batchSize, bool& containNull);
+int convertParquetToDolphindbLong(int col_idx,std::shared_ptr<parquet::ColumnReader> column_reader, parquet::ColumnDescriptor *col_descr,long long* buffer,DATA_TYPE times_t, size_t batchSize, bool& containNull, IndexArgs& indexArgs);
 
-int convertParquetToDolphindbFloat(int col_idx,std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr,float* buffer, size_t batchSize, bool& containNull);
+int convertParquetToDolphindbFloat(int col_idx,std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr,float* buffer, size_t batchSize, bool& containNull, IndexArgs& indexArgs);
 
-int convertParquetToDolphindbDouble(int col_idx,std::shared_ptr<parquet::ColumnReader> column_reader,const parquet::ColumnDescriptor *col_descr,double *buffer, size_t batchSize, bool& containNull);
+int convertParquetToDolphindbDouble(int col_idx,std::shared_ptr<parquet::ColumnReader> column_reader,const parquet::ColumnDescriptor *col_descr,double *buffer, size_t batchSize, bool& containNull, IndexArgs& indexArgs);
 
-int convertParquetToDolphindbString(int col_idx,std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr,vector<string> &buffer, DATA_TYPE string_t, size_t batchSize, bool& containNull);
+int convertParquetToDolphindbString(int col_idx,std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr,vector<string> &buffer, DATA_TYPE string_t, size_t batchSize, bool& containNull, IndexArgs& indexArgs);
 
 ConstantSP loadParquetByFileName(Heap *heap, const string &filename, const ConstantSP &schema, const ConstantSP &column, const int rowGroupStart, const int rowGroupNum);
 
@@ -112,28 +127,14 @@ ConstantSP saveParquetHdfs(ConstantSP &table);
 
 std::shared_ptr<parquet::schema::GroupNode> getParquetSchemaFromDolphindb(const TableSP &table);
 
-void writeBoolToParquet(parquet::BoolWriter *parquetCol, const VectorSP &dolphinCol);
-
-void writeIntToParquet(parquet::Int32Writer *parquetCol, const VectorSP &dolphinCol, int (*transform)(int) = [](int v){return v;});
-
-void writeLongToParquet(parquet::Int64Writer *parquetCol, const VectorSP &dolphinCol, long long (*transform)(long long) = [](long long v){return v;});
-
-void writeFloatToParquet(parquet::FloatWriter *parquetCol, const VectorSP &dolphinCol);
-
-void writeDoubleToParquet(parquet::DoubleWriter *parquetCol, const VectorSP &dolphinCol);
-
-// void writeCharToParquet(parquet::FixedLenByteArrayWriter *parquetCol, const VectorSP &dolphinCol);
-
-void writeStringToParquet(parquet::ByteArrayWriter *parquetCol, const VectorSP &dolphinCol);
-
 //ConstantSP loadFromParquetToDatabase(Heap *heap, vector<ConstantSP> &arguments);
 vector<DistributedCallSP> generateParquetTasks(Heap* heap, ParquetReadOnlyFile *file, const TableSP &schema, const ConstantSP &column,
-                                          const int rowGroupStart, const int rowGroupNum, const SystemHandleSP &db, const string &tableName, const ConstantSP &transform, const string& fileName);
+                                          const int rowGroupStart, const int rowGroupNum, DBHandleWrapper &db, const string &tableName, const ConstantSP &transform, const string& fileName);
 
-TableSP generateInMemoryParitionedTable(Heap *heap, const SystemHandleSP &db,
+TableSP generateInMemoryParitionedTable(Heap *heap, DBHandleWrapper &db,
                                         const ConstantSP &tables, const ConstantSP &partitionNames);
 
-ConstantSP loadParquetEx(Heap *heap, const SystemHandleSP &db, const string &tableName, const ConstantSP &partitionColumns,
+ConstantSP loadParquetEx(Heap *heap, DBHandleWrapper &db, const string &tableName, const ConstantSP &partitionColumns,
                          const string &filename, const TableSP &schema, const ConstantSP &column, const int rowGroupStart, const int rowGroupNum, const ConstantSP &transform);
 
 int getRowGroup(const string &filename);
@@ -147,14 +148,14 @@ inline bool isDecimal(const parquet::ColumnDescriptor *col_descr){
 }
 
 ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const VectorSP &dolphindbCol, int row,
-                             int dolphinIndex, int arrowIndex, int offsetStart, int& totalRows);
+                             int dolphinIndex, int arrowIndex, int offsetStart, int& totalRows, ConstantSP& indexCol);
 
 ConstantSP loadParquetPloopFunc(Heap *heap, vector<ConstantSP> &arguments);
 
 class ParquetPloopArgs : public Bool{
 public:
-    ParquetPloopArgs(const string &fileName, int batchRow, const vector<VectorSP> &dolphindbColVec, int rowGroupStart, const vector<int> &arrowIndexVec, int rowGroupEnd):
-        fileName_(fileName), batchRow_(batchRow), dolphindbColVec_(dolphindbColVec), rowGroupStart_(rowGroupStart), arrowIndexVec_(arrowIndexVec), rowGroupEnd_(rowGroupEnd){}
+    ParquetPloopArgs(const string &fileName, int batchRow, const vector<VectorSP> &dolphindbColVec, int rowGroupStart, const vector<int> &arrowIndexVec, int rowGroupEnd, const vector<ConstantSP> &indexDolphindbCol):
+        fileName_(fileName), batchRow_(batchRow), dolphindbColVec_(dolphindbColVec), rowGroupStart_(rowGroupStart), arrowIndexVec_(arrowIndexVec), rowGroupEnd_(rowGroupEnd), indexDolphindbCol_(indexDolphindbCol){}
     
     virtual ~ParquetPloopArgs() {}
     std::string getFileName() const { return fileName_; }
@@ -163,6 +164,7 @@ public:
     int getRowGroupStart() const { return rowGroupStart_; }
     const vector<int>& getArrowIndexVec() const { return arrowIndexVec_; }
     int getRowGroupEnd() const { return rowGroupEnd_; }
+    vector<ConstantSP>& getDolphindbIndexColVec() { return indexDolphindbCol_; }
 
     std::string fileName_;
     int batchRow_;
@@ -170,6 +172,7 @@ public:
     int rowGroupStart_;
     vector<int> arrowIndexVec_;
     int rowGroupEnd_;
+    vector<ConstantSP> indexDolphindbCol_;
 };
 
 }

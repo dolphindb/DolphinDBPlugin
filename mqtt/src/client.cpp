@@ -1,15 +1,16 @@
 #include "client.h"
 
 #include "ddbplugin/CommonInterface.h"
-
-#ifdef LINUX
+#ifdef __linux__
 #include <poll.h>
 #endif
+#include "PluginLoggerImp.h"
 
+namespace ddb {
 namespace mqtt {
 
 bool checkConnectStatus(int sockfd) {
-#ifdef LINUX
+#ifdef __linux__
     struct pollfd fds[1];
     fds[0].fd = sockfd;
     fds[0].events = POLLOUT;
@@ -91,3 +92,4 @@ void checkConnack(mqtt_client *client) {
 }
 
 }  // namespace mqtt
+}  // namespace ddb

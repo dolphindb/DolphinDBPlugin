@@ -1,4 +1,3 @@
-#include "CoreConcept.h"
 #include "client.h"
 
 extern "C" {

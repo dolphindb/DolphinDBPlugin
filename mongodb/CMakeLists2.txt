@@ -1,0 +1,17 @@
+cmake_minimum_required(VERSION 3.13)
+
+project(PluginMongodb)
+
+include(../template.cmake)
+CreatePlugin(${CMAKE_PROJECT_NAME})
+
+# apt install libbson-dev
+# yum install libbson-devel
+find_package (bson-1.0)
+# apt install libmongoc-dev
+# yum install mongo-c-driver-devel
+find_package (mongoc-1.0)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
+    mongo::mongoc_static
+    mongo::bson_static
+)

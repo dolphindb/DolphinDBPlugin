@@ -1,8 +1,7 @@
 #include "parser.h"
 
-#include "ScalarImp.h"
-#include "Util.h"
 #include "json.hpp"
+#include "ddbplugin/Plugin.h"
 
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define LIKELY(x) (__builtin_expect((x), 1))
@@ -17,7 +16,7 @@ void setData(nlohmann::json &data, vector<ConstantSP> &cols, std::map<string, in
              int i, Heap *heap) {
     for (auto it = data.begin(); it != data.end(); ++it) {
         if (colIdx.find(it.key()) == colIdx.end()) {
-            LOG_ERR(
+            PLUGIN_LOG_ERR(
                 "error ocurred when parse json data in subscribe callback of mqtt. the error message is the given JSON "
                 "data does not have a key named:",
                 it.key());
@@ -50,7 +49,7 @@ void setData(nlohmann::json &data, vector<ConstantSP> &cols, std::map<string, in
                     cols[curCol]->setLong(i, std::stol(colCurData));
                     break;
                 case DT_DATE: {
-                    static FunctionDefSP const date = heap->currentSession()->getFunctionDef("date");
+                    static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "date");
                     ConstantSP d = date->call(heap, new String(colCurData), void_);
                     cols[curCol]->setInt(i, d->getInt());
                     break;
@@ -60,25 +59,25 @@ void setData(nlohmann::json &data, vector<ConstantSP> &cols, std::map<string, in
                     break;
                 }
                 case DT_TIME: {
-                    static FunctionDefSP const date = heap->currentSession()->getFunctionDef("time");
+                    static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "time");
                     ConstantSP d = date->call(heap, new String(colCurData), void_);
                     cols[curCol]->setInt(i, d->getInt());
                     break;
                 }
                 case DT_MINUTE: {
-                    static FunctionDefSP const date = heap->currentSession()->getFunctionDef("minute");
+                    static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "minute");
                     ConstantSP d = date->call(heap, new String(colCurData), void_);
                     cols[curCol]->setInt(i, d->getInt());
                     break;
                 }
                 case DT_SECOND: {
-                    static FunctionDefSP const date = heap->currentSession()->getFunctionDef("second");
+                    static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "second");
                     ConstantSP d = date->call(heap, new String(colCurData), void_);
                     cols[curCol]->setInt(i, d->getInt());
                     break;
                 }
                 case DT_DATETIME: {
-                    static FunctionDefSP const date = heap->currentSession()->getFunctionDef("datetime");
+                    static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "datetime");
                     ConstantSP d = date->call(heap, new String(colCurData), void_);
                     cols[curCol]->setLong(i, d->getLong());
                     break;
@@ -88,20 +87,20 @@ void setData(nlohmann::json &data, vector<ConstantSP> &cols, std::map<string, in
                     if (colCurData.empty()) {
                         cols[curCol]->setNull(i);
                     } else {
-                        static FunctionDefSP const date = heap->currentSession()->getFunctionDef("timestamp");
+                        static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "timestamp");
                         ConstantSP d = date->call(heap, new String(colCurData), void_);
                         cols[curCol]->setLong(i, d->getLong());
                     }
                     break;
                 }
                 case DT_NANOTIME: {
-                    static FunctionDefSP const date = heap->currentSession()->getFunctionDef("nanotime");
+                    static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "nanotime");
                     ConstantSP d = date->call(heap, new String(colCurData), void_);
                     cols[curCol]->setLong(i, d->getLong());
                     break;
                 }
                 case DT_NANOTIMESTAMP: {
-                    static FunctionDefSP const date = heap->currentSession()->getFunctionDef("nanotimestamp");
+                    static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "nanotimestamp");
                     ConstantSP d = date->call(heap, new String(colCurData), void_);
                     cols[curCol]->setLong(i, d->getLong());
                     break;
@@ -117,19 +116,19 @@ void setData(nlohmann::json &data, vector<ConstantSP> &cols, std::map<string, in
                     cols[curCol]->setString(i, colCurData);
                     break;
                 case DT_INT128: {
-                    static FunctionDefSP const date = heap->currentSession()->getFunctionDef("int128");
+                    static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "int128");
                     ConstantSP d = date->call(heap, new String(colCurData), void_);
                     cols[curCol]->set(i, d);
                     break;
                 }
                 case DT_UUID: {
-                    static FunctionDefSP const date = heap->currentSession()->getFunctionDef("uuid");
+                    static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "uuid");
                     ConstantSP d = date->call(heap, new String(colCurData), void_);
                     cols[curCol]->set(i, d);
                     break;
                 }
                 case DT_IP: {
-                    static FunctionDefSP const date = heap->currentSession()->getFunctionDef("ipaddr");
+                    static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "ipaddr");
                     ConstantSP d = date->call(heap, new String(colCurData), void_);
                     cols[curCol]->set(i, d);
                     break;
@@ -207,8 +206,8 @@ ConstantSP parseCsv(Heap *heap, vector<ConstantSP> &args) {
     }
     for (int i = 0; i < nRows; ++i) {
         vector<string> raw = Util::split(data[i], delimiter);
-        for (size_t j = 0; j < nCols; ++j) {
-            if (j >= raw.size() || raw[j].empty()) {
+        for (int j = 0; j < nCols; ++j) {
+            if ((size_t)j >= raw.size() || raw[j].empty()) {
                 cols[j]->setNull(i);
                 continue;
             }
@@ -232,7 +231,7 @@ ConstantSP parseCsv(Heap *heap, vector<ConstantSP> &args) {
                         cols[j]->setLong(i, std::stol(raw[j]));
                         break;
                     case DT_DATE: {
-                        static FunctionDefSP const date = heap->currentSession()->getFunctionDef("date");
+                        static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "date");
                         ConstantSP d = date->call(heap, new String(raw[j]), void_);
                         cols[j]->setInt(i, d->getInt());
                         break;
@@ -243,43 +242,43 @@ ConstantSP parseCsv(Heap *heap, vector<ConstantSP> &args) {
                         break;
                     }
                     case DT_TIME: {
-                        static FunctionDefSP const date = heap->currentSession()->getFunctionDef("time");
+                        static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "time");
                         ConstantSP d = date->call(heap, new String(raw[j]), void_);
                         cols[j]->setInt(i, d->getInt());
                         break;
                     }
                     case DT_MINUTE: {
-                        static FunctionDefSP const date = heap->currentSession()->getFunctionDef("minute");
+                        static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "minute");
                         ConstantSP d = date->call(heap, new String(raw[j]), void_);
                         cols[j]->setInt(i, d->getInt());
                         break;
                     }
                     case DT_SECOND: {
-                        static FunctionDefSP const date = heap->currentSession()->getFunctionDef("second");
+                        static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "second");
                         ConstantSP d = date->call(heap, new String(raw[j]), void_);
                         cols[j]->setInt(i, d->getInt());
                         break;
                     }
                     case DT_DATETIME: {
-                        static FunctionDefSP const date = heap->currentSession()->getFunctionDef("datetime");
+                        static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "datetime");
                         ConstantSP d = date->call(heap, new String(raw[j]), void_);
                         cols[j]->setLong(i, d->getLong());
                         break;
                     }
                     case DT_TIMESTAMP: {
-                        static FunctionDefSP const date = heap->currentSession()->getFunctionDef("timestamp");
+                        static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "timestamp");
                         ConstantSP d = date->call(heap, new String(raw[j]), void_);
                         cols[j]->setLong(i, d->getLong());
                         break;
                     }
                     case DT_NANOTIME: {
-                        static FunctionDefSP const date = heap->currentSession()->getFunctionDef("nanotime");
+                        static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "nanotime");
                         ConstantSP d = date->call(heap, new String(raw[j]), void_);
                         cols[j]->setLong(i, d->getLong());
                         break;
                     }
                     case DT_NANOTIMESTAMP: {
-                        static FunctionDefSP const date = heap->currentSession()->getFunctionDef("nanotimestamp");
+                        static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "nanotimestamp");
                         ConstantSP d = date->call(heap, new String(raw[j]), void_);
                         cols[j]->setLong(i, d->getLong());
                         break;
@@ -295,30 +294,30 @@ ConstantSP parseCsv(Heap *heap, vector<ConstantSP> &args) {
                         cols[j]->setString(i, raw[j]);
                         break;
                     case DT_INT128: {
-                        static FunctionDefSP const date = heap->currentSession()->getFunctionDef("int128");
+                        static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "int128");
                         ConstantSP d = date->call(heap, new String(raw[j]), void_);
                         cols[j]->set(i, d);
                         break;
                     }
                     case DT_UUID: {
-                        static FunctionDefSP const date = heap->currentSession()->getFunctionDef("uuid");
+                        static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "uuid");
                         ConstantSP d = date->call(heap, new String(raw[j]), void_);
                         cols[j]->set(i, d);
                         break;
                     }
                     case DT_IP: {
-                        static FunctionDefSP const date = heap->currentSession()->getFunctionDef("ipaddr");
+                        static FunctionDefSP const date = Util::getFuncDefFromHeap(heap, "ipaddr");
                         ConstantSP d = date->call(heap, new String(raw[j]), void_);
                         cols[j]->set(i, d);
                         break;
                     }
                     default:
-                        LOG_ERR(LOG_PRE_STR, "the data type of schema in position <", j + 1, "> is ", dt[j],
+                        PLUGIN_LOG_ERR(LOG_PRE_STR, "the data type of schema in position <", j + 1, "> is ", dt[j],
                                 "which is not supported when execute csv parser");
                 }
             } catch (exception &e) {
                 cols[j]->setNull(i);
-                LOG_ERR(LOG_PRE_STR, "error occured when executed csv parser, err msg is ", string(e.what()));
+                PLUGIN_LOG_ERR(LOG_PRE_STR, "error occured when executed csv parser, err msg is ", string(e.what()));
             }
         }
     }
@@ -336,8 +335,8 @@ ConstantSP formatCsv(Heap *heap, vector<ConstantSP> &args) {
         throw IllegalArgumentException(func, usage + " the 4th argument must be a table");
     }
     string ret;
-    static const FunctionDefSP string = heap->currentSession()->getFunctionDef("string");
-    static const FunctionDefSP format = heap->currentSession()->getFunctionDef("format");
+    static const FunctionDefSP string = Util::getFuncDefFromHeap(heap, "string");
+    static const FunctionDefSP format = Util::getFuncDefFromHeap(heap, "format");
 
     TableSP t = args[3];
     int nRows = t->getColumn(0)->rows();
@@ -357,14 +356,15 @@ ConstantSP formatCsv(Heap *heap, vector<ConstantSP> &args) {
                 str[i] = format->call(heap, args_);
             }
         }
-
+        
+        vector<char> charBuf(nRows);
+        
         for (int row = 0; row < nRows; ++row) {
             for (int col = 0; col < nCols; ++col) {
                 std::string rowData = str[col]->get(row)->getString();
                 if (t->getColumnType(col) == DT_CHAR) {
-                    char charBuf[nRows];
                     char *charData;
-                    charData = (char *)(t->getColumn(col)->getDataBuffer(0, nRows, charBuf));
+                    charData = (char *)(t->getColumn(col)->getDataBuffer(0, nRows, charBuf.data()));
                     // transform the char to value of ASCII
                     rowData = std::to_string((int)charData[row]);
                 } else if (t->getColumnType(col) == DT_MONTH) {
@@ -393,7 +393,7 @@ ConstantSP formatJson(Heap *heap, vector<ConstantSP> &args) {
     if (args[0].isNull() || !args[0]->isTable()) {
         throw IllegalArgumentException(func, usage + " the argument must be a table");
     }
-    static const FunctionDefSP string = heap->currentSession()->getFunctionDef("string");
+    static const FunctionDefSP string = Util::getFuncDefFromHeap(heap, "string");
     TableSP t = args[0];
     int nRows = t->getColumn(0)->rows();
     int nCols = t->columns();
@@ -404,15 +404,14 @@ ConstantSP formatJson(Heap *heap, vector<ConstantSP> &args) {
             vector<ConstantSP> args_{t->getColumn(i)};
             str[i] = string->call(heap, args_);
         }
-
+        vector<char> charBuf(nRows);
         for (int row = 0; row < nRows; ++row) {
             json jsonRowData;
             for (int col = 0; col < nCols; ++col) {
                 std::string rowData = str[col]->get(row)->getString();
                 if (t->getColumnType(col) == DT_CHAR) {
-                    char charBuf[nRows];
                     char *charData;
-                    charData = (char *)(t->getColumn(col)->getDataBuffer(0, nRows, charBuf));
+                    charData = (char *)(t->getColumn(col)->getDataBuffer(0, nRows, charBuf.data()));
                     // transform the char to value of ASCII
                     rowData = std::to_string((int)charData[row]);
                 } else if (t->getColumnType(col) == DT_MONTH) {
@@ -434,6 +433,8 @@ ConstantSP formatJson(Heap *heap, vector<ConstantSP> &args) {
 
 namespace {
 ConstantSP createParser(Heap *heap, vector<ConstantSP> &args, FunctionDefSP def, const string &usage) {
+    std::ignore = heap;
+    std::ignore = usage;
     FunctionDefSP defNew = Util::createPartialFunction(def, args);
     return defNew;
 }
@@ -453,6 +454,8 @@ ConstantSP createJsonParser(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP createJsonFormatter(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
+    std::ignore = args;
     static FunctionDefSP const formatter = Util::createSystemFunction("formatJson", formatJson, 1, 1, 0);
     return formatter;
 }

@@ -3,6 +3,7 @@
 #include "kafkaWrapper.h"
 
 using namespace cppkafka;
+using namespace ddb;
 
 const string QUEUE_DESC = "kafka queue";
 const string EVENT_DESC = "kafka event";
@@ -50,6 +51,7 @@ SmartPointer<Event> extractEvent(const ConstantSP &handle, const string &funcNam
 }
 
 ConstantSP kafkaPollByteStream(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"Usage: pollByteStream(consumer, [timeout])"};
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
     try {
@@ -92,6 +94,7 @@ ConstantSP kafkaPollByteStream(Heap *heap, vector<ConstantSP> &args) {
     }
 }
 ConstantSP kafkaPollDict(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"pollDict(consumer, batchSize, [timeout]) "};
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
 
@@ -161,6 +164,7 @@ ConstantSP kafkaPollDict(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaSetConsumerTimeout(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"setConsumerTime(consumer, timeout) "};
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
     if (args[1]->getType() < DT_SHORT || args[1]->getType() > DT_LONG || args[1]->getInt() < 0) {
@@ -171,6 +175,7 @@ ConstantSP kafkaSetConsumerTimeout(Heap *heap, vector<ConstantSP> &args) {
     return new Void();
 }
 ConstantSP kafkaSetProducerTimeout(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"setProducerTime(producer, timeout) "};
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != PRODUCER_DESC) {
         throw IllegalArgumentException(__FUNCTION__, usage + "producer should be a producer handle.");
@@ -184,6 +189,7 @@ ConstantSP kafkaSetProducerTimeout(Heap *heap, vector<ConstantSP> &args) {
     return new Void();
 }
 ConstantSP kafkaGetConsumerTimeout(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"getConsumerTime(consumer) "};
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
     auto res = Util::createConstant(DT_INT);
@@ -191,6 +197,7 @@ ConstantSP kafkaGetConsumerTimeout(Heap *heap, vector<ConstantSP> &args) {
     return res;
 }
 ConstantSP kafkaGetProducerTimeout(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"getProducerTime(producer) "};
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != PRODUCER_DESC) {
         throw IllegalArgumentException(__FUNCTION__, usage + "producer should be a producer handle.");
@@ -201,11 +208,14 @@ ConstantSP kafkaGetProducerTimeout(Heap *heap, vector<ConstantSP> &args) {
     return res;
 }
 ConstantSP kafkaGetBufferSize(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
+    std::ignore = args;
     auto result = Util::createConstant(DT_LONG);
     result->setLong(BUFFER_SIZE);
     return result;
 }
 ConstantSP kafkaSetBufferSize(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     long long size = args[0]->getLong();
     if (size >= MESSAGE_SIZE)
         BUFFER_SIZE = size;
@@ -221,11 +231,14 @@ ConstantSP kafkaSetBufferSize(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaGetMessageSize(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
+    std::ignore = args;
     auto result = Util::createConstant(DT_LONG);
     result->setLong(MESSAGE_SIZE);
     return result;
 }
 ConstantSP kafkaSetMessageSize(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     long long size = args[0]->getLong();
     if (size <= BUFFER_SIZE)
         MESSAGE_SIZE = size;
@@ -236,6 +249,7 @@ ConstantSP kafkaSetMessageSize(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaAsyncCommit(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"asyncCommit(consumer) "};
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
     try {
@@ -246,6 +260,7 @@ ConstantSP kafkaAsyncCommit(Heap *heap, vector<ConstantSP> &args) {
     return new Void();
 }
 ConstantSP kafkaAsyncCommitTopic(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"asyncCommitTopic(consumer, topic, partition, offset)"};
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
     Conversion convert(usage, args);
@@ -258,6 +273,7 @@ ConstantSP kafkaAsyncCommitTopic(Heap *heap, vector<ConstantSP> &args) {
     return new Void();
 }
 ConstantSP kafkaStoreConsumedOffsets(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"storeOffset(consumer)"};
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
     try {
@@ -268,6 +284,7 @@ ConstantSP kafkaStoreConsumedOffsets(Heap *heap, vector<ConstantSP> &args) {
     return new Void();
 }
 ConstantSP kafkaStoreOffsets(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"storeOffset(consumer, topic, partition, offset) "};
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
     Conversion convert(usage, args);
@@ -281,6 +298,7 @@ ConstantSP kafkaStoreOffsets(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaQueueLength(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"queueLength(queue) "};
     SmartPointer<Queue> queue = extractQueue(args[0], __FUNCTION__, usage);
 
@@ -293,6 +311,7 @@ ConstantSP kafkaQueueLength(Heap *heap, vector<ConstantSP> &args) {
     }
 }
 ConstantSP kafkaForToQueue(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"forToQueue(queue, forwardQueue) "};
     SmartPointer<Queue> queue = extractQueue(args[0], __FUNCTION__, usage);
     SmartPointer<Queue> forward_queue = extractQueue(args[1], __FUNCTION__, usage);
@@ -307,6 +326,7 @@ ConstantSP kafkaForToQueue(Heap *heap, vector<ConstantSP> &args) {
     return new Void();
 }
 ConstantSP kafkaDisForToQueue(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"disforToQueue(queue) "};
     SmartPointer<Queue> queue = extractQueue(args[0], __FUNCTION__, usage);
     try {
@@ -317,6 +337,7 @@ ConstantSP kafkaDisForToQueue(Heap *heap, vector<ConstantSP> &args) {
     return new Void();
 }
 ConstantSP kafkaSetQueueTime(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"setQueueTime(queue, time) "};
     SmartPointer<Queue> queue = extractQueue(args[0], __FUNCTION__, usage);
     if (args[1]->getType() < DT_SHORT || args[1]->getType() > DT_LONG || args[1]->getInt() < 0) {
@@ -327,6 +348,7 @@ ConstantSP kafkaSetQueueTime(Heap *heap, vector<ConstantSP> &args) {
     return new Void();
 }
 ConstantSP kafkaGetQueueTime(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"getQueueTime(queue) "};
     SmartPointer<Queue> queue = extractQueue(args[0], __FUNCTION__, usage);
 
@@ -335,6 +357,7 @@ ConstantSP kafkaGetQueueTime(Heap *heap, vector<ConstantSP> &args) {
     return result;
 }
 ConstantSP kafkaQueueConsume(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"queuePoll(queue, [timeout]) "};
     SmartPointer<Queue> queue = extractQueue(args[0], __FUNCTION__, usage);
 
@@ -361,6 +384,7 @@ ConstantSP kafkaQueueConsume(Heap *heap, vector<ConstantSP> &args) {
     }
 }
 ConstantSP kafkaQueueConsumeBatch(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"queuePollBatch(queue, batch_size, [timeout]) "};
     SmartPointer<Queue> queue = extractQueue(args[0], __FUNCTION__, usage);
 
@@ -468,6 +492,7 @@ ConstantSP kafkaQueueEvent(Heap *heap, vector<ConstantSP> &args) {
     }
 }
 ConstantSP kafkaGetEventName(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"getEventName(event) "};
     SmartPointer<Event> event = extractEvent(args[0], __FUNCTION__, usage);
 
@@ -476,6 +501,7 @@ ConstantSP kafkaGetEventName(Heap *heap, vector<ConstantSP> &args) {
     return name;
 }
 ConstantSP kafkaEventGetMessages(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"eventGetMessage(event) "};
     SmartPointer<Event> event = extractEvent(args[0], __FUNCTION__, usage);
 
@@ -505,6 +531,7 @@ ConstantSP kafkaEventGetMessages(Heap *heap, vector<ConstantSP> &args) {
     return result;
 }
 ConstantSP kafkaGetEventMessageCount(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"getEventMessageCount(event) "};
     SmartPointer<Event> event = extractEvent(args[0], __FUNCTION__, usage);
 
@@ -516,6 +543,7 @@ ConstantSP kafkaGetEventMessageCount(Heap *heap, vector<ConstantSP> &args) {
     return count;
 }
 ConstantSP kafkaEventGetError(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"eventGetError(event) "};
     SmartPointer<Event> event = extractEvent(args[0], __FUNCTION__, usage);
 
@@ -528,6 +556,7 @@ ConstantSP kafkaEventGetError(Heap *heap, vector<ConstantSP> &args) {
     return string;
 }
 ConstantSP kafkaEventGetPartition(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"eventGetPart(event) "};
     SmartPointer<Event> event = extractEvent(args[0], __FUNCTION__, usage);
 
@@ -535,7 +564,7 @@ ConstantSP kafkaEventGetPartition(Heap *heap, vector<ConstantSP> &args) {
         throw RuntimeException(KAFKA_PREFIX + "The event is empty!");
     }
 
-    stringstream ss;
+    std::stringstream ss;
     try {
         ss << event->get_topic_partition() << std::endl;
     } catch (std::exception &e) {
@@ -547,6 +576,7 @@ ConstantSP kafkaEventGetPartition(Heap *heap, vector<ConstantSP> &args) {
     return result;
 }
 ConstantSP kafkaEventGetPartitionList(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"eventGetParts(event) "};
     SmartPointer<Event> event = extractEvent(args[0], __FUNCTION__, usage);
 
@@ -591,6 +621,7 @@ ConstantSP kafkaEventGetPartitionList(Heap *heap, vector<ConstantSP> &args) {
     return ret;
 }
 ConstantSP kafkaEventBool(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"eventBool(event) "};
     SmartPointer<Event> event = extractEvent(args[0], __FUNCTION__, usage);
     auto result = Util::createConstant(DT_BOOL);

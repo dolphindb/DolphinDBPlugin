@@ -9,6 +9,7 @@
 #include <cassert>
 #include <memory.h>
 #include <functional>
+#include <limits>
 #include "HashmapUtil.h"
 
 #ifndef CACHE_LINE_SIZE
@@ -3005,12 +3006,12 @@ typedef MultiCombinedKeyHasher<2, uint32_t> Double4BKeyHasher;
 typedef MultiCombinedKeyEqual<2, uint32_t> Double4BKeyEqual;
 typedef MultiCombinedKeyHasher<3, uint32_t> Triple4BKeyHasher;
 typedef MultiCombinedKeyEqual<3, uint32_t> Triple4BKeyEqual;
-typedef MultiCombinedKey<2, DolphinString> DoubleDStrKey;
-typedef MultiCombinedKeyHasher<2, DolphinString> DoubleDStrKeyHasher;
-typedef MultiCombinedKeyEqual<2, DolphinString> DoubleDStrKeyEqual;
-typedef MultiCombinedKey<2, Guid> DoubleGuidKey;
-typedef MultiCombinedKeyHasher<2, Guid> DoubleGuidKeyHasher;
-typedef MultiCombinedKeyEqual<2, Guid> DoubleGuidKeyEqual;
+typedef MultiCombinedKey<2, ddb::DolphinString> DoubleDStrKey;
+typedef MultiCombinedKeyHasher<2, ddb::DolphinString> DoubleDStrKeyHasher;
+typedef MultiCombinedKeyEqual<2, ddb::DolphinString> DoubleDStrKeyEqual;
+typedef MultiCombinedKey<2, ddb::Guid> DoubleGuidKey;
+typedef MultiCombinedKeyHasher<2, ddb::Guid> DoubleGuidKeyHasher;
+typedef MultiCombinedKeyEqual<2, ddb::Guid> DoubleGuidKeyEqual;
 
 template<>
 struct murmur_hasher<Double4BKey> {
@@ -3168,8 +3169,8 @@ template<> struct equal_to<prefix##bytes##BKey> { \
 } \
 //======
 
-DEF_MULTI_COMBINED_KEY(2, int128, Double, 16);  // Double16BKey
-DEF_MULTI_COMBINED_KEY(3, int128, Triple, 16);  // Triple16BKey
+DEF_MULTI_COMBINED_KEY(2, ddb::int128, Double, 16);  // Double16BKey
+DEF_MULTI_COMBINED_KEY(3, ddb::int128, Triple, 16);  // Triple16BKey
 
 #undef DEF_MULTI_COMBINED_KEY
 

@@ -5,11 +5,15 @@
 #include <string>
 #include <vector>
 
+#include "DolphinDBEverything.h"
 #include "CoreConcept.h"
 #include "ScalarImp.h"
+#include "ddbplugin/Plugin.h"
 
 #include "k.h"
 #include "endian.h"
+
+using namespace ddb;
 
 namespace kdb {
 
@@ -392,7 +396,7 @@ namespace kdb {
 
 class DatabaseUpdater {
   public:
-    DatabaseUpdater(Heap *heap, SystemHandleSP dbHandle, ConstantSP tableName, ConstantSP partitionColumns,
+    DatabaseUpdater(Heap *heap, DBHandleWrapper dbHandle, ConstantSP tableName, ConstantSP partitionColumns,
                     ConstantSP sortColumns, const vector<string> &colNames, const vector<DATA_TYPE> &colTypes,
                     FunctionDefSP transform);
     void append(TableSP table);
@@ -401,7 +405,7 @@ class DatabaseUpdater {
 
   private:
     Heap *heap_;
-    SystemHandleSP dbHandle_;
+    DBHandleWrapper dbHandle_;
     ConstantSP tableName_;
     ConstantSP partitionColumns_;
     ConstantSP sortColumns_;
@@ -409,7 +413,6 @@ class DatabaseUpdater {
     vector<DATA_TYPE> colTypes_;
     FunctionDefSP transform_;
     string owner_;
-    DomainSP domain_;
     PARTITION_TYPE partitionType_;
     bool inMemory_;
     FunctionDefSP appendFunc_;

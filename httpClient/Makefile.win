@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -std=c++11 -DWINDOWS -O2 -Wall -DLOCKFREE_SYMBASE
+CFLAGS = -std=c++11 -DWINDOWS -O2 -Wall
 INCLUDES = -I./include -I../include -I$(CURL_DIR)/include -I$(SSL_DIR)/include 
 
 CURL_LIBS := $(CURL_DIR)/lib/libcurl.a

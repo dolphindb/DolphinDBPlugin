@@ -50,6 +50,9 @@ typedef SmartPointer<DdbKafkaConsumer> DdbKafkaConsumerSP;
 
 SmartPointer<Consumer> extractConsumer(const ConstantSP &handle, const string &funcName, const string &usage);
 
-inline static void mockOnClose(Heap *heap, vector<ConstantSP> &args) {}
+inline static void mockOnClose(Heap *heap, vector<ConstantSP> &args) {
+  std::ignore = heap;
+  std::ignore = args;
+}
 
 #endif  // KAFKA_PLUGIN_WRAPPER_H

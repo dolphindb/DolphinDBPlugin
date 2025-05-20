@@ -160,17 +160,25 @@ void OPCClient::connectToOPCServer(string &serverName) {
 }
 
 void OPCClient::disconnect() {
-    // release opcserver
-    //_opcServer->Release();
-    _opcServer->Release();
-    _iOpcNamespace->Release();
-    _iOpcProperties->Release();
-
-    _opcServer = NULL;
-    if (group != NULL)
-        delete group;
-    _endSubFlag = true;
-    _connected = false;
+    LockGuard<Mutex> guard(&mutex_);
+    coInit();
+    if(_connected){
+        if (group != NULL){
+            if(!_endSubFlag){
+                group->disableAsynch();
+            }
+            delete group;
+        }
+        group = nullptr;
+        // release opcserver
+        //_opcServer->Release();
+        _iOpcNamespace->Release();
+        _iOpcProperties->Release();
+        _opcServer->Release();
+        _opcServer = NULL;
+        _endSubFlag = true;
+        _connected = false;
+    }
 }
 
 COPCGroup *OPCClient::makeGroup(const std::string &groupName, bool active, unsigned long reqUpdateRate_ms,
@@ -253,6 +261,8 @@ void COPCGroup::readSync(std::vector<COPCItem *> &items, map<ItemID, OPCItemData
     // delete itemState;
 }
 
+static unsigned long long global_id = 0;
+
 COPCItem::COPCItem(std::string &itemName, COPCGroup &g) : group(g), name(itemName) {
     _itemID = global_id + 1;
     global_id += 1;
@@ -282,7 +292,7 @@ int COPCGroup::addItems(std::vector<std::string> &itemName, std::vector<COPCItem
     HRESULT result = getItemManagementInterface()->AddItems(noItems, itemDef, &itemDetails, &itemResult);
     delete[] itemDef;
     if (FAILED(result)) {
-        throw OPCException("Failed to add items");
+        throw OPCException("Failed to add items: " + std::to_string((unsigned long long)result));
     }
 
     int errorCount = 0;
@@ -319,7 +329,7 @@ void COPCGroup::removeItems(DWORD dwCount, OPCHANDLE *phServer) {
 
 void COPCGroup::enableAsynch(unique_ptr<IAsynchDataCallback> &&handler) {
     if (!asynchDataCallBackHandler == false) {
-        throw OPCException("Asynch already enabled");
+        throw OPCException("Async already enabled");
     }
 
     IConnectionPointContainer *iConnectionPointContainer = 0;
@@ -449,7 +459,11 @@ COPCItem *COPCGroup::addItem(std::string &itemName, bool active) {
     names.push_back(itemName);
     if (addItems(names, itemsCreated, errors, active) != 0) {
         // return NULL;
-        throw OPCException("Failed to add item");
+		for(size_t i = 0; i < errors.size(); i++){
+			if(FAILED(errors[i])){
+				throw OPCException("Failed to add item: " + std::to_string((unsigned long long)errors[i]));
+			}
+		}
     }
     return itemsCreated[0];
 }

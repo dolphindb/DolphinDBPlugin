@@ -1,6 +1,8 @@
-cmake_minimum_required(VERSION 3.0)
-project(PluginHdf5 LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.13)
+set(PluginName PluginHdf5)
+project(${PluginName})
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 #######################################################################################################################
 # CMake options and global variables.
 #
@@ -24,16 +26,13 @@ option(DDB_USE_ASAN
     "Enable ASAN, a fast memory error detector. https://clang.llvm.org/docs/AddressSanitizer.html"
     OFF)
 
-set(PLUGIN_COMPILE_DEFINITIONS
-    "-DLOCKFREE_SYMBASE"
-)
 set(PLUGIN_COMPILE_OPTIONS
     "-std=c++11"
     "-Wall"
     "-fPIC"
 )
 set(PLUGIN_INCLUDE_DIRECTORIES
-    ${PROJECT_SOURCE_DIR}/../include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 set(PLUGIN_LINK_DIRECTORIES
     ${CMAKE_BINARY_DIR}
@@ -49,7 +48,7 @@ set(destPluginTxt "PluginHdf5.txt")
 # Platform
 if (UNIX)
     MESSAGE(STATUS "Platform: UNIX")
-    list(APPEND PLUGIN_COMPILE_DEFINITIONS "-DLINUX" "-D_GLIBCXX_USE_CXX11_ABI=0")
+    list(APPEND PLUGIN_COMPILE_DEFINITIONS "-DLINUX")
     set(installType linux)
     set(pluginFileTxt "${CMAKE_CURRENT_LIST_DIR}/PluginHdf5.txt")
 elseif (WIN32)
@@ -100,16 +99,14 @@ file(GLOB PluginHdf5_SOURCE CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/*.cpp ${CM
 
 message(${PluginHdf5_HEADER})
 # Options & Dependencies
-list(APPEND PLUGIN_INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}/../include/ddbplugin ${PROJECT_SOURCE_DIR}/src)
+list(APPEND PLUGIN_INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}/../include/ddbplugin ${CMAKE_CURRENT_SOURCE_DIR}/src)
     list(APPEND PLUGIN_COMPILE_OPTIONS "-fno-strict-aliasing")
 if (UNIX)
     list(APPEND PLUGIN_INCLUDE_DIRECTORIES
-         ${CMAKE_SOURCE_DIR}/include/hdf5
-         ${CMAKE_SOURCE_DIR}/include/c-blosc
          ${CMAKE_SOURCE_DIR}/include/hdf5-blosc
         )
     list(APPEND PLUGIN_LINK_DIRECTORIES ${CMAKE_SOURCE_DIR}/lib)
-    list(APPEND PLUGIN_LINK_LIBRARIES hdf5_hl hdf5_cpp hdf5 blosc dl z)
+    list(APPEND PLUGIN_LINK_LIBRARIES dl z)
 elseif (WIN32)
     list(APPEND PLUGIN_INCLUDE_DIRECTORIES
          ${CMAKE_SOURCE_DIR}/include_win/hdf5
@@ -117,7 +114,7 @@ elseif (WIN32)
          ${CMAKE_SOURCE_DIR}/include_win/hdf5-blosc
         )
     list(APPEND PLUGIN_LINK_DIRECTORIES ${CMAKE_SOURCE_DIR}/lib)
-    list(APPEND PLUGIN_LINK_LIBRARIES DolphinDB hdf5_hl hdf5_cpp hdf5 blosc z)
+    list(APPEND PLUGIN_LINK_LIBRARIES hdf5_hl hdf5_cpp hdf5 z)
 else ()
     message(FATAL_ERROR "Unsupported platform.")
 endif ()
@@ -131,21 +128,30 @@ target_include_directories(PluginHdf5 PRIVATE ${PLUGIN_INCLUDE_DIRECTORIES})
 target_link_directories(PluginHdf5 PRIVATE ${PLUGIN_LINK_DIRECTORIES})
 target_compile_definitions(PluginHdf5 PRIVATE ${PLUGIN_COMPILE_DEFINITIONS})
 target_compile_options(PluginHdf5 PRIVATE ${PLUGIN_COMPILE_OPTIONS})
-target_link_libraries(PluginHdf5 ${PLUGIN_LINK_OPTIONS} ${PLUGIN_LINK_LIBRARIES})
+target_link_libraries(PluginHdf5 PRIVATE ${PLUGIN_LINK_OPTIONS} ${PLUGIN_LINK_LIBRARIES})
 
 # Post-build
 install(TARGETS PluginHdf5
-        DESTINATION "${PROJECT_SOURCE_DIR}/bin/${installType}"
+        DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/bin/${installType}"
 )
 install(FILES ${pluginFileTxt}
-    DESTINATION "${PROJECT_SOURCE_DIR}/bin/${installType}"
+    DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/bin/${installType}"
     RENAME ${destPluginTxt}
 )
-message(STATUS "Install Destination: ${PROJECT_SOURCE_DIR}/bin/${installType}")
+message(STATUS "Install Destination: ${CMAKE_CURRENT_SOURCE_DIR}/bin/${installType}")
 
 # Compatibale with Jenkins
 add_custom_command(
     TARGET PluginHdf5 POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy ${pluginFileTxt} ${PROJECT_SOURCE_DIR}/build/PluginHdf5.txt
+    COMMAND ${CMAKE_COMMAND} -E copy ${pluginFileTxt} ${CMAKE_CURRENT_SOURCE_DIR}/build/PluginHdf5.txt
     COMMENT "copy PluginHdf5.txt"
 )
+
+include(../template.cmake)
+AddDependency(blosc blosc)
+AddDependency(hdf5 hdf5_cpp)
+AddDependency(hdf5 hdf5)
+AddDependency(hdf5 hdf5_hl)
+
+cmake_path(GET CMAKE_CURRENT_SOURCE_DIR FILENAME INSTALL_DIR)
+install(TARGETS ${PluginName} DESTINATION ${INSTALL_DIR})

@@ -15,6 +15,8 @@
 
 using std::string;
 
+namespace ddb {
+
 class SWORDFISH_API Guid {
 public:
 	Guid(bool newGuid = false);
@@ -108,6 +110,6 @@ private:
 	unsigned char uuid_[16];
 };
 
-
+}
 
 #endif /* GUID_H_ */

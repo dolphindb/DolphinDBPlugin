@@ -1,5 +1,6 @@
-cmake_minimum_required(VERSION 3.0)
-project(PluginSVM LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.13)
+set(PluginName PluginSVM)
+project(${PluginName})
 
 #######################################################################################################################
 # CMake options and global variables.
@@ -24,15 +25,12 @@ option(DDB_USE_ASAN
     "Enable ASAN, a fast memory error detector. https://clang.llvm.org/docs/AddressSanitizer.html"
     OFF)
 
-set(PLUGIN_COMPILE_DEFINITIONS
-    "-DLOCKFREE_SYMBASE"
-)
 set(PLUGIN_COMPILE_OPTIONS
     "-std=c++11"
     "-Wall"
 )
 set(PLUGIN_INCLUDE_DIRECTORIES
-    ${PROJECT_SOURCE_DIR}/../include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 set(PLUGIN_LINK_DIRECTORIES
     ${CMAKE_BINARY_DIR}
@@ -50,7 +48,6 @@ if (UNIX)
     list(APPEND PLUGIN_COMPILE_DEFINITIONS "-DLINUX")
     set(installType linux)
     set(pluginFileTxt "${CMAKE_CURRENT_LIST_DIR}/PluginSVM.txt")
-    list(APPEND PLUGIN_COMPILE_DEFINITIONS "-D_GLIBCXX_USE_CXX11_ABI=0")
 elseif (WIN32)
     MESSAGE(STATUS "Platform: WINDOWS")
     list(APPEND PLUGIN_COMPILE_DEFINITIONS "-DWINDOWS")
@@ -65,11 +62,11 @@ include(../buildSetup.cmake)
 
 # Source Code & Options & Dependencies
 if (UNIX)
-    file(GLOB PLUGINSVM_HEADER CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.h)
-    file(GLOB PLUGINSVM_SOURCE CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.cpp)
+    file(GLOB PLUGINSVM_HEADER CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h)
+    file(GLOB PLUGINSVM_SOURCE CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 elseif (WIN32)
-    file(GLOB PLUGINSVM_HEADER CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.h)
-    set(PLUGINSVM_SOURCE ${PROJECT_SOURCE_DIR}/src/svmPlugin.cpp)
+    file(GLOB PLUGINSVM_HEADER CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h)
+    set(PLUGINSVM_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/src/svmPlugin.cpp)
     set(extraBin "${CMAKE_CURRENT_LIST_DIR}/lib/win/")
     list(APPEND PLUGIN_LINK_LIBRARIES svm DolphinDB)
 endif ()
@@ -86,18 +83,18 @@ target_link_libraries(PluginSVM ${PLUGIN_LINK_OPTIONS} ${PLUGIN_LINK_LIBRARIES})
 
 # Post-build
 install(TARGETS PluginSVM
-        DESTINATION "${PROJECT_SOURCE_DIR}/bin/${installType}"
+        DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/bin/${installType}"
 )
 install(FILES ${pluginFileTxt}
-    DESTINATION "${PROJECT_SOURCE_DIR}/bin/${installType}"
+    DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/bin/${installType}"
     RENAME ${destPluginTxt}
 )
 if (WIN32)
     configure_file(${CMAKE_CURRENT_LIST_DIR}/lib/win/libsvm.dll ${CMAKE_BINARY_DIR}/libsvm.dll COPYONLY)
     install(DIRECTORY ${extraBin}
-        DESTINATION "${PROJECT_SOURCE_DIR}/bin/${installType}"
+        DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/bin/${installType}"
     )
 endif()
-message(STATUS "Install Destination: ${PROJECT_SOURCE_DIR}/bin/${installType}")
+message(STATUS "Install Destination: ${CMAKE_CURRENT_SOURCE_DIR}/bin/${installType}")
 
 configure_file(${pluginFileTxt} ${CMAKE_BINARY_DIR}/${destPluginTxt} COPYONLY)

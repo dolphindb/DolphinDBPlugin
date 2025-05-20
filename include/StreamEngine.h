@@ -9,8 +9,10 @@
 #include "ScalarImp.h"
 #include "CoreConcept.h"
 #include "SmartPointer.h"
-#include "SysIO.h"
+#include "Concepts.h"
+#include "Concurrent.h"
 
+namespace ddb {
 class AbstractStreamEngine;
 
 typedef SmartPointer<AbstractStreamEngine> AbstractStreamEngineSP;
@@ -31,6 +33,14 @@ public:
     void registerEngineFactory(const string& engineType, StreamEngineFactory factory);
     StreamEngineFactory getEngineFactory(const string& engineType) const;
     AbstractStreamEngineSP createStreamEngine(Heap* heap, const DataInputStreamSP& in) const;
+    vector<string> getEngineNameList() { 
+        vector<string> nameList;
+        LockGuard<Mutex> lck(&mutex_);
+        for (const auto& kv : engines_) {
+            nameList.emplace_back(kv.first);
+        }
+        return nameList;
+    }
 
 private:
     StreamEngineManager() = default;
@@ -103,11 +113,19 @@ public:
 
     virtual void appendMsg(const ConstantSP& body, long long msgId);
     virtual void restoreEngineState();
-
+    virtual const string& getKeyColumn() { throw RuntimeException("getKeyColumn not supported"); }
+    virtual TableSP get(const ConstantSP& keySet, const vector<string>& columnNames) {
+        throw RuntimeException("get not supported");
+    }
+    virtual TableSP getSnapshotTable(SmartPointer<LockGuard<Mutex>>& lockGuard, string& keyColumn) {
+        throw RuntimeException("getSnapshotTable not supported");
+    }
     string getEngineType() const;
     string getEngineName() const;
     string getEngineCreator() const;
-    int getRaftGroup() const { return raftGroup_;}
+    int getRaftGroup() const { return raftGroup_; }
+    ConstantSP getEngineOutput() const { return outputTable_.isNull() ? Expression::void_ : outputTable_; }
+
 
     vector<ConstantSP> &getEngineStatRef();
 
@@ -170,6 +188,8 @@ public:
     virtual bool writePermitted(const AuthenticatedUserSP& user) const;
     virtual bool isJoinEngine() {return false;}
     virtual bool isEventEngine() {return false;}
+    inline bool isOrcaEngine() const {return isOrcaEngine_;}
+    inline void setOrcaEngine(bool flag) {isOrcaEngine_ = flag;}
 protected:
     const string engineType_;
     const string engineName_;
@@ -194,13 +214,17 @@ protected:
 
     ConstantSP getInternal(INDEX index) const;
     ConstantSP getInternal(const ConstantSP& index) const;
-    ConstantSP getMemberInternal(const ConstantSP& key) const;
+    ConstantSP getMemberInternal(const ConstantSP &key) const;
+    inline void setEngineOutput(const TableSP &table) { outputTable_ = table; }  
+
 
 private:
     void initialize();
     SmartPointer<vector<string>> colNames_;
     SmartPointer<unordered_map<string, int>> colMap_;
     TableSP dummy_;
+    ConstantSP outputTable_;
+    bool isOrcaEngine_ = false;
 };
-
+} // namespace ddb
 #endif //DOLPHINDB_STREAMENGINE_H

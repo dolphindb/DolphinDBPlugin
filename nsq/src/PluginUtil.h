@@ -8,6 +8,7 @@
 
 #include <CoreConcept.h>
 
+using namespace ddb;
 /**
  * Util functions across plugins
  */

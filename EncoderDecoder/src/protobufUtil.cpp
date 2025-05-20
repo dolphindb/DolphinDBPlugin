@@ -16,6 +16,10 @@
 #include "Exceptions.h"
 #include "Types.h"
 
+#include <ddbplugin/PluginLogger.h>
+
+using namespace ddb;
+
 static unsigned int FLOAT_NAN = 0x7f800000;
 static unsigned long long DOUBLE_NAN = 0x7ff0000000000000;
 static int ARRAY_VECTOR_TYPE_BASE = 64;
@@ -297,6 +301,7 @@ int createTableFrame(const Descriptor *descriptor, vector<string> &names, vector
                     case FieldDescriptor::Type::TYPE_INT32:
                     case FieldDescriptor::Type::TYPE_SINT32:
                     case FieldDescriptor::Type::TYPE_SFIXED32:
+                    case FieldDescriptor::Type::TYPE_ENUM:
                         CREATE_TABLE_FRAME(DT_INT, int)
                     case FieldDescriptor::Type::TYPE_INT64:
                     case FieldDescriptor::Type::TYPE_SINT64:
@@ -893,6 +898,17 @@ void getMsgDataWithArrayVector(const Message &msg, MsgUtilPack &pack, vector<vec
                     }
                     setIndex(indexArrays, fieldIndex, size);
                     break;
+                case FieldDescriptor::Type::TYPE_ENUM:
+                    if (size == 0) {
+                        appendNull(rawType, fieldIndex, dataVec, indexArrays, repeatDelayIndexMap, useZeroAsNull);
+                        break;
+                    }
+                    for (int j = 0; j < size; ++j) {
+                        int ele = ref->GetRepeatedEnumValue(msg, field, j);
+                        ((VectorSP)dataVec[fieldIndex])->appendInt(&ele, 1);
+                    }
+                    setIndex(indexArrays, fieldIndex, size);
+                    break;
                 case FieldDescriptor::Type::TYPE_FIXED32:  // unsigned int
                 case FieldDescriptor::Type::TYPE_UINT32:   // unsigned int
                     if (size == 0) {
@@ -1029,6 +1045,17 @@ void getMsgDataWithArrayVector(const Message &msg, MsgUtilPack &pack, vector<vec
                         break;
                     }
                     int ele = ref->GetInt32(msg, field);
+                    ((VectorSP)dataVec[fieldIndex])->appendInt(&ele, 1);
+                    if (int(currentFieldType) > int(ARRAY_TYPE_BASE)) {
+                        repeatDelayIndexMap[fieldIndex] = dataVec[fieldIndex]->size();
+                    }
+                } break;
+                case FieldDescriptor::Type::TYPE_ENUM: {
+                    if (!hasField) {
+                        appendNull(rawType, fieldIndex, dataVec, indexArrays, repeatDelayIndexMap, useZeroAsNull);
+                        break;
+                    }
+                    int ele = ref->GetEnumValue(msg, field);
                     ((VectorSP)dataVec[fieldIndex])->appendInt(&ele, 1);
                     if (int(currentFieldType) > int(ARRAY_TYPE_BASE)) {
                         repeatDelayIndexMap[fieldIndex] = dataVec[fieldIndex]->size();
@@ -1328,6 +1355,15 @@ void getMsgData(const Message &msg, MsgUtilPack &pack, string prefix, bool useZe
                         appendNull(DT_INT, fieldIndex, dataVec, useZeroAsNull);
                     }
                     break;
+                case FieldDescriptor::Type::TYPE_ENUM:
+                    for (int j = 0; j < size; ++j) {
+                        int ele = ref->GetRepeatedEnumValue(msg, field, j);
+                        ((VectorSP)dataVec[fieldIndex])->appendInt(&ele, 1);
+                    }
+                    if (size == 0) {
+                        appendNull(DT_INT, fieldIndex, dataVec, useZeroAsNull);
+                    }
+                    break;
                 case FieldDescriptor::Type::TYPE_FIXED32:  // unsigned int
                 case FieldDescriptor::Type::TYPE_UINT32:   // unsigned int
                     for (int j = 0; j < size; ++j) {
@@ -1433,6 +1469,14 @@ void getMsgData(const Message &msg, MsgUtilPack &pack, string prefix, bool useZe
                         break;
                     }
                     int ele = ref->GetInt32(msg, field);
+                    ((VectorSP)dataVec[fieldIndex])->appendInt(&ele, 1);
+                } break;
+                case FieldDescriptor::Type::TYPE_ENUM: {
+                    if (!hasField) {
+                        appendNull(DT_INT, fieldIndex, dataVec, useZeroAsNull);
+                        break;
+                    }
+                    int ele = ref->GetEnumValue(msg, field);
                     ((VectorSP)dataVec[fieldIndex])->appendInt(&ele, 1);
                 } break;
                 case FieldDescriptor::Type::TYPE_FIXED32:   // unsigned int
@@ -1650,7 +1694,7 @@ ConstantSP parseProtobufDynamic(string schemaPath, VectorSP data, unordered_map<
     vector<MessageSP> msgList;
     msgList.reserve(vecSize);
 
-    LOG_INFO(ENCODERDECODER_PREFIX + "Size of messages: ", vecSize);
+    PLUGIN_LOG_INFO(ENCODERDECODER_PREFIX + "Size of messages: ", vecSize);
     if (vecSize == 0) {
         throw RuntimeException(ENCODERDECODER_PREFIX + "input is empty.");
     }
@@ -1677,9 +1721,9 @@ ConstantSP parseProtobufDynamic(string schemaPath, VectorSP data, unordered_map<
         } catch (exception &ex) {
             string errMsg = ex.what();
             if (errMsg.find(ENCODERDECODER_PREFIX) == string::npos) {
-                LOG_ERR(ENCODERDECODER_PREFIX + "", errMsg);
+                PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + "", errMsg);
             } else {
-                LOG_ERR(errMsg);
+                PLUGIN_LOG_ERR(errMsg);
             }
             continue;
         }
@@ -1813,7 +1857,7 @@ ConstantSP parseProtobufDynamic(string schemaPath, VectorSP data, unordered_map<
                     cols.push_back(vec);
                 } else {
                     vector<ConstantSP> args{indexArray, valueArray};
-                    ConstantSP arrayVector = heap->currentSession()->getFunctionDef("arrayVector")->call(heap, args);
+                    ConstantSP arrayVector = Util::getFuncDefFromHeap(heap, "arrayVector")->call(heap, args);
                     cols.emplace_back(arrayVector);
                 }
             }

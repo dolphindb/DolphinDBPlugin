@@ -590,7 +590,7 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments) {
         }
         ConstantSP timeStampColumn = data->getColumn(timeColumnName);
         vector<ConstantSP> args = {timeStampColumn};
-        VectorSP days = heap->currentSession()->getFunctionDef("date")->call(heap, args);
+        VectorSP days = Util::getFuncDefFromHeap(heap, "date")->call(heap, args);
         cols.push_back(days);
         colNames.push_back("days");
         int rows = data->rows();

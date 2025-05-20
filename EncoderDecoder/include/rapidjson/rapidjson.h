@@ -401,7 +401,7 @@ RAPIDJSON_NAMESPACE_END
 #include <cassert>
 #define RAPIDJSON_ASSERT(x)         \
     if(!(x)) {                      \
-       throw RuntimeException(string(__FILE__) + ":" + std::to_string(__LINE__) + ": " + string(__FUNCTION__) + " [rapidjson] assert failed."); \
+       throw ddb::RuntimeException(string(__FILE__) + ":" + std::to_string(__LINE__) + ": " + string(__FUNCTION__) + " [rapidjson] assert failed."); \
     };
 #endif // RAPIDJSON_ASSERT
 

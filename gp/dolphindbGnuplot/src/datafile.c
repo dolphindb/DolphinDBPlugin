@@ -627,12 +627,12 @@ df_gets()
  * This one is shared by df_gets() and by datablock.c:datablock_command
  */
 
-double* DataPtr[1024][6];
-int dataIndex=0;
-int dataSize[1024];
-int dataLen[1024];
-int blockIndex;
-int blockSize;
+extern double* DataPtr[1024][6];
+extern int dataIndex;
+extern int dataSize[1024];
+extern int dataLen[1024];
+extern int blockIndex;
+extern int blockSize;
 extern char commandBuffer[1024];
 extern int setRowData(char* str, int column);
 

@@ -13,8 +13,9 @@
 #include "opccomn.h"
 #include "opcda.h"
 #include "CoreConcept.h"
+#include "ScalarImp.h"
+using namespace ddb;
 // global id
-static unsigned long long global_id = 0;
 //
 //static unsigned long long global_client_id = 0;
 // types
@@ -94,7 +95,7 @@ void coRelease();
 // remote get interface
 void makeRemoteObject(const std::string& host,const IID requestedClass, const IID requestedInterface, void** interfacePtr);
 
-class OPCClient {
+class OPCClient : public Resource{
 private:
     const std::string _host;
     std::vector<std::string> _serverNameList;
@@ -111,7 +112,7 @@ private:
     string _tagName;
     string _serverName;
 public:
-    explicit OPCClient(std::string& host, int id,std::string server): _host(host), _serverName(server), threadId_(id) {
+    explicit OPCClient(std::string& host, int id,std::string server, const FunctionDefSP& onClose, Session* session): Resource(0, "opc connection", onClose, session), _host(host), _serverName(server), threadId_(id) {
         coInit();
         _connected = false;
         group = NULL;
@@ -120,6 +121,7 @@ public:
     }
     ~OPCClient() {
         //if(_connected) disconnect();
+        disconnect();
         coRelease();
         cout<<"opc client is freed!"<<endl;
     }
@@ -128,12 +130,12 @@ public:
     void connectToOPCServer(string& serverName);
     void disconnect();
     IOPCServer* getServerInterface() {
-        _opcServer->AddRef();
+        //_opcServer->AddRef();
         return _opcServer;
     };
     COPCGroup *makeGroup(const std::string & groupName, bool active, unsigned long reqUpdateRate_ms, unsigned long &revisedUpdateRate_ms, float deadBand);
     void getItemNames(std::vector<std::string> & opcItemNames);
-    
+
     bool getConnected(){return _connected;}
     void setSubFlag(bool s){_endSubFlag=s;}
     bool getSubFlag(){return _endSubFlag;}
@@ -149,11 +151,14 @@ public:
     void setTagName(string tag){_tagName=tag;}
     string getTagName(){return _tagName;}
     string getServerName(){return _serverName;}
+    Mutex* getLock(){return &mutex_;}
 public:
     COPCGroup* group;
     int threadId_;
     SessionSP session;
     bool sessionClosed;
+private:
+    Mutex mutex_;
 };
 
 
@@ -306,6 +311,7 @@ class IAsynchDataCallback
 {
 public:
     virtual void OnDataChange(COPCGroup & group, map<ItemID, OPCItemData *> & changes) = 0;
+    virtual ~IAsynchDataCallback(){};
 };
 
 class COPCGroup
@@ -432,19 +438,19 @@ public:
 
 
     IOPCSyncIO* getSychIOInterface() {
-        iSychIO->AddRef();
+        //iSychIO->AddRef();
         return iSychIO;
     }
 
 
     IOPCAsyncIO2* getAsych2IOInterface() {
-        iAsych2IO->AddRef();
+        //iAsych2IO->AddRef();
         return iAsych2IO;
     }
 
 
     IOPCItemMgt* &getItemManagementInterface(){
-        iItemManagement->AddRef();
+        //iItemManagement->AddRef();
         return iItemManagement;
     }
 

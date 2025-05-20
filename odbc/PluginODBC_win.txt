@@ -1,6 +1,6 @@
-odbc,libPluginODBC.dll,3.00.2
-odbcQuery,query,system,2,5,0
-odbcConnect,connect,system,1,2,0
-odbcClose,close,system,1,1,0
-odbcExecute,execute,system,2,2,0
-odbcAppend,append,system,3,5,0
+odbc,libPluginODBC.dll,3.00.3
+odbcQuery,query,system,2,5,0,0,(conn, sqlQuery, [resultTable], [batchSize], [transform])
+odbcConnect,connect,system,1,2,0,0,(connectionString, [database])
+odbcClose,close,system,1,1,0,0,(conn)
+odbcExecute,execute,system,2,2,0,0,(conn, sqlStatement)
+odbcAppend,append,system,3,5,0,0,(conn, ddbTable, tableName, [createTableIfNotExists], [ignoreDuplicates])

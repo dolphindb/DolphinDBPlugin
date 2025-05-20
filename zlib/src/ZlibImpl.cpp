@@ -19,6 +19,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <ScalarImp.h>
+#include "ddbplugin/PluginLoggerImp.h"
+
+using namespace ddb;
 
 #ifdef _WIN32
 // Windows doesn't have symbolic links.
@@ -92,6 +95,7 @@ ConstantSP compressFile(Heap* heap, vector<ConstantSP>& args) {
 }
 
 ConstantSP decompressFile(Heap* heap, vector<ConstantSP>& args) {
+    std::ignore = heap;
     std::fstream srcFile;
     std::fstream dstFile;
     fileParse(srcFile, dstFile, args, 1);
@@ -124,7 +128,7 @@ void fileParse(std::fstream &srcFile, std::fstream &dstFile, vector<ConstantSP>&
             throw IOException(src + " not found.");
         }
         dstFile.open(dst, std::ios::out | std::ios::binary);
-    } catch(IOException notFound) {
+    } catch(IOException &notFound) {
         throw notFound;
     } catch(...) {
         throw IOException("input or ouput file error.");
@@ -211,7 +215,6 @@ int inf(std::iostream &srcFile, std::iostream &dstFile)
                 throw IOException("zlib: Z_STREAM_ERROR, state clobbered.");
             switch (ret) {
                 case Z_NEED_DICT:
-                    ret = Z_DATA_ERROR;
                 case Z_DATA_ERROR:
                 case Z_MEM_ERROR:
                     (void)inflateEnd(&strm);

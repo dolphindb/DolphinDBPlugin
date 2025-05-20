@@ -16,7 +16,7 @@
     #error "Current compiler does not support __int128"
 #endif
 
-
+namespace ddb {
 constexpr long long bitCastToSigned(unsigned long long v) {
     // Casting an unsigned integer to a signed integer of the same
     // width is implementation defined behavior if the source value would not fit
@@ -39,9 +39,14 @@ constexpr long long int128High64(int128 v) {
     // Initially cast to unsigned to prevent a right shift on a negative value.
     return bitCastToSigned(static_cast<unsigned long long>(static_cast<uint128>(v) >> 64));
 }
+} // namespace ddb
 
-std::ostream& operator<<(std::ostream &os, uint128 v);
-std::ostream& operator<<(std::ostream &os, int128 v);
+namespace std {
+using ddb::int128;
+using ddb::uint128;
+
+std::ostream& operator<<(std::ostream &os, ddb::uint128 v);
+std::ostream& operator<<(std::ostream &os, ddb::int128 v);
 
 /*
     -std=c++11 && ((clang < 12) ||(gcc < 10.3))
@@ -52,9 +57,8 @@ std::ostream& operator<<(std::ostream &os, int128 v);
             (!defined(__clang__) && (__GNUC__ < 10 || (__GNUC__ == 10 && __GNUC_MINOR__ < 3))) \
         )
 // Specialized numeric_limits for uint128 and int128.
-namespace std {
 template <>
-class numeric_limits<uint128> {
+class numeric_limits<ddb::uint128> {
 public:
     static constexpr bool is_specialized = true;
     static constexpr bool is_signed = false;
@@ -81,7 +85,7 @@ public:
 
     static constexpr uint128 min() { return 0; }
     static constexpr uint128 lowest() { return 0; }
-    static constexpr uint128 max() { return uint128MaxValue(); }
+    static constexpr uint128 max() { return ddb::uint128MaxValue(); }
     static constexpr uint128 epsilon() { return 0; }
     static constexpr uint128 round_error() { return 0; }
     static constexpr uint128 infinity() { return 0; }
@@ -91,7 +95,7 @@ public:
 };
 
 template <>
-class numeric_limits<int128> {
+class numeric_limits<ddb::int128> {
 public:
     static constexpr bool is_specialized = true;
     static constexpr bool is_signed = true;
@@ -116,9 +120,9 @@ public:
     static constexpr int max_exponent10 = 0;
     static constexpr bool tinyness_before = false;
 
-    static constexpr int128 min() { return int128MinValue(); }
-    static constexpr int128 lowest() { return int128MinValue(); }
-    static constexpr int128 max() { return int128MaxValue(); }
+    static constexpr int128 min() { return ddb::int128MinValue(); }
+    static constexpr int128 lowest() { return ddb::int128MinValue(); }
+    static constexpr int128 max() { return ddb::int128MaxValue(); }
     static constexpr int128 epsilon() { return 0; }
     static constexpr int128 round_error() { return 0; }
     static constexpr int128 infinity() { return 0; }
@@ -128,23 +132,23 @@ public:
 };
 
 template <>
-struct make_unsigned<int128> {
+struct make_unsigned<ddb::int128> {
     typedef uint128 type;
 };
 
 template <>
-struct add_pointer<uint128> {
+struct add_pointer<ddb::uint128> {
     typedef uint128* type;
 };
 
 template <>
-struct is_integral<int128> : public true_type {};
+struct is_integral<ddb::int128> : public true_type {};
 
 template <>
-struct is_integral<uint128> : public true_type {};
+struct is_integral<ddb::uint128> : public true_type {};
+#endif
 
 }  // namespace std
-#endif
 
 /*
     clang && (
@@ -167,21 +171,21 @@ struct is_integral<uint128> : public true_type {};
 namespace std {
 // Specialized std::hash for uint128 and int128.
 template <>
-struct hash<int128> {
-    size_t operator()(int128 v) const noexcept {
+struct hash<ddb::int128> {
+    size_t operator()(ddb::int128 v) const noexcept {
         size_t seed = 0;
-        hashCombine(seed, int128High64(v));
-        hashCombine(seed, int128Low64(v));
+        ddb::hashCombine(seed, ddb::int128High64(v));
+        ddb::hashCombine(seed, ddb::int128Low64(v));
         return seed;
     }
 };
 
 template <>
-struct hash<uint128> {
-    size_t operator()(uint128 v) const noexcept {
+struct hash<ddb::uint128> {
+    size_t operator()(ddb::uint128 v) const noexcept {
         size_t seed = 0;
-        hashCombine(seed, uint128High64(v));
-        hashCombine(seed, uint128Low64(v));
+        ddb::hashCombine(seed, ddb::uint128High64(v));
+        ddb::hashCombine(seed, ddb::uint128Low64(v));
         return seed;
     }
 };
@@ -191,7 +195,7 @@ struct hash<uint128> {
 
 namespace std {
 
-int128 pow(int128 x, size_t y);
-int128 trunc(int128 x);
+ddb::int128 pow(ddb::int128 x, size_t y);
+ddb::int128 trunc(ddb::int128 x);
 
-};  // namespace std
+} // namespace std

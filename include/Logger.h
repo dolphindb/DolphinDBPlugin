@@ -8,49 +8,18 @@
 #ifndef LOGGER_H_
 #define LOGGER_H_
 
-#include <string>
-#include <fstream>
 #include <sstream>
-#include <iostream>
-#include <ctime>
-#include <chrono>
 #include <iomanip>
 
 #include "SmartPointer.h"
-#include "Concurrent.h"
-#include "Exceptions.h"
 #include "LocklessContainer.h"
-#include "SysIO.h"
-#include "Types.h"
 
-using std::string;
-using std::ofstream;
-using std::stringstream;
+namespace ddb {
 
 enum class severity_type{DEBUG, INFO, WARNING, ERR};
 
-class LogWriter : public Runnable {
-public:
-	LogWriter(const SmartPointer<BlockingBoundlessQueue<string>>& buffer, const string& fileName, long long sizeLimit);
-	~LogWriter(){}
-
-protected:
-	virtual void run();
-
-private:
-	void archive();
-	string createArchiveFileName() const;
-
-private:
-	SmartPointer<BlockingBoundlessQueue<string>> buffer_;
-	string fileName_;
-	long long sizeLimit_;
-	int rowCount_;
-	DataOutputStreamSP out_;
-};
-
 inline uint16_t shortThreadId() {
-#ifdef LINUX
+#ifdef __linux__
 	uint64_t tid = pthread_self();
 #else
 	uint64_t tid = GetCurrentThreadId();
@@ -74,7 +43,7 @@ public:
 	template<severity_type severity , typename...Args>
 	void print(const Args&...args ) {
 		try {
-			stringstream stream;
+			std::stringstream stream;
 			stream << getTime()
 				<< std::hex
 				<< std::setfill('0')
@@ -127,10 +96,10 @@ extern SWORDFISH_API Logger log_inst;
 #define XLOG_INFO log_inst.print<severity_type::INFO>
 #define XLOG_WARN log_inst.print<severity_type::WARNING>
 
-#define LOG(...) XLOG(-1, "[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
-#define LOG_ERR(...) XLOG_ERR(-1, "[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
-#define LOG_INFO(...) XLOG_INFO(-1, "[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
-#define LOG_WARN(...) XLOG_WARN(-1, "[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
+#define LOG(...) XLOG("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
+#define LOG_ERR(...) XLOG_ERR("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
+#define LOG_INFO(...) XLOG_INFO("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
+#define LOG_WARN(...) XLOG_WARN("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
 #else
 #define LOG(...) do { if (log_inst.getLogLevel() <= severity_type::DEBUG) {log_inst.print<severity_type::DEBUG>(__VA_ARGS__);} } while(0)
 #define LOG_ERR(...) do { log_inst.print<severity_type::ERR>(__VA_ARGS__); } while(0)
@@ -138,6 +107,6 @@ extern SWORDFISH_API Logger log_inst;
 #define LOG_WARN(...) do { if (log_inst.getLogLevel() <= severity_type::WARNING) {log_inst.print<severity_type::WARNING>(__VA_ARGS__);} } while(0)
 #endif
 
-
+}
 
 #endif /* LOGGER_H_ */

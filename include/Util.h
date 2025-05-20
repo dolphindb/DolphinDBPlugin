@@ -8,17 +8,21 @@
 #ifndef UTIL_H_
 #define UTIL_H_
 
+#include <atomic>
 #include <string.h>
 #include <vector>
 #include <unordered_set>
 #include <ctime>
-#include <tr1/random>
+#include <random>
 #include <chrono>
 
 #include "CoreConcept.h"
+#include "SysIOTypes.h"
 
 using std::unordered_set;
 using std::istream;
+
+namespace ddb {
 
 class ConstantFactory;
 class CodeFactory;
@@ -69,8 +73,6 @@ public:
 	static double MAX_MEMORY_SIZE;
 	static int DISK_IO_CONCURRENCY_LEVEL;
 	static const bool LITTLE_ENDIAN_ORDER;
-
-	static __thread std::tr1::mt19937* m1;
 
 private:
 	static int cumMonthDays[13];
@@ -137,6 +139,7 @@ public:
 
 	static DataInputStreamSP createBlockFileInputStream(const string& filename, int devId, long long fileLength, int bufSize, long long offset, long long length);
 	static Constant* createResource(long long handle, const string& desc, const FunctionDefSP& onClose, Session* session);
+	static Constant* createResource(long long handle, const string& desc, const FunctionDefSP& onClose, Heap *heap);
 	static FunctionDef* createOperatorFunction(const string& name, OptrFunc func, int minParamNum, int maxParamNum, bool aggregation);
 	static FunctionDef* createSystemFunction(const string& name, SysFunc func, int minParamNum, int maxParamNum, bool aggregation);
 	static FunctionDef* createSystemProcedure(const string& name, SysProc func, int minParamNum, int maxParamNum);
@@ -157,12 +160,14 @@ public:
 	static string getTableTypeString(TABLE_TYPE type);
 	static DATA_TYPE getDataType(const string& typestr);
 	static DATA_FORM getDataForm(const string& formstr);
+	static PARSER_TYPE getParserType(const string& parserStr);
 	static int getDataTypeSize(DATA_TYPE type);
 	static DATA_TYPE getDataType(char ch);
 	static DATA_CATEGORY getCategory(DATA_TYPE type);
 	static DURATION_UNIT getDurationUnit(const string& typestr);
 	static long long getTemporalDurationConversionRatio(DATA_TYPE t, DURATION_UNIT du);
 	static long long getTemporalUplimit(DATA_TYPE t);
+	static FunctionDefSP getFuncDefFromHeap(Heap *heap, const string& defName);
 
 	//assume y>0
 	template<class T>
@@ -359,8 +364,20 @@ public:
 	static int getLastErrorCode();
 	static string getLastErrorMessage();
 	static string getErrorMessage(int errCode);
-	static int rand(int x){ return (*Util::m1)() % x;}
-	static unsigned int checksum(FILE* fp, long long offset, long long len);
+	static int rand(int x){ return (*Util::m1())() % x;}
+	static std::mt19937* m1();
+    static unsigned int checksum(FILE *fp, long long offset, long long len);
+
+    /**
+     * @brief Update the seed for the random number generator. The seedVersion is used for a thread
+	 * to tell whether it needs to update its thread-local random number generator.
+     */
+    static thread_local long long int randomSeed;
+    static thread_local unsigned int latestSeedVersion;
+    static void updateRandomSeed(long long int seed) {
+        randomSeed = seed;
+        latestSeedVersion++;
+	}
 
 	/**
 	 * @brief Get the current license type of server
@@ -368,7 +385,10 @@ public:
 	 * @return One of 'free', 'commercial' or 'trial'
 	 */
 	static string getLicenseType();
-	static int getLicenseExpiration();
+    static int getLicenseExpiration();
+    static ConstantSP deepCopyUDF(Heap *heap, const ConstantSP &udfFunc);
+    static string marshall(const ConstantSP &value);
+    static ConstantSP unmarshall(Session *session, const string &content);
 
 private:
 	static bool readScriptFile(const string& parentPath,const string& filename, unordered_set<string> scriptAlias, vector<string>& lines, string& errMsg);
@@ -377,6 +397,7 @@ private:
 inline ConstantSP evaluateObject(const ObjectSP& obj, Heap* pHeap) {
 	return obj->isConstant() && !((Constant*)obj.get())->isStatic() ? ConstantSP(obj) : obj->getReference(pHeap);
 }
+
 
 inline ConstantSP copyIfNecessary(const ConstantSP& obj) {
 	return (!obj->isTemporary() && obj->copyable()) ? obj->getValue() : obj;
@@ -424,7 +445,7 @@ SmartPointer<StateImpl<Callable>> make_routine(Callable&& f) {
 class LambdaTask : public Object {
 public:
 	template <typename Callable, typename... Args>
-	explicit LambdaTask(Callable&& f, Args&&... args) : Object(MAX_OBJECT_TYPES), func_(make_routine(std::bind(f, args...))) {}
+	explicit LambdaTask(Callable&& f, Args&&... args) : Object(OBJECT_TYPE::MAX_OBJECT_TYPES), func_(make_routine(std::bind(f, args...))) {}
 
 	void run() { func_->run(); }
 
@@ -440,5 +461,6 @@ public:
 private:
 	SmartPointer<State> func_;
 };
+} // namespace ddb
 
 #endif /* UTIL_H_ */

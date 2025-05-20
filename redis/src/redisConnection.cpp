@@ -2,6 +2,8 @@
 
 #include <ctime>
 
+namespace ddb {
+
 const int BUFFER_SIZE = 4096;
 
 class RedisReplyGuard {
@@ -265,7 +267,8 @@ ConstantSP RedisConnection::redisBatchHashSet(const vector<ConstantSP> &args) {
                 redisReply *reply;
                 if (redisGetReply(redisConnect_, (void **)&reply) != REDIS_OK) {
                     throw RuntimeException(
-                        "[Plugin::Redis] Failed to execute HSET command: " + string(redisConnect_->errstr) + ".");
+                        "[Plugin::Redis] Failed to execute HSET command: " + string(redisConnect_->errstr) +
+                        ", this connection cannot be reused and you should release it and create a new connection.");
                 }
                 if (redisConnect_->err) {
                     throw RuntimeException(
@@ -283,4 +286,112 @@ ConstantSP RedisConnection::redisBatchHashSet(const vector<ConstantSP> &args) {
         colIndex = useBatch ? colIndex + 4 : colIndex + 1;
     }
     return new String("batchHashSet finish.");
+}
+
+static string checkArgsInBatchPush(const vector<ConstantSP> &args) {
+    if (args[1]->getForm() != DF_VECTOR || args[1]->getType() != DT_STRING) {
+        throw IllegalArgumentException(__FUNCTION__, "[Plugin::Redis] Argument keys must be a string vector.");
+    }
+
+    if (!args[2]->isVector()) {
+        throw IllegalArgumentException(__FUNCTION__,
+                                       "[Plugin::Redis] Argument values must be a two-level nested string vector.");
+    }
+
+    ConstantSP value;
+    int size = args[2]->size();
+    for (int i = 0; i < size; ++i) {
+        value = args[2]->get(i);
+        if (!value->isVector() || value->getType() != DT_STRING) {
+            throw IllegalArgumentException(__FUNCTION__,
+                                           "[Plugin::Redis] Argument values must be a two-level nested string vector.");
+        }
+        if (value->size() < 1) {
+            throw IllegalArgumentException(__FUNCTION__,
+                                           "[Plugin::Redis] The num of elements in values must greater than 0.");
+        }
+    }
+
+    bool pushRight = true;
+    if (args.size() > 3) {
+        if (args[3]->getForm() != DF_SCALAR || args[3]->getType() != DT_BOOL) {
+            throw IllegalArgumentException(__FUNCTION__, "[Plugin::Redis] Argument pushRight must be a bool scalar.");
+        }
+        pushRight = args[3]->getBool();
+    }
+
+    if (args[1]->size() != args[2]->size()) {
+        throw IllegalArgumentException(__FUNCTION__,
+                                       "[Plugin::Redis] Arguments keys and values must have the same num of elements.");
+    }
+    return pushRight ? "RPUSH" : "LPUSH";
+}
+
+ConstantSP RedisConnection::redisBatchPush(const vector<ConstantSP> &args) {
+    string command = checkArgsInBatchPush(args);
+    LockGuard<Mutex> guard(&redisMutex_);
+
+    vector<const char *> argv(1);
+    vector<size_t> argvlen(1);
+    argv[0] = command.c_str();
+    argvlen[0] = 5;
+
+    DolphinString *keyBuffer[BUFFER_SIZE];
+    DolphinString *valueBuffer[BUFFER_SIZE];
+
+    INDEX len = args[1]->size();
+    VectorSP keyVec = args[1];
+    VectorSP outValueVec = args[2];
+    INDEX start = 0;
+    while (start < len) {
+        int count = std::min(len - start, BUFFER_SIZE);
+        DolphinString **keys = keyVec->getStringConst(start, count, keyBuffer);
+
+        for (int i = 0; i < count; ++i) {
+            VectorSP valueVec = outValueVec->get(start + i);
+            int valueSize = valueVec->size();
+            argv.resize(2 + valueSize);
+            argvlen.resize(2 + valueSize);
+
+            argv[1] = keys[i]->c_str();
+            argvlen[1] = strlen(argv[1]);
+
+            INDEX len2 = valueSize;
+            INDEX start2 = 0;
+            while (start2 < len2) {
+                int count2 = std::min(len2 - start2, BUFFER_SIZE);
+                DolphinString **values = valueVec->getStringConst(start2, count2, valueBuffer);
+
+                for (int j = 0; j < count2; ++j) {
+                    argv[2 + start2 + j] = values[j]->c_str();
+                    argvlen[2 + start2 + j] = strlen(argv[2 + start2 + j]);
+                }
+                start2 += count2;
+            }
+            redisAppendCommandArgv(redisConnect_, argv.size(), &argv[0], &argvlen[0]);
+        }
+
+        for (int i = 0; i < count; ++i) {
+            redisReply *reply;
+            if (redisGetReply(redisConnect_, (void **)&reply) != REDIS_OK) {
+                throw RuntimeException(
+                    "[Plugin::Redis] Failed to execute " + command + " command: " + string(redisConnect_->errstr) +
+                    ", this connection cannot be reused and you should release it and create a new connection");
+            }
+            if (redisConnect_->err) {
+                throw RuntimeException(
+                    "[Plugin::Redis] Execute command failed: " + string(redisConnect_->errstr) +
+                    ", this connection cannot be reused and you should release it and create a new connection.");
+            }
+
+            RedisReplyGuard replyGuard(reply);
+            if (reply->type == REDIS_REPLY_ERROR) {
+                throw RuntimeException("[Plugin::Redis] " + command + " failed: " + string(reply->str) + ".");
+            }
+        }
+        start += count;
+    }
+    return new Void();
+}
+
 }

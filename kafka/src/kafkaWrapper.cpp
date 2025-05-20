@@ -1,5 +1,6 @@
 #include "kafkaWrapper.h"
 #include "Types.h"
+#include "ddbplugin/PluginLogger.h"
 
 using namespace KafkaUtil;
 /* do nothing*/
@@ -12,13 +13,13 @@ DdbKafkaProducer::DdbKafkaProducer(Heap *heap, cppkafka::Configuration conf)
     producer_->get_metadata();  // HACK use this function to verify if really connected
 }
 
-DdbKafkaProducer::~DdbKafkaProducer() { 
+DdbKafkaProducer::~DdbKafkaProducer() {
     try {
-        producer_->flush(); 
+        producer_->flush();
     } catch (std::exception &e) {
-        LOG_WARN(KAFKA_PREFIX, "producer destruction failed: ", e.what());
+        PLUGIN_LOG_WARN(KAFKA_PREFIX, "producer destruction failed: ", e.what());
     } catch (...) {
-        LOG_WARN(KAFKA_PREFIX, "producer destruction failed.");
+        PLUGIN_LOG_WARN(KAFKA_PREFIX, "producer destruction failed.");
     }
 }
 
@@ -36,7 +37,7 @@ inline void drain(SmartPointer<Consumer> consumer) {
             if (msg.is_eof() || error == last_error) {
                 break;
             } else {
-                LOG_ERR(KAFKA_PREFIX, "Timeout during draining.");
+                PLUGIN_LOG_ERR(KAFKA_PREFIX, "Timeout during draining.");
             }
         }
 
@@ -46,7 +47,7 @@ inline void drain(SmartPointer<Consumer> consumer) {
 
         auto ts = Util::getEpochTime();
         if (ts - start_time > 5000) {
-            LOG_ERR(KAFKA_PREFIX, "Timeout during draining.");
+            PLUGIN_LOG_ERR(KAFKA_PREFIX, "Timeout during draining.");
             break;
         }
     }
@@ -65,9 +66,9 @@ DdbKafkaConsumer::~DdbKafkaConsumer() {
         consumer_->unassign();
         drain(consumer_);
     } catch (std::exception &e) {
-        LOG_WARN(KAFKA_PREFIX, "consumer destruction failed: ", e.what());
+        PLUGIN_LOG_WARN(KAFKA_PREFIX, "consumer destruction failed: ", e.what());
     } catch (...) {
-        LOG_WARN(KAFKA_PREFIX, "consumer destruction failed.");
+        PLUGIN_LOG_WARN(KAFKA_PREFIX, "consumer destruction failed.");
     }
 }
 
@@ -87,7 +88,7 @@ Conversion::Conversion(string usage, vector<ConstantSP> &args) {
     } else if (args[1]->getForm() == DF_SCALAR && args[1]->getType() == DT_STRING) {
         topics.push_back(args[1]->getString());
     } else {
-        throw IllegalArgumentException(__FUNCTION__, usage + "topics must be a string scalar or string vector.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "topic must be a string scalar or string vector.");
     }
     if (args[2]->getForm() == DF_VECTOR && args[2]->getCategory() == INTEGRAL) {
         for (int i = 0; i < (int)args[2]->size(); ++i) {
@@ -96,10 +97,10 @@ Conversion::Conversion(string usage, vector<ConstantSP> &args) {
     } else if (args[2]->getForm() == DF_SCALAR && args[2]->getCategory() == INTEGRAL) {
         parts.push_back(args[2]->getInt());
     } else {
-        throw IllegalArgumentException(__FUNCTION__, usage + "partitions must be an integer scalar or integer vector.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "partition must be an integer scalar or integer vector.");
     }
     if (topics.size() != parts.size()) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "the length of topics and partitions are not the same");
+        throw IllegalArgumentException(__FUNCTION__, usage + "the length of topic and partition are not the same");
     }
 
     topicPartitions = TopicPartitionList(topics.begin(), topics.end());
@@ -116,11 +117,11 @@ Conversion::Conversion(string usage, vector<ConstantSP> &args) {
         } else if (args[3]->getForm() == DF_SCALAR && args[3]->getCategory() == INTEGRAL) {
             offsets.push_back(args[3]->getLong());
         } else {
-            throw IllegalArgumentException(__FUNCTION__, usage + "offsets must be an integer scalar or integer vector.");
+            throw IllegalArgumentException(__FUNCTION__, usage + "offset must be an integer scalar or integer vector.");
         }
 
         if (topics.size() != offsets.size()) {
-            throw IllegalArgumentException(__FUNCTION__, usage + "the length of topics and offsets are not the same");
+            throw IllegalArgumentException(__FUNCTION__, usage + "the length of topic and offset are not the same");
         }
         for (int i = 0; i < (int)topicPartitions.size(); i++) {
             topicPartitions[i].set_offset(offsets[i]);

@@ -1,2 +1,2 @@
-gp,libPluginGp.so,3.00.2
-gpPlot,plot,system,3,4,0
+gp,libPluginGp.so,3.00.3
+gpPlot,plot,system,3,4,0,0,(data, style, filePath, [option])

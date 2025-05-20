@@ -4,14 +4,15 @@
  *  Created on: Apr 19, 2019
  *      Author: xjqian
  */
-
 #ifndef MQTT_H_
 #define MQTT_H_
 
-#include "CoreConcept.h"
-#include "Logger.h"
-#include "Util.h"
+#include "DolphinDBEverything.h"
+#include "PluginLogger.h"
+#include "SysIO.h"
 #include "mqtt.h"
+
+using namespace ddb;
 
 extern "C" ConstantSP mqttClientSub(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP mqttClientStopSub(const ConstantSP &handle, const ConstantSP &b);
@@ -25,9 +26,11 @@ extern "C" ConstantSP getSubscriberStat(const ConstantSP &handle, const Constant
 static const string LOG_PRE_STR = "[PLUGIN:MQTT]";
 static const int MAX_RETRY_COUNT = 10;
 namespace mqttConn {
-static DictionarySP CONN_DICT = Util::createDictionary(DT_STRING, 0, DT_ANY, 0);
-static Mutex CONN_MUTEX_LOCK;
+static ddb::DictionarySP CONN_DICT = ddb::Util::createDictionary(ddb::DT_STRING, 0, ddb::DT_ANY, 0);
+static ddb::Mutex CONN_MUTEX_LOCK;
 }  // namespace mqttConn
+
+namespace ddb {
 namespace mqtt {
 
 struct MqttInfo {
@@ -41,7 +44,10 @@ class ConnctionBase {
     virtual struct mqtt_client *getClient() = 0;
     virtual void reconnect() = 0;
     virtual bool isClosed() = 0;
-    virtual void handleMsg(const std::string &topic, const std::string &msg) {}
+    virtual void handleMsg(const std::string &topic, const std::string &msg) {
+      std::ignore = topic;
+      std::ignore = msg;
+    }
     bool received() { return received_; }
     void resetReceived() { received_ = false; }
     void setReceived() { received_ = true; }
@@ -65,7 +71,7 @@ class Connection : public ConnctionBase {
         sockfd_ = new Socket(host_, port_, false);
         IO_ERR ret = sockfd_->connect();
         if (ret != OK && ret != INPROGRESS) {
-            LOG_ERR("[PluginMQTT]: Failed to connect. ");
+            PLUGIN_LOG_ERR("[PluginMQTT]: Failed to connect. ");
             return;
         }
         mqtt_reinit(&client_, sockfd_->getHandle(), sendbuf_.get(), sendbufSize_, recvbuf_.get(), recvbufSize_);
@@ -181,5 +187,6 @@ bool checkConnectStatus(int sockfd);
 void checkConnack(mqtt_client *client);
 
 }  // namespace mqtt
+}  // namespace ddb
 
 #endif /* MQTT_H_ */

@@ -4,7 +4,11 @@
 #include "Util.h"
 #include "zipper.h"
 
-ConstantSP zip(Heap* heap, vector<ConstantSP>& args){
+namespace ddb {
+
+ConstantSP zip(Heap* heap, vector<ConstantSP>& args)
+{
+    std::ignore = heap;
     const string usage = "Usage: zip(zipFileName, fileOrFolderPath, [compressionLevel], [password]) ";
 
     if(args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR)
@@ -14,7 +18,7 @@ ConstantSP zip(Heap* heap, vector<ConstantSP>& args){
     if(args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR)
         throw IllegalArgumentException(__FUNCTION__, usage + "fileOrFolderPath must be a string scalar");
     string fileOrFolderPath = args[1]->getString();
-    
+
     zipper::Zipper::zipFlags compressionLevel = static_cast<zipper::Zipper::zipFlags>(zipper::Zipper::zipFlags::Better | zipper::Zipper::zipFlags::Overwrite);
     if(args.size() > 2 && !args[2]->isNothing()){
         if(args[2]->getType() != DT_STRING || args[2]->getForm() != DF_SCALAR)
@@ -56,7 +60,7 @@ ConstantSP zip(Heap* heap, vector<ConstantSP>& args){
     try{
         if(password != "")
             zipHandle = new zipper::Zipper(zipFileName, password);
-        else    
+        else
             zipHandle = new zipper::Zipper(zipFileName);
         if(!zipHandle->add(fileOrFolderPath, compressionLevel))
             throw RuntimeException("failed to zip " + fileOrFolderPath + " to " + zipFileName);
@@ -83,7 +87,7 @@ ConstantSP unzip(Heap* heap, vector<ConstantSP>& args) {
         throw IllegalArgumentException(__FUNCTION__, usage + "zipFileName must be an absolute path");
     }
 
-#ifdef WINDOWS
+#ifdef _WIN32
 	zipFilename = Util::replace(zipFilename, '/', '\\');
 #endif
     // Get the output path. If no output path is specified, it will default to the same path as the compressed file.
@@ -109,7 +113,7 @@ ConstantSP unzip(Heap* heap, vector<ConstantSP>& args) {
     }
     string winSeparator = "\\";
     string linuxSeparator = "/";
-#ifdef WINDOWS
+#ifdef _WIN32
 	outputDir = Util::replace(outputDir, '/', '\\');
     if (!outputDir.empty() && !Util::endWith(outputDir, winSeparator) && !Util::endWith(outputDir, linuxSeparator)) {
         outputDir.push_back('\\');
@@ -191,8 +195,8 @@ ConstantSP unzipFile(const string& zipFilename, const string& outputDir, Heap* h
     // }
 
     std::vector<string> filenames;
-
-    do_extract(wrapper.uf, 0, password == "" ? nullptr : password.c_str(), outputDir, heap, function, encode);
+    //do_extract(wrapper.uf, 0, password == "" ? nullptr : password.c_str(), outputDir, heap, function, encode);
+    do_extract(wrapper.uf, 0, password.c_str(), outputDir, heap, function, encode);
     unzGoToFirstFile(wrapper.uf);
     getFilenames(wrapper.uf, filenames);
     size_t size = filenames.size();
@@ -212,4 +216,16 @@ ConstantSP unzipFile(const string& zipFilename, const string& outputDir, Heap* h
         ret->setString(i, outputDir + fileTmp);
     }
     return ret;
+}
+
+} // namespace ddb
+
+ddb::ConstantSP zip(ddb::Heap* heap, argsT &args)
+{
+    return ddb::zip(heap, args);
+}
+
+ddb::ConstantSP unzip(ddb::Heap* heap, argsT &args)
+{
+    return ddb::unzip(heap, args);
 }

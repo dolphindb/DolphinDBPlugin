@@ -9,9 +9,10 @@
 
 static Mutex hdf5Mutex;
 
-ConstantSP h5ls(const ConstantSP &h5_path) {
+ConstantSP h5ls(Heap *heap, vector<ConstantSP> &arguments) {
     string syntax{"hdf5::ls(fileName) "};
     LockGuard<Mutex> guard{&hdf5Mutex};
+    ConstantSP h5_path = arguments[0];
     if (h5_path->getType() != DT_STRING || h5_path->getForm() != DF_SCALAR)
         throw IllegalArgumentException(__FUNCTION__, syntax + "filename must be a string scalar.");
 
@@ -30,9 +31,10 @@ ConstantSP h5ls(const ConstantSP &h5_path) {
     return lsResult;
 }
 
-ConstantSP h5lsTable(const ConstantSP &filename) {
+ConstantSP h5lsTable(Heap *heap, vector<ConstantSP> &arguments) {
     string syntax{"hdf5::lsTable(fileName) "};
     LockGuard<Mutex> guard{&hdf5Mutex};
+    ConstantSP filename = arguments[0];
     if (filename->getType() != DT_STRING)
         throw IllegalArgumentException(__FUNCTION__, syntax + "fileName must be a string scalar.");
 
@@ -56,9 +58,11 @@ ConstantSP h5lsTable(const ConstantSP &filename) {
     return Util::createTable(resultColName, {tableName, tableDims, tableType});
 }
 
-ConstantSP extractHDF5Schema(const ConstantSP& filename, const ConstantSP& datasetName) {
+ConstantSP extractHDF5Schema(Heap *heap, vector<ConstantSP> &arguments) {
     string syntax{"hdf5::extractHDF5Schema(fileName, datasetName) "};
     LockGuard<Mutex> guard{&hdf5Mutex};
+    ConstantSP filename = arguments[0];
+    ConstantSP datasetName = arguments[1];
     if (filename->getType() != DT_STRING || filename->getForm() != DF_SCALAR)
         throw IllegalArgumentException(__FUNCTION__, syntax + "fileName must be a string scalar.");
     if(datasetName->getType() != DT_STRING || datasetName->getForm() != DF_SCALAR)
@@ -95,9 +99,9 @@ ConstantSP loadPandasHDF5(Heap *heap, vector<ConstantSP>& arguments){
 }
 
 ConstantSP loadHDF5Ex(Heap *heap, vector<ConstantSP>& arguments) {
-    string syntax{"hdf5::loadHDF5Ex(dbHandle, tableName, [partitionColumns], fileName, datasetName, [schema], [startRow], [rowNum], [transform]) "};
+    string syntax{"hdf5::loadHDF5Ex(dbHandle, tableName, partitionColumns, fileName, datasetName, [schema], [startRow], [rowNum], [transform]) "};
     LockGuard<Mutex> guard{&hdf5Mutex};
-    ConstantSP db = arguments[0];
+    DBHandleWrapper db(heap, arguments[0]);
     ConstantSP tableName = arguments[1];
     ConstantSP partitionColumnNames = arguments[2];
     ConstantSP filename = arguments[3];
@@ -108,8 +112,9 @@ ConstantSP loadHDF5Ex(Heap *heap, vector<ConstantSP>& arguments) {
     ConstantSP schema = H5PluginImp::nullSP;
     H5::Exception::dontPrint();
 
-    if (!db->isDatabase())
-        throw IllegalArgumentException(__FUNCTION__, syntax + "dbHandle must be a database handle.");
+    if (db.getPartitionType() == PARTITION_TYPE::SEQ) {
+        throw IllegalArgumentException(__FUNCTION__, "SEQ partition is not supported.");
+    }
     if (tableName->getType() != DT_STRING || tableName->getForm() != DF_SCALAR)
         throw IllegalArgumentException(__FUNCTION__, syntax + "tableName must be a string scalar.");
     if (!partitionColumnNames->isNull() && (partitionColumnNames->getType() != DT_STRING ||
@@ -167,7 +172,7 @@ ConstantSP loadHDF5Ex(Heap *heap, vector<ConstantSP>& arguments) {
 }
 
 ConstantSP HDF5DS(Heap *heap, vector<ConstantSP>& arguments) {
-    string syntax{"hdf5::HDF5DS(fileName,datasetName,[schema],[dsNum]) "};
+    string syntax{"hdf5::HDF5DS(fileName,datasetName,[schema],[chunkSize=1]) "};
     LockGuard<Mutex> guard{&hdf5Mutex};
     ConstantSP filename = arguments[0];
     ConstantSP datasetName = arguments[1];
@@ -194,16 +199,16 @@ ConstantSP HDF5DS(Heap *heap, vector<ConstantSP>& arguments) {
         else if (arguments[3]->isNull())
             dsNum = 1;
         else
-            throw IllegalArgumentException(__FUNCTION__, syntax + "dsNum must be an integer.");
+            throw IllegalArgumentException(__FUNCTION__, syntax + "chunkSize must be an integer.");
         if (dsNum < 1)
-            throw IllegalArgumentException(__FUNCTION__, syntax + "dsNum must be positive.");
+            throw IllegalArgumentException(__FUNCTION__, syntax + "chunkSize must be positive.");
     }
     H5::Exception::dontPrint();
     return H5PluginImp::HDF5DS(filename, datasetName, schema, (size_t)dsNum);
 }
 
 ConstantSP saveHDF5(Heap *heap, vector<ConstantSP> &arguments) {
-    string syntax{"hdf5::saveHDF5(table, fileName, datasetName, [append], [stringMaxLength]) "};
+    string syntax{"hdf5::saveHDF5(table, fileName, datasetName, [append=false], [maxStringLength=16]) "};
     LockGuard<Mutex> guard{&hdf5Mutex};
     TableSP table = arguments[0];
     ConstantSP fileName = arguments[1];
@@ -227,11 +232,11 @@ ConstantSP saveHDF5(Heap *heap, vector<ConstantSP> &arguments) {
     }
     if(arguments.size() > 4 && !arguments[4]->isNull()){
         if(arguments[4]->getCategory() != INTEGRAL || arguments[4]->getForm() != DF_SCALAR){
-            throw IllegalArgumentException(__FUNCTION__, "stringMaxLength must be a integer scalar.");
+            throw IllegalArgumentException(__FUNCTION__, "maxStringLength must be a integer scalar.");
         }
         stringMaxLength = arguments[4]->getInt();
         if(stringMaxLength <= 0){
-            throw IllegalArgumentException(__FUNCTION__, "stringMaxLength must be positive.");
+            throw IllegalArgumentException(__FUNCTION__, "maxStringLength must be positive.");
         }
     }
     H5::Exception::dontPrint();

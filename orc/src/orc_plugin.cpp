@@ -3,11 +3,16 @@
 #include "Types.h"
 #include <climits>
 #include <exception>
+#include "ComputingModel.h"
+#include "ddbplugin/PluginLogger.h"
+#include "ddbplugin/PluginLoggerImp.h"
 
-ConstantSP extractORCSchema(const ConstantSP &filename)
+ConstantSP extractORCSchema(Heap *heap, vector<ConstantSP> &arguments)
 {
+    std::ignore = heap;
+    ConstantSP filename = arguments[0];
     if (filename->getType() != DT_STRING)
-        throw IllegalArgumentException(__FUNCTION__, "The filename and dataset must be a string.");
+        throw IllegalArgumentException(__FUNCTION__, "The filePath must be a string.");
 
     ConstantSP schema = ORCPluginImp::extractORCSchema(filename->getString());
 
@@ -16,7 +21,8 @@ ConstantSP extractORCSchema(const ConstantSP &filename)
 
 ConstantSP loadORC(Heap *heap, vector<ConstantSP> &arguments)
 {
-    string usage{"orc::loadORC(filename,[schema],[column],[rowStart],[rowNum])"};
+    std::ignore = heap;
+    string usage{"orc::loadORC(filePath,[schema],[column],[rowStart],[rowNum])"};
     ConstantSP filename = arguments[0];
 
     int rowStart = 0;
@@ -24,7 +30,7 @@ ConstantSP loadORC(Heap *heap, vector<ConstantSP> &arguments)
     ConstantSP schema = ORCPluginImp::nullSP;
     ConstantSP column = new Void();
     if(filename->getForm() != DF_SCALAR || filename->getType() != DT_STRING)
-        throw IllegalArgumentException(__FUNCTION__, usage + "The filename and dataset must be a string.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "The filePath and dataset must be a string.");
     if(arguments.size() >= 2 && !arguments[1]->isNull())
     {
         if(!arguments[1]->isTable())
@@ -66,7 +72,8 @@ ConstantSP loadORC(Heap *heap, vector<ConstantSP> &arguments)
 
 ConstantSP loadORCHdfs(Heap *heap, vector<ConstantSP> &arguments)
 {
-    string usage{"orc::loadORCHdfs(hdfsAddress, hdfsLength)"};
+    std::ignore = heap;
+    string usage{"orc::loadORCHdfs(address, length)"};
     if(arguments[0]->getType() != DT_RESOURCE || arguments[0]->getString() != "hdfs readFile address")
         throw IllegalArgumentException(__FUNCTION__,"The first arguments should be resource");
     if(arguments[1]->getType() != DT_RESOURCE || arguments[1]->getString() != "hdfs readFile length")
@@ -79,8 +86,11 @@ ConstantSP loadORCHdfs(Heap *heap, vector<ConstantSP> &arguments)
 
 ConstantSP loadORCEx(Heap *heap, vector<ConstantSP> &arguments)
 {
-    string usage = "orc::loadORCEx(dbHandle,tableName,[partitionColumns],fileName,[schema],[column],[rowStart],[rowNum],[transform])";
-    ConstantSP db = arguments[0];
+    string usage = "orc::loadORCEx(dbHandle,tableName,[partitionColumns],filePath,[schema],[column],[rowStart],[rowNum],[transform])";
+    DBHandleWrapper db = DBHandleWrapper(heap, arguments[0]);
+    if (db.getPartitionType() == PARTITION_TYPE::SEQ) {
+        throw IllegalArgumentException(__FUNCTION__, "SEQ partition is not supported.");
+    }
     ConstantSP tableName = arguments[1];
     ConstantSP partitionColumnNames = arguments[2];
     ConstantSP filename = arguments[3];
@@ -90,14 +100,12 @@ ConstantSP loadORCEx(Heap *heap, vector<ConstantSP> &arguments)
     ConstantSP schema = ORCPluginImp::nullSP;
     ConstantSP column = new Void();
 
-    if (!db->isDatabase())
-        throw IllegalArgumentException(__FUNCTION__, usage + "dbHandle must be a database handle.");
     if (!tableName->isScalar() || tableName->getType() != DT_STRING)
         throw IllegalArgumentException(__FUNCTION__, usage + "tableName must be a string scalar.");
     if (!partitionColumnNames->isNull() && (partitionColumnNames->getType() != DT_STRING || (partitionColumnNames->getForm() != DF_SCALAR && partitionColumnNames->getForm() != DF_VECTOR)))
         throw IllegalArgumentException(__FUNCTION__, usage + "The partition columns must be in string or string vector.");
     if (!filename->isScalar() || filename->getType() != DT_STRING)
-        throw IllegalArgumentException(__FUNCTION__, usage + "The filename must be a string scalar.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "The filePath must be a string scalar.");
     if (arguments.size() >= 5 && !arguments[4]->isNull())
     {
         if (!arguments[4]->isTable())
@@ -148,13 +156,14 @@ ConstantSP loadORCEx(Heap *heap, vector<ConstantSP> &arguments)
 
 ConstantSP orcDS(Heap *heap, vector<ConstantSP> &arguments)
 {
-    string usage{"orc::orcDS(fileName,chunkSize,[schema],[skipRows])"};
+    std::ignore = heap;
+    string usage{"orc::orcDS(filePath,chunkSize,[schema],[skipRows])"};
     ConstantSP filename = arguments[0];
     ConstantSP chunkSize = arguments[1];
     int skipRows = 0;
     ConstantSP schema = ORCPluginImp::nullSP;
     if(!filename->isScalar() || filename->getType() != DT_STRING)
-        throw IllegalArgumentException(__FUNCTION__, usage + "filename must be a string vector.");
+        throw IllegalArgumentException(__FUNCTION__, usage + "filePath must be a string vector.");
     if(chunkSize->isNull() || !chunkSize->isScalar() || chunkSize->getCategory() != INTEGRAL || chunkSize->getInt() <= 0){
         throw IllegalArgumentException(__FUNCTION__, usage + "chunkSize must be a positive integer");
     }
@@ -176,16 +185,17 @@ ConstantSP orcDS(Heap *heap, vector<ConstantSP> &arguments)
     return ORCPluginImp::orcDS(filename, chunkSize->getInt(), schema, skipRows);
 }
 
-ConstantSP saveORC(Heap *heap, vector<ConstantSP> &arguments){
-
-    string usage{"`orc::saveORC(table, fileName)"};
+ConstantSP saveORC(Heap *heap, vector<ConstantSP> &arguments)
+{
+    std::ignore = heap;
+    string usage{"`orc::saveORC(table, filePath)"};
     TableSP table = arguments[0];
     ConstantSP fileName = arguments[1];
     if(table->getForm() != DF_TABLE){
         throw IllegalArgumentException(__FUNCTION__, "table must be a table type.");
     }
     if(!fileName->isScalar() || fileName->getType() != DT_STRING){
-        throw IllegalArgumentException(__FUNCTION__, "fileName must be a string scalar.");
+        throw IllegalArgumentException(__FUNCTION__, "filePath must be a string scalar.");
     }
     return ORCPluginImp::saveORC(table, fileName->getString());
 }
@@ -2008,7 +2018,7 @@ ConstantSP loadORCFromBuf(void *buffer, uint64_t length)
 ConstantSP loadORC(orc::Reader *reader, const ConstantSP &schema, const ConstantSP &column, int rowStart, int rowNum)
 {
     const orc::Type &schema_descr = reader->getType();
-    TableSP tableWithSchema = DBFileIO::createEmptyTableFromSchema(schema);
+    TableSP tableWithSchema = createEmptyTableFromSchema(schema);
     int col_num = column->size();
     vector<VectorSP> dolphindbCol(col_num);
     createNewVectorSP(dolphindbCol, tableWithSchema);
@@ -2166,6 +2176,7 @@ ConstantSP loadORC(orc::Reader *reader, const ConstantSP &schema, const Constant
 
 void getORCReader(Heap *heap, vector<ConstantSP> &arguments)
 {
+    std::ignore = heap;
     orc::Reader *file = reinterpret_cast<orc::Reader*>(arguments[0]->getLong());
     if(file != nullptr)
     {
@@ -2180,31 +2191,19 @@ ConstantSP loadFromORCToDatabase(Heap *heap, vector<ConstantSP> &arguments)
     VectorSP columnArg = arguments[2];
     int rowStart = arguments[3]->getInt();
     int rowNum = arguments[4]->getInt();
-    SystemHandleSP db = static_cast<SystemHandleSP>(arguments[5]);
     string tableName = arguments[6]->getString();
 
-    bool diskSeqMode = !db->getDatabaseDir().empty() &&
-                       db->getDomain()->getPartitionType() == SEQ;
     TableSP loadedTable = loadORC(reader, schema, columnArg, rowStart, rowNum);
     FunctionDefSP transform = (FunctionDefSP)arguments[8];
     if(!transform.isNull() && !transform->isNull()){
         vector<ConstantSP> arg = {loadedTable};
         loadedTable = transform->call(heap, arg);
     }
-    if(diskSeqMode)
-    {
-        string id = db->getDomain()->getPartition(arguments[7]->getInt())->getPath();
-        string directory = db->getDatabaseDir() + "/" + id;
-        if(!DBFileIO::saveBasicTable(heap->currentSession(), directory, loadedTable.get(), tableName, NULL, true, 1, false))
-            throw RuntimeException(ORC_PREFIX + "Failed to save the table to directory " + directory);
-        return new Long(loadedTable->rows());
-    }
-    else
-        return loadedTable;
+    return loadedTable;
 }
 
 vector<DistributedCallSP> generateORCTasks(Heap* heap, const orc::Reader *reader, const TableSP &schema, const ConstantSP &column, const int rowStart, const int rowNum,
-                                          const SystemHandleSP &db, const string &tableName, const ConstantSP &transform)
+                                          DBHandleWrapper &db, const string &tableName, const ConstantSP &transform)
 {
     int maxRowNum = reader->getNumberOfRows();
     if(rowStart >= maxRowNum){
@@ -2214,21 +2213,13 @@ vector<DistributedCallSP> generateORCTasks(Heap* heap, const orc::Reader *reader
     if(rowNum != 0){
         partitions = std::min(partitions, int(floor(rowNum / 1000000.0)));
     }
-    DomainSP domain = db->getDomain();
-
-    if(domain->getPartitionType() == SEQ)
-    {
-        if(domain->getPartitionCount() <= 1)
-            throw IOException(ORC_PREFIX + "The database must have at least two partitions.");
-        partitions = domain->getPartitionCount();
-    }
     partitions = partitions == 0 ? 1: partitions;
 
     vector<DistributedCallSP> tasks;
     ConstantSP _tableName = new String(tableName);
     const char *fmt = "Read orc file";
     FunctionDefSP getOrcFileHead(Util::createSystemProcedure("getOrcReader", getORCReader, 1, 1));
-    ConstantSP orcReader = Util::createResource(reinterpret_cast<long long>(reader), fmt, getOrcFileHead, heap->currentSession());
+    ConstantSP orcReader = Util::createResource(reinterpret_cast<long long>(reader), fmt, getOrcFileHead, heap);
     FunctionDefSP func = Util::createSystemFunction("loadFromOrcToDatabase", loadFromORCToDatabase, 9, 9, false);
     int rowPerPartition = floor(reader->getNumberOfRows() * 1.0 / partitions);
     ConstantSP rowCount = new Long(rowPerPartition);
@@ -2239,7 +2230,7 @@ vector<DistributedCallSP> generateORCTasks(Heap* heap, const orc::Reader *reader
         if(i == partitions-1) {
             rowCount->setLong(reader->getNumberOfRows() - i * rowCount->getLong());
         }
-        vector<ConstantSP> args{orcReader, schema, column, rowStart, rowCount, db, _tableName, id, transform};
+        vector<ConstantSP> args{orcReader, schema, column, rowStart, rowCount, db.getDBHandle(), _tableName, id, transform};
         ObjectSP call = Util::createRegularFunctionCall(func, args);
         DistributedCallSP task = new DistributedCall(call, true);
         tasks.push_back(task);
@@ -2247,28 +2238,28 @@ vector<DistributedCallSP> generateORCTasks(Heap* heap, const orc::Reader *reader
     return tasks;
 }
 
-TableSP generateInMemoryPartitionedTable(Heap *heap, const SystemHandleSP &db,
+TableSP generateInMemoryPartitionedTable(Heap *heap, DBHandleWrapper &db,
                                         const ConstantSP &tables, const ConstantSP &partitionNames)
 {
-    FunctionDefSP createPartitionedTable = heap->currentSession()->getFunctionDef("createPartitionedTable");
+    FunctionDefSP createPartitionedTable = Util::getFuncDefFromHeap(heap, "createPartitionedTable");
     ConstantSP emptyString = new String("");
-    vector<ConstantSP> args{db, tables, emptyString, partitionNames};
+    vector<ConstantSP> args{db.getDBHandle(), tables, emptyString, partitionNames};
     return createPartitionedTable->call(heap, args);
 }
 
 ConstantSP generatePartition(Heap *heap, vector<ConstantSP> &arguments)
 {
-    SystemHandleSP db = arguments[0];
+    DBHandleWrapper db = DBHandleWrapper(heap, arguments[0]);
     ConstantSP tb = arguments[1];
     ConstantSP tbInMemory = arguments[2];
-    string dbPath = db->getDatabaseDir();
-    FunctionDefSP append = heap->currentSession()->getFunctionDef("append!");
+    string dbPath = db.getDatabaseDir();
+    FunctionDefSP append = Util::getFuncDefFromHeap(heap, "append!");
     vector<ConstantSP> appendArgs = {tb, tbInMemory};
     append->call(heap, appendArgs);
     return new Void();
 }
 
-ConstantSP loadORCEx(Heap *heap, const SystemHandleSP &db, const string &tableName, const ConstantSP &partitionColumns,
+ConstantSP loadORCEx(Heap *heap, DBHandleWrapper &db, const string &tableName, const ConstantSP &partitionColumns,
                          const string &filename, const TableSP &schema, const ConstantSP &column, const int rowStart, const int rowNum, const ConstantSP &transform)
 {
     ORC_UNIQUE_PTR<orc::InputStream> inStream = orc::readLocalFile(filename);
@@ -2310,96 +2301,47 @@ ConstantSP loadORCEx(Heap *heap, const SystemHandleSP &db, const string &tableNa
     vector<DistributedCallSP> tasks = generateORCTasks(heap, reader.release(), convertedSchema, columnToRead, rowStart, rowNum, db, tableName, transform);
     int partitions = tasks.size();
     string owner = heap->currentSession()->getUser()->getUserId();
-    DomainSP domain = db->getDomain();
-    bool seqDomain = domain->getPartitionType() == SEQ;
-    bool inMemory = db->getDatabaseDir().empty();
+    bool inMemory = db.getDatabaseDir().empty();
     ConstantSP tableName_ = new String(tableName);
-    if(seqDomain)
-    {
-        StaticStageExecutor executor(false, false, false);
-        executor.execute(heap, tasks);
-        for(int i = 0; i < partitions; i++)
-        {
-            const string &errMsg = tasks[i]->getErrorMessage();
-            if(!errMsg.empty())
-                throw RuntimeException(ORC_PREFIX + errMsg);
-        }
-        if(inMemory)
-        {
-            ConstantSP tmpTables = Util::createVector(DT_ANY, partitions);
-            for(int i = 0; i < partitions; i++)
-                tmpTables->set(i, tasks[i]->getResultObject());
-            ConstantSP partitionNames = new String("");
-            return generateInMemoryPartitionedTable(heap, db, tmpTables, partitionNames);
-        }
-        else
-        {
-            vector<int> partitionColumnIndices(1, -1);
-            vector<int> baseIds;
-            int baseId = -1;
-            string tableFile = db->getDatabaseDir() + "/" + tableName + ".tbl";
-            vector<ColumnDesc> cols;
-            int columns = convertedSchema->rows();
-            for(int i = 0; i < columns; ++i)
-            {
-                string name = convertedSchema->getColumn(0)->getString(i);
-                DATA_TYPE type = Util::getDataType(convertedSchema->getColumn(1)->getString(i));
-                int extra = type == DT_SYMBOL ? baseId : -1;
-                cols.push_back(ColumnDesc(name, type, extra));
-            }
 
-            string physicalIndex = tableName;
-            if(!DBFileIO::saveTableHeader(owner, physicalIndex, cols, partitionColumnIndices, 0, tableFile, NULL))
-                throw IOException(ORC_PREFIX + "Failed to save table header " + tableFile);
-            if(!DBFileIO::saveDatabase(db.get()))
-                throw IOException(ORC_PREFIX + "Failed to save database " + db->getDatabaseDir());
-            vector<FunctionDefSP> partitionFuncs{};
-            db->getDomain()->addTable(tableName, owner, physicalIndex, cols, partitionColumnIndices, partitionFuncs);
-            vector<ConstantSP> loadTableArgs = {db, tableName_};
-            return heap->currentSession()->getFunctionDef("loadTable")->call(heap, loadTableArgs);
-        }
+    string dbPath = db.getDatabaseDir();
+    vector<ConstantSP> existsTableArgs = {new String(dbPath), tableName_};
+    bool existsTable = Util::getFuncDefFromHeap(heap, "existsTable")->call(heap, existsTableArgs)->getBool();
+    ConstantSP result;
+
+    if(existsTable)
+    {
+        vector<ConstantSP> loadTableArgs = {db.getDBHandle(), tableName_};
+        result = Util::getFuncDefFromHeap(heap, "loadTable")->call(heap, loadTableArgs);
     }
     else
     {
-        string dbPath = db->getDatabaseDir();
-        vector<ConstantSP> existsTableArgs = {new String(dbPath), tableName_};
-        bool existsTable = heap->currentSession()->getFunctionDef("existsTable")->call(heap, existsTableArgs)->getBool();
-        ConstantSP result;
-
-        if(existsTable)
-        {
-            vector<ConstantSP> loadTableArgs = {db, tableName_};
-            result = heap->currentSession()->getFunctionDef("loadTable")->call(heap, loadTableArgs);
-        }
-        else
-        {
-            ConstantSP dummyTable = DBFileIO::createEmptyTableFromSchema(convertedSchema);
-            vector<ConstantSP> createTableArgs = {db, dummyTable, tableName_, partitionColumns};
-            result = heap->currentSession()->getFunctionDef("createPartitionedTable")->call(heap, createTableArgs);
-        }
-        vector<FunctionDefSP> functors;
-        FunctionDefSP func = Util::createSystemFunction("savePartition", &generatePartition, 3, 3, false);
-        vector<ConstantSP> args(2);
-        args[0] = db;
-        args[1] = result;
-        functors.push_back(Util::createPartialFunction(func, args));
-        PipelineStageExecutor executor(functors, false, 4, 2);
-        executor.execute(heap, tasks);
-        for(int i = 0; i < partitions; ++i)
-        {
-            if(!tasks[i]->getErrorMessage().empty()){
-                string errMsg;
-                errMsg = tasks[i]->getErrorMessage();
-                throw RuntimeException(ORC_PREFIX + errMsg);
-            }
-        }
-        if(!inMemory)
-        {
-            vector<ConstantSP> loadTableArgs = {db, tableName_};
-            result = heap->currentSession()->getFunctionDef("loadTable")->call(heap, loadTableArgs);
-        }
-        return result;
+        ConstantSP dummyTable = createEmptyTableFromSchema(convertedSchema);
+        vector<ConstantSP> createTableArgs = {db.getDBHandle(), dummyTable, tableName_, partitionColumns};
+        result = Util::getFuncDefFromHeap(heap, "createPartitionedTable")->call(heap, createTableArgs);
     }
+    vector<FunctionDefSP> functors;
+    FunctionDefSP func = Util::createSystemFunction("savePartition", &generatePartition, 3, 3, false);
+    vector<ConstantSP> args(2);
+    args[0] = db.getDBHandle();
+    args[1] = result;
+    functors.push_back(Util::createPartialFunction(func, args));
+    PipelineStageExecutor executor(functors, false, 4, 2);
+    executor.execute(heap, tasks);
+    for(int i = 0; i < partitions; ++i)
+    {
+        if(!tasks[i]->getErrorMessage().empty()){
+            string errMsg;
+            errMsg = tasks[i]->getErrorMessage();
+            throw RuntimeException(ORC_PREFIX + errMsg);
+        }
+    }
+    if(!inMemory)
+    {
+        vector<ConstantSP> loadTableArgs = {db.getDBHandle(), tableName_};
+        result = Util::getFuncDefFromHeap(heap, "loadTable")->call(heap, loadTableArgs);
+    }
+    return result;
 }
 
 int getRowNum(const string &str)

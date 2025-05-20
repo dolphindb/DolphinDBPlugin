@@ -5,16 +5,21 @@
 #include "ddbplugin/Plugin.h"
 #include <CoreConcept.h>
 #include <Exceptions.h>
+#include <DolphinClass.h>
 #include <ScalarImp.h>
 #include <SysIO.h>
 #include <Types.h>
 #include <Util.h>
 
+
+using namespace ddb;
+
+using std::string;
+using std::vector;
+
 using BatchProcessorSP = SmartPointer<BatchProcessor>;
 
 class CoderImpl;
-class DolphinClass;
-typedef SmartPointer<DolphinClass> DolphinClassSP;
 
 class CoderImplClass : public DolphinClass {
   public:

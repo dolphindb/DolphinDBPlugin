@@ -15,6 +15,8 @@
 #include <omp.h>
 #include <ScalarImp.h>
 
+using namespace ddb;
+
 #define PI 3.1415926
 bool fftwInit = false;
 static Mutex LOCK_FFTW_LIB;
@@ -71,7 +73,7 @@ ConstantSP dctMap(Heap *heap, vector<ConstantSP> &args)
     omp_lock_t lock;
     omp_init_lock(&lock);
 #pragma omp parallel for schedule(static) num_threads(omp_get_num_procs())
-    for (int idx = 0; idx < index_j.size(); idx++)
+    for (size_t idx = 0; idx < index_j.size(); idx++)
     {
         for (int k = 0; k < size; k++)
         {
@@ -100,7 +102,7 @@ ConstantSP dctReduce(const ConstantSP &mapRes1, const ConstantSP &mapRes2)
     mapRes1->getDouble(0, mapRes1->size(), &xk_1[0]);
     mapRes2->getDouble(0, mapRes2->size(), &xk_2[0]);
 #pragma omp parallel for schedule(static) num_threads(omp_get_num_procs())
-    for (int i = 0; i < xk_1.size(); i++)
+    for (size_t i = 0; i < xk_1.size(); i++)
         xk_1[i] += xk_2[i];
     ConstantSP result = Util::createVector(DT_DOUBLE, xk_1.size());
     result->setDouble(0, xk_1.size(), &xk_1[0]);
@@ -120,16 +122,16 @@ ConstantSP dctParallel(Heap *heap, vector<ConstantSP> &args)
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     ConstantSP ds = args[0];
 
-    FunctionDefSP num_mapfunc = heap->currentSession()->getFunctionDef("signal::dctNumMap");
-    FunctionDefSP num_reducefunc = heap->currentSession()->getFunctionDef("signal::dctNumReduce");
-    FunctionDefSP mr = heap->currentSession()->getFunctionDef("mr");
+    FunctionDefSP num_mapfunc = Util::getFuncDefFromHeap(heap, "signal::dctNumMap");
+    FunctionDefSP num_reducefunc = Util::getFuncDefFromHeap(heap, "signal::dctNumReduce");
+    FunctionDefSP mr = Util::getFuncDefFromHeap(heap, "mr");
     vector<ConstantSP> num_myargs = {ds, num_mapfunc, num_reducefunc};
     ConstantSP size = mr->call(heap, num_myargs);
 
-    FunctionDefSP mapfunc = heap->currentSession()->getFunctionDef("signal::dctMap");
+    FunctionDefSP mapfunc = Util::getFuncDefFromHeap(heap, "signal::dctMap");
     vector<ConstantSP> mapwithsizearg = {new Void(), size};
     FunctionDefSP mapwithsize = Util::createPartialFunction(mapfunc, mapwithsizearg);
-    FunctionDefSP reducefunc = heap->currentSession()->getFunctionDef("signal::dctReduce");
+    FunctionDefSP reducefunc = Util::getFuncDefFromHeap(heap, "signal::dctReduce");
     vector<ConstantSP> myargs = {ds, mapwithsize, reducefunc};
     return mr->call(heap, myargs);
 }
@@ -177,14 +179,48 @@ ConstantSP dwt(const ConstantSP &a, const ConstantSP &b)
         throw IllegalArgumentException("dwt", "The argument should be a nonempty integrial or floating vector.");
     if (a->hasNull())
         throw IllegalArgumentException("dwt", "The argument should not contain NULL values");
+    std::string wavelet = "db1";
+    if(!b->isNothing()) {
+        if (b->getType() != DT_STRING || b->getForm() != DF_SCALAR) {
+            throw IllegalArgumentException("dwt", "wavelet must be a string scalar");
+        }
+        wavelet = b->getString();
+    }
     int dataLen = a->size(); //信号序列长度
-    vector<double> FilterLD = {
-        0.7071067811865475244008443621048490392848359376884740365883398,
-        0.7071067811865475244008443621048490392848359376884740365883398}; //基于db1小波函数的滤波器低通序列
-    vector<double> FilterHD = {
-        -0.7071067811865475244008443621048490392848359376884740365883398,
-        0.7071067811865475244008443621048490392848359376884740365883398}; //基于db1小波函数的滤波器通序列
-    const int filterLen = 2;                                              //滤波器序列长度
+    vector<double> FilterLD;
+    vector<double> FilterHD;
+    int filterLen; 
+    if(wavelet == "db1") {
+        FilterLD = {
+            0.7071067811865475244008443621048490392848359376884740365883398,
+            0.7071067811865475244008443621048490392848359376884740365883398}; //基于db1小波函数的滤波器低通序列
+        FilterHD = {
+                -0.7071067811865475244008443621048490392848359376884740365883398,
+                0.7071067811865475244008443621048490392848359376884740365883398}; //基于db1小波函数的滤波器高通序列
+        filterLen = 2;
+    } else if(wavelet == "db4") {
+        FilterLD = {
+            -0.010597401785069032,
+            0.0328830116668852,
+            0.030841381835560764,
+            -0.18703481171909309,
+            -0.027983769416859854,
+            0.6308807679298589,
+            0.7148465705529157,
+            0.2303778133088965}; //基于db4小波函数的滤波器低通序列
+        FilterHD = {
+            -0.2303778133088965,
+            0.7148465705529157,
+            -0.6308807679298589,
+            -0.027983769416859854,
+            0.18703481171909309,
+            0.030841381835560764,
+            -0.0328830116668852,
+            -0.010597401785069032}; //基于db4小波函数的滤波器高通序列
+        filterLen = 8;
+    } else {
+        throw IllegalArgumentException("dwt", "wavelet only support db1 or db4 for now");
+    }
     int decLen = (dataLen + filterLen - 1) / 2;                           //小波变换后的序列长度
     vector<double> xn(dataLen, 0);
     vector<double> cA(decLen, 0);
@@ -795,7 +831,7 @@ ConstantSP secc(Heap *heap, vector<ConstantSP> &args)
         VectorSP moveouts = args[3];
         moveouts->getDouble(0, moveouts->size(), &mouts[0]);
         double maxOuts = *std::max_element(mouts.begin(), mouts.end());
-        for (int i = 0; i < mouts.size(); i++)
+        for (size_t i = 0; i < mouts.size(); i++)
             mouts[i] = maxOuts - mouts[i];
     }
     if (args.size() > 4)
@@ -1035,3 +1071,5 @@ ConstantSP mul(Heap *heap, vector<ConstantSP> &args){
     }
     return res;
 }
+
+

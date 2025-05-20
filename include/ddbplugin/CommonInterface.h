@@ -6,7 +6,9 @@
 
 extern "C" 
 {
-    ConstantSP version(Heap *heap, vector<ConstantSP> &arguments){
-        return new String(pluginVersion);
+    ddb::ConstantSP version(ddb::Heap *heap, std::vector<ddb::ConstantSP> &arguments){
+        std::ignore = heap;
+        std::ignore = arguments;
+        return new ddb::String(pluginVersion);
     }
 }

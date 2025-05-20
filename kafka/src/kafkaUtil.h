@@ -1,9 +1,12 @@
 #ifndef KAFKA_PLUGIN_UTIL_H
 #define KAFKA_PLUGIN_UTIL_H
+
+#include "KafkaEverything.h"
 #include <cppkafka/error.h>
 #include <cppkafka/logging.h>
 #include <cppkafka/producer.h>
 
+#include "DolphinDBEverything.h"
 #include "ConstantMarshal.h"
 #include "CoreConcept.h"
 #include "Logger.h"
@@ -13,6 +16,7 @@
 #include "json.hpp"
 
 using namespace cppkafka;
+using namespace ddb;
 
 namespace KafkaUtil {
 

@@ -3,15 +3,13 @@
 
 #include <cstdint>
 
-
+#include "Concepts.h"
 #include "CoreConcept.h"
+#include "OperatorImp.h"
 #include "ScalarImp.h"
 #include "Types.h"
-
-namespace OperatorImp{
-    ConstantSP equal(const ConstantSP& a, const ConstantSP& b);
-}
-
+namespace ddb {
+class UserDefinedFunctionImp;
 namespace TurboJet {
 
 // flags
@@ -57,10 +55,6 @@ inline string ValueTypeToString(ValueType t) {
                                               "DECIMAL64",
                                               // other
                                               "COUNTER"};
-    auto idx = static_cast<size_t>(t);
-    if (idx < 0 || idx >= TypeString.size()) {
-        throw RuntimeException("unknown Value Type");
-    }
     return TypeString[static_cast<int>(t)];
 }
 
@@ -119,6 +113,38 @@ struct TurboJetValue {
     } value_;
 
     TurboJetValue() : type_(static_cast<ValueType>(0)), flags_(0) { value_.l = 0; }
+	// TurboJetValue(const TurboJetValue& sp) noexcept{
+    //     type_ = sp.type_;
+    //     flags_ = sp.flags_;
+    //     value_ = sp.value_;
+    //     if (type_ != ValueType::COUNTER || value_.counter_ == nullptr) return;
+    //     value_.counter_->addRef();
+	// }
+
+	// TurboJetValue(TurboJetValue&& sp) noexcept{
+    //     type_ = sp.type_;
+    //     flags_ = sp.flags_;
+    //     value_ = sp.value_;
+    //     sp.value_.l = 0;
+    //     sp.flags_ = 0;
+    //     sp.type_ = static_cast<ValueType>(0);
+	// }
+
+	// TurboJetValue& operator =(TurboJetValue sp) noexcept{
+    //     std::swap(type_, sp.type_);
+    //     std::swap(flags_, sp.flags_);
+    //     std::swap(value_, sp.value_);
+    //     return *this;
+	// }
+
+    // ~TurboJetValue() {
+	// 	if(type_ == ValueType::COUNTER && LIKELY(value_.counter_ != nullptr) && value_.counter_->release()==0){
+	// 		delete static_cast<Constant*>(value_.counter_->p_);
+	// 		delete value_.counter_;
+	// 		value_.counter_=0;
+	// 	}
+    // }
+
     ConstantSP toConstantSP(bool isMove = false) const {
         ConstantSP cons;
         switch (type_) {
@@ -155,6 +181,7 @@ struct TurboJetValue {
             case ValueType::SHORT:
                 cons = new Short(value_.s);
                 break;
+            case ValueType::DEICMAL64:
             case ValueType::COUNTER:
                 if (value_.counter_ == nullptr) return Expression::void_;
                 cons = ConstantSP(nullptr, value_.counter_);
@@ -163,14 +190,14 @@ struct TurboJetValue {
                 }
                 break;
             default:
-                throw RuntimeException("TurboJetValue::toConstantSP not support type: " + ValueTypeToString(type_));
+                throw RuntimeException("JIT internal error.");
         }
         if (isNull()) {
             cons->setNull();
         }
         return cons;
     }
-
+    
     std::string getString() {
         switch (type_) {
             case ValueType::INT:
@@ -195,14 +222,15 @@ struct TurboJetValue {
                 return std::to_string(value_.f);
             case ValueType::SHORT:
                 return std::to_string(value_.s);
+            case ValueType::DEICMAL64:
             case ValueType::COUNTER:
                 if (value_.counter_ == nullptr) return "";
                 return static_cast<Constant*>(value_.counter_->p_)->getString();
             default:
-                throw RuntimeException("TurboJetValue::getString not support type: " + ValueTypeToString(type_));
+                throw RuntimeException("JIT internal error");
         }
     }
-
+    
     const DolphinString &getStringRef() {
         if (type_ == ValueType::COUNTER) {
             if (value_.counter_ == nullptr) {
@@ -212,8 +240,8 @@ struct TurboJetValue {
         }
         throw RuntimeException("TurboJetValue::getStringRef only support COUNTER.");
     }
-
-    inline const bool isNull() const { return flags_ & ISNULL; }
+    
+    inline bool isNull() const { return flags_ & ISNULL; }
 
     void setNull(bool set = true) {
         if (UNLIKELY(!set)) {
@@ -247,6 +275,7 @@ struct TurboJetValue {
             case ValueType::SHORT:
                 value_.s = SHRT_MIN;
                 break;
+            case ValueType::DEICMAL64:
             case ValueType::COUNTER:
                 static_cast<Constant *>(value_.counter_->p_)->setNull();
                 break;
@@ -340,10 +369,8 @@ struct TurboJetValue {
                 return static_cast<ExtractType>(val->value_.c);
             case ValueType::SHORT:
                 return static_cast<ExtractType>(val->value_.s);
-            case ValueType::COUNTER:
-                return static_cast<ExtractType>(val->value_.s);
             default:
-                throw RuntimeException("::ExtractValue unkown type");
+                throw RuntimeException("JIT internal error");
         }
     }
 
@@ -373,7 +400,7 @@ struct TurboJetValue {
         }
     }
 
-    static void castAssignment(TurboJetValue &lhs, const TurboJetValue &rhs) {
+    static void castAssignment(TurboJetValue &lhs, const TurboJetValue &rhs, DolphinClass* cls, int attrIdx) {
         if (lhs.type_ == rhs.type_) {
             lhs = rhs;
             return;
@@ -404,8 +431,8 @@ struct TurboJetValue {
                 lhs.value_.s = ExtractValue<short>(&rhs);
                 break;
             default:
-                throw RuntimeException("TurboJetValue::castAssignment not support type: " +
-                                       ValueTypeToString(lhs.type_));
+                throw RuntimeException("JIT: Data type does not match when assign value to attribute '" +
+                                           cls->getAttribute(attrIdx) + "' in class '" + cls->getName() + "'.");
         }
     }
 
@@ -437,8 +464,11 @@ struct TurboJetValue {
             case ValueType::SHORT:
                 out->value_.s = sp->getShort();
                 break;
-            default:
+            default: {
+                // assert(out->value_.counter_ == nullptr);
                 out->value_.counter_ = sp.getCounter();
+                // out->value_.counter_->addRef();
+            }
         }
     }
     static void DDBIncreaseRef(TurboJetValue *val, std::vector<Counter *> *deRefList, bool addToList) {
@@ -511,7 +541,7 @@ class JITDolphinInstance : public OOInstance {
             data = &extraData_[index - inlineNum_];
             ref = &extraRefHolder_[index - inlineNum_];
         }
-        TurboJetValue::castAssignment(*data, attr);
+        TurboJetValue::castAssignment(*data, attr, ((DolphinClass *)class_.get()), index);
         if (attr.type_ == ValueType::COUNTER) {
             ConstantSP c = ConstantSP(nullptr, attr.value_.counter_);
             *ref = c;
@@ -549,7 +579,7 @@ class JITDolphinInstance : public OOInstance {
 
     virtual ConstantSP getMember(const string &name) const override {
         int idx = ((DolphinClass *)class_.get())->getMemberIndex(name);
-        if (idx < 0) throw RuntimeException("member '" + name + "' not found.");
+        if (idx < 0) throw RuntimeException("JIT: member '" + name + "' not found in '" + class_->getFullName() + "'.");
         if (idx >= 65536) return ((DolphinClass *)class_.get())->getMethod(idx);
         return getAttribute(idx).toConstantSP();
     }
@@ -575,7 +605,7 @@ class JITDolphinInstance : public OOInstance {
         str.append(1, '\n');
 
         DolphinClass *cls = static_cast<DolphinClass *>(class_.get());
-        int count = cls->getAttributeCount();
+        int count = cls->getAttributeCount();        
         for (int i = 0;i < count; ++i) {
             str.append(cls->getAttribute(i) + ": ");
             if (LIKELY(i < inlineNum_)) {
@@ -616,6 +646,7 @@ inline void TurboJetValue::fromConstantSP(const ConstantSP &sp, TurboJetValue *o
     out->flags_ = 0;
     if (sp->getForm() != DF_SCALAR) {
         out->value_.counter_ = sp.getCounter();
+        // out->value_.counter_->addRef();
         out->type_ = ValueType::COUNTER;
     } else {
         out->type_ = DDBTypeToValueType(type);
@@ -644,7 +675,9 @@ inline void TurboJetValue::fromConstantSP(const SmartPointer<JITDolphinInstance>
     out->value_.l = 0;  // reset union
     out->flags_ = 0;
     out->type_ = ValueType::COUNTER;
+    // assert(out->value_.counter_ == nullptr);
     out->value_.counter_ = sp.getCounter();
+    // out->value_.counter_->addRef();
     if (!ensureNotNull && sp->isNull()) {
         out->setNull();
     }
@@ -656,6 +689,18 @@ inline void TurboJetValue::fromConstantSP(const SmartPointer<JITDolphinInstance>
     }
 }
 
-}  // namespace TurboJet
+using TJFunc_t = void (*)(TurboJetValue *, Heap *, TurboJetValue *, int);
 
+class TurboJetUDFBase {
+public:
+    virtual ~TurboJetUDFBase() = default;
+};
+using TurboJetUDFBaseSP = SmartPointer<TurboJetUDFBase>;
+
+ConstantSP callTurboJetCompiledCode(UserDefinedFunctionImp* udf, Heap *heap, vector<ConstantSP> &arguments);
+FunctionDef::TurboJetFunc getTurboJetJitFuncPtr(const UserDefinedFunctionImp* udf);
+void removeTurboJetFunc(UserDefinedFunctionImp* udf);
+
+}  // namespace TurboJet
+}
 #endif

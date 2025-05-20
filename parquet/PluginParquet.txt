@@ -1,10 +1,10 @@
-parquet,libPluginParquet.so,3.00.2
-extractParquetSchema,extractParquetSchema,operator,1,1,0
-loadParquet,loadParquet,system,1,5,0
-loadParquetHdfs,loadParquetHdfs,system,2,2,0
-loadParquetEx,loadParquetEx,system,4,9,0
-parquetDS,parquetDS,system,1,2,0
-saveParquet,saveParquet,system,2,3,0
-saveParquetHdfs,saveParquetHdfs,system,1,1,0
-setReadThreadNum,setReadThreadNum,system,1,1,0
-getReadThreadNum,getReadThreadNum,system,0,0,0
+parquet,libPluginParquet.so,3.00.3
+extractParquetSchema,extractParquetSchema,system,1,1,0,0,extractParquetSchema(fileName)
+loadParquet,loadParquet,system,1,5,0,0,loadParquet(fileName,[schema],[columnsToLoad],[startRowGroup],[rowGroupNum])
+loadParquetHdfs,loadParquetHdfs,system,2,2,0,0
+loadParquetEx,loadParquetEx,system,4,9,0,0,loadParquetEx(dbHandle,tableName,partitionColumns,fileName,[schema],[columnsToLoad],[startRowGroup],[rowGroupNum],[transform])
+parquetDS,parquetDS,system,1,2,0,0,parquetDS(fileName,[schema])
+saveParquet,saveParquet,system,2,3,0,0,saveParquet(table, fileName, [compressMethod])
+saveParquetHdfs,saveParquetHdfs,system,1,1,0,0
+setReadThreadNum,setReadThreadNum,system,1,1,0,0,setReadThreadNum(num)
+getReadThreadNum,getReadThreadNum,system,0,0,0,0,getReadThreadNum()

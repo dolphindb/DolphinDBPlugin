@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.0)
-project(PluginNsq)
-add_definitions(-DLOCKFREE_SYMBASE)
+cmake_minimum_required(VERSION 3.13)
+set(PluginName PluginNsq)
+project(${PluginName})
 
 set(CMAKE_CXX_STANDARD 11)
 
@@ -12,18 +12,17 @@ include_directories(
     src
     ${DOLPHIN_INCLUDE_DIR}
     include
+    ../include/ddbplugin
 )
 
-set(BASE_DIR ${PROJECT_SOURCE_DIR})
+set(BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 link_directories("${CMAKE_BINARY_DIR}")
 
 if(WIN32)
     link_directories(${BASE_DIR}/lib/win64)
-    set(platform_macro "-DWINDOWS")
     set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginNsq_win.txt")
 elseif(UNIX)
     link_directories(${BASE_DIR}/lib/linux.x64)
-    set(platform_macro "-DLINUX")
     set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginNsq.txt")
 endif()
 
@@ -55,19 +54,22 @@ if (${DDB_USE_ASAN})
     set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS} "-fsanitize=address")
 endif ()
 
-if(UNIX)
-    add_compile_options(-D_GLIBCXX_USE_CXX11_ABI=0)
-endif()
-
 add_library(
     ${PROJECT_NAME} SHARED
     ${PLUGINNsq_SRC})
 
-target_link_libraries(
-    ${PROJECT_NAME}
-    DolphinDB
-    HSNsqApi
-)
+if(WIN32)
+    target_link_libraries(
+        ${PROJECT_NAME}
+        DolphinDB
+        HSNsqApi
+    )
+elseif(UNIX)
+    target_link_libraries(
+        ${PROJECT_NAME}
+        HSNsqApi
+    )
+endif()
 
 if(UNIX)
 set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "-Wl,-rpath,$ORIGIN")

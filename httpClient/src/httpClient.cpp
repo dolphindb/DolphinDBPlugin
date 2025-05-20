@@ -30,6 +30,9 @@
  * Author: Jeremy Brown
  */
 
+#include "httpClient.h"
+#include "ddbplugin/CommonInterface.h"
+#include "ddbplugin/PluginLoggerImp.h"
 #include <stdio.h>
 #include <pthread.h>
 #include <openssl/err.h>
@@ -37,12 +40,14 @@
 #include <Exceptions.h>
 #include <ScalarImp.h>
 #include <Util.h>
-#include "httpClient.h"
 #include <curl/curl.h>
 #include <openssl/ssl.h>
 #include <string>
 #include<urlencode.h>
+#include <mutex>
 using namespace std;
+
+namespace ddb {
 
 void checkDictionaryContent(DictionarySP params){
     if(params->getForm() != DF_DICTIONARY){
@@ -57,8 +62,8 @@ void checkDictionaryContent(DictionarySP params){
     }
 }
 
-httpClient::HttpRequestConfig getHttpRequestConfig(DictionarySP params){
-    httpClient::HttpRequestConfig config;
+ddb::HttpRequestConfig getHttpRequestConfig(DictionarySP params){
+    ddb::HttpRequestConfig config;
     //proxy
     ConstantSP proxy = params->getMember("proxy");
     if(!proxy->isNull()){
@@ -86,7 +91,7 @@ httpClient::HttpRequestConfig getHttpRequestConfig(DictionarySP params){
     return config;
 }
 
-ConstantSP handleHttpRequest(vector<ConstantSP> &args, httpClient::RequestMethod method){
+ConstantSP handleHttpRequest(vector<ConstantSP> &args, ddb::RequestMethod method){
     ConstantSP url = args[0];
     ConstantSP params, timeout, headers;
 
@@ -121,7 +126,7 @@ ConstantSP handleHttpRequest(vector<ConstantSP> &args, httpClient::RequestMethod
     } else
         headers = new String("");
 
-    httpClient::HttpRequestConfig config;
+    ddb::HttpRequestConfig config;
     if(args.size() >= 5 && !args[4]->isNull()){
         if (args[4]->getForm() != DF_DICTIONARY) {
             throw IllegalArgumentException(__FUNCTION__, "config must be a dictionary");
@@ -132,32 +137,12 @@ ConstantSP handleHttpRequest(vector<ConstantSP> &args, httpClient::RequestMethod
         }
         config = getHttpRequestConfig(dic);
     }
-    return httpClient::httpRequest(method, url, params, timeout, headers, config);
+    return ddb::httpRequest(method, url, params, timeout, headers, config);
 }
-
-Mutex mutex;
-
-ConstantSP httpPut(Heap *heap, vector<ConstantSP> &args){
-    LockGuard<Mutex> lk(&mutex);
-    return handleHttpRequest(args, httpClient::PUT);
-}
-ConstantSP httpDelete(Heap *heap, vector<ConstantSP> &args){
-    return handleHttpRequest(args, httpClient::DELETE_);
-}
-
-ConstantSP httpGet(Heap *heap, vector<ConstantSP> &args) {
-    return handleHttpRequest(args, httpClient::GET);
-}
-
-ConstantSP httpPost(Heap *heap, vector<ConstantSP> &args) {
-    return handleHttpRequest(args, httpClient::POST);
-}
-
-namespace httpClient {
 
     /* This array will store all of the mutexes available to OpenSSL. */
     vector<Mutex> mutex_buf;
-
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
     static void locking_function(int mode, int n, const char *file, int line)
     {
         if (mode & CRYPTO_LOCK)
@@ -170,7 +155,7 @@ namespace httpClient {
     {
         return ((unsigned long)pthread_self());
     }
-
+#endif
     int thread_setup(void)
     {
         int i;
@@ -348,4 +333,30 @@ namespace httpClient {
         }
         return res;
     }
+} // namespace ddb
+
+ddb::ConstantSP httpGet(ddb::Heap *heap, argsT &args)
+{
+    std::ignore = heap;
+    return handleHttpRequest(args, ddb::GET);
+}
+
+ddb::ConstantSP httpPost(ddb::Heap *heap, argsT &args)
+{
+    std::ignore = heap;
+    return handleHttpRequest(args, ddb::POST);
+}
+
+ddb::ConstantSP httpPut(ddb::Heap *heap, argsT &args)
+{
+    std::ignore = heap;
+    static std::mutex mtx;
+    std::unique_lock<std::mutex> lk(mtx);
+    return handleHttpRequest(args, ddb::PUT);
+}
+
+ddb::ConstantSP httpDelete(ddb::Heap *heap, argsT &args)
+{
+    std::ignore = heap;
+    return handleHttpRequest(args, ddb::DELETE_);
 }

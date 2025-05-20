@@ -989,10 +989,12 @@ DATA_TYPE SymbolColumn::packData(pack_info_t t)
         char **buf = (char **)t.buffer;
         long long value = 0;
 
+        dataVec_.resize(t.len);
         for (int i = 0; i != t.len; i++)
         {
             memcpy(&value, t.raw_data, baseSize_);
-            buf[i] = &enumMap_[value][0]; //the buf won't be modified
+            dataVec_[i] = enumMap_[value]; //the buf won't be modified
+            buf[i] = &dataVec_[i][0];
             t.raw_data += t.stride;
         }
         return DT_STRING;

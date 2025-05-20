@@ -14,7 +14,7 @@
 #include <queue>
 #include <cassert>
 
-#ifdef WINDOWS
+#ifdef _WIN32
 	#include <winsock2.h>
     #include <windows.h>
 #else
@@ -24,6 +24,7 @@
 	#include <semaphore.h>
 #endif
 
+namespace ddb {
 class Thread;
 class Runnable;
 class CountDownLatch;
@@ -65,7 +66,7 @@ public:
 
 private:
 
-#ifdef WINDOWS
+#ifdef _WIN32
 	CRITICAL_SECTION mutex_;
 #else
 	pthread_mutexattr_t attr_;
@@ -85,7 +86,7 @@ public:
 	void unlock();
 
 private:
-#ifdef WINDOWS
+#ifdef _WIN32
 	HANDLE  mutex_;
 #else
 	pthread_mutexattr_t attr_;
@@ -105,7 +106,7 @@ public:
 	bool tryAcquireRead();
 	bool tryAcquireWrite();
 private:
-#ifdef WINDOWS
+#ifdef _WIN32
 	SRWLOCK lock_;
 #else
 	pthread_rwlock_t lock_;
@@ -135,7 +136,7 @@ public:
 	void notifyAll();
 
 private:
-#ifdef WINDOWS
+#ifdef _WIN32
 	CONDITION_VARIABLE conditionalVariable_;
 #else
 	pthread_cond_t conditionalVariable_;
@@ -364,7 +365,7 @@ public:
 	void release();
 
 private:
-#ifdef WINDOWS
+#ifdef _WIN32
 	HANDLE sem_;
 #else
 	sem_t sem_;
@@ -579,7 +580,7 @@ private:
 	void sleep(int milliSeconds) {
 		if (milliSeconds <= 0)
 			return;
-#ifdef WINDOWS
+#ifdef _WIN32
 		::Sleep(milliSeconds);
 #else
 		usleep(1000 * milliSeconds);
@@ -798,7 +799,7 @@ public:
 private:
 	static void* startFunc(void* data);
 	RunnableSP run_;
-#ifdef WINDOWS
+#ifdef _WIN32
 	HANDLE thread_;
 	DWORD threadId_;
 #else
@@ -867,5 +868,5 @@ private:
 	size_t h_;
 	MutexGroup* group_;
 };
-
+}
 #endif /* CONCURRENT_H_ */

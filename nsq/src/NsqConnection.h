@@ -5,7 +5,7 @@
 #ifndef PLUGINNSQ_NSQCONNECTION_H
 #define PLUGINNSQ_NSQCONNECTION_H
 
-
+#include "DolphinDBEverything.h"
 #include <CoreConcept.h>
 
 #include "HSNsqApi.h"
@@ -15,6 +15,9 @@
 /**
  * Includes all variables related to the state of the NSQ API, and all methods that cause state changes.
  */
+
+using namespace ddb;
+
 class NsqConnection {
 
     /// Singleton

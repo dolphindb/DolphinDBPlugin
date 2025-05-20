@@ -32,10 +32,10 @@ make -j
 如需连接 SQLServer 数据源，则需要编译 freetds odbc：
 
 ```
-wget -c http://ibiblio.org/pub/Linux/ALPHA/freetds/stable/freetds-stable.tgz
-tar -zxvf freetds-stable.tgz
-cd freetds
-./configure --prefix=/usr/local/freetds --with-tdsver=8.0 --enable-msdblib
+wget -c https://www.freetds.org/files/stable/freetds-1.4.23.tar.gz
+tar -zxvf freetds-1.4.23.tar.gz
+cd freetds-1.4.23
+./configure --prefix=/usr/local/freetds --enable-msdblib
 make -j
 make install
 ```

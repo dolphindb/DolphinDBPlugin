@@ -3,14 +3,20 @@
 
 #include "CoreConcept.h"
 #include "ddbplugin/CommonInterface.h"
+#include "ddbplugin/PluginLoggerImp.h"
 
-extern "C" ConstantSP redisPluginConnect(Heap *heap, const vector<ConstantSP> &args);
-extern "C" ConstantSP redisPluginRun(Heap *heap, const vector<ConstantSP> &args);
-extern "C" ConstantSP redisPluginBatchSet(Heap *heap, const vector<ConstantSP> &args);
-extern "C" ConstantSP redisPluginBatchHashSet(Heap *heap, const vector<ConstantSP> &args);
-extern "C" ConstantSP redisPluginRelease(const ConstantSP &handle);
+using ddb::ConstantSP;
+using ddb::Heap;
+using std::vector;
+
+extern "C" ConstantSP redisPluginConnect(ddb::Heap *heap, const vector<ConstantSP> &args);
+extern "C" ConstantSP redisPluginRun(ddb::Heap *heap, const vector<ConstantSP> &args);
+extern "C" ConstantSP redisPluginBatchSet(ddb::Heap *heap, const vector<ConstantSP> &args);
+extern "C" ConstantSP redisPluginBatchHashSet(ddb::Heap *heap, const vector<ConstantSP> &args);
+extern "C" ConstantSP redisPluginRelease(ddb::Heap *heap, const vector<ConstantSP> &args);
 extern "C" ConstantSP redisPluginReleaseAll();
-extern "C" ConstantSP redisGetHandle(Heap *heap, const vector<ConstantSP> &args);
+extern "C" ConstantSP redisGetHandle(ddb::Heap *heap, const vector<ConstantSP> &args);
 extern "C" ConstantSP redisGetHandleStaus();
+extern "C" ConstantSP redisBatchPush(ddb::Heap *heap, const vector<ConstantSP> &args);
 
 #endif

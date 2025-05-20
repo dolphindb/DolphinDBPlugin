@@ -1,5 +1,6 @@
-cmake_minimum_required(VERSION 3.0)
-project(PluginEncoderDecoder LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.13)
+set(PluginName PluginEncoderDecoder)
+project(${PluginName})
 
 #######################################################################################################################
 # CMake options and global variables.
@@ -28,24 +29,18 @@ option(BUILD_ARM
     "Enable cross-compiling for ARM architecture"
     OFF)
 
-set(PLUGIN_COMPILE_DEFINITIONS
-    "-DLOCKFREE_SYMBASE"
-    "-D_GLIBCXX_USE_CXX11_ABI=0"
-)
 set(PLUGIN_COMPILE_OPTIONS
     "-std=c++11"
     "-Wall"
     "-fPIC"
 )
 set(PLUGIN_INCLUDE_DIRECTORIES
-    ${PROJECT_SOURCE_DIR}/../include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 set(PLUGIN_LINK_DIRECTORIES
     ${CMAKE_BINARY_DIR}
 )
-set(PLUGIN_LINK_LIBRARIES
-    DolphinDB
-)
+
 set(PLUGIN_LINK_OPTIONS
     "-L ./ -Wl,-rpath,$ORIGIN"
 )
@@ -97,8 +92,8 @@ endif ()
 message(STATUS "ASAN: ${DDB_USE_ASAN}")
 
 # Source Code
-file(GLOB PluginEncoderDecoder_HEADER CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.h)
-file(GLOB PluginEncoderDecoder_SOURCE CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.cpp ${CMAKE_SOURCE_DIR}/include/protobuf/*.cc)
+file(GLOB PluginEncoderDecoder_HEADER CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h)
+file(GLOB PluginEncoderDecoder_SOURCE CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp ${CMAKE_SOURCE_DIR}/include/protobuf/*.cc)
 
 # Options & Dependencies
 message(STATUS "ARM BUILD: ${BUILD_ARM}")
@@ -128,18 +123,18 @@ target_link_libraries(PluginEncoderDecoder ${PLUGIN_LINK_OPTIONS} ${PLUGIN_LINK_
 if (WIN32)
 elseif (UNIX)
     install(TARGETS PluginEncoderDecoder
-         DESTINATION "${PROJECT_SOURCE_DIR}/bin/${installType}"
+         DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/bin/${installType}"
     )
     install(FILES ${pluginFileTxt}
-        DESTINATION "${PROJECT_SOURCE_DIR}/bin/${installType}"
+        DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/bin/${installType}"
         RENAME ${destPluginTxt}
     )
-    message(STATUS "Install Destination: ${PROJECT_SOURCE_DIR}/bin/${installType}")
+    message(STATUS "Install Destination: ${CMAKE_CURRENT_SOURCE_DIR}/bin/${installType}")
 endif()
 
 # Compatibale with Jenkins
 add_custom_command(
     TARGET PluginEncoderDecoder POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy ${pluginFileTxt} ${PROJECT_SOURCE_DIR}/build/PluginEncoderDecoder.txt
+    COMMAND ${CMAKE_COMMAND} -E copy ${pluginFileTxt} ${CMAKE_CURRENT_SOURCE_DIR}/build/PluginEncoderDecoder.txt
     COMMENT "copy PluginEncoderDecoder.txt"
 )

@@ -1,4 +1,7 @@
 #include "tcpSocket.h"
+#include "ddbplugin/PluginLoggerImp.h"
+
+namespace ddb {
 
 struct TcpData
 {
@@ -52,16 +55,16 @@ public:
                                 isHeadData = false;
                             }
                             string errMsg = PLUGIN_TCP_PREFIX + "tcp connection is disconnect. ";
-                            LOG_ERR(errMsg);
+                            PLUGIN_LOG_ERR(errMsg);
                             queue_->setError(errMsg);
                         }else{
                             string errMsg = PLUGIN_TCP_PREFIX + "failed to connect to " + host + ":" + std::to_string(port);
-                            LOG_ERR(errMsg);
+                            PLUGIN_LOG_ERR(errMsg);
                             queue_->setError(errMsg);
                         }
                     }catch(exception& e){
                         string errMsg = PLUGIN_TCP_PREFIX + "failed to receive data: " + e.what();
-                        LOG_ERR(errMsg);
+                        PLUGIN_LOG_ERR(errMsg);
                         queue_->setError(errMsg);
                     }
                     Util::sleep(1000);
@@ -69,7 +72,7 @@ public:
             }
         };
 
-        SmartPointer<dolphindb::Executor> executor = new dolphindb::Executor(f);
+        SmartPointer<Executor> executor = new Executor(f);
         thread_ = new Thread(executor);
         thread_->start();
     }
@@ -98,9 +101,11 @@ public:
 };
 
 static void tcpSubOnClose(Heap *heap, vector<ConstantSP> &args){
+    std::ignore = heap;
+    std::ignore = args;
 }
 
-dolphindb::BackgroundResourceMap<TCPSubJob> TCP_JOB_MAP(PLUGIN_TCP_PREFIX, "tcp job");
+BackgroundResourceMap<TCPSubJob> TCP_JOB_MAP(PLUGIN_TCP_PREFIX, "tcp job");
 
 static int getOptionInt(const DictionarySP& options, const string& tag){
         int value = -1;
@@ -111,7 +116,7 @@ static int getOptionInt(const DictionarySP& options, const string& tag){
                     tag + " must be an int scalar");
             }
             value = data->getInt();
-            LOG_INFO(PLUGIN_TCP_PREFIX, "get options ", tag, ": ", value);
+            PLUGIN_LOG_INFO(PLUGIN_TCP_PREFIX, "get options ", tag, ": ", value);
             if(value < 0){
                 throw RuntimeException(PLUGIN_TCP_PREFIX + "the value of the dictionary option's key as the " + 
                     tag + " must not be less than 0");
@@ -119,6 +124,10 @@ static int getOptionInt(const DictionarySP& options, const string& tag){
         }
         return value;
 }
+
+} // namespace ddb
+
+using namespace ddb;
 
 ConstantSP tcpCreateSubJob(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR)
@@ -149,18 +158,20 @@ ConstantSP tcpCreateSubJob(Heap *heap, vector<ConstantSP> &args){
 }
 
 ConstantSP tcpGetSubJobStat(Heap *heap, vector<ConstantSP> &args){
+    std::ignore = heap;
+    std::ignore = args;
     vector<string> data = TCP_JOB_MAP.getHandleNames();
     int size = data.size();
     size = std::max(size, 1);
-    dolphindb::DdbVector<string> tag(0, size);
-    dolphindb::DdbVector<long long> startTime(0, size);
-    dolphindb::DdbVector<long long> endTime(0, size);
-    dolphindb::DdbVector<long long> firstMsgTime(0, size);
-    dolphindb::DdbVector<long long> lastMsgTime(0, size);
-    dolphindb::DdbVector<long long> processedMsgCount(0, size);
-    dolphindb::DdbVector<long long> failedMsgCount(0, size);
-    dolphindb::DdbVector<string> lastErrMsg(0, size);
-    dolphindb::DdbVector<long long> lastFailedTimestamp(0, size);
+    DdbVector<string> tag(0, size);
+    DdbVector<long long> startTime(0, size);
+    DdbVector<long long> endTime(0, size);
+    DdbVector<long long> firstMsgTime(0, size);
+    DdbVector<long long> lastMsgTime(0, size);
+    DdbVector<long long> processedMsgCount(0, size);
+    DdbVector<long long> failedMsgCount(0, size);
+    DdbVector<string> lastErrMsg(0, size);
+    DdbVector<long long> lastFailedTimestamp(0, size);
     for(string& str : data){
         SmartPointer<TCPSubJob> subJob = TCP_JOB_MAP.safeGetByName(str);
         MarketStatus status = subJob->getStatus();
@@ -182,6 +193,7 @@ ConstantSP tcpGetSubJobStat(Heap *heap, vector<ConstantSP> &args){
 }
 
 ConstantSP tcpCancelSubJob(Heap *heap, vector<ConstantSP> &args){
+    std::ignore = heap;
     if(args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR)
         throw RuntimeException(PLUGIN_TCP_PREFIX + "tag must be a string scalar. ");
     string name = args[0]->getString();
@@ -190,4 +202,3 @@ ConstantSP tcpCancelSubJob(Heap *heap, vector<ConstantSP> &args){
     subJob->stop();
     return new Bool(true);
 }
-

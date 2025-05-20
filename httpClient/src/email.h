@@ -1,12 +1,16 @@
+#include "DolphinDBEverything.h"
 #include <CoreConcept.h>
 #include <string>
 #include <list>
 #include <vector>
 #include <curl/curl.h>
 
-extern "C" ConstantSP sendEmail(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP emailSmtpConfig(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP sendSMTPEmail(Heap *heap, vector<ConstantSP> &args);
+using argsT = std::vector<ddb::ConstantSP>;
+
+extern "C" ddb::ConstantSP sendEmail(ddb::Heap *heap, argsT &args);
+extern "C" ddb::ConstantSP emailSmtpConfig(ddb::Heap *heap, argsT &args);
+
+namespace ddb {
 
 static const string PLUGIN_HTTPCLIENT_PREFIX = "[PLUGIN:HTTPCLIENT]: ";
 
@@ -35,3 +39,5 @@ public:
     string ConstructMsg(const string &strSubject, const string &strContent);
     void checkSMTPMsg(const string& msg, const string& userId, const vector<string>& recipient);
 };
+
+} // namespace ddb

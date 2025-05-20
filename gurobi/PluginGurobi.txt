@@ -1,10 +1,10 @@
-gurobi,libPluginGurobi.so,3.00.2
-gurobiModel,model,system,0,1,0
-gurobiAddVars,addVars,system,6,6,0
-gurobiLinExpr,linExpr,system,3,3,0
-gurobiQuadExpr,quadExpr,system,3,4,0
-gurobiAddConstr,addConstr,system,4,4,0
-gurobiSetObjective,setObjective,system,3,3,0
-gurobiOptimize,optimize,system,1,1,0
-gurobiGetResult,getResult,system,1,1,0
-gurobiGetObjective,getObjective,system,1,1,0
+gurobi,libPluginGurobi.so,3.00.3
+gurobiModel,model,system,0,1,0,0,([params])
+gurobiAddVars,addVars,system,6,6,0,0,(model, lb, ub, obj, type, varName)
+gurobiLinExpr,linExpr,system,3,3,0,0,(model, coefficient, var)
+gurobiQuadExpr,quadExpr,system,3,4,0,0,(model, quadMatrix, var, [linExpr])
+gurobiAddConstr,addConstr,system,4,4,0,0,(model, lhsExpr, sense, rhsVal)
+gurobiSetObjective,setObjective,system,3,3,0,0,(model, expr, sense)
+gurobiOptimize,optimize,system,1,1,0,0,(model)
+gurobiGetResult,getResult,system,1,1,0,0,(model)
+gurobiGetObjective,getObjective,system,1,1,0,0,(model)

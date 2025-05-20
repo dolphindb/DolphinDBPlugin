@@ -205,22 +205,22 @@ static inline uint32_t murmur32_4b (uint32_t key)
 
 namespace std {
 template<>
-struct hash<DolphinString> {
-	inline size_t operator()(const DolphinString& val) const{
+struct hash<ddb::DolphinString> {
+	inline size_t operator()(const ddb::DolphinString& val) const{
 		return murmur32(val.data(), val.size());
 	}
 };
 
 template<>
-struct hash<Guid> {
-	inline size_t operator()(const Guid& val) const{
+struct hash<ddb::Guid> {
+	inline size_t operator()(const ddb::Guid& val) const{
 		return murmur32_16b(val.bytes());
 	}
 };
 
 };
 
-typedef std::hash<Guid> GuidHash;
+typedef std::hash<ddb::Guid> GuidHash;
 
 template<class T>
 struct murmur_hasher {
@@ -236,15 +236,15 @@ struct murmur_hasher<std::string> {
 };
 
 template<>
-struct murmur_hasher<DolphinString> {
-    uint64_t operator()(const DolphinString & val){
+struct murmur_hasher<ddb::DolphinString> {
+    uint64_t operator()(const ddb::DolphinString & val){
         return murmur32(val.getData(), val.size());
     }
 };
 
 template<>
-struct murmur_hasher<Guid> {
-    uint64_t operator()(const Guid & val){
+struct murmur_hasher<ddb::Guid> {
+    uint64_t operator()(const ddb::Guid & val){
         return murmur32_16b(val.bytes());
     }
 };
@@ -318,12 +318,12 @@ struct murmur_hasher<double> {
     uint64_t operator()(const double & val);
 };
 template<>
-struct murmur_hasher<int128> {
-    uint64_t operator()(const int128 & val);
+struct murmur_hasher<ddb::int128> {
+    uint64_t operator()(const ddb::int128 & val);
 };
 template<>
-struct murmur_hasher<uint128> {
-    uint64_t operator()(const uint128 & val);
+struct murmur_hasher<ddb::uint128> {
+    uint64_t operator()(const ddb::uint128 & val);
 };
 template<class T>
 struct murmur_hasher<T*> {
@@ -344,13 +344,13 @@ struct XXHasher<std::string> {
 };
 
 template<>
-struct XXHasher<DolphinString> {
-    uint64_t operator()(const DolphinString & val);
+struct XXHasher<ddb::DolphinString> {
+    uint64_t operator()(const ddb::DolphinString & val);
 };
 
 template<>
-struct XXHasher<Guid> {
-    uint64_t operator()(const Guid & val);
+struct XXHasher<ddb::Guid> {
+    uint64_t operator()(const ddb::Guid & val);
 };
 
 template<>
@@ -422,12 +422,12 @@ struct XXHasher<double> {
     uint64_t operator()(const double & val);
 };
 template<>
-struct XXHasher<int128> {
-    uint64_t operator()(const int128 & val);
+struct XXHasher<ddb::int128> {
+    uint64_t operator()(const ddb::int128 & val);
 };
 template<>
-struct XXHasher<uint128> {
-    uint64_t operator()(const uint128 & val);
+struct XXHasher<ddb::uint128> {
+    uint64_t operator()(const ddb::uint128 & val);
 };
 template<class T>
 struct XXHasher<T*> {
@@ -729,7 +729,7 @@ private:
     static constexpr int totalINT64S = buckets * INT64S_PER_CACHELINE;
     inline uint64_t getCPUId() {
         if (cpuIdInitialized == false) {
-            cpuId = (uint64_t)std::hash<int>{}(Thread::getID());
+            cpuId = (uint64_t)std::hash<int>{}(ddb::Thread::getID());
             cpuIdInitialized = true;
             //printf("cpuid %lu, arrayIndex %d, pointer %p\n", cpuId, arrayIndex(), &countArray[arrayIndex() * INT64S_PER_CACHELINE]);
         }

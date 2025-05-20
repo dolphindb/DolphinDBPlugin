@@ -1,4 +1,4 @@
-feather,libPluginFeather.so,3.00.2
-schemaFeather,extractSchema,system,1,1,0
-loadFeather,load,system,1,2,0
-saveFeather,save,system,2,4,0
+feather,libPluginFeather.so,3.00.3
+schemaFeather,extractSchema,system,1,1,0,0,(filePath)
+loadFeather,load,system,1,2,0,0,(filePath, [columns])
+saveFeather,save,system,2,4,0,0,(table, filePath, [compressMethod], [compressionLevel])

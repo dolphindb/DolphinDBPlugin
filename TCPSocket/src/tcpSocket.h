@@ -1,15 +1,22 @@
+#include "DolphinDBEverything.h"
 #include "CoreConcept.h"
 #include "ScalarImp.h"
+#include "SysIO.h"
 #include "ddbplugin/ThreadedQueue.h"
 
 static string PLUGIN_TCP_PREFIX = "[PLUGIN::TCPSocket]: ";
 #define TCP_BATCH_SIZE 10240
 
-extern "C" ConstantSP tcpCreateSubJob(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP tcpGetSubJobStat(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP tcpCancelSubJob(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP tcpConnect(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP tcpRead(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP tcpWrite(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP tcpClose(Heap *heap, vector<ConstantSP> &args);
+using argsT = std::vector<ddb::ConstantSP>;
 
+extern "C" {
+
+ddb::ConstantSP tcpCreateSubJob(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP tcpGetSubJobStat(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP tcpCancelSubJob(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP tcpConnect(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP tcpRead(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP tcpWrite(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP tcpClose(ddb::Heap *heap, argsT &args);
+
+}

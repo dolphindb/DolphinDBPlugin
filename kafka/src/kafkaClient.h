@@ -1,12 +1,12 @@
 #ifndef KAFKA_CLIENT_H
 #define KAFKA_CLIENT_H
 
+#include "DolphinDBEverything.h"
 #include "ddbplugin/ThreadedQueue.h"
 #include "kafkaUtil.h"
 #include "kafkaWrapper.h"
 
 using namespace cppkafka;
-using namespace KafkaUtil;
 
 class SubConnection;
 class AppendTable;

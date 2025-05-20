@@ -27,7 +27,7 @@ extern "C" {
 #endif
 
 voidpf ZCALLBACK fopen_buf_func OF((voidpf opaque,const char* filename,int mode));
-voidpf ZCALLBACK fopen64_buf_func OF((voidpf opaque,const char* filename,int mode));
+voidpf ZCALLBACK fopen64_buf_func OF((voidpf opaque,const void* filename,int mode));
 voidpf ZCALLBACK fopendisk_buf_func OF((voidpf opaque, voidpf stream_cd, int number_disk, int mode));
 voidpf ZCALLBACK fopendisk64_buf_func OF((voidpf opaque, voidpf stream_cd, int number_disk, int mode));
 uLong ZCALLBACK fread_buf_func OF((voidpf opaque,voidpf stream,void* buf,uLong size));

@@ -5,19 +5,21 @@
 #ifndef PLUGINHBASE_PLUGINHBASE_H
 #define PLUGINHBASE_PLUGINHBASE_H
 
+#include "DolphinDBEverything.h"
 #include "CoreConcept.h"
 #include "Hbase.h"
 #include <transport/TSocket.h>
 #include "ddbplugin/CommonInterface.h"
-
+#include "ddbplugin/PluginLoggerImp.h"
 /* INTERFACES */
 
-extern "C" ConstantSP connectH(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP showTablesH(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP loadH(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP deleteTableH(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP getRowH(Heap *heap, vector<ConstantSP> &args);
-
+extern "C" {
+ddb::ConstantSP connectH(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP showTablesH(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP loadH(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP deleteTableH(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP getRowH(ddb::Heap *heap, argsT &args);
+}
 
 /* HBASECONNECT */
 
@@ -26,18 +28,18 @@ public:
     HBaseConnect(const string &hostname, int port, bool isFramed, int timeout);
     ~HBaseConnect() = default;
     void closeH();
-    ConstantSP showTablesH();
-    ConstantSP loadH(const std::string &tableName);
-    ConstantSP loadH(const std::string &tableName, const TableSP &schema);
+    ddb::ConstantSP showTablesH();
+    ddb::ConstantSP loadH(const std::string &tableName);
+    ddb::ConstantSP loadH(const std::string &tableName, const ddb::TableSP &schema);
     void deleteTableH(const std::string &tableName);
-    ConstantSP getRowH(const std::string &tableName, const std::string &rowKey, const std::vector<std::string> &columnNames);
+    ddb::ConstantSP getRowH(const std::string &tableName, const std::string &rowKey, const std::vector<std::string> &columnNames);
 
 private:
     std::shared_ptr<apache::thrift::transport::TSocket> socket_;
     std::shared_ptr<apache::thrift::transport::TTransport> transport_;
     std::shared_ptr<apache::hadoop::hbase::thrift::HbaseClient> client_;
 
-    Mutex mtx_;
+    ddb::Mutex mtx_;
 
     /* HELPERS */
     static bool partialDateParserH(const string &str, bool containDelimitor, int &part1, int &part2);
@@ -56,6 +58,8 @@ private:
 
 
 /* HELPERS */
-void connectionOnCloseH(Heap *heap, vector<ConstantSP> &args);
+void connectionOnCloseH(ddb::Heap *heap, argsT &args);
+
+
 
 #endif//PLUGINHBASE_PLUGINHBASE_H

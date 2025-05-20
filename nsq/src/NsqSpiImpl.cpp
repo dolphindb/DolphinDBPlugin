@@ -4,15 +4,17 @@
 
 #include "NsqSpiImpl.h"
 #include "NsqConnection.h"
+#include "ddbplugin/PluginLogger.h"
+#include "ddbplugin/PluginLoggerImp.h"
 
 
 #define SAFE_EXECUTE(...)                               \
     try {                                               \
         __VA_ARGS__                                     \
     } catch (std::exception &e) {                       \
-        LOG_ERR(e.what());                              \
+        PLUGIN_LOG_ERR(e.what());                              \
     } catch (...) {                                     \
-        LOG_ERR("An error occurred in ", __FUNCTION__); \
+        PLUGIN_LOG_ERR("An error occurred in ", __FUNCTION__); \
     }
 
 void CHSNsqSpiImpl::OnFrontConnected() {
@@ -21,9 +23,9 @@ void CHSNsqSpiImpl::OnFrontConnected() {
         NsqConnection::connectionNotifyL();
         NsqConnection::getInstance()->login(username_, password_);
     } catch (std::exception &e) {
-        LOG_ERR(e.what());
+        PLUGIN_LOG_ERR(e.what());
     } catch (...) {
-        LOG_ERR("An error occurred in ", __FUNCTION__);
+        PLUGIN_LOG_ERR("An error occurred in ", __FUNCTION__);
     }
 }
 
@@ -39,7 +41,7 @@ void CHSNsqSpiImpl::OnRspUserLogin(CHSNsqRspUserLoginField *pRspUserLogin, CHSNs
 }
 
 void CHSNsqSpiImpl::OnFrontDisconnected(int nResult) {
-    LOG_WARN(NSQ_PREFIX, __FUNCTION__, " nsq disconnect");
+    PLUGIN_LOG_WARN(NSQ_PREFIX, __FUNCTION__, " nsq disconnect");
 }
 
 void CHSNsqSpiImpl::OnRspSecuDepthMarketDataSubscribe(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {

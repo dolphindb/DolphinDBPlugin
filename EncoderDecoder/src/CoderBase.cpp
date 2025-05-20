@@ -5,6 +5,7 @@
 #include <iostream>
 
 
+using namespace ddb;
 CoderImpl::~CoderImpl(){}
 
 void CoderImpl::appendTable(ConstantSP items) const

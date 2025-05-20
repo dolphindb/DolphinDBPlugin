@@ -22,7 +22,7 @@
 #include <string>
 #include <utility>
 
-namespace dolphindb {
+namespace ddb {
 
 template <typename T>
 inline T getNullValue();
@@ -37,15 +37,33 @@ inline long int getNullValue<long int>() { return LONG_MIN; }
 template <>
 inline long long getNullValue<long long>() { return LLONG_MIN; }
 template <>
-inline float getNullValue<float>() { return FLT_NMIN; }
+inline float getNullValue<float>() { return ddb::FLT_NMIN; }
 template <>
-inline double getNullValue<double>() { return DBL_NMIN; }
+inline double getNullValue<double>() { return ddb::DBL_NMIN; }
 template <>
 inline string getNullValue<string>() { return ""; }
 template <>
-inline Guid getNullValue<Guid>() { return Guid(); }
+inline ddb::Guid getNullValue<ddb::Guid>() { return ddb::Guid(); }
 template <>
-inline int128 getNullValue<int128>() { return INT128_MIN; }
+inline ddb::int128 getNullValue<ddb::int128>() { return ddb::INT128_MIN; }
+
+template <typename T>
+inline T *allocMemory(int size) {
+	return reinterpret_cast<T*>(malloc(size * sizeof(T)));
+}
+template <>
+inline string *allocMemory<string>(int size) {
+	return new string[size];
+}
+
+template <typename T>
+inline void deallocMemory(T* data) {
+	free(data);
+}
+template <>
+inline void deallocMemory<string>(string* data) {
+	delete[] data;
+}
 
 template <class T>
 class DdbVector {
@@ -54,9 +72,9 @@ public:
 		if (capacity_ < size_)
 			capacity_ = size_;
 		if (capacity_ < 1) {
-			throw RuntimeException("can't create empty DdbVector.");
+			throw ddb::RuntimeException("can't create empty DdbVector.");
 		}
-		data_ = new T[capacity_];
+		data_ = allocMemory<T>(capacity_);
 	}
 	//DdbVector own data and it will be released, don't delete data in the future.
 	DdbVector(T *data, int size, int capacity = 0) : data_(data), size_(size), capacity_(capacity), dataNeedRelease_(true), containNull_(false) {
@@ -66,7 +84,7 @@ public:
 	DdbVector(const DdbVector &src) = delete;
 	~DdbVector() {
 		if (dataNeedRelease_) {
-			delete[] data_;
+			deallocMemory(data_);
 		}
 	}
 	int size() const {
@@ -192,19 +210,19 @@ public:
 		}
 		memcpy(data_ + start, buf, len * sizeof(T));
 	}
-	Vector* createVector(DATA_TYPE type, int extraParam = 0) {
+	ddb::Vector* createVector(ddb::DATA_TYPE type, int extraParam = 0) {
 		if (dataNeedRelease_ == false) {
-			throw RuntimeException(Util::getDataTypeString(type) + "'s createVector can only be called once.");
+			throw ddb::RuntimeException(ddb::Util::getDataTypeString(type) + "'s createVector can only be called once.");
 		}
-		if (type != DT_STRING && type != DT_BLOB && type != DT_SYMBOL) {
+		if (type != ddb::DT_STRING && type != ddb::DT_BLOB && type != ddb::DT_SYMBOL) {
 			assert(Util::getDataTypeSize(type) == sizeof(T));
-			Vector* pVector;
-			pVector = Util::createVector(type, size_, size_, true, extraParam, data_, 0, 0, containNull_);
+			ddb::Vector* pVector;
+			pVector = ddb::Util::createVector(type, size_, size_, true, extraParam, data_, 0, 0, containNull_);
 			dataNeedRelease_ = false;
 			return pVector;
 		}
 		else {
-			Vector* pVector = Util::createVector(type, 0, size_, true, extraParam);
+			ddb::Vector* pVector = ddb::Util::createVector(type, 0, size_, true, extraParam);
 			pVector->appendString((string*)data_, size_);
 			return pVector;
 		}
@@ -216,7 +234,7 @@ private:
 	bool dataNeedRelease_, containNull_;
 };
 
-class Executor : public Runnable {
+class Executor : public ddb::Runnable {
     using Func = std::function<void()>;
 
 public:
@@ -232,103 +250,6 @@ public:
 
 private:
     Func func_;
-};
-
-class PUtil {
-public:
-	static std::string  getVersionMarker(){
-		return "Ddb_Plugin_Version: 1.30.20.1";
-	}
-
-	static void enumBoolVector(const VectorSP &pVector, std::function<bool(const char *pbuf, INDEX startIndex, INDEX size)> func, INDEX offset = 0) {
-		enumDdbVector<char>(pVector, &Vector::getBoolConst, func, offset);
-	}
-	static void enumIntVector(const VectorSP &pVector, std::function<bool(const int *pbuf, INDEX startIndex, int length)> func, INDEX offset = 0) {
-		enumDdbVector<int>(pVector, &Vector::getIntConst, func, offset);
-	}
-	static void enumShortVector(const VectorSP &pVector, std::function<bool(const short *pbuf, INDEX startIndex, int length)> func, INDEX offset = 0) {
-		enumDdbVector<short>(pVector, &Vector::getShortConst, func, offset);
-	}
-	static void enumCharVector(const VectorSP &pVector, std::function<bool(const char *pbuf, INDEX startIndex, int length)> func, INDEX offset = 0) {
-		enumDdbVector<char>(pVector, &Vector::getCharConst, func, offset);
-	}
-	static void enumLongVector(const VectorSP &pVector, std::function<bool(const long long *pbuf, INDEX startIndex, int length)> func, INDEX offset = 0) {
-		enumDdbVector<long long>(pVector, &Vector::getLongConst, func, offset);
-	}
-	static void enumFloatVector(const VectorSP &pVector, std::function<bool(const float *pbuf, INDEX startIndex, int length)> func, INDEX offset = 0) {
-		enumDdbVector<float>(pVector, &Vector::getFloatConst, func, offset);
-	}
-	static void enumDoubleVector(const VectorSP &pVector, std::function<bool(const double *pbuf, INDEX startIndex, int length)> func, INDEX offset = 0) {
-		enumDdbVector<double>(pVector, &Vector::getDoubleConst, func, offset);
-	}
-	static void enumStringVector(const VectorSP &pVector, std::function<bool(DolphinString **pbuf, INDEX startIndex, int length)> func, INDEX offset = 0) {
-		if(offset >= pVector->size()) return;
-		DolphinString* buffer[Util::BUF_SIZE];
-		DolphinString** pbuf;
-		INDEX startIndex = offset;
-		int size;
-		INDEX leftSize = pVector->size() - offset;
-		while (leftSize > 0) {
-			size = leftSize;
-			if (size > Util::BUF_SIZE)
-				size = Util::BUF_SIZE;
-			pbuf = pVector->getStringConst(startIndex, size, buffer);
-			if (func(pbuf, startIndex, size) == false)
-				break;
-			leftSize -= size;
-			startIndex += size;
-		}
-	}
-	static void enumInt128Vector(const VectorSP &pVector, std::function<bool(const Guid *pbuf, INDEX startIndex, int length)> func, INDEX offset = 0) {
-		enumBinaryVector<Guid>(pVector, func, offset);
-	}
-	static void enumDecimal32Vector(const VectorSP &pVector, std::function<bool(const int32_t *pbuf, INDEX startIndex, int length)> func, INDEX offset = 0) {
-		enumBinaryVector<int32_t>(pVector, func, offset);
-	}
-	static void enumDecimal64Vector(const VectorSP &pVector, std::function<bool(const int64_t *pbuf, INDEX startIndex, int length)> func, INDEX offset = 0) {
-		enumBinaryVector<int64_t>(pVector, func, offset);
-	}
-private:
-	template <class T>
-	static void enumBinaryVector(const VectorSP &pVector, std::function<bool(const T *pbuf, INDEX startIndex, int length)> func, INDEX offset = 0) {
-		if(offset >= pVector->size()) return;
-		vector<T> buffer(Util::BUF_SIZE);
-		const T* pbuf;
-		INDEX startIndex = offset;
-		int size;
-		INDEX leftSize = pVector->size() - offset;
-		while (leftSize > 0) {
-			size = leftSize;
-			if (size > Util::BUF_SIZE)
-				size = Util::BUF_SIZE;
-			pbuf = (const T*)pVector->getBinaryConst(startIndex, size, sizeof(T), (unsigned char*)buffer.data());
-			if (func(pbuf, startIndex, size) == false)
-				break;
-			leftSize -= size;
-			startIndex += size;
-		}
-	}
-	template <class T>
-	static void enumDdbVector(const VectorSP &pVector,
-		const T* (Vector::*getConst)(INDEX, int, T*) const,
-		std::function<bool(const T *buf, INDEX startIndex, int length)> func, INDEX offset = 0) {
-		if(offset >= pVector->size()) return;
-		T buffer[Util::BUF_SIZE];
-		const T *pbuf;
-		INDEX startIndex = offset;
-		int size;
-		INDEX leftSize = pVector->size() - offset;
-		while (leftSize > 0) {
-			size = leftSize;
-			if (size > Util::BUF_SIZE)
-				size = Util::BUF_SIZE;
-			pbuf = (pVector.get()->*getConst)(startIndex, size, buffer);
-			if (func(pbuf, startIndex, size) == false)
-				break;
-			leftSize -= size;
-			startIndex += size;
-		}
-	}
 };
 
 class ResultSet {
@@ -1118,6 +1039,101 @@ class PluginDefer {
   private:
     std::function<void()> code_;
 };
+
+// wrapper for SystemHandle related
+class DBHandleWrapper {
+  public:
+    DBHandleWrapper (Heap* heap, const ConstantSP& dbHandle) : dbHandle_(dbHandle) {
+        if (!dbHandle->isDatabase()) {
+            throw RuntimeException("dbHandle must be a database handle.");
+        }
+        session_ = heap->currentSession()->copy();
+        session_->setUser(heap->currentSession()->getUser());
+        session_->setOutput(heap->currentSession()->getOutput());
+        FunctionDefSP func = Util::getFuncDefFromHeap(heap, "schema");
+        vector<ConstantSP> args{dbHandle};
+        schema_ = func->call(heap, args);
+        schemaDict_ = schema_.getAs<Dictionary>();
+    }
+    ~DBHandleWrapper () = default;
+
+    auto getDBHandle() -> ConstantSP {
+        return dbHandle_;
+    }
+
+    auto getDatabaseDir() -> string {
+        return schemaDict_->getMember("databaseDir")->getString();
+    }
+
+    auto getPartitionType() -> PARTITION_TYPE {
+        ConstantSP partitionType = schemaDict_->getMember("partitionType");
+        if (partitionType->isVector()) {
+            return PARTITION_TYPE::HIER;
+        }
+        return PARTITION_TYPE(partitionType->getInt());
+    }
+
+    auto getEngineType() -> DBENGINE_TYPE {
+        string engineType = schemaDict_->getMember("engineType")->getString();
+        if (engineType == "OLAP") {
+            return DBENGINE_TYPE::OLAP;
+        }
+        if (engineType == "OLTP") {
+            return DBENGINE_TYPE::OLTP;
+        }
+        if (engineType == "TSDB") {
+            return DBENGINE_TYPE::IOT;
+        }
+        if (engineType == "IMOLTP") {
+            return DBENGINE_TYPE::IMOLTP;
+        }
+        if (engineType == "PKEY") {
+            return DBENGINE_TYPE::PKEY;
+        }
+        if (engineType == "IOTDB") {
+            return DBENGINE_TYPE::IOTDB;
+        }
+
+        throw RuntimeException("Unknown database engine type.");
+    }
+  private:
+    SessionSP session_;
+    ConstantSP dbHandle_;
+    ConstantSP schema_;
+    Dictionary * schemaDict_;
+};
+
+// schema must be a table with 2 columns, first name column is string, second type column is also string
+static inline auto createEmptyTableFromSchema(const ConstantSP& schema) -> TableSP {
+    auto *table = schema.getAs<Table>();
+    if (schema->columns() < 2) {
+        throw RuntimeException("Schema must be a table with name and type column.");
+    }
+    VectorSP nameVec = table->getColumn(0);
+    if (nameVec->getType() != DT_STRING) {
+        throw RuntimeException("Schema name column must be string.");
+    }
+    VectorSP typeVec = table->getColumn(1);
+    DATA_CATEGORY typeVecCategory = typeVec->getCategory();
+    vector<string> colNames;
+    vector<DATA_TYPE> colTypes;
+    for (int i = 0; i < nameVec->size(); i++) {
+        colNames.push_back(nameVec->getString(i));
+        if (typeVecCategory == INTEGRAL) {
+            colTypes.push_back(DATA_TYPE(typeVec->getLong(i)));
+        } else if (typeVecCategory == LITERAL) {
+            colTypes.push_back(Util::getDataType(typeVec->getString(i)));
+        } else {
+            throw RuntimeException("Schema type column must be string or integral.");
+        }
+    }
+    auto ret = Util::createTable(colNames, colTypes, 0, 1);
+    if (!ret) {
+        throw RuntimeException("Invalid schema type.");
+    }
+    return ret;
+}
+
 
 }  // dolphindb namespace
 

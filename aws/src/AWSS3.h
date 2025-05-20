@@ -8,7 +8,9 @@
 #ifndef AWSS3PLUGIN_H_
 #define AWSS3PLUGIN_H_
 
+#include "DolphinDBEverything.h"
 #include "ddbplugin/CommonInterface.h"
+#include "ddbplugin/PluginLoggerImp.h"
 #include "CoreConcept.h"
 #include "ScalarImp.h"
 #include "Util.h"
@@ -25,17 +27,17 @@
 
 #define CHUNK 16384
 
-extern "C" ConstantSP getS3Object(Heap* heap, vector<ConstantSP>& args);
-extern "C" ConstantSP listS3Object(Heap* heap, vector<ConstantSP>& args);
-extern "C" ConstantSP readS3Object(Heap* heap, vector<ConstantSP>& args);
-extern "C" void deleteS3Object(Heap* heap, vector<ConstantSP>& args);
-extern "C" void uploadS3Object(Heap* heap, vector<ConstantSP>& args);
-extern "C" ConstantSP listS3Bucket(Heap* heap, vector<ConstantSP>& args);
-extern "C" void deleteS3Bucket(Heap* heap, vector<ConstantSP>& args);
-extern "C" void createS3Bucket(Heap* heap, vector<ConstantSP>& args);
-extern "C" ConstantSP headS3Object(Heap* heap, vector<ConstantSP>& args);
-extern "C" void copyS3Object(Heap* heap, vector<ConstantSP>& args);
-extern "C" ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args);
+extern "C" ddb::ConstantSP getS3Object(ddb::Heap* heap, std::vector<ddb::ConstantSP>& args);
+extern "C" ddb::ConstantSP listS3Object(ddb::Heap* heap, std::vector<ddb::ConstantSP>& args);
+extern "C" ddb::ConstantSP readS3Object(ddb::Heap* heap, std::vector<ddb::ConstantSP>& args);
+extern "C" void deleteS3Object(ddb::Heap* heap, std::vector<ddb::ConstantSP>& args);
+extern "C" void uploadS3Object(ddb::Heap* heap, std::vector<ddb::ConstantSP>& args);
+extern "C" ddb::ConstantSP listS3Bucket(ddb::Heap* heap, std::vector<ddb::ConstantSP>& args);
+extern "C" void deleteS3Bucket(ddb::Heap* heap, std::vector<ddb::ConstantSP>& args);
+extern "C" void createS3Bucket(ddb::Heap* heap, std::vector<ddb::ConstantSP>& args);
+extern "C" ddb::ConstantSP headS3Object(ddb::Heap* heap, std::vector<ddb::ConstantSP>& args);
+extern "C" void copyS3Object(ddb::Heap* heap, std::vector<ddb::ConstantSP>& args);
+extern "C" ddb::ConstantSP loadS3Object(ddb::Heap* heap, std::vector<ddb::ConstantSP>& args);
 static const std::string AWSS3_PLUGIN_PREFIX = "[PLUGIN AWS]:";
 #if 0
 extern "C" ConstantSP createS3InputStream(Heap* heap, vector<ConstantSP>& args);

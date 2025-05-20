@@ -14,6 +14,7 @@
 #include "ScalarImp.h"
 #include "Util.h"
 #include "mysqlxx.h"
+#include "ddbplugin/PluginLoggerImp.h"
 #ifdef DEBUG
 #include <chrono>
 typedef std::chrono::high_resolution_clock Clock;
@@ -21,18 +22,20 @@ using std::chrono::duration_cast;
 using std::chrono::nanoseconds;
 #endif
 
+using ddb::ConstantSP;
+using ddb::Heap;
+using std::vector;
+
 extern "C" ConstantSP mysqlConnect(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP mysqlClose(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP mysqlSchema(const ConstantSP &connection, const ConstantSP &table);
+extern "C" ConstantSP mysqlSchema(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP mysqlLoad(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP mysqlTables(const ConstantSP &connection);
+extern "C" ConstantSP mysqlTables(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP mysqlLoadEx(Heap *heap, vector<ConstantSP> &args);
 
-namespace dolphindb {
+namespace ddb {
 bool littleEndian = false;
-const char *getDolphinDBTypeStr(DATA_TYPE mysql_type);
 ConstantSP messageSP(const std::string &s);
-vector<ConstantSP> getArgs(vector<ConstantSP> &args, size_t nMaxArgs);
 
 bool parseTimestamp(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char *nullVal, size_t len);
 bool parseNanotime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char *nullVal, size_t len);
@@ -257,10 +260,10 @@ inline bool parseScalar(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, 
 void getValNull(DATA_TYPE type, char *buf) {
     switch (type) {
         case DT_BOOL:
-            buf[0] = CHAR_MIN;
+            buf[0] = Util::createNullConstant(DT_BOOL)->getChar();
             return;
         case DT_CHAR:
-            buf[0] = CHAR_MIN;
+            buf[0] = Util::createNullConstant(DT_CHAR)->getChar();
             return;
         case DT_SHORT: {
             short nullV = SHRT_MIN;
@@ -335,5 +338,5 @@ void getValNull(DATA_TYPE type, char *buf) {
 
 const char *getMySQLTypeStr(mysqlxx::enum_field_types dt);
 
-}  // namespace dolphindb
+}  // namespace ddb
 #endif

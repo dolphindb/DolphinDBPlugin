@@ -708,7 +708,7 @@ RECOVER_FROM_ERROR_IN_DASH:
 	//while (!com_line())
 	//     ctrlc_flag = FALSE; /* reset asynchronous Ctrl-C flag */
     // }
-    // return exit_status;
+	return exit_status;
 }
 
 #if defined(_WIN32)

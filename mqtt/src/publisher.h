@@ -3,9 +3,15 @@
 
 #include <string>
 
+#include "DolphinDBEverything.h"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "TableImp.h"
+#pragma GCC diagnostic pop
 
 using std::string;
+
+namespace ddb {
 
 class PublishTable : public BasicTable {
   public:
@@ -21,5 +27,7 @@ class PublishTable : public BasicTable {
     vector<ConstantSP> cols_;
     vector<string> colNames_;
 };
+
+}  // namespace ddb
 
 #endif

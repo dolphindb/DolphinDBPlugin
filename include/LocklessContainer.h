@@ -21,6 +21,7 @@
 #include "FlatHashmap.h"
 #include "Exceptions.h"
 
+namespace ddb {
 
 #define CACHE_LINE_SIZE  64 // 64 byte cache line on x86 and x86-64
 #define CACHE_LINE_SCALE 6  // log base 2 of the cache line size
@@ -1205,5 +1206,7 @@ private:
     std::atomic<int> leftRight;
     ReaderVersion versions[2];
 };
+
+}
 
 #endif

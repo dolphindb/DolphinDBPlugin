@@ -8,6 +8,11 @@
 #include <hdf5_plugin_util.h>
 #include <hdf5_plugin_obj.h>
 
+using ddb::ConstantSP;
+using ddb::Heap;
+using std::vector;
+using std::string;
+
 namespace H5PluginImp
 {
 ConstantSP loadPandasHDF5(const string &fileName, const string &groupName, const ConstantSP &schema,const size_t startRow, const size_t rowNum);

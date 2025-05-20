@@ -8,6 +8,11 @@
 #include <CoreConcept.h>
 
 #include "ddbplugin/CommonInterface.h"
+#include "ddbplugin/PluginLoggerImp.h"
+
+using ddb::ConstantSP;
+using ddb::Heap;
+using std::vector;
 
 extern "C" {
 ConstantSP gurobiModel(Heap *heap, vector<ConstantSP> &args);

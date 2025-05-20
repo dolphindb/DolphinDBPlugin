@@ -17,10 +17,12 @@ using namespace apache::thrift;
 using namespace apache::thrift::protocol;
 using namespace apache::hadoop::hbase::thrift;
 
+using namespace ddb;
+
 const static string HBASE_PREFIX = "[Plugin::HBase]";
 const static string HBASE_CONNECTION_DESC = "hbase connection";
 
-dolphindb::ResourceMap<HBaseConnect> HBASE_CONNECTION_MAP(HBASE_PREFIX, HBASE_CONNECTION_DESC);
+ddb::ResourceMap<HBaseConnect> HBASE_CONNECTION_MAP(HBASE_PREFIX, HBASE_CONNECTION_DESC);
 
 /* INTERFACES */
 
@@ -55,21 +57,21 @@ ConstantSP connectH(Heap *heap, vector<ConstantSP> &args) {
     SmartPointer<HBaseConnect> conn = new HBaseConnect(args[0]->getString(), args[1]->getInt(), isFramed, timeout);
     FunctionDefSP onClose(Util::createSystemProcedure(
             "hbase connection onClose()", connectionOnCloseH, 1, 1));
-    ConstantSP resource = Util::createResource(reinterpret_cast<long long>(conn.get()), HBASE_CONNECTION_DESC, onClose, heap->currentSession());
+    ConstantSP resource = Util::createResource(reinterpret_cast<long long>(conn.get()), HBASE_CONNECTION_DESC, onClose, heap);
     HBASE_CONNECTION_MAP.safeAdd(resource, conn);
 
     return resource;
 }
 
 ConstantSP showTablesH(Heap *heap, vector<ConstantSP> &args) {
-    string usage = "Usage: showTables(hbaseConnection). ";
+    string usage = "Usage: showTables(conn). ";
 
     auto conn = HBASE_CONNECTION_MAP.safeGet(args[0]);
     return conn->showTablesH();
 }
 
 ConstantSP loadH(Heap *heap, vector<ConstantSP> &args) {
-    string usage = "Usage: load(hbaseConnection, tableName, [schema]). ";
+    string usage = "Usage: load(conn, tableName, [schema]). ";
 
     auto conn = HBASE_CONNECTION_MAP.safeGet(args[0]);
 
@@ -86,7 +88,7 @@ ConstantSP loadH(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP deleteTableH(Heap *heap, vector<ConstantSP> &args) {
-    string usage = "Usage: deleteTable(hbaseConnection, tableName). ";
+    string usage = "Usage: deleteTable(conn, tableNames). ";
 
     auto conn = HBASE_CONNECTION_MAP.safeGet(args[0]);
 
@@ -104,7 +106,7 @@ ConstantSP deleteTableH(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP getRowH(Heap *heap, vector<ConstantSP> &args) {
-    string usage = "Usage: getRow(hbaseConnection, tableName, rowKey, [columnName]). ";
+    string usage = "Usage: getRow(conn, tableName, rowKey, [columnNames]). ";
 
     vector<string> columnNames;
     auto conn = HBASE_CONNECTION_MAP.safeGet(args[0]);
@@ -240,13 +242,14 @@ ConstantSP HBaseConnect::loadH(const string &tableName) {
                             bool success = result->append(dataToAppend, insertedRows, errMsg);
                             if (!success) {
                                 std::cerr << errMsg << std::endl;
-                                LOG_ERR(errMsg);
+                                PLUGIN_LOG_ERR(errMsg);
                             }
                         }
                     }
                 }
 
                 client_->scannerClose(scanner);
+                PLUGIN_LOG_INFO("[PluginHbase] Load Success");
                 return result;
             } catch (const TException &tx) {
                 throw RuntimeException(string("HBase scanner error: ") + tx.what());
@@ -567,6 +570,7 @@ ConstantSP HBaseConnect::loadH(const string &tableName, const TableSP &schema) {
             }
 
             client_->scannerClose(scanner);
+            PLUGIN_LOG_INFO("[PluginHbase] Load Success");
             return result;
         }
     }
@@ -1019,5 +1023,7 @@ void connectionOnCloseH(Heap *heap, vector<ConstantSP> &args) {
 }
 
 void HBaseConnect::customThriftLogFunction(const char *message) {}
+
+
 
 

@@ -1,3 +1,3 @@
-zlib,libPluginZlib.dll,3.00.2
-compressFile,compressFile,system,1,2,0
-decompressFile,decompressFile,system,1,1,0
+zlib,libPluginZlib.dll,3.00.3
+compressFile,compressFile,system,1,2,0,0,(filePath, [compressionLevel])
+decompressFile,decompressFile,system,1,1,0,0,(filePath)

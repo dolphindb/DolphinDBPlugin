@@ -1,5 +1,7 @@
 #include "kafkaClient.h"
 #include "Exceptions.h"
+#include "ddbplugin/PluginLogger.h"
+#include "ddbplugin/PluginLoggerImp.h"
 
 using std::map;
 
@@ -11,7 +13,7 @@ void commitMsg(const rawMessageWrapperSP &msg, SmartPointer<Consumer> &consumer)
     if (error != RD_KAFKA_RESP_ERR_NO_ERROR) {
         throw RuntimeException(rd_kafka_err2str(error));
     }
-};
+}
 
 void subJobCallBack(vector<ConstantSP> &buffer, MessageWrapper &data) {
     int colNum = 0;
@@ -21,7 +23,7 @@ void subJobCallBack(vector<ConstantSP> &buffer, MessageWrapper &data) {
     ((VectorSP)buffer[colNum++])->appendString(&payload, 1);
     ((VectorSP)buffer[colNum++])->appendString(&key, 1);
     ((VectorSP)buffer[colNum++])->appendString(&topic, 1);
-};
+}
 
 void subJobFinalizer(vector<MessageWrapper> &msgs, SmartPointer<Consumer> &consumer) {
     if (!msgs.empty()) {
@@ -147,7 +149,7 @@ void AppendTable::handleErr(const string &errMsg) {
     status_.failedMsgCount_ += 1;
     status_.lastFailedTimestamp_ = Util::getNanoEpochTime() + localTimeGap_;
     status_.lastErrMsg_ = "topic=" + actionName_ + " length=1 exception=" + errMsg;
-    LOG_ERR(KAFKA_PREFIX, status_.lastErrMsg_);
+    PLUGIN_LOG_ERR(KAFKA_PREFIX, status_.lastErrMsg_);
 }
 
 void AppendTable::run() {
@@ -159,7 +161,7 @@ void AppendTable::run() {
             }
             rawMessageWrapperSP msg = new rawMessageWrapper(msgPtr);
             if (UNLIKELY(msg->msgPtr_->err)) {
-                LOG(KAFKA_PREFIX, "topic=", actionName_, " polls msg failed: ", rd_kafka_err2str(msg->msgPtr_->err));
+                PLUGIN_LOG(KAFKA_PREFIX, "topic=", actionName_, " polls msg failed: ", rd_kafka_err2str(msg->msgPtr_->err));
                 continue;
             }
             status_.processedMsgCount_ += 1;
@@ -173,7 +175,6 @@ void AppendTable::run() {
                     queue_->push(MessageWrapper(msg, LONG_LONG_MIN));
                 }
             } else {  // only could be coder instance, cannot autoCommit
-                // TODO encoderDecoder special use
                 parserArgs_[0]->setString(DolphinString((char *)msg->msgPtr_->payload, msg->msgPtr_->len));
                 vector<ConstantSP> tableArgs = {parserArgs_[0]};
                 ConstantSP content = Util::createTable({"string"}, tableArgs);
@@ -220,5 +221,5 @@ SubConnection::~SubConnection() {
     if (connected_) {
         connected_ = false;
     }
-    LOG_INFO(KAFKA_PREFIX, "subJob: " + actionName_ + " is freed");
+    PLUGIN_LOG_INFO(KAFKA_PREFIX, "subJob: " + actionName_ + " is freed");
 }

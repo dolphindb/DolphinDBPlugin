@@ -1,6 +1,8 @@
 #include "tcpSocket.h"
 #include "ddbplugin/CommonInterface.h"
 
+namespace ddb {
+
 class SocketWrapper{
 public:
     SocketWrapper(const SocketWrapper& wrapper) = delete;
@@ -50,9 +52,12 @@ private:
     SocketSP socket_;
 };
 typedef SmartPointer<SocketWrapper> SocketWrapperSP;
-dolphindb::ResourceMap<SocketWrapper> TCP_SOCKET_MAP(PLUGIN_TCP_PREFIX, "tcp socket");
+ResourceMap<SocketWrapper> TCP_SOCKET_MAP(PLUGIN_TCP_PREFIX, "tcp socket");
+} // namespace ddb
+using namespace ddb;
 
-static void tcpOnClose(Heap *heap, vector<ConstantSP> &args){
+static void tcpOnClose(Heap *heap, std::vector<ConstantSP> &args){
+    std::ignore = heap;
     TCP_SOCKET_MAP.safeRemoveWithoutException(args[0]);
 }
 
@@ -78,6 +83,7 @@ ConstantSP tcpConnect(Heap *heap, vector<ConstantSP> &args){
 
 
 ConstantSP tcpRead(Heap *heap, vector<ConstantSP> &args){
+    std::ignore = heap;
     int size = 10240;
     if(args.size() > 1){
         if(args[1]->getType() != DT_INT || args[1]->getForm() != DF_SCALAR)
@@ -89,6 +95,7 @@ ConstantSP tcpRead(Heap *heap, vector<ConstantSP> &args){
 }
 
 ConstantSP tcpWrite(Heap *heap, vector<ConstantSP> &args){
+    std::ignore = heap;
     if((args[1]->getType() != DT_STRING && args[1]->getType() != DT_BLOB) || args[1]->getForm() != DF_SCALAR)
         throw RuntimeException(PLUGIN_TCP_PREFIX + "data must be a blob scalar or a string scalar. ");
     SocketWrapperSP wrapper = TCP_SOCKET_MAP.safeGet(args[0]);
@@ -98,6 +105,7 @@ ConstantSP tcpWrite(Heap *heap, vector<ConstantSP> &args){
 }
 
 ConstantSP tcpClose(Heap *heap, vector<ConstantSP> &args){
+    std::ignore = heap;
     SocketWrapperSP wrapper = TCP_SOCKET_MAP.safeGet(args[0]);
     wrapper->close();
     TCP_SOCKET_MAP.safeRemove(args[0]);

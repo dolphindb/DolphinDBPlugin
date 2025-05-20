@@ -13,12 +13,12 @@
 #include "CoreConcept.h"
 #include "Util.h"
 
+namespace ddb {
+
 using std::ostringstream;
 
-class SystemHandle;
 class DataSource;
 class Resource;
-typedef SmartPointer<SystemHandle> SystemHandleSP;
 typedef SmartPointer<DataSource> DataSourceSP;
 typedef SmartPointer<Resource> ResourceSP;
 
@@ -238,7 +238,7 @@ public:
 	virtual long long getAllocatedMemory() const {return sizeof(Int128);}
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const {
 		short flag = (DF_SCALAR <<8) + getType();
-		buffer->write((char)CONSTOBJ);
+		buffer->write((char)OBJECT_TYPE::CONSTOBJ);
 		buffer->write(flag);
 		return buffer->write((const char*)uuid_, 16);
 	}
@@ -274,7 +274,6 @@ public:
 	static bool parseUuid(const char* str, size_t len, unsigned char* buf);
 };
 
-# ifndef OPCUA
 class SWORDFISH_API IPAddr : public Int128 {
 public:
 	IPAddr();
@@ -293,7 +292,6 @@ private:
 	static bool parseIP4(const char* str, size_t len, unsigned char* buf);
 	static bool parseIP6(const char* str, size_t len, unsigned char* buf);
 };
-# endif
 
 class SWORDFISH_API DoublePair {
 public:
@@ -387,8 +385,8 @@ public:
 
 class SWORDFISH_API String: public Constant{
 public:
-	String(DolphinString val=""): Constant(DF_SCALAR, DT_STRING, LITERAL), blob_(false), val_(val){}
-	String(DolphinString val, bool blob): Constant(DF_SCALAR, blob ? DT_BLOB : DT_STRING, LITERAL), blob_(blob), val_(val){}
+	String(DolphinString val=""): Constant(DF_SCALAR, DT_STRING, LITERAL), blob_(false), val_(std::move(val)){}
+	String(DolphinString val, bool blob): Constant(DF_SCALAR, blob ? DT_BLOB : DT_STRING, LITERAL), blob_(blob), val_(std::move(val)){}
 	virtual ~String(){}
     virtual bool isLargeConstant() const { return val_.size()>1024;}
 	virtual char getBool() const {throw IncompatibleTypeException(DT_BOOL, internalType());}
@@ -511,8 +509,8 @@ public:
 			buf[i]=val;
 		return buf;
 	}
-	virtual ConstantSP getInstance() const {return ConstantSP(new String());}
-	virtual ConstantSP getValue() const {return ConstantSP(new String(val_));}
+	virtual ConstantSP getInstance() const {return ConstantSP(new String("", blob_));}
+	virtual ConstantSP getValue() const {return ConstantSP(new String(val_, blob_));}
 	virtual DATA_TYPE getRawType() const { return internalType();}
 	virtual long long getAllocatedMemory() const {return sizeof(DolphinString);}
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
@@ -599,60 +597,6 @@ private:
 	bool isTable_; // check if it can be used in SQL statement as the source of a table.
 	bool localMode_;
     bool isTaskFirstLevel_ = true;
-};
-
-
-class SWORDFISH_API SystemHandle : public String{
-public:
-	SystemHandle(SOCKET handle, bool isLittleEndian, const string& sessionID, const string& host, int port, const string& userId, const string& pwd) : String("Conn[" + host + ":" +Util::convert(port) + ":" +sessionID + "]"),
-		type_(REMOTE_HANDLE), socket_(handle), flag_(isLittleEndian ? 1 : 0), sessionID_(sessionID), userId_(userId), pwd_(pwd), tables_(0){setTypeAndCategory(DT_HANDLE, SYSTEM);}
-	SystemHandle(const DataStreamSP& handle, bool isLittleEndian) : String(handle->getDescription()),
-		type_(handle->isFileStream() ? FILE_HANDLE : SOCKET_HANDLE), socket_(-1), flag_(isLittleEndian ? 1 : 0), stream_(handle), tables_(0){setTypeAndCategory(DT_HANDLE, SYSTEM);}
-	SystemHandle(const string& dbDir, const DomainSP& domain): String("DB[" + dbDir + "]"),
-		type_(DB_HANDLE), socket_(-1), flag_(Util::LITTLE_ENDIAN_ORDER ? 1 : 0), dbDir_(dbDir), domain_(domain), symbaseManager_(new SymbolBaseManager(dbDir)), tables_(new unordered_map<string, TableSP>()){setTypeAndCategory(DT_HANDLE, SYSTEM);}
-	SystemHandle(const string& dbDir, const DomainSP& domain, const SymbolBaseManagerSP& symManager): String("DB[" + dbDir + "]"),
-		type_(DB_HANDLE), socket_(-1), flag_(Util::LITTLE_ENDIAN_ORDER ? 1 : 0), dbDir_(dbDir), domain_(domain), symbaseManager_(symManager), tables_(new unordered_map<string, TableSP>()){setTypeAndCategory(DT_HANDLE, SYSTEM);}
-	virtual ~SystemHandle();
-	virtual bool isDatabase() const {return type_ == DB_HANDLE;}
-	virtual ConstantSP getMember(const ConstantSP& key) const;
-	void addMember(const ConstantSP& obj);
-	void removeMember(const string& key);
-	ConstantSP getMemberWithoutThrow(const ConstantSP& key) const;
-	const string& getSessionID() const { return sessionID_;}
-	inline const string& getUserId() const { return userId_;}
-	inline const string& getPassword() const { return pwd_;}
-	inline bool isLittleEndian() const { return flag_ & 1;}
-	inline bool isClosed() const { return flag_ & 2;}
-	inline bool isExpired() const { return flag_ & 4;}
-	inline bool isDeleted() const { return flag_ & 8;}
-	void setExpired(bool option);
-	void setDeleted(bool option);
-	SOCKET getSocketHandle() const {return socket_;}
-	HANDLE_TYPE getHandleType() const { return type_;}
-	DataStreamSP getDataStream() const { return stream_;}
-    const string& getDatabaseDir() const { return dbDir_;}
-    DomainSP getDomain() const;
-    void setDomain(const DomainSP& domain);
-    SymbolBaseManagerSP getSymbolBaseManager() const { return symbaseManager_;}
-	virtual bool copyable() const {return false;}
-	virtual ConstantSP getValue() const { throw RuntimeException("System handle is not copyable.");}
-	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const { throw RuntimeException("System handle is not able to serialize.");}
-	virtual bool containNotMarshallableObject() const {return true;}
-	void close();
-
-private:
-	HANDLE_TYPE type_;
-	SOCKET socket_;
-	char flag_; //bit0: littleEndian, bit1: closed, bit2: expired, bit3: deleted
-	string sessionID_;
-	string userId_;
-	string pwd_;
-	DataStreamSP stream_;
-	string dbDir_;
-	DomainSP domain_;
-	SymbolBaseManagerSP symbaseManager_;
-	unordered_map<string, TableSP>* tables_;
-	mutable Mutex mutex_;
 };
 
 class SWORDFISH_API Resource : public String{
@@ -1072,7 +1016,7 @@ public:
 
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const {
 		short flag = (DF_SCALAR <<8) + getType();
-		buffer->write((char)CONSTOBJ);
+		buffer->write((char)OBJECT_TYPE::CONSTOBJ);
 		buffer->write(flag);
 		char buf[8];
 		int numElement, partial;
@@ -1220,6 +1164,7 @@ private:
 
 class SWORDFISH_API Duration : public Int {
 public:
+	Duration() = default;
 	Duration(DURATION unit, int val);
 	Duration(int exchange, int val);
 	Duration(const string& exchange, int val);
@@ -1981,5 +1926,6 @@ using Decimal32 = Decimal<int>;        // int32_t
 using Decimal64 = Decimal<long long>;  // int64_t
 using Decimal128 = Decimal<int128>;
 
+} // namespace ddb
 
 #endif /* SCALARIMP_H_ */

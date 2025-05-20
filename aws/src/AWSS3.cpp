@@ -48,8 +48,8 @@
 #include <sys/stat.h>
 #endif
 
+using namespace ddb;
 Mutex mutex;
-
 void setS3account(DictionarySP& account, Aws::Auth::AWSCredentials& credential, Aws::Client::ClientConfiguration& config) {
     Aws::String keyId;
     Aws::String secretKey;
@@ -100,7 +100,7 @@ class S3ClientGuard{
 public:
     S3ClientGuard(DictionarySP& account){
         if(awsInit_==false){
-            LOG("InitAPI");
+            PLUGIN_LOG("InitAPI");
             awsInit_=true;
             Aws::InitAPI(awsOptions_);
             Aws::Utils::Logging::InitializeAWSLogging(
@@ -187,7 +187,7 @@ private:
 std::unordered_map<string,std::vector<Aws::S3::S3Client*>> S3ClientGuard::account2client_;
 std::mutex S3ClientGuard::a2cMutex_;
 bool S3ClientGuard::awsInit_=false;
-Aws::SDKOptions S3ClientGuard::awsOptions_={};
+Aws::SDKOptions S3ClientGuard::awsOptions_;
 
 template <typename R, typename E>
 static const R& GetResult(const Aws::Utils::Outcome<R, E>& result, const Aws::String& errPrefix) {
@@ -229,6 +229,7 @@ static VectorSP retriveVecStrArg(ConstantSP arg) {
 }
 
 ConstantSP getS3Object(Heap* heap, vector<ConstantSP>& args) {
+    (void)heap;
     LockGuard<Mutex> lk(&mutex);
     if(!args[0]->isDictionary()) {
         throw IllegalArgumentException("getS3Object",
@@ -292,6 +293,7 @@ ConstantSP getS3Object(Heap* heap, vector<ConstantSP>& args) {
 }
 
 ConstantSP listS3Object(Heap* heap, vector<ConstantSP>& args) {
+    (void)heap;
     LockGuard<Mutex> lk(&mutex);
     if(!args[0]->isDictionary()) {
         throw IllegalArgumentException("listS3Object",
@@ -375,7 +377,7 @@ ConstantSP listS3Object(Heap* heap, vector<ConstantSP>& args) {
                     nextMarker->setString("");
                 }
             }
-            LOG("[listS3Object] marker ", marker.isNull() ? " " : marker->getString(), " turncated ", listObjectsOutcome.GetResult().GetIsTruncated());
+            PLUGIN_LOG("[listS3Object] marker ", marker.isNull() ? " " : marker->getString(), " turncated ", listObjectsOutcome.GetResult().GetIsTruncated());
             for (auto const &s3Object : objectList) {
                 tblIdx.emplace_back(i++);
                 tblBN.emplace_back(args[1]->getString().c_str());
@@ -416,6 +418,7 @@ ConstantSP listS3Object(Heap* heap, vector<ConstantSP>& args) {
 }
 
 ConstantSP readS3Object(Heap* heap, vector<ConstantSP>& args) {
+    (void)heap;
     LockGuard<Mutex> lk(&mutex);
     if(!args[0]->isDictionary()) {
         throw IllegalArgumentException("readS3Object",
@@ -460,13 +463,14 @@ ConstantSP readS3Object(Heap* heap, vector<ConstantSP>& args) {
         std::stringstream buf;
         buf << GetResultWithOwnership(readObjectOutcome, "readS3Object cannot read object").GetBody().rdbuf();
         std::string tempFile(buf.str());
-        LOG_INFO("[readS3Object] got ", tempFile.size(), " bytes");
+        PLUGIN_LOG_INFO("[readS3Object] got ", tempFile.size(), " bytes");
         ret->appendChar(const_cast<char *>(tempFile.c_str()), tempFile.size());
     }
     return ret;
 }
 
 void deleteS3Object(Heap* heap, vector<ConstantSP>& args) {
+    (void)heap;
     LockGuard<Mutex> lk(&mutex);
     if(!args[0]->isDictionary()) {
         throw IllegalArgumentException("deleteS3Object",
@@ -506,7 +510,7 @@ void deleteS3Object(Heap* heap, vector<ConstantSP>& args) {
 }
 
 void uploadS3Object(Heap* heap, vector<ConstantSP>& args) {
-
+    (void)heap;
     LockGuard<Mutex> lk(&mutex);
 
     if(!args[0]->isDictionary()) {
@@ -572,6 +576,7 @@ void uploadS3Object(Heap* heap, vector<ConstantSP>& args) {
 }
 
 ConstantSP listS3Bucket(Heap* heap, vector<ConstantSP>& args) {
+    (void)heap;
     LockGuard<Mutex> lk(&mutex);
     if(!args[0]->isDictionary()) {
         throw IllegalArgumentException("listS3Bucket",
@@ -613,6 +618,7 @@ ConstantSP listS3Bucket(Heap* heap, vector<ConstantSP>& args) {
 }
 
 void deleteS3Bucket(Heap* heap, vector<ConstantSP>& args) {
+    (void)heap;
     LockGuard<Mutex> lk(&mutex);
     if(!args[0]->isDictionary()) {
         throw IllegalArgumentException("deleteS3Bucket",
@@ -640,6 +646,7 @@ void deleteS3Bucket(Heap* heap, vector<ConstantSP>& args) {
 }
 
 void createS3Bucket(Heap* heap, vector<ConstantSP>& args) {
+    (void)heap;
     LockGuard<Mutex> lk(&mutex);
     if(!args[0]->isDictionary()) {
         throw IllegalArgumentException("createS3Bucket",
@@ -670,6 +677,7 @@ void createS3Bucket(Heap* heap, vector<ConstantSP>& args) {
 }
 
 ConstantSP headS3Object(Heap* heap, vector<ConstantSP>& args) {
+    (void)heap;
     LockGuard<Mutex> lk(&mutex);
     assertArg(args[0]->isDictionary(), "HeadS3Object", "s3account", "Dictionary");
     assertArg(args[1]->getType() == DT_STRING, "HeadS3Object", "bucketName", "string");
@@ -693,6 +701,7 @@ ConstantSP headS3Object(Heap* heap, vector<ConstantSP>& args) {
 }
 
 void copyS3Object(Heap* heap, vector<ConstantSP>& args) {
+    (void)heap;
     LockGuard<Mutex> lk(&mutex);
     assertArg(args[0]->isDictionary(), __func__, "s3account", "Dictionary");
     assertArg(args[1]->getType() == DT_STRING, __func__, "bucketName", "string");
@@ -751,7 +760,7 @@ ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
     }
 
     //prepare loadTextEx
-    auto loadTextExFunc=heap->currentSession()->getFunctionDef("loadTextEx");
+    auto loadTextExFunc=Util::getFuncDefFromHeap(heap, "loadTextEx");
     if(loadTextExFunc.isNull()){
         throw RuntimeException("Can't find function loadTextEx");
     }
@@ -768,7 +777,7 @@ ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
     std::string tempFolder;
     {
         static std::atomic<long long> lastTmpFileIndex(Util::getEpochTime());
-#ifdef LINUX
+#ifdef __linux__
         tempFolder = "/tmp/DDB_S3Plugin_loadS3Object_"+std::to_string(lastTmpFileIndex.fetch_add(1));
 #else
         tempFolder = Util::getExecutableDirectory() + "/DDB_S3Plugin_loadS3Object_"+std::to_string(lastTmpFileIndex.fetch_add(1));
@@ -787,7 +796,7 @@ ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
     //load text thread
     SynchronizedQueue<ObjectFile> fileQueue;
     std::mutex objectMutex;
-    Thread loadTextThread(new dolphindb::Executor([&]() {
+    Thread loadTextThread(new ddb::Executor([&]() {
         ObjectFile objectFile;
         vector<ConstantSP> loadTextExArgs(loadTextExInputArgs);
         loadTextExArgs[3] = new String;
@@ -820,8 +829,8 @@ ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
     }));
     loadTextThread.start();
     /*std::thread loadTextThread = std::thread(;*/
+    int objectIndex=0;
     try{//start download thread
-        int objectIndex=0;
         for(auto &thread : threads){
             thread = std::thread([&]() {
                 S3ClientGuard g{s3account};
@@ -916,7 +925,7 @@ ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
         loadTextThread.join();
         string msg;
         if(!Util::removeDirectoryRecursive(tempFolder, msg)){
-            LOG_ERR("remove dir content failed ",msg);
+            PLUGIN_LOG_ERR("remove dir content failed ",msg);
         }
     } catch(std::exception &e){
         throw RuntimeException(AWSS3_PLUGIN_PREFIX+": join thread error:"+e.what());

@@ -5,6 +5,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "DolphinDBEverything.h"
 #include "CoreConcept.h"
 #include "Exceptions.h"
 #include "Logger.h"
@@ -13,10 +14,20 @@
 #include "Util.h"
 #include "ddbplugin/Plugin.h"
 
+#include "ddbplugin/PluginLogger.h"
+
 #ifdef AMD_USE_THREADED_QUEUE
 #include "amdQuoteType.h"
 class DailyIndex;
 #endif
+
+namespace std {
+
+inline static std::string to_string(const std::string &str) { return str; }
+
+}  // namespace std
+
+namespace ddb {
 
 // static const string STOP_EXCEPTION_ERRMSG = " data being processed is discarded due to unsubscription";
 
@@ -39,10 +50,10 @@ struct MetaTable {
 };
 
 typedef enum StreamOptionFlag {
-    OPT_RECEIVED = 0b01,
-    OPT_ELAPSED = 0b10,
+    OPT_RECEIVED = 1,
+    OPT_ELAPSED = 2,
 #ifdef AMD_USE_THREADED_QUEUE
-    OPT_DAILY_INDEX = 0b100,
+    OPT_DAILY_INDEX = 4,
 #endif
 } MarketOptionFlag;
 
@@ -56,6 +67,8 @@ typedef struct StreamStatus {
     long long failedMsgCount_ = 0;     // only err msg count
     string lastErrMsg_;
     long long lastFailedTimestamp_ = LONG_LONG_MIN;
+    long long queueDepthLimit_ = LONG_LONG_MIN;
+    long long queueDepth_ = 0;
 
     DictionarySP getStatus() const {
         DictionarySP dict = Util::createDictionary(DT_STRING, NULL, DT_ANY, NULL);
@@ -71,10 +84,6 @@ typedef struct StreamStatus {
         return dict;
     }
 } MarketStatus;
-
-namespace std {
-inline static std::string to_string(const std::string &str) { return str; }
-}  // namespace std
 
 namespace ThreadedQueueUtil {
 template <typename T>
@@ -187,12 +196,18 @@ class MarketTypeContainer {
 namespace ThreadedQueueUtil {
 template <class T>
 struct Sizer {
-    int operator()(const T &obj) { return 1; }
+    int operator()(const T &obj) { 
+        std::ignore = obj;
+        return 1; 
+    }
 };
 
 template <class T>
 struct Mandatory {
-    bool operator()(const T &obj) { return false; }
+    bool operator()(const T &obj) { 
+        std::ignore = obj;
+        return false; 
+    }
 };
 }  // namespace ThreadedQueueUtil
 
@@ -244,6 +259,7 @@ class ThreadedQueue {
         session_ = heap->currentSession()->copy();
         session_->setUser(heap->currentSession()->getUser());
         status_.name_ = info;
+        status_.queueDepthLimit_ = capacity;
 
         long long currentTime = Util::getNanoEpochTime();
         localTimeGap_ = Util::toLocalNanoTimestamp(currentTime) - currentTime;
@@ -264,14 +280,14 @@ class ThreadedQueue {
             }
             INDEX size = schema->rows();
             VectorSP namesCol = schema->getColumn(0);
-            char *buf[size];
-            char **ret = namesCol->getStringConst(0, size, buf);
+            vector<char*>buf(size);
+            char **ret = namesCol->getStringConst(0, size, buf.data());
             for (INDEX i = 0; i < size; ++i) {
                 resultColNames_.push_back(string(ret[i]));
             }
             VectorSP numsCol = schema->getColumn(3);
-            int numBuf[size];
-            const int *numRet = numsCol->getIntConst(0, size, numBuf);
+            vector<int> numBuf(size);
+            const int *numRet = numsCol->getIntConst(0, size, numBuf.data());
             for (INDEX i = 0; i < size; ++i) {
                 resultColNums_.push_back(numRet[i]);
             }
@@ -308,6 +324,8 @@ class ThreadedQueue {
             status_.endTime_ = Util::getNanoEpochTime() + localTimeGap_;
             stopFlag_ = true;
             thread_->join();
+            DataStruct item;
+            queue_.pop(item);
             queue_.clear();
         }
     }
@@ -340,14 +358,15 @@ class ThreadedQueue {
         status_.lastErrMsg_ = errMsg;
         status_.lastFailedTimestamp_ = Util::getNanoEpochTime() + localTimeGap_;
         status_.failedMsgCount_ += failedMsgCount;
-        LOG_ERR(prefix_, info_, " Failed to process ", failedMsgCount, " lines of data due to ", errMsg);
+        PLUGIN_LOG_INFO(prefix_, info_, " Failed to process ", failedMsgCount, " lines of data due to ", errMsg);
     }
 
     // get outputTable
     TableSP getTable() { return insertedTable_; }
 
   private:
-    void extractHelper(DataStruct *data, uint32_t cnt) {
+    void extractHelper(vector<DataStruct> &data) {
+        int cnt = data.size();
         if (UNLIKELY(cnt == 0)) return;
         vector<long long> reachTimeVec;
         if (receivedTimeFlag_ || outputElapsedFlag_) {
@@ -360,7 +379,7 @@ class ThreadedQueue {
         }
 #endif
         clearQueueBuffer();
-        for (uint32_t i = 0; i < cnt; ++i) {
+        for (int i = 0; i < cnt; ++i) {
             structReader_(buffer_, data[i]);
 
 #ifdef AMD_USE_THREADED_QUEUE
@@ -480,7 +499,7 @@ class ThreadedQueue {
                 buffer_[i] = Util::createVector(DT_STRING, 0, bufferSize_);
                 ((VectorSP)buffer_[i])->initialize();
             } else if (meta_.colTypes_[i] >= ARRAY_TYPE_BASE) {
-                buffer_[i] = InternalUtil::createArrayVector(meta_.colTypes_[i], 0, 0, bufferSize_);
+                buffer_[i] = Util::createArrayVector(meta_.colTypes_[i], 0, 0, bufferSize_);
             } else {
                 buffer_[i] = Util::createVector(meta_.colTypes_[i], 0, bufferSize_);
                 ((VectorSP)buffer_[i])->initialize();
@@ -505,11 +524,11 @@ class ThreadedQueue {
 
     void startThread() {
         std::function<void(vector<DataStruct> &)> dealFunc = [this](vector<DataStruct> &data) {
-            (ThreadedQueue::extractHelper)(data.data(), data.size());
+            (ThreadedQueue::extractHelper)(data);
         };
 
         std::function<void()> f = [this, dealFunc]() {
-            LOG_INFO(prefix_, info_, " async thread start ");
+            PLUGIN_LOG_INFO(prefix_, info_, " async thread start ");
             bool ret;
             int popSize = 0;
             DataStruct item;
@@ -518,13 +537,14 @@ class ThreadedQueue {
             while (LIKELY(!stopFlag_)) {
                 items.clear();
                 long long size = 0;
+                status_.queueDepth_ = queue_.size();
                 try {
                     if (UNLIKELY(timeoutAsThrottle_)) {
                         long long startTime = Util::getEpochTime();
                         long long currentTime = startTime;
                         popSize = 0;
                         do {
-                            dolphindb::PluginDefer([&]() { currentTime = Util::getEpochTime(); });
+                            ddb::PluginDefer([&]() { currentTime = Util::getEpochTime(); });
                             int timeout = timeout_ - (currentTime - startTime);
                             ret = queue_.blockingPop(item, timeout);
                             if (UNLIKELY(!ret)) {
@@ -545,7 +565,7 @@ class ThreadedQueue {
                             if (UNLIKELY(stopFlag_)) {
                                 break;
                             }
-                            LOG(prefix_, info_, " async thread pop size (0)");
+                            PLUGIN_LOG(prefix_, info_, " async thread pop size (0)");
                         }
                     } else {
                         ret = queue_.blockingPop(item, timeout_);
@@ -553,7 +573,7 @@ class ThreadedQueue {
                             if (UNLIKELY(stopFlag_)) {
                                 break;
                             } else {
-                                LOG(prefix_, info_, " async thread pop size (0)");
+                                PLUGIN_LOG(prefix_, info_, " async thread pop size (0)");
                                 continue;
                             }
                         }
@@ -563,7 +583,7 @@ class ThreadedQueue {
                         popSize = items.size();
                     }
                     status_.processedMsgCount_ += popSize;
-                    LOG(prefix_, info_, " async thread pop size (", items.size(), ")");
+                    PLUGIN_LOG(prefix_, info_, " async thread pop size (", items.size(), ")");
                     dealFunc(items);
                     if (finalizer_) {
                         finalizer_(items);
@@ -574,13 +594,13 @@ class ThreadedQueue {
                     status_.failedMsgCount_ += popSize;
                     status_.lastErrMsg_ = "topic=" + info_ + " length=" + std::to_string(popSize) + " exception=" + errMsg;
                     status_.lastFailedTimestamp_ = Util::getNanoEpochTime() + localTimeGap_;
-                    LOG_ERR(prefix_, info_, " Failed to process ", popSize, " lines of data due to ", errMsg);
+                    PLUGIN_LOG_ERR(prefix_, info_, " Failed to process ", popSize, " lines of data due to ", errMsg);
                 }
             }
-            LOG_INFO(prefix_, info_, " async thread end.");
+            PLUGIN_LOG_INFO(prefix_, info_, " async thread end.");
         };
 
-        SmartPointer<dolphindb::Executor> executor = new dolphindb::Executor(f);
+        SmartPointer<ddb::Executor> executor = new ddb::Executor(f);
         thread_ = new Thread(executor);
         thread_->start();
     }
@@ -659,6 +679,7 @@ inline void appendString(const ConstantVecIterator &colIter, const string &data)
 inline void appendInt(const ConstantVecIterator &colIter, int data) { getVec(colIter)->appendInt(&data, 1); }
 inline void appendShort(const ConstantVecIterator &colIter, short data) { getVec(colIter)->appendShort(&data, 1); }
 inline void appendLong(const ConstantVecIterator &colIter, long long data) { getVec(colIter)->appendLong(&data, 1); }
+inline void appendFloat(const ConstantVecIterator &colIter, float data) { getVec(colIter)->appendFloat(&data, 1); }
 inline void appendDouble(const ConstantVecIterator &colIter, double data) { getVec(colIter)->appendDouble(&data, 1); }
 inline void appendChar(const ConstantVecIterator &colIter, char data) { getVec(colIter)->appendChar(&data, 1); }
 
@@ -727,12 +748,15 @@ static inline void checkSeqNum(const string &prefix, const string &tag, std::uno
             }
         }
         if (seqCheckMode == SeqCheckMode::IGNORE_WITH_LOG) {
-            LOG_INFO(prefix, errMsg);
+            PLUGIN_LOG_INFO(prefix, errMsg);
         }
     }
     lastSeqNum[channelNo] = seqNum;
 }
 
 }  // namespace MarketUtil
+
+} // namespace ddb
+
 
 #endif

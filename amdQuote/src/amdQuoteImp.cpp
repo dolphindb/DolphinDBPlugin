@@ -4,6 +4,8 @@
 #include "amdQuoteType.h"
 #include "amdSpiImp.h"
 
+using namespace ddb;
+
 bool STOP_TEST = true;
 AmdQuote::AmdQuote(const string &username, const string &password, const vector<string>& ips, const vector<int>& ports,
                    SessionSP session, bool receivedTime, bool dailyIndex, bool outputElapsed, int dailyStartTime, bool securityCodeToInt, string dataVersion)
@@ -200,7 +202,7 @@ void doSubscribe(const int market, const vector<string> &codeList, const uint64_
 }
 
 void AmdQuote::addSubscribe(Heap *heap, const string &typeName, AMDDataType amdType, int key, TableSP table,
-                            FunctionDefSP transform, long long dailyStartTime, int seqCheckMode) {
+                            FunctionDefSP transform, long long dailyStartTime, int seqCheckMode, long long capacity) {
     int flag = 0;
     if (receivedTime_) flag |= OPT_RECEIVED;
     if (outputElapsed_) flag |= OPT_ELAPSED;
@@ -211,11 +213,11 @@ void AmdQuote::addSubscribe(Heap *heap, const string &typeName, AMDDataType amdT
     // FUTURE add schema checking logic
     TableSP schema = nullptr;
     amdSpi_->addThreadedQueue(heap, typeName, amdType, key, table, transform, getMetaByAMDType(amdType), schema, flag,
-                              dailyStartTime, securityCodeToInt_, seqCheckMode);
+                              dailyStartTime, securityCodeToInt_, seqCheckMode, capacity);
 }
 
 void AmdQuote::subscribe(Heap *heap, const string &typeName, int market, vector<string> codeList, ConstantSP table,
-                         FunctionDefSP transform, long long timestamp, int seqCheckMode) {
+                         FunctionDefSP transform, long long timestamp, int seqCheckMode, long long capacity) {
     vector<string> nullCodeList;
 
     /* unsubscribe maybe not required */
@@ -257,10 +259,10 @@ void AmdQuote::subscribe(Heap *heap, const string &typeName, int market, vector<
             // the key for threadedQueue is market + channelNo * ORDER_EXECUTION_OFFSET(1000 currently)
             // the callback registered in amdSpi also follow this logic to distribute data
             int marketKey = market + channelNo * ORDER_EXECUTION_OFFSET;
-            addSubscribe(heap, typeName, amdType, marketKey, table, transform, dailyStartTime, seqCheckMode);
+            addSubscribe(heap, typeName, amdType, marketKey, table, transform, dailyStartTime, seqCheckMode, capacity);
         }
     } else {
-        addSubscribe(heap, typeName, amdType, market, table, transform, dailyStartTime, seqCheckMode);
+        addSubscribe(heap, typeName, amdType, market, table, transform, dailyStartTime, seqCheckMode, capacity);
     }
 }
 

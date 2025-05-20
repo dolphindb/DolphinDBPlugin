@@ -1,7 +1,7 @@
-mseed,libPluginMseed.dll,3.00.2
-mseedRead,read,system,1,1,0
-mseedWrite,write,system,5,6,0
-mseedParse,parse,system,1,1,0
-mseedStreamize,streamize,system,2,3,0
-mseedParseStream,parseStream,system,1,1,0
-mseedParseStreamInfo,parseStreamInfo,system,1,1,0
+mseed,libPluginMseed.dll,3.00.3
+mseedRead,read,system,1,1,0,0,(filePath)
+mseedWrite,write,system,5,6,0,0,(filePath, sid, startTime, sampleRate, value, [overwrite=false])
+mseedParse,parse,system,1,1,0,0,(data)
+mseedStreamize,streamize,system,2,3,0,0,(data, sampleRate, [blockSize])
+mseedParseStream,parseStream,system,1,1,0,0,(data)
+mseedParseStreamInfo,parseStreamInfo,system,1,1,0,0,(data)

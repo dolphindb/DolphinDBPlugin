@@ -1,36 +1,41 @@
 #ifndef PLUGINZMQ_PLUGINZMQ_H
 #define PLUGINZMQ_PLUGINZMQ_H
 
+#include "DolphinDBEverything.h"
 #include "Concurrent.h"
 #include "ScalarImp.h"
-#include "zmq.h"
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 #include "zmq.hpp"
+#pragma GCC diagnostic pop
 #include "json.hpp"
 #include "Logger.h"
 #include "ddbplugin/Plugin.h"
+#include "ddbplugin/PluginLoggerImp.h"
+
+using argsT = std::vector<ddb::ConstantSP>;
+
+extern "C" {
+
+ddb::ConstantSP zmqSocket(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP zmqSend(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP zmqConnect(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP zmqBind(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP zmqClose(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP zmqCreateSubJob(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP zmqCancelSubJob(ddb::Heap *heap, argsT args);
+ddb::ConstantSP zmqGetSubJobStat(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP zmqCreatePusher(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP zmqSetMonitor(ddb::Heap *heap, argsT &args);
+
+}
 
 using namespace std;
 using json = nlohmann::json;
 static const std::string PLUGIN_ZMQ_PREFIX = "[PLUGIN::ZMQ]: ";
-extern "C" ConstantSP zmqSocket(Heap *heap, vector<ConstantSP> &args);
 
-extern "C" ConstantSP zmqSend(Heap *heap, vector<ConstantSP> &args);
-
-extern "C" ConstantSP zmqConnect(Heap *heap, vector<ConstantSP> &args);
-
-extern "C" ConstantSP zmqBind(Heap *heap, vector<ConstantSP> &args);
-
-extern "C" ConstantSP zmqClose(Heap *heap, vector<ConstantSP> &args);
-
-extern "C" ConstantSP zmqCreateSubJob(Heap *heap, vector<ConstantSP> &args);
-
-extern "C" ConstantSP zmqCancelSubJob(Heap *heap, vector<ConstantSP> args);
-
-extern "C" ConstantSP zmqGetSubJobStat(Heap *heap, vector<ConstantSP> &args);
-
-extern "C" ConstantSP zmqCreatepusher(Heap *heap, vector<ConstantSP> &args);
-
-extern "C" ConstantSP zmqSetMonitor(Heap *heap, vector<ConstantSP> &args);
+namespace ddb {
 
 static shared_ptr<zmq::socket_t> createZmqSocket(zmq::context_t &context, const string &socketType);
 
@@ -39,34 +44,44 @@ public:
     ZMQMonitor() {}
     virtual ~ZMQMonitor() {}
     virtual void on_event_connected(const zmq_event_t &event_, const char *addr_) override {
-        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Connected to " + string(addr_));
+        std::ignore = event_;
+        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX + "Connected to " + string(addr_));
     }
     virtual void on_event_connect_delayed(const zmq_event_t &event_, const char *addr_) override {
-        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Connect delayed to " + string(addr_));
+        std::ignore = event_;
+        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX + "Connect delayed to " + string(addr_));
     }
     virtual void on_event_connect_retried(const zmq_event_t &event_, const char *addr_) override {
-        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Connect retried to " + string(addr_));
+        std::ignore = event_;
+        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX + "Connect retried to " + string(addr_));
     }
     virtual void on_event_listening(const zmq_event_t &event_, const char *addr_) override {
-        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Listening on " + string(addr_));
+        std::ignore = event_;
+        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX + "Listening on " + string(addr_));
     }
     virtual void on_event_bind_failed(const zmq_event_t &event_, const char *addr_) override {
-        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Bind failed on " + string(addr_));
+        std::ignore = event_;
+        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX + "Bind failed on " + string(addr_));
     }
     virtual void on_event_accepted(const zmq_event_t &event_, const char *addr_) override {
-        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Accepted on " + string(addr_));
+        std::ignore = event_;
+        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX + "Accepted on " + string(addr_));
     }
     virtual void on_event_accept_failed(const zmq_event_t &event_, const char *addr_) override {
-        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Accept failed on " + string(addr_));
+        std::ignore = event_;
+        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX + "Accept failed on " + string(addr_));
     }
     virtual void on_event_closed(const zmq_event_t &event_, const char *addr_) override {
-        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Closed on " + string(addr_));
+        std::ignore = event_;
+        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX + "Closed on " + string(addr_));
     }
     virtual void on_event_close_failed(const zmq_event_t &event_, const char *addr_) override {
-        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Close failed on " + string(addr_));
+        std::ignore = event_;
+        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX + "Close failed on " + string(addr_));
     }
     virtual void on_event_disconnected(const zmq_event_t &event_, const char *addr_) override {
-        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Disconnected on " + string(addr_));
+        std::ignore = event_;
+        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX + "Disconnected on " + string(addr_));
     }
 };
 
@@ -117,7 +132,7 @@ public:
             }
         }
         catch(...){
-            LOG_ERR(PLUGIN_ZMQ_PREFIX + "an uncaught exception was found");
+            PLUGIN_LOG_ERR(PLUGIN_ZMQ_PREFIX + "an uncaught exception was found");
         }
     };
 
@@ -174,10 +189,10 @@ public:
     // }
 
     virtual ~ZmqSocket() {
-        LOG_INFO("PluginZmq: socket[" + addr_ + "] is closed. ");
+        PLUGIN_LOG_INFO("PluginZmq: socket[" + addr_ + "] is closed. ");
         LockGuard<Mutex> _(&ZmqStatus::ZMQ_MONITOR_MAP_LOCK);
         if(ZmqStatus::ZMQ_MONITOR_MAP.erase(zmq_Socket_) == 0){
-            LOG_ERR(PLUGIN_ZMQ_PREFIX + "Failed to erase the monitor map");
+            PLUGIN_LOG_ERR(PLUGIN_ZMQ_PREFIX + "Failed to erase the monitor map");
         }
         if(ZmqStatus::ZMQ_MONITOR_MAP.size() == 0 && !ZmqStatus::MONITOR_THREAD.isNull()){
             SmartPointer<Thread> thread = ZmqStatus::MONITOR_THREAD;
@@ -297,39 +312,6 @@ protected:
     FunctionDefSP parser_;
 };
 
-class DummyOutput : public Output {
-public:
-    virtual bool timeElapsed(long long nanoSeconds) { return true; }
-
-    virtual bool write(const ConstantSP &obj) { return true; }
-
-    virtual bool message(const string &msg) { return true; }
-
-    virtual void enableIntermediateMessage(bool enabled) {}
-
-    virtual IO_ERR done() { return OK; }
-
-    virtual IO_ERR done(const string &errMsg) { return OK; }
-
-    virtual bool start() { return true; }
-
-    virtual bool start(const string &message) { return true; }
-
-    virtual IO_ERR writeReady() { return OK; }
-
-    virtual ~DummyOutput() {}
-
-    virtual OUTPUT_TYPE getOutputType() const { return STDOUT; }
-
-    virtual void close() {}
-
-    virtual void setWindow(INDEX index, INDEX size) {};
-
-    virtual IO_ERR flush() { return OK; }
-};
-
-
-
 class AppendTable : public Runnable {
 public:
     AppendTable(Heap *heap, shared_ptr<ZmqSubSocket> socket, const FunctionDefSP &parser, ConstantSP handle)
@@ -434,15 +416,11 @@ public:
 
     virtual ~ZmqPusher(){}
 
-    virtual bool append(vector<ConstantSP>& values, INDEX& insertedRows, string& errMsg){
-        if(values.size() < 0){
-            errMsg = "The size of the values is 0";
-            return false;
-        }
+    virtual bool append(argsT& values, INDEX& insertedRows, string& errMsg){
         try{
             TableSP inputTable;
             if(values.size() == 1 && values[0]->isTuple()){
-                vector<ConstantSP> cols;
+                argsT cols;
                 for(int i = 0 ; i < values[0]->size(); i++){
                     cols.emplace_back(values[0]->get(i));
                 }
@@ -453,9 +431,9 @@ public:
             else{
                 inputTable = Util::createTable(
                     colNames_,
-                    vector<ConstantSP>(values.begin(), values.begin() + values.size()));
+                    argsT(values.begin(), values.begin() + values.size()));
             }
-            vector<ConstantSP> args{zmqSocket_, inputTable};
+            argsT args{zmqSocket_, inputTable};
             bool ret = zmqSend(session_->getHeap().get(), args)->getBool();
             return ret;
         }
@@ -501,7 +479,7 @@ public:
     virtual ConstantSP getInstance(INDEX size) const {return dummytable_->getInstance(size);};
     virtual ConstantSP getColumn(const string& name, const ConstantSP& rowFilter) {return dummytable_->getColumn(name, rowFilter);};
     virtual const string& getName() const {return dummytable_->getName();};
-    virtual bool update(vector<ConstantSP>& values, const ConstantSP& indexSP, vector<string>& colNames, string& errMsg) {return dummytable_->update(values, indexSP, colNames, errMsg);};
+    virtual bool update(argsT& values, const ConstantSP& indexSP, vector<string>& colNames, string& errMsg) {return dummytable_->update(values, indexSP, colNames, errMsg);};
     virtual ConstantSP getInstance() const {return ((ConstantSP)dummytable_)->getInstance();};
     int getColumnExtraParam(int index) const override { return dummytable_->getColumnExtraParam(index);}
 };
@@ -520,5 +498,7 @@ static shared_ptr<zmq::socket_t> createZmqSocket(zmq::context_t &context, const 
         throw RuntimeException(PLUGIN_ZMQ_PREFIX+"the zmq socket type is not supported");
     }
 }
+
+} // namespace ddb
 
 #endif //PLUGINZMQ_PLUGINZMQ_H

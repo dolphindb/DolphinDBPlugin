@@ -9,27 +9,37 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "ScalarImp.h"
-#include "Util.h"
 #include "client.h"
-#include "ddbplugin/Plugin.h"
-#include "mqtt.h"
+#include "Plugin.h"
 
 using namespace std;
-using mqtt::SubConnection;
+using ddb::mqtt::SubConnection;
 /**
  * @brief The function that would be called whenever a PUBLISH is received.
  */
 static void subCallback(void **socketHandle, struct mqtt_response_publish *published) {
-    SubConnection *cp = (SubConnection *)(*socketHandle);
-    if (cp == NULL) {
-        // throw RuntimeException("Connection is not found.");
-        LOG_INFO("[PluginMQTT]: Connection is not found.");
+    if (socketHandle == nullptr || *socketHandle == nullptr) {
+        PLUGIN_LOG_INFO("[PluginMQTT]: Socket handle is null or invalid.");
         return;
     }
-    std::string topic((const char *)published->topic_name, 0, published->topic_name_size);
-    std::string msg((const char *)published->application_message, 0, published->application_message_size);
-    cp->handleMsg(topic, msg);
+    if (published == nullptr) {
+        PLUGIN_LOG_INFO("[PluginMQTT]: Published message is null.");
+        return;
+    }
+    SubConnection *cp = (SubConnection *)(*socketHandle);
+    if (cp == nullptr) {
+        // throw RuntimeException("Connection is not found.");
+        PLUGIN_LOG_INFO("[PluginMQTT]: Connection is not found.");
+        return;
+    }
+
+    try {
+        std::string topic((const char *)published->topic_name, published->topic_name_size);
+        std::string msg((const char *)published->application_message, published->application_message_size);
+        cp->handleMsg(topic, msg);
+    } catch (const std::exception &e) {
+        PLUGIN_LOG_INFO("[PluginMQTT]: Exception occurred while processing message: %s", e.what());
+    }
 }
 
 /**
@@ -37,7 +47,9 @@ static void subCallback(void **socketHandle, struct mqtt_response_publish *publi
  */
 
 static void mqttConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
-    LOG_INFO("[PluginMQTT]: mqttConnectionOnClose");
+    std::ignore = heap;
+    std::ignore = args;
+    PLUGIN_LOG_INFO("[PluginMQTT]: mqttConnectionOnClose");
 }
 
 /**
@@ -154,6 +166,9 @@ ConstantSP mqttClientSub(Heap *heap, vector<ConstantSP> &args) {
         }
     }
 
+    if (sendBufSize <= 0 || recvbufSize <= 0) {
+        throw IllegalArgumentException(__FUNCTION__, usage + "config sendBufSize and recvbufSize must be positive.");
+    }
     std::unique_ptr<SubConnection> cup(new SubConnection(args[0]->getString(), args[1]->getInt(), args[2]->getString(),
                                                          parser, args[4], userName, password, heap, sendBufSize,
                                                          recvbufSize, subscribeID, isAsync));
@@ -162,13 +177,14 @@ ConstantSP mqttClientSub(Heap *heap, vector<ConstantSP> &args) {
     }
     FunctionDefSP onClose(Util::createSystemProcedure("mqtt sub connection onClose()", mqttConnectionOnClose, 1, 1));
     ConstantSP conn =
-        Util::createResource((long long)cup.release(), "mqtt subscribe connection", onClose, heap->currentSession());
+        Util::createResource((long long)cup.release(), "mqtt subscribe connection", onClose, heap);
     LockGuard<Mutex> guard(&mqttConn::CONN_MUTEX_LOCK);
     mqttConn::CONN_DICT->set(std::to_string(conn->getLong()), conn);
     return conn;
 }
 
 ConstantSP mqttClientStopSub(const ConstantSP &handle, const ConstantSP &b) {
+    std::ignore = b;
     // parse args first
     std::string usage = "Usage: close(connection or connection ID). ";
     SubConnection *sc = NULL;
@@ -209,6 +225,8 @@ ConstantSP mqttClientStopSub(const ConstantSP &handle, const ConstantSP &b) {
     return new Int(MQTT_OK);
 }
 ConstantSP getSubscriberStat(const ConstantSP &handle, const ConstantSP &b) {
+    std::ignore = handle;
+    std::ignore = b;
     LockGuard<Mutex> guard(&mqttConn::CONN_MUTEX_LOCK);
     int size = mqttConn::CONN_DICT->size();
     ConstantSP connectionIdVec = Util::createVector(DT_STRING, size);
@@ -236,7 +254,9 @@ ConstantSP getSubscriberStat(const ConstantSP &handle, const ConstantSP &b) {
     vector<ConstantSP> cols = {connectionIdVec, userVec, hostVec, portVec, topicVec, timestampVec, recvVec};
     return Util::createTable(colNames, cols);
 }
+
 /// Connection
+namespace ddb {
 namespace mqtt {
 class SyncData : public Runnable {
   public:
@@ -262,26 +282,26 @@ void SyncData::run() {
                 MQTTErrors ret = mqtt_sync(client);
                 int currentRetryCount = 0;
                 while (ret == MQTT_ERROR_SOCKET_ERROR && currentRetryCount < MAX_RETRY_COUNT) {
-                    LOG_INFO("SyncDdata:: ret:", mqtt_error_str(ret));
+                    PLUGIN_LOG_INFO("SyncDdata:: ret:", mqtt_error_str(ret));
                     connection_->reconnect();
                     Util::sleep(500);
                     ret = mqtt_sync(client);
                     currentRetryCount++;
                 }
                 if (currentRetryCount == MAX_RETRY_COUNT) {
-                    LOG_ERR(LOG_PRE_STR, " sub reconnect failed.");
+                    PLUGIN_LOG_ERR(LOG_PRE_STR, " sub reconnect failed.");
                 }
                 freeNotifier_->notify();
             }
         } catch (exception &e) {
             std::string errMsg(e.what());
-            LOG_ERR(LOG_PRE_STR + " mqtt subscribe refresh connection failed, error message is <", errMsg, ">");
+            PLUGIN_LOG_ERR(LOG_PRE_STR + " mqtt subscribe refresh connection failed, error message is <", errMsg, ">");
         } catch (...) {
-            LOG_ERR(LOG_PRE_STR + " mqtt subscribe refresh connection failed.");
+            PLUGIN_LOG_ERR(LOG_PRE_STR + " mqtt subscribe refresh connection failed.");
         }
         usleep(100000U);
     }
-    LOG_INFO("[PluginMQTT]: SyncData:run thread exit");
+    PLUGIN_LOG_INFO("[PluginMQTT]: SyncData:run thread exit");
 }
 
 SubConnection::~SubConnection() {
@@ -290,7 +310,7 @@ SubConnection::~SubConnection() {
         asyncHandleMsgThread_->join();
     }
     clientDaemon_->join();
-    LOG_INFO("[PluginMQTT]: SubConnection is freed");
+    PLUGIN_LOG_INFO("[PluginMQTT]: SubConnection is freed");
     sockfd_->close();
 }
 
@@ -364,7 +384,7 @@ SubConnection::SubConnection(const std::string &hostname, int port, const std::s
         session->setUser(pHeap->currentSession()->getUser());
     } catch (exception &e) {
         string errMsg(e.what());
-        LOG_ERR(LOG_PRE_STR + " mqtt subscribe init failed, error message is <", errMsg, ">");
+        PLUGIN_LOG_ERR(LOG_PRE_STR + " mqtt subscribe init failed, error message is <", errMsg, ">");
         throw RuntimeException(LOG_PRE_STR + " mqtt subscribe init failed, error message is <" + errMsg + ">");
     }
 }
@@ -382,7 +402,7 @@ void SubConnection::asyncHandleMsg() {
 }
 
 void SubConnection::startAsyncHandleMsgThread() {
-    asyncHandleMsgThread_ = new Thread(new dolphindb::Executor([this]() { asyncHandleMsg(); }));
+    asyncHandleMsgThread_ = new Thread(new ddb::Executor([this]() { asyncHandleMsg(); }));
     asyncHandleMsgThread_->start();
 }
 
@@ -410,8 +430,8 @@ void SubConnection::handleMsgInternal(const std::string &topic, const std::strin
             try {
                 resultTable = parser_->call(session->getHeap().get(), args);
             } catch (exception &e) {
-                LOG_INFO("[PluginMQTT]: parse exception:");
-                LOG_INFO(e.what());
+                PLUGIN_LOG_INFO("[PluginMQTT]: parse exception:");
+                PLUGIN_LOG_INFO(e.what());
                 return;
             }
             vector<ConstantSP> args1 = {handler_, resultTable};
@@ -431,13 +451,13 @@ void SubConnection::handleMsgInternal(const std::string &topic, const std::strin
             try {
                 cb->call(heap, args);
             } catch (exception &e) {
-                LOG_INFO("[PluginMQTT]: call function exception:");
-                LOG_INFO(e.what());
+                PLUGIN_LOG_INFO("[PluginMQTT]: call function exception:");
+                PLUGIN_LOG_INFO(e.what());
                 return;
             }
         }
     } catch (exception &e) {
-        LOG_INFO("[PluginMQTT]: subCallback exception:", e.what());
+        PLUGIN_LOG_INFO("[PluginMQTT]: subCallback exception:", e.what());
     }
 }
 
@@ -446,7 +466,7 @@ void SubConnection::reconnect() {
         sockfd_ = new Socket(host_, port_, false);
         IO_ERR ret = sockfd_->connect();
         if (ret != OK && ret != INPROGRESS) {
-            LOG_ERR("[PluginMQTT]: Failed to connect. ");
+            PLUGIN_LOG_ERR("[PluginMQTT]: Failed to connect. ");
             return;
         }
         mqtt_reinit(&client_, sockfd_->getHandle(), sendbuf_.get(), sendbufSize_, recvbuf_.get(), recvbufSize_);
@@ -467,10 +487,11 @@ void SubConnection::reconnect() {
         }
     } catch (exception &e) {
         std::string errMsg(e.what());
-        LOG_ERR(LOG_PRE_STR + " mqtt subscribe connection reconnect failed, error message is <", errMsg, ">");
+        PLUGIN_LOG_ERR(LOG_PRE_STR + " mqtt subscribe connection reconnect failed, error message is <", errMsg, ">");
         throw RuntimeException(LOG_PRE_STR + " mqtt subscribe connection reconnect failed, error message is <" +
                                errMsg + ">");
     }
 }
 
 }  // namespace mqtt
+}  // namespace ddb

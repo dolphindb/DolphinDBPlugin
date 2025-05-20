@@ -14,28 +14,15 @@
 #include "SmartPointer.h"
 #include "Types.h"
 #include "DolphinString.h"
-
+#include "SysIOTypes.h"
 
 #define MAX_CAPACITY 262144
 #define MAX_PACKET_SIZE 1400
 
-#ifdef LINUX
-	#include <netinet/in.h>
-    #include <netinet/tcp.h>
-    #include <sys/socket.h>
-	typedef int SOCKET;
-	#define INVALID_SOCKET -1
-	#define SOCKET_ERROR   -1
-#else
-	#include <winsock2.h>
-	#include<windows.h>
-#endif
-
+namespace ddb {
 using std::string;
 
-struct ssl_st;
-typedef struct ssl_st SSL;
-#ifndef WINDOWS
+#ifndef _WIN32
 namespace rdma {
 
 class QPHandle;
@@ -56,26 +43,16 @@ class QPSocket {
 };
 
 }  // namespace rdma
-#endif // ifndef WINDOWS
+#endif // ifndef _WIN32
 
 class Constant;
 class Socket;
-class UdpSocket;
-class DataInputStream;
-class DataOutputStream;
-class DataStream;
-class Buffer;
 typedef SmartPointer<Socket> SocketSP;
-typedef SmartPointer<UdpSocket> UdpSocketSP;
-typedef SmartPointer<DataInputStream> DataInputStreamSP;
-typedef SmartPointer<DataOutputStream> DataOutputStreamSP;
-typedef SmartPointer<DataStream> DataStreamSP;
-typedef SmartPointer<Buffer> BufferSP;
 
 class Socket{
 public:
 	Socket();
-	Socket(const string& host, int port, bool blocking);
+	Socket(const string& host, int port, bool blocking, bool enableSSL = false);
 	Socket(SOCKET handle, bool blocking);
 	~Socket();
 	const string& getHost() const {return host_;}
@@ -92,8 +69,9 @@ public:
 	bool isBlockingMode() const {return blocking_;}
 	bool isValid();
 	void setAutoClose(bool option) { autoClose_ = option;}
-	void enableSSL(SSL* ssl) { ssl_ = ssl;}
-	SSL* getSSL() const { return ssl_;}
+	void enableSSL(void* ssl) { ssl_ = ssl;}
+	void* getSSL() const { return ssl_;}
+	IO_ERR SSLClientHandshake(); // client side only
 	bool setNonBlocking();
 	static bool ENABLE_TCP_NODELAY;
 
@@ -108,38 +86,18 @@ private:
 	SOCKET handle_;
 	bool blocking_;
 	bool autoClose_;
-	SSL* ssl_;
+	void* ctx_ = NULL; // client side only
+	void* ssl_ = NULL;
+	bool sslEstablished_ = false; // client side only
 
-#ifndef WINDOWS
+#ifndef _WIN32
 public:
 	Socket(rdma::QPSocketSP& qpsock) :  handle_(INVALID_SOCKET), blocking_(false), autoClose_(true), ssl_(nullptr), enableRdma_(true) , qpsock_(qpsock) {}
 	bool enableRDMA() { return enableRdma_; }
 private:
 	bool enableRdma_ = false;
 	rdma::QPSocketSP qpsock_;
-#endif // ifndef WINDOWS
-};
-
-class UdpSocket{
-public:
-	UdpSocket(int port);
-	UdpSocket(const string& remoteHost, int remotePort);
-	~UdpSocket();
-	int getPort() const {return port_;}
-	IO_ERR send(const char* buffer, size_t length);
-	IO_ERR recv(char* buffer, size_t length, size_t& actualLength);
-	void setRemotePort(int remotePort){ remotePort_ = remotePort;}
-	IO_ERR bind();
-
-private:
-	int getErrorCode();
-
-private:
-	int port_;
-	string remoteHost_;
-	int remotePort_;
-	SOCKET handle_;
-	struct sockaddr_in addrRemote_;
+#endif // ifndef _WIN32
 };
 
 class SWORDFISH_API DataInputStream{
@@ -228,7 +186,7 @@ protected:
 	 */
 	virtual IO_ERR internalStreamRead(char* buf, size_t length, size_t& actualLength);
 	virtual IO_ERR internalClose();
-	virtual bool internalMoveToPosition(long long offset){return false;}
+	virtual bool internalMoveToPosition(long long offset){ std::ignore = offset; return false;}
 
 
 private:
@@ -330,56 +288,6 @@ private:
 	bool external_;
 };
 
-template<class T>
-class BufferWriter{
-public:
-	BufferWriter(const T& out) : out_(out), buffer_(0), size_(0){}
-
-	IO_ERR start(const char* buffer, size_t length){
-		IO_ERR ret = OK;
-		size_t actualWritten = 0;
-
-		buffer_ = (char*)buffer;
-		size_ = length;
-		while((ret = out_->write(buffer_, size_, actualWritten))==OK  && actualWritten < size_){
-			buffer_ += actualWritten;
-			size_ -= actualWritten;
-		}
-		if(ret == NOSPACE){
-			buffer_ += actualWritten;
-			size_ -= actualWritten;
-		}
-		else
-			size_ = 0;
-		return ret;
-	}
-
-	IO_ERR resume(){
-		IO_ERR ret = OK;
-		size_t actualWritten = 0;
-
-		while((ret = out_->write(buffer_, size_, actualWritten))==OK  && actualWritten < size_){
-			buffer_ += actualWritten;
-			size_ -= actualWritten;
-		}
-		if(ret == NOSPACE){
-			buffer_ += actualWritten;
-			size_ -= actualWritten;
-		}
-		else
-			size_ = 0;
-		return ret;
-	}
-
-	inline size_t size() const { return size_;}
-	inline T getDataOutputStream() const { return out_;}
-
-private:
-	T out_;
-	char* buffer_;
-	size_t size_;
-};
-
 class DataStream : public DataInputStream{
 public:
 	DataStream(const char* data, int size) : DataInputStream(data, size), flag_(1), outBuf_(0), outSize_(0){}
@@ -404,13 +312,6 @@ private:
 	size_t outSize_;
 };
 
-struct FileAttributes{
-	string name;
-	bool isDir;
-	long long size;
-	long long lastModified; //epoch time in milliseconds
-	long long lastAccessed; //epoch time in milliseconds
-};
-
+} // namespace ddb
 
 #endif

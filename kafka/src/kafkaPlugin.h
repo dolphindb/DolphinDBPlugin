@@ -4,6 +4,10 @@
 #include "kafkaClient.h"
 #include "kafkaUtil.h"
 
+using ddb::ConstantSP;
+using ddb::Heap;
+using std::vector;
+
 extern "C" {
 ConstantSP kafkaProducer(Heap *heap, vector<ConstantSP> &args);
 ConstantSP kafkaProduce(Heap *heap, vector<ConstantSP> &args);

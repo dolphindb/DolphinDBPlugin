@@ -26,9 +26,10 @@
 #define UNLIKELY(x) (x)
 #endif
 
+namespace ddb {
 class SWORDFISH_API Counter {
 public:
-	constexpr Counter(void* p) noexcept: p_(p), obj_(nullptr), count_(0){}
+	constexpr Counter(void* p ,int count = 0) noexcept: p_(p), obj_(nullptr), count_(count){}
 	// reference: https://github.com/llvm/llvm-project/blob/release/15.x/libcxx/include/__memory/shared_ptr.h#L105
 	int addRef() noexcept{ return atomic_fetch_add_explicit(&count_,1,std::memory_order_relaxed)+1;} //atomic operation
 	int release() noexcept{return atomic_fetch_sub_explicit(&count_,1,std::memory_order_acq_rel)-1;} //atomic operation
@@ -85,8 +86,7 @@ public:
 
 	SmartPointer(T* p=0): counterP_(nullptr){
 		if (UNLIKELY(p == nullptr)) return;
-		counterP_ = new Counter(p);
-		counterP_->addRef();
+		counterP_ = new Counter(p, 1);
 	}
 
 	SmartPointer(T* p, Counter* counter): counterP_(counter){
@@ -98,8 +98,7 @@ public:
 
 	Counter* getCounter() {
 		if (UNLIKELY(counterP_ == nullptr)) {
-			counterP_ = new Counter(nullptr);
-			counterP_->addRef();
+			counterP_ = new Counter(nullptr, 1);
 		}
 		return counterP_;
 	}
@@ -183,7 +182,7 @@ public:
 		return p;
 	}
 
-	~SmartPointer(){
+    ~SmartPointer(){
 		if(LIKELY(counterP_ != nullptr) && counterP_->release()==0){
 			if (counterP_->obj_) {
                 RefCountHelper::inst_->zeroHandler((void*)counterP_);
@@ -198,5 +197,5 @@ private:
 	template<class U> friend class SmartPointer;
 	Counter* counterP_;
 };
-
+} // namespace ddb
 #endif /* SMARTPOINTER_H_ */

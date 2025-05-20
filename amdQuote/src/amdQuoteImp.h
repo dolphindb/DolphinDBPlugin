@@ -1,6 +1,7 @@
 #ifndef AMD_QUOTE_IMP_H
 #define AMD_QUOTE_IMP_H
 
+#include "DolphinDBEverything.h"
 #include "CoreConcept.h"
 #include "amdQuoteType.h"
 
@@ -9,7 +10,7 @@
 #include "ddbplugin/ThreadedQueue.h"
 #endif
 
-using namespace dolphindb;
+using namespace ddb;
 
 class AMDSpiImp;
 extern unordered_map<string, AMDDataType> NAME_TYPE;
@@ -20,9 +21,9 @@ class AmdQuote {
              SessionSP session, bool receivedTime, bool dailyIndex, bool outputElapsed, int dailyStartTime, bool securityCodeToInt, string dataVersion);
     void enableLatencyStatistics(bool flag);
     void subscribe(Heap *heap, const string &dataType, int market, vector<string> codeList, ConstantSP table,
-                   FunctionDefSP transform, long long timestamp, int seqCheckMode);
+                   FunctionDefSP transform, long long timestamp, int seqCheckMode, long long capacity);
     void addSubscribe(Heap *heap, const string &typeName, AMDDataType type, int key, TableSP table,
-                      FunctionDefSP transform, long long dailyStartTime, int seqCheckMode);
+                      FunctionDefSP transform, long long dailyStartTime, int seqCheckMode, long long capacity);
     void removeSubscribe(AMDDataType type, int key);
     void unsubscribe(const string &dataType, int market, vector<string> codeList);
     TableSP getStatus();

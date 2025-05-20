@@ -1,3 +1,4 @@
+#include "code.h"
 #include <Exceptions.h>
 #include <ScalarImp.h>
 #include <Util.h>
@@ -5,9 +6,10 @@
 #include <unordered_map>
 #include "mseed.h"
 #include "libmseed.h"
-#include "code.h"
 #include "parser.h"
 #include "msrcode.h"
+
+using namespace ddb;
 
 ConstantSP mseedCode(string sid, long long startTime, double sampleRate, VectorSP value, int blockSize) {
 

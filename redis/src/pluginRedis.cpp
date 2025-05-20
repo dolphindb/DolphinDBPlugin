@@ -5,12 +5,28 @@
 #include "hiredis.h"
 #include "redisConnection.h"
 
+using ddb::DATA_TYPE;
+using ddb::DF_SCALAR;
+using ddb::DT_DATETIME;
+using ddb::DT_INT;
+using ddb::DT_RESOURCE;
+using ddb::DT_STRING;
+using ddb::FunctionDefSP;
+using ddb::IllegalArgumentException;
+using ddb::INDEX;
+using ddb::RedisConnection;
+using ddb::RuntimeException;
+using ddb::SmartPointer;
+using ddb::String;
+using ddb::TableSP;
+using ddb::Util;
+
 const string REDIS_CONNECTION_NAME = "redis connection";
 const string REDIS_PREFIX = "[Plugin::Redis] BackgroundResourceMap: ";
 const vector<string> REDIS_STATUS_COLUMN_NAMES = {"token", "address", "createdTime"};
 const vector<DATA_TYPE> REDIS_STATUS_COLUMN_TYPES = {DT_STRING, DT_STRING, DT_DATETIME};
 
-dolphindb::BackgroundResourceMap<RedisConnection> REDIS_HANDLE_MAP(REDIS_PREFIX, REDIS_CONNECTION_NAME);
+ddb::BackgroundResourceMap<RedisConnection> REDIS_HANDLE_MAP(REDIS_PREFIX, REDIS_CONNECTION_NAME);
 
 static void doNothingOnClose(Heap *heap, vector<ConstantSP> &args) {
     // do nothing
@@ -82,9 +98,9 @@ ConstantSP redisPluginBatchHashSet(Heap *heap, const vector<ConstantSP> &args) {
     return redisHandler->redisBatchHashSet(args);
 }
 
-ConstantSP redisPluginRelease(const ConstantSP &handle) {
-    checkHandle(handle);
-    REDIS_HANDLE_MAP.safeRemove(handle);
+ConstantSP redisPluginRelease(Heap *heap, const vector<ConstantSP> &args) {
+    checkHandle(args[0]);
+    REDIS_HANDLE_MAP.safeRemove(args[0]);
     return new String("release finish.");
 }
 
@@ -122,4 +138,11 @@ ConstantSP redisGetHandleStaus() {
     }
 
     return statusTable;
+}
+
+ConstantSP redisBatchPush(Heap *heap, const vector<ConstantSP> &args) {
+    checkHandle(args[0]);
+    SmartPointer<RedisConnection> redisHandler = REDIS_HANDLE_MAP.safeGet(args[0]);
+    checkHandleValid(redisHandler);
+    return redisHandler->redisBatchPush(args);
 }

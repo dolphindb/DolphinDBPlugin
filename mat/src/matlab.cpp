@@ -1,15 +1,12 @@
-#include <Exceptions.h>
-#include <ScalarImp.h>
-#include <Util.h>
 #include "matlab.h"
 #include <math.h>
 #include <mat.h>
-#include <string>
-#include <map>
+#include "ddbplugin/PluginLoggerImp.h"
+using namespace ddb;
 
-std::string wstringToString(const std::wstring &wstrInput, unsigned int uCodePage)
+std::string wstringToString(const std::wstring &wstrInput)
 {
-#ifdef WINDOWS
+#ifdef _WIN32
     std::string strAnsi = "";
     if (wstrInput.length() == 0)
     {
@@ -37,2008 +34,77 @@ std::string wstringToString(const std::wstring &wstrInput, unsigned int uCodePag
 #endif
 }
 
-int mIndex = 1024;
+const int mIndex = 1024;
 
 /*std::unordered_map<std::string, Mutex> mutexMap;
 Mutex mapMutex;*/
 
 Mutex mutexLock;
 
-bool convertToDTBool(mxArray *var, ConstantSP &sp)
-{
-    char buffer[mIndex];
-    mxClassID type = mxGetClassID(var);
-    int rank = mxGetNumberOfDimensions(var);
-    if (rank > 2)
-        throw RuntimeException("Matrix above two dimensions is not supported");
-    //const long unsigned int*dims=mxGetDimensions(var);
-    int row, col = rank == 0 ? 0 : mxGetN(var);
-    if (rank == 0)
-        row = 0;
-    else if (rank == 1)
-        row = 1;
-    else
-    {
-        row = mxGetM(var);
-    }
-    sp = Util::createMatrix(DT_BOOL, col, row, col);
-    if (col == 0)
-        return true;
-    int index = 0, freq = row * col / mIndex;
-    switch (type)
-    {
-    case mxLOGICAL_CLASS:
-    {
-        char *tmp = (char *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            char *p = ((VectorSP)sp)->getBoolBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j] != 0;
-            }
-            ((VectorSP)sp)->setBool(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        char *p = ((VectorSP)sp)->getBoolBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j] != 0;
-        }
-        ((VectorSP)sp)->setBool(index, legacy, p);
-        break;
-    }
-    case mxINT8_CLASS:
-    {
-        char *tmp = (char *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            char *p = ((VectorSP)sp)->getBoolBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == CHAR_MIN)
-                    p[j] = CHAR_MIN;
-                else
-                    p[j] = tmp[index + j] != 0;
-            }
-            ((VectorSP)sp)->setBool(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        char *p = ((VectorSP)sp)->getBoolBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == CHAR_MIN)
-                p[j] = CHAR_MIN;
-            else
-                p[j] = tmp[index + j] != 0;
-        }
-        ((VectorSP)sp)->setBool(index, legacy, p);
-        break;
-    }
-    case mxUINT8_CLASS:
-    {
-        char *tmp = (char *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            char *p = ((VectorSP)sp)->getBoolBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j] != 0;
-            }
-            ((VectorSP)sp)->setBool(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        char *p = ((VectorSP)sp)->getBoolBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j] != 0;
-        }
-        ((VectorSP)sp)->setBool(index, legacy, p);
-        break;
-    }
-    case mxINT16_CLASS:
-    {
-        short *tmp = (short *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            char *p = ((VectorSP)sp)->getBoolBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == SHRT_MIN)
-                    p[j] = CHAR_MIN;
-                else
-                    p[j] = tmp[index + j] != 0;
-            }
-            ((VectorSP)sp)->setBool(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        char *p = ((VectorSP)sp)->getBoolBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == SHRT_MIN)
-                p[j] = CHAR_MIN;
-            else
-                p[j] = tmp[index + j] != 0;
-        }
-        ((VectorSP)sp)->setBool(index, legacy, p);
-        break;
-    }
-    case mxUINT16_CLASS:
-    {
-        short *tmp = (short *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            char *p = ((VectorSP)sp)->getBoolBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j] != 0;
-            }
-            ((VectorSP)sp)->setBool(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        char *p = ((VectorSP)sp)->getBoolBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j] != 0;
-        }
-        ((VectorSP)sp)->setBool(index, legacy, p);
-        break;
-    }
-    case mxINT32_CLASS:
-    {
-        int *tmp = (int *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            char *p = ((VectorSP)sp)->getBoolBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == INT_MIN)
-                    p[j] = CHAR_MIN;
-                else
-                    p[j] = tmp[index + j] != 0;
-            }
-            ((VectorSP)sp)->setBool(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        char *p = ((VectorSP)sp)->getBoolBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == INT_MIN)
-                p[j] = CHAR_MIN;
-            else
-                p[j] = tmp[index + j] != 0;
-        }
-        ((VectorSP)sp)->setBool(index, legacy, p);
-        break;
-    }
-    case mxUINT32_CLASS:
-    {
-        int *tmp = (int *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            char *p = ((VectorSP)sp)->getBoolBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j] != 0;
-            }
-            ((VectorSP)sp)->setBool(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        char *p = ((VectorSP)sp)->getBoolBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j] != 0;
-        }
-        ((VectorSP)sp)->setBool(index, legacy, p);
-        break;
-    }
-    case mxINT64_CLASS:
-    {
-        long long *tmp = (long long *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            char *p = ((VectorSP)sp)->getBoolBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == LONG_LONG_MIN)
-                    p[j] = CHAR_MIN;
-                else
-                    p[j] = tmp[index + j] != 0;
-            }
-            ((VectorSP)sp)->setBool(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        char *p = ((VectorSP)sp)->getBoolBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == LONG_LONG_MIN)
-                p[j] = CHAR_MIN;
-            else
-                p[j] = tmp[index + j] != 0;
-        }
-        ((VectorSP)sp)->setBool(index, legacy, p);
-        break;
-    }
-    case mxSINGLE_CLASS:
-    {
-        float *tmp = (float *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            char *p = ((VectorSP)sp)->getBoolBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                float t = tmp[index + j];
-                if (std::isnan(t) || std::isinf(t) || t == FLT_NMIN)
-                    p[j] = CHAR_MIN;
-                else
-                    p[j] = t != 0;
-            }
-            ((VectorSP)sp)->setBool(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        char *p = ((VectorSP)sp)->getBoolBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            float t = tmp[index + j];
-            if (std::isnan(t) || std::isinf(t) || t == FLT_NMIN)
-                p[j] = CHAR_MIN;
-            else
-                p[j] = t != 0;
-        }
-        ((VectorSP)sp)->setBool(index, legacy, p);
-        break;
-    }
-    case mxDOUBLE_CLASS:
-    {
-        double *tmp = (double *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            char *p = ((VectorSP)sp)->getBoolBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                double t = tmp[index + j];
-                if (std::isnan(t) || std::isinf(t) || t == DBL_NMIN)
-                    p[j] = CHAR_MIN;
-                else
-                    p[j] = t != 0;
-            }
-            ((VectorSP)sp)->setBool(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        char *p = ((VectorSP)sp)->getBoolBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            double t = tmp[index + j];
-            if (std::isnan(t) || std::isinf(t) || t == DBL_NMIN)
-                p[j] = CHAR_MIN;
-            else
-                p[j] = t != 0;
-        }
-        ((VectorSP)sp)->setBool(index, legacy, p);
-        break;
-    }
-    default:
-        throw RuntimeException("Can't convert mat " + std::string(mxGetClassName(var)) + " to DolphinDB CHAR");
-    }
-    return true;
+void convertBool(VectorSP data, char *var, int count, int index){
+    data->setBool(index, count, var);
 }
 
-bool convertToDTChar(mxArray *var, ConstantSP &sp)
-{
-    char buffer[mIndex];
-    mxClassID type = mxGetClassID(var);
-    int rank = mxGetNumberOfDimensions(var);
-    if (rank > 2)
-        throw RuntimeException("Matrix above two dimensions is not supported");
-    //const long unsigned int*dims=mxGetDimensions(var);
-    int row, col = rank == 0 ? 0 : mxGetN(var);
-    if (rank == 0)
-        row = 0;
-    else if (rank == 1)
-        row = 1;
-    else
-    {
-        row = mxGetM(var);
-    }
-    sp = Util::createMatrix(DT_CHAR, col, row, col);
-    if (col == 0)
-        return true;
-    int index = 0, freq = row * col / mIndex;
-    switch (type)
-    {
-    case mxLOGICAL_CLASS:
-    {
-        bool *tmp = (bool *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            char *p = ((VectorSP)sp)->getCharBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setChar(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        char *p = ((VectorSP)sp)->getCharBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setChar(index, legacy, p);
-        break;
-    }
-    case mxINT8_CLASS:
-    case mxUINT8_CLASS:
-    {
-        void *tmp = mxGetData(var);
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        ((VectorSP)sp)->setChar(index, row * col, (char *)tmp);
-        break;
-    }
-    case mxINT16_CLASS:
-    {
-        short *tmp = (short *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            char *p = ((VectorSP)sp)->getCharBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == SHRT_MIN)
-                    p[j] = CHAR_MIN;
-                else
-                    p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setChar(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        char *p = ((VectorSP)sp)->getCharBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == SHRT_MIN)
-                p[j] = CHAR_MIN;
-            else
-                p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setChar(index, legacy, p);
-        break;
-    }
-    case mxUINT16_CLASS:
-    {
-        short *tmp = (short *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            char *p = ((VectorSP)sp)->getCharBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setChar(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        char *p = ((VectorSP)sp)->getCharBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setChar(index, legacy, p);
-        break;
-    }
-    case mxINT32_CLASS:
-    {
-        int *tmp = (int *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            char *p = ((VectorSP)sp)->getCharBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == INT_MIN)
-                    p[j] = CHAR_MIN;
-                else
-                    p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setChar(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        char *p = ((VectorSP)sp)->getCharBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == INT_MIN)
-                p[j] = CHAR_MIN;
-            else
-                p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setChar(index, legacy, p);
-        break;
-    }
-    case mxUINT32_CLASS:
-    {
-        uint32_t *tmp = (uint32_t *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            char *p = ((VectorSP)sp)->getCharBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setChar(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        char *p = ((VectorSP)sp)->getCharBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setChar(index, legacy, p);
-        break;
-    }
-    case mxINT64_CLASS:
-    {
-        long long *tmp = (long long *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            char *p = ((VectorSP)sp)->getCharBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == LONG_LONG_MIN)
-                    p[j] = CHAR_MIN;
-                else
-                    p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setChar(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        char *p = ((VectorSP)sp)->getCharBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == LONG_LONG_MIN)
-                p[j] = CHAR_MIN;
-            else
-                p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setChar(index, legacy, p);
-        break;
-    }
-    case mxSINGLE_CLASS:
-    {
-        float *tmp = (float *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            char *p = ((VectorSP)sp)->getCharBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                float t = tmp[index + j];
-                t = t > 0 ? t + 0.5 : t - 0.5;
-                if (std::isnan(t) || std::isinf(t) || t == FLT_NMIN)
-                    p[j] = CHAR_MIN;
-                else
-                    p[j] = t;
-            }
-            ((VectorSP)sp)->setChar(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        char *p = ((VectorSP)sp)->getCharBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            float t = tmp[index + j];
-            t = t > 0 ? t + 0.5 : t - 0.5;
-            if (std::isnan(t) || std::isinf(t) || t == FLT_NMIN)
-                p[j] = CHAR_MIN;
-            else
-                p[j] = t;
-        }
-        ((VectorSP)sp)->setChar(index, legacy, p);
-        break;
-    }
-    case mxDOUBLE_CLASS:
-    {
-        double *tmp = (double *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            char *p = ((VectorSP)sp)->getCharBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                double t = tmp[index + j];
-                t = t > 0 ? t + 0.5 : t - 0.5;
-                if (std::isnan(t) || std::isinf(t) || t == DBL_NMIN)
-                    p[j] = CHAR_MIN;
-                else
-                    p[j] = t;
-            }
-            ((VectorSP)sp)->setChar(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        char *p = ((VectorSP)sp)->getCharBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            double t = tmp[index + j];
-            t = t > 0 ? t + 0.5 : t - 0.5;
-            if (std::isnan(t) || std::isinf(t) || t == DBL_NMIN)
-                p[j] = CHAR_MIN;
-            else
-                p[j] = t;
-        }
-        ((VectorSP)sp)->setChar(index, legacy, p);
-        break;
-    }
-    default:
-        throw RuntimeException("Can't convert mat " + std::string(mxGetClassName(var)) + " to DolphinDB CHAR");
-    }
-    return true;
+void convertINT8(VectorSP data, char *var, int count, int index){
+    data->setBool(index, count, var);
 }
 
-bool convertToDTShort(mxArray *var, ConstantSP &sp)
-{
+void convertINT16(VectorSP data, int16_t *var, int count, int index){
+    data->setShort(index, count, var);
+}
+
+void convertINT32(VectorSP data, int32_t *var, int count, int index){
+    data->setInt(index, count, var);
+}
+
+void convertINT64(VectorSP data, long long *var, int count, int index){
+    data->setLong(index, count, var);
+}
+
+void convertUINT8(VectorSP data, uint8_t *var, int count, int index){
     short buffer[mIndex];
-    mxClassID type = mxGetClassID(var);
-    int rank = mxGetNumberOfDimensions(var);
-    if (rank > 2)
-        throw RuntimeException("Matrix above two dimensions is not supported");
-    //const long unsigned int*dims=mxGetDimensions(var);
-    int row, col = rank == 0 ? 0 : mxGetN(var);
-    if (rank == 0)
-        row = 0;
-    else if (rank == 1)
-        row = 1;
-    else
-    {
-        row = mxGetM(var);
+    for(int i = 0; i < count; ++i){
+        buffer[i] = var[i];
     }
-    sp = Util::createMatrix(DT_SHORT, col, row, col);
-    if (col == 0)
-        return true;
-    int index = 0, freq = row * col / mIndex;
-    switch (type)
-    {
-    case mxLOGICAL_CLASS:
-    {
-        char *tmp = (char *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            short *p = ((VectorSP)sp)->getShortBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setShort(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        short *p = ((VectorSP)sp)->getShortBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setShort(index, legacy, p);
-        break;
-    }
-    case mxINT8_CLASS:
-    {
-        char *tmp = (char *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            short *p = ((VectorSP)sp)->getShortBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == CHAR_MIN)
-                    p[j] = SHRT_MIN;
-                else
-                    p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setShort(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        short *p = ((VectorSP)sp)->getShortBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == CHAR_MIN)
-                p[j] = SHRT_MIN;
-            else
-                p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setShort(index, legacy, p);
-        break;
-    }
-    case mxUINT8_CLASS:
-    {
-        uint8_t *tmp = (uint8_t *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            short *p = ((VectorSP)sp)->getShortBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setShort(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        short *p = ((VectorSP)sp)->getShortBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setShort(index, legacy, p);
-        break;
-    }
-    case mxINT16_CLASS:
-    case mxUINT16_CLASS:
-    {
-        void *tmp = mxGetData(var);
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        ((VectorSP)sp)->setShort(index, row * col, (short *)(tmp));
-    }
-    break;
-    case mxINT32_CLASS:
-    {
-        int *tmp = (int *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            short *p = ((VectorSP)sp)->getShortBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == INT_MIN)
-                    p[j] = SHRT_MIN;
-                else
-                    p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setShort(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        short *p = ((VectorSP)sp)->getShortBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == INT_MIN)
-                p[j] = SHRT_MIN;
-            else
-                p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setShort(index, legacy, p);
-        break;
-    }
-    case mxUINT32_CLASS:
-    {
-        int32_t *tmp = (int32_t *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            short *p = ((VectorSP)sp)->getShortBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setShort(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        short *p = ((VectorSP)sp)->getShortBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setShort(index, legacy, p);
-        break;
-    }
-    case mxINT64_CLASS:
-    {
-        long long *tmp = (long long *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            short *p = ((VectorSP)sp)->getShortBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == LONG_LONG_MIN)
-                    p[j] = SHRT_MIN;
-                else
-                    p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setShort(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        short *p = ((VectorSP)sp)->getShortBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == LONG_LONG_MIN)
-                p[j] = SHRT_MIN;
-            else
-                p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setShort(index, legacy, p);
-        break;
-    }
-    case mxSINGLE_CLASS:
-    {
-        float *tmp = (float *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            short *p = ((VectorSP)sp)->getShortBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                float t = tmp[index + j];
-                t = t > 0 ? t + 0.5 : t - 0.5;
-                if (std::isnan(t) || std::isinf(t) || t == FLT_NMIN)
-                    p[j] = SHRT_MIN;
-                else
-                    p[j] = t;
-            }
-            ((VectorSP)sp)->setShort(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        short *p = ((VectorSP)sp)->getShortBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            float t = tmp[index + j];
-            t = t > 0 ? t + 0.5 : t - 0.5;
-            if (std::isnan(t) || std::isinf(t) || t == FLT_NMIN)
-                p[j] = SHRT_MIN;
-            else
-                p[j] = t;
-        }
-        ((VectorSP)sp)->setShort(index, legacy, p);
-        break;
-    }
-    case mxDOUBLE_CLASS:
-    {
-        double *tmp = (double *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            short *p = ((VectorSP)sp)->getShortBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                double t = tmp[index + j];
-                t = t > 0 ? t + 0.5 : t - 0.5;
-                if (std::isnan(t) || std::isinf(t) || t == DBL_NMIN)
-                    p[j] = SHRT_MIN;
-                else
-                    p[j] = t;
-            }
-            ((VectorSP)sp)->setShort(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        short *p = ((VectorSP)sp)->getShortBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            double t = tmp[index + j];
-            t = t > 0 ? t + 0.5 : t - 0.5;
-            if (std::isnan(t) || std::isinf(t) || t == DBL_NMIN)
-                p[j] = SHRT_MIN;
-            else
-                p[j] = t;
-        }
-        ((VectorSP)sp)->setShort(index, legacy, p);
-        break;
-    }
-    default:
-        throw RuntimeException("Can't convert mat " + std::string(mxGetClassName(var)) + " to DolphinDB SHORT");
-    }
-    return true;
+    data->setShort(index, count, buffer);
 }
 
-bool convertToDTInt(mxArray *var, ConstantSP &sp)
-{
+void convertUINT16(VectorSP data, uint16_t *var, int count, int index){
     int buffer[mIndex];
-    mxClassID type = mxGetClassID(var);
-    int rank = mxGetNumberOfDimensions(var);
-    if (rank > 2)
-        throw RuntimeException("Matrix above two dimensions is not supported");
-    //const long unsigned int*dims=mxGetDimensions(var);
-    int row, col = rank == 0 ? 0 : mxGetN(var);
-    if (rank == 0)
-        row = 0;
-    else if (rank == 1)
-        row = 1;
-    else
-    {
-        row = mxGetM(var);
+    for(int i = 0; i < count; ++i){
+        buffer[i] = var[i];
     }
-    sp = Util::createMatrix(DT_INT, col, row, col);
-    if (col == 0)
-        return true;
-    int index = 0, freq = row * col / mIndex;
-    switch (type)
-    {
-    case mxLOGICAL_CLASS:
-    {
-        char *tmp = (char *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            int *p = ((VectorSP)sp)->getIntBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setInt(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        int *p = ((VectorSP)sp)->getIntBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setInt(index, legacy, p);
-        break;
-    }
-    case mxINT8_CLASS:
-    {
-        char *tmp = (char *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            int *p = ((VectorSP)sp)->getIntBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == CHAR_MIN)
-                    p[j] = INT_MIN;
-                else
-                    p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setInt(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        int *p = ((VectorSP)sp)->getIntBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == CHAR_MIN)
-                p[j] = INT_MIN;
-            else
-                p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setInt(index, legacy, p);
-        break;
-    }
-    case mxUINT8_CLASS:
-    {
-        uint8_t *tmp = (uint8_t *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            int *p = ((VectorSP)sp)->getIntBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setInt(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        int *p = ((VectorSP)sp)->getIntBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setInt(index, legacy, p);
-        break;
-    }
-    case mxINT16_CLASS:
-    {
-        short *tmp = (short *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            int *p = ((VectorSP)sp)->getIntBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == SHRT_MIN)
-                    p[j] = INT_MIN;
-                else
-                    p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setInt(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        int *p = ((VectorSP)sp)->getIntBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == SHRT_MIN)
-                p[j] = INT_MIN;
-            else
-                p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setInt(index, legacy, p);
-        break;
-    }
-    case mxUINT16_CLASS:
-    {
-        uint16_t *tmp = (uint16_t *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            int *p = ((VectorSP)sp)->getIntBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setInt(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        int *p = ((VectorSP)sp)->getIntBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setInt(index, legacy, p);
-        break;
-    }
-    case mxINT32_CLASS:
-    case mxUINT32_CLASS:
-    {
-        void *tmp = mxGetData(var);
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        ((VectorSP)sp)->setInt(index, row * col, (int *)tmp);
-        break;
-    }
-    case mxINT64_CLASS:
-    {
-        long long *tmp = (long long *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            int *p = ((VectorSP)sp)->getIntBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == LONG_LONG_MIN)
-                    p[j] = INT_MIN;
-                else
-                    p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setInt(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        int *p = ((VectorSP)sp)->getIntBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == LONG_LONG_MIN)
-                p[j] = INT_MIN;
-            else
-                p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setInt(index, legacy, p);
-        break;
-    }
-    case mxSINGLE_CLASS:
-    {
-        float *tmp = (float *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            int *p = ((VectorSP)sp)->getIntBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                float t = tmp[index + j];
-                t = t > 0 ? t + 0.5 : t - 0.5;
-                if (std::isnan(t) || std::isinf(t) || t == FLT_NMIN)
-                    p[j] = INT_MIN;
-                else
-                    p[j] = t;
-            }
-            ((VectorSP)sp)->setInt(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        int *p = ((VectorSP)sp)->getIntBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            float t = tmp[index + j];
-            t = t > 0 ? t + 0.5 : t - 0.5;
-            if (std::isnan(t) || std::isinf(t) || t == FLT_NMIN)
-                p[j] = INT_MIN;
-            else
-                p[j] = t;
-        }
-        ((VectorSP)sp)->setInt(index, legacy, p);
-        break;
-    }
-    case mxDOUBLE_CLASS:
-    {
-        double *tmp = (double *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            int *p = ((VectorSP)sp)->getIntBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                double t = tmp[index + j];
-                t = t > 0 ? t + 0.5 : t - 0.5;
-                if (std::isnan(t) || std::isinf(t) || t == DBL_NMIN)
-                    p[j] = INT_MIN;
-                else
-                    p[j] = t;
-            }
-            ((VectorSP)sp)->setInt(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        int *p = ((VectorSP)sp)->getIntBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            double t = tmp[index + j];
-            t = t > 0 ? t + 0.5 : t - 0.5;
-            if (std::isnan(t) || std::isinf(t) || t == DBL_NMIN)
-                p[j] = INT_MIN;
-            else
-                p[j] = t;
-        }
-        ((VectorSP)sp)->setInt(index, legacy, p);
-        break;
-    }
-    default:
-        throw RuntimeException("Can't convert mat " + std::string(mxGetClassName(var)) + " to DolphinDB INT");
-    }
-    return true;
+    data->setInt(index, count, buffer);
 }
 
-bool convertToDTLong(mxArray *var, ConstantSP &sp)
-{
+void convertUINT32(VectorSP data, uint32_t *var, int count, int index){
     long long buffer[mIndex];
-    mxClassID type = mxGetClassID(var);
-    int rank = mxGetNumberOfDimensions(var);
-    if (rank > 2)
-        throw RuntimeException("Matrix above two dimensions is not supported");
-    //const long unsigned int*dims=mxGetDimensions(var);
-    int row, col = rank == 0 ? 0 : mxGetN(var);
-    if (rank == 0)
-        row = 0;
-    else if (rank == 1)
-        row = 1;
-    else
-    {
-        row = mxGetM(var);
+    for(int i = 0; i < count; ++i){
+        buffer[i] = var[i];
     }
-    sp = Util::createMatrix(DT_LONG, col, row, col);
-    if (col == 0)
-        return true;
-    int index = 0, freq = row * col / mIndex;
-    switch (type)
-    {
-    case mxLOGICAL_CLASS:
-    {
-        char *tmp = (char *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            long long *p = ((VectorSP)sp)->getLongBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setLong(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        long long *p = ((VectorSP)sp)->getLongBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setLong(index, legacy, p);
-        break;
-    }
-    case mxINT8_CLASS:
-    {
-        char *tmp = (char *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            long long *p = ((VectorSP)sp)->getLongBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == CHAR_MIN)
-                    p[j] = LONG_LONG_MIN;
-                else
-                    p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setLong(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        long long *p = ((VectorSP)sp)->getLongBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == CHAR_MIN)
-                p[j] = LONG_LONG_MIN;
-            else
-                p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setLong(index, legacy, p);
-        break;
-    }
-    case mxUINT8_CLASS:
-    {
-        uint8_t *tmp = (uint8_t *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            long long *p = ((VectorSP)sp)->getLongBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setLong(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        long long *p = ((VectorSP)sp)->getLongBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setLong(index, legacy, p);
-        break;
-    }
-    case mxINT16_CLASS:
-    {
-        short *tmp = (short *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            long long *p = ((VectorSP)sp)->getLongBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == SHRT_MIN)
-                    p[j] = LONG_LONG_MIN;
-                else
-                    p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setLong(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        long long *p = ((VectorSP)sp)->getLongBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == SHRT_MIN)
-                p[j] = LONG_LONG_MIN;
-            else
-                p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setLong(index, legacy, p);
-        break;
-    }
-    case mxUINT16_CLASS:
-    {
-        uint16_t *tmp = (uint16_t *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            long long *p = ((VectorSP)sp)->getLongBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setLong(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        long long *p = ((VectorSP)sp)->getLongBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setLong(index, legacy, p);
-        break;
-    }
-    case mxINT32_CLASS:
-    {
-        int *tmp = (int *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            long long *p = ((VectorSP)sp)->getLongBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == INT_MIN)
-                    p[j] = LONG_LONG_MIN;
-                else
-                    p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setLong(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        long long *p = ((VectorSP)sp)->getLongBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == INT_MIN)
-                p[j] = LONG_LONG_MIN;
-            else
-                p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setLong(index, legacy, p);
-        break;
-    }
-    case mxUINT32_CLASS:
-    {
-        uint32_t *tmp = (uint32_t *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            long long *p = ((VectorSP)sp)->getLongBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setLong(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        long long *p = ((VectorSP)sp)->getLongBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setLong(index, legacy, p);
-        break;
-    }
-    case mxINT64_CLASS:
-    {
-        void *tmp = mxGetData(var);
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        ((VectorSP)sp)->setLong(index, row * col, (long long *)tmp);
-        break;
-    }
-    case mxSINGLE_CLASS:
-    {
-        float *tmp = (float *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            long long *p = ((VectorSP)sp)->getLongBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                float t = tmp[index + j];
-                t = t > 0 ? t + 0.5 : t - 0.5;
-                if (std::isnan(t) || std::isinf(t) || t == FLT_NMIN)
-                    p[j] = LONG_LONG_MIN;
-                else
-                    p[j] = t;
-            }
-            ((VectorSP)sp)->setLong(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        long long *p = ((VectorSP)sp)->getLongBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            float t = tmp[index + j];
-            t = t > 0 ? t + 0.5 : t - 0.5;
-            if (std::isnan(t) || std::isinf(t) || t == FLT_NMIN)
-                p[j] = LONG_LONG_MIN;
-            else
-                p[j] = t;
-        }
-        ((VectorSP)sp)->setLong(index, legacy, p);
-        break;
-    }
-    case mxDOUBLE_CLASS:
-    {
-        double *tmp = (double *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            long long *p = ((VectorSP)sp)->getLongBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                double t = tmp[index + j];
-                t = t > 0 ? t + 0.5 : t - 0.5;
-                if (std::isnan(t) || std::isinf(t) || t == DBL_NMIN)
-                    p[j] = LONG_LONG_MIN;
-                else
-                    p[j] = t;
-            }
-            ((VectorSP)sp)->setLong(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        long long *p = ((VectorSP)sp)->getLongBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            double t = tmp[index + j];
-            t = t > 0 ? t + 0.5 : t - 0.5;
-            if (std::isnan(t) || std::isinf(t) || t == DBL_NMIN)
-                p[j] = LONG_LONG_MIN;
-            else
-                p[j] = t;
-        }
-        ((VectorSP)sp)->setLong(index, legacy, p);
-        break;
-    }
-    default:
-        throw RuntimeException("Can't convert mat " + std::string(mxGetClassName(var)) + " to DolphinDB LONG");
-    }
-    return true;
+    data->setLong(index, count, buffer);
 }
 
-bool convertToDTFloat(mxArray *var, ConstantSP &sp)
-{
+void convertFloat(VectorSP data, float *var, int count, int index){
     float buffer[mIndex];
-    mxClassID type = mxGetClassID(var);
-    int rank = mxGetNumberOfDimensions(var);
-    if (rank > 2)
-        throw RuntimeException("Matrix above two dimensions is not supported");
-    //const long unsigned int*dims=mxGetDimensions(var);
-    int row, col = rank == 0 ? 0 : mxGetN(var);
-    if (rank == 0)
-        row = 0;
-    else if (rank == 1)
-        row = 1;
-    else
-    {
-        row = mxGetM(var);
+    for(int i = 0; i < count; ++i){
+        float tmp = var[i];
+        buffer[i] = (std::isnan(tmp) || std::isinf(tmp)) ? FLT_NMIN : tmp;
     }
-    sp = Util::createMatrix(DT_FLOAT, col, row, col);
-    if (col == 0)
-        return true;
-    int index = 0, freq = row * col / mIndex;
-    switch (type)
-    {
-    case mxLOGICAL_CLASS:
-    {
-        char *tmp = (char *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            float *p = ((VectorSP)sp)->getFloatBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setFloat(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        float *p = ((VectorSP)sp)->getFloatBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setFloat(index, legacy, p);
-        break;
-    }
-    case mxINT8_CLASS:
-    {
-        char *tmp = (char *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            float *p = ((VectorSP)sp)->getFloatBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == CHAR_MIN)
-                    p[j] = FLT_NMIN;
-                else
-                    p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setFloat(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        float *p = ((VectorSP)sp)->getFloatBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == CHAR_MIN)
-                p[j] = FLT_NMIN;
-            else
-                p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setFloat(index, legacy, p);
-        break;
-    }
-    case mxUINT8_CLASS:
-    {
-        uint8_t *tmp = (uint8_t *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            float *p = ((VectorSP)sp)->getFloatBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setFloat(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        float *p = ((VectorSP)sp)->getFloatBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setFloat(index, legacy, p);
-        break;
-    }
-    case mxINT16_CLASS:
-    {
-        short *tmp = (short *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            float *p = ((VectorSP)sp)->getFloatBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == SHRT_MIN)
-                    p[j] = FLT_NMIN;
-                else
-                    p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setFloat(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        float *p = ((VectorSP)sp)->getFloatBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == SHRT_MIN)
-                p[j] = FLT_NMIN;
-            else
-                p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setFloat(index, legacy, p);
-        break;
-    }
-    case mxUINT16_CLASS:
-    {
-        uint16_t *tmp = (uint16_t *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            float *p = ((VectorSP)sp)->getFloatBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setFloat(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        float *p = ((VectorSP)sp)->getFloatBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setFloat(index, legacy, p);
-        break;
-    }
-    case mxINT32_CLASS:
-    {
-        int *tmp = (int *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            float *p = ((VectorSP)sp)->getFloatBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == INT_MIN)
-                    p[j] = FLT_NMIN;
-                else
-                    p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setFloat(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        float *p = ((VectorSP)sp)->getFloatBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == INT_MIN)
-                p[j] = FLT_NMIN;
-            else
-                p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setFloat(index, legacy, p);
-        break;
-    }
-    case mxUINT32_CLASS:
-    {
-        uint32_t *tmp = (uint32_t *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            float *p = ((VectorSP)sp)->getFloatBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setFloat(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        float *p = ((VectorSP)sp)->getFloatBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setFloat(index, legacy, p);
-        break;
-    }
-    case mxINT64_CLASS:
-    {
-        long long *tmp = (long long *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            float *p = ((VectorSP)sp)->getFloatBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == LONG_LONG_MIN)
-                    p[j] = FLT_NMIN;
-                else
-                    p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setFloat(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        float *p = ((VectorSP)sp)->getFloatBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == LONG_LONG_MIN)
-                p[j] = FLT_NMIN;
-            else
-                p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setFloat(index, legacy, p);
-        break;
-    }
-    case mxSINGLE_CLASS:
-    {
-        float *tmp = (float *)(mxGetData(var));
-        for (int i = 0; i < col; ++i)
-        {
-            for (int j = 0; j < row; ++j)
-            {
-                float t = tmp[i * row + j];
-                if (std::isnan(t) || std::isinf(t) || t == FLT_NMIN)
-                    tmp[i * row + j] = FLT_NMIN;
-                else
-                    tmp[i * row + j] = t;
-            }
-        }
-        ((VectorSP)sp)->setFloat(0, row * col, tmp);
-        break;
-    }
-    case mxDOUBLE_CLASS:
-    {
-        double *tmp = (double *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            float *p = ((VectorSP)sp)->getFloatBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                double t = tmp[index + j];
-                if (std::isnan(t) || std::isinf(t) || t == DBL_NMIN)
-                    p[j] = FLT_NMIN;
-                else
-                    p[j] = t;
-            }
-            ((VectorSP)sp)->setFloat(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        float *p = ((VectorSP)sp)->getFloatBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            double t = tmp[index + j];
-            if (std::isnan(t) || std::isinf(t) || t == DBL_NMIN)
-                p[j] = FLT_NMIN;
-            else
-                p[j] = t;
-        }
-        ((VectorSP)sp)->setFloat(index, legacy, p);
-        break;
-    }
-    default:
-        throw RuntimeException("Can't convert mat " + std::string(mxGetClassName(var)) + " to DolphinDB FLOAT");
-    }
-    return true;
+    data->setFloat(index, count, buffer);
 }
 
-bool convertToDTDouble(mxArray *var, ConstantSP &sp)
-{
+void convertDouble(VectorSP data, double *var, int count, int index){
     double buffer[mIndex];
-    mxClassID type = mxGetClassID(var);
-    int rank = mxGetNumberOfDimensions(var);
-    if (rank > 2)
-        throw RuntimeException("Matrix above two dimensions is not supported");
-    //const long unsigned int*dims=mxGetDimensions(var);
-    int row, col = rank == 0 ? 0 : mxGetN(var);
-    if (rank == 0)
-        row = 0;
-    else if (rank == 1)
-        row = 1;
-    else
-    {
-        row = mxGetM(var);
+    for(int i = 0; i < count; ++i){
+        double tmp = var[i];
+        buffer[i] = (std::isnan(tmp) || std::isinf(tmp)) ? DBL_NMIN : tmp;
     }
-    sp = Util::createMatrix(DT_DOUBLE, col, row, col);
-    if (col == 0)
-        return true;
-    int index = 0, freq = row * col / mIndex;
-    switch (type)
-    {
-    case mxLOGICAL_CLASS:
-    {
-        char *tmp = (char *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            double *p = ((VectorSP)sp)->getDoubleBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setDouble(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        double *p = ((VectorSP)sp)->getDoubleBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setDouble(index, legacy, p);
-        break;
-    }
-    case mxINT8_CLASS:
-    {
-        char *tmp = (char *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            double *p = ((VectorSP)sp)->getDoubleBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == CHAR_MIN)
-                    p[j] = DBL_NMIN;
-                else
-                    p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setDouble(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        double *p = ((VectorSP)sp)->getDoubleBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == CHAR_MIN)
-                p[j] = DBL_NMIN;
-            else
-                p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setDouble(index, legacy, p);
-        break;
-    }
-    case mxUINT8_CLASS:
-    {
-        uint8_t *tmp = (uint8_t *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            double *p = ((VectorSP)sp)->getDoubleBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setDouble(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        double *p = ((VectorSP)sp)->getDoubleBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setDouble(index, legacy, p);
-        break;
-    }
-    case mxINT16_CLASS:
-    {
-        short *tmp = (short *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            double *p = ((VectorSP)sp)->getDoubleBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == SHRT_MIN)
-                    p[j] = DBL_NMIN;
-                else
-                    p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setDouble(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        double *p = ((VectorSP)sp)->getDoubleBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == SHRT_MIN)
-                p[j] = DBL_NMIN;
-            else
-                p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setDouble(index, legacy, p);
-        break;
-    }
-    case mxUINT16_CLASS:
-    {
-        uint16_t *tmp = (uint16_t *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            double *p = ((VectorSP)sp)->getDoubleBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setDouble(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        double *p = ((VectorSP)sp)->getDoubleBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setDouble(index, legacy, p);
-        break;
-    }
-    case mxINT32_CLASS:
-    {
-        int *tmp = (int *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            double *p = ((VectorSP)sp)->getDoubleBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == INT_MIN)
-                    p[j] = DBL_NMIN;
-                else
-                    p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setDouble(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        double *p = ((VectorSP)sp)->getDoubleBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == INT_MIN)
-                p[j] = DBL_NMIN;
-            else
-                p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setDouble(index, legacy, p);
-        break;
-    }
-    case mxUINT32_CLASS:
-    {
-        uint32_t *tmp = (uint32_t *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            double *p = ((VectorSP)sp)->getDoubleBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setDouble(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        double *p = ((VectorSP)sp)->getDoubleBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setDouble(index, legacy, p);
-        break;
-    }
-    case mxINT64_CLASS:
-    {
-        long long *tmp = (long long *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            double *p = ((VectorSP)sp)->getDoubleBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                if (tmp[index + j] == LONG_LONG_MIN)
-                    p[j] = DBL_NMIN;
-                else
-                    p[j] = tmp[index + j];
-            }
-            ((VectorSP)sp)->setDouble(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        double *p = ((VectorSP)sp)->getDoubleBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            if (tmp[index + j] == LONG_LONG_MIN)
-                p[j] = DBL_NMIN;
-            else
-                p[j] = tmp[index + j];
-        }
-        ((VectorSP)sp)->setDouble(index, legacy, p);
-        break;
-    }
-    case mxSINGLE_CLASS:
-    {
-        float *tmp = (float *)(mxGetData(var));
-        if (tmp == NULL)
-            throw RuntimeException("Out of memory");
-        for (int i = 0; i < freq; ++i)
-        {
-            double *p = ((VectorSP)sp)->getDoubleBuffer(index, mIndex, buffer);
-            for (int j = 0; j < mIndex; ++j)
-            {
-                float t = tmp[index + j];
-                if (std::isnan(t) || std::isinf(t) || t == FLT_NMIN)
-                    p[j] = DBL_NMIN;
-                else
-                    p[j] = t;
-            }
-            ((VectorSP)sp)->setDouble(index, mIndex, p);
-            index += mIndex;
-        }
-        int legacy = row * col - index;
-        double *p = ((VectorSP)sp)->getDoubleBuffer(index, legacy, buffer);
-        for (int j = 0; j < legacy; ++j)
-        {
-            float t = tmp[index + j];
-            if (std::isnan(t) || std::isinf(t) || t == FLT_NMIN)
-                p[j] = DBL_NMIN;
-            else
-                p[j] = t;
-        }
-        ((VectorSP)sp)->setDouble(index, legacy, p);
-        break;
-    }
-    case mxDOUBLE_CLASS:
-    {
-        double *tmp = (double *)(mxGetData(var));
-        for (int i = 0; i < col; ++i)
-        {
-            for (int j = 0; j < row; ++j)
-            {
-                double t = tmp[i * row + j];
-                if (std::isnan(t) || std::isinf(t) || t == DBL_NMIN)
-                    tmp[i * row + j] = DBL_NMIN;
-                else
-                    tmp[i * row + j] = t;
-            }
-        }
-        ((VectorSP)sp)->setDouble(0, row * col, tmp);
-        break;
-    }
-    default:
-        throw RuntimeException("Can't convert mat " + std::string(mxGetClassName(var)) + " to DolphinDB DOUBLE");
-    }
-    return true;
+    data->setDouble(index, count, buffer);
 }
 
 bool convertToDTString(mxArray *var, ConstantSP &sp)
 {
-    char buffer[2];
     mxClassID type = mxGetClassID(var);
     int rank = mxGetNumberOfDimensions(var);
     if (rank > 2)
@@ -2053,16 +119,14 @@ bool convertToDTString(mxArray *var, ConstantSP &sp)
     {
         row = mxGetM(var);
     }
-    int index = 0, freq = row * col / mIndex;
     sp = Util::createVector(DT_STRING, 0, 0);
     if (col == 0)
         return true;
-    int start[2] = {0, 0}, stride[2] = {1, 1}, edge[2] = {1, col};
     switch (type)
     {
     case mxCHAR_CLASS:
     {
-        wchar_t tmp[col];
+        vector<wchar_t> tmp(col);
         short *data = (short *)mxGetData(var);
         if (data == NULL)
             throw RuntimeException("Out of memory");
@@ -2070,9 +134,9 @@ bool convertToDTString(mxArray *var, ConstantSP &sp)
         {
             for (int j = 0; j < col; ++j)
             {
-                tmp[j + i * col] = data[j * row + i];
+                tmp[j] = data[j * row + i];
             }
-            std::string strTmp = wstringToString(std::wstring(tmp + i * col, col), 0);
+            std::string strTmp = wstringToString(std::wstring(tmp.data(), col));
             ((VectorSP)sp)->appendString(&strTmp, 1);
         }
         break;
@@ -2083,16 +147,14 @@ bool convertToDTString(mxArray *var, ConstantSP &sp)
     return true;
 }
 
-DictionarySP load(string file, ConstantSP &ConstantSchema)
+DictionarySP load(string file, ConstantSP &ConstantSchema, Heap* heap)
 {
     DictionarySP ret = Util::createDictionary(DT_STRING, nullptr, DT_ANY, nullptr);
-    bool schemaed = false;
     unordered_map<std::string, DATA_TYPE> typeMap;
     if (!ConstantSchema.isNull() && !ConstantSchema->isNull())
     {
         if (!ConstantSchema->isTable())
             throw IllegalArgumentException(__FUNCTION__, "schema must be a table containing column names and types.");
-        schemaed = true;
         TableSP schema = (TableSP)ConstantSchema;
         VectorSP vecName = schema->getColumn("name");
         if (vecName == nullptr)
@@ -2169,23 +231,11 @@ DictionarySP load(string file, ConstantSP &ConstantSchema)
     if (mat == NULL)
         throw RuntimeException("File does not exist");
     const char *name;
-    while (var = matGetNextVariable(mat, &name))
+    while ((var = matGetNextVariable(mat, &name)) != nullptr)
     {
         mxClassID type = mxGetClassID(var);
         DATA_TYPE dstType;
-        if (schemaed)
-        {
-            if (typeMap.count(name) == 0)
-            {
-                continue;
-            }
-            else
-                dstType = typeMap[name];
-        }
-        else
-        {
-            switch (type)
-            {
+        switch (type) {
             case mxLOGICAL_CLASS:
                 dstType = DT_BOOL;
                 break;
@@ -2213,58 +263,122 @@ DictionarySP load(string file, ConstantSP &ConstantSchema)
             case mxCHAR_CLASS:
                 dstType = DT_STRING;
                 break;
-            default:
-            {
+            default: {
                 std::string tmp = mxGetClassName(var);
                 mxDestroyArray(var);
                 matClose(mat);
                 throw IllegalArgumentException(__FUNCTION__, "The Type " + tmp + " is not supported");
-            }
             }
         }
 
         ConstantSP sp;
         try
         {
-            switch (dstType)
-            {
-            case DT_BOOL:
-                convertToDTBool(var, sp);
-                break;
-            case DT_CHAR:
-                convertToDTChar(var, sp);
-                break;
-            case DT_SHORT:
-                convertToDTShort(var, sp);
-                break;
-            case DT_INT:
-                convertToDTInt(var, sp);
-                break;
-            case DT_LONG:
-                convertToDTLong(var, sp);
-                break;
-            case DT_FLOAT:
-                convertToDTFloat(var, sp);
-                break;
-            case DT_DOUBLE:
-                convertToDTDouble(var, sp);
-                break;
-            case DT_STRING:
+            mxClassID type = mxGetClassID(var);
+            if(type == mxCHAR_CLASS){
                 convertToDTString(var, sp);
-                break;
-            default:
-                throw RuntimeException("unsupport DolphinDB type");
+                if (typeMap.count(name) != 0 && typeMap[name] != DT_STRING){
+                    throw RuntimeException("Can't convert mat char to DolphinDB " + Util::getDataTypeString(typeMap[name]));
+                }
+            }else{
+                int rank = mxGetNumberOfDimensions(var);
+                if (rank > 2) throw RuntimeException("Matrix above two dimensions is not supported");
+                int row, col = rank == 0 ? 0 : mxGetN(var);
+                if (rank == 0)
+                    row = 0;
+                else if (rank == 1)
+                    row = 1;
+                else {
+                    row = mxGetM(var);
+                }
+                int totalCount = row * col;
+                sp = Util::createMatrix(dstType, col, row, col);
+                VectorSP tmpVec = Util::createVector(dstType, 0, totalCount);
+                int index = 0;
+                char *tmp = (char *)(mxGetData(var));
+                while (index < totalCount) {
+                    int len = std::min(mIndex, totalCount - index);
+                    switch (type) {
+                        case mxLOGICAL_CLASS:
+                            convertBool(sp, tmp + index, len, index);
+                            break;
+                        case mxINT8_CLASS:
+                            convertINT8(sp, tmp + index, len, index);
+                            break;
+                        case mxUINT8_CLASS:
+                            convertUINT8(sp, (uint8_t *)tmp + index, len, index);
+                            break;
+                        case mxINT16_CLASS:
+                            convertINT16(sp, (short *)tmp + index, len, index);
+                            break;
+                        case mxUINT16_CLASS:
+                            convertUINT16(sp, (uint16_t *)tmp + index, len, index);
+                            break;
+                        case mxINT32_CLASS:
+                            convertINT32(sp, (int *)tmp + index, len, index);
+                            break;
+                        case mxUINT32_CLASS:
+                            convertUINT32(sp, (uint32_t *)tmp + index, len, index);
+                            break;
+                        case mxINT64_CLASS:
+                            convertINT64(sp, (long long *)tmp + index, len, index);
+                            break;
+                        case mxSINGLE_CLASS:
+                            convertFloat(sp, (float *)tmp + index, len, index);
+                            break;
+                        case mxDOUBLE_CLASS:
+                            convertDouble(sp, (double *)tmp + index, len, index);
+                            break;
+                        default:
+                            throw RuntimeException("unSupport mat type: " + std::string(mxGetClassName(var)));
+                    }
+                    index += len;
+                }
+                if (typeMap.count(name) != 0) {
+                    DATA_TYPE convertType = typeMap[name];
+                    if (convertType != dstType) {
+                        string convertFunc;
+                        switch (convertType) {
+                            case DT_BOOL:
+                                convertFunc = "bool";
+                                break;
+                            case DT_CHAR:
+                                convertFunc = "char";
+                                break;
+                            case DT_SHORT:
+                                convertFunc = "short";
+                                break;
+                            case DT_INT:
+                                convertFunc = "int";
+                                break;
+                            case DT_LONG:
+                                convertFunc = "long";
+                                break;
+                            case DT_FLOAT:
+                                convertFunc = "float";
+                                break;
+                            case DT_DOUBLE:
+                                convertFunc = "double";
+                                break;
+                            default:
+                                throw RuntimeException("unSupport convert type: " + Util::getDataTypeString(convertType));
+                        }
+                        FunctionDefSP func = heap->currentSession()->getFunctionDef(convertFunc);
+                        if (func == nullptr) throw RuntimeException("Can't find function: " + convertFunc);
+                        if (!sp.isNull()) sp->setNullFlag(sp->hasNull());
+                        vector<ConstantSP> args = {sp};
+                        sp = func->call(heap, args);
+                    }
+                }
             }
-        }
-        catch (RuntimeException &e)
-        {
+
+        } catch (RuntimeException &e) {
             mxDestroyArray(var);
             matClose(mat);
             throw e;
         }
         string tmp(name);
-        if(!sp.isNull())
-            sp->setNullFlag(sp->hasNull());
+        if (!sp.isNull()) sp->setNullFlag(sp->hasNull());
         ret->set(tmp, sp);
         mxDestroyArray(var);
     }
@@ -2274,8 +388,9 @@ DictionarySP load(string file, ConstantSP &ConstantSchema)
 
 ConstantSP extractMatSchema(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR)
-        throw IllegalArgumentException(__FUNCTION__, "File must be a string scalar");
+        throw IllegalArgumentException(__FUNCTION__, "filePath must be a string scalar");
 
     auto file = args[0]->getString();
 
@@ -2296,7 +411,7 @@ ConstantSP extractMatSchema(Heap *heap, vector<ConstantSP> &args)
     cols[1] = Util::createVector(DT_STRING, 0);
     std::vector<std::string> dataName;
     std::vector<std::string> dataType;
-    while (pMxArray = matGetNextVariable(pMF, &varName))
+    while ((pMxArray = matGetNextVariable(pMF, &varName)) != nullptr)
     {
         mxClassID type = mxGetClassID(pMxArray);
         switch (type)
@@ -2348,8 +463,9 @@ ConstantSP extractMatSchema(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP loadMat(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR)
-        throw IllegalArgumentException(__FUNCTION__, "File must be a string scalar");
+        throw IllegalArgumentException(__FUNCTION__, "filePath must be a string scalar");
     std::vector<std::string> dataName;
     DictionarySP ret;
 
@@ -2363,12 +479,12 @@ ConstantSP loadMat(Heap *heap, vector<ConstantSP> &args)
 
     if (args.size() == 2)
     {
-        ret = load(args[0]->getString(), args[1]);
+        ret = load(args[0]->getString(), args[1], heap);
     }
     else
     {
         ConstantSP tmp;
-        ret = load(args[0]->getString(), tmp);
+        ret = load(args[0]->getString(), tmp, heap);
     }
     return ret;
 }
@@ -2386,6 +502,7 @@ long long ConvertToDTdatetime(double data)
 
 ConstantSP convertToDatetime(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     if (args[0]->getType() != DT_DOUBLE ||
         (args[0]->getForm() != DF_SCALAR && args[0]->getForm() != DF_VECTOR && args[0]->getForm() != DF_MATRIX))
         throw IllegalArgumentException(__FUNCTION__, "Data must be a double scalar, vector or matrix");
@@ -2394,15 +511,15 @@ ConstantSP convertToDatetime(Heap *heap, vector<ConstantSP> &args)
     else if (args[0]->getForm() == DF_VECTOR)
     {
         int size = args[0]->size();
-        long long lBuffer[size];
-        double dBuffer[size];
-        double *p = ((VectorSP)args[0])->getDoubleBuffer(0, size, dBuffer);
+        vector<long long> lBuffer(size);
+        vector<double> dBuffer(size);
+        const double *p = ((VectorSP)args[0])->getDoubleConst(0, size, dBuffer.data());
         for (int i = 0; i < size; ++i)
         {
-            lBuffer[i] = ConvertToDTdatetime(dBuffer[i]);
+            lBuffer[i] = ConvertToDTdatetime(p[i]);
         }
         VectorSP ret = Util::createVector(DT_DATETIME, 0, 0);
-        ret->appendLong(lBuffer, size);
+        ret->appendLong(lBuffer.data(), size);
         return ret;
     }
     else
@@ -2438,6 +555,7 @@ ConstantSP convertToDatetime(Heap *heap, vector<ConstantSP> &args)
 }
 
 ConstantSP writeMat(Heap *heap, vector<ConstantSP> &args){
+    std::ignore = heap;
     if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR)
         throw IllegalArgumentException(__FUNCTION__, "File must be a string scalar");
     if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR)

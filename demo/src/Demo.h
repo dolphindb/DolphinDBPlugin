@@ -1,16 +1,10 @@
-/*
- * Demo.h
- *
- *  Created on: Apr 19, 2017
- *      Author: dzhou
- */
+#pragma once
 
-#ifndef DEMO_H_
-#define DEMO_H_
-
+#include "DolphinDBEverything.h"
 #include "CoreConcept.h"
 #include "ddbplugin/CommonInterface.h"
-extern "C" ConstantSP minmax(const ConstantSP& a, const ConstantSP& b);
-extern "C" ConstantSP echo(Heap* heap, vector<ConstantSP>& arguments );
 
-#endif /* DEMO_H_ */
+extern "C" {
+ddb::ConstantSP minmax(const ddb::ConstantSP& a, const ddb::ConstantSP& b);
+ddb::ConstantSP echo(ddb::Heap* heap, argsT &arguments );
+}

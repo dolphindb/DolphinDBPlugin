@@ -7,12 +7,13 @@
 #include "ddbplugin/ThreadedQueue.h"
 #include "kafkaWrapper.h"
 #include "librdkafka/rdkafkacpp.h"
+#include "ddbplugin/PluginLogger.h"
 
 using namespace KafkaUtil;
 using namespace cppkafka;
 
 Mutex DICT_LATCH;
-dolphindb::BackgroundResourceMap<SubConnection> SUB_CONN_HANDLE_MAP(KAFKA_PREFIX, SUB_JOB_DESC);
+ddb::BackgroundResourceMap<SubConnection> SUB_CONN_HANDLE_MAP(KAFKA_PREFIX, SUB_JOB_DESC);
 // use atomic timestamp to indicate the last assign time.
 // ddb would crash if the internal between assign() & unassign() is too short
 std::atomic<int64_t> ASSIGN_TIMEOUT;
@@ -21,6 +22,7 @@ std::atomic<int64_t> ASSIGN_TIMEOUT;
 Mutex ASSIGN_LATCH;
 
 static void kafkaSubConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     SUB_CONN_HANDLE_MAP.safeRemoveWithoutException(args[0]);
 }
 
@@ -42,7 +44,7 @@ ConstantSP kafkaProducer(Heap *heap, vector<ConstantSP> &args) {
         throw IllegalArgumentException(__FUNCTION__, usage + "dict must be a dict config.");
     }
     Configuration conf;
-    if (args.size() > 1 && !args[1].isNull()) {
+    if (args.size() > 1 && !args[1]->isNull()) {
         if (args[1]->getType() != DT_FUNCTIONDEF) {
             throw IllegalArgumentException(__FUNCTION__, usage + "errCallback must be a DolphinDB function");
         }
@@ -63,11 +65,12 @@ ConstantSP kafkaProducer(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaProducerFlush(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage = string("kafka::produceFlush(producer) ");
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != PRODUCER_DESC)
         throw IllegalArgumentException(__FUNCTION__, usage + "producer should be a producer handle.");
     try {
-        ((DdbKafkaProducerSP)args[0])->getProducer()->flush();
+        ((DdbKafkaProducerSP)args[0])->getProducer()->flush(std::chrono::milliseconds(60000));
     } catch (std::exception &exception) {
         throw RuntimeException(KAFKA_PREFIX + exception.what());
     }
@@ -75,6 +78,7 @@ ConstantSP kafkaProducerFlush(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaProduce(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"kafka::produce(producer, topic, key, value, marshalType, [partition]);"};
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != PRODUCER_DESC) {
         throw IllegalArgumentException(__FUNCTION__, usage + "producer should be a producer handle.");
@@ -101,7 +105,7 @@ ConstantSP kafkaProduce(Heap *heap, vector<ConstantSP> &args) {
     }
 
     long long partition = -1;
-    if (args.size() > 5 && !args[5].isNull()) {
+    if (args.size() > 5 && !args[5]->isNull()) {
         if (args[5]->getCategory() != INTEGRAL || args[5]->getForm() != DF_SCALAR || args[5]->getLong() < 0) {
             throw IllegalArgumentException(__FUNCTION__, usage + "partition must be a non-negative integer scalar.");
         }
@@ -121,7 +125,7 @@ ConstantSP kafkaConsumer(Heap *heap, vector<ConstantSP> &args) {
         throw IllegalArgumentException(__FUNCTION__, usage + "Not a dict config.");
     }
     Configuration conf;
-    if (args.size() > 1 && !args[1].isNull()) {
+    if (args.size() > 1 && !args[1]->isNull()) {
         if (args[1]->getType() != DT_FUNCTIONDEF) {
             throw IllegalArgumentException(__FUNCTION__, usage + "errCallback must be a DolphinDB function");
         }
@@ -140,18 +144,18 @@ ConstantSP kafkaConsumer(Heap *heap, vector<ConstantSP> &args) {
         auto consumer = ret->getConsumer();
         consumer->set_assignment_callback([=](TopicPartitionList &list) {
             for (auto l : list) {
-                LOG_INFO(KAFKA_PREFIX, consumer->get_member_id(), " assignment of topic:", l.get_topic(),
+                PLUGIN_LOG_INFO(KAFKA_PREFIX, consumer->get_member_id(), " assignment of topic:", l.get_topic(),
                          "; partition:", l.get_partition(), "; offset:", l.get_offset());
             }
         });
         consumer->set_revocation_callback([=](const TopicPartitionList &list) {
             for (auto l : list) {
-                LOG_INFO(KAFKA_PREFIX, consumer->get_member_id(), " revocation of topic:", l.get_topic(),
+                PLUGIN_LOG_INFO(KAFKA_PREFIX, consumer->get_member_id(), " revocation of topic:", l.get_topic(),
                          "; partition:", l.get_partition(), "; offset:", l.get_offset());
             }
         });
         consumer->set_rebalance_error_callback(
-            [](Error e) { LOG_ERR(KAFKA_PREFIX, " rebalance error:", e.to_string()); });
+            [](Error e) { PLUGIN_LOG_ERR(KAFKA_PREFIX, " rebalance error:", e.to_string()); });
         return ret;
     } catch (std::exception &exception) {
         throw RuntimeException(KAFKA_PREFIX + exception.what());
@@ -159,7 +163,8 @@ ConstantSP kafkaConsumer(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaSubscribe(Heap *heap, vector<ConstantSP> &args) {
-    string usage = string("kafka::subscribe(consumer, topics) ");
+    std::ignore = heap;
+    string usage = string("kafka::subscribe(consumer, topic) ");
     SmartPointer<Consumer> conn = extractConsumer(args[0], __FUNCTION__, usage);
     if ((args[1]->getForm() != DF_VECTOR && args[1]->getForm() != DF_SCALAR) || args[1]->getType() != DT_STRING) {
         throw IllegalArgumentException(__FUNCTION__, usage + "Not a topic vector.");
@@ -182,6 +187,7 @@ ConstantSP kafkaSubscribe(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaConsumerPoll(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"kafka::consumerPoll(consumer, [timeout=1000], [marshalType])"};
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
     try {
@@ -212,9 +218,6 @@ ConstantSP kafkaConsumerPoll(Heap *heap, vector<ConstantSP> &args) {
             return getMsg(msg, marshalType);
         } else {
             auto msg = consumer->poll();
-            if (msg) {
-                // TODO error msg
-            }
             // DPLG-275
             for (int i = 0; i < 10; ++i) {
                 if (msg && msg.get_error() && msg.is_eof()) {
@@ -231,6 +234,7 @@ ConstantSP kafkaConsumerPoll(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaConsumerPollBatch(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"consumerPollBatch(consumer, batchSize, [timeout], [marshalType]) "};
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
     if (args[1]->getType() < DT_SHORT || args[1]->getType() > DT_LONG || args[1]->getInt() < 0) {
@@ -326,7 +330,6 @@ ConstantSP kafkaCreateSubJob(Heap *heap, vector<ConstantSP> args) {
                 __FUNCTION__, usage + "if the second param is functiondef, it must accept only one param.");
         }
     }
-    // TODO if table is null
     ConstantSP handler = args[1];
     if (args[2]->getType() == DT_FUNCTIONDEF) {
         if (args[1]->isNothing()) {
@@ -368,7 +371,7 @@ ConstantSP kafkaCreateSubJob(Heap *heap, vector<ConstantSP> args) {
             throw IllegalArgumentException(__FUNCTION__, usage + "throttle must be a non-negative float");
         }
         if (!msgAsTable) {
-            LOG_WARN(KAFKA_PREFIX, "if msgAsTable is false, throttle would be ignored.");
+            PLUGIN_LOG_WARN(KAFKA_PREFIX, "if msgAsTable is false, throttle would be ignored.");
         }
         throttle = args[4]->getDouble() * 1000;
     }
@@ -390,7 +393,7 @@ ConstantSP kafkaCreateSubJob(Heap *heap, vector<ConstantSP> args) {
             throw IllegalArgumentException(__FUNCTION__, usage + "batchSize must be a non-negative integer");
         }
         if (!msgAsTable) {
-            LOG_WARN(KAFKA_PREFIX, "if msgAsTable is false, batchSize would be ignored.");
+            PLUGIN_LOG_WARN(KAFKA_PREFIX, "if msgAsTable is false, batchSize would be ignored.");
         }
         batchSize = args[7]->getLong();
     }
@@ -400,7 +403,7 @@ ConstantSP kafkaCreateSubJob(Heap *heap, vector<ConstantSP> args) {
             throw IllegalArgumentException(__FUNCTION__, usage + "queueDepth must be a positive integer");
         }
         if (!msgAsTable) {
-            LOG_WARN(KAFKA_PREFIX, "if msgAsTable is false, queueDepth would be ignored.");
+            PLUGIN_LOG_WARN(KAFKA_PREFIX, "if msgAsTable is false, queueDepth would be ignored.");
         }
         queueDepth = args[8]->getLong();
     }
@@ -416,13 +419,15 @@ ConstantSP kafkaCreateSubJob(Heap *heap, vector<ConstantSP> args) {
                                             batchSize, throttle, queueDepth);
     FunctionDefSP onClose(
         Util::createSystemProcedure("kafka subJob connection onClose()", kafkaSubConnectionOnClose, 1, 1));
-    ConstantSP conn = Util::createResource((long long)(cup.get()), SUB_JOB_DESC, onClose, heap->currentSession());
+    ConstantSP conn = Util::createResource((long long)(cup.get()), SUB_JOB_DESC, onClose, heap);
     SUB_CONN_HANDLE_MAP.safeAdd(conn, cup, actionName);
 
     return conn;
 }
 
 ConstantSP kafkaGetJobStat(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
+    std::ignore = args;
     LockGuard<Mutex> _(&DICT_LATCH);
     vector<string> names = SUB_CONN_HANDLE_MAP.getHandleNames();
     int size = names.size();
@@ -518,6 +523,7 @@ SubConnectionSP getSubJobConn(ConstantSP handle, const string &funcName, const s
 }
 
 ConstantSP kafkaCancelSubJob(Heap *heap, vector<ConstantSP> args) {
+    std::ignore = heap;
     LockGuard<Mutex> _(&DICT_LATCH);
     std::string usage = "kafka::cancelSubJob(subJobConnection) ";
     string name;
@@ -539,6 +545,7 @@ ConstantSP kafkaCancelSubJob(Heap *heap, vector<ConstantSP> args) {
 }
 
 ConstantSP kafkaGetSubJobConsumer(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     LockGuard<Mutex> _(&DICT_LATCH);
     string usage = "kafka::getSubJobConsumer(subJobConnection). ";
     string name;
@@ -549,7 +556,8 @@ ConstantSP kafkaGetSubJobConsumer(Heap *heap, vector<ConstantSP> &args) {
 ////////////////////////////////////////////////////////////////////////////////
 
 ConstantSP kafkaCommit(Heap *heap, vector<ConstantSP> &args) {
-    string usage = string("kafka::commit(consumer, [topics], [partitions], [offsets]) ");
+    std::ignore = heap;
+    string usage = string("kafka::commit(consumer, [topic], [partition], [offset]) ");
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
     if (args.size() != 1 && args.size() != 4) {
         throw IllegalArgumentException("commit", usage + "the number of arguments is either 1 or 4");
@@ -568,6 +576,7 @@ ConstantSP kafkaCommit(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaCommitTopic(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage = string("kafka::commitTopic(consumer, topic, partition, offset) ");
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
     Conversion convert(usage, args);
@@ -580,6 +589,7 @@ ConstantSP kafkaCommitTopic(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaUnsubscribe(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"kafka::unsubscribe(consumer) "};
     SmartPointer<Consumer> conn = extractConsumer(args[0], __FUNCTION__, usage);
     try {
@@ -591,6 +601,7 @@ ConstantSP kafkaUnsubscribe(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaConsumerAssign(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     LockGuard<Mutex> _(&ASSIGN_LATCH);
     string usage{"kafka::assign(consumer, topic, partition, offset) "};
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
@@ -605,6 +616,7 @@ ConstantSP kafkaConsumerAssign(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaConsumerUnassign(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     LockGuard<Mutex> _(&ASSIGN_LATCH);
     string usage{"kafka::unassign(consumer) "};
     std::atomic<int64_t> current;
@@ -622,6 +634,7 @@ ConstantSP kafkaConsumerUnassign(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaConsumerGetAssignment(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     LockGuard<Mutex> _(&ASSIGN_LATCH);
     string usage{"kafka::getAssignment(consumer) "};
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
@@ -643,6 +656,7 @@ ConstantSP kafkaConsumerGetAssignment(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaConsumerPause(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"kafka::pause(consumer) "};
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
     try {
@@ -654,6 +668,7 @@ ConstantSP kafkaConsumerPause(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaConsumerResume(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"kafka::resume(consumer) "};
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
     try {
@@ -665,6 +680,7 @@ ConstantSP kafkaConsumerResume(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaGetOffsetInfo(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"kafka::getOffsetInfo(consumer, topic, partition) "};
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
     Conversion convert(usage, args);
@@ -707,6 +723,7 @@ ConstantSP kafkaGetOffsetInfo(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaGetOffset(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"kafka::getOffset(consumer, topic, partition) "};
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
     if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR) {
@@ -733,6 +750,7 @@ ConstantSP kafkaGetOffset(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaGetOffsetsCommitted(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"kafka::getOffsetCommitted(consumer, topic, partition, offset, [timeout]) "};
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
     Conversion convert(usage, args);
@@ -779,6 +797,7 @@ ConstantSP kafkaGetOffsetsCommitted(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaGetOffsetPosition(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"kafka::getOffsetPosition(consumer, topic, partition) "};
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
     Conversion convert(usage, args);
@@ -817,6 +836,7 @@ ConstantSP kafkaGetOffsetPosition(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP kafkaGetMemberId(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage{"kafka::getMemId(consumer) "};
     SmartPointer<Consumer> consumer = extractConsumer(args[0], __FUNCTION__, usage);
     auto result = Util::createConstant(DT_STRING);
@@ -836,20 +856,26 @@ ConstantSP kafkaGetMetadata(Heap *heap, vector<ConstantSP> &args) {
     DictionarySP result = Util::createDictionary(DT_STRING, nullptr, DT_ANY, nullptr);
     if (args[0]->getType() == DT_STRING && args[0]->getForm() == DF_SCALAR) {
         // HACK use producer to get metadata
-        // TODO try catch, for more clear exception
-        DictionarySP dict = Util::createDictionary(DT_STRING, nullptr, DT_STRING, nullptr);
-        dict->set("metadata.broker.list", args[0]);
-        vector<ConstantSP> producerArgs{dict};
-        auto producer = ((DdbKafkaProducerSP)kafkaProducer(heap, producerArgs))->getProducer();
-        meta = producer->get_metadata();
-        groups = producer->get_consumer_groups();
+        try {
+            DictionarySP dict = Util::createDictionary(DT_STRING, nullptr, DT_STRING, nullptr);
+            dict->set("metadata.broker.list", args[0]);
+            vector<ConstantSP> producerArgs{dict};
+            auto producer = ((DdbKafkaProducerSP)kafkaProducer(heap, producerArgs))->getProducer();
+            meta = producer->get_metadata();
+            groups = producer->get_consumer_groups();
+        } catch (std::exception &e) {
+            throw RuntimeException(KAFKA_PREFIX + "get metadata failed, " + e.what());
+        }
     } else if (args[0]->getForm() == DF_DICTIONARY) {
-        // TODO try catch, for more clear exception
-        auto conf = createConf(args[0], "getMetadata");
-        DdbKafkaProducerSP producerWrapper = new DdbKafkaProducer(heap, conf);
-        auto producer = producerWrapper->getProducer();
-        meta = producer->get_metadata();
-        groups = producer->get_consumer_groups();
+        try {
+            auto conf = createConf(args[0], "getMetadata");
+            DdbKafkaProducerSP producerWrapper = new DdbKafkaProducer(heap, conf);
+            auto producer = producerWrapper->getProducer();
+            meta = producer->get_metadata();
+            groups = producer->get_consumer_groups();
+        } catch (std::exception &e) {
+            throw RuntimeException(KAFKA_PREFIX + "get metadata failed, " + e.what());
+        }
     } else if (args[0]->getType() == DT_RESOURCE && args[0]->getString() == CONSUMER_DESC) {
         SmartPointer<Consumer> consumer = (DdbKafkaConsumerSP(args[0]))->getConsumer();
         meta = consumer->get_metadata();
@@ -909,7 +935,7 @@ ConstantSP kafkaGetMetadata(Heap *heap, vector<ConstantSP> &args) {
                 ConstantSP partitionTable = Util::createTable(colNames, cols);
                 memberData->set("partitions", partitionTable);
             } catch (std::exception &e) {
-                LOG_WARN(KAFKA_PREFIX, "cannot parse member assignment info due to ", e.what());
+                PLUGIN_LOG_WARN(KAFKA_PREFIX, "cannot parse member assignment info due to ", e.what());
             }
             memberDict->set(memName, memberData);
         }
@@ -928,7 +954,7 @@ ConstantSP kafkaGetMetadata(Heap *heap, vector<ConstantSP> &args) {
         cols[0] = Util::createVector(DT_LONG, partitions.size());
         cols[1] = Util::createVector(DT_STRING, partitions.size());
         cols[2] = Util::createVector(DT_INT, partitions.size());
-        cols[3] = InternalUtil::createArrayVector(DATA_TYPE(DT_INT + ARRAY_TYPE_BASE), 0);
+        cols[3] = Util::createArrayVector(DATA_TYPE(DT_INT + ARRAY_TYPE_BASE), 0);
         for (auto i = 0u; i < partitions.size(); ++i) {
             ((VectorSP)cols[0])->setLong(i, partitions[i].get_id());
             ((VectorSP)cols[1])->setString(i, partitions[i].get_error().to_string());

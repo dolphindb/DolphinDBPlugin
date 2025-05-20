@@ -386,7 +386,7 @@ ConstantSP loadPandasHDF5(const hid_t set, const ConstantSP &schema, const size_
     registerUnixTimeConvert();
 
     TableSP tableWithSchema =
-        schema->isNull() ? static_cast<TableSP>(nullSP) : DBFileIO::createEmptyTableFromSchema(schema);
+        schema->isNull() ? static_cast<TableSP>(nullSP) : createEmptyTableFromSchema(schema);
 
     switch (H5Tget_class(t.id())) {
         case H5T_INTEGER:
@@ -410,15 +410,15 @@ bool checkNull(ConstantSP value) {
 TableSP loadFrameTypeHDF5(const H5::Group &group, const ConstantSP &schema, size_t startRow, size_t readRowNum,
                           const string &groupName) {
     TableSP tableWithSchema =
-        schema->isNull() ? static_cast<TableSP>(nullSP) : DBFileIO::createEmptyTableFromSchema(schema);
+        schema->isNull() ? static_cast<TableSP>(nullSP) : createEmptyTableFromSchema(schema);
     string fileName;
     HDF5_SAFE_EXECUTE(fileName = group.getFileName());
     string parseFailPrefix = "group [" + groupName + "] in file [" + fileName + "] parsed failed. ";
     // global variable
-    int nDim;
-    int nBlocks;
-    getGroupAttribute<int>(group, "ndim", &nDim);
-    getGroupAttribute<int>(group, "nblocks", &nBlocks);
+    long long nDim;
+    long long nBlocks;
+    getGroupAttribute(group, "ndim", &nDim);
+    getGroupAttribute(group, "nblocks", &nBlocks);
     checkFailAndThrowRuntimeException(nDim != 2, parseFailPrefix +
             "only pandas HDF5 data with '2' ndim is supported. Current ndim: " + std::to_string(nDim));
     string axis0_variety;
@@ -494,8 +494,8 @@ TableSP loadFrameTypeHDF5(const H5::Group &group, const ConstantSP &schema, size
         }
         return appendColumnVecToTable(tableWithSchema, finalDataCols);
     } else {
-        int axis1NLevels;
-        getGroupAttribute<int>(group, "axis1_nlevels", &axis1NLevels);
+        long long axis1NLevels;
+        getGroupAttribute(group, "axis1_nlevels", &axis1NLevels);
 
         string colNameStr = "axis0";
         checkFailAndThrowRuntimeException(!group.nameExists(colNameStr), parseFailPrefix + colNameStr + " doesn't exist in group.");
@@ -607,7 +607,7 @@ TableSP loadFrameTypeHDF5(const H5::Group &group, const ConstantSP &schema, size
 TableSP loadSeriesTypeHDF5(const H5::Group &group, const ConstantSP &schema, size_t startRow, size_t readRowNum,
                            const string &groupName) {
     TableSP tableWithSchema =
-        schema->isNull() ? static_cast<TableSP>(nullSP) : DBFileIO::createEmptyTableFromSchema(schema);
+        schema->isNull() ? static_cast<TableSP>(nullSP) : createEmptyTableFromSchema(schema);
     string fileName;
     HDF5_SAFE_EXECUTE(fileName = group.getFileName());
     string parseFailPrefix = "group [" + groupName + "] in file [" + fileName + "] parsed failed. ";
@@ -630,8 +630,8 @@ TableSP loadSeriesTypeHDF5(const H5::Group &group, const ConstantSP &schema, siz
         }
         return appendColumnVecToTable(tableWithSchema, cols);
     } else if (indexVariety == "multi") {
-        int indexNLevel;
-        getGroupAttribute<int>(group, "index_nlevels", &indexNLevel);
+        long long indexNLevel;
+        getGroupAttribute(group, "index_nlevels", &indexNLevel);
 
         vector<string> nameArray;
         vector<ConstantSP> cols;

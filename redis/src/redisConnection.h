@@ -5,6 +5,8 @@
 #include "ScalarImp.h"
 #include "hiredis.h"
 
+namespace ddb {
+
 class RedisConnection {
   public:
     RedisConnection(redisContext *redisConnection, const string &ip, const int &port);
@@ -16,6 +18,7 @@ class RedisConnection {
     ConstantSP redisRun(const vector<ConstantSP> &args);
     ConstantSP redisBatchSet(const vector<ConstantSP> &args);
     ConstantSP redisBatchHashSet(const vector<ConstantSP> &args);
+    ConstantSP redisBatchPush(const vector<ConstantSP> &args);
 
   private:
     Mutex redisMutex_;
@@ -23,5 +26,7 @@ class RedisConnection {
     string address_;
     DateTime datetime_;
 };
+
+}
 
 #endif

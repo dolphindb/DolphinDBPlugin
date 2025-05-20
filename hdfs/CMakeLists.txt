@@ -1,6 +1,7 @@
-cmake_minimum_required(VERSION 3.0)
-project(hdfs)
-add_definitions(-DLOCKFREE_SYMBASE)
+cmake_minimum_required(VERSION 3.13)
+set(PluginName PluginHdfs)
+project(${PluginName})
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_STANDARD 11)
 
@@ -12,7 +13,6 @@ if (WIN32)
 elseif (UNIX)
     set(platform_macro "-DLINUX")
     set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginHdfs.txt")
-    add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 endif ()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -fPIC -std=c++11 -Wall -rdynamic ")
@@ -50,7 +50,7 @@ if(NOT DEFINED HADOOP)
     set(HADOOP_SO "${HADOOP_DIR}/lib/native")
 endif()
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include ${HADOOP_INCLUDE})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include ${HADOOP_INCLUDE} ./include)
 link_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib)
 
 link_directories(${CMAKE_BINARY_DIR} ${HADOOP_SO})
@@ -70,6 +70,6 @@ target_link_libraries(
 )
 add_custom_command(
     TARGET PluginHdfs POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/PluginHdfs.txt ${PROJECT_SOURCE_DIR}/build/PluginHdfs.txt
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/PluginHdfs.txt ${CMAKE_CURRENT_SOURCE_DIR}/build/PluginHdfs.txt
     COMMENT "copy PluginHdfs.txt"
 )

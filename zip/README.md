@@ -4,7 +4,9 @@ zip 是一种标准的压缩文件的格式。DolphinDB 的 zip 插件可以对 
 
 ## 编译构建
 
-### Linux
+插件源码中已包括[minizip](https://www.winimage.com/zLibDll/minizip.html)与[AES](https://github.com/BrianGladman/aes/tree/master)源码
+
+### Linux X86
 安装 CMake
 
 ```bash
@@ -20,7 +22,34 @@ cmake ..
 make -j
 ```
 
-编译后将生成 libPluginZip.so 文件。
+编译后将生成 libPluginZip.so 和 PluginZip.txt 文件。
+
+### Linux ARM64
+#### 编译依赖库 zlib-1.2.11
+下载 zlib-1.2.11 [https://github.com/madler/zlib/archive/refs/tags/v1.2.11.zip]
+
+解压 zlib-1.2.11.zip
+
+然后进行编译
+```bash
+CC=aarch64-linux-gnu-gcc-4.8 CFLAGS="-fPIC" ./configure  --prefix=/tmp/zlib
+make -j
+make install
+```
+拷贝依赖库到插件目录
+```bash
+cp /tmp/zlib/lib/libz.a /PATH_TO_PLUGIN_ZIP/lib/ARM64 #PATH_TO_PLUGIN_ZIP 为 zip 插件路径
+```
+
+编译插件
+```bash
+mkdir build
+cd build
+CXX=aarch64-linux-gnu-g++-4.8 CC=aarch64-linux-gnu-gcc-4.8 cmake .. -DBUILD_ARM=1
+make -j
+```
+
+编译后将生成 libPluginZip.so 和 PluginZip.txt 文件。
 
 
 ### WINDOWS

@@ -8,7 +8,9 @@
 #include <mongoc.h>
 #include "json.hpp"
 #include "cvt.h"
+#include "ddbplugin/PluginLoggerImp.h"
 using namespace std;
+using namespace ddb;
 
 string getBsonString(bson_type_t type){
     switch(type){
@@ -170,8 +172,9 @@ static void mongoConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
     delete (mongoConnection *)(args[0]->getLong());
 }
 
-ConstantSP mongodbClose(const ConstantSP &handle, const ConstantSP &b){
+ConstantSP mongodbClose(Heap *heap, vector<ConstantSP> &arguments){
     std::string usage = "Usage: close(conn). ";
+    ConstantSP handle = arguments[0];
     mongoConnection *cp = NULL;
     if (handle->getType() == DT_RESOURCE) {
         cp = (mongoConnection *)(handle->getLong());
@@ -214,7 +217,7 @@ ConstantSP mongodbConnect(Heap *heap, vector<ConstantSP> &args) {
     vector<char> descBuf(cup->str().size() + strlen(fmt));
     sprintf(descBuf.data(), fmt, cup->str().c_str());
     FunctionDefSP onClose(Util::createSystemProcedure("mogodb connection onClose()", mongoConnectionOnClose, 1, 1));
-    return Util::createResource((long long)cup.release(), descBuf.data(), onClose, heap->currentSession());
+    return Util::createResource((long long)cup.release(), descBuf.data(), onClose, heap);
 }
 
 ConstantSP mongodbLoad(Heap *heap, vector<ConstantSP> &arguments) {
@@ -1998,7 +2001,7 @@ ConstantSP mongodbParseJson(Heap *heap, vector<ConstantSP> &arguments)
         }
         else
         {
-            //cols[i] = InternalUtil::createArrayVector((DATA_TYPE)type, 0);
+            //cols[i] = Util::createArrayVector((DATA_TYPE)type, 0);
             switch (type - ARRAY_VECTOR_TYPE_BASE)
             {
             case DT_BOOL:
@@ -2248,7 +2251,7 @@ ConstantSP mongodbParseJson(Heap *heap, vector<ConstantSP> &arguments)
                 }
                 vector<ConstantSP> args{indexVec, vecValue};
                 try{
-                vec = heap->currentSession()->getFunctionDef("arrayVector")->call(heap, args);
+                vec = Util::getFuncDefFromHeap(heap, "arrayVector")->call(heap, args);
                 }catch(exception &e){
                     throw RuntimeException("Col " + originCol[colIndex] + " data fail to create arrrayVector." + e.what());
                 }

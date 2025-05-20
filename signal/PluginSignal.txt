@@ -1,21 +1,21 @@
-signal,libPluginSignal.so,3.00.2
-dct,dct,operator,1,1,0,1
-dst,dst,operator,1,1,0,1
-dwt,dwt,operator,1,1,0,0
-idwt,idwt,operator,2,2,0,1
-dctMap,dctMap,system,2,2,0,0
-dctNumMap,dctNumMap,system,1,1,0,0
-dctReduce,dctReduce,operator,2,2,0,0
-dctNumReduce,dctNumReduce,operator,2,2,0,0
-dctParallel,dctParallel,system,1,1,0,0
-fft,fft,system,1,3,0,1
-fft1,fft!,system,1,3,0,1
-ifft,ifft,system,1,3,0,1
-ifft1,ifft!,system,1,3,0,1
-fft2,fft2,system,1,3,0,0
-fft21,fft2!,system,1,3,0,0
-ifft2,ifft2,system,1,3,0,0
-ifft21,ifft2!,system,1,3,0,0
-secc,secc,system,3,5,0,0
-absFuc,abs,system,1,1,0,1
-mul,mul,system,2,2,0,1
+signal,libPluginSignal.so,3.00.3
+dct,dct,operator,1,1,0,1,(X)
+dst,dst,operator,1,1,0,1,(X)
+dwt,dwt,operator,1,2,0,0,(X)
+idwt,idwt,operator,2,2,0,1,(X,Y)
+dctMap,dctMap,system,2,2,0,0,(table, size)
+dctNumMap,dctNumMap,system,1,1,0,0,(table)
+dctReduce,dctReduce,operator,2,2,0,0,(mapRes1, mapRes2)
+dctNumReduce,dctNumReduce,operator,2,2,0,0,(mapRes1, mapRes2)
+dctParallel,dctParallel,system,1,1,0,0,(ds)
+fft,fft,system,1,3,0,1,(X, [n], [norm])
+fft1,fft!,system,1,3,0,1,(X, [n], [norm])
+ifft,ifft,system,1,3,0,1,(X, [n], [norm])
+ifft1,ifft!,system,1,3,0,1,(X, [n], [norm])
+fft2,fft2,system,1,3,0,0,(X, [s], [norm])
+fft21,fft2!,system,1,3,0,0,(X, [s], [norm])
+ifft2,ifft2,system,1,3,0,0,(X, [s], [norm])
+ifft21,ifft2!,system,1,3,0,0,(X, [s], [norm])
+secc,secc,system,3,5,0,0,(data, template, k, [moveout], [weight])
+absFuc,abs,system,1,1,0,1,(data)
+mul,mul,system,2,2,0,1,(data, num)

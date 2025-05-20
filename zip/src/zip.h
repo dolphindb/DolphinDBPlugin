@@ -1,10 +1,12 @@
 #ifndef ZIP_H_
 #define ZIP_H_
 
-
+#include "DolphinDBEverything.h"
 #include "Exceptions.h"
-#include "Logger.h"
 #include <string>
+#include "ddbplugin/PluginLogger.h"
+#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/Plugin.h"
 
 #if (!defined(_WIN32)) && (!defined(WIN32)) && (!defined(__APPLE__))
         #ifndef __USE_FILE_OFFSET64
@@ -36,6 +38,7 @@
 #include "CoreConcept.h"
 #include "ddbplugin/CommonInterface.h"
 #include "ScalarImp.h"
+#include "OperatorImp.h"
 #include "Util.h"
 
 #define FOPEN_FUNC(filename, mode) fopen64(filename, mode)
@@ -53,12 +56,12 @@
 
 static string ZIP_PREFIX = "[PLUGIN::ZIP] ";
 
-extern "C" ConstantSP unzip(Heap* heap, vector<ConstantSP>& args);
-extern "C" ConstantSP zip(Heap* heap, vector<ConstantSP>& args);
+using argsT = std::vector<ddb::ConstantSP>;
 
-namespace OperatorImp{
-    ConstantSP convertEncode(Heap* heap, vector<ConstantSP>& arguments);
-}
+extern "C" ddb::ConstantSP unzip(ddb::Heap* heap, argsT &args);
+extern "C" ddb::ConstantSP zip(ddb::Heap* heap, argsT &args);
+
+namespace ddb {
 
 enum class zipEncode {DEFAULT, UTF8, GBK};
 
@@ -114,7 +117,7 @@ void change_file_date(const char *filename, uLong dosdate, tm_unz tmu_date)
 //   buffer = (char*)malloc(len+1);
 //         if (buffer==NULL)
 //         {
-//                 LOG_ERR("Error allocating memory\n");
+//                 PLUGIN_LOG_ERR(ZIP_PREFIX, "Error allocating memory\n");
 //                 return UNZ_INTERNALERROR;
 //         }
 //   strcpy(buffer,newdir);
@@ -139,7 +142,7 @@ void change_file_date(const char *filename, uLong dosdate, tm_unz tmu_date)
 //       *p = 0;
 //       if ((mymkdir(buffer) == -1) && (errno == ENOENT))
 //         {
-//           LOG_ERR("couldn't create directory %s\n",buffer);
+//           PLUGIN_LOG_ERR(ZIP_PREFIX, "couldn't create directory %s\n",buffer);
 //           free(buffer);
 //           return 0;
 //         }
@@ -158,14 +161,14 @@ int getFilenames(unzFile uf, vector<string>& filenames){
 
     err = unzGetGlobalInfo64(uf,&gi);
     if (err != UNZ_OK)
-        LOG_ERR("error %d with zipfile in unzGetGlobalInfo \n",err);
+        throw RuntimeException(ZIP_PREFIX + "error " + std::to_string(err) + " with zipfile in unzGetGlobalInfo");
     for (i = 0; i < gi.number_entry; i++)
     {
         char filename_inzip[256];
         err = unzGetCurrentFileInfo64(uf, 0, filename_inzip, sizeof(filename_inzip), NULL, 0, NULL, 0);
         if (err!=UNZ_OK)
         {
-            LOG_ERR("error %d with zipfile in unzGetCurrentFileInfo\n",err);
+            throw RuntimeException(ZIP_PREFIX + "error " + std::to_string(err) + " with zipfile in unzGetCurrentFileInfo");
             break;
         }
         string str = filename_inzip;
@@ -177,7 +180,7 @@ int getFilenames(unzFile uf, vector<string>& filenames){
             err = unzGoToNextFile(uf);
             if (err != UNZ_OK)
             {
-                LOG_ERR("error %d with zipfile in unzGoToNextFile\n",err);
+                throw RuntimeException(ZIP_PREFIX + "error " + std::to_string(err) + " with zipfile in unzGoToNextFile");
                 break;
             }
         }
@@ -202,9 +205,13 @@ int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, con
     char* filename_withoutpath;
     char* p;
     int err=UNZ_OK;
+    vector<char> buf(WRITEBUFFERSIZE);
     FILE *fout=NULL;
-    void* buf;
-    uInt size_buf;
+    PluginDefer defer([&fout](){
+        if(fout != NULL) {
+            fclose(fout);
+        }
+    });
 
     unz_file_info64 file_info;
     err = unzGetCurrentFileInfo64(uf,&file_info,filename_inzip,sizeof(filename_inzip),NULL,0,NULL,0);
@@ -225,16 +232,8 @@ int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, con
 
     if (err!=UNZ_OK)
     {
-        LOG_ERR(ZIP_PREFIX, "error ", err, " with zipfile in unzGetCurrentFileInfo\n");
+        throw RuntimeException(ZIP_PREFIX + "error " + std::to_string(err) + " with zipfile in unzGetCurrentFileInfo");
         return err;
-    }
-
-    size_buf = WRITEBUFFERSIZE;
-    buf = (void*)malloc(size_buf);
-    if (buf==NULL)
-    {
-        LOG_ERR(ZIP_PREFIX, "Error allocating memory\n");
-        return UNZ_INTERNALERROR;
     }
 
     p = filename_withoutpath = filename_inzip;
@@ -248,10 +247,10 @@ int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, con
     {
         if ((*popt_extract_without_path)==0)
         {
-            // LOG_ERR("creating directory: %s\n",filename_inzip);
+            // PLUGIN_LOG_ERR(ZIP_PREFIX, "creating directory: %s\n",filename_inzip);
             // mymkdir(filename_inzip);
             string fileName = outputPath + filename_inzip;
-            // LOG_ERR("creating directory: %s\n",fileName.c_str()); // memo: creating directory
+            // PLUGIN_LOG_ERR(ZIP_PREFIX, "creating directory: %s\n",fileName.c_str()); // memo: creating directory
             string errMsg;
         #ifdef WIN32
             fileName = Util::replace(fileName, "/", "\\");
@@ -261,7 +260,7 @@ int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, con
             // mymkdir(fileName.c_str());
             Util::createDirectoryRecursive(fileName, errMsg);
             if(errMsg.size() != 0) {
-                LOG_ERR(ZIP_PREFIX, errMsg);
+                throw RuntimeException(ZIP_PREFIX + errMsg);
             }
         }
     }
@@ -278,7 +277,7 @@ int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, con
         err = unzOpenCurrentFilePassword(uf,password);
         if (err!=UNZ_OK)
         {
-            LOG_ERR(ZIP_PREFIX, "error ", err, " with zipfile in unzOpenCurrentFilePassword\n");
+            throw RuntimeException(ZIP_PREFIX + "error " + std::to_string(err) + " with zipfile in unzOpenCurrentFilePassword");
         }
 
         if ((skip==0) && (err==UNZ_OK))
@@ -306,7 +305,7 @@ int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, con
                 // makedir(write_filename.c_str());
                 Util::createDirectoryRecursive(write_filename, errMsg);
                 if(errMsg.size() != 0) {
-                    LOG_ERR(ZIP_PREFIX, errMsg);
+                    throw RuntimeException(ZIP_PREFIX + errMsg);
                 }
                 *(filename_withoutpath-1)=c;
                 //fout=Util::fopen(write_filename,"wb");
@@ -321,52 +320,33 @@ int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, con
 
             if (fout==NULL)
             {
-                LOG_ERR(ZIP_PREFIX, "error opening ", write_filename);
+                throw RuntimeException(ZIP_PREFIX + "Failed to open file: " + write_filename);
             }
         }
 
-        if (fout!=NULL)
+        do
         {
-            // LOG_ERR(" extracting: %s\n",write_filename);
-            // LOG_ERR("        extracting: %s\n",write_filename.c_str()); // memo: extracting
-            do
-            {
-                err = unzReadCurrentFile(uf,buf,size_buf);
-                if (err<0)
-                {
-                    LOG_ERR(ZIP_PREFIX, "error", err, "with zipfile in unzReadCurrentFile\n");
-                    break;
-                }
-                if (err>0)
-                    if (fwrite(buf,(unsigned)err,1,fout)!=1)
-                    {
-                        LOG_ERR(ZIP_PREFIX, "error in writing extracted file\n");
-                        err=UNZ_ERRNO;
-                        break;
-                    }
+            err = unzReadCurrentFile(uf, buf.data(), WRITEBUFFERSIZE);
+            if (err<0){
+                throw RuntimeException(ZIP_PREFIX + "error " + std::to_string(err) + " with zipfile in unzReadCurrentFile");
             }
-            while (err>0);
-            if (fout)
-                    fclose(fout);
-
-            if (err==0)
-                change_file_date(write_filename.c_str(),file_info.dosDate,
-                                 file_info.tmu_date);
+            if (err>0)
+                if (fwrite(buf.data(), (unsigned)err, 1, fout)!=1)
+                {
+                    throw RuntimeException(ZIP_PREFIX + "error in writing extracted file");
+                }
         }
+        while (err>0);
+
+        if (err==0)
+            change_file_date(write_filename.c_str(),file_info.dosDate,
+                                file_info.tmu_date);
 
         if (err==UNZ_OK)
         {
             err = unzCloseCurrentFile (uf);
-            if (err!=UNZ_OK)
-            {
-                LOG_ERR(ZIP_PREFIX, "error", err, "with zipfile in unzCloseCurrentFile\n");
-            }
         }
-        else
-            unzCloseCurrentFile(uf); /* don't lose the error */
     }
-
-    free(buf);
     return err;
 }
 
@@ -404,14 +384,14 @@ int do_extract(unzFile uf, int opt_extract_without_path, const char* password,
             if (abPath.back() != '\\') {
                 ConstantSP arg = Util::createConstant(DT_STRING);
                 arg->setString(abPath);
-                vector<ConstantSP> args = {arg};
+                argsT args = {arg};
                 function->call(heap, args);
             }
         #else
             if (abPath.back() != '/') {
                 ConstantSP arg = Util::createConstant(DT_STRING);
                 arg->setString(abPath);
-                vector<ConstantSP> args = {arg};
+                argsT args = {arg};
                 function->call(heap, args);
             }
         #endif
@@ -430,5 +410,6 @@ int do_extract(unzFile uf, int opt_extract_without_path, const char* password,
     return 0;
 }
 
+} // namespace ddb
 
 #endif // ZIP_H_

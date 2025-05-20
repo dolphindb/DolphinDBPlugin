@@ -45,7 +45,7 @@ make install
 wget https://www.openssl.org/source/old/1.0.2/openssl-1.0.2u.tar.gz
 tar -xzf openssl-1.0.2u.tar.gz
 cd openssl-1.0.2u
-./config shared --prefix=/tmp/ssl -fPIC
+./config shared --prefix=/tmp/ssl1.1.1 -fPIC
 make
 make install
 ```
@@ -67,8 +67,8 @@ make install
 wget http://www.zlib.net/zlib-1.2.11.tar.gz
 tar -zxf zlib-1.2.11.tar.gz
 cd zlib-1.2.11
-CFLAGS="-fPIC" ./configure  --prefix=/tmp/zlib 
-make 
+CFLAGS="-fPIC" ./configure  --prefix=/tmp/zlib
+make
 make install
 ```
 

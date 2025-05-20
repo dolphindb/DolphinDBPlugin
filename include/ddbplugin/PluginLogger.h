@@ -1,36 +1,36 @@
+#ifndef PLUGIN_LOGGER_H
+#define PLUGIN_LOGGER_H
 
-#pragma once
+#include <cstdarg>
+
+#ifdef __linux__
+#ifndef LINUX
+#define LINUX
+#endif
+#elif defined(_WIN32)
+#ifndef WINDOWS
+#define WINDOWS
+#endif
+#endif
 
 #include "Logger.h"
 
-extern Logger log_inst;
+#undef LINUX
+#undef WINDOWS
 
-enum class PluginSeverityType { DEBUG = 0, INFO, WARNING, ERR };
+extern ddb::severity_type PLUGIN_LOG_LEVEL;  // defined in PluginLoggerImp.h
+namespace ddb {
+    template<severity_type level, typename... Args>
+    inline void pluginLog(Args... args) {
+        if (PLUGIN_LOG_LEVEL <= level) {
+            log_inst.print<level>(args...);
+        }
+    }
+}
 
-extern PluginSeverityType PLUGIN_LOG_LEVEL;  // defined in PluginLoggerImp.h
+#define PLUGIN_LOG(...) ddb::pluginLog<ddb::severity_type::DEBUG>(__VA_ARGS__)
+#define PLUGIN_LOG_INFO(...) ddb::pluginLog<ddb::severity_type::INFO>(__VA_ARGS__)
+#define PLUGIN_LOG_WARN(...) ddb::pluginLog<ddb::severity_type::WARNING>(__VA_ARGS__)
+#define PLUGIN_LOG_ERR(...) ddb::pluginLog<ddb::severity_type::ERR>(__VA_ARGS__)
 
-#define PLUGIN_LOG(...)                                        \
-    do {                                                       \
-        if (PLUGIN_LOG_LEVEL <= PluginSeverityType::DEBUG) {   \
-            log_inst.print<severity_type::DEBUG>(__VA_ARGS__); \
-        }                                                      \
-    } while (0)
-
-#define PLUGIN_LOG_INFO(...)                                  \
-    do {                                                      \
-        if (PLUGIN_LOG_LEVEL <= PluginSeverityType::INFO) {   \
-            log_inst.print<severity_type::INFO>(__VA_ARGS__); \
-        }                                                     \
-    } while (0)
-
-#define PLUGIN_LOG_WARN(...)                                     \
-    do {                                                         \
-        if (PLUGIN_LOG_LEVEL <= PluginSeverityType::WARNING) {   \
-            log_inst.print<severity_type::WARNING>(__VA_ARGS__); \
-        }                                                        \
-    } while (0)
-
-#define PLUGIN_LOG_ERR(...)                              \
-    do {                                                 \
-        log_inst.print<severity_type::ERR>(__VA_ARGS__); \
-    } while (0)
+#endif

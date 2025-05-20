@@ -1,9 +1,9 @@
-hdf5,libPluginHdf5.dll,3.00.2
-h5ls,ls,operator,1,1,0
-h5lsTable,lsTable,operator,1,1,0
-extractHDF5Schema,extractHDF5Schema,operator,2,2,0
-loadHDF5,loadHDF5,system,2,5,0
-loadPandasHDF5,loadPandasHDF5,system,2,5,0
-loadHDF5Ex,loadHDF5Ex,system,5,9,0
-HDF5DS,HDF5DS,system,2,4,0
-saveHDF5,saveHDF5,system,3,5,0
+hdf5,libPluginHdf5.dll,3.00.3
+h5ls,ls,system,1,1,0,0,(fileName)
+h5lsTable,lsTable,system,1,1,0,0,(fileName)
+extractHDF5Schema,extractHDF5Schema,system,2,2,0,0,(fileName,datasetName)
+loadHDF5,loadHDF5,system,2,5,0,0,(fileName,datasetName,[schema],[startRow],[rowNum])
+loadPandasHDF5,loadPandasHDF5,system,2,5,0,0,(fileName,groupName,[schema],[startRow],[rowNum])
+loadHDF5Ex,loadHDF5Ex,system,5,9,0,0,(dbHandle, tableName, partitionColumns, fileName, datasetName, [schema], [startRow], [rowNum], [transform])
+HDF5DS,HDF5DS,system,2,4,0,0,(fileName,datasetName,[schema],[chunkSize=1])
+saveHDF5,saveHDF5,system,3,5,0,0,(table, fileName, datasetName, [append=false], [maxStringLength=16])

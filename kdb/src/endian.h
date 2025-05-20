@@ -4,6 +4,7 @@
 #include <type_traits>
 #include <memory>
 #include <algorithm>
+#include <array>
 
 //////////////////////////////////////////////////////////////////////
 //NOTE: std::is_trivially_copyable & std::is_trivially_constructible, etc.

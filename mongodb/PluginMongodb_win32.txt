@@ -1,7 +1,7 @@
-mongodb,libPluginMongodb.dll,3.00.2
-mongodbConnect,connect,system,4,5,0
-mongodbLoad,load,system,4,5,0
-mongodbAggregate,aggregate,system,4,5,0
-mongodbClose,close,operator,1,1,0
-mongodbParseJson,parseJson,system,4,4,0
-mongodbGetCollections,getCollections,system,1,2,0
+mongodb,libPluginMongodb.dll,3.00.3
+mongodbConnect,connect,system,4,5,0,0,(host, port, user, password, [db])
+mongodbLoad,load,system,4,5,0,0,(conn, collectionName, query, findOptions, [schema])
+mongodbAggregate,aggregate,system,4,5,0,0,(conn, collectionName, pipeline, aggregateOptions, [schema])
+mongodbClose,close,system,1,1,0,0,(conn)
+mongodbParseJson,parseJson,system,4,4,0,0,(jsonStrings, keys, colNames, colTypes)
+mongodbGetCollections,getCollections,system,1,2,0,0,(conn, [databaseName])

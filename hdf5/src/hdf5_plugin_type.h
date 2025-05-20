@@ -8,6 +8,8 @@
 #include <hdf5_plugin_obj.h>
 #include <hdf5_plugin_util.h>
 
+using namespace ddb;
+
 namespace H5PluginImp {
 class TypeColumn;
 class H5DataType;
@@ -154,6 +156,7 @@ class SymbolColumn : public StringColumn {
   private:
     FlatHashmap<long long, string> enumMap_;
     FlatHashmap<long long, int> symbolMap_;
+    vector<string> dataVec_;
     int baseSize_;
 };
 

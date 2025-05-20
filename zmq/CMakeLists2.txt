@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.13)
+
+project(PluginZmq)
+
+include(../template.cmake)
+CreatePlugin(${CMAKE_PROJECT_NAME})

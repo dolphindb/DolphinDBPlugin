@@ -10,6 +10,7 @@
 #include <Types.h>
 #include <Util.h>
 
+using namespace ddb;
 namespace protobufCoder {
 
 enum {

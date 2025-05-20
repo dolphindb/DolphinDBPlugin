@@ -149,7 +149,7 @@ void NsqConnection::subscribeOrCancel(const string &dataType, const string &mark
             else ret = api_->ReqSecuDepthMarketDataSubscribe(reqFieldSub, nCount, nRequestID_++);
         } else {
 
-            char cTransType;
+            char cTransType = '\0';
             if (dataType == nsqUtil::TRADE) { cTransType = HS_TRANS_Trade; }
             else if (dataType == nsqUtil::ENTRUST || dataType == nsqUtil::ENTRUST_220105) { cTransType = HS_TRANS_Entrust; }
 

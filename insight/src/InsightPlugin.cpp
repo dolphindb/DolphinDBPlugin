@@ -19,6 +19,7 @@
 #include "ddbplugin/Plugin.h"
 #include "mdc_client_factory.h"
 #include "parameter_define.h"
+#include "ddbplugin/PluginLogger.h"
 
 using namespace std;
 using namespace com::htsc::mdc::gateway;
@@ -56,7 +57,7 @@ static const unordered_set<string> DATA_VERSION_SET = {"3.2.8", "3.2.11"};
 
 static const string INSIGHT_KEY_NAME = "Insight_handle";
 static MarketTypeContainer<> TYPE_CONTAINER;
-static dolphindb::BackgroundResourceMap<TcpClient> INSIGHT_HANDLE_MAP(PLUGIN_INSIGHT_PREFIX, "Insight_client");
+static ddb::BackgroundResourceMap<TcpClient> INSIGHT_HANDLE_MAP(PLUGIN_INSIGHT_PREFIX, "Insight_client");
 
 class TcpClient {
   public:
@@ -69,7 +70,7 @@ class TcpClient {
                 throw RuntimeException("handle must be registered before login. ");
             }
             init_env();
-            dolphindb::PluginDefer df1([&]() {
+            ddb::PluginDefer df1([&]() {
                 if (!login_) {
                     ClientFactory::Uninstance();
                     insightHandle_ = nullptr;
@@ -107,7 +108,7 @@ class TcpClient {
     }
     ~TcpClient() {
         close();
-        LOG_INFO(PLUGIN_INSIGHT_PREFIX, "client has been released. ");
+        PLUGIN_LOG_INFO(PLUGIN_INSIGHT_PREFIX, "client has been released. ");
     }
     TableSP getSchema(const string &type) { return insightHandle_->getSchema(type); }
     TableSP getStatus() { return insightHandle_->getStatus(); }
@@ -119,7 +120,7 @@ class TcpClient {
             try {
                 ClientFactory::Uninstance();
             } catch (exception &e) {
-                LOG_ERR(PLUGIN_INSIGHT_PREFIX + "failed to logout: " + e.what());
+                PLUGIN_LOG_ERR(PLUGIN_INSIGHT_PREFIX + "failed to logout: " + e.what());
             }
             clientInterface_ = nullptr;
             insightHandle_ = nullptr;
@@ -195,7 +196,7 @@ class TcpClient {
                 for (auto &sourceType : sourceTypeVec_) {
                     int ret = clientInterface_->SubscribeBySourceType(actionType, sourceType.get());
                     if (ret != 0) {
-                        LOG_ERR(PLUGIN_INSIGHT_PREFIX, "unsubscribe failed due to ", get_error_code_value(ret));
+                        PLUGIN_LOG_ERR(PLUGIN_INSIGHT_PREFIX, "unsubscribe failed due to ", get_error_code_value(ret));
                     }
                 }
             } catch (exception &e) {
@@ -215,11 +216,11 @@ class TcpClient {
             logout();
             fini_env();
         } catch (RuntimeException &e) {
-            LOG_WARN(e.what());
+            PLUGIN_LOG_WARN(e.what());
         } catch (exception &e) {
-            LOG_WARN(PLUGIN_INSIGHT_PREFIX + e.what());
+            PLUGIN_LOG_WARN(PLUGIN_INSIGHT_PREFIX + e.what());
         } catch (...) {
-            LOG_WARN(PLUGIN_INSIGHT_PREFIX + "error occurs in tcpClient destruction");
+            PLUGIN_LOG_WARN(PLUGIN_INSIGHT_PREFIX + "error occurs in tcpClient destruction");
         }
     }
 
@@ -242,19 +243,19 @@ static void tcpOnClose(Heap *heap, vector<ConstantSP> &arguments) {
 static void registHandleArgumentValidation(vector<ConstantSP> &arguments, DictionarySP &handles,
                                            int &workPoolThreadCount, const string &usage) {
     if (arguments[0]->getForm() != DF_DICTIONARY)
-        throw IllegalArgumentException(__FUNCTION__, usage + "handles must be a dictionary");
+        throw IllegalArgumentException(__FUNCTION__, usage + "outputDict must be a dictionary");
     handles = arguments[0];
     VectorSP keys = handles->keys();
     VectorSP values = handles->values();
     for (int i = 0; i < handles->size(); ++i) {
         ConstantSP type = keys->get(i);
         if (type->getType() != DT_STRING)
-            throw IllegalArgumentException(__FUNCTION__, usage + "key of handles must be string");
+            throw IllegalArgumentException(__FUNCTION__, usage + "key of outputDict must be string");
         std::string str = type->getString();
         if (TYPE_SET.find(str) == TYPE_SET.end()) {
             throw IllegalArgumentException(__FUNCTION__,
                                            usage +
-                                               "key of handles must be one of 'StockTick', 'IndexTick', "
+                                               "key of outputDict must be one of 'StockTick', 'IndexTick', "
                                                "'FundTick', 'BondTick', 'OptionTick', "
                                                "'FuturesTick', 'OrderTransaction', 'Transaction' and 'Order'");
         }
@@ -263,18 +264,18 @@ static void registHandleArgumentValidation(vector<ConstantSP> &arguments, Dictio
     workPoolThreadCount = 5;
     if (arguments.size() > 5 && !arguments[5]->isNull()) {
         if (arguments[5]->getCategory() != INTEGRAL || arguments[5]->getForm() != DF_SCALAR) {
-            throw IllegalArgumentException(__FUNCTION__, usage + "workPoolThreadCount must be integral");
+            throw IllegalArgumentException(__FUNCTION__, usage + "workerNum must be an integer scalar");
         }
         workPoolThreadCount = arguments[5]->getInt();
         if (workPoolThreadCount <= 0 || workPoolThreadCount > 32767) {
             throw IllegalArgumentException(__FUNCTION__,
-                                           usage + "workPoolThreadCount should more than 0 and less than 32767");
+                                           usage + "workerNum should be more than 0 and less than 32767");
         }
     }
 }
 void retrieveOption(ConstantSP option, const string &usage, bool &receivedTime, bool &outputElapsed) {
     if (option->getForm() != DF_DICTIONARY) {
-        throw IllegalArgumentException("insight::connect", usage + "options must be a dictionary");
+        throw IllegalArgumentException("insight::connect", usage + "option must be a dictionary");
     }
     DictionarySP options = option;
     VectorSP keys = options->keys();
@@ -282,17 +283,17 @@ void retrieveOption(ConstantSP option, const string &usage, bool &receivedTime, 
     for (int i = 0; i < options->size(); ++i) {
         ConstantSP key = keys->get(i);
         if (key->getType() != DT_STRING)
-            throw IllegalArgumentException("insight::connect", usage + "key type of options must be string");
+            throw IllegalArgumentException("insight::connect", usage + "key type of option must be string");
         string str = key->getString();
         if (OPTION_SET.count(str) == 0)
             throw IllegalArgumentException("insight::connect",
-                                           usage + "key of options must be 'ReceivedTime' or 'OutputElapsed'");
+                                           usage + "key of option must be 'ReceivedTime' or 'OutputElapsed'");
     }
     ConstantSP value = options->getMember("ReceivedTime");
     if (!value->isNull()) {
         if (value->getType() != DT_BOOL || value->getForm() != DF_SCALAR) {
             throw IllegalArgumentException(
-                "insight::connect", usage + "value type of key 'ReceivedTime' in options must be boolean scalar");
+                "insight::connect", usage + "value type of key 'ReceivedTime' in option must be boolean scalar");
         }
         receivedTime = value->getBool();
     }
@@ -300,7 +301,7 @@ void retrieveOption(ConstantSP option, const string &usage, bool &receivedTime, 
     if (!value->isNull()) {
         if (value->getType() != DT_BOOL || value->getForm() != DF_SCALAR) {
             throw IllegalArgumentException(
-                "insight::connect", usage + "value type of key 'OutputElapsed' in options must be boolean scalar");
+                "insight::connect", usage + "value type of key 'OutputElapsed' in option must be boolean scalar");
         }
         outputElapsed = value->getBool();
     }
@@ -308,7 +309,7 @@ void retrieveOption(ConstantSP option, const string &usage, bool &receivedTime, 
 
 ConstantSP connectInsight(Heap *heap, vector<ConstantSP> &arguments) {
     string usage =
-        "insight::connect(handles, ip, port, user, password, [workPoolThreadCount=5], [options], "
+        "insight::connect(outputDict, host, port, username, password, [workerNum=5], [option], "
         "[seqCheckMode=1], [certDirPath], [dataVersion='3.2.8'], [backupList]) ";
     LockGuard<Mutex> lock(&TcpClient::TCP_CLIENT_LOCK);
 
@@ -317,7 +318,7 @@ ConstantSP connectInsight(Heap *heap, vector<ConstantSP> &arguments) {
     registHandleArgumentValidation(arguments, handles, workPoolThreadCount, usage);
 
     if (arguments[1]->getType() != DT_STRING || arguments[1]->getForm() != DF_SCALAR) {
-        throw IllegalArgumentException("insight::connect", usage + "ip must be a string");
+        throw IllegalArgumentException("insight::connect", usage + "host must be a string");
     }
     string ip = arguments[1]->getString();
 
@@ -327,7 +328,7 @@ ConstantSP connectInsight(Heap *heap, vector<ConstantSP> &arguments) {
     int port = arguments[2]->getInt();
 
     if (arguments[3]->getType() != DT_STRING || arguments[3]->getForm() != DF_SCALAR) {
-        throw IllegalArgumentException("insight::connect", usage + "user must be a string");
+        throw IllegalArgumentException("insight::connect", usage + "username must be a string");
     }
     string user = arguments[3]->getString();
 
@@ -375,7 +376,7 @@ ConstantSP connectInsight(Heap *heap, vector<ConstantSP> &arguments) {
     if (certDirPath == "") {
         string certInServer = Util::EXEC_DIR + "/cert";
         vector<ConstantSP> getConfigArgs{new String("pluginDir")};
-        string pluginDir = heap->currentSession()->getFunctionDef("getConfig")->call(heap, getConfigArgs)->getString();
+        string pluginDir = Util::getFuncDefFromHeap(heap, "getConfig")->call(heap, getConfigArgs)->getString();
 
         if(!Util::isAbosultePath(pluginDir)){
             if(Util::existsDir(Util::HOME_DIR + "/" + pluginDir))
@@ -441,7 +442,7 @@ ConstantSP connectInsight(Heap *heap, vector<ConstantSP> &arguments) {
     }
 
     if (INSIGHT_HANDLE_MAP.size() == 1) {
-        LOG_WARN(PLUGIN_INSIGHT_PREFIX +
+        PLUGIN_LOG_WARN(PLUGIN_INSIGHT_PREFIX +
                  "insight connect handle already exists, connect function returns the existed handle");
         return INSIGHT_HANDLE_MAP.getHandleByName(INSIGHT_KEY_NAME);
     }
@@ -457,7 +458,7 @@ ConstantSP connectInsight(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 void subscribe(Heap *heap, vector<ConstantSP> &arguments) {
-    string usage = "insight::subscribe(tcpClient, marketDataTypes, securityIDSource, securityType) ";
+    string usage = "insight::subscribe(handle, marketDataTypes, securityIDSource, securityType) ";
     LockGuard<Mutex> lock(&TcpClient::TCP_CLIENT_LOCK);
     TcpClientSP client = INSIGHT_HANDLE_MAP.safeGet(arguments[0]);
 
@@ -491,10 +492,10 @@ void closeInsight(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP getSchema(Heap *heap, vector<ConstantSP> &arguments) {
-    string usage = "insight::getSchema(type, [options], [dataVersion='3.2.8']) ";
+    string usage = "insight::getSchema(dataType, [option], [dataVersion='3.2.8']) ";
     LockGuard<Mutex> lock(&TcpClient::TCP_CLIENT_LOCK);
     if (arguments[0]->getType() != DT_STRING) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "type must be a string");
+        throw IllegalArgumentException(__FUNCTION__, usage + "dataType must be a string scalar");
     }
     bool receivedTime = true;
     bool outputElapsed = false;

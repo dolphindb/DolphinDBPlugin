@@ -12,6 +12,13 @@
 #include <hdf5_hl.h>
 #include <blosc_filter.h>
 #include <list>
+#include "ddbplugin/Plugin.h"
+#include "ddbplugin/PluginLogger.h"
+
+using ddb::ConstantSP;
+using ddb::Heap;
+using ddb::SmartPointer;
+using std::vector;
 
 namespace H5PluginImp
 {
@@ -43,7 +50,7 @@ class DatasetAppendRunner : public Runnable
       try {
         append();
       } catch (...) {
-        LOG_ERR(HDF5_LOG_PREFIX + "Error occurred when append data.");
+        PLUGIN_LOG_ERR(HDF5_LOG_PREFIX + "Error occurred when append data.");
       }
     }
     virtual void append(){};
@@ -235,7 +242,7 @@ TableSP h5read(const string &h5_path, const string &dataset_name, TableSP tb);
 void h5lsTable(const string &filename, vector<string> &datasetName, vector<string> &datasetDims, vector<string> &dataType);
 TableSP extractHDF5Schema(const string &filename, const string &datasetName);
 ConstantSP loadHDF5(const string &filename, const string &datasetName, const ConstantSP &schema, size_t startRow, size_t rowNum);
-ConstantSP loadHDF5Ex(Heap* heap, const SystemHandleSP &db, const string &tableName, const ConstantSP &partitionColumnNames, const string &filename,
+ConstantSP loadHDF5Ex(Heap* heap, DBHandleWrapper &db, const string &tableName, const ConstantSP &partitionColumnNames, const string &filename,
                       const string &datasetName, const TableSP &schema,size_t startRow, size_t rowNum, const FunctionDefSP &transform=nullSP);
 ConstantSP HDF5DS(const ConstantSP &filename, const ConstantSP &datasetName, const ConstantSP &schema, size_t dsNum);
 ConstantSP saveHDF5(const TableSP &table, const string &fileName, const string &datasetName, bool append, unsigned stringMaxLength);
@@ -253,8 +260,8 @@ const char *getHdf5NativeTypeStr(H5DataType &type);
 
 TableSP readSimpleDataset(const hid_t set, H5DataType &type, const TableSP& tb, size_t startRow, size_t readRowNum, GroupInfo &groupInfo);
 TableSP readComplexDataset(const hid_t set, H5DataType &type, const TableSP& tb, size_t startRow, size_t readRowNum, GroupInfo &groupInfo);
-template <typename T>
-void getGroupAttribute(const H5::Group& group, const string& attribute, T* value);
+
+void getGroupAttribute(const H5::Group& group, const string& attribute, long long* value);
 void getGroupAttribute(const H5::Group& group, const string& attribute, string& value);
 void getDataSetAttribute(const H5::DataSet& dataset, const string& attribute, string& value);
 void getRowAndColNum(const hid_t set, vector<size_t> &rowAndColNum);

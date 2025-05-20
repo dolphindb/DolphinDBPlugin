@@ -1,3 +1,4 @@
+#include "stream.h"
 #include <Exceptions.h>
 #include <ScalarImp.h>
 #include <Util.h>
@@ -5,9 +6,10 @@
 #include <unordered_map>
 #include "mseed.h"
 #include "libmseed.h"
-#include "stream.h"
 #include "parser.h"
 #include "msrcode.h"
+
+using namespace ddb;
 
 extern "C" ConstantSP mseedStreamize(Heap *heap, vector<ConstantSP> &args) {
     if (args[0]->getType() == DT_VOID || args[0]->getForm() != DF_TABLE) {

@@ -7,10 +7,12 @@
 
 
 #include <ddbplugin/ThreadedQueue.h>
+
 #include "HSNsqStruct.h"
 
 #include "PluginUtil.h"
 
+using namespace ddb;
 using namespace pluginUtil;
 
 const string NSQ_PREFIX = "[PLUGIN::NSQ] ";

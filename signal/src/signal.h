@@ -8,28 +8,34 @@
 
 #ifndef SIGNAL_H_
 #define SIGNAL_H_
+#include "DolphinDBEverything.h"
 #include "CoreConcept.h"
 #include "ddbplugin/CommonInterface.h"
+#include "ddbplugin/PluginLoggerImp.h"
 
-extern "C" ConstantSP dct(const ConstantSP &a, const ConstantSP &b);  //离散余弦变换(DCT-II)
-extern "C" ConstantSP dst(const ConstantSP &a, const ConstantSP &b);  //离散正弦变换(DST-I)
-extern "C" ConstantSP dwt(const ConstantSP &a, const ConstantSP &b);  //一维离散小波变换(DWT)
-extern "C" ConstantSP idwt(const ConstantSP &a, const ConstantSP &b); //一维离散小波逆变换(IDWT)
-extern "C" ConstantSP dctMap(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP dctReduce(const ConstantSP &mapRes1, const ConstantSP &mapRes2);
-extern "C" ConstantSP dctNumMap(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP dctNumReduce(const ConstantSP &mapRes1, const ConstantSP &mapRes2);
-extern "C" ConstantSP dctParallel(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP fft(Heap *heap, vector<ConstantSP> &args); //1-D fast discrete Fourier Transform.
-extern "C" ConstantSP fft1(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP ifft(Heap *heap, vector<ConstantSP> &args); //1-D inverse fast discrete Fourier Transform.
-extern "C" ConstantSP ifft1(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP fft2(Heap *heap, vector<ConstantSP> &args); //2-D fast discrete Fourier Transform.
-extern "C" ConstantSP fft21(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP ifft2(Heap *heap, vector<ConstantSP> &args); //2-D inverse fast discrete Fourier Transform.
-extern "C" ConstantSP ifft21(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP secc(Heap *heap, vector<ConstantSP> &args); //Super-Efficient Cross-Correlation of seismic waveforms
-extern "C" ConstantSP absFuc(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP mul(Heap *heap, vector<ConstantSP> &args);
+extern "C" {
+
+ddb::ConstantSP dct(const ddb::ConstantSP &a, const ddb::ConstantSP &b);  //离散余弦变换(DCT-II)
+ddb::ConstantSP dst(const ddb::ConstantSP &a, const ddb::ConstantSP &b);  //离散正弦变换(DST-I)
+ddb::ConstantSP dwt(const ddb::ConstantSP &a, const ddb::ConstantSP &b);  //一维离散小波变换(DWT)
+ddb::ConstantSP idwt(const ddb::ConstantSP &a, const ddb::ConstantSP &b); //一维离散小波逆变换(IDWT)
+ddb::ConstantSP dctMap(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP dctReduce(const ddb::ConstantSP &mapRes1, const ddb::ConstantSP &mapRes2);
+ddb::ConstantSP dctNumMap(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP dctNumReduce(const ddb::ConstantSP &mapRes1, const ddb::ConstantSP &mapRes2);
+ddb::ConstantSP dctParallel(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP fft(ddb::Heap *heap, argsT &args); //1-D fast discrete Fourier Transform.
+ddb::ConstantSP fft1(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP ifft(ddb::Heap *heap, argsT &args); //1-D inverse fast discrete Fourier Transform.
+ddb::ConstantSP ifft1(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP fft2(ddb::Heap *heap, argsT &args); //2-D fast discrete Fourier Transform.
+ddb::ConstantSP fft21(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP ifft2(ddb::Heap *heap, argsT &args); //2-D inverse fast discrete Fourier Transform.
+ddb::ConstantSP ifft21(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP secc(ddb::Heap *heap, argsT &args); //Super-Efficient Cross-Correlation of seismic waveforms
+ddb::ConstantSP absFuc(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP mul(ddb::Heap *heap, argsT &args);
+
+}
 
 #endif /* SIGNAL_H_ */

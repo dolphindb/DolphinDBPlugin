@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "DolphinDBEverything.h"
 #include <CoreConcept.h>
 
 #include "k.h"

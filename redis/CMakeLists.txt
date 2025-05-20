@@ -1,6 +1,5 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.13)
 project(Redis)
-add_definitions(-DLOCKFREE_SYMBASE)
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
@@ -12,8 +11,23 @@ if (WIN32)
 elseif (UNIX)
     set (platform_macro "-DLINUX")
     set(plugin_file "${CMAKE_CURRENT_LIST_DIR}/PluginRedis.txt")
-    add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -std=c++11 -Wall -O3 -fPIC")
+endif ()
+
+if (${DDB_USE_ASAN})
+    message("enable asan")
+    add_compile_options(
+        "-fsanitize=address"                # Enable ASAN.
+        "-fno-omit-frame-pointer"           # Nicer stack traces in error messages.
+        "-fno-optimize-sibling-calls"       # Disable tail call elimination (perfect stack traces if inlining off).
+        )
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "8")
+            add_compile_options("-fsanitize-recover=address")
+            message("enable asan recover")
+        endif()
+    endif()
+    set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS} "-fsanitize=address")
 endif ()
 
 ## set include dires

@@ -1,27 +1,27 @@
 #include "kafkaUtil.h"
 
 #include "kafkaWrapper.h"
+#include "ddbplugin/PluginLogger.h"
+#include "OperatorImp.h"
 
 using json = nlohmann::json;
 
 long long MESSAGE_SIZE = 10240;
 
-namespace OperatorImp {
-ConstantSP memSize(const ConstantSP &a, const ConstantSP &b);
-}
-
 namespace KafkaUtil {
 void kafkaErrorCallback(KafkaHandleBase &handle, int error, const std::string &reason, Heap *heap, FunctionDefSP func) {
+    std::ignore = handle;
     if (heap && !func.isNull()) {
         vector<ConstantSP> args{new String("ERROR"), new String(Error((rd_kafka_resp_err_t)error).to_string()),
                                 new String(reason)};
         func->call(heap, args);
     }
-    LOG_ERR(KAFKA_PREFIX, "error: ", Error((rd_kafka_resp_err_t)error).to_string(), ", reason: ", reason);
+    PLUGIN_LOG_ERR(KAFKA_PREFIX, "error: ", Error((rd_kafka_resp_err_t)error).to_string(), ", reason: ", reason);
 }
 
 void kafkaLogCallback(KafkaHandleBase &handle, int level, const std::string &facility, const std::string &message,
                       Heap *heap, FunctionDefSP func) {
+    std::ignore = handle;
     switch ((LogLevel)level) {
         case LogLevel::LogEmerg:
         case LogLevel::LogAlert:
@@ -31,34 +31,35 @@ void kafkaLogCallback(KafkaHandleBase &handle, int level, const std::string &fac
                 vector<ConstantSP> args{new String("ERROR"), new String(facility), new String(message)};
                 func->call(heap, args);
             }
-            LOG_ERR(KAFKA_PREFIX + "facility: ", facility, ", message: ", message);
+            PLUGIN_LOG_ERR(KAFKA_PREFIX + "facility: ", facility, ", message: ", message);
             break;
         case LogLevel::LogWarning:
             if (heap && !func.isNull()) {
                 vector<ConstantSP> args{new String("WARNING"), new String(facility), new String(message)};
                 func->call(heap, args);
             }
-            LOG_WARN(KAFKA_PREFIX + "facility: ", facility, ", message: ", message);
+            PLUGIN_LOG_WARN(KAFKA_PREFIX + "facility: ", facility, ", message: ", message);
             break;
         case LogLevel::LogNotice:
         case LogLevel::LogInfo:
-            LOG_INFO(KAFKA_PREFIX + "facility: ", facility, ", message: ", message);
+            PLUGIN_LOG_INFO(KAFKA_PREFIX + "facility: ", facility, ", message: ", message);
             break;
         case LogLevel::LogDebug:
         default:
-            LOG(KAFKA_PREFIX + "facility: ", facility, ", message: ", message);
+            PLUGIN_LOG(KAFKA_PREFIX + "facility: ", facility, ", message: ", message);
     }
 }
 void kafkaStatCallBack(KafkaHandleBase &handle, const std::string &json) {
-    LOG_INFO(KAFKA_PREFIX, handle.get_name(), " stat: ", json);
+    PLUGIN_LOG_INFO(KAFKA_PREFIX, handle.get_name(), " stat: ", json);
 }
 
 void kafkaDeliveryReportCallback(Producer& producer, const Message&) {
-    LOG_INFO(KAFKA_PREFIX, __FUNCTION__);
+    std::ignore = producer;
+    PLUGIN_LOG_INFO(KAFKA_PREFIX, __FUNCTION__);
 }
 
 void kafkaEventCallBack(KafkaHandleBase &handle, Event e) {
-    LOG_INFO(KAFKA_PREFIX, handle.get_name(), " event: ", e.get_name(), e.get_type(), e.get_stats());
+    PLUGIN_LOG_INFO(KAFKA_PREFIX, handle.get_name(), " event: ", e.get_name(), e.get_type(), e.get_stats());
 }
 
 Configuration createConf(ConstantSP &dict, const string &funcName, bool consumer, Heap *heap, FunctionDefSP func) {
@@ -129,12 +130,12 @@ void produceMsg(SmartPointer<Producer> producer, const string &topic, const stri
             msg.payload(val);
             producer->produce(msg);
         } else {  // only could be vector
-            DolphinString *strBuf[Util::BUF_SIZE];
+            std::vector<DolphinString*> strBuf(Util::BUF_SIZE);
             INDEX len = value->size();
             INDEX start = 0;
             while (start < len) {
                 int count = std::min(len - start, Util::BUF_SIZE);
-                DolphinString **valueStrList = value->getStringConst(start, count, strBuf);
+                DolphinString **valueStrList = value->getStringConst(start, count, strBuf.data());
                 for (int i = 0; i < count; ++i) {
                     string val = valueStrList[i]->getString();
                     msg.payload(val);
@@ -150,13 +151,12 @@ void produceMsg(SmartPointer<Producer> producer, const string &topic, const stri
     if (force || valueSize * 2 < MESSAGE_SIZE || (value->getForm() != DF_TABLE && value->getForm() != DF_VECTOR)) {
         string valueStr = kafkaSerialize(value, marshalType);
         try {
-            auto &&msg = MessageBuilder(topic).key(key).payload(valueStr);
+            MessageBuilder msg = MessageBuilder(topic);
+            msg.key(key).payload(valueStr);
             if (partition != -1) {
                 msg.partition(partition);
             }
-            producer->produce(msg);
-        } catch (IllegalArgumentException &e) {
-            throw e;
+            producer->produce(std::move(msg));
         } catch (std::exception &e) {
             throw RuntimeException(KAFKA_PREFIX + e.what());
         }
@@ -394,7 +394,7 @@ ConstantSP jsonDeserialize(const string &buffer, KafkaMarshalType marshalType) {
                 value = Util::createNullConstant(DT_ANY);
             } else if (it.value().is_number_integer() || it.value().is_number_unsigned()) {
                 if (*it > 0x7fffffffffffffffL) {
-                    LOG_INFO(KAFKA_PREFIX + "The integer is too large and it will be cast to string.");
+                    PLUGIN_LOG_INFO(KAFKA_PREFIX + "The integer is too large and it will be cast to string.");
                     value = Util::createConstant(DT_STRING);
                     string temp = it.value().dump();
                     value->setString(temp.substr(0, temp.length()));
@@ -413,7 +413,7 @@ ConstantSP jsonDeserialize(const string &buffer, KafkaMarshalType marshalType) {
                 string temp = it.value().dump();
                 value->setString(temp.substr(1, temp.length() - 2));
             } else {
-                LOG_INFO(KAFKA_PREFIX + string(*it) + ":un defined data type.");
+                PLUGIN_LOG_INFO(KAFKA_PREFIX + string(*it) + ":un defined data type.");
                 value = Util::createNullConstant(DT_ANY);
             }
             auto key = Util::createConstant(DT_STRING);
@@ -427,7 +427,7 @@ ConstantSP jsonDeserialize(const string &buffer, KafkaMarshalType marshalType) {
             ConstantSP value;
             if (it->is_number_integer() || it->is_number_unsigned()) {
                 if (*it > 0x7fffffffffffffffL) {
-                    LOG_INFO(KAFKA_PREFIX + "The integer is too large and it will be cast to string.");
+                    PLUGIN_LOG_INFO(KAFKA_PREFIX + "The integer is too large and it will be cast to string.");
                     value = Util::createConstant(DT_STRING);
                     string temp = it.value().dump();
                     value->setString(temp.substr(0, temp.length()));
@@ -453,7 +453,7 @@ ConstantSP jsonDeserialize(const string &buffer, KafkaMarshalType marshalType) {
                 string temp = it.value().dump();
                 value->setString(temp.substr(1, temp.length() - 2));
             } else {
-                LOG_INFO(KAFKA_PREFIX + string(*it) + ":un defined data type.");
+                PLUGIN_LOG_INFO(KAFKA_PREFIX + string(*it) + ":un defined data type.");
                 value = Util::createNullConstant(DT_ANY);
             }
             result->append(value);

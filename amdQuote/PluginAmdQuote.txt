@@ -1,13 +1,11 @@
-amdQuote,libPluginAmdQuote.so,3.00.2
-amdConnect,connect,system,4,6,0
-subscribe,subscribe,system,4,7,0
-unsubscribe,unsubscribe,system,2,4,0
-getSchema,getSchema,system,1,1,0
-getStatus,getStatus,system,1,1,0
-getHandle,getHandle,system,0,0,0
-amdClose,close,system,1,1,0
-getCodeList,getCodeList,system,0,1,0
-getETFCodeList,getETFCodeList,system,0,1,0
-setErrorLog,setErrorLog,system,1,1,0
-setLogLevel,setLogLevel,command,1,1,0
-getLogLevel,getLogLevel,system,0,0,0
+amdQuote,libPluginAmdQuote.so,3.00.3
+amdConnect,connect,system,4,6,0,0,(username, password, host, port, [option], [dataVersion='ORIGIN'])
+subscribe,subscribe,system,4,8,0,0,(handle, dataType, outputTable, market, [codeList], [transform], [seqCheckMode=1], [queueDepth=100000])
+unsubscribe,unsubscribe,system,2,4,0,0,(handle, dataType, [market], [codeList])
+getSchema,getSchema,system,1,1,0,0,(dataType)
+getStatus,getStatus,system,1,1,0,0,(handle)
+getHandle,getHandle,system,0,0,0,0,()
+amdClose,close,system,1,1,0,0,(handle)
+getCodeList,getCodeList,system,0,1,0,0,([market])
+getETFCodeList,getETFCodeList,system,0,1,0,0,([market])
+setErrorLog,setErrorLog,system,1,1,0,0,(flag)
