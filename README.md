@@ -1,5 +1,6 @@
 # DolphinDB Plugin
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/dolphindb/DolphinDBPlugin)
+
 DolphinDB database supports dynamic loading of external plugins to extend system functionality. The plugin can be written in C++, and it needs to be compiled into ".so" shared libraries or ".dll" shared library files.
 
 The shared library depends on the classes and interfaces declared in the include directory. Therefore, when compiling a plugin, you must make sure the first three digits of the plugin branch version match those of the DolphinDB version. For example: if the DolphinDB version is 1.30.21.x, the plugin version must be 1.30.21.x; if the Server version is 2.00.9.x, use plugin branch 2.00.9.x, and so on. The same version alignment is also required when loading the plugin.
