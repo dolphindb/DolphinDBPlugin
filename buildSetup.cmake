@@ -16,14 +16,23 @@ else ()
 endif ()
 message(STATUS "CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
 
+message(STATUS "ASAN: ${DDB_USE_ASAN}")
 if (${DDB_USE_ASAN})
     set(DDB_ASAN_FLAGS
         "-fsanitize=address"                # Enable ASAN.
         "-fno-omit-frame-pointer"           # Nicer stack traces in error messages.
         "-fno-optimize-sibling-calls"       # Disable tail call elimination (perfect stack traces if inlining off).
         )
+
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "8")
+            list(APPEND DDB_ASAN_FLAGS "-fsanitize-recover=address")
+            message(STATUS "ASAN: enable asan recover")
+        endif()
+    endif()
+
     list(APPEND PLUGIN_COMPILE_OPTIONS ${DDB_ASAN_FLAGS})
     # list(APPEND PLUGIN_LINK_OPTIONS "-fsanitize=address")
+
     unset(DDB_ASAN_FLAGS)
 endif ()
-message(STATUS "ASAN: ${DDB_USE_ASAN}")
