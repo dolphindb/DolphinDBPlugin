@@ -28,7 +28,7 @@
 #include "SysIO.h"
 #include "DolphinString.h"
 
-#define serverVersion "2.00.16"
+#define serverVersion "2.00.17"
 
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define LIKELY(x) (__builtin_expect((x), 1))
@@ -106,22 +106,22 @@ class Parser;
 
 typedef SmartPointer<AuthenticatedUser> AuthenticatedUserSP;
 typedef SmartPointer<ByteArrayCodeBuffer> ByteArrayCodeBufferSP;
-typedef SmartPointer<Constant> ConstantSP;
-typedef SmartPointer<Vector> VectorSP;
-typedef SmartPointer<Matrix> MatrixSP;
-typedef SmartPointer<Object> ObjectSP;
+typedef ObjectPtr<Constant> ConstantSP;
+typedef ObjectPtr<Vector> VectorSP;
+typedef ObjectPtr<Matrix> MatrixSP;
+typedef ObjectPtr<Object> ObjectSP;
 typedef SmartPointer<Operator> OperatorSP;
 typedef SmartPointer<Statement> StatementSP;
 typedef SmartPointer<Param> ParamSP;
-typedef SmartPointer<FunctionDef> FunctionDefSP;
+typedef ObjectPtr<FunctionDef> FunctionDefSP;
 typedef SmartPointer<Heap> HeapSP;
-typedef SmartPointer<Table> TableSP;
-typedef SmartPointer<Set> SetSP;
-typedef SmartPointer<Dictionary> DictionarySP;
-typedef SmartPointer<DFSChunkMeta> DFSChunkMetaSP;
+typedef ObjectPtr<Table> TableSP;
+typedef ObjectPtr<Set> SetSP;
+typedef ObjectPtr<Dictionary> DictionarySP;
+typedef ObjectPtr<DFSChunkMeta> DFSChunkMetaSP;
 typedef SmartPointer<SQLTransaction> SQLTransactionSP;
 typedef SmartPointer<SQLContext> SQLContextSP;
-typedef SmartPointer<ColumnRef> ColumnRefSP;
+typedef ObjectPtr<ColumnRef> ColumnRefSP;
 typedef SmartPointer<SymbolBase> SymbolBaseSP;
 typedef SmartPointer<SymbolBaseManager> SymbolBaseManagerSP;
 typedef SmartPointer<Output> OutputSP;
@@ -151,11 +151,14 @@ typedef SmartPointer<ColumnContext> ColumnContextSP;
 typedef SmartPointer<Transaction> TransactionSP;
 typedef SmartPointer<Parser> ParserSP;
 
-typedef ConstantSP(*OptrFunc)(const ConstantSP&, const ConstantSP&);
-typedef ConstantSP(*OptrFunc2)(Heap* heap, const ConstantSP&, const ConstantSP&);
+typedef ConstantSP(*OptrFunc)(Heap*  heap, const ConstantSP&, const ConstantSP&);
 typedef ConstantSP(*SysFunc)(Heap* heap, vector<ConstantSP>& arguments);
 typedef INDEX(*FastFunc)(vector<ConstantSP>& arguments, const ConstantSP& result, INDEX outputStart, bool validate, INDEX inputStart, INDEX inputLen);
-typedef ConstantSP(*TemplateOptr)(const ConstantSP&,const ConstantSP&,const string&, OptrFunc, FastFunc, int);
+typedef bool(*InplaceFunc)(Heap* heap, const vector<ConstantSP>& arguments, ConstantSP& result);
+typedef bool(*InplaceOptr)(Heap* heap, const ConstantSP& a, const ConstantSP& b, ConstantSP& result);
+typedef void(*LowLatencyFunc)(Heap* heap, const vector<ConstantSP>& arguments, const ConstantSP& result);
+typedef void(*LowLatencyOptr)(Heap* heap, const ConstantSP& a, const ConstantSP& b, const ConstantSP& result);
+typedef ConstantSP(*TemplateOptr)(Heap* heap, const ConstantSP&,const ConstantSP&,const string&, OptrFunc, FastFunc, int);
 typedef ConstantSP(*TemplateUserOptr)(Heap* heap, const ConstantSP&,const ConstantSP&, const FunctionDefSP&, int);
 typedef void (*SysProc)(Heap* heap,vector<ConstantSP>& arguments);
 typedef std::function<void (StatementSP)> CFGTraversalFunc;
@@ -176,7 +179,7 @@ public:
 			long long queryResultMemLimit, long long taskGroupMemLimit, bool isViewOwner,
 			bool globalExecComputeGroup, const set<string>& execGroup, const set<string>& deniedExecGroup,
 			bool globalSensitiveView, const set<string>& sensitiveCol, const set<string>& deniedSensitiveCol,
-			long long maxPartitionPerQuery);
+			long long maxPartitionPerQuery, bool createSharedVar);
     AuthenticatedUser(const ConstantSP& userObj);
     ConstantSP toTuple() const ;
     void setLoginNanoTimeStamp(long long t){loginNanoTimestamp_ = t;}
@@ -211,6 +214,7 @@ public:
 	bool canDeleteDBObject(const string& name) const { return accessObjectRule(canDeleteDBObject(), "DD_", "DDD_", name, ""); }
 	bool canAccessSensitiveCol(const string& tableUrl, const string& colName) const;
 	bool canExecGroup(const string& group) const;
+	bool canCreateSharedVar() const { return permissionFlag_ & (1 << 20); }
 	// return 0 if no limit
 	long long queryResultMemLimit() { return queryResultMemLimit_; }
 	long long taskGroupMemLimit() { return taskGroupMemLimit_; }
@@ -250,6 +254,10 @@ private:
      * bit13: global delete
 	 * bit14: view owner
 	 * bit15: sensitive view
+	 * bit17: global mcp manage
+	 * bit18: global mcp develop
+	 * bit19: mcp exec
+	 * bit20: create shared var
      */
     uint32_t permissionFlag_;
 
@@ -327,7 +335,8 @@ public:
 			if(sizeInSegment_ >= segmentCapacity_)
 				return false;
 			else{
-				dataSegment_[sizeInSegment_++] = new T[segmentSize_];
+				T* data = new T[segmentSize_];
+				dataSegment_[sizeInSegment_++] = data;
 			}
 		}
 		dataSegment_[size_ >> segmentSizeInBit_][size_ & segmentMask_] = val;
@@ -554,6 +563,54 @@ namespace std {
 	};
 }
 
+struct VariableStat {
+	VariableStat() : firstAssignedStatement(-1), lastAssignedStatement(-1), lastAssignedParentStatement(-1), lastReferedStatement(-1),
+			lastReferedParentStatement(-1), numberAssigns(0), numberRefers(0), constant(false), processed(false){}
+	void reset(){
+		firstAssignedStatement = 0;
+		lastAssignedStatement = 0;
+		lastReferedStatement = 0;
+		numberAssigns = 0;
+		numberRefers = 0;
+		constant = false;
+		processed = false;
+		lastAssign.clear();
+	}
+	int firstAssignedStatement;
+	int lastAssignedStatement;
+	int lastAssignedParentStatement;
+	int lastReferedStatement;
+	int lastReferedParentStatement;
+	int numberAssigns;
+	int numberRefers;
+	bool constant;
+	bool processed;
+	ObjectSP lastAssign;
+};
+
+struct OptimizeContext {
+	OptimizeContext() : statementNo(0), parentStatementNo(0), flag(0){}
+	inline bool withinUDF() const { return flag & 1;}
+	inline void setWithinUDF(bool option){if(option) flag |= 1; else flag &= ~1;}
+	inline bool lowLatencyMode() const { return flag& 2;}
+	inline void setLowLatencyMode(bool option) {if(option) flag |= 2; else flag &= ~2;}
+	inline bool isTopLayer() const { return flag & 4;}
+	inline void setTopLayer(bool option){if(option) flag |= 4; else flag &= ~4;}
+	inline bool isInplaceOptDisabled() const { return flag & 8;}
+	inline void disableInplaceOpt(bool option){if(option) flag |= 8; else flag &= ~8;}
+	inline void incStatementNo() { ++statementNo;}
+
+	/*
+	 * key: local variable's index (starting from 0)
+	 * value: variable statistics
+	 */
+	unordered_map<INDEX, VariableStat> vars;
+	ConstantSP recentResult;
+	int statementNo;
+	int parentStatementNo;
+	long long flag;
+};
+
 class Object {
 public:
 	Object(OBJECT_TYPE type) : objType_(type){}
@@ -561,13 +618,22 @@ public:
 	bool isConstant() const {return objType_ == CONSTOBJ;}
 	bool isVariable() const {return objType_ ==VAR;}
 	virtual ConstantSP getValue(Heap* pHeap) = 0;
+	virtual const ConstantSP& getValue(Heap* pHeap, ConstantSP& cache);
 	virtual ConstantSP getReference(Heap* pHeap) = 0;
-    virtual void getReference(Heap* pHeap, Constant*& ptr, ConstantSP& ref) {ptr = nullptr; ref = getReference(pHeap);}
+	virtual const ConstantSP& getReference(Heap* pHeap, ConstantSP& cache);
 	virtual ~Object(){}
 	virtual string getScript() const = 0;
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const = 0;
 	virtual bool isLargeConstant() const {return false;}
 	virtual ObjectSP deepCopy() const { throw RuntimeException("Object::deepCopy not implemented yet.");}
+	/**
+	 * @brief optimize the scripting object.
+	 *
+	 * @param flag: the flag for optimization.
+	 * @return return a new ObjectSP if the current object can be optimized. Otherwise return a null pointer.
+	 */
+	virtual ObjectSP optimize(Heap* pHeap, OptimizeContext& context) const { return optimize(pHeap, context, nullptr);}
+	virtual ObjectSP optimize(Heap* pHeap, OptimizeContext& context, const ConstantSP& resultCache) const { return nullptr;}
 	/**
 	 * @brief Get the components of the object in the form of a dictionary.
 	 *
@@ -577,6 +643,8 @@ public:
 
 	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const {}
 	void collectVariables(vector<int>& vars, int minIndex, int maxIndex) const;
+	void collectVariables(OptimizeContext& context) const;
+	bool existsVariableUpdatedBetween(const unordered_map<INDEX, VariableStat>& vars, int startStatement, int endStatement) const;
 
 	/**
 	 * @biref Retrieve all ColumnRef objects contained in the currrent object.
@@ -687,8 +755,32 @@ public:
 		}
 	}
 
+    void addRef() {
+        atomic_fetch_add_explicit(&refCount_,1,std::memory_order_relaxed);
+    }
+
+    void releaseRef() {
+        if(atomic_fetch_sub_explicit(&refCount_,1,std::memory_order_acq_rel) == 1){
+            delete this;
+        }
+    }
+
+    int getCount() const {
+        return refCount_.load(std::memory_order_relaxed);
+    }
+
+    Object(const Object& other) noexcept : objType_(other.objType_), refCount_(0){}
+
+    Object& operator=(const Object& other) noexcept {objType_ = other.objType_; return *this;}
+
+    Object(Object&& other)  = delete;
+
+    Object& operator=(Object&& other) = delete;
+
 protected:
 	OBJECT_TYPE objType_;
+private:
+    std::atomic<int> refCount_{0};
 };
 
 #define NOT_IMPLEMENT \
@@ -758,9 +850,15 @@ public:
 	bool isTuple() const {return getForm()==DF_VECTOR && getType()==DT_ANY;}
 	bool isNumber() const { DATA_CATEGORY cat = getCategory(); return cat == INTEGRAL || cat == FLOATING || cat == DENARY; }
 
+	/**
+	 * @Brief: try to set a name to the object.
+	 *
+	 * @return: return true if the name is set.
+	 */
+	virtual bool tryName(const string& name) { return false;}
 	virtual bool isDatabase() const {return false;}
 	virtual ObjectSP deepCopy() const { return getValue();}
-
+	virtual ObjectSP optimize(Heap* heap, OptimizeContext& context, const ConstantSP& resultCache) const;
 	virtual char getBool() const {throw RuntimeException("The object can't be converted to boolean scalar.");}
 	virtual char getChar() const {throw RuntimeException("The object can't be converted to char scalar.");}
 	virtual short getShort() const {throw RuntimeException("The object can't be converted to short scalar.");}
@@ -824,6 +922,10 @@ public:
 	 * @return ConstantSP: the data
 	 */
 	virtual ConstantSP get(const ConstantSP& index) const {return getValue();}
+	virtual bool get(const ConstantSP& index, ConstantSP& result) const {
+		result = get(index);
+		return true;
+	}
 	/**
 	 * @brief Get the data according to the index.
 	 *
@@ -835,7 +937,15 @@ public:
 	virtual ConstantSP getColumn(INDEX index) const {return getValue();}
 	virtual ConstantSP getRow(INDEX index) const {return get(index);}
 	virtual ConstantSP getItem(INDEX index) const {return get(index);}
+	virtual const ConstantSP& getItem(INDEX index, ConstantSP& cache) const {
+		cache = getItem(index);
+		return cache;
+	}
+	virtual const ConstantSP& getExactItem(INDEX index, const ConstantSP& result) const {
+		throw RuntimeException("getExactItem method not supported");
+	}
 	virtual ConstantSP getItems(const ConstantSP& index) const {return get(index);}
+	virtual bool getItems(const ConstantSP& index, ConstantSP& result) const {return get(index, result);}
 	virtual ConstantSP getWindow(INDEX colStart, int colLength, INDEX rowStart, int rowLength) const {return getValue();}
 	virtual ConstantSP getSlice(const ConstantSP& rowIndex, const ConstantSP& colIndex) const {throw RuntimeException("getSlice method not supported");}
 	virtual ConstantSP getRowLabel() const;
@@ -1058,8 +1168,8 @@ public:
 	 */
 	virtual bool setNonNull(const ConstantSP& index, const ConstantSP& value) {return false;}
 	virtual bool setItem(INDEX index, const ConstantSP& value){return set(index,value);}
-	virtual void setItemToHeap(Heap* pHeap, INDEX heapIndex, INDEX itemIndex, const string& name);
-	virtual bool setColumn(INDEX index, const ConstantSP& value){return assign(value);}
+    virtual void setItemToHeap(Heap* pHeap, INDEX heapIndex, INDEX itemIndex, const string& name);
+    virtual bool setColumn(INDEX index, const ConstantSP& value){return assign(value);}
 	virtual void setRowLabel(const ConstantSP& label){}
 	virtual void setColumnLabel(const ConstantSP& label){}
 	virtual bool reshape(INDEX cols, INDEX rows) {return false;}
@@ -1170,6 +1280,8 @@ public:
 	virtual ConstantSP getValue() const =0;
 	virtual ConstantSP getValue (Heap* pHeap){return getValue();}
 	virtual ConstantSP getReference(Heap* pHeap){return getValue();}
+	virtual const ConstantSP& getValue(Heap* pHeap, ConstantSP& cache) { cache = getValue(); return cache;}
+	virtual const ConstantSP& getReference(Heap* pHeap, ConstantSP& cache) {cache = getValue(); return cache;}
 	virtual OBJECT_TYPE getObjectType() const {return CONSTOBJ;}
 	virtual SymbolBaseSP getSymbolBase() const {return SymbolBaseSP();}
 	virtual void contain(const ConstantSP& target, const ConstantSP& resultSP) const {throw RuntimeException("contain method not supported");}
@@ -1231,6 +1343,7 @@ public:
 	virtual ConstantSP getColumnLabel() const;
 	const string& getName() const {return name_;}
 	void setName(const string& name){name_=name;}
+	virtual bool tryName(const string& name);
 	virtual bool isLargeConstant() const { return isMatrix() || size()>1024; }
 	virtual bool isView() const {return false;}
 	virtual bool isRepeatingVector() const {return false;}
@@ -1303,6 +1416,10 @@ public:
 	 */
 	virtual ConstantSP getSubVector(INDEX start, INDEX length) const { throw RuntimeException("getSubVector method not supported");}
 	virtual ConstantSP getSubVector(INDEX start, INDEX length, INDEX capacity) const { return getSubVector(start, length);}
+	virtual bool getSubVector(INDEX start, INDEX length, ConstantSP& result) const {
+		result = getSubVector(start, length);
+		return true;
+	}
 	/**
 	 * Fill the value of the vector at the specified range by the value of the given vector.
 	 *
@@ -1695,6 +1812,13 @@ public:
 	virtual bool contain(const ColumnRef* col) const = 0;
 	virtual bool contain(const ColumnRefSP& col) const = 0;
 	virtual bool containAll(const vector<ColumnRefSP>& cols) const = 0;
+	virtual bool tryName(const string& name){
+		if(isTemporary()){
+			setName(name);
+			return true;
+		} else
+			return false;
+	}
 	virtual void setName(const string& name)=0;
 	virtual const string& getName() const = 0;
 	virtual ConstantSP get(INDEX index) const {return getColumn(index);}
@@ -1893,8 +2017,8 @@ private:
 
 class DFSChunkMeta : public Constant{
 public:
-	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const vector<string>& sites, long long cid, long long term = -1, bool prefetchComputeNodeData = false);
-	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const string* sites, int siteCount, long long cid, long long term = -1, bool prefetchComputeNodeData = false);
+	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const vector<string>& sites, long long cid, long long term = -1, bool prefetchComputeNodeData = false, const vector<int>& replicaVolIds = {});
+	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const string* sites, int siteCount, long long cid, long long term = -1, bool prefetchComputeNodeData = false, const int* replicaVolIds = nullptr);
 	DFSChunkMeta(const DataInputStreamSP& in);
 	virtual ~DFSChunkMeta();
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
@@ -1907,7 +2031,7 @@ public:
 	virtual ConstantSP values() const;
 	virtual DATA_TYPE getRawType() const {return DT_DICTIONARY;}
 	virtual ConstantSP getInstance() const {return getValue();}
-	virtual ConstantSP getValue() const {return new DFSChunkMeta(path_, id_, version_, size_, (CHUNK_TYPE)type_, sites_, replicaCount_, cid_, term_, prefetchComputeNodeData_);}
+	virtual ConstantSP getValue() const {return new DFSChunkMeta(path_, id_, version_, size_, (CHUNK_TYPE)type_, sites_, replicaCount_, cid_, term_, prefetchComputeNodeData_, volumesId_);}
 	inline const string& getPath() const {return path_;}
 	inline const Guid& getId() const {return id_;}
 	inline long long getCommitId() const {return cid_;}
@@ -1916,7 +2040,7 @@ public:
 	inline void setVersion(int version){version_ = version;}
 	inline void setSize(int size){size_ = size;}
 	inline int getCopyCount() const {return replicaCount_;}
-	bool addCopySite(const string& siteAlias);
+	bool addCopySite(const string& siteAlias, int volumeId);
 	inline const string& getCopySite(int index) const {return sites_[index];}
 	inline bool isTablet() const { return type_ == TABLET_CHUNK;}
 	inline bool isFileBlock() const { return type_ == FILE_CHUNK;}
@@ -1926,6 +2050,7 @@ public:
 	inline long long getTerm() const { return term_; }
 	inline void setPrefetchComputeNodeData(bool v) { prefetchComputeNodeData_ = v;}
 	inline bool getPrefetchComputeNodeData() const { return prefetchComputeNodeData_;  }
+	inline int getVolumeId(int index) { return volumesId_ ? volumesId_[index] : -1; }
 
 protected:
 	ConstantSP getAttribute(const string& attr) const;
@@ -1942,6 +2067,7 @@ private:
 	Guid id_;
 	long long term_;
 	bool prefetchComputeNodeData_ = false;
+	int* volumesId_ = nullptr;
 };
 
 class Param{
@@ -2007,6 +2133,10 @@ public:
 	inline void setTransformFunction(bool option){ if(option) extraFlag_ |= 4096; else extraFlag_ &= ~4096;}
 	inline bool isDummyFunction() const { return extraFlag_ & 8192;}
 	inline void setDummyFunction(bool option){ if(option) extraFlag_ |= 8192; else extraFlag_ &= ~8192;}
+	inline bool isRecursiveFunction() const { return extraFlag_ & 16384;}
+	inline void setRecursiveFunction(bool option){ if(option) extraFlag_ |= 16384; else extraFlag_ &= ~16384;}
+	inline void setLazyFunction(bool option){ if(option) extraFlag_ |= 32768; else extraFlag_ &= ~32768;}
+	inline bool isLazyFunction() const { return extraFlag_ & 32768;}
 	inline bool variableParamNum() const {	return minParamNum_<maxParamNum_;}
 	inline int getMaxParamCount() const { return maxParamNum_;}
 	inline int getMinParamCount() const {	return minParamNum_;}
@@ -2015,6 +2145,7 @@ public:
 	const ParamSP& getParam(int index) const;
 	inline bool isUserDefined() const {return defType_ == USERDEFFUNC;}
 	inline bool isSystemFunction() const {return defType_ == SYSFUNC;}
+	inline bool isOperatorFunction() const {return defType_ == OPTRFUNC;}
 	inline FUNCTIONDEF_TYPE getFunctionDefType() const {return defType_;}
 	inline unsigned char getFlag() const { return flag_;}
 	inline unsigned short getExtraFlag() const { return extraFlag_;}
@@ -2083,8 +2214,8 @@ public:
 	void setFilter(const ConstantSP& filter);
 	void setGroup(vector<INDEX>* group);
 	SQLTransactionSP getTransaction() const { return transSP_;}
-	TableSP getTable() const{return tableSP_;}
-	ConstantSP getFilter() const{return filterSP_;}
+	const TableSP& getTable() const{return tableSP_;}
+	const ConstantSP& getFilter() const{return filterSP_;}
 	vector<INDEX>* getGroup();
 	ConstantSP getColumn(const string& qualifier, const string& name);
 	ConstantSP getColumn(const string& name);
@@ -2183,6 +2314,7 @@ public:
 	virtual ObjectSP copyAndMaterialize(Heap* pHeap, const SQLContextSP& context, const TableSP& table) const;
 	virtual bool mayContainColumnRefOrVariable() const { return true;}
 	void bindColIndex();
+	ObjectSP optimize(Heap* pHeap, OptimizeContext& context, const ConstantSP& resultCache) const override;
 
 private:
 	SQLContextSP contextSP_;
@@ -2203,6 +2335,8 @@ public:
 	inline string getTemplateSymbol() const { return templateSymbol_;}
 	inline const FunctionDefSP& getFunctionDef() const { return funcDef_;}
 	inline FastFunc getFastImplementation() const {return funcDef_->getFastImplementation();}
+	InplaceOptr getInplaceOperator() const;
+	OptrFunc getOperator() const;
 	virtual ConstantSP evaluate(Heap* heap, const ConstantSP& a, const ConstantSP& b) = 0;
 	virtual string getOperatorSymbol() const  = 0;
 	virtual bool isPrimitiveOperator() const = 0;
@@ -2475,6 +2609,26 @@ public:
 protected:
 	ConstantSP obj_;
 };
+
+/**
+ * Heap is generally used in a thread-safe environment. When running a piece of code
+ * in a new thread, the system always create a new copy of the heap. However, DolphinDB
+ * has a background thread to periodically check the memory usage through Heap::getAllocatedMemory.
+ * For this reason, we must lock the heap before editing it. Anyway, it is always safe to
+ * read the heap without locking.
+ *
+ * There is one exception here. THe mentioned background task doesn't count the memory
+ * usage within a user defined function. So it is always safe to read/write the heap within
+ * a UDF without locking.
+ *
+ * Regarding boundary check, it is related to the procedure 'undef', which is designed to remove
+ * variables in the heap at runtime. This may make some variables created at parsing time
+ * invalid at runtime and therefore, we have to check validity of the index of a variable.
+ * The good thing is that undef can't process variables defined within a UDF. This is, if we are
+ * sure undef is never used or the heap is within a UDF, it is safe to process the variable
+ * without index boundary check.
+ *
+ */
 class Heap{
 public:
 	Heap():meta_(0), session_(0), size_(0), status_(0){}
@@ -2501,6 +2655,7 @@ public:
 	void removeAllItems();
 	bool set(unsigned int index,const ConstantSP& value, bool constant);
 	bool set(unsigned int index,const ConstantSP& value);
+	bool set(unsigned int index,Constant* value);
 	void setConstant(int index, bool constant);
 	inline bool isConstant(int index) const {return index>= MAX_SHARED_OBJ_INDEX && (flags_[index - MAX_SHARED_OBJ_INDEX] & 1);}
 	bool isInitialized(int index) const;
@@ -2512,21 +2667,29 @@ public:
 	void currentSession(Session* session){session_=session;}
 	Session* currentSession(){return session_;}
 	long long getAllocatedMemory();
-	/**
-	 * getLocalVariable and setLocalVariable can only be used in very limited environment for optimization purpose.
-	 */
-	inline ConstantSP getLocalVariable(int index) const { return values_[index];}
-	inline void setLocalVariable(int index, const ConstantSP& value){
-		values_[index] = value;
-		flags_[index] = 2;
-        if(index != 0 && value->isTemporary())
-            value->setTemporary(false);
-	}
 	bool copyMeta(Heap *heap);
 	bool setMetaName(const string &name, int index);
-
 	/** Do NOT call this method! */
 	void initMetaWithDummyItemInUdfContext();
+
+	/**
+	 * The methods below neither check the index boundary nor lock the heap, hence achieves
+	 * the best performance. However, it is only safe within a user-defined function. These
+	 * methods also deal with local variables (different from shared variable). The index
+	 * starts from zero. You don't have to minus MAX_SHARED_OBJ_INDEX any more.
+	 *
+	 * In optimized running mode, system disables the procedure 'undef' and then we can safely
+	 * use the following methods except setLocalVariable regardless the heap is within a UDF.
+	 */
+	inline const ConstantSP& getLocalVariable(int index) const { return values_[index];}
+	inline ConstantSP& getLocalVariable(int index) { return values_[index];}
+	inline bool isInitializedLocalVariable(int index) const { return flags_[index] & 2;}
+	inline bool isConstantLocalVariable(int index) const {return flags_[index] & 1;}
+	inline bool isSameLocalObject(int index, const ConstantSP& obj) const { return values_[index].get() == obj.get();}
+	/**
+	 * This method must be safely called within a UDF.
+	 */
+	inline void setLocalVariable(int index, const ConstantSP& value){ values_[index] = value;}
 
 private:
 	struct HeapMeta{
@@ -2583,10 +2746,18 @@ private:
 
 class Statement{
 public:
-	Statement(STATEMENT_TYPE type):breakpoint_(nullptr), jitudfHeader_(nullptr), type_(type), line_(0), moduleName_(""){}
+	Statement(STATEMENT_TYPE type):breakpoint_(nullptr), jitudfHeader_(nullptr), optimized_(false), type_(type), line_(0), moduleName_(""){}
 	virtual ~Statement(){}
 	virtual StatementSP clone() = 0;
 	STATEMENT_TYPE getType() const {return type_;}
+	/**
+	 * @brief optimize the scripting statement.
+	 *
+	 * @param context: the context for optimization.
+	 * @return return a new StatementSP if the current statement can be optimized. Otherwise return a null pointer.
+	 */
+	virtual StatementSP optimize(Heap* pHeap, OptimizeContext& context) const { return nullptr;}
+	virtual void collectVariables(Heap* pHeap, OptimizeContext& context) const {}
 	virtual void execute(Heap* pHeap, StatementContext& context)=0;
 	virtual void execute(Heap* pHeap, StatementContext& context, DebugContext* debugContext);
 	virtual string getScript(int indention) const = 0;
@@ -2620,11 +2791,15 @@ public:
 	int getLine() { return line_;}
     void setModuleName(string fileName) { moduleName_ = fileName; }
     string getModuleName() { return moduleName_; }
+    static bool containSimpleStatementOnly(const vector<StatementSP>& sts);
+    static void collectVariables(Heap* heap, OptimizeContext& context, const vector<StatementSP>& sts);
+    static bool optimize(Heap* heap, OptimizeContext& context, const vector<StatementSP>& sts, vector<StatementSP>& out);
 
 protected:
 	std::atomic<bool>* breakpoint_;
 	JITCfgNodeSP cfgNode_;
 	Statement* jitudfHeader_;
+	bool optimized_;
 
 private:
 	STATEMENT_TYPE type_;
@@ -2833,9 +3008,12 @@ struct SensitiveColumn {
 };
 
 struct TableHeader {
-	TableHeader() = default;
-	TableHeader(const string& owner, const string& physicalIndex, const vector<ColumnDesc>& tablesType, const vector<int>& partitionKeys, CIPHER_MODE mo = PLAIN_TEXT, const int64_t keyVer = 0, const string& encryptKey = ""): owner(owner),
-		physicalIndex(physicalIndex), colDescs(tablesType), partitionKeys(partitionKeys), mode(mo),keyVersion(keyVer), encryptedTableKey(encryptKey) {}
+	TableHeader() : chunkId(false), chunkCid(0), keyVersion(0){}
+	TableHeader(const string& owner, const string& physicalIndex, const vector<ColumnDesc>& tablesType,
+			const vector<int>& partitionKeys, CIPHER_MODE mo = PLAIN_TEXT, const int64_t keyVer = 0,
+			const string& encryptKey = ""): owner(owner), physicalIndex(physicalIndex), colDescs(tablesType),
+			partitionKeys(partitionKeys), chunkId(false), chunkCid(0),  mode(mo),keyVersion(keyVer),
+			encryptedTableKey(encryptKey) {}
 	TableHeader(const string& owner, const string& physicalIndex, const vector<ColumnDesc>& tablesType,
 			const vector<int>& partitionKeys, const vector<pair<int, bool>>& sortKeys,
 			DUPLICATE_POLICY rowDuplicatePolicy, const vector<pair<int, FunctionDefSP>>& sortKeyMappingFunction,
@@ -2845,6 +3023,7 @@ struct TableHeader {
 			rowDuplicatePolicy(rowDuplicatePolicy), owner(owner), physicalIndex(physicalIndex),
 			colDescs(tablesType), partitionKeys(partitionKeys), sortKeys(sortKeys),
 			sortKeyMappingFunction(sortKeyMappingFunction), appendForDelete(appendForDelete), tableComment(tableComment),
+			chunkId(false), chunkCid(0),
 			latestKeyCache(latestKeyCache), compressHashSortKey(compressHashSortKey),
 			mode(mo), keyVersion(keyVer),encryptedTableKey(encryptKey), sensitiveCol(scols) {}
 	DUPLICATE_POLICY rowDuplicatePolicy = DUPLICATE_POLICY::KEEP_ALL;
@@ -2871,7 +3050,6 @@ struct TableHeader {
 	CIPHER_MODE mode = CIPHER_MODE::PLAIN_TEXT;
 	int64_t keyVersion;
 	string encryptedTableKey;
-
 	vector<SensitiveColumn> sensitiveCol;
 };
 
@@ -3212,9 +3390,11 @@ public:
 	virtual ~WindowJoinFunction(){};
 	virtual VectorSP createNullReturn(Heap* heap) = 0;
 	virtual void startGroup(Heap* heap, INDEX startingRows) = 0;
-	virtual void addMap(Heap* heap, INDEX startingRows, int count, vector<pair<INDEX,INDEX>>& indices) = 0;
+	virtual void addMap(Heap* heap, INDEX startingRows, int count, const vector<pair<INDEX,INDEX>>& indices) = 0;
 	virtual void addMap(Heap* heap, INDEX startingRows, int count);
-	VectorSP getReturn() const {return ret_;}
+	const VectorSP& getReturn() const {return ret_;}
+	inline void setRows(INDEX rows) { rows_ = rows;}
+	inline void setReturn(const VectorSP& ret) { ret_ = ret;}
 
 protected:
 	string name_;
@@ -3556,6 +3736,7 @@ public:
 	virtual ObjectSP copyAndMaterialize(Heap* pHeap, const SQLContextSP& context, const TableSP& table) const;
 	virtual bool mayContainColumnRefOrVariable() const { return true;}
 	virtual void collectObjects(vector<const Object*>& vec) const;
+	virtual ObjectSP optimize(Heap* pHeap, OptimizeContext& context, const ConstantSP& resultCache) const;
 
 private:
 	vector<ObjectSP> arguments_;
@@ -3568,14 +3749,16 @@ private:
 class Expression: public Object{
 public:
 	Expression(const vector<ObjectSP> & objs, const vector<OperatorSP>&  optrs): Object(EXPRESSION),
-		objs_(objs),optrs_(optrs), annotation_(0){}
+		objs_(objs),optrs_(optrs), annotation_(0), optimized_(false), inplaceOptr_(0){}
 	Expression(const vector<ObjectSP> & objs, const vector<OperatorSP>&  optrs, int annotation): Object(EXPRESSION),
-		objs_(objs),optrs_(optrs), annotation_(annotation){}
+		objs_(objs),optrs_(optrs), annotation_(annotation), optimized_(false), inplaceOptr_(0){}
 	Expression(const SQLContextSP& context, Session* session, const DataInputStreamSP& in);
 	virtual ~Expression(){}
 	virtual ConstantSP getComponent() const;
 	virtual ConstantSP getReference(Heap* pHeap);
+	virtual const ConstantSP& getReference(Heap* pHeap, ConstantSP& cache);
 	virtual ConstantSP getValue(Heap* pHeap);
+	virtual const ConstantSP& getValue(Heap* pHeap, ConstantSP& cache);
 	int getObjectCount() const {return objs_.size();}
 	const ObjectSP& getObject(int index) const {return objs_[index];}
 	const vector<ObjectSP>& getObjects() const {return objs_;}
@@ -3595,6 +3778,7 @@ public:
 	virtual ObjectSP copyAndMaterialize(Heap* pHeap, const SQLContextSP& context, const TableSP& table) const;
 	virtual bool mayContainColumnRefOrVariable() const { return true;}
 	void collectObjects(vector<const Object*>& vec) const override;
+	ObjectSP optimize(Heap* pHeap, OptimizeContext& context, const ConstantSP& resultCache) const override;
 
 	static ConstantSP void_;
 	static ConstantSP null_;
@@ -3608,7 +3792,12 @@ public:
 	static SQLContextSP context_;
 
 private:
+	Expression(const vector<ObjectSP> & objs, const vector<OperatorSP>&  optrs, int annotation, bool optimized,
+			InplaceOptr inplaceOptr, const ConstantSP& resultCache): Object(EXPRESSION),
+			objs_(objs), optrs_(optrs), annotation_(annotation), optimized_(optimized), inplaceOptr_(inplaceOptr),
+			resultCache_(resultCache){}
 	static ObjectSP partialEvaluate(Heap* pHeap, const vector<ObjectSP>& objs, const vector<OperatorSP>& optrs, int annotation);
+	ObjectSP lowLatencyOptimize(Heap* pHeap, OptimizeContext& context) const;
 
 private:
 	vector<ObjectSP> objs_;
@@ -3626,6 +3815,9 @@ private:
      * 	bit3: list partitioning column is used to decide the relevant partition.
      */
     int annotation_;
+    bool optimized_;
+    InplaceOptr inplaceOptr_;
+    ConstantSP resultCache_;
 };
 
 class InternalUtil {
@@ -3893,11 +4085,13 @@ struct BoolReader {
 };
 
 struct GuidReader {
+	GuidReader() : nullVal_(false){}
+	GuidReader(const Guid& nullVal) : nullVal_(nullVal){}
 	Guid operator()(Constant* x, INDEX index) const {
 		return x->getInt128(index);
 	}
 	Guid operator()(Constant* x) const {
-		return x->getInt128();
+		return x->isNull() ? nullVal_ : x->getInt128();
 	}
 	const Guid* getConst(Constant* x, INDEX start, int count, Guid* buf) const {
 		return (Guid*)x->getBinaryConst(start, count, 16, (unsigned char*)buf);
@@ -3914,6 +4108,9 @@ struct GuidReader {
 	bool operator()(Vector* vec, INDEX offset, INDEX* sortedIndices, int count, Guid* buf) const {
 		return vec->getBinarySafe(offset, sortedIndices, count, 16, (unsigned char*)buf);
 	}
+
+private:
+	Guid nullVal_;
 };
 
 class AbstractFunctionDef : public FunctionDef{
@@ -3966,6 +4163,7 @@ public:
 		} else
 			return val_.compare(target->getString());
 	}
+    virtual FunctionDefSP createAlias(const string& alias) const { throw RuntimeException("AbstractFunctionDef::createAlias method not supported.");}
 	inline void setSequentialFunction(bool option) {
 		if(option) extraFlag_ |= 8; else extraFlag_ &= ~8;
 	}

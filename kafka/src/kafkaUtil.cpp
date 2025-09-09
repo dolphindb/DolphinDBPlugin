@@ -8,36 +8,56 @@ using json = nlohmann::json;
 long long MESSAGE_SIZE = 10240;
 
 namespace OperatorImp {
-ConstantSP memSize(const ConstantSP &a, const ConstantSP &b);
+ConstantSP memSize(Heap *heap, const ConstantSP &a, const ConstantSP &b);
 }
 
 namespace KafkaUtil {
 void kafkaErrorCallback(KafkaHandleBase &handle, int error, const std::string &reason, Heap *heap, FunctionDefSP func) {
-    if (heap && !func.isNull()) {
-        vector<ConstantSP> args{new String("ERROR"), new String(Error((rd_kafka_resp_err_t)error).to_string()),
-                                new String(reason)};
-        func->call(heap, args);
+    std::ignore = handle;
+    try {
+        if (heap != nullptr && !func.isNull()) {
+            vector<ConstantSP> args{new String("ERROR"), new String(Error(static_cast<rd_kafka_resp_err_t>(error)).to_string()),
+                                    new String(reason)};
+            func->call(heap, args);
+        }
+    } catch (std::exception &e) {
+        PLUGIN_LOG_ERR(KAFKA_PREFIX, "error in err callback", e.what());
+    } catch (...) {
+        PLUGIN_LOG_ERR(KAFKA_PREFIX, "unknown error in err callback");
     }
     PLUGIN_LOG_ERR(KAFKA_PREFIX, "error: ", Error((rd_kafka_resp_err_t)error).to_string(), ", reason: ", reason);
 }
 
 void kafkaLogCallback(KafkaHandleBase &handle, int level, const std::string &facility, const std::string &message,
                       Heap *heap, FunctionDefSP func) {
-    switch ((LogLevel)level) {
+    std::ignore = handle;
+    switch (static_cast<LogLevel>(level)) {
         case LogLevel::LogEmerg:
         case LogLevel::LogAlert:
         case LogLevel::LogCrit:
         case LogLevel::LogErr:
-            if (heap && !func.isNull()) {
-                vector<ConstantSP> args{new String("ERROR"), new String(facility), new String(message)};
-                func->call(heap, args);
+            try {
+                if (heap != nullptr && !func.isNull()) {
+                    vector<ConstantSP> args{new String("ERROR"), new String(facility), new String(message)};
+                    func->call(heap, args);
+                }
+            } catch (std::exception &e) {
+                PLUGIN_LOG_ERR(KAFKA_PREFIX, "error in log call back: ", e.what());
+            } catch (...) {
+                PLUGIN_LOG_ERR(KAFKA_PREFIX, "unknown error in log call back");
             }
             PLUGIN_LOG_ERR(KAFKA_PREFIX + "facility: ", facility, ", message: ", message);
             break;
         case LogLevel::LogWarning:
-            if (heap && !func.isNull()) {
-                vector<ConstantSP> args{new String("WARNING"), new String(facility), new String(message)};
-                func->call(heap, args);
+            try {
+                if (heap != nullptr && !func.isNull()) {
+                    vector<ConstantSP> args{new String("WARNING"), new String(facility), new String(message)};
+                    func->call(heap, args);
+                }
+            } catch (std::exception &e) {
+                PLUGIN_LOG_ERR(KAFKA_PREFIX, "error in log call back: ", e.what());
+            } catch (...) {
+                PLUGIN_LOG_ERR(KAFKA_PREFIX, "unknown error in log call back");
             }
             PLUGIN_LOG_WARN(KAFKA_PREFIX + "facility: ", facility, ", message: ", message);
             break;
@@ -64,12 +84,17 @@ void kafkaEventCallBack(KafkaHandleBase &handle, Event e) {
 
 Configuration createConf(ConstantSP &dict, const string &funcName, bool consumer, Heap *heap, FunctionDefSP func) {
     Configuration configuration;
+    SessionSP session = heap->currentSession()->copy();
+    session->setOutput(heap->currentSession()->getOutput());
+    session->setUser(heap->currentSession()->getUser());
     configuration.set_error_callback([=](KafkaHandleBase &handle, int error, const std::string &reason) {
-        kafkaErrorCallback(handle, error, reason, heap, func);
+        Heap * innerHeap = session->getHeap().get();
+        kafkaErrorCallback(handle, error, reason, innerHeap, func);
     });
     configuration.set_log_callback(
         [=](KafkaHandleBase &handle, int level, const std::string &facility, const std::string &message) {
-            kafkaLogCallback(handle, level, facility, message, heap, func);
+        Heap * innerHeap = session->getHeap().get();
+            kafkaLogCallback(handle, level, facility, message, innerHeap, func);
         });
     configuration.set_stats_callback(kafkaStatCallBack);
 #ifndef BUILD_ARM
@@ -89,7 +114,7 @@ Configuration createConf(ConstantSP &dict, const string &funcName, bool consumer
         if (value->getType() == DT_STRING) {
             configuration.set(key->getString(), value->getString());
         } else if (value->getType() == DT_BOOL) {
-            configuration.set(key->getString(), (bool)value->getBool() ? "true" : "false");
+            configuration.set(key->getString(), static_cast<bool>(value->getBool()) ? "true" : "false");
         } else {
             throw IllegalArgumentException(funcName, "some configurations are illegal");
         }
@@ -111,7 +136,7 @@ Configuration createConf(ConstantSP &dict, const string &funcName, bool consumer
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void produceMsg(SmartPointer<Producer> producer, const string &topic, const string &key, ConstantSP value,
+void produceMsg(Heap *heap, SmartPointer<Producer> producer, const string &topic, const string &key, ConstantSP value,
                 KafkaMarshalType marshalType, int partition, bool force) {
     string usage = string("kafka::produce(producer, topic: string, key, value, json, [partition]) ");
 
@@ -147,7 +172,7 @@ void produceMsg(SmartPointer<Producer> producer, const string &topic, const stri
         return;
     }
 
-    long long valueSize = OperatorImp::memSize(value, nullptr)->getLong();
+    long long valueSize = OperatorImp::memSize(heap, value, nullptr)->getLong();
     if (force || valueSize * 2 < MESSAGE_SIZE || (value->getForm() != DF_TABLE && value->getForm() != DF_VECTOR)) {
         string valueStr = kafkaSerialize(value, marshalType);
         try {
@@ -167,31 +192,31 @@ void produceMsg(SmartPointer<Producer> producer, const string &topic, const stri
             int columns = value->columns();
             int rows = value->rows();
             if (rows == 1) {  // HACK only with only one, force to produce
-                produceMsg(producer, topic, key, value, marshalType, partition, true);
+                produceMsg(heap, producer, topic, key, value, marshalType, partition, true);
             }
-            headLen = OperatorImp::memSize(value->keys(), nullptr)->getLong() * 2;
-            rowLen = OperatorImp::memSize(value->values(), nullptr)->getLong() * 2;
+            headLen = OperatorImp::memSize(heap, value->keys(), nullptr)->getLong() * 2;
+            rowLen = OperatorImp::memSize(heap, value->values(), nullptr)->getLong() * 2;
 
             long long step = (MESSAGE_SIZE - headLen) / (rowLen / rows);
             step = step >= rows / 2 ? rows/2: step;
             step = step < 1 ? 1 : step;
             for (long long i = 0; i < rows; i += step) {
                 auto pass = value->getWindow(0, columns, i, (i + step >= rows) ? (rows - i) : step);
-                produceMsg(producer, topic, key, pass, marshalType, partition);
+                produceMsg(heap, producer, topic, key, pass, marshalType, partition);
             }
         } else if (value->getForm() == DF_VECTOR) {
             VectorSP vector = value;
             int size = vector->size();
-            long long totalSize = OperatorImp::memSize(value, nullptr)->getLong() * 2;
+            long long totalSize = OperatorImp::memSize(heap, value, nullptr)->getLong() * 2;
             if (size == 1) {  // HACK only with only one, force to produce
-                produceMsg(producer, topic, key, value, marshalType, partition, true);
+                produceMsg(heap, producer, topic, key, value, marshalType, partition, true);
             }
             long long step = (MESSAGE_SIZE) / (totalSize / size);
             step = step >= size / 2 ? size/2: step;
             step = step < 1 ? 1 : step;
             for (long long i = 0; i < size; i += step) {
                 auto pass = vector->getSubVector(i, (i + step >= size) ? (size - i) : step);
-                produceMsg(producer, topic, key, pass, marshalType, partition);
+                produceMsg(heap, producer, topic, key, pass, marshalType, partition);
             }
         }
     }

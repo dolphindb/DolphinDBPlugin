@@ -1033,7 +1033,23 @@ public:
         while(versions[!curVersionIdx].isEmpty() == false);
         versionIdx.store(!curVersionIdx);
         while(versions[curVersionIdx].isEmpty() == false);
-        bool inserted2 = maps[curLeftRight].insert(key, value);
+        
+        bool inserted2 = false;
+        try {
+            inserted2 = maps[curLeftRight].insert(key, value);
+        } catch(...) {
+            // oom handle: ref from LocklessFlatHashmap::insert
+            int curLeftRight = leftRight.load();
+            int curVersionIdx = versionIdx.load();
+            maps[!curLeftRight].erase(key);
+            leftRight.store(!curLeftRight);
+            while(versions[!curVersionIdx].isEmpty() == false);
+            versionIdx.store(!curVersionIdx);
+            while(versions[curVersionIdx].isEmpty() == false);
+            maps[curLeftRight].erase(key);
+            inserted1 = inserted2 = false;
+            throw;
+        }
         assert(inserted1 == inserted2);
         return inserted1 && inserted2;
     }

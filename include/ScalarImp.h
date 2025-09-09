@@ -18,9 +18,9 @@ using std::ostringstream;
 class SystemHandle;
 class DataSource;
 class Resource;
-typedef SmartPointer<SystemHandle> SystemHandleSP;
-typedef SmartPointer<DataSource> DataSourceSP;
-typedef SmartPointer<Resource> ResourceSP;
+typedef ObjectPtr<SystemHandle> SystemHandleSP;
+typedef ObjectPtr<DataSource> DataSourceSP;
+typedef ObjectPtr<Resource> ResourceSP;
 
 void initFormatters();
 
@@ -247,6 +247,10 @@ public:
 	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){
 		memcpy(uuid_, value->getInt128(valueIndex).bytes(), 16);
 		return true;
+	}
+	const unsigned char* getRawData() const { return uuid_;}
+	void setRawData(const unsigned char* value){
+		memcpy(uuid_, value, 16);
 	}
 
 protected:
@@ -516,6 +520,8 @@ public:
 	}
 	virtual bool assign(const ConstantSP& value);
 	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getStringRef(valueIndex);return true;}
+	const DolphinString& getRawData() const { return val_;}
+	void setRawData(const DolphinString& value) { val_ = value;}
 
 protected:
 	inline DATA_TYPE internalType() const { return blob_ ? DT_BLOB : DT_STRING;}
@@ -598,6 +604,7 @@ public:
 		type_(DB_HANDLE), socket_(nullptr), flag_(Util::LITTLE_ENDIAN_ORDER ? 1 : 0), dbDir_(dbDir), domain_(domain), symbaseManager_(symManager), tables_(new unordered_map<string, TableSP>()){setTypeAndCategory(DT_HANDLE, SYSTEM);}
 	virtual ~SystemHandle();
 	virtual bool isDatabase() const {return type_ == DB_HANDLE;}
+	virtual bool tryName(const string& name);
 	virtual ConstantSP getMember(const ConstantSP& key) const;
 	void addMember(const ConstantSP& obj);
 	void removeMember(const string& key);
@@ -683,6 +690,70 @@ public:
 	virtual void setString(const DolphinString& val){}
 	virtual bool isNull() const = 0;
 
+	virtual bool setBool(INDEX start, int len, const char* buf) {
+		if(UNLIKELY(len != 1))
+			return false;
+		if(buf[0] != CHAR_MIN)
+			val_ = (T)buf[0];
+		else
+			setNull();
+		return true;
+	}
+	virtual bool setChar(INDEX start, int len, const char* buf) {
+		if(UNLIKELY(len != 1))
+			return false;
+		if(buf[0] != CHAR_MIN)
+			val_ = (T)buf[0];
+		else
+			setNull();
+		return true;
+	}
+	virtual bool setShort(INDEX start, int len, const short* buf) {
+		if(UNLIKELY(len != 1))
+			return false;
+		if(buf[0] != SHRT_MIN)
+			val_ = (T)buf[0];
+		else
+			setNull();
+		return true;
+	}
+	virtual bool setInt(INDEX start, int len, const int* buf) {
+		if(UNLIKELY(len != 1))
+			return false;
+		if(buf[0] != INT_MIN)
+			val_ = (T)buf[0];
+		else
+			setNull();
+		return true;
+	}
+	virtual bool setLong(INDEX start, int len, const long long* buf) {
+		if(UNLIKELY(len != 1))
+			return false;
+		if(buf[0] != LLONG_MIN)
+			val_ = (T)buf[0];
+		else
+			setNull();
+		return true;
+	}
+	virtual bool setFloat(INDEX start, int len, const float* buf) {
+		if(UNLIKELY(len != 1))
+			return false;
+		if(buf[0] != FLT_NMIN)
+			val_ = (T)buf[0];
+		else
+			setNull();
+		return true;
+	}
+	virtual bool setDouble(INDEX start, int len, const double* buf) {
+		if(UNLIKELY(len != 1))
+			return false;
+		if(buf[0] != DBL_NMIN)
+			val_ = (T)buf[0];
+		else
+			setNull();
+		return true;
+	}
+
 	virtual ConstantSP get(const ConstantSP& index) const override {
 		if (index->isScalar()) {
 			return getValue();
@@ -692,7 +763,7 @@ public:
 		}
 		ConstantSP vec = Util::createVector(getType(), index->size());
 		((Vector*)vec.get())->fill(0, vec->size(), getValue());
-
+		
 		if (((Vector*)index.get())->min()->getInt() >= 0) {
 			return vec;
 		}
@@ -1083,6 +1154,8 @@ public:
 			return true;
 		}
 	}
+	T getRawData() const { return val_;}
+	void setRawData(T value) { val_ = value;}
 
 protected:
 	T val_;

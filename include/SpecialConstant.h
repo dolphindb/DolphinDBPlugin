@@ -13,6 +13,10 @@
 #include "CoreConcept.h"
 #include "Util.h"
 
+class AnyVector;
+
+typedef ObjectPtr<AnyVector> AnyVectorSP;
+
 class AnyVector:public Vector{
 public:
 	AnyVector(int size, bool isTableColumn = false, DATA_TYPE dt = DT_VOID, int decimalExtra = -1);
@@ -46,6 +50,7 @@ public:
 	virtual ConstantSP get(INDEX index) const {return data_[index];}
 	virtual ConstantSP get(const ConstantSP& index) const;
 	virtual ConstantSP get(INDEX offset, const ConstantSP& index) const override;
+	virtual const ConstantSP& getItem(INDEX index, ConstantSP& cache) const {return data_[index];}
 	virtual bool hasNull(){return  hasNull(0, data_.size());}
 	virtual bool hasNull(INDEX start, INDEX length);
 	virtual bool isNull(INDEX index) const;
@@ -262,12 +267,17 @@ public:
 	ConstantSP rowKurtosis(INDEX rowStart, INDEX count, bool biased) const override;
 	ConstantSP rowSkew(INDEX rowStart, INDEX count, bool biased) const override;
 
+	const ConstantSP & getElement(INDEX index) const;
+	ConstantSP & getElement(INDEX index);
+	void setElement(INDEX index, const ConstantSP &value);
+	void setElement(INDEX index, ConstantSP &&value);
 	void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
 	bool isHomogeneousScalar(DATA_TYPE& type) const;
 	bool isHomogeneousScalarOrArray(DATA_TYPE& type, int& decimalExtra) const;
 	bool isConsistent() const;
 	bool isConsistentArray(int& len) const;
-	bool isTabular() const;
+	bool isTabular(DATA_TYPE& type, bool& isArray) const;
+	bool isStrictTabular(DATA_TYPE& type, bool& isArray) const;
 	ConstantSP convertToRegularVector() const;
 	bool isDimension() const { return isDim_;}
 	void setDimension(bool option) { isDim_ = option;}
@@ -318,7 +328,7 @@ public:
 	 * @return a copyed vector if v is subVector or SlicedVector(isView() is true)
 	 * @return v if v is an AnyVector
 	 */
-	static SmartPointer<AnyVector> toAnyVector(const VectorSP& v) {
+	static AnyVectorSP toAnyVector(const VectorSP& v) {
 		if (LIKELY(!v->isView()))
 			return v;
 		// v may be a SubVector or SlicedVector
@@ -914,6 +924,8 @@ public:
 		return true;
 	}
 
+	virtual bool getString(INDEX* indices, int len, DolphinString** buf) const override;
+	virtual bool getString(INDEX* indices, int len, char** buf) const override;
     virtual bool getBool(INDEX *indices, int len, char *buf) const override;
     virtual bool getChar(INDEX *indices, int len, char *buf) const override;
     virtual bool getShort(INDEX *indices, int len, short *buf) const override;
@@ -1901,7 +1913,6 @@ public:  /// {get,set}Decimal{32,64,128}
 				cur = std::max(cur, std::abs(offset_ + start));
 			}
 			cur = std::min(len, cur);
-			std::min(len, std::max(std::abs(start), std::abs(offset_ + start)));
 			for (INDEX i = 0; i < cur; ++i) {
 				buf[i] = LONG_MIN;
 			}
@@ -1934,7 +1945,6 @@ public:  /// {get,set}Decimal{32,64,128}
 				cur = std::max(cur, std::abs(offset_ + start));
 			}
 			cur = std::min(len, cur);
-			std::min(len, std::max(std::abs(start), std::abs(offset_ + start)));
 			for (INDEX i = 0; i < cur; ++i) {
 				buf[i] = INT128_MIN;
 			}
@@ -2436,6 +2446,7 @@ public:
 	INDEX getValueSize() const { return valueSize_;}
 	VectorSP getSourceIndex() const { return index_;}
 	VectorSP getSourceValue() const { return value_;}
+	void resetSourceValue(const VectorSP& vec);
 	virtual ~FastArrayVector(){}
 	virtual bool isLargeConstant() const {return true;}
 	virtual VECTOR_TYPE getVectorType() const {return VECTOR_TYPE::ARRAYVECTOR;}
@@ -3016,7 +3027,7 @@ public:
 	};
 	vector<TypeGroup> findUniqueTypesElements(INDEX start, INDEX length) const;
 
-    static SmartPointer<IotAnyVector> cast(const VectorSP& vec) {
+    static ObjectPtr<IotAnyVector> cast(const VectorSP& vec) {
         if (vec->getType() != DT_IOTANY) {
             return nullptr;
         }

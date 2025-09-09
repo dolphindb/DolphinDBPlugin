@@ -14,8 +14,8 @@
 
 class SubTable;
 class BasicTable;
-typedef SmartPointer<SubTable> SubTableSP;
-typedef SmartPointer<BasicTable> BasicTableSP;
+typedef ObjectPtr<SubTable> SubTableSP;
+typedef ObjectPtr<BasicTable> BasicTableSP;
 
 class SubTable: public Table {
 public:
@@ -264,7 +264,7 @@ public:
 
 	void updateSize();
 	void getKeyColumnNameAndType(vector<string>& keyNames, vector<pair<DATA_TYPE, DATA_CATEGORY>>& keyTypes, bool& ordered) const;
-	ConstantSP getRowByKey(vector<ConstantSP>& keys, bool excludeNotExist) const;
+	ConstantSP getRowByKey(vector<ConstantSP>& keys, bool excludeNotExist, bool preserveOrder = false) const;
 	void containKey(vector<ConstantSP>& keys, const ConstantSP& result) const;
 	void setChunkPath(const string& chunkPath){ chunkPath_ = chunkPath;}
 	ConstantSP toWideTable();
@@ -279,6 +279,12 @@ public:
     bool isKeyTable() const {
         return keyTable_ != nullptr;
     }
+    bool isHashKeyTable() const {
+    	return keyTable_ != nullptr && !keyTable_->ordered;
+    }
+    const DictionarySP& getKeyDictionary() const { return keyTable_->dict;}
+    TableSP getKeyTableCopy(const vector<ConstantSP>& cols) const;
+    inline const ConstantSP& getInternalColumn(int index) const { return cols_[index];}
 
 protected:
 	const vector<ConstantSP>& getCols() const { return cols_; }

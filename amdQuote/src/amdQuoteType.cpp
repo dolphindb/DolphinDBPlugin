@@ -8,6 +8,8 @@
 using namespace ThreadedQueueUtil;
 using namespace MarketUtil;
 
+DATA_TYPE DT_LONG_ARRAY = DATA_TYPE(DT_LONG + ARRAY_TYPE_BASE);
+
 MetaTable AmdBondSnapshotTableMeta_4_0_1 = {
     {
     "marketType", "securityCode", "origTime", "tradingPhaseCode", "preClosePrice",
@@ -291,7 +293,32 @@ MetaTable AmdOptionTableMeta {
     }
 };
 
-#ifndef AMD_3_9_6
+MetaTable AmdHKTSnapshotTableMeta = {
+    {
+        "marketType", "securityCode", "origTime", "preClosePrice", "nominalPrice",
+        "highPrice", "lowPrice", "lastPrice", "bidPrice1", "bidPrice2",
+        "bidPrice3", "bidPrice4", "bidPrice5", "bidVolume1", "bidVolume2",
+        "bidVolume3", "bidVolume4", "bidVolume5", "offerPrice1", "offerPrice2",
+        "offerPrice3", "offerPrice4", "offerPrice5", "offerVolume1", "offerVolume2",
+        "offerVolume3", "offerVolume4", "offerVolume5", "totalVolumeTrade", "totalValueTrade",
+        "tradingPhaseCode", "channelNo", "mdStreamId", "refPrice", "highLimited",
+        "lowLimited", "bidPriceLimitUp", "bidPriceLimitDown", "offerPriceLimitUp", "offerPriceLimitDown",
+        "varietyCategory"
+    },
+    {
+        DT_INT, DT_SYMBOL, DT_TIMESTAMP, DT_LONG, DT_LONG,
+        DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+        DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+        DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+        DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+        DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+        DT_STRING, DT_INT, DT_STRING, DT_LONG, DT_LONG,
+        DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+        DT_CHAR
+    }
+};
+
+#ifndef AMD_396
 MetaTable AmdIOPVTableMeta {
     {
         "marketType", "securityCode", "origTime", "lastIopv",
@@ -309,6 +336,40 @@ MetaTable AmdIOPVTableMeta {
         DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
         DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
         DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+    }
+};
+#endif
+
+#ifdef AMD_457
+MetaTable AmdHKExMergeSnapshotMeta = {
+    {
+        "marketType", "securityCode", "origTime", "preClosePrice", "lastPrice",
+        "openPrice", "highPrice", "lowPrice", "closePrice", "totalVolumeTrade",
+        "totalValueTrade", "shortVolumeShares", "shortValueTurnover", "varietyCategory", "norminalPrice",
+        "yield", "tradingStatus", "bidListOrderPrice", "bidListOrderVolumes", "bidListNumOfOrders",
+        "askListOrderPrices", "askListOrderVolumes", "askListNumOfOrders"
+    },
+    {
+        DT_INT, DT_SYMBOL, DT_TIMESTAMP, DT_LONG, DT_LONG,
+        DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+        DT_LONG, DT_LONG, DT_LONG, DT_CHAR, DT_LONG,
+        DT_LONG, DT_INT, DT_LONG_ARRAY, DT_LONG_ARRAY, DT_LONG_ARRAY,
+        DT_LONG_ARRAY, DT_LONG_ARRAY, DT_LONG_ARRAY
+    }
+};
+
+MetaTable AmdHKExIndexSnapshotMeta = {
+    {
+        "marketType", "securityCode", "origTime", "indexStatus", "preClosePrice",
+        "openPrice", "highPrice", "lowPrice", "closePrice", "lastPrice",
+        "totalVolumeTrade", "totalValueTrade", "change", "ratioOfChange", "easValue",
+        "varietyCategory", "indexTime", "indexSource", "currencyCode"
+    },
+    {
+        DT_INT, DT_SYMBOL, DT_TIMESTAMP, DT_CHAR, DT_LONG,
+        DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+        DT_LONG, DT_LONG, DT_LONG, DT_LONG, DT_LONG,
+        DT_CHAR, DT_INT, DT_CHAR, DT_STRING
     }
 };
 #endif
@@ -339,7 +400,10 @@ void initSecurityCodeToIntTypeContainer(MarketTypeContainer<>& container){
     container.add("orderExecution", AmdOrderExecutionTableMeta);
     container.add("option", optionMeta);
     container.add("future", futureMeta);
-#ifndef AMD_3_9_6
+    auto hktMeta = AmdHKTSnapshotTableMeta;
+    hktMeta.colTypes_[1] = DT_INT;
+    container.add("HKTSnapshot", hktMeta);
+#ifndef AMD_396
     auto IOPVMeta = AmdIOPVTableMeta;
     IOPVMeta.colTypes_[1] = DT_INT;
     container.add("IOPV", IOPVMeta);
@@ -354,6 +418,14 @@ void initSecurityCodeToIntTypeContainer(MarketTypeContainer<>& container){
     bondOrder.colTypes_[1] = DT_INT;
     container.add("bondOrder_4.0.1", bondOrder);
 #endif
+#ifdef AMD_457
+    auto hkexMergeMeta = AmdHKExMergeSnapshotMeta;
+    hkexMergeMeta.colTypes_[1] = DT_INT;
+    container.add("HKExMergeSnapshot", hkexMergeMeta);
+    auto hkexIndexMeta = AmdHKExIndexSnapshotMeta;
+    hkexIndexMeta.colTypes_[1] = DT_INT;
+    container.add("HKExIndexSnapshot", hkexIndexMeta);
+#endif
 }
 
 void initTypeContainer(MarketTypeContainer<>& container){
@@ -366,15 +438,20 @@ void initTypeContainer(MarketTypeContainer<>& container){
     container.add("orderExecution", AmdOrderExecutionTableMeta);
     container.add("option", AmdOptionTableMeta);
     container.add("future", AmdFutureTableMeta);
-#ifndef AMD_3_9_6
+    container.add("HKTSnapshot", AmdHKTSnapshotTableMeta);
+#ifndef AMD_396
     container.add("IOPV", AmdIOPVTableMeta);
+#endif
+#ifdef AMD_457
+    container.add("HKExMergeSnapshot", AmdHKExMergeSnapshotMeta);
+    container.add("HKExIndexSnapshot", AmdHKExIndexSnapshotMeta);
 #endif
     container.add("bondSnapshot_4.0.1", AmdBondSnapshotTableMeta_4_0_1);
     container.add("order_4.0.1", AmdOrderTableMeta_4_0_1);
     container.add("bondOrder_4.0.1", AmdBondOrderTableMeta_4_0_1);
 }
 
-#ifndef AMD_3_9_6
+#ifndef AMD_396
 void IOPVReader(vector<ConstantSP> &buffer, timeMDIOPV &data, bool securityCodeToInt) {
     int colNum = 0;
     ((VectorSP)(buffer[colNum++]))->appendInt(&(data.IOPV.market_type), 1);
@@ -385,7 +462,7 @@ void IOPVReader(vector<ConstantSP> &buffer, timeMDIOPV &data, bool securityCodeT
     } else {
         ((VectorSP)(buffer[colNum++]))->appendString(&securityCode, 1);
     }
-    long long origTime = convertTime(data.IOPV.orig_time);
+    long long origTime = convertToTimestamp(data.IOPV.orig_time);
     ((VectorSP)(buffer[colNum++]))->appendLong(&origTime, 1);
     long long last_iopv = data.IOPV.last_iopv;
     ((VectorSP)(buffer[colNum++]))->appendLong(&last_iopv, 1);
@@ -398,6 +475,156 @@ void IOPVReader(vector<ConstantSP> &buffer, timeMDIOPV &data, bool securityCodeT
         long long offer_iopv = data.IOPV.offer_iopv[i];
         ((VectorSP)(buffer[colNum++]))->appendLong(&offer_iopv , 1);
     }
+}
+#endif
+
+#ifdef AMD_457
+void HKExMergeSnapshotReader(vector<ConstantSP> &buffer, timeHKExMergeSnapshot &data, bool securityCodeToInt) {
+    ConstantVecIterator iter = buffer.begin();
+
+    // marketType
+    appendInt(iter++, data.snapshot.market_type);
+
+    // securityCode
+    string securityCode = data.snapshot.security_code;
+    if(securityCodeToInt) {
+        int num = std::atoi(securityCode.c_str());
+        appendInt(iter++, num);
+    } else {
+        appendString(iter++, securityCode);
+    }
+
+    // origTime
+    long long origTime = convertToTimestamp(data.snapshot.orig_time);
+    appendLong(iter++, origTime);
+
+    // preClosePrice, lastPrice, openPrice, highPrice, lowPrice, closePrice
+    appendLong(iter++, data.snapshot.pre_close_price);
+    appendLong(iter++, data.snapshot.last_price);
+    appendLong(iter++, data.snapshot.open_price);
+    appendLong(iter++, data.snapshot.high_price);
+    appendLong(iter++, data.snapshot.low_price);
+    appendLong(iter++, data.snapshot.close_price);
+
+    // totalVolumeTrade, totalValueTrade, shortVolumeShares, shortValueTurnover
+    appendLong(iter++, data.snapshot.total_volume_trade);
+    appendLong(iter++, data.snapshot.total_value_trade);
+    appendLong(iter++, data.snapshot.short_volume_shares);
+    appendLong(iter++, data.snapshot.short_value_turnover);
+
+    // varietyCategory
+    appendChar(iter++, data.snapshot.variety_category);
+
+    // norminalPrice, yield
+    appendLong(iter++, data.snapshot.norminal_price);
+    appendLong(iter++, data.snapshot.yield);
+
+    // tradingStatus
+    appendInt(iter++, data.snapshot.trading_status);
+
+    ConstantSP appendTuple = Util::createVector(DT_ANY,1);
+    // bidPrices, bidVolumes, bidNumOfOrders
+    vector<long long> bidPrices, bidVolumes, bidNumOfOrders;
+    for(auto i = 0u; i < amd::ama::ConstField::kHKExPositionLevelLen; ++i) {
+        bidPrices.push_back(data.snapshot.bid_list[i].order_price);
+        bidVolumes.push_back(data.snapshot.bid_list[i].order_volume);
+        bidNumOfOrders.push_back(data.snapshot.bid_list[i].num_of_orders);
+    }
+
+    // bidPrices array
+    VectorSP bidPricesVec = Util::createVector(DT_LONG, bidPrices.size());
+    bidPricesVec->appendLong(bidPrices.data(), bidPrices.size());
+    appendTuple->set(0, bidPricesVec);
+    ((VectorSP)(*iter++))->append(appendTuple);
+
+    // bidVolumes array
+    VectorSP bidVolumesVec = Util::createVector(DT_LONG, bidVolumes.size());
+    bidVolumesVec->appendLong(bidVolumes.data(), bidVolumes.size());
+    appendTuple->set(0, bidVolumesVec);
+    ((VectorSP)(*iter++))->append(appendTuple);
+
+    // bidNumOfOrders array
+    VectorSP bidNumOfOrdersVec = Util::createVector(DT_LONG, bidNumOfOrders.size());
+    bidNumOfOrdersVec->appendLong(bidNumOfOrders.data(), bidNumOfOrders.size());
+    appendTuple->set(0, bidNumOfOrdersVec);
+    ((VectorSP)(*iter++))->append(appendTuple);
+
+    // askPrices, askVolumes, askNumOfOrders
+    vector<long long> askPrices, askVolumes, askNumOfOrders;
+    for(auto i = 0u; i < amd::ama::ConstField::kHKExPositionLevelLen; ++i) {
+        askPrices.push_back(data.snapshot.ask_list[i].order_price);
+        askVolumes.push_back(data.snapshot.ask_list[i].order_volume);
+        askNumOfOrders.push_back(data.snapshot.ask_list[i].num_of_orders);
+    }
+
+    // askPrices array
+    VectorSP askPricesVec = Util::createVector(DT_LONG, askPrices.size());
+    askPricesVec->appendLong(askPrices.data(), askPrices.size());
+    appendTuple->set(0, askPricesVec);
+    ((VectorSP)(*iter++))->append(appendTuple);
+
+    // askVolumes array
+    VectorSP askVolumesVec = Util::createVector(DT_LONG, askVolumes.size());
+    askVolumesVec->appendLong(askVolumes.data(), askVolumes.size());
+    appendTuple->set(0, askVolumesVec);
+    ((VectorSP)(*iter++))->append(appendTuple);
+
+    // askNumOfOrders array
+    VectorSP askNumOfOrdersVec = Util::createVector(DT_LONG, askNumOfOrders.size());
+    askNumOfOrdersVec->appendLong(askNumOfOrders.data(), askNumOfOrders.size());
+    appendTuple->set(0, askNumOfOrdersVec);
+    ((VectorSP)(*iter++))->append(appendTuple);
+}
+
+void HKExIndexSnapshotReader(vector<ConstantSP> &buffer, timeHKExIndexSnapshot &data, bool securityCodeToInt) {
+    ConstantVecIterator iter = buffer.begin();
+
+    // marketType
+    appendInt(iter++, data.index.market_type);
+
+    // securityCode
+    string securityCode = data.index.security_code;
+    if(securityCodeToInt) {
+        int num = std::atoi(securityCode.c_str());
+        appendInt(iter++, num);
+    } else {
+        appendString(iter++, securityCode);
+    }
+
+    // origTime
+    long long origTime = convertToTimestamp(data.index.orig_time);
+    appendLong(iter++, origTime);
+
+    // indexStatus
+    appendChar(iter++, data.index.index_status);
+
+    // price
+    appendLong(iter++, data.index.pre_close_price);
+    appendLong(iter++, data.index.open_price);
+    appendLong(iter++, data.index.high_price);
+    appendLong(iter++, data.index.low_price);
+    appendLong(iter++, data.index.close_price);
+    appendLong(iter++, data.index.last_price);
+
+    // trade
+    appendLong(iter++, data.index.total_volume_trade);
+    appendLong(iter++, data.index.total_value_trade);
+    appendLong(iter++, data.index.change);
+    appendLong(iter++, data.index.ratio_of_change);
+    appendLong(iter++, data.index.eas_value);
+
+    // varietyCategory
+    appendChar(iter++, data.index.variety_category);
+
+    // indexTime
+    appendInt(iter++, convertToTime(1000*data.index.index_time));
+
+    // indexSource
+    appendChar(iter++, data.index.index_source);
+
+    // currencyCode
+    string currencyCode = data.index.currency_code;
+    appendString(iter++, currencyCode);
 }
 #endif
 
@@ -416,7 +643,7 @@ void futureReader(vector<ConstantSP> &buffer, timeMDFuture &data, bool securityC
 
     int32_t   action_day = data.future.action_day;
     ((VectorSP)(buffer[colNum++]))->appendInt(&action_day, 1);
-    long long   orig_time = convertTime(data.future.orig_time);
+    long long   orig_time = convertToTimestamp(data.future.orig_time);
     ((VectorSP)(buffer[colNum++]))->appendLong(&orig_time, 1);
     string      exchange_inst_id = data.future.exchange_inst_id;
     ((VectorSP)(buffer[colNum++]))->appendString(&exchange_inst_id, 1);
@@ -538,7 +765,7 @@ void optionReader(vector<ConstantSP> &buffer, timeMDOption &data, bool securityC
     } else {
         ((VectorSP)(buffer[colNum++]))->appendString(&securityCode, 1);
     }
-    long long origTime = convertTime(data.option.orig_time);
+    long long origTime = convertToTimestamp(data.option.orig_time);
     ((VectorSP)(buffer[colNum++]))->appendLong(&origTime, 1);
     long long preSettlePrice = data.option.pre_settle_price;
     ((VectorSP)(buffer[colNum++]))->appendLong(&preSettlePrice, 1);
@@ -623,7 +850,7 @@ void optionReader(vector<ConstantSP> &buffer, timeMDOption &data, bool securityC
 
     string mdStreamID = data.option.md_stream_id;
     ((VectorSP)(buffer[colNum++]))->appendString(&mdStreamID, 1);
-    long long lastTradeTime = convertTime(data.option.last_trade_time);
+    long long lastTradeTime = convertToTimestamp(data.option.last_trade_time);
     ((VectorSP)(buffer[colNum++]))->appendLong(&lastTradeTime, 1);
     long long ref_price = data.option.ref_price;
     ((VectorSP)(buffer[colNum++]))->appendLong(&ref_price, 1);
@@ -650,7 +877,7 @@ void indexReader(vector<ConstantSP> &buffer, timeMDIndexSnapshot &data, bool sec
     } else {
         ((VectorSP)(buffer[colNum++]))->appendString(&securityCode, 1);
     }
-    long long origTime = convertTime(data.indexSnapshot.orig_time);
+    long long origTime = convertToTimestamp(data.indexSnapshot.orig_time);
     ((VectorSP)(buffer[colNum++]))->appendLong(&origTime, 1);
     string tradingPhaseCode = data.indexSnapshot.trading_phase_code;
     ((VectorSP)(buffer[colNum++]))->appendString(&tradingPhaseCode, 1);
@@ -691,7 +918,7 @@ void orderQueueReader(vector<ConstantSP> &buffer, timeMDOrderQueue &data, bool s
     } else {
         ((VectorSP)(buffer[colNum++]))->appendString(&securityCode, 1);
     }
-    long long orderTime = convertTime(data.orderQueue.order_time);
+    long long orderTime = convertToTimestamp(data.orderQueue.order_time);
     ((VectorSP)(buffer[colNum++]))->appendLong(&orderTime, 1);
     char side = data.orderQueue.side;
     ((VectorSP)(buffer[colNum++]))->appendChar(&side, 1);
@@ -717,6 +944,88 @@ void orderQueueReader(vector<ConstantSP> &buffer, timeMDOrderQueue &data, bool s
     ((VectorSP)(buffer[colNum++]))->appendChar(&varietyCategory, 1);
 }
 
+void hktSnapshotReader(vector<ConstantSP> &buffer, timeMDHKTSnapshot &data, bool securityCodeToInt) {
+    ConstantVecIterator iter = buffer.begin();
+
+    // marketType
+    appendInt(iter++, data.hktSnapshot.market_type);
+
+    // securityCode
+    string securityCode = data.hktSnapshot.security_code;
+    if(securityCodeToInt) {
+        int num = std::atoi(securityCode.c_str());
+        appendInt(iter++, num);
+    } else {
+        appendString(iter++, securityCode);
+    }
+
+    // origTime
+    long long origTime = convertToTimestamp(data.hktSnapshot.orig_time);
+    appendLong(iter++, origTime);
+
+    // preClosePrice, nominalPrice
+    appendLong(iter++, data.hktSnapshot.pre_close_price);
+    appendLong(iter++, data.hktSnapshot.nominal_price);
+
+    // highPrice, lowPrice, lastPrice
+    appendLong(iter++, data.hktSnapshot.high_price);
+    appendLong(iter++, data.hktSnapshot.low_price);
+    appendLong(iter++, data.hktSnapshot.last_price);
+
+    // bid price
+    for(int i = 0; i < 5; ++i) {
+        appendLong(iter++, data.hktSnapshot.bid_price[i]);
+    }
+
+    // bid volume
+    for(int i = 0; i < 5; ++i) {
+        appendLong(iter++, data.hktSnapshot.bid_volume[i]);
+    }
+
+    // offer price
+    for(int i = 0; i < 5; ++i) {
+        appendLong(iter++, data.hktSnapshot.offer_price[i]);
+    }
+
+    // offer volume
+    for(int i = 0; i < 5; ++i) {
+        appendLong(iter++, data.hktSnapshot.offer_volume[i]);
+    }
+
+    // totalVolumeTrade, totalValueTrade
+    appendLong(iter++, data.hktSnapshot.total_volume_trade);
+    appendLong(iter++, data.hktSnapshot.total_value_trade);
+
+    // tradingPhaseCode
+    string tradingPhaseCode = data.hktSnapshot.trading_phase_code;
+    appendString(iter++, tradingPhaseCode);
+
+    // channelNo
+    appendInt(iter++, data.hktSnapshot.channel_no);
+
+    // mdStreamId
+    string mdStreamId = data.hktSnapshot.md_stream_id;
+    appendString(iter++, mdStreamId);
+
+    // refPrice
+    appendLong(iter++, data.hktSnapshot.ref_price);
+
+    // highLimited, lowLimited
+    appendLong(iter++, data.hktSnapshot.high_limited);
+    appendLong(iter++, data.hktSnapshot.low_limited);
+
+    // bidPriceLimitUp, bidPriceLimitDown
+    appendLong(iter++, data.hktSnapshot.bid_price_limit_up);
+    appendLong(iter++, data.hktSnapshot.bid_price_limit_down);
+
+    // offerPriceLimitUp, offerPriceLimitDown
+    appendLong(iter++, data.hktSnapshot.offer_price_limit_up);
+    appendLong(iter++, data.hktSnapshot.offer_price_limit_down);
+
+    // varietyCategory
+    appendChar(iter++, data.hktSnapshot.variety_category);
+}
+
 void neeqSnapshotReader(vector<ConstantSP> &buffer, timeMDNEEQSnapshot &data, bool securityCodeToInt) {
     ConstantVecIterator iter = buffer.begin();
     appendInt(iter++, data.neeqSnapshot.market_type);
@@ -727,7 +1036,7 @@ void neeqSnapshotReader(vector<ConstantSP> &buffer, timeMDNEEQSnapshot &data, bo
     } else {
         appendString(iter++, securityCode);
     }
-    long long orderTime = convertTime(data.neeqSnapshot.orig_time);
+    long long orderTime = convertToTimestamp(data.neeqSnapshot.orig_time);
     appendLong(iter++, orderTime);
     appendLong(iter++, data.neeqSnapshot.pre_close_price);
     appendLong(iter++, data.neeqSnapshot.open_price);
@@ -785,7 +1094,7 @@ void snapshotReader(vector<ConstantSP> &buffer, timeMDSnapshot &data, bool secur
     } else {
         ((VectorSP)(buffer[colNum++]))->appendString(&securityCode, 1);
     }
-    long long origTime      = convertTime(data.snapshot.orig_time);
+    long long origTime      = convertToTimestamp(data.snapshot.orig_time);
     ((Vector*)buffer[colNum++].get())->appendLong(&origTime, 1);
     string tradingPhaseCode = data.snapshot.trading_phase_code;
     ((Vector*)buffer[colNum++].get())->appendString(&tradingPhaseCode, 1);
@@ -927,7 +1236,7 @@ void orderReader(vector<ConstantSP> &buffer, timeMDTickOrder &data, bool securit
     ((VectorSP)(buffer[colNum++]))->appendInt(&channelNo, 1);
     long long applSeqNum = data.order.appl_seq_num;
     ((VectorSP)(buffer[colNum++]))->appendLong(&applSeqNum, 1);
-    long long orderTime = convertTime(data.order.order_time);
+    long long orderTime = convertToTimestamp(data.order.order_time);
     ((VectorSP)(buffer[colNum++]))->appendLong(&orderTime, 1);
     long long orderPrice = data.order.order_price;
     ((VectorSP)(buffer[colNum++]))->appendLong(&orderPrice, 1);
@@ -957,7 +1266,7 @@ void executionReader(vector<ConstantSP> &buffer, timeMDTickExecution &data, bool
     } else {
         ((VectorSP)(buffer[colNum++]))->appendString(&securityCode, 1);
     }
-    long long execTime = convertTime(data.execution.exec_time);
+    long long execTime = convertToTimestamp(data.execution.exec_time);
     ((VectorSP)(buffer[colNum++]))->appendLong(&execTime, 1);
     int channelNo = data.execution.channel_no;
     ((VectorSP)(buffer[colNum++]))->appendInt(&channelNo, 1);
@@ -1080,7 +1389,7 @@ void bondSnapshotReader(vector<ConstantSP> &buffer, timeMDBondSnapshot &data, bo
     } else {
         ((VectorSP)(buffer[colNum++]))->appendString(&securityCode, 1);
     }
-    long long origTime      = convertTime(data.bondSnapshot.orig_time);
+    long long origTime      = convertToTimestamp(data.bondSnapshot.orig_time);
     ((Vector*)buffer[colNum++].get())->appendLong(&origTime, 1);
     string tradingPhaseCode = data.bondSnapshot.trading_phase_code;
     ((Vector*)buffer[colNum++].get())->appendString(&tradingPhaseCode, 1);
@@ -1222,7 +1531,7 @@ void bondOrderReader(vector<ConstantSP> &buffer, timeMDBondTickOrder &data, bool
     ((VectorSP)(buffer[colNum++]))->appendInt(&channelNo, 1);
     long long applSeqNum = data.bondOrder.appl_seq_num;
     ((VectorSP)(buffer[colNum++]))->appendLong(&applSeqNum, 1);
-    long long orderTime = convertTime(data.bondOrder.order_time);
+    long long orderTime = convertToTimestamp(data.bondOrder.order_time);
     ((VectorSP)(buffer[colNum++]))->appendLong(&orderTime, 1);
     long long orderPrice = data.bondOrder.order_price;
     ((VectorSP)(buffer[colNum++]))->appendLong(&orderPrice, 1);
@@ -1252,7 +1561,7 @@ void bondExecutionReader(vector<ConstantSP> &buffer, timeMDBondTickExecution &da
     } else {
         ((VectorSP)(buffer[colNum++]))->appendString(&securityCode, 1);
     }
-    long long execTime = convertTime(data.bondExecution.exec_time);
+    long long execTime = convertToTimestamp(data.bondExecution.exec_time);
     ((VectorSP)(buffer[colNum++]))->appendLong(&execTime, 1);
     int channelNo = data.bondExecution.channel_no;
     ((VectorSP)(buffer[colNum++]))->appendInt(&channelNo, 1);
@@ -1379,7 +1688,7 @@ void orderReader_4_0_1(vector<ConstantSP> &buffer, timeMDTickOrder &data, bool s
     ((VectorSP)(buffer[colNum++]))->appendInt(&channelNo, 1);
     long long applSeqNum = data.order.appl_seq_num;
     ((VectorSP)(buffer[colNum++]))->appendLong(&applSeqNum, 1);
-    long long orderTime = convertTime(data.order.order_time);
+    long long orderTime = convertToTimestamp(data.order.order_time);
     ((VectorSP)(buffer[colNum++]))->appendLong(&orderTime, 1);
     long long orderPrice = data.order.order_price;
     ((VectorSP)(buffer[colNum++]))->appendLong(&orderPrice, 1);
@@ -1421,7 +1730,7 @@ void bondOrderReader_4_0_1(vector<ConstantSP> &buffer, timeMDBondTickOrder &data
     ((VectorSP)(buffer[colNum++]))->appendInt(&channelNo, 1);
     long long applSeqNum = data.bondOrder.appl_seq_num;
     ((VectorSP)(buffer[colNum++]))->appendLong(&applSeqNum, 1);
-    long long orderTime = convertTime(data.bondOrder.order_time);
+    long long orderTime = convertToTimestamp(data.bondOrder.order_time);
     ((VectorSP)(buffer[colNum++]))->appendLong(&orderTime, 1);
     long long orderPrice = data.bondOrder.order_price;
     ((VectorSP)(buffer[colNum++]))->appendLong(&orderPrice, 1);
@@ -1452,7 +1761,7 @@ void bondSnapshotReader_4_0_1(vector<ConstantSP> &buffer, timeMDBondSnapshot &da
     } else {
         ((VectorSP)(buffer[colNum++]))->appendString(&securityCode, 1);
     }
-    long long origTime      = convertTime(data.bondSnapshot.orig_time);
+    long long origTime      = convertToTimestamp(data.bondSnapshot.orig_time);
     ((Vector*)buffer[colNum++].get())->appendLong(&origTime, 1);
     string tradingPhaseCode = data.bondSnapshot.trading_phase_code;
     ((Vector*)buffer[colNum++].get())->appendString(&tradingPhaseCode, 1);
@@ -1658,7 +1967,8 @@ int convertToTime(long long time) {
     return ((hour * 60 + minute) * 60 + second) * 1000ll + milliSecond;
 }
 
-long long convertTime(long long time) {
+
+long long convertToTimestamp(long long time) {
     long long year, month, day, hour, minute, second, milliSecond;
     milliSecond = time % 1000;
     second = time / 1000 % 100;
@@ -1701,6 +2011,8 @@ AMDDataType getAmdDataType(const string &typeStr) {
         return AMD_BOND_ORDER;
     } else if (typeStr == "NEEQSnapshot") {
         return AMD_NEEQ_SNAPSHOT;
+    } else if (typeStr == "HKTSnapshot") {
+        return AMD_HKT_SNAPSHOT;
     } else if (typeStr == "index") {
         return AMD_INDEX;
     } else if (typeStr == "orderQueue") {
@@ -1709,9 +2021,15 @@ AMDDataType getAmdDataType(const string &typeStr) {
         return AMD_OPTION_SNAPSHOT;
     } else if (typeStr == "future") {
         return AMD_FUTURE_SNAPSHOT;
-#ifndef AMD_3_9_6
+#ifndef AMD_396
     } else if (typeStr == "IOPV") {
         return AMD_IOPV_SNAPSHOT;
+#endif
+#ifdef AMD_457
+    } else if (typeStr == "HKExMergeSnapshot") {
+        return AMD_HKEX_MERGE_SNAPSHOT;
+    } else if (typeStr == "HKExIndexSnapshot") {
+        return AMD_HKEX_INDEX_SNAPSHOT;
 #endif
     } else if (typeStr == "orderExecution") {
         return AMD_ORDER_EXECUTION;
@@ -1720,7 +2038,7 @@ AMDDataType getAmdDataType(const string &typeStr) {
     } else {
         throw RuntimeException(
             "type should be `snapshot, `execution, `order, `index, `future, `option, `IOPV(Except for amd version 3.9.6), `orderQueue, `fundSnapshot, "
-            "`fundExecution`, `fundOrder, 'orderExecution' or 'bondOrderExecution'");
+            "`fundExecution`, `NEEQSnapshot`, `HKTSnapshot`, `fundOrder, 'orderExecution' or 'bondOrderExecution'");
     }
 }
 
@@ -1734,9 +2052,19 @@ int getDailyIndex(DailyIndex &index,timeMDFuture& data, long long timestamp) {
     return INT_MIN;
 }
 
-#ifndef AMD_3_9_6
+#ifndef AMD_396
 template <>
 int getDailyIndex(DailyIndex &index,timeMDIOPV& data, long long timestamp) {
+    return INT_MIN;
+}
+#endif
+#ifdef AMD_457
+template <>
+int getDailyIndex(DailyIndex &index,timeHKExMergeSnapshot& data, long long timestamp) {
+    return INT_MIN;
+}
+template <>
+int getDailyIndex(DailyIndex &index,timeHKExIndexSnapshot& data, long long timestamp) {
     return INT_MIN;
 }
 #endif
@@ -1751,6 +2079,10 @@ int getDailyIndex(DailyIndex &index,timeMDOrderQueue& data, long long timestamp)
 }
 template <>
 int getDailyIndex(DailyIndex &index,timeMDNEEQSnapshot& data, long long timestamp) {
+    return INT_MIN;
+}
+template <>
+int getDailyIndex(DailyIndex &index,timeMDHKTSnapshot& data, long long timestamp) {
     return INT_MIN;
 }
 template <>

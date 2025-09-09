@@ -45,8 +45,8 @@ class Conversion {
 };
 
 typedef SmartPointer<rawMessageWrapper> rawMessageWrapperSP;
-typedef SmartPointer<DdbKafkaProducer> DdbKafkaProducerSP;
-typedef SmartPointer<DdbKafkaConsumer> DdbKafkaConsumerSP;
+typedef ObjectPtr<DdbKafkaProducer> DdbKafkaProducerSP;
+typedef ObjectPtr<DdbKafkaConsumer> DdbKafkaConsumerSP;
 
 SmartPointer<Consumer> extractConsumer(const ConstantSP &handle, const string &funcName, const string &usage);
 

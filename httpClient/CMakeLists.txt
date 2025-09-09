@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.22)
 
 set(PluginName PluginHttpClient)
 project(${PluginName})
@@ -9,9 +9,7 @@ CreatePlugin(${PluginName})
 if(UNIX)
     # apt install libcurl4-openssl-dev
     # yum install libcurl-devel
-    set(CURL_USE_STATIC_LIBS TRUE)
-    find_package(CURL REQUIRED)
-    target_link_libraries(${PluginName} PRIVATE CURL::libcurl)
+    AddCurl()
     AddZlib()
     AddOpenSSL()
 elseif(WIN32)

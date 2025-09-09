@@ -1,9 +1,10 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.22)
 set(PluginName PluginMseed)
 project(${PluginName})
 
 include(../template.cmake)
 CreatePlugin(${PluginName})
+target_compile_options(${PluginName} PRIVATE -Wno-error)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libmseed-3.0.8)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/libmseed-3.0.8)

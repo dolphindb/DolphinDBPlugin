@@ -2,7 +2,8 @@
 
 #include <ctime>
 
-const int BUFFER_SIZE = 4096;
+const int BUFFER_SIZE = 1024;
+const string CONN_ERR = ", this connection cannot be reused and you should release it and create a new connection.";
 
 class RedisReplyGuard {
   public:
@@ -78,7 +79,7 @@ RedisConnection::~RedisConnection() {
     }
 }
 
-ConstantSP RedisConnection::redisRun(const vector<ConstantSP> &args) {
+ConstantSP RedisConnection::redisRun(const vector<ConstantSP> &args, const string& command) {
     size_t sz = args.size();
     for (size_t i = 1; i < sz; i++) {
         if (args[i]->getForm() != DF_SCALAR || args[i]->getType() != DT_STRING) {
@@ -106,13 +107,8 @@ ConstantSP RedisConnection::redisRun(const vector<ConstantSP> &args) {
 
     redisReply *reply = static_cast<redisReply *>(redisCommandArgv(
         redisConnect_, argsLen, static_cast<const char **>(argv.data()), static_cast<const size_t *>(argvlen.data())));
-    if (redisConnect_->err) {
-        throw RuntimeException(
-            "[Plugin::Redis] Execute command failed: " + string(redisConnect_->errstr) +
-            ", this connection cannot be reused and you should release it and create a new connection.");
-    }
-
     RedisReplyGuard replyGuard(reply);
+    checkReply(reply, command);
     return convertRedisReply(reply);
 }
 
@@ -149,16 +145,8 @@ ConstantSP RedisConnection::redisBatchSet(const vector<ConstantSP> &args) {
             const char *setArgv[3] = {"SET", keysBuffer[i], valuesBuffer[i]};
             const size_t setArgvLen[3] = {3, strlen(keysBuffer[i]), strlen(valuesBuffer[i])};
             redisReply *reply = static_cast<redisReply *>(redisCommandArgv(redisConnect_, 3, setArgv, setArgvLen));
-            if (redisConnect_->err) {
-                throw RuntimeException(
-                    "[Plugin::Redis] Execute command failed: " + string(redisConnect_->errstr) +
-                    ", this connection cannot be reused and you should release it and create a new connection.");
-            }
-
             RedisReplyGuard replyGuard(reply);
-            if (reply->type != REDIS_REPLY_STATUS || strncmp(reply->str, "OK", 2) != 0) {
-                throw RuntimeException("[Plugin::Redis] Set failed: " + string(reply->str) + ".");
-            }
+            checkReply(reply, "Set");
         }
     }
     return new String("batchSet finish.");
@@ -264,20 +252,12 @@ ConstantSP RedisConnection::redisBatchHashSet(const vector<ConstantSP> &args) {
             for (int i = 0; i < count; ++i) {
                 redisReply *reply;
                 if (redisGetReply(redisConnect_, (void **)&reply) != REDIS_OK) {
+                    string connMsg = (redisConnect_->err) ? CONN_ERR : ".";
                     throw RuntimeException(
-                        "[Plugin::Redis] Failed to execute HSET command: " + string(redisConnect_->errstr) +
-                        ", this connection cannot be reused and you should release it and create a new connection.");
+                        "[Plugin::Redis] Failed to execute HSET command: " + string(redisConnect_->errstr) + connMsg);
                 }
-                if (redisConnect_->err) {
-                    throw RuntimeException(
-                        "[Plugin::Redis] Execute command failed: " + string(redisConnect_->errstr) +
-                        ", this connection cannot be reused and you should release it and create a new connection.");
-                }
-
                 RedisReplyGuard replyGuard(reply);
-                if (reply->type == REDIS_REPLY_ERROR) {
-                    throw RuntimeException("[Plugin::Redis] HSET failed: " + string(reply->str) + ".");
-                }
+                checkReply(reply, "HSET");
             }
             start += count;
         }
@@ -372,22 +352,79 @@ ConstantSP RedisConnection::redisBatchPush(const vector<ConstantSP> &args) {
         for (int i = 0; i < count; ++i) {
             redisReply *reply;
             if (redisGetReply(redisConnect_, (void **)&reply) != REDIS_OK) {
-                throw RuntimeException(
-                    "[Plugin::Redis] Failed to execute " + command + " command: " + string(redisConnect_->errstr) +
-                    ", this connection cannot be reused and you should release it and create a new connection");
+                string connMsg = (redisConnect_->err) ? CONN_ERR : ".";
+                throw RuntimeException("[Plugin::Redis] Failed to execute " + command +
+                                       " command: " + string(redisConnect_->errstr) + connMsg);
             }
-            if (redisConnect_->err) {
-                throw RuntimeException(
-                    "[Plugin::Redis] Execute command failed: " + string(redisConnect_->errstr) +
-                    ", this connection cannot be reused and you should release it and create a new connection.");
-            }
-
             RedisReplyGuard replyGuard(reply);
-            if (reply->type == REDIS_REPLY_ERROR) {
-                throw RuntimeException("[Plugin::Redis] " + command + " failed: " + string(reply->str) + ".");
-            }
+            checkReply(reply, command);
         }
         start += count;
     }
     return new Void();
+}
+
+ConstantSP RedisConnection::redisBatchGet(const vector<ConstantSP> &args) {
+    if (args[1]->getForm() != DF_VECTOR || args[1]->getType() != DT_STRING) {
+        throw IllegalArgumentException(__FUNCTION__, "[Plugin::Redis] Argument keys must be a string vector.");
+    }
+    LockGuard<Mutex> guard(&redisMutex_);
+
+    VectorSP keyVec = args[1];
+    int len = keyVec->size();
+    vector<string> valueVec(len);
+    DolphinString *keyBuffer[BUFFER_SIZE];
+
+    int start = 0;
+    while (start < len) {
+        int count = std::min(len - start, BUFFER_SIZE);
+        vector<string> tmpStrs(count + 1);
+        vector<const char *> argv(count + 1);
+        vector<size_t> argvlen(count + 1);
+
+        tmpStrs[0] = "MGET";
+        argv[0] = tmpStrs[0].c_str();
+        argvlen[0] = tmpStrs[0].length();
+        DolphinString **keys = keyVec->getStringConst(start, count, keyBuffer);
+        for (int i = 0; i < count; ++i) {
+            tmpStrs[i + 1] = keys[i]->getString();
+            argv[i + 1] = tmpStrs[i + 1].c_str();
+            argvlen[i + 1] = tmpStrs[i + 1].length();
+        }
+
+        redisReply *reply =
+            static_cast<redisReply *>(redisCommandArgv(redisConnect_, argv.size(), &argv[0], &argvlen[0]));
+        RedisReplyGuard replyGuard(reply);
+        checkReply(reply, "MGET");
+
+        if (reply->type != REDIS_REPLY_ARRAY) {
+            throw RuntimeException("[Plugin::Redis] The reply of mget is not array.");
+        }
+        if (reply->elements != static_cast<size_t>(count)) {
+            throw RuntimeException("[Plugin::Redis] The num of mget reply values is not same with keys.");
+        }
+        for (size_t i = 0; i < reply->elements; i++) {
+            redisReply *item = reply->element[i];
+            if (item->type == REDIS_REPLY_STRING) {
+                valueVec[start + i] = string(item->str, item->len);
+            }
+        }
+        start += count;
+    }
+
+    VectorSP result = Util::createVector(DT_STRING, len, len);
+    result->setString(0, len, valueVec.data());
+    return result;
+}
+
+void RedisConnection::checkReply(const redisReply *reply, const string &command) {
+    if (redisConnect_->err) {
+        throw RuntimeException("[Plugin::Redis] Execute command failed: " + string(redisConnect_->errstr) + CONN_ERR);
+    }
+    if (reply == nullptr) {
+        throw RuntimeException("[Plugin::Redis] Invalid redis reply.");
+    }
+    if (reply->type == REDIS_REPLY_ERROR) {
+        throw RuntimeException("[Plugin::Redis] " + command + " failed: " + string(reply->str));
+    }
 }

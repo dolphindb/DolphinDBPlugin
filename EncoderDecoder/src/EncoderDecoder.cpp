@@ -73,6 +73,30 @@ namespace OperatorImp {
     ConstantSP getStreamingStat(Heap* heap, vector<ConstantSP>& arguments);
 }
 
+ConstantSP createProtobufEncoder(Heap* heap, vector<ConstantSP>& arguments) {
+    const auto usage = string("Usage: protobufEncoder(filePath, [messageName])");
+    if (arguments[0]->getType() != DT_STRING || arguments[0]->getForm() != DF_SCALAR) {
+        throw IllegalArgumentException("protobufEncoder", usage + "filePath must be a string scalar. ");
+    }
+    std::string filePath = arguments[0]->getString();
+    if (!Util::exists(filePath)) {
+        throw IllegalArgumentException("protobufEncoder",filePath + " does not exist. ");
+    }
+
+    std::string messageName;
+    if(arguments.size() > 1 && !arguments[1]->isNull()) {
+        if (arguments[1]->getType() != DT_STRING || arguments[1]->getForm() != DF_SCALAR) {
+            throw IllegalArgumentException("protobufEncoder", usage + "messageName must be a string scalar. ");
+        }
+        messageName = arguments[1]->getString();
+    }
+
+    ConstantSP encoder = new EncoderImpl({Util::createVector(DT_INT, 0)}, {"c1"});
+    dynamic_cast<EncoderImpl*>(encoder.get())->initialize(filePath, messageName);
+    encoder->setOOInstance(true);
+    return encoder;
+}
+
 ConstantSP createProtobufDecoder(Heap *heap, vector<ConstantSP> &arguments) {
     const auto usage = string(
         "Usage: protobufDecoder(filePath, [handler], [workerNum=1], [batchSize=0], [throttle=1.0], [toArrayVector=false], "
@@ -199,7 +223,6 @@ ConstantSP createProtobufDecoder(Heap *heap, vector<ConstantSP> &arguments) {
     vector<ConstantSP> args{schemaPath, needArrayTableArgs, tableArgs, protoNameArgs, useZeroArgs};
     FunctionDefSP partParser = Util::createSystemFunction(name, func, 6, 6, false);
     FunctionDefSP parser = Util::createPartialFunction(partParser, args);
-    FunctionDefSP onClose(Util::createSystemProcedure("createProtobufDecoder onClose()", doNothing, 1, 1));
 
     ConstantSP decoder;
     if (arguments.size() == 1 || arguments[1]->isNull()) {

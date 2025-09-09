@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.22)
 set(CMAKE_SKIP_RPATH TRUE)
 set(PluginName PluginHBase)
 project(${PluginName})
@@ -63,6 +63,9 @@ else ()
 endif()
 link_directories(${CMAKE_BINARY_DIR})
 
+cmake_policy(SET CMP0167 OLD)
+find_package(Boost REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
 
 add_library(
         ${PROJECT_NAME} SHARED

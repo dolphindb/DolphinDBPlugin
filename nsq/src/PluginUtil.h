@@ -15,7 +15,7 @@ namespace pluginUtil {
 
     /// Arg Parsers
 
-    inline char getCharScalar(const SmartPointer<Constant> &arg, const string &argName, const string &funcName,
+    inline char getCharScalar(const ConstantSP &arg, const string &argName, const string &funcName,
                               const string &usage) {
 
         if (arg.isNull() or arg->getForm() != DF_SCALAR or arg->getType() != DT_CHAR) {
@@ -24,7 +24,7 @@ namespace pluginUtil {
         return arg->getChar();
     }
 
-    inline double getNumScalar(const SmartPointer<Constant> &arg, const string &argName, const string &funcName,
+    inline double getNumScalar(const ConstantSP &arg, const string &argName, const string &funcName,
                                const string &usage) {
 
         if (arg.isNull() or arg->getForm() != DF_SCALAR or (arg->getType() != DT_DOUBLE and arg->getType() != DT_INT)) {
@@ -33,7 +33,7 @@ namespace pluginUtil {
         return arg->getDouble();
     }
 
-    inline int getIntScalar(const SmartPointer<Constant> &arg, const string &argName, const string &funcName,
+    inline int getIntScalar(const ConstantSP &arg, const string &argName, const string &funcName,
                             const string &usage) {
 
         if (arg.isNull() or arg->getForm() != DF_SCALAR or arg->getType() != DT_INT) {
@@ -42,7 +42,7 @@ namespace pluginUtil {
         return arg->getInt();
     }
 
-    inline string getStringScalar(const SmartPointer<Constant> &arg, const string &argName, const string &funcName,
+    inline string getStringScalar(const ConstantSP &arg, const string &argName, const string &funcName,
                                   const string &usage) {
 
         if (arg.isNull() or arg->getForm() != DF_SCALAR or arg->getType() != DT_STRING) {
@@ -51,7 +51,7 @@ namespace pluginUtil {
         return arg->getString();
     }
 
-    inline DictionarySP getDictionary(const SmartPointer<Constant> &arg, const string &argName, const string &funcName,
+    inline DictionarySP getDictionary(const ConstantSP &arg, const string &argName, const string &funcName,
                                       const string &usage) {
 
         if (arg.isNull() or arg->getForm() != DF_DICTIONARY) {
@@ -60,7 +60,7 @@ namespace pluginUtil {
         return arg;
     }
 
-    inline TableSP getSharedRealtimeTable(const SmartPointer<Constant> &arg, const string &argName,
+    inline TableSP getSharedRealtimeTable(const ConstantSP &arg, const string &argName,
                                           const string &funcName, const string &usage) {
 
         if (arg->getForm() != DF_TABLE) {
@@ -73,7 +73,7 @@ namespace pluginUtil {
         return table;
     }
 
-    inline DictionarySP getDictWithIntKeyAndSharedRealtimeTableValue(const SmartPointer<Constant> &arg,
+    inline DictionarySP getDictWithIntKeyAndSharedRealtimeTableValue(const ConstantSP &arg,
                                                                      const string &argName, const string &funcName,
                                                                      const string &usage) {
 
@@ -92,7 +92,7 @@ namespace pluginUtil {
         return arg;
     }
 
-    inline VectorSP getNumVector(const SmartPointer<Constant> &arg, const string &argName, const string &funcName,
+    inline VectorSP getNumVector(const ConstantSP &arg, const string &argName, const string &funcName,
                                  const string &usage, int size = 0) {
 
         if (arg.isNull() or arg->getForm() != DF_VECTOR or (arg->getType() != DT_INT and arg->getType() != DT_DOUBLE)) {
@@ -105,7 +105,7 @@ namespace pluginUtil {
         return arg;
     }
 
-    inline VectorSP getCharVector(const SmartPointer<Constant> &arg, const string &argName, const string &funcName,
+    inline VectorSP getCharVector(const ConstantSP &arg, const string &argName, const string &funcName,
                                   const string &usage, int size = 0) {
 
         if (arg.isNull() or arg->getForm() != DF_VECTOR or arg->getType() != DT_CHAR) {
@@ -118,7 +118,7 @@ namespace pluginUtil {
         return arg;
     }
 
-    inline VectorSP getStringVector(const SmartPointer<Constant> &arg, const string &argName, const string &funcName,
+    inline VectorSP getStringVector(const ConstantSP &arg, const string &argName, const string &funcName,
                     const string &usage, int size = 0) {
 
         if (arg.isNull() or arg->getForm() != DF_VECTOR or arg->getType() != DT_STRING) {
@@ -131,7 +131,7 @@ namespace pluginUtil {
         return arg;
     }
 
-    inline VectorSP getQuadMatrix(const SmartPointer<Constant> &arg, const string &argName, const string &funcName,
+    inline VectorSP getQuadMatrix(const ConstantSP &arg, const string &argName, const string &funcName,
                                   const string &usage, int size = 0) {
 
         if (arg.isNull() or arg->getForm() != DF_VECTOR or arg->getType() != DT_ANY) {

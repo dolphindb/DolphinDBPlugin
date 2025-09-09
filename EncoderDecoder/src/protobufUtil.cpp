@@ -512,11 +512,13 @@ int createTableFrame(const Descriptor *descriptor, vector<string> &names, vector
     return repeatLevel;
 }
 
-ConstantSP getProtobufSchemaDynamic(string schemaPath, bool needArrayVector,
-                                    const unordered_set<string> &ignoredColumn, const string& protoName) {
+const Message *getMessageFromProtoFile(const std::string& filePath, const std::string& protoName, DescriptorPool& pool, DynamicMessageFactory& factory) {
     try {
+        if (!Util::exists(filePath)) {
+            throw RuntimeException(filePath + " does not exist. ");
+        }
         std::ifstream in;
-        in.open(schemaPath);
+        in.open(filePath);
         std::string protobufStr((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
         const char *text = protobufStr.c_str();
 
@@ -527,38 +529,42 @@ ConstantSP getProtobufSchemaDynamic(string schemaPath, bool needArrayVector,
         FileDescriptorProto fileDescProto;
         google::protobuf::compiler::Parser parser;
         if (!parser.Parse(&input, &fileDescProto)) {
-            throw RuntimeException(ENCODERDECODER_PREFIX + "Failed to parse .proto definition " + schemaPath + " : " +
-                                   errorCollector.getErrorMsg());
+            throw RuntimeException("Failed to parse .proto definition " + filePath + " : " + errorCollector.getErrorMsg());
         }
-
         if (!fileDescProto.has_name()) {
-            fileDescProto.set_name(schemaPath);
+            fileDescProto.set_name(filePath);
         }
 
-        DescriptorPool pool;
         const FileDescriptor *fileDesc = pool.BuildFile(fileDescProto);
         if (fileDesc == NULL) {
-            throw RuntimeException(ENCODERDECODER_PREFIX + "Cannot get file descriptor from file descriptor proto" +
-                                   fileDescProto.DebugString());
+            throw RuntimeException("Cannot get file descriptor from file descriptor proto" + fileDescProto.DebugString());
         }
 
         const Descriptor *messageDesc;
-        if (protoName != "") {
+        if (!protoName.empty()) {
             messageDesc = fileDesc->FindMessageTypeByName(protoName);
         } else {
             if (fileDesc->message_type_count() <= 0) {
-                throw RuntimeException(ENCODERDECODER_PREFIX + "no message type in file [" + schemaPath + "]");
+                throw RuntimeException("no message type in file [" + filePath + "]");
             }
             messageDesc = fileDesc->message_type(0);
         }
-
         if (messageDesc == NULL) {
-            throw RuntimeException(ENCODERDECODER_PREFIX + "Cannot get message descriptor of message: " + schemaPath +
-                                   ", DebugString(): " + fileDesc->DebugString());
+            throw RuntimeException("Cannot get message descriptor of message: " + filePath + ", DebugString(): " + fileDesc->DebugString());
         }
+        return factory.GetPrototype(messageDesc);
+    } catch (std::exception &e) {
+        string errMsg = string(e.what());
+        throw RuntimeException(errMsg);
+    }
+}
 
+ConstantSP getProtobufSchemaDynamic(string schemaPath, bool needArrayVector,
+                                    const unordered_set<string> &ignoredColumn, const string& protoName) {
+    try {
+        DescriptorPool pool;
         DynamicMessageFactory factory;
-        const Message *prototypeMsg = factory.GetPrototype(messageDesc);
+        const Message *prototypeMsg = getMessageFromProtoFile(schemaPath, protoName, pool, factory);
         if (prototypeMsg == NULL) {
             throw RuntimeException(ENCODERDECODER_PREFIX + "Cannot create prototype message from message descriptor");
         }
@@ -1593,70 +1599,9 @@ void getMsgData(const Message &msg, MsgUtilPack &pack, string prefix, bool useZe
 
 ConstantSP parseProtobufDynamic(string schemaPath, VectorSP data, unordered_map<string, DATA_TYPE> &columnTypeMap,
                                 bool needArrayVector, Heap *heap, const string &protoName, bool useZeroAsNull) {
-    // get binary data of protobuf schema
-    ifstream in;
-    in.open(schemaPath);
-    string protobufStr((istreambuf_iterator<char>(in)), istreambuf_iterator<char>());
-    const char *text = protobufStr.c_str();
-
-    // make Tokenizer
-    ArrayInputStream rawInput(text, protobufStr.size());
-    ddbErrorCollector errorCollector;
-    Tokenizer input(&rawInput, &errorCollector);
-
-    // Proto definition to a representation as used by the protobuf lib:
-    /* FileDescriptorProto documentation:
-     * A valid .proto file can be translated directly to a FileDescriptorProto
-     * without any other information (e.g. without reading its imports).
-     * */
-    FileDescriptorProto fileDescProto;
-    google::protobuf::compiler::Parser parser;
-    if (!parser.Parse(&input, &fileDescProto)) {
-        throw RuntimeException(ENCODERDECODER_PREFIX + "Failed to parse .proto definition " + schemaPath + " : " +
-                               errorCollector.getErrorMsg());
-    }
-
-    // Set the name in fileDescProto as Parser::Parse does not do this:
-    if (!fileDescProto.has_name()) {
-        fileDescProto.set_name(schemaPath);
-    }
-
-    // Construct our own FileDescriptor for the proto file:
-    /* FileDescriptor documentation:
-     * Describes a whole .proto file.  To get the FileDescriptor for a compiled-in
-     * file, get the descriptor for something defined in that file and call
-     * descriptor->file().  Use DescriptorPool to construct your own descriptors.
-     * */
     DescriptorPool pool;
-    const FileDescriptor *fileDesc = pool.BuildFile(fileDescProto);
-    if (fileDesc == NULL) {
-        throw RuntimeException(ENCODERDECODER_PREFIX + "Cannot get file descriptor from file descriptor proto" +
-                               fileDescProto.DebugString());
-    }
-
-    // As a .proto definition can contain more than one message Type,
-    // select the message type that we are interested in
-    // const google::protobuf::Descriptor* messageDesc =
-    // fileDesc->FindMessageTypeByName(message_type);
-    const Descriptor *messageDesc;
-    if (protoName != "") {
-        messageDesc = fileDesc->FindMessageTypeByName(protoName);
-    } else {
-        if (fileDesc->message_type_count() <= 0) {
-            throw RuntimeException(ENCODERDECODER_PREFIX + "no message type in file [" + schemaPath + "]");
-        }
-        messageDesc = fileDesc->message_type(0);
-    }
-    if (messageDesc == NULL) {
-        throw RuntimeException(ENCODERDECODER_PREFIX + "Cannot get message descriptor of message: " + schemaPath +
-                               ", DebugString(): " + fileDesc->DebugString());
-    }
-    string messageName = messageDesc->name();
-
-    // Create an empty Message object that will hold the result of deserializing
-    // a byte array for the proto definition:
     DynamicMessageFactory factory;
-    const Message *prototypeMsg = factory.GetPrototype(messageDesc);  // prototypeMsg is immutable
+    const Message *prototypeMsg = getMessageFromProtoFile(schemaPath, protoName, pool, factory);
     if (prototypeMsg == NULL) {
         throw RuntimeException(ENCODERDECODER_PREFIX + "Cannot create prototype message from message descriptor");
     }
@@ -1700,7 +1645,7 @@ ConstantSP parseProtobufDynamic(string schemaPath, VectorSP data, unordered_map<
                 throw RuntimeException(ENCODERDECODER_PREFIX + "Failed to parse value in buffer");
             }
             string dataName = mutableMsg->GetDescriptor()->name();
-            if (dataName != messageName) {
+            if (dataName != msgDescriptor->name()) {
                 throw RuntimeException(ENCODERDECODER_PREFIX + "failed to parse protobuf data of type [" + dataName +
                                        "], expecting protobuf data of type [" + dataName + "] . ");
             }
@@ -1724,7 +1669,7 @@ ConstantSP parseProtobufDynamic(string schemaPath, VectorSP data, unordered_map<
 
     if (needArrayVector) {
         // prepare data frame for getMsgDataContainsVector function
-        createTableFrame(messageDesc, names, types, "", columnTypeMap, repeatStatus, flagMap, unordered_set<string>{},
+        createTableFrame(msgDescriptor, names, types, "", columnTypeMap, repeatStatus, flagMap, unordered_set<string>{},
                          dataVec, indexArrays, true, containerLength);
 
         if (columnTypeMap.size() == 0) {
@@ -1851,7 +1796,7 @@ ConstantSP parseProtobufDynamic(string schemaPath, VectorSP data, unordered_map<
     } else {
         // prepare data frame for getMsg process
         vector<vector<int>> indexes = {};
-        createTableFrame(messageDesc, names, types, "", columnTypeMap, repeatStatus, flagMap, unordered_set<string>{},
+        createTableFrame(msgDescriptor, names, types, "", columnTypeMap, repeatStatus, flagMap, unordered_set<string>{},
                          dataVec, indexes, false, containerLength);
 
         bool diff = false;

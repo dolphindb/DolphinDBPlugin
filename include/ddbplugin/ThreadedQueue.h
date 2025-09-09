@@ -191,12 +191,18 @@ class MarketTypeContainer {
 namespace ThreadedQueueUtil {
 template <class T>
 struct Sizer {
-    int operator()(const T &obj) { return 1; }
+    int operator()(const T &obj) {
+        std::ignore = obj;
+        return 1;
+    }
 };
 
 template <class T>
 struct Mandatory {
-    bool operator()(const T &obj) { return false; }
+    bool operator()(const T &obj) {
+        std::ignore = obj;
+        return false;
+    }
 };
 }  // namespace ThreadedQueueUtil
 
@@ -249,6 +255,7 @@ class ThreadedQueue {
         session_->setUser(heap->currentSession()->getUser());
         status_.name_ = info;
         status_.queueDepthLimit_ = capacity;
+        status_.lastErrMsg_.reserve(100); //in case of string oom;
 
         long long currentTime = Util::getNanoEpochTime();
         localTimeGap_ = Util::toLocalNanoTimestamp(currentTime) - currentTime;
@@ -579,11 +586,16 @@ class ThreadedQueue {
                     }
                     items.clear();
                 } catch (exception &e) {
-                    string errMsg = e.what();
                     status_.failedMsgCount_ += popSize;
-                    status_.lastErrMsg_ = "topic=" + info_ + " length=" + std::to_string(popSize) + " exception=" + errMsg;
                     status_.lastFailedTimestamp_ = Util::getNanoEpochTime() + localTimeGap_;
-                    PLUGIN_LOG_ERR(prefix_, info_, " Failed to process ", popSize, " lines of data due to ", errMsg);
+                    try {
+                        string errMsg = e.what();
+                        status_.lastErrMsg_ = "topic=" + info_ + " length=" + std::to_string(popSize) + " exception=" + errMsg;
+                        PLUGIN_LOG_ERR(prefix_, info_, " Failed to process ", popSize, " lines of data due to ", errMsg);
+                    } catch (...) {
+                        status_.lastErrMsg_ = "topic=unknown length=unknown exception=unknown";
+                        PLUGIN_LOG_ERR(prefix_, info_, " Failed to process ", popSize, " lines of data");
+                    }
                 }
             }
             PLUGIN_LOG_INFO(prefix_, info_, " async thread end.");

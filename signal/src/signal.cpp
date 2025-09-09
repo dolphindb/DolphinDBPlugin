@@ -14,6 +14,9 @@
 #include <string>
 #include <omp.h>
 #include <ScalarImp.h>
+#ifndef __aarch64__
+#include "wavelib.h"
+#endif
 
 #define PI 3.1415926
 bool fftwInit = false;
@@ -26,7 +29,7 @@ static ConstantSP fft1D(VectorSP vec, int n, double scale, bool overwrite, bool 
 static ConstantSP fft2D(VectorSP matrix, int shapeRow, int shapeCol, double scale, bool overwrite, bool inverse);
 
 //离散余弦变换(DCT-II)
-ConstantSP dct(const ConstantSP &a, const ConstantSP &b)
+ConstantSP dct(Heap *heap, const ConstantSP &a, const ConstantSP &b)
 {
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if (!(a->getForm()==DF_VECTOR && a->isNumber() && (a->getCategory() == INTEGRAL || a->getCategory() == FLOATING) && a->size() > 0))
@@ -93,7 +96,7 @@ ConstantSP dctNumMap(Heap *heap, vector<ConstantSP> &args)
     res->setInt(size);
     return res;
 }
-ConstantSP dctReduce(const ConstantSP &mapRes1, const ConstantSP &mapRes2)
+ConstantSP dctReduce(Heap *heap, const ConstantSP &mapRes1, const ConstantSP &mapRes2)
 {
     vector<double> xk_1(mapRes1->size(), 0);
     vector<double> xk_2(mapRes2->size(), 0);
@@ -106,7 +109,7 @@ ConstantSP dctReduce(const ConstantSP &mapRes1, const ConstantSP &mapRes2)
     result->setDouble(0, xk_1.size(), &xk_1[0]);
     return result;
 }
-ConstantSP dctNumReduce(const ConstantSP &mapRes1, const ConstantSP &mapRes2)
+ConstantSP dctNumReduce(Heap *heap, const ConstantSP &mapRes1, const ConstantSP &mapRes2)
 {
     int x1 = mapRes1->getInt();
     int x2 = mapRes2->getInt();
@@ -134,7 +137,7 @@ ConstantSP dctParallel(Heap *heap, vector<ConstantSP> &args)
     return mr->call(heap, myargs);
 }
 //离散正弦变换(DST-I)
-ConstantSP dst(const ConstantSP &a, const ConstantSP &b)
+ConstantSP dst(Heap *heap, const ConstantSP &a, const ConstantSP &b)
 {
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if (!(a->getForm()==DF_VECTOR && a->isNumber() && (a->getCategory() == INTEGRAL || a->getCategory() == FLOATING) && a->size() > 0))
@@ -169,8 +172,78 @@ ConstantSP dst(const ConstantSP &a, const ConstantSP &b)
     return res;
 }
 
+ConstantSP dwtEx(Heap *heap, vector<ConstantSP> &args) {
+#ifndef __aarch64__
+    //X
+    if (!(args[0]->getForm()==DF_VECTOR && (args[0]->getCategory() == INTEGRAL || args[0]->getCategory() == FLOATING) && args[0]->size() > 0)) {
+        throw IllegalArgumentException("dwtEx", "The argument X should be a nonempty integrial or floating vector.");
+    }
+    if (args[0]->hasNull()) {
+        throw IllegalArgumentException("dwtEx", "The argument X should not contain NULL values");
+    }
+    int dataLen = args[0]->size();
+    vector<double> xn(dataLen, 0);
+    args[0]->getDouble(0, dataLen, &xn[0]);
+
+    //wavelet
+    std::string wavelet = "db1";
+    if (args.size() > 1 && !args[1]->isNothing()) {
+        if(args[1]->getForm() != DF_SCALAR || args[1]->getType() != DT_STRING) {
+            throw IllegalArgumentException("dwtEx", "The argument wavelet should be a string scalar.");
+        }
+        wavelet = args[1]->getString();
+        static std::set<std::string> validWavelet{"db1", "db2", "db3", "db4", "db5", "db6", "db7",
+            "db8", "db9", "db10", "db11", "db12", "db13", "db14", "db15"};
+        if(validWavelet.count(wavelet) == 0) {
+            throw IllegalArgumentException("dwtEx", std::string("The argument wavelet is invalie ") + wavelet);
+        }
+    }
+
+    //level
+    int level = 1;
+    if (args.size() > 2 && !args[2]->isNothing()) {
+        if(args[2]->getForm() != DF_SCALAR || args[2]->getCategory() != INTEGRAL) {
+            throw IllegalArgumentException("dwtEx", "The argument level should be a integral scalar.");
+        }
+        level = args[2]->getInt();
+        if(level > 100 || level <= 0) {
+            throw IllegalArgumentException("dwtEx", "The argument level should be in [1, 100]");
+        }
+    }
+
+    wave_object obj = wave_init(wavelet.c_str());
+    int maxIter = log(static_cast<double>(dataLen) / (static_cast<double>(obj->filtlength) - 1.0)) / log(2.0);
+    if(level > maxIter) {
+        wave_free(obj);
+        throw IllegalArgumentException("dwtEx", "All coefficients will experience boundary effects, you can use a longer signal or reduce the filter length or lower the level");
+    }
+    wt_object wt = wt_init(obj, "dwt", dataLen, level);
+    //setDWTExtension(wt, "sym");
+    //setWTConv(wt, "direct");
+    dwt(wt, xn.data());
+
+    ConstantSP ret = Util::createVector(DT_ANY, wt->lenlength - 1);
+    int start = 0;
+    for (int i = 0; i < wt->lenlength - 1; ++i) {
+        int len = wt->length[i];
+        VectorSP ele = Util::createVector(DT_DOUBLE, len);
+        ele->setDouble(0, len, wt->output + start);
+        ret->set(i, ele);
+        start += len;
+    }
+
+    wave_free(obj);
+    wt_free(wt);
+    return ret;
+#else
+    (void)heap;
+    (void)args;
+    throw RuntimeException("signal plugin not support dwtEx in ARM");
+#endif
+}
+
 //一维离散小波变换(DWT)
-ConstantSP dwt(const ConstantSP &a, const ConstantSP &b)
+ConstantSP dwt1(Heap *heap, const ConstantSP &a, const ConstantSP &b)
 {
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if (!(a->getForm()==DF_VECTOR && a->isNumber() && (a->getCategory() == INTEGRAL || a->getCategory() == FLOATING) && a->size() > 0))
@@ -248,7 +321,7 @@ ConstantSP dwt(const ConstantSP &a, const ConstantSP &b)
 }
 
 //一维离散小波逆变换(IDWT)
-ConstantSP idwt(const ConstantSP &a, const ConstantSP &b)
+ConstantSP idwt1(Heap *heap, const ConstantSP &a, const ConstantSP &b)
 {
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if (!(a->getForm()==DF_VECTOR && a->isNumber() && (a->getCategory() == INTEGRAL || a->getCategory() == FLOATING) && a->size() > 0))

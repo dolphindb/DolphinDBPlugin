@@ -1,6 +1,9 @@
 #include "amdQuoteImp.h"
 
 #include "Exceptions.h"
+#ifdef AMD_457
+#include "ama_property.h"
+#endif
 #include "amdQuoteType.h"
 #include "amdSpiImp.h"
 
@@ -53,6 +56,11 @@ AmdQuote::AmdQuote(const string &username, const string &password, const vector<
     cfg_.is_thread_safe = false;
 
     amdSpi_ = new AMDSpiImp(session, dataVersion_);  // special treatment
+#ifdef AMD_457
+    auto property = amd::ama::AMDProperty();
+    property.SetValue(amd::ama::property::kEnableHKExMergeSnapshot, true);
+    amd::ama::IAMDApi::SetProperty(&property);
+#endif
     try {
         if (amd::ama::IAMDApi::Init(amdSpi_, cfg_) != amd::ama::ErrorCode::kSuccess) {
             amd::ama::IAMDApi::Release();
@@ -104,18 +112,22 @@ uint64_t getSubscribeDataType(AMDDataType dataType) {
         case AMD_BOND_ORDER:
             return amd::ama::SubscribeSecuDataType::kTickOrder;
         case AMD_NEEQ_SNAPSHOT:
-            return amd::ama::SubscribeSecuDataType::kSnapshot;
+        case AMD_HKT_SNAPSHOT:
         case AMD_INDEX:
+        case AMD_OPTION_SNAPSHOT:
+        case AMD_FUTURE_SNAPSHOT:
             return amd::ama::SubscribeSecuDataType::kSnapshot;
         case AMD_ORDER_QUEUE:
             return amd::ama::SubscribeSecuDataType::kOrderQueue;
-        case AMD_OPTION_SNAPSHOT:
-            return amd::ama::SubscribeSecuDataType::kSnapshot;
-        case AMD_FUTURE_SNAPSHOT:
-            return amd::ama::SubscribeSecuDataType::kSnapshot;
-#ifndef AMD_3_9_6
+#ifndef AMD_396
         case AMD_IOPV_SNAPSHOT:
             return amd::ama::SubscribeSecuDataType::kSnapshot;
+#endif
+#ifdef AMD_457
+        case AMD_HKEX_MERGE_SNAPSHOT:
+            return amd::ama::SubscribeCategoryType::kNone;
+        case AMD_HKEX_INDEX_SNAPSHOT:
+            return amd::ama::SubscribeCategoryType::kNone;
 #endif
         default:
             throw RuntimeException(AMDQUOTE_PREFIX + "Invalid dataType " + std::to_string(dataType) + ".");
@@ -148,6 +160,8 @@ uint64_t getSubscribeCategoryType(AMDDataType dataType) {
             return amd::ama::SubscribeCategoryType::kBond;
         case AMD_NEEQ_SNAPSHOT:
             return amd::ama::SubscribeCategoryType::kNone;
+        case AMD_HKT_SNAPSHOT:
+            return amd::ama::SubscribeCategoryType::kHKT;
         case AMD_INDEX:
             return amd::ama::SubscribeCategoryType::kIndex;
         case AMD_ORDER_QUEUE:
@@ -156,9 +170,15 @@ uint64_t getSubscribeCategoryType(AMDDataType dataType) {
             return amd::ama::SubscribeCategoryType::kOption;
         case AMD_FUTURE_SNAPSHOT:
             return amd::ama::SubscribeCategoryType::kNone;
-#ifndef AMD_3_9_6
+#ifndef AMD_396
         case AMD_IOPV_SNAPSHOT:
             return amd::ama::SubscribeDerivedDataType::kIOPVSnapshot;
+#endif
+#ifdef AMD_457
+        case AMD_HKEX_MERGE_SNAPSHOT:
+            return amd::ama::SubscribeCategoryType::kHKEx;
+        case AMD_HKEX_INDEX_SNAPSHOT:
+            return amd::ama::SubscribeCategoryType::kHKEx;
 #endif
         default:
             throw RuntimeException(AMDQUOTE_PREFIX + "Invalid dataType " + std::to_string(dataType) + ".");

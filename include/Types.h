@@ -93,11 +93,11 @@ const std::string functionKeyword = "def";
 const std::string aggregationKeyword = "defg";
 const std::string mapreduceKeyword = "mapr";
 const int ARRAY_TYPE_BASE = 64;
-const int TYPE_COUNT = 42;
+const int TYPE_COUNT = 45;
 
 enum DATA_TYPE {DT_VOID,DT_BOOL,DT_CHAR,DT_SHORT,DT_INT,DT_LONG,DT_DATE,DT_MONTH,DT_TIME,DT_MINUTE,DT_SECOND,DT_DATETIME,DT_TIMESTAMP,DT_NANOTIME,DT_NANOTIMESTAMP,
 	DT_FLOAT,DT_DOUBLE,DT_SYMBOL,DT_STRING,DT_UUID,DT_FUNCTIONDEF,DT_HANDLE,DT_CODE,DT_DATASOURCE,DT_RESOURCE,DT_ANY,DT_COMPRESS,DT_DICTIONARY,DT_DATEHOUR,DT_DATEMINUTE,
-	DT_IP,DT_INT128,DT_BLOB,DT_DECIMAL,DT_COMPLEX,DT_POINT,DT_DURATION,DT_DECIMAL32,DT_DECIMAL64,DT_DECIMAL128,DT_OBJECT, DT_IOTANY};
+	DT_IP,DT_INT128,DT_BLOB,DT_DECIMAL,DT_COMPLEX,DT_POINT,DT_DURATION,DT_DECIMAL32,DT_DECIMAL64,DT_DECIMAL128,DT_OBJECT, DT_IOTANY, DT_INSTRUMENT, DT_MKTDATA, DT_MKTDATAROW};
 
 
 enum DATA_CATEGORY {NOTHING,LOGICAL,INTEGRAL,FLOATING,TEMPORAL,LITERAL,SYSTEM,MIXED,BINARY,COMPLEX,ARRAY,DENARY};
@@ -185,7 +185,12 @@ enum ACL_ACCESS_TYPE: short {
 	// SENSITIVE_VIEW
 	TABLE_SENSITIVE_VIEW,
 	DB_SENSITIVE_VIEW,
-    MAX_PARTITION_NUM_PER_QUERY
+    MAX_PARTITION_NUM_PER_QUERY,
+    // MCP
+    MCP_MANAGE,
+    MCP_DEVELOP,
+    MCP_EXEC,
+    CREATE_SHARED_VARS
 };
 
 
@@ -270,6 +275,24 @@ static_assert(uint128(int128MinValue() | int128MaxValue()) == uint128MaxValue(),
 	#define INDEX_MIN INT_MIN
 	#define INDEX_MAX INT_MAX
 #endif
+
+typedef union {
+	int128 int128Val;
+	long long longVal;
+	int intVal;
+	short shortVal;
+	char charVal;
+	long double longdoubleVal;
+	double doubleVal;
+	float floatVal;
+	char* pointer;
+	long longArray[2];
+	int intArray[4];
+	double doubleArray[2];
+	float floatArray[4];
+	short shortArray[8];
+	char charArray[16];
+} U16;
 
 typedef union {
 	long long longVal;

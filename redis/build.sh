@@ -1,12 +1,8 @@
 #!/bin/bash
 
-WORKSPACE=$(pwd)/..
+source ../build_util.sh
 
-mkdir build
-cd build
-cmake .. -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-cmake --build . -j
-cd ..
-mkdir -p $CMAKE_INSTALL_PREFIX/$(basename $(pwd))
-cp -f build/libPluginRedis.so $CMAKE_INSTALL_PREFIX/$(basename $(pwd))
-cp -f build/PluginRedis.txt $CMAKE_INSTALL_PREFIX/$(basename $(pwd))
+unset FTP_URL
+prepare_dir $@
+build_plugin
+install_plugin

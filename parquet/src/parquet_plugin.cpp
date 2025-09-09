@@ -506,10 +506,7 @@ void createNewVectorSP(vector<ConstantSP> &dolpindb_v, const TableSP &tb, int to
         if(dt >= 64){
             dt = static_cast<DATA_TYPE>(dt - 64);
         }
-        if(dt == DT_SYMBOL)
-            dolpindb_v[i] = Util::createVector(DT_STRING, totalRows);
-        else
-            dolpindb_v[i] = Util::createVector(dt, totalRows);
+        dolpindb_v[i] = Util::createVector(dt, dt == DT_SYMBOL ? 0 : totalRows);
     }
 }
 
@@ -2279,7 +2276,7 @@ ConstantSP loadParquetByFilePtr(ParquetReadOnlyFile *file, Heap *heap, string fi
             arrowIndexArgs.push_back(column->getInt(i));
             dolphindbCols.push_back(dolphindbCol[i]);
         }
-        SmartPointer<ParquetPloopArgs> ploopArgs = new ParquetPloopArgs(fileName, batchRow, dolphindbCols, rowGroupStart, arrowIndexArgs, rowGroupEnd, indexDolphindbCol);
+        ObjectPtr<ParquetPloopArgs> ploopArgs = new ParquetPloopArgs(fileName, batchRow, dolphindbCols, rowGroupStart, arrowIndexArgs, rowGroupEnd, indexDolphindbCol);
         vector<ConstantSP> partialArgs{ploopArgs};
         FunctionDefSP partialFunction = Util::createPartialFunction(func, partialArgs);
         int threadCount = readThreadNum == 0 ? col_num : readThreadNum; 
@@ -3130,7 +3127,12 @@ ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const Vect
                 vector<string> buffer(batchRow);
                 rows_read = convertParquetToDolphindbString(dolphinIndex, column_reader, col_descr, buffer,
                                                             dolphin_t, batchRow, containNull, indexargs);
-                dolphindbCol->setString(offsetWrite, rows_read, buffer.data());
+                if(dolphin_t == DT_SYMBOL){
+                    dolphindbCol->resize(offsetWrite);
+                    dolphindbCol->appendString(const_cast<const string*>(buffer.data()), rows_read);
+                }else{
+                    dolphindbCol->setString(offsetWrite, rows_read, buffer.data());
+                }
                 dolphindbCol->setNullFlag(containNull);
                 break;
             }
@@ -3151,7 +3153,7 @@ ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const Vect
 
 ConstantSP loadParquetPloopFunc(Heap *heap, vector<ConstantSP> &arguments) {
 
-    SmartPointer<ParquetPloopArgs> ploopArgs = arguments[0];
+    ObjectPtr<ParquetPloopArgs> ploopArgs = arguments[0];
 
     string fileName = ploopArgs->getFileName();
     int batchRow = ploopArgs->getBatchRow();

@@ -35,9 +35,12 @@ unordered_map<int, string> timeColumnNameForType = {
     {AMD_EXECUTION, "execTime"},      {AMD_FUND_EXECUTION, "execTime"}, {AMD_BOND_EXECUTION, "execTime"},
     {AMD_ORDER, "orderTime"},         {AMD_FUND_ORDER, "orderTime"},    {AMD_BOND_ORDER, "orderTime"},
     {AMD_INDEX, "origTime"},          {AMD_ORDER_QUEUE, "orderTime"},   {AMD_OPTION_SNAPSHOT, "orig_time"},
-    {AMD_FUTURE_SNAPSHOT, "orig_time"}, {AMD_NEEQ_SNAPSHOT, "origTime"},
-#ifndef AMD_3_9_6
+    {AMD_FUTURE_SNAPSHOT, "orig_time"}, {AMD_NEEQ_SNAPSHOT, "origTime"}, {AMD_HKT_SNAPSHOT, "origTime"},
+#ifndef AMD_396
     {AMD_IOPV_SNAPSHOT, "orig_time"},
+#endif
+#ifdef AMD_457
+    {AMD_HKEX_MERGE_SNAPSHOT, "origTime"}, {AMD_HKEX_INDEX_SNAPSHOT, "origTime"},
 #endif
 };
 
@@ -46,9 +49,12 @@ unordered_map<string, AMDDataType> NAME_TYPE = {
     {"execution", AMD_EXECUTION}, {"fundExecution", AMD_FUND_EXECUTION}, {"bondExecution", AMD_BOND_EXECUTION},
     {"order", AMD_ORDER},         {"fundOrder", AMD_FUND_ORDER},         {"bondOrder", AMD_BOND_ORDER},
     {"index", AMD_INDEX},         {"orderQueue", AMD_ORDER_QUEUE},       {"option", AMD_OPTION_SNAPSHOT},
-    {"future", AMD_FUTURE_SNAPSHOT}, {"NEEQSnapshot", AMD_NEEQ_SNAPSHOT},
-#ifndef AMD_3_9_6
-    {"IOPV", AMD_IOPV_SNAPSHOT}
+    {"future", AMD_FUTURE_SNAPSHOT}, {"NEEQSnapshot", AMD_NEEQ_SNAPSHOT}, {"HKTSnapshot", AMD_HKT_SNAPSHOT},
+#ifndef AMD_396
+    {"IOPV", AMD_IOPV_SNAPSHOT},
+#endif
+#ifdef AMD_457
+    {"HKExMergeSnapshot", AMD_HKEX_MERGE_SNAPSHOT}, {"HKExIndexSnapshot", AMD_HKEX_INDEX_SNAPSHOT}
 #endif
 };
 
@@ -526,8 +532,55 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments) {
                 amdSpi->pushNEEQSnapshotData(snapshot, 1, time);
                 delete[] snapshot;
             }
+        } else if (amdDataType == AMD_HKT_SNAPSHOT) {
+            for (int i = 0; i < cnt; ++i) {
+                long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+                if (STOP_TEST) {
+                    return new Void();
+                }
+                amd::ama::MDHKTSnapshot *snapshot = new amd::ama::MDHKTSnapshot[1];
+                int bias = 0;
+                string code = std::to_string(600000 + i);
+                std::strcpy(snapshot[0].security_code, code.c_str());
+                snapshot[0].market_type = (i % 3 == 0 ? 4: 101 + i % 2);
+                snapshot[0].orig_time = convertToAMDTime(time);
+                snapshot[0].pre_close_price = i + bias++;
+                snapshot[0].nominal_price = i + bias++;
+                snapshot[0].high_price = i + bias++;
+                snapshot[0].low_price = i + bias++;
+                snapshot[0].last_price = i + bias++;
+
+                // 五档买价买量
+                fill(snapshot[0].bid_price, 5, i + bias);
+                fill(snapshot[0].bid_volume, 5, i + bias + 100);
+
+                // 五档卖价卖量
+                fill(snapshot[0].offer_price, 5, i + bias + 200);
+                fill(snapshot[0].offer_volume, 5, i + bias + 300);
+
+                snapshot[0].total_volume_trade = i + bias++;
+                snapshot[0].total_value_trade = i + bias++;
+                snapshot[0].trading_phase_code[0] = 'T';
+                snapshot[0].trading_phase_code[1] = '0';
+                snapshot[0].trading_phase_code[2] = '\0';
+                snapshot[0].channel_no = 1001 + i % 3;
+                snapshot[0].md_stream_id[0] = 'H';
+                snapshot[0].md_stream_id[1] = 'K';
+                snapshot[0].md_stream_id[2] = '\0';
+                snapshot[0].ref_price = i + bias++;
+                snapshot[0].high_limited = i + bias++;
+                snapshot[0].low_limited = i + bias++;
+                snapshot[0].bid_price_limit_up = i + bias++;
+                snapshot[0].bid_price_limit_down = i + bias++;
+                snapshot[0].offer_price_limit_up = i + bias++;
+                snapshot[0].offer_price_limit_down = i + bias++;
+                snapshot[0].variety_category = 1; // 港股通股票
+
+                amdSpi->pushHKTSnapshotData(snapshot, 1, time);
+                delete[] snapshot;
+            }
         }
-#ifndef AMD_3_9_6
+#ifndef AMD_396
         else if (amdDataType == AMD_IOPV_SNAPSHOT) {
             for (int i = 0; i < cnt; ++i) {
                 long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
@@ -544,6 +597,82 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments) {
                 fill(snapshot[0].bid_iopv, amd::ama::ConstField::kPositionLevelLen, i);
                 fill(snapshot[0].offer_iopv, amd::ama::ConstField::kPositionLevelLen, i);
                 amdSpi->pushIOPVData(snapshot, 1, time);
+                delete[] snapshot;
+            }
+        }
+#endif
+#ifdef AMD_457
+        else if (amdDataType == AMD_HKEX_MERGE_SNAPSHOT) {
+            for (int i = 0; i < cnt; ++i) {
+                long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+                if (STOP_TEST) {
+                    return new Void();
+                }
+                amd::ama::MDHKExMergeSnapshot *snapshot = new amd::ama::MDHKExMergeSnapshot[1];
+                int bias = 0;
+                string code = std::to_string(700000 + i); // 港交所代码
+                std::strcpy(snapshot[0].security_code, code.c_str());
+                snapshot[0].market_type = 103; // 港交所市场类型
+                snapshot[0].orig_time = convertToAMDTime(time);
+                snapshot[0].pre_close_price = i + bias++;
+                snapshot[0].last_price = i + bias++;
+                snapshot[0].open_price = i + bias++;
+                snapshot[0].high_price = i + bias++;
+                snapshot[0].low_price = i + bias++;
+                snapshot[0].close_price = i + bias++;
+                snapshot[0].total_volume_trade = i + bias++;
+                snapshot[0].total_value_trade = i + bias++;
+                snapshot[0].short_volume_shares = i + bias++;
+                snapshot[0].short_value_turnover = i + bias++;
+                snapshot[0].variety_category = 1; // 股票
+                snapshot[0].norminal_price = i + bias++;
+                snapshot[0].yield = i + bias++;
+                snapshot[0].trading_status = 1; // 正常交易
+
+                // 初始化买单和卖单列表
+                for(auto j = 0u; j < amd::ama::ConstField::kHKExPositionLevelLen; ++j) {
+                    snapshot[0].bid_list[j].order_price = i + bias + j * 10;
+                    snapshot[0].bid_list[j].order_volume = i + bias + j * 100;
+                    snapshot[0].bid_list[j].num_of_orders = i + j + 1;
+
+                    snapshot[0].ask_list[j].order_price = i + bias + j * 10 + 500;
+                    snapshot[0].ask_list[j].order_volume = i + bias + j * 100 + 500;
+                    snapshot[0].ask_list[j].num_of_orders = i + j + 1;
+                }
+
+                amdSpi->pushHKExMergeSnapshotData(snapshot, 1, time);
+                delete[] snapshot;
+            }
+        } else if (amdDataType == AMD_HKEX_INDEX_SNAPSHOT) {
+            for (int i = 0; i < cnt; ++i) {
+                long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+                if (STOP_TEST) {
+                    return new Void();
+                }
+                amd::ama::MDHKExIndexSnapshot *snapshot = new amd::ama::MDHKExIndexSnapshot[1];
+                int bias = 0;
+                string code = std::to_string(800000 + i); // 港交所指数代码
+                std::strcpy(snapshot[0].security_code, code.c_str());
+                snapshot[0].market_type = 103; // 港交所市场类型
+                snapshot[0].orig_time = convertToAMDTime(time);
+                snapshot[0].index_status = 'A'; // 正常状态
+                snapshot[0].pre_close_price = i + bias++;
+                snapshot[0].open_price = i + bias++;
+                snapshot[0].high_price = i + bias++;
+                snapshot[0].low_price = i + bias++;
+                snapshot[0].close_price = i + bias++;
+                snapshot[0].last_price = i + bias++;
+                snapshot[0].total_volume_trade = i + bias++;
+                snapshot[0].total_value_trade = i + bias++;
+                snapshot[0].change = i + bias++;
+                snapshot[0].ratio_of_change = i + bias++;
+                snapshot[0].eas_value = i + bias++;
+                snapshot[0].variety_category = 4; // 指数
+                snapshot[0].index_time = (i + 93000) % 240000; // 模拟交易时间
+                snapshot[0].index_source = 'H'; // 港交所
+                std::strcpy(snapshot[0].currency_code, "HKD");
+
+                amdSpi->pushHKExIndexSnapshotData(snapshot, 1, time);
                 delete[] snapshot;
             }
         }
@@ -571,7 +700,7 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments) {
 
         if (!data->contain(timeColumnName))
             throw IllegalArgumentException(__FUNCTION__, usage + "data must contain a column named " + string(timeColumnName));
-#ifndef AMD_3_9_6
+#ifndef AMD_396
         if (amdDataType != AMD_IOPV_SNAPSHOT && !data->contain("channelNo"))
             throw IllegalArgumentException(__FUNCTION__, usage + "data must contain a column named channelNo");
 #else
@@ -1088,7 +1217,7 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments) {
                 delete[] snapshot;
             }
         }
-#ifndef AMD_3_9_6
+#ifndef AMD_396
         else if (amdDataType == AMD_IOPV_SNAPSHOT) {
             for (int i = 0; i < cnt; ++i) {
                 if (STOP_TEST) {
@@ -1112,6 +1241,157 @@ extern "C" ConstantSP testAmdData(Heap *heap, vector<ConstantSP> &arguments) {
                     resultSet.next();
                 }
                 amdSpi->pushIOPVData(snapshot, rows, time);
+                delete[] snapshot;
+            }
+        }
+#endif
+        else if (amdDataType == AMD_HKT_SNAPSHOT) {
+            for (int i = 0; i < cnt; ++i) {
+                if (STOP_TEST) {
+                    return new Void();
+                }
+                amd::ama::MDHKTSnapshot *snapshot = new amd::ama::MDHKTSnapshot[rows];
+                int index = 0;
+                resultSet.first();
+                while (!resultSet.isAfterLast()) {
+                    int count = cnt + index;
+                    int bias = 0;
+                    snapshot[index].channel_no = resultSet.getInt(channelNoIndex);
+                    snapshot[index].market_type = resultSet.getInt(marketIndex);
+                    snapshot[index].orig_time =
+                        convertToAMDTime(resultSet.getLong(timeIndex), resultSet.getInt(dayIndex));
+
+                    string code = std::to_string(600000 + count);
+                    std::strcpy(snapshot[index].security_code, code.c_str());
+
+                    snapshot[index].pre_close_price = count + bias++;
+                    snapshot[index].nominal_price = count + bias++;
+                    snapshot[index].high_price = count + bias++;
+                    snapshot[index].low_price = count + bias++;
+                    snapshot[index].last_price = count + bias++;
+
+                    // 五档买价买量
+                    fill(snapshot[index].bid_price, 5, count + bias);
+                    fill(snapshot[index].bid_volume, 5, count + bias + 100);
+
+                    // 五档卖价卖量
+                    fill(snapshot[index].offer_price, 5, count + bias + 200);
+                    fill(snapshot[index].offer_volume, 5, count + bias + 300);
+
+                    snapshot[index].total_volume_trade = count + bias++;
+                    snapshot[index].total_value_trade = count + bias++;
+                    snapshot[index].trading_phase_code[0] = 'T';
+                    snapshot[index].trading_phase_code[1] = '0';
+                    snapshot[index].trading_phase_code[2] = '\0';
+                    snapshot[index].md_stream_id[0] = 'H';
+                    snapshot[index].md_stream_id[1] = 'K';
+                    snapshot[index].md_stream_id[2] = '\0';
+                    snapshot[index].ref_price = count + bias++;
+                    snapshot[index].high_limited = count + bias++;
+                    snapshot[index].low_limited = count + bias++;
+                    snapshot[index].bid_price_limit_up = count + bias++;
+                    snapshot[index].bid_price_limit_down = count + bias++;
+                    snapshot[index].offer_price_limit_up = count + bias++;
+                    snapshot[index].offer_price_limit_down = count + bias++;
+                    snapshot[index].variety_category = 1; // 港股通股票
+
+                    index++;
+                    resultSet.next();
+                }
+                amdSpi->pushHKTSnapshotData(snapshot, rows, time);
+                delete[] snapshot;
+            }
+        }
+#ifdef AMD_457
+        else if (amdDataType == AMD_HKEX_MERGE_SNAPSHOT) {
+            for (int i = 0; i < cnt; ++i) {
+                if (STOP_TEST) {
+                    return new Void();
+                }
+                amd::ama::MDHKExMergeSnapshot *snapshot = new amd::ama::MDHKExMergeSnapshot[rows];
+                int index = 0;
+                resultSet.first();
+                while (!resultSet.isAfterLast()) {
+                    int count = cnt + index;
+                    int bias = 0;
+                    snapshot[index].market_type = resultSet.getInt(marketIndex);
+                    snapshot[index].orig_time =
+                        convertToAMDTime(resultSet.getLong(timeIndex), resultSet.getInt(dayIndex));
+
+                    string code = std::to_string(700000 + count); // 港交所代码
+                    std::strcpy(snapshot[index].security_code, code.c_str());
+
+                    snapshot[index].pre_close_price = count + bias++;
+                    snapshot[index].last_price = count + bias++;
+                    snapshot[index].open_price = count + bias++;
+                    snapshot[index].high_price = count + bias++;
+                    snapshot[index].low_price = count + bias++;
+                    snapshot[index].close_price = count + bias++;
+                    snapshot[index].total_volume_trade = count + bias++;
+                    snapshot[index].total_value_trade = count + bias++;
+                    snapshot[index].short_volume_shares = count + bias++;
+                    snapshot[index].short_value_turnover = count + bias++;
+                    snapshot[index].variety_category = 1; // 股票
+                    snapshot[index].norminal_price = count + bias++;
+                    snapshot[index].yield = count + bias++;
+                    snapshot[index].trading_status = 1; // 正常交易
+
+                    // 初始化买单和卖单列表
+                    for(auto j = 0u; j < amd::ama::ConstField::kHKExPositionLevelLen; ++j) {
+                        snapshot[index].bid_list[j].order_price = count + bias + j * 10;
+                        snapshot[index].bid_list[j].order_volume = count + bias + j * 100;
+                        snapshot[index].bid_list[j].num_of_orders = count + j + 1;
+
+                        snapshot[index].ask_list[j].order_price = count + bias + j * 10 + 500;
+                        snapshot[index].ask_list[j].order_volume = count + bias + j * 100 + 500;
+                        snapshot[index].ask_list[j].num_of_orders = count + j + 1;
+                    }
+
+                    index++;
+                    resultSet.next();
+                }
+                amdSpi->pushHKExMergeSnapshotData(snapshot, rows, time);
+                delete[] snapshot;
+            }
+        } else if (amdDataType == AMD_HKEX_INDEX_SNAPSHOT) {
+            for (int i = 0; i < cnt; ++i) {
+                if (STOP_TEST) {
+                    return new Void();
+                }
+                amd::ama::MDHKExIndexSnapshot *snapshot = new amd::ama::MDHKExIndexSnapshot[rows];
+                int index = 0;
+                resultSet.first();
+                while (!resultSet.isAfterLast()) {
+                    int count = cnt + index;
+                    int bias = 0;
+                    snapshot[index].market_type = resultSet.getInt(marketIndex);
+                    snapshot[index].orig_time =
+                        convertToAMDTime(resultSet.getLong(timeIndex), resultSet.getInt(dayIndex));
+
+                    string code = std::to_string(800000 + count); // 港交所指数代码
+                    std::strcpy(snapshot[index].security_code, code.c_str());
+
+                    snapshot[index].index_status = 'A'; // 正常状态
+                    snapshot[index].pre_close_price = count + bias++;
+                    snapshot[index].open_price = count + bias++;
+                    snapshot[index].high_price = count + bias++;
+                    snapshot[index].low_price = count + bias++;
+                    snapshot[index].close_price = count + bias++;
+                    snapshot[index].last_price = count + bias++;
+                    snapshot[index].total_volume_trade = count + bias++;
+                    snapshot[index].total_value_trade = count + bias++;
+                    snapshot[index].change = count + bias++;
+                    snapshot[index].ratio_of_change = count + bias++;
+                    snapshot[index].eas_value = count + bias++;
+                    snapshot[index].variety_category = 4; // 指数
+                    snapshot[index].index_time = (count + 93000) % 240000; // 模拟交易时间 (HHMMSS)
+                    snapshot[index].index_source = 'H'; // 港交所
+                    std::strcpy(snapshot[index].currency_code, "HKD");
+
+                    index++;
+                    resultSet.next();
+                }
+                amdSpi->pushHKExIndexSnapshotData(snapshot, rows, time);
                 delete[] snapshot;
             }
         }

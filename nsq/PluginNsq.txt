@@ -1,4 +1,4 @@
-nsq,libPluginNsq.so,2.00.16
+nsq,libPluginNsq.so,2.00.17.0
 nsqConnect,connect,system,1,5,0,0,(fileName, [option], [username], [password], [dataVersion='ORIGIN'])
 nsqSubscribe,subscribe,system,3,3,0,0,(dataType, market, outputTable)
 nsqUnsubscribe,unsubscribe,system,2,2,0,0,(dataType, market)

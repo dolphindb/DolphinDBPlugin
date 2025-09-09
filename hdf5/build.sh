@@ -1,18 +1,22 @@
+#!/bin/bash
+set -x
 
-mkdir -p lib
-
-cp -f /hdd/plugins/hdf5-1.13.1/hdf5/include/* ./include/
-cp -f /hdd/plugins/hdf5-1.13.1/hdf5/lib/libhdf5.a ./lib/
-cp -f /hdd/plugins/hdf5-1.13.1/hdf5/lib/libhdf5_cpp.a ./lib/
-cp -f /hdd/plugins/hdf5-1.13.1/hdf5/lib/libhdf5_hl.a ./lib/
+rm -rf lib
+rm -rf include
 
 source ../build_util.sh
 
-unset FTP_URL
 prepare_dir $@
+
+if [[ "$OSTYPE" != "linux-gnu"* ]]; then
+    rm -rf lib
+    rm -rf include
+    mv lib_win lib
+    mv include_win include
+else 
+    rm -rf lib_win
+    rm -rf include_win
+fi
+
 build_plugin
 install_plugin
-
-mkdir -p $CMAKE_INSTALL_PREFIX/$(basename $(pwd))
-cp -f PluginHdf5.txt $CMAKE_INSTALL_PREFIX/$(basename $(pwd))
-cp -f build/libPluginHdf5.so $CMAKE_INSTALL_PREFIX/$(basename $(pwd))

@@ -54,7 +54,7 @@ ConstantSP kafkaProducer(Heap *heap, vector<ConstantSP> &args) {
         }
         conf = createConf(dict, "producer", false, heap, func);
     } else {
-        conf = createConf(dict, "producer");
+        conf = createConf(dict, "producer", false, heap);
     }
     try {
         return new DdbKafkaProducer(heap, conf);
@@ -108,7 +108,7 @@ ConstantSP kafkaProduce(Heap *heap, vector<ConstantSP> &args) {
         }
         partition = args[5]->getLong();
     }
-    produceMsg(producer, topic, key, value, marshalType, partition);
+    produceMsg(heap, producer, topic, key, value, marshalType, partition);
     return new Void();
 }
 
@@ -133,7 +133,7 @@ ConstantSP kafkaConsumer(Heap *heap, vector<ConstantSP> &args) {
         }
         conf = createConf(dict, "consumer", true, heap, func);
     } else {
-        conf = createConf(dict, "consumer", true);
+        conf = createConf(dict, "consumer", true, heap);
     }
 
     try {
@@ -845,7 +845,7 @@ ConstantSP kafkaGetMetadata(Heap *heap, vector<ConstantSP> &args) {
         }
     } else if (args[0]->getForm() == DF_DICTIONARY) {
         try {
-            auto conf = createConf(args[0], "getMetadata");
+            auto conf = createConf(args[0], "getMetadata", false, heap);
             DdbKafkaProducerSP producerWrapper = new DdbKafkaProducer(heap, conf);
             auto producer = producerWrapper->getProducer();
             meta = producer->get_metadata();

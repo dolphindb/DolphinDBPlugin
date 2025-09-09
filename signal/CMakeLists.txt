@@ -1,71 +1,50 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.22)
 set(CMAKE_SKIP_RPATH TRUE)
-project(signal)
-if(UNIX)
-    ADD_DEFINITIONS(-DLINUX)
-elseif(MINGW)
-    ADD_DEFINITIONS(-DWINDOWS)
-endif()
 
-add_compile_options(-fPIC)
-FIND_PACKAGE(OpenMP REQUIRED)
-if(OPENMP_FOUND)
-    set(CMAKE_C_FLAGS "${OpenMP_C_FLAGS}")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
-endif()
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
+set(PluginName PluginSignal)
+project(${PluginName})
 
-if("${CMAKE_BUILD_TYPE}" STREQUAL "")
-    set(CMAKE_BUILD_TYPE "RELEASE")
-endif ()
+include(../template.cmake)
+CreatePlugin(${PluginName})
 
-string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
-message("CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
-
-if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0 -fPIC -std=c++11 -Wall")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -fPIC -std=c++11 -Wall")
-elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "RELWITHDEBINFO")  # release with debug info
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=c++11 -fPIC -O2 -Wall")
-else ()
-    message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")
-endif ()
-
-if (${DDB_USE_ASAN})
-    add_compile_options(
-        "-fsanitize=address"                # Enable ASAN.
-        "-fno-omit-frame-pointer"           # Nicer stack traces in error messages.
-        "-fno-optimize-sibling-calls"       # Disable tail call elimination (perfect stack traces if inlining off).
-        )
-    set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS} "-fsanitize=address")
-endif ()
-
-
-set(INC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../include)
-
-
-link_directories(${LIBDOLPHINDB})
-if(DEFINED BUILD_ARM)
+if(DEFINED BUILD_ARM OR CMAKE_C_COMPILER MATCHES "(arm|aarch64)")
     message("build arm")
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/linux_arm/include ${INC_DIR})
     link_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/linux_arm/lib)
+    target_link_libraries(${PluginName} 
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/linux_arm/lib/libfftw3_omp.so
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/linux_arm/lib/libfftw3.so
+        m pthread)
+    target_compile_options(${PluginName} PRIVATE -Wno-unused-parameter -Wno-vla -Wno-unknown-pragmas -Wno-pedantic)
+    set_target_properties(${PluginName} PROPERTIES LINK_FLAGS "-Wl,-rpath,$ORIGIN")
+    cmake_path(GET CMAKE_CURRENT_SOURCE_DIR FILENAME INSTALL_DIR)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/linux_arm/lib/libfftw3_omp.so DESTINATION ${INSTALL_DIR})
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/linux_arm/lib/libfftw3.so DESTINATION ${INSTALL_DIR})
 elseif(MINGW)
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/windows/include ${INC_DIR})
-    link_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/windows/lib)
+    target_include_directories(${PluginName} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/windows/include)
+    target_link_directories(${PluginName} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/windows/lib)
+    target_link_libraries(${PluginName} PRIVATE ${PLUGIN_LINK_OPTIONS} 
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/windows/lib/libfftw3-3.dll
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/windows/lib/libgomp-1.dll
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/windows/lib/libwavelib.a
+        m)
+    target_compile_options(${PluginName} PRIVATE -Wno-unused-parameter -Wno-vla -Wno-unknown-pragmas -Wno-pedantic)
+    cmake_path(GET CMAKE_CURRENT_SOURCE_DIR FILENAME INSTALL_DIR)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/windows/lib/libfftw3-3.dll DESTINATION ${INSTALL_DIR})
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/windows/lib/libgomp-1.dll DESTINATION ${INSTALL_DIR})
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/windows/lib/libwinpthread-1.dll DESTINATION ${INSTALL_DIR})
 else()
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/linux_x86/include ${INC_DIR})
-    link_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/linux_x86/lib)
-endif()
-link_directories(${PROJECT_BINARY_DIR})
-aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src DIR_SRCS)
-add_library(PluginSignal SHARED ${DIR_SRCS})
-target_include_directories(PluginSignal PRIVATE ../include/ddbplugin)
-if(NOT MINGW)
-    set_target_properties(PluginSignal PROPERTIES LINK_FLAGS "-Wl,-rpath,$ORIGIN")
-    target_link_libraries(PluginSignal fftw3_omp fftw3 m pthread)
-else()
-    target_link_libraries(PluginSignal DolphinDB fftw3-3 m)
+    target_include_directories(${PluginName} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/linux_x86/include)
+    target_link_directories(${PluginName} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/linux_x86/lib)
+    target_link_libraries(${PluginName} PRIVATE ${PLUGIN_LINK_OPTIONS} 
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/linux_x86/lib/libfftw3_omp.so.3
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/linux_x86/lib/libfftw3.so.3
+        wavelib
+        m
+        pthread)
+    target_compile_options(${PluginName} PRIVATE -Wno-unused-parameter -Wno-vla -Wno-unknown-pragmas -Wno-pedantic)
+    set_target_properties(${PluginName} PROPERTIES LINK_FLAGS "-Wl,-rpath,$ORIGIN")
+    cmake_path(GET CMAKE_CURRENT_SOURCE_DIR FILENAME INSTALL_DIR)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/linux_x86/lib/libfftw3_omp.so.3 DESTINATION ${INSTALL_DIR})
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/linux_x86/lib/libfftw3.so.3 DESTINATION ${INSTALL_DIR})
 endif()

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.22)
 set(PluginName PluginParquet)
 project(${PluginName})
 
@@ -34,26 +34,16 @@ if (${DDB_USE_ASAN})
     endif()
     set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS} "-fsanitize=address")
 endif ()
-include_directories("./parquetApi/include" "../include")
-link_directories(./parquetApi/lib/linux)
+include_directories("../include")
+# link_directories(./parquetApi/lib/linux)
 # link_directories(/mnt/data/zsy/thriftLib/lib)
 link_directories(${LIBDOLPHINDB})
 add_library(PluginParquet SHARED ./src/parquet_plugin.cpp)
-target_link_libraries(PluginParquet
-    ${CMAKE_CURRENT_LIST_DIR}/parquetApi/lib/linux/libparquet.a
-    ${CMAKE_CURRENT_LIST_DIR}/parquetApi/lib/linux/libarrow.a
-    ${CMAKE_CURRENT_LIST_DIR}/parquetApi/lib/linux/libsnappy.a
-    ${CMAKE_CURRENT_LIST_DIR}/parquetApi/lib/linux/libbz2.a
-    ${CMAKE_CURRENT_LIST_DIR}/parquetApi/lib/linux/liblz4.a
-    ${CMAKE_CURRENT_LIST_DIR}/parquetApi/lib/linux/libz.a
-    ${CMAKE_CURRENT_LIST_DIR}/parquetApi/lib/linux/libzstd.a
-    ${CMAKE_CURRENT_LIST_DIR}/parquetApi/lib/linux/libutf8proc.a
-    ${CMAKE_CURRENT_LIST_DIR}/parquetApi/lib/linux/libjemalloc_pic.a
-    pthread
-    rt
-    ${CMAKE_CURRENT_LIST_DIR}/parquetApi/lib/linux/libboost_regex.a
-    ${CMAKE_CURRENT_LIST_DIR}/parquetApi/lib/linux/libthrift.a
-    )
+
+find_package(Arrow REQUIRED)
+set(Parquet_DIR ${CMAKE_PREFIX_PATH}/arrow-2.0.0/lib64/cmake/arrow)
+find_package(Parquet REQUIRED)
+target_link_libraries(${PluginName} PRIVATE parquet_static arrow_static)
 
 add_custom_command( TARGET PluginParquet POST_BUILD
                     COMMAND cp ${plugin_file} "${CMAKE_BINARY_DIR}/PluginParquet.txt"

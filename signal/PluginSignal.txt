@@ -1,8 +1,9 @@
-signal,libPluginSignal.so,2.00.16
+signal,libPluginSignal.so,2.00.17.0
 dct,dct,operator,1,1,0,1,(X)
 dst,dst,operator,1,1,0,1,(X)
-dwt,dwt,operator,1,2,0,0,(X)
-idwt,idwt,operator,2,2,0,1,(X,Y)
+dwt1,dwt,operator,1,2,0,0,(X)
+dwtEx,dwtEx,system,1,3,0,0,(X, [wavelet], [level])
+idwt1,idwt,operator,2,2,0,1,(X,Y)
 dctMap,dctMap,system,2,2,0,0,(table, size)
 dctNumMap,dctNumMap,system,1,1,0,0,(table)
 dctReduce,dctReduce,operator,2,2,0,0,(mapRes1, mapRes2)

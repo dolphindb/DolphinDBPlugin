@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.22)
 
 set(PluginName PluginAWS)
 project(${PluginName})
@@ -11,15 +11,18 @@ set(PLUGIN_LINK_LIBRARIES
     aws-cpp-sdk-s3
     aws-cpp-sdk-core
 )
-set(PLUGIN_LINK_OPTIONS
-    "-Wl,-rpath,$ORIGIN,-disable-new-dtags"
-)
+
+cmake_path(GET CMAKE_CURRENT_SOURCE_DIR FILENAME INSTALL_DIR)
 if(WIN32)
+    set(PLUGIN_LINK_OPTIONS "")
     list(APPEND PLUGIN_COMPILE_DEFINITIONS -DWINDOWS)
     list(APPEND PLUGIN_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/aws/windows/include)
     list(APPEND PLUGIN_LINK_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/aws/windows/lib)
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/aws/windows/lib/ DESTINATION ${INSTALL_DIR})
 elseif(UNIX)
-    cmake_path(GET CMAKE_CURRENT_SOURCE_DIR FILENAME INSTALL_DIR)
+    set(PLUGIN_LINK_OPTIONS
+        "-Wl,-rpath,$ORIGIN,-disable-new-dtags"
+    )
     if (CMAKE_CXX_COMPILER_VERSION STREQUAL "4.8.5")
         message(STATUS "linking 485 libs")
         list(APPEND PLUGIN_LINK_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/aws/x86_linux/lib/gcc485)
@@ -34,7 +37,7 @@ elseif(UNIX)
     list(APPEND PLUGIN_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/aws/x86_linux/include)
 endif()
 
-target_link_libraries(${PluginName} ${PLUGIN_LINK_OPTIONS} ${PLUGIN_LINK_LIBRARIES})
+target_link_libraries(${PluginName} PRIVATE ${PLUGIN_LINK_OPTIONS} ${PLUGIN_LINK_LIBRARIES})
 target_link_directories(${PluginName} PRIVATE ${PLUGIN_LINK_DIRECTORIES})
 target_compile_definitions(${PluginName} PRIVATE ${PLUGIN_COMPILE_DEFINITIONS})
 target_include_directories(${PluginName} PRIVATE ${PLUGIN_INCLUDE_DIRECTORIES})

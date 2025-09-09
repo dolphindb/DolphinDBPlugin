@@ -1,0 +1,35 @@
+# These are not open-source softwares
+ami
+ASTTrader
+Backtest
+ctp
+MatchingEngineSimulator
+WindTDF
+
+# These plugins are not released yet
+bloomberg
+bondBroker
+Dlopen
+java
+lgbm
+OrderManagementEngine
+QuantLib
+tf
+udpserver
+
+# We are reviewing these plugins
+DataFeed
+EFH
+H5SDK
+ICE
+LDAP
+MDL
+rabbitmq
+RocketMQ
+SSEQuotationFile
+SchemalessWriter
+SevenZip
+WebSocket
+XTP
+hdb
+

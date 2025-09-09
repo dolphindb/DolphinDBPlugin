@@ -1,39 +1,19 @@
 #!/bin/bash
 
-cd $WORKSPACE/xgboost/
+source ../build_util.sh
 
-cp CMakeLists_old.txt CMakeLists.txt
+prepare_dir $@ -DXGBOOST_VERSION=1.2
+build_plugin
+install_plugin
+mv $CMAKE_INSTALL_PREFIX/xgboost $CMAKE_INSTALL_PREFIX/xgboost1.2/
+cp /lib64/libgomp.so.1 $CMAKE_INSTALL_PREFIX/xgboost1.2
 
-# compile 2.0
-rm -rf $WORKSPACE/output/xgboost/
+prepare_dir $@ -DXGBOOST_VERSION=2.0
+build_plugin
+install_plugin
+mv $CMAKE_INSTALL_PREFIX/xgboost $CMAKE_INSTALL_PREFIX/xgboost2.0/
+cp /lib64/libgomp.so.1 $CMAKE_INSTALL_PREFIX/xgboost2.0
 
-rm -rf build
-mkdir build
-cd build
-
-cmake .. -DXGBOOST_VERSION=2.0 -DCMAKE_CXX_COMPILER=/home/api/toolchain/gcc-8/bin/g++ -DCMAKE_C_COMPILER=/home/api/toolchain/gcc-8/bin/gcc
-make -j
-
-mkdir -p $CMAKE_INSTALL_PREFIX/xgboost/2.0
-cp -f libPluginXgboost.so $CMAKE_INSTALL_PREFIX/xgboost/2.0
-cp -f PluginXgboost.txt $CMAKE_INSTALL_PREFIX/xgboost/2.0
-cp /lib64/libgomp.so.1 $CMAKE_INSTALL_PREFIX/xgboost/2.0
-
-
-
-# compile 1.2
-
-cd $WORKSPACE/xgboost/
-rm -rf build
-mkdir build
-cd build
-
-CC=/home/api/toolchain/gcc-8/bin/gcc CXX=/home/api/toolchain/gcc-8/bin/g++  cmake ..
-make -j
-
-
-mkdir -p $CMAKE_INSTALL_PREFIX/xgboost/1.2
-cp -f libPluginXgboost.so $CMAKE_INSTALL_PREFIX/xgboost/1.2
-cp -f PluginXgboost.txt $CMAKE_INSTALL_PREFIX/xgboost/1.2
-cp /lib64/libgomp.so.1 $CMAKE_INSTALL_PREFIX/xgboost/1.2
-
+mkdir -p $CMAKE_INSTALL_PREFIX/xgboost/
+mv $CMAKE_INSTALL_PREFIX/xgboost1.2/ $CMAKE_INSTALL_PREFIX/xgboost/1.2/
+mv $CMAKE_INSTALL_PREFIX/xgboost2.0/ $CMAKE_INSTALL_PREFIX/xgboost/2.0/

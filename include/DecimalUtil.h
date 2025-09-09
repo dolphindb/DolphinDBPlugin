@@ -1,4 +1,5 @@
-#pragma once
+#ifndef DECIMALUTIL_H_
+#define DECIMALUTIL_H_
 
 #include <limits>
 #include <string>
@@ -19,28 +20,48 @@ namespace decimal_util {
 ConstantSP decimalScalarAdd(const ConstantSP &lhs, const ConstantSP &rhs);
 void decimalScalarAddInplace(const ConstantSP &lhs, const ConstantSP &rhs, const ConstantSP &result,
                              const INDEX outputStart, bool validate);
+bool decimalScalarAddInplace(const ConstantSP &lhs, const ConstantSP &rhs, ConstantSP &result);
+
 ConstantSP decimalScalarSub(const ConstantSP &lhs, const ConstantSP &rhs);
 void decimalScalarSubInplace(const ConstantSP &lhs, const ConstantSP &rhs, const ConstantSP &result,
                              const INDEX outputStart, bool validate);
+bool decimalScalarSubInplace(const ConstantSP &lhs, const ConstantSP &rhs, ConstantSP &result);
+
 ConstantSP decimalScalarMultiply(const ConstantSP &lhs, const ConstantSP &rhs);
 void decimalScalarMultiplyInplace(const ConstantSP &lhs, const ConstantSP &rhs, const ConstantSP &result,
                                  const INDEX outputStart, bool validate);
+bool decimalScalarMultiplyInplace(const ConstantSP &lhs, const ConstantSP &rhs, ConstantSP &result);
+
 ConstantSP decimalScalarDivide(const ConstantSP &lhs, const ConstantSP &rhs);
 void decimalScalarDivideInplace(const ConstantSP &lhs, const ConstantSP &rhs, const ConstantSP &result,
                                 const INDEX outputStart, bool validate);
+bool decimalScalarDivideInplace(const ConstantSP &lhs, const ConstantSP &rhs, ConstantSP &result);
+
 ConstantSP decimalVectorAdd(const ConstantSP &lhs, const ConstantSP &rhs);
-void decimalVectorAddInplace(const ConstantSP &lhs, const ConstantSP &rhs, const ConstantSP &result,
+/// @return Whether there are any null values in the result range [outputStart, outputStart + inputLen).
+bool decimalVectorAddInplace(const ConstantSP &lhs, const ConstantSP &rhs, const ConstantSP &result,
                              const INDEX outputStart, bool validate, const INDEX inputStart, const INDEX inputLen);
+bool decimalVectorAddInplace(const ConstantSP &lhs, const ConstantSP &rhs, ConstantSP &result);
+
 ConstantSP decimalVectorSub(const ConstantSP &lhs, const ConstantSP &rhs);
-void decimalVectorSubInplace(const ConstantSP &lhs, const ConstantSP &rhs, const ConstantSP &result,
+/// @return Whether there are any null values in the result range [outputStart, outputStart + inputLen).
+bool decimalVectorSubInplace(const ConstantSP &lhs, const ConstantSP &rhs, const ConstantSP &result,
                              const INDEX outputStart, bool validate, const INDEX inputStart, const INDEX inputLen);
+bool decimalVectorSubInplace(const ConstantSP &lhs, const ConstantSP &rhs, ConstantSP &result);
+
 ConstantSP decimalVectorMultiply(const ConstantSP &lhs, const ConstantSP &rhs);
-void decimalVectorMultiplyInplace(const ConstantSP &lhs, const ConstantSP &rhs, const ConstantSP &result,
+/// @return Whether there are any null values in the result range [outputStart, outputStart + inputLen).
+bool decimalVectorMultiplyInplace(const ConstantSP &lhs, const ConstantSP &rhs, const ConstantSP &result,
                                   const INDEX outputStart, bool validate, const INDEX inputStart,
                                   const INDEX inputLen);
+bool decimalVectorMultiplyInplace(const ConstantSP &lhs, const ConstantSP &rhs, ConstantSP &result);
+
 ConstantSP decimalVectorDivide(const ConstantSP &lhs, const ConstantSP &rhs);
-void decimalVectorDivideInplace(const ConstantSP &lhs, const ConstantSP &rhs, const ConstantSP &result,
+/// @return Whether there are any null values in the result range [outputStart, outputStart + inputLen).
+bool decimalVectorDivideInplace(const ConstantSP &lhs, const ConstantSP &rhs, const ConstantSP &result,
                                 const INDEX outputStart, bool validate, const INDEX inputStart, const INDEX inputLen);
+bool decimalVectorDivideInplace(const ConstantSP &lhs, const ConstantSP &rhs, ConstantSP &result);
+
 ConstantSP decimalScalarFloorDivide(const ConstantSP &lhs, const ConstantSP &rhs);
 ConstantSP decimalVectorFloorDivide(const ConstantSP &lhs, const ConstantSP &rhs);
 ConstantSP contextSum(const ConstantSP &a, const ConstantSP &b);
@@ -212,32 +233,42 @@ inline T gcd(T a, T b) {
 // since we use min() as nullValue, so a+b=min() cause overflow
 template <typename T>
 inline bool addOverflow(T a, T b, T &res) {
-    res = a + b;
     if (b > 0 && a > std::numeric_limits<T>::max() - b) {
         return true;
     }
     if (b < 0 && a <= std::numeric_limits<T>::min() - b) {
         return true;
     }
+    res = a + b;
     return false;
 }
 
 // since we use min() as nullValue, so a-b=min() cause overflow
 template <typename T>
 inline bool subOverflow(T a, T b, T &res) {
-    res = a - b;
     if (b < 0 && a > std::numeric_limits<T>::max() + b) {
         return true;
     }
     if (b > 0 && a <= std::numeric_limits<T>::min() + b) {
         return true;
     }
+    res = a - b;
     return false;
+}
+
+template <typename T>
+inline T _abs(T x) {
+    return x > 0 ? x : -x;
 }
 
 template <typename T, typename U, typename R = typename std::conditional<sizeof(T) >= sizeof(U), T, U>::type>
 inline bool mulOverflow(T a, U b, R &result) {
+    if (b != 0 && _abs(a) > std::numeric_limits<R>::max() / _abs(b)) {
+        return true;
+    }
     result = a * b;
+    return false;
+    /*
     if (a == 0 || b == 0) {
         return false;
     }
@@ -263,7 +294,7 @@ inline bool mulOverflow(T a, U b, R &result) {
         return (-a) > std::numeric_limits<R>::max() / (-b);
     }
 
-    return a > std::numeric_limits<R>::max() / b;
+    return a > std::numeric_limits<R>::max() / b;*/
 }
 
 /**
@@ -290,9 +321,10 @@ inline bool mulDivOverflow(T value1, T value2, T divisor, T &result) {
         }
     }
 
-    bool overflow = mulOverflow(value1, value2, result);
+    if(mulOverflow(value1, value2, result))
+    	return true;
     result /= divisor;
-    return overflow;
+    return false;
 }
 
 
@@ -1155,3 +1187,5 @@ struct wrapper {
 #undef ENABLE_FOR_DECIMAL
 
 } // namespace decimal_util
+
+#endif

@@ -13,7 +13,7 @@
 
 class AbstractStreamEngine;
 
-typedef SmartPointer<AbstractStreamEngine> AbstractStreamEngineSP;
+typedef ObjectPtr<AbstractStreamEngine> AbstractStreamEngineSP;
 typedef AbstractStreamEngineSP(*StreamEngineFactory)(Heap* heap, const DataInputStreamSP& in);
 
 

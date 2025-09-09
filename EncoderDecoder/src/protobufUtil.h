@@ -9,6 +9,9 @@
 #include <SysIO.h>
 #include <Types.h>
 #include <Util.h>
+#include "google/protobuf/message.h"
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/dynamic_message.h"
 
 namespace protobufCoder {
 
@@ -30,5 +33,5 @@ ConstantSP getProtobufSchemaDynamic(string filePath, bool needArrayVector, const
 ConstantSP parseProtobufDynamic(string filePath, VectorSP data, unordered_map<string, DATA_TYPE>& dict,
                                 bool needArrayVector = false, Heap* heap = nullptr, const string& = "",
                                 bool useZeroAsNull = true);
-
+const google::protobuf::Message *getMessageFromProtoFile(const std::string& filePath, const std::string& protoName, google::protobuf::DescriptorPool& pool, google::protobuf::DynamicMessageFactory& factory);
 #endif //PROTOBUF_UTIL_H

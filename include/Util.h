@@ -114,6 +114,7 @@ public:
 	static Vector* createRepeatingVector(const ConstantSP& scalar, INDEX length, int extraParam=0);
 	static Vector* createRepeatingSymbolVector(const ConstantSP& scalar, INDEX length, const SymbolBaseSP& symbolBase);
 	static Vector* createSubVector(const VectorSP& source, INDEX offset, INDEX length);
+	static Vector* createFastVector(DATA_TYPE type, INDEX size, INDEX capacity=0, int extraParam=0);
 	static Vector* createMatrix(DATA_TYPE type, int cols, int rows, int colCapacity,int extraParam=0,
 			void* data=0, void** dataSegment=0, int segmentSizeInBit=0, bool containNull=false);
 	static Vector* createSymbolMatrix(const SymbolBaseSP& symbolBase, int cols, int rows, int colCapacity, int* data=0, bool containNull=false);
@@ -135,6 +136,7 @@ public:
 
 	static DataInputStreamSP createBlockFileInputStream(const string& filename, int devId, long long fileLength, int bufSize, long long offset, long long length);
 	static Constant* createResource(long long handle, const string& desc, const FunctionDefSP& onClose, Session* session);
+	static Constant* createResource(long long handle, const string& desc, const FunctionDefSP& onClose, Heap *heap);
 	static FunctionDef* createOperatorFunction(const string& name, OptrFunc func, int minParamNum, int maxParamNum, bool aggregation);
 	static FunctionDef* createSystemFunction(const string& name, SysFunc func, int minParamNum, int maxParamNum, bool aggregation);
 	static FunctionDef* createSystemProcedure(const string& name, SysProc func, int minParamNum, int maxParamNum);
@@ -161,6 +163,7 @@ public:
 	static DURATION_UNIT getDurationUnit(const string& typestr);
 	static long long getTemporalDurationConversionRatio(DATA_TYPE t, DURATION_UNIT du);
 	static long long getTemporalUplimit(DATA_TYPE t);
+	static FunctionDefSP getFuncDefFromHeap(Heap *heap, const string& defName);
 
 	// assume y>0
 	template<class T>
@@ -391,6 +394,15 @@ private:
 
 inline ConstantSP evaluateObject(const ObjectSP& obj, Heap* pHeap) {
 	return obj->isConstant() && !((Constant*)obj.get())->isStatic() ? ConstantSP(obj) : obj->getReference(pHeap);
+}
+
+inline const ConstantSP& evaluateObject(const ObjectSP& obj, ConstantSP& cache, Heap* pHeap) {
+	if(obj->isConstant() && !((Constant*)obj.get())->isStatic()){
+		cache = obj;
+		return cache;
+	}
+	else
+		return obj->getReference(pHeap, cache);
 }
 
 inline ConstantSP copyIfNecessary(const ConstantSP& obj) {

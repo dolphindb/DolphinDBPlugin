@@ -59,7 +59,7 @@ class DummyOutput : public Output {
 };
 
 class OPCUAClient;
-using OPCUAClientSP = SmartPointer<OPCUAClient>;
+using OPCUAClientSP = ObjectPtr<OPCUAClient>;
 class OPCUASub {
   public:
     static Mutex OPCUA_SUB_MAP_LATCH;

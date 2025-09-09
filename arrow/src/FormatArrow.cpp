@@ -10,8 +10,9 @@
 
 #define RECORDBATCH_SIZE 8192
 
-template<class T>
+template <class T>
 static void Destruction(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     T * ptr = (T *) (args[0]->getLong());
     if (ptr != nullptr) {
         delete ptr;
@@ -22,6 +23,8 @@ typedef std::map<int, std::map<int, ConstantMarshalSP>> MarshalMap;
 typedef std::map<int, std::map<int, ConstantUnmarshalSP>> UnmarshalMap;
 
 ConstantSP getSupportedFormats(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
+    std::ignore = args;
     int len = 1;
     VectorSP marshalCol     = Util::createVector(DT_INT, len, len);
     marshalCol->setInt(0, FORMAT_ARROW);        // 010
@@ -47,11 +50,13 @@ ConstantSP getConstantUnmarshal(Heap *heap, vector<ConstantSP> &args) {
     return Util::createResource((long long) &unmarshalMap, "arrow unmarshal", onDestroy, heap->currentSession());
 }
 
-bool ArrowTableMarshall::start(const ConstantSP& target, bool blocking, IO_ERR& ret){
+bool ArrowTableMarshall::start(const ConstantSP &target, bool blocking, IO_ERR &ret) {
     return start(0, 0, target, blocking, ret);
 }
 
-bool ArrowTableMarshall::start(const char* requestHeader, size_t headerSize, const ConstantSP& target, bool blocking, IO_ERR& ret){
+bool ArrowTableMarshall::start(const char *requestHeader, size_t headerSize, const ConstantSP &target, bool blocking,
+                               IO_ERR &ret) {
+    std::ignore = blocking;
     if(headerSize > 1024){
         ret = INVALIDDATA;
         return false;
@@ -235,7 +240,8 @@ void ArrowTableMarshall::buildSchema(const TableSP& table){
 	schema_ = arrow::schema(schemaVector);
 }
 
-void ArrowTableMarshall::buildDictIdsMap(const TableSP& table){
+void ArrowTableMarshall::buildDictIdsMap(const TableSP &table) {
+    std::ignore = table;
     int numCols = target_->columns();
     int id = 0;
     for (int i = 0; i < numCols; ++i) {
@@ -511,13 +517,15 @@ void MarshalVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_build
     }
 }
 
-void MarshalArrayVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_builder, VectorSP column, int columnId, int real_size, int rowsSent, char *pvalidBuffer, DATA_TYPE colType) {
+void MarshalArrayVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_builder, VectorSP column, int columnId,
+                              int real_size, int rowsSent, char *pvalidBuffer, DATA_TYPE colType) {
+    std::ignore = pvalidBuffer;
     auto builder = static_cast<arrow::ListBuilder*>(batch_builder->GetField(columnId));
     std::unique_ptr<INDEX[]> indbuf(new INDEX[real_size]);
     std::unique_ptr<INDEX[]> offset(new INDEX[real_size+1]);
 
-    VectorSP indexVector = ((SmartPointer<FastArrayVector>)column)->getSourceIndex();
-    VectorSP valueVector = ((SmartPointer<FastArrayVector>)column)->getSourceValue();
+    VectorSP indexVector = ((ObjectPtr<FastArrayVector>)column)->getSourceIndex();
+    VectorSP valueVector = ((ObjectPtr<FastArrayVector>)column)->getSourceValue();
     
     const INDEX *pindbuf = indexVector->getIndexConst(rowsSent, real_size, indbuf.get());
     memcpy(offset.get()+1, pindbuf, real_size*sizeof(INDEX));

@@ -1,7 +1,9 @@
 ///
 /// ref: https://github.com/abseil/abseil-cpp/blob/master/absl/numeric/int128.h
 ///
-#pragma once
+#ifndef WIDEINTEGER_H_
+#define WIDEINTEGER_H_
+
 #include <functional>
 #include <limits>
 #include <iosfwd>
@@ -190,8 +192,8 @@ struct hash<uint128> {
 #endif
 
 namespace std {
-
 int128 pow(int128 x, size_t y);
 int128 trunc(int128 x);
+} // namespace std
 
-};  // namespace std
+#endif

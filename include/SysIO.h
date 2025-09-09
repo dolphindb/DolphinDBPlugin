@@ -185,6 +185,9 @@ public:
 	IO_ERR readString(DolphinString& value);
 	IO_ERR readString(DolphinString& value, size_t length);
 	IO_ERR readLine(DolphinString& value);
+	// read raw string end withs '\0', don't ignore tailing '\n' char
+	IO_ERR readRawString(string&);
+	IO_ERR readRawString(DolphinString&);
 	/**
 	 * Preview the given size of stream data from the current position. The internal current position will not change
 	 * after this operation. If the available data in the internal buffer from the current position is less than the

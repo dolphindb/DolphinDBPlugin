@@ -184,7 +184,7 @@ ConstantSP mqttClientSub(Heap *heap, vector<ConstantSP> &args) {
     return conn;
 }
 
-ConstantSP mqttClientStopSub(const ConstantSP &handle, const ConstantSP &b) {
+ConstantSP mqttClientStopSub(Heap *, const ConstantSP &handle, const ConstantSP &b) {
     // parse args first
     std::string usage = "Usage: close(connection or connection ID). ";
     SubConnection *sc = NULL;
@@ -224,7 +224,8 @@ ConstantSP mqttClientStopSub(const ConstantSP &handle, const ConstantSP &b) {
     }
     return new Int(MQTT_OK);
 }
-ConstantSP getSubscriberStat(const ConstantSP &handle, const ConstantSP &b) {
+
+ConstantSP getSubscriberStat(Heap *, const ConstantSP &handle, const ConstantSP &b) {
     LockGuard<Mutex> guard(&mqttConn::CONN_MUTEX_LOCK);
     int size = mqttConn::CONN_DICT->size();
     ConstantSP connectionIdVec = Util::createVector(DT_STRING, size);

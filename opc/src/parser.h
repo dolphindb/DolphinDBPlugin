@@ -1,5 +1,4 @@
 #include "CoreConcept.h"
-
 extern "C" {
 ConstantSP createJsonParser(Heap* heap, vector<ConstantSP>& arguments);
 ConstantSP createJsonFormatter(Heap* heap, vector<ConstantSP>& arguments);

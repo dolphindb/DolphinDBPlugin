@@ -1,5 +1,5 @@
 plugin_dir=$(pwd)
-
+set +e
 cd /hdd/libs/krb5-krb5-1.21-final/src/lib
 cp -f krb5/libkrb5.a  $plugin_dir/lib/
 cp -f ../util/et/libcom_err.a   $plugin_dir/lib/

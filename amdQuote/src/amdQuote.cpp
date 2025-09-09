@@ -429,7 +429,7 @@ ConstantSP getHandle(Heap *heap, vector<ConstantSP> &arguments) {
     return AMD_HANDLE_MAP.getHandleByName(AMD_SINGLETON_NAME);
 }
 
-#ifndef AMD_3_9_6
+#ifndef AMD_396
 ConstantSP getCodeList(Heap *heap, vector<ConstantSP> &arguments) {
     string usage("getCodeList([market]) ");
     LockGuard<Mutex> amdLock_(&AMD_MUTEX);

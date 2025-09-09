@@ -14,8 +14,8 @@ function download_thirdparty() {
 }
 
 function prepare_dir() {
-    set +e
     git submodule update --init .
+    set +e
     if [ ! -n "$1" ] && [ -d build ]; then
         return 0;
     fi
@@ -36,6 +36,8 @@ function prepare_dir() {
         toolchain_arg="-DZLIB_ROOT=$(ls -d $toolchain_dir/zlib-*) $toolchain_arg"
         toolchain_arg="-DOPENSSL_ROOT_DIR=$(ls -d $toolchain_dir/openssl-*) $toolchain_arg"
         toolchain_arg="-DCURL_ROOT=$(ls -d $toolchain_dir/curl-*) $toolchain_arg"
+        toolchain_arg="-DProtobuf_ROOT=$(ls -d $toolchain_dir/protobuf-*) $toolchain_arg"
+        toolchain_arg="-DBOOST_ROOT=$(ls -d $toolchain_dir/boost-*) $toolchain_arg"
         library_path=""
         for lib in $(ls $toolchain_dir); do
             library_path="$toolchain_dir/$lib/lib;$library_path"

@@ -44,19 +44,6 @@
 #include<urlencode.h>
 using namespace std;
 
-void checkDictionaryContent(DictionarySP params){
-    if(params->getForm() != DF_DICTIONARY){
-        return;
-    }
-    ConstantSP keys = params->keys();
-    for (int i = 0; i < keys->size(); i++) {
-        ConstantSP key = keys->get(i);
-        if(key->getString().empty() || params->getMember(key)->getString().empty()){
-            throw RuntimeException("the key or value in dictionary can not be emtpy");
-        }
-    }
-}
-
 httpClient::HttpRequestConfig getHttpRequestConfig(DictionarySP params){
     httpClient::HttpRequestConfig config;
     //proxy
@@ -84,6 +71,19 @@ httpClient::HttpRequestConfig getHttpRequestConfig(DictionarySP params){
         config.proxyPassword_ = proxy_password->getString();
     }
     return config;
+}
+
+void checkDictionaryContent(DictionarySP params){
+    if(params->getForm() != DF_DICTIONARY){
+        return;
+    }
+    ConstantSP keys = params->keys();
+    for (int i = 0; i < keys->size(); i++) {
+        ConstantSP key = keys->get(i);
+        if(key->getString().empty()){
+            throw RuntimeException("the key in dictionary can not be emtpy");
+        }
+    }
 }
 
 ConstantSP handleHttpRequest(vector<ConstantSP> &args, httpClient::RequestMethod method){
@@ -160,6 +160,8 @@ namespace httpClient {
 
     static void locking_function(int mode, int n, const char *file, int line)
     {
+        (void)file;
+        (void)line;
         if (mode & CRYPTO_LOCK)
             mutex_buf[n].lock();
         else
@@ -192,7 +194,6 @@ namespace httpClient {
         }
     };
 
-    Init init;
 
     size_t curlWriteData(void *ptr, size_t size, size_t nmemb, string *data)
     {
@@ -207,10 +208,12 @@ namespace httpClient {
             if (i != 0)
                 output += "&";
             ConstantSP key = keys->get(i);
-            ConstantSP value = params->getMember(key);
+            std::string value = params->getMember(key)->getString();
             output += key->getString();
             output += "=";
-            output += (urlencode::EncodeString(value->getString()));
+            if(!value.empty()) {
+                output += (urlencode::EncodeString(value));
+            }
         }
     }
 
@@ -348,4 +351,9 @@ namespace httpClient {
         }
         return res;
     }
+}
+
+ConstantSP initialize(Heap *heap, vector<ConstantSP> &arguments) {
+    static httpClient::Init init;
+    return new Void();
 }

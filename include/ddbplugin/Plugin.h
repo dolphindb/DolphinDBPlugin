@@ -49,7 +49,11 @@ inline int128 getNullValue<int128>() { return int128MinValue(); }
 
 template <typename T>
 inline T *allocMemory(int size) {
-	return reinterpret_cast<T*>(malloc(size * sizeof(T)));
+	T* data = static_cast<T*>(malloc(size * sizeof(T)));
+	if(data == nullptr) {
+		throw RuntimeException("Memory allocation failed for size: " + std::to_string(size * sizeof(T)));
+	}
+	return data;
 }
 template <>
 inline string *allocMemory<string>(int size) {

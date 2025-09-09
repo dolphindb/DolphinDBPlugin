@@ -17,7 +17,7 @@ extern "C" ConstantSP getStatus(Heap *heap, vector<ConstantSP> &arguments);
 
 extern "C" ConstantSP getHandle(Heap *heap, vector<ConstantSP> &arguments);
 
-#ifndef AMD_3_9_6
+#ifndef AMD_396
 extern "C" ConstantSP getCodeList(Heap *heap, vector<ConstantSP> &arguments);
 
 extern "C" ConstantSP getETFCodeList(Heap *heap, vector<ConstantSP> &arguments);

@@ -26,8 +26,13 @@ enum AMDDataType {
     AMD_OPTION_SNAPSHOT,
     AMD_FUTURE_SNAPSHOT,
     AMD_NEEQ_SNAPSHOT,
-#ifndef AMD_3_9_6
+    AMD_HKT_SNAPSHOT,
+#ifndef AMD_396
     AMD_IOPV_SNAPSHOT,
+#endif
+#ifdef AMD_457
+    AMD_HKEX_MERGE_SNAPSHOT,
+    AMD_HKEX_INDEX_SNAPSHOT,
 #endif
     AMD_ERROR_DATA_TYPE,
 };
@@ -53,6 +58,11 @@ struct MDBondOrderExecution {
 struct timeMDNEEQSnapshot {
     long long reachTime;
     amd::ama::MDNEEQSnapshot neeqSnapshot;
+};
+
+struct timeMDHKTSnapshot {
+    long long reachTime;
+    amd::ama::MDHKTSnapshot hktSnapshot;
 };
 
 struct timeMDSnapshot {
@@ -98,14 +108,25 @@ struct timeMDFuture {
     amd::ama::MDFutureSnapshot future;
 };
 
-#ifndef AMD_3_9_6
+#ifndef AMD_396
 struct timeMDIOPV {
     long long reachTime;
     amd::ama::MDIOPVSnapshot IOPV;
 };
 #endif
+#ifdef AMD_457
+struct timeHKExMergeSnapshot {
+    long long reachTime;
+    amd::ama::MDHKExMergeSnapshot snapshot;
+};
+struct timeHKExIndexSnapshot {
+    long long reachTime;
+    amd::ama::MDHKExIndexSnapshot index;
+};
+#endif
 
 void neeqSnapshotReader(vector<ConstantSP> &buffer, timeMDNEEQSnapshot &data, bool securityCodeToInt);
+void hktSnapshotReader(vector<ConstantSP> &buffer, timeMDHKTSnapshot &data, bool securityCodeToInt);
 void indexReader(vector<ConstantSP> &buffer, timeMDIndexSnapshot &data, bool securityCodeToInt);
 void orderQueueReader(vector<ConstantSP> &buffer, timeMDOrderQueue &data, bool securityCodeToInt);
 void snapshotReader(vector<ConstantSP> &buffer, timeMDSnapshot &data, bool securityCodeToInt);
@@ -114,8 +135,12 @@ void executionReader(vector<ConstantSP> &buffer, timeMDTickExecution &data, bool
 void bondSnapshotReader(vector<ConstantSP> &buffer, timeMDBondSnapshot &data, bool securityCodeToInt);
 void optionReader(vector<ConstantSP> &buffer, timeMDOption &data, bool securityCodeToInt);
 void futureReader(vector<ConstantSP> &buffer, timeMDFuture &data, bool securityCodeToInt);
-#ifndef AMD_3_9_6
+#ifndef AMD_396
 void IOPVReader(vector<ConstantSP> &buffer, timeMDIOPV &data, bool securityCodeToInt);
+#endif
+#ifdef AMD_457
+void HKExMergeSnapshotReader(vector<ConstantSP> &buffer, timeHKExMergeSnapshot &data, bool securityCodeToInt);
+void HKExIndexSnapshotReader(vector<ConstantSP> &buffer, timeHKExIndexSnapshot &data, bool securityCodeToInt);
 #endif
 
 void bondOrderReader(vector<ConstantSP> &buffer, timeMDBondTickOrder &data, bool securityCodeToInt);
@@ -144,7 +169,7 @@ int countDays(int amdDays);
 int convertType(int type);
 int convertToDate(long long time);
 int convertToTime(long long time);
-long long convertTime(long long time);
+long long convertToTimestamp(long long time);
 string transMarket(int type);
 AMDDataType getAmdDataType(const string &typeStr);
 long long countTemporalUnit(int days, long long multiplier, long long remainder);

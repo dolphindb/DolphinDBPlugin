@@ -12,14 +12,15 @@
 #include "ddbplugin/CommonInterface.h"
 #include "ddbplugin/PluginLoggerImp.h"
 
-extern "C" ConstantSP dct(const ConstantSP &a, const ConstantSP &b);  //离散余弦变换(DCT-II)
-extern "C" ConstantSP dst(const ConstantSP &a, const ConstantSP &b);  //离散正弦变换(DST-I)
-extern "C" ConstantSP dwt(const ConstantSP &a, const ConstantSP &b);  //一维离散小波变换(DWT)
-extern "C" ConstantSP idwt(const ConstantSP &a, const ConstantSP &b); //一维离散小波逆变换(IDWT)
+extern "C" ConstantSP dct(Heap *heap, const ConstantSP &a, const ConstantSP &b);  //离散余弦变换(DCT-II)
+extern "C" ConstantSP dst(Heap *heap, const ConstantSP &a, const ConstantSP &b);  //离散正弦变换(DST-I)
+extern "C" ConstantSP dwt1(Heap *heap, const ConstantSP &a, const ConstantSP &b);  //一维离散小波变换(DWT)
+extern "C" ConstantSP dwtEx(Heap *heap, vector<ConstantSP> &args); //一维离散小波逆变换(IDWT)
+extern "C" ConstantSP idwt1(Heap *heap, const ConstantSP &a, const ConstantSP &b); //一维离散小波逆变换(IDWT)
 extern "C" ConstantSP dctMap(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP dctReduce(const ConstantSP &mapRes1, const ConstantSP &mapRes2);
+extern "C" ConstantSP dctReduce(Heap *heap, const ConstantSP &mapRes1, const ConstantSP &mapRes2);
 extern "C" ConstantSP dctNumMap(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP dctNumReduce(const ConstantSP &mapRes1, const ConstantSP &mapRes2);
+extern "C" ConstantSP dctNumReduce(Heap *heap, const ConstantSP &mapRes1, const ConstantSP &mapRes2);
 extern "C" ConstantSP dctParallel(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP fft(Heap *heap, vector<ConstantSP> &args); //1-D fast discrete Fourier Transform.
 extern "C" ConstantSP fft1(Heap *heap, vector<ConstantSP> &args);

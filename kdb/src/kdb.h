@@ -6,7 +6,8 @@
 #include "k.h"
 #include "kptr.h"
 
-#define PLUGIN_NAME "[PLUGIN::KDB] "
+#define KDB_PREFIX "[PLUGIN::KDB] "
+using std::vector;
 
 extern "C" {
 

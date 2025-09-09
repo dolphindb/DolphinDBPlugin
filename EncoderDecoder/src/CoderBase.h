@@ -6,9 +6,11 @@
 #include <CoreConcept.h>
 #include <Exceptions.h>
 #include <ScalarImp.h>
+#include <TableImp.h>
 #include <SysIO.h>
 #include <Types.h>
 #include <Util.h>
+#include "protobufUtil.h"
 
 using BatchProcessorSP = SmartPointer<BatchProcessor>;
 
@@ -86,4 +88,24 @@ public:
     virtual ConstantSP getInstance() const { return ((ConstantSP)dummyTable_)->getInstance(); };
 };
 
+class EncoderImpl : public BasicTable {
+public:
+    EncoderImpl(const vector<ConstantSP>& cols, const vector<string>& colNames)
+        : BasicTable(cols, colNames)
+    {
+    }
+    virtual ~EncoderImpl() = default;
+    void initialize(const std::string& filePath, const std::string& protoName);
+    ConstantSP callMethod(const string& name, Heap* heap, vector<ConstantSP>& args) const override;
+    string getString() const override{ return "encoder instance"; };
+
+private:
+    ConstantSP protobufSerialize(ConstantSP obj) const;
+
+private:
+    google::protobuf::DescriptorPool pool;
+    google::protobuf::DynamicMessageFactory factory;
+    const google::protobuf::Message* protoType_;
+
+};
 #endif //CODER_RESOURCE_H

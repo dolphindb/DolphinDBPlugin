@@ -293,7 +293,7 @@ ConstantSP mqttClientCreatePublisher(Heap *heap, vector<ConstantSP> &args) {
 /**
  * @brief close a connection.
  */
-ConstantSP mqttClientClose(const ConstantSP &handle, const ConstantSP &b) {
+ConstantSP mqttClientClose(Heap *, const ConstantSP &handle, const ConstantSP &b) {
     std::string usage = "Usage: close(conn). ";
     Connection *cp = nullptr;
     // parse args first

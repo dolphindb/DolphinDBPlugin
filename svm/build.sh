@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 
 source ../build_util.sh
 

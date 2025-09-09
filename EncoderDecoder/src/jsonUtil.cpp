@@ -643,7 +643,7 @@ ConstantSP parseJson(Heap* heap, vector<ConstantSP>& arguments)
     }
     rows = dataOffset;
     for (int colIndex = 0; colIndex < colSize; ++colIndex) {
-        VectorSP& vec = (VectorSP&)cols[colIndex];
+        VectorSP vec = cols[colIndex];
         if ((int)colTypes[colIndex] < ARRAY_VECTOR_TYPE_BASE) {
             switch (colTypes[colIndex]) {
             case DT_BOOL:
@@ -702,14 +702,18 @@ ConstantSP parseJson(Heap* heap, vector<ConstantSP>& arguments)
             }
             vector<ConstantSP> args { indexVec, vecValue };
             try {
-                vec = heap->currentSession()->getFunctionDef("arrayVector")->call(heap, args);
+                VectorSP col = Util::getFuncDefFromHeap(heap, "arrayVector")->call(heap, args);
+                cols[colIndex] = col;
             } catch (exception& e) {
                 throw RuntimeException(ENCODERDECODER_PREFIX + " Col " + originCol[colIndex] + " data fail to create arrayVector." + e.what());
             }
         }
     }
     int colIndex = 0;
-    for(ConstantSP col: cols) {
+    for(const ConstantSP& col: cols) {
+        if (col.isNull()) {
+            throw RuntimeException(ENCODERDECODER_PREFIX + "json parse failed.");
+        }
         col->setTemporary(true);
         col->setNullFlag(hasNulls[colIndex++]);
     }

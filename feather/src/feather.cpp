@@ -495,7 +495,7 @@ ConstantSP loadFeather(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType() != DT_STRING){
         throw IllegalArgumentException(__FUNCTION__, usage + "The parameter filePath must be a string.");
     }
-    VectorSP columnToRead = SmartPointer<Vector>(0);
+    VectorSP columnToRead = ObjectPtr<Vector>(0);
     if(args.size()==2 && !args[1]->isNull()) {
         if(!args[1]->isVector() || args[1]->getCategory() != LITERAL) {
             throw IllegalArgumentException(__FUNCTION__, usage + "The parameter columns must be a string vector.");

@@ -170,8 +170,9 @@ namespace svm{
 
         psvmObject->train();
         if(!psvmObject->getErrMsg().empty()) {
+            string errMsg = psvmObject->getErrMsg();
             delete psvmObject;
-            throw RuntimeException(SVM_PLUGIN_PREFIX + psvmObject->getErrMsg());
+            throw RuntimeException(SVM_PLUGIN_PREFIX + errMsg);
         }
 
         FunctionDefSP onClose(Util::createSystemProcedure("SVM Object deconstruct", svmObjectClose, 1, 1));

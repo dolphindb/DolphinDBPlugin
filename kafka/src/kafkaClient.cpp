@@ -7,7 +7,7 @@ using std::map;
 
 MetaTable mockMetaTable = {{"payload", "key", "topic"}, {DT_STRING, DT_STRING, DT_STRING}};
 
-void commitMsg(const rawMessageWrapperSP &msg, SmartPointer<Consumer> &consumer) {
+void commitMsg(const rawMessageWrapperSP &msg, const SmartPointer<Consumer> &consumer) {
     rd_kafka_resp_err_t error;
     error = rd_kafka_commit_message(consumer->get_handle(), msg->msgPtr_, 0);
     if (error != RD_KAFKA_RESP_ERR_NO_ERROR) {
@@ -17,15 +17,21 @@ void commitMsg(const rawMessageWrapperSP &msg, SmartPointer<Consumer> &consumer)
 
 void subJobCallBack(vector<ConstantSP> &buffer, MessageWrapper &data) {
     int colNum = 0;
-    string payload((char *)data.rawMessage_->msgPtr_->payload, data.rawMessage_->msgPtr_->len);
-    string key((char *)data.rawMessage_->msgPtr_->key, data.rawMessage_->msgPtr_->key_len);
-    string topic(rd_kafka_topic_name(data.rawMessage_->msgPtr_->rkt));
-    ((VectorSP)buffer[colNum++])->appendString(&payload, 1);
-    ((VectorSP)buffer[colNum++])->appendString(&key, 1);
-    ((VectorSP)buffer[colNum++])->appendString(&topic, 1);
-};
+    string payload;
+    if (data.rawMessage_->msgPtr_->payload != nullptr) {
+        payload = string(static_cast<char *>(data.rawMessage_->msgPtr_->payload), data.rawMessage_->msgPtr_->len);
+    }
+    string key;
+    if (data.rawMessage_->msgPtr_->key != nullptr) {
+        key = string(static_cast<char *>(data.rawMessage_->msgPtr_->key), data.rawMessage_->msgPtr_->key_len);
+    }
+    string topic(data.rawMessage_->msgPtr_->rkt != nullptr ? rd_kafka_topic_name(data.rawMessage_->msgPtr_->rkt) : "");
+    (VectorSP(buffer[colNum++]))->appendString(&payload, 1);
+    (VectorSP(buffer[colNum++]))->appendString(&key, 1);
+    (VectorSP(buffer[colNum++]))->appendString(&topic, 1);
+}
 
-void subJobFinalizer(vector<MessageWrapper> &msgs, SmartPointer<Consumer> &consumer) {
+void subJobFinalizer(vector<MessageWrapper> &msgs, const SmartPointer<Consumer> &consumer) {
     if (!msgs.empty()) {
         commitMsg(msgs.back().rawMessage_, consumer);
     }
@@ -53,6 +59,8 @@ AppendTable::AppendTable(Heap *heap, ConstantSP parser, ConstantSP handle, Const
       consumerWrapper_(consumer) {
     consumer_ = (DdbKafkaConsumerSP(consumerWrapper_))->getConsumer();
     timeout_ = consumer_->get_timeout().count();  // use consumer default timeout
+
+    status_.lastErrMsg_.reserve(100); // in case of string oom
 
     session_ = heap->currentSession()->copy();
     session_->setUser(heap->currentSession()->getUser());
@@ -108,14 +116,19 @@ const StreamStatus &AppendTable::getStatus() const {
 }
 
 TableSP AppendTable::doParse(const rawMessageWrapperSP &msg) {
-    parserArgs_[0]->setString(DolphinString((char *)msg->msgPtr_->payload, msg->msgPtr_->len));
-    if (((FunctionDefSP)parser_)->getParamCount() == 2) {
-        parserArgs_[1]->setString(DolphinString((char *)msg->msgPtr_->key, msg->msgPtr_->key_len));
-    } else if (((FunctionDefSP)parser_)->getParamCount() == 3) {
-        parserArgs_[1]->setString(DolphinString((char *)msg->msgPtr_->key, msg->msgPtr_->key_len));
-        parserArgs_[2]->setString(rd_kafka_topic_name(msg->msgPtr_->rkt));
+    auto* message = msg->msgPtr_;
+    char* payload = static_cast<char*>(message->payload);
+    char* key = static_cast<char*>(message->key);
+
+    parserArgs_[0]->setString(DolphinString(payload != nullptr ? payload : "", message->len));
+    int paramCount = (FunctionDefSP(parser_))->getParamCount();
+    if (paramCount == 2) {
+        parserArgs_[1]->setString(DolphinString(key != nullptr ? key : "", msg->msgPtr_->key_len));
+    } else if (paramCount == 3) {
+        parserArgs_[1]->setString(DolphinString(key != nullptr ? key : "", msg->msgPtr_->key_len));
+        parserArgs_[2]->setString(message->rkt != nullptr ? rd_kafka_topic_name(message->rkt) : "");
     }
-    ConstantSP parseResult = ((FunctionDefSP)parser_)->call(session_->getHeap().get(), parserArgs_);
+    ConstantSP parseResult = (FunctionDefSP(parser_))->call(session_->getHeap().get(), parserArgs_);
     if (UNLIKELY(!parseResult->isTable())) {
         throw RuntimeException("The parser should return a table.");
     }
@@ -148,18 +161,23 @@ void AppendTable::doHandle(TableSP tableInsert) {
 void AppendTable::handleErr(const string &errMsg) {
     status_.failedMsgCount_ += 1;
     status_.lastFailedTimestamp_ = Util::getNanoEpochTime() + localTimeGap_;
-    status_.lastErrMsg_ = "topic=" + actionName_ + " length=1 exception=" + errMsg;
+    try {
+        status_.lastErrMsg_ = "topic=" + actionName_ + " length=1 exception=" + errMsg;
+    } catch (...) {
+        status_.lastErrMsg_ = "topic=unknown length=1 exception=unknown";
+    }
     PLUGIN_LOG_ERR(KAFKA_PREFIX, status_.lastErrMsg_);
 }
 
 void AppendTable::run() {
     while (LIKELY(flag_)) {
         try {
-            auto msgPtr = rd_kafka_consumer_poll(consumer_->get_handle(), timeout_);
+            rawMessageWrapperSP msg = new rawMessageWrapper(nullptr);
+            auto *msgPtr = rd_kafka_consumer_poll(consumer_->get_handle(), timeout_);
             if (UNLIKELY(!msgPtr)) {
                 continue;
             }
-            rawMessageWrapperSP msg = new rawMessageWrapper(msgPtr);
+            msg->msgPtr_ = msgPtr;
             if (UNLIKELY(msg->msgPtr_->err)) {
                 PLUGIN_LOG(KAFKA_PREFIX, "topic=", actionName_, " polls msg failed: ", rd_kafka_err2str(msg->msgPtr_->err));
                 continue;

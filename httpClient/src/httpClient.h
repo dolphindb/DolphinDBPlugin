@@ -8,6 +8,7 @@ extern "C" ConstantSP httpGet(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP httpPost(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP httpPut(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP httpDelete(Heap *heap, vector<ConstantSP> &args);
+extern "C" ConstantSP initialize(Heap *heap, vector<ConstantSP> &arguments);
 
 namespace httpClient {
     enum RequestMethod {

@@ -7,7 +7,7 @@
 #include "ddbplugin/Plugin.h"
 #include "ddbplugin/PluginLoggerImp.h"
 
-typedef SmartPointer<OPCClient> OPCClientSP;
+typedef ObjectPtr<OPCClient> OPCClientSP;
 static void opcConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {}
 
 namespace OPCPluginImp{

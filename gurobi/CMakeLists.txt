@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.22)
 set(PluginName PluginGurobi)
 project(${PluginName})
 
@@ -25,7 +25,6 @@ option(DDB_USE_ASAN
         "Enable ASAN, a fast memory error detector. https://clang.llvm.org/docs/AddressSanitizer.html"
         OFF)
 set(PLUGIN_COMPILE_OPTIONS
-        "-std=c++11"
         "-Wall"
 )
 set(PLUGIN_INCLUDE_DIRECTORIES
@@ -100,7 +99,7 @@ list(APPEND PLUGIN_LINK_LIBRARIES libgurobi_c++.a gurobi100)
 
 # Build Target
 add_library(PluginGurobi SHARED)
-set_property(TARGET PluginGurobi PROPERTY CXX_STANDARD 11)
+target_compile_features(${PluginName} PRIVATE cxx_std_11)
 target_sources(PluginGurobi PUBLIC ${PluginGurobi_HEADER} PRIVATE ${PluginGurobi_SOURCE})
 
 target_include_directories(PluginGurobi PRIVATE ${PLUGIN_INCLUDE_DIRECTORIES})

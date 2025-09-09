@@ -14,6 +14,7 @@
 
 extern "C" ConstantSP createJsonDecoder(Heap* heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP createProtobufDecoder(Heap* heap, vector<ConstantSP>& arguments);
+extern "C" ConstantSP createProtobufEncoder(Heap* heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP getProtobufSchema(Heap* heap, vector<ConstantSP>& arguments);
 
 static string ENCODERDECODER_PREFIX = "[PLUGIN::ENCODERDECODER] ";
