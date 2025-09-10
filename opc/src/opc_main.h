@@ -2,7 +2,6 @@
 #define DEMO_H_
 
 #include "CoreConcept.h"
-#include "Logger.h"
 #include "ddbplugin/CommonInterface.h"
 
 using ddb::ConstantSP;

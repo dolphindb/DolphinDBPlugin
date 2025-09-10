@@ -9,10 +9,9 @@
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 #include "zmq.hpp"
 #pragma GCC diagnostic pop
-#include "json.hpp"
-#include "Logger.h"
+#include "json/json.hpp"
 #include "ddbplugin/Plugin.h"
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 
 using argsT = std::vector<ddb::ConstantSP>;
 
@@ -45,43 +44,43 @@ public:
     virtual ~ZMQMonitor() {}
     virtual void on_event_connected(const zmq_event_t &event_, const char *addr_) override {
         std::ignore = event_;
-        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX + "Connected to " + string(addr_));
+        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Connected to " + string(addr_));
     }
     virtual void on_event_connect_delayed(const zmq_event_t &event_, const char *addr_) override {
         std::ignore = event_;
-        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX + "Connect delayed to " + string(addr_));
+        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Connect delayed to " + string(addr_));
     }
     virtual void on_event_connect_retried(const zmq_event_t &event_, const char *addr_) override {
         std::ignore = event_;
-        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX + "Connect retried to " + string(addr_));
+        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Connect retried to " + string(addr_));
     }
     virtual void on_event_listening(const zmq_event_t &event_, const char *addr_) override {
         std::ignore = event_;
-        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX + "Listening on " + string(addr_));
+        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Listening on " + string(addr_));
     }
     virtual void on_event_bind_failed(const zmq_event_t &event_, const char *addr_) override {
         std::ignore = event_;
-        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX + "Bind failed on " + string(addr_));
+        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Bind failed on " + string(addr_));
     }
     virtual void on_event_accepted(const zmq_event_t &event_, const char *addr_) override {
         std::ignore = event_;
-        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX + "Accepted on " + string(addr_));
+        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Accepted on " + string(addr_));
     }
     virtual void on_event_accept_failed(const zmq_event_t &event_, const char *addr_) override {
         std::ignore = event_;
-        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX + "Accept failed on " + string(addr_));
+        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Accept failed on " + string(addr_));
     }
     virtual void on_event_closed(const zmq_event_t &event_, const char *addr_) override {
         std::ignore = event_;
-        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX + "Closed on " + string(addr_));
+        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Closed on " + string(addr_));
     }
     virtual void on_event_close_failed(const zmq_event_t &event_, const char *addr_) override {
         std::ignore = event_;
-        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX + "Close failed on " + string(addr_));
+        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Close failed on " + string(addr_));
     }
     virtual void on_event_disconnected(const zmq_event_t &event_, const char *addr_) override {
         std::ignore = event_;
-        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX + "Disconnected on " + string(addr_));
+        LOG_INFO(PLUGIN_ZMQ_PREFIX + "Disconnected on " + string(addr_));
     }
 };
 
@@ -132,7 +131,7 @@ public:
             }
         }
         catch(...){
-            PLUGIN_LOG_ERR(PLUGIN_ZMQ_PREFIX + "an uncaught exception was found");
+            LOG_ERR(PLUGIN_ZMQ_PREFIX + "an uncaught exception was found");
         }
     };
 
@@ -189,10 +188,10 @@ public:
     // }
 
     virtual ~ZmqSocket() {
-        PLUGIN_LOG_INFO("PluginZmq: socket[" + addr_ + "] is closed. ");
+        LOG_INFO("PluginZmq: socket[" + addr_ + "] is closed. ");
         LockGuard<Mutex> _(&ZmqStatus::ZMQ_MONITOR_MAP_LOCK);
         if(ZmqStatus::ZMQ_MONITOR_MAP.erase(zmq_Socket_) == 0){
-            PLUGIN_LOG_ERR(PLUGIN_ZMQ_PREFIX + "Failed to erase the monitor map");
+            LOG_ERR(PLUGIN_ZMQ_PREFIX + "Failed to erase the monitor map");
         }
         if(ZmqStatus::ZMQ_MONITOR_MAP.size() == 0 && !ZmqStatus::MONITOR_THREAD.isNull()){
             SmartPointer<Thread> thread = ZmqStatus::MONITOR_THREAD;

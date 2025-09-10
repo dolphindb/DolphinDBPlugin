@@ -8,8 +8,6 @@
 #include "zlib.h"
 #include "ddbplugin/PluginLogger.h"
 
-#include "Logger.h"
-
 #include "kdb.h"
 
 using namespace std;
@@ -39,7 +37,7 @@ kdb::BinFile::operator bool() const {
 
 size_t kdb::BinFile::readInto(vector<byte>& buffer) {
     if(!fp_) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             + filename_ + " access error.");
     }
 
@@ -47,7 +45,7 @@ size_t kdb::BinFile::readInto(vector<byte>& buffer) {
     vector<char> header(MAGIC_BYTES, '\0');
     const auto read = fread(header.data(), 1, header.size(), fp_);
     if(read < MAGIC_BYTES) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Read " + filename_ + " header failed.");
     }
 
@@ -67,7 +65,7 @@ size_t kdb::BinFile::getFileLen() const {
     fseek(fp_, 0, SEEK_END);
     const auto len = ftell(fp_);
     if(len < 0) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Read " + filename_ + " failed.");
     }
     return static_cast<size_t>(len);
@@ -76,7 +74,7 @@ size_t kdb::BinFile::getFileLen() const {
 size_t kdb::BinFile::getBodyLen() const {
     const size_t fileLen = getFileLen();
     if(fileLen < MAGIC_BYTES) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Empty or truncated " + filename_ + ".");
     }
     return fileLen - MAGIC_BYTES;
@@ -86,7 +84,7 @@ size_t kdb::BinFile::readAll(vector<byte>& buffer, ptrdiff_t offset) {
     const size_t len = getFileLen();
     assert(fp_);
     if(static_cast<ptrdiff_t>(len) < offset) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Load " + filename_ + " too little data.");
     }
 
@@ -95,7 +93,7 @@ size_t kdb::BinFile::readAll(vector<byte>& buffer, ptrdiff_t offset) {
     fseek(fp_, offset, SEEK_SET);
     const auto read = fread(buffer.data() + initLen, 1, len, fp_);
     if(offset + read < len) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Load " + filename_ + " data incomplete.");
     }
     return len;
@@ -103,7 +101,7 @@ size_t kdb::BinFile::readAll(vector<byte>& buffer, ptrdiff_t offset) {
 
 #define FILE_BOUNDARY_CHECK(condition)      \
     if(UNLIKELY(condition)) {               \
-        throw RuntimeException(PLUGIN_NAME "Parsing failed, exceeding buffer bound");\
+        throw RuntimeException(KDB_PREFIX "Parsing failed, exceeding buffer bound");\
     }
 
 // decode short
@@ -145,7 +143,7 @@ long long decompressPlainText(unsigned char *src, size_t srcLen, unsigned char *
 }
 
 long long decompressQIpc(unsigned char *src, size_t srcLen, unsigned char *dest, size_t destLen) {
-    throw RuntimeException(PLUGIN_NAME "unsupported compress type: q IPC");
+    throw RuntimeException(KDB_PREFIX "unsupported compress type: q IPC");
 }
 
 // parameters for gzip process
@@ -155,7 +153,7 @@ long long decompressQIpc(unsigned char *src, size_t srcLen, unsigned char *dest,
 
 long long decompressGzip(unsigned char *src, size_t srcLen, unsigned char *dest, size_t destLen) {
     if(UNLIKELY(src == nullptr)) {
-        throw RuntimeException(PLUGIN_NAME "parse col failed.");
+        throw RuntimeException(KDB_PREFIX "parse col failed.");
     }
     z_stream strm;
     strm.zalloc = Z_NULL;
@@ -166,12 +164,12 @@ long long decompressGzip(unsigned char *src, size_t srcLen, unsigned char *dest,
     strm.next_out = dest;
     strm.avail_out = destLen;
     if (inflateInit2 (& strm, WINDOWS_BITS | ENABLE_ZLIB_GZIP) < 0){
-        throw RuntimeException(PLUGIN_NAME "gzip decompress: init inflate failed.");
+        throw RuntimeException(KDB_PREFIX "gzip decompress: init inflate failed.");
     }
     long long res = inflate (& strm, Z_NO_FLUSH);
 
     if (UNLIKELY(res < 0)){
-        throw RuntimeException(PLUGIN_NAME "gzip decompress: inflate failed.");
+        throw RuntimeException(KDB_PREFIX "gzip decompress: inflate failed.");
     }
     inflateEnd (& strm);
     return destLen - strm.avail_out;
@@ -182,12 +180,12 @@ long long decompressSnappy(unsigned char *src, size_t srcLen, unsigned char *des
     size_t length;
     bool getLengthSuccess = snappy::GetUncompressedLength(reinterpret_cast<char *>(src), srcLen, &length);
     if(!getLengthSuccess) {
-        throw RuntimeException(PLUGIN_NAME "snappy get uncompressed length failed.");
+        throw RuntimeException(KDB_PREFIX "snappy get uncompressed length failed.");
     }
 
     bool success = snappy::RawUncompress(reinterpret_cast<char *>(src), srcLen, reinterpret_cast<char *>(dest));
     if(!success) {
-        throw RuntimeException(PLUGIN_NAME "snappy decompress failed.");
+        throw RuntimeException(KDB_PREFIX "snappy decompress failed.");
     }
     return length;
 }
@@ -195,7 +193,7 @@ long long decompressSnappy(unsigned char *src, size_t srcLen, unsigned char *des
 long long decompressLz4hc(unsigned char *src, size_t srcLen, unsigned char *dest, size_t destLen) {
     auto ret = LZ4_decompress_safe(reinterpret_cast<char *>(src), reinterpret_cast<char *>(dest), srcLen, destLen);
     if (ret < 0) {
-        throw RuntimeException(PLUGIN_NAME "lz4hc decompress failed.");
+        throw RuntimeException(KDB_PREFIX "lz4hc decompress failed.");
     }
     return ret;
 }
@@ -219,7 +217,7 @@ std::size_t kdb::BinFile::inflateBody(std::vector<byte>& buffer) {
     FILE_BOUNDARY_CHECK(fileLen < int64_t(LONG_BYTES))
     int64_t blockSize = rl(src, fileLen-int64_t(LONG_BYTES));
     if (blockSize < 0 || fileLen < blockSize) {
-        throw RuntimeException(PLUGIN_NAME "invalid kxzipped blockSize " + std::to_string(blockSize));
+        throw RuntimeException(KDB_PREFIX "invalid kxzipped blockSize " + std::to_string(blockSize));
     }
 
     FILE_BOUNDARY_CHECK(fileLen < int64_t(LONG_BYTES * (1+4+blockSize)))
@@ -272,14 +270,14 @@ std::size_t kdb::BinFile::inflateBody(std::vector<byte>& buffer) {
         }
 
         if (UNLIKELY(decompressSize < 0)) {
-            throw RuntimeException(PLUGIN_NAME "invalid decompression.");
+            throw RuntimeException(KDB_PREFIX "invalid decompression.");
         }
         src+=blockVec[i].first;
         offset+=decompressSize;
     }
     buffer.resize(offset);
 
-    PLUGIN_LOG_WARN("Expected decompressed file size: ", offset, ", Actually: ", originSize);
+    LOG_WARN("Expected decompressed file size: ", offset, ", Actually: ", originSize);
 
     assert(buffer.size() >= initLen);
     return buffer.size() - initLen;
@@ -294,7 +292,7 @@ class BatchColumnReader {
         : batchSize_(batchSize), colPath_(colPath), symName_(symName), symList_(symList) {
         FILE *fp = fopen(colPath_.c_str(), "rb");
         if (!(fp && !ferror(fp))) {
-            throw RuntimeException(PLUGIN_NAME "Open column " + colPath + " failed.");
+            throw RuntimeException(KDB_PREFIX "Open column " + colPath + " failed.");
         }
         fp_ = fp;
     }
@@ -324,7 +322,7 @@ class BatchColumnReader {
         vector<char> header(MAGIC_BYTES, '\0');
         const auto read = fread(header.data(), 1, header.size(), fp_);
         if (read < MAGIC_BYTES) {
-            throw RuntimeException(PLUGIN_NAME "Read " + colPath_ + " header failed.");
+            throw RuntimeException(KDB_PREFIX "Read " + colPath_ + " header failed.");
         }
 
         const string magic{header.cbegin(), header.cend()};
@@ -339,17 +337,17 @@ class BatchColumnReader {
             fseek(fp_, fileTotalLength_ - int64_t(LONG_BYTES), SEEK_SET);
             size_t bytes = fread(metaBuffer.data(), 1, LONG_BYTES, fp_);
             if (bytes != LONG_BYTES) {
-                throw RuntimeException(PLUGIN_NAME "read blockSize failed.");
+                throw RuntimeException(KDB_PREFIX "read blockSize failed.");
             }
             int64_t blockSize = rl(metaBuffer.data(), 0);
             if (blockSize < 0 || fileTotalLength_ < blockSize || fileTotalLength_ - LONG_BYTES * (1 + 4 + blockSize) < MAGIC_BYTES) {
-                throw RuntimeException(PLUGIN_NAME "invalid blockSize " + std::to_string(blockSize));
+                throw RuntimeException(KDB_PREFIX "invalid blockSize " + std::to_string(blockSize));
             }
             fseek(fp_, fileTotalLength_ - int64_t(LONG_BYTES) * (1 + 4 + blockSize), SEEK_SET);
             metaBuffer.resize(LONG_BYTES * (4 + blockSize));
             bytes = fread(metaBuffer.data(), 1, LONG_BYTES * (4 + blockSize), fp_);
             if (bytes != LONG_BYTES * (4 + blockSize)) {
-                throw RuntimeException(PLUGIN_NAME "read post file meta info failed.");
+                throw RuntimeException(KDB_PREFIX "read post file meta info failed.");
             }
 
             int64_t bufPos = INT_BYTES;
@@ -363,7 +361,7 @@ class BatchColumnReader {
 
             blockMetaVec_.resize(blockSize);
             if (blockSize < 1) {
-                throw RuntimeException(PLUGIN_NAME "invalid kxzipped block size " + std::to_string(blockSize));
+                throw RuntimeException(KDB_PREFIX "invalid kxzipped block size " + std::to_string(blockSize));
             }
             for (int64_t i = 0; i < blockSize; i++) {
                 bufPos += LONG_BYTES;
@@ -390,7 +388,7 @@ class BatchColumnReader {
             blockOffset_++;
 
             if (UNLIKELY(realSize < 0)) {
-                throw RuntimeException(PLUGIN_NAME "invalid decompression.");
+                throw RuntimeException(KDB_PREFIX "invalid decompression.");
             }
             type_ = parser_.getStruct(colPath_, symList_, symName_, count_);
         } else {
@@ -566,7 +564,7 @@ ConstantSP kdb::loadFileEx(DatabaseUpdater &dbUpdater, const string &tablePath, 
                 iterRet = ret;
             } else {
                 if (iterRet != ret) {
-                    throw RuntimeException(PLUGIN_NAME "expect buffer length " + std::to_string(iterRet) + ", actual " +
+                    throw RuntimeException(KDB_PREFIX "expect buffer length " + std::to_string(iterRet) + ", actual " +
                                            std::to_string(ret));
                 }
             }

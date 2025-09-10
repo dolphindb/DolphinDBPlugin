@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <urlencode.h>
 #include <vector>
 

@@ -11,14 +11,8 @@
 #include <memory>
 #include <atomic>
 
-#include <Concurrent.h>
-#include <CoreConcept.h>
+#include "DolphinDBEverything.h"
 #include "ddbplugin/CommonInterface.h"
-#include <Exceptions.h>
-#include <FlatHashmap.h>
-#include <ScalarImp.h>
-#include <SysIO.h>
-#include <Util.h>
 #include <parquet/api/schema.h>
 #include <parquet/api/reader.h>
 #include <parquet/api/writer.h>

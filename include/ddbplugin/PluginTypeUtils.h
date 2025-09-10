@@ -20,6 +20,7 @@ namespace ddb {
 #define DT_INT_ARRAY DATA_TYPE(DT_INT + ARRAY_TYPE_BASE)
 #define DT_LONG_ARRAY DATA_TYPE(DT_LONG + ARRAY_TYPE_BASE)
 #define DT_DOUBLE_ARRAY DATA_TYPE(DT_DOUBLE + ARRAY_TYPE_BASE)
+#define DT_STRING_ARRAY DATA_TYPE(DT_STRING + ARRAY_TYPE_BASE)
 
 struct Field {
     std::string name;
@@ -122,7 +123,7 @@ class IArgStream {
         : args_(args),
           argIt_(args_.begin()),
           schema_(schema),
-          schemaIt_(schema.cbegin()),
+          schemaIt_(schema_.cbegin()),
           checkInvalid_(true),
           argNum_(argNum) {}
 
@@ -245,7 +246,7 @@ inline IArgStream &operator>>(IArgStream &s, std::map<std::string, std::string> 
 
 #ifdef DOLPHINDB_JIT
 
-using JITDolphinInstanceSP = SmartPointer<TurboJet::JITDolphinInstance>;
+using JITDolphinInstanceSP = ObjectPtr<TurboJet::JITDolphinInstance>;
 
 inline void setJitAttribute(JITDolphinInstanceSP &instance, int index, TurboJet::TurboJetValue &v, double data) {
     v.value_.d = data;
@@ -288,7 +289,7 @@ inline DolphinClassSP createJitClass(const std::vector<Field> &fields, const std
             }
             dummyValue = Util::createNullConstant(field.type);
         } else if (field.form == DF_VECTOR) {
-            dummyValue = Util::createVector(field.type, 0);
+            dummyValue = Util::createVector(field.type, 0, 0, true, 8);
         } else {
             std::cerr << "Unsupported data form in " << __PRETTY_FUNCTION__ << std::endl;
         }
@@ -297,17 +298,6 @@ inline DolphinClassSP createJitClass(const std::vector<Field> &fields, const std
     jitClass_->setJit(true);
     jitClass_->setJitClassId(DolphinClass::genClsId());
     return jitClass_;
-}
-
-#else
-
-using JITDolphinInstanceSP = ConstantSP;
-
-inline DolphinClassSP createJitClass(const std::vector<Field> &fields, const std::string &name)
-{
-    std::ignore = fields;
-    std::ignore = name;
-    return nullptr;
 }
 
 #endif
@@ -534,13 +524,17 @@ class VectorIterator<std::vector<T>> : public DDBIterator {
 // Table
 
 class Schema {
+#ifdef DOLPHINDB_JIT
     using instanceIt = std::vector<JITDolphinInstanceSP>::iterator;
+#endif
 
   public:
     void setFields(const std::vector<Field> &fields, const std::string &name = "") {
         name_ = name;
         fields_ = fields;
+#ifdef DOLPHINDB_JIT
         jitClass_ = createJitClass(fields, name);
+#endif
     }
 
     auto getNames() -> std::vector<std::string> {
@@ -687,7 +681,7 @@ class Schema {
         TurboJet::TurboJetValue jitValue;
         while (rowBegin != rowEnd) {
             col.setIndex(*rowBegin++);
-            VectorSP ddbVector = Util::createVector(type, arraySize, arraySize);
+            VectorSP ddbVector = Util::createVector(type, arraySize, arraySize, true, 8);
             setVectorData(ddbVector.get(), 0, arraySize, *col);
             ConstantSP sp = ddbVector;
             TurboJet::TurboJetValue::fromConstantSP(sp, &jitValue);
@@ -787,7 +781,9 @@ class Schema {
     TableSP table_;
     std::vector<Field> fields_;
     std::vector<std::shared_ptr<DDBIterator>> colIterators_;
+#ifdef DOLPHINDB_JIT
     DolphinClassSP jitClass_;
+#endif
     INDEX tableSize_{0};
     INDEX row_{0};
     std::vector<std::shared_ptr<DDBIterator>>::iterator col_;
@@ -920,12 +916,17 @@ enum OrderEnum {
     SLIPPAGE,
     EXPIRE_TIME,
     SETTL_TYPE,
+    BID_DIRECTION,
     BID_PRICE,
     BID_QTY,
+    ASK_DIRECTION,
     ASK_PRICE,
     ASK_QTY,
     ORDER_ID,
-    CHANNEL
+    CHANNEL,
+    BID_DIFF_TOLERANCE,
+    ASK_DIFF_TOLERANCE,
+    QTY_ALLOWED
 };
 
 }  // namespace ddb

@@ -100,7 +100,7 @@ class S3ClientGuard{
 public:
     S3ClientGuard(DictionarySP& account){
         if(awsInit_==false){
-            PLUGIN_LOG("InitAPI");
+            LOG("InitAPI");
             awsInit_=true;
             Aws::InitAPI(awsOptions_);
             Aws::Utils::Logging::InitializeAWSLogging(
@@ -122,12 +122,23 @@ public:
         if(client_==nullptr){
             Aws::Auth::AWSCredentials credential;
             Aws::Client::ClientConfiguration config;
+            // Try to fix "BadDigest" errors
+            config.checksumConfig.requestChecksumCalculation = Aws::Client::RequestChecksumCalculation::WHEN_REQUIRED;
+            config.requestTimeoutMs = 3000 * 100;
+            auto timeout = account->getMember("requestTimeoutMs");
+            if (!timeout->isNull()) {
+                if (timeout->getCategory() != INTEGRAL) {
+                    throw RuntimeException("[requestTimeoutMs] in [account] must be an integer.");
+                }
+                config.requestTimeoutMs = timeout->getLong();
+            }
+            LOG("PluginAWS: requestTimeoutMs is set to ", config.requestTimeoutMs);
             setS3account(account, credential, config);
 
             {
 //                std::lock_guard<std::mutex> _(a2cMutex_);
                 if(config.endpointOverride.empty()){
-                    client_ = new Aws::S3::S3Client(credential, config);
+                    client_ = new Aws::S3::S3Client(credential, config, Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never, true);
                 }
                 else{
                     client_ = new Aws::S3::S3Client(credential, config, Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never, false);
@@ -303,10 +314,10 @@ ConstantSP listS3Object(Heap* heap, vector<ConstantSP>& args) {
         throw IllegalArgumentException("listS3Object",
             "Invalid argument type, bucket or prefix should be a string");
     }
-    SmartPointer<String> marker;
-    SmartPointer<String> delimiter;
-    SmartPointer<String> nextMarker;
-    SmartPointer<Long> limit;
+    ConstantSP marker;
+    ConstantSP delimiter;
+    ConstantSP nextMarker;
+    ConstantSP limit;
     if (args.size() >= 4) {
         assertArg(args[3]->getType() == DT_STRING, __func__, "marker", "string");
         marker = args[3];
@@ -377,7 +388,7 @@ ConstantSP listS3Object(Heap* heap, vector<ConstantSP>& args) {
                     nextMarker->setString("");
                 }
             }
-            PLUGIN_LOG("[listS3Object] marker ", marker.isNull() ? " " : marker->getString(), " turncated ", listObjectsOutcome.GetResult().GetIsTruncated());
+            LOG("[listS3Object] marker ", marker.isNull() ? " " : marker->getString(), " turncated ", listObjectsOutcome.GetResult().GetIsTruncated());
             for (auto const &s3Object : objectList) {
                 tblIdx.emplace_back(i++);
                 tblBN.emplace_back(args[1]->getString().c_str());
@@ -463,7 +474,7 @@ ConstantSP readS3Object(Heap* heap, vector<ConstantSP>& args) {
         std::stringstream buf;
         buf << GetResultWithOwnership(readObjectOutcome, "readS3Object cannot read object").GetBody().rdbuf();
         std::string tempFile(buf.str());
-        PLUGIN_LOG_INFO("[readS3Object] got ", tempFile.size(), " bytes");
+        LOG_INFO("[readS3Object] got ", tempFile.size(), " bytes");
         ret->appendChar(const_cast<char *>(tempFile.c_str()), tempFile.size());
     }
     return ret;
@@ -486,6 +497,17 @@ void deleteS3Object(Heap* heap, vector<ConstantSP>& args) {
     S3ClientGuard g{s3account};
     const Aws::String bucketName(args[1]->getString().c_str());
     VectorSP keyNames = retriveVecStrArg(args[2]);
+    for (int i = 0; i < keyNames->size(); ++i) {
+        auto objectKey = keyNames->get(i)->getString();
+        Aws::S3::Model::DeleteObjectRequest request;
+        request.WithKey(objectKey.c_str()).WithBucket(bucketName);
+        Aws::S3::Model::DeleteObjectOutcome outcome = g.get()->DeleteObject(request);
+        if (!outcome.IsSuccess()) {
+            auto err = outcome.GetError();
+            throw IOException(string(__func__) + string(" cannot delete object ") + keyNames->getString(i) + ": " + err.GetMessage());
+        }
+    }
+    /*
     std::vector<std::future<Aws::S3::Model::DeleteObjectsOutcome>> futures;
     Aws::S3::Model::DeleteObjectsRequest r;
     r.SetBucket(bucketName);
@@ -507,6 +529,7 @@ void deleteS3Object(Heap* heap, vector<ConstantSP>& args) {
         }
         GetResult(futures[i].get(), Aws::String(__func__) + Aws::String(" cannot delete object ") + Aws::String(keyNames->getString(i).c_str()));
     }
+     */
 }
 
 void uploadS3Object(Heap* heap, vector<ConstantSP>& args) {
@@ -925,7 +948,7 @@ ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
         loadTextThread.join();
         string msg;
         if(!Util::removeDirectoryRecursive(tempFolder, msg)){
-            PLUGIN_LOG_ERR("remove dir content failed ",msg);
+            LOG_ERR("remove dir content failed ",msg);
         }
     } catch(std::exception &e){
         throw RuntimeException(AWSS3_PLUGIN_PREFIX+": join thread error:"+e.what());

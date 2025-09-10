@@ -401,7 +401,6 @@ class DatabaseUpdater {
                     FunctionDefSP transform);
     void append(TableSP table);
     ConstantSP getTableHandle();
-    static void initConvertFuncMap(Heap *heap);
 
   private:
     Heap *heap_;
@@ -422,8 +421,6 @@ class DatabaseUpdater {
     string dbPath_;
     bool tableCreateFlag_ = false;
     ConstantSP destTable_;
-    static Mutex convertMutex_;
-    static unordered_map<int, FunctionDefSP> convertFuncMap_;
 };
 
 #endif//_Q2DDB_H_

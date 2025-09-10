@@ -10,3 +10,45 @@ __pycache__
 *.pyc
 compile_commands.json
 .history
+
+# These are not open-source softwares
+AMDHistory
+ami
+ASTTrader
+Backtest
+ctp
+MatchingEngineSimulator
+SipUI2
+WindTDF
+
+# These plugins are not released yet
+bloomberg
+bondBroker
+Dlopen
+java
+lgbm
+omdc
+OrderManagementEngine
+python
+QuantLib
+tf
+udpserver
+
+# We are reviewing these plugins
+DataFeed
+EFH
+H5SDK
+ICE
+LibTorch
+LDAP
+MDL
+rabbitmq
+RocketMQ
+SSEQuotationFile
+SchemalessWriter
+SevenZip
+UniqueID
+WebSocket
+XTP
+hdb
+

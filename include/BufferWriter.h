@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Types.h"
-#include "SysIO.h"
 #include <cstddef>
 
 namespace ddb {

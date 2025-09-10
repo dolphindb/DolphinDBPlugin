@@ -4,7 +4,7 @@
 #ifdef __linux__
 #include <poll.h>
 #endif
-#include "PluginLoggerImp.h"
+#include "PluginLogger.h"
 
 namespace ddb {
 namespace mqtt {

@@ -7,7 +7,7 @@
 
 #include "DolphinDBEverything.h"
 #include "ddbplugin/CommonInterface.h"
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 extern "C" ddb::ConstantSP setupGlobalConfig(ddb::Heap *heap, std::vector<ddb::ConstantSP> &args);
 extern "C" ddb::ConstantSP createExchange(ddb::Heap *heap, std::vector<ddb::ConstantSP> &args);
 

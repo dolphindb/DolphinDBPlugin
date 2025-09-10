@@ -5,7 +5,7 @@
 #include <exception>
 #include "ComputingModel.h"
 #include "ddbplugin/PluginLogger.h"
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 
 ConstantSP extractORCSchema(Heap *heap, vector<ConstantSP> &arguments)
 {

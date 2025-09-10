@@ -32,7 +32,7 @@
 
 #include "httpClient.h"
 #include "ddbplugin/CommonInterface.h"
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 #include <stdio.h>
 #include <pthread.h>
 #include <openssl/err.h>
@@ -48,19 +48,6 @@
 using namespace std;
 
 namespace ddb {
-
-void checkDictionaryContent(DictionarySP params){
-    if(params->getForm() != DF_DICTIONARY){
-        return;
-    }
-    ConstantSP keys = params->keys();
-    for (int i = 0; i < keys->size(); i++) {
-        ConstantSP key = keys->get(i);
-        if(key->getString().empty() || params->getMember(key)->getString().empty()){
-            throw RuntimeException("the key or value in dictionary can not be emtpy");
-        }
-    }
-}
 
 ddb::HttpRequestConfig getHttpRequestConfig(DictionarySP params){
     ddb::HttpRequestConfig config;
@@ -89,6 +76,19 @@ ddb::HttpRequestConfig getHttpRequestConfig(DictionarySP params){
         config.proxyPassword_ = proxy_password->getString();
     }
     return config;
+}
+
+void checkDictionaryContent(DictionarySP params){
+    if(params->getForm() != DF_DICTIONARY){
+        return;
+    }
+    ConstantSP keys = params->keys();
+    for (int i = 0; i < keys->size(); i++) {
+        ConstantSP key = keys->get(i);
+        if(key->getString().empty()){
+            throw RuntimeException("the key in dictionary can not be emtpy");
+        }
+    }
 }
 
 ConstantSP handleHttpRequest(vector<ConstantSP> &args, ddb::RequestMethod method){
@@ -145,6 +145,8 @@ ConstantSP handleHttpRequest(vector<ConstantSP> &args, ddb::RequestMethod method
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
     static void locking_function(int mode, int n, const char *file, int line)
     {
+        (void)file;
+        (void)line;
         if (mode & CRYPTO_LOCK)
             mutex_buf[n].lock();
         else
@@ -177,7 +179,6 @@ ConstantSP handleHttpRequest(vector<ConstantSP> &args, ddb::RequestMethod method
         }
     };
 
-    Init init;
 
     size_t curlWriteData(void *ptr, size_t size, size_t nmemb, string *data)
     {
@@ -192,10 +193,12 @@ ConstantSP handleHttpRequest(vector<ConstantSP> &args, ddb::RequestMethod method
             if (i != 0)
                 output += "&";
             ConstantSP key = keys->get(i);
-            ConstantSP value = params->getMember(key);
+            std::string value = params->getMember(key)->getString();
             output += key->getString();
             output += "=";
-            output += (urlencode::EncodeString(value->getString()));
+            if(!value.empty()) {
+                output += (urlencode::EncodeString(value));
+            }
         }
     }
 
@@ -359,4 +362,12 @@ ddb::ConstantSP httpDelete(ddb::Heap *heap, argsT &args)
 {
     std::ignore = heap;
     return handleHttpRequest(args, ddb::DELETE_);
+}
+
+ddb::ConstantSP initialize(ddb::Heap *heap, argsT &args)
+{
+    std::ignore = heap;
+    std::ignore = args;
+    static ddb::Init init;
+    return new ddb::Void();
 }

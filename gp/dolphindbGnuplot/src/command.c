@@ -3334,7 +3334,7 @@ fgets_ipc(
 	return fgets(dest, len, stdin);
 }
 
-extern char* gpgetCommand(char*buffer,size_t len);
+extern char* gpGetCommand(char*buffer,size_t len);
 
 /* get a line from stdin, and display a prompt if interactive */
 static char*
@@ -3342,7 +3342,7 @@ gp_get_string(char * buffer, size_t len, const char * prompt)
 {
 # ifdef USE_READLINE
     if (interactive){
-		return gpgetCommand(buffer, len);
+		return gpGetCommand(buffer, len);
 		return rlgets(buffer, len, prompt);
 	}
     else

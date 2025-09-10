@@ -27,7 +27,7 @@ void checkTaskErrorMsg(const vector<DistributedCallSP>& calls);
 namespace OperatorImp{
 
 ConstantSP localReducer(Heap* heap,vector<ConstantSP>& arguments);
-ConstantSP now(const ConstantSP& a, const ConstantSP& b);
+ConstantSP SWORDFISH_API now(const ConstantSP& a, const ConstantSP& b);
 }
 
 struct TaskDesc {

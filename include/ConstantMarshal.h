@@ -10,6 +10,7 @@
 
 #include "BufferWriter.h"
 #include "CoreConcept.h"
+#include "SysIO.h"
 #include "Types.h"
 
 #include <cstddef>

@@ -12,7 +12,7 @@
 #include "ddbplugin/CommonInterface.h"
 #include "ddbplugin/Plugin.h"
 #include "ddbplugin/PluginLogger.h"
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 
 using namespace ddb;
 
@@ -32,7 +32,10 @@ void marketVerify(int market, const string &funcName, const string &syntax) {
         throw IllegalArgumentException(funcName, syntax + "invalid market: " + std::to_string(market) + ".");
     }
 }
-void closeAmd(Heap *heap, vector<ConstantSP> &arguments) { AMD_HANDLE_MAP.safeRemoveWithoutException(arguments[0]); }
+void closeAmd(Heap *heap, vector<ConstantSP> &arguments) {
+    std::ignore = heap;
+     AMD_HANDLE_MAP.safeRemoveWithoutException(arguments[0]);
+}
 
 // Check to see if the available memory is sufficient for initialization
 long long getRemainingMemory(Heap *heap) {
@@ -172,7 +175,7 @@ ConstantSP amdConnect(Heap *heap, vector<ConstantSP> &arguments) {
 
 #ifndef AMD_USE_ASAN
     long long bytesAvailable = getRemainingMemory(heap);
-    PLUGIN_LOG_INFO(AMDQUOTE_PREFIX + "connecting when system remains available memory [" + std::to_string(bytesAvailable) +
+    LOG_INFO(AMDQUOTE_PREFIX + "connecting when system remains available memory [" + std::to_string(bytesAvailable) +
              "]");
     if (bytesAvailable < AMD_MIN_CONNECT_MEMORY) {
         throw RuntimeException(AMDQUOTE_PREFIX + "The remaining memory [" + std::to_string(bytesAvailable) +
@@ -195,6 +198,7 @@ ConstantSP amdConnect(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 bool checkDict(string type, ConstantSP dict) {
+    std::ignore = type;
     // check if the dict's key is int and value is table
     ConstantSP keys = dict->keys();
     unordered_map<int, TableSP> tables;
@@ -340,7 +344,7 @@ ConstantSP subscribe(Heap *heap, vector<ConstantSP> &arguments) {
 
     amdQuotePtr->subscribe(heap, type, marketType, codeList, table, transform, currentTime, seqCheckMode, queueDepth);
 
-    PLUGIN_LOG_INFO(AMDQUOTE_PREFIX + "subscribe " + std::to_string(marketType) + " " + type + " after timestamp " +
+    LOG_INFO(AMDQUOTE_PREFIX + "subscribe " + std::to_string(marketType) + " " + type + " after timestamp " +
              std::to_string(Util::toLocalTimestamp(Util::getEpochTime())));
 
     ConstantSP ret = Util::createConstant(DT_STRING);
@@ -349,6 +353,7 @@ ConstantSP subscribe(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP unsubscribe(Heap *heap, vector<ConstantSP> &arguments) {
+    std::ignore = heap;
     // unsubscribe may change the threadedQueue map inside the amdSpi
     string usage("unsubscribe(handle, dataType, [market], [codeList]) ");
     LockGuard<Mutex> amdLock_(&AMD_MUTEX);
@@ -390,6 +395,7 @@ ConstantSP unsubscribe(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP amdClose(Heap *heap, vector<ConstantSP> &arguments) {
+    std::ignore = heap;
     // close disable the use of amdSpi
     LockGuard<Mutex> amdLock_(&AMD_MUTEX);
     AMD_HANDLE_MAP.safeRemove(arguments[0]);
@@ -397,6 +403,7 @@ ConstantSP amdClose(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP getSchema(Heap *heap, vector<ConstantSP> &arguments) {
+    std::ignore = heap;
     string usage("getSchema(dataType) ");
     if (AMD_HANDLE_MAP.size() != 1) {
         throw RuntimeException(AMDQUOTE_PREFIX + " please call the connect function first");
@@ -413,6 +420,7 @@ ConstantSP getSchema(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP getStatus(Heap *heap, vector<ConstantSP> &arguments) {
+    std::ignore = heap;
     // getStatus need stable threadedQueue maps in amdSpi
     string usage("getStatus(handle) ");
     LockGuard<Mutex> amdLock_(&AMD_MUTEX);
@@ -424,6 +432,8 @@ ConstantSP getStatus(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP getHandle(Heap *heap, vector<ConstantSP> &arguments) {
+    std::ignore = heap;
+    std::ignore = arguments;
     LockGuard<Mutex> amdLock_(&AMD_MUTEX);
     if (AMD_HANDLE_MAP.size() == 0) {
         throw RuntimeException(AMDQUOTE_PREFIX + "no existed amdQuote connection handle, please connect() first.");
@@ -431,8 +441,9 @@ ConstantSP getHandle(Heap *heap, vector<ConstantSP> &arguments) {
     return AMD_HANDLE_MAP.getHandleByName(AMD_SINGLETON_NAME);
 }
 
-#ifndef AMD_3_9_6
+#ifndef AMD_396
 ConstantSP getCodeList(Heap *heap, vector<ConstantSP> &arguments) {
+    std::ignore = heap;
     string usage("getCodeList([market]) ");
     LockGuard<Mutex> amdLock_(&AMD_MUTEX);
     Util::sleep(1000);
@@ -641,6 +652,7 @@ ConstantSP getCodeList(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP getETFCodeList(Heap *heap, vector<ConstantSP> &arguments) {
+    std::ignore = heap;
     string usage("getETFCodeList([market]) ");
     LockGuard<Mutex> amdLock_(&AMD_MUTEX);
     Util::sleep(1000);
@@ -847,6 +859,7 @@ ConstantSP getETFCodeList(Heap *heap, vector<ConstantSP> &arguments) {
 #endif
 
 ConstantSP setErrorLog(Heap *heap, vector<ConstantSP> &arguments) {
+    std::ignore = heap;
     const string usage = "setLogError(flag)";
     if (arguments[0]->getType() != DT_BOOL || arguments[0]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException(__FUNCTION__, usage + "flag must be a BOOL SCALAR.");

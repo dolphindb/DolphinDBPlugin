@@ -4,7 +4,7 @@
 #include <sstream>
 #include "svm.h"
 #include "ddbplugin/PluginLogger.h"
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 
 ConstantSP fit(Heap *heap, vector<ConstantSP> &args){
     LockGuard<Mutex> lk(&svm::mutex);
@@ -45,6 +45,7 @@ ConstantSP fit(Heap *heap, vector<ConstantSP> &args){
 }
 
 ConstantSP predict(Heap *heap, vector<ConstantSP> &args){
+    std::ignore = heap;
     LockGuard<Mutex> lk(&svm::mutex);
     ConstantSP model = args[0], X = args[1];
     if(model->getType() != DT_RESOURCE || model->getString() != "SVM model")
@@ -98,6 +99,7 @@ ConstantSP score(Heap *heap, vector<ConstantSP> &args){
 }
 
 ConstantSP saveModel(Heap *heap, vector<ConstantSP> &args){
+    std::ignore = heap;
     LockGuard<Mutex> lk(&svm::mutex);
     ConstantSP model = args[0], location = args[1];
     if(model->getType() != DT_RESOURCE || model->getString() != "SVM model")
@@ -118,12 +120,15 @@ ConstantSP loadModel(Heap *heap, vector<ConstantSP> &args){
 namespace svm{
     void setParam(svm &, const ConstantSP &);
     void svmObjectClose(Heap *heap, vector<ConstantSP> &args);
-    void print_null(const char *s) {}
+    void print_null(const char *s) {
+        std::ignore = s; // Suppress unused parameter warning
+    }
     ConstantSP fit(Heap * &heap, const ConstantSP &y, const ConstantSP &X, const ConstantSP &para, DATA_FORM df){
         svm * psvmObject = new svm();
         setParam(*psvmObject, para);
 
-        double bufX[Util::BUF_SIZE], bufy[Util::BUF_SIZE];
+        vector<double> bufX(Util::BUF_SIZE);
+        vector<double> bufy(Util::BUF_SIZE);
         const int n = y->size();
         int lenX = 0, startX = 0, preX = 0, leny = 0, starty = 0, prey = 0;
         const double * pX = nullptr, * py = nullptr;
@@ -135,7 +140,7 @@ namespace svm{
                     if(startX >= lenX) {
                         preX += lenX;
                         lenX = std::min(Util::BUF_SIZE, X->size() - preX);
-                        pX = X->getDoubleConst(preX, lenX, bufX);
+                        pX = X->getDoubleConst(preX, lenX, bufX.data());
                         startX = 0;
                     }
                     v.push_back(std::make_pair(j, pX[startX++]));
@@ -143,7 +148,7 @@ namespace svm{
                 if(starty >= leny) {
                     prey += leny;
                     leny = std::min(Util::BUF_SIZE, y->size() - prey);
-                    py = y->getDoubleConst(prey, leny, bufy);
+                    py = y->getDoubleConst(prey, leny, bufy.data());
                     starty = 0;
                 }
                 psvmObject->add_train_data(py[starty++], v);
@@ -161,7 +166,7 @@ namespace svm{
                 if(starty >= leny) {
                     prey += leny;
                     leny = std::min(Util::BUF_SIZE, y->size() - prey);
-                    py = y->getDoubleConst(prey, leny, bufy);
+                    py = y->getDoubleConst(prey, leny, bufy.data());
                     starty = 0;
                 }
                 psvmObject->add_train_data(py[starty++], v);
@@ -170,8 +175,9 @@ namespace svm{
 
         psvmObject->train();
         if(!psvmObject->getErrMsg().empty()) {
+            string errMsg = psvmObject->getErrMsg();
             delete psvmObject;
-            throw RuntimeException(SVM_PLUGIN_PREFIX + psvmObject->getErrMsg());
+            throw RuntimeException(SVM_PLUGIN_PREFIX + errMsg);
         }
 
         FunctionDefSP onClose(Util::createSystemProcedure("SVM Object deconstruct", svmObjectClose, 1, 1));
@@ -190,7 +196,7 @@ namespace svm{
         if(df == DF_VECTOR || df == DF_MATRIX){
             const int n = X->size() / m;
             y = Util::createVector(DT_DOUBLE, n);
-            double bufX[Util::BUF_SIZE];
+            vector<double> bufX(Util::BUF_SIZE);
             int lenX = 0, startX = 0, preX = 0;
             const double * pX = nullptr;
             for(int i = 0;i < n;i++){
@@ -199,7 +205,7 @@ namespace svm{
                     if (startX >= lenX) {
                         preX += lenX;
                         lenX = std::min(Util::BUF_SIZE, X->size() - preX);
-                        pX = X->getDoubleConst(preX, lenX, bufX);
+                        pX = X->getDoubleConst(preX, lenX, bufX.data());
                         startX = 0;
                     }
                     v.push_back(std::make_pair(j, pX[startX++]));
@@ -230,6 +236,7 @@ namespace svm{
 
 
     ConstantSP score(Heap * &heap, const ConstantSP &model, const ConstantSP &y, const ConstantSP &X){
+        std::ignore = heap;
         svm *psvmObject = reinterpret_cast<svm *>(model->getLong());
         if(psvmObject == nullptr){
             throw IllegalArgumentException(__FUNCTION__, "Not a illegal SVM object");
@@ -246,20 +253,21 @@ namespace svm{
         if (predict_labels->size() != n) {
             throw RuntimeException("Size of the predicted labels is not equal to the size of the true labels.");
         }
-        double bufX[Util::BUF_SIZE],bufy[Util::BUF_SIZE];
+        vector<double> bufX(Util::BUF_SIZE);
+        vector<double> bufy(Util::BUF_SIZE);
         const double * pX = nullptr, * py = nullptr;
         int lenX = 0, startX = 0, preX = 0,leny = 0, starty = 0, prey = 0;
         for(int i = 0;i < n;i++){
             if(startX >= lenX) {
                 preX += lenX;
                 lenX = std::min(Util::BUF_SIZE, n - preX);
-                pX = predict_labels->getDoubleConst(preX, lenX, bufX);
+                pX = predict_labels->getDoubleConst(preX, lenX, bufX.data());
                 startX = 0;
             }
             if(starty >= leny) {
                 prey += leny;
                 leny = std::min(Util::BUF_SIZE, n - prey);
-                py = y->getDoubleConst(prey, leny, bufy);
+                py = y->getDoubleConst(prey, leny, bufy.data());
                 starty = 0;
             }
             double predict_label = pX[startX++], target_label = py[starty++];
@@ -395,6 +403,7 @@ namespace svm{
     }
 
     void svmObjectClose(Heap *heap, vector<ConstantSP> &args){
+        std::ignore = heap;
         svm * svmObject = reinterpret_cast<svm *>(args[0]->getLong());
         if(svmObject != nullptr){
             delete svmObject;

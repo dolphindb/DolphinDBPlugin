@@ -1,4 +1,4 @@
-mqtt,libPluginMQTTClient.so,3.00.3
+mqtt,libPluginMQTTClient.so,<version>
 mqttClientSub,subscribe,system,5,9,0,0,(host, port, topic, parser, handler, [username], [password], [recvBufSize=20480], [config])
 mqttClientStopSub,unsubscribe,operator,1,1,0,0,(subscription)
 mqttClientConnect,connect,system,2,9,0,0,(host,port,[qos=0],[formatter],[batchSize=0],[username],[password],[sendbufSize=40960],[config])

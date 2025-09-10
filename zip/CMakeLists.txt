@@ -22,6 +22,7 @@ if(WIN32)
     ${CMAKE_CURRENT_SOURCE_DIR}/minizip/win32
     )
     aux_source_directory(minizip/win32 DIR_LIB_SRCS)
+    add_compile_options(-Wno-error=incompatible-pointer-types)
 endif()
 
 BuildDependency(minizip DIR_LIB_SRCS "")

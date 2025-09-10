@@ -1,13 +1,11 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.22)
 set(CMAKE_SKIP_RPATH TRUE)
 set(PluginName PluginHBase)
 project(${PluginName})
 
-set(CMAKE_CXX_STANDARD 11)
-
 aux_source_directory(src PLUGINPREDICT_SRC)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -fPIC -std=c++11 -Wall")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${platform_macro} -fPIC -Wall")
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "")
     set(CMAKE_BUILD_TYPE "RELEASE")
@@ -56,10 +54,14 @@ else ()
 endif()
 link_directories(${CMAKE_BINARY_DIR})
 
+cmake_policy(SET CMP0167 OLD)
+find_package(Boost REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
 
 add_library(
         ${PROJECT_NAME} SHARED
-        ${PLUGINPREDICT_SRC})
+        ${PLUGINPREDICT_SRC}
+        ../src/PluginLogger.cpp)
 
 target_link_libraries(
         ${PROJECT_NAME}

@@ -1,4 +1,4 @@
-zmq,libPluginZmq.so,3.00.3
+zmq,libPluginZmq.so,<version>
 zmqSocket,socket,system,2,4,0,0,(type, formatter, [batchSize], [prefix])
 zmqConnect,connect,system,2,3,0,0,(socket, address, [prefix])
 zmqBind,bind,system,2,3,0,0,(socket, address, [prefix])

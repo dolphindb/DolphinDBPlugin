@@ -15,15 +15,21 @@
 #include "Util.h"
 
 namespace ddb {
+class AnyVector;
+
+typedef ObjectPtr<AnyVector> AnyVectorSP;
+
 class AnyVector:public Vector{
 public:
-	AnyVector(int size, bool isTableColumn = false, DATA_TYPE dt = DT_VOID, int decimalExtra = -1);
+	AnyVector(int size, bool isColumnarTuple = false, DATA_TYPE dt = DT_VOID, int decimalExtra = -1, bool needInit = true);
 
-	AnyVector(const deque<ConstantSP>& data, bool containNull, bool isTableColumn = false, DATA_TYPE dt = DT_VOID,
+	AnyVector(const vector<ConstantSP>& data, bool containNull, bool isColumnarTuple = false, DATA_TYPE dt = DT_VOID,
 			int decimalExtra = -1);
 
-	AnyVector(const vector<ConstantSP>& data, bool containNull, bool isTableColumn = false, DATA_TYPE dt = DT_VOID,
+	AnyVector(const deque<ConstantSP>& data, bool containNull, bool isColumnarTuple = false, DATA_TYPE dt = DT_VOID,
 			int decimalExtra = -1);
+
+	void initialize() override;
 
 	void extend(const ConstantSP& iterator);
 	void insert(INDEX index, const ConstantSP& item);
@@ -34,10 +40,10 @@ public:
 	virtual ~AnyVector(){}
 	virtual bool equal(const ConstantSP& other) const;
 	virtual bool containNotMarshallableObject() const;
-	virtual bool isLargeConstant() const {return !isStatic() && !containNotMarshallableObject();}
+	virtual bool isLargeConstant() const;
 	virtual bool getNullFlag() const {return containNull_;}
 	virtual void setNullFlag(bool containNull){containNull_=containNull;}
-	virtual INDEX getCapacity() const {return 0;}
+	virtual INDEX getCapacity() const {return data_.capacity();}
 	virtual bool isFastMode() const {return false;}
 	virtual short getUnitLength() const {return 0;}
 	virtual void clear();
@@ -50,12 +56,14 @@ public:
 	virtual bool set(INDEX index, const ConstantSP& value);
 	virtual bool set(const ConstantSP& index, const ConstantSP& value);
 	virtual bool set(Heap* heap, const ConstantSP& index, const ConstantSP& value, int dim);
+	virtual bool set(const ConstantSP& index, const ConstantSP& value, const ConstantSP& valueIndex) override { return set(index, value->get(valueIndex)); }
 	virtual bool setItem(INDEX index, const ConstantSP& value);
 	virtual bool modifyMember(Heap* heap, const FunctionDefSP& func, const ConstantSP& index, const ConstantSP& parameters, int dim);
 	virtual bool assign(const ConstantSP& value);
 	virtual ConstantSP get(INDEX index) const {return data_[index];}
 	virtual ConstantSP get(const ConstantSP& index) const;
 	virtual ConstantSP get(INDEX offset, const ConstantSP& index) const override;
+	virtual const ConstantSP& getItem(INDEX index, ConstantSP& cache) const {return data_[index];}
 	virtual bool hasNull(){return  hasNull(0, data_.size());}
 	virtual bool hasNull(INDEX start, INDEX length);
 	virtual bool isNull(INDEX index) const;
@@ -69,13 +77,15 @@ public:
 	virtual bool isValid(INDEX start, int len, char* buf) const override;
 	virtual bool isValid(INDEX* indices, int len, char* buf) const override;
 	virtual ConstantSP getSubVector(INDEX start, INDEX length) const;
-	virtual ConstantSP getInstance(INDEX size) const {return ConstantSP(new AnyVector(size, isTableColumn_, dt_, decimalExtra_));}
+	virtual ConstantSP getSubVector(INDEX start, INDEX length, INDEX capacity) const;
+	ConstantSP getInstance(INDEX size) const override;
 	virtual ConstantSP getValue() const;
-	virtual ConstantSP getValue(INDEX capacity) const {return ConstantSP(new AnyVector(data_, containNull_, isTableColumn_, dt_, decimalExtra_));}
+	virtual ConstantSP getValue(INDEX capacity) const;
 	virtual ObjectSP deepCopy() const;
 	bool append(const ConstantSP& value, bool wholistic);
 	virtual bool append(const ConstantSP& value);
 	virtual bool append(const ConstantSP& value, INDEX appendSize);
+	virtual bool append(const ConstantSP& value, INDEX start, INDEX count) override;
 	virtual bool remove(INDEX count);
 	virtual bool remove(const ConstantSP& index) override;
 	virtual void resize(INDEX size) override;
@@ -102,9 +112,8 @@ public:
 	virtual float getFloat(INDEX index) const {return get(index)->getFloat();}
 	virtual double getDouble(INDEX index) const {return get(index)->getDouble();}
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
-	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const {
-		throw RuntimeException("serialize method not supported for AnyVector");
-	}
+	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const override;
+    virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int targetNumElement, int& numElement, int& partial) const override;
 	virtual bool getBool(INDEX start, int len, char* buf) const;
 	virtual bool getChar(INDEX start, int len,char* buf) const;
 	virtual bool getShort(INDEX start, int len, short* buf) const;
@@ -162,13 +171,18 @@ public:  /// getDecimal{32,64,128}
 	virtual const int128* getDecimal128Const(INDEX start, int len, int scale,
 			int128 *buf) const override;
 
+    virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial) override;
+
 public:
 	virtual INDEX size() const {return data_.size();}
 	virtual long long count() const{
 		return count(0, data_.size());
 	}
 	virtual long long count(INDEX start, INDEX length) const;
-	/**
+    virtual int compare(INDEX indexLeft, INDEX indexRight) const {
+        return data_[indexLeft] == data_[indexRight];
+	}
+    /**
 	 * @param rightMost If there are multiple maximum/minimum values, choose the last one if `rightMost` is true.
 	 */
 	virtual INDEX imax(bool rightMost = false) const override {throw RuntimeException("imax method not supported for AnyVector");}
@@ -248,6 +262,7 @@ public:
 	virtual INDEX sortTop(bool asc, Vector* indices, INDEX top, char nullsOrder){ return -1;}
 	virtual long long getAllocatedMemory();
 	virtual int getExtraParamForType() const override { return dt_; }
+	virtual const ConstantSP& getColumnRef(INDEX index) override { return data_[index]; }
 
 	ConstantSP flatten(INDEX rowStart, INDEX count) const override;
 	ConstantSP rowFirst(INDEX rowStart, INDEX count) const override;
@@ -272,17 +287,26 @@ public:
 	ConstantSP rowKurtosis(INDEX rowStart, INDEX count, bool biased) const override;
 	ConstantSP rowSkew(INDEX rowStart, INDEX count, bool biased) const override;
 
+	const ConstantSP & getElement(INDEX index) const;
+	ConstantSP & getElement(INDEX index);
+	void setElement(INDEX index, const ConstantSP &value);
+	void setElement(INDEX index, ConstantSP &&value);
 	void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
 	bool isHomogeneousScalar(DATA_TYPE& type) const;
 	bool isHomogeneousScalarOrArray(DATA_TYPE& type, int& decimalExtra) const;
+	bool isHomogeneousExtendedObj(DATA_TYPE& type) const;
 	bool isConsistent() const;
 	bool isConsistentArray(int& len) const;
-	bool isTabular() const;
+	bool isTabular(DATA_TYPE& type, bool& isArray) const;
+	bool isStrictTabular(DATA_TYPE& type, bool& isArray) const;
 	ConstantSP convertToRegularVector() const;
 	bool isDimension() const { return isDim_;}
 	void setDimension(bool option) { isDim_ = option;}
-	virtual bool isTableColumn() const override { return isTableColumn_;}
-	void setTableColumn(bool option) { isTableColumn_ = option;}
+	virtual bool isTableColumn() const override { return isColumnarTuple_;}
+	virtual bool isColumnarTuple() const override { return isColumnarTuple_;}
+	virtual bool isObjectTuple() const override { return !isColumnarTuple_ && dt_ != DT_VOID;}
+	void setTableColumn(bool option) { isColumnarTuple_ = option;}
+	void setColumnarTuple(bool option) { isColumnarTuple_ = option;}
 	void setExtraParamForType(int extra){
 		DATA_TYPE type = (DATA_TYPE)extra;
 		if(type != DT_ANY)
@@ -291,13 +315,7 @@ public:
 	void setDecimalExtra(int extra){ decimalExtra_ = extra; }
 	int getDecimalExtra() { return decimalExtra_; }
 	INDEX reserve(INDEX capacity);
-	inline long long getAllocatedMemory() const override {
-		long long memSize = 0;
-		for (size_t i = 0; i < data_.size(); ++i) {
-			memSize += data_[i]->getAllocatedMemory();
-		}
-		return memSize;
-	}
+	long long getAllocatedMemory() const override;
 	const ConstantSP& getConstant(INDEX index) const { return data_[index];}
 	void toVector(vector<ConstantSP>& v) const {
 		if(!v.empty())
@@ -328,7 +346,7 @@ public:
 	 * @return a copyed vector if v is subVector or SlicedVector(isView() is true)
 	 * @return v if v is an AnyVector
 	 */
-	static SmartPointer<AnyVector> toAnyVector(const VectorSP& v) {
+	static AnyVectorSP toAnyVector(const VectorSP& v) {
 		if (LIKELY(!v->isView()))
 			return v;
 		// v may be a SubVector or SlicedVector
@@ -348,10 +366,10 @@ private:
 
 
 private:
-	mutable deque<ConstantSP> data_;
+	mutable std::vector<ConstantSP> data_;
 	bool containNull_;
 	bool isDim_;
-	bool isTableColumn_;
+	bool isColumnarTuple_;
 	DATA_TYPE dt_;
 	int decimalExtra_;
 };
@@ -386,6 +404,9 @@ public:
 	virtual bool validIndex(INDEX uplimit){throw RuntimeException("Sliced vector doesn't support method validIndex");}
 	virtual bool validIndex(INDEX start, INDEX length, INDEX uplimit){throw RuntimeException("Sliced vector doesn't support method validIndex");}
 	virtual int compare(INDEX index, const ConstantSP& target) const {return source_->compare(pindex_[index], target);}
+    virtual int compare(INDEX indexLeft, INDEX indexRight) const {
+		return source_->compare(pindex_[indexLeft], pindex_[indexRight]);
+	}
 	virtual bool getNullFlag() const {return source_->getNullFlag();}
 	virtual void setNullFlag(bool containNull){}
 	virtual bool hasNull(){return hasNull(0, size_);}
@@ -654,6 +675,7 @@ public:
 	virtual DATA_TYPE getRawType() const {return source_->getRawType();}
 	virtual int getExtraParamForType() const { return source_->getExtraParamForType();}
 	virtual bool isTableColumn() const { return source_->isTableColumn();}
+	virtual bool isColumnarTuple() const { return source_->isColumnarTuple();}
 	virtual SymbolBaseSP getSymbolBase() const {return source_->getSymbolBase();}
 	virtual DATA_FORM getForm() const { return DF_VECTOR;}
 	virtual ConstantSP getInstance() const {return getInstance(size_);}
@@ -924,6 +946,8 @@ public:
 		return true;
 	}
 
+	virtual bool getString(INDEX* indices, int len, DolphinString** buf) const override;
+	virtual bool getString(INDEX* indices, int len, char** buf) const override;
     virtual bool getBool(INDEX *indices, int len, char *buf) const override;
     virtual bool getChar(INDEX *indices, int len, char *buf) const override;
     virtual bool getShort(INDEX *indices, int len, short *buf) const override;
@@ -1911,7 +1935,6 @@ public:  /// {get,set}Decimal{32,64,128}
 				cur = std::max(cur, std::abs(offset_ + start));
 			}
 			cur = std::min(len, cur);
-			std::min(len, std::max(std::abs(start), std::abs(offset_ + start)));
 			for (INDEX i = 0; i < cur; ++i) {
 				buf[i] = LONG_MIN;
 			}
@@ -1944,7 +1967,6 @@ public:  /// {get,set}Decimal{32,64,128}
 				cur = std::max(cur, std::abs(offset_ + start));
 			}
 			cur = std::min(len, cur);
-			std::min(len, std::max(std::abs(start), std::abs(offset_ + start)));
 			for (INDEX i = 0; i < cur; ++i) {
 				buf[i] = INT128_MIN;
 			}
@@ -2294,7 +2316,8 @@ public:
 			((Vector*)result.get())->addIndex(0, result->size(), -offset_);
 		return result;
 	}
-	virtual bool sort(bool asc, char nullsOrder = 0) {throw RuntimeException("Immutable sub vector doesn't support method sort");}
+	virtual int compare(INDEX indexLeft, INDEX indexRight) const {throw RuntimeException("SubVector does not support compare(indexLeft, indexRight).");};
+    virtual bool sort(bool asc, char nullsOrder = 0) {throw RuntimeException("Immutable sub vector doesn't support method sort");}
 	virtual bool sort(bool asc, Vector* indices, char nullsOrder = 0) {throw RuntimeException("Immutable sub vector doesn't support method sort");}
 	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc, char nullsOrder = 0) {
 		if(!indices->add(start, length, (long long)offset_))
@@ -2440,12 +2463,13 @@ private:
 	bool updatable_;
 };
 
-class FastArrayVector : public Vector {
+class SWORDFISH_API FastArrayVector : public Vector {
 public:
 	FastArrayVector(const VectorSP& index, const VectorSP& value, bool checkNull = true);
 	INDEX getValueSize() const { return valueSize_;}
 	VectorSP getSourceIndex() const { return index_;}
 	VectorSP getSourceValue() const { return value_;}
+	void resetSourceValue(const VectorSP& vec);
 	virtual ~FastArrayVector(){}
 	virtual bool isLargeConstant() const {return true;}
 	virtual VECTOR_TYPE getVectorType() const {return VECTOR_TYPE::ARRAYVECTOR;}
@@ -2651,6 +2675,7 @@ public:
 	virtual ConstantSP topK(INDEX start, INDEX length, INDEX top, bool asc, bool extendEqualValue) const {
 		throw RuntimeException("Array vector doesn't support method topK");
 	}
+	virtual int compare(INDEX indexLeft, INDEX indexRight) const {throw RuntimeException("Array vector doesn't support method compare(indexLeft, indexRight)");}
 	virtual bool sort(bool asc, char nullOrders = 0) {return false;}
 	virtual bool sort(bool asc, Vector* indices, char nullOrders = 0) {return false;}
 	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc, char nullOrders = 0) { return false;}
@@ -2696,6 +2721,9 @@ public:
 	ConstantSP rowPercentile(INDEX rowStart, INDEX count, double percentile) const override;
 	ConstantSP rowRank(INDEX rowStart, INDEX count, bool ascending, int groupNum, bool ignoreNA, int tiesMethod, bool percent) const override;
 	ConstantSP rowDenseRank(INDEX rowStart, INDEX count, bool ascending, bool ignoreNA, bool percent) const override;
+
+    //resize value_ vector to valueSize_+size, return old valueSize_
+    int increaseValueVecSize(int size);
 
 private:
 	inline void getRangeOfValueVector(INDEX start, INDEX length, INDEX& actualStart, INDEX& actualLength) const {
@@ -3047,6 +3075,15 @@ public:
 	virtual bool rank(bool sorted, INDEX* indices, INDEX* ranking){return false;}
 	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc, char nullsOrder){	return false;}
 	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict, char nullsOrder) const { return false;}
+    virtual int compare(INDEX indexLeft, INDEX indexRight) const {
+        if (types_[indexLeft] != types_[indexRight]) {
+            throw RuntimeException("Comparing two values in IotAnyVector with different types is not supported.");
+        } else {
+            const auto typeIndex = types_[indexLeft];
+            const auto &vec = subVec_.at(typeIndex);
+            return vec->compare(index_[indexLeft], index_[indexRight]);
+		}
+	}
 	virtual bool sort(bool asc, char nullsOrder){return false;}
 	virtual bool sort(bool asc, Vector* indices, char nullsOrder){ return false;}
 	virtual INDEX sortTop(bool asc, Vector* indices, INDEX top, char nullsOrder){ return -1;}
@@ -3073,7 +3110,7 @@ public:
 	};
 	vector<TypeGroup> findUniqueTypesElements(INDEX start, INDEX length) const;
 
-    static SmartPointer<IotAnyVector> cast(const VectorSP& vec) {
+    static ObjectPtr<IotAnyVector> cast(const VectorSP& vec) {
         if (vec->getType() != DT_IOTANY) {
             return nullptr;
         }

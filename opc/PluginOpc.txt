@@ -1,4 +1,4 @@
-opc,libPluginOPC.dll,3.00.3
+opc,libPluginOPC.dll,3.00.4.0
 getOpcServerList,getOpcServerList,system,1,1,0,0,(host)
 connectOpcServer,connect,system,2,3,0,0,(host, serverName, [reqUpdateRateMs=100])
 readTag,readTag,system,2,3,0,0,(conn, tagNames, [outputTables])

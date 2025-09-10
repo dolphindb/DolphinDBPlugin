@@ -18,6 +18,7 @@
 
 #include "CoreConcept.h"
 #include "SysIOTypes.h"
+#include "Types.h"
 
 using std::unordered_set;
 using std::istream;
@@ -118,6 +119,7 @@ public:
 	static Vector* createSubVector(const VectorSP& source, INDEX offset, INDEX length);
 	static Vector* createArrayVector(DATA_TYPE type, INDEX size, INDEX valueSize = 0, INDEX capacity = 0,
 									INDEX valueCapacity = 0, bool fastMode = true, int extraParam = 0);
+	static Vector* createFastVector(DATA_TYPE type, INDEX size, INDEX capacity=0, int extraParam=0);
 	static Vector* createMatrix(DATA_TYPE type, int cols, int rows, int colCapacity,int extraParam=0,
 			void* data=0, void** dataSegment=0, int segmentSizeInBit=0, bool containNull=false);
 	static Vector* createSymbolMatrix(const SymbolBaseSP& symbolBase, int cols, int rows, int colCapacity, int* data=0, bool containNull=false);
@@ -389,6 +391,15 @@ public:
     static ConstantSP deepCopyUDF(Heap *heap, const ConstantSP &udfFunc);
     static string marshall(const ConstantSP &value);
     static ConstantSP unmarshall(Session *session, const string &content);
+	static inline bool isExtendedObjType(DATA_TYPE type) {
+		switch(type) {
+		case DT_INSTRUMENT:
+		case DT_MKTDATA:
+			return true;
+		default:
+			return false;
+		}
+	}
 
 private:
 	static bool readScriptFile(const string& parentPath,const string& filename, unordered_set<string> scriptAlias, vector<string>& lines, string& errMsg);
@@ -398,6 +409,14 @@ inline ConstantSP evaluateObject(const ObjectSP& obj, Heap* pHeap) {
 	return obj->isConstant() && !((Constant*)obj.get())->isStatic() ? ConstantSP(obj) : obj->getReference(pHeap);
 }
 
+inline const ConstantSP& evaluateObject(const ObjectSP& obj, ConstantSP& cache, Heap* pHeap) {
+	if(obj->isConstant() && !((Constant*)obj.get())->isStatic()){
+		cache = obj;
+		return cache;
+	}
+	else
+		return obj->getReference(pHeap, cache);
+}
 
 inline ConstantSP copyIfNecessary(const ConstantSP& obj) {
 	return (!obj->isTemporary() && obj->copyable()) ? obj->getValue() : obj;
@@ -416,51 +435,6 @@ inline void hashCombine(std::size_t &seed, const T &v) {
     seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
 }
 
-
-// Simple base type that the templatized, derived class containing
-// an arbitrary functor can be converted to and called.
-struct State {
-	inline virtual ~State() = default;
-
-	virtual void run() = 0;
-};
-
-template <typename Callable>
-struct StateImpl : public State {
-	explicit StateImpl(Callable&& f) : func(std::forward<Callable>(f)) {}
-
-	void run() override { func(); }
-
-private:
-	Callable func;
-};
-
-template <typename Callable>
-SmartPointer<StateImpl<Callable>> make_routine(Callable&& f) {
-	// Create and allocate full data structure, not base.
-	using S = StateImpl<Callable>;
-	return SmartPointer<S>{new S{std::forward<Callable>(f)}};
-}
-
-class LambdaTask : public Object {
-public:
-	template <typename Callable, typename... Args>
-	explicit LambdaTask(Callable&& f, Args&&... args) : Object(OBJECT_TYPE::MAX_OBJECT_TYPES), func_(make_routine(std::bind(f, args...))) {}
-
-	void run() { func_->run(); }
-
-	ConstantSP getValue(Heap* pHeap) override { return getReference(pHeap); }
-	ConstantSP getReference(Heap* /*pHeap*/) override {
-		func_->run();
-		return {};
-	}
-
-	string getScript() const override { return "LambdaTask"; }
-	IO_ERR serialize(Heap* /*pHeap*/, const ByteArrayCodeBufferSP& /*buffer*/) const override { return OTHERERR; }
-
-private:
-	SmartPointer<State> func_;
-};
 } // namespace ddb
 
 #endif /* UTIL_H_ */

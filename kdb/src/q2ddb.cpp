@@ -10,9 +10,7 @@
 #include "Util.h"
 #include "ScalarImp.h"
 #include "SpecialConstant.h"
-#include "Logger.h"
 #include "ddbplugin/PluginLogger.h"
-#include "ddbplugin/PluginLoggerImp.h"
 
 #include "endian.h"
 #include "kdb.h"
@@ -124,7 +122,7 @@ void kdb::fakeEmptyAnyColumn(Vector* colVal,
     const string& tableName, const string& colName, DATA_TYPE dummyType
 ) {
     assert(colVal);
-    PLUGIN_LOG(PLUGIN_NAME ": "
+    LOG(KDB_PREFIX ": "
             "DolphinDB does not support empty ANY VECTOR in "
         + tableName + "." + colName + " as a table column! "
             "We'll try to fake one instead...");
@@ -202,7 +200,7 @@ ConstantSP kdb::toDDB::fromDict(
     }
     DictionarySP dict = Util::createDictionary(keyDdbType, NULL, valueDdbType, NULL);
     if (dict.isNull()) {
-        throw RuntimeException(PLUGIN_NAME "failed to createDictionary for keyType " + std::to_string(keyDdbType));
+        throw RuntimeException(KDB_PREFIX "failed to createDictionary for keyType " + std::to_string(keyDdbType));
     }
     for (int i = 0; i < ddbKey->size(); ++i) {
         dict->set(ddbKey->get(i), ddbValue->get(i));
@@ -280,7 +278,7 @@ ConstantSP kdb::toDDB::fromScalar(
         case K_TIME:
             return new Time(isNull(data->i) || isInf(data->i) ? DDB_INT_NULL : data->i);
         default:
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                 "kdb+ object " + var + " (" + to_string(type) + ") "
                 "not yet supported.");
     }
@@ -290,7 +288,7 @@ VectorSP kdb::toDDB::fromArray(
     Type type, byte* data, size_t count, const string& var
 ) {
     if(count == UNKNOWN_SIZE) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Unknown kdb+ list length for " + var + ".");
     }
 
@@ -333,7 +331,7 @@ VectorSP kdb::toDDB::fromArray(
         case K_TIME: return times(
                 static_cast<I*>(p), static_cast<I*>(p) + count, var);
         default:
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                 "kdb+ object " + var + " (" + to_string(type) + ") "
                 "not yet supported.");
     }
@@ -342,7 +340,7 @@ VectorSP kdb::toDDB::fromArray(
 template<typename T>
 void checkValid(T* begin, T* end, const string &typeName, const string &var) {
     if(!(begin && begin <= end)) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Invalid kdb+ " + typeName + " for " + var + ".");
     }
 }
@@ -355,7 +353,7 @@ VectorSP kdb::toDDB::list(K* begin, K* end, const string& var, bool allowAny) {
 
     K* item = begin;
     if(!*item) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Invalid kdb+ list item at first(" + var + ").");
     }
 
@@ -621,7 +619,7 @@ VectorSP kdb::toDDB::makeVector(
         "kdb+ vs DolphinDB type equivalence"
     );
     if(!((begin && begin <= end) || (!begin && begin == end))) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Invalid kdb+ vector for " + var + ".");
     }
     const auto count = end - begin;
@@ -660,7 +658,7 @@ VectorSP kdb::toDDB::charsList(K* begin, K* end, const string& var) {
                 charArrays.push_back(str);
                 continue;
             }
-            throw RuntimeException(PLUGIN_NAME ": Not a valid kdb+ string at "
+            throw RuntimeException(KDB_PREFIX ": Not a valid kdb+ string at "
                 + var + "[" + to_string(item - begin) + "].");
         }
         charArrays.emplace_back(string{kC(*item), kC(*item) + (*item)->n});
@@ -687,7 +685,7 @@ VectorSP kdb::toDDB::mapStrings(J* begin, J* end,
         if(0 <= *idx && static_cast<size_t>(*idx) < symList.size()) {
             s = sym(symList[*idx]);
         } else {
-            PLUGIN_LOG(PLUGIN_NAME ": " + var + " - "
+            LOG(KDB_PREFIX ": " + var + " - "
                 "sym[" + to_string(*idx) + "] not in " + symName + ".");
             s = sym(nullptr);
         }
@@ -704,7 +702,7 @@ VectorSP kdb::toDDB::nestedList(Type type,
     assert(begin && begin <= end);
     const auto count = end - begin;
     if(count == 0) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Cannot convert empty nested list " + var + ".");
     }
 
@@ -740,7 +738,7 @@ VectorSP kdb::toDDB::nestedList(Type type,
                 }
                 return ret;
             }
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                 "Mixed data in a kdb+ list of type " + to_string(type) + " "
                 "at " + var + "[" + to_string(i) + "] ("
                 "expected=" + to_string(dbType) + " "
@@ -761,7 +759,7 @@ VectorSP kdb::toDDB::nestedList(Type type,
                 }
                 return ret;
             }
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                 "Mixed data in a kdb+ list of type " + to_string(type) + " "
                 "at " + var + "[" + to_string(i) + "] ("
                 "expected=" + to_string(dbType) + " "
@@ -890,7 +888,7 @@ struct kdb::Parser::SymsList : DataBlock<BaseHeader, char> {
 
     vector<string> getSyms(const byte* end) const {
         if(!header.isValidOf(K_STRING)) {
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                 "kdb+ file - not a valid syms list.");
         }
 
@@ -905,14 +903,14 @@ struct kdb::Parser::SymsList : DataBlock<BaseHeader, char> {
         while(next < eod && syms.size() < count) {
             const auto eos = find(next, eod, '\0');
             if(eos >= eod) {
-                throw RuntimeException(PLUGIN_NAME ": "
+                throw RuntimeException(KDB_PREFIX ": "
                     "Incomplete or truncated syms list.");
             }
             syms.emplace_back(string{next, eos});
             next = eos + 1;
         }
         if(next < eod) {
-            PLUGIN_LOG(PLUGIN_NAME ": "
+            LOG(KDB_PREFIX ": "
                 "Found syms beyond designated count=" + to_string(count) + ".");
             while(next < eod) {
                 const auto eos = find(next, eod, '\0');
@@ -922,7 +920,7 @@ struct kdb::Parser::SymsList : DataBlock<BaseHeader, char> {
         }
 
         if(syms.size() > count) {
-            PLUGIN_LOG(PLUGIN_NAME ": "
+            LOG(KDB_PREFIX ": "
                 "Actual syms extracted=" + to_string(syms.size()) + ".");
         }
         return syms;
@@ -1037,7 +1035,7 @@ struct kdb::Parser::SimpleList : DataBlock<SimpleListHeader, byte> {
 
     VectorSP getVector() const {
         if(!header.isValid()) {
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                 "kdb+ extended file - not a valid simple list.");
         }
 
@@ -1085,7 +1083,7 @@ struct kdb::Parser::EnumSymsList : DataBlock<EnumSymsHeader, ItemIndex> {
         const vector<string>& symList, const string& symName
     ) const {
         if(!header.isValid()) {
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                 "kdb+ extended file - not a valid enumerated syms list.");
         }
 
@@ -1096,7 +1094,7 @@ struct kdb::Parser::EnumSymsList : DataBlock<EnumSymsHeader, ItemIndex> {
         if(length % sizeof(data_t) == 0) {
             const auto real_count = length / sizeof(data_t);
             if(real_count > 0 && count == 0) {
-                PLUGIN_LOG(PLUGIN_NAME ": "
+                LOG(KDB_PREFIX ": "
                     "Incorrect enum sym count found "
                     "(count=" + to_string(count) + ","
                     " expected=" + to_string(real_count) + ").");
@@ -1116,7 +1114,7 @@ struct kdb::Parser::EnumSymsList : DataBlock<EnumSymsHeader, ItemIndex> {
                 ) {
                     return sym(symList[idx.index]);
                 } else {
-                    PLUGIN_LOG(PLUGIN_NAME ": Enumerated sym out of bounds "
+                    LOG(KDB_PREFIX ": Enumerated sym out of bounds "
                         + symName + "[" + to_string(idx.index) + "].");
                     return sym(nullptr);
                 }
@@ -1174,7 +1172,7 @@ struct kdb::Parser::NestedList
             end - reinterpret_cast<const byte*>(base_type::get());
         assert(bytes >= 0);
         if(bytes % sizeof(ItemIndex)) {
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                 "Truncated or incomplete nested list in kdb+ extended file.");
         }
 
@@ -1183,7 +1181,7 @@ struct kdb::Parser::NestedList
 
     tuple<const ItemIndex*, const ItemIndex*> getIndices() const {
         if(!base_type::header.isValid()) {
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                 "kdb+ extended file - not a valid nested list.");
         }
 
@@ -1227,13 +1225,13 @@ struct kdb::Parser::NestedItem : DataBlock<NestedItemHeader, byte> {
     bool isComplete(const byte* end) const {
         const auto itemSize = getSize(header.getType());
         if(itemSize == UNKNOWN_SIZE) {
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                   "Cannot handle the simple nested item "
                   "(type=" + to_string(header.type_o) + "->"
                 + to_string(header.getType()) + ").");
         } else
         if(itemSize * getCount() > header_t::MAX_LENGTH) {
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                   "Simple nested item overflow "
                   "(type=" + to_string(header.type_o) + "->"
                 + to_string(header.getType())
@@ -1283,12 +1281,12 @@ struct kdb::Parser::NestedItemEx : DataBlock<NestedItemExHeader, byte> {
     bool isComplete(const byte* end) const {
         const auto itemSize = getSize(header.getType());
         if(itemSize == UNKNOWN_SIZE) {
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                   "Cannot handle the extended nested item "
                   "(type=" + to_string(header.getType()) + ").");
         } else
         if(itemSize * getCount() < header_t::MIN_LENGTH) {
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                   "Simple nested item overflow "
                   "(type=" + to_string(header.getType())
                 + "|count=" + to_string(getCount()) + ").");
@@ -1336,7 +1334,7 @@ static_assert(
 struct kdb::Parser::NestedEnumSyms : DataBlock<NestedEnumSymsHeader, ItemIndex> {
     bool isComplete(const byte* end) const {
         if(sizeof(data_t) * getCount() > header_t::MAX_LENGTH) {
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                   "Simple nested enum syms overflow "
                   "(type=" + to_string(header.type_o) + "->"
                 + to_string(header.getType())
@@ -1387,7 +1385,7 @@ struct kdb::Parser::NestedEnumSymsEx
 {
     bool isComplete(const byte* end) const {
         if(sizeof(data_t) * getCount() < header_t::MIN_LENGTH) {
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                   "Simple nested enum syms overflow "
                   "(type=" + to_string(header.getType())
                 + "|count=" + to_string(getCount()) + ").");
@@ -1459,7 +1457,7 @@ ConstantSP kdb::Parser::NestedMap::getItem(
     assert(item && item->header.isValid());
     const auto type = item->header.getType();
     if(!item->isComplete(end)) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Truncated nested item " + stringize(idx) + " "
             "(type=" + to_string(type) + ").");
     }
@@ -1469,7 +1467,7 @@ ConstantSP kdb::Parser::NestedMap::getItem(
             return new String{ string(
                 reinterpret_cast<char*>(item->get()), item->getCount()) };
         case K_STRING:
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                     "Unexpected unenumerated nested item "
                 + stringize(idx) + " (type=" + to_string(type) + ").");
         default:
@@ -1483,7 +1481,7 @@ ConstantSP kdb::Parser::NestedMap::getItem(
 ) const {
     assert(item && item->header.isValid());
     if(!item->isComplete(end)) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Truncated simple nested enum syms " + stringize(idx) + " "
             "(type=" + to_string(item->header.getType()) + ").");
     }
@@ -1501,7 +1499,7 @@ ConstantSP kdb::Parser::NestedMap::getItem(
 ) const {
     assert(item && item->header.isValid());
     if(!item->isComplete(end)) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Truncated extended nested enum syms " + stringize(idx) + " "
             "(type=" + to_string(item->header.getType()) + ").");
     }
@@ -1520,7 +1518,7 @@ ConstantSP kdb::Parser::NestedMap::getItem(
 ) const {
     assert(item && item->header.isValid());
     if(!item->isComplete(end)) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Truncated nested item list " + stringize(idx) + " "
             "(type=" + to_string(item->header.type) + ").");
     }
@@ -1541,7 +1539,7 @@ ConstantSP kdb::Parser::NestedMap::getItem(
                 vec->append(entry);
                 break;
             default:
-                throw RuntimeException(PLUGIN_NAME ": "
+                throw RuntimeException(KDB_PREFIX ": "
                     "Non-string nested list " + stringize(idx) + " "
                     "(type=" + to_string(entry->getType()) + ") "
                     "not supported.");
@@ -1556,7 +1554,7 @@ tuple<ConstantSP, bool> kdb::Parser::NestedMap::getItem(
     const ItemIndex& idx, const byte* end
 ) const {
     if(!header.isValid()) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "kdb+ nested data map - not a valid data map.");
     }
 
@@ -1578,7 +1576,7 @@ tuple<ConstantSP, bool> kdb::Parser::NestedMap::getItem(
                     getItem(getAt<NestedEnumSymsEx>(idx.getOffset()), idx, end),
                     true);
             } else {
-                throw RuntimeException(PLUGIN_NAME ": "
+                throw RuntimeException(KDB_PREFIX ": "
                     "kdb+ nested data map - (" + stringize(idx) +") "
                     "is not an extended nested item.");
             }
@@ -1593,12 +1591,12 @@ tuple<ConstantSP, bool> kdb::Parser::NestedMap::getItem(
                     getItem(getAt<NestedEnumSyms>(idx.getOffset()), idx, end),
                     true);
             } else {
-                throw RuntimeException(PLUGIN_NAME ": "
+                throw RuntimeException(KDB_PREFIX ": "
                     "kdb+ nested data map - (" + stringize(idx) +") "
                     "is not a simple nested item.");
             }
         default:
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                 "kdb+ nested data map - "
                 "cannot recognize nested item (" + stringize(idx) + ").");
     }
@@ -1722,11 +1720,11 @@ const void* kdb::Parser::parse(
     size_t size, ptrdiff_t offset, bool allowEnd
 ) const {
     if(!(0 <= offset && static_cast<size_t>(offset) <= buffer_.size())) {
-        throw RuntimeException(PLUGIN_NAME ": kdb+ file access out of bounds "
+        throw RuntimeException(KDB_PREFIX ": kdb+ file access out of bounds "
             "(" + to_string(offset) + ")!");
     } else
     if(!allowEnd && offset + size > buffer_.size()) {
-        throw RuntimeException(PLUGIN_NAME ": kdb+ file access out of bounds "
+        throw RuntimeException(KDB_PREFIX ": kdb+ file access out of bounds "
             "(" + to_string(offset) + ":" + to_string(offset + size) + ")!");
     }
 
@@ -1744,7 +1742,7 @@ VectorSP kdb::Parser::getVector(
     if(parse<BaseHeader>()->isValid()) {
         const auto data = parse<SymsList>();
         if(data->getCount()) {
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                 "Unexpected non-empty kdb+ file with magic 0xFF01.");
         }
         VectorSP any = Util::createVector(DT_ANY, 0);
@@ -1765,22 +1763,22 @@ VectorSP kdb::Parser::getVector(
         } else {
             msg << "insufficient bytes";
         }
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "<nyi> kdb+ file magic in " + file + " (" + msg.str() + ").");
     }
 }
 
 void checkFastVectorType(kdb::Type type, const string &file){
     if(type == kdb::K_STRING) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Unexpected un-enumerated syms list in " + file + ".");
     } else
     if(isEnumType(type)) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Unexpected enumerated syms list in " + file + ".");
     } else
     if(isNestedType(type)) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Unexpected nested data list in " + file + ".");
     }
 }
@@ -1792,14 +1790,14 @@ VectorSP kdb::Parser::getFastVector(const BaseList* data,
     const auto type = data->header.type;
     const auto itemSize = getSize(type);
     if(itemSize == UNKNOWN_SIZE) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Cannot recognize data type in kdb+ file " + file + " "
             "(" + to_string(type) + ").");
     }
 
     auto count = data->getCount();
     if(!data->isComplete(itemSize, count, end())) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Truncated or incomplete kdb+ file " + file + " "
             "(" + to_string(type) + ").");
     }
@@ -1809,7 +1807,7 @@ VectorSP kdb::Parser::getFastVector(const BaseList* data,
     if(length % itemSize == 0) {
         const auto real_count = length / itemSize;
         if(real_count > count) {
-            PLUGIN_LOG(PLUGIN_NAME ": "
+            LOG(KDB_PREFIX ": "
                 "Incorrect item count found in " + file + " "
                 "(count=" + to_string(count) + ","
                 " expected=" + to_string(real_count) + ").");
@@ -1826,7 +1824,7 @@ VectorSP kdb::Parser::getGeneralList(const ExtList* data,
 ) const {
     assert(data);
     if(!data->isComplete(end())) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Truncated or incomplete kdb+ extended file " + file + ".");
     }
 
@@ -1835,12 +1833,12 @@ VectorSP kdb::Parser::getGeneralList(const ExtList* data,
     } else
     if(data->get<EnumSymsHeader>()->isValid()) {
         if(UNLIKELY(symName.empty())) {
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                 "Enum sym has not been loaded for kdb+ extended file"
                 " " + file + " yet.");
         } else
         if(UNLIKELY(symName != data->enum_name)) {
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                 "kdb+ extended file " + file + " "
                 "was not enumerated on " + symName + ".");
         }
@@ -1855,7 +1853,7 @@ VectorSP kdb::Parser::getGeneralList(const ExtList* data,
         msg << hex << uppercase << setfill('0')
             << setw(2) << unsigned{data->payload.tag[0]}
             << setw(2) << unsigned{data->payload.tag[1]};
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Cannot recognize extension header in " + file + " "
             "(0x" + msg.str() + ").");
     }
@@ -1866,7 +1864,7 @@ VectorSP kdb::Parser::getEnumStrings(const EnumSymsList* data,
 ) const {
     assert(data);
     if(!data->isComplete(end())) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Truncated or incomplete kdb+ extended file " + file + " "
             "(" + to_string(data->header.type) + ").");
     }
@@ -1884,7 +1882,7 @@ VectorSP kdb::Parser::getNestedLists(const NestedList<0xFD, 0x01>* data,
     const auto type = data->header.type;
     assert(K_NESTED_MIN <= type && type <= K_NESTED_MAX);
     if(!data->isComplete(end())) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Truncated or incomplete kdb+ extended file " + file + " "
             "(" + to_string(type) + ").");
     }
@@ -1896,7 +1894,7 @@ VectorSP kdb::Parser::getNestedLists(const NestedList<0xFD, 0x01>* data,
     }
     assert(begin && begin <= end);
     if(begin == end) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Unexpected empty nested list in " + file + ".");
     }
 
@@ -1907,19 +1905,19 @@ VectorSP kdb::Parser::getNestedLists(const NestedList<0xFD, 0x01>* data,
     if(mapParser.parse<ExtListHeader>()->isValid()) {
         const auto mapData = mapParser.parse<ExtList>();
         if(!mapData->isComplete(mapParser.end())) {
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                 "Truncated or incomplete kdb+ data map " + mapPath + " "
                 "(" + to_string(mapData->header.type) + ")");
         } else
         if(!mapData->get<NestedMapHeader>()->isValid()) {
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                 "Cannot recognize kdb+ data map header in " + mapPath + ".");
         }
         return mapNestedLists(begin, end,
             mapData->get<NestedMap>(), mapParser.end(), mapPath,
             symList, symName);
     } else {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Cannot recognize kdb+ data map file header in " + mapPath + ".");
     }
 }
@@ -1981,7 +1979,7 @@ VectorSP kdb::Parser::mapNestedLists(
         }
 
         if(item->getType() != type) {
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                 "Heterogeneous nested data in " + mapFile + " not supported.");
         } else
         if(isArrayVector) {
@@ -2002,7 +2000,7 @@ VectorSP kdb::Parser::mapEnumSyms(const VectorSP& indices,
     assert(indices.get() && indices->getType() == DT_LONG);
 
     if(symName.empty()) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Enum sym has not been loaded for kdb+ extended file"
             " " + mapFile + " yet.");
     }
@@ -2013,11 +2011,11 @@ VectorSP kdb::Parser::mapEnumSyms(const VectorSP& indices,
     enumNameFile.readInto(enumNameParser.getBuffer());
     const auto enumNames = enumNameParser.getStrings(enumNamePath);
     if(enumNames.size() != 1) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Failed to identify symbol enum name from " + enumNamePath + ".");
     } else
     if(symName != enumNames.front()) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "kdb+ extended file " + mapFile + " "
             "was not enumerated on " + symName + ".");
     }
@@ -2043,7 +2041,6 @@ DatabaseUpdater::DatabaseUpdater(Heap *heap, DBHandleWrapper dbHandle, ConstantS
       colNames_(colNames),
       colTypes_(colTypes),
       transform_(transform) {
-    initConvertFuncMap(heap);
 
     owner_ = heap->currentSession()->getUser()->getUserId();
     partitionType_ = dbHandle.getPartitionType();
@@ -2064,20 +2061,20 @@ DatabaseUpdater::DatabaseUpdater(Heap *heap, DBHandleWrapper dbHandle, ConstantS
         destTable_ = loadTableFunc_->call(heap_, loadTableArgs);
     } else {
         if (!transform_.isNull()) {
-            throw RuntimeException(PLUGIN_NAME
+            throw RuntimeException(KDB_PREFIX
                                    "If a transforming function is specified, the partitioned table must be created "
                                    "before appending data to it.");
         }
         if (!colNames.empty() && !colTypes.empty()) {
             ConstantSP dummyTable = Util::createTable(colNames_, colTypes_, 0, 1);
             if (dummyTable.isNull()) {
-                throw RuntimeException(PLUGIN_NAME "create table failed, invalid schema.");
+                throw RuntimeException(KDB_PREFIX "create table failed, invalid schema.");
             }
             vector<ConstantSP> createTableArgs = {dbHandle_.getDBHandle(), dummyTable, tableName_, partitionColumns_};
             auto engineType = dbHandle.getEngineType();
             if (engineType == DBENGINE_TYPE::IOT) {
                 if (sortColumns.isNull()) {
-                    throw RuntimeException(PLUGIN_NAME "sortColumns is needed if database engine is TSDB");
+                    throw RuntimeException(KDB_PREFIX "sortColumns is needed if database engine is TSDB");
                 }
                 // NOTE if not OLAP, must has sortColumns or primaryKey
                 createTableArgs.emplace_back(new Void());
@@ -2090,50 +2087,6 @@ DatabaseUpdater::DatabaseUpdater(Heap *heap, DBHandleWrapper dbHandle, ConstantS
     }
 }
 
-Mutex DatabaseUpdater::convertMutex_;
-unordered_map<int, FunctionDefSP> DatabaseUpdater::convertFuncMap_;
-
-void DatabaseUpdater::initConvertFuncMap(Heap *heap) {
-    LockGuard<Mutex> mutex(&convertMutex_);
-    convertFuncMap_[DT_BOOL] = Util::getFuncDefFromHeap(heap, "bool");
-    convertFuncMap_[DT_BOOL+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "bool");
-    convertFuncMap_[DT_UUID] = Util::getFuncDefFromHeap(heap, "uuid");
-    convertFuncMap_[DT_UUID+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "uuid");
-    convertFuncMap_[DT_CHAR] = Util::getFuncDefFromHeap(heap, "char");
-    convertFuncMap_[DT_CHAR+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "char");
-    convertFuncMap_[DT_SHORT] = Util::getFuncDefFromHeap(heap, "short");
-    convertFuncMap_[DT_SHORT+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "short");
-    convertFuncMap_[DT_INT] = Util::getFuncDefFromHeap(heap, "int");
-    convertFuncMap_[DT_INT+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "int");
-    convertFuncMap_[DT_LONG] = Util::getFuncDefFromHeap(heap, "long");
-    convertFuncMap_[DT_LONG+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "long");
-    convertFuncMap_[DT_FLOAT] = Util::getFuncDefFromHeap(heap, "float");
-    convertFuncMap_[DT_FLOAT+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "float");
-    convertFuncMap_[DT_DOUBLE] = Util::getFuncDefFromHeap(heap, "double");
-    convertFuncMap_[DT_DOUBLE+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "double");
-    convertFuncMap_[DT_DATE] = Util::getFuncDefFromHeap(heap, "date");
-    convertFuncMap_[DT_DATE+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "date");
-    convertFuncMap_[DT_MONTH] = Util::getFuncDefFromHeap(heap, "month");
-    convertFuncMap_[DT_MONTH+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "month");
-    convertFuncMap_[DT_TIME] = Util::getFuncDefFromHeap(heap, "time");
-    convertFuncMap_[DT_TIME+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "time");
-    convertFuncMap_[DT_MINUTE] = Util::getFuncDefFromHeap(heap, "minute");
-    convertFuncMap_[DT_MINUTE+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "minute");
-    convertFuncMap_[DT_SECOND] = Util::getFuncDefFromHeap(heap, "second");
-    convertFuncMap_[DT_SECOND+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "second");
-    convertFuncMap_[DT_DATETIME] = Util::getFuncDefFromHeap(heap, "datetime");
-    convertFuncMap_[DT_DATETIME+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "datetime");
-    convertFuncMap_[DT_TIMESTAMP] = Util::getFuncDefFromHeap(heap, "timestamp");
-    convertFuncMap_[DT_TIMESTAMP+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "timestamp");
-    convertFuncMap_[DT_NANOTIME] = Util::getFuncDefFromHeap(heap, "nanotime");
-    convertFuncMap_[DT_NANOTIME+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "nanotime");
-    convertFuncMap_[DT_NANOTIMESTAMP] = Util::getFuncDefFromHeap(heap, "nanotimestamp");
-    convertFuncMap_[DT_NANOTIMESTAMP+ARRAY_TYPE_BASE] = Util::getFuncDefFromHeap(heap, "nanotimestamp");
-    convertFuncMap_[DT_SYMBOL] = Util::getFuncDefFromHeap(heap, "symbol");
-    convertFuncMap_[DT_STRING] = Util::getFuncDefFromHeap(heap, "string");
-    convertFuncMap_[DT_BLOB] = Util::getFuncDefFromHeap(heap, "blob");
-}
-
 // do not support concurrent append
 void DatabaseUpdater::append(TableSP table) {
     // apply transform
@@ -2141,7 +2094,7 @@ void DatabaseUpdater::append(TableSP table) {
     // use schema type to trans first
     if (!colTypes_.empty()) {
         if (int(colTypes_.size()) != table->columns()) {
-            throw RuntimeException(PLUGIN_NAME "expect table with " + std::to_string(colTypes_.size()) +
+            throw RuntimeException(KDB_PREFIX "expect table with " + std::to_string(colTypes_.size()) +
                                    " columns, actually " + std::to_string(table->columns()));
         }
         vector<ConstantSP> cols;
@@ -2149,13 +2102,9 @@ void DatabaseUpdater::append(TableSP table) {
         cols.reserve(columnSize);
         for (int i = 0; i < columnSize; ++i) {
             if (table->getColumnType(i) != colTypes_[i]) {
-                if (convertFuncMap_.find(colTypes_[i]) == convertFuncMap_.end()) {
-                    throw RuntimeException(PLUGIN_NAME "type " + Util::getDataTypeString(colTypes_[i]) +
-                                           " is not supported to convert, actual type " +
-                                           Util::getDataTypeString(table->getColumnType(i)));
-                }
-                const FunctionDefSP &func = convertFuncMap_[colTypes_[i]];
-                vector<ConstantSP> args{table->getColumn(i)};
+                const FunctionDefSP &func = Util::getFuncDefFromHeap(heap_, "cast");
+                DATA_TYPE castType = colTypes_[i];
+                vector<ConstantSP> args{table->getColumn(i), new Int(castType)};
                 cols.push_back(func->call(heap_, args));
             } else {
                 cols.push_back(table->getColumn(i));
@@ -2183,13 +2132,13 @@ void DatabaseUpdater::append(TableSP table) {
         }
         ConstantSP dummyTable = Util::createTable(colNames_, colTypes_, 0, 1);
         if (dummyTable.isNull()) {
-            throw RuntimeException(PLUGIN_NAME "create table failed, invalid schema.");
+            throw RuntimeException(KDB_PREFIX "create table failed, invalid schema.");
         }
         vector<ConstantSP> createTableArgs = {dbHandle_.getDBHandle(), dummyTable, tableName_, partitionColumns_};
         auto engineType = dbHandle_.getEngineType();
         if (engineType == DBENGINE_TYPE::IOT) {
             if (sortColumns_.isNull()) {
-                throw RuntimeException(PLUGIN_NAME "sortColumns is needed if database engine is tsdb");
+                throw RuntimeException(KDB_PREFIX "sortColumns is needed if database engine is tsdb");
             }
             // NOTE if not OLAP, must has sortColumns or primaryKey
             createTableArgs.emplace_back(new Void());
@@ -2206,7 +2155,7 @@ void DatabaseUpdater::append(TableSP table) {
 
 ConstantSP DatabaseUpdater::getTableHandle() {
     if (destTable_.isNull()) {
-        throw RuntimeException(PLUGIN_NAME "unable to get loaded table.");
+        throw RuntimeException(KDB_PREFIX "unable to get loaded table.");
     }
     return destTable_;
 }
@@ -2252,7 +2201,7 @@ bool kdb::Parser::isValidBuffer(long long batchSize) {
                 case K_TIME:
                     return buffer_.size() > batchSize * sizeof(I);
                 default:
-                    throw RuntimeException(PLUGIN_NAME ": " "kdb+ object with type " + to_string(kdbType_) +
+                    throw RuntimeException(KDB_PREFIX ": " "kdb+ object with type " + to_string(kdbType_) +
                         "not yet supported.");
             }
             break;
@@ -2265,7 +2214,7 @@ bool kdb::Parser::isValidBuffer(long long batchSize) {
         case Invalid: // HACK if invalid, must be empty
             return true;
         default:
-            throw RuntimeException(PLUGIN_NAME "validate buffer failed, invalid parser type " + std::to_string(parserType_));
+            throw RuntimeException(KDB_PREFIX "validate buffer failed, invalid parser type " + std::to_string(parserType_));
     }
 }
 
@@ -2310,7 +2259,7 @@ bool kdb::Parser::getBatch(long long batchSize, VectorSP buffer, bool finalBatch
                 case K_STRING:
                     BUF_WRANGLE(S)
                 default:
-                    throw RuntimeException(PLUGIN_NAME "kdb+ object with type " +
+                    throw RuntimeException(KDB_PREFIX "kdb+ object with type " +
                                            to_string(kdbType_) + "not yet supported.");
             }
             VectorSP tmp = toDDB::fromArray(kdbType_, buffer_.data(), count, to_string(kdbType_) /*TODO*/);
@@ -2331,7 +2280,7 @@ bool kdb::Parser::getBatch(long long batchSize, VectorSP buffer, bool finalBatch
                 } else if (0 <= idx.index && static_cast<size_t>(idx.index) < symList.size()) {
                     return sym(symList[idx.index]);
                 } else {
-                    PLUGIN_LOG(PLUGIN_NAME ": Enumerated sym out of bounds " + symName + "[" + to_string(idx.index) + "].");
+                    LOG(KDB_PREFIX ": Enumerated sym out of bounds " + symName + "[" + to_string(idx.index) + "].");
                     return sym(nullptr);
                 }
             });
@@ -2365,7 +2314,7 @@ bool kdb::Parser::getBatch(long long batchSize, VectorSP buffer, bool finalBatch
                     colType = (DATA_TYPE)(colType + ARRAY_TYPE_BASE);
                 }
                 if (colType != ddbType_) {
-                    throw RuntimeException(PLUGIN_NAME "Heterogeneous nested data in " + mapPath_ +
+                    throw RuntimeException(KDB_PREFIX "Heterogeneous nested data in " + mapPath_ +
                                            " not supported, expect " + Util::getDataTypeString(ddbType_) + " actual " +
                                            Util::getDataTypeString(colType));
                 } else if (isArrayVector_) {
@@ -2387,7 +2336,7 @@ bool kdb::Parser::getBatch(long long batchSize, VectorSP buffer, bool finalBatch
         case Invalid: // HACK if invalid, must be empty
             return true;
         default:
-            throw RuntimeException(PLUGIN_NAME "get batch failed, invalid parser type " + std::to_string(parserType_));
+            throw RuntimeException(KDB_PREFIX "get batch failed, invalid parser type " + std::to_string(parserType_));
     }
     // move rest of buffer to very first
     vector<byte> remainedBuffer;
@@ -2409,7 +2358,7 @@ DATA_TYPE kdb::Parser::getStruct(const std::string &file, const std::vector<std:
         const auto type = data->header.type;
         const auto itemSize = getSize(type);
         if (itemSize == UNKNOWN_SIZE) {
-            throw RuntimeException(PLUGIN_NAME "Cannot recognize data type in kdb+ file " + file + " (" +
+            throw RuntimeException(KDB_PREFIX "Cannot recognize data type in kdb+ file " + file + " (" +
                                    to_string(type) + ").");
         }
 
@@ -2420,7 +2369,7 @@ DATA_TYPE kdb::Parser::getStruct(const std::string &file, const std::vector<std:
         // if(length % itemSize == 0) {
         //     const auto real_count = length / itemSize;
         //     if(real_count > count) {
-        //         PLUGIN_LOG(PLUGIN_NAME ": "
+        //         LOG(KDB_PREFIX ": "
         //             "Incorrect item count found in " + file + " "
         //             "(count=" + to_string(count) + ","
         //             " expected=" + to_string(real_count) + ").");
@@ -2452,7 +2401,7 @@ DATA_TYPE kdb::Parser::getStruct(const std::string &file, const std::vector<std:
             // NOTE for uuid
             count = simpleListPtr->getCount();
             if (!simpleListPtr->header.isValid()) {
-                throw RuntimeException(PLUGIN_NAME "kdb+ extended file - not a valid simple list.");
+                throw RuntimeException(KDB_PREFIX "kdb+ extended file - not a valid simple list.");
             }
             ostringstream msg;
             msg << hex << uppercase << setfill('0') << setw(2) << simpleListPtr->header.type;
@@ -2472,10 +2421,10 @@ DATA_TYPE kdb::Parser::getStruct(const std::string &file, const std::vector<std:
 
         } else if (data->get<EnumSymsHeader>()->isValid()) {
             if (UNLIKELY(symName.empty())) {
-                throw RuntimeException(PLUGIN_NAME "Enum sym has not been loaded for kdb+ extended file " +
+                throw RuntimeException(KDB_PREFIX "Enum sym has not been loaded for kdb+ extended file " +
                                        file + " yet.");
             } else if (UNLIKELY(symName != data->enum_name)) {
-                throw RuntimeException(PLUGIN_NAME
+                throw RuntimeException(KDB_PREFIX
                                        "kdb+ extended file " +
                                        file +
                                        " was not enumerated on " +
@@ -2484,7 +2433,7 @@ DATA_TYPE kdb::Parser::getStruct(const std::string &file, const std::vector<std:
             const EnumSymsList *symsListPtr = data->get<EnumSymsList>();
 
             if (!symsListPtr->header.isValid()) {
-                throw RuntimeException(PLUGIN_NAME "kdb+ extended file - not a valid enumerated syms list.");
+                throw RuntimeException(KDB_PREFIX "kdb+ extended file - not a valid enumerated syms list.");
             }
 
             count = symsListPtr->getCount();
@@ -2496,7 +2445,7 @@ DATA_TYPE kdb::Parser::getStruct(const std::string &file, const std::vector<std:
             // if(length % sizeof(data_t) == 0) {
             //     const auto real_count = length / sizeof(data_t);
             //     if(real_count > 0 && count == 0) {
-            //         PLUGIN_LOG(PLUGIN_NAME ": "
+            //         LOG(KDB_PREFIX ": "
             //             "Incorrect enum sym count found "
             //             "(count=" + to_string(count) + ","
             //             " expected=" + to_string(real_count) + ").");
@@ -2529,7 +2478,7 @@ DATA_TYPE kdb::Parser::getStruct(const std::string &file, const std::vector<std:
             }
             assert(begin && begin <= end);
             if (begin == end) {
-                throw RuntimeException(PLUGIN_NAME "Unexpected empty nested list in " + file + ".");
+                throw RuntimeException(KDB_PREFIX "Unexpected empty nested list in " + file + ".");
             }
 
             const auto mapPath = file + '#';
@@ -2540,10 +2489,10 @@ DATA_TYPE kdb::Parser::getStruct(const std::string &file, const std::vector<std:
             if (mapParser_->parse<ExtListHeader>()->isValid()) {
                 const auto mapData = mapParser_->parse<ExtList>();
                 if (!mapData->isComplete(mapParser_->end())) {
-                    throw RuntimeException(PLUGIN_NAME "Truncated or incomplete kdb+ data map " + mapPath + " (" +
+                    throw RuntimeException(KDB_PREFIX "Truncated or incomplete kdb+ data map " + mapPath + " (" +
                                            to_string(mapData->header.type) + ")");
                 } else if (!mapData->get<NestedMapHeader>()->isValid()) {
-                    throw RuntimeException(PLUGIN_NAME "Cannot recognize kdb+ data map header in " + mapPath + ".");
+                    throw RuntimeException(KDB_PREFIX "Cannot recognize kdb+ data map header in " + mapPath + ".");
                 }
                 mapEnd_ = mapParser_->end();
                 mapData_ = mapData->get<NestedMap>();
@@ -2599,13 +2548,13 @@ DATA_TYPE kdb::Parser::getStruct(const std::string &file, const std::vector<std:
                 // kdbType_ = type;
                 return ddbType_;
             } else {
-                throw RuntimeException(PLUGIN_NAME "Cannot recognize kdb+ data map file header in " + mapPath + ".");
+                throw RuntimeException(KDB_PREFIX "Cannot recognize kdb+ data map file header in " + mapPath + ".");
             }
         } else {
             ostringstream msg;
             msg << hex << uppercase << setfill('0') << setw(2) << unsigned{data->payload.tag[0]} << setw(2)
                 << unsigned{data->payload.tag[1]};
-            throw RuntimeException(PLUGIN_NAME "Cannot recognize extension header in " + file +
+            throw RuntimeException(KDB_PREFIX "Cannot recognize extension header in " + file +
                                    " (0x" + msg.str() + ").");
         }
     } else {
@@ -2616,7 +2565,7 @@ DATA_TYPE kdb::Parser::getStruct(const std::string &file, const std::vector<std:
         } else {
             msg << "insufficient bytes";
         }
-        throw RuntimeException(PLUGIN_NAME "<nyi> kdb+ file magic in " + file + " (" + msg.str() + ").");
+        throw RuntimeException(KDB_PREFIX "<nyi> kdb+ file magic in " + file + " (" + msg.str() + ").");
     }
 }
 //////////////////////////////////////////////////////////////////////////////

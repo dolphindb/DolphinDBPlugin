@@ -1,3 +1,3 @@
-zlib,libPluginZlib.so,3.00.3
+zlib,libPluginZlib.so,<version>
 compressFile,compressFile,system,1,2,0,0,(filePath, [compressionLevel])
 decompressFile,decompressFile,system,1,1,0,0,(filePath)

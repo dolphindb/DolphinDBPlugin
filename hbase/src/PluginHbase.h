@@ -10,7 +10,7 @@
 #include "Hbase.h"
 #include <transport/TSocket.h>
 #include "ddbplugin/CommonInterface.h"
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 /* INTERFACES */
 
 extern "C" {

@@ -2,9 +2,8 @@
 #include "ScalarImp.h"
 #include "Util.h"
 #include "libmseed.h"
-#include "Logger.h"
 #include "ddbplugin/PluginLogger.h"
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 
 using namespace std;
 using namespace ddb;
@@ -202,7 +201,7 @@ ConstantSP mseedParse(Heap *heap, vector<ConstantSP> &args) {
 bool isAvailableType(char type){
     if(type == 'i' || type == 'd' || type == 'f' || type == 'a')
         return true;
-    PLUGIN_LOG_WARN(string("MseedPlugin : The mseed data type ") + type + " is not supported. ");
+    LOG_WARN(string("MseedPlugin : The mseed data type ") + type + " is not supported. ");
     return false;
 }
 

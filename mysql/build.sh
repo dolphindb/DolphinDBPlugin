@@ -2,6 +2,8 @@
 
 WORKSPACE=$(pwd)/..
 
+cp -r /hdd/jenkins/workspace/build_plugins/mysql/contrib /hdd/jenkins/workspace/build_plugin_all/mysql/
+
 mkdir build
 cd build
 cmake ..

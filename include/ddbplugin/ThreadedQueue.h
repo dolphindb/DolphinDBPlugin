@@ -196,17 +196,17 @@ class MarketTypeContainer {
 namespace ThreadedQueueUtil {
 template <class T>
 struct Sizer {
-    int operator()(const T &obj) { 
+    int operator()(const T &obj) {
         std::ignore = obj;
-        return 1; 
+        return 1;
     }
 };
 
 template <class T>
 struct Mandatory {
-    bool operator()(const T &obj) { 
+    bool operator()(const T &obj) {
         std::ignore = obj;
-        return false; 
+        return false;
     }
 };
 }  // namespace ThreadedQueueUtil
@@ -260,6 +260,7 @@ class ThreadedQueue {
         session_->setUser(heap->currentSession()->getUser());
         status_.name_ = info;
         status_.queueDepthLimit_ = capacity;
+        status_.lastErrMsg_.reserve(100); //in case of string oom;
 
         long long currentTime = Util::getNanoEpochTime();
         localTimeGap_ = Util::toLocalNanoTimestamp(currentTime) - currentTime;
@@ -358,7 +359,7 @@ class ThreadedQueue {
         status_.lastErrMsg_ = errMsg;
         status_.lastFailedTimestamp_ = Util::getNanoEpochTime() + localTimeGap_;
         status_.failedMsgCount_ += failedMsgCount;
-        PLUGIN_LOG_INFO(prefix_, info_, " Failed to process ", failedMsgCount, " lines of data due to ", errMsg);
+        LOG_INFO(prefix_, info_, " Failed to process ", failedMsgCount, " lines of data due to ", errMsg);
     }
 
     // get outputTable
@@ -456,12 +457,12 @@ class ThreadedQueue {
         } catch (exception &e) {
             throw RuntimeException("call transform error: " + string(e.what()));
         }
-        if (originData->getForm() != DF_TABLE) {
-            throw RuntimeException("transform result must be a TABLE");
-        }
 
         if (UNLIKELY(ignoreTableInsert_)) {
             return;
+        }
+        if (originData->getForm() != DF_TABLE) {
+            throw RuntimeException("transform result must be a TABLE");
         }
         if (UNLIKELY(insertedTable_.isNull())) throw RuntimeException("insertedTable is null");
         if (UNLIKELY(insertedTable_->columns() != originData->columns()))
@@ -528,7 +529,7 @@ class ThreadedQueue {
         };
 
         std::function<void()> f = [this, dealFunc]() {
-            PLUGIN_LOG_INFO(prefix_, info_, " async thread start ");
+            LOG_INFO(prefix_, info_, " async thread start ");
             bool ret;
             int popSize = 0;
             DataStruct item;
@@ -565,7 +566,7 @@ class ThreadedQueue {
                             if (UNLIKELY(stopFlag_)) {
                                 break;
                             }
-                            PLUGIN_LOG(prefix_, info_, " async thread pop size (0)");
+                            LOG(prefix_, info_, " async thread pop size (0)");
                         }
                     } else {
                         ret = queue_.blockingPop(item, timeout_);
@@ -573,7 +574,7 @@ class ThreadedQueue {
                             if (UNLIKELY(stopFlag_)) {
                                 break;
                             } else {
-                                PLUGIN_LOG(prefix_, info_, " async thread pop size (0)");
+                                LOG(prefix_, info_, " async thread pop size (0)");
                                 continue;
                             }
                         }
@@ -583,21 +584,26 @@ class ThreadedQueue {
                         popSize = items.size();
                     }
                     status_.processedMsgCount_ += popSize;
-                    PLUGIN_LOG(prefix_, info_, " async thread pop size (", items.size(), ")");
+                    LOG(prefix_, info_, " async thread pop size (", items.size(), ")");
                     dealFunc(items);
                     if (finalizer_) {
                         finalizer_(items);
                     }
                     items.clear();
                 } catch (exception &e) {
-                    string errMsg = e.what();
                     status_.failedMsgCount_ += popSize;
-                    status_.lastErrMsg_ = "topic=" + info_ + " length=" + std::to_string(popSize) + " exception=" + errMsg;
                     status_.lastFailedTimestamp_ = Util::getNanoEpochTime() + localTimeGap_;
-                    PLUGIN_LOG_ERR(prefix_, info_, " Failed to process ", popSize, " lines of data due to ", errMsg);
+                    try {
+                        string errMsg = e.what();
+                        status_.lastErrMsg_ = "topic=" + info_ + " length=" + std::to_string(popSize) + " exception=" + errMsg;
+                        LOG_ERR(prefix_, info_, " Failed to process ", popSize, " lines of data due to ", errMsg);
+                    } catch (...) {
+                        status_.lastErrMsg_ = "topic=unknown length=unknown exception=unknown";
+                        LOG_ERR(prefix_, info_, " Failed to process ", popSize, " lines of data");
+                    }
                 }
             }
-            PLUGIN_LOG_INFO(prefix_, info_, " async thread end.");
+            LOG_INFO(prefix_, info_, " async thread end.");
         };
 
         SmartPointer<ddb::Executor> executor = new ddb::Executor(f);
@@ -748,7 +754,7 @@ static inline void checkSeqNum(const string &prefix, const string &tag, std::uno
             }
         }
         if (seqCheckMode == SeqCheckMode::IGNORE_WITH_LOG) {
-            PLUGIN_LOG_INFO(prefix, errMsg);
+            LOG_INFO(prefix, errMsg);
         }
     }
     lastSeqNum[channelNo] = seqNum;

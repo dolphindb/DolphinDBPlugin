@@ -35,8 +35,8 @@ class DdbKafkaEvent : public Resource {
   private:
     SmartPointer<cppkafka::Event> Event_;
 };
-typedef SmartPointer<DdbKafkaQueue> DdbKafkaQueueSP;
-typedef SmartPointer<DdbKafkaEvent> DdbKafkaEventSP;
+typedef ObjectPtr<DdbKafkaQueue> DdbKafkaQueueSP;
+typedef ObjectPtr<DdbKafkaEvent> DdbKafkaEventSP;
 
 SmartPointer<Queue> extractQueue(const ConstantSP &handle, const string &funcName, const string &usage) {
     if (handle->getType() != DT_RESOURCE || handle->getString() != QUEUE_DESC)

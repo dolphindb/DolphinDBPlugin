@@ -1,6 +1,7 @@
 #ifndef JSON_UTIL_H
 #define JSON_UTIL_H
 
+#include "DolphinDBEverything.h"
 #include <CoreConcept.h>
 #include <Exceptions.h>
 #include <ScalarImp.h>

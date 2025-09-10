@@ -2,7 +2,7 @@
 
 #include "Exceptions.h"
 #include "ddbplugin/Plugin.h"
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 
 Mutex OPCUASub::OPCUASub::OPCUA_SUB_MAP_LATCH;
 std::unordered_map<long long, OPCUASubSP> OPCUASub::OPCUA_SUB_MAP;
@@ -597,7 +597,7 @@ void OPCUASub::reconnect() {
             reconnectTime_ = Util::getNanoEpochTime() + timeGap_;
             isConnected_ = true;
         } catch (std::exception &e) {
-            PLUGIN_LOG_INFO(OPCUA_PREFIX, "subscription [" + actionName_ + "] reconnection failed due to ", e.what());
+            LOG_INFO(OPCUA_PREFIX, "subscription [" + actionName_ + "] reconnection failed due to ", e.what());
         }
     }
 }
@@ -616,13 +616,13 @@ void OPCUASub::startThread() {
                             "subscription [" + actionName_ + "] has been disconnected. Trying to reconnect.";
                         status_.lastErrMsg_ = errMsg;
                         status_.lastFailedTimestamp_ = dataTime;
-                        PLUGIN_LOG_WARN(OPCUA_PREFIX, errMsg);
+                        LOG_WARN(OPCUA_PREFIX, errMsg);
                         reconnect();
                     } else {
                         string errMsg = "Error occurs in OPCUA sub: " + string(UA_StatusCode_name(retVal));
                         status_.lastErrMsg_ = errMsg;
                         status_.lastFailedTimestamp_ = dataTime;
-                        PLUGIN_LOG_ERR(OPCUA_PREFIX, errMsg);
+                        LOG_ERR(OPCUA_PREFIX, errMsg);
                         break;
                     }
                 }
@@ -632,7 +632,7 @@ void OPCUASub::startThread() {
             status_.lastErrMsg_ = errMsg;
             long long dataTime = Util::getNanoEpochTime() + timeGap_;
             status_.lastFailedTimestamp_ = dataTime;
-            PLUGIN_LOG_ERR(OPCUA_PREFIX, errMsg);
+            LOG_ERR(OPCUA_PREFIX, errMsg);
         }
     };
     thread_ = new Thread(new ddb::Executor(f));
@@ -714,7 +714,7 @@ static void handlerTheAnswerChanged(UA_Client *client, UA_UInt32 subId, void *su
     long long clientLong = (long long)client;
     auto it = OPCUASub::OPCUA_SUB_MAP.find(clientLong);
     if (it == OPCUASub::OPCUA_SUB_MAP.end()) {
-        PLUGIN_LOG_INFO(OPCUA_PREFIX, "invalid client: ", client);
+        LOG_INFO(OPCUA_PREFIX, "invalid client: ", client);
         return;
     }
     OPCUASubSP sub = it->second;
@@ -766,7 +766,7 @@ static void handlerTheAnswerChanged(UA_Client *client, UA_UInt32 subId, void *su
         }
         sub->getStatus().processedMsgCount_++;
     } catch (std::exception &e) {
-        PLUGIN_LOG_ERR(OPCUA_PREFIX, e.what());
+        LOG_ERR(OPCUA_PREFIX, e.what());
         sub->getStatus().lastErrMsg_ = e.what();
         sub->getStatus().failedMsgCount_++;
         sub->getStatus().lastFailedTimestamp_ = dataTime;

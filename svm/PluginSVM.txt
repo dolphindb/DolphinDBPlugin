@@ -1,4 +1,4 @@
-svm,libPluginSVM.so,3.00.3
+svm,libPluginSVM.so,<version>
 fit,fit,system,2,3,0,0,(Y, X, [params=None])
 predict,predict,system,2,2,0,0,(model, X)
 score,score,system,3,3,0,0,(model, Y, X)

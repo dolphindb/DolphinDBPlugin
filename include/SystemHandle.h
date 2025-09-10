@@ -2,10 +2,11 @@
 #include "ScalarImp.h"
 #include "SysIO.h"
 #include "SmartPointer.h"
+#include "Types.h"
 
 namespace ddb {
 
-class SystemHandle : public String{
+class SWORDFISH_API SystemHandle : public String{
 public:
 	SystemHandle(SocketSP& handle, bool isLittleEndian, const string& sessionID, const string& host, int port, const string& userId, const string& pwd) : String("Conn[" + host + ":" +Util::convert(port) + ":" +sessionID + "]"),
 		type_(REMOTE_HANDLE), socket_(handle), flag_(isLittleEndian ? 1 : 0), sessionID_(sessionID), userId_(userId), pwd_(pwd), tables_(0){setTypeAndCategory(DT_HANDLE, SYSTEM);}
@@ -42,7 +43,7 @@ public:
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const { throw RuntimeException("System handle is not able to serialize.");}
 	virtual bool containNotMarshallableObject() const {return true;}
 	void close();
-
+    bool tryName(const string& name);
 private:
 	HANDLE_TYPE type_;
 	SocketSP socket_;
@@ -58,6 +59,6 @@ private:
 	mutable Mutex mutex_;
 };
 
-typedef SmartPointer<SystemHandle> SystemHandleSP;
+typedef ObjectPtr<SystemHandle> SystemHandleSP;
 
 } // namespace ddb

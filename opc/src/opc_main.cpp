@@ -5,9 +5,9 @@
 #include <utility>
 #include "opcimp.h"
 #include "ddbplugin/Plugin.h"
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 
-typedef SmartPointer<OPCClient> OPCClientSP;
+typedef ObjectPtr<OPCClient> OPCClientSP;
 static void opcConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {}
 
 namespace OPCPluginImp{
@@ -110,7 +110,7 @@ public:
                     try{
                         ((FunctionDefSP)_handler)->call(_session->getHeap().get(), args);
                     } catch (exception &e) {
-                        PLUGIN_LOG_ERR("Plugin OPC: Failed to append data: " + string(e.what()));
+                        LOG_ERR("Plugin OPC: Failed to append data: " + string(e.what()));
                         LockGuard<Mutex> guard(_conn->getLock());
                         this->_conn->setErrorMsg(e.what());
                     }
@@ -143,7 +143,7 @@ public:
                 ConstantSP v = toConstant(*itemData, name);
                 _queue.push(v);
             } catch (exception &e) {
-                PLUGIN_LOG_ERR("Plugin OPC: Failed to convert data: " + string(e.what()));
+                LOG_ERR("Plugin OPC: Failed to convert data: " + string(e.what()));
                 _conn->setErrorMsg(e.what());
             }
         }
@@ -235,7 +235,7 @@ public:
                         }
                     } catch (exception &e) {
                         // cout <<"Failed to work:"<< e.what() << endl;
-                        PLUGIN_LOG_ERR("Plugin OPC: " + string(e.what()));
+                        LOG_ERR("Plugin OPC: " + string(e.what()));
                         t->errMsg = e.what();
                         //*t.retTable = 0;
                         t->latch->countDown();
@@ -252,13 +252,13 @@ public:
                 Sleep(1);    // todo: is this needed?
             }
             catch(bad_alloc &e){
-                PLUGIN_LOG_ERR("Plugin OPC: Out of Memory. ");
+                LOG_ERR("Plugin OPC: Out of Memory. ");
             }
             catch (exception &e){
-                PLUGIN_LOG_ERR("Plugin OPC: Fail to work: ", e.what());
+                LOG_ERR("Plugin OPC: Fail to work: ", e.what());
             }
             catch(...){
-                PLUGIN_LOG_ERR("Plugin OPC: Fail to work. ");
+                LOG_ERR("Plugin OPC: Fail to work. ");
             }
         }
     }

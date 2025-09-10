@@ -8,12 +8,13 @@
 #ifndef DDBPLUGIN_H_
 #define DDBPLUGIN_H_
 
+#include "DolphinDBEverything.h"
 #include "Concurrent.h"
 #include "CoreConcept.h"
 #include "Types.h"
 #include "Util.h"
 #include "Exceptions.h"
-#include "Logger.h"
+#include "PluginLogger.h"
 #include <exception>
 #include <functional>
 #include <cassert>
@@ -49,7 +50,11 @@ inline ddb::int128 getNullValue<ddb::int128>() { return ddb::INT128_MIN; }
 
 template <typename T>
 inline T *allocMemory(int size) {
-	return reinterpret_cast<T*>(malloc(size * sizeof(T)));
+	T* data = static_cast<T*>(malloc(size * sizeof(T)));
+	if(data == nullptr) {
+		throw ddb::RuntimeException("Memory allocation failed for size: " + std::to_string(size * sizeof(T)));
+	}
+	return data;
 }
 template <>
 inline string *allocMemory<string>(int size) {

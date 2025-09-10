@@ -1,22 +1,15 @@
-/*
- * Table.h
- *
- *  Created on: Nov 3, 2012
- *      Author: dzhou
- */
+#pragma once
 
-#ifndef TABLE_H_
-#define TABLE_H_
-
-#include <atomic>
 #include "CoreConcept.h"
+
 namespace ddb {
+
 class SubTable;
 class BasicTable;
-typedef SmartPointer<SubTable> SubTableSP;
-typedef SmartPointer<BasicTable> BasicTableSP;
+typedef ObjectPtr<SubTable> SubTableSP;
+typedef ObjectPtr<BasicTable> BasicTableSP;
 
-class SubTable: public Table {
+class SWORDFISH_API SubTable: public Table {
 public:
 	SubTable(const TableSP& source, INDEX offset, INDEX length);
 	SubTable(const TableSP& source, const ConstantSP& indices);
@@ -109,8 +102,7 @@ private:
 	INDEX size_;
 };
 
-
-class AbstractTable : public Table {
+class SWORDFISH_API AbstractTable : public Table {
 public:
 	AbstractTable(const SmartPointer<vector<string>>& colNames);
 	AbstractTable(const SmartPointer<vector<string>>& colNames, SmartPointer<unordered_map<string,int>> colMap);
@@ -197,17 +189,22 @@ protected:
 	mutable Mutex* versionMutex_;
 };
 
-class BasicTable: public AbstractTable{
+class SWORDFISH_API BasicTable: public AbstractTable{
 public:
 	BasicTable(const vector<ConstantSP>& cols, const vector<string>& colNames, const vector<int>& keys, bool ordered = false, int timeColIdx = -1);
 	BasicTable(const vector<ConstantSP>& cols, const vector<string>& colNames);
 	BasicTable(const vector<VectorSP> &cols, const SmartPointer<vector<string>> &colNames,
 				const SmartPointer<unordered_map<string, int>> &colMap);
-	virtual ~BasicTable();
+	// FIXME: BasicTable is not a "moveable" object in fact.
+	// You should not use the moved BasicTable because its data all moved.
+	// It's not a legal state of a ddb::Table. (Contains at least on column)
+	BasicTable(BasicTable &&) = default;
+	virtual ~BasicTable() = default;
 	virtual bool isBasicTable() const {return true;}
 	virtual bool isSpecialBasicTable() const {return false;}
 	virtual ConstantSP getColumn(INDEX index) const;
-	virtual ConstantSP get(INDEX col, INDEX row) const {return cols_[col]->get(row);}
+    virtual const ConstantSP& getColumnRef(INDEX index) override { return cols_[index]; }
+    virtual ConstantSP get(INDEX col, INDEX row) const {return cols_[col]->get(row);}
 	virtual DATA_TYPE getColumnType(const int index) const { return cols_[index]->getType();}
 	virtual int getColumnExtraParam(const int index) const override { return cols_[index]->getExtraParamForType(); }
 	virtual void setColumnName(int index, const string& name);
@@ -264,7 +261,7 @@ public:
 
 	void updateSize();
 	void getKeyColumnNameAndType(vector<string>& keyNames, vector<pair<DATA_TYPE, DATA_CATEGORY>>& keyTypes, bool& ordered) const;
-	ConstantSP getRowByKey(vector<ConstantSP>& keys, bool excludeNotExist) const;
+	ConstantSP getRowByKey(vector<ConstantSP>& keys, bool excludeNotExist, bool preserveOrder = false) const;
 	void containKey(vector<ConstantSP>& keys, const ConstantSP& result) const;
 	void setChunkPath(const string& chunkPath){ chunkPath_ = chunkPath;}
 	ConstantSP toWideTable();
@@ -283,6 +280,14 @@ public:
     bool isKeyTable() const {
         return keyTable_ != nullptr;
     }
+    bool isHashKeyTable() const {
+    	return keyTable_ != nullptr && !keyTable_->ordered;
+    }
+    const DictionarySP& getKeyDictionary() const { return keyTable_->dict;}
+    TableSP getKeyTableCopy(const vector<ConstantSP>& cols) const;
+    inline const ConstantSP& getInternalColumn(int index) const { return cols_[index];}
+
+    void resetKeyCols(const vector<int>& keys, bool ordered = false);
 
 protected:
 	const vector<ConstantSP>& getCols() const { return cols_; }
@@ -309,7 +314,7 @@ private:
 	void internalRemove(Heap* heap, const SQLContextSP& context, vector<ObjectSP>& filterExprs);
 	bool internalRemove(const ConstantSP& indexSP, string& errMsg);
 	bool internalDrop(vector<int>& columns);
-	ConstantSP prepareHashKey(vector<ConstantSP>& cols) const;
+	ConstantSP prepareHashKey(vector<ConstantSP> &keys) const;
 	ConstantSP checkKeyDuplicate(ConstantSP& key, const ConstantSP& timeCol = nullptr);
 	void setColumnarTuple(Vector* tuple);
 
@@ -327,7 +332,11 @@ private:
 	friend class PartitionedPersistentTable;
 
 private:
-	struct KeyTable {
+	class KeyTable {
+	public:
+		KeyTable(const vector<ddb::ConstantSP> &cols, vector<int> keys, bool ordered, int timeColIdx);
+		KeyTable(const KeyTable &);
+
 		bool ordered;
 		vector<int> keys;
 		int timeColIdx;
@@ -339,9 +348,17 @@ private:
 		ConstantSP oldRowIndices;
 		ConstantSP oldIndices;
 		ConstantSP newRowIndices;
+
+		ConstantSP prepareHashKey(const vector<ConstantSP> &cols, vector<ConstantSP> &keys);
+
+	private:
+		void initializeKeyDictionary(const vector<ConstantSP> &cols);
+
+		static DictionarySP createKeyDictionary(const ddb::ConstantSP &keys, bool ordered);
 	};
+
 	vector<ConstantSP> cols_;
-	KeyTable* keyTable_{nullptr};
+	std::unique_ptr<KeyTable> keyTable_;
 	bool readOnly_;
 	INDEX size_;
 	long long offset_;
@@ -354,5 +371,5 @@ private:
 	mutable BasicTableSP curVersion_;
 	mutable TableSP emptyTbl_;
 };
+
 } // namespace ddb
-#endif /* TABLE_H_ */

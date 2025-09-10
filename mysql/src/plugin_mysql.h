@@ -1,5 +1,7 @@
 #ifndef PLUGIN_MYSQL_H
 #define PLUGIN_MYSQL_H
+
+#include "DolphinDBEverything.h"
 #include <ddbplugin/pluginVersion.h>
 
 #include <functional>
@@ -14,7 +16,7 @@
 #include "ScalarImp.h"
 #include "Util.h"
 #include "mysqlxx.h"
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 #ifdef DEBUG
 #include <chrono>
 typedef std::chrono::high_resolution_clock Clock;

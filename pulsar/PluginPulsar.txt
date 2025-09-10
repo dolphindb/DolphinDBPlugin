@@ -1,0 +1,10 @@
+pulsar,libPluginPulsar.so,<version>
+pulsarClient,client,system,1,2,0,0,(serviceUrl, [clientConfig])
+pulsarProducer,producer,system,2,3,0,0,(client, topic, [producerConfig])
+pulsarSend,send,system,2,3,0,0,(producer, message, [partitionKey])
+pulsarConsumer,consumer,system,3,4,0,0,(client, topic, subscriptionName, [consumerConfig])
+pulsarReceive,receive,system,1,2,0,0,(consumer, [timeoutMs=1000])
+pulsarCreateSubJob,createSubJob,system,6,7,0,0,(jobName, client, topic, subscriptionName, table, parser, [consumerConfig])
+pulsarCancelSubJob,cancelSubJob,system,1,1,0,0,(subJob)
+pulsarGetJobStat,getJobStat,system,0,0,0,0,()
+pulsarGetConfig,getConfig,system,2,2,0,0,(handle, configName)

@@ -19,6 +19,11 @@
 #define MAX_CAPACITY 262144
 #define MAX_PACKET_SIZE 1400
 
+#define NO_NEED_OPENSSL_LIB
+#ifndef NO_NEED_OPENSSL_LIB
+#include <openssl/ssl.h>
+#endif
+
 namespace ddb {
 using std::string;
 
@@ -47,7 +52,9 @@ class QPSocket {
 
 class Constant;
 class Socket;
+class UdpSocket;
 typedef SmartPointer<Socket> SocketSP;
+typedef SmartPointer<UdpSocket> UdpSocketSP;
 
 class Socket{
 public:
@@ -69,8 +76,15 @@ public:
 	bool isBlockingMode() const {return blocking_;}
 	bool isValid();
 	void setAutoClose(bool option) { autoClose_ = option;}
+
+	#ifndef NO_NEED_OPENSSL_LIB
+	void enableSSL(SSL* ssl) { ssl_ = ssl;}
+	SSL* getSSL() const { return ssl_;}
+	#else
 	void enableSSL(void* ssl) { ssl_ = ssl;}
 	void* getSSL() const { return ssl_;}
+	#endif
+
 	IO_ERR SSLClientHandshake(); // client side only
 	bool setNonBlocking();
 	static bool ENABLE_TCP_NODELAY;
@@ -86,8 +100,13 @@ private:
 	SOCKET handle_;
 	bool blocking_;
 	bool autoClose_;
+#ifndef NO_NEED_OPENSSL_LIB
+	SSL_CTX* ctx_ = NULL; // client side only
+	SSL* ssl_ = NULL;
+#else
 	void* ctx_ = NULL; // client side only
 	void* ssl_ = NULL;
+#endif
 	bool sslEstablished_ = false; // client side only
 
 #ifndef _WIN32
@@ -139,6 +158,9 @@ public:
 	IO_ERR readString(DolphinString& value);
 	IO_ERR readString(DolphinString& value, size_t length);
 	IO_ERR readLine(DolphinString& value);
+	// read raw string end withs '\0', don't ignore tailing '\n' char
+	IO_ERR readRawString(string&);
+	IO_ERR readRawString(DolphinString&);
 	/**
 	 * Preview the given size of stream data from the current position. The internal current position will not change
 	 * after this operation. If the available data in the internal buffer from the current position is less than the
@@ -186,7 +208,7 @@ protected:
 	 */
 	virtual IO_ERR internalStreamRead(char* buf, size_t length, size_t& actualLength);
 	virtual IO_ERR internalClose();
-	virtual bool internalMoveToPosition(long long offset){ std::ignore = offset; return false;}
+	virtual bool internalMoveToPosition(long long offset) { std::ignore = offset; return false; }
 
 
 private:

@@ -1,4 +1,4 @@
-TCPSocket,libPluginTCPSocket.so,3.00.3
+TCPSocket,libPluginTCPSocket.so,<version>
 tcpCreateSubJob,createSubJob,system,3,4,0,0,(host, port, handler, [config])
 tcpGetSubJobStat,getSubJobStat,system,0,0,0,0,()
 tcpCancelSubJob,cancelSubJob,system,1,1,0,0,(tag)

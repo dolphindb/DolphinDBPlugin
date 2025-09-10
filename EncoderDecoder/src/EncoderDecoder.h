@@ -1,6 +1,7 @@
 #ifndef ENCODERdECODER_H
 #define ENCODERdECODER_H
 
+#include "DolphinDBEverything.h"
 #include <CoreConcept.h>
 #include <Exceptions.h>
 #include <Logger.h>
@@ -22,6 +23,7 @@ using ddb::TableSP;
 
 extern "C" ConstantSP createJsonDecoder(Heap* heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP createProtobufDecoder(Heap* heap, vector<ConstantSP>& arguments);
+extern "C" ConstantSP createProtobufEncoder(Heap* heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP getProtobufSchema(Heap* heap, vector<ConstantSP>& arguments);
 
 namespace ddb {
@@ -39,6 +41,7 @@ template <class U>
 struct ObjectSizer {
     inline int operator()(const U& obj)
     {
+        std::ignore = obj;
         return 1;
     }
 };
@@ -47,6 +50,7 @@ template <class U>
 struct ObjectUrgency {
     inline bool operator()(const U& obj)
     {
+        std::ignore = obj;
         return false;
     }
 };
@@ -115,30 +119,30 @@ public:
                         INDEX index = bufferVec_->rows();
                         bufferVec_->append(values, index, errMsg);
                         if (errMsg != "") {
-                            PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + " async append: " + errMsg);
+                            LOG_ERR(ENCODERDECODER_PREFIX + " async append: " + errMsg);
                         }
                     }
                 } catch (MemoryException& me) {
-                    PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + "out of memory");
+                    LOG_ERR(ENCODERDECODER_PREFIX + "out of memory");
                     return;
                 } catch (std::bad_alloc& me) {
-                    PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + "out of memory");
+                    LOG_ERR(ENCODERDECODER_PREFIX + "out of memory");
                     return;
                 } catch (std::exception& e) {
-                    PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + " async append: " + string(e.what()));
+                    LOG_ERR(ENCODERDECODER_PREFIX + " async append: " + string(e.what()));
                     continue;
                 }
             }
             batchProcessor_->flushTable();
 
         } catch (MemoryException& me) {
-            PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + "out of memory");
+            LOG_ERR(ENCODERDECODER_PREFIX + "out of memory");
             return;
         } catch (std::bad_alloc& me) {
-            PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + "out of memory");
+            LOG_ERR(ENCODERDECODER_PREFIX + "out of memory");
             return;
         } catch(...) {
-            PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + "Async flush thread failed.");
+            LOG_ERR(ENCODERDECODER_PREFIX + "Async flush thread failed.");
         }
     }
 
@@ -272,7 +276,7 @@ inline void BatchProcessor::flushTable()
     } catch (std::bad_alloc& me) {
         throw me;
     } catch (std::exception& e) {
-        PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX, " async flush: " + string(e.what()));
+        LOG_ERR(ENCODERDECODER_PREFIX, " async flush: " + string(e.what()));
     }
     bufferVec_->clear();
 }

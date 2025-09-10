@@ -1,4 +1,4 @@
-opcua,libPluginOPCUA.so,3.00.3
+opcua,libPluginOPCUA.so,<version>
 getOpcUaServerList,getOpcServerList,system,1,1,0,0,(serverUrl)
 getOpcUaEndPointList,getOpcEndPointList,system,1,1,0,0,(serverUrl)
 connectOpcUaServer,connect,system,2,8,0,0,(endPointUrl,clientUri,[username],[password],[securityMode],[securityPolicy],[certificatePath],[privateKeyPath])

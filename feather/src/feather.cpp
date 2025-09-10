@@ -11,6 +11,8 @@
 #include <Concurrent.h>
 #include <Logger.h>
 
+#include "ddbplugin/PluginLogger.h"
+
 #include "arrow/ipc/feather.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/result.h"
@@ -23,8 +25,6 @@
 #include "arrow/io/file.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_binary.h"
-#include "ddbplugin/PluginLogger.h"
-#include "ddbplugin/PluginLoggerImp.h"
 
 using namespace arrow;
 using std::cout;
@@ -586,11 +586,11 @@ class GetColRunnable: public Runnable {
         } catch (std::exception &e) {
             string errMsg = e.what();
             status_ = Status(StatusCode::SerializationError, errMsg);
-            PLUGIN_LOG_ERR(errMsg);
+            LOG_ERR(errMsg);
         } catch (...) {
             string errMsg = "Error occurs when get cols data.";
             status_ = Status(StatusCode::UnknownError, errMsg);
-            PLUGIN_LOG_ERR(errMsg);
+            LOG_ERR(errMsg);
         }
     }
     private:
@@ -711,7 +711,7 @@ ConstantSP loadFeather(Heap *heap, vector<ConstantSP> &args){
     if(args[0]->getType() != DT_STRING){
         throw IllegalArgumentException(__FUNCTION__, usage + "The parameter filePath must be a string.");
     }
-    VectorSP columnToRead = SmartPointer<Vector>(0);
+    VectorSP columnToRead;
     if(args.size()==2 && !args[1]->isNull()) {
         if(!args[1]->isVector() || args[1]->getCategory() != LITERAL) {
             throw IllegalArgumentException(__FUNCTION__, usage + "The parameter columns must be a string vector.");
@@ -1096,11 +1096,11 @@ class TransColRunnable: public Runnable {
         } catch (std::exception &e) {
             string errMsg = e.what();
             status_ = Status(StatusCode::SerializationError, errMsg);
-            PLUGIN_LOG_ERR(errMsg);
+            LOG_ERR(errMsg);
         } catch (...) {
             string errMsg = "Error occurs when trans cols data.";
             status_ = Status(StatusCode::UnknownError, errMsg);
-            PLUGIN_LOG_ERR(errMsg);
+            LOG_ERR(errMsg);
         }
     }
     private:

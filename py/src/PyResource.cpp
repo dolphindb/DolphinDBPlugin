@@ -6,7 +6,7 @@
 #include "PyResource.h"
 #include "Protect.h"
 #include <pybind11/embed.h>
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 
 namespace py = pybind11;
 

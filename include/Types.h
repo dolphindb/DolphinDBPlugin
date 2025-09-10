@@ -107,11 +107,11 @@ const std::string aggregationKeyword = "defg";
 const std::string mapreduceKeyword = "mapr";
 const std::string classKeyword = "class";
 const int ARRAY_TYPE_BASE = 64;
-const int TYPE_COUNT = 42;
+const int TYPE_COUNT = 45;
 
 enum DATA_TYPE {DT_VOID,DT_BOOL,DT_CHAR,DT_SHORT,DT_INT,DT_LONG,DT_DATE,DT_MONTH,DT_TIME,DT_MINUTE,DT_SECOND,DT_DATETIME,DT_TIMESTAMP,DT_NANOTIME,DT_NANOTIMESTAMP,
         DT_FLOAT,DT_DOUBLE,DT_SYMBOL,DT_STRING,DT_UUID,DT_FUNCTIONDEF,DT_HANDLE,DT_CODE,DT_DATASOURCE,DT_RESOURCE,DT_ANY,DT_COMPRESS,DT_DICTIONARY,DT_DATEHOUR,DT_DATEMINUTE,
-        DT_IP,DT_INT128,DT_BLOB,DT_DECIMAL,DT_COMPLEX,DT_POINT,DT_DURATION,DT_DECIMAL32,DT_DECIMAL64,DT_DECIMAL128,DT_OBJECT, DT_IOTANY};
+        DT_IP,DT_INT128,DT_BLOB,DT_DECIMAL,DT_COMPLEX,DT_POINT,DT_DURATION,DT_DECIMAL32,DT_DECIMAL64,DT_DECIMAL128,DT_OBJECT, DT_IOTANY, DT_INSTRUMENT, DT_MKTDATA, DT_MKTDATAROW};
 
 
 enum DATA_CATEGORY {NOTHING,LOGICAL,INTEGRAL,FLOATING,TEMPORAL,LITERAL,SYSTEM,MIXED,BINARY,COMPLEX,ARRAY,DENARY};
@@ -128,15 +128,17 @@ enum DATA_CATEGORY {NOTHING,LOGICAL,INTEGRAL,FLOATING,TEMPORAL,LITERAL,SYSTEM,MI
  * DF_TABLE = 6
  * DF_CHART = 7
  * DF_CHUNK = 8
- * DF_OBJECT = 9
+ * DF_SYSOBJ = 9
+ * DF_TENSOR = 10
+ * DF_EXTOBJ = 11
  *
  * In case we have to change the value, please review the constructor of Constant, Vector, Set, Dictionary, and Table.
  */
-enum DATA_FORM {DF_SCALAR,DF_VECTOR,DF_PAIR,DF_MATRIX,DF_SET,DF_DICTIONARY,DF_TABLE,DF_CHART,DF_CHUNK,DF_SYSOBJ,DF_TENSOR,MAX_DATA_FORMS};
+enum DATA_FORM {DF_SCALAR,DF_VECTOR,DF_PAIR,DF_MATRIX,DF_SET,DF_DICTIONARY,DF_TABLE,DF_CHART,DF_CHUNK,DF_SYSOBJ,DF_TENSOR,DF_EXTOBJ,MAX_DATA_FORMS};
 
 enum WORD_TYPE {KEYWORD,ENUM,CONSTANT,VARIABLE,FUNCNAME,GLOBALVARIABLE,OPERATOR,FUNCPATTERN,ASSIGNMENT,REFERENCE,BRACKET,DELIMITOR,COMMA,NAMESPACE,MACRO,ELLIPSIS,QUESTIONMARK,UNKNOWN};
 
-enum TABLE_TYPE {BASICTBL,REALTIMETBL,SNAPTBL,FILETBL,CHUNKTBL,JOINTBL,SEGTBL,ALIASTBL,COMPRESSTBL,LOGROWTBL,MVCCTBL,WIDETBL,DIMTBL,SNAPDIMTBL,CUSTOMIZEDTBL,CACHEDTBL,RESPOOLTBL,SUBTBL,IOTABLET,STREAMENGINE,IPCTBL,SEG_PERSISTENT_TBL,SQLTBL,MULTIJOINTBL,UNIVERSAL_TBL_JOIN,IMOLTPTABLET,TABLEJOINERTBL,PKTABLET,MAX_TABLE_TYPES};
+enum TABLE_TYPE {BASICTBL,REALTIMETBL,SNAPTBL,FILETBL,CHUNKTBL,JOINTBL,SEGTBL,ALIASTBL,COMPRESSTBL,LOGROWTBL,MVCCTBL,WIDETBL,DIMTBL,SNAPDIMTBL,CUSTOMIZEDTBL,CACHEDTBL,RESPOOLTBL,SUBTBL,IOTABLET,STREAMENGINE,IPCTBL,SEG_PERSISTENT_TBL,SQLTBL,MULTIJOINTBL,UNIVERSAL_TBL_JOIN,IMOLTPTABLET,TABLEJOINERTBL,PKTABLET,ORCASTREAMTBL,EXTERNALTBL,MAX_TABLE_TYPES};
 
 enum IO_ERR {OK,DISCONNECTED,NODATA,NOSPACE,TOO_LARGE_DATA,INPROGRESS,INVALIDDATA,END_OF_STREAM,READONLY,WRITEONLY,NOTEXIST,CORRUPT,NOT_LEADER,OTHERERR};
 
@@ -195,7 +197,12 @@ enum ACL_ACCESS_TYPE: short {
 	// SENSITIVE_VIEW
 	TABLE_SENSITIVE_VIEW,
 	DB_SENSITIVE_VIEW,
-    MAX_PARTITION_NUM_PER_QUERY
+    MAX_PARTITION_NUM_PER_QUERY,
+    // MCP
+    MCP_MANAGE,
+    MCP_DEVELOP,
+    MCP_EXEC,
+    CREATE_SHARED_VARS
 };
 
 enum class ColumnFilterType { BloomFilter, ZoneMap, VectorIndex, TextIndex, UnknownIndex };
@@ -291,6 +298,24 @@ static_assert(uint128(int128MinValue() | int128MaxValue()) == uint128MaxValue(),
 #endif
 
 typedef union {
+	int128 int128Val;
+	long long longVal;
+	int intVal;
+	short shortVal;
+	char charVal;
+	long double longdoubleVal;
+	double doubleVal;
+	float floatVal;
+	char* pointer;
+	long longArray[2];
+	int intArray[4];
+	double doubleArray[2];
+	float floatArray[4];
+	short shortArray[8];
+	char charArray[16];
+} U16;
+
+typedef union {
 	long long longVal;
 	int intVal;
 	short shortVal;
@@ -345,59 +370,59 @@ class DOLPHIN_ENUM_TYPE {
   public:
     using RawType = int32_t;
 
-    DOLPHIN_ENUM_TYPE() : value(0) {
+    constexpr DOLPHIN_ENUM_TYPE() : value(0) {
     }
-    DOLPHIN_ENUM_TYPE(int32_t v) : value(v) {
+    constexpr DOLPHIN_ENUM_TYPE(int32_t v) : value(v) {
     }
 
-    DOLPHIN_ENUM_TYPE &operator=(int32_t v) {
+    constexpr DOLPHIN_ENUM_TYPE &operator=(int32_t v) {
         value = v;
         return *this;
     }
 
-    operator int32_t() const {
+    constexpr operator int32_t() const {
         return value;
     }
 
-    bool operator==(const DOLPHIN_ENUM_TYPE &other) const {
+    constexpr bool operator==(const DOLPHIN_ENUM_TYPE &other) const {
         return value == other.value;
     }
-    bool operator==(int32_t other) const {
+    constexpr bool operator==(int32_t other) const {
         return value == other;
     }
-    friend bool operator==(int32_t lhs, const DOLPHIN_ENUM_TYPE &rhs) {
+    friend constexpr bool operator==(int32_t lhs, const DOLPHIN_ENUM_TYPE &rhs) {
         return lhs == rhs.value;
     }
 
-    bool operator!=(const DOLPHIN_ENUM_TYPE &other) const {
+    constexpr bool operator!=(const DOLPHIN_ENUM_TYPE &other) const {
         return value != other.value;
     }
-    bool operator<(const DOLPHIN_ENUM_TYPE &other) const {
+    constexpr bool operator<(const DOLPHIN_ENUM_TYPE &other) const {
         return value < other.value;
     }
-    bool operator<=(const DOLPHIN_ENUM_TYPE &other) const {
+    constexpr bool operator<=(const DOLPHIN_ENUM_TYPE &other) const {
         return value <= other.value;
     }
-    bool operator>(const DOLPHIN_ENUM_TYPE &other) const {
+    constexpr bool operator>(const DOLPHIN_ENUM_TYPE &other) const {
         return value > other.value;
     }
-    bool operator>=(const DOLPHIN_ENUM_TYPE &other) const {
+    constexpr bool operator>=(const DOLPHIN_ENUM_TYPE &other) const {
         return value >= other.value;
     }
 
-    bool operator!=(const RawType &other) const {
+    constexpr bool operator!=(const RawType &other) const {
         return value != other;
     }
-    bool operator<(const RawType &other) const {
+    constexpr bool operator<(const RawType &other) const {
         return value < other;
     }
-    bool operator<=(const RawType &other) const {
+    constexpr bool operator<=(const RawType &other) const {
         return value <= other;
     }
-    bool operator>(const RawType &other) const {
+    constexpr bool operator>(const RawType &other) const {
         return value > other;
     }
-    bool operator>=(const RawType &other) const {
+    constexpr bool operator>=(const RawType &other) const {
         return value >= other;
     }
 
@@ -421,17 +446,17 @@ public:
     static const RawType RESERVED_DBENGINE_TYPES = 64;
     static const RawType MAX_DBENGINE_TYPES = 128;
 
-    DBENGINE_TYPE() : DOLPHIN_ENUM_TYPE(MAX_DBENGINE_TYPES) {
+    constexpr DBENGINE_TYPE() : DOLPHIN_ENUM_TYPE(MAX_DBENGINE_TYPES) {
     }
-    DBENGINE_TYPE(RawType v) : DOLPHIN_ENUM_TYPE(v) {
+    constexpr DBENGINE_TYPE(RawType v) : DOLPHIN_ENUM_TYPE(v) {
     }
 };
 
 class OBJECT_TYPE : public DOLPHIN_ENUM_TYPE {
 public:
-	OBJECT_TYPE() : DOLPHIN_ENUM_TYPE() {}
+	constexpr OBJECT_TYPE() : DOLPHIN_ENUM_TYPE() {}
 
-    OBJECT_TYPE(int32_t v) : DOLPHIN_ENUM_TYPE(v) {}
+    constexpr OBJECT_TYPE(int32_t v) : DOLPHIN_ENUM_TYPE(v) {}
 
 	static const RawType CONSTOBJ = 0;
 	static const RawType VAR = 1;
@@ -490,9 +515,9 @@ public:
 */
 class STATEMENT_TYPE : public DOLPHIN_ENUM_TYPE {
   public:
-    STATEMENT_TYPE() : DOLPHIN_ENUM_TYPE(0) {
+    constexpr STATEMENT_TYPE() : DOLPHIN_ENUM_TYPE(0) {
     }
-    STATEMENT_TYPE(int32_t v) : DOLPHIN_ENUM_TYPE(v) {
+    constexpr STATEMENT_TYPE(int32_t v) : DOLPHIN_ENUM_TYPE(v) {
     }
     static const STATEMENT_TYPE IF;
     static const STATEMENT_TYPE DO;

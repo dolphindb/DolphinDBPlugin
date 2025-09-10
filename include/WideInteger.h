@@ -1,7 +1,9 @@
 ///
 /// ref: https://github.com/abseil/abseil-cpp/blob/master/absl/numeric/int128.h
 ///
-#pragma once
+#ifndef WIDEINTEGER_H_
+#define WIDEINTEGER_H_
+
 #include <functional>
 #include <limits>
 #include <iosfwd>
@@ -44,6 +46,12 @@ constexpr long long int128High64(int128 v) {
 namespace std {
 using ddb::int128;
 using ddb::uint128;
+
+template<>
+struct make_unsigned<int128>
+{
+    using type = uint128;
+};
 
 std::ostream& operator<<(std::ostream &os, ddb::uint128 v);
 std::ostream& operator<<(std::ostream &os, ddb::int128 v);
@@ -194,8 +202,8 @@ struct hash<ddb::uint128> {
 #endif
 
 namespace std {
-
 ddb::int128 pow(ddb::int128 x, size_t y);
 ddb::int128 trunc(ddb::int128 x);
-
 } // namespace std
+
+#endif

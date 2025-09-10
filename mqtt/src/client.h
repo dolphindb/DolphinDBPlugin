@@ -15,13 +15,13 @@
 using namespace ddb;
 
 extern "C" ConstantSP mqttClientSub(Heap *heap, vector<ConstantSP> &arguments);
-extern "C" ConstantSP mqttClientStopSub(const ConstantSP &handle, const ConstantSP &b);
+extern "C" ConstantSP mqttClientStopSub(Heap *heap, const ConstantSP &handle, const ConstantSP &b);
 
 extern "C" ConstantSP mqttClientConnect(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP mqttClientCreatePublisher(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP mqttClientClose(const ConstantSP &handle, const ConstantSP &b);
-extern "C" ConstantSP getSubscriberStat(const ConstantSP &handle, const ConstantSP &b);
+extern "C" ConstantSP mqttClientClose(Heap *heap, const ConstantSP &handle, const ConstantSP &b);
+extern "C" ConstantSP getSubscriberStat(Heap *heap, const ConstantSP &handle, const ConstantSP &b);
 
 static const string LOG_PRE_STR = "[PLUGIN:MQTT]";
 static const int MAX_RETRY_COUNT = 10;
@@ -71,7 +71,7 @@ class Connection : public ConnctionBase {
         sockfd_ = new Socket(host_, port_, false);
         IO_ERR ret = sockfd_->connect();
         if (ret != OK && ret != INPROGRESS) {
-            PLUGIN_LOG_ERR("[PluginMQTT]: Failed to connect. ");
+            LOG_ERR("[PluginMQTT]: Failed to connect. ");
             return;
         }
         mqtt_reinit(&client_, sockfd_->getHandle(), sendbuf_.get(), sendbufSize_, recvbuf_.get(), recvbufSize_);

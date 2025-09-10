@@ -19,8 +19,8 @@ using std::ostringstream;
 
 class DataSource;
 class Resource;
-typedef SmartPointer<DataSource> DataSourceSP;
-typedef SmartPointer<Resource> ResourceSP;
+typedef ObjectPtr<DataSource> DataSourceSP;
+typedef ObjectPtr<Resource> ResourceSP;
 
 void initFormatters();
 
@@ -253,6 +253,10 @@ public:
 	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){
 		memcpy(uuid_, value->getInt128(valueIndex).bytes(), 16);
 		return true;
+	}
+	const unsigned char* getRawData() const { return uuid_;}
+	void setRawData(const unsigned char* value){
+		memcpy(uuid_, value, 16);
 	}
 
 protected:
@@ -523,6 +527,8 @@ public:
 	virtual uint64_t hash() const;
 	virtual bool equal(const ConstantSP& other) const;
 	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getStringRef(valueIndex);return true;}
+	const DolphinString& getRawData() const { return val_;}
+	void setRawData(const DolphinString& value) { val_ = value;}
 
 	ConstantSP getIterator(const ConstantSP &self) const override;
 
@@ -644,6 +650,70 @@ public:
 	virtual void setString(const string& val){}
 	virtual void setString(const DolphinString& val){}
 	virtual bool isNull() const = 0;
+
+	virtual bool setBool(INDEX start, int len, const char* buf) {
+		if(UNLIKELY(len != 1))
+			return false;
+		if(buf[0] != CHAR_MIN)
+			val_ = (T)buf[0];
+		else
+			setNull();
+		return true;
+	}
+	virtual bool setChar(INDEX start, int len, const char* buf) {
+		if(UNLIKELY(len != 1))
+			return false;
+		if(buf[0] != CHAR_MIN)
+			val_ = (T)buf[0];
+		else
+			setNull();
+		return true;
+	}
+	virtual bool setShort(INDEX start, int len, const short* buf) {
+		if(UNLIKELY(len != 1))
+			return false;
+		if(buf[0] != SHRT_MIN)
+			val_ = (T)buf[0];
+		else
+			setNull();
+		return true;
+	}
+	virtual bool setInt(INDEX start, int len, const int* buf) {
+		if(UNLIKELY(len != 1))
+			return false;
+		if(buf[0] != INT_MIN)
+			val_ = (T)buf[0];
+		else
+			setNull();
+		return true;
+	}
+	virtual bool setLong(INDEX start, int len, const long long* buf) {
+		if(UNLIKELY(len != 1))
+			return false;
+		if(buf[0] != LLONG_MIN)
+			val_ = (T)buf[0];
+		else
+			setNull();
+		return true;
+	}
+	virtual bool setFloat(INDEX start, int len, const float* buf) {
+		if(UNLIKELY(len != 1))
+			return false;
+		if(buf[0] != FLT_NMIN)
+			val_ = (T)buf[0];
+		else
+			setNull();
+		return true;
+	}
+	virtual bool setDouble(INDEX start, int len, const double* buf) {
+		if(UNLIKELY(len != 1))
+			return false;
+		if(buf[0] != DBL_NMIN)
+			val_ = (T)buf[0];
+		else
+			setNull();
+		return true;
+	}
 
 	virtual ConstantSP get(const ConstantSP& index) const override {
 		if (index->isScalar()) {
@@ -1054,6 +1124,8 @@ public:
 			return true;
 		}
 	}
+	T getRawData() const { return val_;}
+	void setRawData(T value) { val_ = value;}
 
 protected:
 	T val_;
@@ -1894,10 +1966,10 @@ public:
 
 private:
     template <typename R>
-    bool getDecimal(INDEX /*start*/, int len, int scale, R *buf) const;
+    bool SWORDFISH_API getDecimal(INDEX /*start*/, int len, int scale, R *buf) const;
 
     template <typename R>
-    bool setDecimal(INDEX /*start*/, int len, int scale, const R *buf);
+    bool SWORDFISH_API setDecimal(INDEX /*start*/, int len, int scale, const R *buf);
 
     template <typename U>
     U toInteger(U nullVal) const;

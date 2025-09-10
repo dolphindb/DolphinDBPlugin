@@ -6,10 +6,10 @@ namespace ddb {
 
 class DolphinClass;
 class DolphinInstance;
-typedef SmartPointer<DolphinClass> DolphinClassSP;
-typedef SmartPointer<DolphinInstance> DolphinInstanceSP;
+typedef ObjectPtr<DolphinClass> DolphinClassSP;
+typedef ObjectPtr<DolphinInstance> DolphinInstanceSP;
 
-class DolphinClass : public OOClass {
+class SWORDFISH_API DolphinClass : public OOClass {
 public:
 	DolphinClass(const string& qualifier, const string& name, DolphinClassSP baseCls = nullptr);
 	DolphinClass(const string& qualifier, const string& name, bool builtin);

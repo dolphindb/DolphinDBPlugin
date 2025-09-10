@@ -17,9 +17,9 @@ DdbKafkaProducer::~DdbKafkaProducer() {
     try {
         producer_->flush();
     } catch (std::exception &e) {
-        PLUGIN_LOG_WARN(KAFKA_PREFIX, "producer destruction failed: ", e.what());
+        LOG_WARN(KAFKA_PREFIX, "producer destruction failed: ", e.what());
     } catch (...) {
-        PLUGIN_LOG_WARN(KAFKA_PREFIX, "producer destruction failed.");
+        LOG_WARN(KAFKA_PREFIX, "producer destruction failed.");
     }
 }
 
@@ -37,7 +37,7 @@ inline void drain(SmartPointer<Consumer> consumer) {
             if (msg.is_eof() || error == last_error) {
                 break;
             } else {
-                PLUGIN_LOG_ERR(KAFKA_PREFIX, "Timeout during draining.");
+                LOG_ERR(KAFKA_PREFIX, "Timeout during draining.");
             }
         }
 
@@ -47,7 +47,7 @@ inline void drain(SmartPointer<Consumer> consumer) {
 
         auto ts = Util::getEpochTime();
         if (ts - start_time > 5000) {
-            PLUGIN_LOG_ERR(KAFKA_PREFIX, "Timeout during draining.");
+            LOG_ERR(KAFKA_PREFIX, "Timeout during draining.");
             break;
         }
     }
@@ -66,9 +66,9 @@ DdbKafkaConsumer::~DdbKafkaConsumer() {
         consumer_->unassign();
         drain(consumer_);
     } catch (std::exception &e) {
-        PLUGIN_LOG_WARN(KAFKA_PREFIX, "consumer destruction failed: ", e.what());
+        LOG_WARN(KAFKA_PREFIX, "consumer destruction failed: ", e.what());
     } catch (...) {
-        PLUGIN_LOG_WARN(KAFKA_PREFIX, "consumer destruction failed.");
+        LOG_WARN(KAFKA_PREFIX, "consumer destruction failed.");
     }
 }
 

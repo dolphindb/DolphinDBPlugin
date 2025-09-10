@@ -5,6 +5,6 @@
 #include "ddbplugin/CommonInterface.h"
 
 extern "C" {
-ddb::ConstantSP minmax(const ddb::ConstantSP& a, const ddb::ConstantSP& b);
+ddb::ConstantSP minmax(ddb::Heap* heap, const ddb::ConstantSP& a, const ddb::ConstantSP& b);
 ddb::ConstantSP echo(ddb::Heap* heap, argsT &arguments );
 }

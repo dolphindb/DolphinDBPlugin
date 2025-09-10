@@ -14,9 +14,32 @@
 #include <Util.h>
 #include <Types.h>
 
+#if defined(_MSC_VER)
+#pragma warning( push )
+#elif defined(__clang__)
+#pragma clang diagnostic push
+// Too many to fix
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma clang diagnostic ignored "-Wredundant-move"
+#else // gcc
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#if __GNUC__ >= 9
+#pragma GCC diagnostic ignored "-Wredundant-move"
+#endif
+#endif
+
 #include "arrow/api.h"
 #include "arrow/ipc/api.h"
 #include "arrow/io/api.h"
+
+#if defined(_MSC_VER)
+#pragma warning( pop )
+#elif defined(__clang__)
+#pragma clang diagnostic pop
+#else // gcc
+#pragma GCC diagnostic pop
+#endif
 
 namespace ddb {
 

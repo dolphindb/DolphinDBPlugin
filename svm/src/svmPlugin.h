@@ -1,4 +1,4 @@
-#include <CoreConcept.h>
+#include "ddbplugin/DolphinDBEverything.h"
 #include "ddbplugin/CommonInterface.h"
 #include <Util.h>
 #include "svm.h"
@@ -120,6 +120,7 @@ namespace svm{
         }
 
         void set_epsilon_svr(double eps=0.001, double C=1){
+            std::ignore = eps; // eps is not used in libsvm, but we keep it for compatibility
             param.svm_type=EPSILON_SVR;
             param.C=C;
         }
@@ -154,6 +155,14 @@ namespace svm{
         }
 
         void add_train_data(double ans, const std::vector<std::pair<int, double> > &vect){
+            // HACK DPLG-4599, special treatment for precomputed kernel
+            if (param.kernel_type == PRECOMPUTED) {
+                for (auto &p : vect) {
+                    if (uint32_t(p.second) >= vect.size()) {
+                        throw RuntimeException(SVM_PLUGIN_PREFIX + "Invalid input for precomputed kernel.");
+                    }
+                }
+            }
             dat.push_back(make_pair(ans, vect));
         }
 

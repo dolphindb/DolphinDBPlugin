@@ -11,7 +11,6 @@
 #include <zlib.h>
 
 #include "DolphinDBEverything.h"
-#include "Logger.h"
 #include "Concurrent.h"
 #include "Exceptions.h"
 #include "ScalarImp.h"
@@ -64,7 +63,7 @@ namespace /*anonymous*/ {
             const auto ref = caller;
             const auto var = argName;
             throw IllegalArgumentException(ref,
-                usage + PLUGIN_NAME ": " + var + " should be an integer scalar.");
+                usage + KDB_PREFIX ": " + var + " should be an integer scalar.");
         }
         return arg->getInt();
     }
@@ -77,7 +76,7 @@ namespace /*anonymous*/ {
             const auto ref = caller;
             const auto var = argName;
             throw IllegalArgumentException(ref,
-                usage + PLUGIN_NAME ": " + var + " should be a string scalar.");
+                usage + KDB_PREFIX ": " + var + " should be a string scalar.");
         }
         return arg->getString();
     }
@@ -89,12 +88,12 @@ namespace /*anonymous*/ {
         const auto ref = caller;
         if(arg->getType() != DT_RESOURCE) {
             throw IllegalArgumentException(ref,
-                usage + PLUGIN_NAME ": Invalid connection object.");
+                usage + KDB_PREFIX ": Invalid connection object.");
         }
         const string desc = arg->getString();
         if(desc.find(Connection::MARKER) == desc.npos) {
             throw IllegalArgumentException(ref,
-                usage + PLUGIN_NAME ": Invalid kdb+ connection object.");
+                usage + KDB_PREFIX ": Invalid kdb+ connection object.");
         }
         Connection* conn = reinterpret_cast<Connection*>(arg->getLong());
         return conn;
@@ -117,7 +116,7 @@ namespace /*anonymous*/ {
         Connection* conn = arg2Connection(arg, "", __FUNCTION__);
         if(!conn) {
             throw IllegalArgumentException(__FUNCTION__,
-                PLUGIN_NAME ": Connection object already closed.");
+                KDB_PREFIX ": Connection object already closed.");
         }
         ConstantSP result;
         SingleThread([&](){ result = fun(conn); });
@@ -132,7 +131,7 @@ namespace /*anonymous*/ {
             args[0]->setLong(0);
         }
         catch(const TraceableException& te) {
-            PLUGIN_LOG_ERR(PLUGIN_NAME ": "
+            LOG_ERR(KDB_PREFIX ": "
                 + string{__FUNCTION__} + " error: " + te.what());
         }
     }
@@ -151,25 +150,25 @@ Connection::Connection(
         KDB_TIMEOUT, KDB_CAPABILITY);
     switch(handle) {
         case KDB_IPC_AUTH_ERROR:
-            throw RuntimeException(PLUGIN_NAME ": Authentication error.");
+            throw RuntimeException(KDB_PREFIX ": Authentication error.");
         case KDB_IPC_CONN_ERROR:
-            throw RuntimeException(PLUGIN_NAME ": Connection error.");
+            throw RuntimeException(KDB_PREFIX ": Connection error.");
         case KDB_IPC_TIMEOUT_ERROR:
-            throw RuntimeException(PLUGIN_NAME ": Connection time out.");
+            throw RuntimeException(KDB_PREFIX ": Connection time out.");
         default:
             if(handle < 0) {
-                throw RuntimeException(PLUGIN_NAME ": q-IPC error.");
+                throw RuntimeException(KDB_PREFIX ": q-IPC error.");
             }
     }
     assert(handle > 0);
     handle_ = handle;
-    PLUGIN_LOG(PLUGIN_NAME ": Connection `:" + str() + " opened.");
+    LOG(KDB_PREFIX ": Connection `:" + str() + " opened.");
 }
 
 Connection::~Connection() {
     if(handle_) {
         assert(handle_ > 0);
-        PLUGIN_LOG(PLUGIN_NAME ": Connection `:" + str() + " closed.");
+        LOG(KDB_PREFIX ": Connection `:" + str() + " closed.");
         kclose(handle_);
     }
 }
@@ -177,12 +176,12 @@ Connection::~Connection() {
 KPtr Connection::kExec(const string& command) const {
     KPtr res{ k(handle_, kdb::sym(command), nullptr) };
     if(!res) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "kdb+ network error: " + command + '(' + strerror(errno) + ").");
     } else
     if(res->t == kdb::K_ERROR) {
         const string errMsg = res->s;
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "kdb+ execution error: " + command + "('" + errMsg + ").");
     }
     return res;
@@ -197,7 +196,7 @@ string Connection::loadSymFile(const string& symFilePath) const {
 
     const auto fields = Util::split(symFilePath, PATH_SEP);
     if(fields.empty()) {
-        throw RuntimeException(PLUGIN_NAME ": Invalid symPath.");
+        throw RuntimeException(KDB_PREFIX ": Invalid symPath.");
     }
     const string symName = fields.back();
 
@@ -205,7 +204,7 @@ string Connection::loadSymFile(const string& symFilePath) const {
     const string command = symName + R"(:get hsym`$")" + symFilePath + '"';
     kExec(command);
 
-    PLUGIN_LOG(PLUGIN_NAME ": Loaded enum sym `" + symName + " in kdb+");
+    LOG(KDB_PREFIX ": Loaded enum sym `" + symName + " in kdb+");
     return symName;
 }
 
@@ -214,13 +213,13 @@ ConstantSP Connection::loadColumn(
 ) const {
     assert(!tableName.empty());
     if(colName.empty()) {
-        throw RuntimeException(PLUGIN_NAME ": invalid column name.");
+        throw RuntimeException(KDB_PREFIX ": invalid column name.");
     }
 
     const string queryCommand = tableName + "`" + colName;
     KPtr colRes{ kExec(queryCommand) };
     if(!kdb::isValidList(colRes.get())) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Failed to load column " + tableName + "." + colName + ".");
     }
 
@@ -232,7 +231,7 @@ ConstantSP Connection::loadColumn(
         kdb::fakeEmptyAnyColumn(col, tableName, colName);
     }
 
-    PLUGIN_LOG(PLUGIN_NAME ": Loaded column " + tableName + "." + colName
+    LOG(KDB_PREFIX ": Loaded column " + tableName + "." + colName
         + " (" + to_string(static_cast<kdb::Type>(colRes->t))
         + "->" + to_string(col->getType()) + ") "
           "size=" + to_string(col->size()));
@@ -261,9 +260,9 @@ ConstantSP Connection::extractSchema(const std::string& tablePath, const std::st
             }
             // drop table & sym, release memory in kdb+
         } catch (std::exception &e) {
-            PLUGIN_LOG_ERR(PLUGIN_NAME, "execute '" + dropCommand + "' failed due to ", e.what());
+            LOG_ERR(KDB_PREFIX, "execute '" + dropCommand + "' failed due to ", e.what());
         } catch (...) {
-            PLUGIN_LOG_ERR(PLUGIN_NAME, "execute '" + dropCommand + "' failed");
+            LOG_ERR(KDB_PREFIX, "execute '" + dropCommand + "' failed");
         }
     });
     string uniqueTableName = getUniqueTableName();
@@ -276,9 +275,9 @@ ConstantSP Connection::extractSchema(const std::string& tablePath, const std::st
             // drop table & sym, release memory in kdb+
             kExec(cleanCommand);
         } catch (std::exception &e) {
-            PLUGIN_LOG_ERR(PLUGIN_NAME, "execute '" + cleanCommand + "' failed due to ", e.what());
+            LOG_ERR(KDB_PREFIX, "execute '" + cleanCommand + "' failed due to ", e.what());
         } catch (...) {
-            PLUGIN_LOG_ERR(PLUGIN_NAME, "execute '" + cleanCommand + "' failed");
+            LOG_ERR(KDB_PREFIX, "execute '" + cleanCommand + "' failed");
         }
     });
     string countLine = "count " + uniqueTableName;
@@ -295,7 +294,7 @@ ConstantSP Connection::extractSchema(const std::string& tablePath, const std::st
         dummyTable = execute(dummyLine);
     }
     if (dummyTable->getForm() != DF_TABLE) {
-        throw RuntimeException(PLUGIN_NAME "data of '" + tablePath + "' is not a kdb table.");
+        throw RuntimeException(KDB_PREFIX "data of '" + tablePath + "' is not a kdb table.");
     }
 
     int colNums = dummyTable->columns();
@@ -355,7 +354,7 @@ ConstantSP Connection::loadTableEx(Heap *heap, DBHandleWrapper dbHandle, Constan
         isTablePath = true;
     } catch (std::exception& e) {
         errMsg = e.what();
-        PLUGIN_LOG(PLUGIN_NAME, "failed to execute '", keyCommand, "' in kdb+");
+        LOG(KDB_PREFIX, "failed to execute '", keyCommand, "' in kdb+");
     }
 
     symPath = normalizePath(symPath);
@@ -369,12 +368,12 @@ ConstantSP Connection::loadTableEx(Heap *heap, DBHandleWrapper dbHandle, Constan
             isTablePath = true;
             pathOrScript = convertPath;
         } catch (...) {
-            PLUGIN_LOG(PLUGIN_NAME, "failed to execute '", keyCommand, "' in kdb+");
+            LOG(KDB_PREFIX, "failed to execute '", keyCommand, "' in kdb+");
         }
     }
 
     if (isTablePath) {
-        PLUGIN_LOG_INFO(PLUGIN_NAME, "load table from tablePath '", pathOrScript, "'");
+        LOG_INFO(KDB_PREFIX, "load table from tablePath '", pathOrScript, "'");
         string symName = loadSymFile(symPath);
 
         ddb::PluginDefer deferSym([=](){
@@ -386,9 +385,9 @@ ConstantSP Connection::loadTableEx(Heap *heap, DBHandleWrapper dbHandle, Constan
                 }
                 // drop table & sym, release memory in kdb+
             } catch (std::exception &e) {
-                PLUGIN_LOG_ERR(PLUGIN_NAME, "execute '" + dropCommand + "' failed due to ", e.what());
+                LOG_ERR(KDB_PREFIX, "execute '" + dropCommand + "' failed due to ", e.what());
             } catch (...) {
-                PLUGIN_LOG_ERR(PLUGIN_NAME, "execute '" + dropCommand + "' failed");
+                LOG_ERR(KDB_PREFIX, "execute '" + dropCommand + "' failed");
             }
         });
         string uniqueTableName = getUniqueTableName();
@@ -402,9 +401,9 @@ ConstantSP Connection::loadTableEx(Heap *heap, DBHandleWrapper dbHandle, Constan
                 // drop table & sym, release memory in kdb+
                 kExec(cleanCommand);
             } catch (std::exception &e) {
-                PLUGIN_LOG_ERR(PLUGIN_NAME, "execute '" + cleanCommand + "' failed due to ", e.what());
+                LOG_ERR(KDB_PREFIX, "execute '" + cleanCommand + "' failed due to ", e.what());
             } catch (...) {
-                PLUGIN_LOG_ERR(PLUGIN_NAME, "execute '" + cleanCommand + "' failed");
+                LOG_ERR(KDB_PREFIX, "execute '" + cleanCommand + "' failed");
             }
         });
         string countLine = "count " + uniqueTableName;
@@ -435,7 +434,7 @@ ConstantSP Connection::loadTableEx(Heap *heap, DBHandleWrapper dbHandle, Constan
             string batchLine = selectPrefix + uniqueTableName;
             kExecRet = execute(batchLine);
             if(kExecRet->getForm() != DF_TABLE) {
-                throw RuntimeException(PLUGIN_NAME " data of '" + pathOrScript + "' is not a kdb table.");
+                throw RuntimeException(KDB_PREFIX " data of '" + pathOrScript + "' is not a kdb table.");
             }
             dbUpdater.append(kExecRet);
             return dbUpdater.getTableHandle();
@@ -446,17 +445,17 @@ ConstantSP Connection::loadTableEx(Heap *heap, DBHandleWrapper dbHandle, Constan
                 selectPrefix + uniqueTableName + "[" + std::to_string(cursor) + " + til " + std::to_string(size) + "]";
             kExecRet = execute(batchLine);
             if(kExecRet->getForm() != DF_TABLE) {
-                throw RuntimeException(PLUGIN_NAME " data of '" + pathOrScript + "' is not a kdb table.");
+                throw RuntimeException(KDB_PREFIX " data of '" + pathOrScript + "' is not a kdb table.");
             }
             dbUpdater.append(kExecRet);
             cursor += size;
         }
     } else {
-        PLUGIN_LOG_INFO(PLUGIN_NAME, "load table from script '", pathOrScript, "' result");
+        LOG_INFO(KDB_PREFIX, "load table from script '", pathOrScript, "' result");
         // NOTE have to load all data into memory
         ConstantSP retData = execute(pathOrScript);
         if(retData->getForm() != DF_TABLE) {
-            throw RuntimeException(PLUGIN_NAME " the result of script '" + pathOrScript + "' is not a kdb table.");
+            throw RuntimeException(KDB_PREFIX " the result of script '" + pathOrScript + "' is not a kdb table.");
         }
         dbUpdater.append(retData);
     }
@@ -478,9 +477,9 @@ TableSP Connection::getTable(
             }
             // drop table & sym, release memory in kdb+
         } catch (std::exception &e) {
-            PLUGIN_LOG_ERR(PLUGIN_NAME, "execute '" + dropCommand + "' failed due to ", e.what());
+            LOG_ERR(KDB_PREFIX, "execute '" + dropCommand + "' failed due to ", e.what());
         } catch (...) {
-            PLUGIN_LOG_ERR(PLUGIN_NAME, "execute '" + dropCommand + "' failed");
+            LOG_ERR(KDB_PREFIX, "execute '" + dropCommand + "' failed");
         }
     });
     // load table
@@ -489,7 +488,7 @@ TableSP Connection::getTable(
     // split table path, get table name, get cols
     const auto pathVec = Util::split(tablePath, PATH_SEP);
     if(pathVec.empty()) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Invalid file path " + tablePath + ".");
     }
     const string tableName = pathVec.back();
@@ -500,15 +499,15 @@ TableSP Connection::getTable(
             // drop table & sym, release memory in kdb+
             KPtr dropRes{ kExec(dropCommand) };
         } catch (std::exception &e) {
-            PLUGIN_LOG_ERR(PLUGIN_NAME, "execute '" + dropCommand + "' failed due to ", e.what());
+            LOG_ERR(KDB_PREFIX, "execute '" + dropCommand + "' failed due to ", e.what());
         } catch (...) {
-            PLUGIN_LOG_ERR(PLUGIN_NAME, "execute '" + dropCommand + "' failed");
+            LOG_ERR(KDB_PREFIX, "execute '" + dropCommand + "' failed");
         }
     });
     const string colsCommand = "cols " + tableName;
     KPtr colsRes = kExec(colsCommand);
     if(!kdb::isValidListOf(colsRes.get(), kdb::K_STRING)) {
-        throw RuntimeException(PLUGIN_NAME ": Failed to get table cols.");
+        throw RuntimeException(KDB_PREFIX ": Failed to get table cols.");
     }
 
     // load each column
@@ -538,7 +537,7 @@ string Connection::str() const {
 vector<string> loadSymList(const string& symPath) {
     kdb::BinFile symFile{symPath, symPath};
     if(!symFile) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Open sym file " + symPath + " failed.");
     }
 
@@ -546,7 +545,7 @@ vector<string> loadSymList(const string& symPath) {
     symFile.readInto(parser.getBuffer());
     const auto symList = parser.getStrings(symPath);
 
-    PLUGIN_LOG(PLUGIN_NAME ": Loaded enum sym from " + symPath + " "
+    LOG(KDB_PREFIX ": Loaded enum sym from " + symPath + " "
         "size=" + to_string(symList.size()));
     return symList;
 }
@@ -556,7 +555,7 @@ VectorSP loadSplayedColumn(const string& colPath,
 ) {
     kdb::BinFile colFile{colPath, colPath};
     if(!colFile) {
-        throw RuntimeException(PLUGIN_NAME ": "
+        throw RuntimeException(KDB_PREFIX ": "
             "Open column " + colPath + " failed.");
     }
 
@@ -565,7 +564,7 @@ VectorSP loadSplayedColumn(const string& colPath,
     VectorSP col = parser.getVector(colPath, symList, symName);
     assert(!col.isNull());
 
-    PLUGIN_LOG(PLUGIN_NAME ": Loaded splayed column from " + colPath + " "
+    LOG(KDB_PREFIX ": Loaded splayed column from " + colPath + " "
         + "type=" + to_string(col->getType()) + " "
           "size=" + to_string(col->size()));
     col->setNullFlag(col->hasNull());
@@ -590,12 +589,12 @@ public:
             col_.get() = new String{rex.what()};
         }
         catch(const exception& ex) {
-            PLUGIN_LOG_ERR(PLUGIN_NAME ": "
+            LOG_ERR(KDB_PREFIX ": "
                 "<BUG> failed to load kdb+ column file"
                 " " + colPath_ + ": " + ex.what());
         }
         catch(...) {
-            PLUGIN_LOG_ERR(PLUGIN_NAME ": "
+            LOG_ERR(KDB_PREFIX ": "
                 "<BUG> unknown error while loading kdb+ column file"
                 " " + colPath_ + ".");
         }
@@ -664,7 +663,7 @@ TableSP loadSplayedTable(string tablePath,
 
     for(auto i = 0u; i < colNum; ++i) {
         if(cols[i].isNull()) {
-            throw RuntimeException(PLUGIN_NAME ": "
+            throw RuntimeException(KDB_PREFIX ": "
                 "<BUG> unexpected error while loading "
                 " " + tablePath + colNames[i] + ","
                 " check debug log for details.");
@@ -674,7 +673,7 @@ TableSP loadSplayedTable(string tablePath,
                 throw RuntimeException(cols[i]->getString());
             }
             else {
-                throw RuntimeException(PLUGIN_NAME ": "
+                throw RuntimeException(KDB_PREFIX ": "
                     "<BUG> unexpected data loaded from"
                     " " + tablePath + colNames[i] + ":"
                     " " + cols[i]->getString());
@@ -905,7 +904,7 @@ ConstantSP kdbLoadFile(Heap *heap, vector<ConstantSP> &args){
     tablePath = normalizePath(tablePath);
     if(!(Util::exists(tablePath) || Util::existsDir(tablePath))) {
         throw IllegalArgumentException(__FUNCTION__,
-            usage + PLUGIN_NAME ": "
+            usage + KDB_PREFIX ": "
             "tablePath [" + tablePath + "] does not exist.");
     }
 
@@ -919,7 +918,7 @@ ConstantSP kdbLoadFile(Heap *heap, vector<ConstantSP> &args){
             ? "should be a file, not a directory"
             : "does not exist";
         throw IllegalArgumentException(__FUNCTION__,
-            usage + PLUGIN_NAME ": "
+            usage + KDB_PREFIX ": "
             "symPath [" + symFilePath + "] " + extra + '.');
     }
 
@@ -1071,7 +1070,7 @@ ConstantSP kdbLoadFileEx(Heap *heap, vector<ConstantSP> &arguments) {
     if (!(symFilePath.empty() || Util::exists(symFilePath))) {
         const char *extra = Util::existsDir(symFilePath) ? "should be a file, not a directory" : "does not exist";
         throw IllegalArgumentException(__FUNCTION__,
-                                       syntax + PLUGIN_NAME "symPath [" + symFilePath + "] " + extra + '.');
+                                       syntax + KDB_PREFIX "symPath [" + symFilePath + "] " + extra + '.');
     }
 
     vector<string> symList;

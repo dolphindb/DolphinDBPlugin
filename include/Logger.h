@@ -88,6 +88,7 @@ template <> struct Logger::SeverityTypeToString<severity_type::ERR> {
 
 extern SWORDFISH_API Logger log_inst;
 
+#ifndef PLUGIN_NAME
 #ifdef VERBOSE_LOGGING
 #include <cstring>
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
@@ -100,12 +101,13 @@ extern SWORDFISH_API Logger log_inst;
 #define LOG_ERR(...) XLOG_ERR("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
 #define LOG_INFO(...) XLOG_INFO("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
 #define LOG_WARN(...) XLOG_WARN("[", __FILENAME__, ":", __LINE__, "] ", __VA_ARGS__)
-#else
+#else // VERBOSE_LOGGING
 #define LOG(...) do { if (log_inst.getLogLevel() <= severity_type::DEBUG) {log_inst.print<severity_type::DEBUG>(__VA_ARGS__);} } while(0)
 #define LOG_ERR(...) do { log_inst.print<severity_type::ERR>(__VA_ARGS__); } while(0)
 #define LOG_INFO(...) do { if (log_inst.getLogLevel() <= severity_type::INFO) {log_inst.print<severity_type::INFO>(__VA_ARGS__);} } while(0)
 #define LOG_WARN(...) do { if (log_inst.getLogLevel() <= severity_type::WARNING) {log_inst.print<severity_type::WARNING>(__VA_ARGS__);} } while(0)
-#endif
+#endif // VERBOSE_LOGGING
+#endif // PLUGIN_NAME
 
 }
 

@@ -14,7 +14,6 @@
 #include "DolphinDBEverything.h"
 #include "ddbplugin/PluginLogger.h"
 #include "CoreConcept.h"
-#include "Logger.h"
 #include "ScalarImp.h"
 #include "ddbplugin/ThreadedQueue.h"
 #include "ddbplugin/CommonInterface.h"
@@ -45,7 +44,7 @@ static UA_INLINE UA_DateTime UnixTimeStamp_To_UA_DateTime(UA_Int64 date) {
 }
 
 class OPCUAClient;
-using OPCUAClientSP = SmartPointer<OPCUAClient>;
+using OPCUAClientSP = ObjectPtr<OPCUAClient>;
 class OPCUASub {
   public:
     static Mutex OPCUA_SUB_MAP_LATCH;
@@ -60,7 +59,7 @@ class OPCUASub {
                 stopThread();
             }
         } catch (std::exception &e) {
-            PLUGIN_LOG_ERR(OPCUA_PREFIX, "destruction of OPCUASub failed due to ", e.what());
+            LOG_ERR(OPCUA_PREFIX, "destruction of OPCUASub failed due to ", e.what());
         }
     }
     void subs();

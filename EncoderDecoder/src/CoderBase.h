@@ -1,6 +1,7 @@
 #ifndef CODER_RESOURCE_H
 #define CODER_RESOURCE_H
 
+#include "DolphinDBEverything.h"
 #include "EncoderDecoder.h"
 #include "ddbplugin/Plugin.h"
 #include <CoreConcept.h>
@@ -10,7 +11,7 @@
 #include <SysIO.h>
 #include <Types.h>
 #include <Util.h>
-
+#include "protobufUtil.h"
 
 using namespace ddb;
 
@@ -70,6 +71,27 @@ public:
     void appendTable(ConstantSP items) const;
     virtual bool append(vector<ConstantSP>& values, INDEX& insertedRows, string& errMsg);
     string getString() const {return "coder instance"; };
+};
+
+class EncoderClass : public DolphinClass {
+public:
+    explicit EncoderClass(const string &instName): DolphinClass("EncoderDecoder", instName) {}
+    FunctionDefSP getMethod(const string& name) const override;
+    bool hasMethod(const string& name) const override;
+    string getString() const override { return DolphinClass::getString(); }
+};
+
+class EncoderInstance : public DolphinInstance {
+public:
+    explicit EncoderInstance(DolphinClassSP cls) : DolphinInstance(cls) {}
+    void initialize(const std::string& filePath, const std::string& protoName);
+    ConstantSP protobufSerialize(ConstantSP obj);
+    string getString() const override{return "encoder instance"; }
+
+private:
+    google::protobuf::DescriptorPool pool;
+    google::protobuf::DynamicMessageFactory factory;
+    const google::protobuf::Message* protoType_;
 };
 
 #endif //CODER_RESOURCE_H

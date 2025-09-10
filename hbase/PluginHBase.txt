@@ -1,4 +1,4 @@
-hbase,libPluginHBase.so,3.00.3
+hbase,libPluginHBase.so,3.00.4.0
 connectH,connect,system,2,4,0,0,(host, port, [isFramed=false], [timeout=5000])
 showTablesH,showTables,system,1,1,0,0,(conn)
 getRowH,getRow,system,3,4,0,0,(conn, tableName, rowKey, [columnNames])

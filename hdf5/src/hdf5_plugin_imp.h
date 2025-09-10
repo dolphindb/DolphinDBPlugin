@@ -50,7 +50,7 @@ class DatasetAppendRunner : public Runnable
       try {
         append();
       } catch (...) {
-        PLUGIN_LOG_ERR(HDF5_LOG_PREFIX + "Error occurred when append data.");
+        LOG_ERR(HDF5_LOG_PREFIX + "Error occurred when append data.");
       }
     }
     virtual void append(){};

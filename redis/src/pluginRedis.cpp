@@ -1,6 +1,5 @@
 #include "pluginRedis.h"
 
-#include "ScalarImp.h"
 #include "ddbplugin/Plugin.h"
 #include "hiredis.h"
 #include "redisConnection.h"
@@ -28,7 +27,7 @@ const vector<DATA_TYPE> REDIS_STATUS_COLUMN_TYPES = {DT_STRING, DT_STRING, DT_DA
 
 ddb::BackgroundResourceMap<RedisConnection> REDIS_HANDLE_MAP(REDIS_PREFIX, REDIS_CONNECTION_NAME);
 
-static void doNothingOnClose(Heap *heap, vector<ConstantSP> &args) {
+static void doNothingOnClose(Heap *, vector<ConstantSP> &) {
     // do nothing
 }
 
@@ -72,51 +71,50 @@ ConstantSP redisPluginConnect(Heap *heap, const vector<ConstantSP> &args) {
     return resource;
 }
 
-ConstantSP redisPluginRun(Heap *heap, const vector<ConstantSP> &args) {
+ConstantSP redisPluginRun(Heap *, const vector<ConstantSP> &args) {
     checkHandle(args[0]);
     SmartPointer<RedisConnection> redisHandler = REDIS_HANDLE_MAP.safeGet(args[0]);
     checkHandleValid(redisHandler);
     return redisHandler->redisRun(args);
 }
 
-// TODO: use pipeline (redisAppendCommandArgv) to optimize it
-ConstantSP redisPluginBatchSet(Heap *heap, const vector<ConstantSP> &args) {
-    if (args[1]->isScalar() && args[2]->isScalar()) {
-        return redisPluginRun(heap, {args[0], new String("SET"), args[1], args[2]});
-    }
-
+ConstantSP redisPluginBatchSet(Heap *, const vector<ConstantSP> &args) {
     checkHandle(args[0]);
     SmartPointer<RedisConnection> redisHandler = REDIS_HANDLE_MAP.safeGet(args[0]);
     checkHandleValid(redisHandler);
+
+    if (args[1]->isScalar() && args[2]->isScalar()) {
+        return redisHandler->redisRun({args[0], new String("SET"), args[1], args[2]}, "Set");
+    }
     return redisHandler->redisBatchSet(args);
 }
 
-ConstantSP redisPluginBatchHashSet(Heap *heap, const vector<ConstantSP> &args) {
+ConstantSP redisPluginBatchHashSet(Heap *, const vector<ConstantSP> &args) {
     checkHandle(args[0]);
     SmartPointer<RedisConnection> redisHandler = REDIS_HANDLE_MAP.safeGet(args[0]);
     checkHandleValid(redisHandler);
     return redisHandler->redisBatchHashSet(args);
 }
 
-ConstantSP redisPluginRelease(Heap *heap, const vector<ConstantSP> &args) {
+ConstantSP redisPluginRelease(Heap *, const vector<ConstantSP> &args) {
     checkHandle(args[0]);
     REDIS_HANDLE_MAP.safeRemove(args[0]);
     return new String("release finish.");
 }
 
-ConstantSP redisPluginReleaseAll() {
+ConstantSP redisPluginReleaseAll(Heap *, const vector<ConstantSP> &) {
     REDIS_HANDLE_MAP.clear();
     return new String("releaseAll finish.");
 }
 
-ConstantSP redisGetHandle(Heap *heap, const vector<ConstantSP> &args) {
+ConstantSP redisGetHandle(Heap *, const vector<ConstantSP> &args) {
     if (args[0]->getForm() != DF_SCALAR || args[0]->getType() != DT_STRING) {
         throw IllegalArgumentException(__FUNCTION__, "[Plugin::Redis] First argument must be a string scalar.");
     }
     return REDIS_HANDLE_MAP.getHandleByName(args[0]->getString());
 }
 
-ConstantSP redisGetHandleStaus() {
+ConstantSP redisGetHandleStaus(Heap *, const vector<ConstantSP> &) {
     const vector<string> &names = REDIS_HANDLE_MAP.getHandleNames();
     int num = names.size();
     TableSP statusTable = Util::createTable(REDIS_STATUS_COLUMN_NAMES, REDIS_STATUS_COLUMN_TYPES, 0, num);
@@ -140,9 +138,16 @@ ConstantSP redisGetHandleStaus() {
     return statusTable;
 }
 
-ConstantSP redisBatchPush(Heap *heap, const vector<ConstantSP> &args) {
+ConstantSP redisBatchPush(Heap *, const vector<ConstantSP> &args) {
     checkHandle(args[0]);
     SmartPointer<RedisConnection> redisHandler = REDIS_HANDLE_MAP.safeGet(args[0]);
     checkHandleValid(redisHandler);
     return redisHandler->redisBatchPush(args);
+}
+
+ConstantSP redisBatchGet(Heap *, const vector<ConstantSP> &args) {
+    checkHandle(args[0]);
+    SmartPointer<RedisConnection> redisHandler = REDIS_HANDLE_MAP.safeGet(args[0]);
+    checkHandleValid(redisHandler);
+    return redisHandler->redisBatchGet(args);
 }

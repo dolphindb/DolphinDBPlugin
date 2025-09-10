@@ -15,6 +15,29 @@
 #include <omp.h>
 #include <ScalarImp.h>
 
+#if defined(_MSC_VER)
+#pragma warning( push )
+#elif defined(__clang__)
+#pragma clang diagnostic push
+#else // gcc
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
+
+#ifndef __aarch64__
+#include "wavelib.h"
+#endif
+
+#if defined(_MSC_VER)
+#pragma warning( pop )
+#elif defined(__clang__)
+#pragma clang diagnostic pop
+#else // gcc
+#pragma GCC diagnostic pop
+#endif
+
+#include <array>
+
 using namespace ddb;
 
 #define PI 3.1415926
@@ -28,8 +51,10 @@ static ConstantSP fft1D(VectorSP vec, int n, double scale, bool overwrite, bool 
 static ConstantSP fft2D(VectorSP matrix, int shapeRow, int shapeCol, double scale, bool overwrite, bool inverse);
 
 //离散余弦变换(DCT-II)
-ConstantSP dct(const ConstantSP &a, const ConstantSP &b)
+ConstantSP dct(Heap *heap, const ConstantSP &a, const ConstantSP &b)
 {
+    std::ignore = b;
+    std::ignore = heap;
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if (!(a->getForm()==DF_VECTOR && a->isNumber() && (a->getCategory() == INTEGRAL || a->getCategory() == FLOATING) && a->size() > 0))
         throw IllegalArgumentException("dct", "The argument should be a nonempty integrial or floating vector.");
@@ -63,6 +88,7 @@ ConstantSP dct(const ConstantSP &a, const ConstantSP &b)
 }
 ConstantSP dctMap(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     TableSP table = args[0];
     int size = args[1]->getInt();
     vector<double> xn(table->rows(), 0);
@@ -89,14 +115,16 @@ ConstantSP dctMap(Heap *heap, vector<ConstantSP> &args)
 }
 ConstantSP dctNumMap(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     TableSP t = args[0];
     int size = t->rows();
     ConstantSP res = Util::createConstant(DT_INT);
     res->setInt(size);
     return res;
 }
-ConstantSP dctReduce(const ConstantSP &mapRes1, const ConstantSP &mapRes2)
+ConstantSP dctReduce(Heap *heap, const ConstantSP &mapRes1, const ConstantSP &mapRes2)
 {
+    std::ignore = heap;
     vector<double> xk_1(mapRes1->size(), 0);
     vector<double> xk_2(mapRes2->size(), 0);
     mapRes1->getDouble(0, mapRes1->size(), &xk_1[0]);
@@ -108,8 +136,9 @@ ConstantSP dctReduce(const ConstantSP &mapRes1, const ConstantSP &mapRes2)
     result->setDouble(0, xk_1.size(), &xk_1[0]);
     return result;
 }
-ConstantSP dctNumReduce(const ConstantSP &mapRes1, const ConstantSP &mapRes2)
+ConstantSP dctNumReduce(Heap *heap, const ConstantSP &mapRes1, const ConstantSP &mapRes2)
 {
+    std::ignore = heap;
     int x1 = mapRes1->getInt();
     int x2 = mapRes2->getInt();
     int size = x1 + x2;
@@ -136,8 +165,10 @@ ConstantSP dctParallel(Heap *heap, vector<ConstantSP> &args)
     return mr->call(heap, myargs);
 }
 //离散正弦变换(DST-I)
-ConstantSP dst(const ConstantSP &a, const ConstantSP &b)
+ConstantSP dst(Heap *heap, const ConstantSP &a, const ConstantSP &b)
 {
+    std::ignore = b;
+    std::ignore = heap;
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if (!(a->getForm()==DF_VECTOR && a->isNumber() && (a->getCategory() == INTEGRAL || a->getCategory() == FLOATING) && a->size() > 0))
         throw IllegalArgumentException("dst", "The argument should be a nonempty integrial or floating vector.");
@@ -171,9 +202,81 @@ ConstantSP dst(const ConstantSP &a, const ConstantSP &b)
     return res;
 }
 
+ConstantSP dwtEx(Heap *heap, vector<ConstantSP> &args) {
+#ifndef __aarch64__
+    std::ignore = heap;
+    //X
+    if (!(args[0]->getForm()==DF_VECTOR && (args[0]->getCategory() == INTEGRAL || args[0]->getCategory() == FLOATING) && args[0]->size() > 0)) {
+        throw IllegalArgumentException("dwtEx", "The argument X should be a nonempty integrial or floating vector.");
+    }
+    if (args[0]->hasNull()) {
+        throw IllegalArgumentException("dwtEx", "The argument X should not contain NULL values");
+    }
+    int dataLen = args[0]->size();
+    vector<double> xn(dataLen, 0);
+    args[0]->getDouble(0, dataLen, &xn[0]);
+
+    //wavelet
+    std::string wavelet = "db1";
+    if (args.size() > 1 && !args[1]->isNothing()) {
+        if(args[1]->getForm() != DF_SCALAR || args[1]->getType() != DT_STRING) {
+            throw IllegalArgumentException("dwtEx", "The argument wavelet should be a string scalar.");
+        }
+        wavelet = args[1]->getString();
+        static std::set<std::string> validWavelet{"db1", "db2", "db3", "db4", "db5", "db6", "db7",
+            "db8", "db9", "db10", "db11", "db12", "db13", "db14", "db15"};
+        if(validWavelet.count(wavelet) == 0) {
+            throw IllegalArgumentException("dwtEx", std::string("The argument wavelet is invalie ") + wavelet);
+        }
+    }
+
+    //level
+    int level = 1;
+    if (args.size() > 2 && !args[2]->isNothing()) {
+        if(args[2]->getForm() != DF_SCALAR || args[2]->getCategory() != INTEGRAL) {
+            throw IllegalArgumentException("dwtEx", "The argument level should be a integral scalar.");
+        }
+        level = args[2]->getInt();
+        if(level > 100 || level <= 0) {
+            throw IllegalArgumentException("dwtEx", "The argument level should be in [1, 100]");
+        }
+    }
+
+    wave_object obj = wave_init(wavelet.c_str());
+    int maxIter = log(static_cast<double>(dataLen) / (static_cast<double>(obj->filtlength) - 1.0)) / log(2.0);
+    if(level > maxIter) {
+        wave_free(obj);
+        throw IllegalArgumentException("dwtEx", "All coefficients will experience boundary effects, you can use a longer signal or reduce the filter length or lower the level");
+    }
+    wt_object wt = wt_init(obj, "dwt", dataLen, level);
+    //setDWTExtension(wt, "sym");
+    //setWTConv(wt, "direct");
+    dwt(wt, xn.data());
+
+    ConstantSP ret = Util::createVector(DT_ANY, wt->lenlength - 1);
+    int start = 0;
+    for (int i = 0; i < wt->lenlength - 1; ++i) {
+        int len = wt->length[i];
+        VectorSP ele = Util::createVector(DT_DOUBLE, len);
+        ele->setDouble(0, len, wt->output + start);
+        ret->set(i, ele);
+        start += len;
+    }
+
+    wave_free(obj);
+    wt_free(wt);
+    return ret;
+#else
+    (void)heap;
+    (void)args;
+    throw RuntimeException("signal plugin not support dwtEx in ARM");
+#endif
+}
+
 //一维离散小波变换(DWT)
-ConstantSP dwt(const ConstantSP &a, const ConstantSP &b)
+ConstantSP dwt1(Heap *heap, const ConstantSP &a, const ConstantSP &b)
 {
+    std::ignore = heap;
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if (!(a->getForm()==DF_VECTOR && a->isNumber() && (a->getCategory() == INTEGRAL || a->getCategory() == FLOATING) && a->size() > 0))
         throw IllegalArgumentException("dwt", "The argument should be a nonempty integrial or floating vector.");
@@ -250,8 +353,9 @@ ConstantSP dwt(const ConstantSP &a, const ConstantSP &b)
 }
 
 //一维离散小波逆变换(IDWT)
-ConstantSP idwt(const ConstantSP &a, const ConstantSP &b)
+ConstantSP idwt1(Heap *heap, const ConstantSP &a, const ConstantSP &b)
 {
+    std::ignore = heap;
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if (!(a->getForm()==DF_VECTOR && a->isNumber() && (a->getCategory() == INTEGRAL || a->getCategory() == FLOATING) && a->size() > 0))
         throw IllegalArgumentException("idwt", "The argument 1 should be a nonempty integrial or floating vector.");
@@ -489,6 +593,7 @@ static ConstantSP fft1D(VectorSP vec, int n, double scale, bool overwrite, bool 
 
 ConstantSP fft(Heap* heap, vector<ConstantSP>& args)
 {
+    std::ignore = heap;
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     string check = argsCheck1D(args);
     if (check != "")
@@ -511,6 +616,7 @@ ConstantSP fft(Heap* heap, vector<ConstantSP>& args)
 
 ConstantSP fft1(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     string check = argsCheck1D(args);
     if (check != "")
@@ -533,6 +639,7 @@ ConstantSP fft1(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP ifft(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     string check = argsCheck1D(args);
     if (check != "")
@@ -555,6 +662,7 @@ ConstantSP ifft(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP ifft1(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     string check = argsCheck1D(args);
     if (check != "")
@@ -686,6 +794,7 @@ static ConstantSP fft2D(VectorSP matrix, int shapeRow, int shapeCol, double scal
 
 ConstantSP fft2(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     string check = argsCheck2D(args);
     if (check != "")
@@ -714,6 +823,7 @@ ConstantSP fft2(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP fft21(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     string check = argsCheck2D(args);
     if (check != "")
@@ -742,6 +852,7 @@ ConstantSP fft21(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP ifft2(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     string check = argsCheck2D(args);
     if (check != "")
@@ -770,6 +881,7 @@ ConstantSP ifft2(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP ifft21(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     string check = argsCheck2D(args);
     if (check != "")
@@ -798,6 +910,7 @@ ConstantSP ifft21(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP secc(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if (!args[0]->isVector() || !args[0]->isNumber() || args[0]->size() <= 0)
         throw IllegalArgumentException("secc", "The first argument should be a nonempty vector");
@@ -1002,6 +1115,7 @@ ConstantSP secc(Heap *heap, vector<ConstantSP> &args)
 }
 
 ConstantSP absFuc(Heap *heap, vector<ConstantSP> &args){
+    std::ignore = heap;
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if((!args[0]->isVector() && !args[0]->isScalar()) || args[0]->getType() != DT_COMPLEX || args[0]->hasNull()){
         throw IllegalArgumentException("abs", "data must be a nonempty complex vector or a nonempty complex scalar.");
@@ -1013,29 +1127,28 @@ ConstantSP absFuc(Heap *heap, vector<ConstantSP> &args){
         return new Double(sqrt(buffer[0] * buffer[0] + buffer[1] * buffer[1]));
     }
     int vSize = data->size();
-    //std::vector<double> dataBuffer(vSize * 2);
-    //std::vector<double> retBuffer(vSize);
-    double dataBuffer[Util::BUF_SIZE * 2];
-    double retBuffer[Util::BUF_SIZE * 2];
+    std::vector<double> dataBuffer(Util::BUF_SIZE * 2);
+    std::vector<double> retBuffer(Util::BUF_SIZE * 2);
     
     int index = 0;
     VectorSP ret = Util::createVector(DT_DOUBLE, vSize, vSize);
     while(index < vSize){
         int subSize = std::min(vSize - index, Util::BUF_SIZE);
-        const unsigned char* dataPtr = data->getBinaryConst(index, subSize, 16, (unsigned char *)dataBuffer);
+        const unsigned char* dataPtr = data->getBinaryConst(index, subSize, 16, (unsigned char *)dataBuffer.data());
         for (int i = 0; i < subSize; i++)
         {
             double x = ((double*)dataPtr)[i * 2];
             double y =  ((double*)dataPtr)[i * 2 + 1];
             retBuffer[i] = sqrt(x * x + y * y);
         }
-        ret->setDouble(index, subSize, retBuffer);
+        ret->setDouble(index, subSize, retBuffer.data());
         index += subSize;
     }
     return ret;
 }
 
 ConstantSP mul(Heap *heap, vector<ConstantSP> &args){
+    std::ignore = heap;
     LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if((!args[0]->isVector() && !args[0]->isScalar()) || args[0]->getType() != DT_COMPLEX || args[0]->hasNull()){
         throw IllegalArgumentException("mul", "data must be a nonempty complex vector or a nonempty complex scalar.");
@@ -1045,20 +1158,18 @@ ConstantSP mul(Heap *heap, vector<ConstantSP> &args){
     ConstantSP data = args[0];
     double num = args[1]->getDouble();
     if(data->isScalar()){
-        double buffer[2];
-        data->getBinary(0, 1, 16, (unsigned char *)buffer);
+        std::array<double, 2> buffer;
+        data->getBinary(0, 1, 16, (unsigned char *)buffer.data());
         return new Complex(buffer[0] * num, buffer[1] * num);
     }
     int vSize = data->size();
-    //std::vector<double> dataBuffer(vSize * 2);
-    //std::vector<double> retBuffer(vSize * 2);
     VectorSP res = Util::createVector(DT_COMPLEX, vSize, vSize);
-    double dataBuffer[Util::BUF_SIZE * 2];
-    double retBuffer[Util::BUF_SIZE * 2];
+    std::vector<double> dataBuffer(Util::BUF_SIZE * 2);
+    std::vector<double> retBuffer(Util::BUF_SIZE * 2);
     int index = 0;
     while(index < vSize){
         int subSize = std::min(vSize - index, Util::BUF_SIZE);
-        const unsigned char* dataPtr = data->getBinaryConst(index, subSize, 16, (unsigned char *)dataBuffer);
+        const unsigned char* dataPtr = data->getBinaryConst(index, subSize, 16, (unsigned char *)dataBuffer.data());
         for (int i = 0; i < subSize; i++)
         {
             double x = ((double*)dataPtr)[i * 2];
@@ -1066,7 +1177,7 @@ ConstantSP mul(Heap *heap, vector<ConstantSP> &args){
             retBuffer[i * 2] = x * num;
             retBuffer[i * 2 + 1] = y * num;
         }
-        res->setBinary(index, subSize, 16, (unsigned char *)retBuffer);
+        res->setBinary(index, subSize, 16, (unsigned char *)retBuffer.data());
         index += subSize;
     }
     return res;

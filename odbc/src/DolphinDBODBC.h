@@ -26,7 +26,6 @@
 #include <map>
 #include <vector>
 
-#include "Logger.h"
 #include "cvt.h"
 #include "nanodbc/nanodbc.h"
 using ddb::ConstantSP;

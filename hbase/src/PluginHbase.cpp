@@ -3,7 +3,6 @@
 //
 
 #include "PluginHbase.h"
-#include "Logger.h"
 #include "ScalarImp.h"
 #include "Util.h"
 
@@ -242,14 +241,14 @@ ConstantSP HBaseConnect::loadH(const string &tableName) {
                             bool success = result->append(dataToAppend, insertedRows, errMsg);
                             if (!success) {
                                 std::cerr << errMsg << std::endl;
-                                PLUGIN_LOG_ERR(errMsg);
+                                LOG_ERR(errMsg);
                             }
                         }
                     }
                 }
 
                 client_->scannerClose(scanner);
-                PLUGIN_LOG_INFO("[PluginHbase] Load Success");
+                LOG_INFO("[PluginHbase] Load Success");
                 return result;
             } catch (const TException &tx) {
                 throw RuntimeException(string("HBase scanner error: ") + tx.what());
@@ -570,7 +569,7 @@ ConstantSP HBaseConnect::loadH(const string &tableName, const TableSP &schema) {
             }
 
             client_->scannerClose(scanner);
-            PLUGIN_LOG_INFO("[PluginHbase] Load Success");
+            LOG_INFO("[PluginHbase] Load Success");
             return result;
         }
     }

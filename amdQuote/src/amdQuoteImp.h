@@ -45,6 +45,8 @@ class AmdQuote {
         switch (type) {
             case AMD_NEEQ_SNAPSHOT:
                 return amdTypeContainer_.get("NEEQSnapshot");
+            case AMD_HKT_SNAPSHOT:
+                return amdTypeContainer_.get("HKTSnapshot");
             case AMD_SNAPSHOT:
             case AMD_FUND_SNAPSHOT:
                 return amdTypeContainer_.get("snapshot");
@@ -82,9 +84,15 @@ class AmdQuote {
                 return amdTypeContainer_.get("option");
             case AMD_FUTURE_SNAPSHOT:
                 return amdTypeContainer_.get("future");
-#ifndef AMD_3_9_6
+#ifndef AMD_396
             case AMD_IOPV_SNAPSHOT:
                 return amdTypeContainer_.get("IOPV");
+#endif
+#ifdef AMD_457
+            case AMD_HKEX_MERGE_SNAPSHOT:
+                return amdTypeContainer_.get("HKExMergeSnapshot");
+            case AMD_HKEX_INDEX_SNAPSHOT:
+                return amdTypeContainer_.get("HKExIndexSnapshot");
 #endif
             default:
                 throw RuntimeException(AMDQUOTE_PREFIX + "Invalid dataType " + std::to_string(type) + ".");
@@ -95,6 +103,8 @@ class AmdQuote {
         switch (type) {
             case AMD_NEEQ_SNAPSHOT:
                 return amdTypeContainer_.getSchema("NEEQSnapshot", optionFlag);
+            case AMD_HKT_SNAPSHOT:
+                return amdTypeContainer_.getSchema("HKTSnapshot", optionFlag);
             case AMD_SNAPSHOT:
             case AMD_FUND_SNAPSHOT:
                 return amdTypeContainer_.getSchema("snapshot", optionFlag);
@@ -133,9 +143,15 @@ class AmdQuote {
                 return amdTypeContainer_.getSchema("option", optionFlag);
             case AMD_FUTURE_SNAPSHOT:
                 return amdTypeContainer_.getSchema("future", optionFlag);
-#ifndef AMD_3_9_6
+#ifndef AMD_396
             case AMD_IOPV_SNAPSHOT:
                 return amdTypeContainer_.getSchema("IOPV", optionFlag);
+#endif
+#ifdef AMD_457
+            case AMD_HKEX_MERGE_SNAPSHOT:
+                return amdTypeContainer_.getSchema("HKExMergeSnapshot", optionFlag);
+            case AMD_HKEX_INDEX_SNAPSHOT:
+                return amdTypeContainer_.getSchema("HKExIndexSnapshot", optionFlag);
 #endif
             default:
                 throw RuntimeException(AMDQUOTE_PREFIX + "Invalid dataType " + std::to_string(type) + ".");

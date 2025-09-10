@@ -9,17 +9,46 @@
 #include "ScalarImp.h"
 #include "CoreConcept.h"
 #include "SmartPointer.h"
-#include "Concepts.h"
 #include "Concurrent.h"
 
 namespace ddb {
+
+class MarketDataRow : public Constant {
+public:
+    MarketDataRow() : Constant() {
+    }
+    MarketDataRow(std::string &code, int type, int side, int time, int msgType, int64_t price, int64_t qty,
+                  int64_t seq, int64_t buyOrder, int64_t sellOrder, int64_t receiveTime)
+        : Constant(), code(code), type(type), side(side), time(time), msgType(msgType),
+          price(price), qty(qty), seq(seq), buyOrder(buyOrder), sellOrder(sellOrder), receiveTime(receiveTime)
+           {}
+    virtual ~MarketDataRow(){};
+    virtual DATA_TYPE getRawType() const {return DT_MKTDATAROW;}
+    virtual ConstantSP getInstance() const {return getValue();}
+    virtual ConstantSP getValue() const {
+        return ConstantSP(new MarketDataRow(*this));
+    }
+
+    DolphinString code;
+    int type;
+    int side;
+    int time;
+    int msgType;
+    int64_t price;
+    int64_t qty;
+    int64_t seq;
+    int64_t buyOrder;
+    int64_t sellOrder;
+    int64_t receiveTime; // When engine receives the message, in nanoseconds.
+};
+
 class AbstractStreamEngine;
 
-typedef SmartPointer<AbstractStreamEngine> AbstractStreamEngineSP;
+typedef ObjectPtr<AbstractStreamEngine> AbstractStreamEngineSP;
 typedef AbstractStreamEngineSP(*StreamEngineFactory)(Heap* heap, const DataInputStreamSP& in);
 
 
-class StreamEngineManager {
+class SWORDFISH_API StreamEngineManager {
 public:
     StreamEngineManager(const StreamEngineManager &) = delete;
     StreamEngineManager operator=(const StreamEngineManager &) = delete;
@@ -50,7 +79,7 @@ private:
     unordered_map<string, StreamEngineFactory> engineFactories_;
 };
 
-class AbstractStreamEngine : public Table {
+class SWORDFISH_API AbstractStreamEngine : public Table {
 public:
     AbstractStreamEngine(const string &type, const string &name, const string &user, const TableSP& dummy, const string& snapshotDir = "", long long snapshotIntervalInMsgCount = LLONG_MAX, int raftGroup = -1, const string &uuid = "");
     ~AbstractStreamEngine() override;
@@ -124,7 +153,7 @@ public:
     string getEngineName() const;
     string getEngineCreator() const;
     int getRaftGroup() const { return raftGroup_; }
-    ConstantSP getEngineOutput() const { return outputTable_.isNull() ? Expression::void_ : outputTable_; }
+    ConstantSP getEngineOutput() const { return outputTable_.isNull() ? new Void() : outputTable_; }
 
 
     vector<ConstantSP> &getEngineStatRef();

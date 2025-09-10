@@ -205,14 +205,14 @@ static inline uint32_t murmur32_4b (uint32_t key)
 
 namespace std {
 template<>
-struct hash<ddb::DolphinString> {
+struct SWORDFISH_API hash<ddb::DolphinString> {
 	inline size_t operator()(const ddb::DolphinString& val) const{
 		return murmur32(val.data(), val.size());
 	}
 };
 
 template<>
-struct hash<ddb::Guid> {
+struct SWORDFISH_API hash<ddb::Guid> {
 	inline size_t operator()(const ddb::Guid& val) const{
 		return murmur32_16b(val.bytes());
 	}
@@ -223,214 +223,216 @@ struct hash<ddb::Guid> {
 typedef std::hash<ddb::Guid> GuidHash;
 
 template<class T>
-struct murmur_hasher {
+struct SWORDFISH_API murmur_hasher {
     inline uint64_t operator()(const T&);
 };
 
 
 template<>
-struct murmur_hasher<std::string> {
+struct SWORDFISH_API murmur_hasher<std::string> {
     uint64_t operator()(const std::string & val){
     	return murmur32(val.data(), val.size());
     }
 };
 
 template<>
-struct murmur_hasher<ddb::DolphinString> {
+struct SWORDFISH_API murmur_hasher<ddb::DolphinString> {
     uint64_t operator()(const ddb::DolphinString & val){
         return murmur32(val.getData(), val.size());
     }
 };
 
 template<>
-struct murmur_hasher<ddb::Guid> {
+struct SWORDFISH_API murmur_hasher<ddb::Guid> {
     uint64_t operator()(const ddb::Guid & val){
         return murmur32_16b(val.bytes());
     }
 };
 
 template<>
-struct murmur_hasher<bool> {
+struct SWORDFISH_API murmur_hasher<bool> {
     uint64_t operator()(const bool & val);
 };
 template<>
-struct murmur_hasher<char> {
+struct SWORDFISH_API murmur_hasher<char> {
     uint64_t operator()(const char & val);
 };
 template<>
-struct murmur_hasher<signed char> {
+struct SWORDFISH_API murmur_hasher<signed char> {
     uint64_t operator()(const signed char & val);
 };
 template<>
-struct murmur_hasher<unsigned char> {
+struct SWORDFISH_API murmur_hasher<unsigned char> {
     uint64_t operator()(const unsigned char & val);
 };
 template<>
-struct murmur_hasher<char16_t> {
+struct SWORDFISH_API murmur_hasher<char16_t> {
     uint64_t operator()(const char16_t & val);
 };
 template<>
-struct murmur_hasher<char32_t> {
+struct SWORDFISH_API murmur_hasher<char32_t> {
     uint64_t operator()(const char32_t & val);
 };
 template<>
-struct murmur_hasher<wchar_t> {
+struct SWORDFISH_API murmur_hasher<wchar_t> {
     uint64_t operator()(const wchar_t & val);
 };
 template<>
-struct murmur_hasher<short> {
+struct SWORDFISH_API murmur_hasher<short> {
     uint64_t operator()(const short & val);
 };
 template<>
-struct murmur_hasher<unsigned short> {
+struct SWORDFISH_API murmur_hasher<unsigned short> {
     uint64_t operator()(const unsigned short & val);
 };
 template<>
-struct murmur_hasher<int> {
+struct SWORDFISH_API murmur_hasher<int> {
     uint64_t operator()(const int & val);
 };
 template<>
-struct murmur_hasher<unsigned int> {
+struct SWORDFISH_API murmur_hasher<unsigned int> {
     uint64_t operator()(const unsigned int & val);
 };
 template<>
-struct murmur_hasher<long> {
+struct SWORDFISH_API murmur_hasher<long> {
     uint64_t operator()(const long & val);
 };
 template<>
-struct murmur_hasher<unsigned long> {
+struct SWORDFISH_API murmur_hasher<unsigned long> {
     uint64_t operator()(const unsigned long & val);
 };
 template<>
-struct murmur_hasher<long long> {
-    uint64_t operator()(const long long & val);
+struct SWORDFISH_API murmur_hasher<long long> {
+    uint64_t operator()(const long long & val) {
+		return murmur32_8b(val);
+	}
 };
 template<>
-struct murmur_hasher<unsigned long long> {
+struct SWORDFISH_API murmur_hasher<unsigned long long> {
     uint64_t operator()(const unsigned long long & val);
 };
 template<>
-struct murmur_hasher<float> {
+struct SWORDFISH_API murmur_hasher<float> {
     uint64_t operator()(const float & val);
 };
 template<>
-struct murmur_hasher<double> {
+struct SWORDFISH_API murmur_hasher<double> {
     uint64_t operator()(const double & val);
 };
 template<>
-struct murmur_hasher<ddb::int128> {
+struct SWORDFISH_API murmur_hasher<ddb::int128> {
     uint64_t operator()(const ddb::int128 & val);
 };
 template<>
-struct murmur_hasher<ddb::uint128> {
+struct SWORDFISH_API murmur_hasher<ddb::uint128> {
     uint64_t operator()(const ddb::uint128 & val);
 };
 template<class T>
-struct murmur_hasher<T*> {
+struct SWORDFISH_API murmur_hasher<T*> {
     uint64_t operator()(const T* val);
 };
 
-uint64_t XXHash64(const char *key, int len);
+uint64_t SWORDFISH_API XXHash64(const char *key, int len);
 
 template<class T>
-struct XXHasher {
+struct SWORDFISH_API XXHasher {
     inline uint64_t operator()(const T&);
 };
 
 
 template<>
-struct XXHasher<std::string> {
+struct SWORDFISH_API XXHasher<std::string> {
     uint64_t operator()(const std::string & val);
 };
 
 template<>
-struct XXHasher<ddb::DolphinString> {
+struct SWORDFISH_API XXHasher<ddb::DolphinString> {
     uint64_t operator()(const ddb::DolphinString & val);
 };
 
 template<>
-struct XXHasher<ddb::Guid> {
+struct SWORDFISH_API XXHasher<ddb::Guid> {
     uint64_t operator()(const ddb::Guid & val);
 };
 
 template<>
-struct XXHasher<bool> {
+struct SWORDFISH_API XXHasher<bool> {
     uint64_t operator()(const bool & val);
 };
 template<>
-struct XXHasher<char> {
+struct SWORDFISH_API XXHasher<char> {
     uint64_t operator()(const char & val);
 };
 template<>
-struct XXHasher<signed char> {
+struct SWORDFISH_API XXHasher<signed char> {
     uint64_t operator()(const signed char & val);
 };
 template<>
-struct XXHasher<unsigned char> {
+struct SWORDFISH_API XXHasher<unsigned char> {
     uint64_t operator()(const unsigned char & val);
 };
 template<>
-struct XXHasher<char16_t> {
+struct SWORDFISH_API XXHasher<char16_t> {
     uint64_t operator()(const char16_t & val);
 };
 template<>
-struct XXHasher<char32_t> {
+struct SWORDFISH_API XXHasher<char32_t> {
     uint64_t operator()(const char32_t & val);
 };
 template<>
-struct XXHasher<wchar_t> {
+struct SWORDFISH_API XXHasher<wchar_t> {
     uint64_t operator()(const wchar_t & val);
 };
 template<>
-struct XXHasher<short> {
+struct SWORDFISH_API XXHasher<short> {
     uint64_t operator()(const short & val);
 };
 template<>
-struct XXHasher<unsigned short> {
+struct SWORDFISH_API XXHasher<unsigned short> {
     uint64_t operator()(const unsigned short & val);
 };
 template<>
-struct XXHasher<int> {
+struct SWORDFISH_API XXHasher<int> {
     uint64_t operator()(const int & val);
 };
 template<>
-struct XXHasher<unsigned int> {
+struct SWORDFISH_API XXHasher<unsigned int> {
     uint64_t operator()(const unsigned int & val);
 };
 template<>
-struct XXHasher<long> {
+struct SWORDFISH_API XXHasher<long> {
     uint64_t operator()(const long & val);
 };
 template<>
-struct XXHasher<unsigned long> {
+struct SWORDFISH_API XXHasher<unsigned long> {
     uint64_t operator()(const unsigned long & val);
 };
 template<>
-struct XXHasher<long long> {
+struct SWORDFISH_API XXHasher<long long> {
     uint64_t operator()(const long long & val);
 };
 template<>
-struct XXHasher<unsigned long long> {
+struct SWORDFISH_API XXHasher<unsigned long long> {
     uint64_t operator()(const unsigned long long & val);
 };
 template<>
-struct XXHasher<float> {
+struct SWORDFISH_API XXHasher<float> {
     uint64_t operator()(const float & val);
 };
 template<>
-struct XXHasher<double> {
+struct SWORDFISH_API XXHasher<double> {
     uint64_t operator()(const double & val);
 };
 template<>
-struct XXHasher<ddb::int128> {
+struct SWORDFISH_API XXHasher<ddb::int128> {
     uint64_t operator()(const ddb::int128 & val);
 };
 template<>
-struct XXHasher<ddb::uint128> {
+struct SWORDFISH_API XXHasher<ddb::uint128> {
     uint64_t operator()(const ddb::uint128 & val);
 };
 template<class T>
-struct XXHasher<T*> {
+struct SWORDFISH_API XXHasher<T*> {
     uint64_t operator()(const T* val);
 };
 
@@ -469,13 +471,13 @@ struct XXHasher<T*> {
 // * more coherent use of inline/noexcept ...
 
 template <typename T>
-class hazard_pointer_manager;
+class SWORDFISH_API hazard_pointer_manager;
 
 // hprecord<T> a "block" of K hazard_pointer<T>
 // Normaly provides through hazard_pointer_manager and hprecord_guard as a
 // stores for managed shared pointers.
 template <typename T>
-class hprecord {
+class SWORDFISH_API hprecord {
 public:
 	hprecord(hazard_pointer_manager<T> * mngr) : hp(0), next(0), manager(mngr), active(ATOMIC_FLAG_INIT) {}
 
@@ -517,7 +519,7 @@ private:
 // hazard_pointer_manager<T> manage a set of hprecord<T>
 // responsible for the creation of records and their assignment
 template <typename T>
-class hazard_pointer_manager {
+class SWORDFISH_API hazard_pointer_manager {
 public:
 	// Default constructor
 	hazard_pointer_manager() :  H(0), head(0) {}
@@ -609,7 +611,7 @@ private:
 
 
 template <typename T>
-class hprecord_guard {
+class SWORDFISH_API hprecord_guard {
 public:
 	hprecord_guard(hazard_pointer_manager<T>& _hpm) : ptr(_hpm.acquire()), hpm(_hpm) {}
 
@@ -693,7 +695,7 @@ thread_local void* hazard_pointer_manager<T>::mine = 0;
 static thread_local bool cpuIdInitialized;
 static thread_local uint64_t cpuId;
 template<int buckets = 32>
-class DistributedCounter {
+class SWORDFISH_API DistributedCounter {
 public:
     static_assert(buckets == 0 || (buckets & (buckets - 1)) == 0, "buckets must be a multiple of 2");
 

@@ -1,8 +1,10 @@
 #include "parquet_plugin.h"
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 #include "ddbplugin/Plugin.h"
 #include "SpecialConstant.h"
 #include "ComputingModel.h"
+
+#define BUFFER_ROWS (1024 * 64)
 
 using namespace ddb;
 
@@ -510,10 +512,7 @@ void createNewVectorSP(vector<ConstantSP> &dolpindb_v, const TableSP &tb, int to
         if(dt >= 64){
             dt = static_cast<DATA_TYPE>(dt - 64);
         }
-        if(dt == DT_SYMBOL)
-            dolpindb_v[i] = Util::createVector(DT_STRING, totalRows);
-        else
-            dolpindb_v[i] = Util::createVector(dt, totalRows);
+        dolpindb_v[i] = Util::createVector(dt, dt == DT_SYMBOL ? 0 : totalRows);
     }
 }
 
@@ -814,6 +813,7 @@ bool convertToDTNanotime(vector<int> &intValue, parquetTime times_t, vector<long
         {
             longValue[i] = longValue[i] % 86400000000000;
         }
+        return true;
     case parquetTime::TimeMicros:
         for (int i = 0; i < bufSize; i++)
             longValue[i] = longValue[i] * 1000;
@@ -2042,6 +2042,7 @@ int convertParquetToDolphindbString(int col_idx, std::shared_ptr<parquet::Column
             }
         }
     }
+    return values_read;
     case parquet::Type::DOUBLE:
     {
         if (string_t == DT_UUID || string_t == DT_INT128)
@@ -2257,22 +2258,20 @@ ConstantSP loadParquetByFilePtr(ParquetReadOnlyFile *file, Heap *heap, string fi
         indexDolphindbCol[i] = Util::createVector(DT_INDEX, 0, totalRows);
     }
 
-    size_t batchRow = 1024 * 64;
-
     int readThreadNum = READ_THREAD_NUM;
     if(fileName.empty() || readThreadNum == 1){
         vector<int> writeOffset(col_num, 0);
         int rowCount = 0;
         for(int row = rowGroupStart; row < rowGroupEnd; ++row){
             for(int i = 0; i < col_num; ++i){
-                loadParquetColumn(file, batchRow, dolphindbCol[i], row, i, column->getInt(i), writeOffset[i], rowCount, indexDolphindbCol[i]);
+                loadParquetColumn(file, BUFFER_ROWS, dolphindbCol[i], row, i, column->getInt(i), writeOffset[i], rowCount, indexDolphindbCol[i]);
                 writeOffset[i] += rowCount;
             }
         }
     }else{
         FunctionDefSP func = Util::createSystemFunction("pipeLoadParquet", loadParquetPloopFunc, 2, 2, false);
         ConstantSP fileNameArgs = new String(fileName);
-        ConstantSP batchRowArgs = new Int(batchRow);
+        ConstantSP batchRowArgs = new Int(BUFFER_ROWS);
         vector<VectorSP> dolphindbCols;
         ConstantSP rowGroupStartArgs = new Int(rowGroupStart);
         vector<int> arrowIndexArgs;
@@ -2283,7 +2282,7 @@ ConstantSP loadParquetByFilePtr(ParquetReadOnlyFile *file, Heap *heap, string fi
             arrowIndexArgs.push_back(column->getInt(i));
             dolphindbCols.push_back(dolphindbCol[i]);
         }
-        SmartPointer<ParquetPloopArgs> ploopArgs = new ParquetPloopArgs(fileName, batchRow, dolphindbCols, rowGroupStart, arrowIndexArgs, rowGroupEnd, indexDolphindbCol);
+        ObjectPtr<ParquetPloopArgs> ploopArgs = new ParquetPloopArgs(fileName, BUFFER_ROWS, dolphindbCols, rowGroupStart, arrowIndexArgs, rowGroupEnd, indexDolphindbCol);
         vector<ConstantSP> partialArgs{ploopArgs};
         FunctionDefSP partialFunction = Util::createPartialFunction(func, partialArgs);
         int threadCount = readThreadNum == 0 ? col_num : readThreadNum; 
@@ -2961,11 +2960,11 @@ std::shared_ptr<parquet::schema::GroupNode> getParquetSchemaFromDolphindb(const 
     );
 }
 
-ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const VectorSP &dolphindbCol, int row,
+ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRows, const VectorSP &dolphindbCol, int row,
                              int dolphinIndex, int arrowIndex, int offsetStart, int& totalRows, ConstantSP& indexCol) {
 
     DATA_TYPE dolphin_t = dolphindbCol->getType();
-    char buf[batchRow * 8];
+    char buf[BUFFER_ROWS * 8];
     long long rows_read = -1;
     std::shared_ptr<parquet::RowGroupReader> row_reader = file->rowReader(row);
     if (row_reader.get() == nullptr) throw RuntimeException("Read parquet file failed.");
@@ -2983,21 +2982,21 @@ ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const Vect
     totalRows = 0;
     while (column_reader->HasNext()) {
         if(indexargs.isArray_){
-            dolphindbCol->resize(offsetWrite + batchRow);
+            dolphindbCol->resize(offsetWrite + BUFFER_ROWS);
         }
         switch (dolphin_t) {
             case DT_BOOL: {
-                char *ptr = dolphindbCol->getBoolBuffer(offsetWrite, batchRow, buf);
+                char *ptr = dolphindbCol->getBoolBuffer(offsetWrite, BUFFER_ROWS, buf);
                 rows_read = convertParquetToDolphindbBool(dolphinIndex, column_reader, col_descr, ptr,
-                                                          batchRow, containNull, indexargs);
+                                                          BUFFER_ROWS, containNull, indexargs);
                 dolphindbCol->setBool(offsetWrite, rows_read, ptr);
                 dolphindbCol->setNullFlag(containNull);
                 break;
             }
             case DT_CHAR: {
-                char *ptr = dolphindbCol->getCharBuffer(offsetWrite, batchRow, buf);
+                char *ptr = dolphindbCol->getCharBuffer(offsetWrite, BUFFER_ROWS, buf);
                 rows_read = convertParquetToDolphindbChar(dolphinIndex, column_reader, col_descr, ptr,
-                                                          batchRow, containNull, indexargs);
+                                                          BUFFER_ROWS, containNull, indexargs);
                 dolphindbCol->setChar(offsetWrite, rows_read, ptr);
                 dolphindbCol->setNullFlag(containNull);
                 break;
@@ -3009,9 +3008,9 @@ ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const Vect
             case DT_MINUTE:
             case DT_DATETIME:
             case DT_INT: {
-                int *ptr = dolphindbCol->getIntBuffer(offsetWrite, batchRow, (int *)buf);
+                int *ptr = dolphindbCol->getIntBuffer(offsetWrite, BUFFER_ROWS, (int *)buf);
                 rows_read = convertParquetToDolphindbInt(dolphinIndex, column_reader, col_descr, ptr,
-                                                         dolphin_t, batchRow, containNull, indexargs);
+                                                         dolphin_t, BUFFER_ROWS, containNull, indexargs);
                 dolphindbCol->setInt(offsetWrite, rows_read, ptr);
                 dolphindbCol->setNullFlag(containNull);
                 break;
@@ -3020,33 +3019,33 @@ ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const Vect
             case DT_NANOTIME:
             case DT_NANOTIMESTAMP:
             case DT_TIMESTAMP: {
-                long long *ptr = dolphindbCol->getLongBuffer(offsetWrite, batchRow, (long long *)buf);
+                long long *ptr = dolphindbCol->getLongBuffer(offsetWrite, BUFFER_ROWS, (long long *)buf);
                 rows_read = convertParquetToDolphindbLong(dolphinIndex, column_reader, col_descr, ptr,
-                                                          dolphin_t, batchRow, containNull, indexargs);
+                                                          dolphin_t, BUFFER_ROWS, containNull, indexargs);
                 dolphindbCol->setLong(offsetWrite, rows_read, ptr);
                 dolphindbCol->setNullFlag(containNull);
                 break;
             }
             case DT_SHORT: {
-                short *ptr = dolphindbCol->getShortBuffer(offsetWrite, batchRow, (short *)buf);
+                short *ptr = dolphindbCol->getShortBuffer(offsetWrite, BUFFER_ROWS, (short *)buf);
                 rows_read = convertParquetToDolphindbShort(dolphinIndex, column_reader, col_descr, ptr,
-                                                           batchRow, containNull, indexargs);
+                                                           BUFFER_ROWS, containNull, indexargs);
                 dolphindbCol->setShort(offsetWrite, rows_read, ptr);
                 dolphindbCol->setNullFlag(containNull);
                 break;
             }
             case DT_FLOAT: {
-                float *ptr = dolphindbCol->getFloatBuffer(offsetWrite, batchRow, (float *)buf);
+                float *ptr = dolphindbCol->getFloatBuffer(offsetWrite, BUFFER_ROWS, (float *)buf);
                 rows_read = convertParquetToDolphindbFloat(dolphinIndex, column_reader, col_descr, ptr,
-                                                           batchRow, containNull, indexargs);
+                                                           BUFFER_ROWS, containNull, indexargs);
                 dolphindbCol->setFloat(offsetWrite, rows_read, ptr);
                 dolphindbCol->setNullFlag(containNull);
                 break;
             }
             case DT_DOUBLE: {
-                double *ptr = dolphindbCol->getDoubleBuffer(offsetWrite, batchRow, (double *)buf);
+                double *ptr = dolphindbCol->getDoubleBuffer(offsetWrite, BUFFER_ROWS, (double *)buf);
                 rows_read = convertParquetToDolphindbDouble(dolphinIndex, column_reader, col_descr, ptr,
-                                                            batchRow, containNull, indexargs);
+                                                            BUFFER_ROWS, containNull, indexargs);
                 dolphindbCol->setDouble(offsetWrite, rows_read, ptr);
                 dolphindbCol->setNullFlag(containNull);
                 break;
@@ -3055,10 +3054,15 @@ ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const Vect
             case DT_UUID:
             case DT_STRING:
             case DT_SYMBOL: {
-                vector<string> buffer(batchRow);
+                vector<string> buffer(BUFFER_ROWS);
                 rows_read = convertParquetToDolphindbString(dolphinIndex, column_reader, col_descr, buffer,
-                                                            dolphin_t, batchRow, containNull, indexargs);
-                dolphindbCol->setString(offsetWrite, rows_read, buffer.data());
+                                                            dolphin_t, BUFFER_ROWS, containNull, indexargs);
+                if(dolphin_t == DT_SYMBOL){
+                    dolphindbCol->resize(offsetWrite);
+                    dolphindbCol->appendString(const_cast<const string*>(buffer.data()), rows_read);
+                }else{
+                    dolphindbCol->setString(offsetWrite, rows_read, buffer.data());
+                }
                 dolphindbCol->setNullFlag(containNull);
                 break;
             }
@@ -3079,10 +3083,9 @@ ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const Vect
 
 ConstantSP loadParquetPloopFunc(Heap *heap, vector<ConstantSP> &arguments) {
 
-    SmartPointer<ParquetPloopArgs> ploopArgs = arguments[0];
+    ObjectPtr<ParquetPloopArgs> ploopArgs = arguments[0];
 
     string fileName = ploopArgs->getFileName();
-    int batchRow = ploopArgs->getBatchRow();
     const vector<VectorSP>& dolphindbColVec = ploopArgs->getDolphindbColVec();
     vector<ConstantSP>& indexCol = ploopArgs->getDolphindbIndexColVec();
     int rowGroupStart = ploopArgs->getRowGroupStart();
@@ -3104,7 +3107,7 @@ ConstantSP loadParquetPloopFunc(Heap *heap, vector<ConstantSP> &arguments) {
         if(dolphinIndex >= arrowIndexVecSize)
             throw RuntimeException("the dolphinIndex must be less than the size of arrowIndexVec");
         for (int row = rowGroupStart; row < rowGroupEnd; row++){
-            loadParquetColumn(&file, batchRow, dolphindbColVec[dolphinIndex], row, dolphinIndex, arrowIndexVec[dolphinIndex], offsetWrite, rowCount, indexCol[dolphinIndex]);
+            loadParquetColumn(&file, BUFFER_ROWS, dolphindbColVec[dolphinIndex], row, dolphinIndex, arrowIndexVec[dolphinIndex], offsetWrite, rowCount, indexCol[dolphinIndex]);
             offsetWrite += rowCount;
         }
     }

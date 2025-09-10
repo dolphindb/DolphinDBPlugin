@@ -52,7 +52,7 @@ static bool isWideODBC(std::string connectStr){
     bool wideFunc = true;
 #ifdef __linux__
     std::string libDir = getLibName(connectStr);
-    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX + "ODBC lib path: ", libDir);
+    LOG_INFO(PLUGIN_ODBC_STRING_PREFIX + "ODBC lib path: ", libDir);
     void * handle = dlopen(libDir.c_str(), RTLD_LAZY);
     if(handle == nullptr)
         throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Failed to loadLibrary [" + libDir + "].");
@@ -63,7 +63,7 @@ static bool isWideODBC(std::string connectStr){
     std::ignore = connectStr;
     wideFunc = true;
 #endif
-    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX  + "Using " + (wideFunc ? "wide" : "short") + " character ODBC interface. ");
+    LOG_INFO(PLUGIN_ODBC_STRING_PREFIX  + "Using " + (wideFunc ? "wide" : "short") + " character ODBC interface. ");
     return wideFunc;
 }
 
@@ -73,14 +73,14 @@ using namespace std;
 static void odbcConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
     std::ignore = heap;
     if(args.size() < 1){
-        PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "The count of param for odbcConnectionOnClose can't be less than 1");
+        LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "The count of param for odbcConnectionOnClose can't be less than 1");
         return;
     }
     LockGuard<Mutex> guard(&ODBCBaseConnection::ODBC_PLUGIN_LOCK);
     long long cp = args[0]->getLong();
     if (cp == 0 || ODBCBaseConnection::ODBC_CONN_MAP.find(cp) == ODBCBaseConnection::ODBC_CONN_MAP.end()){
         if(args[0]->getString().find("ODBC connection to") == string::npos)
-            PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "odbcConnectionOnClose handle is not an ODBC connection. ");
+            LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "odbcConnectionOnClose handle is not an ODBC connection. ");
         return;
     }
     ODBCBaseConnectionSP data = ODBCBaseConnection::ODBC_CONN_MAP[cp];
@@ -88,7 +88,7 @@ static void odbcConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
         data->close(true);
     }
     catch(exception& e){
-        PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to close ODBC connection: ", e.what());
+        LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to close ODBC connection: ", e.what());
     }
     ODBCBaseConnection::ODBC_CONN_MAP.erase(cp);
     args[0]->setLong(0);
@@ -482,14 +482,14 @@ template <typename NanConnection, typename NanTransaction, typename NanResult, t
 void OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp, NanDate, NanTime, NanStateMent, NanODBCFunc>::odbcExecute(const string &querySql, Heap *heap) {
     std::ignore = heap;
     if (dataBaseType_ == ODBC_DBT_CLICK_HOUSE) {
-        PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire global lock for ODBC connection " + std::to_string((long long)this) + ". ");
+        LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire global lock for ODBC connection " + std::to_string((long long)this) + ". ");
     }
     LockGuard<Mutex> lockClickHouse(getClickHouseLock());
-    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire lock for ODBC connection " + std::to_string((long long)this) + ". ");
+    LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire lock for ODBC connection " + std::to_string((long long)this) + ". ");
     LockGuard<Mutex> lockGuard(&lock);
-    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Executing SQL statements on ODBC connection " + std::to_string((long long)this) + ". ");
+    LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Executing SQL statements on ODBC connection " + std::to_string((long long)this) + ". ");
     if(closed_){
-        PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Cannot execute SQL statements: ODBC connection is closed. ");
+        LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Cannot execute SQL statements: ODBC connection is closed. ");
         throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Cannot execute SQL statements: ODBC connection is closed. ");
     }
     try {
@@ -502,7 +502,7 @@ void OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp, NanD
         }
         throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + e.what());
     }
-    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Execution completed on ODBC connection " + std::to_string((long long)this) + ". ");
+    LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Execution completed on ODBC connection " + std::to_string((long long)this) + ". ");
 }
 
 struct NanODBCWideFunc {
@@ -955,20 +955,20 @@ TableSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp, N
 template <typename NanConnection, typename NanTransaction, typename NanResult, typename NanTimestamp, typename NanDate, typename NanTime, typename NanStateMent, typename NanODBCFunc>
 ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp, NanDate, NanTime, NanStateMent, NanODBCFunc>::odbcAppend(Heap* heap, TableSP t, const string& tableName, bool createTable, bool insertIgnore){
     if (dataBaseType_ == ODBC_DBT_CLICK_HOUSE) {
-        PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire global lock for ODBC connection " + std::to_string((long long)this) + ". ");
+        LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire global lock for ODBC connection " + std::to_string((long long)this) + ". ");
     }
     LockGuard<Mutex> lockClickHouse(getClickHouseLock());
-    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire lock for ODBC connection " + std::to_string((long long)this) + ". ");
+    LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire lock for ODBC connection " + std::to_string((long long)this) + ". ");
     LockGuard<Mutex> lockGuard(&lock);
-    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Appending data to ODBC connection " + std::to_string((long long)this) + ". ");
+    LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Appending data to ODBC connection " + std::to_string((long long)this) + ". ");
     if(closed_){
-        PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX, "Cannot append data: ODBC connection is closed. ");
+        LOG_ERR(PLUGIN_ODBC_STRING_PREFIX, "Cannot append data: ODBC connection is closed. ");
         throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Cannot append data: ODBC connection is closed. ");
     }
     NanTransaction tranConn(*nanoConn_);
     ODBCDataBaseType databaseType = getDataBaseType();
     if (insertIgnore && databaseType != ODBC_DBT_MYSQL){
-        PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX, "ignoreDuplicates can only use in MySQL");
+        LOG_ERR(PLUGIN_ODBC_STRING_PREFIX, "ignoreDuplicates can only use in MySQL");
         throw IllegalArgumentException("odbc::append", PLUGIN_ODBC_STRING_PREFIX + "ignoreDuplicates can only use in MySQL");
     }
 
@@ -1002,7 +1002,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
             createString += "engine=Log;";
             // std::cout << "use Log as table engine." << std::endl;
         }
-        PLUGIN_LOG(PLUGIN_ODBC_STRING_PREFIX, createString);
+        LOG(PLUGIN_ODBC_STRING_PREFIX, createString);
         odbcExecute(tranConn, createString, heap);
     }
     int rows = t->rows();
@@ -1116,7 +1116,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
             prepareSql += ") values ";
             prepareSql += questionMarks;
             prepareSql += "";
-            PLUGIN_LOG(PLUGIN_ODBC_STRING_PREFIX, prepareSql);
+            LOG(PLUGIN_ODBC_STRING_PREFIX, prepareSql);
             getODBCFunc().prepare(statement, prepareSql);
 
             const size_t elements = end - start;
@@ -1484,24 +1484,24 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
     try {
         tranConn.commit();
     } catch (const runtime_error &e) {
-        PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX, "Failed to commit transaction: ", e.what());
+        LOG_ERR(PLUGIN_ODBC_STRING_PREFIX, "Failed to commit transaction: ", e.what());
         throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Failed to append data : " + e.what());
     }
-    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Successfully appended data to ODBC connection " + std::to_string((long long)this) + ". ");
+    LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Successfully appended data to ODBC connection " + std::to_string((long long)this) + ". ");
     return Util::createConstant(DT_VOID);
 }
 
 template <typename NanConnection, typename NanTransaction, typename NanResult, typename NanTimestamp, typename NanDate, typename NanTime, typename NanStateMent, typename NanODBCFunc>
 ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp, NanDate, NanTime, NanStateMent, NanODBCFunc>::odbcQuery(Heap* heap, const TableSP& schemaTable, const FunctionDefSP& transform, int batchSize, const string& querySql){
     if (dataBaseType_ == ODBC_DBT_CLICK_HOUSE) {
-        PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire global lock for ODBC connection " + std::to_string((long long)this) + ". ");
+        LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire global lock for ODBC connection " + std::to_string((long long)this) + ". ");
     }
     LockGuard<Mutex> lockClickHouse(getClickHouseLock());
-    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire lock for ODBC connection " + std::to_string((long long)this) + ". ");
+    LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire lock for ODBC connection " + std::to_string((long long)this) + ". ");
     LockGuard<Mutex> lockGuard(&lock);
-    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Querying data on ODBC connection " + std::to_string((long long)this) + ". ");
+    LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Querying data on ODBC connection " + std::to_string((long long)this) + ". ");
     if(closed_){
-        PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX, "Cannot query data: ODBC connection is closed. ");
+        LOG_ERR(PLUGIN_ODBC_STRING_PREFIX, "Cannot query data: ODBC connection is closed. ");
         throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "Cannot query data: ODBC connection is closed. ");
     }
     const static int nanodbc_rowset_size = 1;
@@ -1704,7 +1704,7 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
             for (short i = 0; i < columns; ++i) { arrCol[i]->clear(); }
         }
     }
-    PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Query completed on ODBC connection " + std::to_string((long long)this) + ". ");
+    LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Query completed on ODBC connection " + std::to_string((long long)this) + ". ");
     return appendTable;
 }
 

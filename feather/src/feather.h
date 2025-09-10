@@ -1,6 +1,7 @@
 #ifndef FEATHER_PLUGIN_H
 #define FEATHER_PLUGIN_H
 
+#include "DolphinDBEverything.h"
 #include <CoreConcept.h>
 #include "ddbplugin/CommonInterface.h"
 #include <Exceptions.h>

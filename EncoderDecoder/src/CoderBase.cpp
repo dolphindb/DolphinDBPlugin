@@ -1,9 +1,12 @@
 #include "CoderBase.h"
+
+#include "DolphinDBEverything.h"
 #include "Exceptions.h"
 #include "Types.h"
 #include <exception>
 #include <iostream>
 
+using namespace google::protobuf;
 
 using namespace ddb;
 CoderImpl::~CoderImpl(){}
@@ -50,6 +53,9 @@ void CoderImpl::appendTable(ConstantSP items) const
 
 bool CoderImpl::append(vector<ConstantSP>& values, INDEX& insertedRows, string& errMsg)
 {
+    std::ignore = values;
+    std::ignore = insertedRows;
+    std::ignore = errMsg;
     return false;
 }
 
@@ -60,7 +66,12 @@ bool CoderImplClass::hasMethod(const string& name) const {
     return false;
 }
 
+bool EncoderClass::hasMethod(const string& name) const {
+    return name == "serialize" ? true : false;
+}
+
 ConstantSP parseAndHandle(Heap* heap, vector<ConstantSP>& args) {
+    std::ignore = heap;
     if (UNLIKELY(args.size() != 2)) {
         throw IllegalArgumentException("Coder::parseAndHandle(item)",
             "The function [parseAndHandle] expects 2 argument(s), but the actual number of arguments is: "
@@ -71,6 +82,120 @@ ConstantSP parseAndHandle(Heap* heap, vector<ConstantSP>& args) {
     }
     ((CoderImpl *)(args[0].get()))->appendTable(args[1]);
     return new Void();
+}
+
+ConstantSP protobufSerialize(Heap* heap, vector<ConstantSP>& args) {
+    std::ignore = heap;
+    if (args[0]->getString() != "encoder instance") {
+        throw  IllegalArgumentException("encoder::serialize", "only a encoder could serialize, but actually: " + args[0]->getString() + ".");
+    }
+    return reinterpret_cast<EncoderInstance*>(args[0].get())->protobufSerialize(args[1]);
+}
+
+ConstantSP EncoderInstance::protobufSerialize(ConstantSP obj) {
+    if(obj->getForm() != DF_TABLE) {
+        throw RuntimeException(ENCODERDECODER_PREFIX + "protobuf encode only support serialize table");
+    }
+    TableSP t = obj;
+
+    INDEX rowNum = t->rows();
+    std::vector<std::shared_ptr<Message>> messages;
+    for(INDEX i = 0; i < rowNum; ++i) {
+        std::shared_ptr<Message> msg(protoType_->New());
+        messages.push_back(msg);
+    }
+
+    const auto* reflection = protoType_->GetReflection();
+    const auto *messageDesc = protoType_->GetDescriptor();
+
+    int fieldNum = protoType_->GetDescriptor()->field_count();
+    for(int i = 0; i < fieldNum; ++i) {
+        const FieldDescriptor* discriptor = messageDesc->field(i);
+        if(!t->contain(discriptor->name())) {
+            continue;
+        }
+        VectorSP col = t->getColumn(discriptor->name());
+
+        auto protoType = discriptor->type();
+        switch (protoType) {
+            case FieldDescriptor::TYPE_DOUBLE:
+                for(int j = 0; j < rowNum; ++j) {
+                    reflection->SetDouble(messages[j].get(), discriptor, col->getDouble(j));
+                }
+                break;
+            case FieldDescriptor::TYPE_FLOAT:
+                for(int j = 0; j < rowNum; ++j) {
+                    reflection->SetFloat(messages[j].get(), discriptor, col->getFloat(j));
+                }
+                break;
+            case FieldDescriptor::TYPE_INT64:
+                for(int j = 0; j < rowNum; ++j) {
+                    reflection->SetInt64(messages[j].get(), discriptor, col->getLong(j));
+                }
+                break;
+            case FieldDescriptor::TYPE_UINT64:
+                for(int j = 0; j < rowNum; ++j) {
+                    long long value = col->getLong(j);
+                    if(value < 0) {
+                        throw RuntimeException(ENCODERDECODER_PREFIX + "the uint64 proto type cannot represend negative numbers: column " + discriptor->name()  + ", row " + std::to_string(j + 1));
+                    }
+                    reflection->SetUInt64(messages[j].get(), discriptor, value);
+                }
+                break;
+            case FieldDescriptor::TYPE_INT32:
+                for(int j = 0; j < rowNum; ++j) {
+                    reflection->SetInt32(messages[j].get(), discriptor, col->getInt(j));
+                }
+                break;
+            case FieldDescriptor::TYPE_BOOL:
+                for(int j = 0; j < rowNum; ++j) {
+                    bool value = false;
+                    if(!col->isNull(j)) {
+                        value = col->getBool(j);
+                    }
+                    reflection->SetBool(messages[j].get(), discriptor, value);
+                }
+                break;
+            case FieldDescriptor::TYPE_STRING:
+                for(int j = 0; j < rowNum; ++j) {
+                    reflection->SetString(messages[j].get(), discriptor, col->getString(j));
+                }
+                break;
+            case FieldDescriptor::TYPE_UINT32:
+                for(int j = 0; j < rowNum; ++j) {
+                    int value = col->getInt(j);
+                    if(value < 0) {
+                        throw RuntimeException(ENCODERDECODER_PREFIX + "the uint32 proto type cannot represend negative numbers: column " + discriptor->name()  + ", row " + std::to_string(j + 1));
+                    }
+                    reflection->SetUInt32(messages[j].get(), discriptor, value);
+                }
+                break;
+            default:
+                throw RuntimeException(ENCODERDECODER_PREFIX + "protubuf encoder not support this proto type " + discriptor->type_name());
+        }
+    }
+
+    std::vector<std::string> results(rowNum);
+    for(int i = 0; i < rowNum; ++i) {
+        if (!messages[i]->SerializeToString(&results[i])) {
+            throw RuntimeException(ENCODERDECODER_PREFIX + "serialize row " + std::to_string(i) + " fail");
+        }
+    }
+    VectorSP ret = Util::createVector(DT_BLOB, 0, rowNum);
+    ret->appendString(results.data(), rowNum);
+    return ret;
+}
+
+FunctionDefSP EncoderClass::getMethod(const string& name) const {
+    if (name == "serialize") {
+        FunctionDefSP func = Util::createSystemFunction(name, protobufSerialize, 2, 2, false);
+        return func;
+    }
+    throw RuntimeException(ENCODERDECODER_PREFIX + " EncoderClass class doesn't have method " + name);
+}
+
+void EncoderInstance::initialize(const std::string& filePath, const std::string& protoName) {
+    protoType_ = getMessageFromProtoFile(filePath, protoName, pool, factory);
 }
 
 FunctionDefSP CoderImplClass::getMethod(const string& name) const {

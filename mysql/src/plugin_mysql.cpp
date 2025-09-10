@@ -55,6 +55,7 @@ vector<ConstantSP> getArgs(vector<ConstantSP> &args, size_t nMaxArgs) {
 }
 
 static void mysqlConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     Connection *conn = reinterpret_cast<Connection *>(args[0]->getLong());
     if (conn != nullptr) {
         delete conn;
@@ -96,6 +97,7 @@ ConstantSP mysqlConnect(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP mysqlClose(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     std::string usage = "Usage: close(connection).";
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString().find("mysql connection") != 0) {
         throw IllegalArgumentException(__FUNCTION__, usage + "Must be a mysql resource object.");
@@ -112,16 +114,19 @@ ConstantSP mysqlClose(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP mysqlTables(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     return safeOp(args[0], [&](Connection *conn) { return conn->doQuery("show tables;"); });
 }
 
 ConstantSP mysqlSchema(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     if (args[1]->getType() != DT_STRING)
         throw IllegalArgumentException(__FUNCTION__, "Usage：extractScheme(connection, table). table must be a string");
     return safeOp(args[0], [&](Connection *conn) { return conn->extractSchema(args[1]->getString()); });
 }
 
 ConstantSP mysqlLoad(Heap *heap, vector<ConstantSP> &arguments) {
+    std::ignore = heap;
     auto args = getArgs(arguments, 6);
     std::string usage =
         "Usage: load(connection, table_or_query, [schema], [startRow=0], [rowNum=ULONGLONG_MAX], "
@@ -517,6 +522,7 @@ void MySQLExtractor::extractEx(Heap *heap, TableSP &t, const FunctionDefSP &tran
 
 void MySQLExtractor::realExtract(mysqlxx::UseQueryResult &res, const ConstantSP &schema, TableSP &resultTable,
                                  std::function<void(Pack &)> callback) {
+    std::ignore = schema;
     try {
         assert(emptyPackIdx_.size() == 0);
         assert(fullPackIdx_.size() == 0);
@@ -908,6 +914,7 @@ unsigned long long Pack::getRowStorage(vector<DATA_TYPE> types, vector<size_t> m
 
 void Pack::init(const vector<DATA_TYPE> &srcDt, const vector<long long> &srcDecimalScale,
                 const vector<DATA_TYPE> &dstDt, TableSP &resultTable, vector<size_t> maxStrLen, size_t cap) {
+    std::ignore = resultTable;
     assert(srcDt.size() == dstDt.size());
     nCol_ = srcDt.size();
     size_ = 0;
@@ -1362,6 +1369,7 @@ bool parseNanotime(char *dst, const mysqlxx::Value &val, DATA_TYPE &dstDt, char 
 
 bool parseDecimal(char *dst, const mysqlxx::Value &val, const long long &scale, DATA_TYPE &dstDt, char *nullVal,
                   size_t len) {
+    std::ignore = dstDt;
     if (val.empty()) {
         memcpy(dst, nullVal, len);
         return true;

@@ -1,20 +1,40 @@
 #include "jsonUtil.h"
+
+#include "DolphinDBEverything.h"
 #include "CoreConcept.h"
 #include "EncoderDecoder.h"
 #include "Exceptions.h"
-#include "Logger.h"
 #include "ScalarImp.h"
 #include "Types.h"
+#include "ddbplugin/PluginLogger.h"
 #include <climits>
 #include <exception>
 #include <ratio>
 #include <string>
 
+#if defined(_MSC_VER)
+#elif defined(__clang__)
+#else // gcc
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wclass-memaccess"
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#if __GNUC__ >= 15
+#pragma GCC diagnostic ignored "-Wtemplate-body"
+#endif
+#endif
+
 #include "rapidjson/document.h"
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/prettywriter.h"
-#include <ddbplugin/PluginLogger.h>
+
+#if defined(_MSC_VER)
+#pragma warning( pop )
+#elif defined(__clang__)
+#pragma clang diagnostic pop
+#else // gcc
+#pragma GCC diagnostic pop
+#endif
 
 using namespace ddb;
 using namespace rapidjson;
@@ -198,12 +218,12 @@ ConstantSP parseJson(Heap* heap, vector<ConstantSP>& arguments)
 
     vector<string> originData;
     originData.resize(rows);
-    char* buffer[maxIndex];
+    std::vector<char*> buffer(maxIndex);
     int times = rows / maxIndex + 1;
     long long dataOffset = 0;
     for (int timeIndex = 0; timeIndex < times; ++timeIndex) {
         int subSize = min(maxIndex, rows - maxIndex * timeIndex);
-        char** ptr = vec->getStringConst(maxIndex * timeIndex, subSize, buffer);
+        char** ptr = vec->getStringConst(maxIndex * timeIndex, subSize, buffer.data());
         for (int subRowIndex = 0; subRowIndex < subSize; ++subRowIndex) {
             originData[subRowIndex] = ptr[subRowIndex];
         }
@@ -218,7 +238,7 @@ ConstantSP parseJson(Heap* heap, vector<ConstantSP>& arguments)
             } catch (std::bad_alloc& me) {
                 throw me;
             } catch (exception& ex) {
-                PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + string(ex.what()));
+                LOG_ERR(ENCODERDECODER_PREFIX + string(ex.what()));
                 continue;
             }
             rapidjson::Value nullValue;
@@ -668,7 +688,7 @@ ConstantSP parseJson(Heap* heap, vector<ConstantSP>& arguments)
     }
     rows = dataOffset;
     for (int colIndex = 0; colIndex < colSize; ++colIndex) {
-        VectorSP& vec = (VectorSP&)cols[colIndex];
+        VectorSP vec = cols[colIndex];
         if ((int)colTypes[colIndex] < ARRAY_VECTOR_TYPE_BASE) {
             switch (colTypes[colIndex]) {
             case DT_BOOL:
@@ -727,14 +747,18 @@ ConstantSP parseJson(Heap* heap, vector<ConstantSP>& arguments)
             }
             vector<ConstantSP> args { indexVec, vecValue };
             try {
-                vec = Util::getFuncDefFromHeap(heap, "arrayVector")->call(heap, args);
+                VectorSP col = Util::getFuncDefFromHeap(heap, "arrayVector")->call(heap, args);
+                cols[colIndex] = col;
             } catch (exception& e) {
                 throw RuntimeException(ENCODERDECODER_PREFIX + " Col " + originCol[colIndex] + " data fail to create arrayVector." + e.what());
             }
         }
     }
     int colIndex = 0;
-    for(ConstantSP col: cols) {
+    for(const ConstantSP& col: cols) {
+        if (col.isNull()) {
+            throw RuntimeException(ENCODERDECODER_PREFIX + "json parse failed.");
+        }
         col->setTemporary(true);
         col->setNullFlag(hasNulls[colIndex++]);
     }
@@ -748,6 +772,8 @@ string getErrMsg(DATA_TYPE colType, Type jsonType);
 
 ConstantSP parseNestedJson(Heap* heap, vector<ConstantSP>& arguments)
 {
+    std::ignore = heap;
+    std::ignore = arguments;
     return new Void();
     // /// Arguments processing
     // if (arguments[0]->getForm() != DF_VECTOR || arguments[0]->getType() != DT_STRING) {
@@ -848,7 +874,7 @@ ConstantSP parseNestedJson(Heap* heap, vector<ConstantSP>& arguments)
     //             doc.Parse(originData[jsonIndex].c_str());
     //         } catch (exception& ex) {
     //             // Log any errors that occur during parsing.
-    //             PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + string(ex.what()));
+    //             LOG_ERR(ENCODERDECODER_PREFIX + string(ex.what()));
     //             continue; // If an error occurred, skip the rest of this iteration and proceed with the next row.
     //         }
 

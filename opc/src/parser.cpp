@@ -1,7 +1,7 @@
 #include "parser.h"
 #include "ScalarImp.h"
 #include "Util.h"
-#include "json.hpp"
+#include "json/json.hpp"
 
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define LIKELY(x) (__builtin_expect((x), 1))

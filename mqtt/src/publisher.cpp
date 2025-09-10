@@ -11,6 +11,10 @@ PublishTable::PublishTable(const vector<ConstantSP> &cols, const vector<string> 
     session_ = heap->currentSession()->copy();
 }
 
+ConstantSP PublishTable::getValue() const {
+    return new PublishTable(cols_, colNames_, resource_, topic_, session_->getHeap().get());
+}
+
 bool PublishTable::append(vector<ConstantSP> &values, INDEX &insertedRows, string &errMsg) {
     std::ignore = errMsg;
     TableSP table;

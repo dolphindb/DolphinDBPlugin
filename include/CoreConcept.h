@@ -30,7 +30,7 @@
 #include "SysIOTypes.h"
 #include "DolphinString.h"
 
-#define serverVersion "3.00.3"
+#define serverVersion "3.00.4"
 
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define LIKELY(x) (__builtin_expect((x), 1))
@@ -106,30 +106,32 @@ class Transaction;
 class Parser;
 class ParserData;
 class ColumnDef;
+class ExtendedObj;
+class Expression;
 
 typedef SmartPointer<AuthenticatedUser> AuthenticatedUserSP;
 typedef SmartPointer<ByteArrayCodeBuffer> ByteArrayCodeBufferSP;
 typedef SmartPointer<Iterator> IteratorSP;
-typedef SmartPointer<Constant> ConstantSP;
-typedef SmartPointer<Vector> VectorSP;
-typedef SmartPointer<Matrix> MatrixSP;
-typedef SmartPointer<Tensor> TensorSP;
-typedef SmartPointer<Object> ObjectSP;
+typedef ObjectPtr<Constant> ConstantSP;
+typedef ObjectPtr<Vector> VectorSP;
+typedef ObjectPtr<Matrix> MatrixSP;
+typedef ObjectPtr<Tensor> TensorSP;
+typedef ObjectPtr<Object> ObjectSP;
 typedef SmartPointer<Operator> OperatorSP;
 typedef SmartPointer<Statement> StatementSP;
 typedef SmartPointer<Param> ParamSP;
-typedef SmartPointer<FunctionDef> FunctionDefSP;
+typedef ObjectPtr<FunctionDef> FunctionDefSP;
 typedef SmartPointer<Heap> HeapSP;
-typedef SmartPointer<Table> TableSP;
-typedef SmartPointer<Set> SetSP;
-typedef SmartPointer<Dictionary> DictionarySP;
-typedef SmartPointer<DFSChunkMeta> DFSChunkMetaSP;
-typedef SmartPointer<OOClass> OOClassSP;
-typedef SmartPointer<OOInstance> OOInstanceSP;
+typedef ObjectPtr<Table> TableSP;
+typedef ObjectPtr<Set> SetSP;
+typedef ObjectPtr<Dictionary> DictionarySP;
+typedef ObjectPtr<DFSChunkMeta> DFSChunkMetaSP;
+typedef ObjectPtr<OOClass> OOClassSP;
+typedef ObjectPtr<OOInstance> OOInstanceSP;
 typedef SmartPointer<SQLTransaction> SQLTransactionSP;
 typedef SmartPointer<SQLContext> SQLContextSP;
-typedef SmartPointer<ColumnRef> ColumnRefSP;
-typedef SmartPointer<ColumnDef> ColumnDefSP;
+typedef ObjectPtr<ColumnRef> ColumnRefSP;
+typedef ObjectPtr<ColumnDef> ColumnDefSP;
 typedef SmartPointer<SymbolBase> SymbolBaseSP;
 typedef SmartPointer<SymbolBaseManager> SymbolBaseManagerSP;
 typedef SmartPointer<Output> OutputSP;
@@ -160,11 +162,15 @@ typedef SmartPointer<Transaction> TransactionSP;
 typedef SmartPointer<Parser> ParserSP;
 typedef SmartPointer<ParserData> ParserDataSP;
 
-typedef ConstantSP(*OptrFunc)(const ConstantSP&, const ConstantSP&);
+typedef ConstantSP(*OptrFunc)(Heap*  heap, const ConstantSP&, const ConstantSP&);
 typedef ConstantSP(*OptrFunc2)(Heap* heap, const ConstantSP&, const ConstantSP&);
 typedef ConstantSP(*SysFunc)(Heap* heap, vector<ConstantSP>& arguments);
 typedef INDEX(*FastFunc)(vector<ConstantSP>& arguments, const ConstantSP& result, INDEX outputStart, bool validate, INDEX inputStart, INDEX inputLen);
-typedef ConstantSP(*TemplateOptr)(const ConstantSP&,const ConstantSP&,const string&, OptrFunc, FastFunc, int);
+typedef bool(*InplaceFunc)(Heap* heap, const vector<ConstantSP>& arguments, ConstantSP& result);
+typedef bool(*InplaceOptr)(Heap* heap, const ConstantSP& a, const ConstantSP& b, ConstantSP& result);
+typedef void(*LowLatencyFunc)(Heap* heap, const vector<ConstantSP>& arguments, const ConstantSP& result);
+typedef void(*LowLatencyOptr)(Heap* heap, const ConstantSP& a, const ConstantSP& b, const ConstantSP& result);
+typedef ConstantSP(*TemplateOptr)(Heap* heap, const ConstantSP&,const ConstantSP&,const string&, OptrFunc, FastFunc, int);
 typedef ConstantSP(*TemplateUserOptr)(Heap* heap, const ConstantSP&,const ConstantSP&, const FunctionDefSP&, int);
 typedef void (*SysProc)(Heap* heap,vector<ConstantSP>& arguments);
 typedef std::function<void (StatementSP)> CFGTraversalFunc;
@@ -173,6 +179,7 @@ typedef ObjectSP(*ObjectFunc)(const SQLContextSP& context, Session* session, con
 typedef ConstantSP(*SysObjFunc)(Session* session, const DataInputStreamSP& buffer);
 typedef OOClassSP(*ClassFunc)(const string& qualifier, const string& name);
 typedef bool (*JitOptimizedFunc)(ConstantSP &ret, Heap* heap, std::vector<ConstantSP> &arguments);
+typedef ExtendedObj* (*ExtendedObjParser)(int extendedType, int versionAndSize, DataInputStream* buffer);
 
 
 class AuthenticatedUser{
@@ -189,7 +196,8 @@ public:
 			long long queryResultMemLimit, long long taskGroupMemLimit, bool isViewOwner,
 			bool globalExecComputeGroup, const set<string>& execGroup, const set<string>& deniedExecGroup,
 			bool globalSensitiveView, const set<string>& sensitiveCol, const set<string>& deniedSensitiveCol,
-			long long maxPartitionPerQuery);
+			bool mcpManage, bool mcpDevelop, bool globalMcpExec, const set<string>& mcpExec, const set<string>& deniedMcpExec,
+			long long maxPartitionPerQuery, bool createSharedVar);
     AuthenticatedUser(const ConstantSP& userObj);
     ConstantSP toTuple() const ;
     void setLoginNanoTimeStamp(long long t){loginNanoTimestamp_ = t;}
@@ -213,6 +221,9 @@ public:
 	inline bool canDeleteDBObject() const { return permissionFlag_ & 512;}
 	inline bool isDBOwner() const { return (permissionFlag_ & 1024) || !dbOwnerPatterns_.empty(); }
 	bool isViewOwner() const { return permissionFlag_ & (1 << 14); }
+	inline bool isMcpManager() const { return permissionFlag_ & (1 << 17);}
+	inline bool isMcpDeveloper() const { return permissionFlag_ & (1 << 18);}
+	inline bool canUseMCP() const { return permissionFlag_ & (1 << 19);}
 	bool matchViewOwner(const string& owner) const { return isViewOwner() && getUserId() == owner; }
 	bool matchDBOwner(const string& obj) const { return matchPattern(permissionFlag_ & 1024, dbOwnerPatterns_, obj); }
 	bool canReadTable(const string& name) const { return accessTableRule(canReadTable(), "RT_", "DRT_", name); }
@@ -228,7 +239,9 @@ public:
 	bool canCreateDBObject(const string& name) const { return accessDBRule(canCreateDBObject(), "CD_", "DCD_", name, ""); }
 	bool canDeleteDBObject(const string& name) const { return accessDBRule(canDeleteDBObject(), "DD_", "DDD_", name, ""); }
 	bool canExecGroup(const string& group) const;
+	bool canExecMcp(const string& mcp) const {return accessMcpRule(canUseMCP(), mcp);}
 	bool canAccessSensitiveCol(const string& tableUrl, const string& colName) const;
+	bool canCreateSharedVar() const { return permissionFlag_ & (1 << 20); }
 	// return 0 if no limit
 	long long queryResultMemLimit() { return queryResultMemLimit_; }
 	long long taskGroupMemLimit() { return taskGroupMemLimit_; }
@@ -244,6 +257,7 @@ private:
 	bool accessDBRule(bool global, const char* prefix, const char* denyPrefix, const string& objName, const char* objPrefix = "$DB$") const;
 	bool accessTableRule(bool global, const char* prefix, const char* denyPrefix, const string& tableName) const;
 	bool accessViewRule(bool global, const string& viewName) const;
+	bool accessMcpRule(bool global, const string& mcpName) const;
 	bool matchPattern(bool global, const unordered_set<string>& patterns, const string& name) const;
 
     string userId_;
@@ -268,6 +282,10 @@ private:
      * bit13: global delete
 	 * bit14: view owner
 	 * bit15: sensitive view
+	 * bit17: global mcp manage
+	 * bit18: global mcp develop
+	 * bit19: mcp exec
+	 * bit20: create shared var
      */
     uint32_t permissionFlag_;
 
@@ -345,7 +363,8 @@ public:
 			if(sizeInSegment_ >= segmentCapacity_)
 				return false;
 			else{
-				dataSegment_[sizeInSegment_++] = new T[segmentSize_];
+				T* data = new T[segmentSize_];
+				dataSegment_[sizeInSegment_++] = data;
 			}
 		}
 		dataSegment_[size_ >> segmentSizeInBit_][size_ & segmentMask_] = val;
@@ -399,6 +418,7 @@ public:
 	inline IO_ERR write(float val){ return write((const char*)&val, 4);}
 	inline IO_ERR write(double val){ return write((const char*)&val, 8);}
 	inline IO_ERR write(const Guid &val){ return write((const char*)val.bytes(), 16);}
+	IO_ERR resize(size_t newSize);
 	size_t size() const { return size_;}
 	size_t capacity() const { return capacity_;}
 	const char * getBuffer() const { return buf_;}
@@ -549,6 +569,54 @@ struct InferredType {
     string getString();
 };
 
+struct VariableStat {
+	VariableStat() : firstAssignedStatement(-1), lastAssignedStatement(-1), lastAssignedParentStatement(-1), lastReferedStatement(-1),
+			lastReferedParentStatement(-1), numberAssigns(0), numberRefers(0), constant(false), processed(false){}
+	void reset(){
+		firstAssignedStatement = 0;
+		lastAssignedStatement = 0;
+		lastReferedStatement = 0;
+		numberAssigns = 0;
+		numberRefers = 0;
+		constant = false;
+		processed = false;
+		lastAssign.clear();
+	}
+	int firstAssignedStatement;
+	int lastAssignedStatement;
+	int lastAssignedParentStatement;
+	int lastReferedStatement;
+	int lastReferedParentStatement;
+	int numberAssigns;
+	int numberRefers;
+	bool constant;
+	bool processed;
+	ObjectSP lastAssign;
+};
+
+struct OptimizeContext {
+	OptimizeContext() : statementNo(0), parentStatementNo(0), flag(0){}
+	inline bool withinUDF() const { return flag & 1;}
+	inline void setWithinUDF(bool option){if(option) flag |= 1; else flag &= ~1;}
+	inline bool lowLatencyMode() const { return flag& 2;}
+	inline void setLowLatencyMode(bool option) {if(option) flag |= 2; else flag &= ~2;}
+	inline bool isTopLayer() const { return flag & 4;}
+	inline void setTopLayer(bool option){if(option) flag |= 4; else flag &= ~4;}
+	inline bool isInplaceOptDisabled() const { return flag & 8;}
+	inline void disableInplaceOpt(bool option){if(option) flag |= 8; else flag &= ~8;}
+	inline void incStatementNo() { ++statementNo;}
+
+	/*
+	 * key: local variable's index (starting from 0)
+	 * value: variable statistics
+	 */
+	unordered_map<INDEX, VariableStat> vars;
+	ConstantSP recentResult;
+	int statementNo;
+	int parentStatementNo;
+	long long flag;
+};
+
 class SWORDFISH_API Object {
 public:
 	Object(OBJECT_TYPE type) : objType_(type){}
@@ -556,14 +624,23 @@ public:
 	bool isConstant() const {return objType_ == OBJECT_TYPE::CONSTOBJ;}
 	bool isVariable() const {return objType_ == OBJECT_TYPE::VAR;}
 	virtual ConstantSP getValue(Heap* pHeap) = 0;
+	virtual const ConstantSP& getValue(Heap* pHeap, ConstantSP& cache);
 	virtual ConstantSP getReference(Heap* pHeap) = 0;
-    virtual void getReference(Heap* pHeap, Constant*& ptr, ConstantSP& ref) {ptr = nullptr; ref = getReference(pHeap);}
+	virtual const ConstantSP& getReference(Heap* pHeap, ConstantSP& cache);
 	virtual ~Object(){}
 	virtual string getScript() const = 0;
 	virtual string getScript(Heap* pHeap) const { return getScript();}
 	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const = 0;
 	virtual bool isLargeConstant() const {return false;}
 	virtual ObjectSP deepCopy() const { throw RuntimeException("Object::deepCopy not implemented yet.");}
+	/**
+	 * @brief optimize the scripting object.
+	 *
+	 * @param flag: the flag for optimization.
+	 * @return return a new ObjectSP if the current object can be optimized. Otherwise return a null pointer.
+	 */
+	virtual ObjectSP optimize(Heap* pHeap, OptimizeContext& context) const { return optimize(pHeap, context, nullptr);}
+	virtual ObjectSP optimize(Heap* pHeap, OptimizeContext& context, const ConstantSP& resultCache) const { return nullptr;}
 	/**
 	 * @brief Get the components of the object in the form of a dictionary.
 	 *
@@ -576,6 +653,8 @@ public:
 		collectUserDefinedFunctions(functionDefs);
 	}
 	void collectVariables(vector<int>& vars, int minIndex, int maxIndex) const;
+	void collectVariables(OptimizeContext& context) const;
+	bool existsVariableUpdatedBetween(const unordered_map<INDEX, VariableStat>& vars, int startStatement, int endStatement) const;
 
 	/**
 	 * @biref Retrieve all ColumnRef objects contained in the currrent object.
@@ -686,8 +765,31 @@ public:
 		}
 	}
 
+    void addRef() {
+        atomic_fetch_add_explicit(&refCount_,1,std::memory_order_relaxed);
+    }
+
+    void releaseRef() {
+        if(atomic_fetch_sub_explicit(&refCount_,1,std::memory_order_acq_rel) == 1){
+            delete this;
+        }
+    }
+
+    int getCount() const {
+        return refCount_.load(std::memory_order_relaxed);
+    }
+
+    Object(const Object& other) noexcept : objType_(other.objType_), refCount_(0){}
+
+    Object& operator=(const Object& other) noexcept {objType_ = other.objType_; return *this;}
+
+    Object(Object&& other)  = delete;
+
+    Object& operator=(Object&& other) = delete;
 protected:
 	OBJECT_TYPE objType_;
+private:
+    std::atomic<int> refCount_{0};
 };
 
 #define NOT_IMPLEMENT \
@@ -897,6 +999,10 @@ public:
 	 */
 	inline bool isSysObj() const {return getForm()==DF_SYSOBJ;}
 	/**
+	 * @brief Return whether this constant is extended object.
+	 */
+	inline bool isExtendedObj() const { return getForm()==DF_EXTOBJ;}
+	/**
 	 * @brief Return whether this constant is tuple.
 	 * 		  A tuple must be a any vector.
 	 */
@@ -917,10 +1023,17 @@ public:
 	virtual uint64_t hash() const { return (uint64_t)this;}
 	virtual bool equal(const ConstantSP& other) const { return this == other.get();}
 	/**
+	 * @Brief: try to set a name to the object.
+	 *
+	 * @return: return true if the name is set.
+	 */
+	virtual bool tryName(const string& name) { return false;}
+	/**
 	 * @brief Return whether this constant is a database handle.
 	 */
 	virtual bool isDatabase() const {return false;}
 	virtual ObjectSP deepCopy() const { return getValue();}
+	virtual ObjectSP optimize(Heap* heap, OptimizeContext& context, const ConstantSP& resultCache) const;
 
 	/**
 	 * @brief Return the bool value of this constant.
@@ -1200,6 +1313,10 @@ public:
 	 * @return ConstantSP: The data.
 	 */
 	virtual ConstantSP get(const ConstantSP& index) const {return getValue();}
+	virtual bool get(const ConstantSP& index, ConstantSP& result) const {
+		result = get(index);
+		return true;
+	}
 	/**
 	 * @brief Get the data according to the index.
 	 *
@@ -1216,7 +1333,8 @@ public:
 	 * @return ConstantSP: The data.
 	 */
 	virtual ConstantSP getColumn(INDEX index) const {return getValue();}
-	/**
+    virtual const ConstantSP& getColumnRef(INDEX index) { throw RuntimeException("getColumnRef method not supported."); }
+    /**
 	 * @brief Get the data of the specified row in a matrix according to index.
 	 * 		  Note that index should be valid, otherwise out-of-bounds access will occur.
 	 *
@@ -1232,6 +1350,13 @@ public:
 	 * @return ConstantSP: The data.
 	 */
 	virtual ConstantSP getItem(INDEX index) const {return get(index);}
+	virtual const ConstantSP& getItem(INDEX index, ConstantSP& cache) const {
+		cache = getItem(index);
+		return cache;
+	}
+	virtual const ConstantSP& getExactItem(INDEX index, const ConstantSP& result) const {
+		throw RuntimeException("getExactItem method not supported");
+	}
 	/**
 	 * @brief Get the data of the specified items according to the index.
 	 * 		  If the index is out of range, the null value is returned correspondingly.
@@ -1241,6 +1366,7 @@ public:
 	 * @return ConstantSP: The data.
 	 */
 	virtual ConstantSP getItems(const ConstantSP& index) const {return get(index);}
+	virtual bool getItems(const ConstantSP& index, ConstantSP& result) const {return get(index, result);}
 	/**
 	 * @brief Get a sub-table from this constant.
 	 * 		  Note that the sub-table is a copy of the original table.
@@ -2594,12 +2720,14 @@ public:
 	 * @param pHeap:
 	*/
 	virtual ConstantSP getValue (Heap* pHeap){return getValue();}
+	virtual const ConstantSP& getValue(Heap* pHeap, ConstantSP& cache) { cache = getValue(); return cache;}
 	/**
 	 * @brief Return itself if this constant is temporary, else return a copy of this constant.
 	 *
 	 * @param pHeap:
 	*/
 	virtual ConstantSP getReference(Heap* pHeap){return getValue();}
+	virtual const ConstantSP& getReference(Heap* pHeap, ConstantSP& cache) {cache = getValue(); return cache;}
 	/**
 	 * @brief Return object type of this constant.
 	*/
@@ -2687,7 +2815,8 @@ public:
 	/// in Derived class all functions with the same name in the Base class get hidden in
 	/// Derived class.
 	/// ref: https://stackoverflow.com/questions/8816794/overloading-a-virtual-function-in-a-child-class
-	using Constant::get;
+    using Constant::get;
+    using Constant::compare;
 
 public:
 	Vector(): Constant(259){}
@@ -2707,6 +2836,7 @@ public:
 	 * @param name: The vector name.
 	*/
 	void setName(const string& name){name_=name;}
+	virtual bool tryName(const string& name);
 	/**
 	 * @brief Return whether this vector is a large constant.
 	 * 		  Note that a matrix or a constant large than 1024 is a large constant.
@@ -2755,7 +2885,12 @@ public:
 	/**
 	 * @brief Return whether this vector is a columnar tuple.
 	*/
-	virtual bool isTableColumn() const {return false;};
+	virtual bool isTableColumn() const {return false;}
+	virtual bool isColumnarTuple() const {return false;}
+	/**
+	 * @brief Return whether this vector is an object tuple.
+	*/
+	virtual bool isObjectTuple() const {return false;}
 	/**
 	 * @brief Remove the last count elements from this vector.
 	 */
@@ -2953,6 +3088,10 @@ public:
 	 * @return ConstantSP: The sub-vector.
 	*/
 	virtual ConstantSP getSubVector(INDEX start, INDEX length, INDEX capacity) const { return getSubVector(start, length);}
+	virtual bool getSubVector(INDEX start, INDEX length, ConstantSP& result) const {
+		result = getSubVector(start, length);
+		return true;
+	}
 	/**
 	 * @brief Fill the value of the vector at the specified range by the value of the given vector.
 	 *
@@ -3572,7 +3711,18 @@ public:
 	 */
 	virtual bool sort(bool asc, char nullsOrder = 0) = 0;
 
-	/**
+    /**
+     * @brief Compare the indexLeft-th cell with the indexRight-th cell, from this same vector.
+	 *
+	 * @param indexLeft: The index of the left cell.
+	 * @param indexRight: The index of the right cell.
+	 * @return 0: if indexLeft-th cell is equal to the indexRight-th cell
+	 * 		   1: if indexLeft-th cell is larger than the indexRight-th cell
+	 * 		  -1: if indexLeft-th cell is smaller than the indexRight-th cell
+	 */
+	virtual int compare(INDEX indexLeft, INDEX indexRight) const  = 0;
+
+    /**
 	 * @brief Sort the vector and the corresponding indices with given order.
 	 *
 	 * @param asc: Indicating if it is ascending order.
@@ -4326,7 +4476,9 @@ public:
 	Table() : Constant(DF_TABLE, DT_DICTIONARY, MIXED), flag_(0), engineType_((char)DBENGINE_TYPE::OLAP), lock_(0){}
 	virtual ~Table();
 	virtual ConstantSP getIterator(const ConstantSP& self) const;
-	virtual string getScript() const {return getName();}
+	virtual string getScript() const { return getName(); }
+
+    virtual const ConstantSP& getColumnRef(INDEX index) { throw RuntimeException("unsupport table getColumnRef."); }
 	/**
 	 * @brief Get specified column according to column name.
 	 *
@@ -4432,6 +4584,14 @@ public:
 	 * 		  and this table contain a column with specified name.
 	 */
 	virtual bool containAll(const vector<ColumnRefSP>& cols) const = 0;
+	virtual bool tryName(const string& name){
+		if(isTemporary() || isTableNameInternal()){
+			setName(name);
+			unsetTableUsingInternalName();
+			return true;
+		} else
+			return false;
+	}
 	/**
 	 * @brief Set the name of this table.
 	 */
@@ -4923,6 +5083,9 @@ public:
         } else {
 			return getName();
 		}
+    }
+    bool isTableNameInternal() const {
+		return flag_ & 32;
 	}
 	/**
 	 * @brief Begin a new query transaction.
@@ -5024,6 +5187,14 @@ public:
      * @param colName: The column name.
      */
 	virtual void setCastIotAnyCol(bool option) { throw RuntimeException("Table::setCastIotAnyCol() not supported"); }
+    /**
+     * @brief set streaming sql table
+     *
+     * @param option: True if set to streaming sql table, else false.
+     */
+    void setStreamingSQLTable(bool option = true) { if (option) flag_ |= 64; else flag_ &= ~64; }
+	bool isStreamingSQLTable() const { return flag_ & 64; }
+
 private:
     /*
      * BIT0: shared table
@@ -5032,6 +5203,7 @@ private:
      * BIT3: expired
      * BIT4: access control or not
      * BIT5: user internal name or not
+     * BIT6: is streaming sql table or not
 	 */
 	char flag_;
 	char engineType_;
@@ -5041,8 +5213,8 @@ private:
 
 class DFSChunkMeta : public Constant{
 public:
-	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const vector<string>& sites, long long cid, long long term = -1, bool prefetchComputeNodeData = false);
-	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const string* sites, int siteCount, long long cid, long long term = -1, bool prefetchComputeNodeData = false);
+	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const vector<string>& sites, long long cid, long long term = -1, bool prefetchComputeNodeData = false, const vector<int>& replicaVolIds = {});
+	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const string* sites, int siteCount, long long cid, long long term = -1, bool prefetchComputeNodeData = false, const int* replicaVolIds = nullptr);
 	DFSChunkMeta(const DataInputStreamSP& in);
 	virtual ~DFSChunkMeta();
 	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
@@ -5055,7 +5227,7 @@ public:
 	virtual ConstantSP values() const;
 	virtual DATA_TYPE getRawType() const {return DT_DICTIONARY;}
 	virtual ConstantSP getInstance() const {return getValue();}
-	virtual ConstantSP getValue() const {return new DFSChunkMeta(path_, id_, version_, size_, (CHUNK_TYPE)type_, sites_, replicaCount_, cid_, term_, prefetchComputeNodeData_);}
+	virtual ConstantSP getValue() const {return new DFSChunkMeta(path_, id_, version_, size_, (CHUNK_TYPE)type_, sites_, replicaCount_, cid_, term_, prefetchComputeNodeData_, volumesId_);}
 	inline const string& getPath() const {return path_;}
 	inline const Guid& getId() const {return id_;}
 	inline long long getCommitId() const {return cid_;}
@@ -5064,7 +5236,7 @@ public:
 	inline void setVersion(int version){version_ = version;}
 	inline void setSize(int size){size_ = size;}
 	inline int getCopyCount() const {return replicaCount_;}
-	bool addCopySite(const string& siteAlias);
+	bool addCopySite(const string& siteAlias, int volumeId);
 	inline const string& getCopySite(int index) const {return sites_[index];}
 	inline bool isTablet() const { return type_ == TABLET_CHUNK;}
 	inline bool isFileBlock() const { return type_ == FILE_CHUNK;}
@@ -5074,6 +5246,7 @@ public:
 	inline long long getTerm() const { return term_; }
 	inline void setPrefetchComputeNodeData(bool v) { prefetchComputeNodeData_ = v;}
 	inline bool getPrefetchComputeNodeData() const { return prefetchComputeNodeData_;  }
+	inline int getVolumeId(int index) { return volumesId_ ? volumesId_[index] : -1; }
 
 protected:
 	ConstantSP getAttribute(const string& attr) const;
@@ -5090,6 +5263,7 @@ private:
 	Guid id_;
 	long long term_;
 	bool prefetchComputeNodeData_ = false;
+	int* volumesId_ = nullptr;
 };
 
 class SysObj : public Constant {
@@ -5107,7 +5281,7 @@ private:
 	SYSOBJ_TYPE type_;
 };
 
-class OOClass : public SysObj {
+class SWORDFISH_API OOClass : public SysObj {
 public:
 	OOClass(const string& qualifier, const string& name, bool builtin, SYSOBJ_TYPE type);
 	virtual ~OOClass(){}
@@ -5156,7 +5330,7 @@ protected:
 	int flag_;
 };
 
-class OOInstance : public SysObj {
+class SWORDFISH_API OOInstance : public SysObj {
 public:
 	OOInstance(const OOClassSP& ooClass, SYSOBJ_TYPE type);
 	OOClassSP getClass() const { return class_;}
@@ -5170,6 +5344,35 @@ public:
 
 protected:
 	OOClassSP class_;
+};
+
+class ExtendedObj : public Constant {
+public:
+    ExtendedObj(DATA_TYPE type, int extendedType, int versionAndSize = 0) : Constant(DF_EXTOBJ, type, SYSTEM),
+        extendedType_(extendedType), verAndSize_(versionAndSize) {
+    }
+    inline int getSizeInBytes() const { return verAndSize_ & 16777215;}
+    inline int getVersion() const { return verAndSize_ >> 24;}
+    inline int getExtendedType() const { return extendedType_;}
+    inline int getVersionAndSize() const { return verAndSize_;}
+    IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const override;
+	int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const override;
+	bool isLargeConstant() const override;
+	virtual IO_ERR serialize(Buffer& buffer) const = 0;
+
+protected:
+    void setVersionAndSize(char version, int size);
+    void setVersion(char version);
+
+protected:
+    int extendedType_;
+    /**
+     * The highest byte represents the version and the lowest three bytes represent the size in bytes.
+     * The byte size of extendedType_ and verAndSize_ (total 8 bytes) as well as the byte size of the parent class
+     * Constant and Object (total 8 bytes) are not counted. verAndSize_ stores the size in bytes when serializing
+     * the child class of ExtendedObj.
+     */
+    int verAndSize_;
 };
 
 class SWORDFISH_API Param{
@@ -5248,6 +5451,10 @@ public:
 	inline void setTransformFunction(bool option){ if(option) extraFlag_ |= 4096; else extraFlag_ &= ~4096;}
 	inline bool isDummyFunction() const { return extraFlag_ & 8192;}
 	inline void setDummyFunction(bool option){ if(option) extraFlag_ |= 8192; else extraFlag_ &= ~8192;}
+	inline bool isRecursiveFunction() const { return extraFlag_ & 16384;}
+	inline void setRecursiveFunction(bool option){ if(option) extraFlag_ |= 16384; else extraFlag_ &= ~16384;}
+	inline void setLazyFunction(bool option){ if(option) extraFlag_ |= 32768; else extraFlag_ &= ~32768;}
+	inline bool isLazyFunction() const { return extraFlag_ & 32768;}
 	inline bool variableParamNum() const {	return minParamNum_<maxParamNum_;}
 	inline int getMaxParamCount() const { return maxParamNum_;}
 	inline int getMinParamCount() const {	return minParamNum_;}
@@ -5256,6 +5463,7 @@ public:
 	const ParamSP& getParam(int index) const;
 	inline bool isUserDefined() const {return defType_ == USERDEFFUNC;}
 	inline bool isSystemFunction() const {return defType_ == SYSFUNC;}
+	inline bool isOperatorFunction() const {return defType_ == OPTRFUNC;}
 	inline FUNCTIONDEF_TYPE getFunctionDefType() const {return defType_;}
 	inline unsigned char getFlag() const { return flag_;}
 	inline unsigned short getExtraFlag() const { return extraFlag_;}
@@ -5330,8 +5538,8 @@ public:
 	void setFilter(const ConstantSP& filter);
 	void setGroup(vector<INDEX>* group);
 	SQLTransactionSP getTransaction() const { return transSP_;}
-	TableSP getTable() const{return tableSP_;}
-	ConstantSP getFilter() const{return filterSP_;}
+	const TableSP& getTable() const{return tableSP_;}
+	const ConstantSP& getFilter() const{return filterSP_;}
 	vector<INDEX>* getGroup();
 	ConstantSP getColumn(const string& qualifier, const string& name);
 	ConstantSP getColumn(const string& name);
@@ -5431,6 +5639,7 @@ public:
 	virtual ObjectSP copyAndMaterialize(Heap* pHeap, const SQLContextSP& context, const TableSP& table) const;
 	virtual bool mayContainColumnRefOrVariable() const { return true;}
 	void bindColIndex();
+	ObjectSP optimize(Heap* pHeap, OptimizeContext& context, const ConstantSP& resultCache) const override;
 
 private:
 	SQLContextSP contextSP_;
@@ -5451,6 +5660,8 @@ public:
 	inline string getTemplateSymbol() const { return templateSymbol_;}
 	inline const FunctionDefSP& getFunctionDef() const { return funcDef_;}
 	inline FastFunc getFastImplementation() const {return funcDef_->getFastImplementation();}
+	InplaceOptr getInplaceOperator() const;
+	OptrFunc getOperator() const;
 	virtual ConstantSP evaluate(Heap* heap, const ConstantSP& a, const ConstantSP& b) = 0;
 	virtual string getOperatorSymbol() const  = 0;
 	virtual bool isPrimitiveOperator() const = 0;
@@ -5770,6 +5981,25 @@ protected:
 	ConstantSP obj_;
 };
 
+/**
+ * Heap is generally used in a thread-safe environment. When running a piece of code
+ * in a new thread, the system always create a new copy of the heap. However, DolphinDB
+ * has a background thread to periodically check the memory usage through Heap::getAllocatedMemory.
+ * For this reason, we must lock the heap before editing it. Anyway, it is always safe to
+ * read the heap without locking.
+ *
+ * There is one exception here. THe mentioned background task doesn't count the memory
+ * usage within a user defined function. So it is always safe to read/write the heap within
+ * a UDF without locking.
+ *
+ * Regarding boundary check, it is related to the procedure 'undef', which is designed to remove
+ * variables in the heap at runtime. This may make some variables created at parsing time
+ * invalid at runtime and therefore, we have to check validity of the index of a variable.
+ * The good thing is that undef can't process variables defined within a UDF. This is, if we are
+ * sure undef is never used or the heap is within a UDF, it is safe to process the variable
+ * without index boundary check.
+ *
+ */
 class SWORDFISH_API Heap{
 public:
 	Heap():meta_(0), session_(0), size_(0), status_(0){}
@@ -5798,8 +6028,10 @@ public:
 	void removeAllItems();
 	bool set(unsigned int index,const ConstantSP& value, bool constant);
 	bool set(unsigned int index,const ConstantSP& value);
+	bool set(unsigned int index,Constant* value);
 	void setConstant(int index, bool constant);
 	inline bool isConstant(int index) const {return index>= MAX_SHARED_OBJ_INDEX && (flags_[index - MAX_SHARED_OBJ_INDEX] & 1);}
+	inline bool isOOInstance(int index) const {return index>= MAX_SHARED_OBJ_INDEX && values_[index - MAX_SHARED_OBJ_INDEX]->isOOInstance();}
 	bool isInitialized(int index) const;
 	inline bool isMetaInitalized() const { return meta_ != nullptr;}
 	bool isSameObject(int index, Constant* obj) const;
@@ -5809,16 +6041,6 @@ public:
 	void currentSession(Session* session){session_=session;}
 	Session* currentSession(){return session_;}
 	long long getAllocatedMemory();
-	/**
-	 * getLocalVariable and setLocalVariable can only be used in very limited environment for optimization purpose.
-	 */
-	inline ConstantSP getLocalVariable(int index) const { return values_[index];}
-	inline void setLocalVariable(int index, const ConstantSP& value){
-		values_[index] = value;
-		flags_[index] = 2;
-        if(index != 0 && value->isTemporary())
-            value->setTemporary(false);
-	}
 	bool copyMeta(Heap *heap);
 	bool setMetaName(const string &name, int index);
 	// For OOP
@@ -5827,6 +6049,25 @@ public:
 
 	/** Do NOT call this method! */
 	void initMetaWithDummyItemInUdfContext();
+
+	/**
+	 * The methods below neither check the index boundary nor lock the heap, hence achieves
+	 * the best performance. However, it is only safe within a user-defined function. These
+	 * methods also deal with local variables (different from shared variable). The index
+	 * starts from zero. You don't have to minus MAX_SHARED_OBJ_INDEX any more.
+	 *
+	 * In optimized running mode, system disables the procedure 'undef' and then we can safely
+	 * use the following methods except setLocalVariable regardless the heap is within a UDF.
+	 */
+	inline const ConstantSP& getLocalVariable(int index) const { return values_[index];}
+	inline ConstantSP& getLocalVariable(int index) { return values_[index];}
+	inline bool isInitializedLocalVariable(int index) const { return flags_[index] & 2;}
+	inline bool isConstantLocalVariable(int index) const {return flags_[index] & 1;}
+	inline bool isSameLocalObject(int index, const ConstantSP& obj) const { return values_[index].get() == obj.get();}
+	/**
+	 * This method must be safely called within a UDF.
+	 */
+	inline void setLocalVariable(int index, const ConstantSP& value){ values_[index] = value;}
 
 private:
 	struct HeapMeta{
@@ -5885,10 +6126,18 @@ private:
 
 class Statement{
 public:
-	Statement(STATEMENT_TYPE type):breakpoint_(nullptr), jitudfHeader_(nullptr), type_(type), line_(0), moduleName_(""){}
+	Statement(STATEMENT_TYPE type):breakpoint_(nullptr), jitudfHeader_(nullptr), optimized_(false), type_(type), line_(0), moduleName_(""){}
 	virtual ~Statement(){}
 	virtual StatementSP clone() = 0;
 	STATEMENT_TYPE getType() const {return type_;}
+	/**
+	 * @brief optimize the scripting statement.
+	 *
+	 * @param context: the context for optimization.
+	 * @return return a new StatementSP if the current statement can be optimized. Otherwise return a null pointer.
+	 */
+	virtual StatementSP optimize(Heap* pHeap, OptimizeContext& context) const { return nullptr;}
+	virtual void collectVariables(Heap* pHeap, OptimizeContext& context) const {}
 	virtual void execute(Heap* pHeap, StatementContext& context)=0;
 	virtual void execute(Heap* pHeap, StatementContext& context, DebugContext* debugContext);
 	virtual string getScript(int indention) const = 0;
@@ -5923,12 +6172,16 @@ public:
 	int getLine() { return line_;}
     void setModuleName(string fileName) { moduleName_ = fileName; }
     string getModuleName() { return moduleName_; }
+    static bool containSimpleStatementOnly(const vector<StatementSP>& sts);
+    static void collectVariables(Heap* heap, OptimizeContext& context, const vector<StatementSP>& sts);
+    static bool optimize(Heap* heap, OptimizeContext& context, const vector<StatementSP>& sts, vector<StatementSP>& out);
 
   protected:
     void setStatementType(STATEMENT_TYPE type) { type_ = type; }
     std::atomic<bool>* breakpoint_;
 	JITCfgNodeSP cfgNode_;
 	Statement* jitudfHeader_;
+	bool optimized_;
 
 private:
 	STATEMENT_TYPE type_;
@@ -6140,11 +6393,11 @@ struct SensitiveColumn {
 struct TableHeader {
     using IndexMap = std::map<int, vector<std::pair<string, string>>>;
 
-	TableHeader() = default;
+	TableHeader() : chunkId(false){}
 	TableHeader(const string& owner, const string& physicalIndex, const vector<ColumnDesc>& tablesType,
 		const vector<int>& partitionKeys, const vector<FunctionDefSP>& partitionFunc, CIPHER_MODE mo = CIPHER_MODE::PLAIN_TEXT, const int64_t keyVer = 0, const string& encryptKey = ""):
         owner(owner), physicalIndex(physicalIndex), colDescs(tablesType), partitionKeys(partitionKeys),
-        partitionFunction(partitionFunc), mode(mo), keyVersion(keyVer),encryptedTableKey(encryptKey) {}
+        partitionFunction(partitionFunc), chunkId(false), mode(mo), keyVersion(keyVer),encryptedTableKey(encryptKey) {}
 	TableHeader(const string& owner, const string& physicalIndex, const vector<ColumnDesc>& tablesType,
 			const vector<int>& partitionKeys, const vector<pair<int, bool>>& sortKeys,
 			DUPLICATE_POLICY rowDuplicatePolicy, const vector<pair<int, FunctionDefSP>>& sortKeyMappingFunction,
@@ -6154,7 +6407,7 @@ struct TableHeader {
 			rowDuplicatePolicy(rowDuplicatePolicy), owner(owner), physicalIndex(physicalIndex), colDescs(tablesType),
 			partitionKeys(partitionKeys), sortKeys(sortKeys), sortKeyMappingFunction(sortKeyMappingFunction),
 			appendForDelete(appendForDelete), tableComment(tableComment), partitionFunction(partitionFunc),
-            primaryKeys(primaryKeys), indexes(indexes), latestKeyCache(latestKeyCache), compressHashSortKey(compressHashSortKey), mode(mo),
+            primaryKeys(primaryKeys), indexes(indexes), chunkId(false), latestKeyCache(latestKeyCache), compressHashSortKey(compressHashSortKey), mode(mo),
 			keyVersion(keyVer),encryptedTableKey(encryptKey), sensitiveCol(scols)  {}
 	DUPLICATE_POLICY rowDuplicatePolicy = DUPLICATE_POLICY::KEEP_ALL;
 	string owner;
@@ -6176,11 +6429,11 @@ struct TableHeader {
 	 * - `chunkCid`: used to detect schema changes.
 	 */
 	Guid chunkId;
-	long long chunkCid;
+	long long chunkCid = 0;
 	bool latestKeyCache = false;
 	bool compressHashSortKey = false;
 	CIPHER_MODE mode = CIPHER_MODE::PLAIN_TEXT;
-	int64_t keyVersion;
+	int64_t keyVersion = 0;
 	string encryptedTableKey;
 	vector<SensitiveColumn> sensitiveCol;
 };
@@ -6531,9 +6784,11 @@ public:
 	virtual ~WindowJoinFunction(){};
 	virtual VectorSP createNullReturn(Heap* heap) = 0;
 	virtual void startGroup(Heap* heap, INDEX startingRows) = 0;
-	virtual void addMap(Heap* heap, INDEX startingRows, int count, vector<pair<INDEX,INDEX>>& indices) = 0;
+	virtual void addMap(Heap* heap, INDEX startingRows, int count, const vector<pair<INDEX,INDEX>>& indices) = 0;
 	virtual void addMap(Heap* heap, INDEX startingRows, int count);
-	VectorSP getReturn() const {return ret_;}
+	const VectorSP& getReturn() const {return ret_;}
+	inline void setRows(INDEX rows) { rows_ = rows;}
+	inline void setReturn(const VectorSP& ret) { ret_ = ret;}
 
 protected:
 	string name_;

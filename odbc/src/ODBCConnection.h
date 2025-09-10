@@ -121,7 +121,7 @@ public:
     OdbcConnection(ODBCDataBaseType dataBaseType)
         :ODBCBaseConnection(dataBaseType){
             std::string dataBaseTypeString = DataBaseToString(dataBaseType);
-            PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, dataBaseTypeString + " ODBC connection is created.");
+            LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, dataBaseTypeString + " ODBC connection is created.");
         }
 
     virtual ~OdbcConnection(){
@@ -131,17 +131,17 @@ public:
     void connect(std::string connStr) override{
         Mutex* connectLock = (dataBaseType_ != ODBC_DBT_CLICK_HOUSE && dataBaseType_ != ODBC_DBT_VOID) ? nullptr : &CLICK_HOUSE_LOCK;
         if(connectLock != nullptr){
-            PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire global lock for ODBC connection " + std::to_string((long long)this) + ". ");
+            LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire global lock for ODBC connection " + std::to_string((long long)this) + ". ");
         }
         LockGuard<Mutex> lock(connectLock);
-        PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to connect to database on ODBC connection " + std::to_string((long long)this) + ". ");
+        LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to connect to database on ODBC connection " + std::to_string((long long)this) + ". ");
         nanoConn_ = new NanConnection(getODBCFunc().toString(connStr));
-        PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Successfully connected to database on ODBC connection " + std::to_string((long long)this) + ". ");
+        LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Successfully connected to database on ODBC connection " + std::to_string((long long)this) + ". ");
         std::string dbmsName;
         try {
             dbmsName = getODBCFunc().getString(nanoConn_->dbms_name());
         } catch (exception &e) {
-            PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Failed to get dbms name: ", e.what());
+            LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Failed to get dbms name: ", e.what());
         }
         dbmsName = Util::lower(dbmsName);
         if (dbmsName == "clickhouse") {
@@ -155,16 +155,16 @@ public:
     }
     void close(bool ignoreClosed) override{
         if(dataBaseType_ == ODBC_DBT_CLICK_HOUSE){
-            PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire global lock for ODBC connection " + std::to_string((long long)this) + ". ");
+            LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire global lock for ODBC connection " + std::to_string((long long)this) + ". ");
         }
         LockGuard<Mutex> lockClickHouse(getClickHouseLock());
-        PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire lock for ODBC connection " + std::to_string((long long)this) + ". ");
+        LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire lock for ODBC connection " + std::to_string((long long)this) + ". ");
         LockGuard<Mutex> lockGuard(&lock);
-        PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to close the connection " + std::to_string((long long)this) + ". ");
+        LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to close the connection " + std::to_string((long long)this) + ". ");
         if(isClosed()){
             if(ignoreClosed)return;
             else{
-                PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX, "ODBC connection is closed. ");
+                LOG_ERR(PLUGIN_ODBC_STRING_PREFIX, "ODBC connection is closed. ");
                 throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "ODBC connection is closed. ");
             }
         }
@@ -173,19 +173,19 @@ public:
         try{
             nanoConn_->disconnect();
         }catch(exception &e){
-            PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to disconnect : " + string(e.what()));
+            LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to disconnect : " + string(e.what()));
         }catch(...){
-            PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to disconnect. ");
+            LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to disconnect. ");
         }
         try{
             nanoConn_->deallocate();
         }catch(exception &e){
-            PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to deallocate : " + string(e.what()));
+            LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to deallocate : " + string(e.what()));
         }catch(...){
-            PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to deallocate. ");
+            LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to deallocate. ");
         }
         nanoConn_.clear();
-        PLUGIN_LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Successfully closed the connection " + std::to_string((long long)this) + ". ");
+        LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Successfully closed the connection " + std::to_string((long long)this) + ". ");
     }
 
     bool isClosed(){

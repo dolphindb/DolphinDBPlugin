@@ -17,9 +17,9 @@ static const string PLUGIN_HDFS_PREFIX = "[PLUGIN::HDFS]: ";
 string getErrorMsgWithPrefix(const string &operation);
 
 class HdfsFileInfo;
-using HdfsFileInfoSP = SmartPointer<HdfsFileInfo>;
+using HdfsFileInfoSP = ObjectPtr<HdfsFileInfo>;
 class HdfsConnection;
-using HdfsConnectionSP = SmartPointer<HdfsConnection>;
+using HdfsConnectionSP = ObjectPtr<HdfsConnection>;
 
 class HdfsFileInfo : public Resource {
   public:

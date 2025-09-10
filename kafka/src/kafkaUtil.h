@@ -9,11 +9,10 @@
 #include "DolphinDBEverything.h"
 #include "ConstantMarshal.h"
 #include "CoreConcept.h"
-#include "Logger.h"
 #include "ScalarImp.h"
 #include "Util.h"
 #include "cppkafka/cppkafka.h"
-#include "json.hpp"
+#include "json/json.hpp"
 
 using namespace cppkafka;
 using namespace ddb;
@@ -45,10 +44,10 @@ static const unordered_map<string, KafkaMarshalType> marshalMap = {
     {"PLAIN", KafkaUtil::PLAIN},
 };
 
-void produceMsg(SmartPointer<Producer> producer, const string &topic, const string &key, ConstantSP value,
+void produceMsg(Heap *heap, SmartPointer<Producer> producer, const string &topic, const string &key, ConstantSP value,
                 KafkaMarshalType marshalType, int partition, bool force = false);
 VectorSP getMsg(Message &msg, KafkaMarshalType marshalType);
-Configuration createConf(ConstantSP &dict, const string &funcName, bool consumer = false, Heap *heap = nullptr,
+Configuration createConf(ConstantSP &dict, const string &funcName, bool consumer, Heap *heap,
                          FunctionDefSP func = nullptr);
 
 string kafkaSerialize(const ConstantSP &data, KafkaMarshalType type);

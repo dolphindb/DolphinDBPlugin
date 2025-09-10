@@ -9,8 +9,8 @@
 #include <cassert>
 #include <memory.h>
 #include <functional>
-#include <limits>
 #include "HashmapUtil.h"
+#include <limits>
 
 #ifndef CACHE_LINE_SIZE
 #define CACHE_LINE_SIZE  64 // 64 byte cache line on x86 and x86-64

@@ -1,10 +1,8 @@
 #!/bin/bash
+set -x
 
-mkdir build
-cd build
-cmake ..
-cmake --build . -j
-cd ..
-mkdir -p $CMAKE_INSTALL_PREFIX/$(basename $(pwd))
-cp -f build/libPluginSVM.so $CMAKE_INSTALL_PREFIX/$(basename $(pwd))
-cp -f PluginSVM.txt  $CMAKE_INSTALL_PREFIX/$(basename $(pwd))
+source ../build_util.sh
+
+prepare_dir $@
+build_plugin
+install_plugin

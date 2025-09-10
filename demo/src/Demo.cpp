@@ -8,10 +8,11 @@
 #include "Demo.h"
 #include "Util.h"
 
-namespace ddb {
+using namespace ddb;
 
-ConstantSP minmax(const ConstantSP& a, const ConstantSP& b)
+ConstantSP minmax(Heap* heap, const ConstantSP& a, const ConstantSP& b)
 {
+	std::ignore = heap;
 	std::ignore = b;
 	if(!a->isScalar() && !a->isArray())
 		throw IllegalArgumentException("minmax","The argument for minmax function must be a scalar or vector.");
@@ -31,5 +32,3 @@ ConstantSP echo(Heap* heap, vector<ConstantSP>& arguments)
 	std::ignore = heap;
 	return arguments[0];
 }
-
-} // namespace ddb

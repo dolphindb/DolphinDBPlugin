@@ -5,12 +5,11 @@
 #include "FlatHashmap.h"
 #include "Util.h"
 #include "ScalarImp.h"
-#include "Logger.h"
 
 #include "xgboost/c_api.h"
 #include "xgboost/version_config.h"
 #include "ddbplugin/PluginLogger.h"
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 
 #include <iostream>
 #include <vector>
@@ -573,7 +572,7 @@ ConstantSP predict(Heap *heap, vector<ConstantSP> &args) {
                 iterationEnd = bestIteration + 1;
             }
         } catch(...) {
-            PLUGIN_LOG_ERR("[PLUGIN::XGBOOST] parse best_iteration failed.");
+            LOG_ERR("[PLUGIN::XGBOOST] parse best_iteration failed.");
         }
     }
 

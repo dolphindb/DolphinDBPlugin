@@ -4,11 +4,10 @@
 #include "Exceptions.h"
 #include "HdfsKerberos.h"
 #include "HdfsWrapper.h"
-#include "Logger.h"
 #include "ScalarImp.h"
 #include "Types.h"
 #include "ddbplugin/CommonInterface.h"
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 #include "hdfs.h"
 
 using namespace hdfsPlugin;

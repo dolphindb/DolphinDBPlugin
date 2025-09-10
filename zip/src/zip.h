@@ -5,7 +5,7 @@
 #include "Exceptions.h"
 #include <string>
 #include "ddbplugin/PluginLogger.h"
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 #include "ddbplugin/Plugin.h"
 
 #if (!defined(_WIN32)) && (!defined(WIN32)) && (!defined(__APPLE__))
@@ -117,7 +117,7 @@ void change_file_date(const char *filename, uLong dosdate, tm_unz tmu_date)
 //   buffer = (char*)malloc(len+1);
 //         if (buffer==NULL)
 //         {
-//                 PLUGIN_LOG_ERR(ZIP_PREFIX, "Error allocating memory\n");
+//                 LOG_ERR(ZIP_PREFIX, "Error allocating memory\n");
 //                 return UNZ_INTERNALERROR;
 //         }
 //   strcpy(buffer,newdir);
@@ -142,7 +142,7 @@ void change_file_date(const char *filename, uLong dosdate, tm_unz tmu_date)
 //       *p = 0;
 //       if ((mymkdir(buffer) == -1) && (errno == ENOENT))
 //         {
-//           PLUGIN_LOG_ERR(ZIP_PREFIX, "couldn't create directory %s\n",buffer);
+//           LOG_ERR(ZIP_PREFIX, "couldn't create directory %s\n",buffer);
 //           free(buffer);
 //           return 0;
 //         }
@@ -247,10 +247,10 @@ int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, con
     {
         if ((*popt_extract_without_path)==0)
         {
-            // PLUGIN_LOG_ERR(ZIP_PREFIX, "creating directory: %s\n",filename_inzip);
+            // LOG_ERR(ZIP_PREFIX, "creating directory: %s\n",filename_inzip);
             // mymkdir(filename_inzip);
             string fileName = outputPath + filename_inzip;
-            // PLUGIN_LOG_ERR(ZIP_PREFIX, "creating directory: %s\n",fileName.c_str()); // memo: creating directory
+            // LOG_ERR(ZIP_PREFIX, "creating directory: %s\n",fileName.c_str()); // memo: creating directory
             string errMsg;
         #ifdef WIN32
             fileName = Util::replace(fileName, "/", "\\");

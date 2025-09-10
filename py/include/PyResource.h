@@ -12,7 +12,7 @@
 #include "DolphinClass.h"
 
 class PyResource;
-typedef SmartPointer<PyResource> PyResourceSP;
+typedef ObjectPtr<PyResource> PyResourceSP;
 
 class PyResource : public DolphinClass {
 public:

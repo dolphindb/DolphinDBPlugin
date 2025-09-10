@@ -6,9 +6,9 @@
 #include<unordered_map>
 #include <bson.h>
 #include <mongoc.h>
-#include "json.hpp"
+#include "json/json.hpp"
 #include "cvt.h"
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 using namespace std;
 using namespace ddb;
 
@@ -169,10 +169,12 @@ mongoConnection::mongoConnection(std::string hostname, int port, std::string use
 }
 
 static void mongoConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     delete (mongoConnection *)(args[0]->getLong());
 }
 
 ConstantSP mongodbClose(Heap *heap, vector<ConstantSP> &arguments){
+    std::ignore = heap;
     std::string usage = "Usage: close(conn). ";
     ConstantSP handle = arguments[0];
     mongoConnection *cp = NULL;
@@ -221,6 +223,7 @@ ConstantSP mongodbConnect(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP mongodbLoad(Heap *heap, vector<ConstantSP> &arguments) {
+    std::ignore = heap;
     auto args = getArgs(arguments, 4);
     std::string usage = "Usage: load(connection, condition,option, [schema]).";
     std::string collection,condition,option;
@@ -250,6 +253,7 @@ ConstantSP mongodbLoad(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP mongodbAggregate(Heap *heap, vector<ConstantSP> &arguments) {
+    std::ignore = heap;
     auto args = getArgs(arguments, 4);
     std::string usage = "Usage: aggregate(connection, condition,option, [schema]).";
     std::string collection,condition,option;
@@ -298,15 +302,14 @@ void conversionStr(vector<std::string>& colName){
 
 void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<ConstantSP>& cols,
     bool schemaEx,int mIndex,
-    vector<char*>& buffer,unordered_map<string,vector<string>>& mmap,unordered_map<int,long long>& nullMap,
-    bson_t *bsonQuery,bson_t *boption,mongoc_cursor_t *cursor,mongoc_collection_t *mcollection){
+    vector<void*>& buffer,unordered_map<string,vector<string>>& mmap,unordered_map<int,long long>& nullMap,
+    mongoc_cursor_t *cursor,mongoc_collection_t *mcollection){
     int len=schemaEx?colName.size():0;
     const bson_t* doc;
     long long curNum=mongoc_cursor_get_limit(cursor);
     long long rowSum=0;
     int index=0;
     bool first=true;
-    char busf[30];
     while(mongoc_cursor_next(cursor,&doc)){
         rowSum++;
         bson_iter_t biter;
@@ -755,12 +758,12 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                     }
                                     case BSON_TYPE_INT32: {
                                         int t = bson_iter_int32(&biter);
-                                        *((short *)(buffer[i]) + index) = *((short *)(&t));
+                                        *((short *)(buffer[i]) + index) = static_cast<short>(t);
                                         break;
                                     }
                                     case BSON_TYPE_INT64: {
                                         int t = bson_iter_int64(&biter);
-                                        *((short *)(buffer[i]) + index) = *((short *)(&t));
+                                        *((short *)(buffer[i]) + index) = static_cast<short>(t);
                                         break;
                                     }
                                     case BSON_TYPE_DOUBLE: {
@@ -786,7 +789,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         std::string str = bson_iter_utf8(&biter, NULL);
                                         try {
                                             long long t = std::stoll(str);
-                                            *((short *)(buffer[i]) + index) = *((short *)(&t));
+                                            *((short *)(buffer[i]) + index) = static_cast<short>(t);
                                         } catch (std::exception &e) {
                                             *((short *)(buffer[i]) + index) = SHRT_MIN;
                                         }
@@ -796,7 +799,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         std::string str = bson_iter_symbol(&biter, NULL);
                                         try {
                                             long long t = std::stoll(str);
-                                            *((short *)(buffer[i]) + index) = *((short *)(&t));
+                                            *((short *)(buffer[i]) + index) = static_cast<short>(t);
                                         } catch (std::exception &e) {
                                             *((short *)(buffer[i]) + index) = SHRT_MIN;
                                         }
@@ -826,7 +829,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                     }
                                     case BSON_TYPE_INT64: {
                                         long long t = bson_iter_int64(&biter);
-                                        *((int *)(buffer[i]) + index) = *((int *)(&t));
+                                        *((int *)(buffer[i]) + index) = static_cast<int>(t);
                                         break;
                                     }
                                     case BSON_TYPE_DOUBLE: {
@@ -852,7 +855,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         std::string str = bson_iter_utf8(&biter, NULL);
                                         try {
                                             long long t = std::stoll(str);
-                                            *((int *)(buffer[i]) + index) = *((int *)(&t));
+                                            *((int *)(buffer[i]) + index) = static_cast<int>(t);
                                         } catch (std::exception &e) {
                                             *((int *)(buffer[i]) + index) = INT_MIN;
                                         }
@@ -862,10 +865,11 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         std::string str = bson_iter_symbol(&biter, NULL);
                                         try {
                                             long long t = std::stoll(str);
-                                            *((int *)(buffer[i]) + index) = *((int *)(&t));
+                                            *((int *)(buffer[i]) + index) = static_cast<int>(t);
                                         } catch (std::exception &e) {
                                             *((int *)(buffer[i]) + index) = INT_MIN;
                                         }
+                                        break;
                                     }
                                     case BSON_TYPE_NULL: {
                                         *((int *)(buffer[i]) + index) = INT_MIN;
@@ -1238,7 +1242,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         double t = bson_iter_double(&biter);
                                         string strt = std::to_string(t);
                                         int index = strt.size() - 1;
-                                        if (strt.find('.') != -1) {
+                                        if (strt.find('.') != std::string::npos) {
                                             while (strt[index] == '0') {
                                                 --index;
                                             }
@@ -1257,7 +1261,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                             double t = std::stod(ttmp);
                                             string strt = std::to_string(t);
                                             int index = strt.size() - 1;
-                                            if (strt.find('.') != -1) {
+                                            if (strt.find('.') != std::string::npos) {
                                                 while (strt[index] == '0') {
                                                     --index;
                                                 }
@@ -1320,7 +1324,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                         double t = bson_iter_double(&biter);
                                         string strt = std::to_string(t);
                                         int index = strt.size() - 1;
-                                        if (strt.find('.') != -1) {
+                                        if (strt.find('.') != std::string::npos) {
                                             while (strt[index] == '0') {
                                                 --index;
                                             }
@@ -1339,7 +1343,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
                                             double t = std::stod(ttmp);
                                             string strt = std::to_string(t);
                                             int index = strt.size() - 1;
-                                            if (strt.find('.') != -1) {
+                                            if (strt.find('.') != std::string::npos) {
                                                 while (strt[index] == '0') {
                                                     --index;
                                                 }
@@ -1439,7 +1443,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
             for(int i=0;i<len;++i){
                 DATA_TYPE type=colType[i];
                 VectorSP vec=cols[i];
-                char* colBuffer=buffer[i];
+                void* colBuffer=buffer[i];
                 switch(type){
                     case DT_BOOL:
                         vec->appendBool((char*)colBuffer,mIndex);
@@ -1490,7 +1494,7 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
     for(int i=0;i<len;++i){
         DATA_TYPE type=colType[i];
         VectorSP vec=cols[i];
-        char* colBuffer=buffer[i];
+        void* colBuffer=buffer[i];
         switch(type){
             case DT_BOOL:
                 vec->appendBool((char*)colBuffer,index);
@@ -1540,17 +1544,16 @@ void realLoad(vector<std::string>& colName,vector<DATA_TYPE>&  colType,vector<Co
     //     if(buffer[i]!=NULL)free(buffer[i]);
     // }
     for(auto a:nullMap){
-        double tmp[mIndex];
-        for(int i=0;i<mIndex;++i)tmp[i]=DBL_NMIN;
+        std::vector<double> tmp(mIndex, DBL_NMIN);
         colType[a.first]=DT_DOUBLE;
         cols[a.first]=Util::createVector(DT_DOUBLE,0,rowSum);
         VectorSP vec=cols[a.first];
         long long rnum=rowSum/mIndex;
         for(long long i=0;i<rnum;++i){
-            vec->appendDouble((double*)tmp,mIndex);
+            vec->appendDouble((double*)tmp.data(),mIndex);
         }
         rnum=len%mIndex;
-        vec->appendDouble((double*)tmp,rowSum%mIndex);
+        vec->appendDouble((double*)tmp.data(),rowSum%mIndex);
     }
     if(len==0){ 
         const char* ct="{}";
@@ -1661,10 +1664,10 @@ TableSP mongoConnection::extractLoad(std::string &collection,std::string &condit
     vector<std::string> colName;
     vector<DATA_TYPE>  colType;
     vector<ConstantSP> cols;
-    vector<char*> buffer;
+    vector<void*> buffer;
     Defer dfBuffer([&](){
         size_t size = buffer.size();
-        for(int i = 0; i < size; ++i){
+        for(size_t i = 0; i < size; ++i){
             if(buffer[i] != nullptr)
                 free(buffer[i]);
         }
@@ -1861,7 +1864,7 @@ TableSP mongoConnection::extractLoad(std::string &collection,std::string &condit
         cursor = mongoc_collection_find_with_opts (mcollection,bsonQuery,boption,NULL);
 
     Defer df4([=](){mongoc_cursor_destroy(cursor);});
-    realLoad(colName,colType,cols,schemaEx,mIndex,buffer,mmap,nullMap,bsonQuery,boption,cursor,mcollection);
+    realLoad(colName,colType,cols,schemaEx,mIndex,buffer,mmap,nullMap,cursor,mcollection);
     TableSP ret=Util::createTable(colName,cols);
     return ret;
 }
@@ -1911,6 +1914,7 @@ VectorSP mongoConnection::mongodbGetCollectionNames(string database){
 
 
 ConstantSP mongodbGetCollections(Heap *heap, vector<ConstantSP> &arguments){
+    std::ignore = heap;
     string dataBase;
     if (arguments.size() > 1)
     {
@@ -2027,14 +2031,14 @@ ConstantSP mongodbParseJson(Heap *heap, vector<ConstantSP> &arguments)
 
     vector<string> originData;
     originData.resize(rows);
-    char *buffer[maxIndex];
+    std::vector<char*> buffer(maxIndex);
     int times = rows / maxIndex + 1;
     for (int timeIndex = 0; timeIndex < times; ++timeIndex)
     {
         // cout<<times<<endl;
         int subSize = min(maxIndex, rows - maxIndex * timeIndex);
         // cout<<subSize<<endl;
-        char **ptr = vec->getStringConst(maxIndex * timeIndex, subSize, buffer);
+        char **ptr = vec->getStringConst(maxIndex * timeIndex, subSize, buffer.data());
         for (int subRowIndex = 0; subRowIndex < subSize; ++subRowIndex)
         {
             originData[subRowIndex] = ptr[subRowIndex];
@@ -2199,9 +2203,9 @@ ConstantSP mongodbParseJson(Heap *heap, vector<ConstantSP> &arguments)
 
         for (int colIndex = 0; colIndex < colSize; ++colIndex)
         {
-            VectorSP& vec = (VectorSP&)cols[colIndex];
             if ((int)colTypes[colIndex] < ARRAY_VECTOR_TYPE_BASE)
             {
+                VectorSP vec = cols[colIndex];
                 switch (colTypes[colIndex])
                 {
                 case DT_BOOL:
@@ -2251,7 +2255,7 @@ ConstantSP mongodbParseJson(Heap *heap, vector<ConstantSP> &arguments)
                 }
                 vector<ConstantSP> args{indexVec, vecValue};
                 try{
-                vec = Util::getFuncDefFromHeap(heap, "arrayVector")->call(heap, args);
+                cols[colIndex] = Util::getFuncDefFromHeap(heap, "arrayVector")->call(heap, args);
                 }catch(exception &e){
                     throw RuntimeException("Col " + originCol[colIndex] + " data fail to create arrrayVector." + e.what());
                 }

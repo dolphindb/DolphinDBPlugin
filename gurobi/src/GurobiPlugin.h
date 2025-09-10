@@ -8,7 +8,7 @@
 #include <CoreConcept.h>
 
 #include "ddbplugin/CommonInterface.h"
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 
 using ddb::ConstantSP;
 using ddb::Heap;

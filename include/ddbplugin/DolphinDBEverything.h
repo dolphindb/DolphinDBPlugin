@@ -1,8 +1,6 @@
 #pragma once
 
-#ifdef __linux__
-#define LINUX
-#elif defined(_WIN32)
+#ifdef _WIN32
 #define WINDOWS
 #endif
 
@@ -33,6 +31,8 @@
 #else // gcc
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wignored-qualifiers"
+#pragma GCC diagnostic ignored "-Wattributes"
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 #if __GNUC__ > 7
 #pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
 #endif
@@ -52,6 +52,11 @@
 #include "Logger.h"
 #include "ScalarImp.h"
 #include "SpecialConstant.h"
+#include "TableImp.h"
+
+#ifdef DOLPHINDB_JIT
+#include "TurboJetInterface.h"
+#endif
 
 #if defined(_MSC_VER)
 #pragma warning( pop )

@@ -1,3 +1,4 @@
+#include "DolphinDBEverything.h"
 #include <CoreConcept.h>
 #include "ddbplugin/CommonInterface.h"
 using argsT = std::vector<ddb::ConstantSP>;

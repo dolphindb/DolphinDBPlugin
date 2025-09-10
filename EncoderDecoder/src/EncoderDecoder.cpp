@@ -1,5 +1,6 @@
 #include "EncoderDecoder.h"
 
+#include "DolphinDBEverything.h"
 #include <Concurrent.h>
 #include <algorithm>
 #include <chrono>
@@ -18,10 +19,13 @@
 #include "ddbplugin/pluginVersion.h"
 #include "jsonUtil.h"
 #include "protobufUtil.h"
-#include <ddbplugin/PluginLoggerImp.h>
+#include <ddbplugin/PluginLogger.h>
 
 using namespace ddb;
-static void doNothing(Heap *heap, vector<ConstantSP> &args) {}
+static void doNothing(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
+    std::ignore = args;
+}
 
 void truncWorkerNum(long long &workerNum) {
     unsigned int sysThreadNum = std::thread::hardware_concurrency();
@@ -29,6 +33,7 @@ void truncWorkerNum(long long &workerNum) {
 }
 
 ConstantSP getProtobufSchema(Heap *heap, vector<ConstantSP> &arguments) {
+    std::ignore = heap;
     const string usage = "Usage: extractProtobufSchema(filePath, [toArrayVector], [messageName]). ";
     if (arguments[0]->getType() != DT_STRING || arguments[0]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException("extractProtobufSchema", usage + "filePath must be a string scalar. ");
@@ -72,6 +77,32 @@ ConstantSP getProtobufSchema(Heap *heap, vector<ConstantSP> &arguments) {
 
 namespace OperatorImp {
     ConstantSP getStreamingStat(Heap* heap, vector<ConstantSP>& arguments);
+}
+
+ConstantSP createProtobufEncoder(Heap* heap, vector<ConstantSP>& arguments) {
+    std::ignore = heap;
+    const auto usage = string("Usage: protobufEncoder(filePath, [messageName])");
+    if (arguments[0]->getType() != DT_STRING || arguments[0]->getForm() != DF_SCALAR) {
+        throw IllegalArgumentException("protobufEncoder", usage + "filePath must be a string scalar. ");
+    }
+    std::string filePath = arguments[0]->getString();
+    if (!Util::exists(filePath)) {
+        throw IllegalArgumentException("protobufEncoder",filePath + " does not exist. ");
+    }
+
+    std::string messageName;
+    if(arguments.size() > 1 && !arguments[1]->isNull()) {
+        if (arguments[1]->getType() != DT_STRING || arguments[1]->getForm() != DF_SCALAR) {
+            throw IllegalArgumentException("protobufEncoder", usage + "messageName must be a string scalar. ");
+        }
+        messageName = arguments[1]->getString();
+    }
+
+    DolphinClassSP cls = new EncoderClass("ProtobufEncoder");
+    ConstantSP encoder = new EncoderInstance(cls);
+    dynamic_cast<EncoderInstance*>(encoder.get())->initialize(filePath, messageName);
+    encoder->setOOInstance(true);
+    return encoder;
 }
 
 ConstantSP createProtobufDecoder(Heap *heap, vector<ConstantSP> &arguments) {

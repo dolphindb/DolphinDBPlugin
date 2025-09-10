@@ -4,11 +4,12 @@
 #include "pluginVersion.h"
 #include "ScalarImp.h"
 
-extern "C" 
-{
+#ifndef IS_MODULE
+extern "C" {
     ddb::ConstantSP version(ddb::Heap *heap, std::vector<ddb::ConstantSP> &arguments){
         std::ignore = heap;
         std::ignore = arguments;
         return new ddb::String(pluginVersion);
     }
-}
+}   // extern "C"
+#endif

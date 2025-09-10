@@ -356,7 +356,7 @@ private:
 	T val_;
 };
 
-class Semaphore{
+class SWORDFISH_API Semaphore{
 public:
 	Semaphore(int resources);
 	~Semaphore();
@@ -780,7 +780,7 @@ private:
 	Mandatory manFunc_;
 };
 
-class Thread{
+class SWORDFISH_API Thread{
 public:
 	Thread(const RunnableSP& run);
 	~Thread();

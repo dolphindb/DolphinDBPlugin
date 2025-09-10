@@ -9,6 +9,7 @@ extern "C" ddb::ConstantSP httpGet(ddb::Heap *heap, argsT &args);
 extern "C" ddb::ConstantSP httpPost(ddb::Heap *heap, argsT &args);
 extern "C" ddb::ConstantSP httpPut(ddb::Heap *heap, argsT &args);
 extern "C" ddb::ConstantSP httpDelete(ddb::Heap *heap, argsT &args);
+extern "C" ddb::ConstantSP initialize(ddb::Heap *heap, argsT &args);
 
 namespace ddb {
     enum RequestMethod {

@@ -3,7 +3,6 @@
 
 #include <cstdint>
 
-#include "Concepts.h"
 #include "CoreConcept.h"
 #include "OperatorImp.h"
 #include "ScalarImp.h"
@@ -99,6 +98,7 @@ struct RawTypeToValueType<double> {
 };
 
 class JITDolphinInstance;
+using JITDolphinInstanceSP = ObjectPtr<JITDolphinInstance>;
 struct TurboJetValue {
     ValueType type_;
     uint32_t flags_;
@@ -109,42 +109,10 @@ struct TurboJetValue {
         char c;  // dolphindb uses char to represent bool
         float f;
         short s;
-        Counter *counter_;
+        Constant* counter_;
     } value_;
 
     TurboJetValue() : type_(static_cast<ValueType>(0)), flags_(0) { value_.l = 0; }
-	// TurboJetValue(const TurboJetValue& sp) noexcept{
-    //     type_ = sp.type_;
-    //     flags_ = sp.flags_;
-    //     value_ = sp.value_;
-    //     if (type_ != ValueType::COUNTER || value_.counter_ == nullptr) return;
-    //     value_.counter_->addRef();
-	// }
-
-	// TurboJetValue(TurboJetValue&& sp) noexcept{
-    //     type_ = sp.type_;
-    //     flags_ = sp.flags_;
-    //     value_ = sp.value_;
-    //     sp.value_.l = 0;
-    //     sp.flags_ = 0;
-    //     sp.type_ = static_cast<ValueType>(0);
-	// }
-
-	// TurboJetValue& operator =(TurboJetValue sp) noexcept{
-    //     std::swap(type_, sp.type_);
-    //     std::swap(flags_, sp.flags_);
-    //     std::swap(value_, sp.value_);
-    //     return *this;
-	// }
-
-    // ~TurboJetValue() {
-	// 	if(type_ == ValueType::COUNTER && LIKELY(value_.counter_ != nullptr) && value_.counter_->release()==0){
-	// 		delete static_cast<Constant*>(value_.counter_->p_);
-	// 		delete value_.counter_;
-	// 		value_.counter_=0;
-	// 	}
-    // }
-
     ConstantSP toConstantSP(bool isMove = false) const {
         ConstantSP cons;
         switch (type_) {
@@ -183,10 +151,10 @@ struct TurboJetValue {
                 break;
             case ValueType::DEICMAL64:
             case ValueType::COUNTER:
-                if (value_.counter_ == nullptr) return Expression::void_;
-                cons = ConstantSP(nullptr, value_.counter_);
+                if (value_.counter_ == nullptr) return new Void();;
+                cons = ConstantSP(value_.counter_);
                 if (isMove) {
-                    value_.counter_->release();
+                    value_.counter_->releaseRef();
                 }
                 break;
             default:
@@ -225,7 +193,7 @@ struct TurboJetValue {
             case ValueType::DEICMAL64:
             case ValueType::COUNTER:
                 if (value_.counter_ == nullptr) return "";
-                return static_cast<Constant*>(value_.counter_->p_)->getString();
+                return value_.counter_->getString();
             default:
                 throw RuntimeException("JIT internal error");
         }
@@ -236,7 +204,7 @@ struct TurboJetValue {
             if (value_.counter_ == nullptr) {
                 throw RuntimeException("TurboJetValue::getStringRef the COUNTER is nullptr.");
             }
-            return static_cast<Constant *>(value_.counter_->p_)->getStringRef();
+            return static_cast<Constant *>(value_.counter_)->getStringRef();
         }
         throw RuntimeException("TurboJetValue::getStringRef only support COUNTER.");
     }
@@ -277,7 +245,7 @@ struct TurboJetValue {
                 break;
             case ValueType::DEICMAL64:
             case ValueType::COUNTER:
-                static_cast<Constant *>(value_.counter_->p_)->setNull();
+                value_.counter_->setNull();
                 break;
             default:
                 throw RuntimeException("TurboJetValue::setNull not support type: " + ValueTypeToString(type_));
@@ -286,14 +254,14 @@ struct TurboJetValue {
 
     void inline setNullFlag() { flags_ |= ISNULL; }
 
-    static void fromConstantSP(const ConstantSP &sp, TurboJetValue *out, std::vector<Counter *> *deRefList = nullptr,
+    static void fromConstantSP(const ConstantSP &sp, TurboJetValue *out, std::vector<Constant *> *deRefList = nullptr,
                                bool insideJIT = false, bool ensureNotNull = false);
-    static void fromConstantSP(const ObjectSP &sp, TurboJetValue *out, std::vector<Counter *> *deRefList = nullptr,
+    static void fromConstantSP(const ObjectSP &sp, TurboJetValue *out, std::vector<Constant *> *deRefList = nullptr,
                                bool insideJIT = false, bool ensureNotNull = false);
-    static void fromConstantSP(const FunctionDefSP &sp, TurboJetValue *out, std::vector<Counter *> *deRefList = nullptr,
+    static void fromConstantSP(const FunctionDefSP &sp, TurboJetValue *out, std::vector<Constant *> *deRefList = nullptr,
                                bool insideJIT = false, bool ensureNotNull = false);
-    static void fromConstantSP(const SmartPointer<JITDolphinInstance> &sp, TurboJetValue *out,
-                               std::vector<Counter *> *deRefList = nullptr, bool insideJIT = false,
+    static void fromConstantSP(const JITDolphinInstanceSP &sp, TurboJetValue *out,
+                               std::vector<Constant *> *deRefList = nullptr, bool insideJIT = false,
                                bool ensureNotNull = false);
     // for template use only
     template <class T>
@@ -464,14 +432,11 @@ struct TurboJetValue {
             case ValueType::SHORT:
                 out->value_.s = sp->getShort();
                 break;
-            default: {
-                // assert(out->value_.counter_ == nullptr);
-                out->value_.counter_ = sp.getCounter();
-                // out->value_.counter_->addRef();
-            }
+            default:
+                out->value_.counter_ = sp.get();
         }
     }
-    static void DDBIncreaseRef(TurboJetValue *val, std::vector<Counter *> *deRefList, bool addToList) {
+    static void DDBIncreaseRef(TurboJetValue *val, std::vector<Constant *> *deRefList, bool addToList) {
         if (val->type_ != ValueType::COUNTER) {
             return;
         }
@@ -543,7 +508,7 @@ class JITDolphinInstance : public OOInstance {
         }
         TurboJetValue::castAssignment(*data, attr, ((DolphinClass *)class_.get()), index);
         if (attr.type_ == ValueType::COUNTER) {
-            ConstantSP c = ConstantSP(nullptr, attr.value_.counter_);
+            ConstantSP c(attr.value_.counter_);
             *ref = c;
             (*ref)->setTemporary(false);
         }
@@ -567,7 +532,7 @@ class JITDolphinInstance : public OOInstance {
     }
 
     virtual ConstantSP getValue() const override {
-        SmartPointer<JITDolphinInstance> ins = new JITDolphinInstance(getClass());
+        ObjectPtr<JITDolphinInstance> ins = new JITDolphinInstance(getClass());
         DolphinClass *cls = static_cast<DolphinClass *>(class_.get());
         int count = cls->getAttributeCount();
         for (int i = 0; i < count; i++) {
@@ -640,13 +605,12 @@ inline bool operator==(const TurboJetValue &lhs, const TurboJetValue &rhs) {
 }
 
 inline void TurboJetValue::fromConstantSP(const ConstantSP &sp, TurboJetValue *out,
-                                          std::vector<Counter *> *deRefList, bool insideJIT, bool ensureNotNull) {
+                                          std::vector<Constant *> *deRefList, bool insideJIT, bool ensureNotNull) {
     auto type = sp->getType();
     out->value_.l = 0;  // reset union
     out->flags_ = 0;
     if (sp->getForm() != DF_SCALAR) {
-        out->value_.counter_ = sp.getCounter();
-        // out->value_.counter_->addRef();
+       out->value_.counter_ = sp.get();
         out->type_ = ValueType::COUNTER;
     } else {
         out->type_ = DDBTypeToValueType(type);
@@ -662,22 +626,20 @@ inline void TurboJetValue::fromConstantSP(const ConstantSP &sp, TurboJetValue *o
         DDBIncreaseRef(out, deRefList, insideJIT);
     }
 }
-inline void TurboJetValue::fromConstantSP(const ObjectSP &sp, TurboJetValue *out, std::vector<Counter *> *deRefList,
+inline void TurboJetValue::fromConstantSP(const ObjectSP &sp, TurboJetValue *out, std::vector<Constant *> *deRefList,
                                           bool insideJIT, bool ensureNotNull) {
     return fromConstantSP(static_cast<ConstantSP>(sp), out, deRefList, insideJIT, ensureNotNull);
 }
-inline void TurboJetValue::fromConstantSP(const FunctionDefSP &sp, TurboJetValue *out, std::vector<Counter *> *deRefList,
+inline void TurboJetValue::fromConstantSP(const FunctionDefSP &sp, TurboJetValue *out, std::vector<Constant *> *deRefList,
                                           bool insideJIT, bool ensureNotNull) {
     return fromConstantSP(static_cast<ConstantSP>(sp), out, deRefList, insideJIT, ensureNotNull);
 }
-inline void TurboJetValue::fromConstantSP(const SmartPointer<JITDolphinInstance> &sp, TurboJetValue *out,
-                                          std::vector<Counter *> *deRefList, bool insideJIT, bool ensureNotNull) {
+inline void TurboJetValue::fromConstantSP(const JITDolphinInstanceSP &sp, TurboJetValue *out,
+                                          std::vector<Constant *> *deRefList, bool insideJIT, bool ensureNotNull) {
     out->value_.l = 0;  // reset union
     out->flags_ = 0;
     out->type_ = ValueType::COUNTER;
-    // assert(out->value_.counter_ == nullptr);
-    out->value_.counter_ = sp.getCounter();
-    // out->value_.counter_->addRef();
+    out->value_.counter_ = sp.get();
     if (!ensureNotNull && sp->isNull()) {
         out->setNull();
     }

@@ -5,7 +5,6 @@
 #include "CoreConcept.h"
 #include "Plugin.h"
 #include "Util.h"
-#include "ama.h"
 #include "amdQuoteImp.h"
 #include "amdQuoteType.h"
 #include "ddbplugin/PluginLogger.h"
@@ -24,7 +23,7 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
   public:
     AMDSpiImp(SessionSP session, string dataVersion) : dataVersion_(dataVersion), session_(session) {}
     ~AMDSpiImp() {
-        PLUGIN_LOG_INFO(AMDQUOTE_PREFIX + "release AMDSpiImp");
+        LOG_INFO(AMDQUOTE_PREFIX + "release AMDSpiImp");
         removeAll();
     }
     TableSP getStatus() {
@@ -77,10 +76,15 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
         GET_STATISTICS(indexQueueMap_, "index")
         GET_STATISTICS(optionQueueMap_, "option")
         GET_STATISTICS(futureQueueMap_, "future")
-#ifndef AMD_3_9_6
+#ifndef AMD_396
         GET_STATISTICS(IOPVQueueMap_, "IOPV")
 #endif
+#ifdef AMD_457
+        GET_STATISTICS(HKExMergeSnapshotQueueMap_, "HKExMergeSnapshot")
+        GET_STATISTICS(HKExIndexSnapshotQueueMap_, "HKExIndexSnapshot")
+#endif
         GET_STATISTICS(neeqSnapshotQueueMap_, "NEEQSnapshot")
+        GET_STATISTICS(hktSnapshotQueueMap_, "HKTSnapshot")
         GET_STATISTICS(snapshotQueueMap_, "snapshot")
         GET_STATISTICS(fundSnapshotQueueMap_, "fundSnapshot")
         GET_STATISTICS(bondSnapshotQueueMap_, "bondSnapshot")
@@ -195,12 +199,29 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
             findAndPush(futureQueueMap_, market, data);
         }
     }
-#ifndef AMD_3_9_6
+#ifndef AMD_396
     void pushIOPVData(amd::ama::MDIOPVSnapshot *snapshot, uint32_t cnt, long long time) {
         for (uint32_t i = 0; i < cnt; ++i) {
             timeMDIOPV data{time, snapshot[i]};
             int market = snapshot[i].market_type;
             findAndPush(IOPVQueueMap_, market, data);
+        }
+    }
+#endif
+#ifdef AMD_457
+    void pushHKExMergeSnapshotData(amd::ama::MDHKExMergeSnapshot *snapshot, uint32_t cnt, long long time) {
+        for (uint32_t i = 0; i < cnt; ++i) {
+            timeHKExMergeSnapshot data{time, snapshot[i]};
+            int market = snapshot[i].market_type;
+            findAndPush(HKExMergeSnapshotQueueMap_, market, data);
+        }
+    }
+
+    void pushHKExIndexSnapshotData(amd::ama::MDHKExIndexSnapshot *snapshot, uint32_t cnt, long long time) {
+        for (uint32_t i = 0; i < cnt; ++i) {
+            timeHKExIndexSnapshot data{time, snapshot[i]};
+            int market = snapshot[i].market_type;
+            findAndPush(HKExIndexSnapshotQueueMap_, market, data);
         }
     }
 #endif
@@ -210,6 +231,13 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
             timeMDNEEQSnapshot data{time, snapshot[i]};
             int market = snapshot[i].market_type;
             findAndPush(neeqSnapshotQueueMap_, market, data);
+        }
+    }
+    void pushHKTSnapshotData(amd::ama::MDHKTSnapshot *snapshot, uint32_t cnt, long long time) {
+        for (uint32_t i = 0; i < cnt; ++i) {
+            timeMDHKTSnapshot data{time, snapshot[i]};
+            int market = snapshot[i].market_type;
+            findAndPush(hktSnapshotQueueMap_, market, data);
         }
     }
 
@@ -323,6 +351,11 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushNEEQSnapshotData(snapshots, cnt, time);
     }
+    virtual void OnMDHKTSnapshot(amd::ama::MDHKTSnapshot* snapshots, uint32_t cnt) override {
+        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
+        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+        pushHKTSnapshotData(snapshots, cnt, time);
+    }
     virtual void OnMDOptionSnapshot(amd::ama::MDOptionSnapshot *snapshots, uint32_t cnt) override {
 
         PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
@@ -335,12 +368,25 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushFutureData(snapshots, cnt, time);
     }
-#ifndef AMD_3_9_6
+#ifndef AMD_396
     virtual void OnMDIOPVSnapshot(amd::ama::MDIOPVSnapshot *snapshots, uint32_t cnt) override {
 
         PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
         pushIOPVData(snapshots, cnt, time);
+    }
+#endif
+#ifdef AMD_457
+    virtual void OnMDHKExMergeSnapshot(amd::ama::MDHKExMergeSnapshot* snapshots, uint32_t cnt) override {
+        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
+        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+        pushHKExMergeSnapshotData(snapshots, cnt, time);
+    }
+
+    virtual void OnMDHKExIndexSnapshot(amd::ama::MDHKExIndexSnapshot* snapshots, uint32_t cnt) override {
+        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
+        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+        pushHKExIndexSnapshotData(snapshots, cnt, time);
     }
 #endif
 
@@ -354,10 +400,8 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
 
         PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        if (UNLIKELY(PLUGIN_LOG_LEVEL == severity_type::DEBUG)) {
-            for (auto i = 0U; i < cnt; ++i) {
-                PLUGIN_LOG(AMDQUOTE_PREFIX, __FUNCTION__, " securityCode: ", ticks[i].security_code, "; bizIndex: ", ticks[i].appl_seq_num);
-            }
+        for (auto i = 0U; i < cnt; ++i) {
+            LOG(AMDQUOTE_PREFIX, __FUNCTION__, " securityCode: ", ticks[i].security_code, "; bizIndex: ", ticks[i].appl_seq_num);
         }
         pushOrderData(ticks, cnt, time);
     }
@@ -365,10 +409,8 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
 
         PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
         long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        if (UNLIKELY(PLUGIN_LOG_LEVEL == severity_type::DEBUG)) {
-            for (auto i = 0U; i < cnt; ++i) {
-                PLUGIN_LOG(AMDQUOTE_PREFIX, __FUNCTION__, " securityCode: ", ticks[i].security_code, "; bizIndex: ", ticks[i].appl_seq_num);
-            }
+        for (auto i = 0U; i < cnt; ++i) {
+            LOG(AMDQUOTE_PREFIX, __FUNCTION__, " securityCode: ", ticks[i].security_code, "; bizIndex: ", ticks[i].appl_seq_num);
         }
         pushExecutionData(ticks, cnt, time);
     }
@@ -447,6 +489,10 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
         map[key]->start();                                                                                \
         break;
 
+        ADD_THREADED_QUEUE(AMD_HKT_SNAPSHOT, hktSnapshotQueueMap_, timeMDHKTSnapshot,
+                            [=](vector<ConstantSP> &buffer, timeMDHKTSnapshot &data) {
+                                return hktSnapshotReader(buffer, data, securityCodeToInt);
+                            })
         ADD_THREADED_QUEUE(AMD_NEEQ_SNAPSHOT, neeqSnapshotQueueMap_, timeMDNEEQSnapshot,
                             [=](vector<ConstantSP> &buffer, timeMDNEEQSnapshot &data) {
                                 return neeqSnapshotReader(buffer, data, securityCodeToInt);
@@ -497,10 +543,20 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
                             [=](vector<ConstantSP> &buffer, timeMDFuture &data) {
                                 return futureReader(buffer, data, securityCodeToInt);
                             })
-#ifndef AMD_3_9_6
+#ifndef AMD_396
         ADD_THREADED_QUEUE(AMD_IOPV_SNAPSHOT, IOPVQueueMap_, timeMDIOPV,
                             [=](vector<ConstantSP> &buffer, timeMDIOPV &data) {
                                 return IOPVReader(buffer, data, securityCodeToInt);
+                            })
+#endif
+#ifdef AMD_457
+        ADD_THREADED_QUEUE(AMD_HKEX_MERGE_SNAPSHOT, HKExMergeSnapshotQueueMap_, timeHKExMergeSnapshot,
+                            [=](vector<ConstantSP> &buffer, timeHKExMergeSnapshot &data) {
+                                return HKExMergeSnapshotReader(buffer, data, securityCodeToInt);
+                            })
+        ADD_THREADED_QUEUE(AMD_HKEX_INDEX_SNAPSHOT, HKExIndexSnapshotQueueMap_, timeHKExIndexSnapshot,
+                            [=](vector<ConstantSP> &buffer, timeHKExIndexSnapshot &data) {
+                                return HKExIndexSnapshotReader(buffer, data, securityCodeToInt);
                             })
 #endif
         case AMD_ERROR_DATA_TYPE:
@@ -518,6 +574,7 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
     // map.clear();
 
         ERASE_IF_EXIST(neeqSnapshotQueueMap_)
+        ERASE_IF_EXIST(hktSnapshotQueueMap_)
         ERASE_IF_EXIST(snapshotQueueMap_)
         ERASE_IF_EXIST(fundSnapshotQueueMap_)
         ERASE_IF_EXIST(bondSnapshotQueueMap_)
@@ -533,8 +590,12 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
         ERASE_IF_EXIST(orderQueueQueueMap_)
         ERASE_IF_EXIST(optionQueueMap_)
         ERASE_IF_EXIST(futureQueueMap_)
-#ifndef AMD_3_9_6
+#ifndef AMD_396
         ERASE_IF_EXIST(IOPVQueueMap_)
+#endif
+#ifdef AMD_457
+        ERASE_IF_EXIST(HKExMergeSnapshotQueueMap_)
+        ERASE_IF_EXIST(HKExIndexSnapshotQueueMap_)
 #endif
 
 #undef ERASE_IF_EXIST
@@ -564,6 +625,7 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
     }
 
             ERASE_IF_EXIST(AMD_NEEQ_SNAPSHOT, neeqSnapshotQueueMap_)
+            ERASE_IF_EXIST(AMD_HKT_SNAPSHOT, hktSnapshotQueueMap_)
             ERASE_IF_EXIST(AMD_SNAPSHOT, snapshotQueueMap_)
             ERASE_IF_EXIST(AMD_EXECUTION, executionQueueMap_)
             ERASE_IF_EXIST(AMD_ORDER, orderQueueMap_)
@@ -579,8 +641,12 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
             ERASE_IF_EXIST(AMD_ORDER_QUEUE, orderQueueQueueMap_)
             ERASE_IF_EXIST(AMD_OPTION_SNAPSHOT, optionQueueMap_)
             ERASE_IF_EXIST(AMD_FUTURE_SNAPSHOT, futureQueueMap_)
-#ifndef AMD_3_9_6
+#ifndef AMD_396
             ERASE_IF_EXIST(AMD_IOPV_SNAPSHOT, IOPVQueueMap_)
+#endif
+#ifdef AMD_457
+        ERASE_IF_EXIST(AMD_HKEX_MERGE_SNAPSHOT, HKExMergeSnapshotQueueMap_)
+        ERASE_IF_EXIST(AMD_HKEX_INDEX_SNAPSHOT, HKExIndexSnapshotQueueMap_)
 #endif
             case AMD_ERROR_DATA_TYPE:
             default:
@@ -596,11 +662,16 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
     unordered_map<int, SmartPointer<ThreadedQueue<timeMDIndexSnapshot>>> indexQueueMap_;
     unordered_map<int, SmartPointer<ThreadedQueue<timeMDOption>>> optionQueueMap_;
     unordered_map<int, SmartPointer<ThreadedQueue<timeMDFuture>>> futureQueueMap_;
-#ifndef AMD_3_9_6
+#ifndef AMD_396
     unordered_map<int, SmartPointer<ThreadedQueue<timeMDIOPV>>> IOPVQueueMap_;
+#endif
+#ifdef AMD_457
+    unordered_map<int, SmartPointer<ThreadedQueue<timeHKExMergeSnapshot>>> HKExMergeSnapshotQueueMap_;
+    unordered_map<int, SmartPointer<ThreadedQueue<timeHKExIndexSnapshot>>> HKExIndexSnapshotQueueMap_;
 #endif
 
     unordered_map<int, SmartPointer<ThreadedQueue<timeMDNEEQSnapshot>>> neeqSnapshotQueueMap_;
+    unordered_map<int, SmartPointer<ThreadedQueue<timeMDHKTSnapshot>>> hktSnapshotQueueMap_;
 
     unordered_map<int, SmartPointer<ThreadedQueue<timeMDSnapshot>>> snapshotQueueMap_;
     unordered_map<int, SmartPointer<ThreadedQueue<timeMDSnapshot>>> fundSnapshotQueueMap_;

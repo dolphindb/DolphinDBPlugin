@@ -1,7 +1,7 @@
 #include "matlab.h"
 #include <math.h>
 #include <mat.h>
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 using namespace ddb;
 
 std::string wstringToString(const std::wstring &wstrInput)

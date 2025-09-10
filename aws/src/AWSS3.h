@@ -10,12 +10,11 @@
 
 #include "DolphinDBEverything.h"
 #include "ddbplugin/CommonInterface.h"
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 #include "CoreConcept.h"
 #include "ScalarImp.h"
 #include "Util.h"
 #include "SysIO.h"
-#include "Logger.h"
 #include <sstream>
 #include <fstream>
 #include <iostream>
@@ -23,7 +22,6 @@
 #include <aws/core/Aws.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/GetObjectRequest.h>
-#include <zlib.h>
 
 #define CHUNK 16384
 
