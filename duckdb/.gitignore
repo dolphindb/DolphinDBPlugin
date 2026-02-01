@@ -1,0 +1,9 @@
+build/
+*.o
+*.so
+*.dll
+*.dylib
+.DS_Store
+*.pyc
+__pycache__/
+*.log
