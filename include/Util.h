@@ -13,7 +13,7 @@
 #include <vector>
 #include <unordered_set>
 #include <ctime>
-#include <tr1/random>
+#include <random>
 #include <chrono>
 
 #include "CoreConcept.h"
@@ -361,7 +361,7 @@ public:
 	static string getLastErrorMessage();
 	static string getErrorMessage(int errCode);
 	static int rand(int x){ return (*Util::m1())() % x;}
-	static std::tr1::mt19937* m1();
+	static std::mt19937* m1();
     static unsigned int checksum(FILE *fp, long long offset, long long len);
 
     /**

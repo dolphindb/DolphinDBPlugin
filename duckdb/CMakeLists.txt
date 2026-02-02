@@ -35,7 +35,6 @@ target_include_directories(${PluginName} PRIVATE
 )
 
 # Force include compatibility header before all other headers
-target_compile_options(${PluginName} PRIVATE -include ${CMAKE_CURRENT_SOURCE_DIR}/src/tr1_random_compat.h)
 
 # Ignore pthread_self warning on macOS
 if(APPLE)
