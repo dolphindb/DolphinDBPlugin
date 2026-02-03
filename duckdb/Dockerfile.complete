@@ -1,0 +1,104 @@
+# 完整的 DolphinDB + DuckDB 插件 Docker 镜像
+# 编译步骤:
+# 1. docker build -t dolphindb-duckdb-build -f Dockerfile.complete --target builder .
+# 2. docker build -t dolphindb-duckdb -f Dockerfile.complete .
+
+# 编译阶段
+FROM ubuntu:22.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y \
+    git \
+    cmake \
+    build-essential \
+    g++ \
+    wget \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# 下载 DolphinDB Linux 版本 (社区版)
+RUN wget -q https://cdn.dolphindb.cn/downloads/DolphinDB_Linux64_V2.00.10.zip -O /tmp/dolphindb.zip && \
+    unzip -q /tmp/dolphindb.zip -d /tmp/ && \
+    mv /tmp/DolphinDB_Linux64_V2.00.10 /opt/dolphindb && \
+    rm /tmp/dolphindb.zip
+
+# 复制插件源代码
+COPY duckdb /build/duckdb/
+
+# 初始化并更新子模块
+WORKDIR /build/duckdb
+RUN git init && \
+    git submodule add https://github.com/duckdb/duckdb.git contrib/duckdb 2>/dev/null || true && \
+    git submodule update --init --recursive || true
+
+# 如果没有子模块，手动下载 DuckDB
+RUN if [ ! -f "contrib/duckdb/CMakeLists.txt" ]; then \
+    mkdir -p contrib && \
+    cd contrib && \
+    wget -q https://github.com/duckdb/duckdb/archive/refs/tags/v1.1.3.tar.gz && \
+    tar -xzf v1.1.3.tar.gz && \
+    mv duckdb-1.1.3 duckdb && \
+    rm v1.1.3.tar.gz; \
+    fi
+
+# 编译插件
+WORKDIR /build/duckdb/build
+RUN cmake -DCMAKE_BUILD_TYPE=Release .. && \
+    make -j$(nproc)
+
+# 验证编译结果
+RUN ls -la /build/duckdb/build/libPluginDuckDB.so
+
+# 运行阶段
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Shanghai
+
+# 安装运行时依赖
+RUN apt-get update && apt-get install -y \
+    libstdc++6 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# 复制 DolphinDB
+COPY --from=builder /opt/dolphindb /opt/dolphindb
+
+# 复制编译好的插件
+COPY --from=builder /build/duckdb/build/libPluginDuckDB.so /opt/dolphindb/plugins/duckdb/
+COPY --from=builder /build/duckdb/PluginDuckDB.txt /opt/dolphindb/plugins/duckdb/
+
+# 创建插件目录结构
+RUN mkdir -p /opt/dolphindb/plugins/duckdb
+
+# 设置工作目录
+WORKDIR /opt/dolphindb
+
+# 暴露端口
+EXPOSE 8848
+
+# 启动脚本
+COPY <<'EOF' /opt/dolphindb/start.sh
+#!/bin/bash
+# 启动 DolphinDB 服务器
+cd /opt/dolphindb/server
+
+# 设置库路径
+export LD_LIBRARY_PATH=/opt/dolphindb/server:$LD_LIBRARY_PATH
+
+# 创建数据目录
+mkdir -p /opt/dolphindb/data
+
+# 启动服务器
+./dolphindb -console 0 -mode single -home /opt/dolphindb/data -script /opt/dolphindb/server/dolphindb.dos -config /opt/dolphindb/server/dolphindb.cfg -logFile /opt/dolphindb/data/dolphindb.log
+EOF
+
+RUN chmod +x /opt/dolphindb/start.sh
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8848 || exit 1
+
+CMD ["/opt/dolphindb/start.sh"]

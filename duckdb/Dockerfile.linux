@@ -1,0 +1,55 @@
+# 用于在 Linux 环境下编译 DuckDB 插件的 Docker 镜像
+FROM ubuntu:22.04
+
+# 设置环境变量
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Shanghai
+
+# 安装编译依赖
+RUN apt-get update && apt-get install -y \
+    git \
+    cmake \
+    build-essential \
+    g++ \
+    wget \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# 创建编译目录
+WORKDIR /build
+
+# 复制 DolphinDB Linux 版本
+COPY server /opt/dolphindb/server/
+
+# 复制插件源代码
+COPY duckdb /build/duckdb/
+
+# 设置库路径
+ENV LD_LIBRARY_PATH=/opt/dolphindb/server:$LD_LIBRARY_PATH
+
+# 下载 DuckDB 源码
+WORKDIR /build/duckdb
+RUN if [ ! -d "contrib/duckdb" ] || [ ! -f "contrib/duckdb/CMakeLists.txt" ]; then \
+    mkdir -p contrib && \
+    cd contrib && \
+    wget -q https://github.com/duckdb/duckdb/archive/refs/tags/v1.1.3.tar.gz && \
+    tar -xzf v1.1.3.tar.gz && \
+    mv duckdb-1.1.3 duckdb && \
+    rm v1.1.3.tar.gz; \
+    fi
+
+# 编译插件
+WORKDIR /build/duckdb/build
+RUN cmake -DCMAKE_BUILD_TYPE=Release .. && \
+    make -j$(nproc)
+
+# 验证编译结果
+RUN ls -la /build/duckdb/build/libPluginDuckDB.so
+
+# 复制编译好的插件到输出目录
+RUN mkdir -p /output && \
+    cp /build/duckdb/build/libPluginDuckDB.so /output/ && \
+    cp /build/duckdb/PluginDuckDB.txt /output/
+
+# 设置默认命令
+CMD ["cp", "-r", "/output/*", "/out/"]
