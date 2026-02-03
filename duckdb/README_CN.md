@@ -1,32 +1,19 @@
-# DolphinDB DuckDB 插件
+# DolphinDB DuckDB Plugin
 
-DolphinDB 的 DuckDB 插件提供高速导入 DuckDB 数据集或查询结果到 DolphinDB 的功能。支持数据类型转换和高效的批量数据加载。
+DolphinDB的DuckDB导入插件可将DuckDB中的数据表或查询结果高速导入DolphinDB，
+并且支持数据类型转换和高效的批量数据加载。
 
-## 1. 编译
+本文档仅介绍编译构建方法。通过[文档中心 - DuckDB](https://docs.dolphindb.cn/zh/plugins/duckdb/duckdb.html)查看使用介绍；通过 CHANGELOG.md 查看版本发布记录。
 
-### 1.1 安装预编译版本
+## 编译安装
 
-用户可以在 DolphinDB 中使用以下命令导入预编译的 DuckDB 插件（在 DolphinDB 安装包或 bin 目录下）：
+### 在 Linux/macOS 下编译安装
 
-在 Linux/macOS 系统中：
-```
-loadPlugin("/path/to/plugins/duckdb/PluginDuckDB.txt")
-```
-
-在 Windows 系统中：
-```
-loadPlugin("C:/path/to/duckdb/PluginDuckDB.txt")
-```
-
-注意：必须使用绝对路径加载插件，并将 "\\" 替换为 "\\\\" 或 "/"。
-
-### 1.2 编译安装
-
-#### 1.2.1 在 Linux/macOS 系统中安装
+#### 环境准备
 
 安装 [git](https://git-scm.com/) 和 [CMake](https://cmake.org/)。
 
-Ubuntu 用户执行：
+Ubuntu用户只需要在命令行输入以下命令即可：
 ```bash
 $ sudo apt-get install git cmake
 ```
@@ -36,33 +23,41 @@ macOS 用户通过 Homebrew 安装：
 $ brew install git cmake
 ```
 
-然后使用以下脚本更新 git 子模块，这将自动下载 [DuckDB](https://github.com/duckdb/duckdb) 源文件。
+然后通过更新git子模块来下载 [DuckDB](https://github.com/duckdb/duckdb) 的源文件。
 ```
 $ git submodule update --init --recursive
 ```
 
-构建项目：
+#### cmake 编译
+
+构建插件内容：
 ```
 mkdir build
 cd build
-cmake -DCMAKE_BUILD_TYPE=Release ../path_to_duckdb_plugin/
+cmake -DCMAKE_BUILD_TYPE=Release ../path/to/duckdb_plugin/
 make -j$(nproc)
 ```
 
-**注意：** 编译前请确保 libDolphinDB.so 在 gcc 可以找到的路径上。可以通过 "LD_LIBRARY_PATH" 指定路径。
+**注意:** 编译之前请确保libDolphinDB.so在gcc可搜索的路径中。可使用LD_LIBRARY_PATH指定其路径，或者直接将其拷贝到build目录下。
 
-编译后将生成 libPluginDuckDB.so 文件。
+编译之后目录下会产生libPluginDuckDB.so文件。
 
-#### 1.2.2 在 Windows 系统中安装
+### 在 Windows 下编译安装
 
-在 Windows 中安装需要使用 [cmake](https://cmake.org/) 和 [MinGW](http://www.mingw.org/) 或 Visual Studio 进行编译。
+#### 在 Windows 环境中需要使用CMake和MinGW编译
 
-请下载 [cmake](https://cmake.org/) 和 [MinGW](http://www.mingw.org/)。确保将 MinGW 的 bin 目录添加到系统环境变量 "Path" 中。
+* 下载安装[MinGW](http://www.mingw.org/)。确保将bin目录添加到系统环境变量Path中。
+* 下载安装[cmake](https://cmake.org/)。
 
-构建项目：
+#### cmake 编译
+
+在编译开始之前，要将libDolphinDB.dll和包含DuckDB头文件的文件夹拷贝到build文件夹内。
+
+构建插件内容：
 ```
-mkdir build
-cp libDolphinDB.dll build                 # 将 libDolphinDB.dll 复制到 build 目录
+mkdir build                                                       
+cp path_to_libDolphinDB.dll/libDolphinDB.dll build               
+cp -r contrib/duckdb build                                        
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release ../path_to_duckdb_plugin/ -G "MinGW Makefiles"
 mingw32-make -j4
