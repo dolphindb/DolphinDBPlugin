@@ -656,7 +656,7 @@ inline bool IsValidCapacity(size_t n) { return ((n + 1) & n) == 0 && n > 0; }
 //   DELETED -> EMPTY
 //   EMPTY -> EMPTY
 //   FULL -> DELETED
-static void ConvertDeletedToEmptyAndFullToDeleted(ctrl_t* ctrl, size_t capacity){
+static inline void ConvertDeletedToEmptyAndFullToDeleted(ctrl_t* ctrl, size_t capacity){
   assert(ctrl[capacity] == kSentinel);
   assert(IsValidCapacity(capacity));
   for (ctrl_t* pos = ctrl; pos < ctrl + capacity; pos += Group::kWidth) {

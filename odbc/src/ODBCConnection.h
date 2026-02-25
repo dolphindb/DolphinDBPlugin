@@ -21,6 +21,7 @@ private:
 
 enum ODBCDataBaseType {
     ODBC_DBT_VOID,
+    ODBC_DBT_OTHER,
     ODBC_DBT_MYSQL,
     ODBC_DBT_SQL_SERVER,
     ODBC_DBT_SQLITE,
@@ -118,9 +119,8 @@ protected:
 template <typename NanConnection, typename NanTransaction, typename NanResult, typename NanTimestamp, typename NanDate, typename NanTime, typename NanStateMent, typename NanODBCFunc>
 class OdbcConnection : public ODBCBaseConnection{
 public:
-    OdbcConnection(ODBCDataBaseType dataBaseType)
-        :ODBCBaseConnection(dataBaseType){
-            std::string dataBaseTypeString = DataBaseToString(dataBaseType);
+    OdbcConnection(ODBCDataBaseType dataBaseType, const string& dataBaseTypeString)
+        :ODBCBaseConnection(dataBaseType), dataBaseTypeString_(dataBaseTypeString) {
             LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, dataBaseTypeString + " ODBC connection is created.");
         }
 
@@ -209,6 +209,7 @@ public:
 private:
     void odbcExecute(NanTransaction &cp, const string &querySql, Heap *heap);
     SmartPointer<NanConnection> nanoConn_;
+    std::string dataBaseTypeString_;
 
 };
 

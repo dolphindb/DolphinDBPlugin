@@ -1,4 +1,4 @@
-pulsar,libPluginPulsar.so,<version>
+pulsar,libPluginPulsar${CMAKE_SHARED_LIBRARY_SUFFIX},${PluginVersion}
 pulsarClient,client,system,1,2,0,0,(serviceUrl, [clientConfig])
 pulsarProducer,producer,system,2,3,0,0,(client, topic, [producerConfig])
 pulsarSend,send,system,2,3,0,0,(producer, message, [partitionKey])

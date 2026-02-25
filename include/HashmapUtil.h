@@ -479,7 +479,9 @@ class SWORDFISH_API hazard_pointer_manager;
 template <typename T>
 class SWORDFISH_API hprecord {
 public:
-	hprecord(hazard_pointer_manager<T> * mngr) : hp(0), next(0), manager(mngr), active(ATOMIC_FLAG_INIT) {}
+	hprecord(hazard_pointer_manager<T> * mngr) : hp(0), next(0), manager(mngr) {
+		active.clear();
+	}
 
 	// A kind of try lock: if the record is available return true and lock it
 	// for futher test.
@@ -552,7 +554,6 @@ public:
 	}
 
 	~hazard_pointer_manager() {
-		int iterations = 0;
 		while (true) {
 			int hazards = 0;
 			for (auto cur = this->begin(); cur != 0; cur = cur->next) {
@@ -561,11 +562,7 @@ public:
 					hazards++;
 				}
 			}
-			iterations++;
-			if (hazards != 0) {
-				//printf("manager %p, still waiting for %d hazards, iterations %d\n",this, hazards, iterations);
-			} else {
-				//printf("manager %p, all gone, took %d iterations, head %p\n", this, iterations, head.load());
+			if (hazards == 0) {
 				break;
 			}
 		}

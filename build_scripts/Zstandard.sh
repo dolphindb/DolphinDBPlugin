@@ -1,0 +1,3 @@
+#!/bin/bash
+
+cmake_all -DZSTD_BUILD_SHARED=OFF -DZSTD_BUILD_PROGRAMS=OFF

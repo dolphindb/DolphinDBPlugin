@@ -18,6 +18,82 @@ using std::string;
 
 namespace ddb {
 
+/**
+ * @brief Enumeration of all exception types for tracking and logging purposes.
+ *        Using int8_t as underlying type for memory efficiency.
+ */
+enum class ExceptionType : int8_t {
+    // std::exception
+    DEFAULT_EXCEPTION = 0,
+
+    // Base traceable exception
+    TRACEABLE_EXCEPTION = 16,
+
+    // Exceptions inheriting from TraceableException
+    INCOMPATIBLE_TYPE_EXCEPTION = 17,
+    ILLEGAL_ARGUMENT_EXCEPTION = 18,
+    RUNTIME_EXCEPTION = 19,
+    OPERATOR_RUNTIME_EXCEPTION = 20,
+    TABLE_RUNTIME_EXCEPTION = 21,
+    MEMORY_EXCEPTION = 22,
+    IO_EXCEPTION = 23,
+    MATH_EXCEPTION = 24,
+    DATA_NODE_NOT_READY_EXCEPTION = 25,
+    NO_PRIVILEGE_EXCEPTION = 26,
+    USER_EXCEPTION = 27,
+    CACHE_INVALID_EXCEPTION = 28,
+
+    // Exceptions inheriting directly from std::exception
+    FILE_CHUNK_VERSION_CHECK_EXCEPTION = 64,
+    DATA_CORRUPTION_EXCEPTION = 65,
+    NOT_LEADER_EXCEPTION = 66,
+    CHUNK_IN_TRANSACTION_EXCEPTION = 67,
+    CHUNK_RESOLUTION_EXCEPTION = 68,
+    CHUNK_IN_RECOVERY_EXCEPTION = 69,
+    DATA_NODE_NOT_AVAIL_EXCEPTION = 70,
+    CONTROLLER_NOT_AVAIL_EXCEPTION = 71,
+    CONTROLLER_NOT_READY_EXCEPTION = 72,
+    SYNTAX_EXCEPTION = 73,
+    TESTING_EXCEPTION = 74,
+    TRANSACTION_FINISH_EXCEPTION = 75,
+    OLTP_NEED_RETRY_EXCEPTION = 76,
+    OLTP_NOT_RETRY_EXCEPTION = 77
+};
+
+/**
+ * @brief Error severity levels for exceptions
+ */
+ enum class ErrorLevel : int8_t {
+    Warning = 0,    // Warning, operation can continue or retry
+    Error = 1,      // Error, operation failed
+    Fatal = 2       // Fatal error, should crash the system
+};
+
+/**
+ * @brief Error scope categories for exceptions
+ *        Used to categorize exceptions by functional domain
+ * @URL: https://docs.dolphindb.cn/zh/error_codes/err_codes.html
+ */
+enum class ErrorScope : int8_t {
+    DEFAULT = 5, // General/default scope, no specifics
+
+    SYSTEM = 0,     // System-level errors
+    STORAGE = 1,    // Storage and I/O errors
+    SQL = 2,        // SQL execution errors
+    STREAM = 3,     // Streaming engine errors
+    MANAGEMENT = 4, // Cluster management errors
+    DLANG = 6,      // DLang (a.k.a., Dolphin Script) language errors (e.g., syntax or semantic)
+
+    ORCA = 7,         // Orca engine errors
+    SHARK = 8,        // Shark engine errors
+    SECURITY = 9,     // Security and authentication errors
+    NETWORK = 10,     // Network and communication errors
+    TRANSACTION = 11, // Transaction processing errors
+    MEMORY = 12,      // Memory management errors
+
+    // add more if needed
+};
+
 class SWORDFISH_API SWORDFISH_API TraceableException : public exception {
 public:
 	void addPath(const string& path);
@@ -173,6 +249,18 @@ public:
 		return errMsg_.c_str();
 	}
 	virtual ~ChunkInTransactionException() throw(){}
+
+private:
+	const string errMsg_;
+};
+
+class SWORDFISH_API ChunkResolutionException: public exception {
+public:
+	ChunkResolutionException(const string& errMsg) : errMsg_("<ChunkResolutionException>" + errMsg){}
+	virtual const char* what() const throw(){
+		return errMsg_.c_str();
+	}
+	virtual ~ChunkResolutionException() throw(){}
 
 private:
 	const string errMsg_;
@@ -383,6 +471,6 @@ class SWORDFISH_API OLTPNotRetryException : public std::exception {
     string err_;
 };
 
-}
+}  // namepsace ddb
 
 #endif /* EXCEPTIONS_H_ */

@@ -14,5 +14,4 @@ endif ()
 target_link_directories(${PluginName} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/lib/linux)
 target_link_libraries(${PluginName} PRIVATE ${PLUGIN_LINK_LIBRARIES})
 
-AddOpenSSL()
-AddDependency(cyrus-sasl sasl2)
+AddSASL2()

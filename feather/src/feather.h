@@ -1,5 +1,6 @@
-#ifndef FEATHER_PLUGIN_H
-#define FEATHER_PLUGIN_H
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
 
 #include "DolphinDBEverything.h"
 #include <CoreConcept.h>
@@ -22,6 +23,3 @@ using std::vector;
 extern "C" ConstantSP loadFeather(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP saveFeather(Heap *heap, vector<ConstantSP> &arguments);
 extern "C" ConstantSP schemaFeather(Heap *heap, vector<ConstantSP> &arguments);
-
-
-#endif

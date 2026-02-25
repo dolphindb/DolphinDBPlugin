@@ -1,5 +1,6 @@
-#ifndef AMD_QUOTE_H
-#define AMD_QUOTE_H
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
 
 #include "DolphinDBEverything.h"
 #include "CoreConcept.h"
@@ -30,4 +31,4 @@ extern "C" ConstantSP getETFCodeList(Heap *heap, vector<ConstantSP> &arguments);
 
 extern "C" ConstantSP setErrorLog(Heap *heap, vector<ConstantSP> &arguments);
 
-#endif
+extern "C" ConstantSP amdQuery(Heap *heap, vector<ConstantSP> &arguments);

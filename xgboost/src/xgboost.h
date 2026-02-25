@@ -1,5 +1,6 @@
-#ifndef _PLUGIN_XGBOOST_
-#define _PLUGIN_XGBOOST_
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
 
 #include "DolphinDBEverything.h"
 #include "CoreConcept.h"
@@ -16,5 +17,3 @@ extern "C" {
     ConstantSP loadModel(Heap *heap, vector<ConstantSP> &args);
     ConstantSP dumpModel(Heap *heap, vector<ConstantSP> &args);
 }
-
-#endif

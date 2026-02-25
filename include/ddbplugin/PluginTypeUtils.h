@@ -4,6 +4,7 @@
 #include "CoreConcept.h"
 #include "Decimal128.h"
 #include "DolphinString.h"
+#include "OperatorImp.h"
 #include "ScalarImp.h"
 #include "SpecialConstant.h"
 
@@ -160,7 +161,7 @@ class IArgStream {
                 // check data form
                 if ((*argIt_)->getForm() != (*schemaIt_).form) {
                     throw RuntimeException("[PLUGIN::BACKTEST] Invalid data form of argument " + (*schemaIt_).name +
-                                           ", shouble be " + Util::getDataFormString((*schemaIt_).form) + ".");
+                                           ", should be " + Util::getDataFormString((*schemaIt_).form) + ".");
                 }
 
                 // check data category or type
@@ -173,19 +174,19 @@ class IArgStream {
                             tmp = (*argIt_)->get(i);
                             if (tmp->getCategory() != (*schemaIt_).category || !tmp->isScalar()) {
                                 throw RuntimeException("[PLUGIN::BACKTEST] Invalid data category of arg " +
-                                                       (*schemaIt_).name + ", shouble be " +
+                                                       (*schemaIt_).name + ", should be " +
                                                        getCategoryString((*schemaIt_).category) + " type.");
                             }
                         }
                         // TODO: JIT parse bug, delete after fix https://dolphindb1.atlassian.net/browse/BACKTESTME-137
                     } else if (Util::getCategory(dt) != (*schemaIt_).category) {
                         throw RuntimeException("[PLUGIN::BACKTEST] Invalid data category of arg " + (*schemaIt_).name +
-                                               ", shouble be " + getCategoryString((*schemaIt_).category) + " type.");
+                                               ", should be " + getCategoryString((*schemaIt_).category) + " type.");
                     }
                 } else if ((dt != (*schemaIt_).type)) {
                     if (dt != DT_LONG || (*schemaIt_).type != DT_RESOURCE) {  // resource handle can be replaced by long
                         throw RuntimeException("[PLUGIN::BACKTEST] Invalid data type of argument " + (*schemaIt_).name +
-                                               ", shouble be " + Util::getDataTypeString((*schemaIt_).type) + ".");
+                                               ", should be " + Util::getDataTypeString((*schemaIt_).type) + ".");
                     }
                 }
 
@@ -617,16 +618,27 @@ class Schema {
             try {
                 column = table->getColumn(field.name);
             } catch (std::exception &e) {
-                THROW_INVALID_INPUT("Invalid table for " + name_ + ", missing column: " + field.name + ".");
+                THROW_INVALID_INPUT("Invalid table for " + name_ + ": column [" + field.name + "] is missing.");
             }
-            int columnType = static_cast<int>(column->getType());
-            int expect = static_cast<int>(field.type);
-            if (field.form == DF_VECTOR) {
-                expect += ARRAY_TYPE_BASE;
+            if (field.form == DF_VECTOR && column->getType() < ARRAY_TYPE_BASE) {
+                THROW_INVALID_INPUT("Invalid table for " + name_ + ": column [" + field.name + "] must be array vector.");
             }
-            if (columnType != expect && !(expect == DT_SYMBOL && columnType == DT_STRING)) {
-                THROW_INVALID_INPUT("Column type mismatch for table " + name_ + " column " + field.name +
-                                    ": type() should be " + std::to_string(expect));
+            static ConstantSP void_ = new Void();
+            try {
+                switch (field.type) {
+                case DT_DOUBLE: column = OperatorImp::asDouble(column, void_); break;
+                case DT_INT: column = OperatorImp::asInt(column, void_); break;
+                case DT_DATE: column = OperatorImp::date(column, void_); break;
+                case DT_STRING: column = OperatorImp::asString(column, void_); break;
+                case DT_LONG: column = OperatorImp::asLong(column, void_); break;
+                case DT_TIMESTAMP: column = OperatorImp::timestamp(column, void_); break;
+                case DT_DECIMAL128: column = OperatorImp::asDecimal128(column, new Int(8)); break;
+                case DT_SYMBOL: if (column->getType() != DT_STRING) column = OperatorImp::asSymbol(column, void_); break;
+                default: break; // other types does not support auto convert
+                }
+            } catch (std::exception &e) {
+                THROW_INVALID_INPUT("Invalid table for " + name_ + ": column [" + field.name +
+                                    "] has invalid type, should be " + Util::getDataTypeString(field.type) + ".");
             }
             colIterators_.push_back(getInputColumn(column, field.type, field.form));
         }
@@ -926,7 +938,8 @@ enum OrderEnum {
     CHANNEL,
     BID_DIFF_TOLERANCE,
     ASK_DIFF_TOLERANCE,
-    QTY_ALLOWED
+    QTY_ALLOWED,
+    HIGH_DROP_RATIO
 };
 
 }  // namespace ddb

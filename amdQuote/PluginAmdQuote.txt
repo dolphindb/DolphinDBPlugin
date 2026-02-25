@@ -1,4 +1,4 @@
-amdQuote,libPluginAmdQuote.so,<version>
+amdQuote,libPluginAmdQuote${CMAKE_SHARED_LIBRARY_SUFFIX},${PluginVersion}
 amdConnect,connect,system,4,6,0,0,(username, password, host, port, [option], [dataVersion='ORIGIN'])
 subscribe,subscribe,system,4,8,0,0,(handle, dataType, outputTable, market, [codeList], [transform], [seqCheckMode=1], [queueDepth=100000])
 unsubscribe,unsubscribe,system,2,4,0,0,(handle, dataType, [market], [codeList])
@@ -9,3 +9,4 @@ amdClose,close,system,1,1,0,0,(handle)
 getCodeList,getCodeList,system,0,1,0,0,([market])
 getETFCodeList,getETFCodeList,system,0,1,0,0,([market])
 setErrorLog,setErrorLog,system,1,1,0,0,(flag)
+amdQuery,query,system,6,7,0,0,(handle, dataType, market, channelNo, beginSeqNum, endSeqNum, [option])

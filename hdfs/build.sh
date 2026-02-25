@@ -15,6 +15,5 @@ make -j
 cd ..
 mkdir -p $CMAKE_INSTALL_PREFIX/$(basename $(pwd))
 cp -f build/libPluginHdfs.so $CMAKE_INSTALL_PREFIX/$(basename $(pwd))
-cp -f PluginHdfs.txt $CMAKE_INSTALL_PREFIX/$(basename $(pwd))
 cp -f $2/hadoop-3.2.2/lib/native/libhdfs.so.0.0.0 $CMAKE_INSTALL_PREFIX/$(basename $(pwd))
 #cp -f /lib/jvm/java-1.8.0-openjdk-1.8.0.282.b08-1.el7_9.x86_64/jre/lib/amd64/server/libjvm.so $WORKSPACE/

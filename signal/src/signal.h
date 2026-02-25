@@ -1,13 +1,7 @@
-/*
- * signal.h
- *
- * Created on: Dec 1.2020
- *     Author: zkluo
- *
- */
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
 
-#ifndef SIGNAL_H_
-#define SIGNAL_H_
 #include "DolphinDBEverything.h"
 #include "CoreConcept.h"
 #include "ddbplugin/CommonInterface.h"
@@ -15,6 +9,8 @@
 
 extern "C" {
 
+ddb::ConstantSP initialize(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP fftwConfig(ddb::Heap* heap, argsT &args);
 ddb::ConstantSP dct(ddb::Heap *heap, const ddb::ConstantSP &a, const ddb::ConstantSP &b);  //离散余弦变换(DCT-II)
 ddb::ConstantSP dst(ddb::Heap *heap, const ddb::ConstantSP &a, const ddb::ConstantSP &b);  //离散正弦变换(DST-I)
 ddb::ConstantSP dwt1(ddb::Heap *heap, const ddb::ConstantSP &a, const ddb::ConstantSP &b);  //一维离散小波变换(DWT)
@@ -38,5 +34,3 @@ ddb::ConstantSP absFuc(ddb::Heap *heap, argsT &args);
 ddb::ConstantSP mul(ddb::Heap *heap, argsT &args);
 
 }
-
-#endif /* SIGNAL_H_ */

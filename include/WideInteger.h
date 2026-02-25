@@ -47,12 +47,6 @@ namespace std {
 using ddb::int128;
 using ddb::uint128;
 
-template<>
-struct make_unsigned<int128>
-{
-    using type = uint128;
-};
-
 std::ostream& operator<<(std::ostream &os, ddb::uint128 v);
 std::ostream& operator<<(std::ostream &os, ddb::int128 v);
 
@@ -139,24 +133,27 @@ public:
     static constexpr int128 denorm_min() { return 0; }
 };
 
-template <>
-struct make_unsigned<ddb::int128> {
-    typedef uint128 type;
-};
-
-template <>
-struct add_pointer<ddb::uint128> {
-    typedef uint128* type;
-};
-
-template <>
-struct is_integral<ddb::int128> : public true_type {};
-
-template <>
-struct is_integral<ddb::uint128> : public true_type {};
 #endif
 
 }  // namespace std
+
+// FIXME: Should not adds specializations for std::make_unsigned, the behavior is undefined.
+// We need our own ddb::make_unsigned
+template <>
+struct std::make_unsigned<ddb::int128> {
+    using type = ddb::uint128;
+};
+
+template <>
+struct std::make_unsigned<ddb::uint128> {
+    using type = uint128;
+};
+
+// ditto 
+template <>
+struct std::add_pointer<ddb::uint128> {
+    typedef uint128* type;
+};
 
 /*
     clang && (

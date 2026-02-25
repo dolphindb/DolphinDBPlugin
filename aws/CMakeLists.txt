@@ -8,6 +8,6 @@ CreatePlugin(${PluginName})
 
 find_package(AWSSDK REQUIRED COMPONENTS s3)
 target_link_libraries(${PluginName} PRIVATE ${AWSSDK_LINK_LIBRARIES})
-AddOPenSSL()
+AddOpenSSL()
 AddCurl()
 AddZlib()

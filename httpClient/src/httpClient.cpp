@@ -43,7 +43,6 @@
 #include <curl/curl.h>
 #include <openssl/ssl.h>
 #include <string>
-#include<urlencode.h>
 #include <mutex>
 using namespace std;
 
@@ -140,42 +139,12 @@ ConstantSP handleHttpRequest(vector<ConstantSP> &args, ddb::RequestMethod method
     return ddb::httpRequest(method, url, params, timeout, headers, config);
 }
 
-    /* This array will store all of the mutexes available to OpenSSL. */
-    vector<Mutex> mutex_buf;
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-    static void locking_function(int mode, int n, const char *file, int line)
-    {
-        (void)file;
-        (void)line;
-        if (mode & CRYPTO_LOCK)
-            mutex_buf[n].lock();
-        else
-            mutex_buf[n].unlock();
-    }
-
-    static unsigned long id_function(void)
-    {
-        return ((unsigned long)pthread_self());
-    }
-#endif
-    int thread_setup(void)
-    {
-        int i;
-        int nums = CRYPTO_num_locks();
-        for (i = 0; i < nums; i++)
-            mutex_buf.emplace_back(Mutex());
-        CRYPTO_set_id_callback(id_function);
-        CRYPTO_set_locking_callback(locking_function);
-        return 1;
-    }
-
     class Init
     {
     public:
         Init()
         {
             curl_global_init(CURL_GLOBAL_ALL);
-            thread_setup();
         }
     };
 
@@ -186,7 +155,7 @@ ConstantSP handleHttpRequest(vector<ConstantSP> &args, ddb::RequestMethod method
         return size * nmemb;
     }
 
-    void getParamString(const DictionarySP &params, string& output) {
+    void getParamString(CURL *curl, const DictionarySP &params, string& output) {
         output.clear();
         ConstantSP keys = params->keys();
         for (int i = 0; i < keys->size(); i++) {
@@ -197,7 +166,9 @@ ConstantSP handleHttpRequest(vector<ConstantSP> &args, ddb::RequestMethod method
             output += key->getString();
             output += "=";
             if(!value.empty()) {
-                output += (urlencode::EncodeString(value));
+                auto escaped = curl_easy_escape(curl, value.c_str(), value.size());
+                output += escaped;
+                curl_free(escaped);
             }
         }
     }
@@ -209,7 +180,7 @@ ConstantSP handleHttpRequest(vector<ConstantSP> &args, ddb::RequestMethod method
             ConstantSP key = keys->get(i);
             ConstantSP value = headers->getMember(key);
             strHeader += key->getString();
-            strHeader += ':';
+            strHeader += ": ";
             strHeader += value->getString();
             slist = curl_slist_append(slist, strHeader.c_str());
         }
@@ -237,7 +208,7 @@ ConstantSP handleHttpRequest(vector<ConstantSP> &args, ddb::RequestMethod method
             string paramString;
 
             if (params->getForm() == DF_DICTIONARY)
-                getParamString(params, paramString);
+                getParamString(curl, params, paramString);
             else
                 paramString = params->getString();
 

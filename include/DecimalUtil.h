@@ -1141,6 +1141,15 @@ struct wrapper {
         return value->getDecimal128Const(start, len, scale, buf);
     }
 
+    // dummy function to fix infinite recursion when T is not decimal
+    static float* getDecimalConst(const Constant *value, INDEX start, int len, int scale, float *buf) {
+        return nullptr;
+    }
+
+    static double* getDecimalConst(const Constant *value, INDEX start, int len, int scale, double *buf) {
+        return nullptr;
+    }
+
     ENABLE_FOR_DECIMAL32(T, T*)
     static getDecimalBuffer(const Constant *value, INDEX start, int len, int scale, T *buf) {
         return value->getDecimal32Buffer(start, len, scale, buf);

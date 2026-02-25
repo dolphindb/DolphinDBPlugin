@@ -4,4 +4,7 @@ project(${PluginName})
 
 include(../template.cmake)
 CreatePlugin(${PluginName})
-target_link_libraries(${PluginName} ${CMAKE_CURRENT_SOURCE_DIR}/bin/linux64/libzmq.a)
+
+find_package(ZeroMQ REQUIRED)
+target_link_libraries(${PluginName} PRIVATE libzmq-static)
+target_include_directories(${PluginName} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/cppzmq)

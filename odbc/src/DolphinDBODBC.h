@@ -1,12 +1,6 @@
-/*
- * DolphinDBODBC.h
- *
- *  Created on: May 26, 2017
- *      Author: xinjing.zhou
- */
-
-#ifndef DOLPHINDBODBC_H_
-#define DOLPHINDBODBC_H_
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
 
 #include "DolphinDBEverything.h"
 #include "CoreConcept.h"
@@ -39,4 +33,3 @@ ConstantSP odbcQuery(Heap* heap, vector<ConstantSP>& args);
 ConstantSP odbcExecute(Heap* heap, vector<ConstantSP>& args);
 ConstantSP odbcAppend(Heap* heap, vector<ConstantSP>& args);
 }
-#endif /* DOLPHINDBODBC_H_ */

@@ -1,10 +1,8 @@
-//
-// Created by htxu on 12/1/2023.
-//
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
 
-#ifndef GUROBI_GUROBIPLUGIN_H
-#define GUROBI_GUROBIPLUGIN_H
-
+#include "DolphinDBEverything.h"
 #include <CoreConcept.h>
 
 #include "ddbplugin/CommonInterface.h"
@@ -25,5 +23,3 @@ ConstantSP gurobiOptimize(Heap *heap, vector<ConstantSP> &args);
 ConstantSP gurobiGetResult(Heap *heap, vector<ConstantSP> &args);
 ConstantSP gurobiGetObjective(Heap *heap, vector<ConstantSP> &args);
 }
-
-#endif  // GUROBI_GUROBIPLUGIN_H

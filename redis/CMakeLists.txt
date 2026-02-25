@@ -6,10 +6,8 @@ project(${PluginName})
 include(../template.cmake)
 CreatePlugin(${PluginName})
 
-target_compile_options(${PluginName} PRIVATE -Wno-pedantic) # for hiredis third party library
-
-## build hiredis
-SET(DISABLE_TESTS ON CACHE BOOL "stop build redis tests")
-add_subdirectory(contrib/hiredis)
-
-target_link_libraries(${PluginName} PRIVATE hiredis_static)
+find_package(hiredis)
+target_link_libraries(${PluginName} PRIVATE hiredis::hiredis)
+if (CMAKE_SYSTEM_NAME STREQUAL "MSYS")
+    target_link_libraries(${PluginName} PRIVATE ws2_32 crypt32 shlwapi secur32 bcrypt)
+endif()

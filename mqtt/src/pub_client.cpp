@@ -43,7 +43,7 @@ static void mqttConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
 /**
  * @brief connect a mqtt broke or server.
  */
-ConstantSP mqttClientConnect(Heap *heap, vector<ConstantSP> &args) {
+ConstantSP mqttClientConnect(Heap *heap, const vector<ConstantSP> &args) {
     std::string usage =
         "Usage: connect(host, port, [qos=0], [formatter], [batchsize=1], [username], [password], [sendbufSize=40960]).";
 
@@ -166,7 +166,7 @@ ConstantSP mqttClientConnect(Heap *heap, vector<ConstantSP> &args) {
 /**
  * @brief publish a message to broke/server.
  */
-ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
+ConstantSP mqttClientPub(Heap *heap, const vector<ConstantSP> &args) {
     std::string usage = "Usage: publish(conn,topic,obj). ";
     size_t msgLen;
     Connection *conn;
@@ -256,7 +256,7 @@ ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args) {
 /**
  * @brief create a publisher to ease publishing
  */
-ConstantSP mqttClientCreatePublisher(Heap *heap, vector<ConstantSP> &args) {
+ConstantSP mqttClientCreatePublisher(Heap *heap, const vector<ConstantSP> &args) {
     std::string usage = "Usage: createPublisher(conn,topic,colNames,colTypes).";
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != "mqtt publish connection") {
         throw IllegalArgumentException(__FUNCTION__, usage + " connection must be a mqtt publish connection.");
@@ -294,14 +294,13 @@ ConstantSP mqttClientCreatePublisher(Heap *heap, vector<ConstantSP> &args) {
 /**
  * @brief close a connection.
  */
-ConstantSP mqttClientClose(Heap *, const ConstantSP &handle, const ConstantSP &b) {
-    std::ignore = b;
+ConstantSP mqttClientClose(Heap *, const vector<ConstantSP> &args) {
     std::string usage = "Usage: close(conn). ";
     Connection *cp = nullptr;
     // parse args first
-    if (handle->getType() == DT_RESOURCE) {
-        cp = (Connection *)(handle->getLong());
-        if (handle->getString() != "mqtt publish connection") {
+    if (args[0]->getType() == DT_RESOURCE) {
+        cp = (Connection *)(args[0]->getLong());
+        if (args[0]->getString() != "mqtt publish connection") {
             throw IllegalArgumentException(__FUNCTION__, "connection must be a mqtt publish connection.");
         }
     } else {

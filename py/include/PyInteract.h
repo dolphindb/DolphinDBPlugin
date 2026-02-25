@@ -1,9 +1,6 @@
-//
-// Created by hj on 5/20/20.
-//
-
-#ifndef PYINTERACT_PYINTERACT_H
-#define PYINTERACT_PYINTERACT_H
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
 
 #include "Python.h"
 #include "DolphinDBEverything.h"
@@ -28,5 +25,3 @@ extern "C" ConstantSP getAttr(Heap *heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP getFunctionDol(Heap* heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP createObject(Heap* heap, vector<ConstantSP>& arguments);
 extern "C" ConstantSP getInstanceByName(Heap* heap, vector<ConstantSP>& arguments);
-
-#endif //PLUGINDEMO_PLUGINDEMO_H

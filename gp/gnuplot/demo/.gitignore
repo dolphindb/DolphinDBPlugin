@@ -1,0 +1,9 @@
+Makefile
+Makefile.am
+Makefile.in
+fit.log
+soundfit.par
+binary?
+*.manifest
+*.tmp
+*.exe

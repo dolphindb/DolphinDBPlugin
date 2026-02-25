@@ -1,9 +1,6 @@
-//
-// Created by htxu on 11/20/2023.
-//
-
-#ifndef PLUGINNSQ_NSQPLUGIN_H
-#define PLUGINNSQ_NSQPLUGIN_H
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
 
 #include "DolphinDBEverything.h"
 #include <CoreConcept.h>
@@ -26,6 +23,3 @@ ConstantSP nsqUnsubscribe(Heap* heap, vector<ConstantSP>& args);
 ConstantSP nsqGetStatus(Heap *heap, vector<ConstantSP>& args);
 
 }
-
-
-#endif //PLUGINNSQ_NSQPLUGIN_H

@@ -24,31 +24,35 @@ using namespace ddb;
 class NsqQueues {
 
 public:
-    NsqQueues() = default;
+    NsqQueues() {
+        long long time = Util::getNanoEpochTime();
+        timeGap_ = Util::toLocalNanoTimestamp(time) - time;
+    }
     ~NsqQueues() = default;
 
     /// Interfaces
-    void initAndStart(Heap *heap, const string &dataType, const string &marketType, const TableSP &table);
-    void initAndStartTradeEntrust(Heap *heap, const string &marketType, int channel, const TableSP &table);
+    void initAndStart(Heap *heap, const string &dataType, nsqUtil::MarketType marketType, const TableSP &table, long long queueDepth);
+    void initAndStartTradeEntrust(Heap *heap, nsqUtil::MarketType marketType, int channel, const TableSP &table, long long queueDepth);
     void setOptionFlag(int option);
     void addSnapshotExtra(const string &dataVersion);
     ConstantSP getSchema(const string &dataType);
-    void stop(const string& dataType, const string& marketType);
+    void stop(const string& dataType, nsqUtil::MarketType marketType);
     ConstantSP getStatus();
     // push data to ThreadedQueues
-    void pushData(const nsqUtil::SnapshotDataStruct& data, const string& marketType);
-    void pushData(CHSNsqSecuTransactionTradeDataField *data, const string& marketType);
-    void pushData(CHSNsqSecuTransactionEntrustDataField *data, const string& marketType);
+    void pushData(const nsqUtil::SnapshotDataStruct& data, nsqUtil::MarketType marketType) const;
+    void pushData(CHSNsqSecuTransactionTradeDataField *data, nsqUtil::MarketType marketType) const;
+    void pushData(CHSNsqSecuTransactionEntrustDataField *data, nsqUtil::MarketType marketType) const;
 
-    std::pair<vector<string>, vector<string>> getTypesToCancel(const string &dataType, const string &marketType);
+    std::pair<vector<string>, vector<string>> getTypesToCancel(const string &dataType, nsqUtil::MarketType marketType);
 
 private:
     /// ThreadedQueues
-    unordered_map<string, SmartPointer<ThreadedQueue<nsqUtil::TradeDataStruct>>> threadedQueueMapT_;
-    unordered_map<string, SmartPointer<ThreadedQueue<nsqUtil::EntrustDataStruct>>> threadedQueueMapE_;
-    unordered_map<string, SmartPointer<ThreadedQueue<nsqUtil::SnapshotDataStruct>>> threadedQueueMapS_;
+    long long timeGap_ = 0;
+    unordered_map<nsqUtil::MarketType, SmartPointer<ThreadedQueue<nsqUtil::TradeDataStruct>>> threadedQueueMapT_;
+    unordered_map<nsqUtil::MarketType, SmartPointer<ThreadedQueue<nsqUtil::EntrustDataStruct>>> threadedQueueMapE_;
+    unordered_map<nsqUtil::MarketType, SmartPointer<ThreadedQueue<nsqUtil::SnapshotDataStruct>>> threadedQueueMapS_;
 
-    unordered_map<string, unordered_map<int, SmartPointer<ThreadedQueue<nsqUtil::TradeEntrustDataStruct>>>> threadedQueueMapTE_;
+    unordered_map<nsqUtil::MarketType, unordered_map<int, SmartPointer<ThreadedQueue<nsqUtil::TradeEntrustDataStruct>>>> threadedQueueMapTE_;
 
     int optionFlag_ = 0;
 
@@ -66,11 +70,11 @@ private:
     };
 
     /// Helpers
-    bool isSubscribed(const string& dataType, const string& marketType);
+    bool isSubscribed(const string& dataType, nsqUtil::MarketType marketType);
     template <typename DataStruct>
-    void addThreadedQueue(Heap *heap, const string &dataType, const string &marketType, const TableSP &table,
-                                 MetaTable meta, unordered_map<string, SmartPointer<ThreadedQueue<DataStruct>>> &map,
-                                 std::function<void(vector<ConstantSP> &, DataStruct &)> reader);
+    void addThreadedQueue(Heap *heap, const string &dataType, nsqUtil::MarketType marketType, const TableSP &table,
+                                 MetaTable meta, unordered_map<nsqUtil::MarketType, SmartPointer<ThreadedQueue<DataStruct>>> &map,
+                                 std::function<void(vector<ConstantSP> &, DataStruct &)> reader, long long queueDepth);
 };
 
 

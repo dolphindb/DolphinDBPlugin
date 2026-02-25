@@ -1,11 +1,12 @@
 #ifndef HDF5_PLUGIN_OBJ_H
 #define HDF5_PLUGIN_OBJ_H
 
+#include "DolphinDBEverything.h"
 #include <CoreConcept.h>
 #include <Logger.h>
 #include <ScalarImp.h>
 #include <Util.h>
-#include <hdf5_plugin_util.h>
+#include "hdf5_plugin_util.h"
 
 namespace H5PluginImp {
 class H5Object {
@@ -35,7 +36,6 @@ class H5Object {
 class H5ReadOnlyFile : public H5Object {
   public:
     H5ReadOnlyFile() = default;
-    ;
     explicit H5ReadOnlyFile(const std::string &filename) { open(filename); }
     H5ReadOnlyFile(const H5ReadOnlyFile &rhs) = delete;
     H5ReadOnlyFile &operator=(const H5ReadOnlyFile &rhs) = delete;

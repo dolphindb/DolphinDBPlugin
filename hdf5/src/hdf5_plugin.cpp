@@ -1,15 +1,16 @@
 #include "hdf5_plugin.h"
 #include "Exceptions.h"
 #include "Types.h"
-#include <hdf5_plugin_imp.h>
-#include <hdf5_plugin_util.h>
-#include <hdf5_plugin_pandas.h>
+#include "hdf5_plugin_imp.h"
+#include "hdf5_plugin_util.h"
+#include "hdf5_plugin_pandas.h"
 #include "ddbplugin/CommonInterface.h"
 
 
 static Mutex hdf5Mutex;
 
 ConstantSP h5ls(Heap *heap, vector<ConstantSP> &arguments) {
+    std::ignore = heap;
     string syntax{"hdf5::ls(fileName) "};
     LockGuard<Mutex> guard{&hdf5Mutex};
     ConstantSP h5_path = arguments[0];
@@ -32,6 +33,7 @@ ConstantSP h5ls(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP h5lsTable(Heap *heap, vector<ConstantSP> &arguments) {
+    std::ignore = heap;
     string syntax{"hdf5::lsTable(fileName) "};
     LockGuard<Mutex> guard{&hdf5Mutex};
     ConstantSP filename = arguments[0];
@@ -59,6 +61,7 @@ ConstantSP h5lsTable(Heap *heap, vector<ConstantSP> &arguments) {
 }
 
 ConstantSP extractHDF5Schema(Heap *heap, vector<ConstantSP> &arguments) {
+    std::ignore = heap;
     string syntax{"hdf5::extractHDF5Schema(fileName, datasetName) "};
     LockGuard<Mutex> guard{&hdf5Mutex};
     ConstantSP filename = arguments[0];
@@ -172,6 +175,7 @@ ConstantSP loadHDF5Ex(Heap *heap, vector<ConstantSP>& arguments) {
 }
 
 ConstantSP HDF5DS(Heap *heap, vector<ConstantSP>& arguments) {
+    std::ignore = heap;
     string syntax{"hdf5::HDF5DS(fileName,datasetName,[schema],[chunkSize=1]) "};
     LockGuard<Mutex> guard{&hdf5Mutex};
     ConstantSP filename = arguments[0];
@@ -208,6 +212,7 @@ ConstantSP HDF5DS(Heap *heap, vector<ConstantSP>& arguments) {
 }
 
 ConstantSP saveHDF5(Heap *heap, vector<ConstantSP> &arguments) {
+    std::ignore = heap;
     string syntax{"hdf5::saveHDF5(table, fileName, datasetName, [append=false], [maxStringLength=16]) "};
     LockGuard<Mutex> guard{&hdf5Mutex};
     TableSP table = arguments[0];

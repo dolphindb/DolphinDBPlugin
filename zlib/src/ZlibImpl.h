@@ -1,12 +1,6 @@
-/*
- *  ZlibImpl.h
- *
- *  Created on: May 8, 2018
- *      Author: jccai
- */
-
-#ifndef ZLIBPLUGIN_H_
-#define ZLIBPLUGIN_H_
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
 
 #include "DolphinDBEverything.h"
 #include "CoreConcept.h"
@@ -86,4 +80,3 @@ private:
     ZlibBuffer buffer;
 };
 #endif
-#endif /* ZLIBPLUGIN_H_ */

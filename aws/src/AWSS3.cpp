@@ -99,13 +99,14 @@ void setS3account(DictionarySP& account, Aws::Auth::AWSCredentials& credential, 
 class S3ClientGuard{
 public:
     S3ClientGuard(DictionarySP& account){
-        if(awsInit_==false){
+        static std::once_flag flag;
+        std::call_once(flag, [](){ 
             LOG("InitAPI");
             awsInit_=true;
             Aws::InitAPI(awsOptions_);
             Aws::Utils::Logging::InitializeAWSLogging(
                 Aws::MakeShared<Aws::Utils::Logging::DefaultLogSystem>("AWS Logging",Aws::Utils::Logging::LogLevel::Trace,"aws_sdk_"));
-        }
+        });
         accountKey_=account->getString();
         while(true){
             client_=popClient(accountKey_);
@@ -283,7 +284,7 @@ ConstantSP getS3Object(Heap* heap, vector<ConstantSP>& args) {
         Aws::S3::Model::GetObjectRequest objectRequest;
         objectRequest.WithBucket(bucketName).WithKey(keyName)
                 .SetResponseStreamFactory([&outputFileName](){
-                    Aws::FStream * fptr = Aws::New<Aws::FStream>("FStream to download file", outputFileName.c_str(), std::ios_base::out);
+                    Aws::FStream * fptr = Aws::New<Aws::FStream>("FStream to download file", outputFileName.c_str(), std::ios_base::out | std::ios_base::binary);
                     //Aws::FStream is typedef basic_fstream
                     if(!fptr->good()){
                         Aws::Delete<Aws::FStream>(fptr);
@@ -880,7 +881,7 @@ ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
                         Aws::S3::Model::GetObjectRequest objectRequest;
                         objectRequest.WithBucket(bucketName.c_str()).WithKey(object.c_str())
                                 .SetResponseStreamFactory([&outputFilePath, &errCode](){
-                                    return Aws::New<Aws::FStream>("FStream to download file", outputFilePath.c_str(), std::ios_base::out); });
+                                    return Aws::New<Aws::FStream>("FStream to download file", outputFilePath.c_str(), std::ios_base::out | std::ios_base::binary); });
                         auto getObjectOutcome = g.get()->GetObject(objectRequest);
                         if (!getObjectOutcome.IsSuccess()) {
                             Aws::String error = "getS3Object cannot get object:\n" +
@@ -893,7 +894,7 @@ ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
                             object.find(".ZIP")!=string::npos){
                             unzipFolder = outputFilePath + "_";
                             string cmd="unzip "+outputFilePath+" -d "+unzipFolder;
-                            if(system(cmd.data()) == -1){
+                            if(system(cmd.data()) != 0){
                                 errCode = 4;
                                 throw RuntimeException("unzip "+object+" failed, please install unzip package or check file format.");
                             }

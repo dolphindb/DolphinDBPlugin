@@ -1,4 +1,4 @@
-if (WIN32)
+if (CMAKE_SYSTEM_NAME STREQUAL "MSYS")
     target_sources(${PluginName} PRIVATE
         svm.h
         svmPlugin.cpp
@@ -7,7 +7,8 @@ if (WIN32)
     target_link_libraries(${PluginName} PRIVATE svm)
     cmake_path(GET CMAKE_SOURCE_DIR FILENAME INSTALL_DIR)
     install(FILES ${CMAKE_SOURCE_DIR}/lib/win/libsvm.dll DESTINATION ${INSTALL_DIR})
-else()
+endif()
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(${PluginName} PRIVATE
         svmPlugin.cpp
         svm.cpp

@@ -1,11 +1,6 @@
-/*
- * client.h
- *
- *  Created on: Apr 19, 2019
- *      Author: xjqian
- */
-#ifndef MQTT_H_
-#define MQTT_H_
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
 
 #include "DolphinDBEverything.h"
 #include "PluginLogger.h"
@@ -14,14 +9,14 @@
 
 using namespace ddb;
 
-extern "C" ConstantSP mqttClientSub(Heap *heap, vector<ConstantSP> &arguments);
-extern "C" ConstantSP mqttClientStopSub(Heap *heap, const ConstantSP &handle, const ConstantSP &b);
+extern "C" ConstantSP mqttClientSub(Heap *heap, const vector<ConstantSP> &args);
+extern "C" ConstantSP mqttClientStopSub(Heap *heap, const vector<ConstantSP> &args);
 
-extern "C" ConstantSP mqttClientConnect(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP mqttClientPub(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP mqttClientCreatePublisher(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP mqttClientClose(Heap *heap, const ConstantSP &handle, const ConstantSP &b);
-extern "C" ConstantSP getSubscriberStat(Heap *heap, const ConstantSP &handle, const ConstantSP &b);
+extern "C" ConstantSP mqttClientConnect(Heap *heap, const vector<ConstantSP> &args);
+extern "C" ConstantSP mqttClientPub(Heap *heap, const vector<ConstantSP> &args);
+extern "C" ConstantSP mqttClientCreatePublisher(Heap *heap, const vector<ConstantSP> &args);
+extern "C" ConstantSP mqttClientClose(Heap *heap, const vector<ConstantSP> &args);
+extern "C" ConstantSP getSubscriberStat(Heap *heap, const vector<ConstantSP> &args);
 
 static const string LOG_PRE_STR = "[PLUGIN:MQTT]";
 static const int MAX_RETRY_COUNT = 10;
@@ -188,5 +183,3 @@ void checkConnack(mqtt_client *client);
 
 }  // namespace mqtt
 }  // namespace ddb
-
-#endif /* MQTT_H_ */

@@ -6,11 +6,6 @@ include(../template.cmake)
 
 CreatePlugin(${PluginName})
 
-target_compile_features(${PluginName} PRIVATE cxx_std_17)
-
-AddDependency(cppkafka cppkafka)
-AddDependency(librdkafka librdkafka.a)
-# librdkafka dependencies
-AddOpenSSL()
-AddDependency(cyrus-sasl sasl2)
-AddDependency(lz4 liblz4.a)
+find_package(CppKafka REQUIRED)
+target_link_libraries(${PluginName} PRIVATE CppKafka::cppkafka)
+AddSASL2()

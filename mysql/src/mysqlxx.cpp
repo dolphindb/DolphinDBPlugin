@@ -1,6 +1,6 @@
 #include "mysqlxx.h"
 #include <math.h>
-#include <mysql.h>
+#include "mariadb/mysql.h"
 #include <stdint.h>
 #include <limits>
 
@@ -22,6 +22,7 @@ Connection::~Connection() {
 
 Connection::Connection(const char *db,
                        const char *server,
+                       MySQLSSLMode ssl_mode,
                        const char *user,
                        const char *password,
                        unsigned int port,
@@ -33,11 +34,12 @@ Connection::Connection(const char *db,
                        unsigned int rw_timeout,
                        bool enable_local_infile)
     : Connection() {
-    connect(db, server, user, password, port, socket, ssl_ca, ssl_cert, ssl_key, timeout, rw_timeout, enable_local_infile);
+    connect(db, server, ssl_mode, user, password, port, socket, ssl_ca, ssl_cert, ssl_key, timeout, rw_timeout, enable_local_infile);
 }
 
 void Connection::connect(const char *db,
                          const char *server,
+                         MySQLSSLMode ssl_mode,
                          const char *user,
                          const char *password,
                          unsigned port,
@@ -68,8 +70,19 @@ void Connection::connect(const char *db,
     if (mysql_options(driver.get(), MYSQL_OPT_LOCAL_INFILE, &enable_local_infile_arg))
         throw ConnectionFailed(errorMessage(driver.get()), mysql_errno(driver.get()));
 
+    my_bool ssl_enforce = 0;
+    my_bool ssl_verify = 0;
+    if (ssl_mode == SSL_MODE_REQUIRED) {
+        ssl_enforce = 1;
+    } else if (ssl_mode == SSL_MODE_VERIFY_CA) {
+        ssl_enforce = 1;
+        ssl_verify = 1;
+    }
+    mysql_options(driver.get(), MYSQL_OPT_SSL_ENFORCE, &ssl_enforce);
+    mysql_options(driver.get(), MYSQL_OPT_SSL_VERIFY_SERVER_CERT, &ssl_verify);
+
     /// Specifies particular ssl key and certificate if it needs
-    if (mysql_ssl_set(driver.get(), ifNotEmpty(ssl_key), ifNotEmpty(ssl_cert), ifNotEmpty(ssl_ca), nullptr, nullptr))
+    if (ssl_mode != SSL_MODE_DISABLED && mysql_ssl_set(driver.get(), ifNotEmpty(ssl_key), ifNotEmpty(ssl_cert), ifNotEmpty(ssl_ca), nullptr, nullptr))
         throw ConnectionFailed(errorMessage(driver.get()), mysql_errno(driver.get()));
 
     if (!mysql_real_connect(driver.get(), server, user, password, db, port, ifNotEmpty(socket), driver->client_flag))
@@ -160,7 +173,7 @@ Query::Query(mysqlxx::Connection *conn_, const std::string &query_string) : conn
     imbue(std::locale::classic());
 }
 
-Query::Query(const Query &other) : std::ostream(0), conn(other.conn) {
+Query::Query(const Query &other) : std::basic_ios<char>(), std::ostream(0), conn(other.conn) {
     mysql_thread_init();
 
     init(&query_buf);

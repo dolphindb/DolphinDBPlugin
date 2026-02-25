@@ -29,7 +29,6 @@ java
 lgbm
 omdc
 OrderManagementEngine
-python
 QuantLib
 tf
 udpserver
@@ -47,7 +46,6 @@ RocketMQ
 SSEQuotationFile
 SchemalessWriter
 SevenZip
-UniqueID
 WebSocket
 XTP
 hdb

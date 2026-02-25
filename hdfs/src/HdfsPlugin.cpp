@@ -75,6 +75,7 @@ ConstantSP hdfs_Connect(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_Disconnect(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     const auto usage = string("Usage: disconnect(conn) ");
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != HDFS_CONN_DESC) {
         throw IllegalArgumentException(__FUNCTION__, PLUGIN_HDFS_PREFIX + usage + "conn should be a hdfsFS conn handle.");
@@ -85,6 +86,7 @@ ConstantSP hdfs_Disconnect(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_Exists(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     const auto usage = string("Usage: exists(conn, path) ");
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != HDFS_CONN_DESC)
         throw IllegalArgumentException(__FUNCTION__, PLUGIN_HDFS_PREFIX + usage + "conn should be a hdfsFS conn handle.");
@@ -97,6 +99,7 @@ ConstantSP hdfs_Exists(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_Copy(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     const auto usage = string("Usage: copy(sourceConn, sourcePath, targetConn, targetPath) ");
 
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != HDFS_CONN_DESC)
@@ -114,6 +117,7 @@ ConstantSP hdfs_Copy(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_Move(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     const auto usage = string("Usage: move(sourceConn,sourcePath,targetConn,targetPath) ");
 
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != HDFS_CONN_DESC)
@@ -134,6 +138,7 @@ ConstantSP hdfs_Move(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_Delete(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     const auto usage = string("Usage: delete(conn, path, recursive) ");
 
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != HDFS_CONN_DESC)
@@ -149,6 +154,7 @@ ConstantSP hdfs_Delete(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_Rename(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     const auto usage = string("Usage: rename(conn, sourcePath, targetPath) ");
 
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != HDFS_CONN_DESC)
@@ -164,6 +170,7 @@ ConstantSP hdfs_Rename(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_CreateDirectory(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     const auto usage = string("Usage: createDirectory(conn, path) ");
 
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != HDFS_CONN_DESC)
@@ -178,6 +185,7 @@ ConstantSP hdfs_CreateDirectory(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_Chmod(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     const auto usage = string("Usage: chmod(conn, path, mode) ");
 
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != HDFS_CONN_DESC)
@@ -205,6 +213,7 @@ ConstantSP hdfs_getListDirectory(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_listDirectory(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     const auto usage = string("Usage: listDirectory(dirHandle) ");
 
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != HDFS_FILE_DESC)
@@ -214,6 +223,7 @@ ConstantSP hdfs_listDirectory(Heap *heap, vector<ConstantSP> &args)
 
 ConstantSP hdfs_freeFileInfo(Heap *heap, vector<ConstantSP> &args)
 {
+    std::ignore = heap;
     const auto usage = string("Usage: freeFileInfo(dirHandle) ");
 
     if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != HDFS_FILE_DESC)

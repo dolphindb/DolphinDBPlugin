@@ -159,10 +159,10 @@ class ddbErrorCollector : public ErrorCollector {
   public:
     inline ddbErrorCollector() {}
     // you can adapt this to give more error info
-    virtual void AddError(int line, ColumnNumber column, const std::string &message) {
+    void RecordError(int line, ColumnNumber column, absl::string_view message) override {
         std::ignore = line;
         std::ignore = column;
-        errorMsg_ = message;
+        errorMsg_ = std::string(message);
     }
     string getErrorMsg() { return errorMsg_; }
 
@@ -189,15 +189,17 @@ int createTableFrame(const Descriptor *descriptor, vector<string> &names, vector
         for (int i = 0; i < fieldNum; ++i) {
             int repeatCount = 0;
             const FieldDescriptor *field = descriptor->field(i);
+            std::string fieldName = std::string(field->name());
+            string currentFieldName = prefix + fieldName;
 
-            string currentFieldName = prefix + field->name();
-
-            if (field->containing_oneof()) {
-                flagMap["oneof"] += 1;
-                if (rowSize > 0) {
-                    throw RuntimeException(ENCODERDECODER_PREFIX + "Unsupported one of syntax");
-                }
+            if (field->containing_oneof()) { // in proto3 optional would be seen as oneof, remove to support optional
+                // std::cout << currentFieldName << " is in oneof." << std::endl;
+                // flagMap["oneof"] += 1;
+                // if (rowSize > 0) {
+                //     throw RuntimeException(ENCODERDECODER_PREFIX + "Unsupported one of syntax");
+                // }
             } else if (field->is_extension()) {
+                std::cout << currentFieldName << " is in extension." << std::endl;
                 flagMap["extension"] += 1;
                 if (rowSize > 0) {
                     throw RuntimeException(ENCODERDECODER_PREFIX + "Unsupported extension syntax");
@@ -378,14 +380,14 @@ int createTableFrame(const Descriptor *descriptor, vector<string> &names, vector
                         if (needArrayVector) {
                             int ret;
                             if (rowSize > 0) {
-                                ret = createTableFrame(field->message_type(), names, types, prefix + field->name(),
+                                ret = createTableFrame(field->message_type(), names, types, prefix + fieldName,
                                                        dict, repeatStatus, flagMap, ignoredColumn, dataVec, indexArrays,
                                                        true, rowSize);
                             } else {
                                 dataVec = {};
                                 indexArrays = {};
                                 ret =
-                                    createTableFrame(field->message_type(), names, types, prefix + field->name(), dict,
+                                    createTableFrame(field->message_type(), names, types, prefix + fieldName, dict,
                                                      repeatStatus, flagMap, ignoredColumn, dataVec, indexArrays, true);
                             }
 
@@ -398,14 +400,14 @@ int createTableFrame(const Descriptor *descriptor, vector<string> &names, vector
                             int ret;
                             if (rowSize > 0) {
                                 indexArrays = {};
-                                ret = createTableFrame(field->message_type(), names, types, prefix + field->name(),
+                                ret = createTableFrame(field->message_type(), names, types, prefix + fieldName,
                                                        dict, repeatStatus, flagMap, ignoredColumn, dataVec, indexArrays,
                                                        false, rowSize);
                             } else {
                                 dataVec = {};
                                 indexArrays = {};
                                 ret =
-                                    createTableFrame(field->message_type(), names, types, prefix + field->name(), dict,
+                                    createTableFrame(field->message_type(), names, types, prefix + fieldName, dict,
                                                      repeatStatus, flagMap, ignoredColumn, dataVec, indexArrays);
                             }
                             repeatCount += ret;
@@ -430,7 +432,7 @@ int createTableFrame(const Descriptor *descriptor, vector<string> &names, vector
             }
 
             if (field->containing_oneof()) {
-                flagMap["oneof"] -= 1;
+                // flagMap["oneof"] -= 1; // in proto3 optional would be seen as oneof, remove this line to support optional
             } else if (field->is_extension()) {
                 flagMap["extension"] -= 1;
             }
@@ -765,11 +767,15 @@ void appendMsgNull(const Descriptor *field, MsgUtilPack &pack, string prefix, bo
     }
     for (int i = 0; i < fieldNum; ++i) {
         const FieldDescriptor *inField = field->field(i);
-        string fieldName = prefix + inField->name();
-        INDEX fieldIndex = pack.positionMap_[fieldName];
+        string fieldName = prefix + std::string(inField->name());
         if (inField->type() == FieldDescriptor::Type::TYPE_MESSAGE) {
-            appendMsgNull(inField->message_type(), pack, prefix, useZeroAsNull);
+            appendMsgNull(inField->message_type(), pack, fieldName, useZeroAsNull);
         } else {
+            auto itPos = pack.positionMap_.find(fieldName);
+            if (itPos == pack.positionMap_.end()) {
+                throw RuntimeException(ENCODERDECODER_PREFIX + "Unknown field: " + fieldName + ".");
+            }
+            int fieldIndex = static_cast<int>(itPos->second);
             appendNull(pack.types_[fieldIndex], fieldIndex, dataVec, useZeroAsNull);
         }
     }
@@ -784,12 +790,21 @@ void appendMsgNull(const Descriptor *field, MsgUtilPack &pack, vector<vector<int
     }
     for (int i = 0; i < fieldNum; ++i) {
         const FieldDescriptor *inField = field->field(i);
-        string fieldName = prefix + inField->name();
-        INDEX fieldIndex = pack.positionMap_[fieldName];
+        string fieldName = prefix + std::string(inField->name());
         if (inField->type() == FieldDescriptor::Type::TYPE_MESSAGE) {
-            appendMsgNull(inField->message_type(), pack, indexArrays, prefix, useZeroAsNull);
+            appendMsgNull(inField->message_type(), pack, indexArrays, fieldName, useZeroAsNull);
         } else {
-            appendNull(pack.dict_[pack.names_[fieldIndex]], fieldIndex, dataVec, indexArrays, pack.repeatDelayIndexMap_,
+            auto itPos = pack.positionMap_.find(fieldName);
+            if (itPos == pack.positionMap_.end()) {
+                throw RuntimeException(ENCODERDECODER_PREFIX + "Unknown field: " + fieldName + ".");
+            }
+            int fieldIndex = static_cast<int>(itPos->second);
+            auto itType = pack.dict_.find(fieldName);
+            if (itType == pack.dict_.end()) {
+                throw RuntimeException(ENCODERDECODER_PREFIX + "Unknown field: " + fieldName);
+            }
+            DATA_TYPE rawType = itType->second;
+            appendNull(rawType, fieldIndex, dataVec, indexArrays, pack.repeatDelayIndexMap_,
                        useZeroAsNull);
         }
     }
@@ -871,7 +886,7 @@ void getMsgDataWithArrayVector(const Message &msg, MsgUtilPack &pack, vector<vec
     INDEX endIndex = -1;
     for (int i = 0; i < fieldNum; ++i) {
         const FieldDescriptor *field = msgDesc->field(i);
-        string fieldName = prefix + field->name();
+        string fieldName = prefix + std::string(field->name());
         if (field->type() != FieldDescriptor::TYPE_MESSAGE && dict.find(fieldName) == dict.end()) {
             throw RuntimeException(ENCODERDECODER_PREFIX + "Unknown field " + fieldName + ".");
         }
@@ -1330,7 +1345,7 @@ void getMsgData(const Message &msg, MsgUtilPack &pack, string prefix, bool useZe
     INDEX endIndex = -1;
     for (int i = 0; i < fieldNum; ++i) {
         const FieldDescriptor *field = msgDesc->field(i);
-        string fieldName = prefix + field->name();
+        string fieldName = prefix + std::string(field->name());
         if (field->type() != FieldDescriptor::TYPE_MESSAGE && dict.find(fieldName) == dict.end()) {
             throw RuntimeException(ENCODERDECODER_PREFIX + "Unknown field " + fieldName + ".");
         }
@@ -1659,7 +1674,7 @@ ConstantSP parseProtobufDynamic(string schemaPath, VectorSP data, unordered_map<
             if (!mutableMsg->ParseFromArray(buffer, pbData.size())) {
                 throw RuntimeException(ENCODERDECODER_PREFIX + "Failed to parse value in buffer");
             }
-            string dataName = mutableMsg->GetDescriptor()->name();
+            string dataName = std::string(mutableMsg->GetDescriptor()->name());
             if (dataName != msgDescriptor->name()) {
                 throw RuntimeException(ENCODERDECODER_PREFIX + "failed to parse protobuf data of type [" + dataName +
                                        "], expecting protobuf data of type [" + dataName + "] . ");
@@ -1724,7 +1739,7 @@ ConstantSP parseProtobufDynamic(string schemaPath, VectorSP data, unordered_map<
         if (names.size() != dataVec.size()) {
             throw RuntimeException(ENCODERDECODER_PREFIX + "parse failed.");
         }
-        if (indexArrays.size() != indexArrays.size()) {
+        if (indexArrays.size() != names.size()) {
             throw RuntimeException(ENCODERDECODER_PREFIX + "parse failed.");
         }
         for (int i = 0; i < int(names.size()); ++i) {
@@ -1769,14 +1784,21 @@ ConstantSP parseProtobufDynamic(string schemaPath, VectorSP data, unordered_map<
                         vector<string> vec;
                         vector<int> indexArray = indexArrays[i];
 
-                        vector<char *> stringContainer(dataVec[i]->size());
-                        char **stringBuf = dataVec[i]->getStringConst(0, dataVec[i]->size(), stringContainer.data());
+                        if (dataVec[i]->size() == 0 || indexVec.size() == 0) {
+                            string empty{"[]"};
+                            valueArray->appendString(&empty, 1);
+                            // The string type will not execute the following logic.
+                            cols.emplace_back(valueArray);
+                            continue;
+                        } 
+                        vector<DolphinString *> stringContainer(dataVec[i]->size());
+                        DolphinString **stringBuf = dataVec[i]->getStringConst(0, dataVec[i]->size(), stringContainer.data());
                         int prev = 0;
                         for (unsigned int index = 0; index < indexArray.size(); ++index) {
                             string builder = "[";
                             for (int j = prev; j < indexArray[index] && j < dataVec[i]->size(); ++j) {
                                 builder += "\"";
-                                builder += stringBuf[j];
+                                builder += stringBuf[j]->getString();
                                 builder += "\",";
                             }
                             prev = indexArray[index];
@@ -1796,11 +1818,13 @@ ConstantSP parseProtobufDynamic(string schemaPath, VectorSP data, unordered_map<
                                                " of field " + names[i] + ".");
                 }
 
-                if (valueArray->size() == 0) {
-                    vector<int> nullVec(vecSize, INT_MIN);
-                    VectorSP vec = Util::createVector(DT_INT, 0, vecSize);
-                    vec->appendInt(nullVec.data(), vecSize);
-                    cols.push_back(vec);
+                if (indexArray->size() == 0 || valueArray->size() == 0) { // DPLG-5066: in case of null message has repeated content 
+                    VectorSP vec = Util::createVector(type, 0, vecSize);
+                    if (vec.isNull()) {
+                        throw RuntimeException(ENCODERDECODER_PREFIX + "create arrayVector failed for field " + names[i] + ".");
+                    }
+                    vec->append(new Void());
+                    cols.emplace_back(vec);
                 } else {
                     vector<ConstantSP> args{indexArray, valueArray};
                     ConstantSP arrayVector = Util::getFuncDefFromHeap(heap, "arrayVector")->call(heap, args);

@@ -48,7 +48,13 @@ ConstantSP nsqConnect(Heap *heap, vector<ConstantSP> &args) {
     }
     if (args.size() == 4) {
         username = getStringScalar(args[2], "username", "nsq::connect", usage);
+        if (username.size() >= sizeof(HSAccountID)) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "username length must be less than " + std::to_string(sizeof(HSAccountID)));
+        }
         password = getStringScalar(args[3], "password", "nsq::connect", usage);
+        if (password.size() >= sizeof(HSPassword)) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "password length must be less than " + std::to_string(sizeof(HSPassword)));
+        }
     }
     string dataVersion = "ORIGIN";
     if (args.size() > 4 && !args[4]->isNull()) {
@@ -85,7 +91,7 @@ ConstantSP nsqGetSchema(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP nsqSubscribe(Heap *heap, vector<ConstantSP> &args) {
-    string usage = "subscribe(dataType, market, outputTable): ";
+    string usage = "subscribe(dataType, market, outputTable, [queueDepth=1000000], [codes]): ";
 
     LockGuard<Mutex> l(NsqConnection::getMutex());
 
@@ -96,15 +102,41 @@ ConstantSP nsqSubscribe(Heap *heap, vector<ConstantSP> &args) {
     /// check dataType and marketType
     nsqUtil::checkTypes(dataType, marketType);
 
+    long long queueDepth = QUEUE_DEPTH;
+    if (args.size() > 3 && !args[3]->isNull()) {
+        queueDepth = getLongScalar(args[3], "queueDepth", __FUNCTION__, usage);
+        if (queueDepth <= 0) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "queueDepth must be positive.");
+        }
+    }
+    vector<string> codes;
+    if (args.size() > 4 && !args[4]->isNull()) {
+        VectorSP codesVec = getStringVector(args[4], "codes", __FUNCTION__, usage);
+        ConstantSP stringVec = args[4];
+        DolphinString * buf[Util::BUF_SIZE];
+        int start = 0;
+        int end = stringVec->size();
+        while (start < end) {
+            int count = std::min(Util::BUF_SIZE, end - start);
+            stringVec->getString(start, count, buf);
+            for (int i = 0; i < count; ++i) {
+                if (buf[i]->size() >= sizeof(HSInstrumentID)) {
+                    throw IllegalArgumentException(__FUNCTION__, usage + "each code's length must be less than " + std::to_string(sizeof(HSInstrumentID)));
+                }
+                codes.push_back(buf[i]->getString());
+            }
+            start += count;
+        }
+    }
     if (dataType == nsqUtil::TRADE_ENTRUST) {
         /// subscribe tradeOrders
         DictionarySP tableDict = getDictWithIntKeyAndSharedRealtimeTableValue(args[2], "outputTable", __FUNCTION__, usage);
-        NsqConnection::getInstance()->subscribeTradeEntrust(heap, dataType, marketType, tableDict);
+        NsqConnection::getInstance()->subscribeTradeEntrust(heap, dataType, nsqUtil::parseMarketTypeStr(marketType), tableDict, queueDepth, codes);
         return new Void();
     } else {
         /// subscribe
         auto table = getSharedRealtimeTable(args[2], "outputTable", __FUNCTION__, usage);
-        NsqConnection::getInstance()->subscribe(heap, dataType, marketType, table);
+        NsqConnection::getInstance()->subscribe(heap, dataType, nsqUtil::parseMarketTypeStr(marketType), table, queueDepth, codes);
         return new Void();
     }
 }
@@ -122,7 +154,7 @@ ConstantSP nsqUnsubscribe(Heap *heap, vector<ConstantSP> &args) {
     nsqUtil::checkTypes(dataType, marketType);
 
     /// unsubscribe
-    NsqConnection::getInstance()->unsubscribe(dataType, marketType);
+    NsqConnection::getInstance()->unsubscribe(dataType, nsqUtil::parseMarketTypeStr(marketType));
     return new Void();
 }
 

@@ -74,7 +74,7 @@ int register_blosc(char **version, char **date){
     3. Compute the chunk size in bytes and store it in slot 3.
 */
 herr_t blosc_set_local(hid_t dcpl, hid_t type, hid_t space) {
-
+  (void)space;
   int ndims;
   int i;
   herr_t r;

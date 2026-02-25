@@ -1,6 +1,6 @@
 
-#include <hdf5_plugin_imp.h>
-#include <hdf5_plugin_pandas.h>
+#include "hdf5_plugin_imp.h"
+#include "hdf5_plugin_pandas.h"
 #include <unordered_map>
 
 #include "Exceptions.h"
@@ -128,7 +128,7 @@ ConstantSP loadPandasHDF5(const string &fileName, const string &groupName, const
 }
 
 void indexCheck(unsigned int index, unsigned int levelVecSize) {
-    checkFailAndThrowRuntimeException(index < 0, index >= levelVecSize, "index form process failed due to index exceed");
+    checkFailAndThrowRuntimeException(false, index >= levelVecSize, "index form process failed due to index exceed");
 }
 
 ConstantSP combineLabelLevel(ConstantSP label, ConstantSP level) {
@@ -139,41 +139,41 @@ ConstantSP combineLabelLevel(ConstantSP label, ConstantSP level) {
     INDEX start = 0, count;
     switch (label->getType()) {
         case DT_CHAR: {
-            char buf[Util::BUF_SIZE];
+            std::vector<char> buf(Util::BUF_SIZE);
             const char *pbuf;
             while (start < labelSize) {
                 count = std::min(Util::BUF_SIZE, labelSize - start);
-                pbuf = label->getCharConst(start, count, buf);
+                pbuf = label->getCharConst(start, count, buf.data());
                 labelIndex.insert(labelIndex.end(), pbuf, pbuf + count);
                 start += count;
             }
         } break;
         case DT_SHORT: {
-            short buf[Util::BUF_SIZE];
+            std::vector<short> buf(Util::BUF_SIZE);
             const short *pbuf;
             while (start < labelSize) {
                 count = std::min(Util::BUF_SIZE, labelSize - start);
-                pbuf = label->getShortConst(start, count, buf);
+                pbuf = label->getShortConst(start, count, buf.data());
                 labelIndex.insert(labelIndex.end(), pbuf, pbuf + count);
                 start += count;
             }
         } break;
         case DT_INT: {
-            int buf[Util::BUF_SIZE];
+            std::vector<int> buf(Util::BUF_SIZE);
             const int *pbuf;
             while (start < labelSize) {
                 count = std::min(Util::BUF_SIZE, labelSize - start);
-                pbuf = label->getIntConst(start, count, buf);
+                pbuf = label->getIntConst(start, count, buf.data());
                 labelIndex.insert(labelIndex.end(), pbuf, pbuf + count);
                 start += count;
             }
         } break;
         case DT_LONG: {
-            long long buf[Util::BUF_SIZE];
+            std::vector<long long> buf(Util::BUF_SIZE);
             const long long *pbuf;
             while (start < labelSize) {
                 count = std::min(Util::BUF_SIZE, labelSize - start);
-                pbuf = label->getLongConst(start, count, buf);
+                pbuf = label->getLongConst(start, count, buf.data());
                 labelIndex.insert(labelIndex.end(), pbuf, pbuf + count);
                 start += count;
             }
@@ -189,11 +189,11 @@ ConstantSP combineLabelLevel(ConstantSP label, ConstantSP level) {
         case DT_CHAR: {
             vector<char> levelVec;
             levelVec.reserve(levelSize);
-            char buf[Util::BUF_SIZE];
+            std::vector<char> buf(Util::BUF_SIZE);
             const char *pbuf;
             while (start < levelSize) {
                 count = std::min(Util::BUF_SIZE, levelSize - start);
-                pbuf = level->getCharConst(start, count, buf);
+                pbuf = level->getCharConst(start, count, buf.data());
                 levelVec.insert(levelVec.end(), pbuf, pbuf + count);
                 start += count;
             }
@@ -211,11 +211,11 @@ ConstantSP combineLabelLevel(ConstantSP label, ConstantSP level) {
         case DT_SHORT: {
             vector<short> levelVec;
             levelVec.reserve(levelSize);
-            short buf[Util::BUF_SIZE];
+            std::vector<short> buf(Util::BUF_SIZE);
             const short *pbuf;
             while (start < levelSize) {
                 count = std::min(Util::BUF_SIZE, levelSize - start);
-                pbuf = level->getShortConst(start, count, buf);
+                pbuf = level->getShortConst(start, count, buf.data());
                 levelVec.insert(levelVec.end(), pbuf, pbuf + count);
                 start += count;
             }
@@ -233,11 +233,11 @@ ConstantSP combineLabelLevel(ConstantSP label, ConstantSP level) {
         case DT_INT: {
             vector<int> levelVec;
             levelVec.reserve(levelSize);
-            int buf[Util::BUF_SIZE];
+            std::vector<int> buf(Util::BUF_SIZE);
             const int *pbuf;
             while (start < levelSize) {
                 count = std::min(Util::BUF_SIZE, levelSize - start);
-                pbuf = level->getIntConst(start, count, buf);
+                pbuf = level->getIntConst(start, count, buf.data());
                 levelVec.insert(levelVec.end(), pbuf, pbuf + count);
                 start += count;
             }
@@ -256,11 +256,11 @@ ConstantSP combineLabelLevel(ConstantSP label, ConstantSP level) {
         case DT_TIMESTAMP: {
             vector<long long> levelVec;
             levelVec.reserve(levelSize);
-            long long buf[Util::BUF_SIZE];
+            std::vector<long long> buf(Util::BUF_SIZE);
             const long long *pbuf;
             while (start < levelSize) {
                 count = std::min(Util::BUF_SIZE, levelSize - start);
-                pbuf = level->getLongConst(start, count, buf);
+                pbuf = level->getLongConst(start, count, buf.data());
                 levelVec.insert(levelVec.end(), pbuf, pbuf + count);
                 start += count;
             }
@@ -296,11 +296,11 @@ ConstantSP combineLabelLevel(ConstantSP label, ConstantSP level) {
         case DT_FLOAT: {
             vector<float> levelVec;
             levelVec.reserve(levelSize);
-            float buf[Util::BUF_SIZE];
+            std::vector<float> buf(Util::BUF_SIZE);
             const float *pbuf;
             while (start < levelSize) {
                 count = std::min(Util::BUF_SIZE, levelSize - start);
-                pbuf = level->getFloatConst(start, count, buf);
+                pbuf = level->getFloatConst(start, count, buf.data());
                 levelVec.insert(levelVec.end(), pbuf, pbuf + count);
                 start += count;
             }
@@ -308,7 +308,7 @@ ConstantSP combineLabelLevel(ConstantSP label, ConstantSP level) {
             data.reserve(labelSize);
             for (unsigned int i = 0; i < labelIndex.size(); ++i) {
                 unsigned int index = labelIndex[i];
-                checkFailAndThrowRuntimeException(index < 0, index >= levelVec.size(), "index form process failed due to index exceed");
+                checkFailAndThrowRuntimeException(false, index >= levelVec.size(), "index form process failed due to index exceed");
                 data.emplace_back(levelVec[labelIndex[i]]);
             }
             VectorSP ret = Util::createVector(level->getType(), 0, labelSize);
@@ -318,11 +318,11 @@ ConstantSP combineLabelLevel(ConstantSP label, ConstantSP level) {
         case DT_DOUBLE: {
             vector<double> levelVec;
             levelVec.reserve(levelSize);
-            double buf[Util::BUF_SIZE];
+            std::vector<double> buf(Util::BUF_SIZE);
             const double *pbuf;
             while (start < levelSize) {
                 count = std::min(Util::BUF_SIZE, levelSize - start);
-                pbuf = level->getDoubleConst(start, count, buf);
+                pbuf = level->getDoubleConst(start, count, buf.data());
                 levelVec.insert(levelVec.end(), pbuf, pbuf + count);
                 start += count;
             }
@@ -330,7 +330,7 @@ ConstantSP combineLabelLevel(ConstantSP label, ConstantSP level) {
             data.reserve(labelSize);
             for (unsigned int i = 0; i < labelIndex.size(); ++i) {
                 unsigned int index = labelIndex[i];
-                checkFailAndThrowRuntimeException(index < 0, index >= levelVec.size(), "index form process failed due to index exceed");
+                checkFailAndThrowRuntimeException(false, index >= levelVec.size(), "index form process failed due to index exceed");
                 data.emplace_back(levelVec[labelIndex[i]]);
             }
             VectorSP ret = Util::createVector(level->getType(), 0, labelSize);

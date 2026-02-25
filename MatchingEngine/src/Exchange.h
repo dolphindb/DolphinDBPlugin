@@ -38,6 +38,7 @@ public:
 
     static ddb::ConstantSP setupGlobalConfig(ddb::Heap *heap, std::vector<ddb::ConstantSP> &args);
     static ddb::ConstantSP createExchange(ddb::Heap *heap, std::vector<ddb::ConstantSP> &args);
+    static ddb::ConstantSP dropExchange(ddb::Heap *heap, std::vector<ddb::ConstantSP> &args);
 
     const std::string &symbol() const {
         return symbol_;

@@ -34,19 +34,42 @@ function prepare_dir() {
     if [ -n "$1" ]; then
         toolchain_dir=$1
         shift 1
-        toolchain_arg="-DCMAKE_PREFIX_PATH=$(ls -d $toolchain_dir/aws-*);$(ls -d $toolchain_dir/libevent-*)"
-        toolchain_arg="-DZLIB_ROOT=$(ls -d $toolchain_dir/zlib-*) $toolchain_arg"
-        toolchain_arg="-DOPENSSL_ROOT_DIR=$(ls -d $toolchain_dir/openssl-*) $toolchain_arg"
-        toolchain_arg="-DCURL_ROOT=$(ls -d $toolchain_dir/curl-*) $toolchain_arg"
-        toolchain_arg="-DProtobuf_ROOT=$(ls -d $toolchain_dir/protobuf-*) $toolchain_arg"
-        toolchain_arg="-DBOOST_ROOT=$(ls -d $toolchain_dir/boost-*) $toolchain_arg"
-        library_path=""
-        for lib in $(ls $toolchain_dir); do
-            library_path="$toolchain_dir/$lib/lib;$library_path"
-        done
+        cmake_path="-DCMAKE_PREFIX_PATH=$ARTIFACT_DIR"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/absl-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/arrow-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/aws-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/blosc-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/boost-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/cppkafka-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/curl-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/fftw-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/hiredis-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/jsoncpp-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/krb5-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/lgbm-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/libevent-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/librdkafka-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/libzmq-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/lz4-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/mariadb-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/mbedtls-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/open62541-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/openldap-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/protobuf-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/pulsar-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/quantlib-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/rocketmq-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/sasl2-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/thrift-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/unixODBC-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/wavelib-*)"
+        cmake_path="$cmake_path;$(ls -d $toolchain_dir/zstd-*)"
+        cmake_path="-DOPENSSL_ROOT_DIR=$(ls -d $toolchain_dir/openssl-*) $cmake_path"
+        cmake_path="-DZLIB_ROOT=$(ls -d $toolchain_dir/zlib-*) $cmake_path"
+        cmake_path="-DOLD_BOOST=$(ls -d $toolchain_dir/old-boost-*) $cmake_path"
     fi
     set -e
-    cmake .. -DCMAKE_BUILD_TYPE=$build_type $toolchain_arg -DCMAKE_LIBRARY_PATH="$library_path" $@
+    cmake .. -DCMAKE_BUILD_TYPE=$build_type $cmake_path $library_path $@
     cd ..
 }
 

@@ -1,0 +1,25 @@
+syntax = "proto2";
+
+message TestOptional {
+    optional string record = 1;
+    optional oType1 type1 = 2;
+    optional oType2 type2 = 3;
+}
+
+message oType1 {
+    optional int32 field1 = 1;
+    optional string field2 = 2;
+    repeated Status statuses = 3;
+}
+
+message oType2 {
+    optional int32 field1 = 1;
+    optional string field2 = 2;
+    repeated Status statuses = 3;
+}
+
+message Status {
+    optional int32 code = 1;
+    optional double message = 2;
+    optional string blob = 3;
+}

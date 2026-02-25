@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "DolphinDBEverything.h"
 #include "Concurrent.h"
 #include "CoreConcept.h"
 #include "ESecurityIDSource.pb.h"

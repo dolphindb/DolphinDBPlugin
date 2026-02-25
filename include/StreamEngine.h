@@ -22,10 +22,10 @@ public:
         : Constant(), code(code), type(type), side(side), time(time), msgType(msgType),
           price(price), qty(qty), seq(seq), buyOrder(buyOrder), sellOrder(sellOrder), receiveTime(receiveTime)
            {}
-    virtual ~MarketDataRow(){};
-    virtual DATA_TYPE getRawType() const {return DT_MKTDATAROW;}
-    virtual ConstantSP getInstance() const {return getValue();}
-    virtual ConstantSP getValue() const {
+    ~MarketDataRow() override{};
+    DATA_TYPE getRawType() const override {return DT_MKTDATAROW;}
+    ConstantSP getInstance() const override {return getValue();}
+    ConstantSP getValue() const override {
         return ConstantSP(new MarketDataRow(*this));
     }
 
@@ -117,6 +117,7 @@ public:
      */
     virtual IO_ERR restoreState(const DataInputStreamSP& in) = 0;
 
+    using Table::serialize;
     virtual IO_ERR serialize(BufferSP& buffer) const {
     	throw RuntimeException("AbstractStreamEngine::serialize not implemented yet.");
     }
@@ -162,14 +163,14 @@ public:
         return false;
     }
 
-    bool update(vector<ConstantSP>& values, const ConstantSP& indexSP, vector<string>& colNames, string& errMsg) override {
+    INDEX update(vector<ConstantSP>& values, const ConstantSP& indexSP, vector<string>& colNames, string& errMsg) override {
         errMsg = "StreamEngine doesn't support data update.";
-        return false;
+        return 0;
     }
 
-    bool remove(const ConstantSP& indexSP, string& errMsg) override {
+    INDEX remove(const ConstantSP& indexSP, string& errMsg) override {
         errMsg = "StreamEngine doesn't support data deletion.";
-        return false;
+        return 0;
     }
 
     ConstantSP getColumn(INDEX index) const override {return dummy_->getColumn(index);}
@@ -200,8 +201,9 @@ public:
     string getString(INDEX index) const override;
     string getString() const override;
     bool set(INDEX index, const ConstantSP& value) override;
-    void setName(const string &name);
+    void setName(const string &name) override;
     ConstantSP get(INDEX index) const override;
+	using Table::get;
     ConstantSP get(const ConstantSP &index) const override;
     const string &getName() const override;
     ConstantSP getInstance() const override;
@@ -213,12 +215,27 @@ public:
     ConstantSP getWindow(INDEX colStart, int colLength, INDEX rowStart, int rowLength) const override;
     ConstantSP getMember(const ConstantSP &key) const override;
     long long getSnapshotMessageId() const { return snapshotMessageId_;}
-    virtual bool readPermitted(const AuthenticatedUserSP& user) const;
-    virtual bool writePermitted(const AuthenticatedUserSP& user) const;
+    bool readPermitted(const AuthenticatedUserSP& user) const override;
+    bool writePermitted(const AuthenticatedUserSP& user) const override;
     virtual bool isJoinEngine() {return false;}
     virtual bool isEventEngine() {return false;}
     inline bool isOrcaEngine() const {return isOrcaEngine_;}
     inline void setOrcaEngine(bool flag) {isOrcaEngine_ = flag;}
+    virtual bool appendChangelog(vector<ConstantSP> &values, INDEX &insertedRows, string &errMsg) {
+        throw RuntimeException("appendChangelog method not supported.");
+    }
+    virtual ConstantSP peekAppend(vector<ConstantSP> &values, INDEX &insertedRows, string &errMsg) {
+        throw RuntimeException("peekAppend method not supported.");
+    }
+    inline bool isChangelog() const{
+        return isChangelogMode_;
+    }
+    inline void setChangelog(bool flag) {
+        isChangelogMode_ = flag;
+    }
+    inline int getSnapshotVersion() const {
+        return snapshotVersion_;
+    }
 protected:
     const string engineType_;
     const string engineName_;
@@ -240,13 +257,11 @@ protected:
     vector<ConstantSP> engineStat_;
     string name_;
     std::string uuid_;
-
     ConstantSP getInternal(INDEX index) const;
     ConstantSP getInternal(const ConstantSP& index) const;
     ConstantSP getMemberInternal(const ConstantSP &key) const;
     inline void setEngineOutput(const TableSP &table) { outputTable_ = table; }  
-
-
+    virtual void setSnapshotVersion(int version);
 private:
     void initialize();
     SmartPointer<vector<string>> colNames_;
@@ -254,6 +269,9 @@ private:
     TableSP dummy_;
     ConstantSP outputTable_;
     bool isOrcaEngine_ = false;
+    bool isChangelogMode_ = false;
+    int snapshotVersion_; 
+    static const int NEWEST_VERSION;//consistent with ORCA PhysicalGraph version
 };
 } // namespace ddb
 #endif //DOLPHINDB_STREAMENGINE_H

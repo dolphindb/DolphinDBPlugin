@@ -183,13 +183,14 @@ bool ODBCBaseConnection::compatible(DATA_TYPE dolphinType, int sqlType, int colS
 
 ODBCDataBaseType ODBCBaseConnection::getDataBaseType(const string &dataBase) {
     if (DBT_MAP.find(dataBase) == DBT_MAP.end())
-        throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "The dataBaseType " + dataBase + "is not supported. ");
+        return ODBCDataBaseType::ODBC_DBT_OTHER;
     return DBT_MAP[dataBase];
 }
 
 template <typename NanConnection, typename NanTransaction, typename NanResult, typename NanTimestamp, typename NanDate, typename NanTime, typename NanStateMent, typename NanODBCFunc>
 void OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp, NanDate, NanTime, NanStateMent, NanODBCFunc>::getColNames(const NanResult &results, vector<std::string> &columnNames) {
     short columns = results.columns();
+    if(columns <= 0) throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + "the result of query must be a table.");
     columnNames.resize(columns);
     for (short i = 0; i < columns; ++i) { columnNames[i] = getODBCFunc().getString(results.column_name(i)); }
 }
@@ -856,27 +857,23 @@ ConstantSP ODBCBaseConnection::odbcGetConnection(Heap *heap, vector<ConstantSP> 
         if (connStr == "")
             throw IllegalArgumentException(funcName, PLUGIN_ODBC_STRING_PREFIX + "connStr can't be an empty string. ");
         std::string dataBaseType;
-        if (args.size() >= 2) {
+        ODBCDataBaseType odbcDataBaseType = ODBC_DBT_VOID;
+        if (args.size() >= 2 && !args[1]->isNothing()) {
             if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR)
                 throw IllegalArgumentException(funcName,
                                                PLUGIN_ODBC_STRING_PREFIX + "database must be a string scalar. ");
             dataBaseType = args[1]->getString();
             std::transform(dataBaseType.begin(), dataBaseType.end(), dataBaseType.begin(), ::tolower);
-
-            if (dataBaseType != "postgresql" && dataBaseType != "mysql" && dataBaseType != "sqlserver" &&
-                dataBaseType != "clickhouse" && dataBaseType != "sqlite" && dataBaseType != "oracle")
-                throw IllegalArgumentException(funcName,
-                                               PLUGIN_ODBC_STRING_PREFIX + "DataBaseType must be PostgreSQL, SQLServer, "
-                                               "MySQL, ClickHouse, SQLite, or Oracle. ");
+            odbcDataBaseType = getDataBaseType(dataBaseType);
         }
 
         // ODBCBaseConnectionSP cup(
         //     new OdbcConnection(getDataBaseType(dataBaseType)));
         ODBCBaseConnectionSP cup;
         if(isWideODBC(connStr)){
-            cup = new OdbcConnection<nanodbcw::connection, nanodbcw::transaction, nanodbcw::result, nanodbcw::timestamp, nanodbcw::date, nanodbcw::time, nanodbcw::statement, NanODBCWideFunc>(getDataBaseType(dataBaseType));
+            cup = new OdbcConnection<nanodbcw::connection, nanodbcw::transaction, nanodbcw::result, nanodbcw::timestamp, nanodbcw::date, nanodbcw::time, nanodbcw::statement, NanODBCWideFunc>(odbcDataBaseType, dataBaseType);
         }else{
-            cup = new OdbcConnection<nanodbc::connection, nanodbc::transaction, nanodbc::result, nanodbc::timestamp, nanodbc::date, nanodbc::time, nanodbc::statement, NanODBCShortFunc>(getDataBaseType(dataBaseType));
+            cup = new OdbcConnection<nanodbc::connection, nanodbc::transaction, nanodbc::result, nanodbc::timestamp, nanodbc::date, nanodbc::time, nanodbc::statement, NanODBCShortFunc>(odbcDataBaseType, dataBaseType);
         }
         cup->connect(connStr);
 
@@ -954,6 +951,9 @@ TableSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp, N
 
 template <typename NanConnection, typename NanTransaction, typename NanResult, typename NanTimestamp, typename NanDate, typename NanTime, typename NanStateMent, typename NanODBCFunc>
 ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp, NanDate, NanTime, NanStateMent, NanODBCFunc>::odbcAppend(Heap* heap, TableSP t, const string& tableName, bool createTable, bool insertIgnore){
+    if(dataBaseType_ == ODBC_DBT_OTHER){
+        throw RuntimeException(PLUGIN_ODBC_STRING_PREFIX + dataBaseTypeString_ + " database type is not supported for append operation.");
+    }
     if (dataBaseType_ == ODBC_DBT_CLICK_HOUSE) {
         LOG_INFO(PLUGIN_ODBC_STRING_PREFIX, "Attempting to acquire global lock for ODBC connection " + std::to_string((long long)this) + ". ");
     }
@@ -1708,13 +1708,13 @@ ConstantSP OdbcConnection<NanConnection, NanTransaction, NanResult, NanTimestamp
     return appendTable;
 }
 
-unordered_map<string, ODBCDataBaseType> ODBCBaseConnection::DBT_MAP = {{"", ODBC_DBT_VOID},
-                                                                   {"mysql", ODBC_DBT_MYSQL},
-                                                                   {"sqlserver", ODBC_DBT_SQL_SERVER},
-                                                                   {"sqlite", ODBC_DBT_SQLITE},
-                                                                   {"clickhouse", ODBC_DBT_CLICK_HOUSE},
-                                                                   {"oracle", ODBC_DBT_ORACLE},
-                                                                   {"postgresql", ODBC_DBT_POST_GRE_SQL}};
+unordered_map<string, ODBCDataBaseType> ODBCBaseConnection::DBT_MAP = {
+                                                                    {"mysql", ODBC_DBT_MYSQL},
+                                                                    {"sqlserver", ODBC_DBT_SQL_SERVER},
+                                                                    {"sqlite", ODBC_DBT_SQLITE},
+                                                                    {"clickhouse", ODBC_DBT_CLICK_HOUSE},
+                                                                    {"oracle", ODBC_DBT_ORACLE},
+                                                                    {"postgresql", ODBC_DBT_POST_GRE_SQL}};
 
 Mutex ODBCBaseConnection::ODBC_PLUGIN_LOCK;
 unordered_map<long long, ODBCBaseConnectionSP> ODBCBaseConnection::ODBC_CONN_MAP;

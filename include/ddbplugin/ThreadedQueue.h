@@ -44,6 +44,8 @@ static const string RECEIVED_TIME_OPTION_STR = "receivedTime";
 static const string OUTPUT_RECV_TIME_OPTION_STR = "outputRecvTime";
 static const string OUTPUT_ELAPSED_OPTION_STR = "outputElapsed";
 
+static const string QUEUE_DEPTH_LIMIT = "queueDepthLimit";
+static const string QUEUE_DEPTH_STR = "queueDepth";
 struct MetaTable {
     vector<string> colNames_;
     vector<DATA_TYPE> colTypes_;

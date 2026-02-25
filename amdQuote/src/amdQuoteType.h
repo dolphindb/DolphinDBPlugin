@@ -218,4 +218,16 @@ class DailyIndex {
 template <typename T>
 int getDailyIndex(DailyIndex &index, T &data, long long timestamp);
 
+#if defined(AMD_457) || defined(AMD_455)
+struct QueryArgs{
+    int market;
+    int channelNo;
+    int beginSeqNum;
+    int endSeqNum;
+    int timeoutMinute;
+    std::vector<DATA_TYPE>& colTypes;
+    std::vector<std::string>& colNames;
+};
+#endif
+
 #endif  // AMD_QUOTE_TYPE_H

@@ -3,6 +3,7 @@
 #include "ddbplugin/Plugin.h"
 #include "SpecialConstant.h"
 #include "ComputingModel.h"
+#include <arrow/io/memory.h>
 
 #define BUFFER_ROWS (1024 * 64)
 
@@ -10,6 +11,7 @@ using namespace ddb;
 
 ConstantSP extractParquetSchema(Heap *heap, vector<ConstantSP> &arguments)
 {
+    std::ignore = heap;
     ConstantSP filename = arguments[0];
     if (filename.isNull() || filename->getType() != DT_STRING || filename->getForm() != DF_SCALAR)
         throw IllegalArgumentException(__FUNCTION__, "The filename and dataset must be a string scalar.");
@@ -72,6 +74,7 @@ ConstantSP loadParquet(Heap *heap, vector<ConstantSP> &arguments)
 
 ConstantSP loadParquetHdfs(Heap *heap, vector<ConstantSP> &arguments)
 {
+    std::ignore = heap;
     if(arguments[0]->getType() != DT_RESOURCE || arguments[0]->getString() != "hdfs readFile address")
         throw IllegalArgumentException(__FUNCTION__,"The first arguments should be resource");
     if(arguments[1]->getType() != DT_RESOURCE || arguments[1]->getString() != "hdfs readFile length")
@@ -159,6 +162,7 @@ ConstantSP loadParquetEx(Heap *heap, vector<ConstantSP> &arguments)
 
 ConstantSP parquetDS(Heap *heap, vector<ConstantSP> &arguments)
 {
+    std::ignore = heap;
 	if (arguments.empty())
 		throw IllegalArgumentException(__FUNCTION__, "Arguments can't be empty.");
     ConstantSP filename = arguments[0];
@@ -182,6 +186,8 @@ ConstantSP parquetDS(Heap *heap, vector<ConstantSP> &arguments)
 
 ConstantSP saveParquet(Heap *heap, vector<ConstantSP> &arguments)
 {
+    std::ignore = heap;
+    std::string usage = "parquet::saveParquet(table, fileName, [compressMethod], [compressLevel], [rowGroupSize]). ";
 	if (arguments.size() < 2)
 		throw IllegalArgumentException(__FUNCTION__, "Arguments can't less than two.");
     ConstantSP tb = arguments[0];
@@ -203,6 +209,7 @@ ConstantSP saveParquet(Heap *heap, vector<ConstantSP> &arguments)
 
 ConstantSP saveParquetHdfs(Heap *heap, vector<ConstantSP>& arguments)
 {
+    std::ignore = heap;
     if(arguments.size()!=1 || !arguments[0]->isTable())
         throw IllegalArgumentException(__FUNCTION__, "argument should be a table");
     return ParquetPluginImp::saveParquetHdfs(arguments[0]);
@@ -399,7 +406,7 @@ std::string getLayoutColumnType(std::shared_ptr<const parquet::LogicalType> &log
     return "";
 }
 
-std::string getLayoutColumnType(parquet::ConvertedType::type converted_t, parquet::Type::type physical_t, parquet::SortOrder::type sort_order)
+std::string getLayoutColumnType(parquet::ConvertedType::type converted_t, parquet::Type::type physical_t)
 {
 
     switch (converted_t)
@@ -467,7 +474,7 @@ bool getSchemaCol(const parquet::SchemaDescriptor *schema_descr, const ConstantS
         auto la = col->logical_type();
         auto lp = col->physical_type();
         string type;
-        type = (la && la->is_valid()) ? getLayoutColumnType(la, lp, col->sort_order()) : getLayoutColumnType(lt, lp, col->sort_order());
+        type = (la && la->is_valid()) ? getLayoutColumnType(la, lp, col->sort_order()) : getLayoutColumnType(lt, lp);
         if (col->max_repetition_level() != 0){
             type = type + "[]";
         }
@@ -981,6 +988,7 @@ struct ValueGetter<std::string, StoreType> {
 template<typename ValueType, typename StoreType, typename DDBStoreType>
 struct SetVectorData{
     inline static void set(DDBStoreType* buffer, int len, StoreType* value, int scale, vector<short>& def_level, bool containNull, const parquet::ColumnDescriptor *col_descr){
+        std::ignore = containNull;
         int index = 0;
         if(scale != 1){
             for(int i = 0; i < len; ++i){
@@ -1051,6 +1059,7 @@ void getIndex(vector<short> rep_level, int readCount, IndexArgs& indexArgs){
 template<typename StoreType, typename DDBStoreType, typename ValueType = DDBStoreType, typename ReaderType>
 int convertParquetToDolphindbInternal(int col_idx, ReaderType* column_reader, const parquet::ColumnDescriptor *col_descr, DDBStoreType* buffer, size_t batchSize, bool& containNull, IndexArgs& indexArgs)
 {
+    std::ignore = col_idx;
     int64_t values_read = 0;
     vector<short> def_level(batchSize);
     vector<short> rep_level(batchSize);
@@ -2179,7 +2188,8 @@ ConstantSP loadParquetByFileName(Heap* heap, const string &filename, const Const
 
 ConstantSP loadParquetHdfs(void *buffer, int64_t len)
 {
-    std::shared_ptr<arrow::io::BufferReader> buf = std::make_shared<arrow::io::BufferReader>((uint8_t *)buffer, len);
+    std::shared_ptr<arrow::Buffer> arrowBuffer = std::make_shared<arrow::Buffer>(static_cast<const uint8_t*>(buffer), len);
+    std::shared_ptr<arrow::io::BufferReader> buf = std::make_shared<arrow::io::BufferReader>(arrowBuffer);
     int rowGroupStart = 0;
     int rowGroupNum = 0;
     ConstantSP schema = ParquetPluginImp::nullSP;
@@ -2264,7 +2274,7 @@ ConstantSP loadParquetByFilePtr(ParquetReadOnlyFile *file, Heap *heap, string fi
         int rowCount = 0;
         for(int row = rowGroupStart; row < rowGroupEnd; ++row){
             for(int i = 0; i < col_num; ++i){
-                loadParquetColumn(file, BUFFER_ROWS, dolphindbCol[i], row, i, column->getInt(i), writeOffset[i], rowCount, indexDolphindbCol[i]);
+                loadParquetColumn(file, dolphindbCol[i], row, i, column->getInt(i), writeOffset[i], rowCount, indexDolphindbCol[i]);
                 writeOffset[i] += rowCount;
             }
         }
@@ -2438,6 +2448,7 @@ TableSP generateInMemoryParitionedTable(Heap *heap, DBHandleWrapper &db,
 
 void getParquetReadOnlyFile(Heap *heap, vector<ConstantSP> &arguments)
 {
+    std::ignore = heap;
     ParquetReadOnlyFile *file = reinterpret_cast<ParquetReadOnlyFile *>(arguments[0]->getLong());
     if(file!=nullptr)
     {
@@ -2759,7 +2770,10 @@ ConstantSP saveParquet(ConstantSP &table, const string &filename, const string &
     writeToParquetRowGroup(rowGroupWriter, table);
     rowGroupWriter->Close();
     writer->Close();
-    outfile->Close();
+    arrow::Status status = outfile->Close();
+    if(!status.ok()){
+        throw RuntimeException("failed to save parquet file: " + status.message());
+    }
     return new Void();
 }
 
@@ -2960,7 +2974,7 @@ std::shared_ptr<parquet::schema::GroupNode> getParquetSchemaFromDolphindb(const 
     );
 }
 
-ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRows, const VectorSP &dolphindbCol, int row,
+ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, const VectorSP &dolphindbCol, int row,
                              int dolphinIndex, int arrowIndex, int offsetStart, int& totalRows, ConstantSP& indexCol) {
 
     DATA_TYPE dolphin_t = dolphindbCol->getType();
@@ -3082,7 +3096,7 @@ ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRows, const Vec
 }
 
 ConstantSP loadParquetPloopFunc(Heap *heap, vector<ConstantSP> &arguments) {
-
+    std::ignore = heap;
     ObjectPtr<ParquetPloopArgs> ploopArgs = arguments[0];
 
     string fileName = ploopArgs->getFileName();
@@ -3107,7 +3121,7 @@ ConstantSP loadParquetPloopFunc(Heap *heap, vector<ConstantSP> &arguments) {
         if(dolphinIndex >= arrowIndexVecSize)
             throw RuntimeException("the dolphinIndex must be less than the size of arrowIndexVec");
         for (int row = rowGroupStart; row < rowGroupEnd; row++){
-            loadParquetColumn(&file, BUFFER_ROWS, dolphindbColVec[dolphinIndex], row, dolphinIndex, arrowIndexVec[dolphinIndex], offsetWrite, rowCount, indexCol[dolphinIndex]);
+            loadParquetColumn(&file, dolphindbColVec[dolphinIndex], row, dolphinIndex, arrowIndexVec[dolphinIndex], offsetWrite, rowCount, indexCol[dolphinIndex]);
             offsetWrite += rowCount;
         }
     }
@@ -3117,6 +3131,7 @@ ConstantSP loadParquetPloopFunc(Heap *heap, vector<ConstantSP> &arguments) {
 } // namespace ParquetPluginImp
 
 ConstantSP setReadThreadNum(Heap *heap, vector<ConstantSP>& arguments){
+    std::ignore = heap;
     string usage("parquet::setReadThreadNum(num) ");
     if(arguments[0]->getType() != DT_INT || arguments[0]->getForm() != DF_SCALAR)
         throw IllegalArgumentException("parquet::setReadThreadNum", usage + "num must be an int scalar. ");
@@ -3127,6 +3142,8 @@ ConstantSP setReadThreadNum(Heap *heap, vector<ConstantSP>& arguments){
     return new Bool(true);
 }
 ConstantSP getReadThreadNum(Heap *heap, vector<ConstantSP>& arguments){
+    std::ignore = heap;
+    std::ignore = arguments;
     int readThreadNum = ParquetPluginImp::READ_THREAD_NUM;
     return new Int(readThreadNum);
 }

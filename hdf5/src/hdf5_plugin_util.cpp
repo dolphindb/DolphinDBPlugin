@@ -1,5 +1,5 @@
-#include <hdf5_plugin_util.h>
-#include <hdf5_plugin_imp.h>
+#include "hdf5_plugin_util.h"
+#include "hdf5_plugin_imp.h"
 #include "Types.h"
 
 bool colsNumEqual(const TableSP& t, int nCols)
@@ -35,6 +35,7 @@ std::string typeIncompatibleErrorMsg(int idx, DATA_TYPE src, const VectorSP& des
 
 void checkHDF5Parameter(Heap *heap, vector<ConstantSP> &arguments, ConstantSP &filename, ConstantSP &destOrGroupName,
                         ConstantSP &schema, size_t &startRow, size_t &rowNum, const string &syntax) {
+    std::ignore = heap;
     filename = arguments[0];
     destOrGroupName = arguments[1];
 

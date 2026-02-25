@@ -53,6 +53,7 @@
 #include "ScalarImp.h"
 #include "SpecialConstant.h"
 #include "TableImp.h"
+#include "ConstantMarshal.h"
 
 #ifdef DOLPHINDB_JIT
 #include "TurboJetInterface.h"
