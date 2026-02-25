@@ -1,6 +1,6 @@
-#include <hdf5_plugin_imp.h>
-#include <hdf5_plugin_pandas.h>
-#include <hdf5_plugin.h>
+#include "hdf5_plugin_imp.h"
+#include "hdf5_plugin_pandas.h"
+#include "hdf5_plugin.h"
 #include <list>
 #include <numeric>
 #include "Exceptions.h"
@@ -481,13 +481,13 @@ void doReadDataset_concurrent(H5GeneralDataReader &reader, const DatasetAppendRu
     for (size_t i = 0; i != colVec.size(); i++) {
         colVec[i] = cols[i]->colVec();
         if (colVec[i]->getType() == DT_FLOAT) {
-            float buf[Util::BUF_SIZE];
+            std::vector<float> buf(Util::BUF_SIZE);
             INDEX start = 0;
             INDEX len = Util::BUF_SIZE;
             int totalLength = colVec[i]->size();
             while(start < totalLength) {
                 INDEX step = std::min(len, totalLength - start);
-                float * floatBuf = colVec[i]->getFloatBuffer(start, step, buf);
+                float * floatBuf = colVec[i]->getFloatBuffer(start, step, buf.data());
                 for(int j = 0; j < step; ++j) {
                     if ((*((uint32_t *)&(floatBuf[j]))) == 0x7fc00000) {
                         floatBuf[j] = FLT_NMIN;
@@ -498,13 +498,13 @@ void doReadDataset_concurrent(H5GeneralDataReader &reader, const DatasetAppendRu
             }
         }
         else if (colVec[i]->getType() == DT_DOUBLE) {
-            double buf[Util::BUF_SIZE];
+            std::vector<double> buf(Util::BUF_SIZE);
             INDEX start = 0;
             INDEX len = Util::BUF_SIZE;
             int totalLength = colVec[i]->size();
             while(start < totalLength) {
                 INDEX step = std::min(len, totalLength - start);
-                double * doubleBuf = colVec[i]->getDoubleBuffer(start, step, buf);
+                double * doubleBuf = colVec[i]->getDoubleBuffer(start, step, buf.data());
                 for(int j = 0; j < step; ++j) {
                     if ((*((uint64_t *)&(doubleBuf[j]))) == 0x7FF8000000000000) {
                         doubleBuf[j] = DBL_NMIN;
@@ -693,7 +693,7 @@ ConstantSP loadHDF5(const hid_t set, const ConstantSP &schema, const size_t star
         static_cast<TableSP>(nullSP) : createEmptyTableFromSchema(schema);
 
     string dType = "normal";
-    GroupInfo info(dType, nullptr, 0);
+    GroupInfo info(dType, nullptr);
     switch (H5Tget_class(t.id()))
     {
     case H5T_INTEGER:
@@ -785,6 +785,7 @@ vector<DistributedCallSP> generateH5Tasks(Heap* heap, const string &fileName, co
     const TableSP &schema, const size_t startRow, const size_t rowNum,
     DBHandleWrapper &db, const string &tableName, const FunctionDefSP &transform)
 {
+    std::ignore = heap;
     vector<string> colNames;
     vector<DATA_TYPE> types;
 
@@ -1155,6 +1156,7 @@ size_t H5GeneralDataReader::prepareToRead(H5DataSpace &mem_space, H5DataSpace &f
 
 void H5GeneralDataReader::doRead(hid_t mem_space_id, hid_t file_space_id)
 {
+    std::ignore = mem_space_id;
     herr_t state = H5Dread(locId_, memTypeId_, H5S_BLOCK, file_space_id, xferProperty_.id(), buffer_.data());
 
     checkFailAndThrowRuntimeException(state < 0, "H5Dread return " + std::to_string(state));
@@ -1210,7 +1212,7 @@ void H5GeneralDataReader::setXferProperty(bool has_vlen_str)
 
         return ptr;
     };
-    H5MM_free_t vlenFree = [](void *mem, void *free_info) -> void { return; };
+    H5MM_free_t vlenFree = [](void *mem, void *free_info) -> void { std::ignore = mem; std::ignore = free_info; };
 
     herr_t status = H5Pset_vlen_mem_manager(xferProperty_.id(), vlenAlloc, &vlenMem_, vlenFree, nullptr);
     checkFailAndThrowRuntimeException(status < 0, "can't set hdf5 dataset transfer property");

@@ -1,20 +1,8 @@
 cmake_minimum_required(VERSION 3.22)
-set(CMAKE_SKIP_RPATH TRUE)
 set(PluginName PluginArrow)
 project(${PluginName})
 
 include(../template.cmake)
 CreatePlugin(${PluginName})
 
-target_compile_options(${PluginName} PRIVATE -Wall -Werror)
-target_compile_options(${PluginName} PRIVATE -Wno-return-type-c-linkage)
-set_target_properties(${PluginName} PROPERTIES LINK_FLAGS "-Wl,-rpath,$ORIGIN")
-target_link_libraries(${PluginName} PRIVATE arrow pthread)
-
-cmake_path(GET CMAKE_CURRENT_SOURCE_DIR FILENAME INSTALL_DIR)
-if (WIN32)
-    target_link_directories(${PluginName} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/lib/win32_amd64)
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/lib/win32_amd64/libarrow.dll DESTINATION ${INSTALL_DIR})
-elseif(UNIX)
-    target_link_directories(${PluginName} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-endif()
+AddArrow()

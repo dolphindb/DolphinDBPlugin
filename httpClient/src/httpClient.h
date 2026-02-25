@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
+
 #include "DolphinDBEverything.h"
 #include <CoreConcept.h>
 #include <curl/curl.h>
@@ -24,7 +28,7 @@ namespace ddb {
 
     size_t curlWriteData(void *ptr, size_t size, size_t nmemb, string *data);
 
-    void getParamString(const DictionarySP &params, string& output);
+    void getParamString(CURL *curl, const DictionarySP &params, string& output);
 
     curl_slist *setHeaders(const DictionarySP &headers, curl_slist *slist);
 

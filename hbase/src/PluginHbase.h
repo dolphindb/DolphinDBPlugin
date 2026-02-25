@@ -1,14 +1,11 @@
-//
-// Created by lin on 2021/2/23.
-//
-
-#ifndef PLUGINHBASE_PLUGINHBASE_H
-#define PLUGINHBASE_PLUGINHBASE_H
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
 
 #include "DolphinDBEverything.h"
 #include "CoreConcept.h"
 #include "Hbase.h"
-#include <transport/TSocket.h>
+#include <thrift/transport/TSocket.h>
 #include "ddbplugin/CommonInterface.h"
 #include "ddbplugin/PluginLogger.h"
 /* INTERFACES */
@@ -56,10 +53,5 @@ private:
     static void customThriftLogFunction(const char *message);
 };
 
-
 /* HELPERS */
 void connectionOnCloseH(ddb::Heap *heap, argsT &args);
-
-
-
-#endif//PLUGINHBASE_PLUGINHBASE_H

@@ -1,4 +1,4 @@
-insight,libPluginInsight.so,3.00.4.0
+insight,libPluginInsight${CMAKE_SHARED_LIBRARY_SUFFIX},${PluginVersion}
 connectInsight,connect,system,5,11,0,0,(outputDict, host, port, username, password, [workerNum=5], [option], [seqCheckMode=1], [certDirPath], [dataVersion='3.2.8'], [backupList])
 subscribe,subscribe,command,4,4,0,0,(handle, marketDataTypes, securityIDSource, securityType)
 unsubscribe,unsubscribe,command,1,1,0,0,(handle)

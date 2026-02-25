@@ -19,6 +19,230 @@ using namespace ddb;
 const static int TIMEOUT = 100;
 static std::atomic<bool> ERROR_LOG(false);
 
+#if defined(AMD_457) || defined(AMD_455)
+
+inline const char *AmdQueryErrorToString(int code) {
+    switch (code) {
+        case amd::ama::ErrorCode::kAllocateMemoryFailed:
+            return "Failed to allocate message memory";
+        case amd::ama::ErrorCode::kCreateTcpClientFailed:
+            return "Failed to create TCP client";
+        case amd::ama::ErrorCode::kQueryTimeout:
+            return "Query timed out";
+        case amd::ama::ErrorCode::kQuerySendFailed:
+            return "Failed to send query request";
+        case amd::ama::ErrorCode::kNoQueryPermission:
+            return "No permission to perform query";
+        case amd::ama::ErrorCode::kQueryEmptyData:
+            return "No data";
+        case amd::ama::ErrorCode::kQueryPartData:
+            return "Partial data returned";
+        case amd::ama::ErrorCode::kOverReqestNumLimit:
+            return "Exceeded query request limit";
+        case amd::ama::ErrorCode::kOverTickNumLimit:
+            return "Exceeded tick range limit";
+        case amd::ama::ErrorCode::kQueryLogonFailed:
+            return "Query login failed";
+        case amd::ama::ErrorCode::kQueryConnectFailed:
+            return "Query connection failed";
+        case amd::ama::ErrorCode::kNoTickQueryServer:
+            return "Upstream tick-query server not deployed; contact administrator";
+        case amd::ama::ErrorCode::kIllegalMarketType:
+            return "Invalid market type; only SZSE/SSE are supported";
+        case amd::ama::ErrorCode::kIllegalChannelNo:
+            return "Invalid channel number; must be > 0";
+        case amd::ama::ErrorCode::kIllegalBeginSeqNum:
+            return "Invalid begin_appl_seq_num parameter";
+        case amd::ama::ErrorCode::kNullQuerySpi:
+            return "Query SPI is null";
+        case amd::ama::ErrorCode::kQueryEngineUnInited:
+            return "Query engine not initialized (startup/switchover/cross-day)";
+        default:
+            return "Unknown AMD query error code";
+    }
+}
+
+class QueryTask{
+    public:
+    QueryTask() :isFinish_(false) {}
+    QueryTask(const QueryTask&) = delete;
+    QueryTask& operator=(const QueryTask&) = delete;
+    void setError(const string& error){
+        LockGuard<Mutex> mutex(&dataLock_);
+        errMsg_ = error;
+        notify();
+    }
+
+    void OnMDTickOrder(const amd::ama::TickQueryItem& item, amd::ama::MDTickOrder* ticks, uint32_t cnt, bool is_last){
+        std::ignore = item;
+        PluginDefer defer([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
+        LockGuard<Mutex> lock(&dataLock_);
+        try{
+            MDOrderExecution data{true, LONG_LONG_MIN};
+            for(int i = 0; i < cnt; ++i){
+                data.uni.tickOrder = ticks[i];
+                orderExecutionReader(buffer_, data, MarketUtil::SeqCheckMode::IGNORE, szLastSeqNum_, shLastSeqNum_);
+            }
+            if(is_last) notify();
+        }catch(exception& e){
+            std::string errorMsg = AMDQUOTE_PREFIX + "Failed to call OnMDTickOrder for query: " + e.what();
+            setError(errorMsg);
+        }
+    }
+
+    void OnMDTickExecution(const amd::ama::TickQueryItem& item, amd::ama::MDTickExecution* ticks, uint32_t cnt, bool is_last){
+        std::ignore = item;
+        PluginDefer defer([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
+        LockGuard<Mutex> lock(&dataLock_);
+        try{
+            MDOrderExecution data{false, LONG_LONG_MIN};
+            for(int i = 0; i < cnt; ++i){
+                data.uni.tickExecution = ticks[i];
+                orderExecutionReader(buffer_, data, MarketUtil::SeqCheckMode::IGNORE, szLastSeqNum_, shLastSeqNum_);
+            }
+            if(is_last) notify();
+        }catch(exception& e){
+            std::string errorMsg = AMDQUOTE_PREFIX + "Failed to call OnMDTickExecution for query: " + e.what();
+            setError(errorMsg);
+        }
+    }
+
+    TableSP query(QueryArgs& queryArgs, uint64_t id, amd::ama::IQuerySpi* spi) {
+        LockGuard<Mutex> lock(&dataLock_);
+        int columns = queryArgs.colTypes.size();
+        buffer_.resize(columns);
+        int rows = queryArgs.endSeqNum - queryArgs.beginSeqNum + 1;
+        for(int i = 0; i < columns; ++i){
+            buffer_[i] = Util::createVector(queryArgs.colTypes[i], 0, rows);
+        }
+
+        amd::ama::TickQueryItem item;
+        item.market = queryArgs.market;
+        item.channel_no = queryArgs.channelNo;
+        item.begin_appl_seq_num = queryArgs.beginSeqNum;
+        item.end_appl_seq_num = queryArgs.endSeqNum;
+        item.user_ctx = id;
+
+        int ret = amd::ama::IAMDApi::QueryMDTick(spi, item);
+
+
+        if(ret != amd::ama::ErrorCode::kSuccess){
+            throw RuntimeException(AMDQUOTE_PREFIX + "Failed to query: received AMD error code (" + std::to_string(ret) + ") " + AmdQueryErrorToString(ret) + ".");
+        }
+        condition_.wait(dataLock_, queryArgs.timeoutMinute * 60000 + 2000);
+        if(!errMsg_.empty()){
+            throw RuntimeException(errMsg_);
+        }
+        if(!isFinish_){
+            throw RuntimeException(AMDQUOTE_PREFIX + "Failed to query: timeout.");
+        }
+
+        int realRows = buffer_[0]->rows();
+        VectorSP indexVector = Util::createIndexVector(0, realRows);
+        for(int i = 1; i < columns; ++i){
+            if(buffer_[i]->rows() != realRows){
+                buffer_[i].getAs<Vector>()->resize(realRows);
+                buffer_[i].getAs<Vector>()->set(indexVector, new Void());
+            }
+        }
+        return Util::createTable(queryArgs.colNames, buffer_);
+    }
+
+private:
+    void notify(){
+        LockGuard<Mutex> lock(&dataLock_);
+        isFinish_ = true;
+        condition_.notify();
+    }
+
+    vector<ConstantSP> buffer_;
+    std::unordered_map<int, long long> szLastSeqNum_;
+    std::unordered_map<int, long long> shLastSeqNum_;
+    ConditionalVariable condition_;
+    Mutex dataLock_;
+    bool isFinish_;
+    std::string errMsg_;
+};
+
+typedef SmartPointer<QueryTask> QueryTaskSP;
+
+class AMDQuerySpi : public amd::ama::IQuerySpi
+{
+public:
+    AMDQuerySpi(): requestId_(0){}
+    AMDQuerySpi(const AMDQuerySpi&) = delete;
+    AMDQuerySpi& operator=(const AMDQuerySpi&) = delete;
+    virtual void OnMDTickOrder(const amd::ama::TickQueryItem& item, amd::ama::MDTickOrder* ticks, uint32_t cnt, bool is_last) override
+    {
+        try {
+            QueryTaskSP queryTask = nullptr;
+            if(getQueryTask(item.user_ctx, queryTask)){
+                queryTask->OnMDTickOrder(item, ticks, cnt, is_last);
+            }
+        } catch (...) {
+            LOG_ERR(AMDQUOTE_PREFIX, "Caught exception in OnMDTickOrder");
+        }
+    }
+
+    virtual void OnMDTickExecution(const amd::ama::TickQueryItem& item, amd::ama::MDTickExecution* ticks, uint32_t cnt, bool is_last) override
+    {
+        try {
+            QueryTaskSP queryTask = nullptr;
+            if(getQueryTask(item.user_ctx, queryTask)){
+                queryTask->OnMDTickExecution(item, ticks, cnt, is_last);
+            }
+        } catch (...) {
+            LOG_ERR(AMDQUOTE_PREFIX, "Caught exception in OnMDTickExecution");
+        }
+    }
+
+    virtual void OnError(const amd::ama::TickQueryItem& item, int32_t error_code)
+    {
+        try {
+            QueryTaskSP queryTask = nullptr;
+            if(getQueryTask(item.user_ctx, queryTask)){
+                std::string errMsg = AMDQUOTE_PREFIX + "Failed to query: received AMD error code (" + std::to_string(error_code) + ") " + AmdQueryErrorToString(error_code) + ".";
+                queryTask->setError(errMsg);
+            }
+        } catch (...) {
+            LOG_ERR(AMDQUOTE_PREFIX, "Caught exception in OnError");
+        }
+    }
+
+    TableSP query(QueryArgs& queryArgs) {
+        QueryTaskSP queryTask = nullptr;
+        uint64_t id;
+        {
+            LockGuard<Mutex> lock(&lock_);
+            id = requestId_++;
+            queryTask = new QueryTask();
+            queryMap_[id] = queryTask;
+        }
+        PluginDefer defer([this, id](){
+            queryMap_.erase(id);
+        });
+        return queryTask->query(queryArgs, id, this);
+    }
+
+private:
+    bool getQueryTask(uint64_t id, QueryTaskSP& queryTask){
+        {
+            LockGuard<Mutex> lock(&lock_);
+            if(queryMap_.find(id) == queryMap_.end()){
+                LOG_INFO(AMDQUOTE_PREFIX + "the query " + std::to_string(id) + " does not exist.");
+                return false;
+            }
+            queryTask = queryMap_[id];
+        }
+        return true;
+    }
+
+    std::unordered_map<uint64_t, SmartPointer<QueryTask>> queryMap_;
+    uint64_t requestId_;
+    Mutex lock_;
+};
+#endif
+
 class AMDSpiImp : public amd::ama::IAMDSpi {
   public:
     AMDSpiImp(SessionSP session, string dataVersion) : dataVersion_(dataVersion), session_(session) {}
@@ -346,103 +570,155 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
     }
 
     virtual void OnMDNEEQSnapshot(amd::ama::MDNEEQSnapshot* snapshots, uint32_t cnt) override {
-
-        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
-        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        pushNEEQSnapshotData(snapshots, cnt, time);
+        try {
+            PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
+            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+            pushNEEQSnapshotData(snapshots, cnt, time);
+        } catch (...) {
+            LOG_ERR(AMDQUOTE_PREFIX, "Unknown exception in OnMDNEEQSnapshot");
+        }
     }
     virtual void OnMDHKTSnapshot(amd::ama::MDHKTSnapshot* snapshots, uint32_t cnt) override {
-        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
-        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        pushHKTSnapshotData(snapshots, cnt, time);
+        try {
+            PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
+            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+            pushHKTSnapshotData(snapshots, cnt, time);
+        } catch (...) {
+            LOG_ERR(AMDQUOTE_PREFIX, "Unknown exception in OnMDHKTSnapshot");
+        }
     }
     virtual void OnMDOptionSnapshot(amd::ama::MDOptionSnapshot *snapshots, uint32_t cnt) override {
-
-        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
-        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        pushOptionData(snapshots, cnt, time);
+        try {
+            PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
+            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+            pushOptionData(snapshots, cnt, time);
+        } catch (...) {
+            LOG_ERR(AMDQUOTE_PREFIX, "Unknown exception in OnMDOptionSnapshot");
+        }
     }
     virtual void OnMDFutureSnapshot(amd::ama::MDFutureSnapshot *snapshots, uint32_t cnt) override {
-
-        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
-        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        pushFutureData(snapshots, cnt, time);
+        try {
+            PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
+            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+            pushFutureData(snapshots, cnt, time);
+        } catch (...) {
+            LOG_ERR(AMDQUOTE_PREFIX, "Unknown exception in OnMDFutureSnapshot");
+        }
     }
 #ifndef AMD_396
     virtual void OnMDIOPVSnapshot(amd::ama::MDIOPVSnapshot *snapshots, uint32_t cnt) override {
-
-        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
-        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        pushIOPVData(snapshots, cnt, time);
+        try {
+            PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
+            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+            pushIOPVData(snapshots, cnt, time);
+        } catch (...) {
+            LOG_ERR(AMDQUOTE_PREFIX, "Unknown exception in OnMDIOPVSnapshot");
+        }
     }
 #endif
 #ifdef AMD_457
     virtual void OnMDHKExMergeSnapshot(amd::ama::MDHKExMergeSnapshot* snapshots, uint32_t cnt) override {
-        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
-        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        pushHKExMergeSnapshotData(snapshots, cnt, time);
+        try {
+            PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
+            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+            pushHKExMergeSnapshotData(snapshots, cnt, time);
+        } catch (...) {
+            LOG_ERR(AMDQUOTE_PREFIX, "Unknown exception in OnMDHKExMergeSnapshot");
+        }
     }
 
     virtual void OnMDHKExIndexSnapshot(amd::ama::MDHKExIndexSnapshot* snapshots, uint32_t cnt) override {
-        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
-        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        pushHKExIndexSnapshotData(snapshots, cnt, time);
+        try {
+            PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
+            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+            pushHKExIndexSnapshotData(snapshots, cnt, time);
+        } catch (...) {
+            LOG_ERR(AMDQUOTE_PREFIX, "Unknown exception in OnMDHKExIndexSnapshot");
+        }
     }
 #endif
 
     virtual void OnMDSnapshot(amd::ama::MDSnapshot *snapshot, uint32_t cnt) override {
-
-        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshot); });
-        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        pushSnapshotData(snapshot, cnt, time);
+        try {
+            PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshot); });
+            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+            pushSnapshotData(snapshot, cnt, time);
+        } catch (...) {
+            LOG_ERR(AMDQUOTE_PREFIX, "Unknown exception in OnMDSnapshot");
+        }
     }
     virtual void OnMDTickOrder(amd::ama::MDTickOrder *ticks, uint32_t cnt) override {
-
-        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
-        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        for (auto i = 0U; i < cnt; ++i) {
-            LOG(AMDQUOTE_PREFIX, __FUNCTION__, " securityCode: ", ticks[i].security_code, "; bizIndex: ", ticks[i].appl_seq_num);
+        try {
+            PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
+            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+            if (UNLIKELY(PLUGIN_VAR(PLUGIN_LOG_LEVEL) == severity_type::DEBUG)) {
+                for (auto i = 0U; i < cnt; ++i) {
+                    LOG(AMDQUOTE_PREFIX, __FUNCTION__, " securityCode: ", ticks[i].security_code, "; bizIndex: ", ticks[i].appl_seq_num);
+                }
+            }
+            pushOrderData(ticks, cnt, time);
+        } catch (...) {
+            LOG_ERR(AMDQUOTE_PREFIX, "Unknown exception in OnMDTickOrder");
         }
-        pushOrderData(ticks, cnt, time);
     }
     virtual void OnMDTickExecution(amd::ama::MDTickExecution *ticks, uint32_t cnt) override {
-
-        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
-        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        for (auto i = 0U; i < cnt; ++i) {
-            LOG(AMDQUOTE_PREFIX, __FUNCTION__, " securityCode: ", ticks[i].security_code, "; bizIndex: ", ticks[i].appl_seq_num);
+        try {
+            PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
+            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+            if (UNLIKELY(PLUGIN_VAR(PLUGIN_LOG_LEVEL) == severity_type::DEBUG)) {
+                for (auto i = 0U; i < cnt; ++i) {
+                    LOG(AMDQUOTE_PREFIX, __FUNCTION__, " securityCode: ", ticks[i].security_code, "; bizIndex: ", ticks[i].appl_seq_num);
+                }
+            }
+            pushExecutionData(ticks, cnt, time);
+        } catch (...) {
+            LOG_ERR(AMDQUOTE_PREFIX, "Unknown exception in OnMDTickExecution");
         }
-        pushExecutionData(ticks, cnt, time);
     }
     virtual void OnMDIndexSnapshot(amd::ama::MDIndexSnapshot *index, uint32_t cnt) override {
-
-        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(index); });
-        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        pushIndexData(index, cnt, time);
+        try {
+            PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(index); });
+            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+            pushIndexData(index, cnt, time);
+        } catch (...) {
+            LOG_ERR(AMDQUOTE_PREFIX, "Unknown exception in OnMDIndexSnapshot");
+        }
     }
     virtual void OnMDOrderQueue(amd::ama::MDOrderQueue *queue, uint32_t cnt) override {
-
-        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(queue); });
-        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        pushOrderQueueData(queue, cnt, time);
+        try {
+            PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(queue); });
+            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+            pushOrderQueueData(queue, cnt, time);
+        } catch (...) {
+            LOG_ERR(AMDQUOTE_PREFIX, "Unknown exception in OnMDOrderQueue");
+        }
     }
     virtual void OnMDBondSnapshot(amd::ama::MDBondSnapshot *snapshots, uint32_t cnt) override {
-
-        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
-        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        pushBondSnapshotData(snapshots, cnt, time);
+        try {
+            PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(snapshots); });
+            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+            pushBondSnapshotData(snapshots, cnt, time);
+        } catch (...) {
+            LOG_ERR(AMDQUOTE_PREFIX, "Unknown exception in OnMDBondSnapshot");
+        }
     }
     virtual void OnMDBondTickOrder(amd::ama::MDBondTickOrder *ticks, uint32_t cnt) override {
-
-        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
-        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        pushBondOrderData(ticks, cnt, time);
+        try {
+            PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
+            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+            pushBondOrderData(ticks, cnt, time);
+        } catch (...) {
+            LOG_ERR(AMDQUOTE_PREFIX, "Unknown exception in OnMDBondTickOrder");
+        }
     }
     virtual void OnMDBondTickExecution(amd::ama::MDBondTickExecution *ticks, uint32_t cnt) override {
-
-        PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
-        long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
-        pushBondExecutionData(ticks, cnt, time);
+        try {
+            PluginDefer df([=]() { amd::ama::IAMDApi::FreeMemory(ticks); });
+            long long time = Util::toLocalNanoTimestamp(Util::getNanoEpochTime());
+            pushBondExecutionData(ticks, cnt, time);
+        } catch (...) {
+            LOG_ERR(AMDQUOTE_PREFIX, "Unknown exception in OnMDBondTickExecution");
+        }
     }
 
     virtual void OnEvent(uint32_t level, uint32_t code, const char *event_msg, uint32_t len) override;
@@ -656,6 +932,11 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
 #undef ERASE_MERGE_IF_EXIST
         }
     }
+#if defined(AMD_457) || defined(AMD_455)
+    TableSP query(QueryArgs& queryArgs){
+        return querySpi_.query(queryArgs);
+    }
+#endif
 
   private:
     unordered_map<int, SmartPointer<ThreadedQueue<timeMDOrderQueue>>> orderQueueQueueMap_;
@@ -690,5 +971,9 @@ class AMDSpiImp : public amd::ama::IAMDSpi {
 
     string dataVersion_;
     SessionSP session_;
+
+#if defined(AMD_457) || defined(AMD_455)
+    AMDQuerySpi querySpi_;
+#endif
 };
 #endif

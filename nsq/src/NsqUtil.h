@@ -16,6 +16,7 @@ using namespace ddb;
 using namespace pluginUtil;
 
 const string NSQ_PREFIX = "[PLUGIN::NSQ] ";
+const static long long QUEUE_DEPTH = 1000000;
 
 /**
  * Includes definitions and constants of data types, as well as functions related to data types and data processing.
@@ -56,8 +57,13 @@ namespace nsqUtil {
     constexpr char TRADE_ENTRUST[] = "orderTrade";
 
     // Market Types
-    constexpr char SH[] = "sh";
-    constexpr char SZ[] = "sz";
+    enum class MarketType {
+        SH,
+        SZ
+    };
+
+    string getMarketTypeStr(nsqUtil::MarketType marketType);
+    nsqUtil::MarketType parseMarketTypeStr(const string &str);
 
     // Options
     constexpr char RECEIVED_TIME[] = "receivedTime";

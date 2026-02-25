@@ -56,7 +56,7 @@ static void mqttConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
  * @brief Safelty closes the \p sockfd and cancels the \p clientDaemon before \c exit.
  */
 
-ConstantSP mqttClientSub(Heap *heap, vector<ConstantSP> &args) {
+ConstantSP mqttClientSub(Heap *heap, const vector<ConstantSP> &args) {
     std::string usage =
         "Usage: subscribe(host, port, topic, [parser], handler, [username], [password], [recvbufSize=20480], "
         "[config]).";
@@ -183,23 +183,22 @@ ConstantSP mqttClientSub(Heap *heap, vector<ConstantSP> &args) {
     return conn;
 }
 
-ConstantSP mqttClientStopSub(Heap *, const ConstantSP &handle, const ConstantSP &b) {
-    std::ignore = b;
+ConstantSP mqttClientStopSub(Heap *, const vector<ConstantSP> &args) {
     // parse args first
     std::string usage = "Usage: close(connection or connection ID). ";
     SubConnection *sc = NULL;
     string key;
     ConstantSP conn;
     LockGuard<Mutex> guard(&mqttConn::CONN_MUTEX_LOCK);
-    switch (handle->getType()) {
+    switch (args[0]->getType()) {
         case DT_RESOURCE:
-            sc = (SubConnection *)(handle->getLong());
-            key = std::to_string(handle->getLong());
+            sc = (SubConnection *)(args[0]->getLong());
+            key = std::to_string(args[0]->getLong());
             conn = mqttConn::CONN_DICT->getMember(key);
             if (conn->isNothing()) throw IllegalArgumentException(__FUNCTION__, "Invalid connection object.");
             break;
         case DT_STRING:
-            key = handle->getString();
+            key = args[0]->getString();
             conn = mqttConn::CONN_DICT->getMember(key);
             if (conn->isNothing())
                 throw IllegalArgumentException(__FUNCTION__, "Invalid connection string.");
@@ -207,7 +206,7 @@ ConstantSP mqttClientStopSub(Heap *, const ConstantSP &handle, const ConstantSP 
                 sc = (SubConnection *)(conn->getLong());
             break;
         case DT_LONG:
-            key = std::to_string(handle->getLong());
+            key = std::to_string(args[0]->getLong());
             conn = mqttConn::CONN_DICT->getMember(key);
             if (conn->isNothing())
                 throw IllegalArgumentException(__FUNCTION__, "Invalid connection integer.");
@@ -225,9 +224,7 @@ ConstantSP mqttClientStopSub(Heap *, const ConstantSP &handle, const ConstantSP 
     return new Int(MQTT_OK);
 }
 
-ConstantSP getSubscriberStat(Heap *, const ConstantSP &handle, const ConstantSP &b) {
-    std::ignore = handle;
-    std::ignore = b;
+ConstantSP getSubscriberStat(Heap *, const vector<ConstantSP> &) {
     LockGuard<Mutex> guard(&mqttConn::CONN_MUTEX_LOCK);
     int size = mqttConn::CONN_DICT->size();
     ConstantSP connectionIdVec = Util::createVector(DT_STRING, size);

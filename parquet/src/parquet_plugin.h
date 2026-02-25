@@ -1,5 +1,6 @@
-#ifndef PARQUET_PLUGIN_H
-#define PARQUET_PLUGIN_H
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
 
 #include <vector>
 #include <list>
@@ -74,7 +75,7 @@ enum parquetTime{
 unordered_set<string> COMPRESSION_SET = {"snappy", "gzip", "zstd"};
 std::string getDafaultColumnType(parquet::Type::type physical_t);
 std::string getLayoutColumnType(std::shared_ptr<const  parquet::LogicalType>& logical_t,parquet::Type::type physical_t,parquet::SortOrder::type sort_order);
-std::string getLayoutColumnType(parquet::ConvertedType::type converted_t,parquet::Type::type physical_t,parquet::SortOrder::type sort_order);
+std::string getLayoutColumnType(parquet::ConvertedType::type converted_t,parquet::Type::type physical_t);
 bool getSchemaCol(const parquet::SchemaDescriptor *schema_descr,const ConstantSP &col_idx,vector<ConstantSP> &dolpindbCol);
 void createNewVectorSP(vector<VectorSP> &dolpindb_v,const TableSP &tb);
 
@@ -141,7 +142,7 @@ inline bool isDecimal(const parquet::ColumnDescriptor *col_descr){
   return col_descr->logical_type()->is_decimal() || (col_descr->converted_type()==parquet::ConvertedType::DECIMAL);
 }
 
-ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, int batchRow, const VectorSP &dolphindbCol, int row,
+ConstantSP loadParquetColumn(ParquetReadOnlyFile *file, const VectorSP &dolphindbCol, int row,
                              int dolphinIndex, int arrowIndex, int offsetStart, int& totalRows, ConstantSP& indexCol);
 
 ConstantSP loadParquetPloopFunc(Heap *heap, vector<ConstantSP> &arguments);
@@ -170,6 +171,3 @@ public:
 };
 
 }
-
-
-#endif

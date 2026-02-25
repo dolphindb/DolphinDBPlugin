@@ -1,4 +1,4 @@
-arrow,libPluginArrow.so,<version>
+arrow,libPluginArrow${CMAKE_SHARED_LIBRARY_SUFFIX},${PluginVersion}
 pluginType="format"
 getSupportedFormats,getSupportedFormats,system,0,0,0
 getConstantMarshal,getConstantMarshal,system,1,1,0

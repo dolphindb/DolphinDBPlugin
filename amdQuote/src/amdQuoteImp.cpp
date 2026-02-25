@@ -357,3 +357,8 @@ void AmdQuote::unsubscribe(const string &dataType, int market, vector<string> co
         removeSubscribe(amdType, market);
     }
 }
+#if defined(AMD_457) || defined(AMD_455)
+TableSP AmdQuote::query(QueryArgs& queryArgs){
+    return amdSpi_->query(queryArgs);
+}
+#endif

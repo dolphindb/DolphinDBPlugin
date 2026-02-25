@@ -1,20 +1,21 @@
-#ifndef HDF5_PLUGIN_H
-#define HDF5_PLUGIN_H
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
 
+#include "DolphinDBEverything.h"
 #include <CoreConcept.h>
 
 using ddb::ConstantSP;
 using ddb::Heap;
 using std::vector;
 
-extern "C" ConstantSP h5ls(Heap *heap, vector<ConstantSP> &arguments);
-extern "C" ConstantSP h5lsTable(Heap *heap, vector<ConstantSP> &arguments);
-extern "C" ConstantSP extractHDF5Schema(Heap *heap, vector<ConstantSP> &arguments);
-extern "C" ConstantSP loadHDF5(Heap *heap, vector<ConstantSP> &arguments);
-extern "C" ConstantSP loadPandasHDF5(Heap *heap, vector<ConstantSP> &arguments);
-extern "C" ConstantSP loadHDF5Ex(Heap *heap, vector<ConstantSP> &arguments);
-extern "C" ConstantSP HDF5DS(Heap *heap, vector<ConstantSP>& arguments);
-extern "C" ConstantSP saveHDF5(Heap *heap, vector<ConstantSP> &arguments);
-
-
-#endif /* HDF5_PLUGIN_H */
+extern "C" {
+ConstantSP h5ls(Heap *heap, vector<ConstantSP> &arguments);
+ConstantSP h5lsTable(Heap *heap, vector<ConstantSP> &arguments);
+ConstantSP extractHDF5Schema(Heap *heap, vector<ConstantSP> &arguments);
+ConstantSP loadHDF5(Heap *heap, vector<ConstantSP> &arguments);
+ConstantSP loadPandasHDF5(Heap *heap, vector<ConstantSP> &arguments);
+ConstantSP loadHDF5Ex(Heap *heap, vector<ConstantSP> &arguments);
+ConstantSP HDF5DS(Heap *heap, vector<ConstantSP>& arguments);
+ConstantSP saveHDF5(Heap *heap, vector<ConstantSP> &arguments);
+}

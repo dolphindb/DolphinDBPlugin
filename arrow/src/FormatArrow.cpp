@@ -260,9 +260,15 @@ IO_ERR ArrowTableMarshall::sendDictionary(){
             throw RuntimeException("column symbol Base is Null " + std::to_string(iter->second));
         }
         arrow::StringBuilder builder;
-        builder.Reserve(base->size());
+        auto result = builder.Reserve(base->size());
+        if (!result.ok()) {
+            throw RuntimeException("Fail to alloc memory in sendDictionary");
+        }
         for(int j = 0; j < base->size(); ++j){
-            builder.Append(base->getSymbol(j).getString());
+            result = builder.Append(base->getSymbol(j).getString());
+            if (!result.ok()) {
+                throw RuntimeException("Fail to alloc memory in sendDictionary");
+            }
         }
         auto arrayResult = builder.Finish();
         if(!arrayResult.ok()){
@@ -275,7 +281,10 @@ IO_ERR ArrowTableMarshall::sendDictionary(){
         if(!status.ok()){
             throw RuntimeException("Fail to GetDictionaryPayload in sendDictionary");
         }
-        stream_->Reset();
+        result = stream_->Reset();
+        if (!result.ok()) {
+            throw RuntimeException("Fail to reset stream in sendDictionary");
+        }
         status = writer_->WritePayload(payload);
         if(!status.ok()){
             throw RuntimeException("Fail to GetDictionaryPayload in sendDictionary");
@@ -295,34 +304,35 @@ IO_ERR ArrowTableMarshall::sendDictionary(){
 }
 
 void MarshalVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_builder, VectorSP column, int columnId, int real_size, int rowsSent, char *pvalidBuffer, DATA_TYPE colType) {
+    arrow::Status result;
     switch (colType)
     {
     case DT_BOOL: {
         auto builder = static_cast<arrow::BooleanBuilder*>(batch_builder->GetField(columnId));
         std::unique_ptr<char[]> buffer(new char[real_size]);
         const char *pbuf = column->getBoolConst(rowsSent, real_size, buffer.get());
-        builder->AppendValues(reinterpret_cast<const uint8_t*>(pbuf), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(reinterpret_cast<const uint8_t*>(pbuf), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
         break;
     }
     case DT_CHAR: {
         auto builder = static_cast<arrow::Int8Builder*>(batch_builder->GetField(columnId));
         std::unique_ptr<char[]> buffer(new char[real_size]);
         const char *pbuf = column->getCharConst(rowsSent, real_size, buffer.get());
-        builder->AppendValues(reinterpret_cast<const int8_t*>(pbuf), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(reinterpret_cast<const int8_t*>(pbuf), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
         break;
     }
     case DT_SHORT: {
         auto builder = static_cast<arrow::Int16Builder*>(batch_builder->GetField(columnId));
         std::unique_ptr<short[]> buffer(new short[real_size]);
         const short *pbuf = column->getShortConst(rowsSent, real_size, buffer.get());
-        builder->AppendValues(pbuf, real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(pbuf, real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
         break;
     }
     case DT_INT: {
         auto builder = static_cast<arrow::Int32Builder*>(batch_builder->GetField(columnId));
         std::unique_ptr<int[]> buffer(new int[real_size]);
         const int *pbuf = column->getIntConst(rowsSent, real_size, buffer.get());
-        builder->AppendValues(pbuf, real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(pbuf, real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
         break;
     }
     case DT_LONG: {
@@ -330,9 +340,9 @@ void MarshalVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_build
         std::unique_ptr<long long[]> buffer(new long long[real_size]);
         const long long *pbuf = column->getLongConst(rowsSent, real_size, buffer.get());
 #if defined(__linux__)
-        builder->AppendValues(reinterpret_cast<const int64_t*>(pbuf), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(reinterpret_cast<const int64_t*>(pbuf), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
 #elif defined(_WIN32)
-        builder->AppendValues(pbuf, real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(pbuf, real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
 #endif
         break;
     }
@@ -343,14 +353,14 @@ void MarshalVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_build
         const int *pbuf = column->getIntConst(rowsSent, real_size, buffer.get());
         for(INDEX ni=0;ni<real_size;++ni)
             tbuf[ni] = Util::countDays(pbuf[ni]/12, pbuf[ni]%12+1, 1);
-        builder->AppendValues(tbuf.get(), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(tbuf.get(), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
         break;
     }
     case DT_DATE: {
         auto builder = static_cast<arrow::Date32Builder*>(batch_builder->GetField(columnId));
         std::unique_ptr<int[]> buffer(new int[real_size]);
         const int *pbuf = column->getIntConst(rowsSent, real_size, buffer.get());
-        builder->AppendValues(pbuf, real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(pbuf, real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
         break;
     }
     case DT_TIME:
@@ -358,7 +368,7 @@ void MarshalVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_build
         auto builder = static_cast<arrow::Time32Builder*>(batch_builder->GetField(columnId));
         std::unique_ptr<int[]> buffer(new int[real_size]);
         const int *pbuf = column->getIntConst(rowsSent, real_size, buffer.get());
-        builder->AppendValues(pbuf, real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(pbuf, real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
         break;
     }
     case DT_MINUTE: {
@@ -368,7 +378,7 @@ void MarshalVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_build
         const int *pbuf = column->getIntConst(rowsSent, real_size, intBuffer.get());
         for(INDEX ni=0;ni<real_size;++ni) 
             buffer[ni] = 60 * pbuf[ni];
-        builder->AppendValues(buffer.get(), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(buffer.get(), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
         break;
     }
     case DT_DATETIME: {
@@ -378,7 +388,7 @@ void MarshalVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_build
         const int *pbuf = column->getIntConst(rowsSent, real_size, intBuffer.get());
         for(INDEX ni=0;ni<real_size;++ni)
             longBuffer[ni] = pbuf[ni];
-        builder->AppendValues(longBuffer.get(), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(longBuffer.get(), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
         break;
     }
     case DT_TIMESTAMP:
@@ -387,9 +397,9 @@ void MarshalVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_build
         std::unique_ptr<long long[]> buffer(new long long[real_size]);
         const long long *pbuf = column->getLongConst(rowsSent, real_size, buffer.get());
 #if defined(__linux__)
-        builder->AppendValues(reinterpret_cast<const int64_t*>(pbuf), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(reinterpret_cast<const int64_t*>(pbuf), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
 #elif defined(_WIN32)
-        builder->AppendValues(pbuf, real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(pbuf, real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
 #endif
         break;
     }
@@ -400,7 +410,7 @@ void MarshalVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_build
         const int *pbuf = column->getIntConst(rowsSent, real_size, buffer.get());
         for(INDEX ni=0;ni<real_size;++ni) 
             longBuffer[ni] = pbuf[ni];
-        builder->AppendIndices(longBuffer.get(), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendIndices(longBuffer.get(), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
         break;
     }
     case DT_NANOTIME: {
@@ -408,9 +418,9 @@ void MarshalVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_build
         std::unique_ptr<long long[]> buffer(new long long[real_size]);
         const long long *pbuf = column->getLongConst(rowsSent, real_size, buffer.get());
 #if defined(__linux__)
-        builder->AppendValues(reinterpret_cast<const int64_t*>(pbuf), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(reinterpret_cast<const int64_t*>(pbuf), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
 #elif defined(_WIN32)
-        builder->AppendValues(pbuf, real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(pbuf, real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
 #endif
         break;
     }
@@ -421,35 +431,35 @@ void MarshalVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_build
         const int *pbuf = column->getIntConst(rowsSent, real_size, buffer.get());
         for(INDEX ni=0;ni<real_size;++ni)
             tbuf[ni] = pbuf[ni] * 3600LL;
-        builder->AppendValues(tbuf.get(), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(tbuf.get(), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
         break;
     }
     case DT_FLOAT: {
         auto builder = static_cast<arrow::FloatBuilder*>(batch_builder->GetField(columnId));
         std::unique_ptr<float[]> buffer(new float[real_size]);
         const float *pbuf = column->getFloatConst(rowsSent, real_size, buffer.get());
-        builder->AppendValues(pbuf, real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(pbuf, real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
         break;
     }
     case DT_DOUBLE: {
         auto builder = static_cast<arrow::DoubleBuilder*>(batch_builder->GetField(columnId));
         std::unique_ptr<double[]> buffer(new double[real_size]);
         const double *pbuf = column->getDoubleConst(rowsSent, real_size, buffer.get());
-        builder->AppendValues(pbuf, real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(pbuf, real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
         break;
     }
     case DT_STRING: {
         auto builder = static_cast<arrow::StringBuilder*>(batch_builder->GetField(columnId));
         std::unique_ptr<char*[]> buffer(new char*[real_size]);
         char** pbuf = column->getStringConst(rowsSent, real_size, buffer.get());
-        builder->AppendValues(const_cast<const char**>(pbuf), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(const_cast<const char**>(pbuf), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
         break;
     }
     case DT_BLOB: {
         auto builder = static_cast<arrow::LargeBinaryBuilder*>(batch_builder->GetField(columnId));
         std::unique_ptr<char*[]> buffer(new char*[real_size]);
         char** pbuf = column->getStringConst(rowsSent, real_size, buffer.get());
-        builder->AppendValues(const_cast<const char**>(pbuf), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(const_cast<const char**>(pbuf), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
         break;
     }
     case DT_INT128:
@@ -477,7 +487,7 @@ void MarshalVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_build
             vbuf[i*16 + 14] = pbuf[i*16 + 1 ];
             vbuf[i*16 + 15] = pbuf[i*16 + 0 ];
         }
-        builder->AppendValues(reinterpret_cast<const uint8_t*>(vbuf), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(reinterpret_cast<const uint8_t*>(vbuf), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
         break;
     }
     case DT_IP: {
@@ -487,7 +497,7 @@ void MarshalVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_build
         std::vector<std::string> ips(real_size);
         for(INDEX ni=0;ni<real_size;++ni)
             ips[ni] = IPAddr::toString(pbuf + ni * 16);
-        builder->AppendValues(ips, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(ips, reinterpret_cast<uint8_t*>(pvalidBuffer));
         break;
     }
     case DT_DECIMAL32: {
@@ -498,7 +508,7 @@ void MarshalVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_build
         const int *pbuf = column->getDecimal32Const(rowsSent, real_size, scale, intBuffer.get());
         for(INDEX ni=0;ni<real_size;++ni)
             buffer[ni] = static_cast<__int128_t>(pbuf[ni]);
-        builder->AppendValues(reinterpret_cast<uint8_t*>(buffer.get()), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(reinterpret_cast<uint8_t*>(buffer.get()), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
         break;
     }
     case DT_DECIMAL64: {
@@ -509,13 +519,16 @@ void MarshalVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_build
         const long long *pbuf = column->getDecimal64Const(rowsSent, real_size, scale, longBuffer.get());
         for(INDEX ni=0;ni<real_size;++ni)
             buffer[ni] = static_cast<__int128_t>(pbuf[ni]);
-        builder->AppendValues(reinterpret_cast<uint8_t*>(buffer.get()), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
+        result = builder->AppendValues(reinterpret_cast<uint8_t*>(buffer.get()), real_size, reinterpret_cast<uint8_t*>(pvalidBuffer));
         break;
     }
     default: {
         throw RuntimeException("Not Support This Type " + Util::getDataTypeString(colType));
         break;
     }
+    }
+    if (!result.ok()) {
+        throw RuntimeException("Failed to append values.");
     }
 }
 
@@ -543,7 +556,10 @@ void MarshalArrayVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_
     std::unique_ptr<char[]> validBuffer(new char[real_len]);
     valueVector->isValid(offset[0], real_len, validBuffer.get());
     
-    builder->AppendValues(reinterpret_cast<arrow::ListType::offset_type*>(offset.get()), real_size);
+    auto result = builder->AppendValues(reinterpret_cast<arrow::ListType::offset_type*>(offset.get()), real_size);
+    if (!result.ok()) {
+        throw RuntimeException("Failed to append values.");
+    }
 
     switch (colType)
     {
@@ -551,28 +567,28 @@ void MarshalArrayVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_
         arrow::BooleanBuilder* subBuilder = static_cast<arrow::BooleanBuilder*>(builder->value_builder());
         std::unique_ptr<char[]> valueBuffer(new char[real_len]);
         const char *pbuf = valueVector->getBoolConst(offset[0], real_len, valueBuffer.get());
-        subBuilder->AppendValues(reinterpret_cast<const uint8_t*>(pbuf), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        result = subBuilder->AppendValues(reinterpret_cast<const uint8_t*>(pbuf), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
         break;
     }
     case DT_CHAR: {
         arrow::Int8Builder* subBuilder = static_cast<arrow::Int8Builder*>(builder->value_builder());
         std::unique_ptr<char[]> valueBuffer(new char[real_len]);
         const char *pbuf = valueVector->getCharConst(offset[0], real_len, valueBuffer.get());
-        subBuilder->AppendValues(reinterpret_cast<const int8_t*>(pbuf), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        result = subBuilder->AppendValues(reinterpret_cast<const int8_t*>(pbuf), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
         break;
     }
     case DT_SHORT: {
         arrow::Int16Builder* subBuilder = static_cast<arrow::Int16Builder*>(builder->value_builder());
         std::unique_ptr<short[]> valueBuffer(new short[real_len]);
         const short *pbuf = valueVector->getShortConst(offset[0], real_len, valueBuffer.get());
-        subBuilder->AppendValues(pbuf, real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        result = subBuilder->AppendValues(pbuf, real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
         break;
     }
     case DT_INT: {
         arrow::Int32Builder* subBuilder = static_cast<arrow::Int32Builder*>(builder->value_builder());
         std::unique_ptr<int[]> valueBuffer(new int[real_len]);
         const int *pbuf = valueVector->getIntConst(offset[0], real_len, valueBuffer.get());
-        subBuilder->AppendValues(pbuf, real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        result = subBuilder->AppendValues(pbuf, real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
         break;
     }
     case DT_LONG: {
@@ -580,9 +596,9 @@ void MarshalArrayVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_
         std::unique_ptr<long long[]> valueBuffer(new long long[real_len]);
         const long long *pbuf = valueVector->getLongConst(offset[0], real_len, valueBuffer.get());
 #if defined(__linux__)
-        subBuilder->AppendValues(reinterpret_cast<const int64_t*>(pbuf), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        result = subBuilder->AppendValues(reinterpret_cast<const int64_t*>(pbuf), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
 #elif defined(_WIN32)
-        subBuilder->AppendValues(pbuf, real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        result = subBuilder->AppendValues(pbuf, real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
 #endif
         break;
     }
@@ -593,14 +609,14 @@ void MarshalArrayVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_
         const int *pbuf = valueVector->getIntConst(offset[0], real_len, intBuffer.get());
         for(INDEX ni=0;ni<real_len;++ni)
             valueBuffer[ni] = Util::countDays(pbuf[ni]/12, pbuf[ni]%12+1, 1);
-        subBuilder->AppendValues(valueBuffer.get(), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        result = subBuilder->AppendValues(valueBuffer.get(), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
         break;
     }
     case DT_DATE: {
         arrow::Date32Builder* subBuilder = static_cast<arrow::Date32Builder*>(builder->value_builder());
         std::unique_ptr<int[]> valueBuffer(new int[real_len]);
         const int *pbuf = valueVector->getIntConst(offset[0], real_len, valueBuffer.get());
-        subBuilder->AppendValues(pbuf, real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        result = subBuilder->AppendValues(pbuf, real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
         break;
     }
     case DT_TIME:
@@ -608,7 +624,7 @@ void MarshalArrayVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_
         arrow::Time32Builder* subBuilder = static_cast<arrow::Time32Builder*>(builder->value_builder());
         std::unique_ptr<int[]> valueBuffer(new int[real_len]);
         const int *pbuf = valueVector->getIntConst(offset[0], real_len, valueBuffer.get());
-        subBuilder->AppendValues(pbuf, real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        result = subBuilder->AppendValues(pbuf, real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
         break;
     }
     case DT_MINUTE: {
@@ -618,7 +634,7 @@ void MarshalArrayVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_
         const int *pbuf = valueVector->getIntConst(offset[0], real_len, intBuffer.get());
         for(INDEX ni=0;ni<real_len;++ni)
             valueBuffer[ni] = 60 * pbuf[ni];
-        subBuilder->AppendValues(valueBuffer.get(), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        result = subBuilder->AppendValues(valueBuffer.get(), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
         break;
     }
     case DT_DATETIME: {
@@ -628,7 +644,7 @@ void MarshalArrayVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_
         const int *pbuf = valueVector->getIntConst(offset[0], real_len, intBuffer.get());
         for(INDEX ni=0;ni<real_len;++ni)
             valueBuffer[ni] = static_cast<int64_t>(pbuf[ni]);
-        subBuilder->AppendValues(valueBuffer.get(), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        result = subBuilder->AppendValues(valueBuffer.get(), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
         break;
     }
     case DT_TIMESTAMP:
@@ -637,9 +653,9 @@ void MarshalArrayVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_
         std::unique_ptr<long long[]> valueBuffer(new long long[real_len]);
         const long long *pbuf = valueVector->getLongConst(offset[0], real_len, valueBuffer.get());
 #if defined(__linux__)
-        subBuilder->AppendValues(reinterpret_cast<const int64_t*>(pbuf), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        result = subBuilder->AppendValues(reinterpret_cast<const int64_t*>(pbuf), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
 #elif defined(_WIN32)
-        subBuilder->AppendValues(pbuf, real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        result = subBuilder->AppendValues(pbuf, real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
 #endif
         break;
     }
@@ -648,9 +664,9 @@ void MarshalArrayVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_
         std::unique_ptr<long long[]> valueBuffer(new long long[real_len]);
         const long long *pbuf = valueVector->getLongConst(offset[0], real_len, valueBuffer.get());
 #if defined(__linux__)
-        subBuilder->AppendValues(reinterpret_cast<const int64_t*>(pbuf), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        result = subBuilder->AppendValues(reinterpret_cast<const int64_t*>(pbuf), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
 #elif defined(_WIN32)
-        subBuilder->AppendValues(pbuf, real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        result = subBuilder->AppendValues(pbuf, real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
 #endif
         break;
     }
@@ -661,21 +677,21 @@ void MarshalArrayVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_
         const int *pbuf = valueVector->getIntConst(offset[0], real_len, intBuffer.get());
         for(INDEX ni=0;ni<real_len;++ni)
             valueBuffer[ni] = pbuf[ni] * 3600LL;
-        subBuilder->AppendValues(valueBuffer.get(), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        result = subBuilder->AppendValues(valueBuffer.get(), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
         break;
     }
     case DT_FLOAT: {
         arrow::FloatBuilder* subBuilder = static_cast<arrow::FloatBuilder*>(builder->value_builder());
         std::unique_ptr<float[]> valueBuffer(new float[real_len]);
         const float *pbuf = valueVector->getFloatConst(offset[0], real_len, valueBuffer.get());
-        subBuilder->AppendValues(pbuf, real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        result = subBuilder->AppendValues(pbuf, real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
         break;
     }
     case DT_DOUBLE: {
         arrow::DoubleBuilder* subBuilder = static_cast<arrow::DoubleBuilder*>(builder->value_builder());
         std::unique_ptr<double[]> valueBuffer(new double[real_len]);
         const double *pbuf = valueVector->getDoubleConst(offset[0], real_len, valueBuffer.get());
-        subBuilder->AppendValues(pbuf, real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        result = subBuilder->AppendValues(pbuf, real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
         break;
     }
     case DT_INT128:
@@ -703,7 +719,7 @@ void MarshalArrayVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_
             vbuf[i*16 + 14] = pbuf[i*16 + 1 ];
             vbuf[i*16 + 15] = pbuf[i*16 + 0 ];
         }
-        subBuilder->AppendValues(reinterpret_cast<const uint8_t*>(vbuf), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        result = subBuilder->AppendValues(reinterpret_cast<const uint8_t*>(vbuf), real_len, reinterpret_cast<uint8_t*>(validBuffer.get()));
         break;
     }
     case DT_IP: {
@@ -713,13 +729,16 @@ void MarshalArrayVectorColumn(std::shared_ptr<arrow::RecordBatchBuilder> &batch_
         std::vector<std::string> ips(real_len);
         for(INDEX ni=0;ni<real_len;++ni)
             ips[ni] = IPAddr::toString(pbuf + ni*16);
-        subBuilder->AppendValues(ips, reinterpret_cast<uint8_t*>(validBuffer.get()));
+        result = subBuilder->AppendValues(ips, reinterpret_cast<uint8_t*>(validBuffer.get()));
         break;
     }
     default: {
         throw RuntimeException("Not Support This Type " + Util::getDataTypeString(DATA_TYPE(colType+ARRAY_TYPE_BASE)));
         break;
     }
+    }
+    if (!result.ok()) {
+        throw RuntimeException("Failed to append values.");
     }
 }
 
@@ -755,7 +774,10 @@ IO_ERR ArrowTableMarshall::sendRecordBatch(){
         }
         batch = *flushResult;
 
-        stream_->Reset();
+        auto result = stream_->Reset();
+        if (!result.ok()) {
+            throw RuntimeException("Failed to reset stream.");
+        }
 
         arrow::ipc::IpcPayload payload;
         auto status = arrow::ipc::GetRecordBatchPayload(*batch, arrow::ipc::IpcWriteOptions::Defaults(), &payload);
@@ -781,7 +803,10 @@ IO_ERR ArrowTableMarshall::sendRecordBatch(){
 }
 
 IO_ERR ArrowTableMarshall::sendSchema(){
-    stream_->Reset();
+    auto result = stream_->Reset();
+    if (!result.ok()) {
+        throw RuntimeException("Failed to reset stream.");
+    }
     arrow::ipc::IpcPayload payload;
     arrow::ipc::DictionaryFieldMapper mapper(*schema_);
     auto status = arrow::ipc::GetSchemaPayload(*schema_, arrow::ipc::IpcWriteOptions::Defaults(), mapper, &payload);

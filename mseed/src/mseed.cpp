@@ -145,6 +145,9 @@ ConstantSP mseedRead(Heap *heap, vector<ConstantSP> &args) {
         throw IllegalArgumentException(__FUNCTION__, "filePath must be a string scalar");
     }
     std::string file = args[0]->getString();
+    if (file.empty()) {
+        throw IllegalArgumentException(__FUNCTION__, "File path can't be empty");
+    }
     MS3Record *msr = nullptr;
     int retcode;
     static uint32_t flags = MSF_VALIDATECRC | MSF_PNAMERANGE | MSF_UNPACKDATA;
@@ -311,6 +314,9 @@ ConstantSP mseedWrite(Heap *heap, vector<ConstantSP> &args) {
             cover = args[5]->getBool();
     }
     std::string file = args[0]->getString();
+    if (file.empty()) {
+        throw IllegalArgumentException(__FUNCTION__, "File path can't be empty");
+    }
     std::string sid = args[1]->getString();
     long long startTime = args[2]->getLong();
     VectorSP value = args[4];

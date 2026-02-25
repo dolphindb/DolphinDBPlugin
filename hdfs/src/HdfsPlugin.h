@@ -1,10 +1,8 @@
-//
-// Created by ypfan on 2020/12/7.
-//
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
 
-#ifndef HDFS_PLUGINHDFS_H
-#define HDFS_PLUGINHDFS_H
-
+#include "DolphinDBEverything.h"
 #include "CoreConcept.h"
 
 using ddb::ConstantSP;
@@ -38,5 +36,3 @@ extern "C" ConstantSP hdfs_freeFileInfo(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP hdfs_readFile(Heap *heap, vector<ConstantSP> &args);
 
 extern "C" ConstantSP hdfs_writeFile(Heap *heap, vector<ConstantSP> &args);
-
-#endif //HDFS_PLUGINHDFS_H

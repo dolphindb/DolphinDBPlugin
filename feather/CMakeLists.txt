@@ -7,15 +7,4 @@ CreatePlugin(${PluginName})
 
 target_compile_options(${PluginName} PRIVATE "-Wno-error")
 
-if (UNIX)
-    target_link_directories(${PluginName} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/lib/linux)
-    target_link_libraries(${PluginName} PRIVATE libarrow.a liblz4.a libz.a libzstd.a libjemalloc_pic.a pthread)
-elseif (WIN32)
-    target_link_directories(${PluginName} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/lib/win)
-    target_link_libraries(${PluginName} PRIVATE libarrow.dll liblz4.dll zlib.dll libzstd.dll)
-endif ()
-
-if (WIN32)
-    cmake_path(GET CMAKE_CURRENT_SOURCE_DIR FILENAME INSTALL_DIR)
-    install(DIRECTORY ${CMAKE_SOURCE_DIR}/lib/win/ DESTINATION ${INSTALL_DIR})
-endif()
+AddArrow()

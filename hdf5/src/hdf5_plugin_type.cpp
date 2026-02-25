@@ -1,5 +1,7 @@
 #include "hdf5_plugin_type.h"
-#include <hdf5_plugin_imp.h>
+#include "hdf5_plugin_imp.h"
+#include <ctime>
+using namespace std;
 
 namespace H5PluginImp
 {
@@ -305,9 +307,6 @@ bool TypeColumn::createArrayColumns(H5DataType &srcType, vector<H5ColumnSP> &col
 
     H5DataType baseConverted;
     size_t dimsNum = H5Tget_array_ndims(srcType.id());
-    if(dimsNum < 0) {
-        return false;
-    }
 
     std::vector<hsize_t> dims(dimsNum);
     H5Tget_array_dims(srcType.id(), dims.data());
@@ -349,6 +348,7 @@ VectorSP TypeColumn::createDolphinDBColumnVector(const VectorSP& destVec, int si
 
 VectorSP TypeColumn::createCompatibleVector(VectorSP destVec, DATA_TYPE destType, int size, int cap)
 {
+    std::ignore = destVec;
     return Util::createVector(destType, size, cap);
 }
 
@@ -546,6 +546,7 @@ template <class src_t, class dest_t>
 enable_if_2cond_t(is_sintegral_v(src_t), is_fp_v(dest_t))
     numeric_lower_pack(pack_info_t t)
 {
+    std::ignore = t;
     assert(0);
 }
 

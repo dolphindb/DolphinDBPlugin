@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
+
 #include "Open62541Everything.h"
 #include <open62541/client_config_default.h>
 #include <open62541/client_highlevel.h>

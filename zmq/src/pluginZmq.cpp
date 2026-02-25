@@ -1,4 +1,4 @@
-#include"pluginZmq.h"
+#include "pluginZmq.h"
 
 namespace ddb {
 
@@ -8,16 +8,14 @@ static void connectionOnClose(Heap *heap, vector<ConstantSP> &args) {
     delete (T *) (args[0]->getLong());
 }
 
-SubConnection::SubConnection(Heap *heap, shared_ptr<ZmqSubSocket> socket, const FunctionDefSP &parser,
-                             ConstantSP handle)
-        : heap_(heap) {
+SubConnection::SubConnection(Heap *heap, shared_ptr<ZmqSubSocket> socket, const HandleConfig& handleConfig)
+        : heap_(heap), handleConfig_(handleConfig), isStop_(false) {
     session_ = heap->currentSession()->copy();
     createTime_ = Util::getEpochTime();
     session_->setUser(heap->currentSession()->getUser());
-    appendTable_ = new AppendTable(heap, socket, parser, handle);
+    appendTable_ = new AppendTable(heap, socket, handleConfig);
     thread_ = new Thread(appendTable_);
     if (!thread_->isStarted()) {
-        thread_->detach();
         thread_->start();
     }
 }
@@ -27,61 +25,67 @@ void AppendTable::run() {
         HeapSP heap = session_->getHeap();
         shared_ptr<zmq::socket_t> zmqSocket = socket_->getSocket();
         string prefix = socket_->getPrefix();
-        bool first = true;
-        while (!needStop_) {
-            if(!first)
-                increaseRecv();
+        while (!isStop_) {
             try {
                 vector<ConstantSP> args;
                 if (prefix != "") {
                     zmq::message_t message;
-                    while(!needStop_){
+                    while(!isStop_){
                         zmq::recv_result_t ret = zmqSocket->recv(message);
                         if(ret.has_value())
                             break;
                     }
                 }
-                if(needStop_)
+                if(isStop_)
                     break;
                 zmq::message_t message;
-                while(!needStop_){
+                while(!isStop_){
                     zmq::recv_result_t ret = zmqSocket->recv(message);
                     if(ret.has_value())
                         break;
                 }
-                if(needStop_)
-                    break;
-                string contents((char *) message.data(), message.size());
-                ConstantSP m = Util::createConstant(DT_STRING);
-                m->setString(contents);
-                args.push_back(m);
-                ConstantSP parser_result;
-                parser_result = parser_->call(heap.get(), args);
-                if (!parser_result.isNull() && parser_result->isTable()) {
-                    if (handle_->isTable()) {
-                        TableSP table_insert = (TableSP) parser_result;
-                        int length = handle_->columns();
-                        if (table_insert->columns() < length) {
-                            LOG_ERR(PLUGIN_ZMQ_PREFIX+"The columns of the table returned is smaller than the handler table.");
-                        }
-                        if (table_insert->columns() > length)
-                            LOG_ERR(PLUGIN_ZMQ_PREFIX+"The columns of the table returned is larger than the handler table, and the information may be ignored.");
-                        vector<ConstantSP> args = {handle_, table_insert};
-                        session_->getFunctionDef("append!")->call(heap.get(), args);
-                    } else {
-                        vector<ConstantSP> args = {parser_result};
-                        ((FunctionDefSP) handle_)->call(heap.get(), args);
-                    }
+                increaseRecv();
+                syncModeStatus_.processedMsgCount_++;
+                if(handleConfig_.asyncConfig_.isAsync_){
+                    MessageWrapper data(string((char *) message.data(), message.size()));
+                    queue_->push(data);
                 }else{
-                    LOG_ERR(PLUGIN_ZMQ_PREFIX+"parser result must be a table.");
+                string contents((char *) message.data(), message.size());
+                    ConstantSP m = Util::createConstant(DT_STRING);
+                    m->setString(contents);
+                    args.push_back(m);
+                    ConstantSP parser_result;
+                    parser_result = handleConfig_.parser_->call(heap.get(), args);
+                    if (!parser_result.isNull() && parser_result->isTable()) {
+                        if (handleConfig_.handle_->isTable()) {
+                            TableSP table_insert = (TableSP) parser_result;
+                            int length = handleConfig_.handle_->columns();
+                            if (table_insert->columns() < length) {
+                                LOG_ERR(PLUGIN_ZMQ_PREFIX+"The columns of the table returned is smaller than the handler table.");
+                            }
+                            if (table_insert->columns() > length)
+                                LOG_ERR(PLUGIN_ZMQ_PREFIX+"The columns of the table returned is larger than the handler table, and the information may be ignored.");
+                            vector<ConstantSP> args = {handleConfig_.handle_, table_insert};
+                            session_->getFunctionDef("append!")->call(heap.get(), args);
+                        } else {
+                            vector<ConstantSP> args = {parser_result};
+                            ((FunctionDefSP) handleConfig_.handle_)->call(heap.get(), args);
+                        }
+                    }else{
+                        throw RuntimeException(PLUGIN_ZMQ_PREFIX+"parser result must be a table.");
+                    }
                 }
             }
             catch (exception& e){
-                LOG_ERR(PLUGIN_ZMQ_PREFIX + " SubConnection throws an exception: "+e.what());
+                LOG_ERR(PLUGIN_ZMQ_PREFIX + " SubConnection throws an exception: " + e.what());
+                syncModeStatus_.failedMsgCount_++;
+                syncModeStatus_.lastErrMsg_ = e.what();
+                syncModeStatus_.lastFailedTimestamp_ =  Util::getNanoEpochTime() + localTimeGap_;
+                if(asyncConfig_.isAsync_){
+                    queue_->setError(e.what());
+                }
             }
-            first = false;
         }
-        isStop_.release();
     }catch(exception& e){
         LOG_ERR(PLUGIN_ZMQ_PREFIX + "The subscribed thread ends because of the exception: " + e.what());
     }catch(...){
@@ -237,7 +241,39 @@ ConstantSP zmqSend(Heap *heap, vector<ConstantSP> &args) {
     return new Bool(true);
 }
 
+int getNonNegativeInt(DictionarySP& dict, const string& key, 
+    const string& funcName, const string& exceptionPrefix){
+    ConstantSP ddbData = dict->getMember(key);
+    if(!ddbData->isScalar() || ddbData->getCategory() != INTEGRAL){
+        throw IllegalArgumentException(funcName, 
+            exceptionPrefix + key + " must be a non-negative integer. ");
+    }
+    int ret = ddbData->getInt();
+    if(ret < 0){
+        throw IllegalArgumentException(funcName, 
+            exceptionPrefix + key + " must be a non-negative integer. ");
+    }
+    return ret;
+}
+
+double getPositiveDouble(DictionarySP& dict, const string& key, 
+    const string& funcName, const string& exceptionPrefix){
+    ConstantSP ddbData = dict->getMember(key);
+    if(!ddbData->isScalar() || !ddbData->isNumber()){
+        throw IllegalArgumentException(funcName, 
+            exceptionPrefix + key + " must be a positive number. ");
+    }
+    double ret = ddbData->getDouble();
+    if(ret <= 0){
+        throw IllegalArgumentException(funcName, 
+            exceptionPrefix + key + " must be a positive number. ");
+    }
+    return ret;
+}
+
 ConstantSP zmqCreateSubJob(Heap *heap, vector<ConstantSP> &args) {
+    HandleConfig handleConfig;
+    std::string usage = "zmq::createSubJob(address, type, isClientMode, handler, parser, [prefix], [config]). ";
     if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR) {
         throw RuntimeException(PLUGIN_ZMQ_PREFIX+"addr must be a string scalar");
     }
@@ -253,20 +289,38 @@ ConstantSP zmqCreateSubJob(Heap *heap, vector<ConstantSP> &args) {
     if (args[3]->getForm() != DF_TABLE && args[3]->getType() != DT_FUNCTIONDEF) {
         throw RuntimeException(PLUGIN_ZMQ_PREFIX+"handle must be a table or a fuction");
     }
-    ConstantSP handle = args[3];
+    handleConfig.handle_ = args[3];
     if (args[4]->getType() != DT_FUNCTIONDEF) {
         throw RuntimeException(PLUGIN_ZMQ_PREFIX+"parser must be a fuction");
     }
-    FunctionDefSP parser = args[4];
+    handleConfig.parser_ = args[4];
     string prefix;
-    if (args.size() > 5) {
+    if (args.size() > 5 && !args[5]->isNothing()) {
         if (args[5]->getType() != DT_STRING || args[5]->getForm() != DF_SCALAR) {
             throw RuntimeException(PLUGIN_ZMQ_PREFIX+"prefix must be a string scalar");
         }
         prefix = args[5]->getString();
     }
+    if (args.size() > 6 && !args[6]->isNothing()) {
+        if(args[6]->getForm() != DF_DICTIONARY || dynamic_cast<Dictionary*>(args[6].get())->getKeyType() != DT_STRING){
+            throw IllegalArgumentException("zmq::createSubJob", PLUGIN_ZMQ_PREFIX + usage + "config must be a dictionary with STRING keys. ");
+        }
+        DictionarySP config = args[6];
+        if(!config->getMember("batchSize")->isNull()){
+            handleConfig.asyncConfig_.batchSize_ = getNonNegativeInt(config, "batchSize", "zmq::createSubJob", PLUGIN_ZMQ_PREFIX + usage);
+            handleConfig.asyncConfig_.isAsync_ = true;
+        }
+        if(!config->getMember("throttle")->isNull()){
+            handleConfig.asyncConfig_.throttle_ = getPositiveDouble(config, "throttle", "zmq::createSubJob", PLUGIN_ZMQ_PREFIX + usage);
+        }
+        if(!config->getMember("maxQueueDepth")->isNull()){
+            handleConfig.asyncConfig_.maxQueueDepth_ = getNonNegativeInt(config, "maxQueueDepth", "zmq::createSubJob", PLUGIN_ZMQ_PREFIX + usage);
+        }
+    }
+    
     std::unique_ptr<SubConnection> cup(
-            new SubConnection(heap, make_shared<ZmqSubSocket>(addr, socketType, parser, prefix, isConnect), parser, handle));
+        new SubConnection(heap, make_shared<ZmqSubSocket>(addr, socketType, handleConfig.parser_, prefix, isConnect), 
+        handleConfig));
     FunctionDefSP onClose(
             Util::createSystemProcedure("zmq sub connection onClose()", connectionOnClose<SubConnection>, 1, 1));
     ConstantSP conn = Util::createResource((long long) cup.release(), "zmq subscribe connection", onClose,
@@ -293,11 +347,21 @@ ConstantSP zmqGetSubJobStat(Heap *heap, vector<ConstantSP> &args) {
     std::ignore = args;
     LockGuard<Mutex> lock(&ZmqStatus::GLOBAL_LOCK);
     int size = ZmqStatus::STATUS_DICT->size();
-    VectorSP connetionVec = Util::createVector(DT_STRING, size);
-    VectorSP subAddrVec = Util::createVector(DT_STRING, size);
-    VectorSP prefixVec = Util::createVector(DT_STRING, size);
-    VectorSP recv = Util::createVector(DT_LONG, size);
-    VectorSP createTimestamp = Util::createVector(DT_TIMESTAMP, size);
+    int capacity = size == 0 ? 1 : size;
+    if(capacity == 0) size = 1;
+    DdbVector<string> connectionVec(0, capacity);
+    DdbVector<string> subAddrVec(0, capacity);
+    DdbVector<string> prefixVec(0, capacity);
+    DdbVector<long long> recv(0, capacity);
+    DdbVector<long long> createTimestamp(0, capacity);
+    DdbVector<long long> processedMsgCount(0, capacity);
+    DdbVector<long long> failedMsgCount(0, capacity);
+    DdbVector<string> lastErrMsg(0, capacity);
+    DdbVector<long long> lastFailedTimestamp(0, capacity);
+    DdbVector<int> batchSize(0, capacity);
+    DdbVector<double> throttle(0, capacity);
+    DdbVector<int> queueDepthLimit(0, capacity);
+    DdbVector<int> queueDepth(0, capacity);
     VectorSP keys = ZmqStatus::STATUS_DICT->keys();
     for (int i = 0; i < size; ++i) {
         string key = keys->getString(i);
@@ -305,14 +369,34 @@ ConstantSP zmqGetSubJobStat(Heap *heap, vector<ConstantSP> &args) {
         SubConnection *zmqSubCon = (SubConnection *) conn->getLong();
         SmartPointer<AppendTable> appendTable = zmqSubCon->getAppendTable();
         shared_ptr<ZmqSubSocket> subSocket = appendTable->getZmqSocket();
-        connetionVec->setString(i, key);
-        subAddrVec->setString(i, subSocket->getAddr());
-        prefixVec->setString(i, subSocket->getPrefix());
-        recv->setLong(i, appendTable->getRecv());
-        createTimestamp->setLong(i, zmqSubCon->getCreateTime());
+        connectionVec.add(key);
+        subAddrVec.add(subSocket->getAddr());
+        prefixVec.add(subSocket->getPrefix());
+        recv.add(appendTable->getRecv());
+        createTimestamp.add(zmqSubCon->getCreateTime());
+        HandleConfig config = zmqSubCon->getConfig();
+        batchSize.add(config.asyncConfig_.batchSize_);
+        throttle.add(config.asyncConfig_.throttle_);
+        queueDepthLimit.add(config.asyncConfig_.maxQueueDepth_);
+        
+        const MarketStatus& status = appendTable->getStatus();
+        processedMsgCount.add(status.processedMsgCount_);
+        failedMsgCount.add(status.failedMsgCount_);
+        lastErrMsg.add(status.lastErrMsg_);
+        lastFailedTimestamp.add(status.lastFailedTimestamp_);
+        queueDepth.add(status.queueDepth_);
     }
-    vector<ConstantSP> cols = {connetionVec, subAddrVec, prefixVec, recv, createTimestamp};
-    vector<string> colName = {"subscriptionId", "addr", "prefix", "recvPackets", "createTimestamp"};
+    vector<ConstantSP> cols = {
+        connectionVec.createVector(DT_STRING), subAddrVec.createVector(DT_STRING),
+        prefixVec.createVector(DT_STRING), recv.createVector(DT_LONG),
+        createTimestamp.createVector(DT_TIMESTAMP), 
+        processedMsgCount.createVector(DT_LONG), failedMsgCount.createVector(DT_LONG),
+        lastErrMsg.createVector(DT_STRING), lastFailedTimestamp.createVector(DT_NANOTIMESTAMP), 
+        batchSize.createVector(DT_INT), throttle.createVector(DT_DOUBLE),
+        queueDepthLimit.createVector(DT_INT), queueDepth.createVector(DT_INT)};
+    vector<string> colName = {"subscriptionId", "addr", "prefix", "recvPackets", "createTimestamp",
+        "processedMsgCount", "failedMsgCount", "lastErrMsg",  "lastFailedTimestamp",
+        "batchSize", "throttle", "queueDepthLimit", "queueDepth"};
     return Util::createTable(colName, cols);
 }
 
@@ -363,7 +447,7 @@ ConstantSP zmqCancelSubJob(Heap *heap, vector<ConstantSP> args) {
     }
     ZmqStatus::STATUS_DICT->remove(new String(key));
     if (sc != nullptr) {
-        sc->cancelThread();
+        sc->stop();
         LOG_INFO(PLUGIN_ZMQ_PREFIX+"subscription: " + std::to_string(conn->getLong()) + " is stopped. ");
     }
     return new Void();

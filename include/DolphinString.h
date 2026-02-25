@@ -3,10 +3,9 @@
 #include <cstring>
 #include <string>
 #include <algorithm>
-#include <functional>
-#include <ctype.h>
 #include <cassert>
 #include <stdexcept>
+#include <type_traits>
 
 #include "Types.h"
 
@@ -105,7 +104,12 @@ public:
         std::transform(ptr, ptr + sz, ptr, [](char c) { return std::toupper(c); });
     }
 
-    void trim(std::function<int(int)> trimFunc = [](int c) { return std::isspace(c); }) {
+    void trim() {
+        trim([](char c) { return std::isspace(c); });
+    }
+
+    template <class TrimFunc>
+    std::enable_if_t<std::is_invocable_r_v<bool, TrimFunc, char>> trim(TrimFunc trimFunc) {
         int sz = size();
         char * ptr = getData();
         int startIdx = 0;
@@ -126,7 +130,7 @@ public:
         assert(newSize < sz);
         if (isInline() == false && newSize + 1 < INLINE_STR_CAP) {
             // noninline -> inline: take advantage of move assignment operator
-            *this = std::move(DolphinString(ptr + startIdx, newSize));
+            *this = DolphinString(ptr + startIdx, newSize);
             return;
         }
         memmove(ptr, ptr + startIdx, newSize);
@@ -250,7 +254,7 @@ public:
         return tmp;
     }
 
-    DolphinString operator+(const char*  rhs) const {
+    DolphinString operator+(const char* rhs) const {
     	DolphinString tmp(*this);
     	tmp.append(rhs, strlen(rhs));
         return tmp;

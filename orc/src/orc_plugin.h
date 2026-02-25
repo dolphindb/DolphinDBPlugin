@@ -1,5 +1,6 @@
-#ifndef ORC_PLUGIN_H
-#define ORC_PLUGIN_H
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
 
 #include <vector>
 #include <string>
@@ -86,5 +87,3 @@ ConstantSP loadORCEx(Heap *heap, DBHandleWrapper &db, const string &tableName, c
                          const string &filename, const TableSP &schema, const ConstantSP &column, const int rowStart, const int rowNum, const ConstantSP &transform);
 string getORCSchema(const TableSP &table);
 }
-
-#endif

@@ -28,6 +28,11 @@ extern double pointsize;
 std::string lineColor;
 int resolution[2];
 
+extern "C" void plugin_bail_to_command_line(char *e)
+{
+    throw RuntimeException(std::string("gp runtime error: ") + e);
+}
+
 extern "C" int setRowData(char* str, int column){
     string origin = ConstantData[blockIndex][column]->getString(dataIndex);
     // std::cout<<"blockIndex"<<blockIndex<<"column"<<column<<"dataIndex"<<dataIndex<<std::endl;

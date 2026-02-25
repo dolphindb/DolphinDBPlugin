@@ -1,6 +1,7 @@
 #ifndef HDF5_PLUGIN_UTIL_H
 #define HDF5_PLUGIN_UTIL_H
 
+#include "DolphinDBEverything.h"
 #include <CoreConcept.h>
 #include <Logger.h>
 #include <H5Cpp.h>
@@ -46,7 +47,7 @@ typedef struct GroupInfoTag
     vector<string> *colsName{};
     vector<string> *kindColsName{};
 
-    GroupInfoTag(string &type, vector<string> *name, size_t indexCount) : dataType(type), colsName(name) {}
+    GroupInfoTag(string &type, vector<string> *name) : dataType(type), colsName(name) {}
 
     GroupInfoTag() = default;
 } GroupInfo;

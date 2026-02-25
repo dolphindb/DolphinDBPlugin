@@ -19,11 +19,6 @@
 #define MAX_CAPACITY 262144
 #define MAX_PACKET_SIZE 1400
 
-#define NO_NEED_OPENSSL_LIB
-#ifndef NO_NEED_OPENSSL_LIB
-#include <openssl/ssl.h>
-#endif
-
 namespace ddb {
 using std::string;
 
@@ -52,9 +47,7 @@ class QPSocket {
 
 class Constant;
 class Socket;
-class UdpSocket;
 typedef SmartPointer<Socket> SocketSP;
-typedef SmartPointer<UdpSocket> UdpSocketSP;
 
 class Socket{
 public:
@@ -76,15 +69,8 @@ public:
 	bool isBlockingMode() const {return blocking_;}
 	bool isValid();
 	void setAutoClose(bool option) { autoClose_ = option;}
-
-	#ifndef NO_NEED_OPENSSL_LIB
-	void enableSSL(SSL* ssl) { ssl_ = ssl;}
-	SSL* getSSL() const { return ssl_;}
-	#else
 	void enableSSL(void* ssl) { ssl_ = ssl;}
 	void* getSSL() const { return ssl_;}
-	#endif
-
 	IO_ERR SSLClientHandshake(); // client side only
 	bool setNonBlocking();
 	static bool ENABLE_TCP_NODELAY;
@@ -100,13 +86,8 @@ private:
 	SOCKET handle_;
 	bool blocking_;
 	bool autoClose_;
-#ifndef NO_NEED_OPENSSL_LIB
-	SSL_CTX* ctx_ = NULL; // client side only
-	SSL* ssl_ = NULL;
-#else
 	void* ctx_ = NULL; // client side only
 	void* ssl_ = NULL;
-#endif
 	bool sslEstablished_ = false; // client side only
 
 #ifndef _WIN32
@@ -117,6 +98,28 @@ private:
 	bool enableRdma_ = false;
 	rdma::QPSocketSP qpsock_;
 #endif // ifndef _WIN32
+};
+
+class UdpSocket{
+public:
+	UdpSocket(int port);
+	UdpSocket(const string& remoteHost, int remotePort);
+	~UdpSocket();
+	int getPort() const {return port_;}
+	IO_ERR send(const char* buffer, size_t length);
+	IO_ERR recv(char* buffer, size_t length, size_t& actualLength);
+	void setRemotePort(int remotePort){ remotePort_ = remotePort;}
+	IO_ERR bind();
+
+private:
+	int getErrorCode();
+
+private:
+	int port_;
+	string remoteHost_;
+	int remotePort_;
+	SOCKET handle_;
+	struct sockaddr_in addrRemote_;
 };
 
 class SWORDFISH_API DataInputStream{
@@ -258,6 +261,7 @@ public:
     void setSize(size_t size) { assert(source_==STREAM_TYPE::ARRAY_STREAM); size_ = size;}
 	IO_ERR flush(bool sync = false);
 	IO_ERR close();
+	size_t getCapacity() const { return capacity_; }
 	inline long long writtenBytes() const { return writtenBytes_;}
 
 protected:

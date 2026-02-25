@@ -314,7 +314,7 @@ Status transCol(ConstantSP& retCol, std::shared_ptr<ChunkedArray> chunks, std::s
                 if(bitmap != 0) {
                     unsigned char ch = *(bitmap + (i / 8));
                     if(((~ch) & (1 << (i % 8))) != 0) {
-                        colVec[pos] = 128;
+                        colVec[pos] = -128;
                     }
                 }
                 pos++;
@@ -706,6 +706,7 @@ Status loadFromFeather(string filePath, VectorSP columnToRead, TableSP& table) {
 
 
 ConstantSP loadFeather(Heap *heap, vector<ConstantSP> &args){
+    std::ignore = heap;
     const auto usage = string("Usage: load(filePath, [columns]). ");
 
     if(args[0]->getType() != DT_STRING){
@@ -761,6 +762,7 @@ Status getSchema(string filePath, TableSP& table) {
 }
 
 ConstantSP schemaFeather(Heap *heap, vector<ConstantSP> &args){
+    std::ignore = heap;
     const auto usage = string("Usage: schema(filePath). ");
 
     if(args[0]->getType() != DT_STRING){
@@ -1166,7 +1168,7 @@ arrow::Status saveToFeather(const ConstantSP& table, const ConstantSP& filename,
 }
 
 ConstantSP saveFeather(Heap *heap, vector<ConstantSP> &args){
-
+    std::ignore = heap;
     const auto usage = string("Usage: save(table, filePath, [compressMethod], [compressionLevel]). ");
     ConstantSP table = args[0];
     ConstantSP filename = args[1];

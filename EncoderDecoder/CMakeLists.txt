@@ -6,4 +6,5 @@ project(${PluginName})
 include(../template.cmake)
 CreatePlugin(${PluginName})
 
+UseSignedCharOnARM()
 AddProtobuf()

@@ -62,8 +62,11 @@ namespace nsqUtil {
         if (data.isTrade) {
             auto &tradeData = data.tradeData;
 
-            auto Type = INT_MIN;
-            auto BSFlag = INT_MIN;
+            auto Type = tradeData.TrdBSFlag;
+            auto BSFlag = tradeData.TrdBSFlag;
+            if (tradeData.ExchangeID[0] == HS_EI_SSE[0]) {
+                Type = 0;
+            }
             switch (tradeData.TrdBSFlag) {
                 case 'B':
                     BSFlag = 1;
@@ -73,6 +76,13 @@ namespace nsqUtil {
                     break;
                 case 'F':
                     Type = 0;
+                    if (tradeData.TrdBuyNo == tradeData.TrdSellNo) {
+                        BSFlag = 0;
+                    } else if (tradeData.TrdBuyNo > tradeData.TrdSellNo) {
+                        BSFlag = 1;
+                    } else {
+                        BSFlag = 2;
+                    }
                     break;
                 case '4':
                     Type = 1;
@@ -112,7 +122,7 @@ namespace nsqUtil {
 
             auto entrustData = data.entrustData;
 
-            auto Type = INT_MIN;
+            auto Type = entrustData.OrdType;
             int sourceType = 0;
             switch (entrustData.OrdType) {
                 case '1':
@@ -133,7 +143,7 @@ namespace nsqUtil {
                     sourceType = -1; // special treat of status msg
             }
 
-            auto BSFlag = INT_MIN;
+            auto BSFlag = entrustData.OrdSide;
             switch (entrustData.OrdSide) {
                 case '1':
                 case 'B':
@@ -260,7 +270,7 @@ namespace nsqUtil {
         if (dataType != ENTRUST_220105 and dataType != SNAPSHOT and dataType != TRADE and dataType != ENTRUST and dataType != TRADE_ENTRUST) {
             throw RuntimeException(NSQ_PREFIX + "dataType should be snapshot, trade, orders, or tradeAndOrder");
         }
-        if (marketType != SH and marketType != SZ) {
+        if (marketType != "sh" and marketType != "sz") {
             throw RuntimeException(NSQ_PREFIX + "marketType should be sh or sz.");
         }
     }
@@ -270,7 +280,7 @@ namespace nsqUtil {
         year = date / 10000;
         month = date % 10000 / 100;
         day = date % 100;
-        return Date(year, month, day).getInt();
+        return Util::countDays(year, month, day);
     }
 
     int getTime(HSTime time) {
@@ -279,7 +289,7 @@ namespace nsqUtil {
         minute = time % 10000000 / 100000;
         second = time % 100000 / 1000;
         ms = time % 1000;
-        return Time(hour, minute, second, ms).getInt();
+        return hour * 3600000 + minute * 60000 + second * 1000 + ms;
     }
 
     /** Table Metas **/
@@ -446,5 +456,25 @@ namespace nsqUtil {
                     DT_INT, DT_LONG, DT_LONG, DT_LONG, DT_INT,
             }
     };
+
+    string getMarketTypeStr(nsqUtil::MarketType marketType) {
+        if (marketType == nsqUtil::MarketType::SH) {
+            return "sh";
+        } else if (marketType == nsqUtil::MarketType::SZ) {
+            return "sz";
+        } else {
+            throw RuntimeException(NSQ_PREFIX + "marketType should be sh or sz.");
+        }
+    };
+
+    nsqUtil::MarketType parseMarketTypeStr(const string &str) {
+        if (str == "sh") {
+            return nsqUtil::MarketType::SH;
+        } else if (str == "sz") {
+            return nsqUtil::MarketType::SZ;
+        } else {
+            throw RuntimeException(NSQ_PREFIX + "marketType should be sh or sz.");
+        }
+    }
 
 } // namespace nsqUtil

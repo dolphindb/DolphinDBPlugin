@@ -43,9 +43,9 @@ ddb::ResourceMap<GRBLinExpr> GRB_LIN_EXPRESSION_AMP(GUROBI_PREFIX, GUROBI_LIN_EX
 ddb::ResourceMap<GRBQuadExpr> GRB_QUAD_EXPRESSION_AMP(GUROBI_PREFIX, GUROBI_QUAD_EXPRESSION_DESC);
 
 // close functions
-void modelOnClose(Heap *heap, vector<ConstantSP> &args) {}
-void linExpressionOnClose(Heap *heap, vector<ConstantSP> &args) {}
-void quadExpressionOnClose(Heap *heap, vector<ConstantSP> &args) {}
+void modelOnClose(Heap *heap, vector<ConstantSP> &args) { std::ignore = heap; std::ignore = args; }
+void linExpressionOnClose(Heap *heap, vector<ConstantSP> &args) { std::ignore = heap; std::ignore = args; }
+void quadExpressionOnClose(Heap *heap, vector<ConstantSP> &args) { std::ignore = heap; std::ignore = args; }
 
 /// Helper Declarations
 
@@ -104,6 +104,7 @@ ConstantSP gurobiModel(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP gurobiAddVars(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage = GUROBI_PREFIX + " addVars(model, lb, ub, obj, type, varName): ";
     auto numVars = args[5]->size();  // use name as default size
 
@@ -253,6 +254,7 @@ ConstantSP gurobiQuadExpr(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP gurobiAddConstr(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage = GUROBI_PREFIX + " addConstr(model, expr, sense, rhsVal): ";
 
     /// args
@@ -287,6 +289,7 @@ ConstantSP gurobiAddConstr(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP gurobiSetObjective(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string usage = GUROBI_PREFIX + " setObjective(model, expr, sense): ";
 
     /// args
@@ -323,6 +326,7 @@ ConstantSP gurobiSetObjective(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP gurobiOptimize(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     auto model = GRB_MODEL_AMP.safeGet(args[0]);
     model->update();
 
@@ -339,6 +343,7 @@ ConstantSP gurobiOptimize(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP gurobiGetResult(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     auto model = GRB_MODEL_AMP.safeGet(args[0]);
     model->update();
 
@@ -360,6 +365,7 @@ ConstantSP gurobiGetResult(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP gurobiGetObjective(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     try {
         auto model = GRB_MODEL_AMP.safeGet(args[0]);
         model->update();

@@ -28,129 +28,129 @@ class SWORDFISH_API Void: public Constant{
 public:
 	Void(bool explicitNull = false, bool isDefault = false);
 	inline bool isDefault() const { return isDefault_;}
-	virtual ConstantSP getInstance() const;
-	virtual ConstantSP getValue() const;
-	virtual DATA_TYPE getRawType() const { return DT_VOID;}
-	virtual string getString() const;
-	virtual string getScript() const;
-	virtual string getString(Heap* heap) const;
-	virtual string getScript(Heap* heap) const;
-	virtual const DolphinString& getStringRef() const {return Constant::DEMPTY;}
-	virtual char getBool() const {return CHAR_MIN;}
-	virtual char getChar() const {return CHAR_MIN;}
-	virtual short getShort() const {return SHRT_MIN;}
-	virtual int getInt() const {return INT_MIN;}
-	virtual INDEX getIndex() const {return INDEX_MIN;}
-	virtual long long  getLong() const {return LLONG_MIN;}
-	virtual float getFloat() const {return FLT_NMIN;}
-	virtual double getDouble() const {return DBL_NMIN;}
-	virtual const Guid getInt128() const { return Guid::ZERO;}
-	virtual bool isNull() const {return true;}
-	virtual void nullFill(const ConstantSP& val){}
-	virtual bool isNull(INDEX start, int len, char* buf) const;
-	virtual bool isValid(INDEX start, int len, char* buf) const;
-	virtual bool getBool(INDEX start, int len, char* buf) const;
-	virtual const char* getBoolConst(INDEX start, int len, char* buf) const;
-	virtual bool getChar(INDEX start, int len, char* buf) const;
-	virtual const char* getCharConst(INDEX start, int len, char* buf) const;
-	virtual bool getShort(INDEX start, int len, short* buf) const;
-	virtual const short* getShortConst(INDEX start, int len, short* buf) const;
-	virtual bool getInt(INDEX start, int len, int* buf) const;
-	virtual const int* getIntConst(INDEX start, int len, int* buf) const;
-	virtual bool getLong(INDEX start, int len, long long* buf) const;
-	virtual const long long* getLongConst(INDEX start, int len, long long* buf) const;
-	virtual bool getIndex(INDEX start, int len, INDEX* buf) const;
-	virtual const INDEX* getIndexConst(INDEX start, int len, INDEX* buf) const;
-	virtual bool getFloat(INDEX start, int len, float* buf) const;
-	virtual const float* getFloatConst(INDEX start, int len, float* buf) const;
-	virtual bool getDouble(INDEX start, int len, double* buf) const;
-	virtual const double* getDoubleConst(INDEX start, int len, double* buf) const;
-	virtual bool getSymbol(INDEX start, int len, int* buf, SymbolBase* symBase,bool insertIfNotThere) const;
-	virtual const int* getSymbolConst(INDEX start, int len, int* buf, SymbolBase* symBase, bool insertIfNotThere) const;
-	virtual DolphinString** getStringConst(INDEX start, int len, DolphinString** buf) const;
-	virtual char** getStringConst(INDEX start, int len, char** buf) const;
-	virtual bool getBinary(INDEX start, int len, int unitLength, unsigned char* buf) const;
-	virtual const unsigned char* getBinaryConst(INDEX start, int len, int unitLength, unsigned char* buf) const;
-	virtual bool isNull(INDEX* indices, int len, char* buf) const;
-	virtual bool isValid(INDEX* indices, int len, char* buf) const;
-	virtual bool getBool(INDEX* indices, int len, char* buf) const;
-	virtual bool getChar(INDEX* indices, int len,char* buf) const;
-	virtual bool getShort(INDEX* indices, int len, short* buf) const;
-	virtual bool getInt(INDEX* indices, int len, int* buf) const;
-	virtual bool getLong(INDEX* indices, int len, long long* buf) const;
-	virtual bool getIndex(INDEX* indices, int len, INDEX* buf) const;
-	virtual bool getFloat(INDEX* indices, int len, float* buf) const;
-	virtual bool getDouble(INDEX* indices, int len, double* buf) const;
-	virtual bool getSymbol(INDEX* indices, int len, int* buf, SymbolBase* symBase,bool insertIfNotThere) const;
-	virtual bool getString(INDEX* indices, int len, DolphinString** buf) const;
-	virtual bool getString(INDEX* indices, int len, char** buf) const;
-	virtual bool getBinary(INDEX* indices, int len, int unitLength, unsigned char* buf) const;
-	virtual long long getAllocatedMemory() const;
-	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
-	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
-	virtual int compare(INDEX index, const ConstantSP& target) const {return target->getType() == DT_VOID ? 0 : -1;}
-	virtual uint64_t hash() const;
-	virtual bool equal(const ConstantSP& other) const;
+	ConstantSP getInstance() const override;
+	ConstantSP getValue() const override;
+	DATA_TYPE getRawType() const override { return DT_VOID;}
+	string getString() const override;
+	string getScript() const override;
+	string getString(Heap* heap) const override;
+	string getScript(Heap* heap) const override;
+	const DolphinString& getStringRef() const override {return Constant::DEMPTY;}
+	char getBool() const override {return CHAR_MIN;}
+	char getChar() const override {return CHAR_MIN;}
+	short getShort() const override {return SHRT_MIN;}
+	int getInt() const override {return INT_MIN;}
+	INDEX getIndex() const override {return INDEX_MIN;}
+	long long  getLong() const override {return LLONG_MIN;}
+	float getFloat() const override {return FLT_NMIN;}
+	double getDouble() const override {return DBL_NMIN;}
+	const Guid getInt128() const override { return Guid::ZERO;}
+	bool isNull() const override {return true;}
+	void nullFill(const ConstantSP& val) override{}
+	bool isNull(INDEX start, int len, char* buf) const override;
+	bool isValid(INDEX start, int len, char* buf) const override;
+	bool getBool(INDEX start, int len, char* buf) const override;
+	const char* getBoolConst(INDEX start, int len, char* buf) const override;
+	bool getChar(INDEX start, int len, char* buf) const override;
+	const char* getCharConst(INDEX start, int len, char* buf) const override;
+	bool getShort(INDEX start, int len, short* buf) const override;
+	const short* getShortConst(INDEX start, int len, short* buf) const override;
+	bool getInt(INDEX start, int len, int* buf) const override;
+	const int* getIntConst(INDEX start, int len, int* buf) const override;
+	bool getLong(INDEX start, int len, long long* buf) const override;
+	const long long* getLongConst(INDEX start, int len, long long* buf) const override;
+	bool getIndex(INDEX start, int len, INDEX* buf) const override;
+	const INDEX* getIndexConst(INDEX start, int len, INDEX* buf) const override;
+	bool getFloat(INDEX start, int len, float* buf) const override;
+	const float* getFloatConst(INDEX start, int len, float* buf) const override;
+	bool getDouble(INDEX start, int len, double* buf) const override;
+	const double* getDoubleConst(INDEX start, int len, double* buf) const override;
+	bool getSymbol(INDEX start, int len, int* buf, SymbolBase* symBase,bool insertIfNotThere) const override;
+	const int* getSymbolConst(INDEX start, int len, int* buf, SymbolBase* symBase, bool insertIfNotThere) const override;
+	DolphinString** getStringConst(INDEX start, int len, DolphinString** buf) const override;
+	char** getStringConst(INDEX start, int len, char** buf) const override;
+	bool getBinary(INDEX start, int len, int unitLength, unsigned char* buf) const override;
+	const unsigned char* getBinaryConst(INDEX start, int len, int unitLength, unsigned char* buf) const override;
+	bool isNull(INDEX* indices, int len, char* buf) const override;
+	bool isValid(INDEX* indices, int len, char* buf) const override;
+	bool getBool(INDEX* indices, int len, char* buf) const override;
+	bool getChar(INDEX* indices, int len,char* buf) const override;
+	bool getShort(INDEX* indices, int len, short* buf) const override;
+	bool getInt(INDEX* indices, int len, int* buf) const override;
+	bool getLong(INDEX* indices, int len, long long* buf) const override;
+	bool getIndex(INDEX* indices, int len, INDEX* buf) const override;
+	bool getFloat(INDEX* indices, int len, float* buf) const override;
+	bool getDouble(INDEX* indices, int len, double* buf) const override;
+	bool getSymbol(INDEX* indices, int len, int* buf, SymbolBase* symBase,bool insertIfNotThere) const override;
+	bool getString(INDEX* indices, int len, DolphinString** buf) const override;
+	bool getString(INDEX* indices, int len, char** buf) const override;
+	bool getBinary(INDEX* indices, int len, int unitLength, unsigned char* buf) const override;
+	long long getAllocatedMemory() const override;
+	IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const override;
+	int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const override;
+	IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial) override;
+	int compare(INDEX index, const ConstantSP& target) const override {return target->getType() == DT_VOID ? 0 : -1;}
+	uint64_t hash() const override;
+	bool equal(const ConstantSP& other) const override;
 
 public:  /// {get,set}Decimal{32,64}
-	virtual int getDecimal32(int scale) const override {
+	int getDecimal32(int scale) const override {
 		return INT_MIN;
 	}
-	virtual long long getDecimal64(int scale) const override {
+	long long getDecimal64(int scale) const override {
 		return LLONG_MIN;
 	}
-	virtual int128 getDecimal128(int scale) const override {
+	int128 getDecimal128(int scale) const override {
 		return int128MinValue();
 	}
 
-	virtual int getDecimal32(INDEX index, int scale) const override {
+	int getDecimal32(INDEX index, int scale) const override {
 		int result = 0;
 		getDecimal32(index, /*len*/1, scale, &result);
 		return result;
 	}
-	virtual long long getDecimal64(INDEX index, int scale) const override {
+	long long getDecimal64(INDEX index, int scale) const override {
 		long long result = 0;
 		getDecimal64(index, /*len*/1, scale, &result);
 		return result;
 	}
-	virtual int128 getDecimal128(INDEX index, int scale) const override {
+	int128 getDecimal128(INDEX index, int scale) const override {
 		int128 result = 0;
 		getDecimal128(index, /*len*/1, scale, &result);
 		return result;
 	}
 
-	virtual bool getDecimal32(INDEX start, int len, int scale, int *buf) const override {
+	bool getDecimal32(INDEX start, int len, int scale, int *buf) const override {
 		return getDecimal(start, len, scale, buf);
 	}
-	virtual bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override {
+	bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override {
 		return getDecimal(start, len, scale, buf);
 	}
-	virtual bool getDecimal128(INDEX start, int len, int scale, int128 *buf) const override {
+	bool getDecimal128(INDEX start, int len, int scale, int128 *buf) const override {
 		return getDecimal(start, len, scale, buf);
 	}
 
-	virtual const int* getDecimal32Const(INDEX start, int len, int scale, int *buf) const override {
+	const int* getDecimal32Const(INDEX start, int len, int scale, int *buf) const override {
 		getDecimal(start, len, scale, buf);
 		return buf;
 	}
-	virtual const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const override {
+	const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const override {
 		getDecimal(start, len, scale, buf);
 		return buf;
 	}
-	virtual const int128* getDecimal128Const(INDEX start, int len, int scale,
+	const int128* getDecimal128Const(INDEX start, int len, int scale,
 			int128 *buf) const override {
 		getDecimal(start, len, scale, buf);
 		return buf;
 	}
 
-	virtual bool getDecimal32(INDEX *indices, int len, int scale, int *buf) const override {
+	bool getDecimal32(INDEX *indices, int len, int scale, int *buf) const override {
 		return getDecimal(0, len, scale, buf);
 	}
-	virtual bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const override {
+	bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const override {
 		return getDecimal(0, len, scale, buf);
 	}
-	virtual bool getDecimal128(INDEX *indices, int len, int scale, int128 *buf) const override {
+	bool getDecimal128(INDEX *indices, int len, int scale, int128 *buf) const override {
 		return getDecimal(0, len, scale, buf);
 	}
 
@@ -171,7 +171,7 @@ public:
 	void clearCache(long long sessionId, long long id);
 	long long requestCacheId(int count);
 	int getObjectCount() const;
-	virtual long long releaseMemory(long long target, bool& satisfied);
+	long long releaseMemory(long long target, bool& satisfied) override;
 	static ObjectPool inst_;
 
 private:
@@ -192,65 +192,65 @@ class SWORDFISH_API Int128: public Constant{
 public:
 	Int128();
 	Int128(const unsigned char* data);
-	virtual ~Int128(){}
+	~Int128() override{}
 	inline const unsigned char* bytes() const { return uuid_;}
-	virtual string getString() const { return toString(uuid_);}
-	virtual const Guid getInt128() const { return uuid_;}
-	virtual const unsigned char* getBinary() const {return uuid_;}
-	virtual bool isNull() const;
-	virtual void setNull();
-	virtual void nullFill(const ConstantSP& val){
+	string getString() const override { return toString(uuid_);}
+	const Guid getInt128() const override { return uuid_;}
+	const unsigned char* getBinary() const override {return uuid_;}
+	bool isNull() const override;
+	void setNull() override;
+	void nullFill(const ConstantSP& val) override{
 		if(isNull())
 			memcpy(uuid_, val->getInt128().bytes(), 16);
 	}
-	virtual bool isNull(INDEX start, int len, char* buf) const {
+	bool isNull(INDEX start, int len, char* buf) const override {
 		char null=isNull();
 		for(int i=0;i<len;++i)
 			buf[i]=null;
 		return true;
 	}
-	virtual bool isNull(INDEX* indices, int len, char* buf) const {
+	bool isNull(INDEX* indices, int len, char* buf) const override {
 		char null=isNull();
 		for(int i=0;i<len;++i)
 			buf[i]=null;
 		return true;
 	}
-	virtual bool isValid(INDEX start, int len, char* buf) const {
+	bool isValid(INDEX start, int len, char* buf) const override {
 		char valid=!isNull();
 		for(int i=0;i<len;++i)
 			buf[i]=valid;
 		return true;
 	}
-	virtual bool isValid(INDEX* indices, int len, char* buf) const {
+	bool isValid(INDEX* indices, int len, char* buf) const override {
 		char valid=!isNull();
 		for(int i=0;i<len;++i)
 			buf[i]=valid;
 		return true;
 	}
-	virtual int compare(INDEX index, const ConstantSP& target) const;
-	virtual void setBinary(const unsigned char* val, int unitLength);
-	virtual bool getBinary(INDEX start, int len, int unitLenght, unsigned char* buf) const;
-	virtual bool getBinary(INDEX* indices, int len, int unitLength, unsigned char* buf) const;
-	virtual const unsigned char* getBinaryConst(INDEX start, int len, int unitLength, unsigned char* buf) const;
-	virtual ConstantSP getInstance() const {return new Int128();}
-	virtual ConstantSP getValue() const {return new Int128(uuid_);}
-	virtual DATA_TYPE getRawType() const { return DT_INT128;}
-	virtual long long getAllocatedMemory() const {return sizeof(Int128);}
-	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const {
+	int compare(INDEX index, const ConstantSP& target) const override;
+	void setBinary(const unsigned char* val, int unitLength) override;
+	bool getBinary(INDEX start, int len, int unitLenght, unsigned char* buf) const override;
+	bool getBinary(INDEX* indices, int len, int unitLength, unsigned char* buf) const override;
+	const unsigned char* getBinaryConst(INDEX start, int len, int unitLength, unsigned char* buf) const override;
+	ConstantSP getInstance() const override {return new Int128();}
+	ConstantSP getValue() const override {return new Int128(uuid_);}
+	DATA_TYPE getRawType() const override { return DT_INT128;}
+	long long getAllocatedMemory() const override {return sizeof(Int128);}
+	IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const override {
 		short flag = (DF_SCALAR <<8) + getType();
 		buffer->write((char)OBJECT_TYPE::CONSTOBJ);
 		buffer->write(flag);
 		return buffer->write((const char*)uuid_, 16);
 	}
-	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
-	virtual bool assign(const ConstantSP& value);
+	int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const override;
+	IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial) override;
+	bool assign(const ConstantSP& value) override;
 	static string toString(const unsigned char* data);
 	static Int128* parseInt128(const char* str, int len);
 	static bool parseInt128(const char* str, size_t len, unsigned char* buf);
-	virtual uint64_t hash() const;
-	virtual bool equal(const ConstantSP& other) const;
-	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){
+	uint64_t hash() const override;
+	bool equal(const ConstantSP& other) const override;
+	bool set(INDEX index, const ConstantSP& value, INDEX valueIndex) override{
 		memcpy(uuid_, value->getInt128(valueIndex).bytes(), 16);
 		return true;
 	}
@@ -269,11 +269,11 @@ public:
 	Uuid(const unsigned char* uuid);
 	Uuid(const char* uuid, int len);
 	Uuid(const Uuid& copy);
-	virtual ~Uuid(){}
-	virtual ConstantSP getInstance() const {return new Uuid(false);}
-	virtual ConstantSP getValue() const {return new Uuid(uuid_);}
-	virtual DATA_TYPE getRawType() const { return DT_INT128;}
-	virtual string getString() const { return Guid::getString(uuid_);}
+	~Uuid() override{}
+	ConstantSP getInstance() const override {return new Uuid(false);}
+	ConstantSP getValue() const override {return new Uuid(uuid_);}
+	DATA_TYPE getRawType() const override { return DT_INT128;}
+	string getString() const override { return Guid::getString(uuid_);}
 	static Uuid* parseUuid(const char* str, int len);
 	static bool parseUuid(const char* str, size_t len, unsigned char* buf);
 };
@@ -283,11 +283,11 @@ public:
 	IPAddr();
 	IPAddr(const char* ip, int len);
 	IPAddr(const unsigned char* data);
-	virtual ~IPAddr(){}
-	virtual ConstantSP getInstance() const {return new IPAddr();}
-	virtual ConstantSP getValue() const {return new IPAddr(uuid_);}
-	virtual DATA_TYPE getRawType() const { return DT_INT128;}
-	virtual string getString() const { return toString(uuid_);}
+	~IPAddr() override{}
+	ConstantSP getInstance() const override {return new IPAddr();}
+	ConstantSP getValue() const override {return new IPAddr(uuid_);}
+	DATA_TYPE getRawType() const override { return DT_INT128;}
+	string getString() const override { return toString(uuid_);}
 	static string toString(const unsigned char* data);
 	static IPAddr* parseIPAddr(const char* str, int len);
 	static bool parseIPAddr(const char* str, size_t len, unsigned char* buf);
@@ -348,8 +348,8 @@ private:
 
 class SWORDFISH_API Double2 : public Int128 {
 public:
-	virtual bool isNull() const;
-	virtual void setNull();
+	bool isNull() const override;
+	void setNull() override;
 
 protected:
 	Double2();
@@ -362,11 +362,11 @@ public:
 	Complex() : Double2(){setType(DT_COMPLEX);}
 	Complex(double real, double image) : Double2(real, image){setType(DT_COMPLEX);}
 	Complex(const unsigned char* data) : Double2(data){setType(DT_COMPLEX);}
-	virtual ~Complex(){}
-	virtual ConstantSP getInstance() const {return new Complex();}
-	virtual ConstantSP getValue() const {return new Complex(uuid_);}
-	virtual DATA_TYPE getRawType() const { return DT_INT128;}
-	virtual string getString() const { return toString(uuid_);}
+	~Complex() override{}
+	ConstantSP getInstance() const override {return new Complex();}
+	ConstantSP getValue() const override {return new Complex(uuid_);}
+	DATA_TYPE getRawType() const override { return DT_INT128;}
+	string getString() const override { return toString(uuid_);}
 	double getReal() const;
 	double getImage() const;
 	static string toString(const unsigned char* data);
@@ -377,11 +377,11 @@ public:
 	Point() : Double2(){setType(DT_POINT);}
 	Point(double x, double y) : Double2(x, y){setType(DT_POINT);}
 	Point(const unsigned char* data) : Double2(data){setType(DT_POINT);}
-	virtual ~Point(){}
-	virtual ConstantSP getInstance() const {return new Point();}
-	virtual ConstantSP getValue() const {return new Point(uuid_);}
-	virtual DATA_TYPE getRawType() const { return DT_INT128;}
-	virtual string getString() const { return toString(uuid_);}
+	~Point() override{}
+	ConstantSP getInstance() const override {return new Point();}
+	ConstantSP getValue() const override {return new Point(uuid_);}
+	DATA_TYPE getRawType() const override { return DT_INT128;}
+	string getString() const override { return toString(uuid_);}
 	double getX() const;
 	double getY() const;
 	static string toString(const unsigned char* data);
@@ -396,137 +396,107 @@ public:
 	virtual char getBool() const {throw IncompatibleTypeException(DT_BOOL, internalType());}
 	virtual char getChar() const {throw IncompatibleTypeException(DT_CHAR, internalType());}
 	virtual short getShort() const {throw IncompatibleTypeException(DT_SHORT, internalType());}
-	virtual int getInt() const {throw IncompatibleTypeException(DT_INT, internalType());}
-	virtual long long getLong() const {throw IncompatibleTypeException(DT_LONG, internalType());}
+	virtual int getInt() const;
+	virtual long long getLong() const;
 	virtual INDEX getIndex() const {throw IncompatibleTypeException(DT_INDEX, internalType());}
-	virtual float getFloat() const {throw IncompatibleTypeException(DT_FLOAT, internalType());}
-	virtual double getDouble() const {throw IncompatibleTypeException(DT_DOUBLE, internalType());}
+	virtual float getFloat() const;
+	virtual double getDouble() const;
 
-	virtual int getDecimal32(int scale) const override {
-		throw IncompatibleTypeException(DT_DECIMAL32, internalType());
-	}
-	virtual long long getDecimal64(int scale) const override {
-		throw IncompatibleTypeException(DT_DECIMAL64, internalType());
-	}
-	virtual int128 getDecimal128(int scale) const override {
-		throw IncompatibleTypeException(DT_DECIMAL128, internalType());
-	}
-	virtual int getDecimal32(INDEX index, int scale) const override {
-		throw IncompatibleTypeException(DT_DECIMAL32, internalType());
-	}
-	virtual long long getDecimal64(INDEX index, int scale) const override {
-		throw IncompatibleTypeException(DT_DECIMAL64, internalType());
-	}
-	virtual int128 getDecimal128(INDEX index, int scale) const override {
-		throw IncompatibleTypeException(DT_DECIMAL128, internalType());
-	}
-	virtual bool getDecimal32(INDEX start, int len, int scale, int *buf) const override {
-		throw IncompatibleTypeException(DT_DECIMAL32, internalType());
-	}
-	virtual bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override {
-		throw IncompatibleTypeException(DT_DECIMAL64, internalType());
-	}
-	virtual bool getDecimal128(INDEX start, int len, int scale, int128 *buf) const override {
-		throw IncompatibleTypeException(DT_DECIMAL128, internalType());
-	}
-	virtual bool getDecimal32(INDEX *indices, int len, int scale, int *buf) const override {
-		throw IncompatibleTypeException(DT_DECIMAL32, internalType());
-	}
-	virtual bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const override {
-		throw IncompatibleTypeException(DT_DECIMAL64, internalType());
-	}
-	virtual bool getDecimal128(INDEX *indices, int len, int scale, int128 *buf) const override {
-		throw IncompatibleTypeException(DT_DECIMAL128, internalType());
-	}
-	virtual const int* getDecimal32Const(INDEX start, int len, int scale, int *buf) const override {
-		throw IncompatibleTypeException(DT_DECIMAL32, internalType());
-	}
-	virtual const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const override {
-		throw IncompatibleTypeException(DT_DECIMAL64, internalType());
-	}
+	virtual int getDecimal32(int scale) const override;
+	virtual long long getDecimal64(int scale) const override;
+	virtual int128 getDecimal128(int scale) const override;
+	virtual int getDecimal32(INDEX index, int scale) const override;
+	virtual long long getDecimal64(INDEX index, int scale) const override;
+	virtual int128 getDecimal128(INDEX index, int scale) const override;
+	virtual bool getDecimal32(INDEX start, int len, int scale, int *buf) const override;
+	virtual bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override;
+	virtual bool getDecimal128(INDEX start, int len, int scale, int128 *buf) const override;
+	virtual bool getDecimal32(INDEX *indices, int len, int scale, int *buf) const override;
+	virtual bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const override;
+	virtual bool getDecimal128(INDEX *indices, int len, int scale, int128 *buf) const override;
+	virtual const int* getDecimal32Const(INDEX start, int len, int scale, int *buf) const override;
+	virtual const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const override;
 	virtual const int128* getDecimal128Const(INDEX start, int len, int scale,
-			int128 *buf) const override {
-		throw IncompatibleTypeException(DT_DECIMAL128, internalType());
-	}
+			int128 *buf) const override;
 
-	virtual string getString() const {return val_.getString();}
-	virtual string getScript() const {return Util::literalConstant(val_.getString());}
-	virtual const DolphinString& getStringRef() const {return val_;}
-	virtual const DolphinString& getStringRef(INDEX index) const {return val_;}
-	virtual bool isNull() const {return val_.empty();}
-	virtual void setString(const DolphinString& val) {val_=val;}
-	virtual ConstantSP get(const ConstantSP& index) const;
-	virtual void setNull(){val_="";}
-	virtual void nullFill(const ConstantSP& val){
+	string getString() const override {return val_.getString();}
+	string getScript() const override {return Util::literalConstant(val_.getString());}
+	const DolphinString& getStringRef() const override {return val_;}
+	const DolphinString& getStringRef(INDEX index) const override {return val_;}
+	bool isNull() const override {return val_.empty();}
+	void setString(const DolphinString& val) override {val_=val;}
+	ConstantSP get(const ConstantSP& index) const override;
+	void setNull() override{val_="";}
+	void nullFill(const ConstantSP& val) override{
 		if(isNull())
 			val_=val->getStringRef();
 	}
-	virtual bool isNull(INDEX start, int len, char* buf) const {
+	bool isNull(INDEX start, int len, char* buf) const override {
 		char null=isNull();
 		for(int i=0;i<len;++i)
 			buf[i]=null;
 		return true;
 	}
-	virtual bool isValid(INDEX start, int len, char* buf) const {
+	bool isValid(INDEX start, int len, char* buf) const override {
 		char valid=!isNull();
 		for(int i=0;i<len;++i)
 			buf[i]=valid;
 		return true;
 	}
-	virtual const int* getSymbolConst(INDEX start, int len, int* buf, SymbolBase* symBase, bool insertIfNotThere) const {
+	const int* getSymbolConst(INDEX start, int len, int* buf, SymbolBase* symBase, bool insertIfNotThere) const override {
 		int tmp=insertIfNotThere?symBase->findAndInsert(val_):symBase->find(val_);
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return buf;
 	}
-	virtual bool getSymbol(INDEX* indices, int len, int* buf, SymbolBase* symBase,bool insertIfNotThere) const {
+	bool getSymbol(INDEX* indices, int len, int* buf, SymbolBase* symBase,bool insertIfNotThere) const override {
 		int tmp=insertIfNotThere?symBase->findAndInsert(val_):symBase->find(val_);
 		for(int i=0;i<len;++i)
 			buf[i]= indices[i] >= 0 ? tmp : 0;
 		return true;
 	}
-	virtual bool getSymbol(INDEX start, int len, int* buf, SymbolBase* symBase,bool insertIfNotThere) const {
+	bool getSymbol(INDEX start, int len, int* buf, SymbolBase* symBase,bool insertIfNotThere) const override {
 		int tmp=insertIfNotThere?symBase->findAndInsert(val_):symBase->find(val_);
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return true;
 	}
-	virtual bool getString(INDEX start, int len, DolphinString** buf) const {
+	bool getString(INDEX start, int len, DolphinString** buf) const override {
 		for(int i=0;i<len;++i)
 			buf[i]=&val_;
 		return true;
 	}
-	virtual bool getString(INDEX start, int len, char** buf) const {
+	bool getString(INDEX start, int len, char** buf) const override {
 		char* tmp = (char*)val_.c_str();
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return true;
 	}
-	virtual DolphinString** getStringConst(INDEX start, int len, DolphinString** buf) const {
+	DolphinString** getStringConst(INDEX start, int len, DolphinString** buf) const override {
 		for(int i=0;i<len;++i)
 			buf[i]=&val_;
 		return buf;
 	}
-	virtual char** getStringConst(INDEX start, int len, char** buf) const {
+	char** getStringConst(INDEX start, int len, char** buf) const override {
 		char* val = (char*)val_.c_str();
 		for(int i=0;i<len;++i)
 			buf[i]=val;
 		return buf;
 	}
-	virtual ConstantSP getInstance() const {return ConstantSP(new String("", blob_));}
-	virtual ConstantSP getValue() const {return ConstantSP(new String(val_, blob_));}
-	virtual DATA_TYPE getRawType() const { return internalType();}
-	virtual long long getAllocatedMemory() const {return sizeof(DolphinString);}
-	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
-	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
-	virtual int compare(INDEX index, const ConstantSP& target) const {
+	ConstantSP getInstance() const override {return ConstantSP(new String("", blob_));}
+	ConstantSP getValue() const override {return ConstantSP(new String(val_, blob_));}
+	DATA_TYPE getRawType() const override { return internalType();}
+	long long getAllocatedMemory() const override {return sizeof(DolphinString);}
+	IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const override;
+	int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const override;
+	IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial) override;
+	int compare(INDEX index, const ConstantSP& target) const override {
 		return val_.compare(target->getString());
 	}
-	virtual bool assign(const ConstantSP& value);
-	virtual uint64_t hash() const;
-	virtual bool equal(const ConstantSP& other) const;
-	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getStringRef(valueIndex);return true;}
+	bool assign(const ConstantSP& value) override;
+	uint64_t hash() const override;
+	bool equal(const ConstantSP& other) const override;
+	bool set(INDEX index, const ConstantSP& value, INDEX valueIndex) override{ val_ = value->getStringRef(valueIndex);return true;}
 	const DolphinString& getRawData() const { return val_;}
 	void setRawData(const DolphinString& value) { val_ = value;}
 
@@ -545,17 +515,18 @@ public:
 	MetaCode(const ObjectSP& code) : String("< " + code->getScript() +" >"), code_(code) {
 		setTypeAndCategory(DT_CODE, SYSTEM);
 	}
-	virtual DATA_TYPE getRawType() const { return DT_CODE;}
-	virtual string getScript() const;
-	virtual bool copyable() const {return false;}
-	virtual bool containNotMarshallableObject() const {return true;}
-	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
+	DATA_TYPE getRawType() const override { return DT_CODE;}
+	string getScript() const override;
+	bool copyable() const override {return false;}
+	bool containNotMarshallableObject() const override {return true;}
+	using String::serialize;
+	IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const override;
 	ObjectSP getCode() const { return code_;}
-	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
-	virtual ObjectSP copy(Heap* pHeap, const SQLContextSP& context, bool localize) const;
-	virtual ObjectSP copyAndMaterialize(Heap* pHeap, const SQLContextSP& context, const TableSP& table) const;
-	virtual bool mayContainColumnRefOrVariable() const { return false;}
-	virtual bool isLargeConstant() const { return false;}
+	void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const override;
+	ObjectSP copy(Heap* pHeap, const SQLContextSP& context, bool localize) const override;
+	ObjectSP copyAndMaterialize(Heap* pHeap, const SQLContextSP& context, const TableSP& table) const override;
+	bool mayContainColumnRefOrVariable() const override { return false;}
+	bool isLargeConstant() const override { return false;}
 	IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial) override;
 
 private:
@@ -568,13 +539,14 @@ public:
 		parentId_(-1), id_(cacheId), action_(-1), isTable_(isTable), localMode_(localMode){setTypeAndCategory(DT_DATASOURCE, SYSTEM);}
 	DataSource(const vector<ObjectSP>& code, long long cacheId = -1, bool isTable = true, bool localMode = false);
 	DataSource(Session* session, const DataInputStreamSP& in);
-	virtual DATA_TYPE getRawType() const { return DT_DATASOURCE;}
-	virtual string getScript() const;
-	virtual bool copyable() const {return false;}
-	virtual bool containNotMarshallableObject() const {return true;}
-	virtual void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
-	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
-	virtual ConstantSP getReference(Heap* pHeap);
+	DATA_TYPE getRawType() const override { return DT_DATASOURCE;}
+	string getScript() const override;
+	bool copyable() const override {return false;}
+	bool containNotMarshallableObject() const override {return true;}
+	void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const override;
+	using String::serialize;
+	IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const override;
+	ConstantSP getReference(Heap* pHeap) override;
 	ObjectSP getCode() const { return code_[0];}
 	ObjectSP getCode(int index) const { return code_[index];}
 	int getObjectCount() const { return code_.size();}
@@ -590,7 +562,7 @@ public:
 	DomainSitePoolSP getSitePool() const {return sites_;}
 	bool isTable() const { return isTable_;}
 	bool isLocalMode() const { return localMode_;}
-	virtual bool isLargeConstant() const { return false;}
+	bool isLargeConstant() const override { return false;}
     void setTaskFirstLevel(bool flag) {isTaskFirstLevel_ = flag;}
     bool isTaskFirstLevel() const {return isTaskFirstLevel_;}
 private:
@@ -608,16 +580,16 @@ private:
 class SWORDFISH_API Resource : public String{
 public:
 	Resource(long long handle, const string& desc, const FunctionDefSP& onClose, Session* session) : String(desc), handle_(handle), onClose_(onClose), session_(session){setTypeAndCategory(DT_RESOURCE, SYSTEM);}
-	virtual ~Resource();
-	virtual bool copyable() const {return false;}
-	virtual ConstantSP getValue() const { throw RuntimeException("Resource is not copyable.");}
-	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const { throw RuntimeException("Resource is not able to serialize.");}
-	virtual bool containNotMarshallableObject() const {return true;}
-	virtual long long  getLong() const {return handle_;}
-	virtual void setLong(long long val){ handle_ = val;}
+	~Resource() override;
+	bool copyable() const override {return false;}
+	ConstantSP getValue() const override { throw RuntimeException("Resource is not copyable.");}
+	IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const override { throw RuntimeException("Resource is not able to serialize.");}
+	bool containNotMarshallableObject() const override {return true;}
+	long long  getLong() const override {return handle_;}
+	void setLong(long long val) override{ handle_ = val;}
 	void close();
-	virtual uint64_t hash() const;
-	virtual bool equal(const ConstantSP& other) const;
+	uint64_t hash() const override;
+	bool equal(const ConstantSP& other) const override;
 
 private:
 	long long handle_;
@@ -629,29 +601,30 @@ template <class T>
 class SWORDFISH_API AbstractScalar: public Constant{
 public:
 	AbstractScalar(DATA_TYPE dt, DATA_CATEGORY dc, T val=0): Constant(DF_SCALAR, dt, dc), val_(val){}
-	virtual ~AbstractScalar(){}
-	virtual char getBool() const {return isNull()?CHAR_MIN:(bool)val_;}
-	virtual char getChar() const {return isNull()?CHAR_MIN:val_;}
-	virtual short getShort() const {return isNull()?SHRT_MIN:val_;}
-	virtual int getInt() const {return isNull()?INT_MIN:val_;}
-	virtual long long getLong() const {return isNull()?LLONG_MIN:val_;}
-	virtual INDEX getIndex() const {return isNull()?INDEX_MIN:val_;}
-	virtual float getFloat() const {return isNull()?FLT_NMIN:val_;}
-	virtual double getDouble() const {return isNull()?DBL_NMIN:val_;}
+	~AbstractScalar() override{}
+	char getBool() const override {return isNull()?CHAR_MIN:(bool)val_;}
+	char getChar() const override {return isNull()?CHAR_MIN:val_;}
+	short getShort() const override {return isNull()?SHRT_MIN:val_;}
+	int getInt() const override {return isNull()?INT_MIN:val_;}
+	long long getLong() const override {return isNull()?LLONG_MIN:val_;}
+	INDEX getIndex() const override {return isNull()?INDEX_MIN:val_;}
+	float getFloat() const override {return isNull()?FLT_NMIN:val_;}
+	double getDouble() const override {return isNull()?DBL_NMIN:val_;}
 
-	virtual void setBool(char val){if(val != CHAR_MIN) val_=(T)val; else setNull();}
-	virtual void setChar(char val){if(val != CHAR_MIN) val_=(T)val; else setNull();}
-	virtual void setShort(short val){if(val != SHRT_MIN) val_=(T)val; else setNull();}
-	virtual void setInt(int val){if(val != INT_MIN) val_=(T)val; else setNull();}
-	virtual void setLong(long long val){if(val != LLONG_MIN) val_=(T)val; else setNull();}
-	virtual void setIndex(INDEX val){if(val != INDEX_MIN) val_=(T)val; else setNull();}
-	virtual void setFloat(float val){if(val != FLT_NMIN) val_=(T)val; else setNull();}
-	virtual void setDouble(double val){if(val != DBL_NMIN) val_=(T)val; else setNull();}
+	void setBool(char val) override{if(val != CHAR_MIN) val_=(T)val; else setNull();}
+	void setChar(char val) override{if(val != CHAR_MIN) val_=(T)val; else setNull();}
+	void setShort(short val) override{if(val != SHRT_MIN) val_=(T)val; else setNull();}
+	void setInt(int val) override{if(val != INT_MIN) val_=(T)val; else setNull();}
+	void setLong(long long val) override{if(val != LLONG_MIN) val_=(T)val; else setNull();}
+	void setIndex(INDEX val) override{if(val != INDEX_MIN) val_=(T)val; else setNull();}
+	void setFloat(float val) override{if(val != FLT_NMIN) val_=(T)val; else setNull();}
+	void setDouble(double val) override{if(val != DBL_NMIN) val_=(T)val; else setNull();}
+	using Constant::setString;
 	virtual void setString(const string& val){}
-	virtual void setString(const DolphinString& val){}
-	virtual bool isNull() const = 0;
+	void setString(const DolphinString& val) override{}
+	bool isNull() const override = 0;
 
-	virtual bool setBool(INDEX start, int len, const char* buf) {
+	bool setBool(INDEX start, int len, const char* buf) override {
 		if(UNLIKELY(len != 1))
 			return false;
 		if(buf[0] != CHAR_MIN)
@@ -660,7 +633,7 @@ public:
 			setNull();
 		return true;
 	}
-	virtual bool setChar(INDEX start, int len, const char* buf) {
+	bool setChar(INDEX start, int len, const char* buf) override {
 		if(UNLIKELY(len != 1))
 			return false;
 		if(buf[0] != CHAR_MIN)
@@ -669,7 +642,7 @@ public:
 			setNull();
 		return true;
 	}
-	virtual bool setShort(INDEX start, int len, const short* buf) {
+	bool setShort(INDEX start, int len, const short* buf) override {
 		if(UNLIKELY(len != 1))
 			return false;
 		if(buf[0] != SHRT_MIN)
@@ -678,7 +651,7 @@ public:
 			setNull();
 		return true;
 	}
-	virtual bool setInt(INDEX start, int len, const int* buf) {
+	bool setInt(INDEX start, int len, const int* buf) override {
 		if(UNLIKELY(len != 1))
 			return false;
 		if(buf[0] != INT_MIN)
@@ -687,7 +660,7 @@ public:
 			setNull();
 		return true;
 	}
-	virtual bool setLong(INDEX start, int len, const long long* buf) {
+	bool setLong(INDEX start, int len, const long long* buf) override {
 		if(UNLIKELY(len != 1))
 			return false;
 		if(buf[0] != LLONG_MIN)
@@ -696,7 +669,7 @@ public:
 			setNull();
 		return true;
 	}
-	virtual bool setFloat(INDEX start, int len, const float* buf) {
+	bool setFloat(INDEX start, int len, const float* buf) override {
 		if(UNLIKELY(len != 1))
 			return false;
 		if(buf[0] != FLT_NMIN)
@@ -705,7 +678,7 @@ public:
 			setNull();
 		return true;
 	}
-	virtual bool setDouble(INDEX start, int len, const double* buf) {
+	bool setDouble(INDEX start, int len, const double* buf) override {
 		if(UNLIKELY(len != 1))
 			return false;
 		if(buf[0] != DBL_NMIN)
@@ -715,7 +688,7 @@ public:
 		return true;
 	}
 
-	virtual ConstantSP get(const ConstantSP& index) const override {
+	ConstantSP get(const ConstantSP& index) const override {
 		if (index->isScalar()) {
 			return getValue();
 		}
@@ -757,94 +730,94 @@ public:
 	}
 
 public:  /// {get,set}Decimal{32,64,128}
-	virtual int getDecimal32(int scale) const override {
+	int getDecimal32(int scale) const override {
 		return getDecimal32(/*index*/0, scale);
 	}
-	virtual long long getDecimal64(int scale) const override {
+	long long getDecimal64(int scale) const override {
 		return getDecimal64(/*index*/0, scale);
 	}
-	virtual int128 getDecimal128(int scale) const override {
+	int128 getDecimal128(int scale) const override {
 		return getDecimal128(/*index*/0, scale);
 	}
 
-	virtual int getDecimal32(INDEX index, int scale) const override {
+	int getDecimal32(INDEX index, int scale) const override {
 		int result = 0;
 		getDecimal32(index, /*len*/1, scale, &result);
 		return result;
 	}
-	virtual long long getDecimal64(INDEX index, int scale) const override {
+	long long getDecimal64(INDEX index, int scale) const override {
 		long long result = 0;
 		getDecimal64(index, /*len*/1, scale, &result);
 		return result;
 	}
-	virtual int128 getDecimal128(INDEX index, int scale) const override {
+	int128 getDecimal128(INDEX index, int scale) const override {
 		int128 result = 0;
 		getDecimal128(index, /*len*/1, scale, &result);
 		return result;
 	}
 
-	virtual bool getDecimal32(INDEX start, int len, int scale, int *buf) const override {
+	bool getDecimal32(INDEX start, int len, int scale, int *buf) const override {
 		return getDecimal(start, len, scale, buf);
 	}
-	virtual bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override {
+	bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override {
 		return getDecimal(start, len, scale, buf);
 	}
-	virtual bool getDecimal128(INDEX start, int len, int scale, int128 *buf) const override {
+	bool getDecimal128(INDEX start, int len, int scale, int128 *buf) const override {
 		return getDecimal(start, len, scale, buf);
 	}
 
-	virtual bool getDecimal32(INDEX *indices, int len, int scale, int *buf) const override {
+	bool getDecimal32(INDEX *indices, int len, int scale, int *buf) const override {
 		return getDecimal(/*start*/0, len, scale, buf);
 	}
-	virtual bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const override {
+	bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const override {
 		return getDecimal(/*start*/0, len, scale, buf);
 	}
-	virtual bool getDecimal128(INDEX *indices, int len, int scale, int128 *buf) const override {
+	bool getDecimal128(INDEX *indices, int len, int scale, int128 *buf) const override {
 		return getDecimal(/*start*/0, len, scale, buf);
 	}
 
-	virtual const int* getDecimal32Const(INDEX start, int len, int scale, int *buf) const override {
+	const int* getDecimal32Const(INDEX start, int len, int scale, int *buf) const override {
 		return getDecimal32Buffer(start, len, scale, buf);
 	}
-	virtual const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const override {
+	const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const override {
 		return getDecimal64Buffer(start, len, scale, buf);
 	}
-	virtual const int128* getDecimal128Const(INDEX start, int len, int scale,
+	const int128* getDecimal128Const(INDEX start, int len, int scale,
 			int128 *buf) const override {
 		return getDecimal128Buffer(start, len, scale, buf);
 	}
 
-	virtual int* getDecimal32Buffer(INDEX start, int len, int scale, int *buf) const override {
+	int* getDecimal32Buffer(INDEX start, int len, int scale, int *buf) const override {
 		getDecimal(start, len, scale, buf);
 		return buf;
 	}
-	virtual long long* getDecimal64Buffer(INDEX start, int len, int scale, long long *buf) const override {
+	long long* getDecimal64Buffer(INDEX start, int len, int scale, long long *buf) const override {
 		getDecimal(start, len, scale, buf);
 		return buf;
 	}
-	virtual int128* getDecimal128Buffer(INDEX start, int len, int scale,
+	int128* getDecimal128Buffer(INDEX start, int len, int scale,
 			int128 *buf) const override {
 		getDecimal(start, len, scale, buf);
 		return buf;
 	}
 
-	virtual void setDecimal32(INDEX index, int scale, int val) override {
+	void setDecimal32(INDEX index, int scale, int val) override {
 		setDecimal32(index, /*len*/1, scale, &val);
 	}
-	virtual void setDecimal64(INDEX index, int scale, long long val) override {
+	void setDecimal64(INDEX index, int scale, long long val) override {
 		setDecimal64(index, /*len*/1, scale, &val);
 	}
-	virtual void setDecimal128(INDEX index, int scale, int128 val) override {
+	void setDecimal128(INDEX index, int scale, int128 val) override {
 		setDecimal128(index, /*len*/1, scale, &val);
 	}
 
-	virtual bool setDecimal32(INDEX start, int len, int scale, const int *buf) override {
+	bool setDecimal32(INDEX start, int len, int scale, const int *buf) override {
 		return setDecimal(start, len, scale, buf);
 	}
-	virtual bool setDecimal64(INDEX start, int len, int scale, const long long *buf) override {
+	bool setDecimal64(INDEX start, int len, int scale, const long long *buf) override {
 		return setDecimal(start, len, scale, buf);
 	}
-	virtual bool setDecimal128(INDEX start, int len, int scale, const int128 *buf) override {
+	bool setDecimal128(INDEX start, int len, int scale, const int128 *buf) override {
 		return setDecimal(start, len, scale, buf);
 	}
 
@@ -856,7 +829,7 @@ private:
 	bool SWORDFISH_API setDecimal(INDEX /*start*/, int len, int scale, const R *buf);
 
 public:
-	virtual string getScript() const {
+	string getScript() const override {
 		if(isNull()){
 			string str("00");
 			return str.append(1, Util::getDataTypeSymbol(getType()));
@@ -865,7 +838,7 @@ public:
 			return getString();
 	}
 
-	virtual string getScript(Heap* heap) const {
+	string getScript(Heap* heap) const override {
 		if(isNull()){
 			string str("00");
 			return str.append(1, Util::getDataTypeSymbol(getType()));
@@ -874,7 +847,7 @@ public:
 			return getString(heap);
 	}
 
-	virtual void nullFill(const ConstantSP& val){
+	void nullFill(const ConstantSP& val) override{
 		if(isNull()){
 			if(val->getCategory()==FLOATING)
 				val_=val->getDouble();
@@ -882,176 +855,176 @@ public:
 				val_=val->getLong();
 		}
 	}
-	virtual bool isNull(INDEX start, int len, char* buf) const {
+	bool isNull(INDEX start, int len, char* buf) const override {
 		char null=isNull();
 		for(int i=0;i<len;++i)
 			buf[i]=null;
 		return true;
 	}
-	virtual bool isNull(INDEX* indices, int len, char* buf) const {
+	bool isNull(INDEX* indices, int len, char* buf) const override {
 		char null=isNull();
 		for(int i=0;i<len;++i)
 			buf[i]=null;
 		return true;
 	}
-	virtual bool isValid(INDEX start, int len, char* buf) const {
+	bool isValid(INDEX start, int len, char* buf) const override {
 		char valid=!isNull();
 		for(int i=0;i<len;++i)
 			buf[i]=valid;
 		return true;
 	}
-	virtual bool isValid(INDEX* indices, int len, char* buf) const {
+	bool isValid(INDEX* indices, int len, char* buf) const override {
 		char valid=!isNull();
 		for(int i=0;i<len;++i)
 			buf[i]=valid;
 		return true;
 	}
-	virtual bool getBool(INDEX start, int len, char* buf) const {
+	bool getBool(INDEX start, int len, char* buf) const override {
 		char tmp=isNull()?CHAR_MIN:(bool)val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return true;
 	}
-	virtual bool getBool(INDEX* indices, int len, char* buf) const {
+	bool getBool(INDEX* indices, int len, char* buf) const override {
 		char tmp=isNull()?CHAR_MIN:(bool)val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return true;
 	}
-	virtual const char* getBoolConst(INDEX start, int len, char* buf) const {
+	const char* getBoolConst(INDEX start, int len, char* buf) const override {
 		char tmp=isNull()?CHAR_MIN:(bool)val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return buf;
 	}
-	virtual bool getChar(INDEX start, int len, char* buf) const {
+	bool getChar(INDEX start, int len, char* buf) const override {
 		char tmp=isNull()?CHAR_MIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return true;
 	}
-	virtual bool getChar(INDEX* indices, int len, char* buf) const {
+	bool getChar(INDEX* indices, int len, char* buf) const override {
 		char tmp=isNull()?CHAR_MIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return true;
 	}
-	virtual const char* getCharConst(INDEX start, int len, char* buf) const {
+	const char* getCharConst(INDEX start, int len, char* buf) const override {
 		char tmp=isNull()?CHAR_MIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return buf;
 	}
-	virtual bool getShort(INDEX start, int len, short* buf) const {
+	bool getShort(INDEX start, int len, short* buf) const override {
 		short tmp=isNull()?SHRT_MIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return true;
 	}
-	virtual bool getShort(INDEX* indices, int len, short* buf) const {
+	bool getShort(INDEX* indices, int len, short* buf) const override {
 		short tmp=isNull()?SHRT_MIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return true;
 	}
-	virtual const short* getShortConst(INDEX start, int len, short* buf) const {
+	const short* getShortConst(INDEX start, int len, short* buf) const override {
 		short tmp=isNull()?SHRT_MIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return buf;
 	}
-	virtual bool getInt(INDEX start, int len, int* buf) const {
+	bool getInt(INDEX start, int len, int* buf) const override {
 		int tmp=isNull()?INT_MIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return true;
 	}
-	virtual bool getInt(INDEX* indices, int len, int* buf) const {
+	bool getInt(INDEX* indices, int len, int* buf) const override {
 		int tmp=isNull()?INT_MIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return true;
 	}
-	virtual const int* getIntConst(INDEX start, int len, int* buf) const {
+	const int* getIntConst(INDEX start, int len, int* buf) const override {
 		int tmp=isNull()?INT_MIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return buf;
 	}
-	virtual bool getLong(INDEX start, int len, long long* buf) const {
+	bool getLong(INDEX start, int len, long long* buf) const override {
 		long long tmp=isNull()?LLONG_MIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return true;
 	}
-	virtual bool getLong(INDEX* indices, int len, long long* buf) const {
+	bool getLong(INDEX* indices, int len, long long* buf) const override {
 		long long tmp=isNull()?LLONG_MIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return true;
 	}
-	virtual const long long* getLongConst(INDEX start, int len, long long* buf) const {
+	const long long* getLongConst(INDEX start, int len, long long* buf) const override {
 		long long tmp=isNull()?LLONG_MIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return buf;
 	}
-	virtual bool getIndex(INDEX start, int len, INDEX* buf) const {
+	bool getIndex(INDEX start, int len, INDEX* buf) const override {
 		INDEX tmp=isNull()?INDEX_MIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return true;
 	}
-	virtual bool getIndex(INDEX* indices, int len, INDEX* buf) const {
+	bool getIndex(INDEX* indices, int len, INDEX* buf) const override {
 		INDEX tmp=isNull()?INDEX_MIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return true;
 	}
-	virtual const INDEX* getIndexConst(INDEX start, int len, INDEX* buf) const {
+	const INDEX* getIndexConst(INDEX start, int len, INDEX* buf) const override {
 		INDEX tmp=isNull()?INDEX_MIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return buf;
 	}
-	virtual bool getFloat(INDEX start, int len, float* buf) const {
+	bool getFloat(INDEX start, int len, float* buf) const override {
 		float tmp=isNull()?FLT_NMIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return true;
     }
-	virtual bool getFloat(INDEX* indices, int len, float* buf) const {
+	bool getFloat(INDEX* indices, int len, float* buf) const override {
 		float tmp=isNull()?FLT_NMIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return true;
     }
-	virtual const float* getFloatConst(INDEX start, int len, float* buf) const {
+	const float* getFloatConst(INDEX start, int len, float* buf) const override {
 		float tmp=isNull()?FLT_NMIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return buf;
     }
-	virtual bool getDouble(INDEX start, int len, double* buf) const {
+	bool getDouble(INDEX start, int len, double* buf) const override {
 		double tmp=isNull()?DBL_NMIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return true;
 	}
-	virtual bool getDouble(INDEX* indices, int len, double* buf) const {
+	bool getDouble(INDEX* indices, int len, double* buf) const override {
 		double tmp=isNull()?DBL_NMIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return true;
 	}
-	virtual const double* getDoubleConst(INDEX start, int len, double* buf) const {
+	const double* getDoubleConst(INDEX start, int len, double* buf) const override {
 		double tmp=isNull()?DBL_NMIN:val_;
 		for(int i=0;i<len;++i)
 			buf[i]=tmp;
 		return buf;
 	}
-	virtual long long getAllocatedMemory() const {return sizeof(AbstractScalar);}
-	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const {
+	long long getAllocatedMemory() const override {return sizeof(AbstractScalar);}
+	int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const override {
 		int len = sizeof(T)-offset;
 		if(len < 0)
 			return -1;
@@ -1070,21 +1043,21 @@ public:
 		}
 	}
 
-	virtual bool add(INDEX start, INDEX length, long long inc) {
+	bool add(INDEX start, INDEX length, long long inc) override {
 		if(isNull())
 			return false;
 		val_ += inc;
 		return true;
 	}
 
-	virtual bool add(INDEX start, INDEX length, double inc) {
+	bool add(INDEX start, INDEX length, double inc) override {
 		if(isNull())
 			return false;
 		val_ += inc;
 		return true;
 	}
 
-	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const {
+	IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const override {
 		short flag = (DF_SCALAR <<8) + getType();
 		buffer->write((char)OBJECT_TYPE::CONSTOBJ);
 		buffer->write(flag);
@@ -1093,7 +1066,7 @@ public:
 		int length = serialize(buf, 8, 0, 0, numElement, partial);
 		return buffer->write(buf, length);
 	}
-	virtual int compare(INDEX index, const ConstantSP& target) const {
+	int compare(INDEX index, const ConstantSP& target) const override {
 		if(isNull()){
 			return target->isNull() ? 0 : -1;
 		}
@@ -1110,7 +1083,7 @@ public:
 		}
 	}
 
-	virtual bool assign(const ConstantSP& value) {
+	bool assign(const ConstantSP& value) override {
 		if(value->isNull(0)){
 			setNull();
 			return true;
@@ -1134,101 +1107,101 @@ protected:
 class SWORDFISH_API Bool: public AbstractScalar<char>{
 public:
 	Bool(char val=0):AbstractScalar(DT_BOOL, LOGICAL, val){}
-	virtual ~Bool(){}
-	virtual bool isNull() const {return val_==CHAR_MIN;}
-	virtual void setNull(){val_= CHAR_MIN;}
-	virtual void setBool(char val){ val_ = val;}
-	virtual DATA_TYPE getRawType() const { return DT_BOOL;}
-	virtual char getBool() const override {
+	~Bool() override{}
+	bool isNull() const override {return val_==CHAR_MIN;}
+	void setNull() override{val_= CHAR_MIN;}
+	void setBool(char val) override{ val_ = val;}
+	DATA_TYPE getRawType() const override { return DT_BOOL;}
+	char getBool() const override {
 		if (val_ == CHAR_MIN) {
 			return CHAR_MIN;
 		}
 		return static_cast<bool>(val_);
 	}
-	virtual ConstantSP getInstance() const {return ConstantSP(new Bool());}
-	virtual ConstantSP getValue() const {return ConstantSP(new Bool(val_));}
-	virtual string getString() const;
-	virtual string getString(Heap* heap) const;
-	virtual bool add(INDEX start, INDEX length, long long inc) { return false;}
-	virtual bool add(INDEX start, INDEX length, double inc) { return false;}
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
+	ConstantSP getInstance() const override {return ConstantSP(new Bool());}
+	ConstantSP getValue() const override {return ConstantSP(new Bool(val_));}
+	string getString() const override;
+	string getString(Heap* heap) const override;
+	bool add(INDEX start, INDEX length, long long inc) override { return false;}
+	bool add(INDEX start, INDEX length, double inc) override { return false;}
+	IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial) override;
 	static Bool* parseBool(const string& str);
 	static string toString(char val, bool isPython = false);
-	virtual bool assign(const ConstantSP& value);
-	virtual uint64_t hash() const;
-	virtual bool equal(const ConstantSP& other) const;
-	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getBool(valueIndex);return true;}
+	bool assign(const ConstantSP& value) override;
+	uint64_t hash() const override;
+	bool equal(const ConstantSP& other) const override;
+	bool set(INDEX index, const ConstantSP& value, INDEX valueIndex) override{ val_ = value->getBool(valueIndex);return true;}
 };
 
 class SWORDFISH_API Char: public AbstractScalar<char>{
 public:
 	Char(char val=0):AbstractScalar(DT_CHAR, INTEGRAL, val){}
-	virtual ~Char(){}
-	virtual bool isNull() const {return val_==CHAR_MIN;}
-	virtual void setNull(){val_=CHAR_MIN;}
-	virtual void setChar(char val){ val_ = val;}
-	virtual DATA_TYPE getRawType() const { return DT_CHAR;}
-	virtual char getChar() const override { return val_; }
-	virtual ConstantSP getInstance() const {return ConstantSP(new Char());}
-	virtual ConstantSP getValue() const {return ConstantSP(new Char(val_));}
-	virtual string getString() const { return toString(val_);}
-	virtual string getScript() const;
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
+	~Char() override{}
+	bool isNull() const override {return val_==CHAR_MIN;}
+	void setNull() override{val_=CHAR_MIN;}
+	void setChar(char val) override{ val_ = val;}
+	DATA_TYPE getRawType() const override { return DT_CHAR;}
+	char getChar() const override { return val_; }
+	ConstantSP getInstance() const override {return ConstantSP(new Char());}
+	ConstantSP getValue() const override {return ConstantSP(new Char(val_));}
+	string getString() const override { return toString(val_);}
+	string getScript() const override;
+	IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial) override;
 	static Char* parseChar(const string& str);
 	static string toString(char val);
-	virtual uint64_t hash() const;
-	virtual bool equal(const ConstantSP& other) const;
-	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getChar(valueIndex);return true;}
+	uint64_t hash() const override;
+	bool equal(const ConstantSP& other) const override;
+	bool set(INDEX index, const ConstantSP& value, INDEX valueIndex) override{ val_ = value->getChar(valueIndex);return true;}
 };
 
 class SWORDFISH_API Short: public AbstractScalar<short>{
 public:
 	Short(short val=0):AbstractScalar(DT_SHORT, INTEGRAL, val){}
-	virtual ~Short(){}
-	virtual bool isNull() const {return val_==SHRT_MIN;}
-	virtual void setNull(){val_=SHRT_MIN;}
-	virtual void setShort(short val){ val_ = val;}
-	virtual DATA_TYPE getRawType() const { return DT_SHORT;}
-	virtual short getShort() const override { return val_; }
-	virtual ConstantSP getInstance() const {return ConstantSP(new Short());}
-	virtual ConstantSP getValue() const {return ConstantSP(new Short(val_));}
-	virtual string getString() const { return toString(val_);}
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
+	~Short() override{}
+	bool isNull() const override {return val_==SHRT_MIN;}
+	void setNull() override{val_=SHRT_MIN;}
+	void setShort(short val) override{ val_ = val;}
+	DATA_TYPE getRawType() const override { return DT_SHORT;}
+	short getShort() const override { return val_; }
+	ConstantSP getInstance() const override {return ConstantSP(new Short());}
+	ConstantSP getValue() const override {return ConstantSP(new Short(val_));}
+	string getString() const override { return toString(val_);}
+	IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial) override;
 	static Short* parseShort(const string& str);
 	static string toString(short val);
-	virtual uint64_t hash() const;
-	virtual bool equal(const ConstantSP& other) const;
-	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getShort(valueIndex);return true;}
+	uint64_t hash() const override;
+	bool equal(const ConstantSP& other) const override;
+	bool set(INDEX index, const ConstantSP& value, INDEX valueIndex) override{ val_ = value->getShort(valueIndex);return true;}
 };
 
 class SWORDFISH_API Int: public AbstractScalar<int>{
 public:
 	Int(int val=0):AbstractScalar(DT_INT, INTEGRAL, val){}
-	virtual ~Int(){}
-	virtual bool isNull() const {return val_==INT_MIN;}
-	virtual void setNull(){val_=INT_MIN;}
-	virtual void setInt(int val){ val_ = val;}
-	virtual DATA_TYPE getRawType() const { return DT_INT;}
-	virtual int getInt() const override { return val_; }
-	virtual ConstantSP getInstance() const {return ConstantSP(new Int());}
-	virtual ConstantSP getValue() const {return ConstantSP(new Int(val_));}
-	virtual string getString() const { return toString(val_);}
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
+	~Int() override{}
+	bool isNull() const override {return val_==INT_MIN;}
+	void setNull() override{val_=INT_MIN;}
+	void setInt(int val) override{ val_ = val;}
+	DATA_TYPE getRawType() const override { return DT_INT;}
+	int getInt() const override { return val_; }
+	ConstantSP getInstance() const override {return ConstantSP(new Int());}
+	ConstantSP getValue() const override {return ConstantSP(new Int(val_));}
+	string getString() const override { return toString(val_);}
+	IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial) override;
 	static Int* parseInt(const string& str);
 	static string toString(int val);
-	virtual uint64_t hash() const;
-	virtual bool equal(const ConstantSP& other) const;
-	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getInt(valueIndex);return true;}
+	uint64_t hash() const override;
+	bool equal(const ConstantSP& other) const override;
+	bool set(INDEX index, const ConstantSP& value, INDEX valueIndex) override{ val_ = value->getInt(valueIndex);return true;}
 };
 
 class SWORDFISH_API EnumInt : public Int {
 public:
 	EnumInt(const string& desc, int val):Int(val), desc_(desc){}
-	virtual ~EnumInt(){}
-	virtual string getScript() const {return desc_;}
-	virtual ConstantSP getValue() const {return ConstantSP(new EnumInt(desc_, val_));}
-	virtual ConstantSP getInstance() const {return ConstantSP(new EnumInt(desc_, val_));}
-	virtual string getString() const {return desc_;}
+	~EnumInt() override{}
+	string getScript() const override {return desc_;}
+	ConstantSP getValue() const override {return ConstantSP(new EnumInt(desc_, val_));}
+	ConstantSP getInstance() const override {return ConstantSP(new EnumInt(desc_, val_));}
+	string getString() const override {return desc_;}
 
 private:
 	string desc_;
@@ -1241,15 +1214,15 @@ public:
 	Duration(int exchange, int val);
 	Duration(const string& exchange, int val);
 	Duration(FREQUENCY freq);
-	virtual ~Duration(){}
-	virtual DATA_TYPE getRawType() const { return DT_DURATION;}
-	virtual long long getLong() const;
-	virtual string getScript() const {return getString();}
-	virtual ConstantSP getValue() const;
-	virtual ConstantSP getInstance() const;
-	virtual string getString() const;
-	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const;
-	IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
+	~Duration() override{}
+	DATA_TYPE getRawType() const override { return DT_DURATION;}
+	long long getLong() const override;
+	string getScript() const override {return getString();}
+	ConstantSP getValue() const override;
+	ConstantSP getInstance() const override;
+	string getString() const override;
+	int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const override;
+	IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial) override;
 	inline DURATION getUnit() const { return unit_;}
 	inline DURATION unit() const { return unit_; }
 	string getExchangeName() const;
@@ -1274,8 +1247,8 @@ public:
 	static DURATION getDuration(DATA_TYPE type);
 	static DURATION getDuration(const string& unit);
 	static string getExchangeName(int exchange);
-	virtual uint64_t hash() const;
-	virtual bool equal(const ConstantSP& other) const;
+	uint64_t hash() const override;
+	bool equal(const ConstantSP& other) const override;
 
 private:
 	static const string durationSymbols_[11];
@@ -1341,95 +1314,95 @@ inline bool operator>=(const Duration& p1, const Duration& p2) {
 class SWORDFISH_API Long: public AbstractScalar<long long>{
 public:
 	Long(long long val=0):AbstractScalar(DT_LONG, INTEGRAL, val){}
-	virtual ~Long(){}
-	virtual bool isNull() const {return val_==LLONG_MIN;}
-	virtual void setNull(){val_=LLONG_MIN;}
-	virtual void setLong(long long val){ val_ = val;}
-	virtual DATA_TYPE getRawType() const { return DT_LONG;}
-	virtual long long getLong() const override { return val_; }
-	virtual ConstantSP getInstance() const {return ConstantSP(new Long());}
-	virtual ConstantSP getValue() const {return ConstantSP(new Long(val_));}
-	virtual string getString() const { return toString(val_);}
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
+	~Long() override{}
+	bool isNull() const override {return val_==LLONG_MIN;}
+	void setNull() override{val_=LLONG_MIN;}
+	void setLong(long long val) override{ val_ = val;}
+	DATA_TYPE getRawType() const override { return DT_LONG;}
+	long long getLong() const override { return val_; }
+	ConstantSP getInstance() const override {return ConstantSP(new Long());}
+	ConstantSP getValue() const override {return ConstantSP(new Long(val_));}
+	string getString() const override { return toString(val_);}
+	IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial) override;
 	static Long* parseLong(const string& str);
 	static string toString(long long val);
-	virtual uint64_t hash() const;
-	virtual bool equal(const ConstantSP& other) const;
-	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getLong(valueIndex);return true;}
+	uint64_t hash() const override;
+	bool equal(const ConstantSP& other) const override;
+	bool set(INDEX index, const ConstantSP& value, INDEX valueIndex) override{ val_ = value->getLong(valueIndex);return true;}
 };
 
 class SWORDFISH_API Float: public AbstractScalar<float>{
 public:
 	Float(float val=0):AbstractScalar(DT_FLOAT, FLOATING, val){}
-	virtual ~Float(){}
-	virtual bool isNull() const {return val_==FLT_NMIN;}
-	virtual void setNull(){val_=FLT_NMIN;}
-	virtual void setFloat(float val){ val_ = val;}
-	virtual DATA_TYPE getRawType() const { return DT_FLOAT;}
-	virtual float getFloat() const override { return val_; }
-	virtual ConstantSP getInstance() const {return ConstantSP(new Float());}
-	virtual ConstantSP getValue() const {return ConstantSP(new Float(val_));}
-	virtual char getChar() const {return isNull()?CHAR_MIN:(val_<0?val_-0.5:val_+0.5);}
-	virtual short getShort() const {return isNull()?SHRT_MIN:(val_<0?val_-0.5:val_+0.5);}
-	virtual int getInt() const {return isNull()?INT_MIN:(val_<0?val_-0.5:val_+0.5);}
-	virtual long long  getLong() const {return isNull()?LLONG_MIN:(val_<0?val_-0.5:val_+0.5);}
-	virtual bool getChar(INDEX start, int len, char* buf) const;
-	virtual const char* getCharConst(INDEX start, int len, char* buf) const;
-	virtual bool getShort(INDEX start, int len, short* buf) const;
-	virtual const short* getShortConst(INDEX start, int len, short* buf) const;
-	virtual bool getInt(INDEX start, int len, int* buf) const;
-	virtual const int* getIntConst(INDEX start, int len, int* buf) const;
-	virtual bool getLong(INDEX start, int len, long long* buf) const;
-	virtual const long long* getLongConst(INDEX start, int len, long long* buf) const;
-	virtual string getString() const { return toString(val_);}
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
+	~Float() override{}
+	bool isNull() const override {return val_==FLT_NMIN;}
+	void setNull() override{val_=FLT_NMIN;}
+	void setFloat(float val) override{ val_ = val;}
+	DATA_TYPE getRawType() const override { return DT_FLOAT;}
+	float getFloat() const override { return val_; }
+	ConstantSP getInstance() const override {return ConstantSP(new Float());}
+	ConstantSP getValue() const override {return ConstantSP(new Float(val_));}
+	char getChar() const override {return isNull()?CHAR_MIN:(val_<0?val_-0.5:val_+0.5);}
+	short getShort() const override {return isNull()?SHRT_MIN:(val_<0?val_-0.5:val_+0.5);}
+	int getInt() const override {return isNull()?INT_MIN:(val_<0?val_-0.5:val_+0.5);}
+	long long  getLong() const override {return isNull()?LLONG_MIN:(val_<0?val_-0.5:val_+0.5);}
+	bool getChar(INDEX start, int len, char* buf) const override;
+	const char* getCharConst(INDEX start, int len, char* buf) const override;
+	bool getShort(INDEX start, int len, short* buf) const override;
+	const short* getShortConst(INDEX start, int len, short* buf) const override;
+	bool getInt(INDEX start, int len, int* buf) const override;
+	const int* getIntConst(INDEX start, int len, int* buf) const override;
+	bool getLong(INDEX start, int len, long long* buf) const override;
+	const long long* getLongConst(INDEX start, int len, long long* buf) const override;
+	string getString() const override { return toString(val_);}
+	IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial) override;
 	static Float* parseFloat(const string& str);
 	static string toString(float val);
-	virtual uint64_t hash() const;
-	virtual bool equal(const ConstantSP& other) const;
-	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getFloat(valueIndex);return true;}
+	uint64_t hash() const override;
+	bool equal(const ConstantSP& other) const override;
+	bool set(INDEX index, const ConstantSP& value, INDEX valueIndex) override{ val_ = value->getFloat(valueIndex);return true;}
 };
 
 class SWORDFISH_API Double: public AbstractScalar<double>{
 public:
 	Double(double val=0):AbstractScalar(DT_DOUBLE, FLOATING, (std::isnan(val)|| std::isinf(val)) ? DBL_NMIN : val){}
-	virtual ~Double(){}
-	virtual bool isNull() const {return val_==DBL_NMIN;}
-	virtual void setNull(){val_=DBL_NMIN;}
-	virtual void setDouble(double val){ val_ = (std::isnan(val)|| std::isinf(val)) ? DBL_NMIN : val; }
-	virtual DATA_TYPE getRawType() const { return DT_DOUBLE;}
-	virtual double getDouble() const override { return val_; }
-	virtual ConstantSP getInstance() const {return ConstantSP(new Double());}
-	virtual ConstantSP getValue() const {return ConstantSP(new Double(val_));}
-	virtual char getChar() const {return isNull()?CHAR_MIN:(val_<0?val_-0.5:val_+0.5);}
-	virtual short getShort() const {return isNull()?SHRT_MIN:(val_<0?val_-0.5:val_+0.5);}
-	virtual int getInt() const {return isNull()?INT_MIN:(val_<0?val_-0.5:val_+0.5);}
-	virtual long long  getLong() const {return isNull()?LLONG_MIN:(val_<0?val_-0.5:val_+0.5);}
-	virtual bool getChar(INDEX start, int len, char* buf) const;
-	virtual const char* getCharConst(INDEX start, int len, char* buf) const;
-	virtual bool getShort(INDEX start, int len, short* buf) const;
-	virtual const short* getShortConst(INDEX start, int len, short* buf) const;
-	virtual bool getInt(INDEX start, int len, int* buf) const;
-	virtual const int* getIntConst(INDEX start, int len, int* buf) const;
-	virtual bool getLong(INDEX start, int len, long long* buf) const;
-	virtual const long long* getLongConst(INDEX start, int len, long long* buf) const;
-	virtual string getString() const {return toString(val_);}
-	virtual IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
+	~Double() override{}
+	bool isNull() const override {return val_==DBL_NMIN;}
+	void setNull() override{val_=DBL_NMIN;}
+	void setDouble(double val) override{ val_ = (std::isnan(val)|| std::isinf(val)) ? DBL_NMIN : val; }
+	DATA_TYPE getRawType() const override { return DT_DOUBLE;}
+	double getDouble() const override { return val_; }
+	ConstantSP getInstance() const override {return ConstantSP(new Double());}
+	ConstantSP getValue() const override {return ConstantSP(new Double(val_));}
+	char getChar() const override {return isNull()?CHAR_MIN:(val_<0?val_-0.5:val_+0.5);}
+	short getShort() const override {return isNull()?SHRT_MIN:(val_<0?val_-0.5:val_+0.5);}
+	int getInt() const override {return isNull()?INT_MIN:(val_<0?val_-0.5:val_+0.5);}
+	long long  getLong() const override {return isNull()?LLONG_MIN:(val_<0?val_-0.5:val_+0.5);}
+	bool getChar(INDEX start, int len, char* buf) const override;
+	const char* getCharConst(INDEX start, int len, char* buf) const override;
+	bool getShort(INDEX start, int len, short* buf) const override;
+	const short* getShortConst(INDEX start, int len, short* buf) const override;
+	bool getInt(INDEX start, int len, int* buf) const override;
+	const int* getIntConst(INDEX start, int len, int* buf) const override;
+	bool getLong(INDEX start, int len, long long* buf) const override;
+	const long long* getLongConst(INDEX start, int len, long long* buf) const override;
+	string getString() const override {return toString(val_);}
+	IO_ERR deserialize(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial) override;
 	static Double* parseDouble(const string& str);
 	static string toString(double val);
-	virtual uint64_t hash() const;
-	virtual bool equal(const ConstantSP& other) const;
-	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex){ val_ = value->getDouble(valueIndex);return true;}
+	uint64_t hash() const override;
+	bool equal(const ConstantSP& other) const override;
+	bool set(INDEX index, const ConstantSP& value, INDEX valueIndex) override{ val_ = value->getDouble(valueIndex);return true;}
 };
 
 class SWORDFISH_API EnumDouble : public Double {
 public:
 	EnumDouble(const string& desc, double val):Double(val), desc_(desc){}
-	virtual ~EnumDouble(){}
-	virtual string getScript() const {return desc_;}
-	virtual ConstantSP getValue() const {return ConstantSP(new EnumDouble(desc_, val_));}
-	virtual ConstantSP getInstance() const {return ConstantSP(new EnumDouble(desc_, val_));}
-	virtual string getString() const { return desc_;}
+	~EnumDouble() override{}
+	string getScript() const override {return desc_;}
+	ConstantSP getValue() const override {return ConstantSP(new EnumDouble(desc_, val_));}
+	ConstantSP getInstance() const override {return ConstantSP(new EnumDouble(desc_, val_));}
+	string getString() const override { return desc_;}
 
 private:
 	string desc_;
@@ -1438,18 +1411,18 @@ private:
 class SWORDFISH_API TemporalScalar:public Int{
 public:
 	TemporalScalar(DATA_TYPE type, int val=0):Int(val){setTypeAndCategory(type, TEMPORAL);}
-	virtual ~TemporalScalar(){}
-	virtual bool equal(const ConstantSP& other) const { return getType() == other->getType() && val_ == other->getInt();}
+	~TemporalScalar() override{}
+	bool equal(const ConstantSP& other) const override { return getType() == other->getType() && val_ == other->getInt();}
 };
 
 class SWORDFISH_API Date:public TemporalScalar{
 public:
 	Date(int val=0):TemporalScalar(DT_DATE, val){}
 	Date(int year, int month, int day):TemporalScalar(DT_DATE, Util::countDays(year,month,day)){}
-	virtual ~Date(){}
-	virtual ConstantSP getInstance() const {return ConstantSP(new Date());}
-	virtual ConstantSP getValue() const {return ConstantSP(new Date(val_));}
-	virtual string getString() const { return toString(val_);}
+	~Date() override{}
+	ConstantSP getInstance() const override {return ConstantSP(new Date());}
+	ConstantSP getValue() const override {return ConstantSP(new Date(val_));}
+	string getString() const override { return toString(val_);}
 	static Date* parseDate(const string& str);
 	static string toString(int val);
 
@@ -1624,10 +1597,10 @@ public:
 	Month():TemporalScalar(DT_MONTH, 1999*12+11){}
 	Month(int val):TemporalScalar(DT_MONTH, val){}
 	Month(int year, int month):TemporalScalar(DT_MONTH, year*12+month-1){}
-	virtual ~Month(){}
-	virtual ConstantSP getInstance() const {return ConstantSP(new Month());}
-	virtual ConstantSP getValue() const {return ConstantSP(new Month(val_));}
-	virtual string getString() const { return toString(val_);}
+	~Month() override{}
+	ConstantSP getInstance() const override {return ConstantSP(new Month());}
+	ConstantSP getValue() const override {return ConstantSP(new Month(val_));}
+	string getString() const override { return toString(val_);}
 	static Month* parseMonth(const string& str);
 	static string toString(int val);
 };
@@ -1636,11 +1609,11 @@ class SWORDFISH_API Time:public TemporalScalar{
 public:
 	Time(int val=0):TemporalScalar(DT_TIME, val){}
 	Time(int hour, int minute, int second, int milliSecond):TemporalScalar(DT_TIME, ((hour*60+minute)*60+second)*1000+milliSecond){}
-	virtual ~Time(){}
-	virtual ConstantSP getInstance() const {return ConstantSP(new Time());}
-	virtual ConstantSP getValue() const {return ConstantSP(new Time(val_));}
-	virtual string getString() const { return toString(val_);}
-	virtual void validate();
+	~Time() override{}
+	ConstantSP getInstance() const override {return ConstantSP(new Time());}
+	ConstantSP getValue() const override {return ConstantSP(new Time(val_));}
+	string getString() const override { return toString(val_);}
+	void validate() override;
 	static Time* parseTime(const string& str);
 	static string toString(int val);
 };
@@ -1649,51 +1622,51 @@ class SWORDFISH_API NanoTime:public Long{
 public:
 	NanoTime(long long val=0):Long(val){setTypeAndCategory(DT_NANOTIME, TEMPORAL);}
 	NanoTime(int hour, int minute, int second, int nanoSecond):Long(((hour*60+minute)*60+second)*1000000000ll+ nanoSecond){setTypeAndCategory(DT_NANOTIME, TEMPORAL);}
-	virtual ~NanoTime(){}
-	virtual ConstantSP getInstance() const {return ConstantSP(new NanoTime());}
-	virtual ConstantSP getValue() const {return ConstantSP(new NanoTime(val_));}
-	virtual string getString() const { return toString(val_);}
-	virtual void validate();
+	~NanoTime() override{}
+	ConstantSP getInstance() const override {return ConstantSP(new NanoTime());}
+	ConstantSP getValue() const override {return ConstantSP(new NanoTime(val_));}
+	string getString() const override { return toString(val_);}
+	void validate() override;
 	static NanoTime* parseNanoTime(const string& str);
 	static string toString(long long val);
-	virtual bool equal(const ConstantSP& other) const { return DT_NANOTIME == other->getType() && val_ == other->getLong();}
+	bool equal(const ConstantSP& other) const override { return DT_NANOTIME == other->getType() && val_ == other->getLong();}
 };
 
 class SWORDFISH_API Timestamp:public Long{
 public:
 	Timestamp(long long val=0):Long(val){setTypeAndCategory(DT_TIMESTAMP, TEMPORAL);}
 	Timestamp(int year, int month, int day,int hour, int minute, int second, int milliSecond);
-	virtual ~Timestamp(){}
-	virtual ConstantSP getInstance() const {return ConstantSP(new Timestamp());}
-	virtual ConstantSP getValue() const {return ConstantSP(new Timestamp(val_));}
-	virtual string getString() const { return toString(val_);}
+	~Timestamp() override{}
+	ConstantSP getInstance() const override {return ConstantSP(new Timestamp());}
+	ConstantSP getValue() const override {return ConstantSP(new Timestamp(val_));}
+	string getString() const override { return toString(val_);}
 	static Timestamp* parseTimestamp(const string& str);
 	static string toString(long long val);
-	virtual bool equal(const ConstantSP& other) const { return DT_TIMESTAMP == other->getType() && val_ == other->getLong();}
+	bool equal(const ConstantSP& other) const override { return DT_TIMESTAMP == other->getType() && val_ == other->getLong();}
 };
 
 class SWORDFISH_API NanoTimestamp:public Long{
 public:
 	NanoTimestamp(long long val=0):Long(val){setTypeAndCategory(DT_NANOTIMESTAMP, TEMPORAL);}
 	NanoTimestamp(int year, int month, int day,int hour, int minute, int second, int nanoSecond);
-	virtual ~NanoTimestamp(){}
-	virtual ConstantSP getInstance() const {return ConstantSP(new NanoTimestamp());}
-	virtual ConstantSP getValue() const {return ConstantSP(new NanoTimestamp(val_));}
-	virtual string getString() const { return toString(val_);}
+	~NanoTimestamp() override{}
+	ConstantSP getInstance() const override {return ConstantSP(new NanoTimestamp());}
+	ConstantSP getValue() const override {return ConstantSP(new NanoTimestamp(val_));}
+	string getString() const override { return toString(val_);}
 	static NanoTimestamp* parseNanoTimestamp(const string& str);
 	static string toString(long long val);
-	virtual bool equal(const ConstantSP& other) const { return DT_NANOTIMESTAMP == other->getType() && val_ == other->getLong();}
+	bool equal(const ConstantSP& other) const override { return DT_NANOTIMESTAMP == other->getType() && val_ == other->getLong();}
 };
 
 class SWORDFISH_API Minute:public TemporalScalar{
 public:
 	Minute(int val=0):TemporalScalar(DT_MINUTE, val){}
 	Minute(int hour, int minute):TemporalScalar(DT_MINUTE, hour*60+minute){}
-	virtual ~Minute(){}
-	virtual ConstantSP getInstance() const {return ConstantSP(new Minute());}
-	virtual ConstantSP getValue() const {return ConstantSP(new Minute(val_));}
-	virtual string getString() const { return toString(val_);}
-	virtual void validate();
+	~Minute() override{}
+	ConstantSP getInstance() const override {return ConstantSP(new Minute());}
+	ConstantSP getValue() const override {return ConstantSP(new Minute(val_));}
+	string getString() const override { return toString(val_);}
+	void validate() override;
 	static Minute* parseMinute(const string& str);
 	static string toString(int val);
 };
@@ -1702,11 +1675,11 @@ class SWORDFISH_API Second:public TemporalScalar{
 public:
 	Second(int val=0):TemporalScalar(DT_SECOND, val){}
 	Second(int hour, int minute,int second):TemporalScalar(DT_SECOND, (hour*60+minute)*60+second){}
-	virtual ~Second(){}
-	virtual ConstantSP getInstance() const {return ConstantSP(new Second());}
-	virtual ConstantSP getValue() const {return ConstantSP(new Second(val_));}
-	virtual string getString() const { return toString(val_);}
-	virtual void validate();
+	~Second() override{}
+	ConstantSP getInstance() const override {return ConstantSP(new Second());}
+	ConstantSP getValue() const override {return ConstantSP(new Second(val_));}
+	string getString() const override { return toString(val_);}
+	void validate() override;
 	static Second* parseSecond(const string& str);
 	static string toString(int val);
 };
@@ -1715,10 +1688,10 @@ class SWORDFISH_API DateTime:public TemporalScalar{
 public:
 	DateTime(int val=0):TemporalScalar(DT_DATETIME, val){}
 	DateTime(int year, int month, int day, int hour, int minute,int second);
-	virtual ~DateTime(){}
-	virtual ConstantSP getInstance() const {return ConstantSP(new DateTime());}
-	virtual ConstantSP getValue() const {return ConstantSP(new DateTime(val_));}
-	virtual string getString() const { return toString(val_);}
+	~DateTime() override{}
+	ConstantSP getInstance() const override {return ConstantSP(new DateTime());}
+	ConstantSP getValue() const override {return ConstantSP(new DateTime(val_));}
+	string getString() const override { return toString(val_);}
 	static DateTime* parseDateTime(const string& str);
 	static string toString(int val);
 };
@@ -1727,10 +1700,10 @@ class SWORDFISH_API DateHour:public TemporalScalar{
 public:
 	DateHour(int val=0):TemporalScalar(DT_DATEHOUR, val){}
 	DateHour(int year, int month, int day, int hour);
-	virtual ~DateHour(){}
-	virtual ConstantSP getInstance() const {return ConstantSP(new DateHour());}
-	virtual ConstantSP getValue() const {return ConstantSP(new DateHour(val_));}
-	virtual string getString() const { return toString(val_);}
+	~DateHour() override{}
+	ConstantSP getInstance() const override {return ConstantSP(new DateHour());}
+	ConstantSP getValue() const override {return ConstantSP(new DateHour(val_));}
+	string getString() const override { return toString(val_);}
 	static DateHour* parseDateHour(const string& str);
 	static string toString(int val);
 };
@@ -1766,185 +1739,185 @@ public:
     std::string toString() const;
 
 public:  /// Interface of Constant
-    virtual int getExtraParamForType() const override { return scale_; }
+    int getExtraParamForType() const override { return scale_; }
 
-    virtual bool isNull() const override;
-    virtual void setNull() override;
+    bool isNull() const override;
+    void setNull() override;
 
-    virtual DATA_TYPE getRawType() const override { return type(); }
+    DATA_TYPE getRawType() const override { return type(); }
 
-    virtual ConstantSP getInstance() const override;
-    virtual ConstantSP getValue() const override;
+    ConstantSP getInstance() const override;
+    ConstantSP getValue() const override;
 
-    virtual std::string getString() const override {
+    std::string getString() const override {
         if (isNull()) {
             return "";
         }
         return toString();
     }
 
-    virtual bool isNull(INDEX start, int len, char *buf) const override;
-    virtual bool isValid(INDEX start, int len, char *buf) const override;
+    bool isNull(INDEX start, int len, char *buf) const override;
+    bool isValid(INDEX start, int len, char *buf) const override;
 
-    virtual bool set(INDEX index, const ConstantSP &value, INDEX valueIndex) override;
+    bool set(INDEX index, const ConstantSP &value, INDEX valueIndex) override;
 
-    virtual void nullFill(const ConstantSP &val) override;
+    void nullFill(const ConstantSP &val) override;
 
-    virtual uint64_t hash() const override;
+    uint64_t hash() const override;
 
 public:  /// decimal to float
-    virtual float getFloat() const override;
-    virtual double getDouble() const override;
-    virtual bool getFloat(INDEX start, int len, float *buf) const override;
-    virtual bool getDouble(INDEX start, int len, double *buf) const override;
-    virtual const float *getFloatConst(INDEX start, int len, float *buf) const override;
-    virtual const double *getDoubleConst(INDEX start, int len, double *buf) const override;
+    float getFloat() const override;
+    double getDouble() const override;
+    bool getFloat(INDEX start, int len, float *buf) const override;
+    bool getDouble(INDEX start, int len, double *buf) const override;
+    const float *getFloatConst(INDEX start, int len, float *buf) const override;
+    const double *getDoubleConst(INDEX start, int len, double *buf) const override;
 
 public:  /// decimal to integer
-    virtual char getChar() const override { return toInteger<char>(CHAR_MIN); }
-    virtual short getShort() const override { return toInteger<short>(SHRT_MIN); }
-    virtual int getInt() const override { return toInteger<int>(INT_MIN); }
-    virtual long long getLong() const override { return toInteger<long long>(LLONG_MIN); }
+    char getChar() const override { return toInteger<char>(CHAR_MIN); }
+    short getShort() const override { return toInteger<short>(SHRT_MIN); }
+    int getInt() const override { return toInteger<int>(INT_MIN); }
+    long long getLong() const override { return toInteger<long long>(LLONG_MIN); }
 
-    virtual bool getChar(INDEX start, int len, char *buf) const override {
+    bool getChar(INDEX start, int len, char *buf) const override {
         return toInteger<char>(CHAR_MIN, start, len, buf);
     }
-    virtual bool getShort(INDEX start, int len, short *buf) const override {
+    bool getShort(INDEX start, int len, short *buf) const override {
         return toInteger<short>(SHRT_MIN, start, len, buf);
     }
-    virtual bool getInt(INDEX start, int len, int *buf) const override {
+    bool getInt(INDEX start, int len, int *buf) const override {
         return toInteger<int>(INT_MIN, start, len, buf);
     }
-    virtual bool getLong(INDEX start, int len, long long *buf) const override {
+    bool getLong(INDEX start, int len, long long *buf) const override {
         return toInteger<long long>(LLONG_MIN, start, len, buf);
     }
 
-    virtual const char *getCharConst(INDEX start, int len, char *buf) const override {
+    const char *getCharConst(INDEX start, int len, char *buf) const override {
         getChar(start, len, buf);
         return buf;
     }
-    virtual const short *getShortConst(INDEX start, int len, short *buf) const override {
+    const short *getShortConst(INDEX start, int len, short *buf) const override {
         getShort(start, len, buf);
         return buf;
     }
-    virtual const int *getIntConst(INDEX start, int len, int *buf) const override {
+    const int *getIntConst(INDEX start, int len, int *buf) const override {
         getInt(start, len, buf);
         return buf;
     }
-    virtual const long long *getLongConst(INDEX start, int len, long long *buf) const override {
+    const long long *getLongConst(INDEX start, int len, long long *buf) const override {
         getLong(start, len, buf);
         return buf;
     }
 
 public:  /// {get,set}Binary
-    virtual void setBinary(const unsigned char *val, int unitLength) override;
-    virtual bool getBinary(INDEX start, int len, int unitLength, unsigned char *buf) const override;
-    virtual const unsigned char *getBinaryConst(INDEX start, int len, int unitLength,
+    void setBinary(const unsigned char *val, int unitLength) override;
+    bool getBinary(INDEX start, int len, int unitLength, unsigned char *buf) const override;
+    const unsigned char *getBinaryConst(INDEX start, int len, int unitLength,
                                                 unsigned char *buf) const override;
 
 public:  /// {get,set}Decimal{32,64,128}
-    virtual int getDecimal32(int scale) const override {
+    int getDecimal32(int scale) const override {
         return getDecimal32(/*index*/0, scale);
     }
-    virtual long long getDecimal64(int scale) const override {
+    long long getDecimal64(int scale) const override {
         return getDecimal64(/*index*/0, scale);
     }
-    virtual int128 getDecimal128(int scale) const override {
+    int128 getDecimal128(int scale) const override {
         return getDecimal128(/*index*/0, scale);
     }
 
-    virtual int getDecimal32(INDEX index, int scale) const override {
+    int getDecimal32(INDEX index, int scale) const override {
         int result = 0;
         getDecimal32(index, /*len*/1, scale, &result);
         return result;
     }
-    virtual long long getDecimal64(INDEX index, int scale) const override {
+    long long getDecimal64(INDEX index, int scale) const override {
         long long result = 0;
         getDecimal64(index, /*len*/1, scale, &result);
         return result;
     }
-    virtual int128 getDecimal128(INDEX index, int scale) const override {
+    int128 getDecimal128(INDEX index, int scale) const override {
         int128 result = 0;
         getDecimal128(index, /*len*/1, scale, &result);
         return result;
     }
 
-    virtual bool getDecimal32(INDEX start, int len, int scale, int *buf) const override {
+    bool getDecimal32(INDEX start, int len, int scale, int *buf) const override {
         return getDecimal(start, len, scale, buf);
     }
-    virtual bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override {
+    bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override {
         return getDecimal(start, len, scale, buf);
     }
-    virtual bool getDecimal128(INDEX start, int len, int scale, int128 *buf) const override {
+    bool getDecimal128(INDEX start, int len, int scale, int128 *buf) const override {
         return getDecimal(start, len, scale, buf);
     }
 
-    virtual bool getDecimal32(INDEX *indices, int len, int scale, int *buf) const override {
+    bool getDecimal32(INDEX *indices, int len, int scale, int *buf) const override {
         return getDecimal(/*start*/0, len, scale, buf);
     }
-    virtual bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const override {
+    bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const override {
         return getDecimal(/*start*/0, len, scale, buf);
     }
-    virtual bool getDecimal128(INDEX *indices, int len, int scale, int128 *buf) const override {
+    bool getDecimal128(INDEX *indices, int len, int scale, int128 *buf) const override {
         return getDecimal(/*start*/0, len, scale, buf);
     }
 
-    virtual const int* getDecimal32Const(INDEX start, int len, int scale, int *buf) const override {
+    const int* getDecimal32Const(INDEX start, int len, int scale, int *buf) const override {
         return getDecimal32Buffer(start, len, scale, buf);
     }
-    virtual const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const override {
+    const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const override {
         return getDecimal64Buffer(start, len, scale, buf);
     }
-    virtual const int128* getDecimal128Const(INDEX start, int len, int scale,
+    const int128* getDecimal128Const(INDEX start, int len, int scale,
                                                            int128 *buf) const override {
         return getDecimal128Buffer(start, len, scale, buf);
     }
 
-    virtual int* getDecimal32Buffer(INDEX start, int len, int scale, int *buf) const override {
+    int* getDecimal32Buffer(INDEX start, int len, int scale, int *buf) const override {
         getDecimal(start, len, scale, buf);
         return buf;
     }
-    virtual long long* getDecimal64Buffer(INDEX start, int len, int scale, long long *buf) const override {
+    long long* getDecimal64Buffer(INDEX start, int len, int scale, long long *buf) const override {
         getDecimal(start, len, scale, buf);
         return buf;
     }
-    virtual int128* getDecimal128Buffer(INDEX start, int len, int scale,
+    int128* getDecimal128Buffer(INDEX start, int len, int scale,
                                                       int128 *buf) const override {
         getDecimal(start, len, scale, buf);
         return buf;
     }
 
-    virtual void setDecimal32(INDEX index, int scale, int val) override {
+    void setDecimal32(INDEX index, int scale, int val) override {
         setDecimal32(index, /*len*/1, scale, &val);
     }
-    virtual void setDecimal64(INDEX index, int scale, long long val) override {
+    void setDecimal64(INDEX index, int scale, long long val) override {
         setDecimal64(index, /*len*/1, scale, &val);
     }
-    virtual void setDecimal128(INDEX index, int scale, int128 val) override {
+    void setDecimal128(INDEX index, int scale, int128 val) override {
         setDecimal128(index, /*len*/1, scale, &val);
     }
 
-    virtual bool setDecimal32(INDEX start, int len, int scale, const int *buf) override {
+    bool setDecimal32(INDEX start, int len, int scale, const int *buf) override {
         return setDecimal(start, len, scale, buf);
     }
-    virtual bool setDecimal64(INDEX start, int len, int scale, const long long *buf) override {
+    bool setDecimal64(INDEX start, int len, int scale, const long long *buf) override {
         return setDecimal(start, len, scale, buf);
     }
-    virtual bool setDecimal128(INDEX start, int len, int scale, const int128 *buf) override {
+    bool setDecimal128(INDEX start, int len, int scale, const int128 *buf) override {
         return setDecimal(start, len, scale, buf);
     }
 
 public:
-    virtual bool assign(const ConstantSP &value) override;
+    bool assign(const ConstantSP &value) override;
 
-    virtual int compare(INDEX /*index*/, const ConstantSP &target) const override;
+    int compare(INDEX /*index*/, const ConstantSP &target) const override;
 
-    virtual int serialize(char *buf, int bufSize, INDEX indexStart, int offset,
+    int serialize(char *buf, int bufSize, INDEX indexStart, int offset,
                           int &numElement, int &partial) const override;
 
-    virtual IO_ERR serialize(const ByteArrayCodeBufferSP &buffer) const override;
+    IO_ERR serialize(const ByteArrayCodeBufferSP &buffer) const override;
 
-    virtual IO_ERR deserialize(DataInputStream *in, INDEX indexStart, int offset, INDEX targetNumElement,
+    IO_ERR deserialize(DataInputStream *in, INDEX indexStart, int offset, INDEX targetNumElement,
                        	       INDEX &numElement, int &partial) override;
 
 public:

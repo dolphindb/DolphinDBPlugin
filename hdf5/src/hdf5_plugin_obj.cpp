@@ -1,6 +1,6 @@
 #include "hdf5_plugin_obj.h"
 
-#include <hdf5_plugin_type.h>
+#include "hdf5_plugin_type.h"
 
 namespace H5PluginImp {
 

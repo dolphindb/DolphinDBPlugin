@@ -1,12 +1,13 @@
 
 #ifndef HDF5_PLUGIN_TYPE_COLUMN_H
 #define HDF5_PLUGIN_TYPE_COLUMN_H
+#include "DolphinDBEverything.h"
 #include <CoreConcept.h>
 #include <Logger.h>
 #include <ScalarImp.h>
 #include <Util.h>
-#include <hdf5_plugin_obj.h>
-#include <hdf5_plugin_util.h>
+#include "hdf5_plugin_obj.h"
+#include "hdf5_plugin_util.h"
 
 using namespace ddb;
 
@@ -41,9 +42,9 @@ class TypeColumn {
     VectorSP colVec() { return colVec_; }
     int appendData(char *raw_data, int offset, int stride, int len, vector<char> &buffer);
     virtual ~TypeColumn() = default;
-    virtual bool compatible(DATA_TYPE destType) const { return false; };
+    virtual bool compatible(DATA_TYPE destType) const { std::ignore = destType; return false; };
     virtual int h5size() const = 0;
-    virtual DATA_TYPE packData(pack_info_t t) { return DT_VOID; }
+    virtual DATA_TYPE packData(pack_info_t t) { std::ignore = t; return DT_VOID; }
 
   protected:
     virtual VectorSP createCompatibleVector(VectorSP destVec, DATA_TYPE destType, int size, int cap);

@@ -30,7 +30,7 @@
 #include "SysIOTypes.h"
 #include "DolphinString.h"
 
-#define serverVersion "3.00.4"
+#define ddbVersion "3.00.5"
 
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define LIKELY(x) (__builtin_expect((x), 1))
@@ -83,7 +83,7 @@ class ConstantUnmarshal;
 class DebugContext;
 class DomainSite;
 class DomainSitePool;
-class ClusterNodes;
+struct ClusterNodes;
 class DomainPartition;
 class Domain;
 class PartitionGuard;
@@ -92,11 +92,10 @@ struct TableUpdate;
 struct TableUpdateSizer;
 struct TableUpdateUrgency;
 struct LocalTableUpdate;
-struct TopicSubscribe;
 class SessionThreadCallGuard;
 class ReducerContainer;
 class DistributedCall;
-class JobProperty;
+struct JobProperty;
 struct JITCfgNode;
 struct InferredType;
 struct FunctionSignature;
@@ -148,7 +147,6 @@ typedef SmartPointer<Domain> DomainSP;
 typedef SmartPointer<PartitionGuard> PartitionGuardSP;
 typedef SmartPointer<TableUpdate> TableUpdateSP;
 typedef SmartPointer<GenericBoundedQueue<TableUpdate, TableUpdateSizer, TableUpdateUrgency> > TableUpdateQueueSP;
-typedef SmartPointer<TopicSubscribe> TopicSubscribeSP;
 typedef SmartPointer<SessionThreadCallGuard> SessionThreadCallGuardSP;
 typedef SmartPointer<ReducerContainer> ReducerContainerSP;
 typedef SmartPointer<DistributedCall> DistributedCallSP;
@@ -197,7 +195,17 @@ public:
 			bool globalExecComputeGroup, const set<string>& execGroup, const set<string>& deniedExecGroup,
 			bool globalSensitiveView, const set<string>& sensitiveCol, const set<string>& deniedSensitiveCol,
 			bool mcpManage, bool mcpDevelop, bool globalMcpExec, const set<string>& mcpExec, const set<string>& deniedMcpExec,
-			long long maxPartitionPerQuery, bool createSharedVar);
+			long long maxPartitionPerQuery, bool createSharedVar,
+			// Orca permissions
+			const set<string>& orcaGraphAccess, const set<string>& deniedOrcaGraphAccess,
+			const set<string>& orcaGraphCreate, const set<string>& deniedOrcaGraphCreate,
+			const set<string>& orcaGraphDrop, const set<string>& deniedOrcaGraphDrop,
+			const set<string>& orcaTableRead, const set<string>& deniedOrcaTableRead,
+			const set<string>& orcaTableWrite, const set<string>& deniedOrcaTableWrite,
+			const set<string>& orcaTableCreate, const set<string>& deniedOrcaTableCreate,
+			const set<string>& orcaTableDrop, const set<string>& deniedOrcaTableDrop,
+			const set<string>& orcaEngineManage, const set<string>& deniedOrcaEngineManage,
+			bool globalOrcaManage, const set<string>& orcaManage, const set<string>& deniedOrcaManage);
     AuthenticatedUser(const ConstantSP& userObj);
     ConstantSP toTuple() const ;
     void setLoginNanoTimeStamp(long long t){loginNanoTimestamp_ = t;}
@@ -242,6 +250,22 @@ public:
 	bool canExecMcp(const string& mcp) const {return accessMcpRule(canUseMCP(), mcp);}
 	bool canAccessSensitiveCol(const string& tableUrl, const string& colName) const;
 	bool canCreateSharedVar() const { return permissionFlag_ & (1 << 20); }
+	inline bool canManageOrcaGlobal() const { return permissionFlag_ & (1 << 21); }
+	
+	// Orca permissions - graph operations
+	bool canCreateOrcaGraph(const string& catalog) const;
+	bool canDropOrcaGraph(const string& catalog) const;
+	bool canOperateOrcaGraph(const string& fqnOrCatalog) const;  // start/stop/resubmit
+	// Orca permissions - table operations
+	bool canCreateOrcaTable(const string& catalog) const;
+	bool canDropOrcaTable(const string& catalog) const;
+	bool canReadOrcaTable(const string& fqnOrCatalog) const;
+	bool canWriteOrcaTable(const string& fqnOrCatalog) const;
+	// Orca permissions - engine operations
+	bool canManageOrcaEngine(const string& fqnOrCatalog) const;
+	// Orca manage permission
+	bool canManageOrca(const string& catalog) const;
+	
 	// return 0 if no limit
 	long long queryResultMemLimit() { return queryResultMemLimit_; }
 	long long taskGroupMemLimit() { return taskGroupMemLimit_; }
@@ -256,6 +280,7 @@ private:
 	bool accessCatalogRule(bool global, const char* prefix, const char* denyPrefix, const string& catName) const;
 	bool accessDBRule(bool global, const char* prefix, const char* denyPrefix, const string& objName, const char* objPrefix = "$DB$") const;
 	bool accessTableRule(bool global, const char* prefix, const char* denyPrefix, const string& tableName) const;
+	bool accessOrcaRule(bool global, const char* prefix, const char* denyPrefix, const string& fqnOrCatalog) const;
 	bool accessViewRule(bool global, const string& viewName) const;
 	bool accessMcpRule(bool global, const string& mcpName) const;
 	bool matchPattern(bool global, const unordered_set<string>& patterns, const string& name) const;
@@ -286,6 +311,7 @@ private:
 	 * bit18: global mcp develop
 	 * bit19: mcp exec
 	 * bit20: create shared var
+	 * bit21: global orca manage
      */
     uint32_t permissionFlag_;
 
@@ -595,7 +621,7 @@ struct VariableStat {
 };
 
 struct OptimizeContext {
-	OptimizeContext() : statementNo(0), parentStatementNo(0), flag(0){}
+	OptimizeContext() : statementNo(0), parentStatementNo(0), flag(0), funcCallLevel(0){}
 	inline bool withinUDF() const { return flag & 1;}
 	inline void setWithinUDF(bool option){if(option) flag |= 1; else flag &= ~1;}
 	inline bool lowLatencyMode() const { return flag& 2;}
@@ -605,6 +631,10 @@ struct OptimizeContext {
 	inline bool isInplaceOptDisabled() const { return flag & 8;}
 	inline void disableInplaceOpt(bool option){if(option) flag |= 8; else flag &= ~8;}
 	inline void incStatementNo() { ++statementNo;}
+	inline bool isAnyVectorRowMode() const { return flag & 16; }
+	inline void setAnyVectorRowMode(bool option ) {if(option) flag |= 16; else flag &= ~16;}
+	inline void incFuncCallLevel() { ++funcCallLevel; }
+	inline void decFuncCallLevel() { --funcCallLevel; }
 
 	/*
 	 * key: local variable's index (starting from 0)
@@ -615,6 +645,7 @@ struct OptimizeContext {
 	int statementNo;
 	int parentStatementNo;
 	long long flag;
+	int funcCallLevel;
 };
 
 class SWORDFISH_API Object {
@@ -716,6 +747,10 @@ public:
 	 */
 	virtual void collectObjects(vector<const Object*>& vec) const {}
 
+	virtual int retrieveComponents(vector<ObjectSP>& vec) const { return 0;}
+	virtual ObjectSP createInstance(const vector<ObjectSP>& vec) const { throw RuntimeException("Object::createInstance not implemented yet.");}
+	virtual ObjectSP createInstance(const SQLContextSP& context, const vector<ObjectSP>& vec) const { return createInstance(vec);}
+
 	/**
 	 * @brief judge if the given object should be collected by collectObjects function.
 	 *
@@ -815,7 +850,7 @@ public:
 	Constant() : Object(OBJECT_TYPE::CONSTOBJ), flag_(3){}
 	Constant(unsigned short flag) : Object(OBJECT_TYPE::CONSTOBJ), flag_(flag){}
 	Constant(DATA_FORM df, DATA_TYPE dt, DATA_CATEGORY dc) : Object(OBJECT_TYPE::CONSTOBJ), flag_(3 + (df<<8) + (dt<<16) + (dc<<24)){}
-	virtual ~Constant(){}
+	~Constant() override{}
 	/**
 	 * @brief Return whether this constant is temporary or not.
 	 * 		  The value of a temporary constant may be changed by other function.
@@ -1032,8 +1067,8 @@ public:
 	 * @brief Return whether this constant is a database handle.
 	 */
 	virtual bool isDatabase() const {return false;}
-	virtual ObjectSP deepCopy() const { return getValue();}
-	virtual ObjectSP optimize(Heap* heap, OptimizeContext& context, const ConstantSP& resultCache) const;
+	ObjectSP deepCopy() const override { return getValue();}
+	ObjectSP optimize(Heap* heap, OptimizeContext& context, const ConstantSP& resultCache) const override;
 
 	/**
 	 * @brief Return the bool value of this constant.
@@ -1082,13 +1117,13 @@ public:
 	/**
 	 * @brief Return a description of this constant.
 	 */
-	virtual string getScript() const { return getString();}
+	string getScript() const override { return getString();}
 	/**
 	 * @brief Return a description of this constant according to the session type in the heap.
 	 *
 	 * @param heap: A heap indicate different forms of results.
 	 */
-	virtual string getScript(Heap* heap) const { return getScript();}
+	string getScript(Heap* heap) const override { return getScript();}
 	/**
 	 * @brief Return a dolphinString reference of this constant
 	 */
@@ -2078,7 +2113,7 @@ public:
 	 * @param buffer: The serialized data is stored in buffer.
 	 * @return The result of serializing.
 	*/
-	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const {return serialize(buffer);}
+	IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const override {return serialize(buffer);}
 	/**
 	 * @brief serialize constant to buffer.
 	 *
@@ -2719,15 +2754,15 @@ public:
 	 *
 	 * @param pHeap:
 	*/
-	virtual ConstantSP getValue (Heap* pHeap){return getValue();}
-	virtual const ConstantSP& getValue(Heap* pHeap, ConstantSP& cache) { cache = getValue(); return cache;}
+	ConstantSP getValue (Heap* pHeap) override{return getValue();}
+	const ConstantSP& getValue(Heap* pHeap, ConstantSP& cache) override { cache = getValue(); return cache;}
 	/**
 	 * @brief Return itself if this constant is temporary, else return a copy of this constant.
 	 *
 	 * @param pHeap:
 	*/
-	virtual ConstantSP getReference(Heap* pHeap){return getValue();}
-	virtual const ConstantSP& getReference(Heap* pHeap, ConstantSP& cache) {cache = getValue(); return cache;}
+	ConstantSP getReference(Heap* pHeap) override{return getValue();}
+	const ConstantSP& getReference(Heap* pHeap, ConstantSP& cache) override {cache = getValue(); return cache;}
 	/**
 	 * @brief Return object type of this constant.
 	*/
@@ -2821,9 +2856,9 @@ public:
 public:
 	Vector(): Constant(259){}
 	Vector(DATA_TYPE dt, DATA_CATEGORY dc): Constant(DF_VECTOR, dt, dc){}
-	virtual ~Vector(){}
-	virtual ConstantSP getIterator(const ConstantSP& self) const;
-	virtual ConstantSP getColumnLabel() const;
+	~Vector() override{}
+	ConstantSP getIterator(const ConstantSP& self) const override;
+	ConstantSP getColumnLabel() const override;
 	/**
 	 * @brief Return the name of this vector.
 	 *
@@ -2836,12 +2871,12 @@ public:
 	 * @param name: The vector name.
 	*/
 	void setName(const string& name){name_=name;}
-	virtual bool tryName(const string& name);
+	bool tryName(const string& name) override;
 	/**
 	 * @brief Return whether this vector is a large constant.
 	 * 		  Note that a matrix or a constant large than 1024 is a large constant.
 	*/
-	virtual bool isLargeConstant() const { return isMatrix() || size()>1024; }
+	bool isLargeConstant() const override { return isMatrix() || size()>1024; }
 	/**
 	 * @brief Return whether this vector is a SicedVector or SubVector.
 	*/
@@ -3041,12 +3076,13 @@ public:
 	 * @return True if succeed, else false.
 	*/
 	virtual bool appendBinary(const unsigned char* buf, int len, int unitLength){return false;}
-	virtual string getString() const;
-	virtual string getString(Heap* heap) const;
-	virtual string getScript() const;
-	virtual string getString(INDEX index) const = 0;
+	string getString() const override;
+	string getString(Heap* heap) const override;
+	string getScript() const override;
+	string getString(INDEX index) const override = 0;
+	using Constant::getString;
 	virtual string getString(Heap* heap, INDEX index) const { return getString(index);}
-	virtual ConstantSP getInstance() const {return getInstance(size());}
+	ConstantSP getInstance() const override {return getInstance(size());}
 	/**
 	 * @brief Get a copy of this vector with empty data and specified size.
 	*/
@@ -3057,6 +3093,7 @@ public:
 	 * @param capacity: The capacity of the new vector.
 	 * @return ConstantSP: The new vector.
 	*/
+	using Constant::getValue;
 	virtual ConstantSP getValue(INDEX capacity) const {throw RuntimeException("Vector::getValue method not supported");}
 	/**
 	 * @brief Get the subVector of the specified column in this vertor.
@@ -3068,8 +3105,8 @@ public:
 	 * @return ConstantSP: The sub-vector.
 	*/
 	virtual ConstantSP get(INDEX column, INDEX rowStart,INDEX rowEnd) const {return getSubVector(column*rows()+rowStart,rowEnd-rowStart);}
-	virtual ConstantSP get(INDEX index) const = 0;
-	virtual ConstantSP getWindow(INDEX colStart, int colLength, INDEX rowStart, int rowLength) const {return getSubVector(rowStart,rowLength);}
+	ConstantSP get(INDEX index) const override = 0;
+	ConstantSP getWindow(INDEX colStart, int colLength, INDEX rowStart, int rowLength) const override {return getSubVector(rowStart,rowLength);}
 	/**
 	 * @brief Get the sub-vector of this vector.
 	 * 		  Note that the sub-vector is a copy from this vector.
@@ -3115,6 +3152,7 @@ public:
 	 *
 	 * @param steps: Indicate the lengths to move.
 	*/
+	using Constant::next;
 	virtual void next(INDEX steps)=0;
 	/**
 	 * @brief Move the elements of this vector to the right for some positions.
@@ -3469,6 +3507,15 @@ public:
 	*/
 	virtual void var(INDEX start, INDEX length, const ConstantSP& out, INDEX outputStart=0) const = 0;
 	/**
+	 * @brief Calculate the population variance of the specified range in this vector, and set the result to out according to outputStart.
+	 * 
+	 * @param start: The starting position of the specified range.
+	 * @param length: The length of the specified range.
+	 * @param out: Will be set as the result value.
+	 * @param outputStart: The index indicates which element of out will be set as the result value.
+	*/
+	virtual void varp(INDEX start, INDEX length, const ConstantSP& out, INDEX outputStart=0) const { throw RuntimeException("varp method not supported"); };
+	/**
 	 * @brief Return the standard deviation of this vector.
 	 *
 	 * @return ConstantSP: The sum.
@@ -3810,9 +3857,9 @@ public:
 	 */
 	virtual bool findRange(const ConstantSP& target,INDEX* targetIndices,vector<pair<INDEX,INDEX> >& ranges)=0;
 	virtual long long getAllocatedMemory(INDEX size) const {return Constant::getAllocatedMemory();}
-    virtual long long getAllocatedMemory() const {return getAllocatedMemory(size());}
-	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const {throw RuntimeException("serialize method not supported");}
-	virtual int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int targetNumElement, int& numElement, int& partial) const;
+    long long getAllocatedMemory() const override {return getAllocatedMemory(size());}
+	int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const override {throw RuntimeException("serialize method not supported");}
+	int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int targetNumElement, int& numElement, int& partial) const override;
 
 	/**
 	 * @brief Judge the data according to indices is null or not.
@@ -4264,7 +4311,7 @@ public:
 	Tensor(DATA_TYPE dataType, TensorType tensorType, const std::vector<long long> &shape,
 			const std::vector<long long> &strides = {}, DeviceType deviceType = DeviceType::CPU);
 
-	virtual ~Tensor() override;
+	~Tensor() override;
 
 	TensorType getTensorType() const noexcept { return tensorType_; }
 	DeviceType getDeviceType() const noexcept { return deviceType_; }
@@ -4286,13 +4333,14 @@ public:
 	 * @note This tensor remain unaffected.
 	 */
 	virtual TensorSP contiguous() const = 0;
+	using Constant::reshape;
 	virtual TensorSP reshape(const vector<long long>& shape) const = 0;
 	/**
 	 * @brief Deep copy this tensor.
 	 */
 	virtual TensorSP clone() const = 0;
 
-	virtual string getScript() const override;
+	string getScript() const override;
 
 public:
 	static vector<long long> makeContiguousStrides(const std::vector<long long> &shape);
@@ -4321,28 +4369,28 @@ protected:
 class SWORDFISH_API Set: public Constant {
 public:
 	Set(DATA_TYPE dt, DATA_CATEGORY dc) : Constant(DF_SET, dt, dc){}
-	virtual ~Set() {}
+	~Set() override {}
 	virtual void clear()=0;
 	virtual bool remove(const ConstantSP& value) = 0;
 	virtual bool append(const ConstantSP& value) = 0;
 	virtual bool inverse(const ConstantSP& value) = 0;
-	virtual void contain(const ConstantSP& target, const ConstantSP& resultSP) const = 0;
+	void contain(const ConstantSP& target, const ConstantSP& resultSP) const override = 0;
 	virtual bool isSuperset(const ConstantSP& target) const = 0;
 	virtual ConstantSP interaction(const ConstantSP& target) const = 0;
 	virtual ConstantSP getSubVector(INDEX start, INDEX length) const = 0;
-	virtual string getScript() const {return "set()";}
-	virtual bool isLargeConstant() const {return true;}
+	string getScript() const override {return "set()";}
+	bool isLargeConstant() const override {return true;}
 	virtual void* getRawSet() const = 0;
 };
 
 class SWORDFISH_API Dictionary:public Constant{
 public:
 	Dictionary(DATA_TYPE dt, DATA_CATEGORY dc) : Constant(DF_DICTIONARY, dt, dc), lock_(0){}
-	virtual ~Dictionary();
+	~Dictionary() override;
 	/**
 	 * @brief Return the size of this dictionary.
 	 */
-	virtual INDEX size() const = 0;
+	INDEX size() const override = 0;
 	/**
 	 * @brief Return the size of this dictionary.
 	 */
@@ -4351,8 +4399,8 @@ public:
 	 * @brief Erase all the elements of this dictionary.
 	 */
 	virtual void clear()=0;
-	virtual ConstantSP getMember(const ConstantSP& key) const =0;
-	virtual ConstantSP getMember(const string& key) const {throw RuntimeException("String key not supported");}
+	ConstantSP getMember(const ConstantSP& key) const override =0;
+	ConstantSP getMember(const string& key) const override {throw RuntimeException("String key not supported");}
 	virtual ConstantSP get(INDEX column, INDEX row){throw RuntimeException("Dictionary does not support cell function");}
 	/**
 	 * @brief Return the symbolBase of the keys of this dictionary.
@@ -4366,11 +4414,11 @@ public:
 	 * @brief Return the data category of the keys of this dictionary.
 	 */
 	virtual DATA_CATEGORY getKeyCategory() const = 0;
-	virtual ConstantSP keys() const = 0;
-	virtual ConstantSP values() const = 0;
-	virtual string getString() const = 0;
-	virtual string getScript() const {return "dict()";}
-	virtual string getString(int index) const {throw RuntimeException("Dictionary::getString(int index) not supported");}
+	ConstantSP keys() const override = 0;
+	ConstantSP values() const override = 0;
+	string getString() const override = 0;
+	string getScript() const override {return "dict()";}
+	string getString(int index) const override {throw RuntimeException("Dictionary::getString(int index) not supported");}
 	/**
 	 * @brief Remove the elements from this dictionary according to key.
 	 *
@@ -4385,7 +4433,7 @@ public:
 	 * @param value:A scalar or vector, assume that has the same size as key.
 	 * @return True if set succeed, else false.
 	 */
-	virtual bool set(const ConstantSP& key, const ConstantSP& value)=0;
+	bool set(const ConstantSP& key, const ConstantSP& value) override =0;
 	// This set function avoids the overhead of smart pointers to improve JIT speed
 	virtual bool set(Constant& key, Constant& value) { return false; }
 	/**
@@ -4398,7 +4446,7 @@ public:
 	 * @param dim: dim is a zero-based index. The index's dim-th element is the index of the current object to update.
 	 * @return true if set succeed, false else.
 	 */
-	virtual bool set(Heap* heap, const ConstantSP& index, const ConstantSP& value, int dim) {return false;}
+	bool set(Heap* heap, const ConstantSP& index, const ConstantSP& value, int dim) override {return false;}
 	/**
 	 * @brief Set the element values accoreding to key.
 	 *
@@ -4406,6 +4454,7 @@ public:
 	 * @param value:A scalar.
 	 * @return True if set succeed, else false.
 	 */
+	using Constant::set;
 	virtual bool set(const string& key, const ConstantSP& value){throw RuntimeException("String key not supported");}
 	/**
 	 * @brief Apply optr between value and the elements of this dictionary according to key.
@@ -4427,16 +4476,17 @@ public:
 	 * @return True if reduce succeed, else false.
 	 */
 	virtual bool reduce(Heap* heap, const FunctionDefSP& optr, const FunctionDefSP& initOptr, const ConstantSP& key, const ConstantSP& value)=0;
-	virtual bool modifyMember(Heap* heap, const FunctionDefSP& func, const ConstantSP& index, const ConstantSP& parameters, int dim){return false;}
+	bool modifyMember(Heap* heap, const FunctionDefSP& func, const ConstantSP& index, const ConstantSP& parameters, int dim) override{return false;}
 	/**
 	 * @brief Get specified elements according to key.
 	 *
 	 * @param key:A scalar or vector, indicate the key of the elements to return.
 	 * @return ConstantSP: The specified elements.
 	 */
-	virtual ConstantSP get(const ConstantSP& key) const {return getMember(key);}
-	virtual void contain(const ConstantSP& target, const ConstantSP& resultSP) const = 0;
-	virtual bool isLargeConstant() const {return true;}
+	using Constant::get;
+	ConstantSP get(const ConstantSP& key) const override {return getMember(key);}
+	void contain(const ConstantSP& target, const ConstantSP& resultSP) const override = 0;
+	bool isLargeConstant() const override {return true;}
 	/**
 	 * @brief Return the underlying map of this dictionary.
 	 *
@@ -4474,11 +4524,11 @@ public:
 
 public:
 	Table() : Constant(DF_TABLE, DT_DICTIONARY, MIXED), flag_(0), engineType_((char)DBENGINE_TYPE::OLAP), lock_(0){}
-	virtual ~Table();
-	virtual ConstantSP getIterator(const ConstantSP& self) const;
-	virtual string getScript() const { return getName(); }
+	~Table() override;
+	ConstantSP getIterator(const ConstantSP& self) const override;
+	string getScript() const override { return getName(); }
 
-    virtual const ConstantSP& getColumnRef(INDEX index) { throw RuntimeException("unsupport table getColumnRef."); }
+    const ConstantSP& getColumnRef(INDEX index) override { throw RuntimeException("unsupport table getColumnRef."); }
 	/**
 	 * @brief Get specified column according to column name.
 	 *
@@ -4500,7 +4550,7 @@ public:
 	 * @param index: A column index.
 	 * @return ConstantSP: The specified column.
 	 */
-	virtual ConstantSP getColumn(INDEX index) const = 0;
+	ConstantSP getColumn(INDEX index) const override = 0;
 	/**
 	 * @brief Get specified column and rows according to column name and rowFilter.
 	 *
@@ -4529,7 +4579,7 @@ public:
 	 * @return ConstantSP: The specified column.
 	 */
 	virtual ConstantSP getColumn(INDEX index, const ConstantSP& rowFilter) const = 0;
-	virtual INDEX columns() const = 0;
+	INDEX columns() const override = 0;
 	/**
 	 * @brief Return name of the specified column.
 	 */
@@ -4560,6 +4610,7 @@ public:
 	/**
 	 * @brief Return whether this table contain a column with the specified name.
 	 */
+	using Constant::contain;
 	virtual bool contain(const string& name) const = 0;
 	/**
 	 * @brief Return true when qualifier equal to the name of this table
@@ -4584,7 +4635,7 @@ public:
 	 * 		  and this table contain a column with specified name.
 	 */
 	virtual bool containAll(const vector<ColumnRefSP>& cols) const = 0;
-	virtual bool tryName(const string& name){
+	bool tryName(const string& name) override{
 		if(isTemporary() || isTableNameInternal()){
 			setName(name);
 			unsetTableUsingInternalName();
@@ -4600,19 +4651,21 @@ public:
 	 * @brief Return the name of this table.
 	 */
 	virtual const string& getName() const = 0;
-	virtual ConstantSP get(INDEX index) const {return getColumn(index);}
-	virtual ConstantSP get(const ConstantSP& index) const = 0;
+	ConstantSP get(INDEX index) const override {return getColumn(index);}
+	ConstantSP get(const ConstantSP& index) const override = 0;
+	using Constant::getValue;
 	virtual ConstantSP getValue(INDEX capacity) const = 0;
-	virtual ConstantSP getValue() const = 0;
+	ConstantSP getValue() const override = 0;
+	using Constant::getInstance;
 	virtual ConstantSP getInstance(INDEX size) const = 0;
-	virtual INDEX size() const = 0;
-	virtual bool sizeable() const = 0;
-	virtual string getString(INDEX index) const = 0;
-	virtual string getString() const = 0;
-	virtual ConstantSP getWindow(INDEX colStart, int colLength, INDEX rowStart, int rowLength) const = 0;
-	virtual ConstantSP getMember(const ConstantSP& key) const = 0;
-	virtual ConstantSP values() const = 0;
-	virtual ConstantSP keys() const = 0;
+	INDEX size() const override = 0;
+	bool sizeable() const override = 0;
+	string getString(INDEX index) const override = 0;
+	string getString() const override = 0;
+	ConstantSP getWindow(INDEX colStart, int colLength, INDEX rowStart, int rowLength) const override = 0;
+	ConstantSP getMember(const ConstantSP& key) const override = 0;
+	ConstantSP values() const override = 0;
+	ConstantSP keys() const override = 0;
 	/**
 	 * @brief Return the table type of this table.
 	 */
@@ -4653,8 +4706,9 @@ public:
 	 * @param Heap:
 	 * @param context:
 	 * @param filterExprs:A MetaCode vector that indicate which rows need to remove.
+	 * @return Return the number of rows removed.
 	 */
-	virtual void remove(Heap* heap, const SQLContextSP& context, const ConstantSP& filterExprs) {throw RuntimeException("Table::remove() not supported");}
+	virtual INDEX remove(Heap* heap, const SQLContextSP& context, const ConstantSP& filterExprs) {throw RuntimeException("Table::remove() not supported");}
 	/**
 	 * @brief Sort some columns of this table.
 	 *
@@ -4671,8 +4725,9 @@ public:
 	 * @param updateColNames: A string vector, indicate the column names need to update.
 	 * @param updateExpr: An expression that indicate how to update columns.
 	 * @param filterExprs:A MetaCode vector that indicate which rows need to update.
+	 * @return Return the number of rows updated.
 	 */
-	virtual void update(Heap* heap, const SQLContextSP& context, const ConstantSP& updateColNames, const ObjectSP& updateExpr, const ConstantSP& filterExprs) {throw RuntimeException("Table::update() not supported");}
+	virtual INDEX update(Heap* heap, const SQLContextSP& context, const ConstantSP& updateColNames, const ObjectSP& updateExpr, const ConstantSP& filterExprs) {throw RuntimeException("Table::update() not supported");}
 	/**
 	 * @brief Update some columns of this table with new values according to index.
 	 *
@@ -4680,9 +4735,9 @@ public:
 	 * @param indexSP: Indices of rows.
 	 * @param colNames: Column names need to update.
 	 * @param errMsg: If the append fails, the error message is stored in errMsg.
-	 * @return True if update succeed, eles false.
+	 * @return Return the number of rows updated.
 	 */
-	virtual bool update(vector<ConstantSP>& values, const ConstantSP& indexSP, vector<string>& colNames, string& errMsg) = 0;
+	virtual INDEX update(vector<ConstantSP>& values, const ConstantSP& indexSP, vector<string>& colNames, string& errMsg) = 0;
 	/**
 	 * @brief Append values to this table.
 	 *
@@ -4709,9 +4764,9 @@ public:
 	 *
 	 * @param indexSP: Indices of rows to remove.
 	 * @param errMsg: If the romove fails, the error message is stored in errMsg.
-	 * @return True if romove succeed, eles false.
+	 * @return Return the number of rows updated.
 	 */
-	virtual bool remove(const ConstantSP& indexSP, string& errMsg) = 0;
+	virtual INDEX remove(const ConstantSP& indexSP, string& errMsg) = 0;
 	/**
 	 * @brief Insert rows into a keyed table or indexed table if the values of the
 	 * 			primary key do not already exist, or update them if they do.
@@ -4727,7 +4782,7 @@ public:
 						string& errMsg) {
 		throw RuntimeException("Table::upsert() not supported");
 	}
-	virtual DATA_TYPE getRawType() const {return DT_DICTIONARY;}
+	DATA_TYPE getRawType() const override {return DT_DICTIONARY;}
 	/**
 	 * @brief Return whether this table is a distributed table.
 	 */
@@ -4804,7 +4859,7 @@ public:
 	 * @param partitionColumn: The name of partitioning column of this table.
 	 */
 	virtual void setGlobalPartition(const DomainSP& domain, const string& partitionColumn){throw RuntimeException("Table::setGlobalPartition() not supported");}
-	virtual bool isLargeConstant() const {return true;}
+	bool isLargeConstant() const override {return true;}
 	/**
 	 * @brief Add subscriber to this stream table.
 	 *
@@ -4877,7 +4932,7 @@ public:
 	 * @brief Return how many partitions the current table contains.
 	 */
 	virtual int getPartitionCount() const { throw RuntimeException("Table::getPartitionCount() not supported"); }
-	virtual long long getAllocatedMemory() const = 0;
+	long long getAllocatedMemory() const override = 0;
 	/**
 	 * @brief Retrieve message from this table.
 	 *
@@ -5136,8 +5191,9 @@ public:
      * @param pHeap: The heap.
      * @param filters: The filter conditions.
      * @param updateCols: The columns to update.
+	 * @return Return the number of rows updated.
      */
-    virtual void update(
+    virtual INDEX update(
             Heap* pHeap,
             std::vector<ObjectSP> &filters,
             const std::vector<ColumnDefSP> &updateCols
@@ -5147,8 +5203,9 @@ public:
      *
      * @param pHeap: The heap.
      * @param filters: The filter conditions.
+	 * @return Return the number of rows removed.
      */
-    virtual void remove(
+    virtual INDEX remove(
             Heap* pHeap,
             std::vector<ObjectSP> &filters
     ) { throw RuntimeException("Table::remove() not supported"); }
@@ -5216,18 +5273,18 @@ public:
 	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const vector<string>& sites, long long cid, long long term = -1, bool prefetchComputeNodeData = false, const vector<int>& replicaVolIds = {});
 	DFSChunkMeta(const string& path, const Guid& id, int version, int size, CHUNK_TYPE chunkType, const string* sites, int siteCount, long long cid, long long term = -1, bool prefetchComputeNodeData = false, const int* replicaVolIds = nullptr);
 	DFSChunkMeta(const DataInputStreamSP& in);
-	virtual ~DFSChunkMeta();
-	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
-	virtual int size() const {return size_;}
-	virtual string getString() const;
-	virtual long long getAllocatedMemory() const;
-	virtual ConstantSP getMember(const ConstantSP& key) const;
-	virtual ConstantSP get(const ConstantSP& index) const {return getMember(index);}
-	virtual ConstantSP keys() const;
-	virtual ConstantSP values() const;
-	virtual DATA_TYPE getRawType() const {return DT_DICTIONARY;}
-	virtual ConstantSP getInstance() const {return getValue();}
-	virtual ConstantSP getValue() const {return new DFSChunkMeta(path_, id_, version_, size_, (CHUNK_TYPE)type_, sites_, replicaCount_, cid_, term_, prefetchComputeNodeData_, volumesId_);}
+	~DFSChunkMeta() override;
+	IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const override;
+	int size() const override {return size_;}
+	string getString() const override;
+	long long getAllocatedMemory() const override;
+	ConstantSP getMember(const ConstantSP& key) const override;
+	ConstantSP get(const ConstantSP& index) const override {return getMember(index);}
+	ConstantSP keys() const override;
+	ConstantSP values() const override;
+	DATA_TYPE getRawType() const override {return DT_DICTIONARY;}
+	ConstantSP getInstance() const override {return getValue();}
+	ConstantSP getValue() const override {return new DFSChunkMeta(path_, id_, version_, size_, (CHUNK_TYPE)type_, sites_, replicaCount_, cid_, term_, prefetchComputeNodeData_, volumesId_);}
 	inline const string& getPath() const {return path_;}
 	inline const Guid& getId() const {return id_;}
 	inline long long getCommitId() const {return cid_;}
@@ -5270,8 +5327,8 @@ class SysObj : public Constant {
 public:
 	SysObj(SYSOBJ_TYPE type);
 	inline SYSOBJ_TYPE getSysObjType() const { return type_;}
-	virtual DATA_TYPE getRawType() const {return DT_OBJECT;}
-	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
+	DATA_TYPE getRawType() const override {return DT_OBJECT;}
+	IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const override;
 	virtual bool isView() const {return false;}
 
 protected:
@@ -5284,23 +5341,23 @@ private:
 class SWORDFISH_API OOClass : public SysObj {
 public:
 	OOClass(const string& qualifier, const string& name, bool builtin, SYSOBJ_TYPE type);
-	virtual ~OOClass(){}
-	virtual ConstantSP getInstance() const { return getValue();}
+	~OOClass() override{}
+	ConstantSP getInstance() const override { return getValue();}
 	const string& getName() const { return name_;}
 	const string& getQualifier() const { return qualifier_;}
 	void setQulifier(const string &s) { qualifier_ = s; }
 	string getFullName() const;
 	inline bool isBuiltin() const { return flag_ & 1;}
-	virtual void collectUserDefinedFunctionsAndClasses(Heap* pHeap, unordered_map<string,FunctionDef*>& functionDefs, unordered_map<string,OOClass*>& classes) const;
+	void collectUserDefinedFunctionsAndClasses(Heap* pHeap, unordered_map<string,FunctionDef*>& functionDefs, unordered_map<string,OOClass*>& classes) const override;
 	virtual void collectInternalUserDefinedFunctionsAndClasses(Heap* pHeap, unordered_map<string,FunctionDef*>& functionDefs, unordered_map<string,OOClass*>& classes) const = 0;
-	virtual FunctionDefSP getMethod(const string& name) const = 0;
-	virtual FunctionDefSP getOperator(const string& name) const = 0;
-	virtual bool hasMethod(const string& name) const = 0;
-	virtual bool hasOperator(const string& name) const = 0;
+	FunctionDefSP getMethod(const string& name) const override = 0;
+	FunctionDefSP getOperator(const string& name) const override = 0;
+	bool hasMethod(const string& name) const override = 0;
+	bool hasOperator(const string& name) const override = 0;
 	virtual void getMethods(vector<FunctionDefSP>& methods) const = 0;
-	virtual ConstantSP getMember(const string& key) const = 0;
-	virtual ConstantSP getMember(const ConstantSP& key) const { return getMember(key->getString());}
-	virtual string getString() const;
+	ConstantSP getMember(const string& key) const override = 0;
+	ConstantSP getMember(const ConstantSP& key) const override { return getMember(key->getString());}
+	string getString() const override;
 	virtual IO_ERR serializeClass(const ByteArrayCodeBufferSP& buffer) const = 0;
 	virtual IO_ERR deserializeClass(Session* session, const DataInputStreamSP& in) = 0;
 
@@ -5315,7 +5372,7 @@ public:
 	 * OO class, and the function name for a function definition.
 	 *
 	 */
-	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
+	IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const override;
 	static ConstantSP createOOClass(Session* session, const DataInputStreamSP& in);
 	static string composeFullName(const string& name, const string& qualifier);
 	static bool decomposeFullName(const string& fullName, string& name, string& qualifier);
@@ -5334,13 +5391,13 @@ class SWORDFISH_API OOInstance : public SysObj {
 public:
 	OOInstance(const OOClassSP& ooClass, SYSOBJ_TYPE type);
 	OOClassSP getClass() const { return class_;}
-	virtual ConstantSP getInstance() const { return getValue();}
-	virtual FunctionDefSP getMethod(const string& name) const { return class_->getMethod(name);}
-	virtual bool hasMethod(const string& name) const { return class_->hasMethod(name);}
-	virtual FunctionDefSP getOperator(const string& name) const { return class_->getOperator(name);}
-	virtual ConstantSP getMember(const string& key) const = 0;
-	virtual ConstantSP getMember(const ConstantSP& key) const { return getMember(key->getString());}
-	virtual void collectUserDefinedFunctionsAndClasses(Heap* pHeap, unordered_map<string,FunctionDef*>& functionDefs, unordered_map<string,OOClass*>& classes) const;
+	ConstantSP getInstance() const override { return getValue();}
+	FunctionDefSP getMethod(const string& name) const override { return class_->getMethod(name);}
+	bool hasMethod(const string& name) const override { return class_->hasMethod(name);}
+	FunctionDefSP getOperator(const string& name) const override { return class_->getOperator(name);}
+	ConstantSP getMember(const string& key) const override = 0;
+	ConstantSP getMember(const ConstantSP& key) const override { return getMember(key->getString());}
+	void collectUserDefinedFunctionsAndClasses(Heap* pHeap, unordered_map<string,FunctionDef*>& functionDefs, unordered_map<string,OOClass*>& classes) const override;
 
 protected:
 	OOClassSP class_;
@@ -5355,6 +5412,7 @@ public:
     inline int getVersion() const { return verAndSize_ >> 24;}
     inline int getExtendedType() const { return extendedType_;}
     inline int getVersionAndSize() const { return verAndSize_;}
+	using Constant::serialize;
     IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const override;
 	int serialize(char* buf, int bufSize, INDEX indexStart, int offset, int& numElement, int& partial) const override;
 	bool isLargeConstant() const override;
@@ -5473,16 +5531,16 @@ public:
 	void setReturnMeta(DATA_FORM form, DATA_TYPE type, DATA_TYPE keyType);
 	inline int getReturnMeta() const { return returnMeta_;}
 	void checkArgumentSize(int actualArgCount);
-	virtual bool copyable() const {return false;}
-	virtual DATA_TYPE getRawType() const { return DT_STRING;}
-	virtual string getScript() const {return getFullName();}
-	virtual string getString() const {return name_;}
-	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const = 0;
+	bool copyable() const override {return false;}
+	DATA_TYPE getRawType() const override { return DT_STRING;}
+	string getScript() const override {return getFullName();}
+	string getString() const override {return name_;}
+	IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const override = 0;
 	virtual FunctionDefSP materializeFunctionDef(Heap* pHeap) { return FunctionDefSP();}
 	virtual ConstantSP call(Heap* pHeap, vector<ConstantSP>& arguments) = 0;
 	virtual ConstantSP call(Heap* pHeap, const ConstantSP& a, const ConstantSP& b) = 0;
 	virtual ConstantSP call(Heap* pHeap,vector<ObjectSP>& arguments) = 0;
-	virtual bool containNotMarshallableObject() const {return defType_ >= USERDEFFUNC ;}
+	bool containNotMarshallableObject() const override {return defType_ >= USERDEFFUNC ;}
 	virtual FastFunc getFastImplementation() const {return nullptr;}
 	virtual std::tuple<DATA_FORM, DATA_TYPE, JitFunc> getJitFuncPtr(Heap *heap, std::vector<ConstantSP> testArgs) { return std::make_tuple(DF_SCALAR, DT_VOID, nullptr); }
 	virtual void registerTurboJetImplementation(TurboJetFunc funcPtr) { throw RuntimeException("registerTurboJetImplementation not implemented."); }
@@ -5612,11 +5670,11 @@ public:
 	ColumnRef(const SQLContextSP& contextSP, const string& qualifier, const string& name, int index): Object(OBJECT_TYPE::COLUMN), contextSP_(contextSP),
 				qualifier_(qualifier),name_(name),index_(index),acceptFunctionDef_(true){}
 	ColumnRef(const SQLContextSP& context, const DataInputStreamSP& in);
-	virtual ~ColumnRef(){}
-	virtual ObjectSP deepCopy() const;
-	virtual ConstantSP getValue(Heap* pHeap);
-	virtual ConstantSP getReference(Heap* pHeap);
-	virtual ConstantSP getComponent() const;
+	~ColumnRef() override{}
+	ObjectSP deepCopy() const override;
+	ConstantSP getValue(Heap* pHeap) override;
+	ConstantSP getReference(Heap* pHeap) override;
+	ConstantSP getComponent() const override;
 	const SQLContextSP getSQLContext() const {return contextSP_;}
 	const string& getQualifier() const { return qualifier_;}
 	const string& getName() const { return name_;}
@@ -5627,19 +5685,20 @@ public:
 	void setPartitionColumn(DATA_TYPE type, int dimensionIndex);
 	void setAcceptFunctionDef(bool option) { acceptFunctionDef_ = option;}
 	bool acceptFunctionDef() const { return acceptFunctionDef_;}
-	virtual string getScript() const;
+	string getScript() const override;
 	string getNormalizedScript() const;
-	virtual IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const;
+	IO_ERR serialize(Heap* pHeap, const ByteArrayCodeBufferSP& buffer) const override;
 	ColumnRef* copy(const SQLContextSP& contextSP) const{ return new ColumnRef(contextSP, qualifier_, name_, index_);}
 	ColumnRef* localize(const SQLContextSP& contextSP) const{ return new ColumnRef(contextSP, qualifier_, name_);}
 	ColumnRef* localize() const{ return new ColumnRef(contextSP_, qualifier_, name_);}
 	bool operator ==(const ColumnRef& target);
 	bool operator ==(const ColumnRef& target) const;
-	virtual ObjectSP copy(Heap* pHeap, const SQLContextSP& context, bool localize) const;
-	virtual ObjectSP copyAndMaterialize(Heap* pHeap, const SQLContextSP& context, const TableSP& table) const;
-	virtual bool mayContainColumnRefOrVariable() const { return true;}
+	ObjectSP copy(Heap* pHeap, const SQLContextSP& context, bool localize) const override;
+	ObjectSP copyAndMaterialize(Heap* pHeap, const SQLContextSP& context, const TableSP& table) const override;
+	bool mayContainColumnRefOrVariable() const override { return true;}
 	void bindColIndex();
 	ObjectSP optimize(Heap* pHeap, OptimizeContext& context, const ConstantSP& resultCache) const override;
+	ObjectSP createInstance(const vector<ObjectSP>& vec) const override;
 
 private:
 	SQLContextSP contextSP_;
@@ -5698,7 +5757,7 @@ public:
 
 class DummyOutput: public Output {
 public:
-	virtual ~DummyOutput(){}
+	~DummyOutput() override{}
     bool timeElapsed(long long nanoSeconds) override {return true;}
     bool write(const ConstantSP& obj) override {return true;}
     bool message(const string& msg) override {return true;}
@@ -5713,6 +5772,19 @@ public:
     void setWindow(INDEX index,INDEX size) override {};
     IO_ERR flush() override {return OK;}
 };
+
+struct SessionStatisticsImpl {
+public:
+    int rowCount{0};
+
+    void setAffectedRows(int affectedRows) {
+        rowCount = affectedRows;
+    }
+    int getAffectedRows() const {
+        return rowCount;
+    }
+};
+using SessionStatistics = SessionStatisticsImpl;
 
 class SWORDFISH_API Session {
 public:
@@ -5748,6 +5820,15 @@ public:
 	virtual ConstantSP get(const string& key) const=0;
 	virtual vector<pair<string,ConstantSP>> getAll() const=0;
 	virtual void set(const string& key, const ConstantSP& value, bool copyIfDifferent = false)=0;
+    virtual void registerSessionVariable(const string& name, const ConstantSP& value, bool overwrite = false) {
+            throw RuntimeException("Session::registerSessionVariable isn't implemented.");
+    }
+    virtual ConstantSP getSessionVariable(const string& name) const {
+            throw RuntimeException("Session::getSessionVariable isn't implemented.");
+    }
+    virtual bool unregisterSessionVariable(const string& name) {
+            throw RuntimeException("Session::unregisterSessionVariable isn't implemented.");
+    }
 	virtual long long getLastActiveTime()=0;
 	PARSER_TYPE getParserType() const { return parserType_;}
 	OutputSP getOutput() const { return out_;}
@@ -5838,6 +5919,7 @@ public:
 	inline void setSeqNo(long long seqNo) { seqNo_ = seqNo;}
 	inline const string& getCurrentCatalog() const { return currentCatalog_;}
 	inline void setCurrentCatalog(const string& catalog){currentCatalog_ = catalog;}
+    inline SessionStatistics& getSessionStatistics() { return sessionStatistics_; }
 
 protected:
 	long long sessionID_;
@@ -5857,6 +5939,7 @@ protected:
 	// for async replication task execution
 	long long asyncReplicationTaskId_ = 0;
 	string currentCatalog_;
+    SessionStatistics sessionStatistics_;
 
 private:
 	PARSER_TYPE parserType_;
@@ -6018,6 +6101,8 @@ public:
 	inline void setDefMode() { status_ |= 2; }
 	inline bool isReturnMode() const { return status_ & 4;}
 	inline void setReturnMode(bool enabled = true) { if(enabled) status_ |= 4; else status_ &= ~4;}
+	inline bool isTestMode() const { return status_ & 8;}
+	inline void setTestMode(bool enabled) { if(enabled) status_ |= 8; else status_ &= ~8;}
 	int getIndex(const string& name) const;
 	int getLocalIndex(const string& name) const;
 	string getName(int index) const;
@@ -6138,6 +6223,10 @@ public:
 	 */
 	virtual StatementSP optimize(Heap* pHeap, OptimizeContext& context) const { return nullptr;}
 	virtual void collectVariables(Heap* pHeap, OptimizeContext& context) const {}
+	virtual int retrieveComponents(vector<ObjectSP>& objs, vector<StatementSP>& sts) const { return 0;}
+	virtual StatementSP createInstance(const vector<ObjectSP>& objs, const vector<StatementSP>& sts) const { return nullptr;}
+	virtual StatementSP createInstance(const SQLContextSP& context, const vector<ObjectSP>& objs,
+			const vector<StatementSP>& sts) const { return createInstance(objs, sts);}
 	virtual void execute(Heap* pHeap, StatementContext& context)=0;
 	virtual void execute(Heap* pHeap, StatementContext& context, DebugContext* debugContext);
 	virtual string getScript(int indention) const = 0;
@@ -6320,6 +6409,8 @@ struct ClusterNodes {
 	void getDataNodeAliases(vector<string>& aliases, bool includeComputeNode = true);
 	void getDataNodeIndices(vector<int>& indices);
     void updateSiteType(const SmartPointer<unordered_map<string, SERVER_TYPE>>& map) {sitesTypeMap = map;}
+
+	vector<string> getAliasOf_All_DataNodes_And_ComputeNodesNotInComputeGroup() const;
 
 	inline int getSiteIndex(const string& alias) const {
 		unordered_map<string, int>::const_iterator it = sitesMap.find(alias);
@@ -6598,54 +6689,6 @@ struct TableUpdateUrgency {
 	inline bool operator()(const TableUpdate& update){
 		return update.flag_ & 1;
 	}
-};
-
-struct TopicSubscribe {
-	TopicSubscribe(const string& topic, int hashValue, vector<string> attributes, const FunctionDefSP& handler, const AuthenticatedUserSP& user,
-			bool msgAsTable, int batchSize, int throttleTime, bool persistOffset, bool timeTrigger, bool handlerNeedMsgId,
-			const string& userId = "", const string& pwd = "", long long sessionID = 0, const bool& multicast = false) : msgAsTable_(msgAsTable),
-			persistOffset_(persistOffset), timeTrigger_(timeTrigger), handlerNeedMsgId_(handlerNeedMsgId), hashValue_(hashValue), batchSize_(batchSize),
-			throttleTime_(throttleTime), userId_(userId), pwd_(pwd), sessionID_(sessionID), cumSize_(0), messageId_(-1), expired_(-1), topic_(topic), attributes_(attributes), handler_(handler), user_(user), multicast_(multicast){}
-	bool append(long long msgId, const ConstantSP& msg, long long& outMsgId, ConstantSP& outMsg);
-	bool getMessage(long long now, long long& outMsgId, ConstantSP& outMsg);
-	bool updateSchema(const TableSP& emptyTable);
-	bool isUnsubscribed() { return isUnsubscribed_; }
-	void setUnsubscribed() { isUnsubscribed_ = true; }
-    void setSubscribed() { isUnsubscribed_ = false; }
-	bool isOrca() const { return isOrcaSubscription_; }
-	void setOrca(bool isOrca) { isOrcaSubscription_ = isOrca; }
-
-	const bool msgAsTable_;
-	const bool persistOffset_;
-	/*
-	 * trigger the message handler as long as a fixed time period (specified in throttleTime_) elapses
-	 * even if there is no incoming message in the time window when timeTrigger_ is set to true.
-	 */
-	const bool timeTrigger_;
-	/*
-	 * if this value is true, the handler accepts two arguments, message body and message id.
-	 * Otherwise, the handler accepts only one argument, i.e. message body.
-	 */
-	const bool handlerNeedMsgId_;
-	const int hashValue_;
-	const int batchSize_;
-	const int throttleTime_; //in millisecond
-	const string userId_;
-	const string pwd_;
-    const long long sessionID_;
-	int cumSize_;
-	std::atomic<long long> messageId_;
-	long long expired_;
-	const string topic_;
-	vector<string> attributes_;
-	const FunctionDefSP handler_;
-	AuthenticatedUserSP user_;
-	ConstantSP body_;
-	ConstantSP filter_;
-	Mutex mutex_;
-	bool isUnsubscribed_ = false;
-    bool multicast_ = false;
-	bool isOrcaSubscription_ = false;
 };
 
 class SessionThreadCallGuard {

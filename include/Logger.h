@@ -54,9 +54,7 @@ public:
 				<< std::setw(0)
 				<< SeverityTypeToString<severity>::value;
 
-			//unpack parameters by initializer list
-			//https://en.cppreference.com/w/cpp/language/parameter_pack
-			std::initializer_list<int>{(stream << args, 0)...};
+			((stream << args), ...);
 
 			buffer_->push(stream.str());
 		} catch (...) {

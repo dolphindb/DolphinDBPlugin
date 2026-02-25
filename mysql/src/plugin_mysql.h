@@ -1,5 +1,6 @@
-#ifndef PLUGIN_MYSQL_H
-#define PLUGIN_MYSQL_H
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
 
 #include "DolphinDBEverything.h"
 #include <ddbplugin/pluginVersion.h>
@@ -80,7 +81,8 @@ class Connection : public mysqlxx::Connection {
     int port_ = 3306;
 
   public:
-    Connection(std::string hostname, int port, std::string username, std::string password, std::string database);
+    Connection(std::string hostname, int port, std::string username, std::string password, std::string database,
+               MySQLSSLMode sslMode);
 
     ~Connection();
     ConstantSP doQuery(const std::string &str);
@@ -341,4 +343,3 @@ void getValNull(DATA_TYPE type, char *buf) {
 const char *getMySQLTypeStr(mysqlxx::enum_field_types dt);
 
 }  // namespace ddb
-#endif

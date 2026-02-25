@@ -23,6 +23,7 @@ using ddb::RuntimeException;
 using ddb::String;
 using ddb::TableSP;
 using ddb::Util;
+using ddb::DictionarySP;
 
 ConstantSP safeOp(const ConstantSP &arg, std::function<ConstantSP(Connection *)> &&f) {
     if (arg->getType() == DT_RESOURCE) {
@@ -64,7 +65,7 @@ static void mysqlConnectionOnClose(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP mysqlConnect(Heap *heap, vector<ConstantSP> &args) {
-    std::string usage = "Usage: connect(host, port, user, password, db). ";
+    std::string usage = "Usage: connect(host, port, user, password, db, [config]). ";
     // parse args first
     if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException(__FUNCTION__, usage + "host must be a string");
@@ -87,8 +88,45 @@ ConstantSP mysqlConnect(Heap *heap, vector<ConstantSP> &args) {
     if (args[4]->getType() != DT_STRING || args[4]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException(__FUNCTION__, usage + "db must be a string");
     }
+    MySQLSSLMode sslMode = SSL_MODE_REQUIRED;
+    if (args.size() > 5 && !args[5]->isNull()) {
+        if (!args[5]->isDictionary()) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "config must be a dictionary");
+        }
+        DictionarySP config = args[5];
+        if (config->getKeyType() != DT_STRING || config->getType() != DT_ANY) {
+            throw IllegalArgumentException(__FUNCTION__, usage + "config must be string->any type");
+        }
+
+        bool enableSSL = true, enableVerfyCert = false;
+        ConstantSP val = config->getMember("SSL_ENFORCE");
+        if (!val->isNull()) {
+            if (val->getType() != DT_BOOL) {
+                throw IllegalArgumentException(__FUNCTION__, usage + "SSL_ENFORCE must be a bool");
+            }
+            enableSSL = val->getBool();
+        }
+        val = config->getMember("SSL_VERIFY_SERVER_CERT");
+        if (!val->isNull()) {
+            if (val->getType() != DT_BOOL) {
+                throw IllegalArgumentException(__FUNCTION__, usage + "SSL_VERIFY_SERVER_CERT must be a bool");
+            }
+            enableVerfyCert = val->getBool();
+        }
+
+        if (!enableSSL && !enableVerfyCert) {
+            sslMode = SSL_MODE_DISABLED;
+        } else if (enableSSL && !enableVerfyCert) {
+            sslMode = SSL_MODE_REQUIRED;
+        } else if (enableSSL && enableVerfyCert) {
+            sslMode = SSL_MODE_VERIFY_CA;
+        } else {
+            throw IllegalArgumentException(__FUNCTION__,
+                                           usage + "SSL_ENFORCE need to be true when SSL_VERIFY_SERVER_CERT is true");
+        }
+    }
     std::unique_ptr<Connection> cup(new Connection(args[0]->getString(), args[1]->getInt(), args[2]->getString(),
-                                                   args[3]->getString(), args[4]->getString()));
+                                                   args[3]->getString(), args[4]->getString(), sslMode));
     std::string desc = "mysql connection to [";
     desc.append(cup->str()).append("]");
     ddb::littleEndian = Util::isLittleEndian();
@@ -298,10 +336,11 @@ class DBFileIO {
 
 Connection::~Connection() {}
 
-Connection::Connection(std::string hostname, int port, std::string username, std::string password, std::string database)
+Connection::Connection(std::string hostname, int port, std::string username, std::string password, std::string database,
+                       MySQLSSLMode sslMode)
     : host_(hostname), user_(username), password_(password), db_(database), port_(port), isClosed_(false) {
     try {
-        connect(db_.c_str(), host_.c_str(), user_.c_str(), password_.c_str(), port_);
+        connect(db_.c_str(), host_.c_str(), sslMode, user_.c_str(), password_.c_str(), port_);
     } catch (mysqlxx::Exception &e) {
         throw RuntimeException("Failed to connect, error: " + std::string(e.name()) + " " +
                                std::string(e.displayText()));

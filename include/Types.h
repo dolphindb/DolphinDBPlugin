@@ -86,32 +86,34 @@ namespace ddb {
 #define SWORDFISH_API
 #endif
 
-const double MC_PI = 3.1415926535897932384626433832795028841971693994L;
-const double MC_PI_2 = 1.57079632679489661923; /* pi/2 */
-const double MC_2_PI = 0.63661977236758134308; /* 2/pi */
-const double MC_E = 2.7182818284590452353602874713526624977572470937L;
-const double MC_SQRT2 = 1.41421356237309504880;
-const double MC_SQRTPI = 1.77245385090551602729816748334;
-const float FLT_ONE_LIMIT=0.9999999;
-const double DBL_ONE_LIMIT=0.9999999999999;
-const float FLT_NMIN=-FLT_MAX;
-const double DBL_NMIN=-DBL_MAX;
-const int MAX_SHARED_OBJ_INDEX = 65536;
-const int MAX_FREEABLE_OBJ_COUNT = 8192;
-const size_t MAX_ARRAY_BUFFER = 134217728;
-const int MAX_PEICE_FOR_PEICEWISE = 16;
-const int MAX_POLYNOMIAL_ORDER = 128;
-const int MAX_ROWS_FOR_MATRIX_COMPUTING = 8192;
-const std::string functionKeyword = "def";
-const std::string aggregationKeyword = "defg";
-const std::string mapreduceKeyword = "mapr";
-const std::string classKeyword = "class";
-const int ARRAY_TYPE_BASE = 64;
-const int TYPE_COUNT = 45;
+inline constexpr double MC_PI = 3.1415926535897932384626433832795028841971693994L;
+inline constexpr double MC_PI_2 = 1.57079632679489661923; /* pi/2 */
+inline constexpr double MC_2_PI = 0.63661977236758134308; /* 2/pi */
+inline constexpr double MC_E = 2.7182818284590452353602874713526624977572470937L;
+inline constexpr double MC_SQRT2 = 1.41421356237309504880;
+inline constexpr double MC_SQRTPI = 1.77245385090551602729816748334;
+inline constexpr float FLT_ONE_LIMIT=0.9999999;
+inline constexpr double DBL_ONE_LIMIT=0.9999999999999;
+inline constexpr float FLT_NMIN=-FLT_MAX;
+inline constexpr double DBL_NMIN=-DBL_MAX;
+inline constexpr int MAX_SHARED_OBJ_INDEX = 65536;
+inline constexpr int MAX_FREEABLE_OBJ_COUNT = 8192;
+inline constexpr size_t MAX_ARRAY_BUFFER = 134217728;
+inline constexpr int MAX_PEICE_FOR_PEICEWISE = 16;
+inline constexpr int MAX_POLYNOMIAL_ORDER = 128;
+inline constexpr int MAX_ROWS_FOR_MATRIX_COMPUTING = 8192;
+inline const std::string functionKeyword = "def";
+inline const std::string aggregationKeyword = "defg";
+inline const std::string mapreduceKeyword = "mapr";
+inline const std::string classKeyword = "class";
+inline constexpr int ARRAY_TYPE_BASE = 64;
+inline constexpr int TYPE_COUNT = 45;
 
 enum DATA_TYPE {DT_VOID,DT_BOOL,DT_CHAR,DT_SHORT,DT_INT,DT_LONG,DT_DATE,DT_MONTH,DT_TIME,DT_MINUTE,DT_SECOND,DT_DATETIME,DT_TIMESTAMP,DT_NANOTIME,DT_NANOTIMESTAMP,
         DT_FLOAT,DT_DOUBLE,DT_SYMBOL,DT_STRING,DT_UUID,DT_FUNCTIONDEF,DT_HANDLE,DT_CODE,DT_DATASOURCE,DT_RESOURCE,DT_ANY,DT_COMPRESS,DT_DICTIONARY,DT_DATEHOUR,DT_DATEMINUTE,
-        DT_IP,DT_INT128,DT_BLOB,DT_DECIMAL,DT_COMPLEX,DT_POINT,DT_DURATION,DT_DECIMAL32,DT_DECIMAL64,DT_DECIMAL128,DT_OBJECT, DT_IOTANY, DT_INSTRUMENT, DT_MKTDATA, DT_MKTDATAROW};
+        DT_IP,DT_INT128,DT_BLOB,DT_DECIMAL,DT_COMPLEX,DT_POINT,DT_DURATION,DT_DECIMAL32,DT_DECIMAL64,DT_DECIMAL128,DT_OBJECT, DT_IOTANY, DT_INSTRUMENT, DT_MKTDATA, DT_MKTDATAROW,
+        DT_INT_ARRAY = ARRAY_TYPE_BASE + DT_INT,
+};
 
 
 enum DATA_CATEGORY {NOTHING,LOGICAL,INTEGRAL,FLOATING,TEMPORAL,LITERAL,SYSTEM,MIXED,BINARY,COMPLEX,ARRAY,DENARY};
@@ -150,7 +152,7 @@ enum FUNCTIONDEF_TYPE {SYSFUNC, SYSPROC, OPTRFUNC, USERDEFFUNC, PARTIALFUNC, DYN
 
 enum FUNCTIONCALL_TYPE {THREADCALL, REGULARCALL, TEMPLATECALL};
 
-enum CHART_TYPE {CT_AREA, CT_BAR, CT_COLUMN, CT_HISTOGRAM, CT_LINE, CT_PIE, CT_SCATTER, CT_TREND, CT_KLINE};
+enum CHART_TYPE {CT_AREA, CT_BAR, CT_COLUMN, CT_HISTOGRAM, CT_LINE, CT_PIE, CT_SCATTER, CT_TREND, CT_KLINE, CT_SURFACE};
 
 enum OUTPUT_TYPE {STDOUT, HTTPOUT, APIOUT, LOGOUT, JOBOUT, WEBSOCKETOUT, DEBUGOUT};
 
@@ -202,7 +204,17 @@ enum ACL_ACCESS_TYPE: short {
     MCP_MANAGE,
     MCP_DEVELOP,
     MCP_EXEC,
-    CREATE_SHARED_VARS
+    CREATE_SHARED_VARS,
+    // ORCA (Stream Graph, Stream Table, Stream Engine)
+    ORCA_GRAPH_CREATE,      // Create stream graph in catalog
+    ORCA_GRAPH_DROP,        // Drop stream graph from catalog
+    ORCA_GRAPH_CONTROL,     // Control stream graph: start/stop/resubmit (catalog + graph level)
+    ORCA_TABLE_CREATE,      // Create orca stream table in catalog
+    ORCA_TABLE_DROP,        // Drop orca stream table from catalog
+    ORCA_TABLE_READ,        // Read orca stream table (catalog + table level)
+    ORCA_TABLE_WRITE,       // Write to orca stream table (catalog + table level)
+    ORCA_MANAGE,            // Manage orca objects in catalog (owner-like permission)
+    ORCA_ENGINE_MANAGE      // Manage orca stream engine (catalog + engine level)
 };
 
 enum class ColumnFilterType { BloomFilter, ZoneMap, VectorIndex, TextIndex, UnknownIndex };
@@ -502,8 +514,9 @@ public:
 	static const RawType SORTATTRIBUTE = 41;
 	static const RawType JSONOBJ = 42;
 	static const RawType KEYARG = 43;
-	static const RawType EXTRA_OBJECT_START = 64;
-	static const RawType MAX_OBJECT_TYPES = 127;
+    static const RawType SQL_FRAGMENT_INSTANCE_GROUP = 44;
+    static const RawType EXTRA_OBJECT_START = 64;
+    static const RawType MAX_OBJECT_TYPES = 127;
 };
 
 /*

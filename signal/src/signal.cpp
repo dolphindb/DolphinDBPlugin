@@ -1,18 +1,18 @@
-/*
- * signal.cpp
- *
- * Created on: Dec 1.2020
- *     Author: zkluo
- *
- */
+#include "fftw.h"
 
 #include "signal.h"
-#include "math.h"
+#include "CoreConcept.h"
+#include "DolphinDBEverything.h"
+#include "Exceptions.h"
+#include "PluginLogger.h"
+#include "Types.h"
 #include "Util.h"
-#include "fftw3.h"
+#include <chrono>
+#include <tuple>
 #include <vector>
 #include <string>
 #include <omp.h>
+#include "OperatorImp.h"
 #include <ScalarImp.h>
 
 #if defined(_MSC_VER)
@@ -24,9 +24,7 @@
 #pragma GCC diagnostic ignored "-Wpedantic"
 #endif
 
-#ifndef __aarch64__
 #include "wavelib.h"
-#endif
 
 #if defined(_MSC_VER)
 #pragma warning( pop )
@@ -41,51 +39,133 @@
 using namespace ddb;
 
 #define PI 3.1415926
-bool fftwInit = false;
-static Mutex LOCK_FFTW_LIB;
 static void dwt_get(int, int, vector<double>&, vector<double>&, vector<double>&);
 static void idwt_get(int, int, vector<double> &, vector<double> &, vector<double> &, omp_lock_t &);
-static string argsCheck1D(vector<ConstantSP> &args);
-static string argsCheck2D(vector<ConstantSP> &args);
-static ConstantSP fft1D(VectorSP vec, int n, double scale, bool overwrite, bool inverse);
-static ConstantSP fft2D(VectorSP matrix, int shapeRow, int shapeCol, double scale, bool overwrite, bool inverse);
+
+namespace {
+
+// NOLINTBEGIN(cert-err58-cpp)
+ConstantSP placeholder;
+ConstantSP complex_zero;
+// NOLINTEND(cert-err58-cpp)
+
+fftw_plan_manager fftw;
+
+void dct2(const fftw_memory<double> &buf)
+{
+    auto n = buf.size();
+    fftw.execute(n, buf.get(), FFTW_REDFT10);
+    double factor0 = 0.5 * sqrt(1.0 / n);
+    double factorK = 0.5 * sqrt(2.0 / n);
+    *buf[0] *= factor0;
+#pragma omp parallel for schedule(static) if(n > OMP_THRESHOLD)
+    for (size_t k = 1; k < n; k++) {
+        *buf[k] *= factorK;
+    }
+}
+
+void to_double(Heap *heap, ConstantSP &val)
+{
+    if (val->getType() != ddb::DT_DOUBLE && val->getType() != ddb::DT_COMPLEX) {
+        val = OperatorImp::asDouble(heap, val, placeholder);
+    }
+    val = Util::asContiguous(val);
+}
+
+void to_complex(Heap *heap, ConstantSP &val)
+{
+    if (val->getType() != ddb::DT_COMPLEX) {
+        val = OperatorImp::asComplex(heap, val, new Double(0.0));
+    }
+    val = Util::asContiguous(val);
+}
+
+fftw_complex* get_ptr_complex(const VectorSP &X)
+{
+    return reinterpret_cast<fftw_complex *>(X->getBinaryBuffer(0, X->size(), complex_size, nullptr)); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+}
+
+double* get_ptr_double(const VectorSP &X)
+{
+    return X->getDoubleBuffer(0, X->size(), nullptr);
+}
+
+std::string NULL_ERROR;
+
+} // namespace
+
+ddb::ConstantSP initialize(ddb::Heap* heap, argsT &args)
+{
+    std::ignore = heap;
+    std::ignore = args;
+    if (fftw_init_threads() == 0) {
+        throw RuntimeException("Plugin dependency init failed: fftw");
+    }
+    LOG_INFO("FFTW init success.");
+    complex_zero = new Complex(0.0, 0.0);
+    placeholder = Util::createConstant(DT_VOID);
+    NULL_ERROR = " should not contain NULL values";
+    return placeholder;
+}
+
+ddb::ConstantSP fftwConfig(ddb::Heap* heap, argsT &args)
+{
+    std::ignore = heap;
+    if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR) {
+        throw RuntimeException("config must be a string scalar.");
+    }
+    std::string config = args[0]->getString();
+    if (config == "measure") {
+        fftw.set_plan_flag(FFTW_MEASURE);
+    } else if (config == "estimate") {
+        fftw.set_plan_flag(FFTW_ESTIMATE);
+    } else if (config == "clear_plans") {
+        fftw.clear_plans();
+    } else {
+        throw RuntimeException("invalid config option: " + config);
+    }
+    return placeholder;
+}
 
 //离散余弦变换(DCT-II)
 ConstantSP dct(Heap *heap, const ConstantSP &a, const ConstantSP &b)
 {
     std::ignore = b;
     std::ignore = heap;
-    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if (!(a->getForm()==DF_VECTOR && a->isNumber() && (a->getCategory() == INTEGRAL || a->getCategory() == FLOATING) && a->size() > 0))
-        throw IllegalArgumentException("dct", "The argument should be a nonempty integrial or floating vector.");
+        throw IllegalArgumentException("dct", "[X] should be a nonempty integrial or floating vector.");
     if (a->hasNull())
-        throw IllegalArgumentException("dct", "The argument should not contain NULL values");
+        throw IllegalArgumentException("dct", "[X]" + NULL_ERROR);
     int size = a->size();
-    vector<double> xn(size, 0); //存储输入的离散信号序列x(n)
-    vector<double> xk(size, 0); //存储计算出的离散余弦变换序列X(k)
-    a->getDouble(0, size, &xn[0]);
-#pragma omp parallel for schedule(static) num_threads(omp_get_num_procs())
-    for (int k = 0; k < size; k++)
-    {
-        double data = 0;
-        double ak = k == 0 ? sqrt(1.0 / size) : sqrt(2.0 / size);
-        double base_cos = cos(PI * 2 * k / (2 * size));
-        double base_sin = sin(PI * 2 * k / (2 * size));
-        double last_cos, last_sin, cur_cos, cur_sin;
-        for (int j = 0; j < size; j++)
-        {
-            cur_cos = j == 0 ? cos(PI * k / (2 * size)) : last_cos * base_cos - last_sin * base_sin; //cos(kj)=cos((k-1)j+j)=cos((k-1)j)*cos(j)-sin((k-1)j)*sin(j)
-            cur_sin = j == 0 ? sin(PI * k / (2 * size)) : last_sin * base_cos + last_cos * base_sin; //sin(kj)=sin((k-1)j+j)=sin((k-1)j)cosj+cos((k-1)j)*sinj
-            last_cos = cur_cos;
-            last_sin = cur_sin;
-            data += xn[j] * cur_cos;
-        }
-        xk[k] = ak * data;
-    }
+    fftw_memory<double> buf(size);
+    a->getDouble(0, size, buf.get());
+    dct2(buf);
     VectorSP res = Util::createVector(DT_DOUBLE, size);
-    res->setDouble(0, size, &xk[0]);
+    res->setDouble(0, size, buf.get());
     return res;
 }
+
+//离散正弦变换(DST-I)
+ConstantSP dst(Heap *heap, const ConstantSP &a, const ConstantSP &b)
+{
+    std::ignore = b;
+    std::ignore = heap;
+    if (!(a->getForm()==DF_VECTOR && a->isNumber() && (a->getCategory() == INTEGRAL || a->getCategory() == FLOATING) && a->size() > 0)) {
+        throw IllegalArgumentException("dst", "[X] should be a nonempty integrial or floating vector.");
+    }
+    if (a->hasNull()) {
+        throw IllegalArgumentException("dst", "[X]" + NULL_ERROR);
+    }
+    int n = a->size();
+
+    fftw_memory<double> buf(n);
+    a->getDouble(0, n, buf.get());
+    fftw.execute(n, buf.get(), FFTW_RODFT00);
+    VectorSP res = Util::createVector(DT_DOUBLE, n);
+    res->setDouble(0, n, buf.get());
+    return res;
+}
+
 ConstantSP dctMap(Heap *heap, vector<ConstantSP> &args)
 {
     std::ignore = heap;
@@ -96,23 +176,19 @@ ConstantSP dctMap(Heap *heap, vector<ConstantSP> &args)
     vector<int> index_j(table->rows(), 0);
     table->getColumn(0)->getInt(0, table->rows(), &index_j[0]);
     table->getColumn(1)->getDouble(0, table->rows(), &xn[0]);
-    omp_lock_t lock;
-    omp_init_lock(&lock);
-#pragma omp parallel for schedule(static) num_threads(omp_get_num_procs())
     for (size_t idx = 0; idx < index_j.size(); idx++)
     {
         for (int k = 0; k < size; k++)
         {
             double ak = k == 0 ? sqrt(1.0 / size) : sqrt(2.0 / size);
-            omp_set_lock(&lock);
             xk[k] += xn[idx] * cos(PI * k * (2 * index_j[idx] + 1) / (2 * size)) * ak;
-            omp_unset_lock(&lock);
         }
     }
     ConstantSP result = Util::createVector(DT_DOUBLE, size);
     result->setDouble(0, size, &xk[0]);
     return result;
 }
+
 ConstantSP dctNumMap(Heap *heap, vector<ConstantSP> &args)
 {
     std::ignore = heap;
@@ -122,6 +198,7 @@ ConstantSP dctNumMap(Heap *heap, vector<ConstantSP> &args)
     res->setInt(size);
     return res;
 }
+
 ConstantSP dctReduce(Heap *heap, const ConstantSP &mapRes1, const ConstantSP &mapRes2)
 {
     std::ignore = heap;
@@ -129,13 +206,13 @@ ConstantSP dctReduce(Heap *heap, const ConstantSP &mapRes1, const ConstantSP &ma
     vector<double> xk_2(mapRes2->size(), 0);
     mapRes1->getDouble(0, mapRes1->size(), &xk_1[0]);
     mapRes2->getDouble(0, mapRes2->size(), &xk_2[0]);
-#pragma omp parallel for schedule(static) num_threads(omp_get_num_procs())
     for (size_t i = 0; i < xk_1.size(); i++)
         xk_1[i] += xk_2[i];
     ConstantSP result = Util::createVector(DT_DOUBLE, xk_1.size());
     result->setDouble(0, xk_1.size(), &xk_1[0]);
     return result;
 }
+
 ConstantSP dctNumReduce(Heap *heap, const ConstantSP &mapRes1, const ConstantSP &mapRes2)
 {
     std::ignore = heap;
@@ -146,9 +223,9 @@ ConstantSP dctNumReduce(Heap *heap, const ConstantSP &mapRes1, const ConstantSP 
     res->setInt(size);
     return res;
 }
+
 ConstantSP dctParallel(Heap *heap, vector<ConstantSP> &args)
 {
-    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     ConstantSP ds = args[0];
 
     FunctionDefSP num_mapfunc = Util::getFuncDefFromHeap(heap, "signal::dctNumMap");
@@ -164,53 +241,15 @@ ConstantSP dctParallel(Heap *heap, vector<ConstantSP> &args)
     vector<ConstantSP> myargs = {ds, mapwithsize, reducefunc};
     return mr->call(heap, myargs);
 }
-//离散正弦变换(DST-I)
-ConstantSP dst(Heap *heap, const ConstantSP &a, const ConstantSP &b)
-{
-    std::ignore = b;
-    std::ignore = heap;
-    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
-    if (!(a->getForm()==DF_VECTOR && a->isNumber() && (a->getCategory() == INTEGRAL || a->getCategory() == FLOATING) && a->size() > 0))
-        throw IllegalArgumentException("dst", "The argument should be a nonempty integrial or floating vector.");
-    if (a->hasNull())
-        throw IllegalArgumentException("dst", "The argument should not contain NULL values");
-    int size = a->size();
-    vector<double> xn(size, 0); //存储输入的离散信号序列x(n)
-    vector<double> xk(size, 0); //存储输出的离散正弦变换序列X(k)
-    a->getDouble(0, size, &xn[0]);
-#pragma omp parallel for schedule(static) num_threads(omp_get_num_procs())
-    for (int k = 0; k < size; k++)
-    {
-        double ak = 2;
-        //double ak=sqrt(2.0/(size+1));
-        double data = 0;
-        double base_cos = cos(PI * (k + 1) / (size + 1));
-        double base_sin = sin(PI * (k + 1) / (size + 1));
-        double last_cos, last_sin, cur_cos, cur_sin;
-        for (int j = 0; j < size; j++)
-        {
-            cur_cos = j == 0 ? base_cos : last_cos * base_cos - last_sin * base_sin; //cos(kj)=cos((k-1)j+j)=cos((k-1)j)*cos(j)-sin((k-1)j)*sin(j)
-            cur_sin = j == 0 ? base_sin : last_sin * base_cos + last_cos * base_sin; //sin(kj)=sin((k-1)j+j)=sin((k-1)j)cosj+cos((k-1)j)*sinj
-            last_cos = cur_cos;
-            last_sin = cur_sin;
-            data += xn[j] * cur_sin;
-        }
-        xk[k] = ak * data;
-    }
-    VectorSP res = Util::createVector(DT_DOUBLE, size);
-    res->setDouble(0, size, &xk[0]);
-    return res;
-}
 
 ConstantSP dwtEx(Heap *heap, vector<ConstantSP> &args) {
-#ifndef __aarch64__
     std::ignore = heap;
     //X
     if (!(args[0]->getForm()==DF_VECTOR && (args[0]->getCategory() == INTEGRAL || args[0]->getCategory() == FLOATING) && args[0]->size() > 0)) {
-        throw IllegalArgumentException("dwtEx", "The argument X should be a nonempty integrial or floating vector.");
+        throw IllegalArgumentException("dwtEx", "[X] should be a nonempty integrial or floating vector.");
     }
     if (args[0]->hasNull()) {
-        throw IllegalArgumentException("dwtEx", "The argument X should not contain NULL values");
+        throw IllegalArgumentException("dwtEx", "[X]" + NULL_ERROR);
     }
     int dataLen = args[0]->size();
     vector<double> xn(dataLen, 0);
@@ -220,13 +259,13 @@ ConstantSP dwtEx(Heap *heap, vector<ConstantSP> &args) {
     std::string wavelet = "db1";
     if (args.size() > 1 && !args[1]->isNothing()) {
         if(args[1]->getForm() != DF_SCALAR || args[1]->getType() != DT_STRING) {
-            throw IllegalArgumentException("dwtEx", "The argument wavelet should be a string scalar.");
+            throw IllegalArgumentException("dwtEx", "[wavelet] should be a string scalar.");
         }
         wavelet = args[1]->getString();
         static std::set<std::string> validWavelet{"db1", "db2", "db3", "db4", "db5", "db6", "db7",
             "db8", "db9", "db10", "db11", "db12", "db13", "db14", "db15"};
         if(validWavelet.count(wavelet) == 0) {
-            throw IllegalArgumentException("dwtEx", std::string("The argument wavelet is invalie ") + wavelet);
+            throw IllegalArgumentException("dwtEx", std::string("Invalid value for [wavelet]") + wavelet);
         }
     }
 
@@ -234,11 +273,11 @@ ConstantSP dwtEx(Heap *heap, vector<ConstantSP> &args) {
     int level = 1;
     if (args.size() > 2 && !args[2]->isNothing()) {
         if(args[2]->getForm() != DF_SCALAR || args[2]->getCategory() != INTEGRAL) {
-            throw IllegalArgumentException("dwtEx", "The argument level should be a integral scalar.");
+            throw IllegalArgumentException("dwtEx", "[level] should be a integral scalar.");
         }
         level = args[2]->getInt();
         if(level > 100 || level <= 0) {
-            throw IllegalArgumentException("dwtEx", "The argument level should be in [1, 100]");
+            throw IllegalArgumentException("dwtEx", "[level] should be in [1, 100]");
         }
     }
 
@@ -266,26 +305,20 @@ ConstantSP dwtEx(Heap *heap, vector<ConstantSP> &args) {
     wave_free(obj);
     wt_free(wt);
     return ret;
-#else
-    (void)heap;
-    (void)args;
-    throw RuntimeException("signal plugin not support dwtEx in ARM");
-#endif
 }
 
 //一维离散小波变换(DWT)
 ConstantSP dwt1(Heap *heap, const ConstantSP &a, const ConstantSP &b)
 {
     std::ignore = heap;
-    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if (!(a->getForm()==DF_VECTOR && a->isNumber() && (a->getCategory() == INTEGRAL || a->getCategory() == FLOATING) && a->size() > 0))
-        throw IllegalArgumentException("dwt", "The argument should be a nonempty integrial or floating vector.");
+        throw IllegalArgumentException("dwt", "[X] should be a nonempty integrial or floating vector.");
     if (a->hasNull())
-        throw IllegalArgumentException("dwt", "The argument should not contain NULL values");
+        throw IllegalArgumentException("dwt", "[X]" + NULL_ERROR);
     std::string wavelet = "db1";
     if(!b->isNothing()) {
         if (b->getType() != DT_STRING || b->getForm() != DF_SCALAR) {
-            throw IllegalArgumentException("dwt", "wavelet must be a string scalar");
+            throw IllegalArgumentException("dwt", "[wavelet] must be a string scalar");
         }
         wavelet = b->getString();
     }
@@ -322,7 +355,7 @@ ConstantSP dwt1(Heap *heap, const ConstantSP &a, const ConstantSP &b)
             -0.010597401785069032}; //基于db4小波函数的滤波器高通序列
         filterLen = 8;
     } else {
-        throw IllegalArgumentException("dwt", "wavelet only support db1 or db4 for now");
+        throw IllegalArgumentException("dwt", R"([wavelet] must be 'db1' or 'db4')");
     }
     int decLen = (dataLen + filterLen - 1) / 2;                           //小波变换后的序列长度
     vector<double> xn(dataLen, 0);
@@ -356,17 +389,18 @@ ConstantSP dwt1(Heap *heap, const ConstantSP &a, const ConstantSP &b)
 ConstantSP idwt1(Heap *heap, const ConstantSP &a, const ConstantSP &b)
 {
     std::ignore = heap;
-    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if (!(a->getForm()==DF_VECTOR && a->isNumber() && (a->getCategory() == INTEGRAL || a->getCategory() == FLOATING) && a->size() > 0))
-        throw IllegalArgumentException("idwt", "The argument 1 should be a nonempty integrial or floating vector.");
+        throw IllegalArgumentException("idwt", "[X] should be a nonempty integrial or floating vector.");
     if (!(b->getForm()==DF_VECTOR && b->isNumber() && (b->getCategory() == INTEGRAL || b->getCategory() == FLOATING) && b->size() > 0))
-        throw IllegalArgumentException("idwt", "The argument 2 should be a nonempty integrial or floating vector.");
+        throw IllegalArgumentException("idwt", "[Y] should be a nonempty integrial or floating vector.");
     if (a->size() != b->size())
         throw IllegalArgumentException("idwt", "two arguments should have the same size.");
-    if(a->hasNull())
-        throw IllegalArgumentException("idwt", "The argument 1 should not contain NULL values");
-    if(b->hasNull())
-        throw IllegalArgumentException("idwt", "The argument 2 should not contain NULL values"); 
+    if(a->hasNull()) {
+        throw IllegalArgumentException("idwt", "[X]" + NULL_ERROR);
+    }
+    if(b->hasNull()) {
+        throw IllegalArgumentException("idwt", "[Y]" + NULL_ERROR);
+    }
     vector<double> FilterLR = {
         0.7071067811865475244008443621048490392848359376884740365883398,
         0.7071067811865475244008443621048490392848359376884740365883398}; //基于db1小波函数的滤波器低通序列
@@ -398,6 +432,7 @@ ConstantSP idwt1(Heap *heap, const ConstantSP &a, const ConstantSP &b)
     res->setDouble(0, recLen, &recData[0]);
     return res;
 }
+
 static void dwt_get(int decLen, int dataLen, vector<double> &input, vector<double> &Filter, vector<double> &output)
 {
     int step = 2;
@@ -467,6 +502,7 @@ static void dwt_get(int decLen, int dataLen, vector<double> &input, vector<doubl
         output[idx] = sum;
     }
 }
+
 static void idwt_get(int recLen, int dataLen, vector<double> &input, vector<double> &Filter, vector<double> &output, omp_lock_t &_lock)
 {
     int idx, i;
@@ -486,479 +522,204 @@ static void idwt_get(int recLen, int dataLen, vector<double> &input, vector<doub
     }
 }
 
-static string argsCheck1D(vector<ConstantSP> &args)
+double get_scale(int n, int direction, const ConstantSP &s)
 {
-    if (args.size() < 1 || args.size() > 3)
-        return "Need 1-3 arguments";
-    if (!(args[0]->isVector() && (args[0]->getType() == DT_COMPLEX || args[0]->isNumber()) && args[0]->size() > 0 && !args[0]->hasNull()))
-        return "The first argument should be a nonempty vector";
-    if (args.size() > 1)
-    {
-        if (!args[1]->isScalar() || args[1]->getType() != DT_INT || args[1]->getInt() <= 0)
-            return "The second argument should be positive integer";
+    std::string norm = "backward";
+    if (!s->isScalar() || s->getType() != DT_STRING) {
+        throw RuntimeException("[norm] should be a string scalar");
     }
-    if (args.size() > 2)
-    {
-        if (!args[2]->isScalar() || args[2]->getType() != DT_STRING || (args[2]->getString() != "forward" && args[2]->getString() != "backward" && args[2]->getString() != "ortho"))
-            return "The third argument should be forward,backward or ortho";
+    norm = s->getString();
+    if (norm != "backward" && norm != "forward" && norm != "ortho") {
+        throw RuntimeException("[norm] must be one of 'backward', 'forward', or 'ortho'.");
     }
-    return "";
+    double scale{1.0};
+    if (norm == "ortho") {
+        scale /= sqrt(n);
+    } else if ((direction == FFTW_FORWARD && norm == "forward") || (direction == FFTW_BACKWARD && norm == "backward")) {
+        scale /= n;
+    }
+    return scale;
 }
 
-static ConstantSP fft1D(VectorSP vec, int n, double scale, bool overwrite, bool inverse)
+ConstantSP fft(vector<ConstantSP>& args, bool overwrite_x, int direction)
 {
-    if (!fftwInit) {
-        if (!fftw_init_threads())
-            throw RuntimeException("Failed to init fftw");
-        fftwInit = true;
-        fftw_plan_with_nthreads(omp_get_num_threads());
+    if (!(args[0]->isVector() && (args[0]->getType() == DT_COMPLEX || args[0]->isNumber()) && args[0]->size() > 0)) {
+        throw RuntimeException("[X] should be a nonempty vector");
     }
+    VectorSP X = args[0];
+    if (X->hasNull()) {
+        throw RuntimeException("[X]" + NULL_ERROR);
+    }
+    auto in_size = X->size();
+    auto out_size = in_size;
+    if (args.size() > 1) {
+        auto &n = args[1];
+        if (!n->isScalar() || n->getType() != DT_INT || n->getInt() <= 0) {
+            throw RuntimeException("[n] should be positive integer");
+        }
+        out_size = n->getInt();
+    }
+    if (X->getType() == DT_DOUBLE || in_size < out_size) {
+        overwrite_x = false;
+    }
+    static ConstantSP default_scale = new String("backward");
+    double scale = get_scale(out_size, direction, args.size() > 2 ? args[2] : default_scale);
 
-    int vSize = vec->size();
-    if (n == -1)
-        n = vSize;
-    fftw_complex* a = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * std::max(vSize, n));
-    double* buf = nullptr;
-    fftw_plan p = nullptr;
-    if (vec->isNumber())
-    {
-        buf = new double[std::max(vSize, n)];
-        p = fftw_plan_dft_r2c_1d(n, buf, a, FFTW_ESTIMATE);
-        vec->getDouble(0, vSize, buf);
+    VectorSP res = Util::asContiguous(Util::createVector(DT_COMPLEX, out_size));
+    if (X->getType() == DT_COMPLEX) {
+        auto copy_size = std::min(in_size, out_size);
+        res->fill(0, copy_size, X);
+        res->fill(copy_size, out_size - copy_size, complex_zero);
     }
-    else {
-        if (inverse)
-            p = fftw_plan_dft_1d(n, a, a, FFTW_FORWARD, FFTW_ESTIMATE);
-        else
-            p = fftw_plan_dft_1d(n, a, a, FFTW_BACKWARD, FFTW_ESTIMATE);
-        vec->getBinary(0, vSize, 16, (unsigned char *)a);
-    }
-    if (n > vSize) {
-        if (vec->isNumber()) {
-            memset(buf + vSize, 0, (n - vSize) * sizeof(double));
+    auto *out = get_ptr_complex(res);
+    if (X->getType() == DT_DOUBLE) {
+        auto *in = get_ptr_double(X);
+        if (in_size >= out_size) {
+            fftw.execute(out_size, in, out);
+        } else {
+            fftw_memory<double> in_buf(out_size);
+            memcpy(in_buf.get(), in, in_size * sizeof(double));
+            memset(in_buf.get() + in_size, 0, (out_size - in_size) * sizeof(double));
+            fftw.execute(out_size, in_buf.get(), out);
         }
-        else {
-            for (int i = vSize; i < n; i++) {
-                a[i][0] = 0;
-                a[i][1] = 0;
-            }
+        fft_scale_fill(out, out_size, scale);
+    } else {
+        fftw.execute(out_size, out, direction);
+        fft_scale(out, out_size, scale);
+        if (overwrite_x) {
+            X->setBinary(0, out_size, complex_size, (unsigned char *)out);
         }
     }
-
-    fftw_execute(p);
-    a[0][0] *= scale;
-    a[0][1] *= scale;
-    if (vec->isNumber()) {
-        for (int i = 1; i <= n / 2; i++) {
-            a[i][0] *= scale;
-            a[i][1] *= scale;
-			a[n - i][0] = a[i][0];
-			a[n - i][1] = (-a[i][1]);
-            if (inverse) {
-                std::swap(a[i][0], a[n - i][0]);
-                std::swap(a[i][1], a[n - i][1]);
-            }
-        }
-        if (n % 2 == 0) {
-            a[n / 2][1] = (-a[n / 2][1]);
-        }
-    }
-    else {
-        for (int i = 1; i <= n / 2; i++) {
-            a[i][0] *= scale;
-            a[i][1] *= scale;
-            a[n - i][0] *= scale;
-            a[n - i][1] *= scale;
-            std::swap(a[i][0], a[n - i][0]);
-            std::swap(a[i][1], a[n - i][1]);
-        }
-        if (n % 2 == 0) {
-            a[n / 2][0] /= scale;
-            a[n / 2][1] /= scale;
-        }    
-    }
-
-    if (overwrite && vec->getType() == DT_COMPLEX && vec->size() >= n)
-        vec->setBinary(0, n, 16, (unsigned char *)a);
-    VectorSP res = Util::createVector(DT_COMPLEX, n, n);
-    res->setBinary(0, n, 16, (unsigned char *)a);
-    fftw_free(a);
-    if (p != nullptr) {
-        fftw_destroy_plan(p);
-    }
-    if (buf)
-        delete[] buf;
     return res;
 }
 
 ConstantSP fft(Heap* heap, vector<ConstantSP>& args)
 {
-    std::ignore = heap;
-    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
-    string check = argsCheck1D(args);
-    if (check != "")
-        throw IllegalArgumentException("fft", check);
-    ConstantSP vec = args[0];
-    int n = vec->size();
-    double scale = 1;
-    bool overwrite = false;
-    if (args.size() > 1)
-        n = args[1]->getInt();
-    if (args.size() > 2)
-    {
-        if (args[2]->getString() == "forward")
-            scale = (double)1 / n;
-        else if (args[2]->getString() == "ortho")
-            scale = (double)1 / sqrt(n);
-    }
-    return fft1D(vec, n, scale, overwrite, false);
+    to_double(heap, args[0]);
+    return fft(args, false, FFTW_FORWARD);
 }
 
 ConstantSP fft1(Heap *heap, vector<ConstantSP> &args)
 {
-    std::ignore = heap;
-    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
-    string check = argsCheck1D(args);
-    if (check != "")
-        throw IllegalArgumentException("fft!", check);
-    ConstantSP vec = args[0];
-    int n = vec->size();
-    double scale = 1;
-    bool overwrite = true;
-    if (args.size() > 1)
-        n = args[1]->getInt();
-    if (args.size() > 2)
-    {
-        if (args[2]->getString() == "forward")
-            scale = (double)1 / n;
-        else if (args[2]->getString() == "ortho")
-            scale = (double)1 / sqrt(n);
-    }
-    return fft1D(vec, n, scale, overwrite, false);
+    to_double(heap, args[0]);
+    return fft(args, true, FFTW_FORWARD);
 }
 
 ConstantSP ifft(Heap *heap, vector<ConstantSP> &args)
 {
-    std::ignore = heap;
-    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
-    string check = argsCheck1D(args);
-    if (check != "")
-        throw IllegalArgumentException("ifft", check);
-    ConstantSP vec = args[0];
-    int n = vec->size();
-    bool overwrite = false;
-    if (args.size() > 1)
-        n = args[1]->getInt();
-    double scale = (double)1 / n;
-    if (args.size() > 2)
-    {
-        if (args[2]->getString() == "forward")
-            scale = 1;
-        else if (args[2]->getString() == "ortho")
-            scale = (double)1 / sqrt(n);
-    }
-    return fft1D(vec, n, scale, overwrite, true);
+    to_complex(heap, args[0]);
+    return fft(args, false, FFTW_BACKWARD);
 }
 
 ConstantSP ifft1(Heap *heap, vector<ConstantSP> &args)
 {
-    std::ignore = heap;
-    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
-    string check = argsCheck1D(args);
-    if (check != "")
-        throw IllegalArgumentException("ifft!", check);
-    ConstantSP vec = args[0];
-    int n = vec->size();
-
-    bool overwrite = true;
-    if (args.size() > 1)
-        n = args[1]->getInt();
-    double scale = (double)1 / n;
-    if (args.size() > 2)
-    {
-        if (args[2]->getString() == "forward")
-            scale = 1;
-        else if (args[2]->getString() == "ortho")
-            scale = (double)1 / sqrt(n);
-    }
-    return fft1D(vec, n, scale, overwrite, true);
+    to_complex(heap, args[0]);
+    return fft(args, true, FFTW_BACKWARD);
 }
 
-static string argsCheck2D(vector<ConstantSP> &args)
+ConstantSP fft2(vector<ConstantSP> &args, bool overwrite_x, int direction)
 {
-    if (args.size() < 1 || args.size() > 3)
-        return "Need 1-3 arguments";
-    if (!(args[0]->isMatrix() && (args[0]->getType() == DT_COMPLEX || args[0]->isNumber()) && args[0]->size() > 0 && !args[0]->hasNull()))
-        return "The first argument should be a nonempty matrix";
-    if (args.size() > 1)
-    { //shape of matrix
-        if (!args[1]->isVector() || args[1]->getType() != DT_INT || args[1]->size() != 2 || args[1]->hasNull())
-            return "The second argument should be a vector with 2 positive integer";
+    ConstantSP &a0 = args[0];
+    if (!(a0->isMatrix() && (a0->getType() == DT_COMPLEX || a0->isNumber()) && a0->size() > 0)) {
+        throw RuntimeException("[X] should be a nonempty matrix");
+    }
+    VectorSP X = args[0];
+    if (X->hasNull()) {
+        throw RuntimeException("[X]" + NULL_ERROR);
+    }
+    auto in_rows = X->rows();
+    auto in_cols = X->columns();
+    auto out_rows = in_rows;
+    auto out_cols = in_cols;
+    if (args.size() > 1) {
+        if (!args[1]->isVector() || args[1]->getType() != DT_INT || args[1]->size() != 2 || args[1]->hasNull()) {
+            throw RuntimeException("[s] should be a vector with 2 positive integer");
+        }
         VectorSP shape = args[1];
-        if (shape->getInt(0) <= 0 || shape->getInt(1) <= 0)
-            return "The second argument should be a vector with 2 positive integer";
+        if (shape->getInt(0) <= 0 || shape->getInt(1) <= 0) {
+            throw  RuntimeException("[s] should be a vector with 2 positive integer");
+        }
+        out_rows = shape->getInt(0);
+        out_cols = shape->getInt(1);
     }
-    if (args.size() > 2)
-    { //Normalization
-        if (!args[2]->isScalar() || args[2]->getType() != DT_STRING || (args[2]->getString() != "forward" && args[2]->getString() != "backward" && args[2]->getString() != "ortho"))
-            return "The third argument should be forward,backward or ortho";
+    auto out_size = out_rows * out_cols;
+    if (X->getType() == DT_DOUBLE || in_rows < out_rows || in_cols < out_cols) {
+        overwrite_x = false;
     }
-    return "";
-}
-
-static ConstantSP fft2D(VectorSP matrix, int shapeRow, int shapeCol, double scale, bool overwrite, bool inverse)
-{
-    if (!fftwInit) {
-        if (!fftw_init_threads())
-            throw RuntimeException("Failed to init fftw");
-        fftwInit = true;
-        fftw_plan_with_nthreads(omp_get_num_threads());
+    static ConstantSP default_scale = new String("backward");
+    double scale = get_scale(out_size, direction, args.size() > 2 ? args[2] : default_scale);
+    VectorSP res = Util::asContiguous(Util::createMatrix(DT_COMPLEX, out_cols, out_rows, out_cols));
+    if (X->getType() == DT_COMPLEX) {
+        auto copy_rows = std::min(in_rows, out_rows);
+        auto copy_cols = std::min(in_cols, out_cols);
+        for (int j = 0; j < copy_cols; ++j) {
+            res->fill(j * out_rows, copy_rows, X, j * in_rows);
+            res->fill((j * out_rows) + copy_rows, out_rows - copy_rows, complex_zero);
+        }
+        for (int j = copy_cols; j < out_cols; ++j) {
+            res->fill(j * out_rows, out_rows, complex_zero);
+        }
     }
-    int rows = matrix->rows();
-    int cols = matrix->columns();
-    int n = shapeRow * shapeCol;
-    fftw_complex *a = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * n);
-    fftw_plan p = nullptr;
-    if (inverse)
-        p = fftw_plan_dft_2d(shapeRow, shapeCol, &a[0], &a[0], FFTW_FORWARD, FFTW_ESTIMATE);
-    else
-        p = fftw_plan_dft_2d(shapeRow, shapeCol, &a[0], &a[0], FFTW_BACKWARD, FFTW_ESTIMATE);
-    memset(a, 0, sizeof(fftw_complex) * shapeCol * shapeRow);
-    if (matrix->isNumber())
-    {
-        for (int i = 0; i < std::min(rows, shapeRow); i++)
-        {
-            for (int j = 0; j < std::min(cols, shapeCol); j++)
-            {
-                int idxa = i * shapeCol + j;
-                int idxm = j * rows + i;
-                a[idxa][0] = matrix->getDouble(idxm);
-                a[idxa][1] = 0;
+    int buf_rows = std::min(in_rows, out_rows);
+    int buf_cols = std::min(in_cols, out_cols);
+    // Here we call fftw with a transposed input (swap cols and rows) as FFTW is row-major
+    if (X->getType() == DT_DOUBLE) {
+        fftw_memory<double> in(out_cols, out_rows);
+        fftw_memory<fftw_complex> out(out_cols, out_rows);
+        for (int j = 0; j < buf_cols; ++j) {
+            X->getDouble(j * in_rows, buf_rows, in[j]);
+        }
+        fftw.execute_2d(in, out);
+        fft_scale_fill(out, scale);
+        for (int j = 0; j < out_cols; ++j) {
+            res->setBinary(j * out_rows, out_rows, complex_size, (unsigned char *)out[j]);
+        }
+    } else {
+        auto *out = get_ptr_complex(res);
+        fftw.execute_2d(out_cols, out_rows, out, direction);
+        fft_scale(out, out_size, scale);
+        if (overwrite_x) {
+            for (int j = 0; j < out_cols; ++j) {
+                X->fill(j * in_rows, out_rows, res, j *out_rows);
             }
         }
-    }
-    else
-    {
-        fftw_complex *temp = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * rows * cols);
-        memset(temp, 0, sizeof(fftw_complex) * rows * cols);
-        matrix->getBinary(0, rows * cols, 16, (unsigned char *)temp);
-        for (int i = 0; i < std::min(rows, shapeRow); i++)
-        {
-            for (int j = 0; j < std::min(cols, shapeCol); j++)
-            {
-                int idxa = i * shapeCol + j;
-                int idxt = j * rows + i;
-                a[idxa][0] = temp[idxt][0];
-                a[idxa][1] = temp[idxt][1];
-            }
-        }
-        fftw_free(temp);
-    }
-    fftw_execute(p);
-    VectorSP res = Util::createMatrix(DT_COMPLEX, shapeCol, shapeRow, shapeCol);
-    fftw_complex *coli = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * shapeRow);
-    coli[0][0] = a[0][0] * scale;
-    coli[0][1] = a[0][1] * scale;
-    for (int j = 1; j < shapeRow; j++)
-    {
-        coli[shapeRow - j][0] = a[j * shapeCol][0] * scale;
-        coli[shapeRow - j][1] = a[j * shapeCol][1] * scale;
-    }
-    res->setBinary(0, shapeRow, sizeof(fftw_complex), (unsigned char *)coli);
-    for (int i = 1; i < shapeCol; i++)
-    {
-        coli[0][0] = a[i][0] * scale;
-        coli[0][1] = a[i][1] * scale;
-        for (int j = 1; j < shapeRow; j++)
-        {
-            coli[shapeRow - j][0] = a[j * shapeCol + i][0] * scale;
-            coli[shapeRow - j][1] = a[j * shapeCol + i][1] * scale;
-        }
-        res->setBinary(n - (i * shapeRow), shapeRow, sizeof(fftw_complex), (unsigned char *)coli);
-    }
-    if (overwrite && matrix->getType() == DT_COMPLEX && rows >= shapeRow && cols >= shapeCol)
-    {
-        for (int i = 0; i < shapeCol; i++)
-        {
-            res->getBinary(i * shapeRow, shapeRow, sizeof(fftw_complex), (unsigned char *)coli);
-            matrix->setBinary(i * rows, shapeRow, sizeof(fftw_complex), (unsigned char *)coli);
-        }
-    }
-    fftw_free(coli);
-    fftw_free(a);
-    if (p != nullptr) {
-        fftw_destroy_plan(p);
     }
     return res;
 }
 
 ConstantSP fft2(Heap *heap, vector<ConstantSP> &args)
 {
-    std::ignore = heap;
-    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
-    string check = argsCheck2D(args);
-    if (check != "")
-        throw IllegalArgumentException("fft2", check);
-    VectorSP matrix = args[0];
-    int shapeRow = matrix->rows();
-    int shapeCol = matrix->columns();
-    double scale = 1;
-    bool overwrite = false;
-    if (args.size() > 1)
-    {
-        VectorSP shape = args[1];
-        shapeRow = shape->getInt(0);
-        shapeCol = shape->getInt(1);
-    }
-    if (args.size() > 2)
-    {
-        int n = shapeRow * shapeCol;
-        if (args[2]->getString() == "forward")
-            scale = (double)1 / n;
-        else if (args[2]->getString() == "ortho")
-            scale = (double)1 / sqrt(n);
-    }
-    return fft2D(matrix, shapeRow, shapeCol, scale, overwrite, false);
+    to_double(heap, args[0]);
+    return fft2(args, false, FFTW_FORWARD);
 }
 
 ConstantSP fft21(Heap *heap, vector<ConstantSP> &args)
 {
-    std::ignore = heap;
-    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
-    string check = argsCheck2D(args);
-    if (check != "")
-        throw IllegalArgumentException("fft2!", check);
-    VectorSP matrix = args[0];
-    int shapeRow = matrix->rows();
-    int shapeCol = matrix->columns();
-    double scale = 1;
-    bool overwrite = true;
-    if (args.size() > 1)
-    {
-        VectorSP shape = args[1];
-        shapeRow = shape->getInt(0);
-        shapeCol = shape->getInt(1);
-    }
-    if (args.size() > 2)
-    {
-        int n = shapeRow * shapeCol;
-        if (args[2]->getString() == "forward")
-            scale = (double)1 / n;
-        else if (args[2]->getString() == "ortho")
-            scale = (double)1 / sqrt(n);
-    }
-    return fft2D(matrix, shapeRow, shapeCol, scale, overwrite, false);
+    to_double(heap, args[0]);
+    return fft2(args, true, FFTW_FORWARD);
 }
 
 ConstantSP ifft2(Heap *heap, vector<ConstantSP> &args)
 {
-    std::ignore = heap;
-    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
-    string check = argsCheck2D(args);
-    if (check != "")
-        throw IllegalArgumentException("ifft2", check);
-    VectorSP matrix = args[0];
-    int shapeRow = matrix->rows();
-    int shapeCol = matrix->columns();
-    bool overwrite = false;
-    if (args.size() > 1)
-    {
-        VectorSP shape = args[1];
-        shapeRow = shape->getInt(0);
-        shapeCol = shape->getInt(1);
-    }
-    int n = shapeRow * shapeCol;
-    double scale = (double)1 / n;
-    if (args.size() > 2)
-    {
-        if (args[2]->getString() == "forward")
-            scale = 1;
-        else if (args[2]->getString() == "ortho")
-            scale = (double)1 / sqrt(n);
-    }
-    return fft2D(matrix, shapeRow, shapeCol, scale, overwrite, true);
+    to_complex(heap, args[0]);
+    return fft2(args, false, FFTW_BACKWARD);
 }
 
 ConstantSP ifft21(Heap *heap, vector<ConstantSP> &args)
 {
-    std::ignore = heap;
-    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
-    string check = argsCheck2D(args);
-    if (check != "")
-        throw IllegalArgumentException("ifft2!", check);
-    VectorSP matrix = args[0];
-    int shapeRow = matrix->rows();
-    int shapeCol = matrix->columns();
-    bool overwrite = true;
-    if (args.size() > 1)
-    {
-        VectorSP shape = args[1];
-        shapeRow = shape->getInt(0);
-        shapeCol = shape->getInt(1);
-    }
-    int n = shapeRow * shapeCol;
-    double scale = (double)1 / n;
-    if (args.size() > 2)
-    {
-        if (args[2]->getString() == "forward")
-            scale = 1;
-        else if (args[2]->getString() == "ortho")
-            scale = (double)1 / sqrt(n);
-    }
-    return fft2D(matrix, shapeRow, shapeCol, scale, overwrite, true);
+    to_complex(heap, args[0]);
+    return fft2(args, true, FFTW_BACKWARD);
 }
 
-ConstantSP secc(Heap *heap, vector<ConstantSP> &args)
+ConstantSP secc(VectorSP &vsp, const VectorSP &msp, int k, std::vector<double> &mouts, std::vector<double> &weight)
 {
-    std::ignore = heap;
-    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
-    if (!args[0]->isVector() || !args[0]->isNumber() || args[0]->size() <= 0)
-        throw IllegalArgumentException("secc", "The first argument should be a nonempty vector");
-    if (args[0]->hasNull())
-        throw IllegalArgumentException("secc", "The first argument should be a vector without NULL elements");
-    VectorSP vsp = args[0];
     int lenData = vsp->size();
-    if (!args[1]->isMatrix() || !args[1]->isNumber() || args[1]->size() <= 0)
-        throw IllegalArgumentException("secc", "The second argument should be a nonempty matrix");
-    if (args[1]->hasNull())
-        throw IllegalArgumentException("secc", "The second argument should be a matrix without NULL elements");
-    VectorSP msp = args[1];
     int rows = msp->rows();
     int cols = msp->columns();
-    if (lenData < rows)
-        throw IllegalArgumentException("secc", "The length of data should not be less than the number of rows of templates");
     int m = rows;
-    if (!args[2]->isScalar() || args[2]->getType() != DT_INT || args[2]->isNull())
-        throw IllegalArgumentException("secc", "The third argument should be a positive integer");
-    if (args[2]->getInt() < 2 * m)
-        throw IllegalArgumentException("secc", "For better performance, k is at least twice the number of rows of templates");
-    int k = args[2]->getInt();
-    vector<double> mouts(cols, 0);
-    vector<double> weight(cols, 1);
-    if (args.size() > 3)
-    {
-        if (!args[3]->isVector() || !args[3]->isNumber() || args[3]->hasNull())
-            throw IllegalArgumentException("secc", "The fourth argument should be a nonempty vector");
-        if (args[3]->size() != cols)
-            throw IllegalArgumentException("secc", "The length of moveouts should be the same as the number of columns of templates");
-        VectorSP moveouts = args[3];
-        moveouts->getDouble(0, moveouts->size(), &mouts[0]);
-        double maxOuts = *std::max_element(mouts.begin(), mouts.end());
-        for (size_t i = 0; i < mouts.size(); i++)
-            mouts[i] = maxOuts - mouts[i];
-    }
-    if (args.size() > 4)
-    {
-        if (!args[4]->isVector() || !args[4]->isNumber() || args[4]->hasNull())
-            throw IllegalArgumentException("secc", "The fifth argument should be a nonempty vector");
-        if (args[4]->size() != cols)
-            throw IllegalArgumentException("secc", "The length of weights should be the same as the number of columns of templates");
-        VectorSP weights = args[4];
-        weights->getDouble(0, cols, &weight[0]);
-    }
     //sumy2 = sqrt(sum(y.^2))
     vector<double> y(rows * cols, 0);
-    msp->getDouble(0, rows * cols, &y[0]);
+    msp->getDouble(0, rows * cols, y.data());
     vector<double> sumy2(cols, 0);
     for (int i = 0; i < cols; i++)
     {
@@ -972,155 +733,189 @@ ConstantSP secc(Heap *heap, vector<ConstantSP> &args)
     }
 
     //s=buffer(data(:,jj,j),k,m-1)
-    int sRows = lenData / (k - m + 1) + 1;
-    vector<double> s(sRows * k, 0);
-    int sIdx = m - 1;
+    vsp = Util::asContiguous(vsp);
+    auto* v_ptr = vsp->getDoubleConst(0, lenData, nullptr);
+    int step = k - m + 1;
+    int sRows = (lenData + step - 1) / step;
+    // alloc a bit more memory to avoid crashes caused by off-by-one error
+    fftw_memory<double> s(sRows + 1, k);
+    int s_row = 0;
+    int s_col = 0;
     int vspIdx = 0;
-    for (; vspIdx < vsp->size();)
-    {
-        s[sIdx++] = vsp->getDouble(vspIdx++);
-        if (sIdx % k == 0)
+    while (vspIdx < lenData && s_row < sRows) {
+        s[s_row][s_col] = v_ptr[vspIdx++];
+        ++s_col;
+        if (s_col == k && vspIdx < lenData) {
             vspIdx -= (m - 1);
+            s_col = 0;
+            ++s_row;
+        }
     }
 
     //sumx2_t=sqrt(movsum(s.^2,[m-1,0]));
-    vector<double> sumx2(sRows * k, 0);
-    for (int i = 0; i < sRows; i++)
-    {
+    fftw_memory<double> sumx2(sRows + 1, k);
+    for (int i = 0; i < sRows; i++) {
         double sum = 0;
-        sIdx = i * k;
-        for (int j = 0; j < m; j++)
-        {
-            sum += (s[sIdx] * s[sIdx]);
-            sumx2[sIdx++] = sqrt(sum);
+        auto *s_i = s[i];
+        for (int j = 0; j < m; j++) {
+            sum += (s_i[j] * s_i[j]);
+            sumx2[i][j] = sqrt(sum);
         }
-        for (int j = m; j < k; j++)
-        {
-            sum += (s[sIdx] * s[sIdx] - s[sIdx - m] * s[sIdx - m]);
-            sumx2[sIdx++] = sqrt(sum);
+        for (int j = m; j < k; j++) {
+            sum += (s_i[j] * s_i[j] - s_i[j - m] * s_i[j - m]);
+            sumx2[i][j] = sqrt(sum);
         }
     }
 
     //yz = y(end:-1:1,:);  reverse the templates
     //yz(m+1:k,:) = 0; padding with zero
-    vector<double> yz(cols * k, 0);
-    for (int i = 0; i < cols; i++)
-    {
-        for (int j = 0; j < rows; j++)
-        {
-            if (j < rows / 2)
-                std::swap(y[i * rows + j], y[(i + 1) * rows - 1 - j]);
-            yz[i * k + j] = y[i * rows + j];
+    fftw_memory<double> yz(cols, k);
+    for (int i = 0; i < cols; i++) {
+        for (int j = 0; j < rows; j++) {
+            yz[i][j] = y[(i + 1) * rows - 1 - j];
         }
     }
     y.clear();
 
     //X=fft(s),Y=fft(y);
-    fftw_plan psy = nullptr;
-    fftw_complex *X = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * sRows * k);
-    fftw_complex *Y = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * cols * k);
-    vector<double> in(k);
-    psy = fftw_plan_dft_r2c_1d(k, &in[0], &X[0], FFTW_BACKWARD);
-    in.clear();
+    int complex_len = k / 2 + 1;
+    fftw_memory<fftw_complex> X(sRows, complex_len);
+    fftw_memory<fftw_complex> Y(cols, complex_len);
+    int fftLen = k;
     for (int i = 0; i < sRows; i++)
     {
-        if (psy != nullptr) {
-            fftw_destroy_plan(psy);
-            psy = nullptr;
-        }
-        psy = fftw_plan_dft_r2c_1d(k, &s[i * k], &X[i * k], FFTW_BACKWARD);
-        fftw_execute(psy);
+        fftw.execute(fftLen, s[i], X[i]);
     }
     for (int i = 0; i < cols; i++)
     {
-        if (psy != nullptr) {
-            fftw_destroy_plan(psy);
-            psy = nullptr;
-        }
-        psy = fftw_plan_dft_r2c_1d(k, &yz[i * k], &Y[i * k], FFTW_BACKWARD);
-        fftw_execute(psy);
+        fftw.execute(fftLen, yz[i], Y[i]);
     }
 
     VectorSP res = Util::createMatrix(DT_DOUBLE, cols, lenData - m + 1, cols);
+    res = Util::asContiguous(res);
+    fftw_memory<fftw_complex> Z(sRows, complex_len);
+    fftw_memory<double> z(sRows, k);
+    int colLen = lenData - m + 1;
     for (int c = 0; c < cols; c++)
     {
+        int resIdxBase = c * colLen;
+        double* colPtr = res->getDoubleBuffer(resIdxBase, colLen, nullptr);
+        int m_out_c = (int)mouts[c];
+        std::fill(colPtr, colPtr + std::min(m_out_c, colLen), 0.0);
         //Z = X.*Y(:,i);
-        fftw_complex *Z = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * sRows * k);
         for (int i = 0; i < sRows; i++)
         {
-            for (int j = 0; j < k; j++)
+            fftw_complex* Xi = X[i];
+            fftw_complex* Yc = Y[c];
+            fftw_complex* Zi = Z[i];
+            for (int j = 0; j < complex_len; j++)
             {
-                Z[i * k + j][0] = X[i * k + j][0] * Y[c * k + j][0] - X[i * k + j][1] * Y[c * k + j][1];
-                Z[i * k + j][1] = X[i * k + j][1] * Y[c * k + j][0] + X[i * k + j][0] * Y[c * k + j][1];
+                double x_re = Xi[j][0];
+                double x_im = Xi[j][1];
+                double y_re = Yc[j][0];
+                double y_im = Yc[j][1];
+                Zi[j][0] = x_re * y_re - x_im * y_im;
+                Zi[j][1] = x_re * y_im + x_im * y_re;
             }
         }
 
         //z=ifft(Z)
-        vector<double> z(sRows * k);
-        fftw_plan pz = nullptr;
-        fftw_complex *infc = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * k);
-        pz = fftw_plan_dft_c2r_1d(k, infc, &z[0], FFTW_BACKWARD);
-        fftw_free(infc);
         for (int i = 0; i < sRows; i++)
         {
-            if (pz != nullptr) {
-                fftw_destroy_plan(pz);
-                pz = nullptr;
-            }
-            pz = fftw_plan_dft_c2r_1d(k, &Z[i * k], &z[i * k], FFTW_BACKWARD);
-            fftw_execute(pz);
+            fftw.execute(fftLen, Z[i], z[i]);
         }
-        for (int i = 0; i < sRows * k; i++)
-            z[i] /= k;
-
         // ccha=z(m:k,:)./(sumx2_t(m:k,:)*sumy2(i)); %devide by the normalization factor
-        vector<double> ccha((k - m + 1) * sRows, 0);
-        int cchaIdx = 0;
-        for (int i = 0; i < sRows; i++)
-        {
-            for (int j = m - 1; j < k; j++)
-            {
-                int idx = i * k + j;
-                ccha[cchaIdx++] = z[idx] / (sumx2[idx] * sumy2[c]);
+        // ccc_sum(:,i)=weights(j,i).*([zeros(1,moveouts(j,i)),ccha(m:l_data-moveouts(j,i))])
+        double w = weight[c];
+        double inv_k = 1.0 / k;
+        double inv_sumy2 = 1.0 / sumy2[c];
+        double total_weight = w * inv_k * inv_sumy2;
+        int currentColIdx = m_out_c;
+        int writeLimit = std::min(colLen, (int)(lenData - mouts[c]));
+        for (int i = 0; i < sRows && currentColIdx < writeLimit; i++) {
+            for (int j = m - 1; j < k && currentColIdx < writeLimit; j++) {
+                constexpr double zero { 1e-15 };
+                if (sumx2[i][j] > zero) {
+                    double val = z[i][j] * total_weight / sumx2[i][j];
+                    colPtr[currentColIdx++] = std::isnan(val) ? DBL_NMIN : val;
+                } else {
+                    colPtr[currentColIdx++] = DBL_NMIN;
+                }
             }
         }
-
-        // ccc_sum(:,i)=weights(j,i).*([zeros(1,moveouts(j,i)),ccha(m:l_data-moveouts(j,i))])
-        int cIdx = mouts[c];
-        vector<double> column(lenData - m + 1, 0);
-        for (int i = m - 1; i < lenData - mouts[c]; i++)
-            column[cIdx++] = weight[c] * ccha[i];
-
-        int resIdx = c * (lenData - m + 1);
-        for (int i = 0; i < lenData - m + 1; i++)
-        {
-            if (std::isnan(column[i]))
-                res->setNull(resIdx++);
-            else
-                res->setDouble(resIdx++, column[i]);
+        if (currentColIdx < colLen) {
+            std::fill(colPtr + currentColIdx, colPtr + colLen, 0.0);
         }
-        fftw_free(Z);
-        if (pz != nullptr) {
-            fftw_destroy_plan(pz);
-            pz = nullptr;
-        }
-        
-    }
-    fftw_free(X);
-    fftw_free(Y);
-    if (psy != nullptr) {
-        fftw_destroy_plan(psy);
     }
     return res;
 }
 
+ConstantSP secc(Heap *heap, vector<ConstantSP> &args)
+{
+    if (!args[0]->isVector() || !args[0]->isNumber() || args[0]->size() <= 0)
+        throw IllegalArgumentException("secc", "[data] should be a nonempty vector");
+    if (args[0]->hasNull()) {
+        throw IllegalArgumentException("secc", "[data]" + NULL_ERROR);
+    }
+    VectorSP vsp = OperatorImp::asDouble(heap, args[0], placeholder);
+    int lenData = vsp->size();
+    if (!args[1]->isMatrix() || !args[1]->isNumber() || args[1]->size() <= 0)
+        throw IllegalArgumentException("secc", "[template] should be a nonempty matrix");
+    if (args[1]->hasNull()) {
+        throw IllegalArgumentException("secc", "[template]" + NULL_ERROR);
+    }
+    VectorSP msp = OperatorImp::asDouble(heap, args[1], placeholder);
+    int rows = msp->rows();
+    int cols = msp->columns();
+    if (lenData < rows)
+        throw IllegalArgumentException("secc", "The length of data should not be less than the number of rows of templates");
+    int m = rows;
+    if (!args[2]->isScalar() || args[2]->getType() != DT_INT || args[2]->isNull())
+        throw IllegalArgumentException("secc", "[k] should be a positive integer");
+    if (args[2]->getInt() < 2 * m)
+        throw IllegalArgumentException("secc", "For better performance, k is at least twice the number of rows of templates");
+    int k = args[2]->getInt();
+    vector<double> mouts(cols, 0);
+    vector<double> weight(cols, 1);
+    if (args.size() > 3)
+    {
+        if (!args[3]->isVector() || !args[3]->isNumber())
+            throw IllegalArgumentException("secc", "[moveout] should be a nonempty vector");
+        if (args[3]->size() != cols)
+            throw IllegalArgumentException("secc", "The length of moveouts should be the same as the number of columns of templates");
+        VectorSP moveout = args[3];
+        if (moveout->hasNull()) {
+            throw IllegalArgumentException("secc", "[moveout]" + NULL_ERROR);
+        }
+        moveout->getDouble(0, moveout->size(), &mouts[0]);
+        double maxOuts = *std::max_element(mouts.begin(), mouts.end());
+        for (size_t i = 0; i < mouts.size(); i++)
+            mouts[i] = maxOuts - mouts[i];
+    }
+    if (args.size() > 4)
+    {
+        if (!args[4]->isVector() || !args[4]->isNumber() || args[4]->hasNull())
+            throw IllegalArgumentException("secc", "[weight] should be a nonempty vector");
+        if (args[4]->size() != cols)
+            throw IllegalArgumentException("secc", "The length of weights should be the same as the number of columns of templates");
+        VectorSP weights = args[4];
+        if (weights->hasNull()) {
+            throw IllegalArgumentException("secc", "[weight]" + NULL_ERROR);
+        }
+        weights->getDouble(0, cols, &weight[0]);
+    }
+    return secc(vsp, msp, k, mouts, weight);
+}
+
 ConstantSP absFuc(Heap *heap, vector<ConstantSP> &args){
     std::ignore = heap;
-    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
     if((!args[0]->isVector() && !args[0]->isScalar()) || args[0]->getType() != DT_COMPLEX || args[0]->hasNull()){
         throw IllegalArgumentException("abs", "data must be a nonempty complex vector or a nonempty complex scalar.");
     }
     ConstantSP data = args[0];
+    if (data->hasNull()) {
+        throw IllegalArgumentException("abs", "[data]" + NULL_ERROR);
+    }
     if(args[0]->isScalar()){
         double buffer[2];
         data->getBinary(0, 1, 16, (unsigned char *)buffer);
@@ -1149,13 +944,15 @@ ConstantSP absFuc(Heap *heap, vector<ConstantSP> &args){
 
 ConstantSP mul(Heap *heap, vector<ConstantSP> &args){
     std::ignore = heap;
-    LockGuard<Mutex> lockGuard(&LOCK_FFTW_LIB);
-    if((!args[0]->isVector() && !args[0]->isScalar()) || args[0]->getType() != DT_COMPLEX || args[0]->hasNull()){
+    if((!args[0]->isVector() && !args[0]->isScalar()) || args[0]->getType() != DT_COMPLEX){
         throw IllegalArgumentException("mul", "data must be a nonempty complex vector or a nonempty complex scalar.");
     }
     if(!args[1]->isNumber() || args[1]->getForm() != DF_SCALAR || args[1]->isNull())
         throw IllegalArgumentException("mul", "num should be a non-empty numeric scalar");
     ConstantSP data = args[0];
+    if (data->hasNull()) {
+        throw IllegalArgumentException("mul", "[data]" + NULL_ERROR);
+    }
     double num = args[1]->getDouble();
     if(data->isScalar()){
         std::array<double, 2> buffer;
@@ -1182,5 +979,3 @@ ConstantSP mul(Heap *heap, vector<ConstantSP> &args){
     }
     return res;
 }
-
-

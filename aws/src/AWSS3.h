@@ -1,12 +1,6 @@
-/*
- *  AWSS3.h
- *
- *  Created on: May 2, 2018
- *      Author: jccai
- */
-
-#ifndef AWSS3PLUGIN_H_
-#define AWSS3PLUGIN_H_
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
 
 #include "DolphinDBEverything.h"
 #include "ddbplugin/CommonInterface.h"
@@ -107,5 +101,3 @@ private:
     zlibStruct* zStruct = nullptr;
 };
 #endif
-
-#endif /* AWSS3PLUGIN_H_ */

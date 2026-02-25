@@ -1,5 +1,5 @@
-#include <hdf5_plugin_util.h>
-#include <hdf5_plugin_imp.h>
+#include "hdf5_plugin_util.h"
+#include "hdf5_plugin_imp.h"
 #include "Types.h"
 
 uint32_t swapEndian32(uint32_t n)
@@ -37,6 +37,9 @@ void registerUnixTimeConvert()
                       void *buf,
                       void *bkg,
                       hid_t dset_xfer_plist) -> herr_t {
+        std::ignore = bkg;
+        std::ignore = bkg_stride;
+        std::ignore = dset_xfer_plist;
         if (cdata->command == H5T_CONV_INIT)
         {
             cdata->need_bkg = H5T_BKG_NO;
@@ -72,6 +75,9 @@ void registerUnixTimeConvert()
                       void *buf,
                       void *bkg,
                       hid_t dset_xfer_plist) -> herr_t {
+        std::ignore = bkg;
+        std::ignore = bkg_stride;
+        std::ignore = dset_xfer_plist;
         if (cdata->command == H5T_CONV_INIT)
         {
             cdata->need_bkg = H5T_BKG_NO;
@@ -107,6 +113,9 @@ void registerUnixTimeConvert()
                        void *buf,
                        void *bkg,
                        hid_t dset_xfer_plist) -> herr_t {
+        std::ignore = bkg;
+        std::ignore = bkg_stride;
+        std::ignore = dset_xfer_plist;
         if (cdata->command == H5T_CONV_INIT)
         {
             cdata->need_bkg = H5T_BKG_NO;

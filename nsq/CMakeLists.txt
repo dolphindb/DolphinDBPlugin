@@ -8,9 +8,10 @@ CreatePlugin(${PluginName})
 
 target_compile_options(${PluginName} PRIVATE -Wno-error)
 
-if(WIN32)
+if (CMAKE_SYSTEM_NAME STREQUAL "MSYS")
     set(NSQ_LIB_PATH ${CMAKE_CURRENT_SOURCE_DIR}/lib/win64/)
-elseif(UNIX)
+endif()
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(NSQ_LIB_PATH ${CMAKE_CURRENT_SOURCE_DIR}/lib/linux.x64/)
     set_target_properties(${PluginName} PROPERTIES LINK_FLAGS "-Wl,-rpath,$ORIGIN")
 endif()

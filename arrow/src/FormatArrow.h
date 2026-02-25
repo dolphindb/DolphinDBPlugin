@@ -1,5 +1,6 @@
-#ifndef ARROW_FORMAT_H
-#define ARROW_FORMAT_H
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
 
 #include <map>
 
@@ -86,8 +87,4 @@ private:
     int dictionariesSent_;
 };
 
-
 }   // namespace ddb
-
-
-#endif      // ARROW_FORMAT_H

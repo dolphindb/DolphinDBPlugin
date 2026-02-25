@@ -1,5 +1,6 @@
-#ifndef ZIP_H_
-#define ZIP_H_
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
 
 #include "DolphinDBEverything.h"
 #include "Exceptions.h"
@@ -411,5 +412,3 @@ int do_extract(unzFile uf, int opt_extract_without_path, const char* password,
 }
 
 } // namespace ddb
-
-#endif // ZIP_H_

@@ -5,8 +5,8 @@
 #include <Util.h>
 #include <ScalarImp.h>
 #include <Logger.h>
-#include <hdf5_plugin_util.h>
-#include <hdf5_plugin_obj.h>
+#include "hdf5_plugin_util.h"
+#include "hdf5_plugin_obj.h"
 
 using ddb::ConstantSP;
 using ddb::Heap;

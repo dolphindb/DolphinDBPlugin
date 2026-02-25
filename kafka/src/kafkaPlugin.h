@@ -1,5 +1,6 @@
-#ifndef KAFKA_PLUGIN_KAFKA_H
-#define KAFKA_PLUGIN_KAFKA_H
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2025 DolphinDB, Inc.
+#pragma once
 
 #include "kafkaClient.h"
 #include "kafkaUtil.h"
@@ -39,5 +40,3 @@ ConstantSP kafkaGetMemberId(Heap *heap, vector<ConstantSP> &args);
 
 ConstantSP kafkaGetMetadata(Heap *heap, vector<ConstantSP> &args);
 }
-
-#endif  // KAFKA_PLUGIN_KAFKA_H

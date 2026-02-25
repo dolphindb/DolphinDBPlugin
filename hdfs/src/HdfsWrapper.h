@@ -1,6 +1,7 @@
 #ifndef HDFS_WRAPPER_H
 #define HDFS_WRAPPER_H
 
+#include "DolphinDBEverything.h"
 #include "CoreConcept.h"
 #include "ScalarImp.h"
 #include "ddbplugin/PluginLogger.h"

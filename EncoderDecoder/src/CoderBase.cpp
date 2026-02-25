@@ -110,41 +110,42 @@ ConstantSP EncoderInstance::protobufSerialize(ConstantSP obj) {
 
     int fieldNum = protoType_->GetDescriptor()->field_count();
     for(int i = 0; i < fieldNum; ++i) {
-        const FieldDescriptor* discriptor = messageDesc->field(i);
-        if(!t->contain(discriptor->name())) {
+        const FieldDescriptor* descriptor = messageDesc->field(i);
+        std::string descriptorName = std::string(descriptor->name());
+        if(!t->contain(descriptorName)) {
             continue;
         }
-        VectorSP col = t->getColumn(discriptor->name());
+        VectorSP col = t->getColumn(descriptorName);
 
-        auto protoType = discriptor->type();
+        auto protoType = descriptor->type();
         switch (protoType) {
             case FieldDescriptor::TYPE_DOUBLE:
                 for(int j = 0; j < rowNum; ++j) {
-                    reflection->SetDouble(messages[j].get(), discriptor, col->getDouble(j));
+                    reflection->SetDouble(messages[j].get(), descriptor, col->getDouble(j));
                 }
                 break;
             case FieldDescriptor::TYPE_FLOAT:
                 for(int j = 0; j < rowNum; ++j) {
-                    reflection->SetFloat(messages[j].get(), discriptor, col->getFloat(j));
+                    reflection->SetFloat(messages[j].get(), descriptor, col->getFloat(j));
                 }
                 break;
             case FieldDescriptor::TYPE_INT64:
                 for(int j = 0; j < rowNum; ++j) {
-                    reflection->SetInt64(messages[j].get(), discriptor, col->getLong(j));
+                    reflection->SetInt64(messages[j].get(), descriptor, col->getLong(j));
                 }
                 break;
             case FieldDescriptor::TYPE_UINT64:
                 for(int j = 0; j < rowNum; ++j) {
                     long long value = col->getLong(j);
                     if(value < 0) {
-                        throw RuntimeException(ENCODERDECODER_PREFIX + "the uint64 proto type cannot represend negative numbers: column " + discriptor->name()  + ", row " + std::to_string(j + 1));
+                        throw RuntimeException(ENCODERDECODER_PREFIX + "the uint64 proto type cannot represend negative numbers: column " + descriptorName  + ", row " + std::to_string(j + 1));
                     }
-                    reflection->SetUInt64(messages[j].get(), discriptor, value);
+                    reflection->SetUInt64(messages[j].get(), descriptor, value);
                 }
                 break;
             case FieldDescriptor::TYPE_INT32:
                 for(int j = 0; j < rowNum; ++j) {
-                    reflection->SetInt32(messages[j].get(), discriptor, col->getInt(j));
+                    reflection->SetInt32(messages[j].get(), descriptor, col->getInt(j));
                 }
                 break;
             case FieldDescriptor::TYPE_BOOL:
@@ -153,25 +154,25 @@ ConstantSP EncoderInstance::protobufSerialize(ConstantSP obj) {
                     if(!col->isNull(j)) {
                         value = col->getBool(j);
                     }
-                    reflection->SetBool(messages[j].get(), discriptor, value);
+                    reflection->SetBool(messages[j].get(), descriptor, value);
                 }
                 break;
             case FieldDescriptor::TYPE_STRING:
                 for(int j = 0; j < rowNum; ++j) {
-                    reflection->SetString(messages[j].get(), discriptor, col->getString(j));
+                    reflection->SetString(messages[j].get(), descriptor, col->getString(j));
                 }
                 break;
             case FieldDescriptor::TYPE_UINT32:
                 for(int j = 0; j < rowNum; ++j) {
                     int value = col->getInt(j);
                     if(value < 0) {
-                        throw RuntimeException(ENCODERDECODER_PREFIX + "the uint32 proto type cannot represend negative numbers: column " + discriptor->name()  + ", row " + std::to_string(j + 1));
+                        throw RuntimeException(ENCODERDECODER_PREFIX + "the uint32 proto type cannot represend negative numbers: column " + descriptorName  + ", row " + std::to_string(j + 1));
                     }
-                    reflection->SetUInt32(messages[j].get(), discriptor, value);
+                    reflection->SetUInt32(messages[j].get(), descriptor, value);
                 }
                 break;
             default:
-                throw RuntimeException(ENCODERDECODER_PREFIX + "protubuf encoder not support this proto type " + discriptor->type_name());
+                throw RuntimeException(ENCODERDECODER_PREFIX + "protubuf encoder not support this proto type " + std::string(descriptor->type_name()));
         }
     }
 

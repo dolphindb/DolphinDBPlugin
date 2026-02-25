@@ -3,7 +3,10 @@
 
 namespace hdfsPlugin {
 
-static void mockOnClose(Heap *heap, vector<ConstantSP> &args) {}
+static void mockOnClose(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
+    std::ignore = args;
+}
 
 string getErrorMsgWithPrefix(const string &operation) {
     string errMsg = PLUGIN_HDFS_PREFIX + operation + " failed";
@@ -16,6 +19,7 @@ string getErrorMsgWithPrefix(const string &operation) {
 
 template <typename T>
 static void hdfsOnClose(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     T *ptr = (T *)args[0]->getLong();
     if (ptr != nullptr) {
         delete []ptr;

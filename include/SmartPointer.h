@@ -130,7 +130,7 @@ public:
 	}
 
 	T& operator *() const noexcept{
-		if (UNLIKELY(counterP_ == nullptr)) return *((T*)nullptr);
+        assert(counterP_ != nullptr);
 		return *((T*)counterP_->p_);
 	}
 

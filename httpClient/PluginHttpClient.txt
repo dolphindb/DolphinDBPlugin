@@ -1,4 +1,4 @@
-httpClient,libPluginHttpClient.so,<version>
+httpClient,libPluginHttpClient${CMAKE_SHARED_LIBRARY_SUFFIX},${PluginVersion}
 httpGet,httpGet,system,1,5,0,0,(url, [params], [timeout], [headers], [config])
 httpPost,httpPost,system,1,5,0,0,(url, [params], [timeout], [headers], [config])
 httpPut,httpPut,system,1,5,0,0,(url, [params], [timeout], [headers], [config])
