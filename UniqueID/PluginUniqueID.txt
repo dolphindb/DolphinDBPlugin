@@ -1,4 +1,4 @@
-UniqueID,libPluginUniqueID.so,2.00.17.0
+UniqueID,libPluginUniqueID.so,2.00.18.0
 createGenerator,createGenerator,system,1,2,0
 getGenerator,getGenerator,system,1,1,0
 newUid,newUid,system,1,2,0

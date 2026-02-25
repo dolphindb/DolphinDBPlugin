@@ -1,3 +1,4 @@
+#include "DolphinDBEverything.h"
 #include <CoreConcept.h>
 #include <string>
 #include <list>

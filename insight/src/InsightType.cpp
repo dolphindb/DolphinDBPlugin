@@ -36,7 +36,7 @@ static int parseDays(const string &day) {
     try {
         return OperatorImp::temporalParse(new String(day), new String("yyyyMMdd"))->getInt();
     } catch (...) {
-        PLUGIN_LOG_WARN(PLUGIN_INSIGHT_PREFIX, "parse day '" + day + "' failed.");
+        LOG_WARN(PLUGIN_INSIGHT_PREFIX, "parse day '" + day + "' failed.");
         return INT_MIN;
     }
 }
@@ -44,7 +44,7 @@ static int parseTime(const string &time) {
     try {
         return OperatorImp::temporalParse(new String(time), new String("HHmmssSSS"))->getInt();
     } catch (...) {
-        PLUGIN_LOG_WARN(PLUGIN_INSIGHT_PREFIX, "parse day '" + time + "' failed.");
+        LOG_WARN(PLUGIN_INSIGHT_PREFIX, "parse day '" + time + "' failed.");
         return INT_MIN;
     }
 }

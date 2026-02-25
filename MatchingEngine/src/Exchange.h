@@ -40,6 +40,7 @@ public:
 
     static ConstantSP setupGlobalConfig(Heap *heap, vector<ConstantSP> &args);
     static ConstantSP createExchange(Heap *heap, vector<ConstantSP> &args);
+    static ConstantSP dropExchange(Heap *heap, vector<ConstantSP> &args);
 
     const std::string &symbol() const {
         return symbol_;

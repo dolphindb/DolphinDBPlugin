@@ -6,7 +6,7 @@
 #include <mat.h>
 #include <string>
 #include <map>
-#include "ddbplugin/PluginLoggerImp.h"
+
 
 std::string wstringToString(const std::wstring &wstrInput, unsigned int uCodePage)
 {

@@ -10,7 +10,7 @@
 
 #include "CoreConcept.h"
 #include "Util.h"
-#ifndef LINUX
+#ifndef __linux__
 #include <windows.h>
 #endif
 #include <sql.h>

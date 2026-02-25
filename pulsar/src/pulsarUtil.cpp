@@ -19,7 +19,7 @@ void clientOnClose(Heap *heap, vector<ConstantSP>& args) {
         PULSAR_CLIENT_MAP.safeRemove(args[0]);
 
     } catch (exception &e) {
-        PLUGIN_LOG_ERR(PULSAR_PREFIX + e.what());
+        LOG_ERR(PULSAR_PREFIX + e.what());
     }
 }
 
@@ -31,7 +31,7 @@ void producerOnClose(Heap *heap, vector<ConstantSP>& args) {
         PULSAR_PRODUCER_MAP.safeRemove(args[0]);
 
     } catch (exception &e) {
-        PLUGIN_LOG_ERR(PULSAR_PREFIX + e.what());
+        LOG_ERR(PULSAR_PREFIX + e.what());
     }
 }
 
@@ -42,7 +42,7 @@ void consumerOnClose(Heap *heap, vector<ConstantSP>& args) {
         PULSAR_CONSUMER_MAP.safeRemove(args[0]);
 
     } catch (exception &e) {
-        PLUGIN_LOG_ERR(PULSAR_PREFIX + e.what());
+        LOG_ERR(PULSAR_PREFIX + e.what());
     }
 }
 
@@ -53,7 +53,7 @@ void subJobOnClose(Heap *heap, vector<ConstantSP>& args) {
 //        PULSAR_SUB_JOB_MAP.safeRemove(args[0]);
 //
 //    } catch (exception &e) {
-//        PLUGIN_LOG_ERR(PULSAR_PREFIX + e.what());
+//        LOG_ERR(PULSAR_PREFIX + e.what());
 //    }
 }
 

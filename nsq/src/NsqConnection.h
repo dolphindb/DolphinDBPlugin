@@ -34,9 +34,9 @@ private:
     /// Interfaces
 public:
     ConstantSP getSchema(const string &dataType);
-    void subscribe(Heap *heap, const string &dataType, const string &marketType, const TableSP &table);
-    void subscribeTradeEntrust(Heap *heap, const string &dataType, const string &marketType, const DictionarySP &tableDict);
-    void unsubscribe(const string &dataType, const string &marketType);
+    void subscribe(Heap *heap, const string &dataType, nsqUtil::MarketType marketType, const TableSP &table, long long queueDepth, const vector<string> &codes = {});
+    void subscribeTradeEntrust(Heap *heap, const string &dataType, nsqUtil::MarketType marketType, const DictionarySP &tableDict, long long queueDepth, const vector<string> &codes = {});
+    void unsubscribe(const string &dataType, nsqUtil::MarketType marketType);
     ConstantSP getStatus();
 
     static Mutex* getMutex();
@@ -52,7 +52,7 @@ public:
 private:
     /// Helper Methods
     void parseOptions(const DictionarySP& options);
-    void subscribeOrCancel(const string &dataType, const string &marketType, bool cancel = false);
+    void subscribeOrCancel(const string &dataType, nsqUtil::MarketType marketType, bool cancel = false, const vector<string> &codes = {});
 
     static Mutex mutex;
     static const int TIMEOUT_MS;

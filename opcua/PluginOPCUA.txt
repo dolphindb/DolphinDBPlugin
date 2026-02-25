@@ -1,4 +1,4 @@
-opcua,libPluginOPCUA.so,2.00.17.0
+opcua,libPluginOPCUA${CMAKE_SHARED_LIBRARY_SUFFIX},${PluginVersion}
 getOpcUaServerList,getOpcServerList,system,1,1,0,0,(serverUrl)
 getOpcUaEndPointList,getOpcEndPointList,system,1,1,0,0,(serverUrl)
 connectOpcUaServer,connect,system,2,8,0,0,(endPointUrl,clientUri,[username],[password],[securityMode],[securityPolicy],[certificatePath],[privateKeyPath])

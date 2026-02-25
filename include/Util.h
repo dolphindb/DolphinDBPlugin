@@ -96,7 +96,8 @@ public:
 	static Table* createTable(Dictionary* dict, int size);
 	static Table* createTable(const vector<string>& colNames, const vector<DATA_TYPE>& colTypes, INDEX size, INDEX capacity);
 	static Table* createTable(const vector<string>& colNames, const vector<ConstantSP>& cols);
-	static TableSP reloadExpiredTable(Heap* heap, const TableSP& tbl);
+	static Table* flattenArrayVectorsIntoTable(const vector<string>& colNames, const vector<DATA_TYPE>& colTypes, const vector<ConstantSP>& cols);
+    static TableSP reloadExpiredTable(Heap* heap, const TableSP& tbl);
 	static Set* createSet(DATA_TYPE keyType, const SymbolBaseSP& symbolBase, INDEX capacity);
 	/**
 	 * @param keyExtraParam Extra information for key type, e.g., scale for decimal type.

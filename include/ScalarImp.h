@@ -391,58 +391,28 @@ public:
 	virtual char getBool() const {throw IncompatibleTypeException(DT_BOOL, internalType());}
 	virtual char getChar() const {throw IncompatibleTypeException(DT_CHAR, internalType());}
 	virtual short getShort() const {throw IncompatibleTypeException(DT_SHORT, internalType());}
-	virtual int getInt() const {throw IncompatibleTypeException(DT_INT, internalType());}
-	virtual long long getLong() const {throw IncompatibleTypeException(DT_LONG, internalType());}
+	virtual int getInt() const;
+	virtual long long getLong() const;
 	virtual INDEX getIndex() const {throw IncompatibleTypeException(DT_INDEX, internalType());}
-	virtual float getFloat() const {throw IncompatibleTypeException(DT_FLOAT, internalType());}
-	virtual double getDouble() const {throw IncompatibleTypeException(DT_DOUBLE, internalType());}
+	virtual float getFloat() const;
+	virtual double getDouble() const;
 
-	virtual int getDecimal32(int scale) const override {
-		throw IncompatibleTypeException(DT_DECIMAL32, internalType());
-	}
-	virtual long long getDecimal64(int scale) const override {
-		throw IncompatibleTypeException(DT_DECIMAL64, internalType());
-	}
-	virtual int128 getDecimal128(int scale) const override {
-		throw IncompatibleTypeException(DT_DECIMAL128, internalType());
-	}
-	virtual int getDecimal32(INDEX index, int scale) const override {
-		throw IncompatibleTypeException(DT_DECIMAL32, internalType());
-	}
-	virtual long long getDecimal64(INDEX index, int scale) const override {
-		throw IncompatibleTypeException(DT_DECIMAL64, internalType());
-	}
-	virtual int128 getDecimal128(INDEX index, int scale) const override {
-		throw IncompatibleTypeException(DT_DECIMAL128, internalType());
-	}
-	virtual bool getDecimal32(INDEX start, int len, int scale, int *buf) const override {
-		throw IncompatibleTypeException(DT_DECIMAL32, internalType());
-	}
-	virtual bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override {
-		throw IncompatibleTypeException(DT_DECIMAL64, internalType());
-	}
-	virtual bool getDecimal128(INDEX start, int len, int scale, int128 *buf) const override {
-		throw IncompatibleTypeException(DT_DECIMAL128, internalType());
-	}
-	virtual bool getDecimal32(INDEX *indices, int len, int scale, int *buf) const override {
-		throw IncompatibleTypeException(DT_DECIMAL32, internalType());
-	}
-	virtual bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const override {
-		throw IncompatibleTypeException(DT_DECIMAL64, internalType());
-	}
-	virtual bool getDecimal128(INDEX *indices, int len, int scale, int128 *buf) const override {
-		throw IncompatibleTypeException(DT_DECIMAL128, internalType());
-	}
-	virtual const int* getDecimal32Const(INDEX start, int len, int scale, int *buf) const override {
-		throw IncompatibleTypeException(DT_DECIMAL32, internalType());
-	}
-	virtual const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const override {
-		throw IncompatibleTypeException(DT_DECIMAL64, internalType());
-	}
+	virtual int getDecimal32(int scale) const override;
+	virtual long long getDecimal64(int scale) const override;
+	virtual int128 getDecimal128(int scale) const override;
+	virtual int getDecimal32(INDEX index, int scale) const override;
+	virtual long long getDecimal64(INDEX index, int scale) const override;
+	virtual int128 getDecimal128(INDEX index, int scale) const override;
+	virtual bool getDecimal32(INDEX start, int len, int scale, int *buf) const override;
+	virtual bool getDecimal64(INDEX start, int len, int scale, long long *buf) const override;
+	virtual bool getDecimal128(INDEX start, int len, int scale, int128 *buf) const override;
+	virtual bool getDecimal32(INDEX *indices, int len, int scale, int *buf) const override;
+	virtual bool getDecimal64(INDEX *indices, int len, int scale, long long *buf) const override;
+	virtual bool getDecimal128(INDEX *indices, int len, int scale, int128 *buf) const override;
+	virtual const int* getDecimal32Const(INDEX start, int len, int scale, int *buf) const override;
+	virtual const long long* getDecimal64Const(INDEX start, int len, int scale, long long *buf) const override;
 	virtual const int128* getDecimal128Const(INDEX start, int len, int scale,
-			int128 *buf) const override {
-		throw IncompatibleTypeException(DT_DECIMAL128, internalType());
-	}
+			int128 *buf) const override;
 
 	virtual string getString() const {return val_.getString();}
 	virtual string getScript() const {return Util::literalConstant(val_.getString());}

@@ -21,7 +21,6 @@ namespace std {
         static constexpr bool value = __has_trivial_constructor(T);
     };
 }
-#endif//__GNUG__ && __GNUG__ < 5
 
 //////////////////////////////////////////////////////////////////////
 //FIXME: std::make_unique<>() only became standard from C++14 onwards.
@@ -57,6 +56,7 @@ namespace std {
     make_unique(Args&&...) = delete;
 
 }//namespace std
+#endif//__GNUG__ && __GNUG__ < 5
 
 //////////////////////////////////////////////////////////////////////
 namespace kdb {

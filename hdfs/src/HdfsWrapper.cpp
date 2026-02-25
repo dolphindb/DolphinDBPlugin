@@ -41,7 +41,7 @@ static short encodeMode(int mode) {
 
 static short decodeMode(short mode) {
     if (mode < 0 || mode > 511) {
-        PLUGIN_LOG_WARN(PLUGIN_HDFS_PREFIX + "Invalid mode \"" + std::to_string(mode) + "\".");
+        LOG_WARN(PLUGIN_HDFS_PREFIX + "Invalid mode \"" + std::to_string(mode) + "\".");
     }
     short m1 = mode % 8;
     mode /= 8;
@@ -122,7 +122,7 @@ HdfsConnection::HdfsConnection(Heap *heap, hdfs_internal *fs)
 
 HdfsConnection::~HdfsConnection() {
     if (fs_ && hdfsDisconnect(fs_) == -1) {
-        PLUGIN_LOG_WARN(getErrorMsgWithPrefix("hdfs conn destruction"));
+        LOG_WARN(getErrorMsgWithPrefix("hdfs conn destruction"));
     }
 }
 
@@ -214,7 +214,7 @@ ConstantSP HdfsConnection::readFile(Heap *heap, HdfsConnectionSP conn, const str
     }
     dolphindb::PluginDefer defer([&](){
         if (hdfsCloseFile(conn->fs_, pFile) == -1) {
-            PLUGIN_LOG_WARN(getErrorMsgWithPrefix("closing file handle"));
+            LOG_WARN(getErrorMsgWithPrefix("closing file handle"));
         }
     });
     int size = 0;
@@ -257,7 +257,7 @@ void HdfsConnection::writeFile(Heap *heap, HdfsConnectionSP conn, const string &
     }
     dolphindb::PluginDefer defer([&](){
         if (hdfsCloseFile(conn->fs_, pFile) == -1) {
-            PLUGIN_LOG_WARN(getErrorMsgWithPrefix("closing file handle"));
+            LOG_WARN(getErrorMsgWithPrefix("closing file handle"));
         }
     });
     vector<ConstantSP> handlerArgs(1);

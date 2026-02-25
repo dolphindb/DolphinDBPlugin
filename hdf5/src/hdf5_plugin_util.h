@@ -49,11 +49,11 @@ public:
         try{
             int r = register_blosc(&version_, &date_);
             if(r < 0)
-                PLUGIN_LOG_ERR(HDF5_LOG_PREFIX + "Failed to register blosc filter. ");
+                LOG_ERR(HDF5_LOG_PREFIX + "Failed to register blosc filter. ");
             else
-                PLUGIN_LOG_INFO(HDF5_LOG_PREFIX + "Success to register blosc filter. Blosc version info : " + string(version_) + " " + string(date_));
+                LOG_INFO(HDF5_LOG_PREFIX + "Success to register blosc filter. Blosc version info : " + string(version_) + " " + string(date_));
         }catch(exception &e){
-            PLUGIN_LOG_ERR(e.what());
+            LOG_ERR(e.what());
         }
     }
     ~InitHdf5Filter() {

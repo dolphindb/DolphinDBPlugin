@@ -1,4 +1,4 @@
-odbc,libPluginODBC.so,2.00.17.0
+odbc,libPluginODBC${CMAKE_SHARED_LIBRARY_SUFFIX},${PluginVersion}
 odbcQuery,query,system,2,5,0,0,(conn, sqlQuery, [resultTable], [batchSize], [transform])
 odbcConnect,connect,system,1,2,0,0,(connectionString, [database])
 odbcClose,close,system,1,1,0,0,(conn)

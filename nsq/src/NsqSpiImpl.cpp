@@ -5,16 +5,16 @@
 #include "NsqSpiImpl.h"
 #include "NsqConnection.h"
 #include "ddbplugin/PluginLogger.h"
-#include "ddbplugin/PluginLoggerImp.h"
+
 
 
 #define SAFE_EXECUTE(...)                               \
     try {                                               \
         __VA_ARGS__                                     \
     } catch (std::exception &e) {                       \
-        PLUGIN_LOG_ERR(e.what());                              \
+        LOG_ERR(e.what());                              \
     } catch (...) {                                     \
-        PLUGIN_LOG_ERR("An error occurred in ", __FUNCTION__); \
+        LOG_ERR("An error occurred in ", __FUNCTION__); \
     }
 
 void CHSNsqSpiImpl::OnFrontConnected() {
@@ -23,9 +23,9 @@ void CHSNsqSpiImpl::OnFrontConnected() {
         NsqConnection::connectionNotifyL();
         NsqConnection::getInstance()->login(username_, password_);
     } catch (std::exception &e) {
-        PLUGIN_LOG_ERR(e.what());
+        LOG_ERR(e.what());
     } catch (...) {
-        PLUGIN_LOG_ERR("An error occurred in ", __FUNCTION__);
+        LOG_ERR("An error occurred in ", __FUNCTION__);
     }
 }
 
@@ -41,14 +41,14 @@ void CHSNsqSpiImpl::OnRspUserLogin(CHSNsqRspUserLoginField *pRspUserLogin, CHSNs
 }
 
 void CHSNsqSpiImpl::OnFrontDisconnected(int nResult) {
-    PLUGIN_LOG_WARN(NSQ_PREFIX, __FUNCTION__, " nsq disconnect");
+    LOG_WARN(NSQ_PREFIX, __FUNCTION__, " nsq disconnect");
 }
 
 void CHSNsqSpiImpl::OnRspSecuDepthMarketDataSubscribe(CHSNsqRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {
 
     SAFE_EXECUTE(
         if (pRspInfo->ErrorID != 0) {
-            throw RuntimeException(NSQ_PREFIX + "subscribe failed."); // optimization: add message from demo
+            throw RuntimeException("subscribe failed: " + string(pRspInfo->ErrorMsg)); // optimization: add message from demo
         }
     )
 }
@@ -57,7 +57,7 @@ void CHSNsqSpiImpl::OnRspSecuDepthMarketDataCancel(CHSNsqRspInfoField *pRspInfo,
 
     SAFE_EXECUTE(
         if (pRspInfo->ErrorID != 0) {
-            throw RuntimeException(NSQ_PREFIX + "unsubscribe failed.");
+            throw RuntimeException("unsubscribe failed: " + string(pRspInfo->ErrorMsg)); // optimization: add message from demo
         }
     )
 }
@@ -81,11 +81,14 @@ void CHSNsqSpiImpl::OnRtnSecuDepthMarketData(CHSNsqSecuDepthMarketDataField *pSe
         std::memcpy(data.Bid1Volume.data(), Bid1Volume, sizeof(HSIntVolume) * Bid1Count);
         std::memcpy(data.Ask1Volume.data(), Ask1Volume, sizeof(HSIntVolume) * Ask1Count);
 
-        string marketType;
-        if (strcmp(pSecuDepthMarketData->ExchangeID, HS_EI_SSE) == 0) {
-            marketType = nsqUtil::SH;
-        } else if (strcmp(pSecuDepthMarketData->ExchangeID, HS_EI_SZSE) == 0) {
-            marketType = nsqUtil::SZ;
+        nsqUtil::MarketType marketType;
+        if (pSecuDepthMarketData->ExchangeID[0] == HS_EI_SSE[0]) {
+            marketType = nsqUtil::MarketType::SH;
+        } else if (pSecuDepthMarketData->ExchangeID[0] == HS_EI_SZSE[0]) {
+            marketType = nsqUtil::MarketType::SZ;
+        } else {
+            LOG_WARN("Unknown ExchangeID: ", pSecuDepthMarketData->ExchangeID);
+            return;
         }
         queues_->pushData(data, marketType);
     )
@@ -95,7 +98,7 @@ void CHSNsqSpiImpl::OnRspSecuTransactionSubscribe(CHSNsqRspInfoField *pRspInfo, 
 
     SAFE_EXECUTE(
         if (pRspInfo->ErrorID != 0) {
-            throw RuntimeException(NSQ_PREFIX + "subscribe failed.");
+            throw RuntimeException("subscribe failed: " + string(pRspInfo->ErrorMsg)); // optimization: add message from demo
         }
     )
 }
@@ -104,7 +107,7 @@ void CHSNsqSpiImpl::OnRspSecuTransactionCancel(CHSNsqRspInfoField *pRspInfo, int
 
     SAFE_EXECUTE(
         if (pRspInfo->ErrorID != 0) {
-            throw RuntimeException(NSQ_PREFIX + "unsubscribe failed.");
+            throw RuntimeException("unsubscribe failed: " + string(pRspInfo->ErrorMsg)); // optimization: add message from demo
         }
     )
 }
@@ -112,11 +115,14 @@ void CHSNsqSpiImpl::OnRspSecuTransactionCancel(CHSNsqRspInfoField *pRspInfo, int
 void CHSNsqSpiImpl::OnRtnSecuTransactionTradeData(CHSNsqSecuTransactionTradeDataField *pSecuTransactionTradeData) {
 
     SAFE_EXECUTE(
-        string marketType;
-        if (strcmp(pSecuTransactionTradeData->ExchangeID, HS_EI_SSE) == 0) {
-            marketType = nsqUtil::SH;
-        } else if (strcmp(pSecuTransactionTradeData->ExchangeID, HS_EI_SZSE) == 0) {
-            marketType = nsqUtil::SZ;
+        nsqUtil::MarketType marketType;
+        if (pSecuTransactionTradeData->ExchangeID[0] == HS_EI_SSE[0]) {
+            marketType = nsqUtil::MarketType::SH;
+        } else if (pSecuTransactionTradeData->ExchangeID[0] == HS_EI_SZSE[0]) {
+            marketType = nsqUtil::MarketType::SZ;
+        } else {
+            LOG_WARN("Unknown ExchangeID: ", pSecuTransactionTradeData->ExchangeID);
+            return;
         }
         queues_->pushData(pSecuTransactionTradeData, marketType);
     )
@@ -125,11 +131,14 @@ void CHSNsqSpiImpl::OnRtnSecuTransactionTradeData(CHSNsqSecuTransactionTradeData
 void CHSNsqSpiImpl::OnRtnSecuTransactionEntrustData(CHSNsqSecuTransactionEntrustDataField *pSecuTransactionEntrustData) {
 
     SAFE_EXECUTE(
-        string marketType;
-        if (strcmp(pSecuTransactionEntrustData->ExchangeID, HS_EI_SSE) == 0) {
-            marketType = nsqUtil::SH;
-        } else if (strcmp(pSecuTransactionEntrustData->ExchangeID, HS_EI_SZSE) == 0) {
-            marketType = nsqUtil::SZ;
+        nsqUtil::MarketType marketType;
+        if (pSecuTransactionEntrustData->ExchangeID[0] == HS_EI_SSE[0]) {
+            marketType = nsqUtil::MarketType::SH;
+        } else if (pSecuTransactionEntrustData->ExchangeID[0] == HS_EI_SZSE[0]) {
+            marketType = nsqUtil::MarketType::SZ;
+        } else {
+            LOG_WARN("Unknown ExchangeID: ", pSecuTransactionEntrustData->ExchangeID);
+            return;
         }
         queues_->pushData(pSecuTransactionEntrustData, marketType);
     )

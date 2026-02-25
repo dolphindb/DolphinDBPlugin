@@ -1,5 +1,5 @@
 #include"gp.h"
-#include "ddbplugin/PluginLoggerImp.h"
+#include "ddbplugin/PluginLogger.h"
 // # define DEBUG_GP
 using namespace std;
 double *DataPtr[1024][6];
@@ -28,6 +28,11 @@ extern double pointsize;
 std::string lineColor;
 int resolution[2];
 
+extern "C" void plugin_bail_to_command_line(char *e)
+{
+    throw RuntimeException(std::string("gp runtime error: ") + e);
+}
+
 extern "C" int setRowData(char* str, int column){
     string origin = ConstantData[blockIndex][column]->getString(dataIndex);
     // std::cout<<"blockIndex"<<blockIndex<<"column"<<column<<"dataIndex"<<dataIndex<<std::endl;
@@ -54,7 +59,7 @@ void styleSetInit() {
 
 extern "C" int gpInit(int argc, char **argv);
 
-extern "C" char *gpgetCommand(char *buffer, size_t len) {
+extern "C" char *gpGetCommand(char *buffer) {
     strncpy(buffer, commandBuffer, strlen(commandBuffer) + 1);
     buffer[strlen(commandBuffer)] = '\0';
     return buffer;
@@ -66,7 +71,7 @@ extern "C" void gpSetCommand(std::string commad) {
     if(commad.size() > 1023)
         throw RuntimeException("Too many lines were drawn and the command transferred to gnuplot was too long. ");
     const char *origin = commad.c_str();
-    strncpy(commandBuffer, origin, strlen(origin));
+    strncpy(commandBuffer, origin, LEN);
     commandBuffer[strlen(origin)] = '\0';
     #ifdef DEBUG_GP
     cout<<commad<<endl;
@@ -239,8 +244,8 @@ void gpSetProps(ConstantSP &props) {
         if (strKey == "title") {
             if (value->getForm() == DF_VECTOR && value->getType() == DT_STRING) {
                 int size = value->size();
-                char *buffer[size];
-                bool flag = value->getString(0, size, buffer);
+                std::vector<char*> buffer(size);
+                bool flag = value->getString(0, size, buffer.data());
                 if (flag) {
                     for (int i = 0; i < size; ++i) {
                         titleVector.push_back(buffer[i]);
@@ -304,9 +309,9 @@ void gpSetProps(ConstantSP &props) {
                 lineColorVec.push_back(value->getString());
             } else if (value->getForm() == DF_VECTOR) {
                 int size = value->size();
-                char *buffer[size];
+                vector<char *> buffer(size);
                 VectorSP valueVector = value;
-                char **p = valueVector->getStringConst(0, size, buffer);
+                char **p = valueVector->getStringConst(0, size, buffer.data());
                 for (int i = 0; i < size; ++i) {
                     lineColorVec.push_back(string(p[i]));
                 }
@@ -320,10 +325,10 @@ void gpSetProps(ConstantSP &props) {
                 lineWidthVec.push_back(value->getDouble());
             } else if (value->getForm() == DF_VECTOR) {
                 int size = value->size();
-                double buffer[size];
+                vector<double> buffer(size);
                 VectorSP valueVector = value;
-                if(!valueVector->getDouble(0, size, buffer));
-                lineWidthVec = vector<double>(buffer, buffer + size);
+                valueVector->getDouble(0, size, buffer.data());
+                lineWidthVec = buffer;
             } else {
                 throw RuntimeException("lineWidth must be a double scalar or a double vector");
             }
@@ -334,9 +339,9 @@ void gpSetProps(ConstantSP &props) {
                 pointTypeVec.push_back(value->getInt());
             } else if (value->getForm() == DF_VECTOR) {
                 int size = value->size();
-                int buffer[size];
+                vector<int> buffer(size);
                 VectorSP valueVector = value;
-                int *p = valueVector->getIntBuffer(0, size, buffer);
+                int *p = valueVector->getIntBuffer(0, size, buffer.data());
                 pointTypeVec = vector<int>(p, p + size);
             } else {
                 throw RuntimeException("pointType must be a int scalar or a int vector");
@@ -351,10 +356,10 @@ void gpSetProps(ConstantSP &props) {
                 pointSizeVec.push_back(value->getDouble());
             } else if (value->getForm() == DF_VECTOR) {
                 int size = value->size();
-                double buffer[size];
+                vector<double> buffer(size);
                 VectorSP valueVector = value;
-                valueVector->getDouble(0, size, buffer);
-                pointSizeVec = vector<double>(buffer, buffer + size);
+                valueVector->getDouble(0, size, buffer.data());
+                pointSizeVec = buffer;
                 for(int i = 0; i < size; ++i){
                     if(pointSizeVec[i] < 0)
                         throw RuntimeException("pointSize must be greater than 0");
@@ -373,9 +378,9 @@ void gpSetProps(ConstantSP &props) {
             } else {
                 throw RuntimeException("smooth must be a string scalar or a string vector");
             }
-            char *buffer[size];
+            vector<char *>buffer(size);
             VectorSP valueVector = value;
-            char **p = valueVector->getStringConst(0, size, buffer);
+            char **p = valueVector->getStringConst(0, size, buffer.data());
             for (int i = 0; i < size; ++i) {
                 string tmp = string(p[i]);
                 if (tmp != "csplines" && tmp != "bezier") 
@@ -564,6 +569,7 @@ bool needGpInit = true;
 Mutex mLock;
 
 ConstantSP gpPlot(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     LockGuard<Mutex> lock(&mLock);
     if (args[0]->getForm() != DF_VECTOR && args[0]->getForm() != DF_TABLE) {
         throw RuntimeException("data must be a  vector or a table");

@@ -4,12 +4,12 @@
 #include "libmseed.h"
 #include "Logger.h"
 #include "ddbplugin/PluginLogger.h"
-#include "ddbplugin/PluginLoggerImp.h"
+
 
 using namespace std;
 Mutex mutexLock;
 
-#ifndef LINUX
+#ifndef __linux__
 FILE *SCFmemopen(void *buf, size_t size, const char *mode)
 {
     char temppath[MAX_PATH - 13];
@@ -58,7 +58,7 @@ ConstantSP mseedParse(Heap *heap, vector<ConstantSP> &args) {
     char bufferTemp[size];
     vector<char> bufferVector;
     char* buffer;
-#ifdef LINUX
+#ifdef __linux__
     if (args[0]->getType() == DT_STRING) {
         data = args[0]->getString();
         if (data.size() == 0) {
@@ -201,7 +201,7 @@ ConstantSP mseedParse(Heap *heap, vector<ConstantSP> &args) {
 bool isAvailableType(char type){
     if(type == 'i' || type == 'd' || type == 'f' || type == 'a')
         return true;
-    PLUGIN_LOG_WARN(string("MseedPlugin : The mseed data type ") + type + " is not supported. ");
+    LOG_WARN(string("MseedPlugin : The mseed data type ") + type + " is not supported. ");
     return false;
 }
 
@@ -226,7 +226,7 @@ ConstantSP mseedParseStream(Heap *heap, vector<ConstantSP> &args) {
     }
     char bufferTemp[size];
     char* buffer;
-#ifdef LINUX
+#ifdef __linux__
     if (args[0]->getType() == DT_STRING) {
         data = args[0]->getString();
         fp = fmemopen((void *)(data.c_str()), data.size(), "rw");

@@ -193,7 +193,7 @@ ConstantSP parseJson(Heap* heap, vector<ConstantSP>& arguments)
             } catch (std::bad_alloc& me) {
                 throw me;
             } catch (exception& ex) {
-                PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + string(ex.what()));
+                LOG_ERR(ENCODERDECODER_PREFIX + string(ex.what()));
                 continue;
             }
             rapidjson::Value nullValue;
@@ -827,7 +827,7 @@ ConstantSP parseNestedJson(Heap* heap, vector<ConstantSP>& arguments)
     //             doc.Parse(originData[jsonIndex].c_str());
     //         } catch (exception& ex) {
     //             // Log any errors that occur during parsing.
-    //             PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + string(ex.what()));
+    //             LOG_ERR(ENCODERDECODER_PREFIX + string(ex.what()));
     //             continue; // If an error occurred, skip the rest of this iteration and proceed with the next row.
     //         }
 

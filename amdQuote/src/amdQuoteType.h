@@ -195,7 +195,7 @@ class DailyIndex {
         long long newBase = timestamp / dateTimestamp;
         if (originBase < newBase) {
             startTimestamp_ = newBase * dateTimestamp;
-            PLUGIN_LOG_INFO(AMDQUOTE_PREFIX + ": The new DailyIndex with channel_no as " + std::to_string(param) +
+            LOG_INFO(AMDQUOTE_PREFIX + ": The new DailyIndex with channel_no as " + std::to_string(param) +
                      " will start at " + std::to_string(startTimestamp_));
             indexMap_.clear();
         }
@@ -217,5 +217,17 @@ class DailyIndex {
 
 template <typename T>
 int getDailyIndex(DailyIndex &index, T &data, long long timestamp);
+
+#if defined(AMD_457) || defined(AMD_455)
+struct QueryArgs{
+    int market;
+    int channelNo;
+    int beginSeqNum;
+    int endSeqNum;
+    int timeoutMinute;
+    std::vector<DATA_TYPE>& colTypes;
+    std::vector<std::string>& colNames;
+};
+#endif
 
 #endif  // AMD_QUOTE_TYPE_H

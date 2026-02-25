@@ -1,8 +1,9 @@
+#include "email.h"
+#include "httpClient.h"
 #include <Exceptions.h>
 #include <ScalarImp.h>
 #include <openssl/ssl.h>
 #include <Util.h>
-#include "email.h"
 #include <curl/curl.h>
 #include<list>
 #include<vector>
@@ -28,12 +29,6 @@ unordered_map<string, string> SMTP_STATUS::smtpHost = {
 unordered_map<string, int> SMTP_STATUS::smtpPost = {{"dolphindb.com", 587}};
 
 Mutex SMTP_STATUS::mutex;
-
-
-size_t curlWriteData(void *ptr, size_t size, size_t nmemb, string *data) {
-    data->append((char *) ptr, size * nmemb);
-    return size * nmemb;
-}
 
 CSendMail::CSendMail(
         const string &strUser,
@@ -232,6 +227,7 @@ void CSendMail::checkSMTPMsg(const string& msg, const string& userId, const vect
 }
 
 ConstantSP sendEmail(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string syntax = "Usage: httpClient::sendEmail(userId, pwd, recipient, [subject], [body], [msg]). ";
     string userId, pwd;
     ConstantSP recipient;
@@ -300,6 +296,7 @@ ConstantSP sendEmail(Heap *heap, vector<ConstantSP> &args) {
 }
 
 ConstantSP emailSmtpConfig(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR) {
         throw IllegalArgumentException(__FUNCTION__, "EmailName must be a string scalar");
     }

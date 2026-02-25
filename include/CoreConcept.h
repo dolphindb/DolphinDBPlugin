@@ -28,7 +28,7 @@
 #include "SysIO.h"
 #include "DolphinString.h"
 
-#define serverVersion "2.00.17"
+#define serverVersion "2.00.18.0"
 
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define LIKELY(x) (__builtin_expect((x), 1))
@@ -85,7 +85,6 @@ struct TableUpdate;
 struct TableUpdateSizer;
 struct TableUpdateUrgency;
 struct LocalTableUpdate;
-struct TopicSubscribe;
 class SessionThreadCallGuard;
 class ReducerContainer;
 class DistributedCall;
@@ -138,7 +137,6 @@ typedef SmartPointer<Domain> DomainSP;
 typedef SmartPointer<PartitionGuard> PartitionGuardSP;
 typedef SmartPointer<TableUpdate> TableUpdateSP;
 typedef SmartPointer<GenericBoundedQueue<TableUpdate, TableUpdateSizer, TableUpdateUrgency> > TableUpdateQueueSP;
-typedef SmartPointer<TopicSubscribe> TopicSubscribeSP;
 typedef SmartPointer<SessionThreadCallGuard> SessionThreadCallGuardSP;
 typedef SmartPointer<ReducerContainer> ReducerContainerSP;
 typedef SmartPointer<DistributedCall> DistributedCallSP;
@@ -389,6 +387,7 @@ public:
 	inline IO_ERR write(long long val){ return write((const char*)&val, 8);}
 	inline IO_ERR write(float val){ return write((const char*)&val, 4);}
 	inline IO_ERR write(double val){ return write((const char*)&val, 8);}
+	inline IO_ERR write(const Guid &val){ return write((const char*)val.bytes(), 16);}
 	size_t size() const { return size_;}
 	size_t capacity() const { return capacity_;}
 	const char * getBuffer() const { return buf_;}
@@ -589,7 +588,7 @@ struct VariableStat {
 };
 
 struct OptimizeContext {
-	OptimizeContext() : statementNo(0), parentStatementNo(0), flag(0){}
+	OptimizeContext() : statementNo(0), parentStatementNo(0), flag(0), funcCallLevel(0){}
 	inline bool withinUDF() const { return flag & 1;}
 	inline void setWithinUDF(bool option){if(option) flag |= 1; else flag &= ~1;}
 	inline bool lowLatencyMode() const { return flag& 2;}
@@ -599,6 +598,10 @@ struct OptimizeContext {
 	inline bool isInplaceOptDisabled() const { return flag & 8;}
 	inline void disableInplaceOpt(bool option){if(option) flag |= 8; else flag &= ~8;}
 	inline void incStatementNo() { ++statementNo;}
+	inline bool isAnyVectorRowMode() const { return flag & 16; }
+	inline void setAnyVectorRowMode(bool option ) {if(option) flag |= 16; else flag &= ~16;}
+	inline void incFuncCallLevel() { ++funcCallLevel; }
+	inline void decFuncCallLevel() { --funcCallLevel; }
 
 	/*
 	 * key: local variable's index (starting from 0)
@@ -609,6 +612,7 @@ struct OptimizeContext {
 	int statementNo;
 	int parentStatementNo;
 	long long flag;
+	int funcCallLevel;
 };
 
 class Object {
@@ -704,7 +708,11 @@ public:
 	/**
 	 * @brief collect objects from the current object and its sub component.
 	 */
-	virtual void collectObjects(vector<const Object*>& vec) const {};
+	virtual void collectObjects(vector<const Object*>& vec) const {}
+
+	virtual int retrieveComponents(vector<ObjectSP>& vec) const { return 0;}
+	virtual ObjectSP createInstance(const vector<ObjectSP>& vec) const { throw RuntimeException("Object::createInstance not implemented yet.");}
+	virtual ObjectSP createInstance(const SQLContextSP& context, const vector<ObjectSP>& vec) const { return createInstance(vec);}
 
 	/**
 	 * @brief judge if the given object should be collected by collectObjects function.
@@ -935,6 +943,14 @@ public:
 	 */
 	virtual ConstantSP get(INDEX offset, const ConstantSP& index) const {return getValue();}
 	virtual ConstantSP getColumn(INDEX index) const {return getValue();}
+    virtual const ConstantSP& getColumnRef(INDEX index) { throw RuntimeException("getColumnRef method not supported."); }
+    /**
+	 * @brief Get the data of the specified row in a matrix according to index.
+	 * 		  Note that index should be valid, otherwise out-of-bounds access will occur.
+	 *
+	 * @param index: Row index.
+	 * @return ConstantSP: The data.
+	 */
 	virtual ConstantSP getRow(INDEX index) const {return get(index);}
 	virtual ConstantSP getItem(INDEX index) const {return get(index);}
 	virtual const ConstantSP& getItem(INDEX index, ConstantSP& cache) const {
@@ -1335,6 +1351,7 @@ public:
 	/// Derived class.
 	/// ref: https://stackoverflow.com/questions/8816794/overloading-a-virtual-function-in-a-child-class
 	using Constant::get;
+	using Constant::compare;
 
 public:
 	Vector(): Constant(259){}
@@ -1499,6 +1516,20 @@ public:
 	virtual ConstantSP var() const = 0;
 	virtual ConstantSP var(INDEX start, INDEX length) const = 0;
 	virtual void var(INDEX start, INDEX length, const ConstantSP& out, INDEX outputStart=0) const = 0;
+	/**
+	 * @brief Calculate the population variance of the specified range in this vector, and set the result to out according to outputStart.
+	 *
+	 * @param start: The starting position of the specified range.
+	 * @param length: The length of the specified range.
+	 * @param out: Will be set as the result value.
+	 * @param outputStart: The index indicates which element of out will be set as the result value.
+	*/
+	virtual void varp(INDEX start, INDEX length, const ConstantSP& out, INDEX outputStart=0) const { throw RuntimeException("varp method not supported"); };
+	/**
+	 * @brief Return the standard deviation of this vector.
+	 *
+	 * @return ConstantSP: The sum.
+	*/
 	virtual ConstantSP std() const = 0;
 	virtual ConstantSP std(INDEX start, INDEX length) const = 0;
 	virtual void std(INDEX start, INDEX length, const ConstantSP& out, INDEX outputStart=0) const = 0;
@@ -1570,6 +1601,16 @@ public:
 	 * @return True if sort succeed, else false.
 	 */
 	virtual bool sort(bool asc, char nullsOrder = 0) = 0;
+    /**
+     * @brief Compare the indexLeft-th cell with the indexRight-th cell, from this same vector.
+	 *
+	 * @param indexLeft: The index of the left cell.
+	 * @param indexRight: The index of the right cell.
+	 * @return 0: if indexLeft-th cell is equal to the indexRight-th cell
+	 * 		   1: if indexLeft-th cell is larger than the indexRight-th cell
+	 * 		  -1: if indexLeft-th cell is smaller than the indexRight-th cell
+	 */
+	virtual int compare(INDEX indexLeft, INDEX indexRight) const  = 0;
 
 	/**
 	 * @brief Sort the vector and the corresponding indices with given order.
@@ -2315,6 +2356,7 @@ public:
 	virtual bool mayContainColumnRefOrVariable() const { return true;}
 	void bindColIndex();
 	ObjectSP optimize(Heap* pHeap, OptimizeContext& context, const ConstantSP& resultCache) const override;
+	ObjectSP createInstance(const vector<ObjectSP>& vec) const override;
 
 private:
 	SQLContextSP contextSP_;
@@ -2645,6 +2687,8 @@ public:
 	inline void setViewMode(bool enabled = true) { if(enabled) status_ |= 1; else status_ &= ~1;}
 	inline bool isDefMode() const { return status_ & 2;}
 	inline void setDefMode() { status_ |= 2; }
+	inline bool isTestMode() const { return status_ & 8;}
+	inline void setTestMode(bool enabled) { if(enabled) status_ |= 8; else status_ &= ~8;}
 	int getIndex(const string& name) const;
 	int getLocalIndex(const string& name) const;
 	string getName(int index) const;
@@ -2758,6 +2802,10 @@ public:
 	 */
 	virtual StatementSP optimize(Heap* pHeap, OptimizeContext& context) const { return nullptr;}
 	virtual void collectVariables(Heap* pHeap, OptimizeContext& context) const {}
+	virtual int retrieveComponents(vector<ObjectSP>& objs, vector<StatementSP>& sts) const { return 0;}
+	virtual StatementSP createInstance(const vector<ObjectSP>& objs, const vector<StatementSP>& sts) const { return nullptr;}
+	virtual StatementSP createInstance(const SQLContextSP& context, const vector<ObjectSP>& objs,
+			const vector<StatementSP>& sts) const { return createInstance(objs, sts);}
 	virtual void execute(Heap* pHeap, StatementContext& context)=0;
 	virtual void execute(Heap* pHeap, StatementContext& context, DebugContext* debugContext);
 	virtual string getScript(int indention) const = 0;
@@ -2937,6 +2985,8 @@ struct ClusterNodes {
 	void getDataNodeAliases(vector<string>& aliases, bool includeComputeNode = true);
 	void getDataNodeIndices(vector<int>& indices);
     void updateSiteType(const SmartPointer<unordered_map<string, SERVER_TYPE>>& map) {sitesTypeMap = map;}
+
+	vector<string> getAliasOf_All_DataNodes_And_ComputeNodesNotInComputeGroup() const;
 
 	inline int getSiteIndex(const string& alias) const {
 		unordered_map<string, int>::const_iterator it = sitesMap.find(alias);
@@ -3210,49 +3260,6 @@ struct TableUpdateUrgency {
 	}
 };
 
-struct TopicSubscribe {
-	TopicSubscribe(const string& topic, int hashValue, vector<string> attributes, const FunctionDefSP& handler, const AuthenticatedUserSP& user,
-			bool msgAsTable, int batchSize, int throttleTime, bool persistOffset, bool timeTrigger, bool handlerNeedMsgId,
-			const string& userId = "", const string& pwd = "", long long sessionID = 0) : msgAsTable_(msgAsTable),
-			persistOffset_(persistOffset), timeTrigger_(timeTrigger), handlerNeedMsgId_(handlerNeedMsgId), hashValue_(hashValue), batchSize_(batchSize),
-			throttleTime_(throttleTime), userId_(userId), pwd_(pwd), sessionID_(sessionID), cumSize_(0), messageId_(-1), expired_(-1), topic_(topic), attributes_(attributes), handler_(handler), user_(user){}
-	bool append(long long msgId, const ConstantSP& msg, long long& outMsgId, ConstantSP& outMsg);
-	bool getMessage(long long now, long long& outMsgId, ConstantSP& outMsg);
-	bool updateSchema(const TableSP& emptyTable);
-	bool isUnsubscribed() { return isUnsubscribed_; }
-	void setUnsubscribed() { isUnsubscribed_ = true; }
-    void setSubscribed() { isUnsubscribed_ = false; }
-
-	const bool msgAsTable_;
-	const bool persistOffset_;
-	/*
-	 * trigger the message handler as long as a fixed time period (specified in throttleTime_) elapses
-	 * even if there is no incoming message in the time window when timeTrigger_ is set to true.
-	 */
-	const bool timeTrigger_;
-	/*
-	 * if this value is true, the handler accepts two arguments, message body and message id.
-	 * Otherwise, the handler accepts only one argument, i.e. message body.
-	 */
-	const bool handlerNeedMsgId_;
-	const int hashValue_;
-	const int batchSize_;
-	const int throttleTime_; //in millisecond
-	const string userId_;
-	const string pwd_;
-    const long long sessionID_;
-	int cumSize_;
-	std::atomic<long long> messageId_;
-	long long expired_;
-	const string topic_;
-	vector<string> attributes_;
-	const FunctionDefSP handler_;
-	AuthenticatedUserSP user_;
-	ConstantSP body_;
-	ConstantSP filter_;
-	Mutex mutex_;
-	bool isUnsubscribed_ = false;
-};
 
 class SessionThreadCallGuard {
 public:
@@ -3737,8 +3744,12 @@ public:
 	virtual bool mayContainColumnRefOrVariable() const { return true;}
 	virtual void collectObjects(vector<const Object*>& vec) const;
 	virtual ObjectSP optimize(Heap* pHeap, OptimizeContext& context, const ConstantSP& resultCache) const;
+	int retrieveComponents(vector<ObjectSP>& vec) const override;
+	ObjectSP createInstance(const vector<ObjectSP>& vec) const override;
 
 private:
+	ConstantSP getRefForEvalArgs(Heap* pHeap, const vector<ConstantSP>& evalObjs) const;
+	ObjectSP lowLatencyOptimize(Heap* pHeap, OptimizeContext& context) const;
 	vector<ObjectSP> arguments_;
 	bool isFunctionArgument_;
 	bool isDynamicVector_;
@@ -3779,6 +3790,8 @@ public:
 	virtual bool mayContainColumnRefOrVariable() const { return true;}
 	void collectObjects(vector<const Object*>& vec) const override;
 	ObjectSP optimize(Heap* pHeap, OptimizeContext& context, const ConstantSP& resultCache) const override;
+	int retrieveComponents(vector<ObjectSP>& vec) const override;
+	ObjectSP createInstance(const vector<ObjectSP>& vec) const override;
 
 	static ConstantSP void_;
 	static ConstantSP null_;
@@ -3889,7 +3902,7 @@ public:
 		int cond = - (int)(index < capacity_);
 		return buf_[(cond & index) | (~cond & (index - capacity_))];
 	}
-	inline const T& tail() const {
+	inline T& tail() {
 		//equivalent to tail_ == 0 ? buf_[capacity_ - 1] : buf_[tail_ - 1]
 		int cond = - (int)(tail_ == 0);
 		return buf_[(cond & (capacity_ - 1)) | (~cond & (tail_ - 1))];
@@ -4241,6 +4254,10 @@ public:
 
 	virtual long long getAdditionalMemoryUsed(){ return 0; }
 	virtual bool isTimeMovingFunction(){return false;}
+    virtual void getOutputType(DATA_TYPE &type, int &extra) {
+        type = DT_VOID;
+        extra = 0;
+    }
 protected:
 	template<class T>
 	void setData(int outputColIndex, INDEX* indices, int count, T* buf){

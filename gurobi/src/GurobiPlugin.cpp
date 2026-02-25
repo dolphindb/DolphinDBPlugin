@@ -29,16 +29,16 @@ void quadExpressionOnClose(Heap *heap, vector<ConstantSP> &args) {}
 
 /// Helper Declarations
 
-VectorSP getNumVector(const ConstantSP &arg, const string &funcName, const string &usage,
+VectorSP getNumVector(const SmartPointer<Constant> &arg, const string &funcName, const string &usage,
                       const string &argName, int size = 0);
-VectorSP getCharVector(const ConstantSP &arg, const string &funcName, const string &usage,
+VectorSP getCharVector(const SmartPointer<Constant> &arg, const string &funcName, const string &usage,
                        const string &argName, int size = 0);
-VectorSP getStringVector(const ConstantSP &arg, const string &funcName, const string &usage,
+VectorSP getStringVector(const SmartPointer<Constant> &arg, const string &funcName, const string &usage,
                          const string &argName, int size = 0);
-VectorSP getQuadMatrix(const ConstantSP &arg, const string &funcName, const string &usage,
+VectorSP getQuadMatrix(const SmartPointer<Constant> &arg, const string &funcName, const string &usage,
                        const string &argName, int size = 0);
-char getCharScalar(ConstantSP &arg, const string &funcName, const string &usage, const string &argName);
-double getDoubleScalar(ConstantSP &arg, const string &funcName, const string &usage, const string &argName);
+char getCharScalar(SmartPointer<Constant> &arg, const string &funcName, const string &usage, const string &argName);
+double getDoubleScalar(SmartPointer<Constant> &arg, const string &funcName, const string &usage, const string &argName);
 
 /// Interfaces
 
@@ -352,7 +352,7 @@ ConstantSP gurobiGetObjective(Heap *heap, vector<ConstantSP> &args) {
 
 /// Helper Implementations
 
-VectorSP getNumVector(const ConstantSP &arg, const string &funcName, const string &usage,
+VectorSP getNumVector(const SmartPointer<Constant> &arg, const string &funcName, const string &usage,
                       const string &argName, int size) {
     if (arg.isNull() or arg->getForm() != DF_VECTOR or (arg->getType() != DT_INT and arg->getType() != DT_DOUBLE)) {
         throw IllegalArgumentException(funcName, usage + argName + " should be a vector of int or double.");
@@ -366,7 +366,7 @@ VectorSP getNumVector(const ConstantSP &arg, const string &funcName, const strin
     return arg;
 }
 
-VectorSP getCharVector(const ConstantSP &arg, const string &funcName, const string &usage,
+VectorSP getCharVector(const SmartPointer<Constant> &arg, const string &funcName, const string &usage,
                        const string &argName, int size) {
     if (arg.isNull() or arg->getForm() != DF_VECTOR or arg->getType() != DT_CHAR) {
         throw IllegalArgumentException(funcName, usage + argName + " should be a vector of char.");
@@ -380,7 +380,7 @@ VectorSP getCharVector(const ConstantSP &arg, const string &funcName, const stri
     return arg;
 }
 
-VectorSP getStringVector(const ConstantSP &arg, const string &funcName, const string &usage,
+VectorSP getStringVector(const SmartPointer<Constant> &arg, const string &funcName, const string &usage,
                          const string &argName, int size) {
     if (arg.isNull() or arg->getForm() != DF_VECTOR or arg->getType() != DT_STRING) {
         throw IllegalArgumentException(funcName, usage + argName + " should be a vector of string.");
@@ -394,7 +394,7 @@ VectorSP getStringVector(const ConstantSP &arg, const string &funcName, const st
     return arg;
 }
 
-VectorSP getQuadMatrix(const ConstantSP &arg, const string &funcName, const string &usage,
+VectorSP getQuadMatrix(const SmartPointer<Constant> &arg, const string &funcName, const string &usage,
                        const string &argName, int size) {
     // check form
     auto form = arg->getForm();
@@ -417,14 +417,14 @@ VectorSP getQuadMatrix(const ConstantSP &arg, const string &funcName, const stri
     return arg;
 }
 
-char getCharScalar(ConstantSP &arg, const string &funcName, const string &usage, const string &argName) {
+char getCharScalar(SmartPointer<Constant> &arg, const string &funcName, const string &usage, const string &argName) {
     if (arg.isNull() or arg->getForm() != DF_SCALAR or arg->getType() != DT_CHAR) {
         throw IllegalArgumentException(funcName, usage + argName + " should be a char.");
     }
     return arg->getChar();
 }
 
-double getDoubleScalar(ConstantSP &arg, const string &funcName, const string &usage,
+double getDoubleScalar(SmartPointer<Constant> &arg, const string &funcName, const string &usage,
                        const string &argName) {
     if (arg.isNull() or arg->getForm() != DF_SCALAR or (arg->getType() != DT_DOUBLE and arg->getType() != DT_INT)) {
         throw IllegalArgumentException(funcName, usage + argName + " should be a double.");

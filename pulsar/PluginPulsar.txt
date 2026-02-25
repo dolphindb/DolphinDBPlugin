@@ -1,4 +1,4 @@
-pulsar,libPluginPulsar.so,2.00.17.0
+pulsar,libPluginPulsar.so,2.00.18.0
 pulsarClient,client,system,1,2,0,0,(serviceUrl, [clientConfig])
 pulsarProducer,producer,system,2,3,0,0,(client, topic, [producerConfig])
 pulsarSend,send,system,2,3,0,0,(producer, message, [partitionKey])

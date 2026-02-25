@@ -1,4 +1,4 @@
-feather,libPluginFeather.so,2.00.17.0
+feather,libPluginFeather${CMAKE_SHARED_LIBRARY_SUFFIX},${PluginVersion}
 schemaFeather,extractSchema,system,1,1,0,0,(filePath)
 loadFeather,load,system,1,2,0,0,(filePath, [columns])
 saveFeather,save,system,2,4,0,0,(table, filePath, [compressMethod], [compressionLevel])

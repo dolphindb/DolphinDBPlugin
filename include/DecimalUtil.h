@@ -652,7 +652,7 @@ template <typename T> inline long double to_long_double(T v) {
 
 // Ref: https://github.com/abseil/abseil-cpp/blob/master/absl/numeric/int128_no_intrinsic.inc#L135-L146
 inline long double to_long_double(int128 v) {
-#ifdef WINDOWS
+#ifdef _WIN32
     assert(v != INT128_MIN);
     return (v < 0 ? -static_cast<long double>(-v) : static_cast<long double>(v));
 #else

@@ -81,9 +81,9 @@ AmdQuote::~AmdQuote() {
         amd::ama::IAMDApi::Release();
         delete amdSpi_;
     } catch (std::exception &ex) {
-        PLUGIN_LOG_ERR(AMDQUOTE_PREFIX + "destruction failed. " + string(ex.what()));
+        LOG_ERR(AMDQUOTE_PREFIX + "destruction failed. " + string(ex.what()));
     } catch (...) {
-        PLUGIN_LOG_ERR(AMDQUOTE_PREFIX + "destruction failed with unknown exception.");
+        LOG_ERR(AMDQUOTE_PREFIX + "destruction failed with unknown exception.");
     }
 }
 
@@ -357,3 +357,8 @@ void AmdQuote::unsubscribe(const string &dataType, int market, vector<string> co
         removeSubscribe(amdType, market);
     }
 }
+#if defined(AMD_457) || defined(AMD_455)
+TableSP AmdQuote::query(QueryArgs& queryArgs){
+    return amdSpi_->query(queryArgs);
+}
+#endif

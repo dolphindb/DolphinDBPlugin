@@ -4,7 +4,7 @@
 #include <climits>
 #include <exception>
 #include "ddbplugin/PluginLogger.h"
-#include "ddbplugin/PluginLoggerImp.h"
+
 
 ConstantSP extractORCSchema(Heap *heap, vector<ConstantSP> &arguments)
 {

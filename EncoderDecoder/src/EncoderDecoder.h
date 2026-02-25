@@ -106,30 +106,30 @@ public:
                         INDEX index = bufferVec_->rows();
                         bufferVec_->append(values, index, errMsg);
                         if (errMsg != "") {
-                            PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + " async append: " + errMsg);
+                            LOG_ERR(ENCODERDECODER_PREFIX + " async append: " + errMsg);
                         }
                     }
                 } catch (MemoryException& me) {
-                    PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + "out of memory");
+                    LOG_ERR(ENCODERDECODER_PREFIX + "out of memory");
                     return;
                 } catch (std::bad_alloc& me) {
-                    PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + "out of memory");
+                    LOG_ERR(ENCODERDECODER_PREFIX + "out of memory");
                     return;
                 } catch (std::exception& e) {
-                    PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + " async append: " + string(e.what()));
+                    LOG_ERR(ENCODERDECODER_PREFIX + " async append: " + string(e.what()));
                     continue;
                 }
             }
             batchProcessor_->flushTable();
 
         } catch (MemoryException& me) {
-            PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + "out of memory");
+            LOG_ERR(ENCODERDECODER_PREFIX + "out of memory");
             return;
         } catch (std::bad_alloc& me) {
-            PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + "out of memory");
+            LOG_ERR(ENCODERDECODER_PREFIX + "out of memory");
             return;
         } catch(...) {
-            PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX + "Async flush thread failed.");
+            LOG_ERR(ENCODERDECODER_PREFIX + "Async flush thread failed.");
         }
     }
 
@@ -259,7 +259,7 @@ inline void BatchProcessor::flushTable()
     } catch (std::bad_alloc& me) {
         throw me;
     } catch (std::exception& e) {
-        PLUGIN_LOG_ERR(ENCODERDECODER_PREFIX, " async flush: " + string(e.what()));
+        LOG_ERR(ENCODERDECODER_PREFIX, " async flush: " + string(e.what()));
     }
     bufferVec_->clear();
 }

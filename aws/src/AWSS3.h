@@ -9,7 +9,7 @@
 #define AWSS3PLUGIN_H_
 
 #include "ddbplugin/CommonInterface.h"
-#include "ddbplugin/PluginLoggerImp.h"
+
 #include "CoreConcept.h"
 #include "ScalarImp.h"
 #include "Util.h"

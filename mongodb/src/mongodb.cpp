@@ -8,7 +8,7 @@
 #include <mongoc.h>
 #include "json.hpp"
 #include "cvt.h"
-#include "ddbplugin/PluginLoggerImp.h"
+
 using namespace std;
 
 string getBsonString(bson_type_t type){

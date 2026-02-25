@@ -7,6 +7,8 @@
 extern "C" 
 {
     ConstantSP version(Heap *heap, vector<ConstantSP> &arguments){
+        std::ignore = heap;
+        std::ignore = arguments;
         return new String(pluginVersion);
     }
 }

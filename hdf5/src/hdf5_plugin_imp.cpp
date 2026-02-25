@@ -4,7 +4,7 @@
 #include <list>
 #include <numeric>
 #include "Exceptions.h"
-#include "ddbplugin/PluginLoggerImp.h"
+
 
 /* H5_PLUGIN_IMP */
 

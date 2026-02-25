@@ -72,7 +72,7 @@ void PulsarSubJob::listener(const SessionSP &session, const TableSP &table, cons
         /// get parsed message
         auto parsedMsg = parser->call(session->getHeap().get(), msgVec);
         if (!parsedMsg->isTable()) {
-            PLUGIN_LOG_ERR(PULSAR_PREFIX + "The parser should return a table.");
+            LOG_ERR(PULSAR_PREFIX + "The parser should return a table.");
             acknowledge(consumer, msg);
             return;
         }
@@ -81,7 +81,7 @@ void PulsarSubJob::listener(const SessionSP &session, const TableSP &table, cons
         auto tableSize = table->columns();
         auto msgSize = parsedMsg->columns();
         if (tableSize != msgSize) {
-            PLUGIN_LOG_ERR(PULSAR_PREFIX + "Column numbers of table and parsed message are different.");
+            LOG_ERR(PULSAR_PREFIX + "Column numbers of table and parsed message are different.");
             acknowledge(consumer, msg);
             return;
         }
@@ -98,14 +98,14 @@ void PulsarSubJob::listener(const SessionSP &session, const TableSP &table, cons
             LockGuard<Mutex> _(table->getLock());
             auto result = table->append(args, insertedRows, errMsg);
             if (!result) {
-                PLUGIN_LOG_ERR(PULSAR_PREFIX + errMsg);
+                LOG_ERR(PULSAR_PREFIX + errMsg);
             }
         }
 
         acknowledge(consumer, msg);
 
     } catch (exception &e) {
-        PLUGIN_LOG_ERR(PULSAR_PREFIX + e.what());
+        LOG_ERR(PULSAR_PREFIX + e.what());
     }
 }
 
@@ -116,6 +116,6 @@ void PulsarSubJob::acknowledge(Consumer &consumer, const pulsar::Message& msg) {
             throw RuntimeException(string("Failed to acknowledge: ") + strResult(result));
         }
     } catch (exception &e) {
-        PLUGIN_LOG_ERR(PULSAR_PREFIX + e.what());
+        LOG_ERR(PULSAR_PREFIX + e.what());
     }
 }

@@ -242,10 +242,10 @@ void AppendTable::run() {
                         TableSP table_insert = (TableSP) parser_result;
                         int length = handle_->columns();
                         if (table_insert->columns() < length) {
-                            PLUGIN_LOG_ERR(PLUGIN_ZMQ_PREFIX+"The columns of the table returned is smaller than the handler table.");
+                            LOG_ERR(PLUGIN_ZMQ_PREFIX+"The columns of the table returned is smaller than the handler table.");
                         }
                         if (table_insert->columns() > length)
-                            PLUGIN_LOG_ERR(PLUGIN_ZMQ_PREFIX+"The columns of the table returned is larger than the handler table, and the information may be ignored.");
+                            LOG_ERR(PLUGIN_ZMQ_PREFIX+"The columns of the table returned is larger than the handler table, and the information may be ignored.");
                         vector<ConstantSP> args = {handle_, table_insert};
                         session_->getFunctionDef("append!")->call(heap.get(), args);
                     } else {
@@ -253,19 +253,19 @@ void AppendTable::run() {
                         ((FunctionDefSP) handle_)->call(heap.get(), args);
                     }
                 }else{
-                    PLUGIN_LOG_ERR(PLUGIN_ZMQ_PREFIX+"parser result must be a table.");
+                    LOG_ERR(PLUGIN_ZMQ_PREFIX+"parser result must be a table.");
                 }
             }
             catch (exception& e){
-                PLUGIN_LOG_ERR(PLUGIN_ZMQ_PREFIX + " SubConnection throws an exception: "+e.what());
+                LOG_ERR(PLUGIN_ZMQ_PREFIX + " SubConnection throws an exception: "+e.what());
             }
             first = false;
         }
         isStop_.release();
     }catch(exception& e){
-        PLUGIN_LOG_ERR(PLUGIN_ZMQ_PREFIX + "The subscribed thread ends because of the exception: " + e.what());
+        LOG_ERR(PLUGIN_ZMQ_PREFIX + "The subscribed thread ends because of the exception: " + e.what());
     }catch(...){
-        PLUGIN_LOG_ERR(PLUGIN_ZMQ_PREFIX + "The subscribed thread ends because of the exception.");
+        LOG_ERR(PLUGIN_ZMQ_PREFIX + "The subscribed thread ends because of the exception.");
     }
 }
 
@@ -353,7 +353,7 @@ ConstantSP zmqCancelSubJob(Heap *heap, vector<ConstantSP> args) {
     ZmqStatus::STATUS_DICT->remove(new String(key));
     if (sc != nullptr) {
         sc->cancelThread();
-        PLUGIN_LOG_INFO(PLUGIN_ZMQ_PREFIX+"subscription: " + std::to_string(conn->getLong()) + " is stopped. ");
+        LOG_INFO(PLUGIN_ZMQ_PREFIX+"subscription: " + std::to_string(conn->getLong()) + " is stopped. ");
     }
     return new Void();
 }

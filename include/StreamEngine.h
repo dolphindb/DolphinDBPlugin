@@ -16,6 +16,35 @@ class AbstractStreamEngine;
 typedef ObjectPtr<AbstractStreamEngine> AbstractStreamEngineSP;
 typedef AbstractStreamEngineSP(*StreamEngineFactory)(Heap* heap, const DataInputStreamSP& in);
 
+class MarketDataRow : public Constant {
+public:
+    MarketDataRow() : Constant() {
+    }
+    MarketDataRow(std::string &code, int type, int side, int time, int msgType, int64_t price, int64_t qty,
+                  int64_t seq, int64_t buyOrder, int64_t sellOrder, int64_t receiveTime)
+        : Constant(), code(code), type(type), side(side), time(time), msgType(msgType),
+          price(price), qty(qty), seq(seq), buyOrder(buyOrder), sellOrder(sellOrder), receiveTime(receiveTime)
+           {}
+    virtual ~MarketDataRow(){};
+    virtual DATA_TYPE getRawType() const {return DT_MKTDATAROW;}
+    virtual ConstantSP getInstance() const {return getValue();}
+    virtual ConstantSP getValue() const {
+        return ConstantSP(new MarketDataRow(*this));
+    }
+
+    DolphinString code;
+    int type;
+    int side;
+    int time;
+    int msgType;
+    int64_t price;
+    int64_t qty;
+    int64_t seq;
+    int64_t buyOrder;
+    int64_t sellOrder;
+    int64_t receiveTime; // When engine receives the message, in nanoseconds.
+};
+
 
 class StreamEngineManager {
 public:

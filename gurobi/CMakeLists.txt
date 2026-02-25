@@ -25,6 +25,7 @@ option(DDB_USE_ASAN
         "Enable ASAN, a fast memory error detector. https://clang.llvm.org/docs/AddressSanitizer.html"
         OFF)
 set(PLUGIN_COMPILE_OPTIONS
+        "-std=c++11"
         "-Wall"
 )
 set(PLUGIN_INCLUDE_DIRECTORIES

@@ -33,13 +33,13 @@ namespace pluginUtil {
         return arg->getDouble();
     }
 
-    inline int getIntScalar(const ConstantSP &arg, const string &argName, const string &funcName,
+    inline long long getLongScalar(const ConstantSP &arg, const string &argName, const string &funcName,
                             const string &usage) {
 
-        if (arg.isNull() or arg->getForm() != DF_SCALAR or arg->getType() != DT_INT) {
+        if (arg.isNull() or arg->getForm() != DF_SCALAR or arg->getCategory() != INTEGRAL) {
             throw IllegalArgumentException(funcName, usage + argName + " should be an int.");
         }
-        return arg->getInt();
+        return arg->getLong();
     }
 
     inline string getStringScalar(const ConstantSP &arg, const string &argName, const string &funcName,
@@ -154,8 +154,8 @@ namespace pluginUtil {
 
     typedef vector<ConstantSP>::iterator ConstantVecIterator;
 
-    inline VectorSP getVec(const ConstantVecIterator &colIter) {
-        return *colIter;
+    inline Vector* getVec(const ConstantVecIterator &colIter) {
+        return static_cast<Vector *>((*colIter).get());
     }
     inline void appendString(const ConstantVecIterator &colIter, const string &data) {
         getVec(colIter)->appendString(&data, 1);

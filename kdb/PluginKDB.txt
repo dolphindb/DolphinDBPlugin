@@ -1,4 +1,4 @@
-kdb,libPluginKDB.so,2.00.17.0
+kdb,libPluginKDB.so,2.00.18.0
 kdbConnect,connect,system,3,3,0,0,(host, port, [credentials])
 kdbLoadTable,loadTable,system,2,3,0,0,(conn, tablePath, [symPath])
 kdbLoadFile,loadFile,system,1,2,0,0,(tablePath, [symPath])

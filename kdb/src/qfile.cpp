@@ -280,7 +280,7 @@ std::size_t kdb::BinFile::inflateBody(std::vector<byte>& buffer) {
     }
     buffer.resize(offset);
 
-    PLUGIN_LOG_WARN("Expected decompressed file size: ", offset, ", Actually: ", originSize);
+    LOG_WARN("Expected decompressed file size: ", offset, ", Actually: ", originSize);
 
     assert(buffer.size() >= initLen);
     return buffer.size() - initLen;

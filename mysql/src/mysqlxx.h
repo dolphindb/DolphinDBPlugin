@@ -14,6 +14,13 @@
 /// Disable LOAD DATA LOCAL INFILE because it is insecure
 #define MYSQLXX_DEFAULT_ENABLE_LOCAL_INFILE false
 
+/// SSL connection modes (compatible with MySQL)
+enum MySQLSSLMode {
+    SSL_MODE_DISABLED = 0,        // disable SSL
+    SSL_MODE_REQUIRED = 1,        // enable SSL but not verify CA
+    SSL_MODE_VERIFY_CA = 2,       // enable SSL and verify CA
+};
+
 #if defined(_MSC_VER)
 #define likely(x) (x)
 #define unlikely(x) (x)
@@ -493,6 +500,7 @@ class Connection {
 
     Connection(const char *db,
                const char *server,
+               MySQLSSLMode ssl_mode,
                const char *user = nullptr,
                const char *password = nullptr,
                unsigned port = 3306,
@@ -507,6 +515,7 @@ class Connection {
     // delayed connection
     void connect(const char *db,
                  const char *server,
+                 MySQLSSLMode ssl_mode,
                  const char *user = nullptr,
                  const char *password = nullptr,
                  unsigned port = 0,

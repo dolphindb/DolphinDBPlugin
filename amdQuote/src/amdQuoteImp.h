@@ -164,6 +164,9 @@ class AmdQuote {
         if (dailyIndex_) flag |= OPT_DAILY_INDEX;
         return getSchemaByAMDType(getAmdDataType(dataType), flag);
     }
+    #if defined(AMD_457) || defined(AMD_455)
+    TableSP query(QueryArgs& queryArgs);
+    #endif
 
   public:
     AMDSpiImp *getAMDSpi() { return amdSpi_; }

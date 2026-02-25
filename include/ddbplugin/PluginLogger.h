@@ -1,36 +1,49 @@
-#ifndef PLUGIN_LOGGER_H
-#define PLUGIN_LOGGER_H
+#ifndef LOGGER_H
+#define LOGGER_H
+
+#include <cstdarg>
+
+#ifdef __linux__
+#ifndef LINUX
+#define LINUX
+#endif
+#elif defined(_WIN32)
+#ifndef WINDOWS
+#define WINDOWS
+#endif
+#endif
 
 #include "Logger.h"
 
-extern Logger log_inst;
+#undef LINUX
+#undef WINDOWS
 
-extern severity_type PLUGIN_LOG_LEVEL;  // defined in PluginLoggerImp.h
+#define MACRO_CONTACT_(a, b)   a##b
+#define MACRO_CONTACT(a, b)   MACRO_CONTACT_(a, b)
+#define PLUGIN_VAR(name) MACRO_CONTACT(PLUGIN_NAME, name)
 
-#define PLUGIN_LOG(...)                                        \
-    do {                                                       \
-        if (PLUGIN_LOG_LEVEL <= severity_type::DEBUG) {   \
-            log_inst.print<severity_type::DEBUG>(__VA_ARGS__); \
-        }                                                      \
-    } while (0)
+extern severity_type PLUGIN_VAR(LOG_LEVEL);
+template <severity_type level, typename... Args>
+inline void PLUGIN_VAR(pluginLog)(Args... args) {
+    if (PLUGIN_VAR(LOG_LEVEL) <= level) {
+        log_inst.print<level>(args...);
+    }
+}
 
-#define PLUGIN_LOG_INFO(...)                                  \
-    do {                                                      \
-        if (PLUGIN_LOG_LEVEL <= severity_type::INFO) {   \
-            log_inst.print<severity_type::INFO>(__VA_ARGS__); \
-        }                                                     \
-    } while (0)
+#undef LOG
+#undef LOG_INFO
+#undef LOG_WARN
+#undef LOG_ERR
 
-#define PLUGIN_LOG_WARN(...)                                     \
-    do {                                                         \
-        if (PLUGIN_LOG_LEVEL <= severity_type::WARNING) {   \
-            log_inst.print<severity_type::WARNING>(__VA_ARGS__); \
-        }                                                        \
-    } while (0)
+#ifndef LOG_NAME
+#define LOG_NAME PLUGIN_NAME
+#endif
+#define LOG_STRING(x) #x
+#define LOG_LABEL(x) " [" LOG_STRING(x) "] "
 
-#define PLUGIN_LOG_ERR(...)                              \
-    do {                                                 \
-        log_inst.print<severity_type::ERR>(__VA_ARGS__); \
-    } while (0)
+#define LOG(...) PLUGIN_VAR(pluginLog)<severity_type::DEBUG>(LOG_LABEL(LOG_NAME), __VA_ARGS__)
+#define LOG_INFO(...) PLUGIN_VAR(pluginLog)<severity_type::INFO>(LOG_LABEL(LOG_NAME), __VA_ARGS__)
+#define LOG_WARN(...) PLUGIN_VAR(pluginLog)<severity_type::WARNING>(LOG_LABEL(LOG_NAME), __VA_ARGS__)
+#define LOG_ERR(...) PLUGIN_VAR(pluginLog)<severity_type::ERR>(LOG_LABEL(LOG_NAME), __VA_ARGS__)
 
 #endif

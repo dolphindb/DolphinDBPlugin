@@ -25,4 +25,5 @@ extern "C" ConstantSP getETFCodeList(Heap *heap, vector<ConstantSP> &arguments);
 
 extern "C" ConstantSP setErrorLog(Heap *heap, vector<ConstantSP> &arguments);
 
+extern "C" ConstantSP amdQuery(Heap *heap, vector<ConstantSP> &arguments);
 #endif

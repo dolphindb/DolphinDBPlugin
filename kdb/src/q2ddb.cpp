@@ -12,7 +12,7 @@
 #include "SpecialConstant.h"
 #include "Logger.h"
 #include "ddbplugin/PluginLogger.h"
-#include "ddbplugin/PluginLoggerImp.h"
+
 
 #include "endian.h"
 #include "kdb.h"

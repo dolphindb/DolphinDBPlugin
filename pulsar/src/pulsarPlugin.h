@@ -8,7 +8,7 @@
 
 #include "CoreConcept.h"
 #include "ddbplugin/CommonInterface.h"
-#include "ddbplugin/PluginLoggerImp.h"
+
 extern "C" {
 
 ConstantSP pulsarClient(Heap *heap, vector<ConstantSP> &args);

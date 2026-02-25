@@ -1,8 +1,9 @@
 # 插件 CMakeLists.txt 模板
 
-set(PluginVersion 2.00.17)
+set(PluginVersion 2.00.18.0)
 
 function(CreatePlugin PluginName)
+    message(STATUS "Detecting build system: ${CMAKE_SYSTEM_NAME}")
     # 用户可使用的构建选项
     set(LINK_DIRECTORIES "" CACHE STRING "link directories")
 
@@ -10,22 +11,40 @@ function(CreatePlugin PluginName)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
     set(CMAKE_CXX_FLAGS_ASAN "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -Og -fno-optimize-sibling-calls -fno-ipa-icf -fno-omit-frame-pointer" PARENT_SCOPE)
     set(CMAKE_CXX_FLAGS_GCOV "${CMAKE_CXX_FLAGS_DEBUG} --coverage" PARENT_SCOPE)
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_FORTIFY_SOURCE=3" PARENT_SCOPE)
+    # Fortification level 3 has significant performance impact on gcc-8.4.0
+    # Reference: https://developers.redhat.com/articles/2022/09/17/gccs-new-fortification-level
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "12.0.0")
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_FORTIFY_SOURCE=3" PARENT_SCOPE)
+    else()
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2" PARENT_SCOPE)
+    endif()
 
     add_library(${PluginName} SHARED)
+    target_sources(${PluginName} PRIVATE ../src/PluginLogger.cpp)
     add_subdirectory(src)
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "11.0.0")
+            target_compile_options(${PluginName} PRIVATE -march=x86-64-v3)
+        else()
+            target_compile_options(${PluginName} PRIVATE -mavx2 -mfma)
+        endif()
+    endif()
+    if (CMAKE_SYSTEM_NAME STREQUAL "MSYS")
+        target_compile_definitions(${PluginName} PRIVATE WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0600)
+    endif()
 
     # 编译
+    if (${ARGC} EQUAL 2)
+        target_compile_definitions(${PluginName} PRIVATE LOG_NAME=${ARGV1})
+    endif()
+    target_compile_definitions(${PluginName} PRIVATE PLUGIN_NAME=${PluginName})
     target_compile_features(${PluginName} PRIVATE cxx_std_11)
-    if(UNIX)
+    if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         target_compile_options(${PluginName} PRIVATE -frecord-gcc-switches)
     endif()
-    target_compile_options(${PluginName} PRIVATE -Wall)
-    #target_compile_options(${PluginName} PRIVATE -Wall -Wextra -Wpedantic -Werror)
-    if(WIN32)
-        target_compile_options(${PluginName} PRIVATE -DWINDOWS)
-    else()
-        target_compile_options(${PluginName} PRIVATE -DLINUX)
+    target_compile_options(${PluginName} PRIVATE -Wall -Wextra -Wpedantic)
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "15.0.0")
+        target_compile_options(${PluginName} PRIVATE -Wno-c++20-extensions)
     endif()
     if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         # We can ignore this warning as long as this plugin is built with the same compiler as DolphinDB
@@ -35,16 +54,19 @@ function(CreatePlugin PluginName)
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/../include
         ${CMAKE_CURRENT_SOURCE_DIR}/../include/ddbplugin
+        ${CMAKE_CURRENT_SOURCE_DIR}/../third_party
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/include
     )
 
     # 链接
+    target_link_directories(${PluginName} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/lib)
     if(LINK_DIRECTORIES)
         target_link_directories(${PluginName} PRIVATE ${LINK_DIRECTORIES})
     endif()
-    if (WIN32)
+    if (CMAKE_SYSTEM_NAME STREQUAL "MSYS" OR CMAKE_SYSTEM_NAME STREQUAL "Windows")
         target_link_libraries(${PluginName} PRIVATE DolphinDB)
     endif()
-    if (UNIX)
+    if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         target_link_options(${PluginName} PRIVATE -Wl,-z,now,-z,relro)
         # OpenSSL has weak symbols
         target_link_options(${PluginName} PRIVATE -Wl,-Bsymbolic)
@@ -53,50 +75,47 @@ function(CreatePlugin PluginName)
     # 安装
     cmake_path(GET CMAKE_CURRENT_SOURCE_DIR FILENAME INSTALL_DIR)
 
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}${PluginName}${CMAKE_SHARED_LIBRARY_SUFFIX} DESTINATION ${INSTALL_DIR})
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}${PluginName}${CMAKE_SHARED_LIBRARY_SUFFIX}
+        DESTINATION ${INSTALL_DIR}
+        RENAME lib${PluginName}${CMAKE_SHARED_LIBRARY_SUFFIX}
+    )
 
     set(PluginConfig ${CMAKE_CURRENT_BINARY_DIR}/${PluginName}.txt)
-    set(PluginFile ${CMAKE_CURRENT_SOURCE_DIR}/${PluginName}.txt)
-    add_custom_command(TARGET ${PluginName} PRE_LINK COMMAND cp ${PluginFile} ${PluginConfig})
-    add_custom_command(TARGET ${PluginName} PRE_LINK COMMAND sed -i "\'s/<version>/${PluginVersion}/g\'" ${PluginConfig})
-    if (WIN32)
-        add_custom_command(TARGET ${PluginName} PRE_LINK COMMAND sed -i "\'s/.so,/.dll,/g\'" ${PluginConfig})
-    endif()
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${PluginName}.txt ${PluginConfig})
     install(FILES ${PluginConfig} DESTINATION ${INSTALL_DIR})
 
 endfunction()
 
-function(BuildDependency LibName LibSrc LibInc)
-    add_library(${LibName} STATIC ${${LibSrc}})
-    target_compile_features(${LibName} PRIVATE cxx_std_11)
-    if(WIN32)
-        target_compile_options(${LibName} PRIVATE -DWINDOWS)
-    else()
-        target_compile_options(${LibName} PRIVATE -DLINUX)
-    endif()
-    target_include_directories(${LibName} PUBLIC ${${LibInc}})
-    target_compile_options(${LibName} PRIVATE -fPIC)
-    target_link_libraries(${PluginName} PRIVATE ${LibName})
-endfunction()
-
-# apt install libz-dev
-# yum install zlib-devel
+# https://github.com/madler/zlib
 function(AddZlib)
     set(ZLIB_USE_STATIC_LIBS ON)
     find_package(ZLIB REQUIRED)
     target_link_libraries(${PluginName} PRIVATE ZLIB::ZLIB)
+    # some libs use -lz
+    cmake_path(GET ZLIB_LIBRARIES PARENT_PATH ZLIB_LINK_DIR)
+    target_link_directories(${PluginName} PRIVATE ${ZLIB_LINK_DIR})
 endfunction()
 
-# apt install libssl-dev
-# yum install openssl-devel
+# https://github.com/facebook/zstd
+function(AddZstd)
+    find_package(zstd REQUIRED)
+    target_link_libraries(${PluginName} PRIVATE zstd::libzstd_static)
+endfunction()
+
+# https://github.com/lz4/lz4
+function(AddLZ4)
+    find_package(lz4 REQUIRED)
+    target_link_libraries(${PluginName} PRIVATE LZ4::lz4)
+endfunction()
+
+# https://github.com/openssl/openssl
 function(AddOpenSSL)
     set(OPENSSL_USE_STATIC_LIBS TRUE)
     find_package(OpenSSL REQUIRED)
     target_link_libraries(${PluginName} PRIVATE OpenSSL::SSL OpenSSL::Crypto)
 endfunction()
 
-# apt install libcurl4-openssl-dev
-# yum install libcurl-devel
+# https://github.com/curl/curl
 function(AddCurl)
     set(CURL_USE_STATIC_LIBS TRUE)
     find_package(CURL REQUIRED)
@@ -104,28 +123,71 @@ function(AddCurl)
     AddOpenSSL()
 endfunction()
 
-# apt install libboost-dev
-# yum install boost-devel
-function(AddBoost)
-    cmake_policy(SET CMP0167 OLD)
-    set(Boost_USE_STATIC_LIBS ON)
-    find_package(Boost COMPONENTS regex REQUIRED)
-    target_link_libraries(${PluginName} PRIVATE Boost::regex)
+# https://github.com/protocolbuffers/protobuf
+function(AddProtobuf)
+    find_package(ZLIB REQUIRED)
+    # find_package(utf8_range CONFIG REQUIRED)
+    set(Protobuf_USE_STATIC_LIBS ON)
+    find_package(Protobuf CONFIG REQUIRED)
+    target_link_libraries(${PluginName} PRIVATE protobuf::libprotobuf)
 endfunction()
 
-# apt install libboost-dev
-# yum install protobuf-devel
-function(AddProtobuf)
-    set(Protobuf_USE_STATIC_LIBS ON)
-    find_package(Protobuf REQUIRED)
-    target_link_libraries(${PluginName} PRIVATE protobuf::libprotobuf)
+# https://github.com/apache/arrow
+function(AddArrow)
+    find_package(Arrow REQUIRED)
+    if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        find_package(Parquet REQUIRED)
+        target_link_libraries(${PluginName} PRIVATE Arrow::arrow_static Parquet::parquet_static)
+    endif()
+    if (CMAKE_SYSTEM_NAME STREQUAL "MSYS")
+        AddZlib()
+        target_link_libraries(${PluginName} PRIVATE Arrow::arrow_static ole32)
+    endif()
+endfunction()
+
+function(AddOpenMP)
+    find_package(OpenMP COMPONENTS CXX REQUIRED)
+    target_link_libraries(${PluginName} PRIVATE OpenMP::OpenMP_CXX)
+endfunction()
+
+function(AddSASL2)
+    AddOpenSSL()
+    AddDependency(cyrus-sasl sasl2)
+    AddDependency(krb5 krb5_combined)
+    target_link_libraries(${PluginName} PRIVATE resolv)
 endfunction()
 
 function(AddDependency PackageName LibName)
     find_library(${LibName}_LIBRARY ${LibName} REQUIRED)
     cmake_path(GET ${LibName}_LIBRARY PARENT_PATH LIBRARY_ROOT)
-    cmake_path(GET LIBRARY_ROOT PARENT_PATH LIBRARY_ROOT)
-    set(INCLUDE_DIR ${LIBRARY_ROOT}/include)
-    target_include_directories(${PluginName} PRIVATE ${INCLUDE_DIR})
-    target_link_libraries(${PluginName} PRIVATE ${${LibName}_LIBRARY})
+    target_link_directories(${PluginName} PRIVATE ${LIBRARY_ROOT})
+    target_include_directories(${PluginName} PRIVATE ${LIBRARY_ROOT}/../include)
+    target_link_libraries(${PluginName} PRIVATE -Wl,--whole-archive ${${LibName}_LIBRARY} -Wl,--no-whole-archive)
+endfunction()
+
+function(BuildDependency LibName LibSrc LibInc)
+    add_library(${LibName} STATIC ${${LibSrc}})
+    target_include_directories(${LibName} PUBLIC ${${LibInc}})
+    target_compile_features(${LibName} PRIVATE cxx_std_11)
+    target_compile_options(${LibName} PRIVATE -fPIC)
+    target_compile_definitions(${LibName} PRIVATE PLUGIN_NAME=${PluginName})
+    target_link_libraries(${PluginName} PRIVATE ${LibName})
+endfunction()
+
+function(AddParquet)
+    find_package(Parquet REQUIRED)
+    target_link_libraries(${PluginName} PRIVATE parquet_static)
+endfunction()
+
+function(AddSASL2)
+    AddOpenSSL()
+    AddDependency(cyrus-sasl sasl2)
+    AddDependency(krb5 krb5_combined)
+    target_link_libraries(${PluginName} PRIVATE resolv)
+endfunction()
+
+function(UseSignedCharOnARM)
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+        target_compile_options(${PluginName} PRIVATE -fsigned-char)
+    endif()
 endfunction()

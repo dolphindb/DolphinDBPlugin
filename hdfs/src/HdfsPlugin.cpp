@@ -8,7 +8,7 @@
 #include "ScalarImp.h"
 #include "Types.h"
 #include "ddbplugin/CommonInterface.h"
-#include "ddbplugin/PluginLoggerImp.h"
+
 #include "hdfs.h"
 
 using namespace hdfsPlugin;

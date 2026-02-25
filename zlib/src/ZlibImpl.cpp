@@ -9,7 +9,7 @@
 #include "ZlibImpl.h"
 #include "SysIO.h"
 #include <ScalarImp.h>
-#include "ddbplugin/PluginLoggerImp.h"
+
 
 
 #ifdef _WIN32

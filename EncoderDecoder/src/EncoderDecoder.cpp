@@ -18,7 +18,6 @@
 #include "ddbplugin/pluginVersion.h"
 #include "jsonUtil.h"
 #include "protobufUtil.h"
-#include <ddbplugin/PluginLoggerImp.h>
 
 static void doNothing(Heap *heap, vector<ConstantSP> &args) {}
 

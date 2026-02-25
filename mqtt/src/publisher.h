@@ -12,7 +12,9 @@ class PublishTable : public BasicTable {
     PublishTable(const vector<ConstantSP> &cols, const vector<string> &colNames, const ConstantSP &resource,
                  const string &topic, Heap *heap);
 
-    virtual bool append(vector<ConstantSP> &values, INDEX &insertedRows, string &errMsg);
+    inline virtual ConstantSP getValue(INDEX) const override { return getValue(); }
+    virtual ConstantSP getValue() const override;
+    virtual bool append(vector<ConstantSP> &values, INDEX &insertedRows, string &errMsg) override;
 
   private:
     SessionSP session_;

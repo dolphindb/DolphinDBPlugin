@@ -14,7 +14,7 @@
 #include "ScalarImp.h"
 #include "Util.h"
 #include "mysqlxx.h"
-#include "ddbplugin/PluginLoggerImp.h"
+
 #ifdef DEBUG
 #include <chrono>
 typedef std::chrono::high_resolution_clock Clock;
@@ -76,7 +76,8 @@ class Connection : public mysqlxx::Connection {
     int port_ = 3306;
 
   public:
-    Connection(std::string hostname, int port, std::string username, std::string password, std::string database);
+    Connection(std::string hostname, int port, std::string username, std::string password, std::string database,
+               MySQLSSLMode sslMode);
 
     ~Connection();
     ConstantSP doQuery(const std::string &str);

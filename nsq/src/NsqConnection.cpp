@@ -52,8 +52,9 @@ void NsqConnection::login(const string &username, const string &password) {
     /// login
     // LockGuard<Mutex> loginL(&loginM_);
     CHSNsqReqUserLoginField reqLoginField;
-    strncpy(reqLoginField.AccountID, username.c_str(), sizeof(reqLoginField.AccountID)-1);
-    strncpy(reqLoginField.Password, password.c_str(), sizeof(reqLoginField.Password)-1);
+    std::memset(&reqLoginField, 0, sizeof(reqLoginField));
+    strncpy(reqLoginField.AccountID, username.c_str(), username.size());
+    strncpy(reqLoginField.Password, password.c_str(), password.size());
     if (api_->ReqUserLogin(&reqLoginField, nRequestID_++) != 0) {
         loginErrMsg_ = "login failed.";
         return;
@@ -125,36 +126,67 @@ void NsqConnection::destroyInstance() {
     }
 }
 
-void NsqConnection::subscribeOrCancel(const string &dataType, const string &marketType, bool cancel) {
+void NsqConnection::subscribeOrCancel(const string &dataType, nsqUtil::MarketType marketType, bool cancel, const vector<string> &codes) {
 
     if (dataType == nsqUtil::TRADE_ENTRUST) {
         return;
     }
     /// set request field for subscription
     CHSNsqReqSecuDepthMarketDataField reqFieldSub[1];
+    std::memset(&reqFieldSub, 0, sizeof(reqFieldSub));
+    auto setExchangeID = [&](CHSNsqReqSecuDepthMarketDataField &reqField, nsqUtil::MarketType marketType) {
+        if (marketType == nsqUtil::MarketType::SH) {
+            strncpy(reqField.ExchangeID, HS_EI_SSE, sizeof(HS_EI_SSE));
+        } else {
+            strncpy(reqField.ExchangeID, HS_EI_SZSE, sizeof(HS_EI_SZSE));
+        }
+    };
     int nCount = 0;
-    if (marketType == nsqUtil::SH) {
-        memcpy(reqFieldSub[0].ExchangeID, HS_EI_SSE, sizeof(HS_EI_SSE));
-    } else {
-        memcpy(reqFieldSub[0].ExchangeID, HS_EI_SZSE, sizeof(HS_EI_SZSE));
-    }
+    setExchangeID(reqFieldSub[0], marketType);
 
     /// request subscription
-    int ret;
+    int ret = 0;
 
     try {
         if (dataType == nsqUtil::SNAPSHOT) {
-
-            if (cancel) ret = api_->ReqSecuDepthMarketDataCancel(reqFieldSub, nCount, nRequestID_++);
-            else ret = api_->ReqSecuDepthMarketDataSubscribe(reqFieldSub, nCount, nRequestID_++);
+            if (cancel) {
+                ret = api_->ReqSecuDepthMarketDataCancel(reqFieldSub, nCount, nRequestID_++);
+            } else {
+                if (!codes.empty()) {
+                    CHSNsqReqSecuDepthMarketDataField reqFieldSub[codes.size()];
+                    std::memset(&reqFieldSub, 0, sizeof(reqFieldSub));
+                    nCount = static_cast<int>(codes.size());
+                    for (int i = 0; i < nCount; i++) {
+                        setExchangeID(reqFieldSub[i], marketType);
+                        strncpy(reqFieldSub[i].InstrumentID, codes[i].c_str(), codes[i].size());
+                    }
+                    ret = api_->ReqSecuDepthMarketDataSubscribe(reqFieldSub, nCount, nRequestID_++);
+                } else {
+                    ret = api_->ReqSecuDepthMarketDataSubscribe(reqFieldSub, nCount, nRequestID_++);
+                }
+            } 
         } else {
 
             char cTransType;
             if (dataType == nsqUtil::TRADE) { cTransType = HS_TRANS_Trade; }
             else if (dataType == nsqUtil::ENTRUST || dataType == nsqUtil::ENTRUST_220105) { cTransType = HS_TRANS_Entrust; }
 
-            if (cancel) ret = api_->ReqSecuTransactionCancel(cTransType, reqFieldSub, nCount, nRequestID_++);
-            else ret = api_->ReqSecuTransactionSubscribe(cTransType, reqFieldSub, nCount, nRequestID_++);
+            if (cancel) {
+                ret = api_->ReqSecuTransactionCancel(cTransType, reqFieldSub, nCount, nRequestID_++);
+            } else {
+                if (!codes.empty()) {
+                    CHSNsqReqSecuDepthMarketDataField reqFieldSub[codes.size()];
+                    std::memset(&reqFieldSub, 0, sizeof(reqFieldSub));
+                    nCount = static_cast<int>(codes.size());
+                    for (int i = 0; i < nCount; i++) {
+                        setExchangeID(reqFieldSub[i], marketType);
+                        strncpy(reqFieldSub[i].InstrumentID, codes[i].c_str(), codes[i].size());
+                    }
+                    ret = api_->ReqSecuTransactionSubscribe(cTransType, reqFieldSub, nCount, nRequestID_++);
+                } else {
+                    ret = api_->ReqSecuTransactionSubscribe(cTransType, reqFieldSub, nCount, nRequestID_++);
+                }
+            }
         }
     } catch (exception &e) {
 
@@ -163,14 +195,13 @@ void NsqConnection::subscribeOrCancel(const string &dataType, const string &mark
 
     if (ret != 0) {
         if (cancel) {
-            throw RuntimeException(NSQ_PREFIX + "unsubscribe " + marketType + " " + dataType + " failed");
-        } else {
-            throw RuntimeException(NSQ_PREFIX + "subscribe " + marketType + " " + dataType + " failed");
+            throw RuntimeException(NSQ_PREFIX + "unsubscribe " + nsqUtil::getMarketTypeStr(marketType) + " " + dataType + " failed");
         }
+        throw RuntimeException(NSQ_PREFIX + "subscribe " + nsqUtil::getMarketTypeStr(marketType) + " " + dataType + " failed");
     }
 }
 
-void NsqConnection::subscribe(Heap *heap, const string &dataType, const string &marketType, const TableSP &table) {
+void NsqConnection::subscribe(Heap *heap, const string &dataType, nsqUtil::MarketType marketType, const TableSP &table, long long queueDepth, const vector<string> &codes) {
 
     string type = dataType;
     if (dataVersion_ == "v220105") {
@@ -178,28 +209,28 @@ void NsqConnection::subscribe(Heap *heap, const string &dataType, const string &
     }
 
     /// subscribe
-    subscribeOrCancel(type, marketType);
-    spi_->queues_->initAndStart(heap, type, marketType, table);
+    subscribeOrCancel(type, marketType, false, codes);
+    spi_->queues_->initAndStart(heap, type, marketType, table, queueDepth);
 }
 
 void
-NsqConnection::subscribeTradeEntrust(Heap *heap, const string &dataType, const string &marketType, const DictionarySP &tableDict) {
+NsqConnection::subscribeTradeEntrust(Heap *heap, const string &dataType, nsqUtil::MarketType marketType, const DictionarySP &tableDict, long long queueDepth, const vector<string> &codes) {
 
     /// subscribe
     if (tableDict->size() != 0) {
-        subscribeOrCancel(nsqUtil::TRADE, marketType);
-        subscribeOrCancel(nsqUtil::ENTRUST, marketType);
+        subscribeOrCancel(nsqUtil::TRADE, marketType, false, codes);
+        subscribeOrCancel(nsqUtil::ENTRUST, marketType, false, codes);
     }
 
     /// start ThreadedQueues
     VectorSP keys = tableDict->keys();
     for (auto i = 0; i < keys->size(); i++) {
         auto key = keys->get(i);
-        spi_->queues_->initAndStartTradeEntrust(heap, marketType, key->getInt(), tableDict->get(key));
+        spi_->queues_->initAndStartTradeEntrust(heap, marketType, key->getInt(), tableDict->get(key), queueDepth);
     }
 }
 
-void NsqConnection::unsubscribe(const string &dataType, const string &marketType) {
+void NsqConnection::unsubscribe(const string &dataType, nsqUtil::MarketType marketType) {
 
     /// unsubscribe
     vector<string> typesForCancel;

@@ -141,18 +141,18 @@ ConstantSP kafkaConsumer(Heap *heap, vector<ConstantSP> &args) {
         auto consumer = ret->getConsumer();
         consumer->set_assignment_callback([=](TopicPartitionList &list) {
             for (auto l : list) {
-                PLUGIN_LOG_INFO(KAFKA_PREFIX, consumer->get_member_id(), " assignment of topic:", l.get_topic(),
+                LOG_INFO(KAFKA_PREFIX, consumer->get_member_id(), " assignment of topic:", l.get_topic(),
                          "; partition:", l.get_partition(), "; offset:", l.get_offset());
             }
         });
         consumer->set_revocation_callback([=](const TopicPartitionList &list) {
             for (auto l : list) {
-                PLUGIN_LOG_INFO(KAFKA_PREFIX, consumer->get_member_id(), " revocation of topic:", l.get_topic(),
+                LOG_INFO(KAFKA_PREFIX, consumer->get_member_id(), " revocation of topic:", l.get_topic(),
                          "; partition:", l.get_partition(), "; offset:", l.get_offset());
             }
         });
         consumer->set_rebalance_error_callback(
-            [](Error e) { PLUGIN_LOG_ERR(KAFKA_PREFIX, " rebalance error:", e.to_string()); });
+            [](Error e) { LOG_ERR(KAFKA_PREFIX, " rebalance error:", e.to_string()); });
         return ret;
     } catch (std::exception &exception) {
         throw RuntimeException(KAFKA_PREFIX + exception.what());
@@ -365,7 +365,7 @@ ConstantSP kafkaCreateSubJob(Heap *heap, vector<ConstantSP> args) {
             throw IllegalArgumentException(__FUNCTION__, usage + "throttle must be a non-negative float");
         }
         if (!msgAsTable) {
-            PLUGIN_LOG_WARN(KAFKA_PREFIX, "if msgAsTable is false, throttle would be ignored.");
+            LOG_WARN(KAFKA_PREFIX, "if msgAsTable is false, throttle would be ignored.");
         }
         throttle = args[4]->getDouble() * 1000;
     }
@@ -387,7 +387,7 @@ ConstantSP kafkaCreateSubJob(Heap *heap, vector<ConstantSP> args) {
             throw IllegalArgumentException(__FUNCTION__, usage + "batchSize must be a non-negative integer");
         }
         if (!msgAsTable) {
-            PLUGIN_LOG_WARN(KAFKA_PREFIX, "if msgAsTable is false, batchSize would be ignored.");
+            LOG_WARN(KAFKA_PREFIX, "if msgAsTable is false, batchSize would be ignored.");
         }
         batchSize = args[7]->getLong();
     }
@@ -397,7 +397,7 @@ ConstantSP kafkaCreateSubJob(Heap *heap, vector<ConstantSP> args) {
             throw IllegalArgumentException(__FUNCTION__, usage + "queueDepth must be a positive integer");
         }
         if (!msgAsTable) {
-            PLUGIN_LOG_WARN(KAFKA_PREFIX, "if msgAsTable is false, queueDepth would be ignored.");
+            LOG_WARN(KAFKA_PREFIX, "if msgAsTable is false, queueDepth would be ignored.");
         }
         queueDepth = args[8]->getLong();
     }
@@ -912,7 +912,7 @@ ConstantSP kafkaGetMetadata(Heap *heap, vector<ConstantSP> &args) {
                 ConstantSP partitionTable = Util::createTable(colNames, cols);
                 memberData->set("partitions", partitionTable);
             } catch (std::exception &e) {
-                PLUGIN_LOG_WARN(KAFKA_PREFIX, "cannot parse member assignment info due to ", e.what());
+                LOG_WARN(KAFKA_PREFIX, "cannot parse member assignment info due to ", e.what());
             }
             memberDict->set(memName, memberData);
         }

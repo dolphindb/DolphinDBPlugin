@@ -35,6 +35,8 @@ static const string RECEIVED_TIME_OPTION_STR = "receivedTime";
 static const string OUTPUT_RECV_TIME_OPTION_STR = "outputRecvTime";
 static const string OUTPUT_ELAPSED_OPTION_STR = "outputElapsed";
 
+static const string QUEUE_DEPTH_LIMIT = "queueDepthLimit";
+static const string QUEUE_DEPTH_STR = "queueDepth";
 struct MetaTable {
     vector<string> colNames_;
     vector<DATA_TYPE> colTypes_;
@@ -354,7 +356,7 @@ class ThreadedQueue {
         status_.lastErrMsg_ = errMsg;
         status_.lastFailedTimestamp_ = Util::getNanoEpochTime() + localTimeGap_;
         status_.failedMsgCount_ += failedMsgCount;
-        PLUGIN_LOG_INFO(prefix_, info_, " Failed to process ", failedMsgCount, " lines of data due to ", errMsg);
+        LOG_INFO(prefix_, info_, " Failed to process ", failedMsgCount, " lines of data due to ", errMsg);
     }
 
     // get outputTable
@@ -524,7 +526,7 @@ class ThreadedQueue {
         };
 
         std::function<void()> f = [this, dealFunc]() {
-            PLUGIN_LOG_INFO(prefix_, info_, " async thread start ");
+            LOG_INFO(prefix_, info_, " async thread start ");
             bool ret;
             int popSize = 0;
             DataStruct item;
@@ -561,7 +563,7 @@ class ThreadedQueue {
                             if (UNLIKELY(stopFlag_)) {
                                 break;
                             }
-                            PLUGIN_LOG(prefix_, info_, " async thread pop size (0)");
+                            LOG(prefix_, info_, " async thread pop size (0)");
                         }
                     } else {
                         ret = queue_.blockingPop(item, timeout_);
@@ -569,7 +571,7 @@ class ThreadedQueue {
                             if (UNLIKELY(stopFlag_)) {
                                 break;
                             } else {
-                                PLUGIN_LOG(prefix_, info_, " async thread pop size (0)");
+                                LOG(prefix_, info_, " async thread pop size (0)");
                                 continue;
                             }
                         }
@@ -579,7 +581,7 @@ class ThreadedQueue {
                         popSize = items.size();
                     }
                     status_.processedMsgCount_ += popSize;
-                    PLUGIN_LOG(prefix_, info_, " async thread pop size (", items.size(), ")");
+                    LOG(prefix_, info_, " async thread pop size (", items.size(), ")");
                     dealFunc(items);
                     if (finalizer_) {
                         finalizer_(items);
@@ -591,14 +593,14 @@ class ThreadedQueue {
                     try {
                         string errMsg = e.what();
                         status_.lastErrMsg_ = "topic=" + info_ + " length=" + std::to_string(popSize) + " exception=" + errMsg;
-                        PLUGIN_LOG_ERR(prefix_, info_, " Failed to process ", popSize, " lines of data due to ", errMsg);
+                        LOG_ERR(prefix_, info_, " Failed to process ", popSize, " lines of data due to ", errMsg);
                     } catch (...) {
                         status_.lastErrMsg_ = "topic=unknown length=unknown exception=unknown";
-                        PLUGIN_LOG_ERR(prefix_, info_, " Failed to process ", popSize, " lines of data");
+                        LOG_ERR(prefix_, info_, " Failed to process ", popSize, " lines of data");
                     }
                 }
             }
-            PLUGIN_LOG_INFO(prefix_, info_, " async thread end.");
+            LOG_INFO(prefix_, info_, " async thread end.");
         };
 
         SmartPointer<dolphindb::Executor> executor = new dolphindb::Executor(f);
@@ -749,7 +751,7 @@ static inline void checkSeqNum(const string &prefix, const string &tag, std::uno
             }
         }
         if (seqCheckMode == SeqCheckMode::IGNORE_WITH_LOG) {
-            PLUGIN_LOG_INFO(prefix, errMsg);
+            LOG_INFO(prefix, errMsg);
         }
     }
     lastSeqNum[channelNo] = seqNum;

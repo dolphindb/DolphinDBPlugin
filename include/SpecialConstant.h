@@ -65,12 +65,15 @@ public:
 	virtual bool isValid(INDEX* indices, int len, char* buf) const override;
 	virtual ConstantSP getSubVector(INDEX start, INDEX length) const;
 	virtual ConstantSP getInstance(INDEX size) const {return ConstantSP(new AnyVector(size, isTableColumn_, dt_, decimalExtra_));}
+	virtual ConstantSP getSubVector(INDEX start, INDEX length, INDEX capacity) const override { return getSubVector(start, length); }
+	virtual bool getSubVector(INDEX start, INDEX length, ConstantSP &result) const override;
 	virtual ConstantSP getValue() const;
 	virtual ConstantSP getValue(INDEX capacity) const {return ConstantSP(new AnyVector(data_, containNull_, isTableColumn_, dt_, decimalExtra_));}
 	virtual ObjectSP deepCopy() const;
 	bool append(const ConstantSP& value, bool wholistic);
 	virtual bool append(const ConstantSP& value);
 	virtual bool append(const ConstantSP& value, INDEX appendSize);
+	virtual bool append(const ConstantSP& value, INDEX start, INDEX count) override;
 	virtual bool remove(INDEX count);
 	virtual bool remove(const ConstantSP& index) override;
 	virtual void resize(INDEX size) override;
@@ -139,6 +142,9 @@ public:
 		throw RuntimeException("getStringConst method not supported for AnyVector");
 	}
 
+	virtual const ConstantSP& getExactItem(INDEX index, const ConstantSP& result) const override;
+	void getRowSlice(INDEX index, ConstantSP& result) const;
+
 public:  /// getDecimal{32,64,128}
 	virtual int getDecimal32(int scale) const override;
 	virtual long long getDecimal64(int scale) const override;
@@ -163,7 +169,8 @@ public:
 		return count(0, data_.size());
 	}
 	virtual long long count(INDEX start, INDEX length) const;
-	/**
+	virtual int compare(INDEX indexLeft, INDEX indexRight) const {throw RuntimeException("AnyVector doesn't support method compare(indexLeft, indexRight)");}
+    /**
 	 * @param rightMost If there are multiple maximum/minimum values, choose the last one if `rightMost` is true.
 	 */
 	virtual INDEX imax(bool rightMost = false) const override {throw RuntimeException("imax method not supported for AnyVector");}
@@ -243,6 +250,7 @@ public:
 	virtual INDEX sortTop(bool asc, Vector* indices, INDEX top, char nullsOrder){ return -1;}
 	virtual long long getAllocatedMemory();
 	virtual int getExtraParamForType() const override { return dt_; }
+	virtual const ConstantSP& getColumnRef(INDEX index) override { return data_[index]; }
 
 	ConstantSP flatten(INDEX rowStart, INDEX count) const override;
 	ConstantSP rowFirst(INDEX rowStart, INDEX count) const override;
@@ -273,6 +281,8 @@ public:
 	void setElement(INDEX index, ConstantSP &&value);
 	void collectUserDefinedFunctions(unordered_map<string,FunctionDef*>& functionDefs) const;
 	bool isHomogeneousScalar(DATA_TYPE& type) const;
+	/// @param allowVoid If true, treat void as homogeneous with any type.
+	bool isHomogeneousScalar(DATA_TYPE &type, bool allowVoid) const;
 	bool isHomogeneousScalarOrArray(DATA_TYPE& type, int& decimalExtra) const;
 	bool isConsistent() const;
 	bool isConsistentArray(int& len) const;
@@ -349,6 +359,8 @@ private:
 
 private:
 	mutable deque<ConstantSP> data_;
+	// D20-27380: acquire lock only in getAllocatedMemory and modify operation.
+	mutable Mutex dataMutex_;
 	bool containNull_;
 	bool isDim_;
 	bool isTableColumn_;
@@ -386,7 +398,8 @@ public:
 	virtual bool validIndex(INDEX uplimit){throw RuntimeException("Sliced vector doesn't support method validIndex");}
 	virtual bool validIndex(INDEX start, INDEX length, INDEX uplimit){throw RuntimeException("Sliced vector doesn't support method validIndex");}
 	virtual int compare(INDEX index, const ConstantSP& target) const {return source_->compare(pindex_[index], target);}
-	virtual bool getNullFlag() const {return source_->getNullFlag();}
+	virtual int compare(INDEX indexLeft, INDEX indexRight) const { throw RuntimeException("SlicedVector doesn't support method compare(indexLeft, indexRight)"); }
+    virtual bool getNullFlag() const {return source_->getNullFlag();}
 	virtual void setNullFlag(bool containNull){}
 	virtual bool hasNull(){return hasNull(0, size_);}
 	virtual bool hasNull(INDEX start, INDEX length);
@@ -2294,7 +2307,8 @@ public:
 			((Vector*)result.get())->addIndex(0, result->size(), -offset_);
 		return result;
 	}
-	virtual bool sort(bool asc, char nullsOrder = 0) {throw RuntimeException("Immutable sub vector doesn't support method sort");}
+	virtual int compare(INDEX indexLeft, INDEX indexRight) const {throw RuntimeException("Immutable does not support compare(indexLeft, indexRight).");};
+    virtual bool sort(bool asc, char nullsOrder = 0) {throw RuntimeException("Immutable sub vector doesn't support method sort");}
 	virtual bool sort(bool asc, Vector* indices, char nullsOrder = 0) {throw RuntimeException("Immutable sub vector doesn't support method sort");}
 	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc, char nullsOrder = 0) {
 		if(!indices->add(start, length, (long long)offset_))
@@ -2651,7 +2665,8 @@ public:
 	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict, char nullOrders = 0) const { return false;}
 	virtual ConstantSP topK(INDEX start, INDEX length, INDEX top, bool asc, bool extendEqualValue) const {
 		throw RuntimeException("Array vector doesn't support method topK");
-	}
+    }
+	virtual int compare(INDEX indexLeft, INDEX indexRight) const {throw RuntimeException("Array vector doesn't support method compare(indexLeft, indexRight)");}
 	virtual bool sort(bool asc, char nullOrders = 0) {return false;}
 	virtual bool sort(bool asc, Vector* indices, char nullOrders = 0) {return false;}
 	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc, char nullOrders = 0) { return false;}
@@ -2698,6 +2713,23 @@ public:
 	ConstantSP rowRank(INDEX rowStart, INDEX count, bool ascending, int groupNum, bool ignoreNA, int tiesMethod, bool percent) const override;
 	ConstantSP rowDenseRank(INDEX rowStart, INDEX count, bool ascending, bool ignoreNA, bool percent) const override;
 
+    //resize value_ vector to valueSize_+size, return old valueSize_
+    int increaseValueVecSize(int size);
+
+    // leave only the range [rowOffset, rowLimit) in the index
+    static ConstantSP pruneIndexForRetrieval(const ConstantSP &index, INDEX rowOffset, INDEX rowLimit);
+
+protected:
+    friend class SubVector;
+	ConstantSP sliceOneColumn(int colIndex, INDEX rowStart, INDEX rowEnd) const;
+	/**
+	 * colStart: inclusive
+	 * colEnd: exclusive
+	 * rowStart: inclusive
+	 * rowEnd: exclusive
+	 */
+    ConstantSP sliceColumnRange(int colStart, int colEnd, INDEX rowStart, INDEX rowEnd) const;
+
 private:
 	inline void getRangeOfValueVector(INDEX start, INDEX length, INDEX& actualStart, INDEX& actualLength) const {
 		INDEX* pindex = index_->getIndexArray();
@@ -2711,14 +2743,6 @@ private:
 	IO_ERR deserializeFixedLength(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
 	IO_ERR deserializeVariableLength(DataInputStream* in, INDEX indexStart, int offset, INDEX targetNumElement, INDEX& numElement, int& partial);
 
-	ConstantSP sliceOneColumn(int colIndex, INDEX rowStart, INDEX rowEnd) const;
-	/**
-	 * colStart: inclusive
-	 * colEnd: exclusive
-	 * rowStart: inclusive
-	 * rowEnd: exclusive
-	 */
-	ConstantSP sliceColumnRange(int colStart, int colEnd, INDEX rowStart, INDEX rowEnd) const;
 	ConstantSP sliceRows(INDEX offset, const ConstantSP& rowIndexVector) const;
 	ConstantSP convertRowIndexToValueIndex(INDEX offset, const ConstantSP& rowIndexVector) const;
 	VectorSP createBigArrayForValue(INDEX capacity) const;
@@ -3001,6 +3025,7 @@ public:
 	virtual bool rank(bool sorted, INDEX* indices, INDEX* ranking){return false;}
 	virtual bool sortSelectedIndices(Vector* indices, INDEX start, INDEX length, bool asc, char nullsOrder){	return false;}
 	virtual bool isSorted(INDEX start, INDEX length, bool asc, bool strict, char nullsOrder) const { return false;}
+	virtual int compare(INDEX indexLeft, INDEX indexRight) const {throw RuntimeException("IotAnyVector doesn't support method compare(indexLeft, indexRight)");}
 	virtual bool sort(bool asc, char nullsOrder){return false;}
 	virtual bool sort(bool asc, Vector* indices, char nullsOrder){ return false;}
 	virtual INDEX sortTop(bool asc, Vector* indices, INDEX top, char nullsOrder){ return -1;}

@@ -1,7 +1,9 @@
 #include "parquet_plugin.h"
-#include "ddbplugin/PluginLoggerImp.h"
+
 #include "ddbplugin/Plugin.h"
 #include "SpecialConstant.h"
+#include "TableImp.h"
+#include <arrow/io/memory.h>
 
 ConstantSP extractParquetSchema(Heap *heap, vector<ConstantSP> &arguments)
 {
@@ -176,6 +178,7 @@ ConstantSP parquetDS(Heap *heap, vector<ConstantSP> &arguments)
 
 ConstantSP saveParquet(Heap *heap, vector<ConstantSP> &arguments)
 {
+    std::string usage = "parquet::saveParquet(table, fileName, [compressMethod], [compressLevel], [rowGroupSize]). ";
 	if (arguments.size() < 2)
 		throw IllegalArgumentException(__FUNCTION__, "Arguments can't less than two.");
     ConstantSP tb = arguments[0];
@@ -974,6 +977,7 @@ struct ValueGetter<std::string, StoreType> {
 template<typename ValueType, typename StoreType, typename DDBStoreType>
 struct SetVectorData{
     inline static void set(DDBStoreType* buffer, int len, StoreType* value, int scale, vector<short>& def_level, bool containNull, const parquet::ColumnDescriptor *col_descr){
+        std::ignore = containNull;
         int index = 0;
         if(scale != 1){
             for(int i = 0; i < len; ++i){
@@ -1044,6 +1048,7 @@ void getIndex(vector<short> rep_level, int readCount, IndexArgs& indexArgs){
 template<typename StoreType, typename DDBStoreType, typename ValueType = DDBStoreType, typename ReaderType>
 int convertParquetToDolphindbInternal(int col_idx, ReaderType* column_reader, const parquet::ColumnDescriptor *col_descr, DDBStoreType* buffer, size_t batchSize, bool& containNull, IndexArgs& indexArgs)
 {
+    std::ignore = col_idx;
     int64_t values_read = 0;
     vector<short> def_level(batchSize);
     vector<short> rep_level(batchSize);
@@ -2171,7 +2176,8 @@ ConstantSP loadParquetByFileName(Heap* heap, const string &filename, const Const
 
 ConstantSP loadParquetHdfs(void *buffer, int64_t len)
 {
-    std::shared_ptr<arrow::io::BufferReader> buf = std::make_shared<arrow::io::BufferReader>((uint8_t *)buffer, len);
+    std::shared_ptr<arrow::Buffer> arrowBuffer = std::make_shared<arrow::Buffer>(static_cast<const uint8_t*>(buffer), len);
+    std::shared_ptr<arrow::io::BufferReader> buf = std::make_shared<arrow::io::BufferReader>(arrowBuffer);
     int rowGroupStart = 0;
     int rowGroupNum = 0;
     ConstantSP schema = ParquetPluginImp::nullSP;
@@ -2830,6 +2836,10 @@ ConstantSP saveParquet(ConstantSP &table, const string &filename, const string &
     rowGroupWriter->Close();
     writer->Close();
     outfile->Close();
+    arrow::Status status = outfile->Close();
+    if(!status.ok()){
+        throw RuntimeException("failed to save parquet file: " + status.message());
+    }
     return new Void();
 }
 

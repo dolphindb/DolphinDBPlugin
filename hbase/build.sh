@@ -1,15 +1,7 @@
 #!/bin/bash
 
-rm -rf build
-mkdir build
-cd build
+source ../build_util.sh
 
-toolchain_dir=$2
-toolchain_arg="-DBOOST_ROOT=$(ls -d $toolchain_dir/boost-*) $toolchain_arg"
-
-cmake .. $toolchain_arg
-make -j
-cd ..
-mkdir -p $CMAKE_INSTALL_PREFIX/$(basename $(pwd))
-cp -f build/libPluginHBase.so $CMAKE_INSTALL_PREFIX/$(basename $(pwd))
-cp -f PluginHBase.txt $CMAKE_INSTALL_PREFIX/$(basename $(pwd))
+prepare_dir $@
+build_plugin
+install_plugin

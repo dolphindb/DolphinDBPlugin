@@ -12,7 +12,7 @@
 #include "ddbplugin/CommonInterface.h"
 #include "ddbplugin/Plugin.h"
 #include "ddbplugin/PluginLogger.h"
-#include "ddbplugin/PluginLoggerImp.h"
+
 
 using dolphindb::DdbVector;
 
@@ -170,7 +170,7 @@ ConstantSP amdConnect(Heap *heap, vector<ConstantSP> &arguments) {
 
 #ifndef AMD_USE_ASAN
     long long bytesAvailable = getRemainingMemory(heap);
-    PLUGIN_LOG_INFO(AMDQUOTE_PREFIX + "connecting when system remains available memory [" + std::to_string(bytesAvailable) +
+    LOG_INFO(AMDQUOTE_PREFIX + "connecting when system remains available memory [" + std::to_string(bytesAvailable) +
              "]");
     if (bytesAvailable < AMD_MIN_CONNECT_MEMORY) {
         throw RuntimeException(AMDQUOTE_PREFIX + "The remaining memory [" + std::to_string(bytesAvailable) +
@@ -338,7 +338,7 @@ ConstantSP subscribe(Heap *heap, vector<ConstantSP> &arguments) {
 
     amdQuotePtr->subscribe(heap, type, marketType, codeList, table, transform, currentTime, seqCheckMode, queueDepth);
 
-    PLUGIN_LOG_INFO(AMDQUOTE_PREFIX + "subscribe " + std::to_string(marketType) + " " + type + " after timestamp " +
+    LOG_INFO(AMDQUOTE_PREFIX + "subscribe " + std::to_string(marketType) + " " + type + " after timestamp " +
              std::to_string(Util::toLocalTimestamp(Util::getEpochTime())));
 
     ConstantSP ret = Util::createConstant(DT_STRING);
@@ -507,45 +507,49 @@ ConstantSP getCodeList(Heap *heap, vector<ConstantSP> &arguments) {
                               "interest",
                               "couponRate"};
     if (ret) {
-        DdbVector<string> security_code(0, list.list_nums);  // 证券代码
-        DdbVector<int> market_type(0, list.list_nums);       // 证券市场
-        DdbVector<string> symbol(0, list.list_nums);         // 简称
-        DdbVector<string> english_name(0, list.list_nums);   // 英文名
-        DdbVector<string> security_type(0, list.list_nums);  // 证券子类别
+        int code_length = list.list_nums;
+        if (code_length <= 0) {
+            code_length = 1;
+        }
+        DdbVector<string> security_code(0, code_length);  // 证券代码
+        DdbVector<int> market_type(0, code_length);       // 证券市场
+        DdbVector<string> symbol(0, code_length);         // 简称
+        DdbVector<string> english_name(0, code_length);   // 英文名
+        DdbVector<string> security_type(0, code_length);  // 证券子类别
         DdbVector<string> currency(
             0,
-            list.list_nums);  // 币种(CNY:人民币,HKD:港币,USD:美元,AUD:澳币,CAD:加币,JPY:日圆,SGD:新加坡币,GBP:英镑,EUR:欧元)
-        DdbVector<int> variety_category(0, list.list_nums);       // 证券类别
-        DdbVector<long long> pre_close_price(0, list.list_nums);  // 昨收价(类型:价格)
-        DdbVector<long long> close_price(0, list.list_nums);      // 收盘价(已弃用,固定赋值为0,类型:价格)
-        DdbVector<string> underlying_security_id(0, list.list_nums);   // 标的代码 (仅期权/权证有效)
-        DdbVector<string> contract_type(0, list.list_nums);            // 合约类别 (仅期权有效)
-        DdbVector<long long> exercise_price(0, list.list_nums);        // 行权价(仅期权有效，类型:价格)
-        DdbVector<int> expire_date(0, list.list_nums);                 // 到期日 (仅期权有效)
-        DdbVector<long long> high_limited(0, list.list_nums);          // 涨停价(类型:价格)
-        DdbVector<long long> low_limited(0, list.list_nums);           // 跌停价(类型:价格)
-        DdbVector<string> security_status(0, list.list_nums);          // 产品状态标志
-        DdbVector<long long> price_tick(0, list.list_nums);            // 最小价格变动单位(类型:价格)
-        DdbVector<long long> buy_qty_unit(0, list.list_nums);          // 限价买数量单位(类型:数量)
-        DdbVector<long long> sell_qty_unit(0, list.list_nums);         // 限价卖数量单位(类型:数量)
-        DdbVector<long long> market_buy_qty_unit(0, list.list_nums);   // 市价买数量单位(类型:数量)
-        DdbVector<long long> market_sell_qty_unit(0, list.list_nums);  // 市价卖数量单位(类型:数量)
-        DdbVector<long long> buy_qty_lower_limit(0, list.list_nums);   // 限价买数量下限(类型:数量)
-        DdbVector<long long> buy_qty_upper_limit(0, list.list_nums);   // 限价买数量上限(类型:数量)
-        DdbVector<long long> sell_qty_lower_limit(0, list.list_nums);  // 限价卖数量下限(类型:数量)
-        DdbVector<long long> sell_qty_upper_limit(0, list.list_nums);  // 限价卖数量上限(类型:数量)
-        DdbVector<long long> market_buy_qty_lower_limit(0, list.list_nums);   // 市价买数量下限 (类型:数量)
-        DdbVector<long long> market_buy_qty_upper_limit(0, list.list_nums);   // 市价买数量上限 (类型:数量)
-        DdbVector<long long> market_sell_qty_lower_limit(0, list.list_nums);  // 市价卖数量下限 (类型:数量)
-        DdbVector<long long> market_sell_qty_upper_limit(0, list.list_nums);  // 市价卖数量上限 (类型:数量)
-        DdbVector<int> list_day(0, list.list_nums);                           // 上市日期
-        DdbVector<long long> par_value(0, list.list_nums);                    // 面值(类型:价格)
-        DdbVector<long long> outstanding_share(0, list.list_nums);  // 总发行量(上交所不支持,类型:数量)
-        DdbVector<long long> public_float_share_quantity(0, list.list_nums);  // 流通股数(上交所不支持,类型:数量)
-        DdbVector<long long> contract_multiplier(0, list.list_nums);  // 对回购标准券折算率(类型:比例)
-        DdbVector<string> regular_share(0, list.list_nums);           // 对应回购标准券(仅深交所)
-        DdbVector<long long> interest(0, list.list_nums);             // 应计利息(类型:汇率)
-        DdbVector<long long> coupon_rate(0, list.list_nums);          // 票面年利率(类型:比例)
+            code_length);  // 币种(CNY:人民币,HKD:港币,USD:美元,AUD:澳币,CAD:加币,JPY:日圆,SGD:新加坡币,GBP:英镑,EUR:欧元)
+        DdbVector<int> variety_category(0, code_length);       // 证券类别
+        DdbVector<long long> pre_close_price(0, code_length);  // 昨收价(类型:价格)
+        DdbVector<long long> close_price(0, code_length);      // 收盘价(已弃用,固定赋值为0,类型:价格)
+        DdbVector<string> underlying_security_id(0, code_length);   // 标的代码 (仅期权/权证有效)
+        DdbVector<string> contract_type(0, code_length);            // 合约类别 (仅期权有效)
+        DdbVector<long long> exercise_price(0, code_length);        // 行权价(仅期权有效，类型:价格)
+        DdbVector<int> expire_date(0, code_length);                 // 到期日 (仅期权有效)
+        DdbVector<long long> high_limited(0, code_length);          // 涨停价(类型:价格)
+        DdbVector<long long> low_limited(0, code_length);           // 跌停价(类型:价格)
+        DdbVector<string> security_status(0, code_length);          // 产品状态标志
+        DdbVector<long long> price_tick(0, code_length);            // 最小价格变动单位(类型:价格)
+        DdbVector<long long> buy_qty_unit(0, code_length);          // 限价买数量单位(类型:数量)
+        DdbVector<long long> sell_qty_unit(0, code_length);         // 限价卖数量单位(类型:数量)
+        DdbVector<long long> market_buy_qty_unit(0, code_length);   // 市价买数量单位(类型:数量)
+        DdbVector<long long> market_sell_qty_unit(0, code_length);  // 市价卖数量单位(类型:数量)
+        DdbVector<long long> buy_qty_lower_limit(0, code_length);   // 限价买数量下限(类型:数量)
+        DdbVector<long long> buy_qty_upper_limit(0, code_length);   // 限价买数量上限(类型:数量)
+        DdbVector<long long> sell_qty_lower_limit(0, code_length);  // 限价卖数量下限(类型:数量)
+        DdbVector<long long> sell_qty_upper_limit(0, code_length);  // 限价卖数量上限(类型:数量)
+        DdbVector<long long> market_buy_qty_lower_limit(0, code_length);   // 市价买数量下限 (类型:数量)
+        DdbVector<long long> market_buy_qty_upper_limit(0, code_length);   // 市价买数量上限 (类型:数量)
+        DdbVector<long long> market_sell_qty_lower_limit(0, code_length);  // 市价卖数量下限 (类型:数量)
+        DdbVector<long long> market_sell_qty_upper_limit(0, code_length);  // 市价卖数量上限 (类型:数量)
+        DdbVector<int> list_day(0, code_length);                           // 上市日期
+        DdbVector<long long> par_value(0, code_length);                    // 面值(类型:价格)
+        DdbVector<long long> outstanding_share(0, code_length);  // 总发行量(上交所不支持,类型:数量)
+        DdbVector<long long> public_float_share_quantity(0, code_length);  // 流通股数(上交所不支持,类型:数量)
+        DdbVector<long long> contract_multiplier(0, code_length);  // 对回购标准券折算率(类型:比例)
+        DdbVector<string> regular_share(0, code_length);           // 对应回购标准券(仅深交所)
+        DdbVector<long long> interest(0, code_length);             // 应计利息(类型:汇率)
+        DdbVector<long long> coupon_rate(0, code_length);          // 票面年利率(类型:比例)
 
         for (uint32_t i = 0; i < list.list_nums; i++) {
             /*
@@ -714,52 +718,56 @@ ConstantSP getETFCodeList(Heap *heap, vector<ConstantSP> &arguments) {
         "rtgsFlag",
         "reserved"};
     if (ret) {
-        DdbVector<string> security_code(0, list.etf_list_nums);                //证券代码
-        DdbVector<long long> creation_redemption_unit(0, list.etf_list_nums);  //每个篮子对应的ETF份数(类型:数量)
-        DdbVector<long long> max_cash_ratio(0, list.etf_list_nums);            //最大现金替代比例(类型:比例)
-        DdbVector<char> publish(0, list.etf_list_nums);                        //是否发布 IOPV,Y=是, N=否
-        DdbVector<char> creation(0, list.etf_list_nums);    //是否允许申购,Y=是, N=否(仅深圳有效)
-        DdbVector<char> redemption(0, list.etf_list_nums);  //是否允许赎回,Y=是, N=否(仅深圳有效)
+        int etf_length = list.etf_list_nums;
+        if (etf_length <= 0) {
+            etf_length = 1;
+        }
+        DdbVector<string> security_code(0, etf_length);                //证券代码
+        DdbVector<long long> creation_redemption_unit(0, etf_length);  //每个篮子对应的ETF份数(类型:数量)
+        DdbVector<long long> max_cash_ratio(0, etf_length);            //最大现金替代比例(类型:比例)
+        DdbVector<char> publish(0, etf_length);                        //是否发布 IOPV,Y=是, N=否
+        DdbVector<char> creation(0, etf_length);    //是否允许申购,Y=是, N=否(仅深圳有效)
+        DdbVector<char> redemption(0, etf_length);  //是否允许赎回,Y=是, N=否(仅深圳有效)
         DdbVector<int> creation_redemption_switch(
-            0, list.etf_list_nums);  //申购赎回切换(仅上海有效,0 - 不允许申购/赎回, 1 - 申购和赎回皆允许, 2 -
+            0, etf_length);  //申购赎回切换(仅上海有效,0 - 不允许申购/赎回, 1 - 申购和赎回皆允许, 2 -
                                      //仅允许申购, 3 - 仅允许赎回)
-        DdbVector<long long> record_num(0, list.etf_list_nums);               //深市成份证券数目(类型:数量)
-        DdbVector<long long> total_record_num(0, list.etf_list_nums);         //所有成份证券数量(类型:数量)
-        DdbVector<long long> estimate_cash_component(0, list.etf_list_nums);  //预估现金差额(类型:金额)
-        DdbVector<int> trading_day(0, list.etf_list_nums);                    //当前交易日(格式:YYYYMMDD)
-        DdbVector<int> pre_trading_day(0, list.etf_list_nums);                //前一交易日(格式:YYYYMMDD)
-        DdbVector<long long> cash_component(0, list.etf_list_nums);           //前一日现金差额(类型:金额)
-        DdbVector<long long> nav_per_cu(0, list.etf_list_nums);  //前一日最小申赎单位净值(类型:价格)
-        DdbVector<long long> nav(0, list.etf_list_nums);         //前一日基金份额净值(类型:价格)
-        DdbVector<int> market_type(0, list.etf_list_nums);       //证券所属市场(参考 MarketType)
-        DdbVector<string> symbol(0, list.etf_list_nums);         //基金名称(仅深圳有效)
-        DdbVector<string> fund_management_company(0, list.etf_list_nums);        //基金公司名称(仅深圳有效)
-        DdbVector<string> underlying_security_id(0, list.etf_list_nums);         //拟合指数代码(仅深圳有效)
-        DdbVector<string> underlying_security_id_source(0, list.etf_list_nums);  //拟合指数代码源(仅深圳有效)
-        DdbVector<long long> dividend_per_cu(0, list.etf_list_nums);             //红利金额(类型:金额)
+        DdbVector<long long> record_num(0, etf_length);               //深市成份证券数目(类型:数量)
+        DdbVector<long long> total_record_num(0, etf_length);         //所有成份证券数量(类型:数量)
+        DdbVector<long long> estimate_cash_component(0, etf_length);  //预估现金差额(类型:金额)
+        DdbVector<int> trading_day(0, etf_length);                    //当前交易日(格式:YYYYMMDD)
+        DdbVector<int> pre_trading_day(0, etf_length);                //前一交易日(格式:YYYYMMDD)
+        DdbVector<long long> cash_component(0, etf_length);           //前一日现金差额(类型:金额)
+        DdbVector<long long> nav_per_cu(0, etf_length);  //前一日最小申赎单位净值(类型:价格)
+        DdbVector<long long> nav(0, etf_length);         //前一日基金份额净值(类型:价格)
+        DdbVector<int> market_type(0, etf_length);       //证券所属市场(参考 MarketType)
+        DdbVector<string> symbol(0, etf_length);         //基金名称(仅深圳有效)
+        DdbVector<string> fund_management_company(0, etf_length);        //基金公司名称(仅深圳有效)
+        DdbVector<string> underlying_security_id(0, etf_length);         //拟合指数代码(仅深圳有效)
+        DdbVector<string> underlying_security_id_source(0, etf_length);  //拟合指数代码源(仅深圳有效)
+        DdbVector<long long> dividend_per_cu(0, etf_length);             //红利金额(类型:金额)
         DdbVector<long long> creation_limit(
-            0, list.etf_list_nums);  //累计申购总额限制,为 0 表示没有限制(仅深圳有效,类型:数量)
+            0, etf_length);  //累计申购总额限制,为 0 表示没有限制(仅深圳有效,类型:数量)
         DdbVector<long long> redemption_limit(
-            0, list.etf_list_nums);  //累计赎回总额限制,为 0 表示没有限制(仅深圳有效,类型:数量)
+            0, etf_length);  //累计赎回总额限制,为 0 表示没有限制(仅深圳有效,类型:数量)
         DdbVector<long long> creation_limit_per_user(
-            0, list.etf_list_nums);  //单个账户累计申购总额限制,为 0 表示没有限制(仅深圳有效,类型:数量)
+            0, etf_length);  //单个账户累计申购总额限制,为 0 表示没有限制(仅深圳有效,类型:数量)
         DdbVector<long long> redemption_limit_per_user(
-            0, list.etf_list_nums);  //单个账户累计赎回总额限制,为 0 表示没有限制(仅深圳有效,类型:数量)
+            0, etf_length);  //单个账户累计赎回总额限制,为 0 表示没有限制(仅深圳有效,类型:数量)
         DdbVector<long long> net_creation_limit(
-            0, list.etf_list_nums);  //净申购总额限制,为 0 表示没有限制(仅深圳有效,类型:数量)
+            0, etf_length);  //净申购总额限制,为 0 表示没有限制(仅深圳有效,类型:数量)
         DdbVector<long long> net_redemption_limit(
-            0, list.etf_list_nums);  //净赎回总额限制,为 0 表示没有限制(仅深圳有效,类型:数量)
+            0, etf_length);  //净赎回总额限制,为 0 表示没有限制(仅深圳有效,类型:数量)
         DdbVector<long long> net_creation_limit_per_user(
-            0, list.etf_list_nums);  //单个账户净申购总额限制,为 0 表示没有限制(仅深圳有效,类型:数量)
+            0, etf_length);  //单个账户净申购总额限制,为 0 表示没有限制(仅深圳有效,类型:数量)
         DdbVector<long long> net_redemption_limit_per_user(
-            0, list.etf_list_nums);  //单个账户净赎回总额限制,为 0 表示没有限制(仅深圳有效,类型:数量)
-        DdbVector<char> all_cash_flag(0, list.etf_list_nums);  //是否支持全现金申赎(暂时未启用,取值为空)
-        DdbVector<string> all_cash_amount(0, list.etf_list_nums);  //全现金替代的总金额(暂时未启用,取值为空)
-        DdbVector<string> all_cash_premium_rate(0, list.etf_list_nums);  //全现金替代的申购溢价比例(暂时未启用,取值为空)
+            0, etf_length);  //单个账户净赎回总额限制,为 0 表示没有限制(仅深圳有效,类型:数量)
+        DdbVector<char> all_cash_flag(0, etf_length);  //是否支持全现金申赎(暂时未启用,取值为空)
+        DdbVector<string> all_cash_amount(0, etf_length);  //全现金替代的总金额(暂时未启用,取值为空)
+        DdbVector<string> all_cash_premium_rate(0, etf_length);  //全现金替代的申购溢价比例(暂时未启用,取值为空)
         DdbVector<string> all_cash_discount_rate(0,
-                                                 list.etf_list_nums);  //全现金替代的赎回折价比例(暂时未启用,取值为空)
-        DdbVector<char> rtgs_flag(0, list.etf_list_nums);   //是否支持RTGS(暂时未启用,取值为空)
-        DdbVector<string> reserved(0, list.etf_list_nums);  //预留字段(暂时未启用,取值为空)
+                                                 etf_length);  //全现金替代的赎回折价比例(暂时未启用,取值为空)
+        DdbVector<char> rtgs_flag(0, etf_length);   //是否支持RTGS(暂时未启用,取值为空)
+        DdbVector<string> reserved(0, etf_length);  //预留字段(暂时未启用,取值为空)
         for (uint32_t i = 0; i < list.etf_list_nums; i++) {
             /*
                 etf_records 是ETF代码表数据头指针
@@ -852,3 +860,80 @@ ConstantSP setErrorLog(Heap *heap, vector<ConstantSP> &arguments) {
     ERROR_LOG.store(arguments[0]->getBool());
     return new Void();
 }
+#if defined(AMD_457) || defined(AMD_455)
+int checkAndGetInt(const ConstantSP& arg, const string& usage, const string& argName){
+    if(!arg->isScalar() || arg->getCategory() != INTEGRAL){
+        throw IllegalArgumentException("amdQuote::query", usage + argName + " must be an integral. ");
+    }
+    return arg->getInt();
+}
+
+ConstantSP amdQuery(Heap *heap, vector<ConstantSP> &arguments) {
+    const string usage = "amdQuote::query(handle, dataType, market, channelNo, beginSeqNum, endSeqNum, [option]). ";
+    LockGuard<Mutex> amdLock_(&AMD_MUTEX);
+    SmartPointer<AmdQuote> amdQuotePtr = AMD_HANDLE_MAP.safeGet(arguments[0]);
+    std::string dataType;
+
+    if(!arguments[1]->isScalar() || arguments[1]->getType() != DT_STRING){
+        throw IllegalArgumentException("amdQuote::query", usage + "datatype must be a string. ");
+    }
+
+    dataType = arguments[1]->getString();
+    if (dataType != "orderExecution") {
+        throw IllegalArgumentException("amdQuote::query", usage + "dataType must be 'orderExecution'. ");
+    }
+    int market = checkAndGetInt(arguments[2], usage, "market");
+    int channelNo = checkAndGetInt(arguments[3], usage, "channelNo");
+    int beginSeqNum = checkAndGetInt(arguments[4], usage, "beginSeqNum");
+    int endSeqNum = checkAndGetInt(arguments[5], usage, "endSeqNum");
+    int timeoutMinute = 1;
+
+    if(market != amd::ama::MarketType::kSZSE && market != amd::ama::MarketType::kSSE){
+        throw IllegalArgumentException("amdQuote::query", usage + "the market must be 101 or 102. ");
+    }
+    if(beginSeqNum < 1){
+        throw IllegalArgumentException("amdQuote::query", usage + "the beginSeqNum must be greater than 0. ");
+    }
+    if(endSeqNum < 1){
+        throw IllegalArgumentException("amdQuote::query", usage + "the endSeqNum must be greater than 0. ");
+    }
+    if(beginSeqNum > endSeqNum){
+        throw IllegalArgumentException("amdQuote::query", usage + "the endSeqNum must be greater than or equal to beginSeqNum. ");
+    }
+    if(arguments.size() > 6 && !arguments[6]->isNothing()){
+        if(!arguments[6]->isDictionary()){
+            throw IllegalArgumentException("amdQuote::query", usage + "the option must be a dictionary. ");
+        }
+        DictionarySP dict = arguments[6];
+        if(dict->getKeyType() != DT_STRING || dict->getType() != DT_ANY){
+            throw IllegalArgumentException("amdQuote::query", usage + "the option dictionary must have STRING keys and ANY type values. ");
+        }
+        if(!dict->getMember("timeout")->isNull()){
+            ConstantSP item = dict->getMember("timeout");
+            if(item->getCategory() != INTEGRAL || !item->isScalar()){
+                throw IllegalArgumentException("amdQuote::query", usage + "the option 'timeout' must be an integral scalar. ");
+            }
+            timeoutMinute = item->getInt();
+            if(timeoutMinute < 1 || timeoutMinute > 60){
+                throw IllegalArgumentException("amdQuote::query", usage + "the option 'timeout' must between 1-60. ");
+            }
+        }
+    }
+    std::vector<DATA_TYPE> colTypes;
+    std::vector<std::string> colNames;
+    TableSP schema = amdQuotePtr->getSchema(dataType);
+    int columns = schema->rows();
+    VectorSP colNamesCol = schema->getColumn(0);
+    VectorSP colTypesCol = schema->getColumn(2);
+    for(int i = 0; i <columns; ++i){
+        colNames.emplace_back(colNamesCol->getString(i));
+        colTypes.emplace_back(static_cast<DATA_TYPE>(colTypesCol->getInt(i)));
+    }
+    QueryArgs queryArgs{market, channelNo, beginSeqNum, endSeqNum, timeoutMinute, colTypes, colNames};
+    return amdQuotePtr->query(queryArgs);
+}
+#else
+ConstantSP amdQuery(Heap *heap, vector<ConstantSP> &arguments){
+    throw IllegalArgumentException("amdQuote::query", "amdQuote::query is only supported in amdQuote455 and amdQuote457.");
+}
+#endif

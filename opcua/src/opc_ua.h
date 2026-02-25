@@ -74,7 +74,7 @@ class OPCUASub {
                 stopThread();
             }
         } catch (std::exception &e) {
-            PLUGIN_LOG_ERR(OPCUA_PREFIX, "destruction of OPCUASub failed due to ", e.what());
+            LOG_ERR(OPCUA_PREFIX, "destruction of OPCUASub failed due to ", e.what());
         }
     }
     void subs();

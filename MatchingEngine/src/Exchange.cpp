@@ -42,6 +42,10 @@ Exchange::Exchange(std::string &&symbol, std::string &&creator, TableSP outputTa
 }
 
 bool Exchange::append(vector<ConstantSP> &values, INDEX &insertedRows, string &errMsg) {
+    if (StreamEngineManager::instance().find(symbol_).isNull()) {
+        errMsg = "this exchange is not valid";
+        return false;
+    }
     vector<ConstantSP> val;
     if (values[0]->isTable()) {
         for (INDEX i = 0; i < values[0]->columns(); ++i) {
@@ -131,7 +135,7 @@ ConstantSP Exchange::setupGlobalConfig(Heap *heap, vector<ConstantSP> &args) {
 
     // check pricePrecision
     uint32_t pricePrecision = 3;
-    if (args.size() >= 3) {
+    if (args.size() >= 3 && !args[2]->isNothing()) {
         if (args[2]->isNull() || args[2]->getCategory() != INTEGRAL) {
             throw IllegalArgumentException("setupGlobalConfig", "pricePrecision must be a non-negative integer");
         }
@@ -142,7 +146,7 @@ ConstantSP Exchange::setupGlobalConfig(Heap *heap, vector<ConstantSP> &args) {
 
     // check bookDepth
     uint32_t bookDepth = 10;
-    if (args.size() >= 4) {
+    if (args.size() >= 4 && !args[3]->isNothing()) {
         if (args[3]->isNull() || args[3]->getCategory() != INTEGRAL) {
             throw IllegalArgumentException("setupGlobalConfig", "bookDepth must be a non-negative integer");
         }
@@ -173,6 +177,25 @@ ConstantSP Exchange::setupGlobalConfig(Heap *heap, vector<ConstantSP> &args) {
     return new String("Successful");
 }
 
+ConstantSP Exchange::dropExchange(Heap *heap, vector<ConstantSP> &args) {
+    std::string exchangeName;
+    if (args[0]->isScalar() && args[0]->getType() == DT_STRING) {
+        exchangeName = args[0]->getString();
+    } 
+    else {
+        Exchange* exchange = dynamic_cast<Exchange*>(args[0].get());
+        if(exchange == nullptr) {
+            throw IllegalArgumentException("dropExchange", "only an exchange can be passed");
+        }
+        exchangeName = exchange->symbol();
+    }
+    if (StreamEngineManager::instance().find(exchangeName).isNull()) {
+        throw IllegalArgumentException("dropExchange", "there is no valid exchange named " + exchangeName);
+    }
+    StreamEngineManager::instance().remove(exchangeName);
+    return new Void();
+}
+
 ConstantSP Exchange::createExchange(Heap *heap, vector<ConstantSP> &args) {
     static string funcName = "createExchange";
     static string syntax = "Usage: " + funcName + "(symbol, outputTable, depthOutputTable).";
@@ -197,6 +220,9 @@ ConstantSP Exchange::createExchange(Heap *heap, vector<ConstantSP> &args) {
         throw IllegalArgumentException("createExchange", "depthOutTable must be a table");
     }
 
+    if (!config_.initialized) {
+        throw RuntimeException("global config is not initialized");
+    }
     AbstractStreamEngineSP exchange = new Exchange(std::move(symbol), heap->currentSession()->getUser()->getUserId(), args[1], args[2]);
     exchange->initEngineStat();
     StreamEngineManager::instance().insert(exchange);
@@ -209,4 +235,8 @@ ConstantSP setupGlobalConfig(Heap *heap, vector<ConstantSP> &args) {
 
 ConstantSP createExchange(Heap *heap, vector<ConstantSP> &args) {
     return Exchange::createExchange(heap, args);
+}
+
+ConstantSP dropExchange(Heap *heap, vector<ConstantSP> &args) {
+    return Exchange::dropExchange(heap, args);
 }

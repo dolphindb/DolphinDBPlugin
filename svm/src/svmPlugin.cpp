@@ -4,7 +4,7 @@
 #include <sstream>
 #include "svm.h"
 #include "ddbplugin/PluginLogger.h"
-#include "ddbplugin/PluginLoggerImp.h"
+
 
 ConstantSP fit(Heap *heap, vector<ConstantSP> &args){
     LockGuard<Mutex> lk(&svm::mutex);
@@ -170,9 +170,8 @@ namespace svm{
 
         psvmObject->train();
         if(!psvmObject->getErrMsg().empty()) {
-            string errMsg = psvmObject->getErrMsg();
             delete psvmObject;
-            throw RuntimeException(SVM_PLUGIN_PREFIX + errMsg);
+            throw RuntimeException(SVM_PLUGIN_PREFIX + psvmObject->getErrMsg());
         }
 
         FunctionDefSP onClose(Util::createSystemProcedure("SVM Object deconstruct", svmObjectClose, 1, 1));

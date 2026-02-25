@@ -888,11 +888,11 @@ public:
         }
         catch (exception& e)
         {
-            PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to destroy connection_impl. : " + std::string(e.what()));
+            LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to destroy connection_impl. : " + std::string(e.what()));
         }
         catch (...)
         {
-            PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to destroy connection_impl. ");
+            LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to destroy connection_impl. ");
         }
     }
 
@@ -1261,11 +1261,11 @@ public:
         }
         catch (exception& e)
         {
-            PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to destroy transaction_impl. : " + std::string(e.what()));
+            LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to destroy transaction_impl. : " + std::string(e.what()));
         }
         catch (...)
         {
-            PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to destroy transaction_impl. ");
+            LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to destroy transaction_impl. ");
         }
     }
 
@@ -1385,11 +1385,11 @@ public:
         }
         catch (exception& e)
         {
-            PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to destroy statement_impl. : " + std::string(e.what()));
+            LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to destroy statement_impl. : " + std::string(e.what()));
         }
         catch (...)
         {
-            PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to destroy statement_impl. ");
+            LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to destroy statement_impl. ");
         }
     }
 
@@ -2479,11 +2479,11 @@ public:
         }
         catch (exception& e)
         {
-            PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to destroy result_impl. : " + std::string(e.what()));
+            LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to destroy result_impl. : " + std::string(e.what()));
         }
         catch (...)
         {
-            PLUGIN_LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to destroy result_impl. ");
+            LOG_ERR(PLUGIN_ODBC_STRING_PREFIX + "Failed to destroy result_impl. ");
         }
     }
 

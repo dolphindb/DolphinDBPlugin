@@ -8,8 +8,9 @@
 #include "Logger.h"
 
 #include "xgboost/c_api.h"
+#include "xgboost/version_config.h"
 #include "ddbplugin/PluginLogger.h"
-#include "ddbplugin/PluginLoggerImp.h"
+
 
 #include <iostream>
 #include <vector>
@@ -36,6 +37,7 @@ static void checkObjective(string key, string value){
     }
 }
 static void xgboostBoosterOnClose(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     BoosterHandle hBooster = (BoosterHandle) args[0]->getLong();
     if (nullptr != hBooster) {
         safe_xgboost(XGBoosterFree(hBooster));
@@ -44,7 +46,7 @@ static void xgboostBoosterOnClose(Heap *heap, vector<ConstantSP> &args) {
 }
 
 static void tableToXGDMatrix(TableSP input, const vector<int> &xColIndices, const int rows, const int cols, float *data, DMatrixHandle *out) {
-    float buf[Util::BUF_SIZE];
+    std::vector<float> buf(Util::BUF_SIZE);
     for (int i = 0; i < cols; i++) {
         int index = xColIndices[i];
         ConstantSP col = input->getColumn(index);
@@ -52,7 +54,7 @@ static void tableToXGDMatrix(TableSP input, const vector<int> &xColIndices, cons
         float *d = data + i;
         while (start < rows) {
             len = std::min(Util::BUF_SIZE, rows - start);
-            const float *p = col->getFloatConst(start, len, buf);
+            const float *p = col->getFloatConst(start, len, buf.data());
             for (int j = 0; j < len; j++, d += cols)
                 *d = p[j];
             start += len;
@@ -63,7 +65,7 @@ static void tableToXGDMatrix(TableSP input, const vector<int> &xColIndices, cons
 }
 
 static void matrixOrTableToXGDMatrix(ConstantSP input, const int rows, const int cols, float *data, DMatrixHandle *out) {
-    float buf[Util::BUF_SIZE];
+    std::vector<float> buf(Util::BUF_SIZE);
     INDEX start = 0, len, end;
 
     if (input->isMatrix()) {
@@ -73,7 +75,7 @@ static void matrixOrTableToXGDMatrix(ConstantSP input, const int rows, const int
             end = start + rows;
             while (start < end) {
                 len = std::min(Util::BUF_SIZE, end - start);
-                const float *p = input->getFloatConst(start, len, buf);
+                const float *p = input->getFloatConst(start, len, buf.data());
                 for (int j = 0; j < len; j++, d += cols)
                     *d = p[j];
                 start += len;
@@ -87,7 +89,7 @@ static void matrixOrTableToXGDMatrix(ConstantSP input, const int rows, const int
             ConstantSP col = input->getColumn(i);
             while (start < rows) {
                 len = std::min(Util::BUF_SIZE, rows - start);
-                const float *p = col->getFloatConst(start, len, buf);
+                const float *p = col->getFloatConst(start, len, buf.data());
                 for (int j = 0; j < len; j++, d += cols)
                     *d = p[j];
                 start += len;
@@ -103,12 +105,12 @@ static ConstantSP trainImpl(Heap *heap, const DMatrixHandle hTrain[], const int 
     vector<unsigned> uintTarget;
     if (y->getCategory() == FLOATING) {
         floatTarget.resize(rows);
-        float buf[Util::BUF_SIZE];
+        std::vector<float> buf(Util::BUF_SIZE);
         float *d = floatTarget.data();
         INDEX start = 0, len;
         while (start < rows) {
             len = std::min(Util::BUF_SIZE, rows - start);
-            const float *p = y->getFloatConst(start, len, buf);
+            const float *p = y->getFloatConst(start, len, buf.data());
             std::memcpy(d, p, sizeof(float) * len);
             start += len;
             d += len;
@@ -118,12 +120,12 @@ static ConstantSP trainImpl(Heap *heap, const DMatrixHandle hTrain[], const int 
     else {
         // No negative values check
         uintTarget.resize(rows);
-        int buf[Util::BUF_SIZE];
+        std::vector<int> buf(Util::BUF_SIZE);
         unsigned *d = uintTarget.data();
         INDEX start = 0, len;
         while (start < rows) {
             len = std::min(Util::BUF_SIZE, rows - start);
-            const int *p = y->getIntConst(start, len, buf);
+            const int *p = y->getIntConst(start, len, buf.data());
             std::memcpy(d, p, sizeof(unsigned) * len);
             start += len;
             d += len;
@@ -158,11 +160,10 @@ static ConstantSP trainImpl(Heap *heap, const DMatrixHandle hTrain[], const int 
         return xgbModel;
     else {
         FunctionDefSP onClose(Util::createSystemProcedure("xgboost Booster onClose()", xgboostBoosterOnClose, 1, 1));
-        return Util::createResource((long long)hBooster, XGBOOST_BOOSTER, onClose, heap->currentSession());
+        return Util::createResource((long long)hBooster, XGBOOST_BOOSTER, onClose, heap);
     }
 }
 
-/**
 ConstantSP trainEx(Heap *heap, vector<ConstantSP> &args) {
     string funcName = "xgboost::trainEx";
     string syntax = "Usage: " + funcName + "(dtrain, yColName, xColNames, [params], [numBoostRound=10], [xgbModel]). ";
@@ -247,7 +248,6 @@ ConstantSP trainEx(Heap *heap, vector<ConstantSP> &args) {
 
     return model;
 }
-*/
 
 ConstantSP train(Heap *heap, vector<ConstantSP> &args) {
     string funcName = "xgboost::train";
@@ -340,23 +340,22 @@ static ConstantSP predictImpl(Heap *heap, const BoosterHandle hBooster, const DM
     }
 
     ConstantSP out = outputMatrix ? Util::createMatrix(DT_FLOAT, rows, outLen/rows, rows) : Util::createVector(DT_FLOAT, outLen);
-    float buf[Util::BUF_SIZE];
+    std::vector<float> buf(Util::BUF_SIZE);
     INDEX start = 0, len;
     while (start < (INDEX) outLen) {
         len = std::min(Util::BUF_SIZE, (INDEX) outLen - start);
-        float *p = out->getFloatBuffer(start, len, buf);
+        float *p = out->getFloatBuffer(start, len, buf.data());
         std::memcpy(p, f + start, sizeof(float) * len);
         out->setFloat(start, len, p);
         start += len;
     }
     if (outputMatrix) {
-        FunctionDefSP transpose = heap->currentSession()->getFunctionDef("transpose");
+        FunctionDefSP transpose = Util::getFuncDefFromHeap(heap, "transpose");
         out = transpose->call(heap, out, nullptr);
     }
     return out;
 }
 
-/**
 ConstantSP predictEx(Heap *heap, vector<ConstantSP> &args) {
     string funcName = "xgboost::predictEx";
     string syntax = "Usage: " + funcName + "(model, data, xColNames, [outputMargin=false], [ntreeLimit=0], [predLeaf=false], [predContribs=false], [training=false]). ";
@@ -442,9 +441,8 @@ ConstantSP predictEx(Heap *heap, vector<ConstantSP> &args) {
 
     return out;
 }
-*/
 
-#ifdef XGBOOST_2_0_0
+#if XGBOOST_VER_MAJOR >= 2
 // use XGBoosterPredictFromDMatrix only for xgboost2.0.0
 static ConstantSP predictImpl2(Heap *heap, const BoosterHandle hBooster, const DMatrixHandle hTest, const int rows, const int type, const long long iterationStart, const long long iterationEnd, const bool training, const bool strictShape) {
     string configStr = "{";
@@ -573,7 +571,7 @@ ConstantSP predict(Heap *heap, vector<ConstantSP> &args) {
                 iterationEnd = bestIteration + 1;
             }
         } catch(...) {
-            PLUGIN_LOG_ERR("[PLUGIN::XGBOOST] parse best_iteration failed.");
+            LOG_ERR("[PLUGIN::XGBOOST] parse best_iteration failed.");
         }
     }
 
@@ -697,6 +695,7 @@ ConstantSP predict(Heap *heap, vector<ConstantSP> &args) {
 #endif
 
 ConstantSP saveModel(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string funcName = "xgboost::saveModel";
     string syntax = "Usage: " + funcName + "(model, filePath). ";
 
@@ -726,5 +725,5 @@ ConstantSP loadModel(Heap *heap, vector<ConstantSP> &args) {
     safe_xgboost(XGBoosterLoadModel(hBooster, args[0]->getString().c_str()));
 
     FunctionDefSP onClose(Util::createSystemProcedure("xgboost Booster onClose()", xgboostBoosterOnClose, 1, 1));
-    return Util::createResource((long long) hBooster, XGBOOST_BOOSTER, onClose, heap->currentSession());
+    return Util::createResource((long long) hBooster, XGBOOST_BOOSTER, onClose, heap);
 }

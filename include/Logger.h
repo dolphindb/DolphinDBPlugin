@@ -49,7 +49,7 @@ private:
 };
 
 inline uint16_t shortThreadId() {
-#ifdef LINUX
+#ifdef __linux__
 	uint64_t tid = pthread_self();
 #else
 	uint64_t tid = GetCurrentThreadId();

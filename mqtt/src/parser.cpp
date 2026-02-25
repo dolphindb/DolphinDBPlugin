@@ -17,7 +17,7 @@ void setData(nlohmann::json &data, vector<ConstantSP> &cols, std::map<string, in
              int i, Heap *heap) {
     for (auto it = data.begin(); it != data.end(); ++it) {
         if (colIdx.find(it.key()) == colIdx.end()) {
-            PLUGIN_LOG_ERR(
+            LOG_ERR(
                 "error ocurred when parse json data in subscribe callback of mqtt. the error message is the given JSON "
                 "data does not have a key named:",
                 it.key());
@@ -313,12 +313,12 @@ ConstantSP parseCsv(Heap *heap, vector<ConstantSP> &args) {
                         break;
                     }
                     default:
-                        PLUGIN_LOG_ERR(LOG_PRE_STR, "the data type of schema in position <", j + 1, "> is ", dt[j],
+                        LOG_ERR(LOG_PRE_STR, "the data type of schema in position <", j + 1, "> is ", dt[j],
                                 "which is not supported when execute csv parser");
                 }
             } catch (exception &e) {
                 cols[j]->setNull(i);
-                PLUGIN_LOG_ERR(LOG_PRE_STR, "error occured when executed csv parser, err msg is ", string(e.what()));
+                LOG_ERR(LOG_PRE_STR, "error occured when executed csv parser, err msg is ", string(e.what()));
             }
         }
     }

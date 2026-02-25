@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <map>
 #include "ddbplugin/CommonInterface.h"
-#include "ddbplugin/PluginLoggerImp.h"
+
 
 using namespace std;
 

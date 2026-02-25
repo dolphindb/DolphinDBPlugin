@@ -108,7 +108,7 @@ class TcpClient {
     }
     ~TcpClient() {
         close();
-        PLUGIN_LOG_INFO(PLUGIN_INSIGHT_PREFIX, "client has been released. ");
+        LOG_INFO(PLUGIN_INSIGHT_PREFIX, "client has been released. ");
     }
     TableSP getSchema(const string &type) { return insightHandle_->getSchema(type); }
     TableSP getStatus() { return insightHandle_->getStatus(); }
@@ -120,7 +120,7 @@ class TcpClient {
             try {
                 ClientFactory::Uninstance();
             } catch (exception &e) {
-                PLUGIN_LOG_ERR(PLUGIN_INSIGHT_PREFIX + "failed to logout: " + e.what());
+                LOG_ERR(PLUGIN_INSIGHT_PREFIX + "failed to logout: " + e.what());
             }
             clientInterface_ = nullptr;
             insightHandle_ = nullptr;
@@ -196,7 +196,7 @@ class TcpClient {
                 for (auto &sourceType : sourceTypeVec_) {
                     int ret = clientInterface_->SubscribeBySourceType(actionType, sourceType.get());
                     if (ret != 0) {
-                        PLUGIN_LOG_ERR(PLUGIN_INSIGHT_PREFIX, "unsubscribe failed due to ", get_error_code_value(ret));
+                        LOG_ERR(PLUGIN_INSIGHT_PREFIX, "unsubscribe failed due to ", get_error_code_value(ret));
                     }
                 }
             } catch (exception &e) {
@@ -216,11 +216,11 @@ class TcpClient {
             logout();
             fini_env();
         } catch (RuntimeException &e) {
-            PLUGIN_LOG_WARN(e.what());
+            LOG_WARN(e.what());
         } catch (exception &e) {
-            PLUGIN_LOG_WARN(PLUGIN_INSIGHT_PREFIX + e.what());
+            LOG_WARN(PLUGIN_INSIGHT_PREFIX + e.what());
         } catch (...) {
-            PLUGIN_LOG_WARN(PLUGIN_INSIGHT_PREFIX + "error occurs in tcpClient destruction");
+            LOG_WARN(PLUGIN_INSIGHT_PREFIX + "error occurs in tcpClient destruction");
         }
     }
 
@@ -442,7 +442,7 @@ ConstantSP connectInsight(Heap *heap, vector<ConstantSP> &arguments) {
     }
 
     if (INSIGHT_HANDLE_MAP.size() == 1) {
-        PLUGIN_LOG_WARN(PLUGIN_INSIGHT_PREFIX +
+        LOG_WARN(PLUGIN_INSIGHT_PREFIX +
                  "insight connect handle already exists, connect function returns the existed handle");
         return INSIGHT_HANDLE_MAP.getHandleByName(INSIGHT_KEY_NAME);
     }

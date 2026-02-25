@@ -207,6 +207,7 @@ public:
 	virtual bool isBasicTable() const {return true;}
 	virtual bool isSpecialBasicTable() const {return false;}
 	virtual ConstantSP getColumn(INDEX index) const;
+    virtual const ConstantSP& getColumnRef(INDEX index) override { return cols_[index]; }
 	virtual ConstantSP get(INDEX col, INDEX row) const {return cols_[col]->get(row);}
 	virtual DATA_TYPE getColumnType(const int index) const { return cols_[index]->getType();}
 	virtual int getColumnExtraParam(const int index) const override { return cols_[index]->getExtraParamForType(); }
@@ -324,6 +325,7 @@ private:
 
 	friend class RealtimeTable;
 	friend class MvccTable;
+	friend class HaMvccTable;
 	friend class SegmentedTable;
 	friend class DimensionalTable;
 	friend class PartitionedPersistentTable;

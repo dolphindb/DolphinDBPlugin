@@ -1,4 +1,4 @@
-mat,libPluginMat.dll,2.00.17.0
+mat,libPluginMat.dll,2.00.18.0
 extractMatSchema,extractMatSchema,system,1,1,0,0,(filePath)
 loadMat,loadMat,system,1,2,0,0,(filePath, [schema])
 convertToDatetime,convertToDatetime,system,1,1,0,0,(data)

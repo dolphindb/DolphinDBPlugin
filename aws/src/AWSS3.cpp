@@ -99,13 +99,14 @@ void setS3account(DictionarySP& account, Aws::Auth::AWSCredentials& credential, 
 class S3ClientGuard{
 public:
     S3ClientGuard(DictionarySP& account){
-        if(awsInit_==false){
-            PLUGIN_LOG("InitAPI");
+        static std::once_flag flag;
+        std::call_once(flag, [](){
+            LOG("InitAPI");
             awsInit_=true;
             Aws::InitAPI(awsOptions_);
             Aws::Utils::Logging::InitializeAWSLogging(
                 Aws::MakeShared<Aws::Utils::Logging::DefaultLogSystem>("AWS Logging",Aws::Utils::Logging::LogLevel::Trace,"aws_sdk_"));
-        }
+        });
         accountKey_=account->getString();
         while(true){
             client_=popClient(accountKey_);
@@ -130,7 +131,7 @@ public:
                 }
                 config.requestTimeoutMs = timeout->getLong();
             }
-            PLUGIN_LOG("PluginAWS: requestTimeoutMs is set to ", config.requestTimeoutMs);
+            LOG("PluginAWS: requestTimeoutMs is set to ", config.requestTimeoutMs);
             setS3account(account, credential, config);
 
             {
@@ -384,7 +385,7 @@ ConstantSP listS3Object(Heap* heap, vector<ConstantSP>& args) {
                     nextMarker->setString("");
                 }
             }
-            PLUGIN_LOG("[listS3Object] marker ", marker.isNull() ? " " : marker->getString(), " turncated ", listObjectsOutcome.GetResult().GetIsTruncated());
+            LOG("[listS3Object] marker ", marker.isNull() ? " " : marker->getString(), " turncated ", listObjectsOutcome.GetResult().GetIsTruncated());
             for (auto const &s3Object : objectList) {
                 tblIdx.emplace_back(i++);
                 tblBN.emplace_back(args[1]->getString().c_str());
@@ -469,7 +470,7 @@ ConstantSP readS3Object(Heap* heap, vector<ConstantSP>& args) {
         std::stringstream buf;
         buf << GetResultWithOwnership(readObjectOutcome, "readS3Object cannot read object").GetBody().rdbuf();
         std::string tempFile(buf.str());
-        PLUGIN_LOG_INFO("[readS3Object] got ", tempFile.size(), " bytes");
+        LOG_INFO("[readS3Object] got ", tempFile.size(), " bytes");
         ret->appendChar(const_cast<char *>(tempFile.c_str()), tempFile.size());
     }
     return ret;
@@ -882,7 +883,7 @@ ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
                             object.find(".ZIP")!=string::npos){
                             unzipFolder = outputFilePath + "_";
                             string cmd="unzip "+outputFilePath+" -d "+unzipFolder;
-                            if(system(cmd.data()) == -1){
+                            if(system(cmd.data()) != 0){
                                 errCode = 4;
                                 throw RuntimeException("unzip "+object+" failed, please install unzip package or check file format.");
                             }
@@ -937,7 +938,7 @@ ConstantSP loadS3Object(Heap* heap, vector<ConstantSP>& args){
         loadTextThread.join();
         string msg;
         if(!Util::removeDirectoryRecursive(tempFolder, msg)){
-            PLUGIN_LOG_ERR("remove dir content failed ",msg);
+            LOG_ERR("remove dir content failed ",msg);
         }
     } catch(std::exception &e){
         throw RuntimeException(AWSS3_PLUGIN_PREFIX+": join thread error:"+e.what());

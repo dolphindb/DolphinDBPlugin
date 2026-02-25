@@ -49,7 +49,7 @@ ConstantSP parseJSON(Heap* heap, vector<ConstantSP>& args) {
         for (auto it = row.begin(); it != row.end(); ++it) {
             auto colIdxIter = colIdx.find(it.key());
             if (colIdxIter == colIdx.end()){
-                PLUGIN_LOG_ERR(PLUGIN_ZMQ_PARSERS_PREFIX+": The json key["+it.key()+"] does not exist in the table schema");
+                LOG_ERR(PLUGIN_ZMQ_PARSERS_PREFIX+": The json key["+it.key()+"] does not exist in the table schema");
                 continue;
             }
             int curCol = colIdxIter->second;

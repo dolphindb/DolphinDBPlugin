@@ -30,6 +30,9 @@
  * Author: Jeremy Brown
  */
 
+#include "httpClient.h"
+#include "ddbplugin/CommonInterface.h"
+#include "ddbplugin/PluginLogger.h"
 #include <stdio.h>
 #include <pthread.h>
 #include <openssl/err.h>
@@ -37,15 +40,14 @@
 #include <Exceptions.h>
 #include <ScalarImp.h>
 #include <Util.h>
-#include "httpClient.h"
 #include <curl/curl.h>
 #include <openssl/ssl.h>
 #include <string>
-#include<urlencode.h>
+#include <mutex>
 using namespace std;
 
-httpClient::HttpRequestConfig getHttpRequestConfig(DictionarySP params){
-    httpClient::HttpRequestConfig config;
+HttpRequestConfig getHttpRequestConfig(DictionarySP params){
+    HttpRequestConfig config;
     //proxy
     ConstantSP proxy = params->getMember("proxy");
     if(!proxy->isNull()){
@@ -86,7 +88,7 @@ void checkDictionaryContent(DictionarySP params){
     }
 }
 
-ConstantSP handleHttpRequest(vector<ConstantSP> &args, httpClient::RequestMethod method){
+ConstantSP handleHttpRequest(vector<ConstantSP> &args, RequestMethod method){
     ConstantSP url = args[0];
     ConstantSP params, timeout, headers;
 
@@ -121,7 +123,7 @@ ConstantSP handleHttpRequest(vector<ConstantSP> &args, httpClient::RequestMethod
     } else
         headers = new String("");
 
-    httpClient::HttpRequestConfig config;
+    HttpRequestConfig config;
     if(args.size() >= 5 && !args[4]->isNull()){
         if (args[4]->getForm() != DF_DICTIONARY) {
             throw IllegalArgumentException(__FUNCTION__, "config must be a dictionary");
@@ -132,57 +134,8 @@ ConstantSP handleHttpRequest(vector<ConstantSP> &args, httpClient::RequestMethod
         }
         config = getHttpRequestConfig(dic);
     }
-    return httpClient::httpRequest(method, url, params, timeout, headers, config);
+    return httpRequest(method, url, params, timeout, headers, config);
 }
-
-Mutex mutex;
-
-ConstantSP httpPut(Heap *heap, vector<ConstantSP> &args){
-    LockGuard<Mutex> lk(&mutex);
-    return handleHttpRequest(args, httpClient::PUT);
-}
-ConstantSP httpDelete(Heap *heap, vector<ConstantSP> &args){
-    return handleHttpRequest(args, httpClient::DELETE_);
-}
-
-ConstantSP httpGet(Heap *heap, vector<ConstantSP> &args) {
-    return handleHttpRequest(args, httpClient::GET);
-}
-
-ConstantSP httpPost(Heap *heap, vector<ConstantSP> &args) {
-    return handleHttpRequest(args, httpClient::POST);
-}
-
-namespace httpClient {
-
-    /* This array will store all of the mutexes available to OpenSSL. */
-    vector<Mutex> mutex_buf;
-
-    static void locking_function(int mode, int n, const char *file, int line)
-    {
-        (void)file;
-        (void)line;
-        if (mode & CRYPTO_LOCK)
-            mutex_buf[n].lock();
-        else
-            mutex_buf[n].unlock();
-    }
-
-    static unsigned long id_function(void)
-    {
-        return ((unsigned long)pthread_self());
-    }
-
-    int thread_setup(void)
-    {
-        int i;
-        int nums = CRYPTO_num_locks();
-        for (i = 0; i < nums; i++)
-            mutex_buf.emplace_back(Mutex());
-        CRYPTO_set_id_callback(id_function);
-        CRYPTO_set_locking_callback(locking_function);
-        return 1;
-    }
 
     class Init
     {
@@ -190,7 +143,6 @@ namespace httpClient {
         Init()
         {
             curl_global_init(CURL_GLOBAL_ALL);
-            thread_setup();
         }
     };
 
@@ -201,7 +153,7 @@ namespace httpClient {
         return size * nmemb;
     }
 
-    void getParamString(const DictionarySP &params, string& output) {
+    void getParamString(CURL *curl, const DictionarySP &params, string& output) {
         output.clear();
         ConstantSP keys = params->keys();
         for (int i = 0; i < keys->size(); i++) {
@@ -212,7 +164,9 @@ namespace httpClient {
             output += key->getString();
             output += "=";
             if(!value.empty()) {
-                output += (urlencode::EncodeString(value));
+                auto escaped = curl_easy_escape(curl, value.c_str(), value.size());
+                output += escaped;
+                curl_free(escaped);
             }
         }
     }
@@ -224,7 +178,7 @@ namespace httpClient {
             ConstantSP key = keys->get(i);
             ConstantSP value = headers->getMember(key);
             strHeader += key->getString();
-            strHeader += ':';
+            strHeader += ": ";
             strHeader += value->getString();
             slist = curl_slist_append(slist, strHeader.c_str());
         }
@@ -252,7 +206,7 @@ namespace httpClient {
             string paramString;
 
             if (params->getForm() == DF_DICTIONARY)
-                getParamString(params, paramString);
+                getParamString(curl, params, paramString);
             else
                 paramString = params->getString();
 
@@ -351,9 +305,37 @@ namespace httpClient {
         }
         return res;
     }
+
+ConstantSP httpGet(Heap *heap, argsT &args)
+{
+    std::ignore = heap;
+    return handleHttpRequest(args, GET);
 }
 
-ConstantSP initialize(Heap *heap, vector<ConstantSP> &arguments) {
-    static httpClient::Init init;
+ConstantSP httpPost(Heap *heap, argsT &args)
+{
+    std::ignore = heap;
+    return handleHttpRequest(args, POST);
+}
+
+ConstantSP httpPut(Heap *heap, argsT &args)
+{
+    std::ignore = heap;
+    static std::mutex mtx;
+    std::unique_lock<std::mutex> lk(mtx);
+    return handleHttpRequest(args, PUT);
+}
+
+ConstantSP httpDelete(Heap *heap, argsT &args)
+{
+    std::ignore = heap;
+    return handleHttpRequest(args, DELETE_);
+}
+
+ConstantSP initialize(Heap *heap, argsT &args)
+{
+    std::ignore = heap;
+    std::ignore = args;
+    static Init init;
     return new Void();
 }

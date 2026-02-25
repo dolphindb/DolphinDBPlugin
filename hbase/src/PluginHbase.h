@@ -7,9 +7,9 @@
 
 #include "CoreConcept.h"
 #include "Hbase.h"
-#include <transport/TSocket.h>
+#include "thrift/transport/TSocket.h"
 #include "ddbplugin/CommonInterface.h"
-#include "ddbplugin/PluginLoggerImp.h"
+
 /* INTERFACES */
 
 extern "C" ConstantSP connectH(Heap *heap, vector<ConstantSP> &args);

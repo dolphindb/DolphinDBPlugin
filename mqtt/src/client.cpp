@@ -1,15 +1,17 @@
+#ifdef __linux__
+#include <poll.h>
+#else
+#include <winsock2.h>
+#endif
+
 #include "client.h"
 
 #include "ddbplugin/CommonInterface.h"
 
-#ifdef LINUX
-#include <poll.h>
-#endif
-
 namespace mqtt {
 
 bool checkConnectStatus(int sockfd) {
-#ifdef LINUX
+#ifdef __linux__
     struct pollfd fds[1];
     fds[0].fd = sockfd;
     fds[0].events = POLLOUT;

@@ -1,7 +1,6 @@
 #include "kafkaClient.h"
 #include "Exceptions.h"
 #include "ddbplugin/PluginLogger.h"
-#include "ddbplugin/PluginLoggerImp.h"
 
 using std::map;
 
@@ -166,7 +165,7 @@ void AppendTable::handleErr(const string &errMsg) {
     } catch (...) {
         status_.lastErrMsg_ = "topic=unknown length=1 exception=unknown";
     }
-    PLUGIN_LOG_ERR(KAFKA_PREFIX, status_.lastErrMsg_);
+    LOG_ERR(KAFKA_PREFIX, status_.lastErrMsg_);
 }
 
 void AppendTable::run() {
@@ -179,7 +178,7 @@ void AppendTable::run() {
             }
             msg->msgPtr_ = msgPtr;
             if (UNLIKELY(msg->msgPtr_->err)) {
-                PLUGIN_LOG(KAFKA_PREFIX, "topic=", actionName_, " polls msg failed: ", rd_kafka_err2str(msg->msgPtr_->err));
+                LOG(KAFKA_PREFIX, "topic=", actionName_, " polls msg failed: ", rd_kafka_err2str(msg->msgPtr_->err));
                 continue;
             }
             status_.processedMsgCount_ += 1;
@@ -234,5 +233,5 @@ SubConnection::~SubConnection() {
     if (connected_) {
         connected_ = false;
     }
-    PLUGIN_LOG_INFO(KAFKA_PREFIX, "subJob: " + actionName_ + " is freed");
+    LOG_INFO(KAFKA_PREFIX, "subJob: " + actionName_ + " is freed");
 }

@@ -1,10 +1,8 @@
 #!/bin/bash
 
-mkdir build
-cd build
-cmake ..
-cmake --build . -j
-cd ..
-mkdir -p $CMAKE_INSTALL_PREFIX/$(basename $(pwd))
-cp -f build/libPluginEncoderDecoder.so $CMAKE_INSTALL_PREFIX/$(basename $(pwd))
-cp -f build/PluginEncoderDecoder.txt $CMAKE_INSTALL_PREFIX/$(basename $(pwd))
+source ../build_util.sh
+
+unset FTP_URL
+prepare_dir $@
+build_plugin
+install_plugin

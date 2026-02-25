@@ -17,7 +17,7 @@
 #define MAX_CAPACITY 262144
 #define MAX_PACKET_SIZE 1400
 
-#ifdef LINUX
+#ifdef __linux__
 	#include <netinet/in.h>
     #include <netinet/tcp.h>
     #include <sys/socket.h>
@@ -36,7 +36,7 @@ struct ssl_ctx_st;
 typedef struct ssl_st SSL;
 typedef struct ssl_ctx_st SSL_CTX;
 
-#ifndef WINDOWS
+#ifndef _WIN32
 namespace rdma {
 
 class QPHandle;
@@ -57,7 +57,7 @@ class QPSocket {
 };
 
 }  // namespace rdma
-#endif // ifndef WINDOWS
+#endif // ifndef _WIN32
 
 class Constant;
 class Socket;
@@ -114,14 +114,14 @@ private:
 	SSL* ssl_ = NULL;
 	bool sslEstablished_ = false; // client side only
 
-#ifndef WINDOWS
+#ifndef _WIN32
 public:
 	Socket(rdma::QPSocketSP& qpsock) :  handle_(INVALID_SOCKET), blocking_(false), autoClose_(true), ssl_(nullptr), enableRdma_(true) , qpsock_(qpsock) {}
 	bool enableRDMA() { return enableRdma_; }
 private:
 	bool enableRdma_ = false;
 	rdma::QPSocketSP qpsock_;
-#endif // ifndef WINDOWS
+#endif // ifndef _WIN32
 };
 
 class UdpSocket{

@@ -21,11 +21,11 @@ void kafkaErrorCallback(KafkaHandleBase &handle, int error, const std::string &r
             func->call(heap, args);
         }
     } catch (std::exception &e) {
-        PLUGIN_LOG_ERR(KAFKA_PREFIX, "error in err callback", e.what());
+        LOG_ERR(KAFKA_PREFIX, "error in err callback", e.what());
     } catch (...) {
-        PLUGIN_LOG_ERR(KAFKA_PREFIX, "unknown error in err callback");
+        LOG_ERR(KAFKA_PREFIX, "unknown error in err callback");
     }
-    PLUGIN_LOG_ERR(KAFKA_PREFIX, "error: ", Error((rd_kafka_resp_err_t)error).to_string(), ", reason: ", reason);
+    LOG_ERR(KAFKA_PREFIX, "error: ", Error((rd_kafka_resp_err_t)error).to_string(), ", reason: ", reason);
 }
 
 void kafkaLogCallback(KafkaHandleBase &handle, int level, const std::string &facility, const std::string &message,
@@ -42,11 +42,11 @@ void kafkaLogCallback(KafkaHandleBase &handle, int level, const std::string &fac
                     func->call(heap, args);
                 }
             } catch (std::exception &e) {
-                PLUGIN_LOG_ERR(KAFKA_PREFIX, "error in log call back: ", e.what());
+                LOG_ERR(KAFKA_PREFIX, "error in log call back: ", e.what());
             } catch (...) {
-                PLUGIN_LOG_ERR(KAFKA_PREFIX, "unknown error in log call back");
+                LOG_ERR(KAFKA_PREFIX, "unknown error in log call back");
             }
-            PLUGIN_LOG_ERR(KAFKA_PREFIX + "facility: ", facility, ", message: ", message);
+            LOG_ERR(KAFKA_PREFIX + "facility: ", facility, ", message: ", message);
             break;
         case LogLevel::LogWarning:
             try {
@@ -55,31 +55,31 @@ void kafkaLogCallback(KafkaHandleBase &handle, int level, const std::string &fac
                     func->call(heap, args);
                 }
             } catch (std::exception &e) {
-                PLUGIN_LOG_ERR(KAFKA_PREFIX, "error in log call back: ", e.what());
+                LOG_ERR(KAFKA_PREFIX, "error in log call back: ", e.what());
             } catch (...) {
-                PLUGIN_LOG_ERR(KAFKA_PREFIX, "unknown error in log call back");
+                LOG_ERR(KAFKA_PREFIX, "unknown error in log call back");
             }
-            PLUGIN_LOG_WARN(KAFKA_PREFIX + "facility: ", facility, ", message: ", message);
+            LOG_WARN(KAFKA_PREFIX + "facility: ", facility, ", message: ", message);
             break;
         case LogLevel::LogNotice:
         case LogLevel::LogInfo:
-            PLUGIN_LOG_INFO(KAFKA_PREFIX + "facility: ", facility, ", message: ", message);
+            LOG_INFO(KAFKA_PREFIX + "facility: ", facility, ", message: ", message);
             break;
         case LogLevel::LogDebug:
         default:
-            PLUGIN_LOG(KAFKA_PREFIX + "facility: ", facility, ", message: ", message);
+            LOG(KAFKA_PREFIX + "facility: ", facility, ", message: ", message);
     }
 }
 void kafkaStatCallBack(KafkaHandleBase &handle, const std::string &json) {
-    PLUGIN_LOG_INFO(KAFKA_PREFIX, handle.get_name(), " stat: ", json);
+    LOG_INFO(KAFKA_PREFIX, handle.get_name(), " stat: ", json);
 }
 
 void kafkaDeliveryReportCallback(Producer& producer, const Message&) {
-    PLUGIN_LOG_INFO(KAFKA_PREFIX, __FUNCTION__);
+    LOG_INFO(KAFKA_PREFIX, __FUNCTION__);
 }
 
 void kafkaEventCallBack(KafkaHandleBase &handle, Event e) {
-    PLUGIN_LOG_INFO(KAFKA_PREFIX, handle.get_name(), " event: ", e.get_name(), e.get_type(), e.get_stats());
+    LOG_INFO(KAFKA_PREFIX, handle.get_name(), " event: ", e.get_name(), e.get_type(), e.get_stats());
 }
 
 Configuration createConf(ConstantSP &dict, const string &funcName, bool consumer, Heap *heap, FunctionDefSP func) {
@@ -419,7 +419,7 @@ ConstantSP jsonDeserialize(const string &buffer, KafkaMarshalType marshalType) {
                 value = Util::createNullConstant(DT_ANY);
             } else if (it.value().is_number_integer() || it.value().is_number_unsigned()) {
                 if (*it > 0x7fffffffffffffffL) {
-                    PLUGIN_LOG_INFO(KAFKA_PREFIX + "The integer is too large and it will be cast to string.");
+                    LOG_INFO(KAFKA_PREFIX + "The integer is too large and it will be cast to string.");
                     value = Util::createConstant(DT_STRING);
                     string temp = it.value().dump();
                     value->setString(temp.substr(0, temp.length()));
@@ -438,7 +438,7 @@ ConstantSP jsonDeserialize(const string &buffer, KafkaMarshalType marshalType) {
                 string temp = it.value().dump();
                 value->setString(temp.substr(1, temp.length() - 2));
             } else {
-                PLUGIN_LOG_INFO(KAFKA_PREFIX + string(*it) + ":un defined data type.");
+                LOG_INFO(KAFKA_PREFIX + string(*it) + ":un defined data type.");
                 value = Util::createNullConstant(DT_ANY);
             }
             auto key = Util::createConstant(DT_STRING);
@@ -452,7 +452,7 @@ ConstantSP jsonDeserialize(const string &buffer, KafkaMarshalType marshalType) {
             ConstantSP value;
             if (it->is_number_integer() || it->is_number_unsigned()) {
                 if (*it > 0x7fffffffffffffffL) {
-                    PLUGIN_LOG_INFO(KAFKA_PREFIX + "The integer is too large and it will be cast to string.");
+                    LOG_INFO(KAFKA_PREFIX + "The integer is too large and it will be cast to string.");
                     value = Util::createConstant(DT_STRING);
                     string temp = it.value().dump();
                     value->setString(temp.substr(0, temp.length()));
@@ -478,7 +478,7 @@ ConstantSP jsonDeserialize(const string &buffer, KafkaMarshalType marshalType) {
                 string temp = it.value().dump();
                 value->setString(temp.substr(1, temp.length() - 2));
             } else {
-                PLUGIN_LOG_INFO(KAFKA_PREFIX + string(*it) + ":un defined data type.");
+                LOG_INFO(KAFKA_PREFIX + string(*it) + ":un defined data type.");
                 value = Util::createNullConstant(DT_ANY);
             }
             result->append(value);

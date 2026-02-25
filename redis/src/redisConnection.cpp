@@ -2,24 +2,21 @@
 
 #include <ctime>
 
-const int BUFFER_SIZE = 1024;
-const string CONN_ERR = ", this connection cannot be reused and you should release it and create a new connection.";
+#include "ddbplugin/Plugin.h"
+#include "ddbplugin/PluginLogger.h"
 
-class RedisReplyGuard {
-  public:
-    RedisReplyGuard(redisReply *r) : reply_(r) {}
+static const int BUFFER_SIZE = 1024;
 
-    ~RedisReplyGuard() {
-        if (reply_ != nullptr) {
-            freeReplyObject(reply_);
-        }
-    }
-
+class DeferClose {
   private:
-    redisReply *reply_ = nullptr;
+    bool &ref_;
+
+  public:
+    DeferClose(bool &flag) : ref_(flag) {}
+    ~DeferClose() { ref_ = true; }
 };
 
-static ConstantSP convertRedisReply(const redisReply *const reply) {
+ConstantSP convertRedisReply(const redisReply *const reply) {
     if (reply == nullptr) {
         return new Void();
     }
@@ -79,7 +76,7 @@ RedisConnection::~RedisConnection() {
     }
 }
 
-ConstantSP RedisConnection::redisRun(const vector<ConstantSP> &args, const string& command) {
+ConstantSP RedisConnection::redisRun(const vector<ConstantSP> &args, const string &command) {
     size_t sz = args.size();
     for (size_t i = 1; i < sz; i++) {
         if (args[i]->getForm() != DF_SCALAR || args[i]->getType() != DT_STRING) {
@@ -88,6 +85,7 @@ ConstantSP RedisConnection::redisRun(const vector<ConstantSP> &args, const strin
         }
     }
     LockGuard<Mutex> guard(&redisMutex_);
+    checkIsSub("run");
 
     int argsLen = sz - 1;
     vector<string> strings;
@@ -125,6 +123,7 @@ ConstantSP RedisConnection::redisBatchSet(const vector<ConstantSP> &args) {
                                        "[Plugin::Redis] Argument keys and values must have the same size.");
     }
     LockGuard<Mutex> guard(&redisMutex_);
+    checkIsSub("batchSet");
 
     char *keysBuffer[BUFFER_SIZE];
     char *valuesBuffer[BUFFER_SIZE];
@@ -164,6 +163,7 @@ ConstantSP RedisConnection::redisBatchHashSet(const vector<ConstantSP> &args) {
                                        "[Plugin::Redis] Arguments idCol and tb must have the same num of rows.");
     }
     LockGuard<Mutex> guard(&redisMutex_);
+    checkIsSub("batchHashSet");
 
     DolphinString *idBuffer[BUFFER_SIZE];
     DolphinString *valueBuffer[BUFFER_SIZE];
@@ -224,7 +224,10 @@ ConstantSP RedisConnection::redisBatchHashSet(const vector<ConstantSP> &args) {
                     argvlen[8] = strlen(argv[8]);
                     argv[9] = values4[i]->c_str();
                     argvlen[9] = strlen(argv[9]);
-                    redisAppendCommandArgv(redisConnect_, 10, &argv[0], &argvlen[0]);
+                    if (redisAppendCommandArgv(redisConnect_, 10, &argv[0], &argvlen[0]) != REDIS_OK) {
+                        throw RuntimeException("[Plugin::Redis] Failed to append redis command: " +
+                                               string(redisConnect_->errstr) + CONN_ERR);
+                    }
                 }
             } else {
                 VectorSP col = ((Table *)args[2].get())->getColumn(colIndex);
@@ -245,7 +248,10 @@ ConstantSP RedisConnection::redisBatchHashSet(const vector<ConstantSP> &args) {
                     argvlen[2] = strlen(argv[2]);
                     argv[3] = values[i]->c_str();
                     argvlen[3] = strlen(argv[3]);
-                    redisAppendCommandArgv(redisConnect_, 4, &argv[0], &argvlen[0]);
+                    if (redisAppendCommandArgv(redisConnect_, 4, &argv[0], &argvlen[0]) != REDIS_OK) {
+                        throw RuntimeException("[Plugin::Redis] Failed to append redis command: " +
+                                               string(redisConnect_->errstr) + CONN_ERR);
+                    }
                 }
             }
 
@@ -308,6 +314,7 @@ static string checkArgsInBatchPush(const vector<ConstantSP> &args) {
 ConstantSP RedisConnection::redisBatchPush(const vector<ConstantSP> &args) {
     string command = checkArgsInBatchPush(args);
     LockGuard<Mutex> guard(&redisMutex_);
+    checkIsSub("batchPush");
 
     vector<const char *> argv(1);
     vector<size_t> argvlen(1);
@@ -346,7 +353,10 @@ ConstantSP RedisConnection::redisBatchPush(const vector<ConstantSP> &args) {
                 }
                 start2 += count2;
             }
-            redisAppendCommandArgv(redisConnect_, argv.size(), &argv[0], &argvlen[0]);
+            if (redisAppendCommandArgv(redisConnect_, argv.size(), &argv[0], &argvlen[0]) != REDIS_OK) {
+                throw RuntimeException(
+                    "[Plugin::Redis] Failed to append redis command: " + string(redisConnect_->errstr) + CONN_ERR);
+            }
         }
 
         for (int i = 0; i < count; ++i) {
@@ -369,6 +379,7 @@ ConstantSP RedisConnection::redisBatchGet(const vector<ConstantSP> &args) {
         throw IllegalArgumentException(__FUNCTION__, "[Plugin::Redis] Argument keys must be a string vector.");
     }
     LockGuard<Mutex> guard(&redisMutex_);
+    checkIsSub("batchGet");
 
     VectorSP keyVec = args[1];
     int len = keyVec->size();
@@ -417,6 +428,82 @@ ConstantSP RedisConnection::redisBatchGet(const vector<ConstantSP> &args) {
     return result;
 }
 
+void RedisConnection::subscribe(Heap *heap, const vector<string> &channels, const FunctionDefSP &callback,
+                                bool isPattern, const string &password) {
+    LockGuard<Mutex> guard(&redisMutex_);
+    if (!session_.isNull()) throw RuntimeException("[Plugin::Redis] Already invoke subscribe.");
+
+    const timeval timeout = {2, 0};
+    if (redisSetTimeout(redisConnect_, timeout) != REDIS_OK) {
+        throw RuntimeException("[Plugin::Redis] Fail to set timeout: " + string(redisConnect_->errstr));
+    }
+    if (!password.empty()) {
+        string cmd = "AUTH " + password;
+        redisReply *reply = static_cast<redisReply *>(redisCommand(redisConnect_, cmd.c_str()));
+        RedisReplyGuard replyGuard(reply);
+        if (redisConnect_->err) {
+            throw RuntimeException("[Plugin::Redis] AUTH in subscribeStream failed: " + string(redisConnect_->errstr) +
+                                   CONN_ERR);
+        }
+        if (reply == nullptr) {
+            throw RuntimeException("[Plugin::Redis] AUTH in subscribeStream failed: invalid redis reply.");
+        }
+        if (reply->type == REDIS_REPLY_ERROR) {
+            throw RuntimeException("[Plugin::Redis] AUTH in subscribeStream failed: " + string(reply->str));
+        }
+    }
+
+    isPattern_ = isPattern;
+    password_ = password;
+    buildSubCommand(channels, true);
+    if (redisAppendCommand(redisConnect_, channelStr_.c_str()) != REDIS_OK) {
+        throw RuntimeException("[Plugin::Redis] Failed to subscribe: " + string(redisConnect_->errstr) + CONN_ERR);
+    }
+    string errMsg = checkSubReply(numChannels_);
+    if (!errMsg.empty()) throw RuntimeException(errMsg);
+
+    callback_ = callback;
+    initSubThreads(heap);
+}
+
+void RedisConnection::unsubscribe(const vector<string> &channels) {
+    LockGuard<Mutex> guard(&redisMutex_);
+    if (session_.isNull()) throw RuntimeException("[Plugin::Redis] Haven't subscribe any channel yet.");
+    {
+        LockGuard<Mutex> channelGuard(&channelMutex_);
+        buildSubCommand(channels, false);
+        isChanged_ = true;
+    }
+
+    for (int i = 0; i < 50; ++i) {
+        Util::sleep(200);  // 200 ms
+        LockGuard<Mutex> channelGuard(&channelMutex_);
+        if (!isChanged_ || isClosed_) return;
+    }
+    throw RuntimeException("[Plugin::Redis] Unsubscribe timeout.");
+    isClosed_ = true;
+}
+
+string RedisConnection::getSubscriptions() {
+    LockGuard<Mutex> channelGuard(&channelMutex_);
+    string subscriptions;
+    for (const auto &chan : channels_) {
+        subscriptions += chan + " ";
+    }
+    return subscriptions;
+}
+
+void RedisConnection::stopListen() {
+    LockGuard<Mutex> guard(&redisMutex_);
+    isClosed_ = true;
+    if (!listener_.isNull()) {
+        listener_->join();
+    }
+    if (!handler_.isNull()) {
+        handler_->join();
+    }
+}
+
 void RedisConnection::checkReply(const redisReply *reply, const string &command) {
     if (redisConnect_->err) {
         throw RuntimeException("[Plugin::Redis] Execute command failed: " + string(redisConnect_->errstr) + CONN_ERR);
@@ -427,4 +514,222 @@ void RedisConnection::checkReply(const redisReply *reply, const string &command)
     if (reply->type == REDIS_REPLY_ERROR) {
         throw RuntimeException("[Plugin::Redis] " + command + " failed: " + string(reply->str));
     }
+}
+
+void RedisConnection::checkIsSub(const string &funcName) const {
+    if (!session_.isNull())
+        throw RuntimeException("[Plugin::Redis] Can't execute " + funcName + " interface in subscribe mode.");
+}
+
+string RedisConnection::checkSubReplyHelper(const redisReply *reply) const {
+    string errorMsg;
+    if (redisConnect_->err) {
+        errorMsg = string(redisConnect_->errstr) + CONN_ERR;
+    } else if (reply == nullptr) {
+        errorMsg = "invalid redis reply.";
+    } else if (reply->type == REDIS_REPLY_ERROR) {
+        errorMsg = string(reply->str);
+    }
+
+    if (!errorMsg.empty()) {
+        errorMsg = "[Plugin::Redis] Subscribe failed. (subscribe fail: " + errorMsg + ")";
+    } else if (reply->type != REDIS_REPLY_ARRAY || (reply->elements < 3 || reply->elements > 4)) {
+        errorMsg = "[Plugin::Redis] Invalid subscribe message reply.";
+    }
+    return errorMsg;
+}
+
+string RedisConnection::checkSubReply(int numChannels) const {
+    redisReply *reply;
+    for (int i = 0; i < numChannels; ++i) {
+        if (redisGetReply(redisConnect_, (void **)&reply) != REDIS_OK) {
+            return "[Plugin::Redis] Failed to subscribe: " + string(redisConnect_->errstr) + CONN_ERR;
+        }
+
+        RedisReplyGuard replyGuard(reply);
+        string errorMsg = checkSubReplyHelper(reply);
+        if (!errorMsg.empty()) {
+            return errorMsg;
+        }
+
+        string head = reply->element[0]->str;
+        string expectHead = (isPattern_) ? "psubscribe" : "subscribe";
+        if (head != expectHead) {
+            return "[Plugin::Redis] The message head is not '" + expectHead + "', but " + head + ".";
+        }
+    }
+    return "";
+}
+
+void RedisConnection::initSubThreads(Heap *heap) {
+    // copy session
+    session_ = heap->currentSession()->copy();
+    session_->setUser(heap->currentSession()->getUser());
+    session_->setOutput(new DummyOutput);
+
+    // start listener thread
+    listener_ = new Thread(new dolphindb::Executor([this]() {
+        DeferClose _(isClosed_);
+        try {
+            const timeval timeout = {2, 0};
+            const int chanIdx = (isPattern_) ? 2 : 1;
+            const int msgIdx = (isPattern_) ? 3 : 2;
+            const string expectHead = (isPattern_) ? "pmessage" : "message";
+            RedisMsg msg;
+            redisReply *reply;
+            while (!isClosed_) {
+                if (redisGetReply(redisConnect_, (void **)&reply) != REDIS_OK) {
+#ifdef __linux__
+                    if (redisConnect_->err != REDIS_ERR_IO || errno != EAGAIN) {
+#else
+                    if (redisConnect_->err != REDIS_ERR_TIMEOUT || errno != ETIMEDOUT) {
+#endif
+                        LOG_ERR("[Plugin::Redis] Failed to receive message: " + string(redisConnect_->errstr) +
+                                       CONN_ERR + "(errno: " + std::to_string(errno) + ")");
+                    } else if (reconnect(timeout)) {
+                        continue;
+                    }
+                    break;
+                }
+
+                if (isClosed_) {
+                    break;
+                }
+                RedisReplyGuard replyGuard(reply);
+                string errMsg = checkSubReplyHelper(reply);
+                if (!errMsg.empty()) {
+                    LOG_ERR(errMsg);
+                    break;
+                }
+                string head = reply->element[0]->str;
+                if (head != expectHead) {
+                    LOG_ERR("[Plugin::Redis] The message head is not '" + expectHead + "', but " + head + ".");
+                    break;
+                }
+                msg.channel_ = reply->element[chanIdx]->str;
+                msg.msg_ = reply->element[msgIdx]->str;
+
+                LockGuard<Mutex> channelGuard(&channelMutex_);
+                if (isChanged_) {
+                    if (channels_.find(msg.channel_) != channels_.end()) {
+                        msgQueue_.push(msg);
+                    }
+                    if (!reconnect(timeout)) {
+                        break;
+                    }
+                } else {
+                    msgQueue_.push(msg);
+                }
+            }
+            LOG_INFO("[Plugin::Redis] Lisitener thread closed.");
+        } catch (std::exception &ex) {
+            LOG_ERR("[Plugin::Redis] catch exception in listener thread. " + string(ex.what()));
+        } catch (...) {
+            LOG_ERR("[Plugin::Redis] catch unknown exception in listener thread.");
+        }
+    }));
+    listener_->start();
+
+    // start handler thread
+    handler_ = new Thread(new dolphindb::Executor([this]() {
+        DeferClose _(isClosed_);
+        try {
+            const int QUEUE_MSG_BATCH_SIZE = 1024;
+            Heap *heap = session_->getHeap().get();
+            vector<ConstantSP> args = {new String(), new String()};
+
+            vector<RedisMsg> msgVec;
+            msgVec.reserve(QUEUE_MSG_BATCH_SIZE);
+            while (!isClosed_) {
+                // get msg from queue
+                msgVec.clear();
+                msgQueue_.blockingPop(msgVec, QUEUE_MSG_BATCH_SIZE, 100);  // timeout 100 ms
+
+                // handle callback
+                for (const auto &msg : msgVec) {
+                    args[0]->setString(msg.channel_);
+                    args[1]->setString(msg.msg_);
+                    callback_->call(heap, args);
+                }
+            }
+            LOG_INFO("[Plugin::Redis] Hanlder thread closed.");
+        } catch (std::exception &ex) {
+            LOG_ERR("[Plugin::Redis] catch exception in handler thread. " + string(ex.what()));
+        } catch (...) {
+            LOG_ERR("[Plugin::Redis] catch unknown exception in handler thread.");
+        }
+    }));
+    handler_->start();
+}
+
+bool RedisConnection::reconnect(const timeval &timeout) {
+    if (redisReconnect(redisConnect_) != REDIS_OK || redisSetTimeout(redisConnect_, timeout) != REDIS_OK) {
+        LOG_ERR("[Plugin::Redis] Reconnect failed: " + string(redisConnect_->errstr));
+        return false;
+    }
+    if (!password_.empty()) {
+        string cmd = "AUTH " + password_;
+        redisReply *reply = static_cast<redisReply *>(redisCommand(redisConnect_, cmd.c_str()));
+        RedisReplyGuard replyGuard(reply);
+        if (redisConnect_->err) {
+            LOG_ERR("[Plugin::Redis] AUTH in subscribe failed: " + string(redisConnect_->errstr) + CONN_ERR);
+            return false;
+        }
+        if (reply == nullptr) {
+            LOG_ERR("[Plugin::Redis] AUTH in subscribe failed: invalid redis reply.");
+            return false;
+        }
+        if (reply->type == REDIS_REPLY_ERROR) {
+            LOG_ERR("[Plugin::Redis] AUTH in subscribe failed: " + string(reply->str));
+            return false;
+        }
+    }
+
+    LockGuard<Mutex> channelGuard(&channelMutex_);
+    if (!numChannels_) {
+        LOG_ERR("[Plugin::Redis] There's no channel to subscribe.");
+        return false;
+    }
+    if (redisAppendCommand(redisConnect_, channelStr_.c_str()) != REDIS_OK) {
+        LOG_ERR("[Plugin::Redis] Failed to subscribe: " + string(redisConnect_->errstr) + CONN_ERR);
+        return false;
+    }
+    string errMsg = checkSubReply(numChannels_);
+    if (!errMsg.empty()) {
+        LOG_ERR(errMsg);
+        return false;
+    }
+
+    isChanged_ = false;
+    return true;
+}
+
+static bool isInvalidChannel(const string &channel) {
+    for (const auto &ch : channel) {
+        if (ch != ' ') return false;
+    }
+    return true;
+}
+
+void RedisConnection::buildSubCommand(const vector<string> &channels, bool isSub) {
+    for (const auto &chan : channels) {
+        if (isSub) {
+            if (isInvalidChannel(chan)) {
+                throw RuntimeException("[Plugin::Redis] Invalid chanel: " + chan + ".");
+            }
+            channels_.insert(chan);
+        } else {
+            if (!channels_.count(chan)) {
+                throw RuntimeException("[Plugin::Redis] There's no such channel or pattern: " + chan + ".");
+            }
+            channels_.erase(chan);
+        }
+    }
+
+    string command = (isPattern_) ? "PSUBSCRIBE" : "SUBSCRIBE";
+    for (const auto &chan : channels_) {
+        command += " " + chan;
+    }
+    numChannels_ = channels_.size();
+    channelStr_ = command;
 }

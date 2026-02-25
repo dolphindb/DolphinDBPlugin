@@ -1,6 +1,6 @@
 #!/bin/bash
-export PATH="/home/api/toolchain/gcc-8/bin/:$PATH"
-
+source ~/.bashrc
+select_toolchain "gcc-8.4.0"
 source ../build_util.sh
 source $(dirname $(which conda))/../etc/profile.d/conda.sh
 
