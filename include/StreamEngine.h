@@ -5,6 +5,7 @@
 #ifndef DOLPHINDB_STREAMENGINE_H
 #define DOLPHINDB_STREAMENGINE_H
 
+#include "Types.h"
 #include "Util.h"
 #include "ScalarImp.h"
 #include "CoreConcept.h"
@@ -13,19 +14,18 @@
 
 namespace ddb {
 
-class MarketDataRow : public Constant {
+class MarketDataRow : public SysObj {
 public:
-    MarketDataRow() : Constant() {
+    MarketDataRow() : SysObj(SYSOBJ_TYPE::MARKETDATAROW) {
     }
     MarketDataRow(std::string &code, int type, int side, int time, int msgType, int64_t price, int64_t qty,
                   int64_t seq, int64_t buyOrder, int64_t sellOrder, int64_t receiveTime)
-        : Constant(), code(code), type(type), side(side), time(time), msgType(msgType),
+        : SysObj(SYSOBJ_TYPE::MARKETDATAROW), code(code), type(type), side(side), time(time), msgType(msgType),
           price(price), qty(qty), seq(seq), buyOrder(buyOrder), sellOrder(sellOrder), receiveTime(receiveTime)
            {}
-    ~MarketDataRow() override{};
-    DATA_TYPE getRawType() const override {return DT_MKTDATAROW;}
-    ConstantSP getInstance() const override {return getValue();}
-    ConstantSP getValue() const override {
+    virtual ~MarketDataRow(){};
+    virtual ConstantSP getInstance() const {return getValue();}
+    virtual ConstantSP getValue() const {
         return ConstantSP(new MarketDataRow(*this));
     }
 
@@ -96,6 +96,12 @@ public:
      * should be non-blocking, e.g. set some flags and return immediately
      */
     virtual void finalize() {}
+
+    /**
+     * (optional) blocking cleanup called by dropStreamEngine after remove().
+     * Stops background threads and joins them. Safe to call multiple times.
+     */
+    virtual void shutdown() {}
 
     /**
      * (optional) use historical data (state) to warm up the stream engine.

@@ -340,7 +340,143 @@ bool convertDTToUA(UA_Variant *variant, ConstantSP value) {
     return false;
 }
 
-string UAStringToString(UA_String uastr) { return string(uastr.data, uastr.data + uastr.length); }
+string to_string(const UA_String &uastr) {
+    if (uastr.length == 0 || uastr.data == nullptr) {
+        return "";
+    }
+    return {uastr.data, uastr.data + uastr.length};
+}
+
+static const char *open62541LogCategoryName(UA_LogCategory category) {
+    switch (category) {
+        case UA_LOGCATEGORY_NETWORK:
+            return "network";
+        case UA_LOGCATEGORY_SECURECHANNEL:
+            return "channel";
+        case UA_LOGCATEGORY_SESSION:
+            return "session";
+        case UA_LOGCATEGORY_SERVER:
+            return "server";
+        case UA_LOGCATEGORY_CLIENT:
+            return "client";
+        case UA_LOGCATEGORY_APPLICATION:
+            return "application";
+        case UA_LOGCATEGORY_SECURITY:
+            return "security";
+        case UA_LOGCATEGORY_EVENTLOOP:
+            return "eventloop";
+        case UA_LOGCATEGORY_PUBSUB:
+            return "pubsub";
+        case UA_LOGCATEGORY_DISCOVERY:
+            return "discovery";
+        default:
+            return "unknown";
+    }
+}
+
+static void open62541Log(void *logContext, UA_LogLevel level, UA_LogCategory category, const char *msg, va_list args) {
+    std::ignore = logContext;
+    UA_String formatted = UA_STRING_NULL;
+    string message = msg == nullptr ? "" : msg;
+    if (msg != nullptr && UA_String_vformat(&formatted, msg, args) == UA_STATUSCODE_GOOD) {
+        message = to_string(formatted);
+    }
+    UA_String_clear(&formatted);
+
+    const char *categoryName = open62541LogCategoryName(category);
+    if (level >= UA_LOGLEVEL_ERROR) {
+        LOG_ERR(OPCUA_PREFIX, "open62541/", categoryName, ": ", message);
+    } else if (level >= UA_LOGLEVEL_WARNING) {
+        LOG_WARN(OPCUA_PREFIX, "open62541/", categoryName, ": ", message);
+    } else if (level >= UA_LOGLEVEL_INFO) {
+        LOG_INFO(OPCUA_PREFIX, "open62541/", categoryName, ": ", message);
+    } else {
+        LOG(OPCUA_PREFIX, "open62541/", categoryName, ": ", message);
+    }
+}
+
+static UA_Logger OPCUA_LOGGER = {open62541Log, nullptr, nullptr};
+
+static void setOPCUALogger(UA_ClientConfig *config) {
+    config->logging = &OPCUA_LOGGER;
+    if (config->eventLoop != nullptr) {
+        config->eventLoop->logger = &OPCUA_LOGGER;
+    }
+}
+
+using SecurityPolicyInitializer = UA_StatusCode (*)(UA_SecurityPolicy *, UA_ByteString, UA_ByteString,
+                                                    const UA_Logger *);
+
+static bool hasSecurityPolicy(UA_SecurityPolicy *policies, size_t policyCount, const char *policyUri) {
+    for (size_t i = 0; i < policyCount; ++i) {
+        if (to_string(policies[i].policyUri) == policyUri) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static UA_StatusCode appendSecurityPolicy(UA_SecurityPolicy **policies, size_t *policyCount, const char *policyUri,
+                                          UA_ByteString certificate, UA_ByteString privateKey,
+                                          const UA_Logger *logger, SecurityPolicyInitializer initializer) {
+    if (hasSecurityPolicy(*policies, *policyCount, policyUri)) {
+        return UA_STATUSCODE_GOOD;
+    }
+
+    UA_SecurityPolicy *resized =
+        static_cast<UA_SecurityPolicy *>(UA_realloc(*policies, sizeof(UA_SecurityPolicy) * (*policyCount + 1)));
+    if (resized == nullptr) {
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+    }
+    *policies = resized;
+
+    UA_SecurityPolicy *policy = &(*policies)[*policyCount];
+    memset(policy, 0, sizeof(UA_SecurityPolicy));
+    UA_StatusCode retval = initializer(policy, certificate, privateKey, logger);
+    if (retval != UA_STATUSCODE_GOOD) {
+        if (policy->clear != nullptr) {
+            policy->clear(policy);
+        }
+        memset(policy, 0, sizeof(UA_SecurityPolicy));
+        return retval;
+    }
+    ++(*policyCount);
+    return UA_STATUSCODE_GOOD;
+}
+
+static UA_StatusCode addLegacySecurityPolicies(UA_ClientConfig *config, UA_ByteString certificate,
+                                               UA_ByteString privateKey) {
+    const UA_Logger *logger = config->logging != nullptr ? config->logging : &OPCUA_LOGGER;
+    static const char *BASIC128_RSA15_URI = "http://opcfoundation.org/UA/SecurityPolicy#Basic128Rsa15";
+    static const char *BASIC256_URI = "http://opcfoundation.org/UA/SecurityPolicy#Basic256";
+
+    UA_StatusCode retval = appendSecurityPolicy(&config->securityPolicies, &config->securityPoliciesSize,
+                                                BASIC128_RSA15_URI, certificate, privateKey, logger,
+                                                UA_SecurityPolicy_Basic128Rsa15);
+    if (retval != UA_STATUSCODE_GOOD) {
+        return retval;
+    }
+    retval = appendSecurityPolicy(&config->securityPolicies, &config->securityPoliciesSize, BASIC256_URI, certificate,
+                                  privateKey, logger, UA_SecurityPolicy_Basic256);
+    if (retval != UA_STATUSCODE_GOOD) {
+        return retval;
+    }
+    retval = appendSecurityPolicy(&config->authSecurityPolicies, &config->authSecurityPoliciesSize,
+                                  BASIC128_RSA15_URI, certificate, privateKey, logger,
+                                  UA_SecurityPolicy_Basic128Rsa15);
+    if (retval != UA_STATUSCODE_GOOD) {
+        return retval;
+    }
+    return appendSecurityPolicy(&config->authSecurityPolicies, &config->authSecurityPoliciesSize, BASIC256_URI,
+                                certificate, privateKey, logger, UA_SecurityPolicy_Basic256);
+}
+
+static size_t getUATypeIndex(const UA_DataType *type) {
+    if (type >= UA_TYPES && type < UA_TYPES + UA_TYPES_COUNT) {
+        return static_cast<size_t>(type - UA_TYPES);
+    }
+    return UA_TYPES_COUNT;
+}
 
 ConstantSP toConstant(UA_Variant variant) {
     bool flag = variant.arrayLength <= 1;
@@ -362,227 +498,174 @@ ConstantSP toConstant(UA_Variant variant) {
         nRows = 1;
         nCols = variant.arrayLength;
     }
-    switch (variant.type->typeIndex) {
+    if (nRows * nCols != variant.arrayLength) {
+        throw RuntimeException(OPCUA_PREFIX + "variant arrayLength not matched.");
+    }
+    const size_t typeIndex = getUATypeIndex(variant.type);
+    string s;
+    switch (typeIndex) {
         case UA_TYPES_BOOLEAN:
             if (flag)
                 return new Bool(*(bool *)variant.data);
-            else {
-                string s;
-                if (nRows * nCols != variant.arrayLength)
-                    throw RuntimeException(OPCUA_PREFIX + "variant arrayLength not matched.");
-                for (UA_UInt32 row = 0; row < nRows; ++row) {
-                    for (UA_UInt32 col = 0; col < nCols; ++col) {
-                        if (*((bool *)variant.data + row * nCols + col) == true)
-                            s += "true";
-                        else
-                            s += "false";
-                        if (col < nCols - 1) {
-                            s += delimiter;
-                        }
+            for (UA_UInt32 row = 0; row < nRows; ++row) {
+                for (UA_UInt32 col = 0; col < nCols; ++col) {
+                    if (*((bool *)variant.data + row * nCols + col) == true)
+                        s += "true";
+                    else
+                        s += "false";
+                    if (col < nCols - 1) {
+                        s += delimiter;
                     }
-                    s += rowDelimiter;
                 }
-                return new String(s);
+                s += rowDelimiter;
             }
+            return new String(s);
         case UA_TYPES_FLOAT:
             if (flag)
                 return new Float(*(float *)variant.data);
-            else {
-                string s;
-                if (nRows * nCols != variant.arrayLength)
-                    throw RuntimeException(OPCUA_PREFIX + "variant arrayLength not matched.");
-                for (UA_UInt32 row = 0; row < nRows; ++row) {
-                    for (UA_UInt32 col = 0; col < nCols; ++col) {
-                        s += std::to_string(*((float *)(variant.data) + row * nCols + col));
-                        if (col < nCols - 1) {
-                            s += delimiter;
-                        }
+            for (UA_UInt32 row = 0; row < nRows; ++row) {
+                for (UA_UInt32 col = 0; col < nCols; ++col) {
+                    s += std::to_string(*((float *)(variant.data) + row * nCols + col));
+                    if (col < nCols - 1) {
+                        s += delimiter;
                     }
-                    s += rowDelimiter;
                 }
-                return new String(s);
+                s += rowDelimiter;
             }
+            return new String(s);
         case UA_TYPES_DOUBLE:
             if (flag)
                 return new Double(*(double *)variant.data);
-            else {
-                string s;
-                if (nRows * nCols != variant.arrayLength)
-                    throw RuntimeException(OPCUA_PREFIX + "variant arrayLength not matched.");
-                for (UA_UInt32 row = 0; row < nRows; ++row) {
-                    for (UA_UInt32 col = 0; col < nCols; ++col) {
-                        s += std::to_string(*((double *)(variant.data) + row * nCols + col));
-                        if (col < nCols - 1) {
-                            s += delimiter;
-                        }
+            for (UA_UInt32 row = 0; row < nRows; ++row) {
+                for (UA_UInt32 col = 0; col < nCols; ++col) {
+                    s += std::to_string(*((double *)(variant.data) + row * nCols + col));
+                    if (col < nCols - 1) {
+                        s += delimiter;
                     }
-                    s += rowDelimiter;
                 }
-                return new String(s);
+                s += rowDelimiter;
             }
+            return new String(s);
         case UA_TYPES_UINT16:
             if (flag)
                 return new Int((int)(*(UA_UInt16 *)variant.data));
-            else {
-                string s;
-                if (nRows * nCols != variant.arrayLength)
-                    throw RuntimeException(OPCUA_PREFIX + "variant arrayLength not matched.");
-                for (UA_UInt32 row = 0; row < nRows; ++row) {
-                    for (UA_UInt32 col = 0; col < nCols; ++col) {
-                        s += std::to_string((int)(*((UA_UInt16 *)variant.data + row * nCols + col)));
-                        if (col < nCols - 1) {
-                            s += delimiter;
-                        }
+            for (UA_UInt32 row = 0; row < nRows; ++row) {
+                for (UA_UInt32 col = 0; col < nCols; ++col) {
+                    s += std::to_string((int)(*((UA_UInt16 *)variant.data + row * nCols + col)));
+                    if (col < nCols - 1) {
+                        s += delimiter;
                     }
-                    s += rowDelimiter;
                 }
-                return new String(s);
+                s += rowDelimiter;
             }
+            return new String(s);
         case UA_TYPES_INT32:
             if (flag)
                 return new Int(*(int *)variant.data);
-            else {
-                string s;
-                if (nRows * nCols != variant.arrayLength)
-                    throw RuntimeException(OPCUA_PREFIX + "variant arrayLength not matched.");
-                for (UA_UInt32 row = 0; row < nRows; ++row) {
-                    for (UA_UInt32 col = 0; col < nCols; ++col) {
-                        s += std::to_string(*((int *)(variant.data) + row * nCols + col));
-                        if (col < nCols - 1) {
-                            s += delimiter;
-                        }
+            for (UA_UInt32 row = 0; row < nRows; ++row) {
+                for (UA_UInt32 col = 0; col < nCols; ++col) {
+                    s += std::to_string(*((int *)(variant.data) + row * nCols + col));
+                    if (col < nCols - 1) {
+                        s += delimiter;
                     }
-                    s += rowDelimiter;
                 }
-                return new String(s);
+                s += rowDelimiter;
             }
+            return new String(s);
         case UA_TYPES_UINT32:
             if (flag)
                 return new Long((long long)(*(UA_UInt32 *)variant.data));
-            else {
-                string s;
-                if (nRows * nCols != variant.arrayLength)
-                    throw RuntimeException(OPCUA_PREFIX + "variant arrayLength not matched.");
-                for (UA_UInt32 row = 0; row < nRows; ++row) {
-                    for (UA_UInt32 col = 0; col < nCols; ++col) {
-                        s += std::to_string((long long)(*((UA_UInt32 *)(variant.data) + row * nCols + col)));
-                        if (col < nCols - 1) {
-                            s += delimiter;
-                        }
+            for (UA_UInt32 row = 0; row < nRows; ++row) {
+                for (UA_UInt32 col = 0; col < nCols; ++col) {
+                    s += std::to_string((long long)(*((UA_UInt32 *)(variant.data) + row * nCols + col)));
+                    if (col < nCols - 1) {
+                        s += delimiter;
                     }
-                    s += rowDelimiter;
                 }
-                return new String(s);
+                s += rowDelimiter;
             }
+            return new String(s);
         case UA_TYPES_INT64:
             if (flag)
                 return new Long(*(long long *)variant.data);
-            else {
-                string s;
-                if (nRows * nCols != variant.arrayLength)
-                    throw RuntimeException(OPCUA_PREFIX + "variant arrayLength not matched.");
-                for (UA_UInt32 row = 0; row < nRows; ++row) {
-                    for (UA_UInt32 col = 0; col < nCols; ++col) {
-                        s += std::to_string(*((long long *)(variant.data) + row * nCols + col));
-                        if (col < nCols - 1) {
-                            s += delimiter;
-                        }
+            for (UA_UInt32 row = 0; row < nRows; ++row) {
+                for (UA_UInt32 col = 0; col < nCols; ++col) {
+                    s += std::to_string(*((long long *)(variant.data) + row * nCols + col));
+                    if (col < nCols - 1) {
+                        s += delimiter;
                     }
-                    s += rowDelimiter;
                 }
-                return new String(s);
+                s += rowDelimiter;
             }
+            return new String(s);
         case UA_TYPES_SBYTE:
             if (flag)
                 return new Char(*(char *)variant.data);
-            else {
-                string s;
-                if (nRows * nCols != variant.arrayLength)
-                    throw RuntimeException(OPCUA_PREFIX + "variant arrayLength not matched.");
-                for (UA_UInt32 row = 0; row < nRows; ++row) {
-                    for (UA_UInt32 col = 0; col < nCols; ++col) {
-                        s += std::to_string(*((char *)(variant.data) + row * nCols + col));
-                        if (col < nCols - 1) {
-                            s += delimiter;
-                        }
+            for (UA_UInt32 row = 0; row < nRows; ++row) {
+                for (UA_UInt32 col = 0; col < nCols; ++col) {
+                    s += std::to_string(*((char *)(variant.data) + row * nCols + col));
+                    if (col < nCols - 1) {
+                        s += delimiter;
                     }
-                    s += rowDelimiter;
                 }
-                return new String(s);
+                s += rowDelimiter;
             }
+            return new String(s);
         case UA_TYPES_BYTE:
             if (flag)
                 return new Short((short)(*(unsigned char *)variant.data));
-            else {
-                string s;
-                if (nRows * nCols != variant.arrayLength)
-                    throw RuntimeException(OPCUA_PREFIX + "variant arrayLength not matched.");
-                for (UA_UInt32 row = 0; row < nRows; ++row) {
-                    for (UA_UInt32 col = 0; col < nCols; ++col) {
-                        s += std::to_string((short)(*((unsigned char *)(variant.data) + row * nCols + col)));
-                        if (col < nCols - 1) {
-                            s += delimiter;
-                        }
+            for (UA_UInt32 row = 0; row < nRows; ++row) {
+                for (UA_UInt32 col = 0; col < nCols; ++col) {
+                    s += std::to_string((short)(*((unsigned char *)(variant.data) + row * nCols + col)));
+                    if (col < nCols - 1) {
+                        s += delimiter;
                     }
-                    s += rowDelimiter;
                 }
-                return new String(s);
+                s += rowDelimiter;
             }
+            return new String(s);
         case UA_TYPES_DATETIME:
             if (flag) {
                 UA_DateTime time = *(UA_DateTime *)variant.data;
                 return new Timestamp(UA_DateTime_toUnixTimeStamp(time));
-            } else {
-                throw RuntimeException(OPCUA_PREFIX + "timestamp vector or timestamp matrix is not supported yet");
             }
+            throw RuntimeException(OPCUA_PREFIX + "timestamp vector or timestamp matrix is not supported yet");
         case UA_TYPES_INT16:
             if (flag)
                 return new Short(*(short *)variant.data);
-            else {
-                string s;
-                if (nRows * nCols != variant.arrayLength)
-                    throw RuntimeException(OPCUA_PREFIX + "variant arrayLength not matched.");
-                for (UA_UInt32 row = 0; row < nRows; ++row) {
-                    for (UA_UInt32 col = 0; col < nCols; ++col) {
-                        s += std::to_string(*((short *)(variant.data) + row * nCols + col));
-                        if (col < nCols - 1) {
-                            s += delimiter;
-                        }
+            for (UA_UInt32 row = 0; row < nRows; ++row) {
+                for (UA_UInt32 col = 0; col < nCols; ++col) {
+                    s += std::to_string(*((short *)(variant.data) + row * nCols + col));
+                    if (col < nCols - 1) {
+                        s += delimiter;
                     }
-                    s += rowDelimiter;
                 }
-                return new String(s);
+                s += rowDelimiter;
             }
+            return new String(s);
         case UA_TYPES_BYTESTRING:
         case UA_TYPES_STRING:
             if (flag)
-                return new String(UAStringToString(*(UA_String *)variant.data));
-            else {
-                string s;
-                if (nRows * nCols != variant.arrayLength)
-                    throw RuntimeException(OPCUA_PREFIX + "variant arrayLength not matched.");
-                for (UA_UInt32 row = 0; row < nRows; ++row) {
-                    for (UA_UInt32 col = 0; col < nCols; ++col) {
-                        s += UAStringToString(*((UA_String *)(variant.data) + row * nCols + col));
-                        if (col < nCols - 1) {
-                            s += delimiter;
-                        }
+                return new String(to_string(*(UA_String *)variant.data));
+            for (UA_UInt32 row = 0; row < nRows; ++row) {
+                for (UA_UInt32 col = 0; col < nCols; ++col) {
+                    s += to_string(*((UA_String *)(variant.data) + row * nCols + col));
+                    if (col < nCols - 1) {
+                        s += delimiter;
                     }
-                    s += rowDelimiter;
                 }
-                return new String(s);
+                s += rowDelimiter;
             }
+            return new String(s);
         case UA_TYPES_GUID:
             if (flag) {
                 unsigned char data[16];
                 convertUA_Guid(*(UA_Guid *)variant.data, data);
                 return new Uuid(data);
-            } else {
-                throw RuntimeException(OPCUA_PREFIX + "Guid vector or Guid matrix is not supported yet.");
             }
+            throw RuntimeException(OPCUA_PREFIX + "Guid vector or Guid matrix is not supported yet.");
         default:
-            throw RuntimeException(OPCUA_PREFIX + "type " + std::to_string(variant.type->typeIndex) +
-                                   " is not supported yet");
+            throw RuntimeException(OPCUA_PREFIX + "type " + std::to_string(typeIndex) + " is not supported yet");
     }
 }
 
@@ -778,6 +861,9 @@ ConstantSP OPCUAClient::readNode(const vector<int> &nsIdx, const vector<string> 
     if (isSubscribed) {
         throw RuntimeException(OPCUA_PREFIX + "A subscribed client cannot be used for other operations.");
     }
+    if (!getConnectedUnsafe()) {
+        throw RuntimeException(OPCUA_PREFIX + "OPCUA conn has been closed.");
+    }
     int numNode = nsIdx.size();
     UA_ReadRequest rReq;
     UA_ReadRequest_init(&rReq);
@@ -892,6 +978,9 @@ ConstantSP OPCUAClient::writeNode(const vector<int> &nsIdx, const vector<string>
     if (isSubscribed) {
         throw RuntimeException(OPCUA_PREFIX + "A subscribed client cannot be used for other operations.");
     }
+    if (!getConnectedUnsafe()) {
+        throw RuntimeException(OPCUA_PREFIX + "OPCUA conn has been closed.");
+    }
     int numNode = nsIdx.size();
     for (int i = 0; i < numNode; ++i) {
         UA_Variant *myVariant = UA_Variant_new();
@@ -985,6 +1074,9 @@ ConstantSP OPCUAClient::browseNode() {
     if (isSubscribed) {
         throw RuntimeException(OPCUA_PREFIX + "A subscribed client cannot be used for other operations.");
     }
+    if (!getConnectedUnsafe()) {
+        throw RuntimeException(OPCUA_PREFIX + "OPCUA conn has been closed.");
+    }
     UA_NodeId object = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
     VectorSP nameSpaceVec = Util::createVector(DT_INT, 0);
     VectorSP nodeidVec = Util::createVector(DT_STRING, 0);
@@ -1004,34 +1096,12 @@ UA_StatusCode UAClientConfigSetEncryption(UA_ClientConfig *config, UA_ByteString
                                           UA_ByteString privateKey, const UA_ByteString *trustList,
                                           size_t trustListSize, const UA_ByteString *revocationList,
                                           size_t revocationListSize) {
-    UA_StatusCode retval = UA_CertificateVerification_Trustlist(
-        &config->certificateVerification, trustList, trustListSize, NULL, 0, revocationList, revocationListSize);
+    UA_StatusCode retval = UA_ClientConfig_setDefaultEncryption(config, localCertificate, privateKey, trustList,
+                                                                trustListSize, revocationList, revocationListSize);
     if (retval != UA_STATUSCODE_GOOD) {
         return retval;
     }
-
-    /* Populate SecurityPolicies */
-    UA_SecurityPolicy *sp = (UA_SecurityPolicy *)UA_realloc(config->securityPolicies, sizeof(UA_SecurityPolicy) * 4);
-    if (!sp) return UA_STATUSCODE_BADOUTOFMEMORY;
-    config->securityPolicies = sp;
-    config->securityPoliciesSize = 1;
-
-    retval = UA_SecurityPolicy_Basic128Rsa15(&config->securityPolicies[1], &config->certificateVerification,
-                                             localCertificate, privateKey, &config->logger);
-    if (retval != UA_STATUSCODE_GOOD) return retval;
-    ++config->securityPoliciesSize;
-
-    retval = UA_SecurityPolicy_Basic256(&config->securityPolicies[2], &config->certificateVerification,
-                                        localCertificate, privateKey, &config->logger);
-    if (retval != UA_STATUSCODE_GOOD) return retval;
-    ++config->securityPoliciesSize;
-
-    retval = UA_SecurityPolicy_Basic256Sha256(&config->securityPolicies[3], &config->certificateVerification,
-                                              localCertificate, privateKey, &config->logger);
-    if (retval != UA_STATUSCODE_GOOD) return retval;
-    ++config->securityPoliciesSize;
-
-    return UA_STATUSCODE_GOOD;
+    return addLegacySecurityPolicies(config, localCertificate, privateKey);
 }
 
 void OPCUAClient::connect(string endPointUrl, string clientUri, string username, string password,
@@ -1041,9 +1111,7 @@ void OPCUAClient::connect(string endPointUrl, string clientUri, string username,
     if (!reconnect) {
         UA_ClientConfig *config = UA_Client_getConfig(clientPtr_);
         UA_ClientConfig_setDefault(config);
-        config->clientDescription.applicationUri = UA_STRING_ALLOC(clientUri.c_str());
-        config->securityMode = securityMode;
-        config->securityPolicyUri = securityPolicy;
+        setOPCUALogger(config);
         if (!UA_String_equal(&certificate, &UA_STRING_NULL)) {
             retval = UAClientConfigSetEncryption(config, certificate, privateKey, NULL, 0, NULL, 0);
             if (retval != UA_STATUSCODE_GOOD) {
@@ -1051,18 +1119,21 @@ void OPCUAClient::connect(string endPointUrl, string clientUri, string username,
                                        string(UA_StatusCode_name(retval)));
             }
         }
+        config->clientDescription.applicationUri = UA_STRING_ALLOC(clientUri.c_str());
+        config->securityMode = securityMode;
+        config->securityPolicyUri = securityPolicy;
         if (!username.empty()) {
-            UA_UserNameIdentityToken *identityToken = UA_UserNameIdentityToken_new();
-            if (!identityToken) {
+            retval = UA_ClientConfig_setAuthenticationUsername(config, username.c_str(), password.c_str());
+            if (retval != UA_STATUSCODE_GOOD) {
                 throw RuntimeException(OPCUA_PREFIX + "Could not call Connect service. StatusCode " +
-                                       string(UA_StatusCode_name(UA_STATUSCODE_BADOUTOFMEMORY)));
+                                       string(UA_StatusCode_name(retval)));
             }
-            identityToken->userName = UA_STRING_ALLOC(username.c_str());
-            identityToken->password = UA_STRING_ALLOC(password.c_str());
-            UA_ExtensionObject_clear(&config->userIdentityToken);
-            config->userIdentityToken.encoding = UA_EXTENSIONOBJECT_DECODED;
-            config->userIdentityToken.content.decoded.type = &UA_TYPES[UA_TYPES_USERNAMEIDENTITYTOKEN];
-            config->userIdentityToken.content.decoded.data = identityToken;
+        } else if (!UA_String_equal(&certificate, &UA_STRING_NULL)) {
+            retval = UA_ClientConfig_setAuthenticationCert(config, certificate, privateKey);
+            if (retval != UA_STATUSCODE_GOOD) {
+                throw RuntimeException(OPCUA_PREFIX + "Could not call Connect service. StatusCode " +
+                                       string(UA_StatusCode_name(retval)));
+            }
         }
     }
     retval = UA_Client_connect(clientPtr_, endPointUrl.c_str());
@@ -1091,7 +1162,9 @@ ConstantSP getOpcServerList(string serverUrl) {
     UA_ApplicationDescription *registeredServers = NULL;
     size_t registeredServersSize = 0;
     UA_Client *client = UA_Client_new();
-    UA_ClientConfig_setDefault(UA_Client_getConfig(client));
+    UA_ClientConfig *config = UA_Client_getConfig(client);
+    UA_ClientConfig_setDefault(config);
+    setOPCUALogger(config);
     UA_StatusCode retval =
         UA_Client_findServers(client, serverUrl.c_str(), 0, NULL, 0, NULL, &registeredServersSize, &registeredServers);
 
@@ -1155,7 +1228,9 @@ ConstantSP getOpcServerList(string serverUrl) {
 
 ConstantSP getOpcEndPointList(string serverUrl) {
     UA_Client *client = UA_Client_new();
-    UA_ClientConfig_setDefault(UA_Client_getConfig(client));
+    UA_ClientConfig *config = UA_Client_getConfig(client);
+    UA_ClientConfig_setDefault(config);
+    setOPCUALogger(config);
     UA_EndpointDescription *endpointArray = NULL;
     size_t endpointArraySize = 0;
     // TODO: adapt to the new async getEndpoint
@@ -1193,8 +1268,7 @@ ConstantSP getOpcEndPointList(string serverUrl) {
                 securityMode[j] = "No valid security mode";
                 break;
         }
-        securityPolicyUri[j] = string(endpoint->securityPolicyUri.data,
-                                      endpoint->securityPolicyUri.data + endpoint->securityPolicyUri.length);
+        securityPolicyUri[j] = to_string(endpoint->securityPolicyUri);
         securityLevel[j] = (short)(endpoint->securityLevel);
     }
     vector<string> colNames = {"EndpointUrl", "TransportProfileUri", "SecurityMode", "SecurityPolicyUri",
@@ -1554,6 +1628,9 @@ ConstantSP subscribeNode(Heap *heap, vector<ConstantSP> &arguments) {
         }
     } else {
         throw IllegalArgumentException(__FUNCTION__, usage + "Invalid OPCUA conn object.");
+    }
+    if (!client->getConnected()) {
+        throw RuntimeException(OPCUA_PREFIX + "OPCUA conn has been closed.");
     }
     if (arguments[1]->getType() != DT_INT) {
         throw IllegalArgumentException(__FUNCTION__, usage + "the nodeNamespace must be int scalar or int array");

@@ -200,7 +200,7 @@ template<typename T>
 class ObjectPtr {
 public:
 
-    ObjectPtr(T* ptr = nullptr) : ptr_(ptr) {
+    ObjectPtr(T* ptr = nullptr) noexcept : ptr_(ptr) {
         if (ptr_ )
             ptr_->addRef();
     }
@@ -316,6 +316,7 @@ public:
     void resetToBorrowed(const ObjectPtr<U>& other) noexcept {
         resetToBorrowed(static_cast<T*>(other.ptr_));
     }
+
 private:
     template<class U> friend class ObjectPtr;
     T* ptr_;

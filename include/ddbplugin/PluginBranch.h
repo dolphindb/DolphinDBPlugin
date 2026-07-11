@@ -2,5 +2,6 @@
 #define PLUGIN_BRANCH_H_
 
 #define BRANCH_300_4
+#define BACKTEST_JIT_VERSION 1
 
 #endif

@@ -1,6 +1,6 @@
 # 插件 CMakeLists.txt 模板
 
-set(PluginVersion 3.00.5.0)
+set(PluginVersion 3.00.6.0)
 
 function(CreatePlugin PluginName)
     message(STATUS "Detecting build system: ${CMAKE_SYSTEM_NAME}")
@@ -13,10 +13,12 @@ function(CreatePlugin PluginName)
     set(CMAKE_CXX_FLAGS_GCOV "${CMAKE_CXX_FLAGS_DEBUG} --coverage" PARENT_SCOPE)
     # Fortification level 3 has significant performance impact on gcc-8.4.0
     # Reference: https://developers.redhat.com/articles/2022/09/17/gccs-new-fortification-level
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "12.0.0")
-        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_FORTIFY_SOURCE=3" PARENT_SCOPE)
-    else()
-        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2" PARENT_SCOPE)
+    if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "12.0.0")
+            set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_FORTIFY_SOURCE=3" PARENT_SCOPE)
+        else()
+            set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2" PARENT_SCOPE)
+        endif()
     endif()
 
     add_library(${PluginName} SHARED)
@@ -67,6 +69,8 @@ function(CreatePlugin PluginName)
         target_link_options(${PluginName} PRIVATE -Wl,-z,now,-z,relro)
         # OpenSSL has weak symbols
         target_link_options(${PluginName} PRIVATE -Wl,-Bsymbolic)
+        # for third_party sdks
+        target_link_options(${PluginName} PRIVATE "-Wl,-rpath,$ORIGIN")
     endif()
 
     # 安装
@@ -85,12 +89,25 @@ endfunction()
 
 # https://github.com/madler/zlib
 function(AddZlib)
-    set(ZLIB_USE_STATIC_LIBS ON)
-    find_package(ZLIB REQUIRED)
-    target_link_libraries(${PluginName} PRIVATE ZLIB::ZLIB)
+    find_package(ZLIB CONFIG REQUIRED)
+    target_link_libraries(${PluginName} PRIVATE ZLIB::ZLIBSTATIC)
+
+    # for compatibility with module mode
+    if(TARGET ZLIB::ZLIBSTATIC AND NOT TARGET ZLIB::ZLIB)
+        add_library(ZLIB::ZLIB INTERFACE IMPORTED)
+        target_link_libraries(ZLIB::ZLIB INTERFACE ZLIB::ZLIBSTATIC)
+    endif()
+
     # some libs use -lz
-    cmake_path(GET ZLIB_LIBRARIES PARENT_PATH ZLIB_LINK_DIR)
-    target_link_directories(${PluginName} PRIVATE ${ZLIB_LINK_DIR})
+    get_target_property(ZLIB_CONFIGS ZLIB::ZLIBSTATIC IMPORTED_CONFIGURATIONS)
+    foreach(ZLIB_CONFIG IN LISTS ZLIB_CONFIGS)
+        get_target_property(ZLIB_LIBRARY ZLIB::ZLIBSTATIC "IMPORTED_LOCATION_${ZLIB_CONFIG}")
+        if(ZLIB_LIBRARY)
+            break()
+        endif()
+    endforeach()
+    get_filename_component(ZLIB_LINK_DIR "${ZLIB_LIBRARY}" DIRECTORY)
+    target_link_directories(${PluginName} PRIVATE "${ZLIB_LINK_DIR}")
 endfunction()
 
 # https://github.com/facebook/zstd
@@ -105,6 +122,11 @@ function(AddLZ4)
     target_link_libraries(${PluginName} PRIVATE LZ4::lz4)
 endfunction()
 
+function(AddSnappy)
+    find_package(Snappy REQUIRED)
+    target_link_libraries(${PluginName} PRIVATE Snappy::snappy)
+endfunction()
+
 # https://github.com/openssl/openssl
 function(AddOpenSSL)
     set(OPENSSL_USE_STATIC_LIBS TRUE)
@@ -115,7 +137,7 @@ endfunction()
 # https://github.com/curl/curl
 function(AddCurl)
     set(CURL_USE_STATIC_LIBS TRUE)
-    find_package(CURL REQUIRED)
+    find_package(CURL CONFIG REQUIRED)
     target_link_libraries(${PluginName} PRIVATE CURL::libcurl)
     AddOpenSSL()
 endfunction()
@@ -133,13 +155,8 @@ endfunction()
 # https://github.com/apache/arrow
 function(AddArrow)
     find_package(Arrow REQUIRED)
-    if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        find_package(Parquet REQUIRED)
-        target_link_libraries(${PluginName} PRIVATE Arrow::arrow_static Parquet::parquet_static)
-    endif()
-    if (CMAKE_SYSTEM_NAME STREQUAL "MSYS")
-        target_link_libraries(${PluginName} PRIVATE Arrow::arrow_static ole32)
-    endif()
+    find_package(Parquet REQUIRED)
+    target_link_libraries(${PluginName} PRIVATE Arrow::arrow_static Parquet::parquet_static)
 endfunction()
 
 function(AddOpenMP)

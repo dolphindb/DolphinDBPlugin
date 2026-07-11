@@ -10,10 +10,14 @@ using ddb::ConstantSP;
 using ddb::Heap;
 using std::vector;
 
-extern "C" {
-    ConstantSP train(Heap *heap, vector<ConstantSP> &args);
-    ConstantSP predict(Heap *heap, vector<ConstantSP> &args);
-    ConstantSP saveModel(Heap *heap, vector<ConstantSP> &args);
-    ConstantSP loadModel(Heap *heap, vector<ConstantSP> &args);
-    ConstantSP dumpModel(Heap *heap, vector<ConstantSP> &args);
-}
+#if defined(_WIN32) || defined(__CYGWIN__)
+  #define PLUGIN_API extern "C" __declspec(dllexport)
+#else
+  #define PLUGIN_API extern "C" __attribute__((visibility("default")))
+#endif
+
+PLUGIN_API ConstantSP train(Heap *heap, vector<ConstantSP> &args);
+PLUGIN_API ConstantSP predict(Heap *heap, vector<ConstantSP> &args);
+PLUGIN_API ConstantSP saveModel(Heap *heap, vector<ConstantSP> &args);
+PLUGIN_API ConstantSP loadModel(Heap *heap, vector<ConstantSP> &args);
+PLUGIN_API ConstantSP dumpModel(Heap *heap, vector<ConstantSP> &args);

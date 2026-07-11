@@ -97,5 +97,14 @@ ddb::ConstantSP getRowFromTableWhere(const ddb::TableSP &t, const std::string &c
 }
 
 
+std::string generate_name() {
+    std::string name = "";
+    while (!ddb::Util::isVariableCandidate(name)) {
+        auto uuid = ddb::Uuid(true);
+        name = uuid.getString().substr(0, 4);
+    }
+    return name;
+}
+
 
 } /* namespace helper */

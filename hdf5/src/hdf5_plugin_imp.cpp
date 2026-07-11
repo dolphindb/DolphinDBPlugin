@@ -1,8 +1,11 @@
 #include "hdf5_plugin_imp.h"
 #include "hdf5_plugin_pandas.h"
 #include "hdf5_plugin.h"
+#include <cstdint>
+#include <cstring>
+#include <limits>
 #include <list>
-#include <numeric>
+#include <string>
 #include "Exceptions.h"
 #include "ddbplugin/PluginLogger.h"
 #include "ComputingModel.h"
@@ -12,6 +15,39 @@
 static InitHdf5Filter initHdf5Filter;
 
 namespace H5PluginImp {
+
+namespace {
+
+std::string getHdf5ErrorStackMessage()
+{
+    std::string message;
+    H5Ewalk2(H5E_DEFAULT, H5E_WALK_DOWNWARD,
+             [](unsigned n, const H5E_error2_t *errDesc, void *clientData) -> herr_t {
+                 std::ignore = n;
+                 auto *message = static_cast<std::string *>(clientData);
+                 if (errDesc == nullptr) {
+                     return 0;
+                 }
+
+                 if (!message->empty()) {
+                     message->append("; ");
+                 }
+                 if (errDesc->func_name != nullptr) {
+                     message->append(errDesc->func_name);
+                 }
+                 if (errDesc->desc != nullptr) {
+                     if (!message->empty() && message->back() != ' ') {
+                         message->append(": ");
+                     }
+                     message->append(errDesc->desc);
+                 }
+                 return 0;
+             },
+             &message);
+    return message;
+}
+
+}
 
 std::string getDatasetDimsStr(hid_t loc_id, const char *name)
 {
@@ -32,11 +68,11 @@ std::string getDatasetDimsStr(hid_t loc_id, const char *name)
     if (dims.size() == 0)
         return "0";
 
-    auto combineDimsOp = [](std::string &a, hsize_t b) -> std::string & {
-        return a.append(1, ',').append(std::to_string(b));
-    };
     std::string dimsInfo = std::to_string(dims.back());
-    return std::accumulate(dims.rbegin() + 1, dims.rend(), dimsInfo, combineDimsOp);
+    for (auto it = dims.rbegin() + 1; it != dims.rend(); ++it)
+        dimsInfo.append(1, ',').append(std::to_string(*it));
+
+    return dimsInfo;
 }
 
 std::string getDatasetNativeTypeStr(hid_t loc_id, const char *name)
@@ -489,7 +525,9 @@ void doReadDataset_concurrent(H5GeneralDataReader &reader, const DatasetAppendRu
                 INDEX step = std::min(len, totalLength - start);
                 float * floatBuf = colVec[i]->getFloatBuffer(start, step, buf.data());
                 for(int j = 0; j < step; ++j) {
-                    if ((*((uint32_t *)&(floatBuf[j]))) == 0x7fc00000) {
+                    uint32_t bits;
+                    std::memcpy(&bits, &floatBuf[j], sizeof(bits));
+                    if (bits == 0x7fc00000) {
                         floatBuf[j] = FLT_NMIN;
                     }
                 }
@@ -506,7 +544,9 @@ void doReadDataset_concurrent(H5GeneralDataReader &reader, const DatasetAppendRu
                 INDEX step = std::min(len, totalLength - start);
                 double * doubleBuf = colVec[i]->getDoubleBuffer(start, step, buf.data());
                 for(int j = 0; j < step; ++j) {
-                    if ((*((uint64_t *)&(doubleBuf[j]))) == 0x7FF8000000000000) {
+                    uint64_t bits;
+                    std::memcpy(&bits, &doubleBuf[j], sizeof(bits));
+                    if (bits == 0x7FF8000000000000) {
                         doubleBuf[j] = DBL_NMIN;
                     }
                 }
@@ -1159,7 +1199,14 @@ void H5GeneralDataReader::doRead(hid_t mem_space_id, hid_t file_space_id)
     std::ignore = mem_space_id;
     herr_t state = H5Dread(locId_, memTypeId_, H5S_BLOCK, file_space_id, xferProperty_.id(), buffer_.data());
 
-    checkFailAndThrowRuntimeException(state < 0, "H5Dread return " + std::to_string(state));
+    if (state < 0) {
+        std::string errMsg = "H5Dread return " + std::to_string(state);
+        std::string hdf5Err = getHdf5ErrorStackMessage();
+        if (!hdf5Err.empty()) {
+            errMsg.append(". HDF5 error stack: ").append(hdf5Err);
+        }
+        throw RuntimeException(HDF5_LOG_PREFIX + errMsg);
+    }
 }
 
 
@@ -1632,22 +1679,24 @@ void extractDolphinDBData(const TableSP &table, const size_t &type_size, const s
                 *ptr = value->isNull() ? 0 : value->getLong();
             }
             break;
-        case DT_FLOAT:
+        case DT_FLOAT: {
+            const float hdf5Null = std::numeric_limits<float>::quiet_NaN();
             for(int j = 0; j < dolphindbCol->size(); ++j){
                 float *ptr = (float*)(buf + type_size * j + field_offset[i]);
                 ConstantSP value = dolphindbCol->get(j);
-                uint32_t nan = 0x7fc00000;
-                *ptr = value->isNull() ? (*((float *)&nan)) : value->getFloat();
+                *ptr = value->isNull() ? hdf5Null : value->getFloat();
             }
             break;
-        case DT_DOUBLE:
+        }
+        case DT_DOUBLE: {
+            const double hdf5Null = std::numeric_limits<double>::quiet_NaN();
             for(int j = 0; j < dolphindbCol->size(); ++j){
                 double *ptr = (double*)(buf + type_size * j + field_offset[i]);
                 ConstantSP value = dolphindbCol->get(j);
-                uint64_t nan = 0xffffffff0000ffff;
-                *ptr = value->isNull() ? (*((double *)&nan)) : value->getDouble();
+                *ptr = value->isNull() ? hdf5Null : value->getDouble();
             }
             break;
+        }
         case DT_STRING:
         case DT_SYMBOL:
             for(int j = 0; j < dolphindbCol->size(); ++j){

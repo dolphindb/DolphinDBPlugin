@@ -1,7 +1,6 @@
 #!/bin/bash
 
-prefix=$ARTIFACT_DIR/$ver
+make CFLAGS=-fPIC -j$(nproc) -O V=1
+make DESTDIR=$ARTIFACT_DIR/$prefix install
 
-make
-make DESTDIR=$prefix install
-find $prefix/ -name "libkeyutils.so*" | xargs rm
+find $ARTIFACT_DIR/$prefix -name "libkeyutils.so*" | xargs rm

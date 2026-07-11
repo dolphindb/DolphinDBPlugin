@@ -1,0 +1,7 @@
+mqtt5,libPluginMQTT5${CMAKE_SHARED_LIBRARY_SUFFIX},${PluginVersion}
+mqttConnect,connect,system,1,2,0,0,(uri, [config])
+mqttClose,close,system,1,1,0,0,(conn)
+mqttPublish,publish,system,3,3,0,0,(conn,topic,obj)
+mqttSubscribe,subscribe,system,3,4,0,0,(uri, topic, handler, [config])
+mqttUnsubscribe,unsubscribe,system,1,1,0,0,(conn)
+getSubscriberStat,getSubscriberStat,system,0,0,0,0,()

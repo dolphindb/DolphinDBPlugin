@@ -89,6 +89,7 @@ ConstantSP mysqlConnect(Heap *heap, vector<ConstantSP> &args) {
         throw IllegalArgumentException(__FUNCTION__, usage + "db must be a string");
     }
     MySQLSSLMode sslMode = SSL_MODE_REQUIRED;
+    std::string charset = "UTF8";
     if (args.size() > 5 && !args[5]->isNull()) {
         if (!args[5]->isDictionary()) {
             throw IllegalArgumentException(__FUNCTION__, usage + "config must be a dictionary");
@@ -113,6 +114,16 @@ ConstantSP mysqlConnect(Heap *heap, vector<ConstantSP> &args) {
             }
             enableVerfyCert = val->getBool();
         }
+        val = config->getMember("CHARSET");
+        if (!val->isNull()) {
+            if (val->getType() != DT_STRING || val->getForm() != DF_SCALAR) {
+                throw IllegalArgumentException(__FUNCTION__, usage + "CHARSET must be a string");
+            }
+            charset = val->getString();
+            if (charset.empty()) {
+                throw IllegalArgumentException(__FUNCTION__, usage + "CHARSET can't be empty");
+            }
+        }
 
         if (!enableSSL && !enableVerfyCert) {
             sslMode = SSL_MODE_DISABLED;
@@ -126,7 +137,7 @@ ConstantSP mysqlConnect(Heap *heap, vector<ConstantSP> &args) {
         }
     }
     std::unique_ptr<Connection> cup(new Connection(args[0]->getString(), args[1]->getInt(), args[2]->getString(),
-                                                   args[3]->getString(), args[4]->getString(), sslMode));
+                                                   args[3]->getString(), args[4]->getString(), sslMode, charset));
     std::string desc = "mysql connection to [";
     desc.append(cup->str()).append("]");
     ddb::littleEndian = Util::isLittleEndian();
@@ -337,10 +348,12 @@ class DBFileIO {
 Connection::~Connection() {}
 
 Connection::Connection(std::string hostname, int port, std::string username, std::string password, std::string database,
-                       MySQLSSLMode sslMode)
+                       MySQLSSLMode sslMode, std::string charset)
     : host_(hostname), user_(username), password_(password), db_(database), port_(port), isClosed_(false) {
     try {
-        connect(db_.c_str(), host_.c_str(), sslMode, user_.c_str(), password_.c_str(), port_);
+        connect(db_.c_str(), host_.c_str(), sslMode, user_.c_str(), password_.c_str(), port_, "", "", "", "",
+                MYSQLXX_DEFAULT_TIMEOUT, MYSQLXX_DEFAULT_RW_TIMEOUT, MYSQLXX_DEFAULT_ENABLE_LOCAL_INFILE,
+                charset.c_str());
     } catch (mysqlxx::Exception &e) {
         throw RuntimeException("Failed to connect, error: " + std::string(e.name()) + " " +
                                std::string(e.displayText()));

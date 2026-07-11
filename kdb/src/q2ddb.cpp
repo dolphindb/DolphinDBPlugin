@@ -128,9 +128,9 @@ void kdb::fakeEmptyAnyColumn(Vector* colVal,
             "We'll try to fake one instead...");
     const auto any = dynamic_cast<AnyVector*>(colVal);
     assert(any);
-    any->setTableColumn(true);
+    // any->setTableColumn(true);
     // Just a dummy type, will accept any type as of v2.00.10.
-    any->setExtraParamForType(dummyType);
+    // any->setExtraParamForType(dummyType);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -221,10 +221,10 @@ ConstantSP kdb::toDDB::fromTable(
     vector<ConstantSP> cols;
     for (int i = 0 ; i < data[1]->n; ++i) {
         cols.push_back(fromK(kK(data[1])[i], "cols of " + var));
-        if (cols.back()->getType() == DT_ANY && cols.back()->size() == 0) {
-            ((AnyVector*)cols.back().get())->setTableColumn(true);
-            ((AnyVector*)cols.back().get())->setExtraParamForType(DT_INT);
-        }
+        // if (cols.back()->getType() == DT_ANY && cols.back()->size() == 0) {
+            // ((AnyVector*)cols.back().get())->setTableColumn(true);
+            // ((AnyVector*)cols.back().get())->setExtraParamForType(DT_INT);
+        // }
     }
     return Util::createTable(colNames, cols);
 }

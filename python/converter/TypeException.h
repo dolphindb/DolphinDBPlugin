@@ -89,4 +89,11 @@ void Init_Module_Exception(py::module &m);
 
 } // namespace pybind_dolphindb
 
+
+
+
+
+
+
+
 #endif // CONVERTER_TYPEEXCEPTION_H_

@@ -8,6 +8,7 @@ target_sources(${PluginName} PRIVATE
     NsqQueues.h
     NsqSpiImpl.cpp
     NsqSpiImpl.h
+    NsqTest.cpp
     NsqUtil.cpp
     NsqUtil.h
     PluginUtil.h

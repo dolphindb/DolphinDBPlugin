@@ -1,9 +1,5 @@
 #pragma once
 
-#ifdef _WIN32
-#define WINDOWS
-#endif
-
 #if defined(_MSC_VER)
 #pragma warning( push )
 #pragma warning( disable : 4100 )
@@ -56,7 +52,12 @@
 #include "ConstantMarshal.h"
 
 #ifdef DOLPHINDB_JIT
-#include "TurboJetInterface.h"
+#include "BacktestJITInterface.h"
+#endif
+
+// LocklessContainer.h defines RETRY with no prefix
+#ifdef RETRY
+#undef RETRY
 #endif
 
 #if defined(_MSC_VER)
@@ -67,7 +68,7 @@
 #pragma GCC diagnostic pop
 #endif
 
-#undef LINUX
-#undef WINDOWS
-
 using argsT = std::vector<ddb::ConstantSP>;
+using Heap = ddb::Heap;
+using ConstantSP = ddb::ConstantSP;
+using DictionarySP = ddb::DictionarySP;

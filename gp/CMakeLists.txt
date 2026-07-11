@@ -11,6 +11,5 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/libpng/include)
 
 target_link_directories(PluginGp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/gnuplot/build/src)
 target_link_libraries(PluginGp PRIVATE "gnuplot")
-set(PLUGIN_LINK_OPTIONS "-Wl,-rpath,$ORIGIN,-disable-new-dtags")
-target_link_directories(PluginGp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/gpThirdParty)
-target_link_libraries(PluginGp PRIVATE ${PLUGIN_LINK_OPTIONS} gnuPlot readline tinfo gd)
+target_link_options(PluginGp PRIVATE "-Wl,-rpath,$ORIGIN,-disable-new-dtags")
+target_link_libraries(PluginGp PRIVATE readline tinfo gd)

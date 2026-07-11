@@ -146,6 +146,7 @@ using ddb::TABLE_TYPE::PKTABLET;
 using ddb::TABLE_TYPE::MAX_TABLE_TYPES;
 
 using ddb::Void;
+typedef ddb::ObjectPtr<ddb::Void> VoidSP;
 using ddb::Bool;
 using ddb::Char;
 using ddb::Short;
@@ -165,8 +166,11 @@ using ddb::Timestamp;
 using ddb::DateTime;
 using ddb::DateHour;
 using ddb::Decimal32;
+typedef ddb::ObjectPtr<ddb::Decimal32> Decimal32SP;
 using ddb::Decimal64;
+typedef ddb::ObjectPtr<ddb::Decimal64> Decimal64SP;
 using ddb::Decimal128;
+typedef ddb::ObjectPtr<ddb::Decimal128> Decimal128SP;
 using ddb::Int128;
 using ddb::Uuid;
 using ddb::IPAddr;
@@ -176,6 +180,7 @@ using ddb::FunctionDefSP;
 using ddb::Duration;
 using ddb::Point;
 using ddb::MetaCode;
+typedef ddb::ObjectPtr<ddb::MetaCode> MetaCodeSP;
 using ddb::Decimal;
 
 using ddb::Vector;
@@ -215,6 +220,8 @@ using ddb::LockGuard;
 using ddb::Mutex;
 using ddb::Expression;
 using ddb::ColumnDesc;
+using ddb::Operator;
+using ddb::OperatorSP;
 
 using ddb::Guid;
 using ddb::DolphinString;
@@ -228,7 +235,7 @@ using ddb::severity_type;
 
 namespace OperatorImp = ddb::OperatorImp;
 
-typedef SmartPointer<ddb::MetaCode> MetaCodeSP;
+typedef ddb::ObjectPtr<ddb::MetaCode> MetaCodeSP;
 
 enum STORAGE_ENGINE_TYPE {
     OLAP = 0,

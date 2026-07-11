@@ -1,6 +1,5 @@
 #!/bin/bash
 
-mkdir build && cd build
 cmake_all -DHDF5_BUILD_CPP_LIB=ON \
     -DBUILD_SHARED_LIBS=OFF \
     -DHDF5_BUILD_EXAMPLES=OFF \

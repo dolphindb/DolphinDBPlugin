@@ -32,5 +32,6 @@ ddb::ConstantSP ifft21(ddb::Heap *heap, argsT &args);
 ddb::ConstantSP secc(ddb::Heap *heap, argsT &args); //Super-Efficient Cross-Correlation of seismic waveforms
 ddb::ConstantSP absFuc(ddb::Heap *heap, argsT &args);
 ddb::ConstantSP mul(ddb::Heap *heap, argsT &args);
+ddb::ConstantSP angle(ddb::Heap *heap, argsT &args);
 
 }

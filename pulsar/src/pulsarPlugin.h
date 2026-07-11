@@ -6,20 +6,22 @@
 #include "ddbplugin/CommonInterface.h"
 #include "ddbplugin/PluginLogger.h"
 
+using namespace ddb;
+
 extern "C" {
 
-ddb::ConstantSP pulsarClient(ddb::Heap *heap, argsT &args);
+ConstantSP pulsarClient(Heap *heap, argsT &args);
 
-ddb::ConstantSP pulsarProducer(ddb::Heap *heap, argsT &args);
-ddb::ConstantSP pulsarSend(ddb::Heap *heap, argsT &args);
+ConstantSP pulsarProducer(Heap *heap, argsT &args);
+ConstantSP pulsarSend(Heap *heap, argsT &args);
 
-ddb::ConstantSP pulsarConsumer(ddb::Heap *heap, argsT &args);
-ddb::ConstantSP pulsarReceive(ddb::Heap *heap, argsT &args);
+ConstantSP pulsarConsumer(Heap *heap, argsT &args);
+ConstantSP pulsarReceive(Heap *heap, argsT &args);
 
-ddb::ConstantSP pulsarCreateSubJob(ddb::Heap *heap, argsT &args);
-ddb::ConstantSP pulsarCancelSubJob(ddb::Heap *heap, argsT &args);
-ddb::ConstantSP pulsarGetJobStat(ddb::Heap *heap, argsT &args);
+ConstantSP pulsarCreateSubJob(Heap *heap, argsT &args);
+ConstantSP pulsarCancelSubJob(Heap *heap, argsT &args);
+ConstantSP pulsarGetJobStat(Heap *heap, argsT &args);
 
-ddb::ConstantSP pulsarGetConfig(ddb::Heap *heap, argsT &args);
+ConstantSP pulsarGetConfig(Heap *heap, argsT &args);
 
 }

@@ -9,12 +9,11 @@
 #include "pulsarSubJob.h"
 #include "pulsarUtil.h"
 
-using namespace pulsar;
 using namespace ddb;
 
 /// Interfaces
 
-ddb::ConstantSP pulsarClient(ddb::Heap *heap, argsT &args) {
+ConstantSP pulsarClient(Heap *heap, argsT &args) {
     string usage = "client(serviceUrl, [clientConfig]): ";
 
     /// parse args
@@ -24,7 +23,7 @@ ddb::ConstantSP pulsarClient(ddb::Heap *heap, argsT &args) {
     }
     auto serviceUrl = args[0]->getString();
     // clientConfig
-    auto clientConfig = ClientConfiguration();
+    auto clientConfig = pulsar::ClientConfiguration();
     if (args.size() == 2) {
         if (args[1]->getForm() != DF_DICTIONARY) {
             throw IllegalArgumentException(__FUNCTION__, usage + "clientConfig should be a dictionary.");
@@ -35,15 +34,15 @@ ddb::ConstantSP pulsarClient(ddb::Heap *heap, argsT &args) {
     /// create client
     try {
         // set logger
-        clientConfig.setLogger(new FileLoggerFactory(pulsar::Logger::Level::LEVEL_INFO, "pulsar-cpp-client.log"));
+        clientConfig.setLogger(new pulsar::FileLoggerFactory(pulsar::Logger::Level::LEVEL_INFO, "pulsar-cpp-client.log"));
 
         SmartPointer<ClientWrapper> client = new ClientWrapper{
-            Client(serviceUrl, clientConfig),
+            pulsar::Client(serviceUrl, clientConfig),
             clientConfig
         };
 
         FunctionDefSP onClose(Util::createSystemProcedure("pulsar client onClose()", clientOnClose, 1, 1));
-        ddb::ConstantSP resource = Util::createResource(reinterpret_cast<long long>(client.get()), PULSAR_CLIENT_DESC, onClose, heap);
+        ConstantSP resource = Util::createResource(reinterpret_cast<long long>(client.get()), PULSAR_CLIENT_DESC, onClose, heap);
         PULSAR_CLIENT_MAP.safeAdd(resource, client);
 
         return resource;
@@ -53,7 +52,7 @@ ddb::ConstantSP pulsarClient(ddb::Heap *heap, argsT &args) {
     }
 }
 
-ddb::ConstantSP pulsarProducer(ddb::Heap *heap, argsT &args) {
+ConstantSP pulsarProducer(Heap *heap, argsT &args) {
     string usage = "producer(client, topic, [producerConfig]): ";
 
     /// parse args
@@ -71,7 +70,7 @@ ddb::ConstantSP pulsarProducer(ddb::Heap *heap, argsT &args) {
         throw IllegalArgumentException(__FUNCTION__, usage + "topic length should be less than 4096.");
     }
     // producerConfig
-    auto producerConfig = ProducerConfiguration();
+    auto producerConfig = pulsar::ProducerConfiguration();
     if (args.size() == 3) {
         if (args[2]->getForm() != DF_DICTIONARY) {
             throw IllegalArgumentException(__FUNCTION__, usage + "producerConfig should be a dictionary.");
@@ -82,15 +81,15 @@ ddb::ConstantSP pulsarProducer(ddb::Heap *heap, argsT &args) {
     /// create producer
     try {
         SmartPointer<ProducerWrapper> producer = new ProducerWrapper{
-            Producer(),
+            pulsar::Producer(),
             producerConfig
         };
         auto result = client->client_.createProducer(topic, producerConfig, producer->producer_);
-        if (result != ResultOk) {
+        if (result != pulsar::ResultOk) {
             throw RuntimeException(string("Error creating producer: ") + strResult(result));
         }
         FunctionDefSP onClose(Util::createSystemProcedure("pulsar producer onClose()", producerOnClose, 1, 1));
-        ddb::ConstantSP resource = Util::createResource(reinterpret_cast<long long>(producer.get()), PULSAR_PRODUCER_DESC,
+        ConstantSP resource = Util::createResource(reinterpret_cast<long long>(producer.get()), PULSAR_PRODUCER_DESC,
                                                    onClose, heap->currentSession());
         PULSAR_PRODUCER_MAP.safeAdd(resource, producer);
 
@@ -101,7 +100,7 @@ ddb::ConstantSP pulsarProducer(ddb::Heap *heap, argsT &args) {
     }
 }
 
-ddb::ConstantSP pulsarSend(ddb::Heap *heap, argsT &args) {
+ConstantSP pulsarSend(Heap *heap, argsT &args) {
     std::ignore = heap;
     string usage = "send(producer, message, [partitionKey]): ";
 
@@ -127,14 +126,14 @@ ddb::ConstantSP pulsarSend(ddb::Heap *heap, argsT &args) {
 
     /// build and send message
     try {
-        auto msgBuilder = MessageBuilder().setContent(std::move(message));
+        auto msgBuilder = pulsar::MessageBuilder().setContent(std::move(message));
         if (!partitionKey.empty()) {
             msgBuilder.setPartitionKey(partitionKey);
         }
-        Message msg = msgBuilder.build();
+        pulsar::Message msg = msgBuilder.build();
 
-        Result result = producer->producer_.send(msg);
-        if (result != ResultOk) {
+        pulsar::Result result = producer->producer_.send(msg);
+        if (result != pulsar::ResultOk) {
             throw RuntimeException(string("Error sending message: ") + strResult(result));
         }
 
@@ -144,7 +143,7 @@ ddb::ConstantSP pulsarSend(ddb::Heap *heap, argsT &args) {
     }
 }
 
-ddb::ConstantSP pulsarConsumer(ddb::Heap *heap, argsT &args) {
+ConstantSP pulsarConsumer(Heap *heap, argsT &args) {
     string usage = "consumer(client, topic, subscriptionName, [consumerConfig]): ";
 
     /// parse args
@@ -167,7 +166,7 @@ ddb::ConstantSP pulsarConsumer(ddb::Heap *heap, argsT &args) {
     }
     auto subscriptionName = args[2]->getString();
     // consumerConfig
-    auto consumerConfig = ConsumerConfiguration();
+    auto consumerConfig = pulsar::ConsumerConfiguration();
     if (args.size() == 4) {
         if (args[3]->getForm() != DF_DICTIONARY) {
             throw IllegalArgumentException(__FUNCTION__, usage + "consumerConfig should be a dictionary.");
@@ -178,15 +177,15 @@ ddb::ConstantSP pulsarConsumer(ddb::Heap *heap, argsT &args) {
     /// create consumer and subscribe
     try {
         SmartPointer<ConsumerWrapper> consumer = new ConsumerWrapper{
-            Consumer(),
+            pulsar::Consumer(),
             consumerConfig
         };
         auto result = client->client_.subscribe(topic, subscriptionName, consumerConfig, consumer->consumer_);
-        if (result != ResultOk) {
+        if (result != pulsar::ResultOk) {
             throw RuntimeException(string("Failed to subscribe: ") + strResult(result));
         }
         FunctionDefSP onClose(Util::createSystemProcedure("pulsar consumer onClose()", consumerOnClose, 1, 1));
-        ddb::ConstantSP resource = Util::createResource(reinterpret_cast<long long>(consumer.get()), PULSAR_CONSUMER_DESC,
+        ConstantSP resource = Util::createResource(reinterpret_cast<long long>(consumer.get()), PULSAR_CONSUMER_DESC,
                                                    onClose, heap->currentSession());
         PULSAR_CONSUMER_MAP.safeAdd(resource, consumer);
 
@@ -197,7 +196,7 @@ ddb::ConstantSP pulsarConsumer(ddb::Heap *heap, argsT &args) {
     }
 }
 
-ddb::ConstantSP pulsarReceive(ddb::Heap *heap, argsT &args) {
+ConstantSP pulsarReceive(Heap *heap, argsT &args) {
     std::ignore = heap;
     string usage = "receive(consumer, [timeoutMs=1000]): ";
 
@@ -218,9 +217,9 @@ ddb::ConstantSP pulsarReceive(ddb::Heap *heap, argsT &args) {
 
     /// receive message
     try {
-        Message msg;
+        pulsar::Message msg;
         auto result = consumer->consumer_.receive(msg, timeoutMs);
-        if (result != ResultOk) {
+        if (result != pulsar::ResultOk) {
             throw RuntimeException(string("Failed to receive: ") + strResult(result));
         }
         auto data = msg.getDataAsString();
@@ -233,7 +232,7 @@ ddb::ConstantSP pulsarReceive(ddb::Heap *heap, argsT &args) {
     }
 }
 
-ddb::ConstantSP pulsarCreateSubJob(ddb::Heap *heap, argsT &args) {
+ConstantSP pulsarCreateSubJob(Heap *heap, argsT &args) {
     string usage = "createSubJob(jobName, client, topic, subscriptionName, table, parser, [consumerConfig]): ";
 
     /// parse args
@@ -288,7 +287,7 @@ ddb::ConstantSP pulsarCreateSubJob(ddb::Heap *heap, argsT &args) {
     }
     auto parser = args[5];
     // consumerConfig
-    auto consumerConfig = ConsumerConfiguration();
+    auto consumerConfig = pulsar::ConsumerConfiguration();
     if (args.size() == 7) {
         if (args[6]->getForm() != DF_DICTIONARY) {
             throw IllegalArgumentException(__FUNCTION__, usage + "consumerConfig should be a dictionary.");
@@ -298,7 +297,7 @@ ddb::ConstantSP pulsarCreateSubJob(ddb::Heap *heap, argsT &args) {
 
     try {
         /// create consumer
-        SmartPointer<Consumer> consumer = new Consumer();
+        SmartPointer<pulsar::Consumer> consumer = new pulsar::Consumer();
         // set listener
         auto session = heap->currentSession()->copy();
         consumerConfig.setMessageListener([session, table, parser](pulsar::Consumer &consumer_, const pulsar::Message &msg) {
@@ -306,14 +305,14 @@ ddb::ConstantSP pulsarCreateSubJob(ddb::Heap *heap, argsT &args) {
         });
         // subscribe
         auto result = client->client_.subscribe(topic, subscriptionName, consumerConfig, *consumer);
-        if (result != ResultOk) {
-            throw RuntimeException(string("Failed to subscribe: ") + strResult(result));
+        if (result != pulsar::ResultOk) {
+            throw RuntimeException(string("Failed to subscribe: ") + pulsar::strResult(result));
         }
 
         /// create subscription job
         SmartPointer<PulsarSubJob> subJob(new PulsarSubJob(heap, args[1], consumer, consumerConfig));
         FunctionDefSP onClose(Util::createSystemProcedure("pulsar subscription job onClose()", subJobOnClose, 1, 1));
-        ddb::ConstantSP resource = Util::createResource(reinterpret_cast<long long>(subJob.get()), PULSAR_SUB_JOB_DESC,
+        ConstantSP resource = Util::createResource(reinterpret_cast<long long>(subJob.get()), PULSAR_SUB_JOB_DESC,
                                                    onClose, heap->currentSession());
         PULSAR_SUB_JOB_MAP.safeAdd(resource, subJob, jobName);
 
@@ -324,7 +323,7 @@ ddb::ConstantSP pulsarCreateSubJob(ddb::Heap *heap, argsT &args) {
     }
 }
 
-ddb::ConstantSP pulsarCancelSubJob(ddb::Heap *heap, argsT &args) {
+ConstantSP pulsarCancelSubJob(Heap *heap, argsT &args) {
     std::ignore = heap;
     string usage = "cancelSubJob(subJob): ";
 
@@ -348,17 +347,17 @@ ddb::ConstantSP pulsarCancelSubJob(ddb::Heap *heap, argsT &args) {
     return new Void();
 }
 
-ddb::ConstantSP pulsarGetJobStat(ddb::Heap *heap, argsT &args) {
+ConstantSP pulsarGetJobStat(Heap *heap, argsT &args) {
     std::ignore = heap;
     std::ignore = args;
     string usage = "getJobStat(): ";
 
     /// init cols
     auto size = PULSAR_SUB_JOB_MAP.size();
-    ddb::ConstantSP nameVec = Util::createVector(DT_STRING, size);
-    ddb::ConstantSP userVec = Util::createVector(DT_STRING, size);
-    ddb::ConstantSP createTimeVec = Util::createVector(DT_TIMESTAMP, size);
-    ddb::ConstantSP endTimeVec = Util::createVector(DT_TIMESTAMP, size);
+    ConstantSP nameVec = Util::createVector(DT_STRING, size);
+    ConstantSP userVec = Util::createVector(DT_STRING, size);
+    ConstantSP createTimeVec = Util::createVector(DT_TIMESTAMP, size);
+    ConstantSP endTimeVec = Util::createVector(DT_TIMESTAMP, size);
 
     /// set info
     auto names = PULSAR_SUB_JOB_MAP.getHandleNames();
@@ -378,7 +377,7 @@ ddb::ConstantSP pulsarGetJobStat(ddb::Heap *heap, argsT &args) {
     return Util::createTable(colNames, cols);
 }
 
-ddb::ConstantSP pulsarGetConfig(ddb::Heap *heap, argsT &args) {
+ConstantSP pulsarGetConfig(Heap *heap, argsT &args) {
     std::ignore = heap;
     string usage = "getConfig(handle, configName): ";
 

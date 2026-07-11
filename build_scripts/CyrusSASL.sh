@@ -1,23 +1,14 @@
 #!/bin/bash
 
-prefix=$(echo $TAG | sed 's/ddb-//g')
 openssl_dir=$(ls -d $ARTIFACT_DIR/openssl-*)
 krb5_dir=$(ls -d $ARTIFACT_DIR/krb5-*)
-keyutils_dir=$(dirname $(find $(ls -d $ARTIFACT_DIR/keyutils-*) -name "libkeyutils.a"))
+keyutils_dir=$(ls -d $ARTIFACT_DIR/keyutils-*)
 
-autoreconf -fi
-mkdir build && cd build
-set_gnu_env
+keyutils_lib_dir=$(dirname $(find $keyutils_dir -name "libkeyutils.a"))
 export LIBS="-ldl"
-export LDFLAGS="-L$keyutils_dir"
-../configure $CROSS_HOST --prefix=$ARTIFACT_DIR/$prefix \
-	--enable-static --disable-shared \
-    --with-openssl=$openssl_dir \
+export LDFLAGS="-L$keyutils_lib_dir"
+autoreconf -fi
+gnu_all --with-openssl=$openssl_dir \
     --enable-gssapi=$krb5_dir \
     --enable-sample=no \
     --with-saslauthd=no
-
-make
-make install
-
-ln -s $ARTIFACT_DIR/$prefix $ARTIFACT_DIR/ABI/$prefix

@@ -1086,7 +1086,6 @@ int convertParquetToDolphindbInternal(int col_idx, ReaderType* column_reader, co
 
 int convertParquetToDolphindbChar(int col_idx, std::shared_ptr<parquet::ColumnReader> column_reader, const parquet::ColumnDescriptor *col_descr, char* buffer, size_t batchSize, bool& containNull, IndexArgs& indexArgs)
 {
-    int64_t values_read = 0;
     vector<short> def_level(batchSize);
     vector<short> rep_level(batchSize);
     int64_t rows_read = 0;
@@ -1152,7 +1151,6 @@ int convertParquetToDolphindbChar(int col_idx, std::shared_ptr<parquet::ColumnRe
             int64_t valuesRead = 0;
             int64_t le = rows_read;
             rows_read += ba_reader->ReadBatch(batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, (parquet::ByteArray*)value.data(), &valuesRead);
-            values_read += valuesRead;
             int index = 0;
             for (; le < rows_read; le++)
             {

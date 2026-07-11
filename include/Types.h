@@ -107,14 +107,14 @@ inline const std::string aggregationKeyword = "defg";
 inline const std::string mapreduceKeyword = "mapr";
 inline const std::string classKeyword = "class";
 inline constexpr int ARRAY_TYPE_BASE = 64;
-inline constexpr int TYPE_COUNT = 45;
+inline constexpr int COLUMNAR_TYPE_BASE = 128;
+inline constexpr int TYPE_COUNT = 46;
 
 enum DATA_TYPE {DT_VOID,DT_BOOL,DT_CHAR,DT_SHORT,DT_INT,DT_LONG,DT_DATE,DT_MONTH,DT_TIME,DT_MINUTE,DT_SECOND,DT_DATETIME,DT_TIMESTAMP,DT_NANOTIME,DT_NANOTIMESTAMP,
         DT_FLOAT,DT_DOUBLE,DT_SYMBOL,DT_STRING,DT_UUID,DT_FUNCTIONDEF,DT_HANDLE,DT_CODE,DT_DATASOURCE,DT_RESOURCE,DT_ANY,DT_COMPRESS,DT_DICTIONARY,DT_DATEHOUR,DT_DATEMINUTE,
-        DT_IP,DT_INT128,DT_BLOB,DT_DECIMAL,DT_COMPLEX,DT_POINT,DT_DURATION,DT_DECIMAL32,DT_DECIMAL64,DT_DECIMAL128,DT_OBJECT, DT_IOTANY, DT_INSTRUMENT, DT_MKTDATA, DT_MKTDATAROW,
+        DT_IP,DT_INT128,DT_BLOB,DT_DECIMAL,DT_COMPLEX,DT_POINT,DT_DURATION,DT_DECIMAL32,DT_DECIMAL64,DT_DECIMAL128,DT_OBJECT, DT_IOTANY, DT_INSTRUMENT, DT_MKTDATA,
         DT_INT_ARRAY = ARRAY_TYPE_BASE + DT_INT,
 };
-
 
 enum DATA_CATEGORY {NOTHING,LOGICAL,INTEGRAL,FLOATING,TEMPORAL,LITERAL,SYSTEM,MIXED,BINARY,COMPLEX,ARRAY,DENARY};
 
@@ -148,7 +148,21 @@ enum CONSOLE_TYPE {STD,HTTP,TERMINAL,API,API2,JSON,BATCHJOB,WEBSOCKET, WEBSOCKET
 
 enum HANDLE_TYPE {FILE_HANDLE,SOCKET_HANDLE,REMOTE_HANDLE,DB_HANDLE};
 
-enum FUNCTIONDEF_TYPE {SYSFUNC, SYSPROC, OPTRFUNC, USERDEFFUNC, PARTIALFUNC, DYNAMICFUNC, PIECEWISEFUNC, JITFUNC, JITPARTIALFUNC, CLASSMETHOD, OPTFUNC, PYTHON_CLOSURE, COMPOSITEFUNC};
+enum FUNCTIONDEF_TYPE {
+    SYSFUNC,
+    SYSPROC,
+    OPTRFUNC,
+    USERDEFFUNC,
+    PARTIALFUNC,
+    DYNAMICFUNC,
+    PIECEWISEFUNC,
+    /* DEPRECATED */ // JITFUNC,
+    /* DEPRECATED: Used for Legacy TurboJet */ JITPARTIALFUNC = PIECEWISEFUNC + 2,
+    CLASSMETHOD = PIECEWISEFUNC + 3,
+    OPTFUNC,
+    PYTHON_CLOSURE,
+    COMPOSITEFUNC
+};
 
 enum FUNCTIONCALL_TYPE {THREADCALL, REGULARCALL, TEMPLATECALL};
 
@@ -246,7 +260,8 @@ enum class VECTOR_TYPE {ARRAY, BIGARRAY, SUBVECTOR, SLICEDVECTOR, REPVECTOR, IOT
 
 enum class ATOMIC {TRANS, CHUNK};
 
-enum class SYSOBJ_TYPE {CONSTITER, RANGEITER, DICTITER, DICTVALUEITER, DICTKEYITER, BUILTIN_INSTANCE, DDB_CLASS, DDB_INSTANCE, PY_CLASS, PY_INSTANCE, PY_MODULE, PY_OBJWRAPPER, KWARGS, JIT_DDB_INSTANCE, MAX_SYSOBJ_TYPES};
+enum class SYSOBJ_TYPE {CONSTITER, RANGEITER, DICTITER, DICTVALUEITER, DICTKEYITER, BUILTIN_INSTANCE, DDB_CLASS, DDB_INSTANCE, PY_CLASS, PY_INSTANCE, PY_MODULE, PY_OBJWRAPPER, KWARGS, JIT_DDB_INSTANCE,
+    MARKETDATAROW, SHARKOBJ, MAX_SYSOBJ_TYPES};
 
 enum class PARSER_TYPE {DDB, PYTHON, KDB, EXTRA_PARSER, MAX_PARSER_TYPES};
 
@@ -255,6 +270,20 @@ enum class OO_ACCESS { PUBLIC, PRIVATE, PROTECTED};
 enum class TensorType : unsigned char { Basic = 0 };
 
 enum class DeviceType : unsigned char { CPU, CUDA, ASCEND, HYBRID};
+
+// Extended type identifiers for TypeDef serialization
+enum class DefEnum : char {
+    // Basic type identifiers for serialization
+    DF_ANY = 0,
+    DF_CONSTANT,
+    DF_VECTOR,
+    DF_DICTIONARY,
+    DF_PAIR,
+    DF_MATRIX,
+    DF_SET,
+    DF_TABLE,
+    DF_CLASS,
+};
 
 typedef __int128 int128;
 typedef unsigned __int128 uint128;
@@ -535,6 +564,7 @@ class STATEMENT_TYPE : public DOLPHIN_ENUM_TYPE {
     static const STATEMENT_TYPE IF;
     static const STATEMENT_TYPE DO;
     static const STATEMENT_TYPE FOR;
+    static const STATEMENT_TYPE WHILE;
     static const STATEMENT_TYPE ASSIGN;
     static const STATEMENT_TYPE ATTRASSIGN;
     static const STATEMENT_TYPE MULTIASSIGN;
@@ -557,7 +587,6 @@ class STATEMENT_TYPE : public DOLPHIN_ENUM_TYPE {
     static const STATEMENT_TYPE USE;
     static const STATEMENT_TYPE SHARE;
     static const STATEMENT_TYPE INCLUDE;
-    static const STATEMENT_TYPE JITHEADER;
     static const STATEMENT_TYPE CREATE;
     static const STATEMENT_TYPE ALTER;
     static const STATEMENT_TYPE TRANSACTION;
@@ -572,13 +601,21 @@ class STATEMENT_TYPE : public DOLPHIN_ENUM_TYPE {
 };
 } // namespace ddb
 
-namespace std {
 template <>
-struct hash<ddb::DBENGINE_TYPE> {
-    std::size_t operator()(const ddb::DBENGINE_TYPE &obj) const {
-        return std::hash<int32_t>()(static_cast<int32_t>(obj));
+struct std::hash<ddb::DOLPHIN_ENUM_TYPE> {
+    std::size_t operator()(const ddb::DOLPHIN_ENUM_TYPE &obj) const {
+        using RawType = ddb::DOLPHIN_ENUM_TYPE::RawType;
+        return std::hash<RawType>()(static_cast<RawType>(obj));
     }
 };
-} // namespace std
+
+template <>
+struct std::hash<ddb::STATEMENT_TYPE> : std::hash<ddb::DOLPHIN_ENUM_TYPE> {};
+
+template <>
+struct std::hash<ddb::OBJECT_TYPE> : std::hash<ddb::DOLPHIN_ENUM_TYPE> {};
+
+template <>
+struct std::hash<ddb::DBENGINE_TYPE> : std::hash<ddb::DOLPHIN_ENUM_TYPE> {};
 
 #endif /* TYPES_H_ */

@@ -1,22 +1,8 @@
-#ifndef PLUGIN_LOGGER_H
-#define PLUGIN_LOGGER_H
-
-#include <cstdarg>
-
-#ifdef __linux__
-#ifndef LINUX
-#define LINUX
-#endif
-#elif defined(_WIN32)
-#ifndef WINDOWS
-#define WINDOWS
-#endif
-#endif
+#pragma once
 
 #include "Logger.h"
 
-#undef LINUX
-#undef WINDOWS
+#include <cstdarg>
 
 #define MACRO_CONTACT_(a, b)   a##b
 #define MACRO_CONTACT(a, b)   MACRO_CONTACT_(a, b)
@@ -47,5 +33,3 @@ namespace ddb {
 #define LOG_INFO(...) ddb::PLUGIN_VAR(pluginLog)<ddb::severity_type::INFO>(LOG_LABEL(LOG_NAME), __VA_ARGS__)
 #define LOG_WARN(...) ddb::PLUGIN_VAR(pluginLog)<ddb::severity_type::WARNING>(LOG_LABEL(LOG_NAME), __VA_ARGS__)
 #define LOG_ERR(...) ddb::PLUGIN_VAR(pluginLog)<ddb::severity_type::ERR>(LOG_LABEL(LOG_NAME), __VA_ARGS__)
-
-#endif

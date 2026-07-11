@@ -11,7 +11,7 @@
 
 #include <H5Cpp.h>
 #include <hdf5_hl.h>
-#include <blosc_filter.h>
+#include "blosc/blosc_filter.h"
 #include <list>
 #include "ddbplugin/Plugin.h"
 #include "ddbplugin/PluginLogger.h"

@@ -17,6 +17,24 @@ using pybind_dolphindb::DENARY;
 using pybind_dolphindb::DT_VOID;
 
 
+template <typename T>
+struct DecimalType;
+template <> struct DecimalType<int> { static constexpr DATA_TYPE value = ddb::DT_DECIMAL32; };
+template <> struct DecimalType<long long> { static constexpr DATA_TYPE value = ddb::DT_DECIMAL64; };
+template <> struct DecimalType<int128> { static constexpr DATA_TYPE value = ddb::DT_DECIMAL128; };
+
+
+template <typename T>
+inline ddb::Constant* toDecimalPtr(const ddb::ConstantSP &obj, int scale) {
+    ddb::Decimal<T> * ret = new ddb::Decimal<T>(scale);
+    if (false == ret->assign(obj)) {
+        delete ret;
+        return nullptr;
+    }
+    return ret;
+}
+
+
 inline bool isDecimalType(ddb::DATA_TYPE type) {
     if ((int)type >= ARRAY_TYPE_BASE) {
         type = static_cast<DATA_TYPE>(type - ARRAY_TYPE_BASE);

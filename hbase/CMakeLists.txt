@@ -3,11 +3,11 @@ set(PluginName PluginHBase)
 project(${PluginName})
 
 include(../template.cmake)
-CreatePlugin(${PluginName})
 
-target_compile_options(${PluginName} PRIVATE -w)
+set(HBASE_THRIFT_GENERATED_DIR ${CMAKE_CURRENT_SOURCE_DIR}/gen-cpp)
+CreatePlugin(${PluginName})
 
 find_package(Boost REQUIRED)
 target_link_libraries(${PluginName} PRIVATE Boost::boost)
-find_package(Thrift)
+find_package(Thrift REQUIRED)
 target_link_libraries(${PluginName} PRIVATE thrift::thrift)

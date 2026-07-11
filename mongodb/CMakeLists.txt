@@ -11,7 +11,7 @@ target_include_directories(${PluginName} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc
 target_include_directories(${PluginName} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include/libmongoc-1.0)
 
 cmake_path(GET CMAKE_CURRENT_SOURCE_DIR FILENAME INSTALL_DIR)
-if (CMAKE_SYSTEM_NAME STREQUAL "MSYS")
+if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     target_compile_options(${PluginName} PRIVATE -Wno-error=type-limits)
     target_link_directories(${PluginName} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/bin/win64)
     target_link_libraries(${PluginName} PRIVATE mongoc-1.0 bson-1.0)

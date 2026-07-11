@@ -14,7 +14,7 @@ namespace converter {
 
 static inline std::string py2str(const py::handle &obj) { return py::str(obj).cast<std::string>(); }
 static inline std::string py2str(const py::object &obj) { return py::str(obj).cast<std::string>(); }
-static inline std::vector<std::string> py2liststr(const py::handle &obj) {
+static inline std::vector<std::string> py2liststr(const py::handle &obj, const std::string &errMsg="") {
     std::vector<std::string> res;
     if (py::isinstance<py::str>(obj)) {
         res.push_back(py::cast<std::string>(obj));
@@ -26,7 +26,11 @@ static inline std::vector<std::string> py2liststr(const py::handle &obj) {
         }
     }
     else {
-        throw BindProgrammingException("[TODO]");
+        if (errMsg.empty())
+            throw BindProgrammingException("Cannot convert " +
+                py::str(obj).cast<std::string>() + " to string vector.");
+        else
+            throw BindProgrammingException(errMsg);
     }
     return res;
 }
@@ -148,9 +152,6 @@ Constant* createValue(Type type, float val, bool checkDecimal=false);
 
 template <typename T>
 ConstantSP createObject(Type type, const char *name, T val, ConvertErrorInfo *error = NULL, bool isRaw = false) {
-    std::ignore=name;
-    std::ignore=val;
-    std::ignore=isRaw;
     SetOrThrowErrorInfo(error, ConvertErrorInfo::EC_InvalidData, "It cannot be converted to " + getDataTypeString(type));
     return NULL;
 }
@@ -297,8 +298,7 @@ void processData(T *psrcData, size_t size, std::function<void(T *, int)> f) {
     int bufsize = std::min(CONVERTER_BUF_SIZE, (int)size);
     std::unique_ptr<T[]> bufsp(new T[bufsize]);
     T *buf = bufsp.get();
-    size_t startIndex = 0;
-    size_t len;
+    size_t startIndex = 0, len;
     while(startIndex < size){
         len = std::min((int)(size-startIndex), bufsize);
         memcpy(buf, psrcData+startIndex, sizeof(T)*len);

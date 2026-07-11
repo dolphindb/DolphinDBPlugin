@@ -8,7 +8,7 @@ CreatePlugin(${PluginName})
 
 add_subdirectory(lib)
 
-if (CMAKE_SYSTEM_NAME STREQUAL "MSYS")
+if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     target_link_libraries(${PluginName} PRIVATE WS2_32)
 endif()
 

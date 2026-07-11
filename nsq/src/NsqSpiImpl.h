@@ -1,9 +1,7 @@
-//
-// Created by htxu on 11/20/2023.
-//
+#pragma once
 
-#ifndef PLUGINNSQ_NSQSPIIMPL_H
-#define PLUGINNSQ_NSQSPIIMPL_H
+#include "NsqEverything.h"
+#include "NsqConnection.h"
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -12,12 +10,24 @@
 #include <unistd.h>
 #endif // _WIN32
 
-#include "HSNsqApi.h"
 #include "NsqQueues.h"
 
 using namespace ddb;
 
 class CHSNsqSpiImpl : public CHSNsqSpi {
+  public:
+    explicit CHSNsqSpiImpl(std::shared_ptr<NsqConnection> conn) : conn_(std::move(conn)) {}
+    ~CHSNsqSpiImpl() override = default;
+
+    CHSNsqSpiImpl(const CHSNsqSpiImpl&) = delete;
+    CHSNsqSpiImpl& operator=(const CHSNsqSpiImpl&) = delete;
+
+    SmartPointer<NsqQueues> queues_ = new NsqQueues();
+    bool isConnected_ = false;
+    string username_;
+    string password_;
+
+  private:
 
     /// Connection
 
@@ -48,14 +58,7 @@ class CHSNsqSpiImpl : public CHSNsqSpi {
 
     void OnRtnSecuTransactionEntrustData(CHSNsqSecuTransactionEntrustDataField *pSecuTransactionEntrustData) override;
 
-public:
-    virtual ~CHSNsqSpiImpl() = default;
-
-    SmartPointer<NsqQueues> queues_ = new NsqQueues();
-    bool isConnected_ = false;
-    string username_;
-    string password_;
+    std::shared_ptr<NsqConnection> conn_;
 };
 
-
-#endif //PLUGINNSQ_NSQSPIIMPL_H
+extern std::shared_ptr<CHSNsqSpiImpl> g_spi; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)

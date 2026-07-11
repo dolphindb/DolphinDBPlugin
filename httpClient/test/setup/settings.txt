@@ -1,9 +1,0 @@
-pluginPath = '/home/zmx/worker/DolphinDBPlugin/httpClient/PluginHttpClient.txt';
-
-//Set up your email and authorization code here
-userId='dolphindbtest@126.com';
-psw='VUZUSOSHUSSHMGCL';
-//"dolphindbtest@126.com","VUZUSOSHUSSHMGCL";
-//"dolphindbtest@163.com","VSCJQVLDJUNCWRSS";
-//"dolphindbtest@yeah.net","JKQEZEYONODXYVUE";
-//"dolphindbtest@sohu.com","GCD5IOUZ061";

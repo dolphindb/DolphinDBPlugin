@@ -23,7 +23,7 @@ ConstantSP convertRedisReply(const redisReply *const reply) {
 
     switch (reply->type) {
         case REDIS_REPLY_ERROR:
-            throw RuntimeException("[Plugin::Redis] Redis reply error: " + string(reply->str));
+            throw RuntimeException("[Plugin::Redis] Redis reply error: " + string(reply->str, reply->len));
 
         case REDIS_REPLY_STRING:
         case REDIS_REPLY_STATUS:
@@ -512,7 +512,7 @@ void RedisConnection::checkReply(const redisReply *reply, const string &command)
         throw RuntimeException("[Plugin::Redis] Invalid redis reply.");
     }
     if (reply->type == REDIS_REPLY_ERROR) {
-        throw RuntimeException("[Plugin::Redis] " + command + " failed: " + string(reply->str));
+        throw RuntimeException("[Plugin::Redis] " + command + " failed: " + string(reply->str, reply->len));
     }
 }
 
@@ -528,7 +528,7 @@ string RedisConnection::checkSubReplyHelper(const redisReply *reply) const {
     } else if (reply == nullptr) {
         errorMsg = "invalid redis reply.";
     } else if (reply->type == REDIS_REPLY_ERROR) {
-        errorMsg = string(reply->str);
+        errorMsg = string(reply->str, reply->len);
     }
 
     if (!errorMsg.empty()) {
@@ -552,7 +552,7 @@ string RedisConnection::checkSubReply(int numChannels) const {
             return errorMsg;
         }
 
-        string head = reply->element[0]->str;
+        string head(reply->element[0]->str, reply->element[0]->len);
         string expectHead = (isPattern_) ? "psubscribe" : "subscribe";
         if (head != expectHead) {
             return "[Plugin::Redis] The message head is not '" + expectHead + "', but " + head + ".";
@@ -601,13 +601,13 @@ void RedisConnection::initSubThreads(Heap *heap) {
                     LOG_ERR(errMsg);
                     break;
                 }
-                string head = reply->element[0]->str;
+                string head(reply->element[0]->str, reply->element[0]->len);
                 if (head != expectHead) {
                     LOG_ERR("[Plugin::Redis] The message head is not '" + expectHead + "', but " + head + ".");
                     break;
                 }
-                msg.channel_ = reply->element[chanIdx]->str;
-                msg.msg_ = reply->element[msgIdx]->str;
+                msg.channel_ = string(reply->element[chanIdx]->str, reply->element[chanIdx]->len);
+                msg.msg_ = string(reply->element[msgIdx]->str, reply->element[msgIdx]->len);
 
                 LockGuard<Mutex> channelGuard(&channelMutex_);
                 if (isChanged_) {

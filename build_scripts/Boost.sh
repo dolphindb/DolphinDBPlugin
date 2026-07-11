@@ -1,13 +1,11 @@
 #!/bin/bash
 
-prefix="boost-1.90.0"
-src=boost_1_90_0.tar.gz
-
-cp /home/api/src/$src .
-tar -xf $src
-cd boost_1_90_0
+prefix="boost-1.91.0"
+filename=$(echo "$prefix" | sed 's/-/_/g; s/\./_/g')
+cp $SOURCE_DIR/$filename.tar.gz .
+rm -rf $filename && tar -xf $filename.tar.gz && cd $filename
 ./bootstrap.sh
-if [ $CROSS_TOOLCHAIN ];then
+if [ -n "$CROSS_TOOLCHAIN" ];then
 	echo "using gcc : arm_64 : $(which $CXX) ;" >> user-config.jam
     config="--user-config=user-config.jam"
 fi

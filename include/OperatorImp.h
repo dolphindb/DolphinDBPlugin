@@ -53,6 +53,7 @@ ConstantSP SWORDFISH_API constantDesc(Heap* heap, const ConstantSP& a, const Con
 ConstantSP SWORDFISH_API brief(Heap* heap, const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API snippet(Heap* heap, const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API syntax(Heap* heap, const ConstantSP& a, const ConstantSP& b);
+ConstantSP SWORDFISH_API signature(Heap* heap, const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API memSize(Heap* heap, const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API compress(Heap* heap, const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API decompress(Heap* heap, const ConstantSP& a, const ConstantSP& b);
@@ -212,7 +213,7 @@ ConstantSP SWORDFISH_API indexedSeries(Heap* heap,const ConstantSP& a, const Con
 ConstantSP SWORDFISH_API enlist(Heap* heap,const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API lowerBound(Heap* heap,const ConstantSP& a, const ConstantSP& b);
 
-ConstantSP SWORDFISH_API linearTimeTrend(Heap* heap,const ConstantSP& a, const ConstantSP& b);
+ConstantSP SWORDFISH_API linearTimeTrend(Heap* heap, vector<ConstantSP>& args);
 ConstantSP SWORDFISH_API kama(Heap* heap,const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API wilder(Heap* heap,const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API ema(Heap *pHeap, vector<ConstantSP>& arguments);
@@ -264,6 +265,7 @@ ConstantSP SWORDFISH_API mmad(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API matImin(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API matImax(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API mmaxPositiveStreak(Heap* heap,vector<ConstantSP>& arguments);
+ConstantSP SWORDFISH_API mmaxDrawdown(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API tmcount(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API tmfirst(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API tmlast(Heap* heap,vector<ConstantSP>& arguments);
@@ -350,6 +352,8 @@ ConstantSP SWORDFISH_API ewmVar(Heap* heap, vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API ewmStd(Heap* heap, vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API ewmCorr(Heap* heap, vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API ewmCov(Heap* heap, vector<ConstantSP>& arguments);
+ConstantSP SWORDFISH_API fir(Heap* heap, vector<ConstantSP>& arguments);
+ConstantSP SWORDFISH_API iir(Heap* heap, vector<ConstantSP>& arguments);
 
 //vector manipulation
 ConstantSP SWORDFISH_API rowNo(Heap* heap,const ConstantSP& a, const ConstantSP& b);
@@ -459,10 +463,12 @@ ConstantSP SWORDFISH_API anyTrue(const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API anyTrue(Heap* heap,const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API oddTrue(Heap* heap,const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API maxDrawdown(Heap* heap,const ConstantSP& a, const ConstantSP& b);
+ConstantSP SWORDFISH_API imaxDrawdown(Heap* heap,const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API rms(Heap* heap,const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API isSorted(Heap* heap,const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API atIMax(Heap* heap,const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API atIMin(Heap* heap,const ConstantSP& a, const ConstantSP& b);
+ConstantSP SWORDFISH_API twavg(Heap* heap, const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API wavg(const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API wsum(const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API dot(const ConstantSP& a, const ConstantSP& b);
@@ -482,7 +488,8 @@ ConstantSP SWORDFISH_API kendall(Heap* heap,const ConstantSP& a, const ConstantS
 ConstantSP SWORDFISH_API mutualInformation(Heap* heap,const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API covariance(Heap* heap,const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API covarp(Heap* heap,const ConstantSP& a, const ConstantSP& b);
-ConstantSP SWORDFISH_API beta(Heap* heap,const ConstantSP& a, const ConstantSP& b);
+ConstantSP SWORDFISH_API beta(Heap *heap, vector<ConstantSP> &arguments);
+ConstantSP SWORDFISH_API betaOperator(Heap *heap, const ConstantSP &a, const ConstantSP &b);
 ConstantSP SWORDFISH_API searchK(Heap* heap,const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API difference(Heap* heap,const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API crossStat(const ConstantSP& a, const ConstantSP& b);
@@ -748,7 +755,8 @@ ConstantSP SWORDFISH_API cummed(Heap *heap,const ConstantSP& a, const ConstantSP
 ConstantSP SWORDFISH_API cumcorr(Heap *heap,const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API cumcovar(Heap *heap,const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API cumcovarp(Heap *heap,const ConstantSP& a, const ConstantSP& b);
-ConstantSP SWORDFISH_API cumbeta(Heap *heap,const ConstantSP& a, const ConstantSP& b);
+ConstantSP SWORDFISH_API cumbeta(Heap *heap, vector<ConstantSP> &arguments);
+ConstantSP SWORDFISH_API cumbetaOperator(Heap *heap, const ConstantSP &a, const ConstantSP &b);
 ConstantSP SWORDFISH_API cumwsum(Heap *heap,const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API cumwavg(Heap *heap,const ConstantSP& a, const ConstantSP& b);
 ConstantSP SWORDFISH_API cumfirstNot(Heap *heap,const ConstantSP& a, const ConstantSP& b);
@@ -873,6 +881,7 @@ ConstantSP SWORDFISH_API qcut(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API sqlCol(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API sqlColAlias(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API sqlTuple(Heap* heap,vector<ConstantSP>& arguments);
+ConstantSP SWORDFISH_API sortCol(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API expression(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API binaryExpr(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API unifiedExpr(Heap* heap,vector<ConstantSP>& arguments);
@@ -940,6 +949,7 @@ ConstantSP SWORDFISH_API contextFuncCall(Heap* heap,vector<ConstantSP>& argument
 ConstantSP SWORDFISH_API segmentFuncCall(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API pivotFuncCall(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API movingFuncCall(Heap* heap,vector<ConstantSP>& arguments);
+ConstantSP SWORDFISH_API movingDynamicFuncCall(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API movingValidFuncCall(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API rollingFuncCall(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API allFuncCall(Heap* heap,vector<ConstantSP>& arguments);
@@ -1054,6 +1064,7 @@ ConstantSP SWORDFISH_API rowCovarp(Heap *heap, vector<ConstantSP> &arguments);
 ConstantSP SWORDFISH_API rowBeta(Heap *heap, vector<ConstantSP> &arguments);
 ConstantSP SWORDFISH_API rowWsum(Heap *heap, vector<ConstantSP> &arguments);
 ConstantSP SWORDFISH_API rowWavg(Heap *heap, vector<ConstantSP> &arguments);
+ConstantSP SWORDFISH_API rowTwavg(Heap *heap, vector<ConstantSP> &arguments);
 ConstantSP SWORDFISH_API rowTanimoto(Heap *heap, vector<ConstantSP> &arguments);
 ConstantSP SWORDFISH_API rowJaccard(Heap *heap, vector<ConstantSP> &arguments);
 ConstantSP SWORDFISH_API rowEuclidean(Heap *heap, vector<ConstantSP> &arguments);
@@ -1148,6 +1159,9 @@ ConstantSP SWORDFISH_API fixedLengthArrayVector(Heap* heap, vector<ConstantSP>& 
 
 ConstantSP SWORDFISH_API exists(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API existsDatabase(Heap* heap,vector<ConstantSP>& arguments);
+ConstantSP SWORDFISH_API lockTables(Heap* heap,vector<ConstantSP>& arguments);
+ConstantSP SWORDFISH_API unlockTables(Heap* heap,vector<ConstantSP>& arguments);
+ConstantSP SWORDFISH_API getTableLockInfo(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API existsTable(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API existsPartition(Heap* heap,vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API listTables(Heap* heap,vector<ConstantSP>& arguments);
@@ -1212,6 +1226,7 @@ ConstantSP SWORDFISH_API getRunningQueries(Heap* heap, vector<ConstantSP>& argum
 ConstantSP SWORDFISH_API getCompletedQueries(Heap* heap, vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API getSessionMemoryStat(Heap* heap, vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API getMemoryStat(Heap* heap, vector<ConstantSP>& arguments);
+ConstantSP SWORDFISH_API parseHeapSample(Heap* heap, vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API transaction(Heap* heap, vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API checksum(Heap* heap, vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API toCharArray(Heap* heap, vector<ConstantSP>& arguments);
@@ -1295,6 +1310,8 @@ ConstantSP SWORDFISH_API getRecentJobs(Heap* heap, vector<ConstantSP>& arguments
 ConstantSP SWORDFISH_API getJobStatus(Heap* heap, vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API getJobReturn(Heap* heap, vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API getJobMessage(Heap* heap, vector<ConstantSP>& arguments);
+ConstantSP SWORDFISH_API deleteJobArtifacts(Heap* heap, vector<ConstantSP>& arguments);
+ConstantSP SWORDFISH_API getAllJobs(Heap* heap, vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API getConsoleJobs(Heap* heap, vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API evalTimer(Heap* heap, vector<ConstantSP>& arguments);
 ConstantSP SWORDFISH_API getPartitionDataFromDS(Heap* heap, vector<ConstantSP>& arguments);
@@ -1402,8 +1419,8 @@ ConstantSP SWORDFISH_API uploadModule(Heap* heap, vector<ConstantSP>& arguments)
 void appendMsg(Heap* heap,vector<ConstantSP>& arguments);
 void generateMachineFingerprint(Heap *heap, vector<ConstantSP> &args);
 void composeMachineFingerprint(Heap *heap, vector<ConstantSP> &args);
-void enableDynamicScriptOptimize(Heap *heap, vector<ConstantSP> &args);
-void disableDynamicScriptOptimize(Heap *heap, vector<ConstantSP> &args);
+void enableDynamicScriptOptimization(Heap *heap, vector<ConstantSP> &args);
+void disableDynamicScriptOptimization(Heap *heap, vector<ConstantSP> &args);
 
 ConstantSP doubleSortPrefixJoin(TableSP left, TableSP right, ConstantSP leftMatchingColNames, ConstantSP rightMatchingColNames, ConstantSP leftFilter,ConstantSP rightFilter);
 ConstantSP doubleSortEqualJoin(TableSP left, TableSP right, ConstantSP leftMatchingColNames, ConstantSP rightMatchingColNames, ConstantSP leftFilter,ConstantSP rightFilter, bool sortJoinedTable);
@@ -1433,6 +1450,8 @@ void checkJoinColumnType(const TableSP& left, const TableSP& right, const Consta
 void checkTupleReduce(const ConstantSP& init, const vector<ConstantSP>& in, vector<ConstantSP>& out, DATA_TYPE& type);
 FunctionDefSP normalizePartialFunction(Heap* heap, const FunctionDefSP& partialFunc, vector<ConstantSP>& oldArgs, vector<ConstantSP>& newArgs);
 FunctionDefSP normalizePartialFunction(Heap* heap, const FunctionDefSP& partialFunc, vector<ConstantSP>& oldArgs, vector<ConstantSP>& newArgs, vector<int>& oldArgPositions);
+bool parseBetaInterceptArg(const ConstantSP& arg, const string& funcName = "beta");
+bool parseBetaInterceptFromObject(Heap* heap, const ObjectSP& arg, const string& funcName = "beta");
 bool generateChunkPaths(Heap* heap, const DomainSP& domain, const ConstantSP& filters, vector<string>& paths, const string& tableName, string& errMsg);
 /*method: 0-auto, 1-naive, 2-strassen*/
 ConstantSP multiMatrix(const ConstantSP& a, const ConstantSP& b, int method=0);
@@ -1445,6 +1464,7 @@ ConstantSP hashBucket(const ConstantSP& keyObj, DATA_TYPE targetRawType, int buc
 
 bool processVectorFuncOverTupleByRow(Heap* heap);
 bool isKDBParser(Heap* heap);
+string getCategoryString(DATA_CATEGORY cat);
 
 inline bool isKDBParser(Heap* heap){
 	return heap != nullptr && heap->currentSession()->getParserType() == PARSER_TYPE::KDB;
@@ -1611,6 +1631,7 @@ ConstantSP getLocalTraceLog(Heap *heap, vector<ConstantSP> &arguments);
 ConstantSP gmd5(Heap *heap, vector<ConstantSP> &arguments);
 ConstantSP rowGmd5(Heap *heap, vector<ConstantSP> &arguments);
 
+bool canFurtherFlatten(ConstantSP& tuple, DATA_TYPE& type, int& extra);
 string readLicenseFromFile(const string& licenseFile, const string& funcName);
 
 #ifdef BUILD_EMBEDDED_OLTP

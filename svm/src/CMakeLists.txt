@@ -1,4 +1,4 @@
-if (CMAKE_SYSTEM_NAME STREQUAL "MSYS")
+if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     target_sources(${PluginName} PRIVATE
         svm.h
         svmPlugin.cpp

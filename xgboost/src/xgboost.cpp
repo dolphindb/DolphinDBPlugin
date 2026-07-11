@@ -443,9 +443,8 @@ ConstantSP predictEx(Heap *heap, vector<ConstantSP> &args) {
     return out;
 }
 
-#if XGBOOST_VER_MAJOR >= 2
 // use XGBoosterPredictFromDMatrix only for xgboost2.0.0
-static ConstantSP predictImpl2(Heap *heap, const BoosterHandle hBooster, const DMatrixHandle hTest, const int rows, const int type, const long long iterationStart, const long long iterationEnd, const bool training, const bool strictShape) {
+static ConstantSP predictImpl2(const BoosterHandle hBooster, const DMatrixHandle hTest, const int type, const long long iterationStart, const long long iterationEnd, const bool training, const bool strictShape) {
     string configStr = "{";
     configStr += "\"type\":";
     configStr += std::to_string(type);
@@ -471,12 +470,11 @@ static ConstantSP predictImpl2(Heap *heap, const BoosterHandle hBooster, const D
     if(outDim == 1) {
         long long outLen = outShape[0];
         out = Util::createVector(DT_FLOAT, outLen);
-
-        float buf[Util::BUF_SIZE];
+        std::vector<float> buf(Util::BUF_SIZE);
         INDEX start = 0, len;
         while (start < (INDEX) outLen) {
             len = std::min(Util::BUF_SIZE, (INDEX) outLen - start);
-            float *p = out->getFloatBuffer(start, len, buf);
+            float *p = out->getFloatBuffer(start, len, buf.data());
             std::memcpy(p, outResult + start, sizeof(float) * len);
             out->setFloat(start, len, p);
             start += len;
@@ -485,12 +483,12 @@ static ConstantSP predictImpl2(Heap *heap, const BoosterHandle hBooster, const D
         int colNum = outShape[0];
         int colLength = outShape[1];
         out = Util::createMatrix(DT_FLOAT, colNum, colLength, colNum * colLength);
-        float buf[Util::BUF_SIZE];
+        std::vector<float> buf(Util::BUF_SIZE);
         long long outLen = colNum * colLength;
         INDEX start = 0, len;
         while (start < (INDEX) outLen) {
             len = std::min(Util::BUF_SIZE, (INDEX) outLen - start);
-            float *p = out->getFloatBuffer(start, len, buf);
+            float *p = out->getFloatBuffer(start, len, buf.data());
             std::memcpy(p, outResult + start, sizeof(float) * len);
             out->setFloat(start, len, p);
             start += len;
@@ -503,6 +501,7 @@ static ConstantSP predictImpl2(Heap *heap, const BoosterHandle hBooster, const D
 }
 
 ConstantSP predict(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
     string funcName = "xgboost::predict";
     string syntax = "Usage: " + funcName + "(model, X, [type=0], [iterationRange], [strictShape=false], [training=false]). ";
 
@@ -604,96 +603,11 @@ ConstantSP predict(Heap *heap, vector<ConstantSP> &args) {
         throw RuntimeException("[PLUGIN::XGBOOST] failed to get matrix handle.");
     }
 
-    ConstantSP out = predictImpl2(heap, hBooster, hTest, rows, type, iterationStart, iterationEnd, training, strictShape);
+    ConstantSP out = predictImpl2(hBooster, hTest, type, iterationStart, iterationEnd, training, strictShape);
     safe_xgboost(XGDMatrixFree(hTest));
 
     return out;
 }
-#else
-ConstantSP predict(Heap *heap, vector<ConstantSP> &args) {
-    string funcName = "xgboost::predict";
-    string syntax = "Usage: " + funcName + "(model, X, [outputMargin=false], [ntreeLimit=0], [predLeaf=false], [predContribs=false], [training=false]). ";
-
-    if (args[0]->getType() != DT_RESOURCE || args[0]->getString() != XGBOOST_BOOSTER) {
-        throw IllegalArgumentException(funcName, syntax + "model must be an xgboost Booster resource.");
-    }
-    BoosterHandle hBooster = (BoosterHandle) args[0]->getLong();
-    if (!args[1]->isMatrix() && !args[1]->isTable()) {
-        throw IllegalArgumentException(funcName, syntax + "X must be a matrix or a table.");
-    }
-    ConstantSP X = args[1];
-
-    const int rows = X->rows();
-    const int cols = X->columns();
-
-    if (X->isTable()) {
-        TableSP t = X;
-        if (!t->isBasicTable())
-            throw IllegalArgumentException(funcName, syntax + "X must be a basic table.");
-        for (int i = 0; i < cols; i++) {
-            if (!t->getColumn(i)->isNumber())
-                throw IllegalArgumentException(funcName, syntax + "Every column in X must be of a numeric type.");
-        }
-    } else { // x is matrix
-        if (!X->isNumber()) {
-            throw IllegalArgumentException(funcName, syntax + "X must be a numeric matrix");
-        }
-    }
-
-    int optionMask = 0;
-    if (args.size() >= 3 && !args[2]->isNull()) {
-        if (!args[2]->isScalar() || args[2]->getType() != DT_BOOL) {
-            throw IllegalArgumentException(funcName, syntax + "outputMargin must be a boolean scalar.");
-        }
-        optionMask |= (args[2]->getBool() ? 1 : 0);
-    }
-
-    int ntreeLimit = 0;
-    if (args.size() >= 4 && !args[3]->isNull()) {
-        if (!args[3]->isScalar() || args[3]->getCategory() != INTEGRAL) {
-            throw IllegalArgumentException(funcName, syntax + "ntreeLimit must be a non-negative integer.");
-        }
-        ntreeLimit = args[3]->getInt();
-        if (ntreeLimit < 0) {
-            throw IllegalArgumentException(funcName, syntax + "ntreeLimit must be a non-negative integer.");
-        }
-    }
-
-    bool outputMatrix = false;
-    if (args.size() >= 5 && !args[4]->isNull()) {
-        if (!args[4]->isScalar() || args[4]->getType() != DT_BOOL) {
-            throw IllegalArgumentException(funcName, syntax + "predLeaf must be a boolean scalar.");
-        }
-        optionMask |= (args[4]->getBool() ? 2 : 0);
-        outputMatrix = args[4]->getBool();
-    }
-
-    if (args.size() >= 6 && !args[5]->isNull()) {
-        if (!args[5]->isScalar() || args[5]->getType() != DT_BOOL) {
-            throw IllegalArgumentException(funcName, syntax + "predContribs must be a boolean scalar.");
-        }
-        optionMask |= (args[5]->getBool() ? 4 : 0);
-    }
-
-    int training = 0;
-    if (args.size() >= 7 && !args[6]->isNull()) {
-        if (!args[6]->isScalar() || args[6]->getType() != DT_BOOL) {
-            throw IllegalArgumentException(funcName, syntax + "training must be a boolean scalar.");
-        }
-        training = args[6]->getBool();
-    }
-
-    // create the train data
-    vector<float> data(rows * cols);
-    DMatrixHandle hTest;
-    matrixOrTableToXGDMatrix(X, rows, cols, data.data(), &hTest);
-
-    ConstantSP out = predictImpl(heap, hBooster, hTest, optionMask, ntreeLimit, training, outputMatrix, rows);
-    safe_xgboost(XGDMatrixFree(hTest));
-
-    return out;
-}
-#endif
 
 ConstantSP saveModel(Heap *heap, vector<ConstantSP> &args) {
     std::ignore = heap;

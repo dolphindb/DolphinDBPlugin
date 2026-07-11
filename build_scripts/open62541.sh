@@ -1,6 +1,4 @@
 #!/bin/bash
 
-mbedtls_dir=$(ls -d $ARTIFACT_DIR/mbedtls-*)
-cmake_all -Wno-dev \
-    -DUA_ENABLE_ENCRYPTION=ON \
-    -DMbedTLS_ROOT=$mbedtls_dir
+openssl_dir=$(ls -d $ARTIFACT_DIR/openssl-*)
+cmake_all -Wno-dev -DUA_MULTITHREADING=99 -DUA_ENABLE_ENCRYPTION="OPENSSL" -DOPENSSL_ROOT_DIR=$openssl_dir

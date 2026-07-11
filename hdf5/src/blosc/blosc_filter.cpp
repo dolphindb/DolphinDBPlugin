@@ -43,6 +43,13 @@ int register_blosc(char **version, char **date){
 
     int retval;
 
+    if (version != NULL) {
+        *version = NULL;
+    }
+    if (date != NULL) {
+        *date = NULL;
+    }
+
     H5Z_class_t filter_class = {
         H5Z_CLASS_T_VERS,
         (H5Z_filter_t)(FILTER_BLOSC),
@@ -56,12 +63,13 @@ int register_blosc(char **version, char **date){
     retval = H5Zregister(&filter_class);
     if(retval<0){
         PUSH_ERR("register_blosc", H5E_CANTREGISTER, "Can't register Blosc filter");
+        return retval;
     }
     if (version != NULL && date != NULL) {
         *version = strdup(BLOSC_VERSION_STRING);
         *date = strdup(BLOSC_VERSION_DATE);
     }
-    return 1; /* lib is available */
+    return retval; /* lib is available */
 }
 
 /*  Filter setup.  Records the following inside the DCPL:

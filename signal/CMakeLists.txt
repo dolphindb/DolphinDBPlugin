@@ -9,13 +9,10 @@ CreatePlugin(${PluginName})
 
 target_compile_options(${PluginName} PRIVATE -Wno-unused-parameter -Wno-vla -Wno-unknown-pragmas -Wno-pedantic)
 
-AddOpenMP()
-# Use PkgConfig to find dependencies, but it failed to find omp version of fftw3
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(fftw3 IMPORTED_TARGET fftw3)
-target_link_libraries(${PluginName} PRIVATE PkgConfig::fftw3)
+# fftw use gnu configure, no cross-platform CMake target
+AddDependency(fftw fftw3)
 AddDependency(fftw fftw3_omp)
+AddOpenMP()
 
 find_package(wavelib REQUIRED)
 target_link_libraries(${PluginName} PRIVATE wavelib::wavelib wavelib::wauxlib)
-target_link_libraries(${PluginName} PRIVATE dl) # libgomp or something requires libdl.dll

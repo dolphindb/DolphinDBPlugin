@@ -30,7 +30,7 @@
 #include "SysIOTypes.h"
 #include "DolphinString.h"
 
-#define ddbVersion "3.00.5"
+#define ddbVersion "3.00.6"
 
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define LIKELY(x) (__builtin_expect((x), 1))
@@ -57,6 +57,7 @@ class Heap;
 class Object;
 class Operator;
 class Statement;
+class TypeDefBase;
 class Param;
 class FunctionDef;
 class Iterator;
@@ -96,9 +97,6 @@ class SessionThreadCallGuard;
 class ReducerContainer;
 class DistributedCall;
 struct JobProperty;
-struct JITCfgNode;
-struct InferredType;
-struct FunctionSignature;
 class WindowJoinFunction;
 class ColumnContext;
 class Transaction;
@@ -118,6 +116,7 @@ typedef ObjectPtr<Tensor> TensorSP;
 typedef ObjectPtr<Object> ObjectSP;
 typedef SmartPointer<Operator> OperatorSP;
 typedef SmartPointer<Statement> StatementSP;
+typedef SmartPointer<TypeDefBase> TypeDefBaseSP;
 typedef SmartPointer<Param> ParamSP;
 typedef ObjectPtr<FunctionDef> FunctionDefSP;
 typedef SmartPointer<Heap> HeapSP;
@@ -151,9 +150,6 @@ typedef SmartPointer<SessionThreadCallGuard> SessionThreadCallGuardSP;
 typedef SmartPointer<ReducerContainer> ReducerContainerSP;
 typedef SmartPointer<DistributedCall> DistributedCallSP;
 typedef SmartPointer<JobProperty> JobPropertySP;
-typedef SmartPointer<JITCfgNode> JITCfgNodeSP;
-typedef SmartPointer<InferredType> InferredTypeSP;
-typedef SmartPointer<FunctionSignature> FunctionSignatureSP;
 typedef SmartPointer<WindowJoinFunction> WindowJoinFunctionSP;
 typedef SmartPointer<ColumnContext> ColumnContextSP;
 typedef SmartPointer<Transaction> TransactionSP;
@@ -176,8 +172,8 @@ typedef Statement*(*StatementFunc)(Session* session, const DataInputStreamSP& bu
 typedef ObjectSP(*ObjectFunc)(const SQLContextSP& context, Session* session, const DataInputStreamSP& buffer);
 typedef ConstantSP(*SysObjFunc)(Session* session, const DataInputStreamSP& buffer);
 typedef OOClassSP(*ClassFunc)(const string& qualifier, const string& name);
-typedef bool (*JitOptimizedFunc)(ConstantSP &ret, Heap* heap, std::vector<ConstantSP> &arguments);
 typedef ExtendedObj* (*ExtendedObjParser)(int extendedType, int versionAndSize, DataInputStream* buffer);
+typedef ConstantSP (*ExtendedObjMemberAccessor)(const ConstantSP& obj, const ConstantSP& key);
 
 
 class AuthenticatedUser{
@@ -556,45 +552,6 @@ private:
 	Mutex mutex_;
 };
 
-struct ControlFlowEdge {
-	void * edgeFrom;
-	void * edgeTo;
-	string varName;
-	ControlFlowEdge(void * from, void * to, const string & name): edgeFrom(from), edgeTo(to), varName(name) {}
-	bool operator==(const ControlFlowEdge & rhs) const {
-		return edgeFrom == rhs.edgeFrom && edgeTo == rhs.edgeTo && varName == rhs.varName;
-	}
-};
-
-
-struct FunctionSignature {
-	InferredTypeSP returnTy;
-	vector<InferredTypeSP> paramTys;
-	vector<int> missingParams;
-	FunctionDef* func;
-	void* jitFunc;
-	Function* funcObj;
-
-	FunctionSignature() : func(0), jitFunc(0), funcObj(0){}
-};
-
-struct InferredType {
-    DATA_FORM form;
-    DATA_TYPE type;
-    DATA_CATEGORY category;
-    FunctionSignatureSP signature;
-
-    InferredType(DATA_FORM form = DF_SCALAR, DATA_TYPE type = DT_VOID, DATA_CATEGORY category = NOTHING):
-        form(form), type(type), category(category){}
-    bool operator ==(const InferredType & rhs) const {
-        return form == rhs.form && type == rhs.type && category == rhs.category;
-    }
-    bool operator !=(const InferredType & rhs) const {
-        return !operator==(rhs);
-    }
-    string getString();
-};
-
 struct VariableStat {
 	VariableStat() : firstAssignedStatement(-1), lastAssignedStatement(-1), lastAssignedParentStatement(-1), lastReferedStatement(-1),
 			lastReferedParentStatement(-1), numberAssigns(0), numberRefers(0), constant(false), processed(false){}
@@ -813,6 +770,10 @@ public:
     int getCount() const {
         return refCount_.load(std::memory_order_relaxed);
     }
+
+	int decRef() {
+        return atomic_fetch_sub_explicit(&refCount_,1,std::memory_order_acq_rel);
+	}
 
     Object(const Object& other) noexcept : objType_(other.objType_), refCount_(0){}
 
@@ -4269,6 +4230,20 @@ public:
     virtual bool canGetMaterialized() const { return false; }
     virtual VectorSP getMaterialized() const { throw RuntimeException("getMaterialized method not supported"); }
     virtual void materialize() const { throw RuntimeException("materialize method not supported"); }
+	/**
+	 * @brief get value from vector.
+	 * 
+	 * @return nullptr: if index is out of range.
+	 */
+	virtual void * getRawValue(INDEX) {
+		throw RuntimeException("getRawValue method not supported");
+	}
+	/**
+	 * @brief set value from vector.
+	 */
+	virtual void setRawValue(INDEX, const void*) {
+		throw RuntimeException("getRawValue method not supported");
+	}
 
 private:
 	string name_;
@@ -4281,6 +4256,7 @@ public:
 	void setRowLabel(const ConstantSP& label);
 	void setColumnLabel(const ConstantSP& label);
 	bool reshape(INDEX cols, INDEX rows);
+	void clearMatrix();
 	string getString() const;
 	string getString(Heap* pHeap) const;
 	string getString(INDEX index) const ;
@@ -4413,6 +4389,8 @@ public:
 	/**
 	 * @brief Return the data category of the keys of this dictionary.
 	 */
+	virtual int getKeyExtraParam() const = 0;
+	virtual int getValueExtraParam() const = 0;
 	virtual DATA_CATEGORY getKeyCategory() const = 0;
 	ConstantSP keys() const override = 0;
 	ConstantSP values() const override = 0;
@@ -4509,6 +4487,21 @@ public:
 	 * @param lock:A pointer to the lock.
 	 */
 	inline void setLock(Mutex* lock) { lock_ = lock;}
+	/**
+	 * @brief get value from dictionary.
+	 * 
+	 * @param key:A pointer to the key.
+	 * @return nullptr: if key does not exist in dictionary.
+	 */
+	virtual void * getRawValue(const void *key) = 0;
+	/**
+	 * @brief set key-value to dictionary, assign it if key is already existed.
+	 * 
+	 * @param key:A pointer to the key.
+	 * @param value:A pointer to the value.
+	 * @return nullptr: if key does not exist in dictionary.
+	 */
+	virtual void setRawValue(const void *key, const void *value) = 0;
 
 private:
 	Mutex* lock_;
@@ -5433,30 +5426,63 @@ protected:
     int verAndSize_;
 };
 
+class TypeDefBase {
+public:
+    static const uint8_t COMPLEX_TYPE = 128;
+
+    TypeDefBase(DefEnum defEnum, DATA_FORM form, DATA_TYPE type = DT_VOID, DATA_TYPE keyType = DT_VOID, int extra = 0);
+    virtual ~TypeDefBase() {}
+
+    virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
+    virtual IO_ERR deserialize(Session* session, const DataInputStreamSP& in) = 0;
+    virtual string getScript(int indention) const;
+
+    DATA_TYPE getType() const { return static_cast<DATA_TYPE>(type_); }
+    DATA_TYPE getKeyType() const { return static_cast<DATA_TYPE>(keyType_); }
+    DATA_FORM getForm() const { return static_cast<DATA_FORM>(form_); }
+    DefEnum getDefEnum() const { return defEnum_; }
+    int getExtra() const { return static_cast<int>(extra_); }
+    bool isComplex() const { return type_ == COMPLEX_TYPE; }
+    DATA_TYPE getRawType() const;
+    void setMeta(DATA_FORM form, DATA_TYPE type, DATA_TYPE keyType = DT_VOID, int extra = 0);
+    void setMetaRaw(DATA_FORM form, int type, int keyType = DT_VOID, int extra = 0);
+    void setComplexMeta(DATA_FORM form, DATA_TYPE keyType = DT_VOID, int extra = 0);
+    int packCompactMeta() const;
+    void unpackCompactMeta(int meta);
+
+    static bool canEncodeCompactField(int value);
+
+private:
+    DefEnum defEnum_;
+    uint8_t form_;
+    uint8_t type_;
+    uint8_t keyType_;
+    uint8_t extra_;
+};
+
 class SWORDFISH_API Param{
 public:
 	Param(const string& name, bool readOnly, const ConstantSP& defaultValue = nullptr);
 	Param(Session* session, const DataInputStreamSP& in);
 	const string& getName() const {return name_;}
 	bool isReadOnly() const{return readOnly_;}
-	DATA_TYPE getType() const;
-	DATA_TYPE getKeyType() const;
-	DATA_FORM getForm() const;
-	void setMeta(DATA_FORM form, DATA_TYPE type, DATA_TYPE keyType);
+	void setMeta(const TypeDefBaseSP& meta) { meta_ = meta;}
+	inline const TypeDefBaseSP& getMeta() const { return meta_;}
 	ConstantSP getDefaultValue() const { return defaultValue_;}
 	inline bool isDefaultSet() const { return !defaultValue_.isNull() && ! defaultValue_->isNothing();}
+	inline bool isMetaSet() const { return !meta_.isNull();}
 	IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
 	string getScript(int indention) const;
+
 private:
 	string name_;
 	bool readOnly_;
-	int meta_;
+	TypeDefBaseSP meta_;
 	ConstantSP defaultValue_;
 };
 
 class SWORDFISH_API FunctionDef : public Constant{
 public:
-	using JitFunc = void (*)(char*, char*, char*);
 	using TurboJetFunc = void (*)(char *, Heap *, char *, int);
 	FunctionDef(FUNCTIONDEF_TYPE defType, const string& name, const vector<ParamSP>& params, bool hasReturnValue=true, bool aggregation=false, bool sequential=false, bool transform=false);
 	FunctionDef(FUNCTIONDEF_TYPE defType, const string& name, int minParamNum, int maxParamNum, bool hasReturnValue, bool aggregation=false, bool sequential=false, bool transform=false);
@@ -5467,6 +5493,8 @@ public:
 	string getSyntax() const;
 	inline void setModule(const string& module) { module_ = module;}
 	inline void setName(const string& name) { name_ = name; }
+	inline void setDesc(const string& desc) { desc_ = desc;}
+	inline const string& getDesc() const { return desc_;}
 	inline bool hasReturnValue() const {return flag_ & 1;}
 	inline bool isAggregatedFunction() const {	return flag_ & 2;}
 	inline bool isAggregatedFunction(int args) const {	return (flag_ & 2) && (argCountForAgg_ == 0 || args == (int)argCountForAgg_);}
@@ -5528,8 +5556,8 @@ public:
 	DATA_TYPE getReturnType() const;
 	DATA_TYPE getReturnKeyType() const;
 	DATA_FORM getReturnForm() const;
-	void setReturnMeta(DATA_FORM form, DATA_TYPE type, DATA_TYPE keyType);
-	inline int getReturnMeta() const { return returnMeta_;}
+	void setReturnMeta(const TypeDefBaseSP& meta) { returnMeta_ = meta;}
+	inline const TypeDefBaseSP& getReturnMeta() const { return returnMeta_;}
 	void checkArgumentSize(int actualArgCount);
 	bool copyable() const override {return false;}
 	DATA_TYPE getRawType() const override { return DT_STRING;}
@@ -5542,7 +5570,8 @@ public:
 	virtual ConstantSP call(Heap* pHeap,vector<ObjectSP>& arguments) = 0;
 	bool containNotMarshallableObject() const override {return defType_ >= USERDEFFUNC ;}
 	virtual FastFunc getFastImplementation() const {return nullptr;}
-	virtual std::tuple<DATA_FORM, DATA_TYPE, JitFunc> getJitFuncPtr(Heap *heap, std::vector<ConstantSP> testArgs) { return std::make_tuple(DF_SCALAR, DT_VOID, nullptr); }
+
+	// Legacy TurboJet interfaces
 	virtual void registerTurboJetImplementation(TurboJetFunc funcPtr) { throw RuntimeException("registerTurboJetImplementation not implemented."); }
 	virtual TurboJetFunc getTurboJetJitFuncPtr() const { throw RuntimeException(getScript() + " is not a function that have a JIT-compatible implementation or can be JIT-compiled."); }
 	virtual ConstantSP getTurboJetReturnType() const { return nullptr; }
@@ -5563,6 +5592,7 @@ protected:
 	string name_;
 	string module_;
 	string syntax_;
+	string desc_;
 	vector<ParamSP> params_;
 	int minParamNum_;
 	int maxParamNum_;
@@ -5574,7 +5604,7 @@ protected:
 	unsigned char argCountForAgg_;
 	unsigned char flag_;
 	unsigned short extraFlag_;
-	int returnMeta_;
+	TypeDefBaseSP returnMeta_;
 };
 
 class SQLTransaction {
@@ -5595,6 +5625,7 @@ public:
 	void setTable(const TableSP& table);
 	void setFilter(const ConstantSP& filter);
 	void setGroup(vector<INDEX>* group);
+	void setTransaction(const SQLTransactionSP &trans) { transSP_ = trans;}
 	SQLTransactionSP getTransaction() const { return transSP_;}
 	const TableSP& getTable() const{return tableSP_;}
 	const ConstantSP& getFilter() const{return filterSP_;}
@@ -5959,6 +5990,12 @@ public:
 	virtual ~Transaction() {}
 };
 
+struct SchedulingUserInfo {
+	string userId;
+	int maxParallelism = -1;
+	bool ready = false;
+};
+
 class Console {
 public:
 	Console(const SessionSP& session, const OutputSP& out);
@@ -6007,8 +6044,22 @@ public:
 	virtual CONSOLE_TYPE getConsoleType() const = 0;
 	virtual void run() = 0;
 	virtual void getTaskDesc(string& type, string& desc) const = 0;
+	virtual bool getSchedulingUserInfo(SchedulingUserInfo& info) const {
+		if (!schedulingUserInfo_.ready)
+			return false;
+		info = schedulingUserInfo_;
+		return true;
+	}
 	inline bool pickleTableList() const { return flag_ & 32768;}
 protected:
+	inline void setSchedulingUserInfo(const string& userId, int maxParallelism) {
+		schedulingUserInfo_.userId = userId;
+		schedulingUserInfo_.maxParallelism = maxParallelism;
+		schedulingUserInfo_.ready = true;
+	}
+	inline void clearSchedulingUserInfo() {
+		schedulingUserInfo_ = SchedulingUserInfo{};
+	}
 	Guid rootJobId_;
 	Guid jobId_;
 	int priority_;
@@ -6040,6 +6091,7 @@ protected:
 	 */
 	long long flag_;
     Guid parentSpanId_;
+    SchedulingUserInfo schedulingUserInfo_;
 };
 
 class SWORDFISH_API ConstantMarshal {
@@ -6170,26 +6222,6 @@ private:
 	ConstantSP self_;
 };
 
-struct JITCfgNode {
-	JITCfgNode() : visited_(false){}
-	string getInferredTypeCacheAsString() const {
-		string out = "{";
-			for (auto kv: inferredTypeCache) {
-				out.append(kv.first + ": " +kv.second.getString() + ", ");
-			}
-		out.append("}");
-		return out;
-	}
-
-	// control flow graph: next block edge
-	vector<StatementSP> cfgNexts;
-	// control flow graph: reverse edge to incoming block
-	vector<StatementSP> cfgFroms;
-	unordered_map<string, InferredType> inferredTypeCache;
-	unordered_map<string, vector<InferredType>> upstreamTypes;
-	bool visited_;
-};
-
 class StatementContext {
 public:
 	StatementContext() : status_(0){}
@@ -6211,7 +6243,7 @@ private:
 
 class Statement{
 public:
-	Statement(STATEMENT_TYPE type):breakpoint_(nullptr), jitudfHeader_(nullptr), optimized_(false), type_(type), line_(0), moduleName_(""){}
+	Statement(STATEMENT_TYPE type):breakpoint_(nullptr), optimized_(false), type_(type), line_(0), moduleName_(""){}
 	virtual ~Statement(){}
 	virtual StatementSP clone() = 0;
 	STATEMENT_TYPE getType() const {return type_;}
@@ -6237,26 +6269,7 @@ public:
 	virtual void collectUserDefinedFunctionsAndClasses(Heap* pHeap, unordered_map<string,FunctionDef*>& functionDefs, unordered_map<string,OOClass*>& classes) const {}
 	void setBreakpoint(std::atomic<bool>* breakpoint) { breakpoint_ = breakpoint;}
 	bool getBreakpoint() { return nullptr != breakpoint_ ? breakpoint_->load() : false; }
-
-    JITCfgNodeSP getCFGNode() const { return cfgNode_; }
-    void setCFGNode(const JITCfgNodeSP& cfg) { cfgNode_ = cfg; }
-    Statement* getJITUDFHeader() const { return jitudfHeader_;}
-
-    vector<StatementSP>& getCFGNexts();
-	vector<StatementSP>& getCFGFroms();
-	unordered_map<string, vector<InferredType>> & getUpstreamTypes() { return cfgNode_->upstreamTypes; }
-	unordered_map<string, InferredType> & getInferredTypeCache();
-	void addCFGNextBlock(const StatementSP& nextBlock);
-	void addCFGFromBlock(const StatementSP& fromBlock);
-	bool getCFGNodeVisited() const;
-	bool setCFGNodeVisited(bool visited = true);
-	string getInferredTypeCacheAsString() const;
-	virtual IO_ERR buildCFG(const StatementSP& self, std::unordered_map<string, StatementSP> & context);
-	virtual string getInferredTypesDebugString(int indention) const;
-	virtual void traverseCFG(const StatementSP& self, unordered_set<void*> & visited, CFGTraversalFunc func);
 	virtual vector<string> getVarNames() const;
-	virtual void setJITUDFHeader(Statement* header);
-    void cleanInferredType();
 	void setLine(int line) { line_ = line;}
 	int getLine() { return line_;}
     void setModuleName(string fileName) { moduleName_ = fileName; }
@@ -6268,8 +6281,6 @@ public:
   protected:
     void setStatementType(STATEMENT_TYPE type) { type_ = type; }
     std::atomic<bool>* breakpoint_;
-	JITCfgNodeSP cfgNode_;
-	Statement* jitudfHeader_;
 	bool optimized_;
 
 private:
@@ -6772,6 +6783,7 @@ public:
 	virtual void setLastSuccessfulSite(){}
 	virtual int getLastSite(){return -1;}
 	static ConstantSP mergeDistributedCallResult(vector<DistributedCallSP>& calls);
+	void tryReleaseParentSlot();
 
 private:
 	Guid rootJobId_;
@@ -6800,6 +6812,11 @@ private:
 	unsigned char depth_ = 0;
 	Heap* heap_;
 	SessionSP session_;
+
+protected:
+    //used for user parallel limit
+	void* slotManager_ = nullptr;
+	int slotWorkerId_ = -1;
 };
 
 struct JobProperty {
@@ -6850,27 +6867,4 @@ private:
 };
 }
 
-namespace std {
-	template<>
-	struct hash<ddb::ControlFlowEdge> {
-		std::size_t operator()(const ddb::ControlFlowEdge & k) const {
-			using std::size_t;
-			using std::hash;
-			using std::string;
-			return hash<void*>{}(k.edgeFrom)
-				   ^ (hash<void*>{}(k.edgeTo) >> 1)
-				   ^ (hash<string>{}(k.varName) << 1);
-		}
-	};
-
-	template<>
-	struct hash<ddb::InferredType> {
-		std::size_t operator()(const ddb::InferredType & k) const {
-			using std::size_t;
-			using std::hash;
-			using std::string;
-			return hash<int8_t>{}(k.form) ^ hash<int8_t>{}(k.type);
-		}
-	};
-}
 #endif /* CORECONCEPT_H_ */

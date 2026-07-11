@@ -6,6 +6,17 @@ using namespace std;
 namespace H5PluginImp
 {
 
+namespace {
+tm *gmtimeThreadSafe(const time_t *time, tm *result)
+{
+#ifdef _WIN32
+    return gmtime_s(result, time) == 0 ? result : nullptr;
+#else
+    return gmtime_r(time, result);
+#endif
+}
+}
+
 #define TO_STRING(s) #s
 typedef SmartPointer<TypeColumn> H5ColumnSP;
 
@@ -1091,7 +1102,7 @@ void pack64timestampToDTdate(pack_info_t t)
         long long *n = (long long *)t.raw_data;
         time_t ts = (*n) / 1000;
 
-        tm *gmt = gmtime_r(&ts,&gmtBuf);
+        tm *gmt = gmtimeThreadSafe(&ts, &gmtBuf);
         buf[i] = (gmt==nullptr) ? 0 : Util::countDays(gmt->tm_year + 1900, gmt->tm_mon + 1, gmt->tm_mday);
         t.raw_data += t.stride;
     }
@@ -1127,7 +1138,7 @@ void pack64timestampToDTnanotime(pack_info_t t)
     {
         long long *n = (long long *)t.raw_data;
         time_t ts = (*n) / 1000;
-        tm *gmt = gmtime_r(&ts,&gmtBuf);
+        tm *gmt = gmtimeThreadSafe(&ts, &gmtBuf);
         buf[i] = (gmt==nullptr) ? 0 : (((gmt->tm_hour * 60 + gmt->tm_min) * 60 + gmt->tm_sec) * 1000 + (*n) % 1000) * 1000000;
         t.raw_data += t.stride;
     }
@@ -1152,7 +1163,7 @@ void pack64timestampToDTmonth(pack_info_t t)
     {
         long long *n = (long long *)t.raw_data;
         time_t ts = (*n) / 1000;
-        tm *gmt = gmtime_r(&ts,&gmtBuf);
+        tm *gmt = gmtimeThreadSafe(&ts, &gmtBuf);
         buf[i] = (gmt==nullptr) ? 0 : (gmt->tm_year + 1900) * 12 + gmt->tm_mon;
         t.raw_data += t.stride;
     }
@@ -1166,7 +1177,7 @@ void pack64timestampToDTtime(pack_info_t t)
     {
         long long *n = (long long *)t.raw_data;
         time_t ts = (*n) / 1000;
-        tm *gmt = gmtime_r(&ts,&gmtBuf);
+        tm *gmt = gmtimeThreadSafe(&ts, &gmtBuf);
         buf[i] = (gmt==nullptr) ? 0 : ((gmt->tm_hour * 60 + gmt->tm_min) * 60 + gmt->tm_sec) * 1000 + (*n) % 1000;
         t.raw_data += t.stride;
     }
@@ -1180,7 +1191,7 @@ void pack64timestampToDTminute(pack_info_t t)
     {
         long long *n = (long long *)t.raw_data;
         time_t ts = (*n) / 1000;
-        tm *gmt = gmtime_r(&ts,&gmtBuf);
+        tm *gmt = gmtimeThreadSafe(&ts, &gmtBuf);
         buf[i] = (gmt==nullptr) ? 0 : gmt->tm_hour * 60 + gmt->tm_min;
         t.raw_data += t.stride;
     }
@@ -1194,7 +1205,7 @@ void pack64timestampToDTsecond(pack_info_t t)
     {
         long long *n = (long long *)t.raw_data;
         time_t ts = (*n) / 1000;
-        tm *gmt = gmtime_r(&ts,&gmtBuf);
+        tm *gmt = gmtimeThreadSafe(&ts, &gmtBuf);
         buf[i] = (gmt==nullptr) ? 0 : (gmt->tm_hour * 60 + gmt->tm_min) * 60 + gmt->tm_sec;
         t.raw_data += t.stride;
     }

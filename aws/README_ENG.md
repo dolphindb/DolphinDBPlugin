@@ -16,9 +16,10 @@ The DolphinDB AWS plugin has the following versions: [release 200](https://githu
     - [3.4 deleteS3Object](#34-deletes3object)
     - [3.5 uploadS3Object](#35-uploads3object)
     - [3.6 listS3Bucket](#36-lists3bucket)
-    - [3.7 deleteS3Bucket](#37-deletes3bucket)
-    - [3.8 createS3Bucket](#38-creates3bucket)
-    - [3.9 loadS3Object](#39-loads3object)
+    - [3.7 getUserAgentFeature](#37-getuseragentfeature)
+    - [3.8 deleteS3Bucket](#38-deletes3bucket)
+    - [3.9 createS3Bucket](#39-creates3bucket)
+    - [3.10 loadS3Object](#310-loads3object)
 
 
 ## 1. Compile AWS Plugin
@@ -46,7 +47,7 @@ Note: Currently, AWS SDK cannot be compiled through MinGW on Windows.
 
 ## 2. Load plugin
 
-Before using the AWS plugin, you need to preload and set the id, key and region. The module name of the plugin is aws.
+Before using the AWS plugin, preload the plugin and prepare an account dictionary. The dictionary can explicitly contain id, key and region, or omit id and key to let the AWS SDK default credential provider chain load credentials from environment variables, shared AWS config/credentials files, instance roles, and other supported sources. The module name of the plugin is aws.
 
 ### 2.1 How to load plugin
 
@@ -64,10 +65,18 @@ account['id']=your_access_key_id;
 account['key']=your_secret_access_key;
 account['region']=your_region;
 
-//if your s3 bucket cannot be connected successfully，you may try to set up your certificate manually as follows:
+//or use the AWS SDK default credential provider chain
+account=dict(STRING,ANY);
+// account['region']=your_region; // optional if region is already set in AWS config or environment variables
+
+//SSL certificate verification is disabled by default. Use setClientConfig to set
+//a global verifySSL default, or set verifySSL to true in the account.
+//caPath/caFile only take effect when verifySSL is true.
+//Use getClientConfig() to inspect the global config, or getClientConfig(account)
+//to inspect the actual config of the S3 client for the account.
 account['caPath']=your_ca_file_path;     //e.g. '/etc/ssl/certs'
 account['caFile']=your_ca_file;          //e.g. 'ca-certificates.crt'
-account['verifySSL']=verify_or_not;      //e.g. false
+account['verifySSL']=verify_or_not;      //e.g. true
 ```
 
 
@@ -78,7 +87,7 @@ account['verifySSL']=verify_or_not;      //e.g. false
 
 **Parameters**
 
-* s3account: a DolphinDB dictionary object storing account info including "id" (access key id), "key"(secret access key), and "region"(your aws s3 region).
+* s3account: a DolphinDB dictionary object storing optional account info including "id" (access key id), "key" (secret access key), and "region" (your AWS S3 region). If "id" and "key" are omitted, the AWS SDK default credential provider chain is used.
 
 * bucket: the name of the bucket you want to access.
 
@@ -107,7 +116,7 @@ aws::listS3Object(account,'mys3bucket','test.csv')
 
 **Parameters**
 
-* s3account: a DolphinDB dictionary object storing account info including "id" (access key id), "key"(secret access key), and "region"(your aws s3 region).
+* s3account: a DolphinDB dictionary object storing optional account info including "id" (access key id), "key" (secret access key), and "region" (your AWS S3 region). If "id" and "key" are omitted, the AWS SDK default credential provider chain is used.
 
 * bucket: the name of the bucket you want to access.
 
@@ -130,7 +139,7 @@ aws::getS3Object(account,'mys3bucket','test.csv')
 **Parameters**
 
 
-* s3account: a DolphinDB dictionary object storing account info including "id" (access key id), "key"(secret access key), and "region"(your aws s3 region).
+* s3account: a DolphinDB dictionary object storing optional account info including "id" (access key id), "key" (secret access key), and "region" (your AWS S3 region). If "id" and "key" are omitted, the AWS SDK default credential provider chain is used.
 
 * bucket: the name of the bucket you want to access.
 
@@ -155,7 +164,7 @@ aws::readS3Object(account,'mys3bucket','test.csv', 0, 100)
 
 **Parameters**
 
-* s3account:a DolphinDB dictionary object storing account info including "id" (access key id), "key"(secret access key), and "region"(your aws s3 region).
+* s3account: a DolphinDB dictionary object storing optional account info including "id" (access key id), "key" (secret access key), and "region" (your AWS S3 region). If "id" and "key" are omitted, the AWS SDK default credential provider chain is used.
 
 * bucket: the name of the bucket you want to access.
 
@@ -176,7 +185,7 @@ aws::deleteS3Object(account,'mys3bucket','test.csv')
 
 **Parameters**
 
-* s3account: a DolphinDB dictionary object storing account info including "id" (access key id), "key"(secret access key), and "region"(your aws s3 region).
+* s3account: a DolphinDB dictionary object storing optional account info including "id" (access key id), "key" (secret access key), and "region" (your AWS S3 region). If "id" and "key" are omitted, the AWS SDK default credential provider chain is used.
 
 * bucket: the name of the bucket you want to access.
 
@@ -198,7 +207,7 @@ aws::uploadS3Object(account,'mys3bucket','test.csv','/home/test.csv')
 
 **Parameters**
 
-* s3account: a DolphinDB dictionary object storing account info including "id" (access key id), "key"(secret access key), and "region"(your aws s3 region).
+* s3account: a DolphinDB dictionary object storing optional account info including "id" (access key id), "key" (secret access key), and "region" (your AWS S3 region). If "id" and "key" are omitted, the AWS SDK default credential provider chain is used.
 
 **Details**
 
@@ -210,10 +219,30 @@ Return a table which lists all buckets and their creation dates under the given 
 aws::listS3Bucket(account);
 ```
 
-### 3.7 deleteS3Bucket
+### 3.7 getUserAgentFeature
 
 **Parameters**
-* s3account: a DolphinDB dictionary object storing account info including "id" (access key id), "key"(secret access key), and "region"(your aws s3 region).
+
+* s3account: a DolphinDB dictionary object storing optional account info including "id" (access key id), "key" (secret access key), and "region" (your AWS S3 region). If "id" and "key" are omitted, the AWS SDK default credential provider chain is used.
+
+**Details**
+
+Resolve AWS SDK UserAgentFeature values related to the account for operational diagnostics. If "id" and "key" are explicitly configured, it returns `CREDENTIALS_EXPLICIT`. If the AWS SDK default credential provider chain is used, it returns the UserAgentFeature names recorded by the SDK, such as `CREDENTIALS_ENV_VARS`, `CREDENTIALS_PROFILE`, `CREDENTIALS_IMDS`, `CREDENTIALS_HTTP`, or `CREDENTIALS_SSO`.
+
+**Return value**
+
+A string vector indicating the UserAgentFeature names recorded by the AWS SDK. If the SDK does not record related features, an empty vector is returned.
+
+**Examples**
+
+```
+aws::getUserAgentFeature(account);
+```
+
+### 3.8 deleteS3Bucket
+
+**Parameters**
+* s3account: a DolphinDB dictionary object storing optional account info including "id" (access key id), "key" (secret access key), and "region" (your AWS S3 region). If "id" and "key" are omitted, the AWS SDK default credential provider chain is used.
 
 * bucket: the name of the bucket you want to access.
 
@@ -228,11 +257,11 @@ aws::deleteS3Bucket(account,'mys3bucket')
 //Warning: irreversible operation
 ```
 
-### 3.8 createS3Bucket
+### 3.9 createS3Bucket
 
 **Parameters**
 
-* s3account: a DolphinDB dictionary object storing account info including "id" (access key id), "key"(secret access key), and "region"(your aws s3 region).
+* s3account: a DolphinDB dictionary object storing optional account info including "id" (access key id), "key" (secret access key), and "region" (your AWS S3 region). If "id" and "key" are omitted, the AWS SDK default credential provider chain is used.
 
 * bucket: the name of the bucket you want to create.
 
@@ -246,11 +275,11 @@ Create a bucket.
 aws::createS3Bucket(account,'mys3bucket')
 ```
 
-### 3.9 loadS3Object
+### 3.10 loadS3Object
 
 **Parameters**
 
-* s3account: an S3 account defined before. It must contain id, key and region.
+* s3account: an S3 account dictionary defined before. It can contain id, key and region; if id and key are omitted, the AWS SDK default credential provider chain is used.
 
 * bucket: the S3 bucket to be loaded.
 
@@ -303,5 +332,3 @@ account['region']='us-east';
 db = database(directory="dfs://rangedb", partitionType=RANGE, partitionScheme=0 51 101)
 aws::loadS3Object(account,'dolphindb-test-bucket','t2.zip',4,db,`pt, `ID);
 ```
-
-

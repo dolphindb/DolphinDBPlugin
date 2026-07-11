@@ -8,8 +8,11 @@
 #include "ScalarImp.h"
 #include "SpecialConstant.h"
 
+#include <limits>
+#include <optional>
+
 #ifdef DOLPHINDB_JIT
-#include "TurboJetInterface.h"
+#include "BacktestJITInterface.h"
 #endif
 
 #ifndef THROW_INVALID_INPUT
@@ -28,7 +31,20 @@ struct Field {
     DATA_TYPE type;
     DATA_FORM form;
 };
-vector<Field> convertSchemaField(const vector<string> &names, const vector<DATA_TYPE> &types);
+
+inline std::vector<Field> convertSchemaField(const vector<string> &names, const vector<DATA_TYPE> &types)
+{
+    std::vector<Field> fields(names.size());
+    for (size_t i = 0; i < names.size(); ++i) {
+        if (types[i] > ARRAY_TYPE_BASE) {
+            DATA_TYPE innerType = (DATA_TYPE)((int)types[i] - ARRAY_TYPE_BASE);
+            fields[i] = Field{names[i], innerType, DF_VECTOR};
+        } else {
+            fields[i] = Field{names[i], types[i], DF_SCALAR};
+        }
+    }
+    return fields;
+}
 
 // Constant
 
@@ -63,6 +79,38 @@ inline double getValue(const ConstantSP &c) {
 template <>
 inline std::string getValue(const ConstantSP &c) {
     return c->getString();
+}
+
+inline std::optional<std::string> arg_to_string(const ConstantSP &arg) {
+    if (arg.isNull() || arg->getForm() != DF_SCALAR || arg->getType() != DT_STRING) {
+        return std::nullopt;
+    }
+    return arg->getString();
+}
+
+inline std::optional<std::vector<std::string>> arg_to_string_vector(const ConstantSP &arg) {
+    if (arg.isNull() || arg->getType() != DT_STRING) {
+        return std::nullopt;
+    }
+    if (arg->getForm() == DF_SCALAR) {
+        return std::vector<std::string>{arg->getString()};
+    }
+    if (arg->getForm() != DF_VECTOR) {
+        return std::nullopt;
+    }
+    std::vector<std::string> result;
+    result.reserve(arg->size());
+    for (int i = 0; i < arg->size(); ++i) {
+        result.push_back(arg->getString(i));
+    }
+    return result;
+}
+
+inline std::optional<int64_t> arg_to_int64(const ConstantSP &arg) {
+    if (arg.isNull() || arg->getForm() != DF_SCALAR || arg->getCategory() != INTEGRAL || arg->isNull()) {
+        return std::nullopt;
+    }
+    return arg->getLong();
 }
 template <>
 inline decimal128 getValue(const ConstantSP &c) {
@@ -115,10 +163,10 @@ struct ArgField {
     DATA_FORM form;
     DATA_CATEGORY category;
 };
-string getCategoryString(DATA_CATEGORY category);
+
 class IArgStream {
   public:
-    IArgStream(std::vector<ConstantSP> &args) : args_(args), argIt_(args_.begin()) {}
+    explicit IArgStream(std::vector<ConstantSP> &args) : args_(args), argIt_(args_.begin()) {}
 
     IArgStream(std::vector<ConstantSP> &args, const std::vector<ArgField> &schema, const std::pair<int, int> &argNum)
         : args_(args),
@@ -134,12 +182,12 @@ class IArgStream {
 
     bool nextIsDouble() { return (*argIt_)->getType() == DT_DOUBLE; }
 
-    operator bool() { return argIt_ != args_.end(); }
+    operator bool() { return argIt_ != args_.end(); } // NOLINT(google-explicit-constructor, hicpp-explicit-conversions)
 
     bool hasError() const { return readEOF_; }
 
     template <typename valueT>
-    inline IArgStream &operator>>(valueT &arg) {
+    IArgStream &operator>>(valueT &arg) {
         if (checkInvalid_) {
             ++argIdx_;
             // max param num, avoid reading account param in single engine backtest
@@ -147,7 +195,7 @@ class IArgStream {
                 return *this;
             }
 
-            // hanle optional arguments
+            // handle optional arguments
             if (argIdx_ > argNum_.first) {
                 // optional argument is void or not exist
                 if ((argIt_ != args_.end() && (*argIt_)->getType() == DT_VOID) || (argIt_ == args_.end())) {
@@ -175,13 +223,13 @@ class IArgStream {
                             if (tmp->getCategory() != (*schemaIt_).category || !tmp->isScalar()) {
                                 throw RuntimeException("[PLUGIN::BACKTEST] Invalid data category of arg " +
                                                        (*schemaIt_).name + ", should be " +
-                                                       getCategoryString((*schemaIt_).category) + " type.");
+                                                       OperatorImp::getCategoryString((*schemaIt_).category) + " type.");
                             }
                         }
                         // TODO: JIT parse bug, delete after fix https://dolphindb1.atlassian.net/browse/BACKTESTME-137
                     } else if (Util::getCategory(dt) != (*schemaIt_).category) {
                         throw RuntimeException("[PLUGIN::BACKTEST] Invalid data category of arg " + (*schemaIt_).name +
-                                               ", should be " + getCategoryString((*schemaIt_).category) + " type.");
+                                               ", should be " + OperatorImp::getCategoryString((*schemaIt_).category) + " type.");
                     }
                 } else if ((dt != (*schemaIt_).type)) {
                     if (dt != DT_LONG || (*schemaIt_).type != DT_RESOURCE) {  // resource handle can be replaced by long
@@ -294,7 +342,7 @@ inline DolphinClassSP createJitClass(const std::vector<Field> &fields, const std
         } else {
             std::cerr << "Unsupported data form in " << __PRETTY_FUNCTION__ << std::endl;
         }
-        jitClass_->addAttributeWithType(field.name, OO_ACCESS::PUBLIC, dummyValue);
+        jitClass_->addAttributeWithType(field.name, OO_ACCESS::PUBLIC, objectToTypeDef(dummyValue));
     }
     jitClass_->setJit(true);
     jitClass_->setJitClassId(DolphinClass::genClsId());
@@ -885,61 +933,5 @@ inline ODictStream &operator<<(ODictStream &s, T x) {
 
 // Retrieve the enumeration corresponding to the type, used for constructing output tables in the template.
 inline constexpr DATA_TYPE getTypeEnum(double) { return DT_DOUBLE; }
-
-// Misc
-
-enum class DDBfunc : int {
-    max,
-    imax,
-    deltas,
-    prev,
-    cummax,
-    sub,
-    ratio,
-    std,
-    skew,
-    kurtosis,
-    covar,
-};
-
-class DolphinDBFunctions {
-  public:
-    DolphinDBFunctions(Heap *heap);
-    inline ConstantSP call(Heap *heap, DDBfunc func, std::vector<ConstantSP> &&args) const {
-        return funcs_.at(static_cast<int>(func))->call(heap, args);
-    }
-
-  private:
-    std::unordered_map<int, FunctionDefSP> funcs_;
-};
-
-// optimize to extract user order info
-enum OrderEnum {
-    SYMBOL = 0,
-    SYMBOL_SOURCE,
-    TIMESTAMP,
-    ORDER_TYPE,
-    PRICE,
-    STOP_PRICE,
-    ORDER_QTY,
-    DIRECTION,
-    TIME_IN_FORCE,
-    TAKE_PRICE,
-    SLIPPAGE,
-    EXPIRE_TIME,
-    SETTL_TYPE,
-    BID_DIRECTION,
-    BID_PRICE,
-    BID_QTY,
-    ASK_DIRECTION,
-    ASK_PRICE,
-    ASK_QTY,
-    ORDER_ID,
-    CHANNEL,
-    BID_DIFF_TOLERANCE,
-    ASK_DIFF_TOLERANCE,
-    QTY_ALLOWED,
-    HIGH_DROP_RATIO
-};
 
 }  // namespace ddb

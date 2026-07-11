@@ -5,6 +5,9 @@ project(${PluginName})
 include(../template.cmake)
 CreatePlugin(${PluginName})
 
+# CMake use mex program to determine the mex extension, but current versions of MCR does not provide it
+# So we manually set the mex extension to skip the execution of mex program
+set(Matlab_MEX_EXTENSION ".mexa64")
 find_package(Matlab REQUIRED COMPONENTS MAT_LIBRARY)
 
 target_include_directories(PluginMat PRIVATE ${Matlab_INCLUDE_DIRS})

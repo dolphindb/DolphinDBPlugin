@@ -95,6 +95,8 @@ private:
 
 ddb::ConstantSP getRowFromTableWhere(const ddb::TableSP &t, const std::string &column, const std::string &value);
 
+std::string generate_name();
+
 
 } /* namespace helper */
 

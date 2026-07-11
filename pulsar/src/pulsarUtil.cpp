@@ -5,14 +5,12 @@
 #include "pulsarUtil.h"
 #include <ddbplugin/PluginLogger.h>
 
-namespace ddb {
+using namespace ddb;
 
-using namespace pulsar;
-
-ddb::ResourceMap<ClientWrapper> PULSAR_CLIENT_MAP(PULSAR_PREFIX, PULSAR_CLIENT_DESC);
-ddb::ResourceMap<ProducerWrapper> PULSAR_PRODUCER_MAP(PULSAR_PREFIX, PULSAR_PRODUCER_DESC);
-ddb::ResourceMap<ConsumerWrapper> PULSAR_CONSUMER_MAP(PULSAR_PREFIX, PULSAR_CONSUMER_DESC);
-ddb::BackgroundResourceMap<PulsarSubJob> PULSAR_SUB_JOB_MAP(PULSAR_PREFIX, PULSAR_SUB_JOB_DESC);
+ResourceMap<ClientWrapper> PULSAR_CLIENT_MAP(PULSAR_PREFIX, PULSAR_CLIENT_DESC);
+ResourceMap<ProducerWrapper> PULSAR_PRODUCER_MAP(PULSAR_PREFIX, PULSAR_PRODUCER_DESC);
+ResourceMap<ConsumerWrapper> PULSAR_CONSUMER_MAP(PULSAR_PREFIX, PULSAR_CONSUMER_DESC);
+BackgroundResourceMap<PulsarSubJob> PULSAR_SUB_JOB_MAP(PULSAR_PREFIX, PULSAR_SUB_JOB_DESC);
 
 void clientOnClose(Heap *heap, vector<ConstantSP>& args) {
     std::ignore = heap;
@@ -64,9 +62,9 @@ void subJobOnClose(Heap *heap, vector<ConstantSP>& args) {
 //    }
 }
 
-ClientConfiguration parseClientConfig(const DictionarySP& configDict) {
+pulsar::ClientConfiguration parseClientConfig(const DictionarySP& configDict) {
     try {
-        auto clientConfig = ClientConfiguration();
+        auto clientConfig = pulsar::ClientConfiguration();
 
         VectorSP keys = configDict->keys();
         for (auto i = 0; i < keys->size(); i++) {
@@ -79,7 +77,7 @@ ClientConfiguration parseClientConfig(const DictionarySP& configDict) {
                 clientConfig.setConnectionTimeout(value);
             } else if (key == "token") {
                 std::string token = configDict->getMember(key)->getString();
-                clientConfig.setAuth(AuthToken::createWithToken(token));
+                clientConfig.setAuth(pulsar::AuthToken::createWithToken(token));
             } else if (key == "memoryLimit") {
                 ConstantSP limit = configDict->getMember(key);
                 if (limit->getForm() != DF_SCALAR || limit->getCategory() != INTEGRAL || limit->getLong() <= 0) {
@@ -102,9 +100,9 @@ ClientConfiguration parseClientConfig(const DictionarySP& configDict) {
     }
 }
 
-ProducerConfiguration parseProducerConfig(const DictionarySP& configDict) {
+pulsar::ProducerConfiguration parseProducerConfig(const DictionarySP& configDict) {
     try {
-        auto producerConfig = ProducerConfiguration();
+        auto producerConfig = pulsar::ProducerConfiguration();
 
         VectorSP keys = configDict->keys();
         for (auto i = 0; i < keys->size(); i++) {
@@ -130,6 +128,21 @@ ProducerConfiguration parseProducerConfig(const DictionarySP& configDict) {
             } else if (key == "batchingMaxPublishDelayMs") {
                 auto value = getPositiveIntConfig(configDict->getMember(key), key);
                 producerConfig.setBatchingMaxPublishDelayMs(value);
+            } else if (key == "compressionType") {
+                auto value = getStringConfig(configDict->getMember(key), key);
+                if (value == "lz4") {
+                    producerConfig.setCompressionType(pulsar::CompressionLZ4);
+                } else if (value == "zlib") {
+                    producerConfig.setCompressionType(pulsar::CompressionZLib);
+                } else if (value == "zstd") {
+                    producerConfig.setCompressionType(pulsar::CompressionZSTD);
+                } else if (value == "snappy") {
+                    producerConfig.setCompressionType(pulsar::CompressionSNAPPY);
+                } else if (value == "none") {
+                    producerConfig.setCompressionType(pulsar::CompressionNone);
+                } else {
+                    throw RuntimeException("compressionType should be one of 'lz4', 'zlib', 'zstd', 'snappy' or 'none'");
+                }
             } else {
                 throw IllegalArgumentException(__FUNCTION__, key + " is not supported");
             }
@@ -142,17 +155,17 @@ ProducerConfiguration parseProducerConfig(const DictionarySP& configDict) {
     }
 }
 
-ConsumerConfiguration parseConsumerConfig(const DictionarySP& configDict) {
+pulsar::ConsumerConfiguration parseConsumerConfig(const DictionarySP& configDict) {
     try {
-        auto consumerConfig = ConsumerConfiguration();
+        auto consumerConfig = pulsar::ConsumerConfiguration();
 
         VectorSP keys = configDict->keys();
         for (auto i = 0; i < keys->size(); i++) {
             auto key = keys->getString(i);
             if (key == "consumerType") {
                 auto consumerType = configDict->getMember(key)->getInt();
-                if (ConsumerExclusive <= consumerType and consumerType <= ConsumerKeyShared) {
-                    consumerConfig.setConsumerType(static_cast<ConsumerType>(consumerType));
+                if (pulsar::ConsumerExclusive <= consumerType and consumerType <= pulsar::ConsumerKeyShared) {
+                    consumerConfig.setConsumerType(static_cast<pulsar::ConsumerType>(consumerType));
                 } else {
                     throw RuntimeException("consumerType should be within 0 to 3");
                 }
@@ -167,8 +180,8 @@ ConsumerConfiguration parseConsumerConfig(const DictionarySP& configDict) {
                 consumerConfig.setUnAckedMessagesTimeoutMs(value);
             } else if (key == "subscriptionInitialPosition") {
                 auto position = configDict->getMember(key)->getInt();
-                if (InitialPositionLatest <= position and position <= InitialPositionEarliest) {
-                    consumerConfig.setSubscriptionInitialPosition(static_cast<InitialPosition>(position));
+                if (pulsar::InitialPositionLatest <= position and position <= pulsar::InitialPositionEarliest) {
+                    consumerConfig.setSubscriptionInitialPosition(static_cast<pulsar::InitialPosition>(position));
                 } else {
                     throw RuntimeException("subscriptionInitialPosition should be within 0 to 1");
                 }
@@ -198,4 +211,9 @@ bool getBoolConfig(const ConstantSP& value, const string& key) {
     return value->getBool();
 }
 
-} // namespace ddb
+std::string getStringConfig(const ConstantSP& value, const string& key) {
+    if (value->getForm() != DF_SCALAR or value->getType() != DT_STRING) {
+        throw RuntimeException(key + " should be string");
+    }
+    return value->getString();
+}

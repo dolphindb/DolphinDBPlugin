@@ -16,11 +16,11 @@ namespace converter {
 class PyCache {
 public:
     // Python Environment Distinction
-    bool np_above_1_20_;
-    bool pd_above_2_0_;
-    bool pd_above_1_2_;
-    bool pyarrow_import_;
-    bool has_arrow_;
+    bool np_above_1_20_{true};
+    bool pd_above_2_0_{true};
+    bool pd_above_1_2_{true};
+    bool pyarrow_import_{false};
+    bool has_arrow_{false};
 
     // modules
     py::module_ numpy_;                     // module   numpy
@@ -253,9 +253,6 @@ int getPyDecimalScale(PyObject* obj);
 
 template <typename T>
 T getPyDecimalData(const py::handle &data, bool &hasNull, int scale) {
-    std::ignore=data;
-    std::ignore=hasNull;
-    std::ignore=scale;
     throw pybind_dolphindb::ConversionException("Only c++ int, long, or int128 types can be converted to python Decimal.");
 }
 

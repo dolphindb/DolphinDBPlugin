@@ -189,13 +189,21 @@ void produceMsg(Heap *heap, SmartPointer<Producer> producer, const string &topic
             int rowLen = 0;
             int columns = value->columns();
             int rows = value->rows();
+            if (rows <= 0) {
+                return;
+            }
             if (rows == 1) {  // HACK only with only one, force to produce
                 produceMsg(heap, producer, topic, key, value, marshalType, partition, true);
+                return;
             }
             headLen = OperatorImp::memSize(heap, value->keys(), nullptr)->getLong() * 2;
             rowLen = OperatorImp::memSize(heap, value->values(), nullptr)->getLong() * 2;
+            long long rowUnit = rowLen / rows;
+            if (rowUnit <= 0) {
+                rowUnit = 1;
+            }
 
-            long long step = (MESSAGE_SIZE - headLen) / (rowLen / rows);
+            long long step = (MESSAGE_SIZE - headLen) / rowUnit;
             step = step >= rows / 2 ? rows/2: step;
             step = step < 1 ? 1 : step;
             for (long long i = 0; i < rows; i += step) {
@@ -205,11 +213,19 @@ void produceMsg(Heap *heap, SmartPointer<Producer> producer, const string &topic
         } else if (value->getForm() == DF_VECTOR) {
             VectorSP vector = value;
             int size = vector->size();
+            if (size <= 0) {
+                return;
+            }
             long long totalSize = OperatorImp::memSize(heap, value, nullptr)->getLong() * 2;
             if (size == 1) {  // HACK only with only one, force to produce
                 produceMsg(heap, producer, topic, key, value, marshalType, partition, true);
+                return;
             }
-            long long step = (MESSAGE_SIZE) / (totalSize / size);
+            long long unitSize = totalSize / size;
+            if (unitSize <= 0) {
+                unitSize = 1;
+            }
+            long long step = MESSAGE_SIZE / unitSize;
             step = step >= size / 2 ? size/2: step;
             step = step < 1 ? 1 : step;
             for (long long i = 0; i < size; i += step) {

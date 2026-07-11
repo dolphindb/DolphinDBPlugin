@@ -884,6 +884,20 @@ bool convertORCToDolphindbBool(int col_idx, orc::StructVectorBatch *root, orc::T
 }
 bool convertORCToDolphindbChar(int col_idx, orc::StructVectorBatch *root, orc::TypeKind type, vector<char> &buffer)
 {
+    auto appendStringBatch = [&](orc::StringVectorBatch *col_batch, const string &orcType) {
+        for(uint64_t r = 0; r < col_batch->numElements; ++r)
+        {
+            if(col_batch->hasNulls && !col_batch->notNull[r])
+            {
+                buffer.push_back(CHAR_MIN);
+                continue;
+            }
+            int64_t len = col_batch->length[r];
+            if(len > 1)
+                throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::" + orcType + "(length>1)->" + Util::getDataTypeString(DT_CHAR));
+            buffer.push_back(len == 0 ? '\0' : col_batch->data[r][0]);
+        }
+    };
     switch(type)
     {
     case orc::TypeKind::BOOLEAN:
@@ -918,61 +932,19 @@ bool convertORCToDolphindbChar(int col_idx, orc::StructVectorBatch *root, orc::T
     case orc::TypeKind::STRING:
     {
         orc::StringVectorBatch *col_batch = dynamic_cast<orc::StringVectorBatch*>(root->fields[col_idx]);
-        for(uint64_t r = 0; r < col_batch->numElements; ++r)
-        {
-            int64_t len = col_batch->length[r];
-            if(len > 1)
-                throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::STRING(length>1)->" + Util::getDataTypeString(DT_CHAR));
-            if(col_batch->hasNulls && !col_batch->notNull[r])
-            {
-                buffer.push_back(CHAR_MIN);
-            }
-            else
-            {
-                char value = col_batch->data[r][0];
-                buffer.push_back(value);
-            }
-        }
+        appendStringBatch(col_batch, "STRING");
         break;
     }
     case orc::TypeKind::CHAR:
     {
         orc::StringVectorBatch *col_batch = dynamic_cast<orc::StringVectorBatch*>(root->fields[col_idx]);
-        for(uint64_t r = 0; r < col_batch->numElements; ++r)
-        {
-            int64_t len = col_batch->length[r];
-            if(len > 1)
-                throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::CHAR(length>1)->" + Util::getDataTypeString(DT_CHAR));
-            if(col_batch->hasNulls && !col_batch->notNull[r])
-            {
-                buffer.push_back(CHAR_MIN);
-            }
-            else
-            {
-                char value = col_batch->data[r][0];
-                buffer.push_back(value);
-            }
-        }
+        appendStringBatch(col_batch, "CHAR");
         break;
     }
     case orc::TypeKind::VARCHAR:
     {
         orc::StringVectorBatch *col_batch = dynamic_cast<orc::StringVectorBatch*>(root->fields[col_idx]);
-        for(uint64_t r = 0; r < col_batch->numElements; ++r)
-        {
-            int64_t len = col_batch->length[r];
-            if(len > 1)
-                throw RuntimeException(ORC_PREFIX + "incompatible type in column " + std::to_string(col_idx) + " orc::VARCHAR(length>1)->" + Util::getDataTypeString(DT_CHAR));
-            if(col_batch->hasNulls && !col_batch->notNull[r])
-            {
-                buffer.push_back(CHAR_MIN);
-            }
-            else
-            {
-                char value = col_batch->data[r][0];
-                buffer.push_back(value);
-            }
-        }
+        appendStringBatch(col_batch, "VARCHAR");
         break;
     }
     case orc::TypeKind::TIMESTAMP:
@@ -1332,7 +1304,10 @@ bool convertORCToDolphindbLong(int col_idx, orc::StructVectorBatch *root, orc::T
         for(uint64_t r = 0; r < col_batch->numElements; ++r)
         {
             if(col_batch->hasNulls && !col_batch->notNull[r])
+            {
                 buffer.push_back(INT64_MIN);
+                continue;
+            }
             int64_t len = col_batch->length[r];
             char *data = col_batch->data[r];
             const string str(data, len);
@@ -1500,13 +1475,15 @@ bool convertORCToDolphindbShort(int col_idx, orc::StructVectorBatch *root, orc::
         orc::StringVectorBatch *col_batch = dynamic_cast<orc::StringVectorBatch*>(root->fields[col_idx]);
         for(uint64_t r = 0; r < col_batch->numElements; ++r)
         {
+            if(col_batch->hasNulls && !col_batch->notNull[r])
+            {
+                buffer.push_back(INT16_MIN);
+                continue;
+            }
             int64_t len = col_batch->length[r];
             char *data = col_batch->data[r];
             string str(data, len);
-            if(col_batch->hasNulls && !col_batch->notNull[r])
-                buffer.push_back(INT16_MIN);
-            else
-                buffer.push_back(static_cast<short>(stoi(str)));
+            buffer.push_back(static_cast<short>(stoi(str)));
         }
         break;
     }
@@ -1569,17 +1546,18 @@ bool convertORCToDolphindbFloat(int col_idx, orc::StructVectorBatch *root, orc::
         orc::StringVectorBatch *col_batch = dynamic_cast<orc::StringVectorBatch*>(root->fields[col_idx]);
         for(uint64_t r = 0; r < col_batch->numElements; ++r)
         {
+            if(col_batch->hasNulls && !col_batch->notNull[r])
+            {
+                buffer.push_back(FLT_MIN);
+                continue;
+            }
             int64_t len = col_batch->length[r];
             char *data = col_batch->data[r];
             string str(data, len);
-            if(col_batch->hasNulls && !col_batch->notNull[r])
-                buffer.push_back(FLT_MIN);
-            else {
-                try {
-                    buffer.push_back(std::stof(str));
-                } catch (exception& e) {
-                    throw RuntimeException(ORC_PREFIX + "\"" + str + "\" can not be transformed can not be transformed to FLOAT data.");
-                }
+            try {
+                buffer.push_back(std::stof(str));
+            } catch (exception& e) {
+                throw RuntimeException(ORC_PREFIX + "\"" + str + "\" can not be transformed can not be transformed to FLOAT data.");
             }
         }
         break;
@@ -1643,17 +1621,18 @@ bool convertORCToDolphindbDouble(int col_idx, orc::StructVectorBatch *root, orc:
         orc::StringVectorBatch *col_batch = dynamic_cast<orc::StringVectorBatch*>(root->fields[col_idx]);
         for(uint64_t r = 0; r < col_batch->numElements; ++r)
         {
+            if(col_batch->hasNulls && !col_batch->notNull[r])
+            {
+                buffer.push_back(DBL_MIN);
+                continue;
+            }
             int64_t len = col_batch->length[r];
             char *data = col_batch->data[r];
             string str(data, len);
-            if(col_batch->hasNulls && !col_batch->notNull[r])
-                buffer.push_back(DBL_MIN);
-            else {
-                try {
-                    buffer.push_back(std::stod(str));
-                } catch (exception& e) {
-                    throw RuntimeException(ORC_PREFIX + "\"" + str + "\" can not be transformed can not be transformed to DOUBLE data.");
-                }
+            try {
+                buffer.push_back(std::stod(str));
+            } catch (exception& e) {
+                throw RuntimeException(ORC_PREFIX + "\"" + str + "\" can not be transformed can not be transformed to DOUBLE data.");
             }
         }
         break;

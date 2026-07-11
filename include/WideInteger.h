@@ -139,6 +139,7 @@ public:
 
 // FIXME: Should not adds specializations for std::make_unsigned, the behavior is undefined.
 // We need our own ddb::make_unsigned
+#ifndef DDB_INT128_STD_MAKE_UNSIGNED_SPECIALIZED
 template <>
 struct std::make_unsigned<ddb::int128> {
     using type = ddb::uint128;
@@ -148,12 +149,33 @@ template <>
 struct std::make_unsigned<ddb::uint128> {
     using type = uint128;
 };
+#endif
 
 // ditto 
 template <>
 struct std::add_pointer<ddb::uint128> {
     typedef uint128* type;
 };
+
+// In gcc's c++20, std::is_integral is specialized for __int128 and unsigned __int128, but in c++11 and c++17, it is not.
+// FIXME: Should not adds specializations for std::is_integral, the behavior is undefined.
+// We need our own ddb::is_integral
+// int128 is not a standard type...
+// https://quuxplusone.github.io/blog/2019/02/28/is-int128-integral/
+#if __cplusplus <= 201703L
+
+// ditto
+template <>
+struct std::is_integral<ddb::int128> : public std::true_type {};
+
+// ditto
+template <>
+struct std::is_integral<ddb::uint128> : public std::true_type {};
+
+#endif
+
+static_assert(std::is_integral<ddb::int128>::value, "ddb::int128 should be integral");
+static_assert(std::is_integral<ddb::uint128>::value, "ddb::uint128 should be integral");
 
 /*
     clang && (

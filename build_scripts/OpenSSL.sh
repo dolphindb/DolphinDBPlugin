@@ -1,24 +1,39 @@
 #!/bin/bash
 
-mkdir build
+# Building OpenSSL requires perl which introduces a lot of devel packages, so we build it in a docker container.
+# This is the core build config (--release is default and omitted):
+# ./Configure --release no-shared no-apps no-docs no-tests no-legacy no-async
+# Other useful but unavailable options:
+# no-deprecated: AWS/MongoDB/MariaDB does NOT use 3.0 APIs.
+# enable-ktls: required kernel version 5.10+ and SSL_set_options(SSL_OP_ENABLE_KTLS).
 
-map_dir=/root/openssl
-cp ~/jenkins_util.sh .
+prefix=openssl-4.0.0
 
+openssl_dir=/root/openssl
 cat > build.sh << EOF
-#!/bin/bash
-cd $map_dir
-source jenkins_util.sh
+#!/usr/bin/env bash
+set -x
+export HOME=$HOME
+source $HOME/jenkins_util.sh
 select_toolchain $Compiler
-cd build
-# aws and mongodb does NOT support no-deprecated
-../Configure $cross --prefix=$ARTIFACT_DIR/$TAG --libdir=lib64 \
-	no-shared no-apps no-docs no-tests no-legacy no-engine
+if [ "$Compiler" == "gcc-4.8.5" ]; then
+	export CFLAGS="$CFLAGS -std=gnu99"
+fi
+cross=""
+if [ -n "$CROSS_TOOLCHAIN" ]; then
+	cross="linux-aarch64"
+fi
+
+cd $openssl_dir
+./Configure \$cross --prefix=$ARTIFACT_DIR/$prefix --libdir=lib64 \
+	no-shared no-apps no-docs no-tests no-legacy no-async
 make -j$(nproc)
 make install
-rm -rf *
-chown -R $(id -u):$(id -g) $ARTIFACT_DIR/$TAG
+cd ..
+rm -rf build
+
+chown -R $(id -u):$(id -g) $ARTIFACT_DIR/$prefix
 EOF
 
 chmod +x build.sh
-docker run --rm -v $(pwd):$map_dir -v $HOME:$HOME build_env:OpenSSL $map_dir/build.sh
+docker run --rm -v $(pwd):$openssl_dir -v $HOME:$HOME build_env:OpenSSL $openssl_dir/build.sh

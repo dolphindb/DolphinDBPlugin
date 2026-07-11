@@ -2,6 +2,7 @@
 #include <Exceptions.h> 
 #include <ScalarImp.h>
 #include <Util.h>
+#include <cctype>
 #include <string>
 #include<unordered_map>
 #include <bson.h>
@@ -282,20 +283,28 @@ ConstantSP mongodbAggregate(Heap *heap, vector<ConstantSP> &arguments) {
     return safeOp(args[0], [&](mongoConnection *conn) { return conn->load(collection,condition,option,schema, true); });
 }
 
+static bool isAsciiColumnNameChar(char16_t ch) {
+    if (ch >= 128) {
+        return false;
+    }
+    return std::isalnum(static_cast<unsigned char>(ch)) != 0 || ch == u'_';
+}
+
+static bool shouldReplaceColumnNameChar(char16_t ch) {
+    return ch < 128 && !isAsciiColumnNameChar(ch);
+}
+
 void conversionStr(vector<std::string>& colName){
     int len=colName.size();
     for(int i=0;i<len;++i){
         std::u16string tmp= utf8_to_utf16(colName[i]);
         int subLen=tmp.size();
         for(int j=0;j<subLen;++j){
-            wchar_t t=tmp[j];
-            if(0<=t&&t<128){
-                if(!((L'A'<=t&&t<=L'z')||(L'0'<=t&&t<=L'9')||t=='_')){
-                    tmp[j]=L'_';
-                }
+            if(shouldReplaceColumnNameChar(tmp[j])){
+                tmp[j]=u'_';
             }
         }
-        if(tmp[0]==L'_')tmp=(char16_t)L'c' + tmp;
+        if(tmp.empty() || tmp[0]==u'_')tmp=u'c' + tmp;
         colName[i]=utf16_to_utf8(tmp);
     }
 }

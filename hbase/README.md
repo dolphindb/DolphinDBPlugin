@@ -1,72 +1,10 @@
 # DolphinDB HBase Plugin
 
-The DolphinDB Hbase plugin can establish a connection to HBase via Thrift and load data from the HBase database. Currently, HBase Plugin is only supported on Linux.
+This plugin connects to HBase through Thrift and reads data from HBase.
 
-Recommended version: 
+## 1. APIs
 
-- HBase: version 1.2.0
-- Thrift: version 0.14.0
-
-- [DolphinDB HBase Plugin](#dolphindb-hbase-plugin)
-  - [1. Install with `installPlugin`](#1-install-with-installplugin)
-    - [Installation Steps](#installation-steps)
-    - [Start Thrift server](#start-thrift-server)
-  - [2. Methods](#2-methods)
-    - [2.1 hbase::connect](#21-hbaseconnect)
-    - [2.2 hbase::showTables](#22-hbaseshowtables)
-    - [2.3 hbase::deleteTable](#23-hbasedeletetable)
-    - [2.4 hbase::getRow](#24-hbasegetrow)
-    - [2.5 hbase::load](#25-hbaseload)
-  - [3. Data Type Mappings](#3-data-type-mappings)
-  - [Appendix: Manual Installation](#appendix-manual-installation)
-    - [Use Precompiled Package](#use-precompiled-package)
-    - [Compile from Source](#compile-from-source)
-
-
-## 1. Install with `installPlugin`
-
-Required server version: DolphinDB 2.00.10.8/1.30.22.8 or higher
-
-### Installation Steps
-
-(1) Use `listRemotePlugins` to check plugin information in the plugin repository
-
-```
-login("admin", "123456")
-listRemotePlugins(, "http://plugins.dolphindb.cn/plugins/")
-```
-
-(2) Invoke `installPlugin` for plugin installation
-
-```
-installPlugin("hbase")
-```
-
-It returns `<path_to_HBase_plugintxt>/pluginHBase.txt`.
-
-(3) Load the plugin with `loadPlugin` (which takes the above return value as its input). 
-
-```
-loadPlugin("<path_to_HBase_plugintxt>/pluginHBase.txt")
-```
-
-### Start Thrift server
-
-Run the following command to start the Thrift server with port specified as 9090:
-
-```
-$HBASE_HOME/bin/hbase-daenom.sh start thrift -p 9090
-```
-
-You can close the Thrift server with the following command:
-
-```
-$HBASE_HOME/bin/hbase-daemon.sh stop thrift
-```
-
-## 2. Methods
-
-### 2.1 hbase::connect
+### 1.1 hbase::connect
 
 **Syntax**
 
@@ -76,12 +14,12 @@ hbase::connect(host, port, [isFramed], [timeout])
 
 - host: *STRING*. The server address to connect to.
 - port: *INT*. The port number of the Thrift server. 
-- isFramed: *BOOL, default False*. Whether to transport using `TBufferedTransport` (default) or `TFramedTransport` (true).
+- isFramed: *BOOL, optional*. If omitted, the plugin tries both `TBufferedTransport` and `TFramedTransport`. If set to false, only `TBufferedTransport` is tried. If set to true, only `TFramedTransport` is tried.
 - timeout: *INT, default 5000ms*. The maximum time for connection and a receive call to wait before timeout.
 
 **Details**
 
-Build a connection to HBase via Thrift server and return an HBase handle.
+Build a connection to HBase through the Thrift server and return an HBase handle. The plugin automatically tries `TBinaryProtocol` and `TCompactProtocol`.
 
 **Examples**
 
@@ -89,11 +27,11 @@ Build a connection to HBase via Thrift server and return an HBase handle.
 conn = hbase::connect("192.168.1.114", 9090)
 ```
 
-**Note**: If the connection remains inactive for a while (1min by default), HBase will automatically close it. If you try to operate through this connection, the `No more data to read` error will be reported. In such case, you have to execute `hbase::connect` to reconnect.
+**Note**: If the connection remains inactive for a while (1 minute by default), HBase closes it automatically. If you continue using this connection, the error `No more data to read` will be reported. In that case, run `hbase::connect` again to reconnect.
 
-You can configure with *hbase.thrift.server.socket.read.timeout* and *hbase.thrift.connection.max-idletime* to change the timeout.
+You can change the timeout in the HBase configuration file with `hbase.thrift.server.socket.read.timeout` and `hbase.thrift.connection.max-idletime`.
 
-The following configuration parameters change the timeout to 1 day.
+The following configuration changes the timeout to 1 day.
 
 ```
 <property>
@@ -110,7 +48,7 @@ The following configuration parameters change the timeout to 1 day.
 </property>
 ```
 
-### 2.2 hbase::showTables
+### 1.2 hbase::showTables
 
 **Syntax**
 
@@ -122,7 +60,7 @@ hbase::showTables(hbaseConnection)
 
 **Details**
 
-Return all table names of the connected database.
+Return all table names in the connected database.
 
 **Examples**
 
@@ -131,7 +69,7 @@ conn = hbase::connect("192.168.1.114", 9090)
 hbase::showTables(conn)
 ```
 
-### 2.3 hbase::deleteTable
+### 1.3 hbase::deleteTable
 
 **Syntax**
 
@@ -139,12 +77,12 @@ hbase::deleteTable(hbaseConnection, tableName)
 
 **Arguments**
 
-- hbaseConnection: The handle returned by hbase::connect.
+- hbaseConnection: The handle returned by `hbase::connect`.
 - tableName: STRING or STRING vector. The name of the table to be deleted.
 
 **Details**
 
-Delete tables in the database.
+Delete tables from the database.
 
 **Examples**
 
@@ -153,7 +91,7 @@ conn = hbase::connect("192.168.1.114", 9090)
 hbase::deleteTable(conn, "demo_table")
 ```
 
-### 2.4 hbase::getRow
+### 1.4 hbase::getRow
 
 **Syntax**
 
@@ -162,13 +100,13 @@ hbase::getRow(hbaseConnection, tableName, rowKey, [columnName])
 **Arguments**
 
 - hbaseConnection: The handle returned by `hbase::connect`.
-- tableName: *STRING*. The name of the table to be read.
-- rowKey: *STRING*. The index of the row to be read.
-- columnName: *STRING or STRING vector*. The name of the column to be read. If not specified, all columns are read by default.
+- tableName: *STRING*. The name of the table to read.
+- rowKey: *STRING*. The key of the row to read.
+- columnName: *STRING or STRING vector*. The column name to read. If not specified, all columns are read by default.
 
 **Details**
 
-Return the specific record with *rowKey*.
+Return the record corresponding to *rowKey*.
 
 **Examples**
 
@@ -177,21 +115,27 @@ conn = hbase::connect("192.168.1.114", 9090)
 hbase::getRow(conn, "test", "row1")
 ```
 
-### 2.5 hbase::load
+### 1.5 hbase::load
 
 **Syntax**
 
-hbase::load(hbaseConnection, tableName, [schema])
+hbase::load(hbaseConnection, tableName, [schema], [scanOptions])
+
+**Details**
+
+Import query results from HBase into a DolphinDB in-memory table. The data types supported in schema are described in Section 2.
 
 **Arguments**
 
 - hbaseConnection: The handle returned by `hbase::connect`.
 - tableName: *STRING*. The name of the table to be loaded.
-- schema: *optional*. If specified, it is a table containing names of the columns to be imported and their data types. The column names speicified in schema must be consistent with the HBase column names. If not specified, the table will be created based on the first row with each column of STRING type. Note that each row must have the same size.
-
-**Details**
-
-Import the HBase results into a DolphinDB in-memory table. The data types supported for schema are described in chapter 3.
+- schema: *optional*. A table containing the names of the columns to import and their data types. Since HBase stores data as bytes, the returned columns are STRING by default. Use this parameter to specify column types.
+- scanOptions: *optional dictionary*. The plugin passes these options to HBase Thrift `TScan`. The following keys are currently supported:
+  - `startRow` (STRING scalar)
+  - `stopRow` (STRING scalar)
+  - `columns` (STRING scalar/vector)
+  - `caching` (positive INT scalar). See [MapReduce Scan Caching](https://hbase.apache.org/docs/mapreduce#mapreduce-scan-caching) for the meaning of this option.
+  - `filterString` (STRING scalar). See [Filter Language](https://hbase.apache.org/docs/thrift-filter-language) for the meaning of this option.
 
 **Examples**
 
@@ -201,9 +145,29 @@ t =  table(["cf:a","cf:b", "cf:c", "cf:time"] as name, ["STRING", "INT", "FLOAT"
 t1 = hbase::load(conn, "test", t)
 ```
 
-## 3. Data Type Mappings
+```
+// Equivalent to HBase shell/other clients:
+// scan 'vehicle_test_data', {FORMATTER => 'toString', LIMIT => 1}
+conn = hbase::connect("192.168.1.114", 9090)
+scan = {
+    "filterString": "PageFilter(1)"
+}
+t1 = hbase::load(conn, "vehicle_test_data", scan)
+```
 
-The following is the data type mappings when an HBase table is imported to DolphinDB. Data stored in HBase must conform to the types specified in the table below, otherwise Null values will be returned.
+```
+conn = hbase::connect("192.168.1.114", 9090)
+scan = {
+    "startRow": "row001",
+    "stopRow": "row999"
+}
+t = table(["cf:a","cf:b"] as name, ["STRING", "INT"] as type)
+t1 = hbase::load(conn, "test", t, scan)
+```
+
+## 2. Supported Data Types
+
+The following table lists the data types supported in schema. Data stored in HBase must conform to the formats shown below so it can be converted to the corresponding DolphinDB data types. Otherwise, null values will be returned.
 
 | Type          | HBase                                                        | DolphinDB                                                    |
 | ------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
@@ -225,48 +189,3 @@ The following is the data type mappings when an HBase table is imported to Dolph
 | TIMESTAMP     | 20210218051701000, 2012.06.13 13:30:10.008, 2012.06.13T13:30:10.008 | 2021.02.18T05:17:01.000, 2012.06.13T13:30:10.008, 2012.06.13T13:30:10.008 |
 | NANOTIME      | 133010008007006, 13:30:10.008007006                          | 13:30:10.008007006, 13:30:10.008007006                       |
 | NANOTIMESTAMP | 20120613133010008007006,  2012.06.13 13:30:10.008007006, 2012.06.13T13:30:10.008007006 | 2012.06.13T13:30:10.008007006, 2012.06.13T13:30:10.008007006, 2012.06.13T13:30:10.008007006 |
-
-## Appendix: Manual Installation
-
-In addition to installing the plugin with function installPlugin, you can also install through precompiled binaries or compile from source. These files can be accessed from our [GitHub repository](https://github.com/dolphindb/DolphinDBPlugin/tree/master) by switching to the appropriate version branch.
-
-### Use Precompiled Package
-
-You can use the pre-built binaries `libPluginOPCUA.so`.
-
-(1) Add the plugin path to the library search path `LD_LIBRARY_PATH`
-
-```
-export LD_LIBRARY_PATH=path_to_hbase_plugin/:$LD_LIBRARY_PATH
-```
-
-(2) Start the DolphinDB server and load the plugin.
-
-```
-loadPlugin("path_to_hbase_plugin/PluginHBase.txt")
-```
-
-### Compile from Source
-
-You can also manually compile an HBase plugin with [CMake](https://cmake.org/) on Linux following the instructions:
-
-(1) Install CMake
-
-```
-sudo apt-get install cmake
-```
-
-(2) Install OpenSSL
-
-```
-sudo apt-get install openssl
-```
-
-(3) Build the entire project
-
-```
-mkdir build
-cd build
-cmake ../
-make
-```

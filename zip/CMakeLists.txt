@@ -17,7 +17,7 @@ aux_source_directory(minizip/aes DIR_LIB_SRCS)
 aux_source_directory(minizip DIR_LIB_SRCS)
 aux_source_directory(zipper DIR_LIB_SRCS)
 
-if (CMAKE_SYSTEM_NAME STREQUAL "MSYS")
+if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/minizip/win32
     )
@@ -27,7 +27,7 @@ endif()
 BuildDependency(minizip DIR_LIB_SRCS "")
 target_compile_definitions(minizip PRIVATE HAVE_AES)
 target_compile_options(minizip PRIVATE -w -Wno-error=incompatible-pointer-types)
-if (CMAKE_SYSTEM_NAME STREQUAL "MSYS")
+if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
     target_compile_options(minizip PRIVATE -DUSE_WINDOWS)
     target_link_directories(${PluginName} PRIVATE ${PROJECT_SOURCE_DIR}/lib/Win64)
     target_link_directories(${PluginName} PRIVATE ${CMAKE_BINARY_DIR})

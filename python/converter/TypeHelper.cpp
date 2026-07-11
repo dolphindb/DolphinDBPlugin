@@ -10,9 +10,9 @@
 #endif
 #include "TypeConverter.h"
 #include "DecimalHelper.h"
-#include "OperatorImp.h"
 
 #include "ScalarImp.h"
+#include "Logger.h"
 
 #include <modsupport.h>
 #include <pybind11/pybind11.h>
@@ -67,7 +67,7 @@ static inline Type _extractTypeFromString(const std::string &val) {
         if (it != bit_type_map.end()) {
             return Type(it->second, scale);
         }
-        throw ConversionException("[TODO] Invalid type string. unsupport DECIMAL" + std::to_string(bit_num) + ".");
+        throw ConversionException("Invalid type string. Unsupported DECIMAL" + std::to_string(bit_num) + ".");
     }
     HELPER_TYPE type = (HELPER_TYPE)Util::getDataType(name);
     return Type(type, EXPARAM_DEFAULT);
@@ -80,24 +80,67 @@ Type createType(const py::handle &data) {
     if (data.is_none()) {
         type = {HT_UNK, EXPARAM_DEFAULT};
     }
-    // else if (py::isinstance<SwordfishDataType>(data)) {
-    //     type = (py::cast<SwordfishDataType*>(data))->unpack();
-    // }
+#ifdef PYTHON_SWORDFISH
+    else if (py::isinstance<SwordfishDataType>(data)) {
+        type = (py::cast<SwordfishDataType*>(data))->unpack();
+    }
+#else
     else if (CHECK_INS(data, py_int_)) {
-        // change int to Type
-        type = std::make_pair(static_cast<HELPER_TYPE>(py::cast<int>(data)), EXPARAM_DEFAULT);
+            auto unpack = _decimal_util::unpackDecimalTypeAndScale(py::cast<int>(data));
+            if (!_decimal_util::isDecimalType(unpack.first)) {
+                unpack.second = EXPARAM_DEFAULT;
+            }
+            type = {static_cast<HELPER_TYPE>(unpack.first), unpack.second};
+        }
+#endif
+    else if (CHECK_INS(data, py_str_)) {
+        // change str to Type
+        std::string typeName = py::cast<std::string>(data);
+        return _extractTypeFromString(typeName);
     }
     else if (CHECK_INS(data, py_list_)) {
         // change [int, int] to Type
         py::list tmplist = py::reinterpret_borrow<py::list>(data);
         if (tmplist.size() <=0 || tmplist.size() > 2)
             throw ConversionException("Conversion failed. Specify a valid type.");
-        HELPER_TYPE datatype = static_cast<HELPER_TYPE>(py::cast<int>(tmplist[0]));
-        int exparam = py::cast<int>(tmplist[1]);
-        type = std::make_pair(datatype, exparam);
+#ifdef PYTHON_SWORDFISH
+        if (py::isinstance<SwordfishDataType>(tmplist[0])) {
+            type = (py::cast<SwordfishDataType*>(tmplist[0]))->unpack();
+        } else
+#endif
+        if (CHECK_INS(tmplist[0], py_str_)) {
+            std::string typeName = py::cast<std::string>(tmplist[0]);
+            type = _extractTypeFromString(typeName);
+        }
+        else {
+            try {
+                int typeInt = py::cast<int>(py::int_(tmplist[0]));
+                type = Type((HELPER_TYPE)typeInt, EXPARAM_DEFAULT);
+            }
+            catch (...) {
+                throw ConversionException("Conversion failed. Specify a valid type, the first element of the list must be of type int, str or DataType.");
+            }
+        }
+        if (tmplist.size() == 2) {
+            int exparam = EXPARAM_DEFAULT;
+            if (!tmplist[1].is_none()) {
+                if (CHECK_INS(tmplist[1], py_int_)) {
+                    exparam = py::cast<int>(tmplist[1]);
+                }
+                else {
+                    throw ConversionException("Conversion failed. Specify a valid type, the second element of the list must be of type int or None.");
+                }
+            }
+            type.second = exparam;
+        }
     }
     else {
-        throw ConversionException("Conversion failed. Specify a valid type.");
+        try {
+            type = std::make_pair(static_cast<HELPER_TYPE>(py::cast<int>(py::int_(py::reinterpret_borrow<py::object>(data)))), EXPARAM_DEFAULT);
+        }
+        catch (...) {
+            throw ConversionException("Conversion failed. Specify a valid type.");
+        }
     }
     return type;
 }
@@ -194,17 +237,13 @@ ConstantSP getConstantSP_VOID()
 
 #ifdef PYTHON_SWORDFISH
 ConstantSP getConstantSP_DFLT() { return Expression::default_; }
+ConstantSP getConstantSP_NULL() { return Expression::null_; }
 #else
 ConstantSP getConstantSP_DFLT()
 {
     static ConstantSP dflt_ = new Void(false, true);
     return dflt_;
 }
-#endif
-
-#ifdef PYTHON_SWORDFISH
-ConstantSP getConstantSP_NULL() { return Expression::null_; }
-#else
 ConstantSP getConstantSP_NULL()
 {
     static ConstantSP null_ = new Void(true, false);
@@ -278,7 +317,11 @@ void throwExceptionAboutChildOption(const CHILD_VECTOR_OPTION &option, const std
 Constant* createNullConstant(Type type) {
     if (type.first == HT_UNK || type.first == HT_VOID)
         return new Void(true);
-    return Util::createNullConstant((DATA_TYPE)type.first, EXPARM_VALUE(type.second));
+    auto c = Util::createNullConstant((DATA_TYPE)type.first, EXPARM_VALUE(type.second));
+    if (c == nullptr) {
+        throw ConversionException("Cannot create a null Constant with data type " + getDataTypeString(type) + ".");
+    }
+    return c;
 }
 
 Constant* createBool(char val) {
@@ -307,6 +350,9 @@ Constant* createString(const std::string &val) {
 }
 Constant* createSymbol(const std::string &val) {
     Constant* tmp = Util::createConstant(DATA_TYPE::DT_SYMBOL);
+    if (tmp == nullptr) {
+        throw ConversionException("Cannot create a Symbol Constant with val [" + val + "].");
+    }
     tmp->setString(val);
     return tmp;
 }
@@ -385,59 +431,53 @@ int _getDecimalPlaces(const char* value) {
 Constant* createDecimal32(int scale, int value, bool isRaw) {
     if (isRaw) {
         if (value == std::numeric_limits<int>::min()) {
-            return Util::createNullConstant(DATA_TYPE::DT_DECIMAL32, EXPARM_VALUE(scale));
+            return createNullConstant({HELPER_TYPE::HT_DECIMAL32, EXPARM_VALUE(scale)});
         }
         return new Decimal32(EXPARM_VALUE(scale), value);
     }
     ConstantSP data = new Int(value);
-    ConstantSP res = OperatorImp::asDecimal32(data, new Int(EXPARM_VALUE(scale)));
-    return new Decimal32(scale, res->getDecimal32(scale));
+    return _decimal_util::toDecimalPtr<int>(data, EXPARM_VALUE(scale));
 }
 Constant* createDecimal32(int scale, float value) {
     ConstantSP data = new Float(value);
-    ConstantSP res = OperatorImp::asDecimal32(data, new Int(EXPARM_VALUE(scale)));
-    return new Decimal32(scale, res->getDecimal32(scale));
+    return _decimal_util::toDecimalPtr<int>(data, EXPARM_VALUE(scale));
 }
 Constant* createDecimal32(int scale, double value) {
     ConstantSP data = new Double(value);
-    ConstantSP res = OperatorImp::asDecimal32(data, new Int(EXPARM_VALUE(scale)));
-    return new Decimal32(scale, res->getDecimal32(scale));
+    return _decimal_util::toDecimalPtr<int>(data, EXPARM_VALUE(scale));
 }
 Constant* createDecimal32(int scale, const char* value) {
     ConstantSP data = new String(value);
-    ConstantSP res = OperatorImp::asDecimal32(data, new Int(EXPARM_VALUE(scale)));
-    return new Decimal32(scale, res->getDecimal32(scale));
+    scale = scale == EXPARAM_DEFAULT ? _getDecimalPlaces(value) : scale;
+    return _decimal_util::toDecimalPtr<int>(data, EXPARM_VALUE(scale));
 }
 Constant* createDecimal64(int scale, long long value, bool isRaw) {
     if (isRaw) {
         if (value == std::numeric_limits<long long>::min()) {
-            return Util::createNullConstant(DATA_TYPE::DT_DECIMAL64, EXPARM_VALUE(scale));
+            return createNullConstant({HELPER_TYPE::HT_DECIMAL64, EXPARM_VALUE(scale)});
         }
         return new Decimal64(EXPARM_VALUE(scale), value);
     }
     ConstantSP data = new Long(value);
-    ConstantSP res = OperatorImp::asDecimal64(data, new Int(EXPARM_VALUE(scale)));
-    return new Decimal64(scale, res->getDecimal64(scale));
+    return _decimal_util::toDecimalPtr<long long>(data, EXPARM_VALUE(scale));
 }
 Constant* createDecimal64(int scale, float value) {
     ConstantSP data = new Float(value);
-    ConstantSP res = OperatorImp::asDecimal64(data, new Int(EXPARM_VALUE(scale)));
-    return new Decimal64(scale, res->getDecimal64(scale));
+    return _decimal_util::toDecimalPtr<long long>(data, EXPARM_VALUE(scale));
 }
 Constant* createDecimal64(int scale, double value) {
     ConstantSP data = new Double(value);
-    ConstantSP res = OperatorImp::asDecimal64(data, new Int(EXPARM_VALUE(scale)));
-    return new Decimal64(scale, res->getDecimal64(scale));
+    return _decimal_util::toDecimalPtr<long long>(data, EXPARM_VALUE(scale));
 }
 Constant* createDecimal64(int scale, const char* value) {
     ConstantSP data = new String(value);
-    ConstantSP res = OperatorImp::asDecimal64(data, new Int(EXPARM_VALUE(scale)));
-    return new Decimal64(scale, res->getDecimal64(scale));
+    scale = scale == EXPARAM_DEFAULT ? _getDecimalPlaces(value) : scale;
+    return _decimal_util::toDecimalPtr<long long>(data, EXPARM_VALUE(scale));
 }
 Constant* createDecimal128(int scale, int128 value, bool isRaw) {
     if (isRaw) {
         if (value == std::numeric_limits<int128>::min()) {
-            return Util::createNullConstant(DATA_TYPE::DT_DECIMAL128, EXPARM_VALUE(scale));
+            return createNullConstant({HELPER_TYPE::HT_DECIMAL128, EXPARM_VALUE(scale)});
         }
         return new Decimal128(EXPARM_VALUE(scale), value);
     }
@@ -446,18 +486,16 @@ Constant* createDecimal128(int scale, int128 value, bool isRaw) {
 }
 Constant* createDecimal128(int scale, float value) {
     ConstantSP data = new Float(value);
-    ConstantSP res = OperatorImp::asDecimal128(data, new Int(EXPARM_VALUE(scale)));
-    return new Decimal128(scale, res->getDecimal128(scale));
+    return _decimal_util::toDecimalPtr<int128>(data, EXPARM_VALUE(scale));
 }
 Constant* createDecimal128(int scale, double value) {
     ConstantSP data = new Double(value);
-    ConstantSP res = OperatorImp::asDecimal128(data, new Int(EXPARM_VALUE(scale)));
-    return new Decimal128(scale, res->getDecimal128(scale));
+    return _decimal_util::toDecimalPtr<int128>(data, EXPARM_VALUE(scale));
 }
 Constant* createDecimal128(int scale, const char* value) {
     ConstantSP data = new String(value);
-    ConstantSP res = OperatorImp::asDecimal128(data, new Int(EXPARM_VALUE(scale)));
-    return new Decimal128(scale, res->getDecimal128(scale));
+    scale = scale == EXPARAM_DEFAULT ? _getDecimalPlaces(value) : scale;
+    return _decimal_util::toDecimalPtr<int128>(data, EXPARM_VALUE(scale));
 }
 
 Constant* createValue(Type type, int128 val, bool isRaw) {
@@ -1240,32 +1278,39 @@ bool checkArrayVector(const ConstantSP &obj) {
 
 Vector* createVector(Type type, INDEX size, INDEX capacity) {
     if (type.first == HT_UNK) throw ConversionException("Vector creation requires a specific type.");
-    return Util::createVector((DATA_TYPE)type.first, size, capacity, true, EXPARM_VALUE(type.second));
+    auto v = Util::createVector((DATA_TYPE)type.first, size, capacity, true, EXPARM_VALUE(type.second));
+    if (v == nullptr)
+        throw ConversionException("Cannot create a Vector with data type " + getDataTypeString(type) + ".");
+    return v;
 }
 
 Vector* createArrayVector(Type type, INDEX size, INDEX valueSize, INDEX capacity, INDEX valueCapacity) {
     if (type.first == HT_UNK) throw ConversionException("ArrayVector creation requires a specific type.");
-    return Util::createArrayVector((DATA_TYPE)type.first, size, valueSize, capacity, valueCapacity, true, EXPARM_VALUE(type.second));
+    auto v = Util::createArrayVector((DATA_TYPE)type.first, size, valueSize, capacity, valueCapacity, true, EXPARM_VALUE(type.second));
+    if (v == nullptr)
+        throw ConversionException("Cannot create an ArrayVector with data type " + getDataTypeString(type) + ".");
+    return v;
 }
 
 Vector* createIndexVector(INDEX start, INDEX length) {
-    return Util::createIndexVector(start, length);
+    auto v = Util::createIndexVector(start, length);
+    if (v == nullptr)
+        throw ConversionException("Failed to create an IndexVector with start " + std::to_string(start) + " and length " + std::to_string(length) + ".");
+    return v;
 }
 
 Vector* createIndexVector(INDEX length, bool arrayOnly) {
-    return Util::createIndexVector(length, arrayOnly);
+    auto v = Util::createIndexVector(length, arrayOnly);
+    if (v == nullptr)
+        throw ConversionException("Failed to create an IndexVector with length " + std::to_string(length) + ".");
+    return v;
 }
 
 Vector* createPair(const ConstantSP &a, const ConstantSP &b) {
-    Type type = createType(a);
-    if (!canConvertTo(type, createType(b), type)) {
-        throw ConversionException("Both elements of a Pair must be of the same or compatible types.");
-    }
-    Vector* pair = createVector(type, 2, 2);
-    pair->set(0, a);
-    pair->set(1, b);
-    pair->setForm(DATA_FORM::DF_PAIR);
-    return pair;
+    VectorSP res = OperatorImp::pair(a, b);
+    Vector* res_ptr = res.get();
+    res.setPtr(nullptr);
+    return res_ptr;
 }
 
 ConstantSP createArrayVectorWithIndexAndValue(const ConstantSP &index, const ConstantSP &value) {
@@ -1276,6 +1321,8 @@ Vector* createAllNullVector(Type type, INDEX size, INDEX capacity) {
     if (capacity < size) capacity = size;
     if (type.first == HT_UNK) throw ConversionException("Vector creation requires a specific type.");
     Vector* tmp = Util::createVector((DATA_TYPE)type.first, size, capacity, true, EXPARM_VALUE(type.second));
+    if (tmp == nullptr)
+        throw ConversionException("Cannot create a Vector with data type " + getDataTypeString(type) + ".");
     tmp->fill(0, size, getConstantSP_NULL());
     return tmp;
 }
@@ -1283,7 +1330,10 @@ Vector* createAllNullVector(Type type, INDEX size, INDEX capacity) {
 Vector* createMatrix(Type type, INDEX cols, INDEX rows, INDEX colCapacity) {
     if (colCapacity < cols) colCapacity = cols;
     if (type.first == HT_UNK) throw ConversionException("Matrix creation requires a specific type.");
-    return Util::createMatrix((DATA_TYPE)type.first, cols, rows, colCapacity, EXPARM_VALUE(type.second));
+    auto m = Util::createMatrix((DATA_TYPE)type.first, cols, rows, colCapacity, EXPARM_VALUE(type.second));
+    if (m == nullptr)
+        throw ConversionException("Cannot create a Matrix with data type " + getDataTypeString(type) + ".");
+    return m;
 }
 
 Vector* createMatrixWithVector(ConstantSP ddbVec, INDEX cols, INDEX rows) {
@@ -1309,9 +1359,6 @@ Vector* createAllNullMatrix(Type type, INDEX cols, INDEX rows, INDEX colCapacity
 Set* createSet(const ConstantSP& val) {
     VectorSP vec = val;
     Set* set = createSet(createType(vec), vec->size());
-    if (set == nullptr) {
-        throw ConversionException("Cannot create a Set with data type " + getDataTypeString(createType(vec)) + ".");
-    }
     for (int i = 0; i < vec->size(); ++i) {
         set->append(vec->get(i));
     }
@@ -1319,7 +1366,10 @@ Set* createSet(const ConstantSP& val) {
 }
 
 Set* createSet(Type type, size_t capacity) {
-    return Util::createSet((DATA_TYPE)type.first, nullptr, capacity);
+    auto set = Util::createSet((DATA_TYPE)type.first, nullptr, capacity);
+    if (set == nullptr)
+        throw ConversionException("Cannot create a Set with data type " + getDataTypeString(type) + ".");
+    return set;
 }
 
 Dictionary* createDictionary(const ConstantSP& key, const ConstantSP& val, bool isOrdered) {
@@ -1331,11 +1381,17 @@ Dictionary* createDictionary(const ConstantSP& key, const ConstantSP& val, bool 
 Dictionary* createDictionary(Type keyType, Type valType, bool isOrdered) {
     if (keyType.first == HT_UNK || valType.first == HT_UNK)
         throw ConversionException("Cannot create a Dictionary with keys or values of unknown type.");
-    return Util::createDictionary((DATA_TYPE)keyType.first, nullptr, (DATA_TYPE)valType.first, nullptr, isOrdered, EXPARM_VALUE(keyType.second), EXPARM_VALUE(valType.second));
+    auto d = Util::createDictionary((DATA_TYPE)keyType.first, nullptr, (DATA_TYPE)valType.first, nullptr, isOrdered, EXPARM_VALUE(keyType.second), EXPARM_VALUE(valType.second));
+    if (d == nullptr)
+        throw ConversionException("Cannot create a Dictionary with key type " + getDataTypeString(keyType) + " and value type " + getDataTypeString(valType) + ".");
+    return d;
 }
 
 Table* createTable(const std::vector<std::string> &colNames, const std::vector<ConstantSP> &cols) {
-    return Util::createTable(colNames, cols);
+    auto t = Util::createTable(colNames, cols);
+    if (t == nullptr)
+        throw ConversionException("Failed to create a Table.");
+    return t;
 }
 
 Table* createTable(const std::vector<std::string> &colNames, const std::vector<Type> &colTypes, INDEX size, INDEX capacity) {
@@ -1354,7 +1410,10 @@ Table* createTable(const std::vector<std::string> &colNames, const std::vector<T
         }
         columns.back()->setNullFlag(columns.back()->hasNull());
     }
-    return Util::createTable(colNames, columns);
+    auto t = Util::createTable(colNames, columns);
+    if (t == nullptr)
+        throw ConversionException("Failed to create a Table.");
+    return t;
 }
 
 Table* createTable(const TableChecker &types, INDEX size, INDEX capacity) {

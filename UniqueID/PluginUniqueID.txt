@@ -1,6 +1,6 @@
 UniqueID,libPluginUniqueID${CMAKE_SHARED_LIBRARY_SUFFIX},${PluginVersion}
-createGenerator,createGenerator,system,1,2,0
-getGenerator,getGenerator,system,1,1,0
-newUid,newUid,system,1,2,0
-listGenerator,listGenerator,system,0,0,0
-destroyGenerator,destroyGenerator,system,1,1,0
+uid_list_generators,listGenerator,system,0,0,0
+uid_create_generator,createGenerator,system,1,2,0
+uid_destroy_generator,destroyGenerator,system,1,1,0
+uid_find_generator,getGenerator,system,1,1,0
+uid_generate,newUid,system,1,2,0

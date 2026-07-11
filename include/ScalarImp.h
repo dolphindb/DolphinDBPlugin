@@ -1247,8 +1247,9 @@ public:
 	static DURATION getDuration(DATA_TYPE type);
 	static DURATION getDuration(const string& unit);
 	static string getExchangeName(int exchange);
-	uint64_t hash() const override;
-	bool equal(const ConstantSP& other) const override;
+	virtual uint64_t hash() const;
+	virtual bool equal(const ConstantSP& other) const;
+	virtual bool set(INDEX index, const ConstantSP& value, INDEX valueIndex);
 
 private:
 	static const string durationSymbols_[11];

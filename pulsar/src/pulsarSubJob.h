@@ -23,7 +23,7 @@
 #pragma GCC diagnostic pop
 #endif
 
-namespace ddb {
+using namespace ddb;
 
 class PulsarSubJob {
 public:
@@ -53,5 +53,3 @@ private:
     ConstantSP client_;
     const SmartPointer<pulsar::Consumer> consumer_;
 };
-
-} // namespace ddb

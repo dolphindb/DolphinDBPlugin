@@ -29,7 +29,7 @@ typedef SmartPointer<CodeUnmarshal> CodeUnmarshalSP;
 typedef SmartPointer<ConstantMarshalFactory> ConstantMarshalFactorySP;
 typedef SmartPointer<ConstantUnmarshalFactory> ConstantUnmarshalFactorySP;
 
-class ConstantMarshalImp : public ConstantMarshal {
+class SWORDFISH_API ConstantMarshalImp : public ConstantMarshal {
 public:
 	ConstantMarshalImp(const DataOutputStreamSP& out):out_(out), complete_(false){}
 	virtual ~ConstantMarshalImp(){}
@@ -60,7 +60,26 @@ protected:
 	Session* session_;
 };
 
-class CodeMarshal: public ConstantMarshalImp{
+class CodeHelper{
+public:
+	static void collectUserDefinedFunctions(const ObjectSP& obj, bool skipSystemUDF, unordered_map<string, FunctionDef*>& dependency);
+	static void collectUserDefinedFunctions(const ObjectSP& obj, const unordered_map<string, FunctionDef*>& extraDependencies, bool skipSystemUDF, unordered_map<string, FunctionDef*>& dependency);
+	static void collectUserDefinedFunctionsAndClasses(Heap* pHeap, const ObjectSP& obj, bool skipSystemUDF, unordered_map<string, FunctionDef*>& udfDependency,
+			unordered_map<string, OOClass*>& classDependency);
+	static void collectUserDefinedFunctionsAndClasses(Heap* pHeap, const ObjectSP& obj, const unordered_map<string, FunctionDef*>& extraDependencies, bool skipSystemUDF,
+			unordered_map<string, FunctionDef*>& udfDependency, unordered_map<string, OOClass*>& classDependency);
+	static IO_ERR serializeObjectAndDependency(Heap* pHeap, const Guid& id, const ObjectSP& obj, int minimumVer, bool skipSystemUDF, const ByteArrayCodeBufferSP& buffer);
+	static IO_ERR serializeObjectAndDependency(Heap* pHeap, const Guid& id, const ObjectSP& obj, const unordered_map<string, FunctionDef*>& extraDependencies, int minimumVer, bool skipSystemUDF, bool checkDependency, const ByteArrayCodeBufferSP& buffer);
+	static ObjectSP readObjectAndDependency(Session* session, const DataInputStreamSP& in, Guid& id);
+	static string getUniqueFuncName(const FunctionDef* func);
+	static string getUniqueClassName(const OOClass* cls, bool includeQualifier = true);
+	static string getNameFromUnqiueName(const string& uniqueName);
+	static bool isUniqueFuncName(const string& name);
+	// after D20-11228, getString() of funcDef contains unique funcName, we need regenerate script to fix it.
+	static void rmUniqueNameFromScript(FunctionDef* func);
+};
+
+class SWORDFISH_API CodeMarshal: public ConstantMarshalImp{
 public:
 	CodeMarshal(Heap* heap, const DataOutputStreamSP& out, bool skipSystemUDF=false, bool uniqueFuncName=false):ConstantMarshalImp(out),
 		heap_(heap), id_(false), marshalDependency_(true), skipSystemUDF_(skipSystemUDF), mininumVerRequired_(0),extraDependency_(0),
@@ -89,7 +108,7 @@ private:
 	bool uniqueFuncName_;
 };
 
-class CodeUnmarshal: public ConstantUnmarshalImp{
+class SWORDFISH_API CodeUnmarshal: public ConstantUnmarshalImp{
 public:
 	CodeUnmarshal(const DataInputStreamSP& in, Session* session):ConstantUnmarshalImp(in, session),
 		constantCount_(0), doneConstants_(0), codeLength_(0), doneSize_(0), id_(false), buf_(0), capacity_(0){}

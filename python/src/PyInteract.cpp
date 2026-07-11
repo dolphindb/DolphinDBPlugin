@@ -260,18 +260,25 @@ ConstantSP fromPandas(Heap *heap, std::vector<ConstantSP> &args) {
     if (instance == nullptr) {
         throw IllegalArgumentException(__func__, "Input is not python object");
     }
+    ConstantSP type_dict{};
+    if (args.size() > 1) {
+        const auto &data = args[1];
+        if (!data->isDictionary()) {
+            throw IllegalArgumentException(__func__, "[typeHint] must be a dictionary.");
+        }
+        type_dict = data;
+    }
     const py::gil_scoped_acquire acquire;
 
     auto obj = instance->getPyObject();
     const Type type{HT_UNK, EXPARAM_DEFAULT};
     if (CHECK_INS(obj, pd_dataframe_)) {
+        if (!type_dict.isNull()) {
+            return Converter::toDolphinDB_Table_fromDataFrame(obj, TableChecker(Converter::toPyDict_Dictionary(type_dict)));
+        }
         return Converter::toDolphinDB_Table_fromDataFrame(obj, TableChecker(py::dict()));
     }
-    if (CHECK_INS(obj, pd_series_)) {
-        return Converter::toDolphinDB_Vector_fromSeriesOrIndex(obj, type, CHILD_VECTOR_OPTION::ANY_VECTOR,
-                                                               VectorInfo());
-    }
-    if (CHECK_INS(obj, pd_index_)) {
+    if (CHECK_INS(obj, pd_series_) || CHECK_INS(obj, pd_index_)) {
         return Converter::toDolphinDB_Vector_fromSeriesOrIndex(obj, type, CHILD_VECTOR_OPTION::ANY_VECTOR,
                                                                VectorInfo());
     }

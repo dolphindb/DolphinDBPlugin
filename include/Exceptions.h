@@ -237,9 +237,23 @@ public:
 	}
 	virtual ~NotLeaderException() throw(){}
 
+protected:
+	// Used by subclasses (e.g. UnknownLeaderException) to supply their own wire-format errMsg.
+	NotLeaderException(const string& errMsg, const string& newLeader)
+		: errMsg_(errMsg), newLeader_(newLeader) {}
+
 private:
 	const string errMsg_;
 	const string newLeader_;
+};
+
+// Signals that this node currently has no known leader (leader unknown / stepped down / partitioned).
+// Distinct from NotLeaderException which carries a hint to the actual leader.
+// Inherits from NotLeaderException so existing catch(NotLeaderException&) sites still catch it.
+class SWORDFISH_API UnknownLeaderException: public NotLeaderException {
+public:
+	UnknownLeaderException() : NotLeaderException("<UnknownLeader>", ""){}
+	virtual ~UnknownLeaderException() throw(){}
 };
 
 class SWORDFISH_API ChunkInTransactionException: public exception {
@@ -249,6 +263,18 @@ public:
 		return errMsg_.c_str();
 	}
 	virtual ~ChunkInTransactionException() throw(){}
+
+private:
+	const string errMsg_;
+};
+
+class SWORDFISH_API TableInTransactionException: public exception {
+public:
+	TableInTransactionException(const string& errMsg) : errMsg_("<TableInTransaction>" + errMsg){}
+	virtual const char* what() const throw(){
+		return errMsg_.c_str();
+	}
+	virtual ~TableInTransactionException() throw(){}
 
 private:
 	const string errMsg_;

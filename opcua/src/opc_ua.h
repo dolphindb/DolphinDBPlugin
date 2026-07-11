@@ -3,17 +3,6 @@
 #pragma once
 
 #include "Open62541Everything.h"
-#include <open62541/client_config_default.h>
-#include <open62541/client_highlevel.h>
-#include <open62541/client_subscriptions.h>
-#include <open62541/network_tcp.h>
-#include <open62541/plugin/accesscontrol_default.h>
-#include <open62541/plugin/log_stdout.h>
-#include <open62541/plugin/pki_default.h>
-#include <open62541/plugin/securitypolicy.h>
-#include <open62541/plugin/securitypolicy_default.h>
-#include <open62541/types.h>
-#include <open62541/types_generated_handling.h>
 
 #include "DolphinDBEverything.h"
 #include "ddbplugin/PluginLogger.h"
@@ -154,11 +143,7 @@ class OPCUAClient : public Resource {
     ConstantSP browseNode();
     bool getConnected() {
         LockGuard<Mutex> lock(&mutex_);
-        UA_ClientState state = UA_Client_getState(clientPtr_);
-        if (state == UA_ClientState::UA_CLIENTSTATE_DISCONNECTED) {
-            return false;
-        }
-        return true;
+        return getConnectedUnsafe();
     }
 
     UA_Client *getClientPtr() const { return clientPtr_; }
@@ -170,6 +155,13 @@ class OPCUAClient : public Resource {
     string getConnEndPointUrl() { return endPointUrl_; }
 
   private:
+    bool getConnectedUnsafe() {
+        UA_SecureChannelState channelState = UA_SECURECHANNELSTATE_CLOSED;
+        UA_StatusCode connectStatus = UA_STATUSCODE_GOOD;
+        UA_Client_getState(clientPtr_, &channelState, nullptr, &connectStatus);
+        return connectStatus == UA_STATUSCODE_GOOD && channelState != UA_SECURECHANNELSTATE_CLOSED;
+    }
+
     UA_Client *clientPtr_ = nullptr;
     ThreadSP thread_;
     bool isSubscribed = false;

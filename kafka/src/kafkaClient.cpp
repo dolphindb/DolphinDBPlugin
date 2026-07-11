@@ -5,7 +5,20 @@
 
 using std::map;
 
-MetaTable mockMetaTable = {{"payload", "key", "topic"}, {DT_STRING, DT_STRING, DT_STRING}};
+MetaTable mockMetaTable = {{"payload", "key", "topic", "timestamp"},
+                           {DT_STRING, DT_STRING, DT_STRING, DT_TIMESTAMP}};
+
+long long getMsgTimestamp(const rd_kafka_message_t *msg, long long localTimeGap) {
+    if (msg == nullptr) {
+        return LONG_LONG_MIN;
+    }
+    rd_kafka_timestamp_type_t timestampType = RD_KAFKA_TIMESTAMP_NOT_AVAILABLE;
+    int64_t timestamp = rd_kafka_message_timestamp(msg, &timestampType);
+    if (timestampType == RD_KAFKA_TIMESTAMP_NOT_AVAILABLE || timestamp < 0) {
+        return LONG_LONG_MIN;
+    }
+    return timestamp + localTimeGap;
+}
 
 void commitMsg(const rawMessageWrapperSP &msg, const SmartPointer<Consumer> &consumer) {
     rd_kafka_resp_err_t error;
@@ -15,20 +28,23 @@ void commitMsg(const rawMessageWrapperSP &msg, const SmartPointer<Consumer> &con
     }
 }
 
-void subJobCallBack(vector<ConstantSP> &buffer, MessageWrapper &data) {
+void subJobCallBack(vector<ConstantSP> &buffer, MessageWrapper &data, long long localTimeGap) {
     int colNum = 0;
+    rd_kafka_message_t *msg = data.rawMessage_->msgPtr_;
     string payload;
-    if (data.rawMessage_->msgPtr_->payload != nullptr) {
-        payload = string(static_cast<char *>(data.rawMessage_->msgPtr_->payload), data.rawMessage_->msgPtr_->len);
+    if (msg->payload != nullptr) {
+        payload = string(static_cast<char *>(msg->payload), msg->len);
     }
     string key;
-    if (data.rawMessage_->msgPtr_->key != nullptr) {
-        key = string(static_cast<char *>(data.rawMessage_->msgPtr_->key), data.rawMessage_->msgPtr_->key_len);
+    if (msg->key != nullptr) {
+        key = string(static_cast<char *>(msg->key), msg->key_len);
     }
-    string topic(data.rawMessage_->msgPtr_->rkt != nullptr ? rd_kafka_topic_name(data.rawMessage_->msgPtr_->rkt) : "");
+    string topic(msg->rkt != nullptr ? rd_kafka_topic_name(msg->rkt) : "");
+    long long timestamp = getMsgTimestamp(msg, localTimeGap/1000000);
     (VectorSP(buffer[colNum++]))->appendString(&payload, 1);
     (VectorSP(buffer[colNum++]))->appendString(&key, 1);
     (VectorSP(buffer[colNum++]))->appendString(&topic, 1);
+    (VectorSP(buffer[colNum++]))->appendLong(&timestamp, 1);
 }
 
 void subJobFinalizer(vector<MessageWrapper> &msgs, const SmartPointer<Consumer> &consumer) {
@@ -64,6 +80,7 @@ AppendTable::AppendTable(Heap *heap, ConstantSP parser, ConstantSP handle, Const
 
     session_ = heap->currentSession()->copy();
     session_->setUser(heap->currentSession()->getUser());
+    session_->setOutput(heap->currentSession()->getOutput());
 
     long long nanoTimestamp = Util::getNanoEpochTime();
     localTimeGap_ = Util::toLocalNanoTimestamp(nanoTimestamp) - nanoTimestamp;
@@ -79,8 +96,10 @@ AppendTable::AppendTable(Heap *heap, ConstantSP parser, ConstantSP handle, Const
     }
 
     if (msgAsTable_ && parser_->getType() == DT_FUNCTIONDEF) {
-        queue_ = new ThreadedQueue<MessageWrapper>(session_->getHeap().get(), throttle, queueDepth, mockMetaTable,
-                                                   nullptr, 0, actionName, KAFKA_PREFIX, batchSize, subJobCallBack);
+        queue_ = new ThreadedQueue<MessageWrapper>(
+            session_->getHeap().get(), throttle, queueDepth, mockMetaTable, nullptr, 0, actionName, KAFKA_PREFIX,
+            batchSize,
+            [this](vector<ConstantSP> &buffer, MessageWrapper &data) { subJobCallBack(buffer, data, localTimeGap_); });
         queue_->setTimeoutAsThrottle(true);
         if (autoCommit_) {
             queue_->setFinalizer([&](vector<MessageWrapper> &msgs) { subJobFinalizer(msgs, consumer_); });
@@ -92,17 +111,22 @@ AppendTable::AppendTable(Heap *heap, ConstantSP parser, ConstantSP handle, Const
             FunctionDefSP trans(Util::createSystemProcedure("subJobTransform" + actionName, subJobTransform, 3, 3));
             vector<ConstantSP> args{parser, handle};
             FunctionDefSP partTrans = Util::createPartialFunction(trans, args);
-            queue_->setTransform(trans);
+            queue_->setTransform(partTrans);
             queue_->ignoreTableInsert();
         }
         queue_->start();
     } else {
-        parserArgs_.emplace_back(Util::createConstant(DT_STRING));
         if (parser_->getType() == DT_FUNCTIONDEF) {
             int paramCount = ((FunctionDefSP)parser_)->getParamCount();
-            for (int i = 1; i < paramCount; ++i) {
-                parserArgs_.emplace_back(Util::createConstant(DT_STRING));
+            for (int i = 0; i < paramCount; ++i) {
+                if (i == 3) {
+                    parserArgs_.emplace_back(Util::createConstant(DT_TIMESTAMP));
+                } else {
+                    parserArgs_.emplace_back(Util::createConstant(DT_STRING));
+                }
             }
+        } else {
+            parserArgs_.emplace_back(Util::createConstant(DT_STRING));
         }
     }
 }
@@ -122,11 +146,19 @@ TableSP AppendTable::doParse(const rawMessageWrapperSP &msg) {
 
     parserArgs_[0]->setString(DolphinString(payload != nullptr ? payload : "", message->len));
     int paramCount = (FunctionDefSP(parser_))->getParamCount();
-    if (paramCount == 2) {
+    if (paramCount >= 2) {
         parserArgs_[1]->setString(DolphinString(key != nullptr ? key : "", msg->msgPtr_->key_len));
-    } else if (paramCount == 3) {
-        parserArgs_[1]->setString(DolphinString(key != nullptr ? key : "", msg->msgPtr_->key_len));
+    }
+    if (paramCount >= 3) {
         parserArgs_[2]->setString(message->rkt != nullptr ? rd_kafka_topic_name(message->rkt) : "");
+    }
+    if (paramCount >= 4) {
+        long long timestamp = getMsgTimestamp(message, localTimeGap_/1000000);
+        if (timestamp == LONG_LONG_MIN) {
+            parserArgs_[3]->setNull();
+        } else {
+            parserArgs_[3]->setLong(timestamp);
+        }
     }
     ConstantSP parseResult = (FunctionDefSP(parser_))->call(session_->getHeap().get(), parserArgs_);
     if (UNLIKELY(!parseResult->isTable())) {

@@ -1,6 +1,6 @@
 hbase,libPluginHBase${CMAKE_SHARED_LIBRARY_SUFFIX},${PluginVersion}
-connectH,connect,system,2,4,0,0,(host, port, [isFramed=false], [timeout=5000])
-showTablesH,showTables,system,1,1,0,0,(conn)
-getRowH,getRow,system,3,4,0,0,(conn, tableName, rowKey, [columnNames])
-loadH,load,system,2,3,0,0,(conn, tableName, [schema])
-deleteTableH,deleteTable,system,2,2,0,0,(conn, tableNames)
+hbase_connect,connect,system,2,4,0,0,(host, port, [isFramed], [timeout=5000])
+hbase_show_tables,showTables,system,1,1,0,0,(conn)
+hbase_get_row,getRow,system,3,4,0,0,(conn, tableName, rowKey, [columnNames])
+hbase_load,load,system,2,4,0,0,(conn, tableName, [schema], [scanOptions])
+hbase_delete_table,deleteTable,system,2,2,0,0,(conn, tableNames)

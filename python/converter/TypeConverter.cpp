@@ -76,6 +76,8 @@ PyCache::PyCache() {
     pandas_ = py::module::import("pandas");
 #ifdef PYTHON_SWORDFISH
     np_above_1_20_ = checkModuleVersionAbove(numpy_, "1.20");
+
+    pandas_ = py::module::import("pandas");
     pd_above_2_0_ = checkModuleVersionAbove(pandas_, "2.0");
     pd_above_1_2_ = checkModuleVersionAbove(pandas_, "1.2");
 #endif
@@ -209,12 +211,14 @@ inline bool isArrayLike(const py::handle &obj) {
         CHECK_INS(obj, pd_series_) || CHECK_INS(obj, pd_index_)) {
         return true;
     }
-    // if (py::isinstance<SwordfishConstant>(obj)) {
-    //     auto ptr = py::cast<SwordfishConstant*>(obj);
-    //     if (ptr->getReference()->isVector()) {
-    //         return true;
-    //     }
-    // }
+#ifdef PYTHON_SWORDFISH
+    if (py::isinstance<SwordfishConstant>(obj)) {
+        auto ptr = py::cast<SwordfishConstant*>(obj);
+        if (ptr->getReference()->isVector()) {
+            return true;
+        }
+    }
+#endif
     return false;
 }
 
@@ -358,9 +362,7 @@ bool appendBoolToVector(const py::array &pyVec, size_t size, size_t offset, char
     char* buf = bufsp.get();
     auto buffer = pyVec.request();
     int8_t *it = reinterpret_cast<int8_t *>(buffer.ptr);
-    size_t startIndex = offset;
-    size_t len;
-    size_t i = 0;
+    size_t startIndex = offset, len, i = 0;
     bool hasNull = false;
     int stride = buffer.strides[0];
     it += stride * offset;
@@ -471,15 +473,15 @@ bool appendNumericToVector(const py::array &pyVec, size_t size, size_t offset, T
 }
 
 static inline int getDecimalValue(Decimal<int>* obj, int scale) {
-    return obj->getDecimal32(scale);
+    return static_cast<ddb::Constant*>(obj)->getDecimal32(scale);
 }
 
 static inline long long getDecimalValue(Decimal<long long>* obj, int scale) {
-    return obj->getDecimal64(scale);
+    return static_cast<ddb::Constant*>(obj)->getDecimal64(scale);
 }
 
 static inline int128 getDecimalValue(Decimal<int128>* obj, int scale) {
-    return obj->getDecimal128(scale);
+    return static_cast<ddb::Constant*>(obj)->getDecimal128(scale);
 }
 
 
@@ -492,9 +494,7 @@ bool appendDecimaltoVector(const py::array &pyVec, size_t size, size_t offset, T
     T* buf = bufsp.get();
     auto buffer = pyVec.request();
     int8_t *it = reinterpret_cast<int8_t *>(buffer.ptr);
-    size_t startIndex = offset;
-    size_t len;
-    size_t i = 0;
+    size_t startIndex = offset, len, i = 0;
     bool hasNull = false;
     int stride = buffer.strides[0];
     it += stride * offset;
@@ -748,6 +748,7 @@ checkElemType(
         type = curType;
         return false;
     }
+    Type res;
     // TODO: need to speed up
     if (!canConvertTo(type, curType, type)) {
         return true;
@@ -785,14 +786,20 @@ getChildrenType(
 
 
 bool checkInnerType(const py::handle &data, ConstantSP &constantsp) {
+#ifdef PYTHON_SWORDFISH
+    if (py::isinstance<SwordfishConstant>(data)) {
+        SwordfishConstant* tmp = py::cast<SwordfishConstant*>(data);
+        constantsp = tmp->getReference();
+        if (constantsp.isNull()) throw ConversionException("unsupport to convert null object.");
+        return true;
+    }
+    if (py::hasattr(data, "__sf_constant__")) {
+        return checkInnerType(data.attr("__sf_constant__"), constantsp);
+    }
+#else
     std::ignore = data;
     std::ignore = constantsp;
-    // if (py::isinstance<SwordfishConstant>(data)) {
-    //     SwordfishConstant* tmp = py::cast<SwordfishConstant*>(data);
-    //     constantsp = tmp->getReference();
-    //     if (constantsp.isNull()) throw ConversionException("unsupport to convert null object.");
-    //     return true;
-    // }
+#endif
     return false;
 }
 
@@ -800,7 +807,7 @@ bool checkInnerType(const py::handle &data, ConstantSP &constantsp) {
 void checkCanConvert2Form(const ConstantSP &obj, DATA_FORM form) {
     DATA_FORM src_form = obj->getForm();
     if (form != src_form) {
-        std::string errMsg = "[TODO] Cannot convert " + Util::getDataFormString(src_form)
+        std::string errMsg = "Cannot convert " + Util::getDataFormString(src_form)
         + " to " + Util::getDataFormString(form) + ".";
         throw ConversionException(errMsg);
     }
@@ -988,6 +995,7 @@ Type InferDataTypeFromDType(py::dtype &dtype, bool &Is_ArrowDType, bool &Is_Pand
         throw ConversionException(std::string("Cannot convert from numpy dtype ") + py2str(dtype) + ".");
     }
 }
+
 
 ConstantSP
 Converter::toDolphinDB(
@@ -2063,7 +2071,7 @@ Converter::toDolphinDB_Table(const py::handle &data, const TableChecker &checker
                         continue;
                     }
                     if (tsp->getTableType() != TABLE_TYPE::BASICTBL) {
-                        throw ConversionException("[TODO] Cannot convert Table with types: " + py::str(py::cast(checker)).cast<std::string>());
+                        throw ConversionException("Cannot convert Table with types: " + py::str(py::cast(checker)).cast<std::string>());
                     }
                     changed = true;
                     break;
@@ -3219,7 +3227,7 @@ Converter::toDolphinDB_Table_fromDataFrame(
     }
     for (const auto & t : checker) {
         if (!col_set.count(t.first)) {
-            throw ConversionException("[TODO] Cannot convert Table with unknown key: " + t.first);
+            throw ConversionException("Cannot convert Table with unknown key: " + t.first);
         }
     }
 
@@ -3230,16 +3238,9 @@ Converter::toDolphinDB_Table_fromDataFrame(
         if (!isArrayLike(tmpObj)) {
             throw ConversionException("Table columns must be vectors (numpy.ndarray, pandas.Series, tuple, or list).");
         }
-        if (new_checker.count(colNames[ni]) > 0) {
-            columns[ni] = Converter::toDolphinDB_Vector_fromSeriesOrIndex(
-                tmpObj, new_checker.at(colNames[ni]),
-                CHILD_VECTOR_OPTION::ARRAY_VECTOR, info);
-        }
-        else {
-            columns[ni] = Converter::toDolphinDB_Vector_fromSeriesOrIndex(
-                tmpObj, {HT_UNK, EXPARAM_DEFAULT},
-                CHILD_VECTOR_OPTION::ARRAY_VECTOR, info);
-        }
+        Type type_hint = new_checker.count(colNames[ni]) > 0 ? new_checker.at(colNames[ni]) : Type{HT_UNK, EXPARAM_DEFAULT};
+        columns[ni] = Converter::toDolphinDB_Vector_fromSeriesOrIndex(
+            tmpObj, type_hint, CHILD_VECTOR_OPTION::ARRAY_VECTOR, info);
     }
     TableSP ddbTbl = createTable(colNames, columns);
     return ddbTbl;
@@ -3291,11 +3292,6 @@ Converter::toDolphinDB_Set_fromSet(
     const py::set       &data,
     Type                type
 ) {
-#ifndef PYTHON_SWORDFISH
-    if (data.empty()) {
-        throw RuntimeException("Cannot deduce data type from empty set.");
-    }
-#endif
     ConstantSP ddbVec = Converter::toDolphinDB_Vector_fromTupleorListorSet(data, type, CHILD_VECTOR_OPTION::SET_VECTOR);
     return createSet(ddbVec);
 }
@@ -3424,8 +3420,8 @@ Converter::toPython_Scalar(const ConstantSP &data, const ToPythonOption &option)
     }
     case HT_DECIMAL128: {
         if (data->isNull()) return py::none();
-        auto raw_data = ((ObjectPtr<Decimal128>)data)->getRawData();
-        auto scale = ((ObjectPtr<Decimal128>)data)->getScale();
+        auto raw_data = ((Decimal128SP)data)->getRawData();
+        auto scale = ((Decimal128SP)data)->getScale();
         bool sign = raw_data < 0;
         std::vector<int> digits;
         getDecimalDigits<int128>(sign ? -raw_data : raw_data, digits);
@@ -3443,12 +3439,16 @@ Converter::toPyList_Vector(const ConstantSP &data, const ToPythonOption &option)
     size_t size = data->size();
     py::list pyList = py::list(size);
     for (size_t i = 0; i < size; ++i) {
-        // if (checkAnyVector(data)) {
-        //     pyList[i] = pybind_dolphindb::TypeFactory::createPyObject(data->get(i));
-        // }
-        // else {
+#ifdef PYTHON_SWORDFISH
+        if (checkAnyVector(data)) {
+            pyList[i] = pybind_dolphindb::TypeFactory::createPyObject(data->get(i));
+        }
+        else {
             pyList[i] = Converter::toPython(data->get(i), option);
-        // }
+        }
+#else
+        pyList[i] = Converter::toPython(data->get(i), option);
+#endif
     }
     return pyList;
 }
@@ -3498,16 +3498,22 @@ Converter::toPyDict_Dictionary(const ConstantSP &data, const ToPythonOption &opt
 
     py::dict pyDict = py::dict();
     size_t size = ddbDict->size();
-    // if (checkAnyVector(values)) {
-    //     for (int i = 0; i < size; ++i) {
-    //         pyDict[Converter::toPython_Scalar(keys->get(i))] = pybind_dolphindb::TypeFactory::createPyObject(values->get(i));
-    //     }
-    // }
-    // else {
+#ifdef PYTHON_SWORDFISH
+    if (checkAnyVector(values)) {
+        for (size_t i = 0; i < size; ++i) {
+            pyDict[Converter::toPython_Scalar(keys->get(i))] = pybind_dolphindb::TypeFactory::createPyObject(values->get(i));
+        }
+    }
+    else {
         for (size_t i = 0; i < size; ++i) {
             pyDict[Converter::toPython_Scalar(keys->get(i))] = Converter::toPython(values->get(i), option);
         }
-    // }
+    }
+#else
+    for (size_t i = 0; i < size; ++i) {
+        pyDict[Converter::toPython_Scalar(keys->get(i))] = Converter::toPython(values->get(i), option);
+    }
+#endif
     return pyDict;
 }
 
@@ -3853,14 +3859,16 @@ Converter::toNumpy_Vector(const ConstantSP &data_c, const ToPythonOption &option
         }, 0);
         return pyVec;
     }
-    // case HT_ANY: {
-    //     py::array pyVec(py::dtype("object"), {size}, {});
-    //     py::object *pyArray = (py::object *)pyVec.mutable_data();
-    //     for (size_t i = 0; i < size; ++i) {
-    //         pyArray[i] = pybind_dolphindb::TypeFactory::createPyObject(data->get(i));
-    //     }
-    //     return pyVec;
-    // }
+#ifdef PYTHON_SWORDFISH
+    case HT_ANY: {
+        py::array pyVec(py::dtype("object"), {size}, {});
+        py::object *pyArray = (py::object *)pyVec.mutable_data();
+        for (size_t i = 0; i < size; ++i) {
+            pyArray[i] = pybind_dolphindb::TypeFactory::createPyObject(data->get(i));
+        }
+        return pyVec;
+    }
+#endif
     default:
         throw ConversionException("Cannot convert " + getDataTypeString(type) + " to numpy ndarray.");
     }

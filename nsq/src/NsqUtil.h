@@ -1,21 +1,14 @@
-//
-// Created by htxu on 11/22/2023.
-//
+#pragma once
 
-#ifndef PLUGINNSQ_NSQUTIL_H
-#define PLUGINNSQ_NSQUTIL_H
-
+#include "NsqEverything.h"
 
 #include <ddbplugin/ThreadedQueue.h>
-
-#include "HSNsqStruct.h"
 
 #include "PluginUtil.h"
 
 using namespace ddb;
 using namespace pluginUtil;
 
-const string NSQ_PREFIX = "[PLUGIN::NSQ] ";
 const static long long QUEUE_DEPTH = 1000000;
 
 /**
@@ -50,25 +43,16 @@ namespace nsqUtil {
     };
 
     // Data Types
-    constexpr char SNAPSHOT[] = "snapshot";
-    constexpr char TRADE[] = "trade";
-    constexpr char ENTRUST[] = "orders";
-    constexpr char ENTRUST_220105[] = "orders_220105";
-    constexpr char TRADE_ENTRUST[] = "orderTrade";
-
-    // Market Types
-    enum class MarketType {
-        SH,
-        SZ
-    };
-
-    string getMarketTypeStr(nsqUtil::MarketType marketType);
-    nsqUtil::MarketType parseMarketTypeStr(const string &str);
+    constexpr auto SNAPSHOT = "snapshot";
+    constexpr auto TRADE = "trade";
+    constexpr auto ENTRUST = "orders";
+    constexpr auto ENTRUST_220105 = "orders_220105";
+    constexpr auto TRADE_ENTRUST = "orderTrade";
 
     // Options
-    constexpr char RECEIVED_TIME[] = "receivedTime";
-    constexpr char OUTPUT_ELAPSED[] = "outputElapsed";
-    constexpr char GET_ALL_FIELD_NAMES[] = "getAllFieldNames";
+    constexpr auto RECEIVED_TIME = "receivedTime";
+    constexpr auto OUTPUT_ELAPSED = "outputElapsed";
+    constexpr auto GET_ALL_FIELD_NAMES = "getAllFieldNames";
 
     // Table Metas
     extern const MetaTable tradeMeta;
@@ -78,9 +62,6 @@ namespace nsqUtil {
     extern const MetaTable snapshotMetaExtra_220105;
     extern const MetaTable snapshotMetaExtra;
     extern const MetaTable tradeEntrustMeta;
-
-    // Type-related Functions
-    void checkTypes(const string& dataType, const string& marketType);
 
     // Struct Readers for ThreadedQueue
     void tradeReader(vector<ConstantSP> &buffer, TradeDataStruct &data);
@@ -95,7 +76,4 @@ namespace nsqUtil {
     int getDate(HSDate date);
     int getTime(HSTime time);
 
-} // namespace nsqType
-
-
-#endif //PLUGINNSQ_NSQUTIL_H
+} // namespace nsqUtil

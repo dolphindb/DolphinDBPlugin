@@ -16,7 +16,7 @@ function build_plugin_python() {
 
 unset FTP_URL
 
-for i in `seq 8 13`; do
+for i in `seq 9 13`; do
     set +x
     echo "command: conda activate py3$i"
     conda activate py3$i

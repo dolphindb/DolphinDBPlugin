@@ -82,7 +82,7 @@ class Connection : public mysqlxx::Connection {
 
   public:
     Connection(std::string hostname, int port, std::string username, std::string password, std::string database,
-               MySQLSSLMode sslMode);
+               MySQLSSLMode sslMode, std::string charset = "UTF8");
 
     ~Connection();
     ConstantSP doQuery(const std::string &str);

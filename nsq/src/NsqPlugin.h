@@ -21,5 +21,6 @@ ConstantSP nsqSubscribe(Heap* heap, vector<ConstantSP>& args);
 ConstantSP nsqUnsubscribe(Heap* heap, vector<ConstantSP>& args);
 
 ConstantSP nsqGetStatus(Heap *heap, vector<ConstantSP>& args);
+ConstantSP nsqTestPipelineBatchPerformance(Heap *heap, vector<ConstantSP>& args);
 
 }
