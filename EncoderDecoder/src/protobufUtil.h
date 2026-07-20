@@ -1,6 +1,6 @@
-#ifndef PROTOBUF_UTIL_H
-#define PROTOBUF_UTIL_H
+#pragma once
 
+#include "DolphinDBEverything.h"
 #include "EncoderDecoder.h"
 #include "ddbplugin/Plugin.h"
 #include <CoreConcept.h>
@@ -34,4 +34,3 @@ ConstantSP parseProtobufDynamic(string filePath, VectorSP data, unordered_map<st
                                 bool needArrayVector = false, Heap* heap = nullptr, const string& = "",
                                 bool useZeroAsNull = true);
 const google::protobuf::Message *getMessageFromProtoFile(const std::string& filePath, const std::string& protoName, google::protobuf::DescriptorPool& pool, google::protobuf::DynamicMessageFactory& factory);
-#endif //PROTOBUF_UTIL_H

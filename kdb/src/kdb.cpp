@@ -251,7 +251,7 @@ string getUniqueTableName() {
 ConstantSP Connection::extractSchema(const std::string& tablePath, const std::string &symPath) const {
     string symName = loadSymFile(symPath);
 
-    dolphindb::PluginDefer deferSym([=](){
+    ddb::PluginDefer deferSym([=](){
         string dropCommand = "![`.;();0b;] (),";
         try {
             if(!symName.empty()) {
@@ -268,7 +268,7 @@ ConstantSP Connection::extractSchema(const std::string& tablePath, const std::st
     string uniqueTableName = getUniqueTableName();
     string mapLine = uniqueTableName + ":get `:" + tablePath;
     kExec(mapLine);
-    dolphindb::PluginDefer defer([=](){
+    ddb::PluginDefer defer([=](){
         // clean job for kdb env
         string cleanCommand = uniqueTableName + ":0";
         try {
@@ -376,7 +376,7 @@ ConstantSP Connection::loadTableEx(Heap *heap, ConstantSP dbHandle, ConstantSP t
         LOG_INFO(KDB_PREFIX, "load table from tablePath '", pathOrScript, "'");
         string symName = loadSymFile(symPath);
 
-        dolphindb::PluginDefer deferSym([=](){
+        ddb::PluginDefer deferSym([=](){
             string dropCommand = "![`.;();0b;] (),";
             try {
                 if(!symName.empty()) {
@@ -394,7 +394,7 @@ ConstantSP Connection::loadTableEx(Heap *heap, ConstantSP dbHandle, ConstantSP t
         string mapLine = uniqueTableName + ":get `:" + pathOrScript;
         ConstantSP kExecRet = execute(mapLine);
 
-        dolphindb::PluginDefer defer([=](){
+        ddb::PluginDefer defer([=](){
             // clean job for kdb env
             string cleanCommand = uniqueTableName + ":0";
             try {
@@ -468,7 +468,7 @@ TableSP Connection::getTable(
     // load symbol
     const string symName = loadSymFile(symFilePath);
 
-    dolphindb::PluginDefer deferSym([=](){
+    ddb::PluginDefer deferSym([=](){
         string dropCommand = "![`.;();0b;] (),";
         try {
             if(!symName.empty()) {
@@ -493,7 +493,7 @@ TableSP Connection::getTable(
     }
     const string tableName = pathVec.back();
 
-    dolphindb::PluginDefer deferTable([=](){
+    ddb::PluginDefer deferTable([=](){
         string dropCommand = "![`.;();0b;] (),`" + tableName;
         try {
             // drop table & sym, release memory in kdb+

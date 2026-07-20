@@ -302,11 +302,7 @@ public:
 	int getDecimalExtra() { return decimalExtra_; }
 	INDEX reserve(INDEX capacity);
 	inline long long getAllocatedMemory() const override {
-		long long memSize = 0;
-		for (size_t i = 0; i < data_.size(); ++i) {
-			memSize += data_[i]->getAllocatedMemory();
-		}
-		return memSize;
+		return sizeof(AnyVector);
 	}
 	const ConstantSP& getConstant(INDEX index) const { return data_[index];}
 	void toVector(vector<ConstantSP>& v) const {

@@ -1,3 +1,5 @@
 target_sources(${PluginName} PRIVATE
-    AWSS3.cpp
+    plugin.cpp
+    s3_config.cpp
+    s3_client.cpp
 )

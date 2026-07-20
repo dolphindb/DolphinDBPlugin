@@ -283,6 +283,9 @@ public:
     bool isHashKeyTable() const {
     	return keyTable_ != nullptr && !keyTable_->ordered;
     }
+    int getTimeColumnIndex() const {
+        return keyTable_ != nullptr ? keyTable_->timeColIdx : -1;
+    }
     const DictionarySP& getKeyDictionary() const { return keyTable_->dict;}
     TableSP getKeyTableCopy(const vector<ConstantSP>& cols) const;
     inline const ConstantSP& getInternalColumn(int index) const { return cols_[index];}

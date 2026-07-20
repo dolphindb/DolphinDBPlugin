@@ -1,6 +1,6 @@
-#ifndef JSON_UTIL_H
-#define JSON_UTIL_H
+#pragma once
 
+#include "DolphinDBEverything.h"
 #include <CoreConcept.h>
 #include <Exceptions.h>
 #include <ScalarImp.h>
@@ -11,5 +11,3 @@
 ConstantSP parseJson(Heap* heap, vector<ConstantSP>& arguments);
 
 ConstantSP parseNestedJson(Heap* heap, vector<ConstantSP>& arguments);
-
-#endif

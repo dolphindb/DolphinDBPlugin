@@ -1,6 +1,6 @@
-#ifndef ENCODERdECODER_H
-#define ENCODERdECODER_H
+#pragma once
 
+#include "DolphinDBEverything.h"
 #include <CoreConcept.h>
 #include <Exceptions.h>
 #include <Logger.h>
@@ -263,5 +263,3 @@ inline void BatchProcessor::flushTable()
     }
     bufferVec_->clear();
 }
-
-#endif

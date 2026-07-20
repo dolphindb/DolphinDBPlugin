@@ -57,7 +57,7 @@ static const unordered_set<string> DATA_VERSION_SET = {"3.2.8", "3.2.11"};
 
 static const string INSIGHT_KEY_NAME = "Insight_handle";
 static MarketTypeContainer<> TYPE_CONTAINER;
-static dolphindb::BackgroundResourceMap<TcpClient> INSIGHT_HANDLE_MAP(PLUGIN_INSIGHT_PREFIX, "Insight_client");
+static ddb::BackgroundResourceMap<TcpClient> INSIGHT_HANDLE_MAP(PLUGIN_INSIGHT_PREFIX, "Insight_client");
 
 class TcpClient {
   public:
@@ -70,7 +70,7 @@ class TcpClient {
                 throw RuntimeException("handle must be registered before login. ");
             }
             init_env();
-            dolphindb::PluginDefer df1([&]() {
+            ddb::PluginDefer df1([&]() {
                 if (!login_) {
                     ClientFactory::Uninstance();
                     insightHandle_ = nullptr;

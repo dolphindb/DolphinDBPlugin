@@ -13,7 +13,7 @@ const vector<DATA_TYPE> REDIS_STATUS_COLUMN_TYPES = {DT_STRING, DT_STRING, DT_DA
 const int MAX_SUBSCRIBE_CHANNEL_NUM = 1024;
 Mutex RELEASE_LOCK;
 
-dolphindb::BackgroundResourceMap<RedisConnection> REDIS_HANDLE_MAP(REDIS_PREFIX, REDIS_CONNECTION_NAME);
+ddb::BackgroundResourceMap<RedisConnection> REDIS_HANDLE_MAP(REDIS_PREFIX, REDIS_CONNECTION_NAME);
 
 static void doNothingOnClose(Heap *, vector<ConstantSP> &) {
     // do nothing

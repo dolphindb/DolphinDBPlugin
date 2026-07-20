@@ -1,4 +1,4 @@
-TCPSocket,libPluginTCPSocket.so,2.00.18.0
+TCPSocket,libPluginTCPSocket${CMAKE_SHARED_LIBRARY_SUFFIX},${PluginVersion}
 tcpCreateSubJob,createSubJob,system,3,4,0,0,(host, port, handler, [config])
 tcpGetSubJobStat,getSubJobStat,system,0,0,0,0,()
 tcpCancelSubJob,cancelSubJob,system,1,1,0,0,(tag)

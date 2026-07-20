@@ -398,7 +398,7 @@ ConstantSP redisStreamSubscribeImpl(Heap *heap, const string &host, int port, co
 
     StreamSubscription *rawPtr = sub.get();
     sub->startRead(new Thread(
-        new dolphindb::Executor([rawPtr]() { streamReaderThread(rawPtr); })));  // connect and start subscribe thread
+        new ddb::Executor([rawPtr]() { streamReaderThread(rawPtr); })));  // connect and start subscribe thread
     return new Void();
 }
 

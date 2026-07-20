@@ -5,6 +5,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "DolphinDBEverything.h"
 #include "CoreConcept.h"
 #include "Exceptions.h"
 #include "Logger.h"
@@ -542,7 +543,7 @@ class ThreadedQueue {
                         long long currentTime = startTime;
                         popSize = 0;
                         do {
-                            dolphindb::PluginDefer([&]() { currentTime = Util::getEpochTime(); });
+                            ddb::PluginDefer([&]() { currentTime = Util::getEpochTime(); });
                             int timeout = timeout_ - (currentTime - startTime);
                             ret = queue_.blockingPop(item, timeout);
                             if (UNLIKELY(!ret)) {
@@ -603,7 +604,7 @@ class ThreadedQueue {
             LOG_INFO(prefix_, info_, " async thread end.");
         };
 
-        SmartPointer<dolphindb::Executor> executor = new dolphindb::Executor(f);
+        SmartPointer<ddb::Executor> executor = new ddb::Executor(f);
         thread_ = new Thread(executor);
         thread_->start();
     }

@@ -8,8 +8,6 @@
 #include "pulsarSubJob.h"
 #include "pulsarUtil.h"
 
-using namespace pulsar;
-
 /// Interfaces
 
 ConstantSP pulsarClient(Heap *heap, vector<ConstantSP> &args) {
@@ -22,7 +20,7 @@ ConstantSP pulsarClient(Heap *heap, vector<ConstantSP> &args) {
     }
     auto serviceUrl = args[0]->getString();
     // clientConfig
-    auto clientConfig = ClientConfiguration();
+    auto clientConfig = pulsar::ClientConfiguration();
     if (args.size() == 2) {
         if (args[1]->getForm() != DF_DICTIONARY) {
             throw IllegalArgumentException(__FUNCTION__, usage + "clientConfig should be a dictionary.");
@@ -33,10 +31,10 @@ ConstantSP pulsarClient(Heap *heap, vector<ConstantSP> &args) {
     /// create client
     try {
         // set logger
-        clientConfig.setLogger(new FileLoggerFactory(pulsar::Logger::Level::LEVEL_INFO, "pulsar-cpp-client.log"));
+        clientConfig.setLogger(new pulsar::FileLoggerFactory(pulsar::Logger::Level::LEVEL_INFO, "pulsar-cpp-client.log"));
 
         SmartPointer<ClientWrapper> client = new ClientWrapper{
-            Client(serviceUrl, clientConfig),
+            pulsar::Client(serviceUrl, clientConfig),
             clientConfig
         };
 
@@ -69,7 +67,7 @@ ConstantSP pulsarProducer(Heap *heap, vector<ConstantSP> &args) {
         throw IllegalArgumentException(__FUNCTION__, usage + "topic length should be less than 4096.");
     }
     // producerConfig
-    auto producerConfig = ProducerConfiguration();
+    auto producerConfig = pulsar::ProducerConfiguration();
     if (args.size() == 3) {
         if (args[2]->getForm() != DF_DICTIONARY) {
             throw IllegalArgumentException(__FUNCTION__, usage + "producerConfig should be a dictionary.");
@@ -80,11 +78,11 @@ ConstantSP pulsarProducer(Heap *heap, vector<ConstantSP> &args) {
     /// create producer
     try {
         SmartPointer<ProducerWrapper> producer = new ProducerWrapper{
-            Producer(),
+            pulsar::Producer(),
             producerConfig
         };
         auto result = client->client_.createProducer(topic, producerConfig, producer->producer_);
-        if (result != ResultOk) {
+        if (result != pulsar::ResultOk) {
             throw RuntimeException(string("Error creating producer: ") + strResult(result));
         }
         FunctionDefSP onClose(Util::createSystemProcedure("pulsar producer onClose()", producerOnClose, 1, 1));
@@ -124,14 +122,14 @@ ConstantSP pulsarSend(Heap *heap, vector<ConstantSP> &args) {
 
     /// build and send message
     try {
-        auto msgBuilder = MessageBuilder().setContent(std::move(message));
+        auto msgBuilder = pulsar::MessageBuilder().setContent(std::move(message));
         if (!partitionKey.empty()) {
             msgBuilder.setPartitionKey(partitionKey);
         }
-        Message msg = msgBuilder.build();
+        pulsar::Message msg = msgBuilder.build();
 
-        Result result = producer->producer_.send(msg);
-        if (result != ResultOk) {
+        pulsar::Result result = producer->producer_.send(msg);
+        if (result != pulsar::ResultOk) {
             throw RuntimeException(string("Error sending message: ") + strResult(result));
         }
 
@@ -164,7 +162,7 @@ ConstantSP pulsarConsumer(Heap *heap, vector<ConstantSP> &args) {
     }
     auto subscriptionName = args[2]->getString();
     // consumerConfig
-    auto consumerConfig = ConsumerConfiguration();
+    auto consumerConfig = pulsar::ConsumerConfiguration();
     if (args.size() == 4) {
         if (args[3]->getForm() != DF_DICTIONARY) {
             throw IllegalArgumentException(__FUNCTION__, usage + "consumerConfig should be a dictionary.");
@@ -175,11 +173,11 @@ ConstantSP pulsarConsumer(Heap *heap, vector<ConstantSP> &args) {
     /// create consumer and subscribe
     try {
         SmartPointer<ConsumerWrapper> consumer = new ConsumerWrapper{
-            Consumer(),
+            pulsar::Consumer(),
             consumerConfig
         };
         auto result = client->client_.subscribe(topic, subscriptionName, consumerConfig, consumer->consumer_);
-        if (result != ResultOk) {
+        if (result != pulsar::ResultOk) {
             throw RuntimeException(string("Failed to subscribe: ") + strResult(result));
         }
         FunctionDefSP onClose(Util::createSystemProcedure("pulsar consumer onClose()", consumerOnClose, 1, 1));
@@ -214,9 +212,9 @@ ConstantSP pulsarReceive(Heap *heap, vector<ConstantSP> &args) {
 
     /// receive message
     try {
-        Message msg;
+        pulsar::Message msg;
         auto result = consumer->consumer_.receive(msg, timeoutMs);
-        if (result != ResultOk) {
+        if (result != pulsar::ResultOk) {
             throw RuntimeException(string("Failed to receive: ") + strResult(result));
         }
         auto data = msg.getDataAsString();
@@ -270,7 +268,7 @@ ConstantSP pulsarCreateSubJob(Heap *heap, vector<ConstantSP> &args) {
     }
     auto parser = args[5];
     // consumerConfig
-    auto consumerConfig = ConsumerConfiguration();
+    auto consumerConfig = pulsar::ConsumerConfiguration();
     if (args.size() == 7) {
         if (args[6]->getForm() != DF_DICTIONARY) {
             throw IllegalArgumentException(__FUNCTION__, usage + "consumerConfig should be a dictionary.");
@@ -280,7 +278,7 @@ ConstantSP pulsarCreateSubJob(Heap *heap, vector<ConstantSP> &args) {
 
     try {
         /// create consumer
-        SmartPointer<Consumer> consumer = new Consumer();
+        SmartPointer<pulsar::Consumer> consumer = new pulsar::Consumer();
         // set listener
         auto session = heap->currentSession()->copy();
         consumerConfig.setMessageListener([session, table, parser](pulsar::Consumer &consumer_, const pulsar::Message &msg) {
@@ -288,8 +286,8 @@ ConstantSP pulsarCreateSubJob(Heap *heap, vector<ConstantSP> &args) {
         });
         // subscribe
         auto result = client->client_.subscribe(topic, subscriptionName, consumerConfig, *consumer);
-        if (result != ResultOk) {
-            throw RuntimeException(string("Failed to subscribe: ") + strResult(result));
+        if (result != pulsar::ResultOk) {
+            throw RuntimeException(string("Failed to subscribe: ") + pulsar::strResult(result));
         }
 
         /// create subscription job

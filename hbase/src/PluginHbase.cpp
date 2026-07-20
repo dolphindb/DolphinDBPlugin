@@ -7,168 +7,132 @@
 #include "ScalarImp.h"
 #include "Util.h"
 
-#include "ddbplugin/Plugin.h"
-
-#include "thrift/protocol/TBinaryProtocol.h"
-#include "thrift/transport/TTransportUtils.h"
-
+#include <thrift/protocol/TBinaryProtocol.h>
+#include <thrift/protocol/TCompactProtocol.h>
+#include <thrift/transport/TTransportUtils.h>
 
 using namespace apache::thrift;
 using namespace apache::thrift::protocol;
 using namespace apache::hadoop::hbase::thrift;
 
-const static string HBASE_PREFIX = "[Plugin::HBase]";
-const static string HBASE_CONNECTION_DESC = "hbase connection";
+namespace {
 
-dolphindb::ResourceMap<HBaseConnect> HBASE_CONNECTION_MAP(HBASE_PREFIX, HBASE_CONNECTION_DESC);
-
-/* INTERFACES */
-
-ConstantSP connectH(Heap *heap, vector<ConstantSP> &args) {
-    string usage = "Usage: connect(host, port, [isFramed], [timeout]). ";
-
-    bool isFramed = false;
-    int timeout = 5000;//default is 5000ms
-
-    if (args[0]->getType() != DT_STRING || args[0]->getForm() != DF_SCALAR) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "host must be a string!");
-    }
-    if (args[1]->getType() != DT_INT || args[1]->getForm() != DF_SCALAR) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "port must be an integer!");
-    }
-    if (args.size() >= 3) {
-        if (args[2]->getType() != DT_BOOL || args[2]->getForm() != DF_SCALAR) {
-            throw IllegalArgumentException(__FUNCTION__, usage + "isFramed must be a bool!");
-        }
-        if (args[2]->isNull()) {
-            throw IllegalArgumentException(__FUNCTION__, usage + "isFramed is provided but is Null.");
-        }
-        isFramed = args[2]->getBool();
-    }
-    if (args.size() == 4) {
-        if (args[3]->getType() != DT_INT || args[3]->getForm() != DF_SCALAR) {
-            throw IllegalArgumentException(__FUNCTION__, usage + "timeout must be an integer!");
-        }
-        timeout = args[3]->getInt();
-    }
-
-    SmartPointer<HBaseConnect> conn = new HBaseConnect(args[0]->getString(), args[1]->getInt(), isFramed, timeout);
-    FunctionDefSP onClose(Util::createSystemProcedure(
-            "hbase connection onClose()", connectionOnCloseH, 1, 1));
-    ConstantSP resource = Util::createResource(reinterpret_cast<long long>(conn.get()), HBASE_CONNECTION_DESC, onClose, heap->currentSession());
-    HBASE_CONNECTION_MAP.safeAdd(resource, conn);
-
-    return resource;
+std::string schemaColumnHint() {
+    return " This may be caused by invalid column names in schema.";
 }
 
-ConstantSP showTablesH(Heap *heap, vector<ConstantSP> &args) {
-    string usage = "Usage: showTables(conn). ";
-
-    auto conn = HBASE_CONNECTION_MAP.safeGet(args[0]);
-    return conn->showTablesH();
+bool hasColumnName(const vector<string> &colNames, const string &columnName) {
+    return std::find(colNames.begin() + 1, colNames.end(), columnName) != colNames.end();
 }
 
-ConstantSP loadH(Heap *heap, vector<ConstantSP> &args) {
-    string usage = "Usage: load(conn, tableName, [schema]). ";
-
-    auto conn = HBASE_CONNECTION_MAP.safeGet(args[0]);
-
-    if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "tableName must be a string!");
-    }
-    if (args.size() == 3) {
-        if (args[2]->getForm() != DF_TABLE) {
-            throw IllegalArgumentException(__FUNCTION__, usage + "schema must be a table!");
-        }
-        return conn->loadH(args[1]->getString(), args[2]);
-    }
-    return conn->loadH(args[1]->getString());
-}
-
-ConstantSP deleteTableH(Heap *heap, vector<ConstantSP> &args) {
-    string usage = "Usage: deleteTable(conn, tableNames). ";
-
-    auto conn = HBASE_CONNECTION_MAP.safeGet(args[0]);
-
-    if ((args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR) && args[1]->getForm() != DF_VECTOR) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "tableName must be a string or string vector!");
-    }
-    if (args[1]->getForm() == DF_VECTOR) {
-        for (int i = 0; i < args[1]->size(); ++i) {
-            conn->deleteTableH(args[1]->getString(i));
-        }
-    } else {
-        conn->deleteTableH(args[1]->getString());
-    }
-    return new Void();
-}
-
-ConstantSP getRowH(Heap *heap, vector<ConstantSP> &args) {
-    string usage = "Usage: getRow(conn, tableName, rowKey, [columnNames]). ";
-
-    vector<string> columnNames;
-    auto conn = HBASE_CONNECTION_MAP.safeGet(args[0]);
-
-    if (args[1]->getType() != DT_STRING || args[1]->getForm() != DF_SCALAR) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "tableName must be a string!");
-    }
-    if (args[2]->getType() != DT_STRING || args[2]->getForm() != DF_SCALAR) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "rowKey must be a string!");
-    }
-    if (args.size() == 4) {
-        if (args[3]->getType() != DT_STRING && (args[3]->getForm() != DF_SCALAR || args[3]->getForm() != DF_VECTOR))
-            throw IllegalArgumentException(__FUNCTION__, usage + "columnName must be a string or string vector!");
-        if (args[3]->getForm() == DF_SCALAR) {
-            columnNames.emplace_back(args[3]->getString());
+void appendStringCellsByColumnNames(const TRowResult &row, const vector<string> &colNames, vector<ConstantSP> &dataToAppend) {
+    for (size_t i = 1; i < colNames.size(); ++i) {
+        auto cell = row.columns.find(colNames[i]);
+        if (cell == row.columns.end()) {
+            dataToAppend.emplace_back(new Void());
         } else {
-            int columnSize = args[3]->size();
-            for (int i = 0; i < columnSize; ++i) {
-                columnNames.emplace_back(args[3]->getString(i));
-            }
+            dataToAppend.emplace_back(new String(cell->second.value));
+        }
+    }
+}
+
+const char *protocolName(bool useCompactProtocol) {
+    return useCompactProtocol ? "TCompactProtocol" : "TBinaryProtocol";
+}
+
+const char *transportName(HBaseTransportMode transportMode) {
+    return transportMode == HBaseTransportMode::Framed ? "TFramedTransport" : "TBufferedTransport";
+}
+
+string connectionModeName(HBaseTransportMode transportMode, bool useCompactProtocol) {
+    return string(transportName(transportMode)) + " + " + protocolName(useCompactProtocol);
+}
+}
+
+HBaseConnect::HBaseConnect(const string &hostname, const int port, HBaseTransportMode transportMode, int timeout)
+{
+    struct ConnectCandidate {
+        HBaseTransportMode transportMode;
+        bool useCompactProtocol;
+    };
+
+    vector<ConnectCandidate> candidates;
+    if (transportMode == HBaseTransportMode::Auto) {
+        candidates = {
+            {HBaseTransportMode::Framed, true},
+            {HBaseTransportMode::Buffered, false},
+            {HBaseTransportMode::Framed, false},
+            {HBaseTransportMode::Buffered, true},
+        };
+    } else {
+        candidates = {
+            {transportMode, false},
+            {transportMode, true},
+        };
+    }
+
+    vector<string> errors;
+    for (const auto &candidate: candidates) {
+        try {
+            connectWithProtocol(hostname, port, candidate.transportMode, timeout, candidate.useCompactProtocol);
+            return;
+        } catch (const TException &tx) {
+            errors.emplace_back(connectionModeName(candidate.transportMode, candidate.useCompactProtocol) + " error: " + tx.what());
+            closeConnectionQuietly();
         }
     }
 
-    return conn->getRowH(args[1]->getString(), args[2]->getString(), columnNames);
+    string msg = "HBase: failed to connect to the HBase Thrift server.";
+    for (const auto &error: errors) {
+        msg += "\n" + error;
+    }
+    msg += "\nThe port number may be wrong (not for HBase Thrift server, default is 9090), or the server transport/protocol does not match the client.";
+    throw RuntimeException(msg);
 }
 
-
-/* HBASECONNECT */
-
-HBaseConnect::HBaseConnect(const string &hostname, const int port, bool isFramed, int timeout) {
-    apache::thrift::GlobalOutput.setOutputFunction(customThriftLogFunction);
-
+void HBaseConnect::connectWithProtocol(const string &hostname, int port, HBaseTransportMode transportMode, int timeout, bool useCompactProtocol) {
     socket_ = std::make_shared<apache::thrift::transport::TSocket>(hostname, port);
     socket_->setConnTimeout(timeout);
     socket_->setRecvTimeout(timeout);
 
-    if (isFramed) {
+    if (transportMode == HBaseTransportMode::Framed) {
         transport_ = std::make_shared<apache::thrift::transport::TFramedTransport>(socket_);
     } else {
         transport_ = std::make_shared<apache::thrift::transport::TBufferedTransport>(socket_);
     }
 
-    auto protocol = std::make_shared<TBinaryProtocol>(transport_);
+    std::shared_ptr<TProtocol> protocol;
+    if (useCompactProtocol) {
+        protocol = std::make_shared<TCompactProtocol>(transport_);
+    } else {
+        protocol = std::make_shared<TBinaryProtocol>(transport_);
+    }
     client_ = std::make_shared<HbaseClient>(protocol);
 
-    try {
-        transport_->open();
+    transport_->open();
 
-        if (!transport_->isOpen()) {
-            throw RuntimeException(string("HBase: ") + "Failed to connect to the HBase Thrift server");
-        }
-    } catch (const TException &tx) {
-        throw RuntimeException(string("HBase: ") + tx.what());
+    if (!transport_->isOpen()) {
+        throw TException("Failed to connect to the HBase Thrift server");
     }
 
+    // Fetch table names to verify that transport and protocol match the server.
+    vector<string> tableNames;
     try {
-        // Fetch table names to check if the port is right
-        vector<string> tableNames;
         client_->getTableNames(tableNames);
-    } catch (TException &tx) {
-        if (isFramed && string(tx.what()) == "THRIFT_EAGAIN (timed out)") {
-            throw RuntimeException(string("HBase: ") + tx.what() + "\nThe HBase Thrift server probably is not using `TFramedTransport`. Add `--framed` when start the server.");
+    } catch (const TException &tx) {
+        throw TException(string(protocolName(useCompactProtocol)) + " probe failed: " + tx.what());
+    }
+}
+
+void HBaseConnect::closeConnectionQuietly() {
+    try {
+        if (transport_ != nullptr) {
+            transport_->close();
         }
-        throw RuntimeException(string("HBase: ") + tx.what() + "\nThe port number may be wrong (not for HBase Thrift server, default is 9090).");
+        if (socket_ != nullptr) {
+            socket_->close();
+        }
+    } catch (const TException &) {
     }
 }
 
@@ -185,391 +149,456 @@ ConstantSP HBaseConnect::showTablesH() {
     return ret;
 }
 
-ConstantSP HBaseConnect::loadH(const string &tableName) {
-    LockGuard<Mutex> lk(&mtx_);
-    vector<string> tables;
-    try {
-        client_->getTableNames(tables);
-    } catch (TException &tx) {
-        throw RuntimeException(string("HBase getTableNames error: ") + tx.what());
+HBaseScanOptions HBaseConnect::parseScanOptions(const ConstantSP &config) {
+    if (config == nullptr || config->isNull() || config->isNothing()) {
+        return HBaseScanOptions();
     }
-    const std::map<Text, Text> dummyAttributes;
-    vector<string> columnNames;
-    int scanner;
-    for (const auto &table: tables) {
-        if (tableName == table) {
-            TableSP result;
-            try {
-                scanner = client_->scannerOpen(tableName, "", columnNames, dummyAttributes);
+    if (config->getForm() != DF_DICTIONARY) {
+        throw IllegalArgumentException(__FUNCTION__, "scanOptions must be a dictionary.");
+    }
+    DictionarySP dict = config;
+    if (dict->getKeyType() != DT_STRING) {
+        throw IllegalArgumentException(__FUNCTION__, "scanOptions must be a dictionary whose key type is STRING.");
+    }
+    VectorSP keys = dict->keys();
+    for (int i = 0; i < keys->size(); ++i) {
+        string key = keys->getString(i);
+        if (key != "startRow" && key != "stopRow" && key != "columns" &&
+            key != "caching" && key != "filterString") {
+            throw IllegalArgumentException(__FUNCTION__,
+                "Unsupported scanOptions key \"" + key +
+                "\". Supported keys are: startRow, stopRow, columns, caching, filterString.");
+        }
+    }
 
-                vector<string> colNames = {"row"};
-                bool first = true;
+    HBaseScanOptions options;
 
-                while (true) {
-                    vector<TRowResult> values;
-                    client_->scannerGetList(values, scanner, 1024);
-                    if (values.empty()) {
-                        if (first) {
-                            return new Void();
-                        }
-                        break;
-                    }
-                    vector<ConstantSP> columns;
-                    for (auto &val: values) {
-                        vector<ConstantSP> dataToAppend;
-                        if (first) {
-                            columns.emplace_back(new String(val.row));
-                        } else {
-                            dataToAppend.emplace_back(new String(val.row));
-                        }
+    ConstantSP startRow = dict->getMember("startRow");
+    if (!startRow->isNull()) {
+        if (startRow->getType() != DT_STRING || startRow->getForm() != DF_SCALAR) {
+            throw IllegalArgumentException(__FUNCTION__, "scanOptions startRow must be a STRING scalar.");
+        }
+        options.hasStartRow = true;
+        options.startRow = startRow->getString();
+    }
 
-                        for (auto &column: val.columns) {
-                            if (first) {
-                                colNames.emplace_back(column.first);
-                                columns.emplace_back(new String(column.second.value));
-                            } else {
-                                dataToAppend.emplace_back(new String(column.second.value));
-                            }
-                        }
-                        if (first) {
-                            result = Util::createTable(colNames, columns);
-                            first = false;
-                        } else {
-                            INDEX insertedRows;
-                            string errMsg;
-                            bool success = result->append(dataToAppend, insertedRows, errMsg);
-                            if (!success) {
-                                std::cerr << errMsg << std::endl;
-                                LOG_ERR(errMsg);
-                            }
-                        }
-                    }
-                }
+    ConstantSP stopRow = dict->getMember("stopRow");
+    if (!stopRow->isNull()) {
+        if (stopRow->getType() != DT_STRING || stopRow->getForm() != DF_SCALAR) {
+            throw IllegalArgumentException(__FUNCTION__, "scanOptions stopRow must be a STRING scalar.");
+        }
+        options.hasStopRow = true;
+        options.stopRow = stopRow->getString();
+    }
 
-                client_->scannerClose(scanner);
-                LOG_INFO("[PluginHbase] Load Success");
-                return result;
-            } catch (const TException &tx) {
-                throw RuntimeException(string("HBase scanner error: ") + tx.what());
+    ConstantSP columns = dict->getMember("columns");
+    if (!columns->isNull()) {
+        if (columns->getType() != DT_STRING || (columns->getForm() != DF_SCALAR && columns->getForm() != DF_VECTOR)) {
+            throw IllegalArgumentException(__FUNCTION__, "scanOptions columns must be a STRING scalar or STRING vector.");
+        }
+        options.hasColumns = true;
+        if (columns->getForm() == DF_SCALAR) {
+            options.columns.emplace_back(columns->getString());
+        } else {
+            int size = columns->size();
+            options.columns.reserve(size);
+            for (int i = 0; i < size; ++i) {
+                options.columns.emplace_back(columns->getString(i));
             }
         }
     }
 
-    throw RuntimeException("Table " + tableName + " is not found!");
+    ConstantSP caching = dict->getMember("caching");
+    if (!caching->isNull()) {
+        if (caching->getForm() != DF_SCALAR || caching->getType() != DT_INT) {
+            throw IllegalArgumentException(__FUNCTION__, "scanOptions caching must be a numeric scalar.");
+        }
+        int value = caching->getInt();
+        if (value <= 0) {
+            throw IllegalArgumentException(__FUNCTION__, "scanOptions caching must be a positive integer.");
+        }
+        options.hasCaching = true;
+        options.caching = value;
+    }
+
+    ConstantSP filterString = dict->getMember("filterString");
+    if (!filterString->isNull()) {
+        if (filterString->getType() != DT_STRING || filterString->getForm() != DF_SCALAR) {
+            throw IllegalArgumentException(__FUNCTION__, "scanOptions filterString must be a STRING scalar.");
+        }
+        options.hasFilterString = true;
+        options.filterString = filterString->getString();
+    }
+
+    return options;
 }
 
-ConstantSP HBaseConnect::loadH(const string &tableName, const TableSP &schema) {
+int HBaseConnect::openScanner(const std::string &tableName, const std::vector<std::string> &columns, const HBaseScanOptions *scanOptions) {
+    const std::map<Text, Text> dummyAttributes;
+    if (scanOptions == nullptr || (!scanOptions->hasStartRow && !scanOptions->hasStopRow &&
+        !scanOptions->hasColumns && !scanOptions->hasCaching && !scanOptions->hasFilterString)) {
+        return client_->scannerOpen(tableName, "", columns, dummyAttributes);
+    }
+
+    TScan scan;
+    if (scanOptions->hasStartRow) {
+        scan.__set_startRow(scanOptions->startRow);
+    }
+    if (scanOptions->hasStopRow) {
+        scan.__set_stopRow(scanOptions->stopRow);
+    }
+    if (scanOptions->hasColumns) {
+        scan.__set_columns(scanOptions->columns);
+    } else if (!columns.empty()) {
+        scan.__set_columns(columns);
+    }
+    if (scanOptions->hasCaching) {
+        scan.__set_caching(scanOptions->caching);
+    }
+    if (scanOptions->hasFilterString) {
+        scan.__set_filterString(scanOptions->filterString);
+    }
+
+    return client_->scannerOpenWithScan(tableName, scan, dummyAttributes);
+}
+
+ConstantSP HBaseConnect::loadH(const string &tableName, const TableSP &schema, const HBaseScanOptions &scanOptions) {
     LockGuard<Mutex> lk(&mtx_);
 
-    VectorSP vecName = schema->getColumn("name");
-    if (vecName == nullptr) {
-        throw IllegalArgumentException(__FUNCTION__, "There is no column \"name\" in schema table");
-    }
-    if (vecName->getType() != DT_STRING) {
-        throw IllegalArgumentException(__FUNCTION__, "The schema table column \"name\" type must be STRING");
-    }
-
-    VectorSP vecType = schema->getColumn("type");
-    if (vecType == nullptr) {
-        throw IllegalArgumentException(__FUNCTION__, "There is no column \"type\" in schema table");
-    }
-    if (vecType->getType() != DT_STRING) {
-        throw IllegalArgumentException(__FUNCTION__, "The schema table column \"type\" type must be STRING");
-    }
-    if (vecName->size() != vecType->size()) {
-        throw IllegalArgumentException(__FUNCTION__, "The schema table column \"name\" and \"type\" size are not equal");
-    }
-
-    int colNums = vecName->size();
+    bool hasSchema = !schema.isNull();
     vector<string> colNames{"row"};
     vector<string> columnNames;
-    vector<ConstantSP> cols;
     vector<DATA_TYPE> colTypes;
-    colTypes.emplace_back(DT_STRING);
-    cols.resize(colNums + 1);
-    cols[0] = Util::createVector(DT_STRING, 0);
+    TableSP result;
+    vector<TRowResult> scannedRows;
 
-    for (int i = 1; i < colNums + 1; ++i) {
-        colNames.emplace_back(vecName->getString(i - 1));
-        columnNames.emplace_back(vecName->getString(i - 1));
-        string sType = vecType->getString(i - 1);
-        std::transform(sType.begin(), sType.end(), sType.begin(), ::toupper);
-        if (sType == "BOOL") {
-            colTypes.push_back(DT_BOOL);
-            cols[i] = Util::createVector(DT_BOOL, 0);
-        } else if (sType == "CHAR") {
-            colTypes.push_back(DT_CHAR);
-            cols[i] = Util::createVector(DT_CHAR, 0);
-        } else if (sType == "SHORT") {
-            colTypes.push_back(DT_SHORT);
-            cols[i] = Util::createVector(DT_SHORT, 0);
-        } else if (sType == "INT") {
-            colTypes.push_back(DT_INT);
-            cols[i] = Util::createVector(DT_INT, 0);
-        } else if (sType == "LONG") {
-            colTypes.push_back(DT_LONG);
-            cols[i] = Util::createVector(DT_LONG, 0);
-        } else if (sType == "DATE") {
-            colTypes.push_back(DT_DATE);
-            cols[i] = Util::createVector(DT_DATE, 0);
-        } else if (sType == "MONTH") {
-            colTypes.push_back(DT_MONTH);
-            cols[i] = Util::createVector(DT_MONTH, 0);
-        } else if (sType == "TIME") {
-            colTypes.push_back(DT_TIME);
-            cols[i] = Util::createVector(DT_TIME, 0);
-        } else if (sType == "MINUTE") {
-            colTypes.push_back(DT_MINUTE);
-            cols[i] = Util::createVector(DT_MINUTE, 0);
-        } else if (sType == "SECOND") {
-            colTypes.push_back(DT_SECOND);
-            cols[i] = Util::createVector(DT_SECOND, 0);
-        } else if (sType == "DATETIME") {
-            colTypes.push_back(DT_DATETIME);
-            cols[i] = Util::createVector(DT_DATETIME, 0);
-        } else if (sType == "TIMESTAMP") {
-            colTypes.push_back(DT_TIMESTAMP);
-            cols[i] = Util::createVector(DT_TIMESTAMP, 0);
-        } else if (sType == "NANOTIME") {
-            colTypes.push_back(DT_NANOTIME);
-            cols[i] = Util::createVector(DT_NANOTIME, 0);
-        } else if (sType == "NANOTIMESTAMP") {
-            colTypes.push_back(DT_NANOTIMESTAMP);
-            cols[i] = Util::createVector(DT_NANOTIMESTAMP, 0);
-        } else if (sType == "FLOAT") {
-            colTypes.push_back(DT_FLOAT);
-            cols[i] = Util::createVector(DT_FLOAT, 0);
-        } else if (sType == "DOUBLE") {
-            colTypes.push_back(DT_DOUBLE);
-            cols[i] = Util::createVector(DT_DOUBLE, 0);
-        } else if (sType == "SYMBOL") {
-            colTypes.push_back(DT_SYMBOL);
-            cols[i] = Util::createVector(DT_SYMBOL, 0);
-        } else if (sType == "STRING") {
-            colTypes.push_back(DT_STRING);
-            cols[i] = Util::createVector(DT_STRING, 0);
-        } else {
-            throw IllegalArgumentException(__FUNCTION__, "The Type " + sType + " is not supported");
+    if (hasSchema) {
+        VectorSP vecName = schema->getColumn("name");
+        if (vecName == nullptr) {
+            throw IllegalArgumentException(__FUNCTION__, "There is no column \"name\" in schema table");
         }
+        if (vecName->getType() != DT_STRING) {
+            throw IllegalArgumentException(__FUNCTION__, "The schema table column \"name\" type must be STRING");
+        }
+
+        VectorSP vecType = schema->getColumn("type");
+        if (vecType == nullptr) {
+            throw IllegalArgumentException(__FUNCTION__, "There is no column \"type\" in schema table");
+        }
+        if (vecType->getType() != DT_STRING) {
+            throw IllegalArgumentException(__FUNCTION__, "The schema table column \"type\" type must be STRING");
+        }
+        if (vecName->size() != vecType->size()) {
+            throw IllegalArgumentException(__FUNCTION__, "The schema table column \"name\" and \"type\" size are not equal");
+        }
+
+        colTypes.emplace_back(DT_STRING);
+        for (int i = 0; i < vecName->size(); ++i) {
+            string columnName = vecName->getString(i);
+            colNames.emplace_back(columnName);
+            columnNames.emplace_back(columnName);
+
+            string sType = vecType->getString(i);
+            std::transform(sType.begin(), sType.end(), sType.begin(), ::toupper);
+            if (sType == "BOOL") {
+                colTypes.push_back(DT_BOOL);
+            } else if (sType == "CHAR") {
+                colTypes.push_back(DT_CHAR);
+            } else if (sType == "SHORT") {
+                colTypes.push_back(DT_SHORT);
+            } else if (sType == "INT") {
+                colTypes.push_back(DT_INT);
+            } else if (sType == "LONG") {
+                colTypes.push_back(DT_LONG);
+            } else if (sType == "DATE") {
+                colTypes.push_back(DT_DATE);
+            } else if (sType == "MONTH") {
+                colTypes.push_back(DT_MONTH);
+            } else if (sType == "TIME") {
+                colTypes.push_back(DT_TIME);
+            } else if (sType == "MINUTE") {
+                colTypes.push_back(DT_MINUTE);
+            } else if (sType == "SECOND") {
+                colTypes.push_back(DT_SECOND);
+            } else if (sType == "DATETIME") {
+                colTypes.push_back(DT_DATETIME);
+            } else if (sType == "TIMESTAMP") {
+                colTypes.push_back(DT_TIMESTAMP);
+            } else if (sType == "NANOTIME") {
+                colTypes.push_back(DT_NANOTIME);
+            } else if (sType == "NANOTIMESTAMP") {
+                colTypes.push_back(DT_NANOTIMESTAMP);
+            } else if (sType == "FLOAT") {
+                colTypes.push_back(DT_FLOAT);
+            } else if (sType == "DOUBLE") {
+                colTypes.push_back(DT_DOUBLE);
+            } else if (sType == "SYMBOL") {
+                colTypes.push_back(DT_SYMBOL);
+            } else if (sType == "STRING") {
+                colTypes.push_back(DT_STRING);
+            } else {
+                throw IllegalArgumentException(__FUNCTION__, "The Type " + sType + " is not supported");
+            }
+        }
+
+        result = Util::createTable(colNames, colTypes, 0, 10);
     }
 
-    TableSP result = Util::createTable(colNames, colTypes, 0, 10);
     vector<string> tables;
-
     try {
         client_->getTableNames(tables);
     } catch (TException &tx) {
         throw RuntimeException(string("HBase getTableNames error: ") + tx.what());
     }
 
-    const std::map<Text, Text> dummyAttributes;
     int scanner;
-    vector<string> emptyVec;
     for (const auto &table: tables) {
-        if (tableName == table) {
+        if (tableName != table) {
+            continue;
+        }
+
+        try {
             try {
-                scanner = client_->scannerOpen(tableName, "", emptyVec, dummyAttributes);
-            } catch (TException &tx) {
-                throw RuntimeException(string("HBase scannerOpen error: ") + tx.what());
+                scanner = openScanner(tableName, columnNames, &scanOptions);
+            } catch (const TException &tx) {
+                string msg = string("HBase scannerOpen error: ") + tx.what();
+                if (hasSchema) {
+                    msg += schemaColumnHint();
+                }
+                throw RuntimeException(msg);
             }
 
             while (true) {
                 vector<TRowResult> values;
                 try {
                     client_->scannerGetList(values, scanner, 1024);
-                } catch (TException &tx) {
-                    throw RuntimeException(string("HBase scannerGetList error: ") + tx.what());
-                }
-                if (values.empty())
-                    break;
-                for (auto &val: values) {
-                    vector<ConstantSP> dataToAppend;
-                    dataToAppend.emplace_back(new String(val.row));
-                    for (auto i = 1; i < colNums + 1; ++i) {
-                        auto cell = val.columns[colNames[i]];
-                        if (cell.value.empty()) {
-                            dataToAppend.emplace_back(new Void());
-                            continue;
-                        }
-                        switch (colTypes[i]) {
-                            case DT_BOOL: {
-                                string tem(cell.value);
-                                std::transform(tem.begin(), tem.end(), tem.begin(), ::toupper);
-                                if (tem == "TRUE" || tem == "1") {
-                                    dataToAppend.emplace_back(new Bool(1));
-                                    break;
-                                } else if (tem == "FALSE" || tem == "0") {
-                                    dataToAppend.emplace_back(new Bool(0));
-                                    break;
-                                } else {
-                                    dataToAppend.emplace_back(new Void());
-                                    break;
-                                }
-                            }
-                            case DT_CHAR: {
-                                if (cell.value.length() > 1) {
-                                    dataToAppend.emplace_back(new Void());
-                                } else {
-                                    dataToAppend.emplace_back(new Char(cell.value[0]));
-                                }
-                                break;
-                            }
-                            case DT_SHORT: {
-                                char *pEnd;
-                                auto tem = (short) std::strtol(cell.value.c_str(), &pEnd, 10);
-                                if (pEnd == cell.value.c_str()) {
-                                    dataToAppend.emplace_back(new Void());
-                                } else {
-                                    dataToAppend.emplace_back(new Short(tem));
-                                }
-                                break;
-                            }
-                            case DT_INT: {
-                                char *pEnd;
-                                auto tem = (int) std::strtol(cell.value.c_str(), &pEnd, 10);
-                                if (pEnd == cell.value.c_str()) {
-                                    dataToAppend.emplace_back(new Void());
-                                } else {
-                                    dataToAppend.emplace_back(new Int(tem));
-                                }
-                                break;
-                            }
-                            case DT_LONG: {
-                                char *pEnd;
-                                auto tem = (long long) std::strtoll(cell.value.c_str(), &pEnd, 10);
-                                if (pEnd == cell.value.c_str()) {
-                                    dataToAppend.emplace_back(new Void());
-                                } else {
-                                    dataToAppend.emplace_back(new Long(tem));
-                                }
-                                break;
-                            }
-                            case DT_FLOAT: {
-                                char *pEnd;
-                                auto tem = std::strtof(cell.value.c_str(), &pEnd);
-                                if (pEnd == cell.value.c_str()) {
-                                    dataToAppend.emplace_back(new Void());
-                                } else {
-                                    dataToAppend.emplace_back(new Float(tem));
-                                }
-                                break;
-                            }
-                            case DT_DOUBLE: {
-                                char *pEnd;
-                                auto tem = std::strtod(cell.value.c_str(), &pEnd);
-                                if (pEnd == cell.value.c_str()) {
-                                    dataToAppend.emplace_back(new Void());
-                                } else {
-                                    dataToAppend.emplace_back(new Double(tem));
-                                }
-                                break;
-                            }
-                            case DT_SYMBOL:
-                            case DT_STRING: {
-                                dataToAppend.emplace_back(new String(cell.value));
-                                break;
-                            }
-                            case DT_TIMESTAMP: {
-                                long long tem;
-                                if (timestampParserH(cell.value, tem)) {
-                                    dataToAppend.emplace_back(new Timestamp(tem));
-                                } else {
-                                    dataToAppend.emplace_back(new Void());
-                                }
-                                break;
-                            }
-                            case DT_NANOTIME: {
-                                long long tem;
-                                if (nanoTimeParserH(cell.value, tem)) {
-                                    dataToAppend.emplace_back(new NanoTime(tem));
-                                } else {
-                                    dataToAppend.emplace_back(new Void());
-                                }
-                                break;
-                            }
-                            case DT_NANOTIMESTAMP: {
-                                long long tem;
-                                if (nanoTimestampParserH(cell.value, tem)) {
-                                    dataToAppend.emplace_back(new NanoTimestamp(tem));
-                                } else {
-                                    dataToAppend.emplace_back(new Void());
-                                }
-                                break;
-                            }
-                            case DT_DATETIME: {
-                                int tem;
-                                if (dateTimeParserH(cell.value, tem)) {
-                                    dataToAppend.emplace_back(new DateTime(tem));
-                                } else {
-                                    dataToAppend.emplace_back(new Void());
-                                }
-                                break;
-                            }
-                            case DT_MINUTE: {
-                                int tem;
-                                if (minuteParserH(cell.value, tem)) {
-                                    dataToAppend.emplace_back(new Minute(tem));
-                                } else {
-                                    dataToAppend.emplace_back(new Void());
-                                }
-                                break;
-                            }
-                            case DT_SECOND: {
-                                int tem;
-                                if (secondParserH(cell.value, tem)) {
-                                    dataToAppend.emplace_back(new Second(tem));
-                                } else {
-                                    dataToAppend.emplace_back(new Void());
-                                }
-                                break;
-                            }
-                            case DT_TIME: {
-                                int tem;
-                                if (timeParserH(cell.value, tem)) {
-                                    dataToAppend.emplace_back(new Time(tem));
-                                } else {
-                                    dataToAppend.emplace_back(new Void());
-                                }
-                                break;
-                            }
-                            case DT_MONTH: {
-                                int tem;
-                                if (monthParserH(cell.value, tem)) {
-                                    dataToAppend.emplace_back(new Month(tem));
-                                } else {
-                                    dataToAppend.emplace_back(new Void());
-                                }
-                                break;
-                            }
-                            case DT_DATE: {
-                                int tem;
-                                if (dateParserH(cell.value, tem)) {
-                                    dataToAppend.emplace_back(new Date(tem));
-                                } else {
-                                    dataToAppend.emplace_back(new Void());
-                                }
-                                break;
-                            }
-                            default: {
-                                client_->scannerClose(scanner);
-                                throw IllegalArgumentException(__FUNCTION__, "The Type " + vecType->getString(i - 1) + " is not supported");
-                            }
-                        }
+                } catch (const TException &tx) {
+                    client_->scannerClose(scanner);
+                    string msg = string("HBase scannerGetList error: ") + tx.what();
+                    if (hasSchema) {
+                        msg += schemaColumnHint();
                     }
+                    throw RuntimeException(msg);
+                }
+                if (values.empty()) {
+                    break;
+                }
 
-                    INDEX insertedRows;
-                    string errMsg;
-                    bool success = result->append(dataToAppend, insertedRows, errMsg);
-                    if (!success) {
-                        client_->scannerClose(scanner);
-                        throw RuntimeException("Error when append table: " + errMsg);
+                for (auto &val: values) {
+                    if (!hasSchema) {
+                        scannedRows.emplace_back(val);
+                        for (auto &column: val.columns) {
+                            if (!hasColumnName(colNames, column.first)) {
+                                colNames.emplace_back(column.first);
+                            }
+                        }
+                    } else {
+                        vector<ConstantSP> dataToAppend;
+                        dataToAppend.emplace_back(new String(val.row));
+                        for (size_t i = 1; i < colNames.size(); ++i) {
+                            auto cell = val.columns[colNames[i]];
+                            if (cell.value.empty()) {
+                                dataToAppend.emplace_back(new Void());
+                                continue;
+                            }
+                            switch (colTypes[i]) {
+                                case DT_BOOL: {
+                                    string tem(cell.value);
+                                    std::transform(tem.begin(), tem.end(), tem.begin(), ::toupper);
+                                    if (tem == "TRUE" || tem == "1") {
+                                        dataToAppend.emplace_back(new Bool(1));
+                                    } else if (tem == "FALSE" || tem == "0") {
+                                        dataToAppend.emplace_back(new Bool(0));
+                                    } else {
+                                        dataToAppend.emplace_back(new Void());
+                                    }
+                                    break;
+                                }
+                                case DT_CHAR: {
+                                    if (cell.value.length() > 1) {
+                                        dataToAppend.emplace_back(new Void());
+                                    } else {
+                                        dataToAppend.emplace_back(new Char(cell.value[0]));
+                                    }
+                                    break;
+                                }
+                                case DT_SHORT: {
+                                    char *pEnd;
+                                    auto tem = (short) std::strtol(cell.value.c_str(), &pEnd, 10);
+                                    if (pEnd == cell.value.c_str()) {
+                                        dataToAppend.emplace_back(new Void());
+                                    } else {
+                                        dataToAppend.emplace_back(new Short(tem));
+                                    }
+                                    break;
+                                }
+                                case DT_INT: {
+                                    char *pEnd;
+                                    auto tem = (int) std::strtol(cell.value.c_str(), &pEnd, 10);
+                                    if (pEnd == cell.value.c_str()) {
+                                        dataToAppend.emplace_back(new Void());
+                                    } else {
+                                        dataToAppend.emplace_back(new Int(tem));
+                                    }
+                                    break;
+                                }
+                                case DT_LONG: {
+                                    char *pEnd;
+                                    auto tem = (long long) std::strtoll(cell.value.c_str(), &pEnd, 10);
+                                    if (pEnd == cell.value.c_str()) {
+                                        dataToAppend.emplace_back(new Void());
+                                    } else {
+                                        dataToAppend.emplace_back(new Long(tem));
+                                    }
+                                    break;
+                                }
+                                case DT_FLOAT: {
+                                    char *pEnd;
+                                    auto tem = std::strtof(cell.value.c_str(), &pEnd);
+                                    if (pEnd == cell.value.c_str()) {
+                                        dataToAppend.emplace_back(new Void());
+                                    } else {
+                                        dataToAppend.emplace_back(new Float(tem));
+                                    }
+                                    break;
+                                }
+                                case DT_DOUBLE: {
+                                    char *pEnd;
+                                    auto tem = std::strtod(cell.value.c_str(), &pEnd);
+                                    if (pEnd == cell.value.c_str()) {
+                                        dataToAppend.emplace_back(new Void());
+                                    } else {
+                                        dataToAppend.emplace_back(new Double(tem));
+                                    }
+                                    break;
+                                }
+                                case DT_SYMBOL:
+                                case DT_STRING: {
+                                    dataToAppend.emplace_back(new String(cell.value));
+                                    break;
+                                }
+                                case DT_TIMESTAMP: {
+                                    long long tem;
+                                    if (timestampParserH(cell.value, tem)) {
+                                        dataToAppend.emplace_back(new Timestamp(tem));
+                                    } else {
+                                        dataToAppend.emplace_back(new Void());
+                                    }
+                                    break;
+                                }
+                                case DT_NANOTIME: {
+                                    long long tem;
+                                    if (nanoTimeParserH(cell.value, tem)) {
+                                        dataToAppend.emplace_back(new NanoTime(tem));
+                                    } else {
+                                        dataToAppend.emplace_back(new Void());
+                                    }
+                                    break;
+                                }
+                                case DT_NANOTIMESTAMP: {
+                                    long long tem;
+                                    if (nanoTimestampParserH(cell.value, tem)) {
+                                        dataToAppend.emplace_back(new NanoTimestamp(tem));
+                                    } else {
+                                        dataToAppend.emplace_back(new Void());
+                                    }
+                                    break;
+                                }
+                                case DT_DATETIME: {
+                                    int tem;
+                                    if (dateTimeParserH(cell.value, tem)) {
+                                        dataToAppend.emplace_back(new DateTime(tem));
+                                    } else {
+                                        dataToAppend.emplace_back(new Void());
+                                    }
+                                    break;
+                                }
+                                case DT_MINUTE: {
+                                    int tem;
+                                    if (minuteParserH(cell.value, tem)) {
+                                        dataToAppend.emplace_back(new Minute(tem));
+                                    } else {
+                                        dataToAppend.emplace_back(new Void());
+                                    }
+                                    break;
+                                }
+                                case DT_SECOND: {
+                                    int tem;
+                                    if (secondParserH(cell.value, tem)) {
+                                        dataToAppend.emplace_back(new Second(tem));
+                                    } else {
+                                        dataToAppend.emplace_back(new Void());
+                                    }
+                                    break;
+                                }
+                                case DT_TIME: {
+                                    int tem;
+                                    if (timeParserH(cell.value, tem)) {
+                                        dataToAppend.emplace_back(new Time(tem));
+                                    } else {
+                                        dataToAppend.emplace_back(new Void());
+                                    }
+                                    break;
+                                }
+                                case DT_MONTH: {
+                                    int tem;
+                                    if (monthParserH(cell.value, tem)) {
+                                        dataToAppend.emplace_back(new Month(tem));
+                                    } else {
+                                        dataToAppend.emplace_back(new Void());
+                                    }
+                                    break;
+                                }
+                                case DT_DATE: {
+                                    int tem;
+                                    if (dateParserH(cell.value, tem)) {
+                                        dataToAppend.emplace_back(new Date(tem));
+                                    } else {
+                                        dataToAppend.emplace_back(new Void());
+                                    }
+                                    break;
+                                }
+                                default:
+                                    client_->scannerClose(scanner);
+                                    throw RuntimeException("Impossible type is parsed.");
+                            }
+                        }
+                        INDEX insertedRows;
+                        string errMsg;
+                        bool success = result->append(dataToAppend, insertedRows, errMsg);
+                        if (!success) {
+                            client_->scannerClose(scanner);
+                            throw RuntimeException("Error when append table: " + errMsg);
+                        }
                     }
                 }
             }
 
             client_->scannerClose(scanner);
             LOG_INFO("[PluginHbase] Load Success");
+            if (!hasSchema) {
+                colTypes.assign(colNames.size(), DT_STRING);
+                result = Util::createTable(colNames, colTypes, 0, 10);
+                for (const auto &row: scannedRows) {
+                    vector<ConstantSP> dataToAppend;
+                    dataToAppend.emplace_back(new String(row.row));
+                    appendStringCellsByColumnNames(row, colNames, dataToAppend);
+
+                    INDEX insertedRows;
+                    string errMsg;
+                    bool success = result->append(dataToAppend, insertedRows, errMsg);
+                    if (!success) {
+                        throw RuntimeException("Error when append table: " + errMsg);
+                    }
+                }
+            }
             return result;
+        } catch (const TException &tx) {
+            string msg = string("HBase scanner error: ") + tx.what();
+            if (hasSchema) {
+                msg += schemaColumnHint();
+            }
+            throw RuntimeException(msg);
         }
     }
 
@@ -599,6 +628,9 @@ ConstantSP HBaseConnect::getRowH(const string &tableName, const string &rowKey, 
                         colNames.emplace_back(column.first);
                         columns.emplace_back(new String(column.second.value));
                     }
+                }
+                if(columns.empty()){
+                    throw RuntimeException("HBase: A table has least one column");
                 }
                 return Util::createTable(colNames, columns);
             }
@@ -1009,14 +1041,12 @@ bool HBaseConnect::timestampParserH(const string &str, long long &longVal) {
     return true;
 }
 
-void connectionOnCloseH(Heap *heap, vector<ConstantSP> &args) {
+void connectionOnCloseH(Heap *heap, vector<ConstantSP> &args)
+{
+    std::ignore = heap;
   auto conn = HBASE_CONNECTION_MAP.safeGet(args[0]);
   if (conn.get()) {
     conn->closeH();
     conn.clear();
   }
 }
-
-void HBaseConnect::customThriftLogFunction(const char *message) {}
-
-

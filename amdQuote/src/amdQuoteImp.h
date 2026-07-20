@@ -9,7 +9,7 @@
 #include "ddbplugin/ThreadedQueue.h"
 #endif
 
-using namespace dolphindb;
+using namespace ddb;
 
 class AMDSpiImp;
 extern unordered_map<string, AMDDataType> NAME_TYPE;

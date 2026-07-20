@@ -1,6 +1,5 @@
 #!/bin/bash
 source ~/.bashrc
-select_toolchain "gcc-8.4.0"
 source ../build_util.sh
 source $(dirname $(which conda))/../etc/profile.d/conda.sh
 

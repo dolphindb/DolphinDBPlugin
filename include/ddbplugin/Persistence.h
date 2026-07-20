@@ -44,6 +44,51 @@ inline bool checkSessionUser(Heap *heap, const string &expectUser, const string 
     return (expectUser.empty() || currentUser == expectUser || (allowAdmin && isAdminUser(heap, currentUser, prefix)));
 }
 
+class FileDefer {
+  public:
+    FileDefer(std::string &pluginName) : pluginName_(pluginName), file_(nullptr) {}
+    void openFile(const std::string &filePath) {
+        file_ = fopen(filePath.c_str(), "rb");
+        if (!file_) {
+            throw RuntimeException(pluginName_ + "Serialize failed: failed to open file for reading: " + filePath);
+        }
+    }
+    ~FileDefer() {
+        if (file_) {
+            std::fclose(file_);
+        }
+    }
+
+    long getFileSize() {
+        callFseek(file_, 0, SEEK_END);
+        long size = ftell(file_);
+        if (size < 0) {
+            throw RuntimeException(pluginName_ + "Serialize failed: failed to get file size.");
+        }
+        callFseek(file_, 0, SEEK_SET);
+        return size;
+    }
+    void read(void *buffer, size_t count) {
+        size_t bytesRead = fread(buffer, 1, count, file_);
+        if (bytesRead != count) {
+            throw RuntimeException(pluginName_ + "Serialize failed: failed to read data from file.");
+        }
+    }
+
+  private:
+    void callFseek(FILE *file, long offset, int whence) {
+        int ret = fseek(file, offset, whence);
+        if (ret != 0) {
+            throw RuntimeException(pluginName_ +
+                                   "Serialize failed: failed to seek file with return code: " + std::to_string(ret));
+        }
+    }
+
+  private:
+    std::string pluginName_;
+    FILE *file_;
+};
+
 class Serializer {
   public:
     Serializer() = default;
@@ -633,19 +678,11 @@ class Serializer {
 
   private:
     void readFromFile(const string &filePath) {
-        std::ifstream file(filePath, std::ios::binary | std::ios::ate);
-        if (!file.is_open()) {
-            throw RuntimeException(pluginName_ + "Serialize failed: failed to open file for reading: " + filePath);
-        }
-        auto size = file.tellg();
+        FileDefer fileDefer(pluginName_);
+        fileDefer.openFile(filePath);
+        long size = fileDefer.getFileSize();
         fileBuffer_.resize(size);
-        file.seekg(0, std::ios::beg);
-        file.read(fileBuffer_.data(), size);
-        if (!file.good()) {
-            throw RuntimeException(pluginName_ + "Serialize failed: failed to read data from file: " + filePath);
-        }
-        file.close();
-
+        fileDefer.read(reinterpret_cast<void*>(fileBuffer_.data()), size);
         in_ = new DataInputStream(fileBuffer_.data(), fileBuffer_.size());
     }
 

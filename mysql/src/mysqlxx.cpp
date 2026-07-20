@@ -32,9 +32,11 @@ Connection::Connection(const char *db,
                        const char *ssl_key,
                        unsigned int timeout,
                        unsigned int rw_timeout,
-                       bool enable_local_infile)
+                       bool enable_local_infile,
+                       const char *charset)
     : Connection() {
-    connect(db, server, ssl_mode, user, password, port, socket, ssl_ca, ssl_cert, ssl_key, timeout, rw_timeout, enable_local_infile);
+    connect(db, server, ssl_mode, user, password, port, socket, ssl_ca, ssl_cert, ssl_key, timeout, rw_timeout, enable_local_infile,
+            charset);
 }
 
 void Connection::connect(const char *db,
@@ -49,7 +51,8 @@ void Connection::connect(const char *db,
                          const char *ssl_key,
                          unsigned timeout,
                          unsigned rw_timeout,
-                         bool enable_local_infile) {
+                         bool enable_local_infile,
+                         const char *charset) {
     if (connected_) disconnect();
 
     if (!mysql_init(driver.get())) throw ConnectionFailed(errorMessage(driver.get()), mysql_errno(driver.get()));
@@ -85,11 +88,12 @@ void Connection::connect(const char *db,
     if (ssl_mode != SSL_MODE_DISABLED && mysql_ssl_set(driver.get(), ifNotEmpty(ssl_key), ifNotEmpty(ssl_cert), ifNotEmpty(ssl_ca), nullptr, nullptr))
         throw ConnectionFailed(errorMessage(driver.get()), mysql_errno(driver.get()));
 
-    if (!mysql_real_connect(driver.get(), server, user, password, db, port, ifNotEmpty(socket), driver->client_flag))
+    /// Specifies charset.
+    if (charset && *charset && mysql_options(driver.get(), MYSQL_SET_CHARSET_NAME, charset))
         throw ConnectionFailed(errorMessage(driver.get()), mysql_errno(driver.get()));
 
-    /// Sets UTF-8 as default encoding.
-    if (mysql_set_character_set(driver.get(), "UTF8")) throw ConnectionFailed(errorMessage(driver.get()), mysql_errno(driver.get()));
+    if (!mysql_real_connect(driver.get(), server, user, password, db, port, ifNotEmpty(socket), driver->client_flag))
+        throw ConnectionFailed(errorMessage(driver.get()), mysql_errno(driver.get()));
 
     /// Enables auto-reconnect.
     my_bool reconnect = true;

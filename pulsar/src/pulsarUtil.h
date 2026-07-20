@@ -27,7 +27,7 @@ struct ConsumerWrapper {
 };
 
 /// Constants
-const int MAX_TOPIC_LENGTH = (int)pow(2, 12);
+constexpr size_t MAX_TOPIC_LENGTH {4096};
 
 /// Resource Descriptions
 const string PULSAR_PREFIX = "[Plugin::Pulsar] ";
@@ -37,10 +37,10 @@ const string PULSAR_CONSUMER_DESC = "pulsar consumer";
 const string PULSAR_SUB_JOB_DESC = "pulsar subscription job";
 
 /// Resource Maps
-extern dolphindb::ResourceMap<ClientWrapper> PULSAR_CLIENT_MAP;
-extern dolphindb::ResourceMap<ProducerWrapper> PULSAR_PRODUCER_MAP;
-extern dolphindb::ResourceMap<ConsumerWrapper> PULSAR_CONSUMER_MAP;
-extern dolphindb::BackgroundResourceMap<PulsarSubJob> PULSAR_SUB_JOB_MAP;
+extern ddb::ResourceMap<ClientWrapper> PULSAR_CLIENT_MAP;
+extern ddb::ResourceMap<ProducerWrapper> PULSAR_PRODUCER_MAP;
+extern ddb::ResourceMap<ConsumerWrapper> PULSAR_CONSUMER_MAP;
+extern ddb::BackgroundResourceMap<PulsarSubJob> PULSAR_SUB_JOB_MAP;
 
 /// Resource Close Functions
 void clientOnClose(Heap *heap, vector<ConstantSP>& args);
@@ -55,6 +55,7 @@ pulsar::ConsumerConfiguration parseConsumerConfig(const DictionarySP& configDict
 
 int getPositiveIntConfig(const ConstantSP& value, const string& key);
 bool getBoolConfig(const ConstantSP& value, const string& key);
+std::string getStringConfig(const ConstantSP& value, const string& key);
 
 
 #endif //PLUGINPULSAR_PULSARUTIL_H

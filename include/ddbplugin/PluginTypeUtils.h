@@ -4,6 +4,9 @@
 
 #include "DolphinDBEverything.h"
 #include "Decimal128.h"
+#include "ddbplugin/FixSTL.h"
+
+#include <limits>
 
 #ifdef DOLPHINDB_JIT
 #include "TurboJetInterface.h"
@@ -36,7 +39,20 @@ struct Field {
     DATA_TYPE type;
     DATA_FORM form;
 };
-vector<Field> convertSchemaField(const vector<string> &names, const vector<DATA_TYPE> &types);
+
+inline std::vector<Field> convertSchemaField(const vector<string> &names, const vector<DATA_TYPE> &types)
+{
+    std::vector<Field> fields(names.size());
+    for (size_t i = 0; i < names.size(); ++i) {
+        if (types[i] > ARRAY_TYPE_BASE) {
+            DATA_TYPE innerType = (DATA_TYPE)((int)types[i] - ARRAY_TYPE_BASE);
+            fields[i] = Field{names[i], innerType, DF_VECTOR};
+        } else {
+            fields[i] = Field{names[i], types[i], DF_SCALAR};
+        }
+    }
+    return fields;
+}
 
 // Constant
 
@@ -71,6 +87,38 @@ inline double getValue(const ConstantSP &c) {
 template <>
 inline std::string getValue(const ConstantSP &c) {
     return c->getString();
+}
+
+inline std::optional<std::string> arg_to_string(const ConstantSP &arg) {
+    if (arg.isNull() || arg->getForm() != DF_SCALAR || arg->getType() != DT_STRING) {
+        return std::nullopt;
+    }
+    return arg->getString();
+}
+
+inline std::optional<std::vector<std::string>> arg_to_string_vector(const ConstantSP &arg) {
+    if (arg.isNull() || arg->getType() != DT_STRING) {
+        return std::nullopt;
+    }
+    if (arg->getForm() == DF_SCALAR) {
+        return std::vector<std::string>{arg->getString()};
+    }
+    if (arg->getForm() != DF_VECTOR) {
+        return std::nullopt;
+    }
+    std::vector<std::string> result;
+    result.reserve(arg->size());
+    for (int i = 0; i < arg->size(); ++i) {
+        result.push_back(arg->getString(i));
+    }
+    return result;
+}
+
+inline std::optional<int64_t> arg_to_int64(const ConstantSP &arg) {
+    if (arg.isNull() || arg->getForm() != DF_SCALAR || arg->getCategory() != INTEGRAL || arg->isNull()) {
+        return std::nullopt;
+    }
+    return arg->getLong();
 }
 template <>
 inline decimal128 getValue(const ConstantSP &c) {
@@ -123,10 +171,39 @@ struct ArgField {
     DATA_FORM form;
     DATA_CATEGORY category;
 };
-string getCategoryString(DATA_CATEGORY category);
+
+static string getCategoryString(DATA_CATEGORY category) {
+    if (category == DATA_CATEGORY::NOTHING) {
+        return "NOTHING";
+    } else if (category == DATA_CATEGORY::LOGICAL) {
+        return "LOGICAL";
+    } else if (category == DATA_CATEGORY::INTEGRAL) {
+        return "INTEGRAL";
+    } else if (category == DATA_CATEGORY::FLOATING) {
+        return "FLOATING";
+    } else if (category == DATA_CATEGORY::TEMPORAL) {
+        return "TEMPORAL";
+    } else if (category == DATA_CATEGORY::LITERAL) {
+        return "LITERAL";
+    } else if (category == DATA_CATEGORY::SYSTEM) {
+        return "SYSTEM";
+    } else if (category == DATA_CATEGORY::MIXED) {
+        return "MIXED";
+    } else if (category == DATA_CATEGORY::BINARY) {
+        return "BINARY";
+    } else if (category == DATA_CATEGORY::COMPLEX) {
+        return "COMPLEX";
+    } else if (category == DATA_CATEGORY::ARRAY) {
+        return "ARRAY";
+    } else if (category == DATA_CATEGORY::DENARY) {
+        return "DENARY";
+    }
+    return "UNKNOWN";
+}
+
 class IArgStream {
   public:
-    IArgStream(std::vector<ConstantSP> &args) : args_(args), argIt_(args_.begin()) {}
+    explicit IArgStream(std::vector<ConstantSP> &args) : args_(args), argIt_(args_.begin()) {}
 
     IArgStream(std::vector<ConstantSP> &args, const std::vector<ArgField> &schema, const std::pair<int, int> &argNum)
         : args_(args),
@@ -893,61 +970,5 @@ inline ODictStream &operator<<(ODictStream &s, T x) {
 
 // Retrieve the enumeration corresponding to the type, used for constructing output tables in the template.
 inline constexpr DATA_TYPE getTypeEnum(double) { return DT_DOUBLE; }
-
-// Misc
-
-enum class DDBfunc : int {
-    max,
-    imax,
-    deltas,
-    prev,
-    cummax,
-    sub,
-    ratio,
-    std,
-    skew,
-    kurtosis,
-    covar,
-};
-
-class DolphinDBFunctions {
-  public:
-    DolphinDBFunctions(Heap *heap);
-    inline ConstantSP call(Heap *heap, DDBfunc func, std::vector<ConstantSP> &&args) const {
-        return funcs_.at(static_cast<int>(func))->call(heap, args);
-    }
-
-  private:
-    std::unordered_map<int, FunctionDefSP> funcs_;
-};
-
-// optimize to extract user order info
-enum OrderEnum {
-    SYMBOL = 0,
-    SYMBOL_SOURCE,
-    TIMESTAMP,
-    ORDER_TYPE,
-    PRICE,
-    STOP_PRICE,
-    ORDER_QTY,
-    DIRECTION,
-    TIME_IN_FORCE,
-    TAKE_PRICE,
-    SLIPPAGE,
-    EXPIRE_TIME,
-    SETTL_TYPE,
-    BID_DIRECTION,
-    BID_PRICE,
-    BID_QTY,
-    ASK_DIRECTION,
-    ASK_PRICE,
-    ASK_QTY,
-    ORDER_ID,
-    CHANNEL,
-    BID_DIFF_TOLERANCE,
-    ASK_DIFF_TOLERANCE,
-    QTY_ALLOWED,
-    HIGH_DROP_RATIO
-};
 
 }  // namespace ddb

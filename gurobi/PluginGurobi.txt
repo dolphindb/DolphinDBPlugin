@@ -1,4 +1,4 @@
-gurobi,libPluginGurobi.so,2.00.18.0
+gurobi,libPluginGurobi${CMAKE_SHARED_LIBRARY_SUFFIX},${PluginVersion}
 gurobiModel,model,system,0,1,0,0,([params])
 gurobiAddVars,addVars,system,6,6,0,0,(model, lb, ub, obj, type, varName)
 gurobiLinExpr,linExpr,system,3,3,0,0,(model, coefficient, var)

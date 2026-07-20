@@ -1,4 +1,4 @@
-mat,libPluginMat.so,2.00.18.0
+mat,libPluginMat${CMAKE_SHARED_LIBRARY_SUFFIX},${PluginVersion}
 extractMatSchema,extractMatSchema,system,1,1,0,0,(filePath)
 loadMat,loadMat,system,1,2,0,0,(filePath, [schema])
 convertToDatetime,convertToDatetime,system,1,1,0,0,(data)

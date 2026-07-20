@@ -1,4 +1,4 @@
-py,libPluginPy.so,2.00.18.0
+py,libPluginPy${CMAKE_SHARED_LIBRARY_SUFFIX},${PluginVersion}
 runCommand,cmd,system,1,1,0,0,(script)
 importModule,importModule,system,1,1,0,0,(moduleName)
 reloadModule,reloadModule,system,1,1,0,0,(module)

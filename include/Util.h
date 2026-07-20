@@ -115,6 +115,8 @@ public:
 	static Vector* createRepeatingVector(const ConstantSP& scalar, INDEX length, int extraParam=0);
 	static Vector* createRepeatingSymbolVector(const ConstantSP& scalar, INDEX length, const SymbolBaseSP& symbolBase);
 	static Vector* createSubVector(const VectorSP& source, INDEX offset, INDEX length);
+	static Vector* createArrayVector(DATA_TYPE type, INDEX size, INDEX valueSize = 0, INDEX capacity = 0,
+									INDEX valueCapacity = 0, bool fastMode = true, int extraParam = 0);
 	static Vector* createFastVector(DATA_TYPE type, INDEX size, INDEX capacity=0, int extraParam=0);
 	static Vector* createMatrix(DATA_TYPE type, int cols, int rows, int colCapacity,int extraParam=0,
 			void* data=0, void** dataSegment=0, int segmentSizeInBit=0, bool containNull=false);
@@ -157,6 +159,7 @@ public:
 	static string getDataFormString(DATA_FORM form);
 	static string getTableTypeString(TABLE_TYPE type);
 	static DATA_TYPE getDataType(const string& typestr);
+	static DATA_TYPE getDataType(const string& typestr, int& extra);
 	static DATA_FORM getDataForm(const string& formstr);
 	static int getDataTypeSize(DATA_TYPE type);
 	static DATA_TYPE getDataType(char ch);
@@ -234,6 +237,7 @@ public:
 	static string longToString(long long val);
 	static string doubleToString(double val);
 	static bool isVariableCandidate(const string& word);
+	static string invalidIdentifierMessage(const string& word);
 	static string literalConstant(const string& str);
 
 	static string getRegistryString(const string& subKey, const string& name, bool machine);

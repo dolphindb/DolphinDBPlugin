@@ -727,10 +727,8 @@ inline void validateScale(const DATA_TYPE type, const int scale) {
 }
 
 inline bool isDecimalType(DATA_TYPE type) {
-    if (type >= ARRAY_TYPE_BASE) {
-        type = static_cast<DATA_TYPE>(type - ARRAY_TYPE_BASE);
-    }
-    return (Util::getCategory(type) == DENARY);
+    type = static_cast<DATA_TYPE>(((int)type) & 63);
+    return type >= DT_DECIMAL32 && type <= DT_DECIMAL128;
 }
 
 inline std::string categoryToString(const DATA_CATEGORY cat) {
@@ -870,15 +868,9 @@ inline std::pair<DATA_TYPE, int> unpackDecimalTypeAndScale(const int value) {
          */
         scale = (value & (~0x80000000)) >> 16;
         type = static_cast<DATA_TYPE>(value & 0xffff);
-        if (type >= ARRAY_TYPE_BASE) {
-            if (Util::getCategory(static_cast<DATA_TYPE>(static_cast<int>(type) - ARRAY_TYPE_BASE)) != DENARY) {
-                type = DT_VOID;
-            }
-        } else {
-            if (Util::getCategory(type) != DENARY) {
-                type = DT_VOID;
-            }
-        }
+		if (Util::getCategory((DATA_TYPE)(value & 63)) != DENARY) {
+			type = DT_VOID;
+		}
     }
     return {type, scale};
 }

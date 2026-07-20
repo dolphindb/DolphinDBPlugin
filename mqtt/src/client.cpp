@@ -1,12 +1,10 @@
-#ifdef __linux__
-#include <poll.h>
-#else
-#include <winsock2.h>
-#endif
-
 #include "client.h"
 
 #include "ddbplugin/CommonInterface.h"
+
+#ifdef __linux__
+#include <poll.h>
+#endif
 
 namespace mqtt {
 

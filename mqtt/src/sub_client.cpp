@@ -399,7 +399,7 @@ void SubConnection::asyncHandleMsg() {
 }
 
 void SubConnection::startAsyncHandleMsgThread() {
-    asyncHandleMsgThread_ = new Thread(new dolphindb::Executor([this]() { asyncHandleMsg(); }));
+    asyncHandleMsgThread_ = new Thread(new ddb::Executor([this]() { asyncHandleMsg(); }));
     asyncHandleMsgThread_->start();
 }
 

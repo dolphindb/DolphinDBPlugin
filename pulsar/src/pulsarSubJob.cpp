@@ -9,12 +9,10 @@
 #include "pulsarSubJob.h"
 #include "pulsarUtil.h"
 
-using namespace pulsar;
-
 /// PulsarSubJob
 
-PulsarSubJob::PulsarSubJob(Heap *heap, const ConstantSP &client, const SmartPointer<Consumer> &consumer,
-                           const ConsumerConfiguration& consumerConfig) :
+PulsarSubJob::PulsarSubJob(Heap *heap, const ConstantSP &client, const SmartPointer<pulsar::Consumer> &consumer,
+                           const pulsar::ConsumerConfiguration& consumerConfig) :
 consumerConfig_(consumerConfig), // copy the session as SessionSP in case session in the outer scope is destructed
 session_(heap->currentSession()->copy()),
 createTime_(Util::getEpochTime()),
@@ -56,7 +54,7 @@ SessionSP PulsarSubJob::getSession() {
 
 // Listener
 void PulsarSubJob::listener(const SessionSP &session, const TableSP &table, const FunctionDefSP &parser,
-                            Consumer &consumer, const Message &msg) {
+                            pulsar::Consumer &consumer, const pulsar::Message &msg) {
     // avoid throw in the async thread
     try {
         /// init message vector to save message and to be used in parser
@@ -109,11 +107,11 @@ void PulsarSubJob::listener(const SessionSP &session, const TableSP &table, cons
     }
 }
 
-void PulsarSubJob::acknowledge(Consumer &consumer, const pulsar::Message& msg) {
+void PulsarSubJob::acknowledge(pulsar::Consumer &consumer, const pulsar::Message& msg) {
     try {
         auto result = consumer.acknowledge(msg);
-        if (result != ResultOk) {
-            throw RuntimeException(string("Failed to acknowledge: ") + strResult(result));
+        if (result != pulsar::ResultOk) {
+            throw RuntimeException(string("Failed to acknowledge: ") + pulsar::strResult(result));
         }
     } catch (exception &e) {
         LOG_ERR(PULSAR_PREFIX + e.what());

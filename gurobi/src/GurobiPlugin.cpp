@@ -18,9 +18,9 @@ const string GUROBI_LIN_EXPRESSION_DESC = "gurobi linear expression";
 const string GUROBI_QUAD_EXPRESSION_DESC = "gurobi quadratic expression";
 
 // maps
-dolphindb::ResourceMap<GRBModel> GRB_MODEL_AMP(GUROBI_PREFIX, GUROBI_MODEL_DESC);
-dolphindb::ResourceMap<GRBLinExpr> GRB_LIN_EXPRESSION_AMP(GUROBI_PREFIX, GUROBI_LIN_EXPRESSION_DESC);
-dolphindb::ResourceMap<GRBQuadExpr> GRB_QUAD_EXPRESSION_AMP(GUROBI_PREFIX, GUROBI_QUAD_EXPRESSION_DESC);
+ddb::ResourceMap<GRBModel> GRB_MODEL_AMP(GUROBI_PREFIX, GUROBI_MODEL_DESC);
+ddb::ResourceMap<GRBLinExpr> GRB_LIN_EXPRESSION_AMP(GUROBI_PREFIX, GUROBI_LIN_EXPRESSION_DESC);
+ddb::ResourceMap<GRBQuadExpr> GRB_QUAD_EXPRESSION_AMP(GUROBI_PREFIX, GUROBI_QUAD_EXPRESSION_DESC);
 
 // close functions
 void modelOnClose(Heap *heap, vector<ConstantSP> &args) {}

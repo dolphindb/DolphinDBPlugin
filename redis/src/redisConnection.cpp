@@ -568,7 +568,7 @@ void RedisConnection::initSubThreads(Heap *heap) {
     session_->setOutput(new DummyOutput);
 
     // start listener thread
-    listener_ = new Thread(new dolphindb::Executor([this]() {
+    listener_ = new Thread(new ddb::Executor([this]() {
         DeferClose _(isClosed_);
         try {
             const timeval timeout = {2, 0};
@@ -631,7 +631,7 @@ void RedisConnection::initSubThreads(Heap *heap) {
     listener_->start();
 
     // start handler thread
-    handler_ = new Thread(new dolphindb::Executor([this]() {
+    handler_ = new Thread(new ddb::Executor([this]() {
         DeferClose _(isClosed_);
         try {
             const int QUEUE_MSG_BATCH_SIZE = 1024;

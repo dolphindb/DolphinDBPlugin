@@ -19,7 +19,7 @@
 /*
  * Define to 1 for POSIX-like systems, 2 for Windows.
  */
-#ifndef _WIN32
+#ifdef __linux__
 #define BSON_OS 1
 #else 
 #define BSON_OS 2

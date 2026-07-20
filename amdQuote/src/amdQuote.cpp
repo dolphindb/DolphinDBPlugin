@@ -14,7 +14,7 @@
 #include "ddbplugin/PluginLogger.h"
 
 
-using dolphindb::DdbVector;
+using ddb::DdbVector;
 
 BackgroundResourceMap<AmdQuote> AMD_HANDLE_MAP(AMDQUOTE_PREFIX, "amdQuote");
 Mutex AMD_MUTEX;

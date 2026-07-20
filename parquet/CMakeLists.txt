@@ -6,5 +6,4 @@ include(../template.cmake)
 CreatePlugin(${PluginName})
 
 UseSignedCharOnARM()
-AddParquet()
 AddArrow()

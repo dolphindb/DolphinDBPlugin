@@ -15,11 +15,10 @@ target_include_directories(${PluginName} PRIVATE
 target_link_directories(${PluginName} PRIVATE ${CMAKE_SOURCE_DIR}/lib)
 target_link_libraries(${PluginName} PRIVATE hdf5_hl hdf5_cpp hdf5)
 
-if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+if(UNIX)
     target_link_libraries(${PluginName} PRIVATE dl)
     include(../template.cmake)
     AddDependency(blosc blosc)
-endif()
-if (CMAKE_SYSTEM_NAME STREQUAL "MSYS")
+else()
     target_link_libraries(${PluginName} PRIVATE blosc)
 endif()

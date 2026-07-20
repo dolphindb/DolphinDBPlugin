@@ -163,7 +163,7 @@ ConstantSP mseedRead(Heap *heap, vector<ConstantSP> &args) {
     vector<double> samprate;
     /* Check if file exists */
     std::ifstream infile(file.c_str());
-    if (!infile) {
+    if (!infile.good()) {
         throw IllegalArgumentException(__FUNCTION__, "File doesn't exist");
     }
     /* Loop over the input file */

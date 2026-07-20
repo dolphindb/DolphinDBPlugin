@@ -1,36 +1,46 @@
-//
-// Created by lin on 2021/2/23.
-//
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2025-2026 DolphinDB, Inc.
+#pragma once
 
-#ifndef PLUGINHBASE_PLUGINHBASE_H
-#define PLUGINHBASE_PLUGINHBASE_H
-
+#include "DolphinDBEverything.h"
 #include "CoreConcept.h"
 #include "Hbase.h"
-#include "thrift/transport/TSocket.h"
-#include "ddbplugin/CommonInterface.h"
+#include <thrift/transport/TSocket.h>
+#include "ddbplugin/PluginLogger.h"
+#include "ddbplugin/Plugin.h"
 
-/* INTERFACES */
+struct HBaseScanOptions {
+    bool hasStartRow = false;
+    std::string startRow;
+    bool hasStopRow = false;
+    std::string stopRow;
+    bool hasColumns = false;
+    std::vector<std::string> columns;
+    bool hasCaching = false;
+    int caching = 0;
+    bool hasFilterString = false;
+    std::string filterString;
+};
 
-extern "C" ConstantSP connectH(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP showTablesH(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP loadH(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP deleteTableH(Heap *heap, vector<ConstantSP> &args);
-extern "C" ConstantSP getRowH(Heap *heap, vector<ConstantSP> &args);
-
+enum class HBaseTransportMode {
+    Auto,
+    Buffered,
+    Framed,
+};
 
 /* HBASECONNECT */
 
 class HBaseConnect {
 public:
-    HBaseConnect(const string &hostname, int port, bool isFramed, int timeout);
+    HBaseConnect(const string &hostname, int port, HBaseTransportMode transportMode, int timeout);
     ~HBaseConnect() = default;
     void closeH();
     ConstantSP showTablesH();
-    ConstantSP loadH(const std::string &tableName);
-    ConstantSP loadH(const std::string &tableName, const TableSP &schema);
+    ConstantSP loadH(const std::string &tableName, const TableSP &schema = TableSP(),
+                          const HBaseScanOptions &scanOptions = HBaseScanOptions());
     void deleteTableH(const std::string &tableName);
     ConstantSP getRowH(const std::string &tableName, const std::string &rowKey, const std::vector<std::string> &columnNames);
+    static HBaseScanOptions parseScanOptions(const ConstantSP &config);
 
 private:
     std::shared_ptr<apache::thrift::transport::TSocket> socket_;
@@ -50,12 +60,13 @@ private:
     static bool nanoTimeParserH(const string &str, long long &longVal);
     static bool nanoTimestampParserH(const string &str, long long &longVal);
     static bool timestampParserH(const string &str, long long &longVal);
-
-    static void customThriftLogFunction(const char *message);
+    int openScanner(const std::string &tableName, const std::vector<std::string> &columns, const HBaseScanOptions *scanOptions);
+    void connectWithProtocol(const std::string &hostname, int port, HBaseTransportMode transportMode, int timeout, bool useCompactProtocol);
+    void closeConnectionQuietly();
 };
 
 
 /* HELPERS */
-void connectionOnCloseH(Heap *heap, vector<ConstantSP> &args);
+void connectionOnCloseH(Heap *heap, argsT &args);
 
-#endif//PLUGINHBASE_PLUGINHBASE_H
+extern ddb::ResourceMap<HBaseConnect> HBASE_CONNECTION_MAP;

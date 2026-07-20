@@ -140,6 +140,7 @@ ConstantSP CSendMail::SendMail(const string &content) {
     curl_easy_setopt(curl, CURLOPT_PASSWORD, m_strPsw_.c_str());
     curl_easy_setopt(curl, CURLOPT_READFUNCTION, &read_callback);
     curl_easy_setopt(curl, CURLOPT_MAIL_FROM, m_strUser_.c_str());
+    curl_easy_setopt(curl, CURLOPT_LOGIN_OPTIONS, "AUTH=LOGIN");
     curl_easy_setopt(curl, CURLOPT_MAIL_RCPT, rcpt_list);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);

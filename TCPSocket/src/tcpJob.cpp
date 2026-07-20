@@ -70,7 +70,7 @@ public:
             }
         };
 
-        SmartPointer<dolphindb::Executor> executor = new dolphindb::Executor(f);
+        SmartPointer<ddb::Executor> executor = new ddb::Executor(f);
         thread_ = new Thread(executor);
         thread_->start();
     }
@@ -101,7 +101,7 @@ public:
 static void tcpSubOnClose(Heap *heap, vector<ConstantSP> &args){
 }
 
-dolphindb::BackgroundResourceMap<TCPSubJob> TCP_JOB_MAP(PLUGIN_TCP_PREFIX, "tcp job");
+ddb::BackgroundResourceMap<TCPSubJob> TCP_JOB_MAP(PLUGIN_TCP_PREFIX, "tcp job");
 
 static int getOptionInt(const DictionarySP& options, const string& tag){
         int value = -1;
@@ -153,15 +153,15 @@ ConstantSP tcpGetSubJobStat(Heap *heap, vector<ConstantSP> &args){
     vector<string> data = TCP_JOB_MAP.getHandleNames();
     int size = data.size();
     size = std::max(size, 1);
-    dolphindb::DdbVector<string> tag(0, size);
-    dolphindb::DdbVector<long long> startTime(0, size);
-    dolphindb::DdbVector<long long> endTime(0, size);
-    dolphindb::DdbVector<long long> firstMsgTime(0, size);
-    dolphindb::DdbVector<long long> lastMsgTime(0, size);
-    dolphindb::DdbVector<long long> processedMsgCount(0, size);
-    dolphindb::DdbVector<long long> failedMsgCount(0, size);
-    dolphindb::DdbVector<string> lastErrMsg(0, size);
-    dolphindb::DdbVector<long long> lastFailedTimestamp(0, size);
+    ddb::DdbVector<string> tag(0, size);
+    ddb::DdbVector<long long> startTime(0, size);
+    ddb::DdbVector<long long> endTime(0, size);
+    ddb::DdbVector<long long> firstMsgTime(0, size);
+    ddb::DdbVector<long long> lastMsgTime(0, size);
+    ddb::DdbVector<long long> processedMsgCount(0, size);
+    ddb::DdbVector<long long> failedMsgCount(0, size);
+    ddb::DdbVector<string> lastErrMsg(0, size);
+    ddb::DdbVector<long long> lastFailedTimestamp(0, size);
     for(string& str : data){
         SmartPointer<TCPSubJob> subJob = TCP_JOB_MAP.safeGetByName(str);
         MarketStatus status = subJob->getStatus();

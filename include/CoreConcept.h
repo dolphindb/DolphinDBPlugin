@@ -28,7 +28,7 @@
 #include "SysIO.h"
 #include "DolphinString.h"
 
-#define serverVersion "2.00.18.0"
+#define serverVersion "2.00.19"
 
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define LIKELY(x) (__builtin_expect((x), 1))
@@ -54,6 +54,7 @@ class Heap;
 class Object;
 class Operator;
 class Statement;
+class TypeDefBase;
 class Param;
 class FunctionDef;
 class Constant;
@@ -111,6 +112,7 @@ typedef ObjectPtr<Matrix> MatrixSP;
 typedef ObjectPtr<Object> ObjectSP;
 typedef SmartPointer<Operator> OperatorSP;
 typedef SmartPointer<Statement> StatementSP;
+typedef SmartPointer<TypeDefBase> TypeDefBaseSP;
 typedef SmartPointer<Param> ParamSP;
 typedef ObjectPtr<FunctionDef> FunctionDefSP;
 typedef SmartPointer<Heap> HeapSP;
@@ -855,6 +857,7 @@ public:
 	inline bool isSet() const {return getForm()==DF_SET;}
 	inline bool isDictionary() const {return getForm()==DF_DICTIONARY;}
 	inline bool isChunk() const {return getForm()==DF_CHUNK;}
+	inline bool isSysObj() const {return getForm()==DF_SYSOBJ;}
 	bool isTuple() const {return getForm()==DF_VECTOR && getType()==DT_ANY;}
 	bool isNumber() const { DATA_CATEGORY cat = getCategory(); return cat == INTEGRAL || cat == FLOATING || cat == DENARY; }
 
@@ -1342,6 +1345,21 @@ private:
 	unsigned int flag_;
 };
 
+class SysObj : public Constant {
+public:
+	SysObj(SYSOBJ_TYPE type);
+	inline SYSOBJ_TYPE getSysObjType() const { return type_;}
+	virtual DATA_TYPE getRawType() const {return DT_OBJECT;}
+	virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
+	virtual bool isView() const {return false;}
+
+protected:
+	void setSysObjType(SYSOBJ_TYPE type) { type_ = type;}
+
+private:
+	SYSOBJ_TYPE type_;
+};
+
 #undef NOT_IMPLEMENT
 
 class Vector : public Constant {
@@ -1735,6 +1753,7 @@ public:
 	void setRowLabel(const ConstantSP& label);
 	void setColumnLabel(const ConstantSP& label);
 	bool reshape(INDEX cols, INDEX rows);
+	void clearMatrix();
 	string getString() const;
 	string getString(INDEX index) const ;
 	ConstantSP get(const ConstantSP& index) const ;
@@ -2111,24 +2130,58 @@ private:
 	int* volumesId_ = nullptr;
 };
 
+class TypeDefBase {
+public:
+    static const uint8_t COMPLEX_TYPE = 128;
+
+    TypeDefBase(DefEnum defEnum, DATA_FORM form, DATA_TYPE type = DT_VOID, DATA_TYPE keyType = DT_VOID, int extra = 0);
+    virtual ~TypeDefBase() {}
+
+    virtual IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
+    virtual IO_ERR deserialize(Session* session, const DataInputStreamSP& in) = 0;
+    virtual string getScript(int indention) const;
+
+    DATA_TYPE getType() const { return static_cast<DATA_TYPE>(type_); }
+    DATA_TYPE getKeyType() const { return static_cast<DATA_TYPE>(keyType_); }
+    DATA_FORM getForm() const { return static_cast<DATA_FORM>(form_); }
+    DefEnum getDefEnum() const { return defEnum_; }
+    int getExtra() const { return static_cast<int>(extra_); }
+    bool isComplex() const { return type_ == COMPLEX_TYPE; }
+    DATA_TYPE getRawType() const;
+    void setMeta(DATA_FORM form, DATA_TYPE type, DATA_TYPE keyType = DT_VOID, int extra = 0);
+    void setMetaRaw(DATA_FORM form, int type, int keyType = DT_VOID, int extra = 0);
+    void setComplexMeta(DATA_FORM form, DATA_TYPE keyType = DT_VOID, int extra = 0);
+    int packCompactMeta() const;
+    void unpackCompactMeta(int meta);
+
+    static bool canEncodeCompactField(int value);
+
+private:
+    DefEnum defEnum_;
+    uint8_t form_;
+    uint8_t type_;
+    uint8_t keyType_;
+    uint8_t extra_;
+};
+
 class Param{
 public:
 	Param(const string& name, bool readOnly, const ConstantSP& defaultValue = nullptr);
 	Param(Session* session, const DataInputStreamSP& in);
 	const string& getName() const {return name_;}
 	bool isReadOnly() const{return readOnly_;}
-	DATA_TYPE getType() const;
-	DATA_TYPE getKeyType() const;
-	DATA_FORM getForm() const;
-	void setMeta(DATA_FORM form, DATA_TYPE type, DATA_TYPE keyType);
+	void setMeta(const TypeDefBaseSP& meta) { meta_ = meta;}
+	inline const TypeDefBaseSP& getMeta() const { return meta_;}
 	ConstantSP getDefaultValue() const { return defaultValue_;}
 	inline bool isDefaultSet() const { return !defaultValue_.isNull() && ! defaultValue_->isNothing();}
+	inline bool isMetaSet() const { return !meta_.isNull();}
 	IO_ERR serialize(const ByteArrayCodeBufferSP& buffer) const;
 	string getScript(int indention) const;
+
 private:
 	string name_;
 	bool readOnly_;
-	int meta_;
+	TypeDefBaseSP meta_;
 	ConstantSP defaultValue_;
 };
 
@@ -2143,6 +2196,8 @@ public:
 	string getSyntax() const;
 	inline void setModule(const string& module) { module_ = module;}
 	inline void setName(const string& name) { name_ = name; }
+	inline void setDesc(const string& desc) { desc_ = desc;}
+	inline const string& getDesc() const { return desc_;}
 	inline bool hasReturnValue() const {return flag_ & 1;}
 	inline bool isAggregatedFunction() const {	return flag_ & 2;}
 	inline bool isAggregatedFunction(int args) const {	return (flag_ & 2) && (argCountForAgg_ == 0 || args == (int)argCountForAgg_);}
@@ -2193,8 +2248,8 @@ public:
 	DATA_TYPE getReturnType() const;
 	DATA_TYPE getReturnKeyType() const;
 	DATA_FORM getReturnForm() const;
-	void setReturnMeta(DATA_FORM form, DATA_TYPE type, DATA_TYPE keyType);
-	inline int getReturnMeta() const { return returnMeta_;}
+	void setReturnMeta(const TypeDefBaseSP& meta) { returnMeta_ = meta;}
+	inline const TypeDefBaseSP& getReturnMeta() const { return returnMeta_;}
 	void checkArgumentSize(int actualArgCount);
 	virtual bool copyable() const {return false;}
 	virtual DATA_TYPE getRawType() const { return DT_STRING;}
@@ -2222,6 +2277,7 @@ protected:
 	string name_;
 	string module_;
 	string syntax_;
+	string desc_;
 	vector<ParamSP> params_;
 	int minParamNum_;
 	int maxParamNum_;
@@ -2233,7 +2289,7 @@ protected:
 	unsigned char argCountForAgg_;
 	unsigned char flag_;
 	unsigned short extraFlag_;
-	int returnMeta_;
+	TypeDefBaseSP returnMeta_;
 };
 
 class SQLTransaction {
@@ -2511,6 +2567,8 @@ public:
 	inline void setSQLStandard(int sqlStandard) {flag_ = (flag_ & ~(15<<13)) | (sqlStandard << 13); }
 	inline bool isTracing() { return flag_ & (1 << 18); }
 	inline void setTracing(bool option) { if (option) flag_ |= (1 << 18); else flag_ &= ~(1 << 18); }
+	inline bool isDynamicScriptOptimizationEnabled() const { return flag_ & (1 << 19); }
+	inline void setDynamicScriptOptimizationEnabled(bool option) { if (option) flag_ |= (1 << 19); else flag_ &= ~(1 << 19); }
 	inline TransactionSP getTransaction() { return transaction_; }
 	inline void setTransaction(const TransactionSP& transaction) { transaction_ =  transaction; }
 	inline long long getAsyncReplicationTaskId() { return asyncReplicationTaskId_; }
@@ -2553,6 +2611,12 @@ public:
 	virtual bool needRetry() = 0;
 	virtual uint64_t getTxnId() const = 0;
 	virtual ~Transaction() {}
+};
+
+struct SchedulingUserInfo {
+	string userId;
+	int maxParallelism = -1;
+	bool ready = false;
 };
 
 class Console {
@@ -2600,8 +2664,22 @@ public:
 	virtual CONSOLE_TYPE getConsoleType() const = 0;
 	virtual void run() = 0;
 	virtual void getTaskDesc(string& type, string& desc) const = 0;
+	virtual bool getSchedulingUserInfo(SchedulingUserInfo& info) const {
+		if (!schedulingUserInfo_.ready)
+			return false;
+		info = schedulingUserInfo_;
+		return true;
+	}
 	inline bool pickleTableList() const { return flag_ & 32768;}
 protected:
+	inline void setSchedulingUserInfo(const string& userId, int maxParallelism) {
+		schedulingUserInfo_.userId = userId;
+		schedulingUserInfo_.maxParallelism = maxParallelism;
+		schedulingUserInfo_.ready = true;
+	}
+	inline void clearSchedulingUserInfo() {
+		schedulingUserInfo_ = SchedulingUserInfo{};
+	}
 	Guid rootJobId_;
 	Guid jobId_;
 	int priority_;
@@ -2628,6 +2706,7 @@ protected:
 	 */
 	long long flag_;
     Guid parentSpanId_;
+    SchedulingUserInfo schedulingUserInfo_;
 };
 
 class ConstantMarshal {
@@ -3342,6 +3421,7 @@ public:
 	virtual void setLastSuccessfulSite(){}
 	virtual int getLastSite(){return -1;}
 	static ConstantSP mergeDistributedCallResult(vector<DistributedCallSP>& calls);
+	void tryReleaseParentSlot();
 
 private:
 	Guid rootJobId_;
@@ -3370,6 +3450,11 @@ private:
 	unsigned char depth_ = 0;
 	Heap* heap_;
 	SessionSP session_;
+
+protected:
+    //used for user parallel limit
+	void* slotManager_ = nullptr;
+	int slotWorkerId_ = -1;
 };
 
 struct JobProperty {
@@ -3902,7 +3987,7 @@ public:
 		int cond = - (int)(index < capacity_);
 		return buf_[(cond & index) | (~cond & (index - capacity_))];
 	}
-	inline T& tail() {
+	inline const T& tail() const {
 		//equivalent to tail_ == 0 ? buf_[capacity_ - 1] : buf_[tail_ - 1]
 		int cond = - (int)(tail_ == 0);
 		return buf_[(cond & (capacity_ - 1)) | (~cond & (tail_ - 1))];
@@ -4220,9 +4305,9 @@ class ReactiveState;
 
 typedef SmartPointer<ReactiveState> ReactiveStateSP;
 
-typedef ReactiveStateSP(*StateFuncFactory)(const vector<ObjectSP>& args, const vector<int>& inputColIndices, const vector<DATA_TYPE>& inputColTypes, const vector<int>& outputColIndices);
+typedef ReactiveStateSP(*StateFuncFactory)(const vector<ObjectSP>& args, const vector<int>& inputColIndices, const vector<DATA_TYPE>& inputColTypes, const vector<int>& inputColExtraParams, const vector<int>& outputColIndices);
 typedef ReactiveStateSP (*StateFuncFactoryWithContext)(const vector<ObjectSP> &args, const vector<int> &inputColIndices,
-                                                       const vector<DATA_TYPE> &inputColTypes,
+                                                       const vector<DATA_TYPE> &inputColTypes, const vector<int>& inputColExtraParams,
                                                        const vector<int> &outputColIndices, SQLContextSP &context,
                                                        Heap *heap);
 

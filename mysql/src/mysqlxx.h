@@ -510,7 +510,8 @@ class Connection {
                const char *ssl_key = "",
                unsigned timeout = MYSQLXX_DEFAULT_TIMEOUT,
                unsigned rw_timeout = MYSQLXX_DEFAULT_RW_TIMEOUT,
-               bool enable_local_infile = MYSQLXX_DEFAULT_ENABLE_LOCAL_INFILE);
+               bool enable_local_infile = MYSQLXX_DEFAULT_ENABLE_LOCAL_INFILE,
+               const char *charset = "UTF8");
 
     // delayed connection
     void connect(const char *db,
@@ -525,7 +526,8 @@ class Connection {
                  const char *ssl_key = "",
                  unsigned timeout = MYSQLXX_DEFAULT_TIMEOUT,
                  unsigned rw_timeout = MYSQLXX_DEFAULT_RW_TIMEOUT,
-                 bool enable_local_infile = MYSQLXX_DEFAULT_ENABLE_LOCAL_INFILE);
+                 bool enable_local_infile = MYSQLXX_DEFAULT_ENABLE_LOCAL_INFILE,
+                 const char *charset = "UTF8");
 
     void disconnect();
 

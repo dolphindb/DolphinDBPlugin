@@ -940,6 +940,96 @@ ConstantSP absFuc(Heap *heap, vector<ConstantSP> &args){
     return ret;
 }
 
+double calculateComplexAngle(double real, double imag, bool deg = false) {
+    double theta = std::atan2(imag, real);
+    if (deg) {
+        theta *= 180.0 / MC_PI;
+    }
+    return theta;
+}
+
+double calculateRealAngle(double real, bool deg = false) {
+    if (real < 0) {
+        return deg ? 180.0 : MC_PI;
+    }
+    return 0.0;
+}
+
+ConstantSP angle(Heap *heap, vector<ConstantSP> &args) {
+    std::ignore = heap;
+    // X
+    DATA_FORM form = args[0]->getForm();
+    bool isComplex = args[0]->getType() == DT_COMPLEX;
+    bool isReal = args[0]->isNumber();
+    if ((form != DF_VECTOR && form != DF_SCALAR && form != DF_MATRIX) || (!isComplex && !isReal) ||
+        args[0]->size() == 0) {
+        throw IllegalArgumentException("angle",
+                                       "X must be a nonempty complex or real numeric scalar, vector or matrix.");
+    }
+    if (args[0]->hasNull()) {
+        throw RuntimeException("[X]" + NULL_ERROR);
+    }
+    // deg
+    bool deg = false;
+    if (args.size() > 1 && !args[1]->isNothing() && !args[1]->isNull()) {
+        if (args[1]->getForm() != DF_SCALAR || args[1]->getType() != DT_BOOL) {
+            throw IllegalArgumentException("angle", "[deg] should be a boolean scalar.");
+        }
+        deg = args[1]->getBool();
+    }
+    ConstantSP data = args[0];
+    if (data->isScalar()) {
+        if (isComplex) {
+            std::array<double, 2> buffer;
+            data->getBinary(0, 1, 16, (unsigned char *)buffer.data());
+            double ret = calculateComplexAngle(buffer[0], buffer[1], deg);
+            return new Double(ret);
+        }
+        return new Double(calculateRealAngle(data->getDouble(), deg));
+    }
+    // isVector or isMatrix
+    int vSize = data->size();
+    std::vector<double> retVec;
+    retVec.reserve(vSize);
+    int index = 0;
+    if (isComplex) {
+        constexpr int bytesPerComplex = 2 * sizeof(double);
+        std::vector<unsigned char> dataBuffer(Util::BUF_SIZE * bytesPerComplex);
+        double real = 0;
+        double imag = 0;
+        while (index < vSize) {
+            int subSize = std::min(vSize - index, Util::BUF_SIZE);
+            const unsigned char *dataPtr = data->getBinaryConst(index, subSize, bytesPerComplex, dataBuffer.data());
+            for (int i = 0; i < subSize; i++) {
+                const unsigned char *p = dataPtr + i * bytesPerComplex;
+                memcpy(&real, p, sizeof(double));
+                memcpy(&imag, p + sizeof(double), sizeof(double));
+                double ang = calculateComplexAngle(real, imag, deg);
+                retVec.push_back(ang);
+            }
+            index += subSize;
+        }
+    } else {
+        std::vector<double> dataBuffer(Util::BUF_SIZE);
+        while (index < vSize) {
+            int subSize = std::min(vSize - index, Util::BUF_SIZE);
+            data->getDouble(index, subSize, dataBuffer.data());
+            for (int i = 0; i < subSize; i++) {
+                retVec.push_back(calculateRealAngle(dataBuffer[i], deg));
+            }
+            index += subSize;
+        }
+    }
+    VectorSP res;
+    if (data->isMatrix()) {
+        res = Util::createDoubleMatrix(data->columns(), data->rows());
+    } else {
+        res = Util::createVector(DT_DOUBLE, vSize, vSize);
+    }
+    res->setDouble(0, static_cast<int>(retVec.size()), retVec.data());
+    return res;
+}
+
 ConstantSP mul(Heap *heap, vector<ConstantSP> &args){
     std::ignore = heap;
     if((!args[0]->isVector() && !args[0]->isScalar()) || args[0]->getType() != DT_COMPLEX){

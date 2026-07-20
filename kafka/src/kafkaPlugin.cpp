@@ -13,7 +13,7 @@ using namespace KafkaUtil;
 using namespace cppkafka;
 
 Mutex DICT_LATCH;
-dolphindb::BackgroundResourceMap<SubConnection> SUB_CONN_HANDLE_MAP(KAFKA_PREFIX, SUB_JOB_DESC);
+ddb::BackgroundResourceMap<SubConnection> SUB_CONN_HANDLE_MAP(KAFKA_PREFIX, SUB_JOB_DESC);
 // use atomic timestamp to indicate the last assign time.
 // ddb would crash if the internal between assign() & unassign() is too short
 std::atomic<int64_t> ASSIGN_TIMEOUT;
@@ -197,7 +197,7 @@ ConstantSP kafkaConsumerPoll(Heap *heap, vector<ConstantSP> &args) {
         // Try to consume a message first
         if (args.size() >= 2 && !args[1]->isNull()) {
             if (args[1]->getType() < DT_SHORT || args[1]->getType() > DT_LONG || args[1]->getInt() < 0) {
-                throw IllegalArgumentException(__FUNCTION__, +"time should be a positive integer");
+                throw IllegalArgumentException(__FUNCTION__, "syntax: " + usage + "timeout should be a non-negative integer.");
             }
             auto time = args[1]->getInt();
             auto msg = consumer->poll(std::chrono::milliseconds(time));
@@ -248,7 +248,7 @@ ConstantSP kafkaConsumerPollBatch(Heap *heap, vector<ConstantSP> &args) {
     try {
         if (args.size() >= 3) {
             if (args[2]->getType() < DT_SHORT || args[2]->getType() > DT_LONG || args[2]->getInt() < 0) {
-                throw IllegalArgumentException(__FUNCTION__, +"time need positive integer");
+                throw IllegalArgumentException(__FUNCTION__, "syntax: " + usage + "timeout should be a non-negative integer.");
             }
             auto time = args[2]->getInt();
 
@@ -341,8 +341,8 @@ ConstantSP kafkaCreateSubJob(Heap *heap, vector<ConstantSP> args) {
     ConstantSP parser = args[2];
 
     if (parser->getType() == DT_FUNCTIONDEF &&
-        (((FunctionDefSP)parser)->getParamCount() < 1 || ((FunctionDefSP)parser)->getParamCount() > 3)) {
-        throw IllegalArgumentException(__FUNCTION__, usage + "parser function must accept only 1 to 3 param.");
+        (((FunctionDefSP)parser)->getParamCount() < 1 || ((FunctionDefSP)parser)->getParamCount() > 4)) {
+        throw IllegalArgumentException(__FUNCTION__, usage + "parser function must accept only 1 to 4 param.");
     };
 
     if (args[3]->getType() != DT_STRING || args[3]->getForm() != DF_SCALAR) {
@@ -719,10 +719,10 @@ ConstantSP kafkaGetOffset(Heap *heap, vector<ConstantSP> &args) {
     auto partition = args[2]->getInt();
     auto back = consumer->get_offsets(TopicPartition(topic, partition));
     auto result = Util::createVector(DT_ANY, 2);
-    auto low = Util::createConstant(DT_INT);
-    auto high = Util::createConstant(DT_INT);
-    low->setInt(std::get<0>(back));
-    high->setInt(std::get<1>(back));
+    auto low = Util::createConstant(DT_LONG);
+    auto high = Util::createConstant(DT_LONG);
+    low->setLong(std::get<0>(back));
+    high->setLong(std::get<1>(back));
     result->set(0, low);
     result->set(1, high);
 
@@ -737,7 +737,7 @@ ConstantSP kafkaGetOffsetsCommitted(Heap *heap, vector<ConstantSP> &args) {
     try {
         if (args.size() == 5) {
             if (args[4]->getType() < DT_SHORT || args[4]->getType() > DT_LONG || args[4]->getInt() < 0) {
-                throw IllegalArgumentException(__FUNCTION__, +"timeout should be a positive integer");
+                throw IllegalArgumentException(__FUNCTION__, "syntax: " + usage + "timeout should be a non-negative integer.");
             }
             auto time = args[4]->getInt();
             result = consumer->get_offsets_committed(convert.topicPartitions, std::chrono::milliseconds(time));
@@ -752,7 +752,7 @@ ConstantSP kafkaGetOffsetsCommitted(Heap *heap, vector<ConstantSP> &args) {
     vector<ConstantSP> cols;
     vector<string> topics;
     vector<int> partitions;
-    vector<int> offsets;
+    vector<long long> offsets;
 
     for (auto &r : result) {
         topics.emplace_back(r.get_topic());
@@ -761,11 +761,11 @@ ConstantSP kafkaGetOffsetsCommitted(Heap *heap, vector<ConstantSP> &args) {
     }
     VectorSP topic = Util::createVector(DT_STRING, 0, topics.size());
     VectorSP partition = Util::createVector(DT_INT, 0, partitions.size());
-    VectorSP offset = Util::createVector(DT_INT, 0, offsets.size());
+    VectorSP offset = Util::createVector(DT_LONG, 0, offsets.size());
 
     topic->appendString(topics.data(), topics.size());
     partition->appendInt(partitions.data(), partitions.size());
-    offset->appendInt(offsets.data(), offsets.size());
+    offset->appendLong(offsets.data(), offsets.size());
     cols.push_back(topic);
     cols.push_back(partition);
     cols.push_back(offset);
@@ -790,7 +790,7 @@ ConstantSP kafkaGetOffsetPosition(Heap *heap, vector<ConstantSP> &args) {
     vector<ConstantSP> cols;
     vector<string> topics;
     vector<int> partitions;
-    vector<int> offsets;
+    vector<long long> offsets;
 
     for (auto &r : result) {
         topics.emplace_back(r.get_topic());
@@ -799,11 +799,11 @@ ConstantSP kafkaGetOffsetPosition(Heap *heap, vector<ConstantSP> &args) {
     }
     VectorSP topic = Util::createVector(DT_STRING, 0, topics.size());
     VectorSP partition = Util::createVector(DT_INT, 0, partitions.size());
-    VectorSP offset = Util::createVector(DT_INT, 0, offsets.size());
+    VectorSP offset = Util::createVector(DT_LONG, 0, offsets.size());
 
     topic->appendString(topics.data(), topics.size());
     partition->appendInt(partitions.data(), partitions.size());
-    offset->appendInt(offsets.data(), offsets.size());
+    offset->appendLong(offsets.data(), offsets.size());
     cols.push_back(topic);
     cols.push_back(partition);
     cols.push_back(offset);

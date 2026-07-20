@@ -1,6 +1,4 @@
 #include "CoderBase.h"
-
-#include "DolphinDBEverything.h"
 #include "Exceptions.h"
 #include "Types.h"
 #include <exception>

@@ -987,7 +987,7 @@ struct SetVectorData{
                 }
                 else
                 {
-                    buffer[i] = dolphindb::getNullValue<DDBStoreType>();
+                    buffer[i] = ddb::getNullValue<DDBStoreType>();
                 }
             }
         }else{
@@ -998,7 +998,7 @@ struct SetVectorData{
                 }
                 else
                 {
-                    buffer[i] = dolphindb::getNullValue<DDBStoreType>();
+                    buffer[i] = ddb::getNullValue<DDBStoreType>();
                 }
             }
         }
@@ -1024,7 +1024,7 @@ struct SetVectorData<ValueType, ValueType, DDBStoreType>{
                 }
                 else
                 {
-                    buffer[i] = dolphindb::getNullValue<DDBStoreType>();
+                    buffer[i] = ddb::getNullValue<DDBStoreType>();
                 }
             }
         }
@@ -1054,7 +1054,7 @@ int convertParquetToDolphindbInternal(int col_idx, ReaderType* column_reader, co
     vector<short> rep_level(batchSize);
     int64_t rows_read = 0;
     StoreType* value = new StoreType[batchSize];
-    dolphindb::PluginDefer defer([&](){delete[] value;});
+    ddb::PluginDefer defer([&](){delete[] value;});
     while(column_reader->HasNext() && rows_read < (int64_t)batchSize){
         int64_t valuesRead = 0;
         rows_read += ReadBatchFunc(column_reader, batchSize - rows_read, def_level.data() + rows_read, rep_level.data() + rows_read, value + values_read, valuesRead);
@@ -2636,7 +2636,7 @@ void writeToParquet(WriterType* writer, const VectorSP& valueCol, const VectorSP
     vector<short> repLevel(Util::BUF_SIZE);
     vector<INDEX> IndexBuffer;
     ParquetType* buffer = new ParquetType[Util::BUF_SIZE];
-    dolphindb::PluginDefer defer([&](){delete[] buffer;});
+    ddb::PluginDefer defer([&](){delete[] buffer;});
     
     const INDEX* indexPtr = nullptr;
     INDEX indexOffset = 0;
@@ -2656,7 +2656,7 @@ void writeToParquet(WriterType* writer, const VectorSP& valueCol, const VectorSP
             transfrom(ddbBuffer, size);
         }
         for(int i = 0; i < size; ++i){
-            if(ddbBuffer[i] == dolphindb::getNullValue<DDBStoreType>()){
+            if(ddbBuffer[i] == ddb::getNullValue<DDBStoreType>()){
                 defLevel[i] = ZERO;
             }else{
                 defLevel[i] = ONE;
@@ -2730,7 +2730,7 @@ void writeToParquetRowGroup(parquet::RowGroupWriter *rowGroupWriter, ConstantSP 
             parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
             auto transform = [](vector<int>& data, size_t size){
                 for(size_t i = 0; i < size; ++i){
-                    if(data[i] == dolphindb::getNullValue<int>()){
+                    if(data[i] == ddb::getNullValue<int>()){
                         continue;
                     }
                     using months = std::chrono::duration<int, std::ratio<2629746> >;
@@ -2747,7 +2747,7 @@ void writeToParquetRowGroup(parquet::RowGroupWriter *rowGroupWriter, ConstantSP 
             parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
             auto transform = [](vector<int>& data, size_t size){
                 for(size_t i = 0; i < size; ++i){
-                    if(data[i] == dolphindb::getNullValue<int>()){
+                    if(data[i] == ddb::getNullValue<int>()){
                         continue;
                     }
                     data[i] = data[i] * 60 * 1000;
@@ -2761,7 +2761,7 @@ void writeToParquetRowGroup(parquet::RowGroupWriter *rowGroupWriter, ConstantSP 
             parquet::Int32Writer *parquetCol = dynamic_cast<parquet::Int32Writer*>(columnWriter);
             auto transform = [](vector<int>& data, size_t size){
                 for(size_t i = 0; i < size; ++i){
-                    if(data[i] == dolphindb::getNullValue<int>()){
+                    if(data[i] == ddb::getNullValue<int>()){
                         continue;
                     }
                     data[i] = data[i] * 1000;
@@ -2775,7 +2775,7 @@ void writeToParquetRowGroup(parquet::RowGroupWriter *rowGroupWriter, ConstantSP 
             parquet::Int64Writer *parquetCol = dynamic_cast<parquet::Int64Writer*>(columnWriter);
             auto transform = [](vector<long long>& data, size_t size){
                 for(size_t i = 0; i < size; ++i){
-                    if(data[i] == dolphindb::getNullValue<long long>()){
+                    if(data[i] == ddb::getNullValue<long long>()){
                         continue;
                     }
                     data[i] = data[i] * 1000;

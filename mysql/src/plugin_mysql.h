@@ -29,7 +29,7 @@ extern "C" ConstantSP mysqlLoad(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP mysqlTables(Heap *heap, vector<ConstantSP> &args);
 extern "C" ConstantSP mysqlLoadEx(Heap *heap, vector<ConstantSP> &args);
 
-namespace dolphindb {
+namespace ddb {
 bool littleEndian = false;
 const char *getDolphinDBTypeStr(DATA_TYPE mysql_type);
 ConstantSP messageSP(const std::string &s);
@@ -77,7 +77,7 @@ class Connection : public mysqlxx::Connection {
 
   public:
     Connection(std::string hostname, int port, std::string username, std::string password, std::string database,
-               MySQLSSLMode sslMode);
+               MySQLSSLMode sslMode, std::string charset = "UTF8");
 
     ~Connection();
     ConstantSP doQuery(const std::string &str);
@@ -337,5 +337,5 @@ void getValNull(DATA_TYPE type, char *buf) {
 
 const char *getMySQLTypeStr(mysqlxx::enum_field_types dt);
 
-}  // namespace dolphindb
+}  // namespace ddb
 #endif

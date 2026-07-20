@@ -8,7 +8,6 @@
 #ifndef MQTT_H_
 #define MQTT_H_
 
-#include "DolphinDBEverything.h"
 #include "CoreConcept.h"
 #include "ddbplugin/PluginLogger.h"
 #include "Util.h"

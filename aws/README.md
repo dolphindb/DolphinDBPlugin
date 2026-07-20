@@ -26,15 +26,20 @@ loadPlugin("awss3")
 
 ### 0. 准备账户信息
 
-使用AWS插件的各个接口需要提供账户信息，内容可以包含id, key，region以及endpoint,其形式为一个字典，示例代码如下所示：  
-(1) 连接公有云，此时需要提供id key region
+使用AWS插件的各个接口需要提供账户信息，内容可以包含id、key、region以及endpoint，其形式为一个字典。若不提供id和key，插件会使用AWS SDK默认凭证链，从环境变量、AWS配置文件、实例角色等位置自动获取凭证。示例代码如下所示：
+(1) 连接公有云，可以显式提供id key region
 ```
 account=dict(string,string);
 account['id']=your_access_key_id;
 account['key']=your_secret_access_key;
 account['region']=your_region;
 ```
-(2) 连接私有云，此时需要提供id key endpoint isHttp
+(2) 使用AWS SDK默认凭证链，此时可只提供region；若AWS配置文件/环境变量已提供region，也可以传入空字典
+```
+account=dict(STRING,ANY)
+// account['region']=your_region;
+```
+(3) 连接私有云，此时通常需要提供id key endpoint isHttp
 ```
 account=dict(STRING,ANY)
 account['id']="minioadmin";
@@ -43,11 +48,12 @@ account['endpoint'] = "127.0.0.1:9000";                //注意，endpoint中不
 account['isHttp'] = true;
 ```
 
-注意，若无法通过验证或SSL出错，可以尝试指定证书
+默认不校验SSL证书。若需要全局开启校验，可通过setClientConfig设置verifySSL；也可在账户字典中将verifySSL设为true。caPath/caFile仅在verifySSL为true时生效。
+可通过getClientConfig()查看全局配置，或通过getClientConfig(account)查看该账户对应S3客户端的实际配置。
 ```
 account['caPath']=your_ca_file_path;     //e.g. '/etc/ssl/certs'
 account['caFile']=your_ca_file;          //e.g. 'ca-certificates.crt'
-account['verifySSL']=verify_or_not;      //e.g. false
+account['verifySSL']=verify_or_not;      //e.g. true
 ```
 ### 1. listS3Object
 
@@ -99,7 +105,7 @@ aws::getS3Object(s3account, bucket, key, [outputFileName])
 
 **参数**
 
-* s3account：账户account对象，至少需包含三个值（id, key 和 region）。
+* s3account：账户account对象。可包含id、key和region；不提供id和key时使用AWS SDK默认凭证链。
 * bucket：字符串，表示访问的桶名称。
 * key：字符串，表示对象名。
 * outputFileName：字符串，表示输出对象的文件名。默认同访问的对象名key。
@@ -126,7 +132,7 @@ aws::readS3Object(s3account, bucket, key, offset, length)
 
 **参数**
 
-* s3account：账户account对象，至少需包含三个值（id, key 和 region）。
+* s3account：账户account对象。可包含id、key和region；不提供id和key时使用AWS SDK默认凭证链。
 * bucket：字符串，表示访问的桶名称。
 * key：字符串，表示对象名。
 * offset: 偏移量，想要获取的内容的起始位置，单位是byte。
@@ -154,7 +160,7 @@ aws::deleteS3Object(s3account, bucket, key)
 
 **参数**
 
-* s3account：账户account对象，至少需包含三个值（id, key 和 region）。
+* s3account：账户account对象。可包含id、key和region；不提供id和key时使用AWS SDK默认凭证链。
 * bucket：字符串，表示访问的桶名称。
 * key：字符串，表示对象名。
 
@@ -180,7 +186,7 @@ aws::uploadS3Object(s3account, bucket, key, inputFileName)
 
 参数
 
-* s3account：账户account对象，至少需包含三个值（id, key 和 region）。
+* s3account：账户account对象。可包含id、key和region；不提供id和key时使用AWS SDK默认凭证链。
 * bucket：字符串，表示访问的桶名称。
 * key：字符串，表示对象名。
 * inputFileName：字符串，表示准备上传的对象的路径及名称。
@@ -219,7 +225,31 @@ aws::listS3Bucket(s3account)
 aws::listS3Bucket(account);
 ```
 
-### 7. deleteS3Bucket
+### 7. getUserAgentFeature
+
+**语法**
+
+aws::getUserAgentFeature(account)
+
+**详情**
+
+解析账户相关的AWS SDK UserAgentFeature，用于排查凭证来源等运行时配置。若账户显式提供id和key，返回`CREDENTIALS_EXPLICIT`；若使用AWS SDK默认凭证链，返回SDK记录的UserAgentFeature名称，如`CREDENTIALS_ENV_VARS`、`CREDENTIALS_PROFILE`、`CREDENTIALS_IMDS`、`CREDENTIALS_HTTP`、`CREDENTIALS_SSO`等。
+
+**参数**
+
+* s3account：账户account对象
+
+**返回值**
+
+字符串向量，包含AWS SDK记录的UserAgentFeature名称。若SDK没有记录相关feature，返回空向量。
+
+**示例**
+
+```
+aws::getUserAgentFeature(account);
+```
+
+### 8. deleteS3Bucket
 
 **语法**
 
@@ -244,7 +274,7 @@ aws::deleteS3Bucket(s3account, bucket)
 aws::deleteS3Bucket(account,'mys3bucket')
 ```
 
-### 8. createS3Bucket
+### 9. createS3Bucket
 
 **语法**
 
@@ -269,7 +299,7 @@ aws::createS3Bucket(s3account, bucket)
 aws::createS3Bucket(account,'mys3bucket')
 ```
 
-### 9. loadS3Object
+### 10. loadS3Object
 
 **语法**
 
@@ -282,7 +312,7 @@ aws::createS3Bucket(s3account, bucket, key, threadCount, dbHandle, tableName, pa
 
 **参数**
 
-* s3account：账户account对象，至少需包含三个值（id, key 和 region）。
+* s3account：账户account对象。可包含id、key和region；不提供id和key时使用AWS SDK默认凭证链。
 * bucket：字符串，表示读取的桶名称。
 * key：字符串标量或向量，表示读取对象名或对象名的列表。支持文本文件，或Zip格式的压缩对象。
 * threadCount：下载线程数，必须为正整数。
@@ -319,7 +349,7 @@ db = database(directory="dfs://rangedb", partitionType=RANGE, partitionScheme=0 
 aws::loadS3Object(account, 'dolphindb-test-bucket', 't2.zip', 4, db, `pt, `ID);
 ```
 
-### 10. headS3Object
+### 11. headS3Object
 
 **语法**
 
@@ -345,7 +375,7 @@ aws::headS3Object(s3account, bucket, key)
 aws::headS3Object(account, 'mys3bucket', 'test.csv')
 ```
 
-### 11. copyS3Object
+### 12. copyS3Object
 
 **语法**
 

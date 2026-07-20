@@ -212,7 +212,7 @@ ConstantSP HdfsConnection::readFile(Heap *heap, HdfsConnectionSP conn, const str
     if (pFile == nullptr) {
         throw RuntimeException(getErrorMsgWithPrefix("opening file"));
     }
-    dolphindb::PluginDefer defer([&](){
+    ddb::PluginDefer defer([&](){
         if (hdfsCloseFile(conn->fs_, pFile) == -1) {
             LOG_WARN(getErrorMsgWithPrefix("closing file handle"));
         }
@@ -255,7 +255,7 @@ void HdfsConnection::writeFile(Heap *heap, HdfsConnectionSP conn, const string &
     if (pFile == nullptr) {
         throw RuntimeException(getErrorMsgWithPrefix("opening file"));
     }
-    dolphindb::PluginDefer defer([&](){
+    ddb::PluginDefer defer([&](){
         if (hdfsCloseFile(conn->fs_, pFile) == -1) {
             LOG_WARN(getErrorMsgWithPrefix("closing file handle"));
         }

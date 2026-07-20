@@ -64,7 +64,7 @@ namespace nsqUtil {
 
             auto Type = tradeData.TrdBSFlag;
             auto BSFlag = tradeData.TrdBSFlag;
-            if (tradeData.ExchangeID[0] == HS_EI_SSE[0]) {
+            if (strcmp(&tradeData.ExchangeID[0], HS_EI_SSE) == 0) {
                 Type = 0;
             }
             switch (tradeData.TrdBSFlag) {
@@ -100,6 +100,8 @@ namespace nsqUtil {
                     } else {
                         BSFlag = 2;
                     }
+                    break;
+                default:
                     break;
             }
 
@@ -262,16 +264,6 @@ namespace nsqUtil {
         }
         for (auto i = data.Ask1Count; i < 50; i++) {
             appendLong(col++, LONG_LONG_MIN);
-        }
-    }
-
-    void checkTypes(const string& dataType, const string& marketType) {
-
-        if (dataType != ENTRUST_220105 and dataType != SNAPSHOT and dataType != TRADE and dataType != ENTRUST and dataType != TRADE_ENTRUST) {
-            throw RuntimeException(NSQ_PREFIX + "dataType should be snapshot, trade, orders, or tradeAndOrder");
-        }
-        if (marketType != "sh" and marketType != "sz") {
-            throw RuntimeException(NSQ_PREFIX + "marketType should be sh or sz.");
         }
     }
 
@@ -456,25 +448,4 @@ namespace nsqUtil {
                     DT_INT, DT_LONG, DT_LONG, DT_LONG, DT_INT,
             }
     };
-
-    string getMarketTypeStr(nsqUtil::MarketType marketType) {
-        if (marketType == nsqUtil::MarketType::SH) {
-            return "sh";
-        } else if (marketType == nsqUtil::MarketType::SZ) {
-            return "sz";
-        } else {
-            throw RuntimeException(NSQ_PREFIX + "marketType should be sh or sz.");
-        }
-    };
-
-    nsqUtil::MarketType parseMarketTypeStr(const string &str) {
-        if (str == "sh") {
-            return nsqUtil::MarketType::SH;
-        } else if (str == "sz") {
-            return nsqUtil::MarketType::SZ;
-        } else {
-            throw RuntimeException(NSQ_PREFIX + "marketType should be sh or sz.");
-        }
-    }
-
 } // namespace nsqUtil

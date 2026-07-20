@@ -1,9 +1,7 @@
 #pragma once
 
 #ifdef __linux__
-#ifndef LINUX
 #define LINUX
-#endif
 #elif defined(_WIN32)
 #define WINDOWS
 #endif
@@ -14,42 +12,66 @@
 #elif defined(__clang__)
 #pragma clang diagnostic push
 // Too many to fix
-#pragma clang diagnostic ignored "-Woverloaded-virtual"
-#pragma clang diagnostic ignored "-Winconsistent-missing-override"
-#pragma clang diagnostic ignored "-Wvla-cxx-extension"
-#pragma clang diagnostic ignored "-Wnull-dereference"
-#pragma clang diagnostic ignored "-Wmismatched-tags"
-#pragma clang diagnostic ignored "-Wpessimizing-move"
-#pragma clang diagnostic ignored "-Wunused-parameter"
-#pragma clang diagnostic ignored "-Wnested-anon-types"
 #pragma clang diagnostic ignored "-Wdeprecated-copy-with-user-provided-copy"
 #pragma clang diagnostic ignored "-Wignored-qualifiers"
+#pragma clang diagnostic ignored "-Winconsistent-missing-override"
+#pragma clang diagnostic ignored "-Wmismatched-tags"
+#pragma clang diagnostic ignored "-Wnested-anon-types"
+#pragma clang diagnostic ignored "-Wnull-dereference"
+#pragma clang diagnostic ignored "-Woverloaded-virtual"
+#pragma clang diagnostic ignored "-Wpessimizing-move"
+#pragma clang diagnostic ignored "-Wtautological-constant-out-of-range-compare"
+#pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma clang diagnostic ignored "-Wvla-cxx-extension"
 // Hazard Pointer in HashmapUtil.h looks like open-source software
-#pragma clang diagnostic ignored "-Wunused-but-set-variable"
 #pragma clang diagnostic ignored "-Wbraced-scalar-init"
+#pragma clang diagnostic ignored "-Wunused-but-set-variable"
 // ConvertDeletedToEmptyAndFullToDeleted in FlatHashmap.h looks like open-source software
 #pragma clang diagnostic ignored "-Wunneeded-internal-declaration"
 // see comment for Logger.h::90
 #pragma clang diagnostic ignored "-Wunused-value"
 #else // gcc
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wignored-qualifiers"
+#if __GNUC__ > 7
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+#endif
 #pragma GCC diagnostic ignored "-Woverloaded-virtual"
 #pragma GCC diagnostic ignored "-Wpedantic"
-#pragma GCC diagnostic ignored "-Wignored-qualifiers"
-#pragma GCC diagnostic ignored "-Wvla"
 #pragma GCC diagnostic ignored "-Wtype-limits"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wvla"
 #if __GNUC__ >= 9
 #pragma GCC diagnostic ignored "-Wdeprecated-copy"
 #endif
+#if __GNUC__ >= 14
+#pragma GCC diagnostic ignored "-Wunused-result"
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#endif
 #endif
 
-#include "CoreConcept.h"
 #include "Logger.h"
+#include "HashmapUtil.h"
 #include "ScalarImp.h"
-#include "ConstantMarshal.h"
-#include "TableImp.h"
 #include "SpecialConstant.h"
+#include "TableImp.h"
+#include "ConstantMarshal.h"
+
+namespace ddb {
+using ::ConstantSP;
+using ::Heap;
+}
+
+using namespace ddb;
+
+#ifdef DOLPHINDB_JIT
+#include "TurboJetInterface.h"
+#endif
+
+// LocklessContainer.h defines RETRY with no prefix
+#ifdef RETRY
+#undef RETRY
+#endif
 
 #if defined(_MSC_VER)
 #pragma warning( pop )
@@ -57,10 +79,9 @@
 #pragma clang diagnostic pop
 #else // gcc
 #pragma GCC diagnostic pop
+#endif
 
 #undef LINUX
 #undef WINDOWS
 
-#endif
-
-using argsT = std::vector<ConstantSP>;
+using argsT = std::vector<ddb::ConstantSP>;

@@ -50,7 +50,7 @@ private:
     SocketSP socket_;
 };
 typedef SmartPointer<SocketWrapper> SocketWrapperSP;
-dolphindb::ResourceMap<SocketWrapper> TCP_SOCKET_MAP(PLUGIN_TCP_PREFIX, "tcp socket");
+ddb::ResourceMap<SocketWrapper> TCP_SOCKET_MAP(PLUGIN_TCP_PREFIX, "tcp socket");
 
 static void tcpOnClose(Heap *heap, vector<ConstantSP> &args){
     TCP_SOCKET_MAP.safeRemoveWithoutException(args[0]);

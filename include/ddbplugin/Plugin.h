@@ -1,12 +1,4 @@
-/*
-* Plugin.h
-*
-*  Created on: Aug 22, 2022
-*      Author: taoping.yu
-*/
-
-#ifndef DDBPLUGIN_H_
-#define DDBPLUGIN_H_
+#pragma once
 
 #include "Concurrent.h"
 #include "CoreConcept.h"
@@ -22,7 +14,7 @@
 #include <string>
 #include <utility>
 
-namespace dolphindb {
+namespace ddb {
 
 template <typename T>
 inline T getNullValue();
@@ -419,18 +411,6 @@ public:
 				column_[i].int128Col = new Column<Guid>(pVector, [=](const VectorSP &pVector, INDEX position, int len, Guid *buf) {
 					return (const Guid*)pVector->getBinaryConst(position, len, sizeof(Guid), (unsigned char*)buf);
 				});
-				break;
-			case DT_DECIMAL:
-				if(pVector->getUnitLength() == sizeof(int32_t)){
-					column_[i].decimal32Col = new Column<int32_t>(pVector, [=](const VectorSP &pVector, INDEX position, int len, int32_t *buf) {
-						return (const int32_t*)pVector->getBinaryConst(position, len, sizeof(int32_t), (unsigned char*)buf);
-					});
-				}
-				else if(pVector->getUnitLength() == sizeof(int64_t)){
-					column_[i].decimal64Col = new Column<int64_t>(pVector, [=](const VectorSP &pVector, INDEX position, int len, int64_t *buf) {
-						return (const int64_t*)pVector->getBinaryConst(position, len, sizeof(int64_t), (unsigned char*)buf);
-					});
-				}
 				break;
 			default:
 				throw RuntimeException("ResultSet doesn't support data type " + Util::getDataTypeString(pVector->getType()));
@@ -1141,6 +1121,4 @@ class PluginDefer {
     std::function<void()> code_;
 };
 
-}  // dolphindb namespace
-
-#endif  // DDBPLUGIN_H_
+}  // ddb namespace

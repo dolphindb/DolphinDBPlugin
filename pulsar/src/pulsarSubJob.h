@@ -1,12 +1,6 @@
-//
-// Created by htxu on 10/23/2023.
-//
+#pragma once
 
-#ifndef PLUGINPULSAR_PULSARSUBJOB_H
-#define PLUGINPULSAR_PULSARSUBJOB_H
-
-
-#include <SmartPointer.h>
+#include "DolphinDBEverything.h"
 #include <CoreConcept.h>
 
 #include "pulsar/Client.h"
@@ -39,6 +33,3 @@ private:
     ConstantSP client_;
     const SmartPointer<pulsar::Consumer> consumer_;
 };
-
-
-#endif //PLUGINPULSAR_PULSARSUBJOB_H

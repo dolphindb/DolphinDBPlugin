@@ -206,7 +206,7 @@ int do_extract_currentfile(unzFile uf, const int* popt_extract_without_path, con
     int err=UNZ_OK;
     vector<char> buf(WRITEBUFFERSIZE);
     FILE *fout=NULL;
-    dolphindb::PluginDefer defer([&fout](){
+    ddb::PluginDefer defer([&fout](){
         if(fout != NULL) {
             fclose(fout);
         }

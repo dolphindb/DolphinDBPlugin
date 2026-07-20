@@ -30,5 +30,5 @@ ConstantSP ifft21(Heap *heap, argsT &args);
 ConstantSP secc(Heap *heap, argsT &args); //Super-Efficient Cross-Correlation of seismic waveforms
 ConstantSP absFuc(Heap *heap, argsT &args);
 ConstantSP mul(Heap *heap, argsT &args);
-
+ConstantSP angle(Heap *heap, argsT &args);
 }

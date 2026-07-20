@@ -1,6 +1,5 @@
 #include "protobufUtil.h"
 
-#include "DolphinDBEverything.h"
 #include <algorithm>
 #include <cfloat>
 #include <climits>
@@ -19,6 +18,8 @@
 
 #include <ddbplugin/PluginLogger.h>
 
+static unsigned int FLOAT_NAN = 0x7f800000;
+static unsigned long long DOUBLE_NAN = 0x7ff0000000000000;
 static int ARRAY_VECTOR_TYPE_BASE = 64;
 
 struct MsgUtilPack {
@@ -144,12 +145,15 @@ using std::istreambuf_iterator;
 class ddbErrorCollector : public ErrorCollector {
   public:
     inline ddbErrorCollector() {}
-    // you can adapt this to give more error info
-    void RecordError(int line, ColumnNumber column, absl::string_view message) override {
+#if __cplusplus >= 201703L
+    void RecordError(int line, ColumnNumber column, std::string_view message) override {
         std::ignore = line;
         std::ignore = column;
         errorMsg_ = std::string(message);
     }
+#else
+    virtual void AddError(int line, ColumnNumber column, const std::string &message) { errorMsg_ = message; }
+#endif
     string getErrorMsg() { return errorMsg_; }
 
   private:
@@ -754,6 +758,7 @@ void appendMsgNull(const Descriptor *field, MsgUtilPack &pack, string prefix, bo
     for (int i = 0; i < fieldNum; ++i) {
         const FieldDescriptor *inField = field->field(i);
         string fieldName = prefix + std::string(inField->name());
+        INDEX fieldIndex = pack.positionMap_[fieldName];
         if (inField->type() == FieldDescriptor::Type::TYPE_MESSAGE) {
             appendMsgNull(inField->message_type(), pack, fieldName, useZeroAsNull);
         } else {
@@ -777,6 +782,7 @@ void appendMsgNull(const Descriptor *field, MsgUtilPack &pack, vector<vector<int
     for (int i = 0; i < fieldNum; ++i) {
         const FieldDescriptor *inField = field->field(i);
         string fieldName = prefix + std::string(inField->name());
+        INDEX fieldIndex = pack.positionMap_[fieldName];
         if (inField->type() == FieldDescriptor::Type::TYPE_MESSAGE) {
             appendMsgNull(inField->message_type(), pack, indexArrays, fieldName, useZeroAsNull);
         } else {
